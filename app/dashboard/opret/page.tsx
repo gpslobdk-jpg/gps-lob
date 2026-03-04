@@ -19,7 +19,7 @@ export default function OpretSporPage() {
       <section className="relative z-10 mx-auto w-full max-w-6xl">
         <p className="mb-3 text-xs font-bold tracking-[0.2em] text-cyan-200 uppercase">Kontroltårnet</p>
         <h1 className={`text-4xl font-black tracking-tight text-cyan-50 md:text-5xl ${rubik.className}`}>
-          HVIS DU SER DETTE, VIRKER SIDEN! 🗺️
+          Hvordan vil du bygge dit løb? 🏁
         </h1>
         <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/75 md:text-base">
           Vælg det spor, der passer til din stil. Du kan enten bygge manuelt med fuld kontrol eller lade AI&apos;en skabe et komplet løb på få sekunder.
@@ -32,12 +32,12 @@ export default function OpretSporPage() {
                 🛠️
               </div>
               <h2 className={`text-2xl font-black tracking-wide text-cyan-100 ${rubik.className}`}>
-                Byg fra bunden
+                Byg fra bunden 🛠️
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-white/80">
-                Til dig der har fuld kontrol. Skriv dine egne poster, placer dem på kortet, og brug vores AI-fotodommer undervejs.
+                Design dit løb præcis som du vil have det. Tilføj poster, svarmuligheder og lokationer manuelt.
               </p>
-              <p className="mt-6 text-xs font-bold tracking-[0.18em] text-cyan-200 uppercase">Gå til manuel bygger</p>
+              <p className="mt-6 text-xs font-bold tracking-[0.18em] text-cyan-200 uppercase">Start manuelt</p>
             </article>
           </Link>
 
@@ -47,12 +47,12 @@ export default function OpretSporPage() {
                 🪄
               </div>
               <h2 className={`text-2xl font-black tracking-wide text-amber-100 ${rubik.className}`}>
-                Den Magiske Generator
+                Lyn-Oprettelse ⚡
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-white/80">
-                Mangler du tid? Skriv et tema (f.eks. &quot;Piratskattejagt for 8-årige&quot; eller &quot;Teambuilding i skoven&quot;), og lad AI&apos;en opfinde et komplet løb til dig på 10 sekunder!
+                Lad teknologien gøre arbejdet. Beskriv dit tema, og få et komplet løb med spørgsmål og fotomissioner på få sekunder.
               </p>
-              <p className="mt-6 text-xs font-bold tracking-[0.18em] text-amber-200 uppercase">Gå til magisk generator</p>
+              <p className="mt-6 text-xs font-bold tracking-[0.18em] text-amber-200 uppercase">Generer med AI</p>
             </article>
           </Link>
         </div>
