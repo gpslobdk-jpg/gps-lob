@@ -19,7 +19,7 @@ export default function OpretSporPage() {
       <section className="relative z-10 mx-auto w-full max-w-6xl">
         <p className="mb-3 text-xs font-bold tracking-[0.2em] text-cyan-200 uppercase">Kontroltårnet</p>
         <h1 className={`text-4xl font-black tracking-tight text-cyan-50 md:text-5xl ${rubik.className}`}>
-          Hvordan vil du bygge dit løb? 🗺️
+          HVIS DU SER DETTE, VIRKER SIDEN! 🗺️
         </h1>
         <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/75 md:text-base">
           Vælg det spor, der passer til din stil. Du kan enten bygge manuelt med fuld kontrol eller lade AI&apos;en skabe et komplet løb på få sekunder.
