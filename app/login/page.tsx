@@ -6,10 +6,10 @@ import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 
 export default function LoginPage() {
-  const handleGoogleLogin = async () => {
+  const handleOAuthLogin = async (provider: "google" | "facebook") => {
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
-      provider: "google",
+      provider,
       options: {
         redirectTo: `${window.location.origin}/api/auth/callback`,
       },
@@ -42,13 +42,13 @@ export default function LoginPage() {
           </div>
 
           <h1 className="mt-4 text-center text-2xl sm:text-3xl font-bold text-white [text-shadow:0_0_14px_rgba(34,211,238,0.35)]">
-            Velkommen til Kontrolt&#229;rnet
+            Velkommen til gpsløb.dk
           </h1>
 
           <button
             type="button"
-            onClick={handleGoogleLogin}
-            className="mt-6 w-full rounded-2xl bg-white px-5 py-3 text-base font-semibold text-slate-900 shadow-[0_0_22px_rgba(255,255,255,0.14)] hover:scale-105 transition-transform"
+            onClick={() => handleOAuthLogin("google")}
+            className="mt-6 h-12 w-full rounded-2xl bg-white px-5 text-base font-semibold text-slate-900 shadow-[0_0_22px_rgba(255,255,255,0.14)] transition-transform hover:scale-[1.02]"
           >
             <span className="flex items-center justify-center gap-3">
               <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5">
@@ -73,10 +73,23 @@ export default function LoginPage() {
             </span>
           </button>
 
+          <button
+            type="button"
+            onClick={() => handleOAuthLogin("facebook")}
+            className="mt-3 h-12 w-full rounded-2xl bg-[#1877F2] px-5 text-base font-semibold text-white shadow-[0_0_18px_rgba(24,119,242,0.45)] transition-transform hover:scale-[1.02]"
+          >
+            <span className="flex items-center justify-center gap-3">
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-white">
+                <path d="M13.5 21v-7h2.3l.4-3h-2.7V9.2c0-.9.2-1.5 1.5-1.5H16V5.1c-.2 0-1-.1-1.9-.1-2.3 0-3.9 1.4-3.9 4V11H8v3h2.2v7h3.3Z" />
+              </svg>
+              Log ind med Facebook
+            </span>
+          </button>
+
           <div className="my-6 flex items-center gap-3">
             <div className="h-px flex-1 bg-white/10" />
             <span className="text-xs uppercase tracking-widest text-white/30">
-              eller
+              eller log ind med e-mail
             </span>
             <div className="h-px flex-1 bg-white/10" />
           </div>
