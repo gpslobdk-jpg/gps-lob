@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { Player } from "@lottiefiles/react-lottie-player";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { AlertCircle, CheckCircle2, Crosshair, MapPin } from "lucide-react";
@@ -94,6 +95,7 @@ const ACTIVE_PARTICIPANT_STORAGE_KEY = "gpslob_active_participant";
 const AUTO_UNLOCK_RADIUS = 15;
 const MANUAL_UNLOCK_RADIUS = 50;
 const BAD_WORDS = ["tissemand", "lort", "pik", "fisse", "idiot", "bøsse", "luder", "snot"];
+const FIREWORKS_LOTTIE_URL = "https://assets2.lottiefiles.com/packages/lf20_touohxv0.json";
 
 function containsBadWord(value: string) {
   const normalized = value.toLocaleLowerCase("da-DK");
@@ -841,6 +843,24 @@ function PlayScreen() {
       .on(
         "postgres_changes",
         {
+          event: "UPDATE",
+          schema: "public",
+          table: "live_sessions",
+          filter: `id=eq.${sessionId}`,
+        },
+        (payload) => {
+          const nextStatus = (payload.new as { status?: string | null })?.status;
+          if (nextStatus !== "finished") return;
+
+          clearStoredActiveParticipant();
+          setParticipantId(null);
+          setShowQuestion(false);
+          setIsFinished(true);
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
           event: "DELETE",
           schema: "public",
           table: "participants",
@@ -909,6 +929,7 @@ function PlayScreen() {
     distance !== null &&
     distance > AUTO_UNLOCK_RADIUS &&
     distance <= MANUAL_UNLOCK_RADIUS;
+  const celebrationName = playerName || pendingPlayerName || "Holdet";
 
   const playerIcon = useMemo(
     () =>
@@ -964,7 +985,7 @@ function PlayScreen() {
     );
   }
 
-  if (!hasConfirmedName) {
+  if (!hasConfirmedName && !isFinished) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#050816] px-6 text-white">
         <form
@@ -1006,7 +1027,7 @@ function PlayScreen() {
     );
   }
 
-  if (gpsError) {
+  if (gpsError && !isFinished) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-red-950 via-[#2a0606] to-[#130303] px-6 text-white">
         <div className="w-full max-w-2xl rounded-3xl border border-red-400/40 bg-red-900/20 p-8 shadow-[0_0_40px_rgba(239,68,68,0.25)] backdrop-blur-md">
@@ -1041,23 +1062,47 @@ function PlayScreen() {
 
   if (isFinished) {
     return (
-      <div className="relative flex h-screen w-full flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-amber-100 via-yellow-300 to-orange-400 px-6 text-slate-900">
-        <div className="z-10 mb-8 h-64 w-64 drop-shadow-2xl md:h-80 md:w-80">
-          <Lottie animationData={trophyAnimation} loop={true} />
+      <div className="relative flex min-h-screen w-full flex-col items-center overflow-hidden bg-[#050816] px-6 py-10 text-white">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_20%,rgba(16,185,129,0.25),transparent_40%),radial-gradient(circle_at_80%_10%,rgba(251,191,36,0.22),transparent_42%),radial-gradient(circle_at_50%_90%,rgba(244,114,182,0.2),transparent_40%)]" />
+        <div className="pointer-events-none absolute inset-0 opacity-80">
+          <Player
+            autoplay
+            loop
+            src={FIREWORKS_LOTTIE_URL}
+            style={{ width: "100%", height: "100%" }}
+          />
+        </div>
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          {Array.from({ length: 20 }).map((_, index) => (
+            <span
+              key={`student-confetti-${index}`}
+              className="absolute h-2.5 w-2.5 animate-pulse rounded-full bg-gradient-to-br from-yellow-300 via-pink-300 to-cyan-300 shadow-[0_0_10px_rgba(255,255,255,0.35)]"
+              style={{
+                top: `${(index * 29) % 100}%`,
+                left: `${(index * 17) % 100}%`,
+                animationDelay: `${(index % 8) * 0.22}s`,
+              }}
+            />
+          ))}
         </div>
 
-        <div className="z-10 w-full max-w-md rounded-3xl border border-white/60 bg-white/40 p-8 text-center shadow-[0_0_40px_rgba(255,255,255,0.5)] backdrop-blur-xl">
-          <h1 className="mb-2 bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-4xl font-black tracking-widest text-transparent uppercase">
+        <div className="relative z-10 mt-10 w-full max-w-lg rounded-3xl border border-white/20 bg-white/10 p-8 text-center shadow-[0_0_45px_rgba(251,191,36,0.3)] backdrop-blur-xl">
+          <div className="mx-auto mb-6 h-36 w-36 drop-shadow-2xl">
+            <Lottie animationData={trophyAnimation} loop={true} />
+          </div>
+          <h1 className="mb-2 bg-gradient-to-r from-yellow-200 via-amber-300 to-yellow-100 bg-clip-text text-4xl font-black tracking-widest text-transparent uppercase">
             Mission
             <br />
             Fuldført!
           </h1>
-          <p className="mb-6 text-lg font-bold text-slate-700">
+          <p className="mb-3 text-lg font-bold text-emerald-100">
             Fantastisk gået, {playerName || "mester"}!
           </p>
-          <div className="rounded-xl bg-white/50 px-4 py-3 text-sm font-medium text-slate-600">
-            Løbet er slut. Gå tilbage til læreren for at se resultatet på
-            storskærmen!
+          <p className="mb-6 text-sm font-semibold tracking-wide text-amber-100 uppercase">
+            KÆMPE TILLYKKE, {celebrationName}! I er GPS MESTRE!
+          </p>
+          <div className="rounded-xl border border-white/20 bg-black/35 px-4 py-3 text-sm font-medium text-slate-100">
+            Løbet er slut. Kig op på lærerens skærm og se den store podie-fejring!
           </div>
         </div>
       </div>
