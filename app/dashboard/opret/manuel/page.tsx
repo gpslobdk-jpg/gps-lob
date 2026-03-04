@@ -139,14 +139,6 @@ type Question = {
   lng: number | null;
 };
 
-type MagicDraftPost = {
-  type?: string;
-  question?: string;
-  options?: string[];
-  correctAnswer?: string;
-  aiPrompt?: string;
-};
-
 type MapCenter = {
   lat: number;
   lng: number;
@@ -198,39 +190,26 @@ export default function OpretLoebPage() {
       const parsed = JSON.parse(rawDraft) as unknown;
       if (!Array.isArray(parsed)) return;
 
-      const mappedQuestions: Question[] = parsed
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mappedQuestions = (parsed as any[])
         .map((rawItem, index) => {
           if (!rawItem || typeof rawItem !== "object") return null;
-          const item = rawItem as MagicDraftPost;
-
-          const type = item.type === "ai_image" ? "ai_image" : "multiple_choice";
-          const text = typeof item.question === "string" ? item.question.trim() : "";
-          const aiPrompt = typeof item.aiPrompt === "string" ? item.aiPrompt.trim() : "";
-
-          const rawOptions = Array.isArray(item.options)
-            ? item.options.slice(0, 4).map((option) => (typeof option === "string" ? option : ""))
-            : [];
-          while (rawOptions.length < 4) rawOptions.push("");
-
-          const answers = [rawOptions[0], rawOptions[1], rawOptions[2], rawOptions[3]] as Question["answers"];
-          const correctAnswer = typeof item.correctAnswer === "string" ? item.correctAnswer.trim() : "";
-          const matchedIndex = answers.findIndex(
-            (answer) => answer.trim().toLocaleLowerCase("da-DK") === correctAnswer.toLocaleLowerCase("da-DK")
-          );
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const item = rawItem as any;
 
           return {
-            id: Date.now() + index + Math.floor(Math.random() * 100000),
-            type,
-            text,
-            aiPrompt: type === "ai_image" ? aiPrompt : "",
+            id: Date.now() + index,
+            type: item.type === "ai_image" ? "ai_image" : "multiple_choice",
+            text: item.question || "",
+            aiPrompt: item.aiPrompt || "",
             mediaUrl: "",
-            answers: type === "multiple_choice" ? answers : ["", "", "", ""],
-            correctIndex: type === "multiple_choice" ? (matchedIndex >= 0 ? matchedIndex : 0) : 0,
+            answers: Array.isArray(item.options) ? item.options : ["", "", "", ""],
+            correctIndex: item.options && item.correctAnswer ? item.options.indexOf(item.correctAnswer) : 0,
             lat: null,
             lng: null,
-          } satisfies Question;
+          };
         })
-        .filter((q): q is Question => q !== null);
+        .filter((q): q is Question => q !== null) as Question[];
 
       if (mappedQuestions.length > 0) {
         setQuestions(mappedQuestions);
