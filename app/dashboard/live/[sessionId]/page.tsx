@@ -177,6 +177,7 @@ export default function LiveLobbyPage() {
   const [liveAnswers, setLiveAnswers] = useState<LiveAnswer[]>([]);
   const [hasParticipantsTable, setHasParticipantsTable] = useState(true);
   const [hasAnswersTable, setHasAnswersTable] = useState(true);
+  const [isEndingRun, setIsEndingRun] = useState(false);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -496,22 +497,25 @@ export default function LiveLobbyPage() {
   };
 
   const handleEndRun = async () => {
-    if (!sessionId) return;
-    if (!confirm("Er du sikker på, at du vil afslutte løbet for alle?")) return;
+    if (!sessionId || isEndingRun) return;
+    const confirmed = confirm(
+      "Er du sikker på, at du vil afslutte løbet for alle deltagere? Dette kan ikke fortrydes."
+    );
+    if (!confirmed) return;
 
+    setIsEndingRun(true);
     const supabase = createClient();
-    const { error } = await supabase
-      .from("live_sessions")
-      .update({ status: "finished" })
-      .eq("id", sessionId);
+    const { error } = await supabase.from("live_sessions").update({ status: "finished" }).eq("id", sessionId);
 
     if (error) {
       console.error("Kunne ikke afslutte løbet:", error);
       alert("Kunne ikke afslutte løbet.");
+      setIsEndingRun(false);
       return;
     }
 
     setStatus("finished");
+    setIsEndingRun(false);
   };
 
   const joinPin = isLoading ? "----" : pin || "----";
@@ -732,9 +736,10 @@ export default function LiveLobbyPage() {
               ) : null}
               <button
                 onClick={() => void handleEndRun()}
-                className="mt-4 rounded-xl border border-red-500/50 bg-red-500/20 px-4 py-2 text-xs font-bold tracking-widest text-red-400 uppercase transition-all hover:bg-red-500/40"
+                disabled={isEndingRun}
+                className="mt-4 rounded-xl border border-red-500/50 bg-red-500/20 px-4 py-2 text-xs font-bold tracking-widest text-red-400 uppercase transition-all hover:bg-red-500/40 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Afslut Løb 🛑
+                {isEndingRun ? "Afslutter løb..." : "Afslut Løb 🛑"}
               </button>
             </div>
 

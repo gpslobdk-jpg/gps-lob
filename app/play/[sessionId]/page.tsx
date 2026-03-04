@@ -79,6 +79,17 @@ type AnswerProgressRow = {
   is_correct?: boolean | null;
 };
 
+type WakeLockSentinelLike = {
+  released?: boolean;
+  release: () => Promise<void>;
+};
+
+type NavigatorWithWakeLock = Navigator & {
+  wakeLock?: {
+    request: (type: "screen") => Promise<WakeLockSentinelLike>;
+  };
+};
+
 const ACTIVE_PARTICIPANT_STORAGE_KEY = "gpslob_active_participant";
 
 function isMissingColumnError(error: SupabaseErrorLike | null | undefined) {
@@ -194,6 +205,7 @@ function PlayScreen() {
   const answersTableMissingRef = useRef(false);
   const hasRestoredRef = useRef(!Boolean(storedParticipantOnLoad));
   const resumeMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wakeLockSentinelRef = useRef<WakeLockSentinelLike | null>(null);
 
   const showResumeNotice = useCallback((message: string) => {
     setResumeMessage(message);
@@ -643,6 +655,58 @@ function PlayScreen() {
     };
   }, [sessionId, supabase]);
 
+  const shouldKeepScreenAwake =
+    !isLoading && !loadError && !gpsError && !isFinished && questions.length > 0;
+
+  useEffect(() => {
+    const wakeLockApi = (navigator as NavigatorWithWakeLock).wakeLock;
+    if (!shouldKeepScreenAwake || !wakeLockApi) {
+      const activeSentinel = wakeLockSentinelRef.current;
+      wakeLockSentinelRef.current = null;
+      if (activeSentinel) {
+        void activeSentinel.release().catch(() => undefined);
+      }
+      return;
+    }
+
+    let isDisposed = false;
+
+    const requestWakeLock = async () => {
+      if (isDisposed || document.visibilityState !== "visible") return;
+      try {
+        const existingSentinel = wakeLockSentinelRef.current;
+        if (existingSentinel && !existingSentinel.released) return;
+        const nextSentinel = await wakeLockApi.request("screen");
+        if (isDisposed) {
+          void nextSentinel.release().catch(() => undefined);
+          return;
+        }
+        wakeLockSentinelRef.current = nextSentinel;
+      } catch (error) {
+        console.warn("Wake lock kunne ikke aktiveres:", error);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void requestWakeLock();
+      }
+    };
+
+    void requestWakeLock();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      isDisposed = true;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      const activeSentinel = wakeLockSentinelRef.current;
+      wakeLockSentinelRef.current = null;
+      if (activeSentinel) {
+        void activeSentinel.release().catch(() => undefined);
+      }
+    };
+  }, [shouldKeepScreenAwake]);
+
   useEffect(() => {
     if (!navigator.geolocation || questions.length === 0 || isFinished || !sessionId) {
       return;
@@ -906,6 +970,12 @@ function PlayScreen() {
           </div>
         </div>
       ) : null}
+
+      <div className="pointer-events-none absolute right-4 bottom-20 left-4 z-[950] flex justify-center">
+        <div className="w-full max-w-xl rounded-xl border border-amber-300/60 bg-gradient-to-r from-amber-200 via-orange-100 to-amber-100 px-4 py-2 text-center text-xs font-bold text-amber-900 shadow-[0_8px_24px_rgba(251,191,36,0.35)]">
+          💡 Tip: Hold skærmen tændt mens du går, så læreren kan se dig på kortet!
+        </div>
+      </div>
 
       <div className="relative z-0 flex-1">
         {typeof window !== "undefined" ? (
