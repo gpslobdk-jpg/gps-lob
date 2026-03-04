@@ -91,6 +91,8 @@ type NavigatorWithWakeLock = Navigator & {
 };
 
 const ACTIVE_PARTICIPANT_STORAGE_KEY = "gpslob_active_participant";
+const AUTO_UNLOCK_RADIUS = 15;
+const MANUAL_UNLOCK_RADIUS = 50;
 
 function isMissingColumnError(error: SupabaseErrorLike | null | undefined) {
   if (!error) return false;
@@ -206,6 +208,10 @@ function PlayScreen() {
   const hasRestoredRef = useRef(!Boolean(storedParticipantOnLoad));
   const resumeMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wakeLockSentinelRef = useRef<WakeLockSentinelLike | null>(null);
+
+  const unlockCurrentPost = useCallback(() => {
+    setShowQuestion(true);
+  }, []);
 
   const showResumeNotice = useCallback((message: string) => {
     setResumeMessage(message);
@@ -724,8 +730,8 @@ function PlayScreen() {
           const dist = getDistance(lat, lng, target.lat, target.lng);
           setDistance(dist);
 
-          if (dist < 20 && !showQuestion) {
-            setShowQuestion(true);
+          if (dist <= AUTO_UNLOCK_RADIUS && !showQuestion) {
+            unlockCurrentPost();
           }
         }
 
@@ -747,6 +753,7 @@ function PlayScreen() {
     sessionId,
     isFinished,
     showQuestion,
+    unlockCurrentPost,
     syncParticipantLocation,
   ]);
 
@@ -821,6 +828,11 @@ function PlayScreen() {
       : [55.6761, 12.5683];
 
   const mapKey = `${mapCenter[0].toFixed(4)}-${mapCenter[1].toFixed(4)}-${currentPostIndex}`;
+  const canManualUnlock =
+    !showQuestion &&
+    distance !== null &&
+    distance > AUTO_UNLOCK_RADIUS &&
+    distance <= MANUAL_UNLOCK_RADIUS;
 
   const playerIcon = useMemo(
     () =>
@@ -937,7 +949,9 @@ function PlayScreen() {
           <div className="text-xs font-bold tracking-wider text-white/50 uppercase">Afstand</div>
           <div
             className={`text-2xl font-black ${
-              distance !== null && distance < 20 ? "text-green-400 animate-pulse" : "text-white"
+              distance !== null && distance <= AUTO_UNLOCK_RADIUS
+                ? "text-green-400 animate-pulse"
+                : "text-white"
             }`}
           >
             {distance !== null ? `${distance}m` : "Søger GPS..."}
@@ -945,6 +959,15 @@ function PlayScreen() {
           <div className="mt-1 text-[11px] font-semibold tracking-wider text-emerald-200 uppercase">
             Score: {correctAnswersCount}
           </div>
+          {canManualUnlock ? (
+            <button
+              type="button"
+              onClick={unlockCurrentPost}
+              className="mt-3 rounded-lg border border-amber-300/70 bg-amber-400/20 px-3 py-2 text-[11px] font-bold tracking-wide text-amber-100 transition-colors hover:bg-amber-400/35"
+            >
+              📍 Står du ved posten? (Lås op manuelt)
+            </button>
+          ) : null}
         </div>
       </div>
 
