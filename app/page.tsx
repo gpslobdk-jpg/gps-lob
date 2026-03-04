@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ComponentType, FormEvent, useState } from "react";
+import { ComponentType, FormEvent, useEffect, useState } from "react";
 import PlayerBase from "react-lottie-player";
 import runnerJson from "../public/runner.json";
 import { createClient } from "@/utils/supabase/client";
@@ -25,11 +25,29 @@ export default function Home() {
   const [code, setCode] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const router = useRouter();
+  const [supabase] = useState(() => createClient());
+
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        router.push("/dashboard");
+      }
+    });
+
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        router.push("/dashboard");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [router, supabase]);
 
   const handleGoogleLogin = async () => {
     try {
       setIsLoggingIn(true);
-      const supabase = createClient();
       await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -82,7 +100,7 @@ export default function Home() {
           transition={{ delay: 0.2, duration: 0.45, ease: "easeOut" }}
           className="text-2xl sm:text-3xl md:text-5xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-400 to-purple-500 pb-1"
         >
-          StjernelÃ¸b med mobiltelefonen!
+          Stjerneløb med mobiltelefonen!
         </motion.p>
 
         <motion.p
@@ -91,7 +109,8 @@ export default function Home() {
           transition={{ delay: 0.3 }}
           className="text-cyan-100/80 text-base md:text-lg font-light tracking-wide mt-1 text-center"
         >
-          Digitalt orienteringslÃ¸b og skattejagt for hele klassen. Byg pÃ¥ 60 sekunder, slip dem lÃ¸s og fÃ¸lg med live.
+          Digitalt orienteringsløb og skattejagt for hele klassen. Byg på 60
+          sekunder, slip dem løs og følg med live.
         </motion.p>
 
         <motion.div
@@ -130,7 +149,7 @@ export default function Home() {
             whileTap={{ scale: 0.99 }}
             className="rounded-2xl"
           >
-                        <button
+            <button
               type="button"
               onClick={() => void handleGoogleLogin()}
               disabled={isLoggingIn}
@@ -173,7 +192,7 @@ export default function Home() {
                 whileTap={code.length === 5 ? { scale: 0.99 } : undefined}
                 className="w-full rounded-xl border border-cyan-300/45 bg-cyan-400/20 px-4 py-2.5 text-base font-semibold text-cyan-50 shadow-[0_0_12px_rgba(34,211,238,0.35)] transition hover:bg-cyan-400/35 disabled:cursor-not-allowed disabled:opacity-45"
               >
-                Start lÃ¸b
+                Start løb
               </motion.button>
             </form>
           </section>
