@@ -513,6 +513,36 @@ export default function OpretLoebPage() {
                   className={inputClass}
                 />
 
+                <div className="mt-4">
+                  <p className="mb-2 text-xs font-bold tracking-widest text-white/50 uppercase">
+                    Post-type
+                  </p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => updateQuestion(question.id, "type", "multiple_choice")}
+                      className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                        question.type === "multiple_choice"
+                          ? "border-cyan-300/70 bg-cyan-500/20 text-cyan-100 shadow-[0_0_14px_rgba(34,211,238,0.25)]"
+                          : "border-white/10 bg-black/20 text-white/75 hover:border-cyan-300/40 hover:text-cyan-100"
+                      }`}
+                    >
+                      Multiple Choice
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateQuestion(question.id, "type", "ai_image")}
+                      className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                        question.type === "ai_image"
+                          ? "border-amber-300/70 bg-amber-500/15 text-amber-100 shadow-[0_0_14px_rgba(251,191,36,0.25)]"
+                          : "border-white/10 bg-black/20 text-white/75 hover:border-amber-300/40 hover:text-amber-100"
+                      }`}
+                    >
+                      ✨ AI Fotomission
+                    </button>
+                  </div>
+                </div>
+
                 <div className="mt-3 mb-4 flex flex-col gap-3 rounded-xl border border-white/5 bg-black/30 p-3 transition-all focus-within:border-cyan-500/50 focus-within:ring-1 focus-within:ring-cyan-400/50">
                   {question.mediaUrl && question.mediaUrl.startsWith("http") && (
                     <motion.div
@@ -568,31 +598,51 @@ export default function OpretLoebPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 space-y-3">
-                  {question.answers.map((answer, answerIndex) => (
-                    <label
-                      key={`${question.id}-${answerIndex}`}
-                      className="flex items-center gap-3"
-                    >
-                      <input
-                        type="radio"
-                        checked={question.correctIndex === answerIndex}
-                        onChange={() =>
-                          updateQuestion(question.id, { correctIndex: answerIndex })
-                        }
-                        className="h-4 w-4 accent-cyan-400"
-                      />
-                      <input
-                        value={answer}
-                        onChange={(event) =>
-                          updateAnswer(question.id, answerIndex, event.target.value)
-                        }
-                        placeholder={`Svar ${answerIndex + 1}`}
-                        className={inputClass}
-                      />
+                {question.type === "ai_image" ? (
+                  <div className="mt-4 rounded-2xl border border-amber-300/35 bg-amber-500/10 p-4">
+                    <label className="mb-2 block text-sm font-bold text-amber-100">
+                      Instruks til AI-dommeren 🤖📸
                     </label>
-                  ))}
-                </div>
+                    <textarea
+                      value={question.aiPrompt}
+                      onChange={(event) =>
+                        updateQuestion(question.id, { aiPrompt: event.target.value })
+                      }
+                      rows={4}
+                      placeholder="Hvad skal eleverne tage billede af? F.eks. 'Find et egetræ' eller 'Tag et billede af noget rundt og blåt'. AI'en vil godkende billedet automatisk ud fra dette."
+                      className="w-full rounded-xl border border-amber-200/35 bg-black/25 px-4 py-3 text-sm text-amber-50 placeholder:text-amber-100/55 focus:outline-none focus:ring-2 focus:ring-amber-300/60"
+                    />
+                    <p className="mt-2 text-xs text-amber-100/80">
+                      Skriv en tydelig dommer-instruks, så AI&apos;en kan vurdere elevens foto præcist.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-4 space-y-3">
+                    {question.answers.map((answer, answerIndex) => (
+                      <label
+                        key={`${question.id}-${answerIndex}`}
+                        className="flex items-center gap-3"
+                      >
+                        <input
+                          type="radio"
+                          checked={question.correctIndex === answerIndex}
+                          onChange={() =>
+                            updateQuestion(question.id, { correctIndex: answerIndex })
+                          }
+                          className="h-4 w-4 accent-cyan-400"
+                        />
+                        <input
+                          value={answer}
+                          onChange={(event) =>
+                            updateAnswer(question.id, answerIndex, event.target.value)
+                          }
+                          placeholder={`Svar ${answerIndex + 1}`}
+                          className={inputClass}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                )}
 
                 <button
                   type="button"
