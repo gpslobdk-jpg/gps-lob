@@ -8,7 +8,7 @@ import { FormEvent, useEffect, useState } from "react";
 
 import { createClient } from "@/utils/supabase/client";
 
-const OnboardingModal = dynamic(() => import("@/components/OnboardingModal"), {
+const WelcomeModal = dynamic(() => import("@/components/WelcomeModal"), {
   ssr: false,
 });
 
@@ -47,7 +47,7 @@ export default function Home() {
     <div className="relative min-h-screen bg-slate-950 text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(148,163,184,0.2),transparent_40%),radial-gradient(circle_at_50%_120%,rgba(30,41,59,0.6),transparent_55%)]" />
 
-      <OnboardingModal forceOpenToken={showIntroToken} />
+      <WelcomeModal forceOpenToken={showIntroToken} />
 
       <main className="relative mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 py-10">
         <section className="space-y-6">
