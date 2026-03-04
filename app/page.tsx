@@ -1,17 +1,32 @@
 "use client";
 
-import { Player } from "@lottiefiles/react-lottie-player";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { ComponentType, FormEvent, useEffect, useState } from "react";
 
 import { createClient } from "@/utils/supabase/client";
 
 const OnboardingModal = dynamic(() => import("@/components/OnboardingModal"), {
   ssr: false,
 });
+
+type LottiePlayerProps = {
+  autoplay?: boolean;
+  loop?: boolean;
+  src: string;
+  style?: { width?: number; height?: number };
+  className?: string;
+};
+
+const LottiePlayer = dynamic(
+  () =>
+    import("@lottiefiles/react-lottie-player").then(
+      (mod) => mod.Player as unknown as ComponentType<LottiePlayerProps>
+    ),
+  { ssr: false }
+);
 
 const STEP_CARDS = [
   {
@@ -181,7 +196,7 @@ export default function Home() {
                 className="rounded-3xl border border-orange-100 bg-white p-6 shadow-xl shadow-orange-200/50"
               >
                 <div className="mb-5 flex h-40 items-center justify-center rounded-2xl bg-orange-50">
-                  <Player autoplay loop src={card.lottieUrl} style={{ width: 170, height: 170 }} />
+                  <LottiePlayer autoplay loop src={card.lottieUrl} style={{ width: 170, height: 170 }} />
                 </div>
                 <p className="text-xs font-bold tracking-[0.18em] text-orange-500 uppercase">{card.step}</p>
                 <h3 className="mt-2 text-xl font-black text-slate-900">{card.title}</h3>
