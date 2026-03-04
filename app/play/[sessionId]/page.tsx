@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { AlertCircle, CheckCircle2, Crosshair, MapPin } from "lucide-react";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 
 import trophyAnimation from "@/public/trophy.json";
@@ -93,6 +93,12 @@ type NavigatorWithWakeLock = Navigator & {
 const ACTIVE_PARTICIPANT_STORAGE_KEY = "gpslob_active_participant";
 const AUTO_UNLOCK_RADIUS = 15;
 const MANUAL_UNLOCK_RADIUS = 50;
+const BAD_WORDS = ["tissemand", "lort", "pik", "fisse", "idiot", "bøsse", "luder", "snot"];
+
+function containsBadWord(value: string) {
+  const normalized = value.toLocaleLowerCase("da-DK");
+  return BAD_WORDS.some((word) => normalized.includes(word));
+}
 
 function isMissingColumnError(error: SupabaseErrorLike | null | undefined) {
   if (!error) return false;
@@ -174,6 +180,7 @@ function PlayScreen() {
   const rawSessionId = params?.sessionId;
   const sessionId = Array.isArray(rawSessionId) ? rawSessionId[0] : rawSessionId;
   const initialStudentName = searchParams.get("name")?.trim() || "";
+  const initialNameCandidate = initialStudentName || "";
   const storedParticipantOnLoad = useMemo(() => {
     if (!sessionId) return null;
     const stored = readStoredActiveParticipant();
@@ -184,8 +191,12 @@ function PlayScreen() {
     }
     return stored;
   }, [sessionId]);
-  const [playerName, setPlayerName] = useState(
-    () => initialStudentName || storedParticipantOnLoad?.studentName || ""
+  const [pendingPlayerName, setPendingPlayerName] = useState(
+    () => storedParticipantOnLoad?.studentName || initialNameCandidate
+  );
+  const [playerName, setPlayerName] = useState(() => storedParticipantOnLoad?.studentName || "");
+  const [hasConfirmedName, setHasConfirmedName] = useState(
+    () => Boolean(storedParticipantOnLoad?.studentName)
   );
 
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -197,6 +208,8 @@ function PlayScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [gpsError, setGpsError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [isKicked, setIsKicked] = useState(false);
   const [latestMessage, setLatestMessage] = useState<string | null>(null);
   const [resumeMessage, setResumeMessage] = useState<string | null>(null);
   const [participantId, setParticipantId] = useState<string | null>(
@@ -237,6 +250,32 @@ function PlayScreen() {
       });
     },
     [sessionId]
+  );
+
+  const handleNameSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const trimmedName = pendingPlayerName.trim();
+
+      if (!trimmedName) {
+        setNameError("Skriv dit eller jeres rigtige navn for at starte.");
+        return;
+      }
+
+      if (containsBadWord(trimmedName)) {
+        setNameError("Hov! Hold en god tone. Skriv jeres rigtige navne for at være med.");
+        return;
+      }
+
+      setNameError(null);
+      setPlayerName(trimmedName);
+      setHasConfirmedName(true);
+
+      if (participantId) {
+        rememberActiveParticipant(participantId, trimmedName);
+      }
+    },
+    [participantId, pendingPlayerName, rememberActiveParticipant]
   );
 
   useEffect(() => {
@@ -287,6 +326,9 @@ function PlayScreen() {
       const resolvedName = restoredName || playerName || initialStudentName;
       if (resolvedName) {
         setPlayerName(resolvedName);
+        setPendingPlayerName(resolvedName);
+        setHasConfirmedName(true);
+        setNameError(null);
       }
 
       if (participantData.id && resolvedName) {
@@ -662,7 +704,13 @@ function PlayScreen() {
   }, [sessionId, supabase]);
 
   const shouldKeepScreenAwake =
-    !isLoading && !loadError && !gpsError && !isFinished && questions.length > 0;
+    !isLoading &&
+    !loadError &&
+    !gpsError &&
+    !isFinished &&
+    !isKicked &&
+    hasConfirmedName &&
+    questions.length > 0;
 
   useEffect(() => {
     const wakeLockApi = (navigator as NavigatorWithWakeLock).wakeLock;
@@ -714,7 +762,14 @@ function PlayScreen() {
   }, [shouldKeepScreenAwake]);
 
   useEffect(() => {
-    if (!navigator.geolocation || questions.length === 0 || isFinished || !sessionId) {
+    if (
+      !navigator.geolocation ||
+      questions.length === 0 ||
+      isFinished ||
+      isKicked ||
+      !hasConfirmedName ||
+      !sessionId
+    ) {
       return;
     }
 
@@ -752,6 +807,8 @@ function PlayScreen() {
     currentPostIndex,
     sessionId,
     isFinished,
+    isKicked,
+    hasConfirmedName,
     showQuestion,
     unlockCurrentPost,
     syncParticipantLocation,
@@ -781,13 +838,32 @@ function PlayScreen() {
           }
         }
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "participants",
+          filter: `session_id=eq.${sessionId}`,
+        },
+        (payload) => {
+          const deletedId = (payload.old as { id?: string | number | null })?.id;
+          if (!deletedId || !participantId) return;
+          if (String(deletedId) !== participantId) return;
+
+          clearStoredActiveParticipant();
+          setParticipantId(null);
+          setShowQuestion(false);
+          setIsKicked(true);
+        }
+      )
       .subscribe();
 
     return () => {
       if (hideTimer) clearTimeout(hideTimer);
       void supabase.removeChannel(messageChannel);
     };
-  }, [sessionId, supabase]);
+  }, [participantId, sessionId, supabase]);
 
   const handleAnswer = async (selectedIndex: number) => {
     const current = questions[currentPostIndex];
@@ -874,6 +950,58 @@ function PlayScreen() {
           <AlertCircle className="mx-auto mb-3 h-8 w-8 text-red-300" />
           <p className="font-semibold">{loadError}</p>
         </div>
+      </div>
+    );
+  }
+
+  if (isKicked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-red-950 via-[#2a0606] to-[#130303] px-6 text-white">
+        <div className="w-full max-w-2xl rounded-3xl border border-red-400/40 bg-red-900/20 p-8 text-center shadow-[0_0_40px_rgba(239,68,68,0.25)] backdrop-blur-md">
+          <h1 className="text-3xl font-black md:text-4xl">🚫 Du er blevet fjernet fra løbet af læreren.</h1>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasConfirmedName) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#050816] px-6 text-white">
+        <form
+          onSubmit={handleNameSubmit}
+          className="w-full max-w-xl rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_0_28px_rgba(56,189,248,0.2)] backdrop-blur-md"
+        >
+          <h1 className="mb-5 text-2xl font-black tracking-wide uppercase">Klar til at starte?</h1>
+          <label htmlFor="player-name" className="mb-2 block text-sm font-semibold text-cyan-100">
+            Dit/jeres rigtige navn(e)
+          </label>
+          <input
+            id="player-name"
+            type="text"
+            value={pendingPlayerName}
+            onChange={(event) => {
+              setPendingPlayerName(event.target.value);
+              if (nameError) setNameError(null);
+            }}
+            placeholder="Dit/jeres rigtige navn(e)"
+            className="w-full rounded-xl border border-white/20 bg-black/40 px-4 py-3 text-base text-white placeholder:text-white/45 focus:border-cyan-400/60 focus:outline-none"
+          />
+          <p className="mt-3 text-sm text-white/80">
+            Skriv dit rigtige navn. Hvis I er en gruppe, så skriv alle navnene (f.eks. &quot;Ali,
+            Emma &amp; Sofie&quot;). Brug ikke opdigtede navne.
+          </p>
+          {nameError ? (
+            <div className="mt-4 rounded-xl border border-red-400/50 bg-red-500/15 px-4 py-3 text-sm font-semibold text-red-100">
+              {nameError}
+            </div>
+          ) : null}
+          <button
+            type="submit"
+            className="mt-6 w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-3 text-base font-black tracking-wide text-[#03101c] uppercase transition-transform hover:scale-[1.01]"
+          >
+            Start Løb
+          </button>
+        </form>
       </div>
     );
   }
