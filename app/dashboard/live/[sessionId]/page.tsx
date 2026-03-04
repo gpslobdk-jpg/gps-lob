@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { AnimatePresence, motion } from "framer-motion";
 import { Award, Medal, Trophy, UserCircle } from "lucide-react";
@@ -51,9 +51,10 @@ type SessionMessage = {
   created_at?: string | null;
 };
 
-type SessionStudentRow = {
-  id: string | number;
-  student_name: string | null;
+type StudentRow = {
+  id?: string | number | null;
+  session_id?: string | null;
+  student_name?: string | null;
   lat?: number | string | null;
   lng?: number | string | null;
   latitude?: number | string | null;
@@ -76,6 +77,90 @@ type RunQuestion = {
   text?: string | null;
 };
 
+type AnswerRow = {
+  id?: string | number | null;
+  student_name?: string | null;
+  post_index?: number | string | null;
+  question_index?: number | string | null;
+  is_correct?: boolean | null;
+  created_at?: string | null;
+  answered_at?: string | null;
+};
+
+type LiveAnswer = {
+  id: string;
+  studentName: string;
+  postNumber: number | null;
+  isCorrect: boolean | null;
+  createdAt: string | null;
+};
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function normalizeName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function toLocation(row: StudentRow): LiveStudentLocation | null {
+  const name = normalizeName(row.student_name);
+  if (!name) return null;
+  const lat = toFiniteNumber(row.lat ?? row.latitude);
+  const lng = toFiniteNumber(row.lng ?? row.longitude);
+  const baseId = row.id ?? `${row.session_id ?? "session"}-${name}`;
+
+  return {
+    id: String(baseId),
+    name,
+    student_name: name,
+    lat,
+    lng,
+    finished_at: row.finished_at ?? null,
+  };
+}
+
+function upsertLocation(
+  previous: LiveStudentLocation[],
+  nextLocation: LiveStudentLocation
+): LiveStudentLocation[] {
+  const index = previous.findIndex((item) => item.id === nextLocation.id);
+  if (index === -1) return [...previous, nextLocation];
+  const next = [...previous];
+  next[index] = nextLocation;
+  return next;
+}
+
+function toLiveAnswer(row: AnswerRow): LiveAnswer | null {
+  const studentName = normalizeName(row.student_name);
+  if (!studentName) return null;
+
+  const rawIndex = toFiniteNumber(row.post_index ?? row.question_index);
+  const postNumber = rawIndex === null ? null : rawIndex >= 1 ? rawIndex : rawIndex + 1;
+  const createdAt = row.answered_at ?? row.created_at ?? null;
+  const idSource = row.id ?? `${studentName}-${createdAt ?? Date.now()}-${postNumber ?? "?"}`;
+
+  return {
+    id: String(idSource),
+    studentName,
+    postNumber,
+    isCorrect: typeof row.is_correct === "boolean" ? row.is_correct : null,
+    createdAt,
+  };
+}
+
+function prependAnswer(previous: LiveAnswer[], nextAnswer: LiveAnswer): LiveAnswer[] {
+  const deduped = previous.filter((item) => item.id !== nextAnswer.id);
+  return [nextAnswer, ...deduped].slice(0, 40);
+}
+
 export default function LiveLobbyPage() {
   const params = useParams<{ sessionId: string }>();
   const rawSessionId = params?.sessionId;
@@ -89,51 +174,41 @@ export default function LiveLobbyPage() {
   const [newMessage, setNewMessage] = useState("");
   const [studentLocations, setStudentLocations] = useState<LiveStudentLocation[]>([]);
   const [runQuestions, setRunQuestions] = useState<RunQuestion[]>([]);
+  const [liveAnswers, setLiveAnswers] = useState<LiveAnswer[]>([]);
+  const [hasParticipantsTable, setHasParticipantsTable] = useState(true);
+  const [hasAnswersTable, setHasAnswersTable] = useState(true);
 
   useEffect(() => {
-    if (!sessionId) {
-      return;
-    }
+    if (!sessionId) return;
 
     const supabase = createClient();
     let isActive = true;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    const toNumber = (value: unknown): number | null => {
-      if (typeof value === "number" && Number.isFinite(value)) return value;
-      if (typeof value === "string") {
-        const parsed = Number(value);
-        return Number.isFinite(parsed) ? parsed : null;
-      }
-      return null;
+    const addStudentName = (rawName: unknown) => {
+      const name = normalizeName(rawName);
+      if (!name) return;
+      setStudents((prev) => (prev.includes(name) ? prev : [...prev, name]));
     };
 
-    const toLocation = (row: SessionStudentRow): LiveStudentLocation | null => {
-      const lat = toNumber(row.lat ?? row.latitude);
-      const lng = toNumber(row.lng ?? row.longitude);
-      const name = row.student_name?.trim() ?? "";
-      if (!name) return null;
-      return {
-        id: String(row.id),
-        name,
-        student_name: name,
-        lat,
-        lng,
-        finished_at: row.finished_at ?? null,
-      };
+    const addStudentLocation = (row: StudentRow) => {
+      const location = toLocation(row);
+      if (!location) return;
+      setStudentLocations((prev) => upsertLocation(prev, location));
+      addStudentName(location.name);
     };
 
-    const upsertLocation = (location: LiveStudentLocation) => {
-      setStudentLocations((prev) => {
-        const idx = prev.findIndex((item) => item.id === location.id);
-        if (idx === -1) return [...prev, location];
-        const next = [...prev];
-        next[idx] = location;
-        return next;
-      });
+    const addLiveAnswer = (row: AnswerRow) => {
+      const parsed = toLiveAnswer(row);
+      if (!parsed) return;
+      setLiveAnswers((prev) => prependAnswer(prev, parsed));
     };
 
     const fetchLobbyData = async () => {
       setIsLoading(true);
+
+      const studentNames = new Set<string>();
+      let fallbackSessionStudents: StudentRow[] = [];
 
       const { data: sessionData, error: sessionError } = await supabase
         .from("live_sessions")
@@ -141,7 +216,7 @@ export default function LiveLobbyPage() {
         .eq("id", sessionId)
         .single<SessionRow>();
 
-      if (!isActive) return;
+      if (!isActive) return { supportsParticipants: false, supportsAnswers: false };
 
       if (sessionError) {
         console.error("Fejl ved hentning af session:", sessionError);
@@ -156,34 +231,62 @@ export default function LiveLobbyPage() {
             .eq("id", sessionData.run_id)
             .single();
 
-          if (runData && runData.questions) {
+          if (!isActive) return { supportsParticipants: false, supportsAnswers: false };
+          if (runData?.questions) {
             setRunQuestions(runData.questions as RunQuestion[]);
           }
         }
       }
 
-      const { data: studentsData, error: studentsError } = await supabase
+      const { data: sessionStudentsData, error: sessionStudentsError } = await supabase
         .from("session_students")
         .select("*")
         .eq("session_id", sessionId);
 
-      if (!isActive) return;
+      if (!isActive) return { supportsParticipants: false, supportsAnswers: false };
 
-      if (studentsError) {
-        console.error("Fejl ved hentning af elever:", studentsError);
-      } else if (studentsData) {
-        const rows = studentsData as SessionStudentRow[];
-        setStudents(
-          rows
-            .map((s) => s.student_name?.trim())
-            .filter((name): name is string => Boolean(name))
-        );
-        setStudentLocations(
-          rows
-            .map((s) => toLocation(s))
-            .filter((loc): loc is LiveStudentLocation => loc !== null)
-        );
+      if (sessionStudentsError) {
+        console.error("Fejl ved hentning af elever:", sessionStudentsError);
+      } else if (sessionStudentsData) {
+        fallbackSessionStudents = sessionStudentsData as StudentRow[];
+        fallbackSessionStudents.forEach((row) => {
+          const name = normalizeName(row.student_name);
+          if (name) studentNames.add(name);
+        });
       }
+
+      let supportsParticipants = true;
+      let locationRows: StudentRow[] = fallbackSessionStudents;
+
+      const { data: participantsData, error: participantsError } = await supabase
+        .from("participants")
+        .select("*")
+        .eq("session_id", sessionId);
+
+      if (!isActive) return { supportsParticipants: false, supportsAnswers: false };
+
+      if (participantsError) {
+        supportsParticipants = false;
+        if (participantsError.code === "PGRST205") {
+          // Fallback til session_students hvis participants-tabellen ikke findes endnu.
+        } else {
+          console.error("Fejl ved hentning af participants:", participantsError);
+        }
+      } else if (participantsData) {
+        locationRows = participantsData as StudentRow[];
+        locationRows.forEach((row) => {
+          const name = normalizeName(row.student_name);
+          if (name) studentNames.add(name);
+        });
+      }
+
+      setStudents(Array.from(studentNames));
+      setStudentLocations(
+        locationRows
+          .map((row) => toLocation(row))
+          .filter((row): row is LiveStudentLocation => row !== null)
+      );
+      setHasParticipantsTable(supportsParticipants);
 
       const { data: messagesData, error: messagesError } = await supabase
         .from("session_messages")
@@ -191,7 +294,7 @@ export default function LiveLobbyPage() {
         .eq("session_id", sessionId)
         .order("created_at", { ascending: true });
 
-      if (!isActive) return;
+      if (!isActive) return { supportsParticipants, supportsAnswers: false };
 
       if (messagesError) {
         console.error("Fejl ved hentning af beskeder:", messagesError);
@@ -199,82 +302,158 @@ export default function LiveLobbyPage() {
         setMessages(messagesData as SessionMessage[]);
       }
 
+      let supportsAnswers = true;
+      const { data: answersData, error: answersError } = await supabase
+        .from("answers")
+        .select("*")
+        .eq("session_id", sessionId)
+        .limit(120);
+
+      if (!isActive) return { supportsParticipants, supportsAnswers: false };
+
+      if (answersError) {
+        supportsAnswers = false;
+        if (answersError.code === "PGRST205") {
+          // answers-tabellen findes ikke endnu.
+        } else {
+          console.error("Fejl ved hentning af answers:", answersError);
+        }
+      } else if (answersData) {
+        const parsed = (answersData as AnswerRow[])
+          .map((row) => toLiveAnswer(row))
+          .filter((row): row is LiveAnswer => row !== null)
+          .sort((a, b) => {
+            const aTs = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bTs = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return bTs - aTs;
+          })
+          .slice(0, 40);
+
+        setLiveAnswers(parsed);
+      }
+
+      setHasAnswersTable(supportsAnswers);
       setIsLoading(false);
+      return { supportsParticipants, supportsAnswers };
     };
 
-    void fetchLobbyData();
+    const initRealtime = async () => {
+      const { supportsParticipants, supportsAnswers } = await fetchLobbyData();
+      if (!isActive) return;
 
-    const channel = supabase
-      .channel(`session-students-${sessionId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "session_students",
-          filter: `session_id=eq.${sessionId}`,
-        },
-        (payload) => {
-          const row = payload.new as SessionStudentRow;
-          const newName = row.student_name?.trim();
-          if (newName) {
-            setStudents((prev) => (prev.includes(newName) ? prev : [...prev, newName]));
+      let nextChannel = supabase
+        .channel(`teacher-live-${sessionId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "session_students",
+            filter: `session_id=eq.${sessionId}`,
+          },
+          (payload) => {
+            const row = payload.new as StudentRow;
+            addStudentName(row.student_name);
+            if (!supportsParticipants) addStudentLocation(row);
           }
-          const location = toLocation(row);
-          if (location) {
-            upsertLocation(location);
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "session_messages",
+            filter: `session_id=eq.${sessionId}`,
+          },
+          (payload) => {
+            const row = payload.new as SessionMessage;
+            setMessages((prev) => [...prev, row]);
           }
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "session_students",
-          filter: `session_id=eq.${sessionId}`,
-        },
-        (payload) => {
-          const row = payload.new as SessionStudentRow;
-          const location = toLocation(row);
-          if (location) {
-            upsertLocation(location);
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "live_sessions",
+            filter: `id=eq.${sessionId}`,
+          },
+          (payload) => {
+            const nextStatus = (payload.new as SessionRow).status;
+            if (nextStatus) setStatus(nextStatus);
           }
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "session_messages",
-          filter: `session_id=eq.${sessionId}`,
-        },
-        (payload) => {
-          const row = payload.new as SessionMessage;
-          setMessages((prev) => [...prev, row]);
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "live_sessions",
-          filter: `id=eq.${sessionId}`,
-        },
-        (payload) => {
-          const nextStatus = (payload.new as SessionRow).status;
-          if (nextStatus) {
-            setStatus(nextStatus);
+        );
+
+      if (supportsParticipants) {
+        nextChannel = nextChannel
+          .on(
+            "postgres_changes",
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "participants",
+              filter: `session_id=eq.${sessionId}`,
+            },
+            (payload) => {
+              const row = payload.new as StudentRow;
+              addStudentLocation(row);
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "UPDATE",
+              schema: "public",
+              table: "participants",
+              filter: `session_id=eq.${sessionId}`,
+            },
+            (payload) => {
+              const row = payload.new as StudentRow;
+              addStudentLocation(row);
+            }
+          );
+      } else {
+        nextChannel = nextChannel.on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "session_students",
+            filter: `session_id=eq.${sessionId}`,
+          },
+          (payload) => {
+            const row = payload.new as StudentRow;
+            addStudentLocation(row);
           }
-        }
-      )
-      .subscribe();
+        );
+      }
+
+      if (supportsAnswers) {
+        nextChannel = nextChannel.on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "answers",
+            filter: `session_id=eq.${sessionId}`,
+          },
+          (payload) => {
+            const row = payload.new as AnswerRow;
+            addLiveAnswer(row);
+          }
+        );
+      }
+
+      channel = nextChannel.subscribe();
+    };
+
+    void initRealtime();
 
     return () => {
       isActive = false;
-      void supabase.removeChannel(channel);
+      if (channel) {
+        void supabase.removeChannel(channel);
+      }
     };
   }, [sessionId]);
 
@@ -285,7 +464,7 @@ export default function LiveLobbyPage() {
     const supabase = createClient();
     const { error } = await supabase.from("session_messages").insert({
       session_id: sessionId,
-      sender_name: "LÃ¦rer",
+      sender_name: "Lærer",
       is_teacher: true,
       message: newMessage.trim(),
     });
@@ -309,7 +488,7 @@ export default function LiveLobbyPage() {
 
     if (error) {
       console.error("Kunne ikke starte session:", error);
-      alert("Kunne ikke starte lÃ¸bet.");
+      alert("Kunne ikke starte løbet.");
       return;
     }
 
@@ -318,7 +497,7 @@ export default function LiveLobbyPage() {
 
   const handleEndRun = async () => {
     if (!sessionId) return;
-    if (!confirm("Er du sikker pÃ¥, at du vil afslutte lÃ¸bet for alle?")) return;
+    if (!confirm("Er du sikker på, at du vil afslutte løbet for alle?")) return;
 
     const supabase = createClient();
     const { error } = await supabase
@@ -327,8 +506,8 @@ export default function LiveLobbyPage() {
       .eq("id", sessionId);
 
     if (error) {
-      console.error("Kunne ikke afslutte lÃ¸bet:", error);
-      alert("Kunne ikke afslutte lÃ¸bet.");
+      console.error("Kunne ikke afslutte løbet:", error);
+      alert("Kunne ikke afslutte løbet.");
       return;
     }
 
@@ -336,10 +515,11 @@ export default function LiveLobbyPage() {
   };
 
   const joinPin = isLoading ? "----" : pin || "----";
-  const firstRunQuestionWithCoords = runQuestions.find(
-    (q: RunQuestion) =>
-      q?.lat !== null && q?.lat !== undefined && q?.lng !== null && q?.lng !== undefined
-  );
+  const firstRunQuestionWithCoords = runQuestions.find((q: RunQuestion) => {
+    const lat = toFiniteNumber(q.lat);
+    const lng = toFiniteNumber(q.lng);
+    return lat !== null && lng !== null;
+  });
   const mapCenter: [number, number] = firstRunQuestionWithCoords
     ? [Number(firstRunQuestionWithCoords.lat), Number(firstRunQuestionWithCoords.lng)]
     : [55.3959, 10.3883];
@@ -396,7 +576,7 @@ export default function LiveLobbyPage() {
           <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col">
             <section className="mx-auto w-full max-w-5xl rounded-3xl border border-white/10 bg-white/5 p-6 text-center backdrop-blur-md md:p-8">
               <h1 className={`text-sm font-bold tracking-[0.2em] text-white/80 uppercase md:text-base ${rubik.className}`}>
-                LOG IND I LOBBYEN PÃ… GPSLOB.DK/JOIN
+                LOG IND I LOBBYEN PÅ GPSLOB.DK/JOIN
               </h1>
               <p className={`mt-4 bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-7xl font-black text-transparent md:text-9xl ${rubik.className} animate-pulse`}>
                 {joinPin}
@@ -452,7 +632,7 @@ export default function LiveLobbyPage() {
               onClick={() => void startSession()}
               className={`mt-12 w-full rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 py-6 text-3xl font-black text-white uppercase shadow-[0_0_35px_rgba(217,70,239,0.55)] transition-transform hover:scale-[1.02] ${rubik.className}`}
             >
-              START LÃ˜BET! ðŸ
+              START LØBET! 🏁
             </button>
           </div>
         </motion.main>
@@ -544,14 +724,17 @@ export default function LiveLobbyPage() {
           <div className="relative z-0 h-full w-2/3 bg-[#050816]">
             <div className="absolute top-6 left-6 z-[1000] rounded-2xl border border-white/10 bg-black/80 p-4 shadow-[0_0_20px_rgba(34,211,238,0.2)] backdrop-blur-md">
               <h2 className={`text-xl font-black tracking-widest text-cyan-400 uppercase ${rubik.className}`}>
-                Live OvervÃ¥gning
+                Live Overvågning
               </h2>
               <p className="text-sm text-white/50">{studentLocations.length} elever online</p>
+              {!hasParticipantsTable ? (
+                <p className="mt-1 text-xs text-amber-300">`participants` mangler - bruger fallback.</p>
+              ) : null}
               <button
                 onClick={() => void handleEndRun()}
                 className="mt-4 rounded-xl border border-red-500/50 bg-red-500/20 px-4 py-2 text-xs font-bold tracking-widest text-red-400 uppercase transition-all hover:bg-red-500/40"
               >
-                Afslut LÃ¸b ðŸ›‘
+                Afslut Løb 🛑
               </button>
             </div>
 
@@ -565,23 +748,25 @@ export default function LiveLobbyPage() {
               >
                 <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
 
-                {runQuestions.map(
-                  (q: RunQuestion, i: number) =>
-                    q.lat &&
-                    q.lng && (
-                      <Marker
-                        key={`post-${i}`}
-                        position={[Number(q.lat), Number(q.lng)]}
-                        icon={createPostIcon(i) ?? undefined}
-                      >
-                        <Popup>
-                          <strong className="text-cyan-400">Post {i + 1}</strong>
-                          <br />
-                          {q.text}
-                        </Popup>
-                      </Marker>
-                    )
-                )}
+                {runQuestions.map((q: RunQuestion, i: number) => {
+                  const lat = toFiniteNumber(q.lat);
+                  const lng = toFiniteNumber(q.lng);
+                  if (lat === null || lng === null) return null;
+
+                  return (
+                    <Marker
+                      key={`post-${i}`}
+                      position={[lat, lng]}
+                      icon={createPostIcon(i) ?? undefined}
+                    >
+                      <Popup>
+                        <strong className="text-cyan-400">Post {i + 1}</strong>
+                        <br />
+                        {q.text}
+                      </Popup>
+                    </Marker>
+                  );
+                })}
 
                 {studentLocations.map(
                   (student, i) =>
@@ -601,9 +786,65 @@ export default function LiveLobbyPage() {
           <div className="flex h-full w-1/3 flex-col border-l border-white/10 bg-white/5 backdrop-blur-xl">
             <div className="border-b border-white/10 p-6">
               <h3
+                className={`bg-gradient-to-r from-cyan-300 to-emerald-400 bg-clip-text text-lg font-bold tracking-widest text-transparent uppercase ${rubik.className}`}
+              >
+                Live Svar
+              </h3>
+            </div>
+
+            <div className="max-h-64 space-y-2 overflow-y-auto border-b border-white/10 p-4">
+              {!hasAnswersTable ? (
+                <p className="text-sm text-amber-200">`answers` mangler - ingen live svar endnu.</p>
+              ) : liveAnswers.length === 0 ? (
+                <p className="text-sm text-white/50">Ingen svar endnu.</p>
+              ) : (
+                liveAnswers.map((answer) => (
+                  <div
+                    key={answer.id}
+                    className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-xs"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-semibold text-white">{answer.studentName}</span>
+                      <span className="text-white/50">
+                        {answer.createdAt
+                          ? new Date(answer.createdAt).toLocaleTimeString("da-DK", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              second: "2-digit",
+                            })
+                          : ""}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-[11px]">
+                      <span className="text-cyan-200">
+                        {answer.postNumber !== null ? `Post ${answer.postNumber}` : "Ukendt post"}
+                      </span>
+                      <span
+                        className={
+                          answer.isCorrect === null
+                            ? "text-white/50"
+                            : answer.isCorrect
+                              ? "text-emerald-300"
+                              : "text-rose-300"
+                        }
+                      >
+                        {answer.isCorrect === null
+                          ? "Uden facit"
+                          : answer.isCorrect
+                            ? "Korrekt"
+                            : "Forkert"}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="border-b border-white/10 p-6">
+              <h3
                 className={`bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-lg font-bold tracking-widest text-transparent uppercase ${rubik.className}`}
               >
-                Klasse Chat
+                Klassechat
               </h3>
             </div>
 

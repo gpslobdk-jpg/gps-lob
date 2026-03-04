@@ -1,10 +1,10 @@
-﻿"use client";
+"use client";
 
 import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { AlertCircle, CheckCircle2, Crosshair, MapPin } from "lucide-react";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 
 import trophyAnimation from "@/public/trophy.json";
@@ -51,6 +51,17 @@ type Location = {
   lat: number;
   lng: number;
 };
+
+type SupabaseErrorLike = {
+  code?: string;
+  message?: string;
+};
+
+function isMissingColumnError(error: SupabaseErrorLike | null | undefined) {
+  if (!error) return false;
+  if (error.code === "42703" || error.code === "PGRST204") return true;
+  return /column/i.test(error.message ?? "");
+}
 
 function parseQuestion(raw: unknown): Question | null {
   if (!raw || typeof raw !== "object") return null;
@@ -99,6 +110,191 @@ function PlayScreen() {
   const [loadError, setLoadError] = useState("");
   const [gpsError, setGpsError] = useState("");
   const [latestMessage, setLatestMessage] = useState<string | null>(null);
+  const participantsTableMissingRef = useRef(false);
+  const answersTableMissingRef = useRef(false);
+
+  const syncParticipantLocation = useCallback(
+    async (lat: number, lng: number) => {
+      if (!sessionId || !studentName) return;
+
+      const timestamp = new Date().toISOString();
+
+      if (!participantsTableMissingRef.current) {
+        let { data, error } = await supabase
+          .from("participants")
+          .update({ lat, lng, last_updated: timestamp })
+          .eq("session_id", sessionId)
+          .eq("student_name", studentName)
+          .select("id");
+
+        if (error && isMissingColumnError(error)) {
+          const retry = await supabase
+            .from("participants")
+            .update({ lat, lng })
+            .eq("session_id", sessionId)
+            .eq("student_name", studentName)
+            .select("id");
+          data = retry.data;
+          error = retry.error;
+        }
+
+        if (!error && data && data.length > 0) {
+          return;
+        }
+
+        if (!error && (!data || data.length === 0)) {
+          const createPayloads: Record<string, unknown>[] = [
+            {
+              session_id: sessionId,
+              student_name: studentName,
+              lat,
+              lng,
+              last_updated: timestamp,
+            },
+            {
+              session_id: sessionId,
+              student_name: studentName,
+              lat,
+              lng,
+            },
+          ];
+
+          for (const payload of createPayloads) {
+            const { error: insertError } = await supabase.from("participants").insert(payload);
+            if (!insertError || insertError.code === "23505") return;
+            if (insertError.code === "PGRST205") {
+              participantsTableMissingRef.current = true;
+              break;
+            }
+            if (isMissingColumnError(insertError)) continue;
+            console.error("Kunne ikke oprette participant:", insertError);
+            break;
+          }
+        } else if (error) {
+          if (error.code === "PGRST205") {
+            participantsTableMissingRef.current = true;
+          } else {
+            console.error("Kunne ikke opdatere participant:", error);
+          }
+        }
+      }
+
+      let { error: fallbackError } = await supabase
+        .from("session_students")
+        .update({ lat, lng, last_updated: timestamp })
+        .eq("session_id", sessionId)
+        .eq("student_name", studentName);
+
+      if (fallbackError && isMissingColumnError(fallbackError)) {
+        const retry = await supabase
+          .from("session_students")
+          .update({ lat, lng })
+          .eq("session_id", sessionId)
+          .eq("student_name", studentName);
+        fallbackError = retry.error;
+      }
+
+      if (fallbackError && fallbackError.code !== "PGRST205") {
+        console.error("Kunne ikke opdatere elevposition:", fallbackError);
+      }
+    },
+    [sessionId, studentName, supabase]
+  );
+
+  const markParticipantFinished = useCallback(async () => {
+    if (!sessionId || !studentName) return;
+    const finishedAt = new Date().toISOString();
+
+    if (!participantsTableMissingRef.current) {
+      const { error } = await supabase
+        .from("participants")
+        .update({ finished_at: finishedAt })
+        .eq("session_id", sessionId)
+        .eq("student_name", studentName);
+
+      if (!error) return;
+      if (error.code === "PGRST205") {
+        participantsTableMissingRef.current = true;
+      } else {
+        console.error("Kunne ikke gemme målgang i participants:", error);
+      }
+    }
+
+    const { error: fallbackError } = await supabase
+      .from("session_students")
+      .update({ finished_at: finishedAt })
+      .eq("session_id", sessionId)
+      .eq("student_name", studentName);
+
+    if (fallbackError) {
+      console.error("Kunne ikke gemme målgangstid:", fallbackError);
+    }
+  }, [sessionId, studentName, supabase]);
+
+  const insertAnswerRecord = useCallback(
+    async (
+      selectedIndex: number,
+      isCorrect: boolean,
+      postNumber: number,
+      questionText: string,
+      lat: number | null,
+      lng: number | null
+    ) => {
+      if (!sessionId || !studentName || answersTableMissingRef.current) return;
+
+      const timestamp = new Date().toISOString();
+      const payloads: Record<string, unknown>[] = [
+        {
+          session_id: sessionId,
+          student_name: studentName,
+          post_index: postNumber,
+          question_index: postNumber - 1,
+          selected_index: selectedIndex,
+          answer_index: selectedIndex,
+          is_correct: isCorrect,
+          question_text: questionText,
+          lat,
+          lng,
+          answered_at: timestamp,
+        },
+        {
+          session_id: sessionId,
+          student_name: studentName,
+          post_index: postNumber,
+          selected_index: selectedIndex,
+          is_correct: isCorrect,
+          answered_at: timestamp,
+        },
+        {
+          session_id: sessionId,
+          student_name: studentName,
+          question_index: postNumber - 1,
+          answer_index: selectedIndex,
+          is_correct: isCorrect,
+          created_at: timestamp,
+        },
+        {
+          session_id: sessionId,
+          student_name: studentName,
+          selected_index: selectedIndex,
+          is_correct: isCorrect,
+        },
+      ];
+
+      for (const payload of payloads) {
+        const { error } = await supabase.from("answers").insert(payload);
+        if (!error) return;
+        if (error.code === "PGRST205") {
+          answersTableMissingRef.current = true;
+          return;
+        }
+        if (isMissingColumnError(error)) continue;
+        console.error("Kunne ikke gemme svar i answers:", error);
+        return;
+      }
+    },
+    [sessionId, studentName, supabase]
+  );
 
   useEffect(() => {
     if (!sessionId) return;
@@ -132,7 +328,7 @@ function PlayScreen() {
       if (!isActive) return;
 
       if (runError) {
-        setLoadError("Kunne ikke hente lÃ¸bet.");
+        setLoadError("Kunne ikke hente løbet.");
         setIsLoading(false);
         return;
       }
@@ -142,7 +338,7 @@ function PlayScreen() {
         : [];
 
       if (parsedQuestions.length === 0) {
-        setLoadError("Dette lÃ¸b har ingen gyldige GPS-poster endnu.");
+        setLoadError("Dette løb har ingen gyldige GPS-poster endnu.");
       } else {
         setQuestions(parsedQuestions);
       }
@@ -177,21 +373,11 @@ function PlayScreen() {
           }
         }
 
-        if (studentName) {
-          const { error } = await supabase
-            .from("session_students")
-            .update({ lat, lng, last_updated: new Date().toISOString() })
-            .eq("session_id", sessionId)
-            .eq("student_name", studentName);
-
-          if (error) {
-            console.error("Kunne ikke opdatere elevposition:", error);
-          }
-        }
+        await syncParticipantLocation(lat, lng);
       },
       (err) => {
         console.error("GPS Error:", err);
-        setGpsError("GPS ikke tilgÃ¦ngelig. Tjek lokationstilladelser.");
+        setGpsError("GPS ikke tilgængelig. Tjek lokationstilladelser.");
       },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
     );
@@ -201,10 +387,9 @@ function PlayScreen() {
     questions,
     currentPostIndex,
     sessionId,
-    studentName,
     isFinished,
     showQuestion,
-    supabase,
+    syncParticipantLocation,
   ]);
 
   useEffect(() => {
@@ -244,29 +429,28 @@ function PlayScreen() {
     if (!current) return;
 
     const isCorrect = selectedIndex === current.correctIndex;
+    const postNumber = currentPostIndex + 1;
+    await insertAnswerRecord(
+      selectedIndex,
+      isCorrect,
+      postNumber,
+      current.text,
+      myLoc?.lat ?? null,
+      myLoc?.lng ?? null
+    );
 
     if (isCorrect) {
-      alert("KORREKT! ðŸŽ‰ Find nÃ¦ste post!");
+      alert("KORREKT! 🎉 Find næste post!");
       setShowQuestion(false);
       setDistance(null);
       if (currentPostIndex + 1 < questions.length) {
         setCurrentPostIndex((prev) => prev + 1);
       } else {
-        if (studentName && sessionId) {
-          const { error } = await supabase
-            .from("session_students")
-            .update({ finished_at: new Date() })
-            .eq("session_id", sessionId)
-            .eq("student_name", studentName);
-
-          if (error) {
-            console.error("Kunne ikke gemme mÃ¥lgangstid:", error);
-          }
-        }
+        await markParticipantFinished();
         setIsFinished(true);
       }
     } else {
-      alert("Forkert! PrÃ¸v igen âŒ");
+      alert("Forkert! Prøv igen ❌");
     }
   };
 
@@ -294,7 +478,7 @@ function PlayScreen() {
     () =>
       L.divIcon({
         className: "bg-transparent border-none",
-        html: '<div class="relative w-8 h-8"><div class="absolute inset-0 rounded-full bg-cyan-400/20 animate-ping"></div><div class="relative w-8 h-8 rounded-full bg-cyan-900 border-2 border-cyan-300 shadow-[0_0_18px_rgba(34,211,238,0.8)] flex items-center justify-center text-cyan-200 font-black">â—Ž</div></div>',
+        html: '<div class="relative w-8 h-8"><div class="absolute inset-0 rounded-full bg-cyan-400/20 animate-ping"></div><div class="relative w-8 h-8 rounded-full bg-cyan-900 border-2 border-cyan-300 shadow-[0_0_18px_rgba(34,211,238,0.8)] flex items-center justify-center text-cyan-200 font-black">◎</div></div>',
         iconSize: [32, 32],
         iconAnchor: [16, 16],
       }),
@@ -306,7 +490,7 @@ function PlayScreen() {
       <div className="flex h-screen items-center justify-center bg-[#050816] text-cyan-300">
         <div className="text-center">
           <Crosshair className="mx-auto mb-3 h-8 w-8 animate-pulse" />
-          <p className="text-sm uppercase tracking-widest">IndlÃ¦ser mission...</p>
+          <p className="text-sm uppercase tracking-widest">Indlæser mission...</p>
         </div>
       </div>
     );
@@ -364,7 +548,7 @@ function PlayScreen() {
               distance !== null && distance < 20 ? "text-green-400 animate-pulse" : "text-white"
             }`}
           >
-            {distance !== null ? `${distance}m` : "SÃ¸ger GPS..."}
+            {distance !== null ? `${distance}m` : "Søger GPS..."}
           </div>
         </div>
       </div>
@@ -375,7 +559,7 @@ function PlayScreen() {
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-cyan-400" />
             <div>
               <div className="mb-1 text-xs font-bold tracking-wider text-cyan-400 uppercase">
-                Besked fra LÃ¦reren
+                Besked fra Læreren
               </div>
               <div className="text-sm font-medium text-white">{latestMessage}</div>
             </div>
@@ -409,7 +593,7 @@ function PlayScreen() {
                   <div className="text-sm">
                     <div className="mb-1 flex items-center gap-2 font-semibold text-cyan-500">
                       <MapPin className="h-4 w-4" />
-                      NÃ¦ste post
+                      Næste post
                     </div>
                     {activeQuestion.text}
                   </div>
@@ -427,7 +611,7 @@ function PlayScreen() {
 
         <div className="pointer-events-none absolute right-4 bottom-6 left-4 z-[900] flex justify-center">
           <div className="rounded-full border border-cyan-400/30 bg-black/55 px-3 py-2 text-xs text-cyan-200 shadow-[0_0_20px_rgba(34,211,238,0.25)] backdrop-blur-sm">
-            Hold kursen mod den cyan markÃ¸r
+            Hold kursen mod den cyan markør
           </div>
         </div>
       </div>
@@ -444,7 +628,7 @@ function PlayScreen() {
               <div className="mb-5 overflow-hidden rounded-xl border border-white/15">
                 <img
                   src={activeQuestion.mediaUrl}
-                  alt="SpÃ¸rgsmÃ¥lsmedie"
+                  alt="Spørgsmålsmedie"
                   className="h-auto w-full object-cover"
                 />
               </div>
