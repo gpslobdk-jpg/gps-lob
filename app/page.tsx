@@ -1,25 +1,35 @@
-﻿"use client";
+"use client";
 
+import { Player } from "@lottiefiles/react-lottie-player";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ComponentType, FormEvent, useEffect, useState } from "react";
-import PlayerBase from "react-lottie-player";
-import runnerJson from "../public/runner.json";
+import { FormEvent, useEffect, useState } from "react";
+
 import { createClient } from "@/utils/supabase/client";
 
 const OnboardingModal = dynamic(() => import("@/components/OnboardingModal"), {
   ssr: false,
 });
 
-const Player = PlayerBase as unknown as ComponentType<{
-  animationData: unknown;
-  loop?: boolean;
-  play?: boolean;
-  style?: { width?: number; height?: number };
-  className?: string;
-}>;
+const STEP_CARDS = [
+  {
+    step: "Opret",
+    title: "Design dit løb på 60 sekunder.",
+    lottieUrl: "https://lottie.host/804d166c-5e4f-4d2a-9f5b-9d48937b4f2c/fFm2WlB6yE.json",
+  },
+  {
+    step: "Del",
+    title: "Scan og start - uden besvær.",
+    lottieUrl: "https://lottie.host/6b3a0423-f308-466d-965a-8b8a53e3d36e/P3uEw7Yv9U.json",
+  },
+  {
+    step: "Følg",
+    title: "Følg spændingen live.",
+    lottieUrl: "https://lottie.host/57a7e112-706f-4700-8438-95d852a4e402/p9nS6L2WkE.json",
+  },
+] as const;
 
 export default function Home() {
   const [code, setCode] = useState("");
@@ -70,100 +80,62 @@ export default function Home() {
   };
 
   return (
-    <div className="relative min-h-screen w-full bg-[#0a1128] font-sans text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(34,211,238,0.15),transparent_40%),radial-gradient(circle_at_80%_85%,rgba(168,85,247,0.2),transparent_46%)]" />
-      <div className="pointer-events-none absolute -left-24 top-8 h-64 w-64 rounded-full bg-cyan-500/10 blur-[120px]" />
-      <div className="pointer-events-none absolute -right-24 bottom-8 h-72 w-72 rounded-full bg-violet-500/15 blur-[140px]" />
+    <div className="relative min-h-screen w-full bg-orange-50/30 font-sans text-slate-800">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_12%,rgba(251,146,60,0.22),transparent_40%),radial-gradient(circle_at_85%_12%,rgba(245,158,11,0.16),transparent_35%),radial-gradient(circle_at_50%_85%,rgba(251,191,36,0.18),transparent_44%)]" />
+      <div className="pointer-events-none absolute -left-16 top-16 h-72 w-72 rounded-full bg-amber-300/35 blur-[120px]" />
+      <div className="pointer-events-none absolute -right-20 bottom-12 h-72 w-72 rounded-full bg-orange-200/45 blur-[130px]" />
 
       <OnboardingModal />
 
-      <main className="relative mx-auto min-h-screen w-full max-w-6xl flex flex-col items-center justify-center p-4 sm:p-6 overflow-y-auto gap-4 sm:gap-6 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: -50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 130, damping: 18 }}
-          className="w-full max-w-3xl"
-        >
-          <Image
-            src="/gpslogo.png"
-            alt="GPSLOB.DK Logo"
-            width={600}
-            height={300}
-            className="mx-auto w-full max-w-[200px] sm:max-w-[250px] object-contain drop-shadow-[0_0_16px_rgba(34,211,238,0.38)]"
-            priority
-          />
-        </motion.div>
-
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2, duration: 0.45, ease: "easeOut" }}
-          className="text-2xl sm:text-3xl md:text-5xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-400 to-purple-500 pb-1"
-        >
-          Stjerneløb med mobiltelefonen!
-        </motion.p>
-
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="text-cyan-100/80 text-base md:text-lg font-light tracking-wide mt-1 text-center"
-        >
-          Digitalt orienteringsløb og skattejagt for hele klassen. Byg på 60
-          sekunder, slip dem løs og følg med live.
-        </motion.p>
-
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.28, duration: 0.5, ease: "easeOut" }}
-          className="relative flex h-40 w-40 items-center justify-center sm:h-56 sm:w-56"
-        >
-          <div className="pointer-events-none absolute h-32 w-32 rounded-full bg-cyan-500/20 blur-3xl sm:h-48 sm:w-48" />
+      <main className="relative mx-auto w-full max-w-7xl px-6 py-10 md:px-10 md:py-14">
+        <section className="grid items-start gap-10 lg:grid-cols-[1.15fr_0.85fr]">
           <motion.div
-            className="relative z-10 scale-[0.82] sm:scale-100"
-            animate={{ y: [-10, 10, -10] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: "easeOut" }}
+            className="space-y-6"
           >
-            <Player
-              animationData={runnerJson}
-              loop
-              play
-              className="w-40 h-40 sm:w-56 sm:h-56 object-contain"
+            <Image
+              src="/gpslogo.png"
+              alt="GPSLOB.DK Logo"
+              width={620}
+              height={310}
+              className="w-full max-w-[230px] object-contain drop-shadow-[0_10px_24px_rgba(251,146,60,0.28)] md:max-w-[270px]"
+              priority
             />
-          </motion.div>
-        </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.55, ease: "easeOut" }}
-          className="w-full max-w-[380px] mx-auto space-y-2"
-        >
-          <motion.div
-            whileHover={{
-              scale: 1.05,
-              boxShadow:
-                "0px 0px 28px rgba(34,211,238,0.7), 0px 0px 44px rgba(168,85,247,0.35)",
-            }}
-            whileTap={{ scale: 0.99 }}
-            className="rounded-2xl"
+            <h1 className="text-4xl font-black tracking-tight text-slate-900 md:text-6xl">
+              Eventyret starter her 🗺️
+            </h1>
+
+            <p className="max-w-2xl text-base leading-relaxed text-slate-800 md:text-xl">
+              GPSLOB.DK gør det legende let at skabe uforglemmelige oplevelser i det fri. For venner, familier og virksomheder.
+            </p>
+
+            <div className="flex w-full max-w-xl flex-col gap-4 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => void handleGoogleLogin()}
+                disabled={isLoggingIn}
+                className="w-full rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 px-7 py-4 text-lg font-black tracking-wide text-white shadow-xl shadow-orange-300/60 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto animate-pulse"
+              >
+                {isLoggingIn ? "ÅBNER..." : "Kom i gang"}
+              </button>
+            </div>
+          </motion.div>
+
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08, duration: 0.45, ease: "easeOut" }}
+            className="rounded-3xl border border-orange-100 bg-white/95 p-6 shadow-xl shadow-orange-200/50"
           >
-            <button
-              type="button"
-              onClick={() => void handleGoogleLogin()}
-              disabled={isLoggingIn}
-              className="w-full py-4 px-6 rounded-2xl font-extrabold text-lg md:text-xl text-white bg-gradient-to-r from-cyan-500 to-blue-600 border border-cyan-300/50 shadow-[0_0_20px_rgba(34,211,238,0.6)] hover:shadow-[0_0_35px_rgba(34,211,238,0.9)] transition-all duration-300 uppercase tracking-wider"
-            >
-              {isLoggingIn ? "LOGGER IND..." : "OPRET NYT LØB NU"}
-            </button>
-          </motion.div>
+            <h2 className="text-2xl font-black text-slate-900">Har du en kode?</h2>
+            <p className="mt-2 text-sm leading-relaxed text-slate-700">
+              Indtast koden og hop direkte med i løbet.
+            </p>
 
-          <section className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md sm:p-5">
-            <h2 className="text-lg font-semibold text-slate-100 sm:text-xl">
-              Har du en kode?
-            </h2>
-            <form onSubmit={handleSubmit} className="mt-2 space-y-2">
+            <form onSubmit={handleSubmit} className="mt-5 space-y-3">
               <input
                 value={code}
                 onChange={(event) => {
@@ -174,31 +146,50 @@ export default function Home() {
                 pattern="[0-9]*"
                 maxLength={5}
                 placeholder="12345"
-                className="w-full rounded-xl border border-white/20 bg-slate-950/60 px-4 py-2.5 text-center text-2xl font-bold tracking-[0.32em] text-cyan-200 outline-none placeholder:tracking-[0.2em] placeholder:text-slate-500 focus:border-cyan-300/75 focus:shadow-[0_0_14px_rgba(34,211,238,0.45)]"
+                className="w-full rounded-2xl border border-orange-200 bg-orange-50/60 px-4 py-3 text-center text-2xl font-black tracking-[0.35em] text-slate-800 outline-none placeholder:tracking-[0.22em] placeholder:text-slate-400 focus:border-orange-400/70 focus:ring-2 focus:ring-orange-300/50"
               />
 
               <motion.button
                 type="submit"
                 disabled={code.length !== 5}
-                whileHover={
-                  code.length === 5
-                    ? {
-                        scale: 1.03,
-                        boxShadow:
-                          "0px 0px 22px rgba(34,211,238,0.58), 0px 0px 34px rgba(168,85,247,0.3)",
-                      }
-                    : undefined
-                }
+                whileHover={code.length === 5 ? { scale: 1.02 } : undefined}
                 whileTap={code.length === 5 ? { scale: 0.99 } : undefined}
-                className="w-full rounded-xl border border-cyan-300/45 bg-cyan-400/20 px-4 py-2.5 text-base font-semibold text-cyan-50 shadow-[0_0_12px_rgba(34,211,238,0.35)] transition hover:bg-cyan-400/35 disabled:cursor-not-allowed disabled:opacity-45"
+                className="w-full rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-3 text-base font-bold text-white shadow-lg shadow-orange-300/55 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 Start løb
               </motion.button>
             </form>
-          </section>
-        </motion.div>
+          </motion.section>
+        </section>
+
+        <section className="mt-16">
+          <div className="mb-6 text-center">
+            <p className="text-xs font-bold tracking-[0.2em] text-orange-500 uppercase">3 Enkle Steps</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900 md:text-4xl">
+              Opret, del og følg turen live
+            </h2>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-3">
+            {STEP_CARDS.map((card, index) => (
+              <motion.article
+                key={card.step}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.4 }}
+                transition={{ delay: index * 0.08, duration: 0.45, ease: "easeOut" }}
+                className="rounded-3xl border border-orange-100 bg-white p-6 shadow-xl shadow-orange-200/50"
+              >
+                <div className="mb-5 flex h-40 items-center justify-center rounded-2xl bg-orange-50">
+                  <Player autoplay loop src={card.lottieUrl} style={{ width: 170, height: 170 }} />
+                </div>
+                <p className="text-xs font-bold tracking-[0.18em] text-orange-500 uppercase">{card.step}</p>
+                <h3 className="mt-2 text-xl font-black text-slate-900">{card.title}</h3>
+              </motion.article>
+            ))}
+          </div>
+        </section>
       </main>
     </div>
   );
 }
-
