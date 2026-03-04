@@ -1,13 +1,13 @@
-"use client";
+﻿"use client";
 
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ComponentType, FormEvent, useState } from "react";
 import PlayerBase from "react-lottie-player";
 import runnerJson from "../public/runner.json";
+import { createClient } from "@/utils/supabase/client";
 
 const OnboardingModal = dynamic(() => import("@/components/OnboardingModal"), {
   ssr: false,
@@ -23,7 +23,24 @@ const Player = PlayerBase as unknown as ComponentType<{
 
 export default function Home() {
   const [code, setCode] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const router = useRouter();
+
+  const handleGoogleLogin = async () => {
+    try {
+      setIsLoggingIn(true);
+      const supabase = createClient();
+      await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/api/auth/callback`,
+        },
+      });
+    } catch (error) {
+      console.error("Google login fejlede:", error);
+      setIsLoggingIn(false);
+    }
+  };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -65,7 +82,7 @@ export default function Home() {
           transition={{ delay: 0.2, duration: 0.45, ease: "easeOut" }}
           className="text-2xl sm:text-3xl md:text-5xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-400 to-purple-500 pb-1"
         >
-          Stjerneløb med mobiltelefonen!
+          StjernelÃ¸b med mobiltelefonen!
         </motion.p>
 
         <motion.p
@@ -74,7 +91,7 @@ export default function Home() {
           transition={{ delay: 0.3 }}
           className="text-cyan-100/80 text-base md:text-lg font-light tracking-wide mt-1 text-center"
         >
-          Digitalt orienteringsløb og skattejagt for hele klassen. Byg på 60 sekunder, slip dem løs og følg med live.
+          Digitalt orienteringslÃ¸b og skattejagt for hele klassen. Byg pÃ¥ 60 sekunder, slip dem lÃ¸s og fÃ¸lg med live.
         </motion.p>
 
         <motion.div
@@ -113,12 +130,14 @@ export default function Home() {
             whileTap={{ scale: 0.99 }}
             className="rounded-2xl"
           >
-            <Link
-              href="/login"
+                        <button
+              type="button"
+              onClick={() => void handleGoogleLogin()}
+              disabled={isLoggingIn}
               className="w-full py-4 px-6 rounded-2xl font-extrabold text-lg md:text-xl text-white bg-gradient-to-r from-cyan-500 to-blue-600 border border-cyan-300/50 shadow-[0_0_20px_rgba(34,211,238,0.6)] hover:shadow-[0_0_35px_rgba(34,211,238,0.9)] transition-all duration-300 uppercase tracking-wider"
             >
-              OPRET NYT LØB NU
-            </Link>
+              {isLoggingIn ? "LOGGER IND..." : "OPRET NYT LØB NU"}
+            </button>
           </motion.div>
 
           <section className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md sm:p-5">
@@ -154,7 +173,7 @@ export default function Home() {
                 whileTap={code.length === 5 ? { scale: 0.99 } : undefined}
                 className="w-full rounded-xl border border-cyan-300/45 bg-cyan-400/20 px-4 py-2.5 text-base font-semibold text-cyan-50 shadow-[0_0_12px_rgba(34,211,238,0.35)] transition hover:bg-cyan-400/35 disabled:cursor-not-allowed disabled:opacity-45"
               >
-                Start løb
+                Start lÃ¸b
               </motion.button>
             </form>
           </section>
@@ -163,3 +182,4 @@ export default function Home() {
     </div>
   );
 }
+
