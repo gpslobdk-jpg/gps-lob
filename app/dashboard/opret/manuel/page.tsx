@@ -230,7 +230,7 @@ export default function OpretLoebPage() {
             lng: null,
           } satisfies Question;
         })
-        .filter((question): question is Question => question !== null);
+        .filter((q): q is Question => q !== null);
 
       if (mappedQuestions.length > 0) {
         setQuestions(mappedQuestions);
