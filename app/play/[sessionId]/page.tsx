@@ -183,7 +183,7 @@ function PlayScreen() {
   const [isFinished, setIsFinished] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [gpsError, setGpsError] = useState("");
+  const [gpsError, setGpsError] = useState<string | null>(null);
   const [latestMessage, setLatestMessage] = useState<string | null>(null);
   const [resumeMessage, setResumeMessage] = useState<string | null>(null);
   const [participantId, setParticipantId] = useState<string | null>(
@@ -650,7 +650,7 @@ function PlayScreen() {
 
     const watchId = navigator.geolocation.watchPosition(
       async (pos) => {
-        setGpsError((prev) => (prev ? "" : prev));
+        setGpsError(null);
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
         setMyLoc({ lat, lng });
@@ -669,7 +669,9 @@ function PlayScreen() {
       },
       (err) => {
         console.error("GPS Error:", err);
-        setGpsError("GPS ikke tilgængelig. Tjek lokationstilladelser.");
+        if (err.code === err.PERMISSION_DENIED || err.code === 1) {
+          setGpsError("permission_denied");
+        }
       },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
     );
@@ -800,6 +802,39 @@ function PlayScreen() {
     );
   }
 
+  if (gpsError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-red-950 via-[#2a0606] to-[#130303] px-6 text-white">
+        <div className="w-full max-w-2xl rounded-3xl border border-red-400/40 bg-red-900/20 p-8 shadow-[0_0_40px_rgba(239,68,68,0.25)] backdrop-blur-md">
+          <div className="mb-4 flex items-center gap-3 text-red-200">
+            <AlertCircle className="h-7 w-7" />
+            <h1 className="text-2xl font-black md:text-3xl">Hov! Manglende GPS-tilladelse 🛑</h1>
+          </div>
+          <p className="mb-5 text-red-50">
+            Du har blokeret for, at gpslob.dk må se din lokation. Uden GPS kan vi ikke se, hvornår
+            du finder posterne!
+          </p>
+          <p className="mb-3 text-sm font-semibold tracking-wide text-red-200 uppercase">
+            Sådan løser du det:
+          </p>
+          <ol className="list-decimal space-y-2 pl-5 text-sm text-red-100">
+            <li>Tryk på &apos;Aa&apos; eller hængelåsen oppe i adressefeltet i din browser.</li>
+            <li>Find &apos;Lokalitet&apos; eller &apos;Websiteindstillinger&apos;.</li>
+            <li>Skift til &apos;Tillad&apos;.</li>
+            <li>Genindlæs siden.</li>
+          </ol>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-7 rounded-xl border border-red-200/60 bg-red-100 px-5 py-3 font-bold text-red-900 transition-colors hover:bg-white"
+          >
+            Jeg har givet tilladelse - Prøv igen
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (isFinished) {
     return (
       <div className="relative flex h-screen w-full flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-amber-100 via-yellow-300 to-orange-400 px-6 text-slate-900">
@@ -868,15 +903,6 @@ function PlayScreen() {
           <div className="flex items-start gap-3 rounded-r-xl border-l-4 border-emerald-400 bg-emerald-900/90 p-4 shadow-[0_0_20px_rgba(16,185,129,0.35)] backdrop-blur-md">
             <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
             <div className="text-sm font-medium text-white">{resumeMessage}</div>
-          </div>
-        </div>
-      ) : null}
-
-      {gpsError ? (
-        <div className="absolute top-28 right-4 left-4 z-[1000] rounded-xl border border-amber-400/30 bg-amber-500/15 px-4 py-3 text-sm text-amber-100">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4" />
-            {gpsError}
           </div>
         </div>
       ) : null}
