@@ -78,7 +78,7 @@ function normalizeMagicPosts(rawPosts: unknown[]): MagicPost[] {
         correctAnswer,
       } satisfies MagicPost;
     })
-    .filter((post): post is MagicPost => post !== null);
+    .filter((post): post is NonNullable<typeof post> => post !== null);
 
   return normalized.slice(0, 6);
 }
