@@ -192,7 +192,7 @@ export default function OpretLoebPage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mappedQuestions = (parsed as any[])
-        .map((rawItem, index) => {
+        .map((rawItem, index): Question | null => {
           if (!rawItem || typeof rawItem !== "object") return null;
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const item = rawItem as any;
@@ -204,12 +204,15 @@ export default function OpretLoebPage() {
             aiPrompt: item.aiPrompt || "",
             mediaUrl: "",
             answers: Array.isArray(item.options) ? item.options : ["", "", "", ""],
-            correctIndex: item.options && item.correctAnswer ? item.options.indexOf(item.correctAnswer) : 0,
-            lat: null,
-            lng: null,
-          };
+            correctIndex:
+              typeof item.correctAnswer === "string" && Array.isArray(item.options)
+                ? item.options.indexOf(item.correctAnswer)
+                : 0,
+            lat: null as number | null,
+            lng: null as number | null,
+          } as Question;
         })
-        .filter((q): q is Question => q !== null) as Question[];
+        .filter((q): q is Question => q !== null);
 
       if (mappedQuestions.length > 0) {
         setQuestions(mappedQuestions);
