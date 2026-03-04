@@ -74,9 +74,12 @@ type LiveStudentLocation = {
 };
 
 type RunQuestion = {
+  type?: "multiple_choice" | "ai_image";
   lat?: number | string | null;
   lng?: number | string | null;
   text?: string | null;
+  aiPrompt?: string | null;
+  ai_prompt?: string | null;
 };
 
 type AnswerRow = {

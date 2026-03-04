@@ -40,7 +40,9 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
 }
 
 type Question = {
+  type: "multiple_choice" | "ai_image";
   text: string;
+  aiPrompt?: string;
   answers: string[];
   correctIndex: number;
   lat: number;
@@ -161,8 +163,18 @@ function parseQuestion(raw: unknown): Question | null {
   while (answers.length < 4) answers.push("");
 
   const correctIndex = Number(candidate.correctIndex);
+  const type = candidate.type === "ai_image" ? "ai_image" : "multiple_choice";
+  const aiPrompt =
+    typeof candidate.aiPrompt === "string"
+      ? candidate.aiPrompt
+      : typeof candidate.ai_prompt === "string"
+        ? candidate.ai_prompt
+        : "";
+
   return {
+    type,
     text: typeof candidate.text === "string" ? candidate.text : "",
+    aiPrompt: aiPrompt || undefined,
     answers,
     correctIndex:
       Number.isInteger(correctIndex) && correctIndex >= 0 && correctIndex <= 3

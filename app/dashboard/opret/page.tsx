@@ -129,7 +129,9 @@ export const SUBJECT_TOPICS: Record<string, string[]> = {
 
 type Question = {
   id: number;
+  type: "multiple_choice" | "ai_image";
   text: string;
+  aiPrompt: string;
   mediaUrl: string;
   answers: [string, string, string, string];
   correctIndex: number;
@@ -144,7 +146,9 @@ type MapCenter = {
 
 const createQuestion = (): Question => ({
   id: Date.now() + Math.floor(Math.random() * 100000),
+  type: "multiple_choice",
   text: "",
+  aiPrompt: "",
   mediaUrl: "",
   answers: ["", "", "", ""],
   correctIndex: 0,
@@ -257,11 +261,25 @@ export default function OpretLoebPage() {
       if (data.questions && data.questions.length > 0) {
         const formattedQuestions: Question[] = data.questions.map(
           (
-            q: { text: string; answers: string[]; correctIndex: number },
+            q: {
+              text: string;
+              answers: string[];
+              correctIndex: number;
+              type?: string;
+              aiPrompt?: string;
+              ai_prompt?: string;
+            },
             index: number
           ) => ({
             id: Date.now() + index,
+            type: q.type === "ai_image" ? "ai_image" : "multiple_choice",
             text: q.text,
+            aiPrompt:
+              typeof q.aiPrompt === "string"
+                ? q.aiPrompt
+                : typeof q.ai_prompt === "string"
+                  ? q.ai_prompt
+                  : "",
             answers: [
               q.answers?.[0] ?? "",
               q.answers?.[1] ?? "",
@@ -331,12 +349,15 @@ export default function OpretLoebPage() {
     const normalizedQuestions = questions
       .map((q) => ({
         ...q,
+        type: q.type === "ai_image" ? "ai_image" : "multiple_choice",
         text: q.text.trim(),
+        aiPrompt: q.aiPrompt.trim(),
         answers: q.answers.map((answer) => answer.trim()) as Question["answers"],
       }))
       .filter(
         (q) =>
           q.text.length > 0 ||
+          q.aiPrompt.length > 0 ||
           q.answers.some((answer) => answer.length > 0) ||
           q.lat !== null ||
           q.lng !== null
@@ -347,11 +368,15 @@ export default function OpretLoebPage() {
       return;
     }
 
-    const hasIncompleteQuestions = normalizedQuestions.some(
-      (q) => !q.text || q.answers.some((answer) => !answer)
-    );
+    const hasIncompleteQuestions = normalizedQuestions.some((q) => {
+      if (!q.text) return true;
+      if (q.type === "ai_image") return !q.aiPrompt;
+      return q.answers.some((answer) => !answer);
+    });
     if (hasIncompleteQuestions) {
-      alert("Udfyld spørgsmålstekst og alle fire svarmuligheder.");
+      alert(
+        "Udfyld postens tekst. Multiple choice kræver fire svarmuligheder, og AI-billede kræver AI-instruks."
+      );
       return;
     }
 

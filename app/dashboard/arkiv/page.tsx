@@ -20,7 +20,10 @@ const poppins = Poppins({
 
 type RunQuestion = {
   id?: number;
+  type?: "multiple_choice" | "ai_image";
   text?: string;
+  aiPrompt?: string;
+  ai_prompt?: string;
   answers?: string[];
   correctIndex?: number;
   lat?: number | null;
