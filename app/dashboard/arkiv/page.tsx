@@ -179,7 +179,7 @@ export default function ArkivPage() {
         </h1>
 
         {/* TOP PANEL: SØGNING OG FILTER */}
-        <div className="mt-8 mb-10 flex max-w-5xl flex-col gap-4 md:flex-row">
+        <div className="mt-8 mb-10 grid max-w-5xl grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_17rem] md:items-end">
           {/* SØGEFELT */}
           <div className="relative flex-1">
             <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-white/40">
@@ -194,36 +194,48 @@ export default function ArkivPage() {
             />
           </div>
 
-          {/* FAG DROPDOWN */}
-          <div className="relative w-full shrink-0 md:w-64">
-            <select
-              value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
-              className="w-full cursor-pointer appearance-none rounded-2xl border border-white/10 bg-[#131b35] py-4 pr-12 pl-6 font-medium text-white shadow-[0_0_15px_rgba(168,85,247,0.15)] transition-colors hover:bg-[#1a2442] focus:ring-2 focus:ring-purple-500 focus:outline-none"
+          {/* KATEGORIER / FAG DROPDOWN */}
+          <div className="w-full">
+            <p className="mb-1 px-1 text-[11px] text-slate-400">
+              Er du underviser? Filtrér efter fag
+            </p>
+            <label
+              htmlFor="subject-filter"
+              className="mb-2 block px-1 text-xs font-semibold tracking-wide text-white/70"
             >
-              {ALL_SUBJECTS.map((subj) => (
-                <option key={subj} value={subj} className="bg-[#0a1128] py-2">
-                  {subj}
-                </option>
-              ))}
-            </select>
-            {/* Custom pil for at fjerne browserens standard-pil */}
-            <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-purple-400">
-              <svg
-                width="14"
-                height="8"
-                viewBox="0 0 14 8"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
+              Kategorier / Fag
+            </label>
+            <div className="relative">
+              <select
+                id="subject-filter"
+                value={selectedSubject}
+                onChange={(e) => setSelectedSubject(e.target.value)}
+                className="w-full cursor-pointer appearance-none rounded-2xl border border-white/10 bg-[#131b35] py-4 pr-12 pl-6 font-medium text-white shadow-[0_0_15px_rgba(168,85,247,0.15)] transition-colors hover:bg-[#1a2442] focus:ring-2 focus:ring-purple-500 focus:outline-none"
               >
-                <path
-                  d="M1 1L7 7L13 1"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+                {ALL_SUBJECTS.map((subj) => (
+                  <option key={subj} value={subj} className="bg-[#0a1128] py-2">
+                    {subj}
+                  </option>
+                ))}
+              </select>
+              {/* Custom pil for at fjerne browserens standard-pil */}
+              <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-purple-400">
+                <svg
+                  width="14"
+                  height="8"
+                  viewBox="0 0 14 8"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M1 1L7 7L13 1"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
             </div>
           </div>
         </div>
