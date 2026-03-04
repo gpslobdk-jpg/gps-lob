@@ -112,6 +112,12 @@ const getDeleteErrorMessage = (error: unknown) => {
     return `${base} Mangler rettigheder (RLS). Tjek DELETE-policy for løb.`;
   }
   if (dbError.code === "23503") {
+    const detailSource = `${dbError.details ?? ""} ${dbError.message ?? ""}`;
+    const tableMatch = detailSource.match(/table\s+"([^"]+)"/i);
+    const tableName = tableMatch?.[1];
+    if (tableName) {
+      return `${base} Der er stadig tilknyttede data i tabellen "${tableName}" (foreign key-restriktion).`;
+    }
     return `${base} Der er stadig tilknyttede data (foreign key-restriktion).`;
   }
   if (dbError.code === "PGRST301") {
@@ -197,7 +203,14 @@ export default function ArkivPage() {
         .filter((id) => id.length > 0);
 
       if (sessionIds.length > 0) {
-        for (const tableName of ["participants", "answers"] as const) {
+        // Ryd op i både nye og ældre live-tabeller, før live_sessions slettes.
+        for (const tableName of [
+          "participants",
+          "answers",
+          "session_students",
+          "session_messages",
+          "messages",
+        ] as const) {
           const { error } = await supabase.from(tableName).delete().in("session_id", sessionIds);
           if (error && !isMissingRelationOrColumnError(error)) {
             throw error;
