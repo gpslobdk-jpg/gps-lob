@@ -201,7 +201,7 @@ export default function LiveLobbyPage() {
 
     const addLiveAnswer = (row: AnswerRow) => {
       const parsed = toLiveAnswer(row);
-      if (!parsed) return;
+      if (!parsed || parsed.isCorrect !== true) return;
       setLiveAnswers((prev) => prependAnswer(prev, parsed));
     };
 
@@ -322,7 +322,7 @@ export default function LiveLobbyPage() {
       } else if (answersData) {
         const parsed = (answersData as AnswerRow[])
           .map((row) => toLiveAnswer(row))
-          .filter((row): row is LiveAnswer => row !== null)
+          .filter((row): row is LiveAnswer => row !== null && row.isCorrect === true)
           .sort((a, b) => {
             const aTs = a.createdAt ? new Date(a.createdAt).getTime() : 0;
             const bTs = b.createdAt ? new Date(b.createdAt).getTime() : 0;

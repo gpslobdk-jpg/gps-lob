@@ -871,16 +871,16 @@ function PlayScreen() {
 
     const isCorrect = selectedIndex === current.correctIndex;
     const postNumber = currentPostIndex + 1;
-    await insertAnswerRecord(
-      selectedIndex,
-      isCorrect,
-      postNumber,
-      current.text,
-      myLoc?.lat ?? null,
-      myLoc?.lng ?? null
-    );
 
     if (isCorrect) {
+      await insertAnswerRecord(
+        selectedIndex,
+        true,
+        postNumber,
+        current.text,
+        myLoc?.lat ?? null,
+        myLoc?.lng ?? null
+      );
       alert("KORREKT! 🎉 Find næste post!");
       setShowQuestion(false);
       setDistance(null);
