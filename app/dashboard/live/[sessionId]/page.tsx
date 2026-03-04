@@ -540,7 +540,7 @@ export default function LiveLobbyPage() {
 
     if (error) {
       console.error("Kunne ikke fjerne elev fra løbet:", error);
-      alert("Kunne ikke fjerne eleven fra løbet.");
+      alert("Kunne ikke fjerne deltageren fra løbet.");
       return;
     }
 
@@ -640,7 +640,7 @@ export default function LiveLobbyPage() {
 
             <section className="mx-auto mt-10 w-full max-w-5xl">
               <h2 className={`text-2xl font-black tracking-wide text-cyan-100 uppercase ${rubik.className}`}>
-                ELEVER KLAR: {students.length}
+                DELTAGERE KLAR: {students.length}
               </h2>
 
               <div className="mt-4 flex flex-wrap gap-3">
@@ -660,7 +660,7 @@ export default function LiveLobbyPage() {
                 </AnimatePresence>
 
                 {!isLoading && students.length === 0 ? (
-                  <p className="text-sm text-white/60">Ingen elever har joinet endnu.</p>
+                  <p className="text-sm text-white/60">Ingen deltagere har joinet endnu.</p>
                 ) : null}
               </div>
             </section>
@@ -801,7 +801,7 @@ export default function LiveLobbyPage() {
               <h2 className={`text-xl font-black tracking-widest text-cyan-400 uppercase ${rubik.className}`}>
                 Live Overvågning
               </h2>
-              <p className="text-sm text-white/50">{studentLocations.length} elever online</p>
+              <p className="text-sm text-white/50">{studentLocations.length} deltagere online</p>
               {!hasParticipantsTable ? (
                 <p className="mt-1 text-xs text-amber-300">`participants` mangler - bruger fallback.</p>
               ) : null}
@@ -864,7 +864,7 @@ export default function LiveLobbyPage() {
               <h3
                 className={`bg-gradient-to-r from-rose-300 to-orange-300 bg-clip-text text-lg font-bold tracking-widest text-transparent uppercase ${rubik.className}`}
               >
-                Aktive Elever
+                Aktive Deltagere
               </h3>
               {!hasParticipantsTable ? (
                 <p className="mt-2 text-xs text-amber-200">
@@ -875,7 +875,7 @@ export default function LiveLobbyPage() {
 
             <div className="max-h-52 space-y-2 overflow-y-auto border-b border-white/10 p-4">
               {activeStudents.length === 0 ? (
-                <p className="text-sm text-white/50">Ingen aktive elever lige nu.</p>
+                <p className="text-sm text-white/50">Ingen aktive deltagere lige nu.</p>
               ) : (
                 activeStudents.map((student) => (
                   <div
@@ -956,7 +956,7 @@ export default function LiveLobbyPage() {
               <h3
                 className={`bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-lg font-bold tracking-widest text-transparent uppercase ${rubik.className}`}
               >
-                Klassechat
+                Holdchat
               </h3>
             </div>
 
@@ -986,7 +986,7 @@ export default function LiveLobbyPage() {
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Skriv besked til klassen..."
+                  placeholder="Skriv besked til holdet..."
                   className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm transition-colors focus:border-cyan-500/50 focus:outline-none"
                 />
                 <button

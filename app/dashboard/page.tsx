@@ -177,14 +177,14 @@ export default function DashboardPage() {
                 ? "TJEKKER AKTIV SESSION..."
                 : hasActiveSession
                   ? "FORTSÆT DER, HVOR DU SLAP."
-                  : "FØLG KLASSEN I REALTID."}
+                  : "FØLG HOLDET I REALTID."}
             </p>
             <p className="text-sm leading-relaxed text-white/70">
               {isCheckingLiveSession
                 ? "Vi finder automatisk en aktiv session til dig."
                 : hasActiveSession
                   ? "Hop direkte tilbage til livekort, chat og svarflow uden at miste overblikket."
-                  : "Se elevernes positioner bevæge sig på kortet og modtag deres svar live."}
+                  : "Se deltagernes positioner bevæge sig på kortet og modtag deres svar live."}
             </p>
             {!isCheckingLiveSession && !hasActiveSession && liveHint ? (
               <p className="mt-4 text-xs font-semibold text-amber-200">{liveHint}</p>
@@ -211,7 +211,7 @@ export default function DashboardPage() {
               GENBRUG OG DEL.
             </p>
             <p className="text-sm leading-relaxed text-white/70">
-              Find alle dine tidligere løb, rediger dem, eller del koden med en ny klasse.
+              Find alle dine tidligere løb, rediger dem, eller del koden med en ny gruppe.
             </p>
             <div className="absolute right-0 bottom-0 left-0 h-1.5 bg-gradient-to-r from-purple-400 to-pink-500 shadow-[0_-5px_20px_rgba(192,132,252,0.5)]" />
           </article>
@@ -220,4 +220,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

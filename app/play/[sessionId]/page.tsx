@@ -991,7 +991,9 @@ function PlayScreen() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-red-950 via-[#2a0606] to-[#130303] px-6 text-white">
         <div className="w-full max-w-2xl rounded-3xl border border-red-400/40 bg-red-900/20 p-8 text-center shadow-[0_0_40px_rgba(239,68,68,0.25)] backdrop-blur-md">
-          <h1 className="text-3xl font-black md:text-4xl">🚫 Du er blevet fjernet fra løbet af læreren.</h1>
+          <h1 className="text-3xl font-black md:text-4xl">
+            🚫 Du er blevet fjernet fra løbet af arrangøren.
+          </h1>
         </div>
       </div>
     );
@@ -1114,7 +1116,7 @@ function PlayScreen() {
             KÆMPE TILLYKKE, {celebrationName}! I er GPS MESTRE!
           </p>
           <div className="rounded-xl border border-white/20 bg-black/35 px-4 py-3 text-sm font-medium text-slate-100">
-            Løbet er slut. Kig op på lærerens skærm og se den store podie-fejring!
+            Løbet er slut. Kig op på arrangørens skærm og se den store podie-fejring!
           </div>
         </div>
       </div>
@@ -1162,7 +1164,7 @@ function PlayScreen() {
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-cyan-400" />
             <div>
               <div className="mb-1 text-xs font-bold tracking-wider text-cyan-400 uppercase">
-                Besked fra Læreren
+                Besked fra Arrangøren
               </div>
               <div className="text-sm font-medium text-white">{latestMessage}</div>
             </div>
@@ -1181,7 +1183,7 @@ function PlayScreen() {
 
       <div className="pointer-events-none absolute right-4 bottom-20 left-4 z-[950] flex justify-center">
         <div className="w-full max-w-xl rounded-xl border border-amber-300/60 bg-gradient-to-r from-amber-200 via-orange-100 to-amber-100 px-4 py-2 text-center text-xs font-bold text-amber-900 shadow-[0_8px_24px_rgba(251,191,36,0.35)]">
-          💡 Tip: Hold skærmen tændt mens du går, så læreren kan se dig på kortet!
+          💡 Tip: Hold skærmen tændt mens du går, så arrangøren kan se dig på kortet!
         </div>
       </div>
 

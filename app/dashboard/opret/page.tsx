@@ -166,7 +166,7 @@ export default function OpretLoebPage() {
   const [showAIModal, setShowAIModal] = useState(false);
   const [aiSubject, setAiSubject] = useState("");
   const [aiTopic, setAiTopic] = useState("");
-  const [aiGrade, setAiGrade] = useState("Mellemtrin (4.-6. klasse)");
+  const [aiGrade, setAiGrade] = useState("Mellemtrin (4.-6. trin)");
   const [aiCount, setAiCount] = useState(5);
   const [aiPrompt, setAiPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -446,7 +446,7 @@ export default function OpretLoebPage() {
               Opret Nyt Løb
             </h1>
             <p className="mt-2 text-sm text-white/65">
-              Byg dit forløb, marker poster og gør klassen klar på få minutter.
+              Byg dit forløb, marker poster og gør holdet klar på få minutter.
             </p>
 
             <div className="mt-6 mb-6 rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md">
@@ -609,11 +609,11 @@ export default function OpretLoebPage() {
                         updateQuestion(question.id, { aiPrompt: event.target.value })
                       }
                       rows={4}
-                      placeholder="Hvad skal eleverne tage billede af? F.eks. 'Find et egetræ' eller 'Tag et billede af noget rundt og blåt'. AI'en vil godkende billedet automatisk ud fra dette."
+                      placeholder="Hvad skal deltagerne tage billede af? F.eks. 'Find et egetræ' eller 'Tag et billede af noget rundt og blåt'. AI'en vil godkende billedet automatisk ud fra dette."
                       className="w-full rounded-xl border border-amber-200/35 bg-black/25 px-4 py-3 text-sm text-amber-50 placeholder:text-amber-100/55 focus:outline-none focus:ring-2 focus:ring-amber-300/60"
                     />
                     <p className="mt-2 text-xs text-amber-100/80">
-                      Skriv en tydelig dommer-instruks, så AI&apos;en kan vurdere elevens foto præcist.
+                      Skriv en tydelig dommer-instruks, så AI&apos;en kan vurdere deltagerens foto præcist.
                     </p>
                   </div>
                 ) : (
@@ -737,16 +737,16 @@ export default function OpretLoebPage() {
 
               <div>
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-white/50">
-                  Klassetrin
+                  Niveau
                 </label>
                 <select
                   value={aiGrade}
                   onChange={(e) => setAiGrade(e.target.value)}
                   className="w-full rounded-xl border border-white/10 bg-black/20 p-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
                 >
-                  <option>Mellemtrin (4.-6. klasse)</option>
-                  <option>Indskoling (0.-3. klasse)</option>
-                  <option>Udskoling (7.-9. klasse)</option>
+                  <option>Mellemtrin (4.-6. trin)</option>
+                  <option>Indskoling (0.-3. trin)</option>
+                  <option>Udskoling (7.-9. trin)</option>
                 </select>
               </div>
 
