@@ -57,10 +57,72 @@ type SupabaseErrorLike = {
   message?: string;
 };
 
+type StoredActiveParticipant = {
+  participantId: string;
+  sessionId: string;
+  studentName: string;
+  savedAt: string;
+};
+
+type ParticipantRow = {
+  id?: string | null;
+  session_id?: string | null;
+  student_name?: string | null;
+  lat?: number | string | null;
+  lng?: number | string | null;
+  finished_at?: string | null;
+};
+
+type AnswerProgressRow = {
+  post_index?: number | string | null;
+  question_index?: number | string | null;
+  is_correct?: boolean | null;
+};
+
+const ACTIVE_PARTICIPANT_STORAGE_KEY = "gpslob_active_participant";
+
 function isMissingColumnError(error: SupabaseErrorLike | null | undefined) {
   if (!error) return false;
   if (error.code === "42703" || error.code === "PGRST204") return true;
   return /column/i.test(error.message ?? "");
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function readStoredActiveParticipant(): StoredActiveParticipant | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(ACTIVE_PARTICIPANT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<StoredActiveParticipant>;
+    if (!parsed.participantId || !parsed.sessionId) return null;
+    return {
+      participantId: parsed.participantId,
+      sessionId: parsed.sessionId,
+      studentName: parsed.studentName ?? "",
+      savedAt: parsed.savedAt ?? "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredActiveParticipant(value: StoredActiveParticipant) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(ACTIVE_PARTICIPANT_STORAGE_KEY, JSON.stringify(value));
+}
+
+function clearStoredActiveParticipant() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(ACTIVE_PARTICIPANT_STORAGE_KEY);
 }
 
 function parseQuestion(raw: unknown): Question | null {
@@ -98,7 +160,20 @@ function PlayScreen() {
 
   const rawSessionId = params?.sessionId;
   const sessionId = Array.isArray(rawSessionId) ? rawSessionId[0] : rawSessionId;
-  const studentName = searchParams.get("name")?.trim() || "";
+  const initialStudentName = searchParams.get("name")?.trim() || "";
+  const storedParticipantOnLoad = useMemo(() => {
+    if (!sessionId) return null;
+    const stored = readStoredActiveParticipant();
+    if (!stored) return null;
+    if (stored.sessionId !== sessionId) {
+      clearStoredActiveParticipant();
+      return null;
+    }
+    return stored;
+  }, [sessionId]);
+  const [playerName, setPlayerName] = useState(
+    () => initialStudentName || storedParticipantOnLoad?.studentName || ""
+  );
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentPostIndex, setCurrentPostIndex] = useState(0);
@@ -110,12 +185,188 @@ function PlayScreen() {
   const [loadError, setLoadError] = useState("");
   const [gpsError, setGpsError] = useState("");
   const [latestMessage, setLatestMessage] = useState<string | null>(null);
+  const [resumeMessage, setResumeMessage] = useState<string | null>(null);
+  const [participantId, setParticipantId] = useState<string | null>(
+    () => storedParticipantOnLoad?.participantId ?? null
+  );
+  const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
   const participantsTableMissingRef = useRef(false);
   const answersTableMissingRef = useRef(false);
+  const hasRestoredRef = useRef(!Boolean(storedParticipantOnLoad));
+  const resumeMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showResumeNotice = useCallback((message: string) => {
+    setResumeMessage(message);
+    if (resumeMessageTimerRef.current) {
+      clearTimeout(resumeMessageTimerRef.current);
+    }
+    resumeMessageTimerRef.current = setTimeout(() => {
+      setResumeMessage(null);
+      resumeMessageTimerRef.current = null;
+    }, 5000);
+  }, []);
+
+  const rememberActiveParticipant = useCallback(
+    (nextParticipantId: string, nextStudentName: string) => {
+      if (!sessionId || !nextParticipantId) return;
+      const normalizedName = nextStudentName.trim();
+      setParticipantId(nextParticipantId);
+      saveStoredActiveParticipant({
+        participantId: nextParticipantId,
+        sessionId,
+        studentName: normalizedName,
+        savedAt: new Date().toISOString(),
+      });
+    },
+    [sessionId]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (resumeMessageTimerRef.current) {
+        clearTimeout(resumeMessageTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!sessionId || !participantId || questions.length === 0 || hasRestoredRef.current) return;
+
+    let isActive = true;
+
+    const restoreFromStorage = async () => {
+      const { data: participantData, error: participantError } = await supabase
+        .from("participants")
+        .select("id,session_id,student_name,lat,lng,finished_at")
+        .eq("id", participantId)
+        .eq("session_id", sessionId)
+        .maybeSingle<ParticipantRow>();
+
+      if (!isActive) return;
+
+      if (participantError) {
+        if (participantError.code === "PGRST205") {
+          participantsTableMissingRef.current = true;
+        } else {
+          console.error("Kunne ikke genskabe elevdata fra participants:", participantError);
+        }
+        hasRestoredRef.current = true;
+        return;
+      }
+
+      if (!participantData) {
+        clearStoredActiveParticipant();
+        setParticipantId(null);
+        hasRestoredRef.current = true;
+        return;
+      }
+
+      const restoredName =
+        typeof participantData.student_name === "string"
+          ? participantData.student_name.trim()
+          : "";
+
+      const resolvedName = restoredName || playerName || initialStudentName;
+      if (resolvedName) {
+        setPlayerName(resolvedName);
+      }
+
+      if (participantData.id && resolvedName) {
+        rememberActiveParticipant(String(participantData.id), resolvedName);
+      }
+
+      const restoredLat = toFiniteNumber(participantData.lat);
+      const restoredLng = toFiniteNumber(participantData.lng);
+      if (restoredLat !== null && restoredLng !== null) {
+        setMyLoc({ lat: restoredLat, lng: restoredLng });
+      }
+
+      if (participantData.finished_at) {
+        clearStoredActiveParticipant();
+        setParticipantId(null);
+        setIsFinished(true);
+        hasRestoredRef.current = true;
+        return;
+      }
+
+      if (resolvedName) {
+        const { data: answersData, error: answersError } = await supabase
+          .from("answers")
+          .select("post_index,question_index,is_correct")
+          .eq("session_id", sessionId)
+          .eq("student_name", resolvedName);
+
+        if (!isActive) return;
+
+        if (answersError) {
+          if (answersError.code === "PGRST205") {
+            answersTableMissingRef.current = true;
+          } else {
+            console.error("Kunne ikke hente elevens tidligere svar:", answersError);
+          }
+        } else if (answersData) {
+          const rows = answersData as AnswerProgressRow[];
+          const confirmedCorrect = rows.filter((row) => row.is_correct === true).length;
+          setCorrectAnswersCount(confirmedCorrect);
+
+          let highestCompletedPost = 0;
+          for (const row of rows) {
+            if (row.is_correct === false) continue;
+            const postFromPostIndex = toFiniteNumber(row.post_index);
+            const postFromQuestionIndex = toFiniteNumber(row.question_index);
+            const normalizedPostNumber =
+              postFromPostIndex ?? (postFromQuestionIndex === null ? null : postFromQuestionIndex + 1);
+            if (
+              normalizedPostNumber !== null &&
+              normalizedPostNumber > highestCompletedPost
+            ) {
+              highestCompletedPost = normalizedPostNumber;
+            }
+          }
+
+          if (highestCompletedPost >= questions.length) {
+            clearStoredActiveParticipant();
+            setParticipantId(null);
+            setIsFinished(true);
+            hasRestoredRef.current = true;
+            return;
+          }
+
+          const nextPostNumber = Math.max(1, highestCompletedPost + 1);
+          const nextPostIndex = Math.min(nextPostNumber, questions.length) - 1;
+          setCurrentPostIndex(nextPostIndex);
+          setShowQuestion(false);
+          setDistance(null);
+        }
+      }
+
+      if (resolvedName) {
+        showResumeNotice(`Velkommen tilbage, ${resolvedName}! Genoptager løbet...`);
+      }
+
+      hasRestoredRef.current = true;
+    };
+
+    void restoreFromStorage();
+
+    return () => {
+      isActive = false;
+    };
+  }, [
+    sessionId,
+    participantId,
+    questions.length,
+    supabase,
+    playerName,
+    initialStudentName,
+    rememberActiveParticipant,
+    showResumeNotice,
+  ]);
 
   const syncParticipantLocation = useCallback(
     async (lat: number, lng: number) => {
-      if (!sessionId || !studentName) return;
+      const activeName = playerName.trim();
+      if (!sessionId || !activeName) return;
 
       const timestamp = new Date().toISOString();
 
@@ -124,7 +375,7 @@ function PlayScreen() {
           .from("participants")
           .update({ lat, lng, last_updated: timestamp })
           .eq("session_id", sessionId)
-          .eq("student_name", studentName)
+          .eq("student_name", activeName)
           .select("id");
 
         if (error && isMissingColumnError(error)) {
@@ -132,13 +383,17 @@ function PlayScreen() {
             .from("participants")
             .update({ lat, lng })
             .eq("session_id", sessionId)
-            .eq("student_name", studentName)
+            .eq("student_name", activeName)
             .select("id");
           data = retry.data;
           error = retry.error;
         }
 
         if (!error && data && data.length > 0) {
+          const resolvedId = (data[0] as { id?: string | null }).id;
+          if (resolvedId) {
+            rememberActiveParticipant(String(resolvedId), activeName);
+          }
           return;
         }
 
@@ -146,22 +401,49 @@ function PlayScreen() {
           const createPayloads: Record<string, unknown>[] = [
             {
               session_id: sessionId,
-              student_name: studentName,
+              student_name: activeName,
               lat,
               lng,
               last_updated: timestamp,
             },
             {
               session_id: sessionId,
-              student_name: studentName,
+              student_name: activeName,
               lat,
               lng,
             },
           ];
 
           for (const payload of createPayloads) {
-            const { error: insertError } = await supabase.from("participants").insert(payload);
-            if (!insertError || insertError.code === "23505") return;
+            const { data: inserted, error: insertError } = await supabase
+              .from("participants")
+              .insert(payload)
+              .select("id")
+              .single();
+
+            if (!insertError) {
+              const resolvedId = inserted?.id;
+              if (resolvedId) {
+                rememberActiveParticipant(String(resolvedId), activeName);
+              }
+              return;
+            }
+
+            if (insertError.code === "23505") {
+              const { data: existing } = await supabase
+                .from("participants")
+                .select("id")
+                .eq("session_id", sessionId)
+                .eq("student_name", activeName)
+                .maybeSingle();
+
+              const resolvedId = existing?.id;
+              if (resolvedId) {
+                rememberActiveParticipant(String(resolvedId), activeName);
+              }
+              return;
+            }
+
             if (insertError.code === "PGRST205") {
               participantsTableMissingRef.current = true;
               break;
@@ -183,14 +465,14 @@ function PlayScreen() {
         .from("session_students")
         .update({ lat, lng, last_updated: timestamp })
         .eq("session_id", sessionId)
-        .eq("student_name", studentName);
+        .eq("student_name", activeName);
 
       if (fallbackError && isMissingColumnError(fallbackError)) {
         const retry = await supabase
           .from("session_students")
           .update({ lat, lng })
           .eq("session_id", sessionId)
-          .eq("student_name", studentName);
+          .eq("student_name", activeName);
         fallbackError = retry.error;
       }
 
@@ -198,11 +480,12 @@ function PlayScreen() {
         console.error("Kunne ikke opdatere elevposition:", fallbackError);
       }
     },
-    [sessionId, studentName, supabase]
+    [playerName, rememberActiveParticipant, sessionId, supabase]
   );
 
   const markParticipantFinished = useCallback(async () => {
-    if (!sessionId || !studentName) return;
+    const activeName = playerName.trim();
+    if (!sessionId || !activeName) return;
     const finishedAt = new Date().toISOString();
 
     if (!participantsTableMissingRef.current) {
@@ -210,9 +493,13 @@ function PlayScreen() {
         .from("participants")
         .update({ finished_at: finishedAt })
         .eq("session_id", sessionId)
-        .eq("student_name", studentName);
+        .eq("student_name", activeName);
 
-      if (!error) return;
+      if (!error) {
+        clearStoredActiveParticipant();
+        setParticipantId(null);
+        return;
+      }
       if (error.code === "PGRST205") {
         participantsTableMissingRef.current = true;
       } else {
@@ -224,12 +511,14 @@ function PlayScreen() {
       .from("session_students")
       .update({ finished_at: finishedAt })
       .eq("session_id", sessionId)
-      .eq("student_name", studentName);
+      .eq("student_name", activeName);
 
     if (fallbackError) {
       console.error("Kunne ikke gemme målgangstid:", fallbackError);
     }
-  }, [sessionId, studentName, supabase]);
+    clearStoredActiveParticipant();
+    setParticipantId(null);
+  }, [playerName, sessionId, supabase]);
 
   const insertAnswerRecord = useCallback(
     async (
@@ -240,13 +529,14 @@ function PlayScreen() {
       lat: number | null,
       lng: number | null
     ) => {
-      if (!sessionId || !studentName || answersTableMissingRef.current) return;
+      const activeName = playerName.trim();
+      if (!sessionId || !activeName || answersTableMissingRef.current) return;
 
       const timestamp = new Date().toISOString();
       const payloads: Record<string, unknown>[] = [
         {
           session_id: sessionId,
-          student_name: studentName,
+          student_name: activeName,
           post_index: postNumber,
           question_index: postNumber - 1,
           selected_index: selectedIndex,
@@ -259,7 +549,7 @@ function PlayScreen() {
         },
         {
           session_id: sessionId,
-          student_name: studentName,
+          student_name: activeName,
           post_index: postNumber,
           selected_index: selectedIndex,
           is_correct: isCorrect,
@@ -267,7 +557,7 @@ function PlayScreen() {
         },
         {
           session_id: sessionId,
-          student_name: studentName,
+          student_name: activeName,
           question_index: postNumber - 1,
           answer_index: selectedIndex,
           is_correct: isCorrect,
@@ -275,7 +565,7 @@ function PlayScreen() {
         },
         {
           session_id: sessionId,
-          student_name: studentName,
+          student_name: activeName,
           selected_index: selectedIndex,
           is_correct: isCorrect,
         },
@@ -293,7 +583,7 @@ function PlayScreen() {
         return;
       }
     },
-    [sessionId, studentName, supabase]
+    [playerName, sessionId, supabase]
   );
 
   useEffect(() => {
@@ -354,7 +644,9 @@ function PlayScreen() {
   }, [sessionId, supabase]);
 
   useEffect(() => {
-    if (!navigator.geolocation || questions.length === 0 || isFinished || !sessionId) return;
+    if (!navigator.geolocation || questions.length === 0 || isFinished || !sessionId) {
+      return;
+    }
 
     const watchId = navigator.geolocation.watchPosition(
       async (pos) => {
@@ -443,6 +735,7 @@ function PlayScreen() {
       alert("KORREKT! 🎉 Find næste post!");
       setShowQuestion(false);
       setDistance(null);
+      setCorrectAnswersCount((prev) => prev + 1);
       if (currentPostIndex + 1 < questions.length) {
         setCurrentPostIndex((prev) => prev + 1);
       } else {
@@ -521,7 +814,7 @@ function PlayScreen() {
             Fuldført!
           </h1>
           <p className="mb-6 text-lg font-bold text-slate-700">
-            Fantastisk gået, {studentName || "mester"}!
+            Fantastisk gået, {playerName || "mester"}!
           </p>
           <div className="rounded-xl bg-white/50 px-4 py-3 text-sm font-medium text-slate-600">
             Løbet er slut. Gå tilbage til læreren for at se resultatet på
@@ -550,6 +843,9 @@ function PlayScreen() {
           >
             {distance !== null ? `${distance}m` : "Søger GPS..."}
           </div>
+          <div className="mt-1 text-[11px] font-semibold tracking-wider text-emerald-200 uppercase">
+            Score: {correctAnswersCount}
+          </div>
         </div>
       </div>
 
@@ -563,6 +859,15 @@ function PlayScreen() {
               </div>
               <div className="text-sm font-medium text-white">{latestMessage}</div>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {resumeMessage ? (
+        <div className="animate-in slide-in-from-top fade-in absolute top-40 right-4 left-4 z-[1000] duration-500">
+          <div className="flex items-start gap-3 rounded-r-xl border-l-4 border-emerald-400 bg-emerald-900/90 p-4 shadow-[0_0_20px_rgba(16,185,129,0.35)] backdrop-blur-md">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
+            <div className="text-sm font-medium text-white">{resumeMessage}</div>
           </div>
         </div>
       ) : null}
@@ -603,7 +908,7 @@ function PlayScreen() {
 
             {myLoc ? (
               <Marker position={[myLoc.lat, myLoc.lng]} icon={playerIcon}>
-                <Popup>Du er her{studentName ? `, ${studentName}` : ""}</Popup>
+                <Popup>Du er her{playerName ? `, ${playerName}` : ""}</Popup>
               </Marker>
             ) : null}
           </MapContainer>
