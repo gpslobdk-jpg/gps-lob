@@ -78,6 +78,56 @@ const getQuestionCount = (questions: Run["questions"]) => {
   return Array.isArray(questions) ? questions.length : 0;
 };
 
+type SupabaseLikeError = {
+  code?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+};
+
+const isMissingRelationOrColumnError = (error: SupabaseLikeError | null | undefined) => {
+  if (!error) return false;
+  if (error.code === "PGRST205" || error.code === "42P01" || error.code === "42703") {
+    return true;
+  }
+  const message = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+  return (
+    message.includes("does not exist") ||
+    message.includes("relation") ||
+    message.includes("column")
+  );
+};
+
+const getDeleteErrorMessage = (error: unknown) => {
+  const base = "Kunne ikke slette løbet.";
+
+  if (!error) return base;
+  if (error instanceof TypeError) {
+    return `${base} Netværksfejl - tjek internetforbindelsen og prøv igen.`;
+  }
+
+  const dbError = error as SupabaseLikeError;
+
+  if (dbError.code === "42501") {
+    return `${base} Mangler rettigheder (RLS). Tjek DELETE-policy for løb.`;
+  }
+  if (dbError.code === "23503") {
+    return `${base} Der er stadig tilknyttede data (foreign key-restriktion).`;
+  }
+  if (dbError.code === "PGRST301") {
+    return `${base} Din session er udløbet. Log ind igen og prøv på ny.`;
+  }
+  if (dbError.code === "PGRST116") {
+    return `${base} Løbet blev ikke fundet eller du har ikke adgang til at slette det.`;
+  }
+
+  if (dbError.message) {
+    return `${base} ${dbError.message}`;
+  }
+
+  return base;
+};
+
 export default function ArkivPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -112,15 +162,80 @@ export default function ArkivPage() {
     if (!shouldDelete) return;
 
     const supabase = createClient();
-    const { error } = await supabase.from("gps_runs").delete().eq("id", runId);
 
-    if (error) {
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        alert("Du skal være logget ind for at slette et løb.");
+        return;
+      }
+
+      // Oprydning i evt. separate post-tabeller, hvis de findes i databasen.
+      for (const tableName of ["questions", "poster"] as const) {
+        const { error } = await supabase.from(tableName).delete().eq("run_id", runId);
+        if (error && !isMissingRelationOrColumnError(error)) {
+          throw error;
+        }
+      }
+
+      // Hent alle live-sessioner for løbet, så vi kan rydde relaterede records først.
+      const { data: sessionsData, error: sessionsError } = await supabase
+        .from("live_sessions")
+        .select("id")
+        .eq("run_id", runId);
+
+      if (sessionsError && !isMissingRelationOrColumnError(sessionsError)) {
+        throw sessionsError;
+      }
+
+      const sessionIds = (sessionsData ?? [])
+        .map((session) => String((session as { id?: string | number | null }).id ?? ""))
+        .filter((id) => id.length > 0);
+
+      if (sessionIds.length > 0) {
+        for (const tableName of ["participants", "answers"] as const) {
+          const { error } = await supabase.from(tableName).delete().in("session_id", sessionIds);
+          if (error && !isMissingRelationOrColumnError(error)) {
+            throw error;
+          }
+        }
+      }
+
+      const { error: deleteSessionsError } = await supabase
+        .from("live_sessions")
+        .delete()
+        .eq("run_id", runId);
+
+      if (deleteSessionsError && !isMissingRelationOrColumnError(deleteSessionsError)) {
+        throw deleteSessionsError;
+      }
+
+      // Slet selve løbet. Ejer-tjek via user_id gør fejlen tydeligere ved manglende adgang.
+      const { data: deletedRunRows, error: deleteRunError } = await supabase
+        .from("gps_runs")
+        .delete()
+        .eq("id", runId)
+        .eq("user_id", user.id)
+        .select("id");
+
+      if (deleteRunError) {
+        throw deleteRunError;
+      }
+
+      if (!deletedRunRows || deletedRunRows.length === 0) {
+        alert("Kunne ikke slette løbet. Du er muligvis ikke ejer af løbet.");
+        return;
+      }
+
+      setRuns((prev) => prev.filter((run) => run.id !== runId));
+    } catch (error) {
       console.error("Fejl ved sletning af løb:", error);
-      alert("Kunne ikke slette løbet.");
-      return;
+      alert(getDeleteErrorMessage(error));
     }
-
-    setRuns((prev) => prev.filter((run) => run.id !== runId));
   };
 
   const handleStartRun = async (runId: string) => {
