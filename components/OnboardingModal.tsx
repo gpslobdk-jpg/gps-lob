@@ -59,22 +59,31 @@ const itemVariants = {
   },
 };
 
-export default function OnboardingModal() {
+type OnboardingModalProps = {
+  forceOpenToken?: number;
+};
+
+export default function OnboardingModal({ forceOpenToken = 0 }: OnboardingModalProps) {
   const [isOpen, setIsOpen] = useState(() => {
     if (typeof window === "undefined") {
       return false;
     }
     return window.localStorage.getItem(STORAGE_KEY) !== "true";
   });
+  const [dismissedForcedToken, setDismissedForcedToken] = useState(0);
+  const isForcedOpen = forceOpenToken > 0 && forceOpenToken !== dismissedForcedToken;
 
   const handleClose = () => {
     window.localStorage.setItem(STORAGE_KEY, "true");
+    if (isForcedOpen) {
+      setDismissedForcedToken(forceOpenToken);
+    }
     setIsOpen(false);
   };
 
   return (
     <AnimatePresence>
-      {isOpen ? (
+      {isOpen || isForcedOpen ? (
         <motion.div
           className={`fixed inset-0 z-50 overflow-y-auto bg-[#0a1128] bg-[radial-gradient(circle_at_center,_#0f1c42_0%,_#0a1128_100%)] text-slate-100 ${poppins.className}`}
           initial={{ opacity: 0 }}
