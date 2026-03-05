@@ -605,7 +605,7 @@ export default function LiveLobbyPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -16 }}
           transition={{ duration: 0.35 }}
-          className={`relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-gradient-to-t from-emerald-100 via-sky-50 to-sky-300 p-6 text-white md:p-12 ${poppins.className}`}
+          className={`relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-gradient-to-t from-emerald-100 via-sky-50 to-sky-300 p-6 text-white md:p-12 lg:bg-transparent ${poppins.className}`}
         >
           <video
             autoPlay
