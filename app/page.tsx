@@ -118,9 +118,16 @@ export default function Home() {
 
           <button
             type="button"
-            className="rounded-full border border-slate-700/70 px-3 py-1 text-xs font-medium text-slate-400 transition hover:border-slate-600 hover:text-slate-300"
+            className="inline-flex items-center gap-2 rounded-full border border-slate-700/70 px-3 py-1 text-xs font-medium text-slate-400 transition hover:border-slate-600 hover:text-slate-300"
           >
-            AI Guide 🤖
+            <Image
+              src="/gpslogo.png"
+              alt="GPSLØB logo"
+              width={24}
+              height={24}
+              className="h-6 w-auto"
+            />
+            <span>AI Guide</span>
           </button>
         </div>
       </footer>
