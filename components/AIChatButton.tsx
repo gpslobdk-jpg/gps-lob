@@ -78,7 +78,7 @@ export default function AIChatButton() {
               <div className="flex items-center gap-2">
                 <Image
                   src="/gpslogo.png"
-                  alt="GPSL\u00d8B logo"
+                  alt={"GPSL\u00d8B logo"}
                   width={28}
                   height={28}
                   className="h-6 w-auto"
@@ -132,7 +132,7 @@ export default function AIChatButton() {
                       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-200 [animation-delay:120ms]" />
                       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-200 [animation-delay:240ms]" />
                     </span>
-                    AI t\u00e6nker...
+                    {"AI t\u00e6nker..."}
                   </div>
                 </div>
               ) : null}
@@ -142,7 +142,7 @@ export default function AIChatButton() {
 
             {error ? (
               <p className="mt-2 text-xs text-rose-300">
-                Forbindelsen fejlede. Pr\u00f8v igen om et \u00f8jeblik.
+                {"Forbindelsen fejlede. Pr\u00f8v igen om et \u00f8jeblik."}
               </p>
             ) : null}
 
@@ -164,7 +164,7 @@ export default function AIChatButton() {
               <input
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                placeholder="Skriv dit sp\u00f8rgsm\u00e5l..."
+                placeholder={"Skriv dit sp\u00f8rgsm\u00e5l..."}
                 disabled={isLoading}
                 className="w-full rounded-xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-cyan-400/70 focus:ring-2 focus:ring-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60"
               />
@@ -178,7 +178,7 @@ export default function AIChatButton() {
             </form>
 
             <div className="mt-2 text-[11px] text-slate-500">
-              AI-svar kan indeholde fejl. Kontroll\u00e9r altid vigtige oplysninger.
+              {"AI-svar kan indeholde fejl. Kontroll\u00e9r altid vigtige oplysninger."}
             </div>
           </section>
         ) : null}
@@ -187,12 +187,12 @@ export default function AIChatButton() {
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
           aria-expanded={isOpen}
-          aria-label="\u00c5bn AI Guide"
+          aria-label={"\u00c5bn AI Guide"}
           className="inline-flex items-center gap-2 rounded-full border border-slate-700/80 bg-slate-900/90 px-3 py-2 text-slate-200 shadow-lg shadow-black/35 transition hover:border-slate-600 hover:bg-slate-900"
         >
           <Image
             src="/gpslogo.png"
-            alt="GPSL\u00d8B logo"
+            alt={"GPSL\u00d8B logo"}
             width={32}
             height={32}
             className="h-7 w-auto"

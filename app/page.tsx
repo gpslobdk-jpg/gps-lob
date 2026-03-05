@@ -55,7 +55,7 @@ export default function Home() {
           <div className="flex justify-center">
             <Image
               src="/gpslogo.png"
-              alt="GPSL\u00d8B.DK logo"
+              alt={"GPSL\u00d8B.DK logo"}
               width={320}
               height={140}
               priority
@@ -74,7 +74,7 @@ export default function Home() {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={5}
-                placeholder="Indtast l\u00f8bskode"
+                placeholder={"Indtast l\u00f8bskode"}
                 className="w-full rounded-2xl border border-slate-600 bg-slate-950 px-4 py-4 text-center text-xl font-bold tracking-[0.18em] text-white outline-none placeholder:tracking-normal placeholder:text-slate-400 focus:border-cyan-400/75 focus:ring-2 focus:ring-cyan-400/30"
               />
               <button
@@ -91,7 +91,7 @@ export default function Home() {
             href="/dashboard/opret"
             className="block w-full rounded-2xl border border-slate-500 bg-slate-800/60 px-4 py-3 text-center text-base font-semibold text-slate-100 transition hover:bg-slate-700/70"
           >
-            Opret nyt l\u00f8b
+            {"Opret nyt l\u00f8b"}
           </Link>
         </section>
 
