@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
+import AIChatButton from "@/components/AIChatButton";
 import { createClient } from "@/utils/supabase/client";
 
 const WelcomeModal = dynamic(() => import("@/components/WelcomeModal"), {
@@ -54,7 +55,7 @@ export default function Home() {
           <div className="flex justify-center">
             <Image
               src="/gpslogo.png"
-              alt="GPSLØB.DK logo"
+              alt="GPSL\u00d8B.DK logo"
               width={320}
               height={140}
               priority
@@ -66,12 +67,14 @@ export default function Home() {
             <form onSubmit={handleSubmit} className="space-y-3">
               <input
                 value={code}
-                onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 5))}
+                onChange={(event) =>
+                  setCode(event.target.value.replace(/\D/g, "").slice(0, 5))
+                }
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={5}
-                placeholder="Indtast løbskode"
+                placeholder="Indtast l\u00f8bskode"
                 className="w-full rounded-2xl border border-slate-600 bg-slate-950 px-4 py-4 text-center text-xl font-bold tracking-[0.18em] text-white outline-none placeholder:tracking-normal placeholder:text-slate-400 focus:border-cyan-400/75 focus:ring-2 focus:ring-cyan-400/30"
               />
               <button
@@ -88,7 +91,7 @@ export default function Home() {
             href="/dashboard/opret"
             className="block w-full rounded-2xl border border-slate-500 bg-slate-800/60 px-4 py-3 text-center text-base font-semibold text-slate-100 transition hover:bg-slate-700/70"
           >
-            Opret nyt løb
+            Opret nyt l\u00f8b
           </Link>
         </section>
 
@@ -98,7 +101,7 @@ export default function Home() {
             onClick={() => setShowIntroToken((prev) => prev + 1)}
             className="text-sm font-medium text-slate-300 underline decoration-slate-500 underline-offset-4 transition hover:text-white"
           >
-            Hvad er GPSLØB.DK? 🤔
+            {"Hvad er GPSL\u00d8B.DK? \u{1F914}"}
           </button>
         </div>
       </main>
@@ -114,23 +117,11 @@ export default function Home() {
             </a>
           </div>
 
-          <p>© 2026 gpsløb.dk</p>
-
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-full border border-slate-700/70 px-3 py-1 text-xs font-medium text-slate-400 transition hover:border-slate-600 hover:text-slate-300"
-          >
-            <Image
-              src="/gpslogo.png"
-              alt="GPSLØB logo"
-              width={24}
-              height={24}
-              className="h-6 w-auto"
-            />
-            <span>AI Guide</span>
-          </button>
+          <p>{"\u00a9 2026 gpsl\u00f8b.dk"}</p>
         </div>
       </footer>
+
+      <AIChatButton />
     </div>
   );
 }
