@@ -48,7 +48,7 @@ export default function OpretSporPage() {
                 <PenTool className="h-5 w-5 text-emerald-600" />
               </div>
               <h2 className={`text-2xl font-black tracking-wide text-emerald-950 ${rubik.className}`}>
-                {"Byg fra bunden \u{1F6E0}\uFE0F"}
+                Byg fra bunden
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-emerald-800">
                 {
@@ -68,7 +68,7 @@ export default function OpretSporPage() {
                 <Sparkles className="h-5 w-5 text-emerald-600" />
               </div>
               <h2 className={`text-2xl font-black tracking-wide text-emerald-950 ${rubik.className}`}>
-                {"Lyn-Oprettelse \u26A1"}
+                Lyn-Oprettelse
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-emerald-800">
                 {
