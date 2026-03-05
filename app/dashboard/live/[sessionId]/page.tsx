@@ -605,15 +605,15 @@ export default function LiveLobbyPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -16 }}
           transition={{ duration: 0.35 }}
-          className={`relative flex min-h-screen flex-col overflow-hidden bg-[#050816] p-6 text-white md:p-12 ${poppins.className}`}
+          className={`relative flex min-h-screen flex-col overflow-hidden bg-gradient-to-b from-indigo-950 via-blue-900 to-cyan-800 p-6 text-white md:p-12 ${poppins.className}`}
         >
           <div className="pointer-events-none absolute -top-24 -left-16 h-72 w-72 rounded-full bg-cyan-500/20 blur-3xl" />
           <div className="pointer-events-none absolute -right-16 top-20 h-72 w-72 rounded-full bg-purple-600/25 blur-3xl" />
           <div className="pointer-events-none absolute right-1/4 -bottom-24 h-80 w-80 rounded-full bg-pink-500/20 blur-3xl" />
 
           <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col">
-            <section className="mx-auto w-full max-w-5xl rounded-3xl border border-white/10 bg-white/5 p-6 text-center backdrop-blur-md md:p-8">
-              <h1 className={`text-sm font-bold tracking-[0.2em] text-white/80 uppercase md:text-base ${rubik.className}`}>
+            <section className="mx-auto w-full max-w-5xl rounded-3xl border border-white/20 bg-white/10 p-6 text-center shadow-2xl backdrop-blur-md md:p-8">
+              <h1 className={`text-sm font-bold tracking-[0.2em] text-white drop-shadow-md uppercase md:text-base ${rubik.className}`}>
                 LOG IND I LOBBYEN PÅ GPSLOB.DK/JOIN
               </h1>
               <p className={`mt-4 bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-7xl font-black text-transparent md:text-9xl ${rubik.className} animate-pulse`}>
@@ -621,7 +621,7 @@ export default function LiveLobbyPage() {
               </p>
             </section>
 
-            <section className="mx-auto mt-12 flex w-full max-w-4xl flex-col items-center justify-center gap-12 rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_0_30px_rgba(34,211,238,0.1)] backdrop-blur-md md:flex-row">
+            <section className="mx-auto mt-12 flex w-full max-w-4xl flex-col items-center justify-center gap-12 rounded-3xl border border-white/20 bg-white/10 p-8 shadow-2xl backdrop-blur-md md:flex-row">
               <div className="h-48 w-48 md:h-64 md:w-64">
                 <Lottie animationData={phoneAnimation} loop={true} />
               </div>
@@ -639,7 +639,7 @@ export default function LiveLobbyPage() {
             </section>
 
             <section className="mx-auto mt-10 w-full max-w-5xl">
-              <h2 className={`text-2xl font-black tracking-wide text-cyan-100 uppercase ${rubik.className}`}>
+              <h2 className={`text-2xl font-black tracking-wide text-white drop-shadow-md uppercase ${rubik.className}`}>
                 DELTAGERE KLAR: {students.length}
               </h2>
 
@@ -651,9 +651,9 @@ export default function LiveLobbyPage() {
                       initial={{ opacity: 0, scale: 0.9, y: 8 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.9, y: -8 }}
-                      className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-[#0d1533] px-4 py-2 text-sm font-semibold text-cyan-100 shadow-[0_0_12px_rgba(34,211,238,0.2)]"
+                      className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-blue-100 shadow-lg backdrop-blur-md"
                     >
-                      <UserCircle className="h-4 w-4 text-cyan-300" />
+                      <UserCircle className="h-4 w-4 text-white" />
                       {name}
                     </motion.div>
                   ))}
@@ -668,7 +668,7 @@ export default function LiveLobbyPage() {
             <button
               type="button"
               onClick={() => void startSession()}
-              className={`mt-12 w-full rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 py-6 text-3xl font-black text-white uppercase shadow-[0_0_35px_rgba(217,70,239,0.55)] transition-transform hover:scale-[1.02] ${rubik.className}`}
+              className={`mt-12 w-full rounded-xl border border-teal-400/50 bg-teal-600 py-6 text-3xl font-black text-white uppercase shadow-lg transition-colors hover:bg-teal-500 ${rubik.className}`}
             >
               START LØBET! 🏁
             </button>
@@ -681,7 +681,7 @@ export default function LiveLobbyPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -16 }}
           transition={{ duration: 0.35 }}
-          className={`relative min-h-screen overflow-hidden bg-[#050816] px-6 py-10 text-white md:px-10 ${poppins.className}`}
+          className={`relative min-h-screen overflow-hidden bg-gradient-to-b from-indigo-950 via-blue-900 to-cyan-800 px-6 py-10 text-white md:px-10 ${poppins.className}`}
         >
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(16,185,129,0.25),transparent_40%),radial-gradient(circle_at_80%_10%,rgba(251,191,36,0.22),transparent_42%),radial-gradient(circle_at_50%_90%,rgba(244,114,182,0.2),transparent_40%)]" />
           <div className="pointer-events-none absolute inset-0 opacity-75">
@@ -777,7 +777,7 @@ export default function LiveLobbyPage() {
                   {finishers.slice(3).map((f, i) => (
                     <div
                       key={`${f.id}-${i}`}
-                      className="rounded-xl border border-white/20 bg-black/35 px-4 py-2 font-medium text-slate-100"
+                    className="rounded-xl border border-white/20 bg-white/10 px-4 py-2 font-medium text-blue-100 backdrop-blur-md"
                     >
                       {i + 4}. {f.name || f.student_name}
                     </div>
@@ -794,21 +794,21 @@ export default function LiveLobbyPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -16 }}
           transition={{ duration: 0.35 }}
-          className={`flex h-screen overflow-hidden bg-[#050816] text-white ${poppins.className}`}
+          className={`flex h-screen overflow-hidden bg-gradient-to-b from-indigo-950 via-blue-900 to-cyan-800 p-4 text-white ${poppins.className}`}
         >
-          <div className="relative z-0 h-full w-2/3 bg-[#050816]">
-            <div className="absolute top-6 left-6 z-[1000] rounded-2xl border border-white/10 bg-black/80 p-4 shadow-[0_0_20px_rgba(34,211,238,0.2)] backdrop-blur-md">
-              <h2 className={`text-xl font-black tracking-widest text-cyan-400 uppercase ${rubik.className}`}>
+          <div className="relative z-0 h-full w-2/3 overflow-hidden rounded-[2rem] border-4 border-white/20 shadow-2xl">
+            <div className="absolute top-6 left-6 z-[1000] rounded-3xl border border-white/20 bg-white/10 p-6 shadow-2xl backdrop-blur-md">
+              <h2 className={`text-xl font-black tracking-widest text-white drop-shadow-md uppercase ${rubik.className}`}>
                 Live Overvågning
               </h2>
-              <p className="text-sm text-white/50">{studentLocations.length} deltagere online</p>
+              <p className="text-sm text-blue-100">{studentLocations.length} deltagere online</p>
               {!hasParticipantsTable ? (
-                <p className="mt-1 text-xs text-amber-300">`participants` mangler - bruger fallback.</p>
+                <p className="mt-1 text-xs text-blue-100">`participants` mangler - bruger fallback.</p>
               ) : null}
               <button
                 onClick={() => void handleEndRun()}
                 disabled={isEndingRun}
-                className="mt-4 rounded-xl border border-red-500/50 bg-red-500/20 px-4 py-2 text-xs font-bold tracking-widest text-red-400 uppercase transition-all hover:bg-red-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-4 rounded-xl border border-teal-400/50 bg-teal-600 px-4 py-2 text-xs font-bold tracking-widest text-white uppercase shadow-lg transition-colors hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isEndingRun ? "Afslutter løb..." : "Afslut Løb 🛑"}
               </button>
@@ -859,35 +859,35 @@ export default function LiveLobbyPage() {
             )}
           </div>
 
-          <div className="flex h-full w-1/3 flex-col border-l border-white/10 bg-white/5 backdrop-blur-xl">
-            <div className="border-b border-white/10 p-6">
+          <div className="ml-4 flex h-full w-1/3 flex-col overflow-hidden rounded-3xl border border-white/20 bg-white/10 shadow-2xl backdrop-blur-md">
+            <div className="border-b border-white/20 p-6">
               <h3
-                className={`bg-gradient-to-r from-rose-300 to-orange-300 bg-clip-text text-lg font-bold tracking-widest text-transparent uppercase ${rubik.className}`}
+                className={`text-lg font-bold tracking-widest text-white drop-shadow-md uppercase ${rubik.className}`}
               >
                 Aktive Deltagere
               </h3>
               {!hasParticipantsTable ? (
-                <p className="mt-2 text-xs text-amber-200">
+                <p className="mt-2 text-xs text-blue-100">
                   Rødt kort kræver `participants`-tabellen.
                 </p>
               ) : null}
             </div>
 
-            <div className="max-h-52 space-y-2 overflow-y-auto border-b border-white/10 p-4">
+            <div className="max-h-52 space-y-2 overflow-y-auto border-b border-white/20 p-4">
               {activeStudents.length === 0 ? (
-                <p className="text-sm text-white/50">Ingen aktive deltagere lige nu.</p>
+                <p className="text-sm text-blue-100">Ingen aktive deltagere lige nu.</p>
               ) : (
                 activeStudents.map((student) => (
                   <div
                     key={`active-${student.id}`}
-                    className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2"
+                    className="flex items-center justify-between gap-2 rounded-xl border border-white/20 bg-white/10 px-3 py-2"
                   >
-                    <span className="truncate text-sm font-semibold text-white">{student.name}</span>
+                    <span className="truncate text-sm font-semibold text-white drop-shadow-md">{student.name}</span>
                     <button
                       type="button"
                       onClick={() => void handleKickParticipant(student)}
                       disabled={!hasParticipantsTable}
-                      className="rounded-md border border-rose-400/50 bg-rose-500/20 px-2 py-1 text-[11px] font-bold tracking-wide text-rose-200 transition-colors hover:bg-rose-500/35 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-xl border border-teal-400/50 bg-teal-600 px-2 py-1 text-[11px] font-bold tracking-wide text-white shadow-lg transition-colors hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       🚫 Smid ud
                     </button>
@@ -896,28 +896,28 @@ export default function LiveLobbyPage() {
               )}
             </div>
 
-            <div className="border-b border-white/10 p-6">
+            <div className="border-b border-white/20 p-6">
               <h3
-                className={`bg-gradient-to-r from-cyan-300 to-emerald-400 bg-clip-text text-lg font-bold tracking-widest text-transparent uppercase ${rubik.className}`}
+                className={`text-lg font-bold tracking-widest text-white drop-shadow-md uppercase ${rubik.className}`}
               >
                 Live Svar
               </h3>
             </div>
 
-            <div className="max-h-64 space-y-2 overflow-y-auto border-b border-white/10 p-4">
+            <div className="max-h-64 space-y-2 overflow-y-auto border-b border-white/20 p-4">
               {!hasAnswersTable ? (
-                <p className="text-sm text-amber-200">`answers` mangler - ingen live svar endnu.</p>
+                <p className="text-sm text-blue-100">`answers` mangler - ingen live svar endnu.</p>
               ) : liveAnswers.length === 0 ? (
-                <p className="text-sm text-white/50">Ingen svar endnu.</p>
+                <p className="text-sm text-blue-100">Ingen svar endnu.</p>
               ) : (
                 liveAnswers.map((answer) => (
                   <div
                     key={answer.id}
-                    className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-xs"
+                    className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <span className="font-semibold text-white">{answer.studentName}</span>
-                      <span className="text-white/50">
+                      <span className="text-blue-100">
                         {answer.createdAt
                           ? new Date(answer.createdAt).toLocaleTimeString("da-DK", {
                               hour: "2-digit",
@@ -928,7 +928,7 @@ export default function LiveLobbyPage() {
                       </span>
                     </div>
                     <div className="mt-1 flex items-center justify-between text-[11px]">
-                      <span className="text-cyan-200">
+                      <span className="text-blue-100">
                         {answer.postNumber !== null ? `Post ${answer.postNumber}` : "Ukendt post"}
                       </span>
                       <span
@@ -952,9 +952,9 @@ export default function LiveLobbyPage() {
               )}
             </div>
 
-            <div className="border-b border-white/10 p-6">
+            <div className="border-b border-white/20 p-6">
               <h3
-                className={`bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-lg font-bold tracking-widest text-transparent uppercase ${rubik.className}`}
+                className={`text-lg font-bold tracking-widest text-white drop-shadow-md uppercase ${rubik.className}`}
               >
                 Holdchat
               </h3>
@@ -966,32 +966,32 @@ export default function LiveLobbyPage() {
                   key={`${msg.sender_name}-${msg.created_at ?? i}`}
                   className={`max-w-[85%] rounded-2xl p-3 text-sm ${
                     msg.is_teacher
-                      ? "self-end rounded-tr-none border border-purple-500/50 bg-purple-500/20 text-white"
-                      : "self-start rounded-tl-none border border-white/10 bg-black/40 text-white/90"
+                      ? "self-end rounded-tr-none border border-white/20 bg-white/15 text-white"
+                      : "self-start rounded-tl-none border border-white/20 bg-white/10 text-blue-100"
                   }`}
                 >
-                  <div className="mb-1 text-xs font-bold text-white/50">{msg.sender_name}</div>
+                  <div className="mb-1 text-xs font-bold text-blue-100">{msg.sender_name}</div>
                   {msg.message}
                 </div>
               ))}
 
               {messages.length === 0 ? (
-                <p className="text-sm text-white/50">Ingen beskeder endnu.</p>
+                <p className="text-sm text-blue-100">Ingen beskeder endnu.</p>
               ) : null}
             </div>
 
-            <form onSubmit={handleSendMessage} className="border-t border-white/10 bg-black/40 p-4">
+            <form onSubmit={handleSendMessage} className="border-t border-white/20 bg-white/10 p-4">
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   placeholder="Skriv besked til holdet..."
-                  className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm transition-colors focus:border-cyan-500/50 focus:outline-none"
+                  className="flex-1 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-white placeholder:text-blue-100 focus:outline-none focus:ring-2 focus:ring-teal-400/50"
                 />
                 <button
                   type="submit"
-                  className="rounded-xl bg-cyan-500 p-3 font-bold text-black transition-colors hover:bg-cyan-400"
+                  className="rounded-xl border border-teal-400/50 bg-teal-600 p-3 font-bold text-white shadow-lg transition-colors hover:bg-teal-500"
                 >
                   Send
                 </button>
