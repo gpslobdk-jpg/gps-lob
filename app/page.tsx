@@ -1,12 +1,13 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import Link from "next/link";
+import Lottie from "lottie-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
 import AIChatButton from "@/components/AIChatButton";
+import natureAnimation from "@/public/nature.json";
 import { createClient } from "@/utils/supabase/client";
 
 const WelcomeModal = dynamic(() => import("@/components/WelcomeModal"), {
@@ -53,14 +54,13 @@ export default function Home() {
       <main className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-10">
         <section className="space-y-6">
           <div className="flex justify-center">
-            <Image
-              src="/gpslogo.png"
-              alt={"GPSL\u00d8B.DK logo"}
-              width={320}
-              height={140}
-              priority
-              className="h-auto w-full max-w-[210px] object-contain"
-            />
+            <div className="w-full max-w-[250px] drop-shadow-[0_16px_32px_rgba(16,185,129,0.2)]">
+              <Lottie
+                animationData={natureAnimation}
+                loop={true}
+                className="h-52 w-full"
+              />
+            </div>
           </div>
 
           <div className="rounded-3xl border border-white/50 bg-white/60 p-5 shadow-xl shadow-emerald-900/10 backdrop-blur-md">
