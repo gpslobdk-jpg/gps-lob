@@ -44,12 +44,12 @@ export default function Home() {
   };
 
   return (
-    <div className="relative min-h-screen bg-slate-950 text-white">
+    <div className="relative flex min-h-screen flex-col bg-slate-950 text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(148,163,184,0.2),transparent_40%),radial-gradient(circle_at_50%_120%,rgba(30,41,59,0.6),transparent_55%)]" />
 
       <WelcomeModal forceOpenToken={showIntroToken} />
 
-      <main className="relative mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 py-10">
+      <main className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-10">
         <section className="space-y-6">
           <div className="flex justify-center">
             <Image
@@ -102,6 +102,28 @@ export default function Home() {
           </button>
         </div>
       </main>
+
+      <footer className="relative mx-auto w-full max-w-4xl px-6 pb-8 pt-3">
+        <div className="flex flex-col items-center gap-3 text-center text-sm text-slate-500 sm:flex-row sm:justify-between sm:text-left">
+          <div>
+            <a
+              href="mailto:gpslobdk@gmail.com"
+              className="transition hover:text-slate-300"
+            >
+              Support: gpslobdk@gmail.com
+            </a>
+          </div>
+
+          <p>© 2026 gpsløb.dk</p>
+
+          <button
+            type="button"
+            className="rounded-full border border-slate-700/70 px-3 py-1 text-xs font-medium text-slate-400 transition hover:border-slate-600 hover:text-slate-300"
+          >
+            AI Guide 🤖
+          </button>
+        </div>
+      </footer>
     </div>
   );
 }
