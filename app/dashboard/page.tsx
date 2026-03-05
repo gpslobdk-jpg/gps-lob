@@ -115,28 +115,32 @@ export default function DashboardPage() {
 
   return (
     <div
-      className={`relative min-h-screen bg-gradient-to-b from-emerald-50 to-emerald-200 p-6 text-white md:p-12 ${poppins.className}`}
+      className={`relative min-h-screen bg-gradient-to-b from-sky-300 via-emerald-50 to-emerald-200 p-6 text-white md:p-12 lg:bg-none lg:bg-transparent ${poppins.className}`}
     >
       <video
         autoPlay
         loop
         muted
         playsInline
+        preload="metadata"
         className="fixed top-0 left-0 hidden h-full w-full object-cover -z-20 lg:block"
         src="/promo.mp4"
       />
-      <div className="fixed inset-0 hidden bg-emerald-900/40 backdrop-blur-[2px] -z-10 lg:block" />
+      <div className="fixed inset-0 hidden bg-gradient-to-b from-sky-900/20 to-emerald-900/40 backdrop-blur-[2px] -z-10 lg:block" />
 
       <header className="flex items-center justify-between">
         <Image src="/gpslogo.png" width={150} height={50} alt="Logo" priority />
-        <button type="button" className="text-white/70 transition-colors hover:text-white">
+        <button
+          type="button"
+          className="text-white drop-shadow-md transition-colors hover:text-white/90"
+        >
           Log ud
         </button>
       </header>
 
       <section className="text-center">
         <h1
-          className={`mt-12 mb-2 text-4xl font-black tracking-widest text-white uppercase drop-shadow-lg md:text-6xl ${rubik.className}`}
+          className={`mt-12 mb-2 text-4xl font-black tracking-widest text-white uppercase drop-shadow-md md:text-6xl ${rubik.className}`}
         >
           UDSIGTSPOSTEN
         </h1>
