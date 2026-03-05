@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import Link from "next/link";
 import Lottie from "lottie-react";
 import { useRouter } from "next/navigation";
@@ -54,12 +55,25 @@ export default function Home() {
       <main className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-10">
         <section className="space-y-6">
           <div className="flex justify-center">
-            <div className="w-full max-w-[250px] drop-shadow-[0_16px_32px_rgba(16,185,129,0.2)]">
-              <Lottie
-                animationData={natureAnimation}
-                loop={true}
-                className="h-52 w-full"
-              />
+            <div className="relative h-52 w-full max-w-[300px]">
+              <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
+                <Lottie
+                  animationData={natureAnimation}
+                  loop={true}
+                  autoplay={true}
+                  className="h-44 w-44 opacity-70 sm:h-56 sm:w-56"
+                />
+              </div>
+              <div className="relative z-20 flex h-full items-center justify-center">
+                <Image
+                  src="/gpslogo.png"
+                  alt={"GPSL\u00d8B.DK logo"}
+                  width={320}
+                  height={140}
+                  priority
+                  className="h-auto w-full max-w-[220px] object-contain drop-shadow-[0_10px_20px_rgba(5,46,22,0.18)]"
+                />
+              </div>
             </div>
           </div>
 

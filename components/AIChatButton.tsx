@@ -70,10 +70,10 @@ export default function AIChatButton() {
   };
 
   return (
-    <div className="fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 flex items-end sm:right-6 sm:bottom-6">
+    <div className="fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 flex items-end sm:right-6 sm:bottom-6">
       <div className="flex flex-col items-end gap-3">
         {isOpen ? (
-          <section className="w-[min(24rem,calc(100vw-2rem))] rounded-2xl border border-slate-700/70 bg-slate-900/95 p-4 shadow-2xl shadow-black/40 backdrop-blur">
+          <section className="w-[min(24rem,calc(100vw-2rem))] rounded-2xl border border-emerald-100/90 bg-slate-50/95 p-4 shadow-2xl shadow-emerald-900/15 backdrop-blur-md">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Image
@@ -83,14 +83,14 @@ export default function AIChatButton() {
                   height={28}
                   className="h-6 w-auto"
                 />
-                <p className="text-sm font-semibold tracking-wide text-slate-100">
-                  AI Guide
+                <p className="text-sm font-semibold tracking-wide text-slate-900">
+                  {"AI Guide \u{1F916}"}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="rounded-lg px-2 py-1 text-xs font-medium text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
+                className="rounded-lg px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-200 hover:text-slate-900"
               >
                 Luk
               </button>
@@ -98,7 +98,7 @@ export default function AIChatButton() {
 
             <div className="mt-3 max-h-72 space-y-3 overflow-y-auto pr-1">
               <div className="flex justify-start">
-                <div className="max-w-[88%] rounded-xl border border-slate-700/70 bg-slate-800/75 px-3 py-2 text-sm leading-relaxed text-slate-100">
+                <div className="max-w-[88%] rounded-xl border border-emerald-100 bg-white px-3 py-2 text-sm leading-relaxed text-slate-700 shadow-sm shadow-emerald-900/5">
                   {WELCOME_MESSAGE}
                 </div>
               </div>
@@ -114,8 +114,8 @@ export default function AIChatButton() {
                     <div
                       className={`max-w-[88%] rounded-xl px-3 py-2 text-sm leading-relaxed ${
                         isUser
-                          ? "border border-cyan-400/35 bg-cyan-500/20 text-cyan-50"
-                          : "border border-slate-700/70 bg-slate-800/75 text-slate-100"
+                          ? "border border-emerald-700/20 bg-emerald-600 text-white"
+                          : "border border-emerald-100 bg-white text-slate-700 shadow-sm shadow-emerald-900/5"
                       }`}
                     >
                       {message.text}
@@ -126,11 +126,11 @@ export default function AIChatButton() {
 
               {isLoading ? (
                 <div className="flex justify-start">
-                  <div className="inline-flex items-center gap-2 rounded-xl border border-slate-700/70 bg-slate-800/80 px-3 py-2 text-xs text-slate-300">
+                  <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm shadow-emerald-900/5">
                     <span className="inline-flex gap-1">
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-200" />
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-200 [animation-delay:120ms]" />
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-200 [animation-delay:240ms]" />
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 [animation-delay:120ms]" />
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 [animation-delay:240ms]" />
                     </span>
                     {"AI t\u00e6nker..."}
                   </div>
@@ -141,7 +141,7 @@ export default function AIChatButton() {
             </div>
 
             {error ? (
-              <p className="mt-2 text-xs text-rose-300">
+              <p className="mt-2 text-xs text-rose-600">
                 {"Forbindelsen fejlede. Pr\u00f8v igen om et \u00f8jeblik."}
               </p>
             ) : null}
@@ -153,7 +153,7 @@ export default function AIChatButton() {
                   type="button"
                   onClick={() => sendQuickQuestion(question)}
                   disabled={isLoading}
-                  className="w-full rounded-xl border border-slate-700/70 bg-slate-800/70 px-3 py-2 text-left text-sm text-slate-200 transition hover:border-slate-600 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full rounded-xl border border-emerald-700/15 bg-emerald-600 px-3 py-2 text-left text-sm text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {question}
                 </button>
@@ -166,12 +166,12 @@ export default function AIChatButton() {
                 onChange={(event) => setInput(event.target.value)}
                 placeholder={"Skriv dit sp\u00f8rgsm\u00e5l..."}
                 disabled={isLoading}
-                className="w-full rounded-xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-cyan-400/70 focus:ring-2 focus:ring-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               />
               <button
                 type="submit"
                 disabled={isLoading || input.trim().length === 0}
-                className="rounded-xl border border-cyan-400/45 bg-cyan-500/20 px-3 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-45"
+                className="rounded-xl border border-emerald-700/15 bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 Send
               </button>
@@ -188,15 +188,19 @@ export default function AIChatButton() {
           onClick={() => setIsOpen((prev) => !prev)}
           aria-expanded={isOpen}
           aria-label={"\u00c5bn AI Guide"}
-          className="inline-flex items-center gap-2 rounded-full border border-slate-700/80 bg-slate-900/90 px-3 py-2 text-slate-200 shadow-lg shadow-black/35 transition hover:border-slate-600 hover:bg-slate-900"
+          className="inline-flex items-center gap-2.5 rounded-full border border-emerald-100 bg-white/80 px-3 py-2 text-slate-800 shadow-lg shadow-emerald-900/15 backdrop-blur-md transition hover:bg-white"
         >
           <Image
             src="/gpslogo.png"
             alt={"GPSL\u00d8B logo"}
             width={32}
             height={32}
-            className="h-7 w-auto"
+            className="h-6 w-auto"
           />
+          <span className="relative inline-flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/70" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          </span>
           <span className="text-sm font-semibold">AI Guide</span>
         </button>
       </div>
