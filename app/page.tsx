@@ -43,7 +43,7 @@ export default function Home() {
     event.preventDefault();
     const cleanedCode = code.replace(/\D/g, "").slice(0, 5);
     if (cleanedCode.length !== 5) return;
-    router.push(`/${cleanedCode}`);
+    router.push(`/join?pin=${cleanedCode}`);
   };
 
   return (
