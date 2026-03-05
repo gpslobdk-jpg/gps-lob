@@ -39,7 +39,7 @@ export default function OpretMagiPage() {
         const message =
           typeof data === "object" && data && "error" in data && typeof data.error === "string"
             ? data.error
-            : "Kunne ikke generere løbet lige nu.";
+            : "Kunne ikke generere lÃ¸bet lige nu.";
         throw new Error(message);
       }
 
@@ -51,22 +51,24 @@ export default function OpretMagiPage() {
       router.push("/dashboard/opret/manuel");
     } catch (error) {
       console.error("Magi-side fejl:", error);
-      setErrorMessage(error instanceof Error ? error.message : "Noget gik galt. Prøv igen.");
+      setErrorMessage(error instanceof Error ? error.message : "Noget gik galt. PrÃ¸v igen.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <main className={`min-h-screen bg-[#050816] px-6 py-12 text-white md:px-10 ${poppins.className}`}>
-      <section className="mx-auto w-full max-w-4xl rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_0_30px_rgba(34,211,238,0.12)] backdrop-blur-md">
-        <h1 className={`text-3xl font-black tracking-tight text-cyan-100 md:text-4xl ${rubik.className}`}>
-          Den Magiske Generator 🪄
+    <main
+      className={`min-h-screen bg-gradient-to-t from-emerald-100 via-sky-50 to-sky-300 px-6 py-12 text-white md:px-10 ${poppins.className}`}
+    >
+      <section className="mx-auto w-full max-w-4xl rounded-[2.5rem] border border-white/50 bg-white/80 p-10 shadow-2xl backdrop-blur-md">
+        <h1 className={`text-3xl font-black tracking-tight text-white drop-shadow-lg md:text-4xl ${rubik.className}`}>
+          AI-drevet LÃ¸bsbygger
         </h1>
 
         <div className="mt-8">
-          <label htmlFor="magic-theme" className="mb-2 block text-sm font-semibold text-cyan-100">
-            Hvad skal løbet handle om?
+          <label htmlFor="magic-theme" className="mb-2 block text-sm font-semibold text-emerald-950">
+            Hvad skal lÃ¸bet handle om?
           </label>
           <textarea
             id="magic-theme"
@@ -74,7 +76,7 @@ export default function OpretMagiPage() {
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
             placeholder="F.eks. Skattejagt med Harry Potter tema. Lav 6 poster, hvor 2 af dem er sjove foto-opgaver..."
-            className="w-full rounded-2xl border border-white/15 bg-black/30 px-4 py-4 text-sm text-white placeholder:text-white/45 focus:border-cyan-400/60 focus:outline-none"
+            className="w-full rounded-xl border border-emerald-100 bg-white/50 px-4 py-4 text-sm text-emerald-950 placeholder:text-emerald-600/60 focus:outline-none focus:ring-2 focus:ring-emerald-300"
           />
         </div>
 
@@ -82,14 +84,14 @@ export default function OpretMagiPage() {
           type="button"
           onClick={() => void handleGenerate()}
           disabled={isLoading || !prompt.trim()}
-          className="mt-6 w-full rounded-2xl bg-gradient-to-r from-amber-400 via-orange-400 to-pink-500 px-6 py-4 text-lg font-extrabold tracking-wide text-[#220b02] uppercase shadow-[0_0_28px_rgba(251,191,36,0.45)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-55"
+          className="mt-6 w-full rounded-full bg-emerald-600 px-6 py-3 text-lg font-extrabold tracking-wide text-white uppercase shadow-lg transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-55"
         >
-          {isLoading ? "✨ Genererer..." : "✨ Generer Løb"}
+          {isLoading ? "âœ¨ Genererer..." : "âœ¨ Generer LÃ¸b"}
         </button>
 
         {isLoading ? (
-          <p className="mt-4 text-sm font-semibold text-amber-100">
-            AI&apos;en designer poster, udtænker foto-missioner og pakker rygsækken... 🤖🎒
+          <p className="mt-4 text-sm font-semibold text-emerald-800">
+            AI&apos;en designer poster, udtÃ¦nker foto-missioner og pakker rygsÃ¦kken... ðŸ¤–ðŸŽ’
           </p>
         ) : null}
 
