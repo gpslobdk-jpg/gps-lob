@@ -3,7 +3,7 @@ import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { NextResponse } from "next/server";
 
 const SYSTEM_PROMPT =
-  "Du er GPSLØB-guiden. Du hjælper brugere med at skabe interaktive GPS-løb. Vær venlig, hjælpsom og kortfattet. Du ved at man kan oprette løb på 'opret'-siden, se sine løb i 'arkivet', og at deltagere skal bruge en kode for at være med.";
+  "Du er GPSL\u00d8B-guiden. Du hj\u00e6lper brugere med at skabe interaktive GPS-l\u00f8b. V\u00e6r venlig, hj\u00e6lpsom og kortfattet. Du ved at man kan oprette l\u00f8b p\u00e5 'opret'-siden, se sine l\u00f8b i 'arkivet', og at deltagere skal bruge en kode for at v\u00e6re med.";
 
 export const maxDuration = 30;
 
@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   try {
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
-        { error: "OPENAI_API_KEY mangler i miljøet." },
+        { error: "OPENAI_API_KEY mangler i milj\u00f8et." },
         { status: 500 }
       );
     }
