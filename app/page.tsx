@@ -45,8 +45,8 @@ export default function Home() {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-slate-950 text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(148,163,184,0.2),transparent_40%),radial-gradient(circle_at_50%_120%,rgba(30,41,59,0.6),transparent_55%)]" />
+    <div className="relative flex min-h-screen flex-col bg-gradient-to-b from-sky-100 via-green-50 to-emerald-100/50 text-slate-900">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(125,211,252,0.45),transparent_35%),radial-gradient(circle_at_85%_95%,rgba(16,185,129,0.22),transparent_40%),radial-gradient(rgba(15,23,42,0.04)_1px,transparent_1px)] [background-size:100%_100%,100%_100%,20px_20px]" />
 
       <WelcomeModal forceOpenToken={showIntroToken} />
 
@@ -63,7 +63,7 @@ export default function Home() {
             />
           </div>
 
-          <div className="rounded-3xl border border-slate-700/70 bg-slate-900/70 p-5 shadow-xl shadow-black/35">
+          <div className="rounded-3xl border border-white/50 bg-white/60 p-5 shadow-xl shadow-emerald-900/10 backdrop-blur-md">
             <form onSubmit={handleSubmit} className="space-y-3">
               <input
                 value={code}
@@ -75,12 +75,12 @@ export default function Home() {
                 pattern="[0-9]*"
                 maxLength={5}
                 placeholder={"Indtast l\u00f8bskode"}
-                className="w-full rounded-2xl border border-slate-600 bg-slate-950 px-4 py-4 text-center text-xl font-bold tracking-[0.18em] text-white outline-none placeholder:tracking-normal placeholder:text-slate-400 focus:border-cyan-400/75 focus:ring-2 focus:ring-cyan-400/30"
+                className="w-full rounded-2xl border border-emerald-200 bg-white/85 px-4 py-4 text-center text-xl font-bold tracking-[0.18em] text-emerald-950 outline-none placeholder:tracking-normal placeholder:text-emerald-800/55 focus:border-emerald-500/75 focus:ring-2 focus:ring-emerald-500/25"
               />
               <button
                 type="submit"
                 disabled={code.length !== 5}
-                className="w-full rounded-2xl bg-cyan-400 px-4 py-3 text-base font-black text-slate-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
+                className="w-full rounded-2xl bg-emerald-600 px-4 py-3 text-base font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 Deltag
               </button>
@@ -89,7 +89,7 @@ export default function Home() {
 
           <Link
             href="/dashboard/opret"
-            className="block w-full rounded-2xl border border-slate-500 bg-slate-800/60 px-4 py-3 text-center text-base font-semibold text-slate-100 transition hover:bg-slate-700/70"
+            className="block w-full rounded-2xl border border-white/55 bg-white/55 px-4 py-3 text-center text-base font-semibold text-emerald-950 transition hover:bg-white/75"
           >
             {"Opret nyt l\u00f8b"}
           </Link>
@@ -99,7 +99,7 @@ export default function Home() {
           <button
             type="button"
             onClick={() => setShowIntroToken((prev) => prev + 1)}
-            className="text-sm font-medium text-slate-300 underline decoration-slate-500 underline-offset-4 transition hover:text-white"
+            className="text-sm font-medium text-emerald-900 underline decoration-emerald-600/60 underline-offset-4 transition hover:text-emerald-700"
           >
             {"Hvad er GPSL\u00d8B.DK? \u{1F914}"}
           </button>
@@ -107,11 +107,11 @@ export default function Home() {
       </main>
 
       <footer className="relative mx-auto w-full max-w-4xl px-6 pb-8 pt-3">
-        <div className="flex flex-col items-center gap-3 text-center text-sm text-slate-500 sm:flex-row sm:justify-between sm:text-left">
+        <div className="flex flex-col items-center gap-3 text-center text-sm text-slate-600 sm:flex-row sm:justify-between sm:text-left">
           <div>
             <a
               href="mailto:gpslobdk@gmail.com"
-              className="transition hover:text-slate-300"
+              className="transition hover:text-emerald-700"
             >
               Support: gpslobdk@gmail.com
             </a>
