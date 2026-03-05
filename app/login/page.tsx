@@ -17,18 +17,23 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a1128] flex flex-col items-center justify-center p-4 sm:p-6">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(34,211,238,0.14),transparent_40%),radial-gradient(circle_at_80%_85%,rgba(99,102,241,0.18),transparent_45%)]" />
+    <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-t from-emerald-100 via-sky-50 to-sky-300 p-4 lg:bg-none lg:bg-transparent">
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="fixed top-0 left-0 hidden h-full w-full object-cover -z-20 lg:block"
+        src="/promo.mp4"
+      />
+      <div className="fixed inset-0 hidden bg-gradient-to-b from-sky-900/10 to-emerald-900/50 backdrop-blur-[3px] -z-10 lg:block" />
 
       <motion.section
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 140, damping: 18 }}
-        className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 sm:p-10 w-full max-w-md shadow-2xl relative overflow-hidden"
+        className="relative w-full max-w-md overflow-hidden rounded-[2.5rem] border border-white/50 bg-white/80 p-10 text-center shadow-2xl backdrop-blur-md"
       >
-        <div className="absolute -top-12 right-0 h-32 w-32 rounded-full bg-cyan-400/15 blur-3xl" />
-        <div className="absolute -bottom-12 left-0 h-36 w-36 rounded-full bg-blue-500/15 blur-3xl" />
-
         <div className="relative z-10">
           <div className="flex justify-center">
             <Image
@@ -37,18 +42,18 @@ export default function LoginPage() {
               width={200}
               height={96}
               priority
-              className="w-48 max-w-[200px] object-contain drop-shadow-[0_0_16px_rgba(34,211,238,0.38)]"
+              className="w-48 max-w-[200px] object-contain drop-shadow-[0_10px_20px_rgba(5,150,105,0.18)]"
             />
           </div>
 
-          <h1 className="mt-4 text-center text-2xl sm:text-3xl font-bold text-white [text-shadow:0_0_14px_rgba(34,211,238,0.35)]">
+          <h1 className="mt-4 text-center text-2xl font-bold text-emerald-950 sm:text-3xl">
             Velkommen til gpsløb.dk
           </h1>
 
           <button
             type="button"
             onClick={() => handleOAuthLogin("google")}
-            className="mt-6 h-12 w-full rounded-2xl bg-white px-5 text-base font-semibold text-slate-900 shadow-[0_0_22px_rgba(255,255,255,0.14)] transition-transform hover:scale-[1.02]"
+            className="mt-6 h-12 w-full rounded-full border border-emerald-200 bg-white/90 px-5 text-base font-semibold text-emerald-950 shadow-sm transition-all duration-300 hover:bg-white"
           >
             <span className="flex items-center justify-center gap-3">
               <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5">
@@ -76,10 +81,10 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => handleOAuthLogin("facebook")}
-            className="mt-3 h-12 w-full rounded-2xl bg-[#1877F2] px-5 text-base font-semibold text-white shadow-[0_0_18px_rgba(24,119,242,0.45)] transition-transform hover:scale-[1.02]"
+            className="mt-3 h-12 w-full rounded-full border border-emerald-200 bg-white/90 px-5 text-base font-semibold text-emerald-950 shadow-sm transition-all duration-300 hover:bg-white"
           >
             <span className="flex items-center justify-center gap-3">
-              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-white">
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-[#1877F2]">
                 <path d="M13.5 21v-7h2.3l.4-3h-2.7V9.2c0-.9.2-1.5 1.5-1.5H16V5.1c-.2 0-1-.1-1.9-.1-2.3 0-3.9 1.4-3.9 4V11H8v3h2.2v7h3.3Z" />
               </svg>
               Log ind med Facebook
@@ -87,36 +92,34 @@ export default function LoginPage() {
           </button>
 
           <div className="my-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-white/10" />
-            <span className="text-xs uppercase tracking-widest text-white/30">
+            <div className="h-px flex-1 bg-emerald-200" />
+            <span className="text-xs uppercase tracking-widest text-emerald-700/80">
               eller log ind med e-mail
             </span>
-            <div className="h-px flex-1 bg-white/10" />
+            <div className="h-px flex-1 bg-emerald-200" />
           </div>
 
-          <form className="space-y-3">
-            <input
-              type="email"
-              placeholder="Email"
-              className="w-full rounded-xl bg-black/20 px-4 py-3 text-white placeholder:text-white/40 focus:ring-2 focus:ring-cyan-400 focus:outline-none"
-            />
-            <input
-              type="password"
-              placeholder="Adgangskode"
-              className="w-full rounded-xl bg-black/20 px-4 py-3 text-white placeholder:text-white/40 focus:ring-2 focus:ring-cyan-400 focus:outline-none"
-            />
+          <form className="space-y-4">
+            <div className="text-left">
+              <label className="mb-1 block text-sm font-medium text-emerald-900">Email</label>
+              <input
+                type="email"
+                placeholder="Email"
+                className="w-full rounded-xl border border-emerald-100 bg-white/60 px-4 py-3 text-emerald-950 placeholder:text-emerald-700/50 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+              />
+            </div>
+            <div className="text-left">
+              <label className="mb-1 block text-sm font-medium text-emerald-900">Adgangskode</label>
+              <input
+                type="password"
+                placeholder="Adgangskode"
+                className="w-full rounded-xl border border-emerald-100 bg-white/60 px-4 py-3 text-emerald-950 placeholder:text-emerald-700/50 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+              />
+            </div>
 
             <motion.button
               type="button"
-              animate={{
-                boxShadow: [
-                  "0 0 15px rgba(34,211,238,0.5)",
-                  "0 0 24px rgba(34,211,238,0.72)",
-                  "0 0 15px rgba(34,211,238,0.5)",
-                ],
-              }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-base font-bold text-white shadow-[0_0_15px_rgba(34,211,238,0.5)]"
+              className="w-full rounded-full bg-emerald-600 px-5 py-3 text-base font-bold text-white shadow-md transition-all duration-300 hover:scale-[1.02] hover:bg-emerald-700"
             >
               Log ind / Opret
             </motion.button>
@@ -125,7 +128,7 @@ export default function LoginPage() {
           <div className="mt-5 text-center">
             <Link
               href="/"
-              className="text-xs text-white/45 transition hover:text-white/70"
+              className="text-xs text-emerald-700 transition hover:text-emerald-800"
             >
               &larr; Tilbage til forsiden
             </Link>
