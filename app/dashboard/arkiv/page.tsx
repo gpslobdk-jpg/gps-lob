@@ -298,10 +298,22 @@ export default function ArkivPage() {
   });
 
   return (
-    <main className={`min-h-screen bg-[#0a1128] p-6 text-white lg:p-12 ${poppins.className}`}>
+    <main
+      className={`relative min-h-screen bg-gradient-to-t from-emerald-100 via-sky-50 to-sky-300 p-6 text-white lg:bg-none lg:bg-transparent lg:p-12 ${poppins.className}`}
+    >
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="fixed top-0 left-0 hidden h-full w-full object-cover -z-20 lg:block"
+        src="/arkiv-bg.mp4"
+      />
+      <div className="fixed inset-0 hidden bg-gradient-to-b from-sky-900/20 to-emerald-900/60 backdrop-blur-[3px] -z-10 lg:block" />
+
       <div className="mx-auto max-w-7xl">
         <h1
-          className={`bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-4xl font-black text-transparent sm:text-5xl ${rubik.className}`}
+          className={`text-4xl font-black text-white drop-shadow-xl sm:text-5xl ${rubik.className}`}
         >
           MIT LØBSARKIV
         </h1>
@@ -310,7 +322,7 @@ export default function ArkivPage() {
         <div className="mt-8 mb-10 grid max-w-5xl grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_17rem] md:items-end">
           {/* SØGEFELT */}
           <div className="relative flex-1">
-            <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-white/40">
+            <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-emerald-700/70">
               <Search size={20} />
             </div>
             <input
@@ -318,18 +330,18 @@ export default function ArkivPage() {
               placeholder="Søg i dine løb..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 py-4 pr-4 pl-12 text-white shadow-[0_0_15px_rgba(0,0,0,0.2)] transition-all placeholder:text-white/40 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+              className="w-full rounded-2xl border border-white/50 bg-white/80 py-4 pr-4 pl-12 text-emerald-950 shadow-lg backdrop-blur-md transition-all placeholder:text-emerald-800/60 focus:outline-none focus:ring-2 focus:ring-emerald-300"
             />
           </div>
 
           {/* KATEGORIER / FAG DROPDOWN */}
           <div className="w-full">
-            <p className="mb-1 px-1 text-[11px] text-slate-400">
+            <p className="mb-1 px-1 text-[11px] text-white/85 drop-shadow-md">
               Er du underviser? Filtrér efter fag
             </p>
             <label
               htmlFor="subject-filter"
-              className="mb-2 block px-1 text-xs font-semibold tracking-wide text-white/70"
+              className="mb-2 block px-1 text-xs font-semibold tracking-wide text-white drop-shadow-md"
             >
               Kategorier / Fag
             </label>
@@ -338,16 +350,16 @@ export default function ArkivPage() {
                 id="subject-filter"
                 value={selectedSubject}
                 onChange={(e) => setSelectedSubject(e.target.value)}
-                className="w-full cursor-pointer appearance-none rounded-2xl border border-white/10 bg-[#131b35] py-4 pr-12 pl-6 font-medium text-white shadow-[0_0_15px_rgba(168,85,247,0.15)] transition-colors hover:bg-[#1a2442] focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                className="w-full cursor-pointer appearance-none rounded-2xl border border-white/50 bg-white/80 py-4 pr-12 pl-6 font-medium text-emerald-950 shadow-lg backdrop-blur-md transition-colors hover:bg-white/95 focus:outline-none focus:ring-2 focus:ring-emerald-300"
               >
                 {ALL_SUBJECTS.map((subj) => (
-                  <option key={subj} value={subj} className="bg-[#0a1128] py-2">
+                  <option key={subj} value={subj} className="bg-white py-2 text-emerald-950">
                     {subj}
                   </option>
                 ))}
               </select>
               {/* Custom pil for at fjerne browserens standard-pil */}
-              <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-purple-400">
+              <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-emerald-700">
                 <svg
                   width="14"
                   height="8"
@@ -376,7 +388,7 @@ export default function ArkivPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="col-span-full rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-white/70"
+                className="col-span-full rounded-2xl border border-white/50 bg-white/80 p-8 text-center text-emerald-800 shadow-lg backdrop-blur-md"
               >
                 Henter løb fra arkivet...
               </motion.div>
@@ -386,7 +398,7 @@ export default function ArkivPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="col-span-full rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-white/70"
+                className="col-span-full rounded-2xl border border-white/50 bg-white/80 p-8 text-center text-emerald-800 shadow-lg backdrop-blur-md"
               >
                 Ingen løb matcher din søgning.
               </motion.div>
@@ -399,23 +411,23 @@ export default function ArkivPage() {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ duration: 0.2 }}
-                  className="group relative overflow-hidden rounded-3xl border border-white/10 bg-[#131b35] p-6 transition-colors hover:border-purple-500/50"
+                  className="group relative overflow-hidden rounded-[2rem] border border-white/50 bg-white/85 p-6 shadow-xl backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="rounded-full border border-purple-400/30 bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-200">
+                    <span className="rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
                       {run.subject}
                     </span>
-                    <span className="text-xs text-white/55">
+                    <span className="text-xs text-emerald-700">
                       {formatDanishDate(run.created_at)}
                     </span>
                   </div>
 
-                  <h2 className={`mt-5 text-2xl font-bold leading-tight ${rubik.className}`}>
+                  <h2 className={`mt-5 text-2xl font-bold leading-tight text-emerald-950 ${rubik.className}`}>
                     {run.title}
                   </h2>
 
-                  <p className="mt-3 flex items-center gap-2 text-sm text-white/70">
-                    <MapPin className="h-4 w-4 text-purple-300" />
+                  <p className="mt-3 flex items-center gap-2 text-sm text-emerald-800">
+                    <MapPin className="h-4 w-4 text-emerald-600" />
                     {getQuestionCount(run.questions)} poster
                   </p>
 
@@ -424,7 +436,7 @@ export default function ArkivPage() {
                       type="button"
                       onClick={() => void handleStartRun(run.id)}
                       disabled={startingRunId === run.id}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-purple-500 px-4 py-3 text-sm font-bold text-white shadow-[0_0_20px_rgba(16,185,129,0.25)] transition hover:brightness-110"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-emerald-700"
                     >
                       <Play className="h-4 w-4" />
                       {startingRunId === run.id ? "STARTER..." : "START LØB"}
@@ -433,7 +445,7 @@ export default function ArkivPage() {
                     <button
                       type="button"
                       aria-label="Rediger løb"
-                      className="grid h-11 w-11 place-items-center rounded-xl bg-white/5 text-white/70 transition hover:bg-white/20 hover:text-white"
+                      className="grid h-11 w-11 place-items-center rounded-xl border border-emerald-200 bg-white/50 text-emerald-700 transition hover:bg-white"
                     >
                       <Edit2 className="h-4 w-4" />
                     </button>
@@ -442,13 +454,12 @@ export default function ArkivPage() {
                       type="button"
                       aria-label="Slet løb"
                       onClick={() => void handleDeleteRun(run.id)}
-                      className="grid h-11 w-11 place-items-center rounded-xl bg-white/5 text-white/70 transition hover:bg-white/20 hover:text-white"
+                      className="grid h-11 w-11 place-items-center rounded-xl border border-emerald-200 bg-white/50 text-emerald-700 transition hover:bg-white"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
 
-                  <div className="absolute right-0 bottom-0 left-0 h-1 bg-gradient-to-r from-purple-400 to-pink-500" />
                 </motion.div>
               ))
             )}
