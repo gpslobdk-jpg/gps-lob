@@ -605,23 +605,29 @@ export default function LiveLobbyPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -16 }}
           transition={{ duration: 0.35 }}
-          className={`relative flex min-h-screen flex-col overflow-hidden bg-gradient-to-b from-indigo-950 via-blue-900 to-cyan-800 p-6 text-white md:p-12 ${poppins.className}`}
+          className={`relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-gradient-to-t from-emerald-100 via-sky-50 to-sky-300 p-6 text-white md:p-12 ${poppins.className}`}
         >
-          <div className="pointer-events-none absolute -top-24 -left-16 h-72 w-72 rounded-full bg-cyan-500/20 blur-3xl" />
-          <div className="pointer-events-none absolute -right-16 top-20 h-72 w-72 rounded-full bg-purple-600/25 blur-3xl" />
-          <div className="pointer-events-none absolute right-1/4 -bottom-24 h-80 w-80 rounded-full bg-pink-500/20 blur-3xl" />
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="fixed top-0 left-0 hidden h-full w-full object-cover -z-20 lg:block"
+            src="/arkiv-bg.mp4"
+          />
+          <div className="fixed inset-0 hidden bg-gradient-to-b from-sky-900/20 to-emerald-900/60 backdrop-blur-[3px] -z-10 lg:block" />
 
-          <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col">
-            <section className="mx-auto w-full max-w-5xl rounded-3xl border border-white/20 bg-white/10 p-6 text-center shadow-2xl backdrop-blur-md md:p-8">
-              <h1 className={`text-sm font-bold tracking-[0.2em] text-white drop-shadow-md uppercase md:text-base ${rubik.className}`}>
+          <div className="relative z-10 w-full max-w-4xl rounded-[3rem] border border-white/50 bg-white/85 p-8 text-center shadow-2xl backdrop-blur-md md:p-14">
+            <section className="w-full">
+              <h1 className={`text-xl font-bold text-emerald-800 md:text-2xl ${rubik.className}`}>
                 LOG IND I LOBBYEN PÅ GPSLOB.DK/JOIN
               </h1>
-              <p className={`mt-4 bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-7xl font-black text-transparent md:text-9xl ${rubik.className} animate-pulse`}>
+              <p className={`my-6 text-7xl font-black tracking-widest text-emerald-950 drop-shadow-sm md:text-9xl ${rubik.className}`}>
                 {joinPin}
               </p>
             </section>
 
-            <section className="mx-auto mt-12 flex w-full max-w-4xl flex-col items-center justify-center gap-12 rounded-3xl border border-white/20 bg-white/10 p-8 shadow-2xl backdrop-blur-md md:flex-row">
+            <section className="mt-8 flex w-full flex-col items-center justify-center gap-10 md:flex-row">
               <div className="h-48 w-48 md:h-64 md:w-64">
                 <Lottie animationData={phoneAnimation} loop={true} />
               </div>
@@ -638,8 +644,8 @@ export default function LiveLobbyPage() {
               </div>
             </section>
 
-            <section className="mx-auto mt-10 w-full max-w-5xl">
-              <h2 className={`text-2xl font-black tracking-wide text-white drop-shadow-md uppercase ${rubik.className}`}>
+            <section className="mt-8 w-full">
+              <h2 className={`text-xl font-black tracking-wide text-emerald-800 uppercase md:text-2xl ${rubik.className}`}>
                 DELTAGERE KLAR: {students.length}
               </h2>
 
@@ -651,16 +657,16 @@ export default function LiveLobbyPage() {
                       initial={{ opacity: 0, scale: 0.9, y: 8 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.9, y: -8 }}
-                      className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-blue-100 shadow-lg backdrop-blur-md"
+                      className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-white/60 px-5 py-2 font-medium text-emerald-900 shadow-sm"
                     >
-                      <UserCircle className="h-4 w-4 text-white" />
+                      <UserCircle className="h-4 w-4 text-emerald-700" />
                       {name}
                     </motion.div>
                   ))}
                 </AnimatePresence>
 
                 {!isLoading && students.length === 0 ? (
-                  <p className="text-sm text-white/60">Ingen deltagere har joinet endnu.</p>
+                  <p className="text-sm text-emerald-700">Ingen deltagere har joinet endnu.</p>
                 ) : null}
               </div>
             </section>
@@ -668,7 +674,7 @@ export default function LiveLobbyPage() {
             <button
               type="button"
               onClick={() => void startSession()}
-              className={`mt-12 w-full rounded-xl border border-teal-400/50 bg-teal-600 py-6 text-3xl font-black text-white uppercase shadow-lg transition-colors hover:bg-teal-500 ${rubik.className}`}
+              className={`mx-auto mt-8 w-full rounded-full border border-emerald-500/30 bg-emerald-600 px-12 py-5 text-xl font-bold text-white shadow-xl transition-all duration-300 hover:scale-105 hover:bg-emerald-700 md:w-auto md:text-3xl ${rubik.className}`}
             >
               START LØBET! 🏁
             </button>
