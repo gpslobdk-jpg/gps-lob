@@ -18,18 +18,18 @@ type WelcomeModalProps = {
 
 const steps = [
   {
-    title: "Trin 1 · Opret",
-    text: "Design dit løb på 60 sekunder. Placer poster, vælg opgaver og gem. Det er lettere end at snøre skoene.",
+    title: "Trin 1 \u00b7 Opret",
+    text: "Klik p\u00e5 kortet for at placere dine poster. Ved hver post kan du gemme en sjov quiz, en g\u00e5de eller en opgave. Du bygger ruten og bestemmer legen!",
     animationData: opretAnimation,
   },
   {
-    title: "Trin 2 · Del",
-    text: "Scan og start! Deltagerne scanner en QR-kode eller taster en kode. Ingen login, ingen app – bare ren leg og spænding.",
+    title: "Trin 2 \u00b7 Del",
+    text: "Giv deltagerne din l\u00f8bskode. De skal hverken downloade en besv\u00e6rlig app eller oprette et login \u2013 de taster bare koden ind p\u00e5 forsiden, og s\u00e5 er jagten i gang.",
     animationData: delAnimation,
   },
   {
-    title: "Trin 3 · Følg",
-    text: "Vær med hele vejen. Se alle hold bevæge sig live på kortet. Giv hints og følg med i realtid fra Kontroltårnet.",
+    title: "Trin 3 \u00b7 F\u00f8lg",
+    text: "Mens deltagerne l\u00f8ber rundt, kan du sidde i \"Kontrolt\u00e5rnet\" og se deres hold bev\u00e6ge sig live p\u00e5 dit kort. F\u00f8lg med i, hvem der finder posterne f\u00f8rst!",
     animationData: folgAnimation,
   },
 ] as const;
@@ -75,10 +75,10 @@ export default function WelcomeModal({ forceOpenToken = 0 }: WelcomeModalProps) 
                 Velkommen
               </p>
               <h2 id="welcome-title" className="mt-1 text-2xl font-black text-emerald-700 sm:text-3xl">
-                Sådan fungerer GPSLØB.DK
+                {"Hvad er GPSL\u00d8B.DK?"}
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-700">
-                Byg en oplevelse, del den med deltagerne og følg energien live.
+                {"GPSL\u00d8B.DK er en platform, hvor du nemt kan forvandle en skovtur, skoleg\u00e5rd eller bypark til en interaktiv skattejagt. Du placerer usynlige poster p\u00e5 et digitalt kort, og deltagerne skal finde dem i virkeligheden ved hj\u00e6lp af deres telefoner."}
               </p>
             </div>
 
