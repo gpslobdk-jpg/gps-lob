@@ -54,10 +54,11 @@ export default function Home() {
         loop
         muted
         playsInline
+        preload="metadata"
         className="fixed top-0 left-0 hidden h-full w-full object-cover -z-20 lg:block"
       />
-      <div className="fixed inset-0 hidden bg-emerald-900/20 backdrop-blur-[2px] -z-10 lg:block" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(125,211,252,0.45),transparent_35%),radial-gradient(circle_at_85%_95%,rgba(16,185,129,0.22),transparent_40%),radial-gradient(rgba(15,23,42,0.04)_1px,transparent_1px)] [background-size:100%_100%,100%_100%,20px_20px]" />
+      <div className="fixed inset-0 hidden bg-emerald-900/22 -z-10 lg:block" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(125,211,252,0.45),transparent_35%),radial-gradient(circle_at_85%_95%,rgba(16,185,129,0.22),transparent_40%),radial-gradient(rgba(15,23,42,0.04)_1px,transparent_1px)] [background-size:100%_100%,100%_100%,20px_20px] lg:hidden" />
 
       <WelcomeModal forceOpenToken={showIntroToken} />
 
