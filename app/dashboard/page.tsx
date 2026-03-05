@@ -130,12 +130,20 @@ export default function DashboardPage() {
 
       <header className="flex items-center justify-between">
         <Image src="/gpslogo.png" width={150} height={50} alt="Logo" priority />
-        <button
-          type="button"
-          className="text-white drop-shadow-md transition-colors hover:text-white/90"
-        >
-          Log ud
-        </button>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/dashboard/indstillinger"
+            className="rounded-xl border border-white/40 bg-white/15 px-4 py-2 text-white drop-shadow-md backdrop-blur-sm transition-colors hover:bg-white/25"
+          >
+            Indstillinger
+          </Link>
+          <button
+            type="button"
+            className="text-white drop-shadow-md transition-colors hover:text-white/90"
+          >
+            Log ud
+          </button>
+        </div>
       </header>
 
       <section className="text-center">
