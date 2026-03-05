@@ -6,12 +6,13 @@ import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 
 export default function LoginPage() {
-  const handleOAuthLogin = async (provider: "google" | "facebook") => {
+  const handleOAuthLogin = async (provider: "google" | "facebook" | "azure") => {
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider,
       options: {
         redirectTo: `${window.location.origin}/api/auth/callback`,
+        ...(provider === "azure" ? { scopes: "email" } : {}),
       },
     });
   };
@@ -80,14 +81,17 @@ export default function LoginPage() {
 
           <button
             type="button"
-            onClick={() => handleOAuthLogin("facebook")}
+            onClick={() => handleOAuthLogin("azure")}
             className="mt-3 h-12 w-full rounded-full border border-emerald-200 bg-white/90 px-5 text-base font-semibold text-emerald-950 shadow-sm transition-all duration-300 hover:bg-white"
           >
             <span className="flex items-center justify-center gap-3">
-              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-[#1877F2]">
-                <path d="M13.5 21v-7h2.3l.4-3h-2.7V9.2c0-.9.2-1.5 1.5-1.5H16V5.1c-.2 0-1-.1-1.9-.1-2.3 0-3.9 1.4-3.9 4V11H8v3h2.2v7h3.3Z" />
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5">
+                <rect x="2" y="2" width="9" height="9" fill="#f35325" />
+                <rect x="13" y="2" width="9" height="9" fill="#81bc06" />
+                <rect x="2" y="13" width="9" height="9" fill="#05a6f0" />
+                <rect x="13" y="13" width="9" height="9" fill="#ffba08" />
               </svg>
-              Log ind med Facebook
+              Log ind med Microsoft
             </span>
           </button>
 
