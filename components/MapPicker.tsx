@@ -107,10 +107,10 @@ export default function MapPicker({ center, pins, onCenterChange }: MapPickerPro
   }, [searchQuery]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-3xl border border-white/10 bg-black/20">
+    <div className="relative h-full w-full overflow-hidden rounded-3xl">
       <div className="absolute top-4 left-1/2 z-[1000] w-full max-w-[300px] -translate-x-1/2 px-4 sm:max-w-md">
         <div className="relative">
-          <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-cyan-400">
+          <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-emerald-600">
             <Search size={18} />
           </div>
           <input
@@ -118,17 +118,17 @@ export default function MapPicker({ center, pins, onCenterChange }: MapPickerPro
             placeholder="Søg efter by eller skole..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-2xl border border-cyan-500/30 bg-[#0a1128]/90 py-3 pr-4 pl-10 text-sm text-white shadow-[0_0_20px_rgba(34,211,238,0.2)] backdrop-blur-md transition-all placeholder:text-white/40 focus:ring-2 focus:ring-cyan-400 focus:outline-none"
+            className="w-full rounded-2xl border border-emerald-100 bg-white/90 py-3 pr-4 pl-10 text-sm text-emerald-950 shadow-lg backdrop-blur-md transition-all placeholder:text-emerald-700/50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
           />
           {isSearching && (
             <div className="absolute inset-y-0 right-4 flex items-center">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
             </div>
           )}
         </div>
 
         {searchResults.length > 0 && (
-          <ul className="absolute top-full right-4 left-4 mt-2 overflow-hidden rounded-xl border border-white/10 bg-[#0a1128]/95 shadow-2xl backdrop-blur-xl">
+          <ul className="absolute top-full right-4 left-4 mt-2 overflow-hidden rounded-xl border border-emerald-100 bg-white/95 shadow-2xl backdrop-blur-xl">
             {searchResults.map((result, idx) => (
               <li
                 key={idx}
@@ -137,10 +137,10 @@ export default function MapPicker({ center, pins, onCenterChange }: MapPickerPro
                   setSearchResults([]);
                   setSearchQuery("");
                 }}
-                className="flex cursor-pointer items-start gap-3 border-b border-white/5 px-4 py-3 transition-colors last:border-0 hover:bg-cyan-900/40"
+                className="flex cursor-pointer items-start gap-3 border-b border-emerald-100 px-4 py-3 transition-colors last:border-0 hover:bg-emerald-50"
               >
-                <MapPin size={16} className="mt-0.5 shrink-0 text-cyan-400" />
-                <span className="line-clamp-2 text-sm text-white/80">{result.display_name}</span>
+                <MapPin size={16} className="mt-0.5 shrink-0 text-emerald-600" />
+                <span className="line-clamp-2 text-sm text-emerald-900">{result.display_name}</span>
               </li>
             ))}
           </ul>

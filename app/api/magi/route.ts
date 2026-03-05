@@ -93,21 +93,21 @@ export async function POST(req: Request) {
     }
 
     if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ error: "OPENAI_API_KEY mangler i miljøet." }, { status: 500 });
+      return NextResponse.json({ error: "OPENAI_API_KEY mangler i milj\u00f8et." }, { status: 500 });
     }
 
-    const systemPrompt = `Du er en ekspert i at designe sjove, udendørs GPS-løb og skattejagter.
-Brugeren giver dig et tema. Du SKAL returnere præcis 6 poster.
+    const systemPrompt = `Du er en ekspert i at designe sjove, udend\u00f8rs GPS-l\u00f8b og skattejagter.
+Brugeren giver dig et tema. Du SKAL returnere pr\u00e6cis 6 poster.
 Svar UDELUKKENDE i valid JSON-format, som et array af objekter.
-Strukturen for et objekt skal være:
+Strukturen for et objekt skal v\u00e6re:
 {
   "type": "multiple_choice" eller "ai_image",
-  "question": "Overskrift/Spørgsmålet til deltageren",
+  "question": "Overskrift/Sp\u00f8rgsm\u00e5let til deltageren",
   "options": ["Svar 1", "Svar 2", "Svar 3", "Svar 4"] (KUN hvis typen er multiple_choice, ellers udelad),
   "correctAnswer": "Det korrekte svar" (KUN hvis typen er multiple_choice, ellers udelad),
-  "aiPrompt": "Instruks til fotodommeren, f.eks. 'Find et egetræ'" (KUN hvis typen er ai_image, ellers udelad)
+  "aiPrompt": "Instruks til fotodommeren, f.eks. 'Find et egetr\u00e6'" (KUN hvis typen er ai_image, ellers udelad)
 }
-Gør 2 af posterne til 'ai_image' og 4 til 'multiple_choice'.`;
+G\u00f8r 2 af posterne til 'ai_image' og 4 til 'multiple_choice'.`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -128,7 +128,7 @@ Gør 2 af posterne til 'ai_image' og 4 til 'multiple_choice'.`;
     const posts = normalizeMagicPosts(rawArray);
     if (posts.length !== 6) {
       return NextResponse.json(
-        { error: "AI returnerede ikke præcis 6 gyldige poster. Prøv igen." },
+        { error: "AI returnerede ikke pr\u00e6cis 6 gyldige poster. Pr\u00f8v igen." },
         { status: 502 }
       );
     }
@@ -136,6 +136,6 @@ Gør 2 af posterne til 'ai_image' og 4 til 'multiple_choice'.`;
     return NextResponse.json(posts);
   } catch (error) {
     console.error("Magi API-fejl:", error);
-    return NextResponse.json({ error: "Kunne ikke generere løbet lige nu." }, { status: 500 });
+    return NextResponse.json({ error: "Kunne ikke generere l\u00f8bet lige nu." }, { status: 500 });
   }
 }

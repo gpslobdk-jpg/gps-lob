@@ -39,7 +39,7 @@ export default function OpretMagiPage() {
         const message =
           typeof data === "object" && data && "error" in data && typeof data.error === "string"
             ? data.error
-            : "Kunne ikke generere lÃ¸bet lige nu.";
+            : "Kunne ikke generere l\u00f8bet lige nu.";
         throw new Error(message);
       }
 
@@ -51,7 +51,7 @@ export default function OpretMagiPage() {
       router.push("/dashboard/opret/manuel");
     } catch (error) {
       console.error("Magi-side fejl:", error);
-      setErrorMessage(error instanceof Error ? error.message : "Noget gik galt. PrÃ¸v igen.");
+      setErrorMessage(error instanceof Error ? error.message : "Noget gik galt. Pr\u00f8v igen.");
     } finally {
       setIsLoading(false);
     }
@@ -63,12 +63,12 @@ export default function OpretMagiPage() {
     >
       <section className="mx-auto w-full max-w-4xl rounded-[2.5rem] border border-white/50 bg-white/80 p-10 shadow-2xl backdrop-blur-md">
         <h1 className={`text-3xl font-black tracking-tight text-white drop-shadow-lg md:text-4xl ${rubik.className}`}>
-          AI-drevet LÃ¸bsbygger
+          {"AI-drevet L\u00f8bsbygger"}
         </h1>
 
         <div className="mt-8">
           <label htmlFor="magic-theme" className="mb-2 block text-sm font-semibold text-emerald-950">
-            Hvad skal lÃ¸bet handle om?
+            {"Hvad skal l\u00f8bet handle om?"}
           </label>
           <textarea
             id="magic-theme"
@@ -86,12 +86,12 @@ export default function OpretMagiPage() {
           disabled={isLoading || !prompt.trim()}
           className="mt-6 w-full rounded-full bg-emerald-600 px-6 py-3 text-lg font-extrabold tracking-wide text-white uppercase shadow-lg transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-55"
         >
-          {isLoading ? "âœ¨ Genererer..." : "âœ¨ Generer LÃ¸b"}
+          {isLoading ? "\u2728 Genererer..." : "\u2728 Generer L\u00f8b"}
         </button>
 
         {isLoading ? (
           <p className="mt-4 text-sm font-semibold text-emerald-800">
-            AI&apos;en designer poster, udtÃ¦nker foto-missioner og pakker rygsÃ¦kken... ðŸ¤–ðŸŽ’
+            {"AI'en designer poster, udt\u00e6nker foto-missioner og pakker rygs\u00e6kken... \u{1F916}\u{1F392}"}
           </p>
         ) : null}
 
