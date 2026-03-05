@@ -619,10 +619,10 @@ export default function LiveLobbyPage() {
 
           <div className="relative z-10 w-full max-w-4xl rounded-[3rem] border border-white/50 bg-white/85 p-8 text-center shadow-2xl backdrop-blur-md md:p-14">
             <section className="w-full">
-              <h1 className={`text-xl font-bold text-emerald-800 md:text-2xl ${rubik.className}`}>
-                LOG IND I LOBBYEN PÅ GPSLOB.DK/JOIN
+              <h1 className={`mx-auto max-w-3xl text-xl font-bold text-emerald-800 md:text-2xl ${rubik.className}`}>
+                Log ind i lobbyen på gpslob.dk eller scan qr koden herunder
               </h1>
-              <p className={`my-6 text-7xl font-black tracking-widest text-emerald-950 drop-shadow-sm md:text-9xl ${rubik.className}`}>
+              <p className={`mt-5 mb-8 text-7xl font-black tracking-widest text-emerald-950 drop-shadow-sm md:text-9xl ${rubik.className}`}>
                 {joinPin}
               </p>
             </section>
