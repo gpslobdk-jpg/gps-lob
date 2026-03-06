@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronUp, Compass, Loader2, Plus } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
 import { useRouter } from "next/navigation";
@@ -503,86 +503,44 @@ export default function FotoMissionBuilderPage() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.14),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(255,255,255,0.08),_transparent_28%)]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row">
           <section className="w-full overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 lg:w-[52%] lg:px-8 lg:py-8">
-            <div className="mx-auto max-w-3xl space-y-5">
-              <article className="rounded-[2rem] border border-white/10 bg-white/[0.05] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-7">
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-semibold tracking-[0.24em] text-emerald-100 uppercase">
-                  <Compass className="h-4 w-4" />
-                  Foto-koncept
-                </div>
-                <h1 className={`mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl ${rubik.className}`}>
-                  AI Foto-mission
-                </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/[0.68] sm:text-base">
-                  I denne rute-type skal eleverne finde og fotografere motiver. Vores AI genkender
-                  objektet for at give point.
+            <div className="mx-auto max-w-3xl space-y-6">
+              <div className="px-1 pt-1">
+                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
+                  Løbets titel
+                </label>
+                <input
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="F.eks. Skovens skjulte spor"
+                  className={textInputClass}
+                />
+                <p className="mt-3 text-sm leading-relaxed text-emerald-100/70">
+                  Kort fortalt: Beskriv et motiv. Deltagerne tager et billede af det med telefonen,
+                  og vores AI fortæller dem med det samme, om det er rigtigt.
                 </p>
-              </article>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAIModal(true);
-                  setPreviewQuestions([]);
-                }}
-                className="group w-full rounded-[2rem] border border-white/10 bg-white/[0.06] p-6 text-left shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl transition hover:border-emerald-300/30 hover:bg-white/[0.09]"
-              >
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-semibold tracking-[0.24em] text-emerald-100 uppercase">
-                  <span aria-hidden>✨</span>
-                  Auto-udfyld med AI
-                </div>
-                <h2 className={`mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl ${rubik.className}`}>
-                  Lad AI foreslå motiver
-                </h2>
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/70 sm:text-base">
-                  Beskriv terræn eller emne kort, så får du fem foto-missioner med mål-objekt og
-                  elevinstruktion, som du kan finpudse bagefter.
-                </p>
-              </button>
-
-              <div className="rounded-[2rem] border border-white/10 bg-white/[0.05] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-7">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-semibold tracking-[0.28em] text-white/[0.55] uppercase">
-                      Foto-bygger
-                    </p>
-                    <h2 className={`mt-3 text-3xl font-black tracking-tight text-white ${rubik.className}`}>
-                      Byg missioner, som eleverne kan finde i naturen
-                    </h2>
-                    <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/[0.65]">
-                      Hold fokus på to felter pr. mission: hvad AI&apos;en skal genkende, og hvad
-                      eleverne skal lede efter.
-                    </p>
-                  </div>
-                  <div className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm font-semibold text-white/70">
-                    {questions.length} missioner
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
-                    Løbets titel
-                  </label>
-                  <input
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    placeholder="F.eks. Skovens skjulte spor"
-                    className={textInputClass}
-                  />
-                </div>
               </div>
 
-              <div className="flex items-end justify-between gap-4 px-1">
-                <div>
+              <div className="space-y-4 px-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAIModal(true);
+                    setPreviewQuestions([]);
+                  }}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-[1.4rem] border border-white/10 bg-white/[0.06] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(0,0,0,0.24)] backdrop-blur-xl transition hover:border-emerald-300/30 hover:bg-white/[0.1] sm:w-auto"
+                >
+                  <span aria-hidden>✨</span>
+                  Auto-udfyld med AI
+                </button>
+
+                <div className="flex items-end justify-between gap-4">
                   <p className="text-xs font-semibold tracking-[0.24em] text-white/[0.55] uppercase">
                     Dine missioner
                   </p>
-                  <p className="mt-2 text-sm text-white/60">
-                    Hver mission består af et mål-objekt, en besked til eleverne og en pin på kortet.
-                  </p>
+                  <span className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm font-semibold text-white/[0.65]">
+                    {questions.length}
+                  </span>
                 </div>
-                <span className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm font-semibold text-white/[0.65]">
-                  {questions.length}
-                </span>
               </div>
 
               {questions.map((question, index) => (
@@ -814,7 +772,7 @@ export default function FotoMissionBuilderPage() {
                     value={aiRunBrief}
                     onChange={(event) => setAiRunBrief(event.target.value)}
                     rows={8}
-                    placeholder="F.eks. Bøgeskov om efteråret, skolegårdens små detaljer eller byens farverige gadespor"
+                    placeholder="Hvor er I, og hvor mange motiver skal AI'en finde på? (F.eks: Find 7 sjove ting man kan tage billeder af i Tivoli...)"
                     className="w-full rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5 text-white placeholder:text-white/[0.35] focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
