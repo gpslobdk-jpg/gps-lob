@@ -1030,6 +1030,11 @@ function PlayScreen() {
     distance > AUTO_UNLOCK_RADIUS &&
     distance <= MANUAL_UNLOCK_RADIUS;
   const celebrationName = playerName || pendingPlayerName || "Holdet";
+  const progressPercent =
+    questions.length > 0
+      ? Math.max(0, Math.min(100, Math.round((correctAnswersCount / questions.length) * 100)))
+      : 0;
+  const activeTeamName = playerName || pendingPlayerName || "Dit hold";
   const activeTypedAnswerKey = `${currentPostIndex}-${activePostVariant}`;
   const activeTypedAnswerError =
     typedAnswerError?.key === activeTypedAnswerKey ? typedAnswerError.message : null;
@@ -1349,66 +1354,146 @@ function PlayScreen() {
   }
 
   return (
-    <div className="relative flex h-screen w-full flex-col bg-[#050816] text-white">
-      <div className="absolute top-4 right-4 left-4 z-[1000] flex items-center justify-between rounded-2xl border border-white/10 bg-black/60 p-4 shadow-[0_0_20px_rgba(168,85,247,0.3)] backdrop-blur-md">
-        <div>
-          <div className="text-xs font-bold tracking-wider text-white/50 uppercase">Mission</div>
-          <div className="bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-xl font-black text-transparent">
-            Find Post {currentPostIndex + 1} / {questions.length}
-          </div>
-        </div>
-        <div className="text-right">
-          <div className="text-xs font-bold tracking-wider text-white/50 uppercase">Afstand</div>
-          <div
-            className={`text-2xl font-black ${
-              distance !== null && distance <= AUTO_UNLOCK_RADIUS
-                ? "text-green-400 animate-pulse"
-                : "text-white"
-            }`}
-          >
-            {distance !== null ? `${distance}m` : "Søger GPS..."}
-          </div>
-          <div className="mt-1 text-[11px] font-semibold tracking-wider text-emerald-200 uppercase">
-            Score: {correctAnswersCount}
-          </div>
-          {canManualUnlock ? (
-            <button
-              type="button"
-              onClick={unlockCurrentPost}
-              className="mt-3 rounded-lg border border-amber-300/70 bg-amber-400/20 px-3 py-2 text-[11px] font-bold tracking-wide text-amber-100 transition-colors hover:bg-amber-400/35"
-            >
-              📍 Står du ved posten? (Lås op manuelt)
-            </button>
-          ) : null}
-        </div>
-      </div>
+    <div className="relative flex h-screen w-full flex-col overflow-hidden bg-slate-950 text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_28%),radial-gradient(circle_at_20%_18%,rgba(56,189,248,0.12),transparent_24%),radial-gradient(circle_at_80%_8%,rgba(34,197,94,0.1),transparent_22%),linear-gradient(180deg,rgba(2,6,23,0.78)_0%,rgba(2,6,23,0.92)_52%,rgba(2,6,23,1)_100%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_60%)]" />
 
-      {latestMessage ? (
-        <div className="animate-in slide-in-from-top fade-in absolute top-24 right-4 left-4 z-[1000] duration-500">
-          <div className="flex items-start gap-3 rounded-r-xl border-l-4 border-cyan-400 bg-cyan-900/90 p-4 shadow-[0_0_20px_rgba(34,211,238,0.4)] backdrop-blur-md">
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-cyan-400" />
-            <div>
-              <div className="mb-1 text-xs font-bold tracking-wider text-cyan-400 uppercase">
-                Besked fra Arrangøren
+      <div className="absolute top-4 right-4 left-4 z-[1000] space-y-4">
+        <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900/80 p-4 shadow-[0_24px_80px_rgba(2,6,23,0.5)] backdrop-blur-xl md:p-5">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.08),transparent_30%)]" />
+          <div className="relative flex flex-col gap-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="min-w-0 flex-1 space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold tracking-[0.28em] text-emerald-200/85 uppercase">
+                    Aktivt hold
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-white/60 uppercase">
+                    Nature-Glass
+                  </span>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-[1.35fr,1fr]">
+                  <div className="overflow-hidden rounded-[1.6rem] border border-white/10 bg-black/20 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                    <p className="text-[11px] font-semibold tracking-[0.28em] text-white/45 uppercase">
+                      Holdnavn
+                    </p>
+                    <p className="mt-2 break-words text-2xl font-black text-white">
+                      {activeTeamName}
+                    </p>
+                    <p className="mt-2 text-sm text-emerald-100/70">
+                      Find post {currentPostIndex + 1} af {questions.length}
+                    </p>
+                  </div>
+
+                  <div className="overflow-hidden rounded-[1.6rem] border border-white/10 bg-black/20 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                    <p className="text-[11px] font-semibold tracking-[0.28em] text-white/45 uppercase">
+                      Afstand
+                    </p>
+                    <p
+                      className={`mt-2 text-3xl font-black ${
+                        distance !== null && distance <= AUTO_UNLOCK_RADIUS
+                          ? "text-emerald-400"
+                          : "text-white"
+                      }`}
+                    >
+                      {distance !== null ? `${distance}m` : "Søger GPS..."}
+                    </p>
+                    <p className="mt-2 text-sm text-white/60">
+                      GPS låser automatisk op tæt på posten.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="overflow-hidden rounded-[1.6rem] border border-white/10 bg-black/20 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-semibold tracking-[0.28em] text-white/45 uppercase">
+                        Fremskridt
+                      </p>
+                      <p className="mt-1 text-sm text-white/75">
+                        I er {progressPercent}% gennem ruten.
+                      </p>
+                    </div>
+                    <p className="text-sm font-bold text-emerald-200">
+                      {correctAnswersCount}/{questions.length}
+                    </p>
+                  </div>
+                  <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 shadow-[0_0_18px_rgba(16,185,129,0.35)] transition-all duration-500"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="text-sm font-medium text-white">{latestMessage}</div>
+
+              <div className="flex flex-col gap-3 md:items-end">
+                <div className="inline-flex items-center gap-3 self-start rounded-[1.75rem] border border-emerald-300/20 bg-emerald-500/10 px-3 py-3 shadow-[0_0_24px_rgba(16,185,129,0.16)] md:self-auto">
+                  <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full border border-white/10 bg-slate-950/75 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                    <div className="text-center">
+                      <p className="text-[10px] font-semibold tracking-[0.24em] text-emerald-200/65 uppercase">
+                        Point
+                      </p>
+                      <p className="text-3xl font-black text-emerald-400">{correctAnswersCount}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold tracking-[0.24em] text-emerald-100/55 uppercase">
+                      Medalje
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-white/85">
+                      Holdets score vokser for hver fundet post.
+                    </p>
+                  </div>
+                </div>
+
+                {canManualUnlock ? (
+                  <button
+                    type="button"
+                    onClick={unlockCurrentPost}
+                    className="rounded-2xl border border-amber-300/40 bg-amber-400/10 px-4 py-3 text-xs font-bold tracking-[0.2em] text-amber-100 uppercase transition-colors hover:bg-amber-400/20"
+                  >
+                    📍 Står du ved posten? Lås op manuelt
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>
-      ) : null}
 
-      {resumeMessage ? (
-        <div className="animate-in slide-in-from-top fade-in absolute top-40 right-4 left-4 z-[1000] duration-500">
-          <div className="flex items-start gap-3 rounded-r-xl border-l-4 border-emerald-400 bg-emerald-900/90 p-4 shadow-[0_0_20px_rgba(16,185,129,0.35)] backdrop-blur-md">
-            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
-            <div className="text-sm font-medium text-white">{resumeMessage}</div>
+        {latestMessage ? (
+          <div className="animate-in slide-in-from-top fade-in duration-500">
+            <div className="flex items-start gap-3 rounded-[1.5rem] border border-white/10 bg-slate-900/78 p-4 shadow-[0_18px_40px_rgba(6,182,212,0.14)] backdrop-blur-xl">
+              <div className="mt-0.5 rounded-full border border-cyan-400/20 bg-cyan-400/10 p-2 text-cyan-300">
+                <AlertCircle className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="mb-1 text-xs font-bold tracking-[0.24em] text-cyan-300/80 uppercase">
+                  Besked fra arrangøren
+                </div>
+                <div className="text-sm font-medium text-white">{latestMessage}</div>
+              </div>
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+
+        {resumeMessage ? (
+          <div className="animate-in slide-in-from-top fade-in duration-500">
+            <div className="flex items-start gap-3 rounded-[1.5rem] border border-white/10 bg-slate-900/78 p-4 shadow-[0_18px_40px_rgba(16,185,129,0.14)] backdrop-blur-xl">
+              <div className="mt-0.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 p-2 text-emerald-300">
+                <CheckCircle2 className="h-4 w-4" />
+              </div>
+              <div className="text-sm font-medium text-white">{resumeMessage}</div>
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       <div className="pointer-events-none absolute right-4 bottom-20 left-4 z-[950] flex justify-center">
-        <div className="w-full max-w-xl rounded-xl border border-amber-300/60 bg-gradient-to-r from-amber-200 via-orange-100 to-amber-100 px-4 py-2 text-center text-xs font-bold text-amber-900 shadow-[0_8px_24px_rgba(251,191,36,0.35)]">
-          💡 Tip: Hold skærmen tændt mens du går, så arrangøren kan se dig på kortet!
+        <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-slate-900/78 px-4 py-3 text-center text-xs font-semibold text-amber-50 shadow-[0_18px_40px_rgba(245,158,11,0.12)] backdrop-blur-xl">
+          <span className="text-amber-300">Tip:</span> Hold skærmen tændt mens du går, så
+          arrangøren kan se dig på kortet!
         </div>
       </div>
 
@@ -1446,7 +1531,7 @@ function PlayScreen() {
         ) : null}
 
         <div className="pointer-events-none absolute right-4 bottom-6 left-4 z-[900] flex justify-center">
-          <div className="rounded-full border border-cyan-400/30 bg-black/55 px-3 py-2 text-xs text-cyan-200 shadow-[0_0_20px_rgba(34,211,238,0.25)] backdrop-blur-sm">
+          <div className="rounded-full border border-white/10 bg-slate-900/78 px-3 py-2 text-xs text-emerald-100/80 shadow-[0_18px_30px_rgba(15,23,42,0.4)] backdrop-blur-md">
             Hold kursen mod den cyan markør
           </div>
         </div>
