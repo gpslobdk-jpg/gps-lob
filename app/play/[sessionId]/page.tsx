@@ -71,6 +71,10 @@ type EscapeRewardState = {
   key: string;
   reward: string;
 } | null;
+type RoleplayReplyState = {
+  key: string;
+  message: string;
+} | null;
 type MasterLockStatus = "locked" | "unlocked";
 
 type Location = {
@@ -313,6 +317,7 @@ function PlayScreen() {
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [photoFeedback, setPhotoFeedback] = useState<PhotoFeedbackState>(null);
   const [escapeReward, setEscapeReward] = useState<EscapeRewardState>(null);
+  const [roleplayReply, setRoleplayReply] = useState<RoleplayReplyState>(null);
   const [masterLockInput, setMasterLockInput] = useState("");
   const [masterLockError, setMasterLockError] = useState<string | null>(null);
   const [masterLockStatus, setMasterLockStatus] = useState<MasterLockStatus>("locked");
@@ -337,6 +342,7 @@ function PlayScreen() {
 
   const unlockCurrentPost = useCallback(() => {
     setEscapeReward(null);
+    setRoleplayReply(null);
     setShowQuestion(true);
   }, []);
 
@@ -1044,6 +1050,15 @@ function PlayScreen() {
         return;
       }
 
+      if (currentVariant === "roleplay") {
+        const characterName = current.answers[1]?.trim() || "Karakteren";
+        setRoleplayReply({
+          key: `${currentPostIndex}-roleplay`,
+          message: `${characterName}: Godt svaret! Følg med mig videre...`,
+        });
+        return;
+      }
+
       alert("KORREKT! 🎉 Find næste post!");
       await continueFromSolvedPost();
     } else {
@@ -1090,6 +1105,7 @@ function PlayScreen() {
     typedAnswerError?.key === activeTypedAnswerKey ? typedAnswerError.message : null;
   const activePhotoFeedback = photoFeedback?.key === activeTypedAnswerKey ? photoFeedback : null;
   const activeEscapeReward = escapeReward?.key === activeTypedAnswerKey ? escapeReward.reward : null;
+  const activeRoleplayReply = roleplayReply?.key === activeTypedAnswerKey ? roleplayReply.message : null;
   const gpsErrorContent =
     gpsError === "permission_denied"
       ? {
@@ -1121,6 +1137,7 @@ function PlayScreen() {
 
   const continueFromSolvedPost = async () => {
     setEscapeReward(null);
+    setRoleplayReply(null);
     setShowQuestion(false);
     setDistance(null);
     if (currentPostIndex + 1 < questions.length) {
@@ -1907,69 +1924,97 @@ function PlayScreen() {
             ) : null}
 
             {activePostVariant === "roleplay" ? (
-              <form onSubmit={handleTypedAnswerSubmit} className="space-y-5 overflow-hidden">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/8 text-2xl shadow-inner shadow-black/20">
-                    {roleplayAvatar && looksLikeImageSource(roleplayAvatar) ? (
-                      <Image
-                        src={roleplayAvatar}
-                        alt={roleplayCharacterName}
-                        width={56}
-                        height={56}
-                        className="h-full w-full object-cover"
-                        unoptimized
-                        loader={({ src }) => src}
-                      />
-                    ) : (
-                      <span>{roleplayAvatar || "🕰️"}</span>
-                    )}
-                  </div>
+              <div className="space-y-5 overflow-hidden">
+                <div className="overflow-hidden rounded-[1.75rem] border border-violet-300/20 bg-slate-900/80 p-4 shadow-[0_18px_40px_rgba(76,29,149,0.18)] backdrop-blur-xl">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-violet-200/20 bg-violet-500/10 text-2xl shadow-inner shadow-black/20">
+                      {roleplayAvatar && looksLikeImageSource(roleplayAvatar) ? (
+                        <Image
+                          src={roleplayAvatar}
+                          alt={roleplayCharacterName}
+                          width={56}
+                          height={56}
+                          className="h-full w-full object-cover"
+                          unoptimized
+                          loader={({ src }) => src}
+                        />
+                      ) : (
+                        <span>{roleplayAvatar || "🕰️"}</span>
+                      )}
+                    </div>
 
-                  <div className="min-w-0">
-                    <p className="break-words hyphens-auto text-xs font-semibold tracking-[0.24em] text-cyan-200/70 uppercase">
-                      Karakter
-                    </p>
-                    <p className="mt-1 break-words hyphens-auto text-lg font-black text-white">
-                      {roleplayCharacterName}
-                    </p>
+                    <div className="min-w-0">
+                      <p className="break-words hyphens-auto text-xs font-semibold tracking-[0.24em] text-violet-200/75 uppercase">
+                        Tidsmaskinen
+                      </p>
+                      <p className="mt-1 break-words hyphens-auto text-lg font-black text-white">
+                        {roleplayCharacterName}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="overflow-hidden rounded-[1.75rem] border border-cyan-300/15 bg-cyan-950/20 p-5">
-                  <p className="break-words hyphens-auto text-sm leading-relaxed text-white">
+                <div className="relative ml-2 overflow-hidden rounded-[1.75rem] border border-violet-300/20 bg-slate-800/60 p-5 shadow-[0_18px_40px_rgba(59,130,246,0.16)] backdrop-blur-xl">
+                  <span className="absolute -left-2 top-6 h-4 w-4 rotate-45 rounded-[0.45rem] border-l border-t border-violet-300/20 bg-slate-800/60" />
+                  <p className="break-words hyphens-auto pr-1 text-sm leading-relaxed text-white">
                     {activeQuestion.text}
                   </p>
                 </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <input
-                    key={`roleplay-input-${activeTypedAnswerKey}`}
-                    ref={typedAnswerInputRef}
-                    type="text"
-                    onChange={() => {
-                      if (activeTypedAnswerError) setTypedAnswerError(null);
-                    }}
-                    placeholder="Skriv dit svar til karakteren..."
-                    className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-slate-900/80 px-4 py-3 text-white outline-none transition focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/20"
-                  />
-                  <button
-                    type="submit"
-                    className="rounded-2xl bg-cyan-500 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-400"
-                  >
-                    Send besked
-                  </button>
-                </div>
-
-                {activeTypedAnswerError ? (
-                  <p className="break-words hyphens-auto text-sm text-cyan-200/85">
-                    {activeTypedAnswerError}
-                  </p>
+                {activeRoleplayReply ? (
+                  <div className="space-y-4 overflow-hidden rounded-[1.75rem] border border-violet-300/25 bg-violet-950/35 p-5 shadow-[0_20px_45px_rgba(91,33,182,0.22)] backdrop-blur-xl">
+                    <p className="break-words hyphens-auto text-xs font-semibold tracking-[0.24em] text-violet-200/75 uppercase">
+                      Svar fra {roleplayCharacterName}
+                    </p>
+                    <div className="rounded-[1.35rem] border border-violet-200/15 bg-white/6 p-4">
+                      <p className="break-words hyphens-auto text-sm leading-relaxed text-violet-50">
+                        {activeRoleplayReply}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void continueFromSolvedPost()}
+                      className="w-full rounded-2xl bg-violet-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-violet-300"
+                    >
+                      Fortsæt rejsen -&gt;
+                    </button>
+                  </div>
                 ) : (
-                  <p className="break-words hyphens-auto text-sm text-white/60">
-                    Svar rigtigt for at drive historien videre til næste post.
-                  </p>
+                  <form
+                    onSubmit={handleTypedAnswerSubmit}
+                    className="overflow-hidden rounded-[1.75rem] border border-violet-300/15 bg-slate-900/70 p-4 shadow-[0_18px_38px_rgba(67,56,202,0.16)] backdrop-blur-xl"
+                  >
+                    <div className="flex items-end gap-3">
+                      <input
+                        key={`roleplay-input-${activeTypedAnswerKey}`}
+                        ref={typedAnswerInputRef}
+                        type="text"
+                        onChange={() => {
+                          if (activeTypedAnswerError) setTypedAnswerError(null);
+                        }}
+                        placeholder={`Skriv dit svar til ${roleplayCharacterName}...`}
+                        className="min-w-0 flex-1 rounded-2xl border border-violet-200/15 bg-slate-950/80 px-4 py-3 text-white outline-none transition placeholder:text-violet-100/35 focus:border-violet-300/50 focus:ring-2 focus:ring-violet-300/20"
+                      />
+                      <button
+                        type="submit"
+                        className="shrink-0 rounded-2xl bg-violet-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-violet-300"
+                      >
+                        Send besked
+                      </button>
+                    </div>
+
+                    {activeTypedAnswerError ? (
+                      <p className="mt-3 break-words hyphens-auto text-sm text-violet-200/85">
+                        {activeTypedAnswerError}
+                      </p>
+                    ) : (
+                      <p className="mt-3 break-words hyphens-auto text-sm text-white/60">
+                        Svar rigtigt for at drive historien videre til næste post.
+                      </p>
+                    )}
+                  </form>
                 )}
-              </form>
+              </div>
             ) : null}
 
             {activePostVariant === "unknown" ? (
