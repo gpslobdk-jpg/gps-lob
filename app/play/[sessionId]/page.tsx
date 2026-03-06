@@ -5,6 +5,7 @@ import { Player } from "@lottiefiles/react-lottie-player";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { AlertCircle, CheckCircle2, Crosshair, MapPin } from "lucide-react";
+import Image from "next/image";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 
@@ -1237,10 +1238,14 @@ function PlayScreen() {
 
             {activeQuestion.mediaUrl ? (
               <div className="mb-5 overflow-hidden rounded-xl border border-white/15">
-                <img
+                <Image
                   src={activeQuestion.mediaUrl}
                   alt="Spørgsmålsmedie"
+                  width={800}
+                  height={450}
                   className="h-auto w-full object-cover"
+                  unoptimized
+                  loader={({ src }) => src}
                 />
               </div>
             ) : null}

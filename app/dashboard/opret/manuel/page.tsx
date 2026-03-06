@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { ImageIcon, Sparkles, Youtube } from "lucide-react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useMemo, useState } from "react";
@@ -144,6 +145,14 @@ type MapCenter = {
   lng: number;
 };
 
+type MagicDraftQuestion = {
+  type?: unknown;
+  question?: unknown;
+  aiPrompt?: unknown;
+  options?: unknown;
+  correctAnswer?: unknown;
+};
+
 const MAGIC_DRAFT_STORAGE_KEY = "magicRunDraft";
 
 const createQuestion = (): Question => ({
@@ -160,6 +169,20 @@ const createQuestion = (): Question => ({
 
 const inputClass =
   "w-full rounded-xl border border-emerald-100 bg-white/50 px-4 py-3 text-emerald-950 placeholder:text-emerald-800/50 focus:outline-none focus:ring-2 focus:ring-emerald-300";
+
+const DEFAULT_ANSWERS: [string, string, string, string] = ["", "", "", ""];
+
+function toAnswersTuple(value: unknown): [string, string, string, string] {
+  if (!Array.isArray(value)) return DEFAULT_ANSWERS;
+
+  const stringAnswers = value.filter((item): item is string => typeof item === "string");
+  const padded = [...stringAnswers.slice(0, 4)];
+  while (padded.length < 4) {
+    padded.push("");
+  }
+
+  return [padded[0] ?? "", padded[1] ?? "", padded[2] ?? "", padded[3] ?? ""];
+}
 
 export default function OpretLoebPage() {
   const router = useRouter();
@@ -190,27 +213,27 @@ export default function OpretLoebPage() {
       const parsed = JSON.parse(rawDraft) as unknown;
       if (!Array.isArray(parsed)) return;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mappedQuestions = (parsed as any[])
+      const mappedQuestions = parsed
         .map((rawItem, index): Question | null => {
           if (!rawItem || typeof rawItem !== "object") return null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const item = rawItem as any;
+          const item = rawItem as MagicDraftQuestion;
+          const answers = toAnswersTuple(item.options);
+          const questionText = typeof item.question === "string" ? item.question : "";
+          const aiPromptText = typeof item.aiPrompt === "string" ? item.aiPrompt : "";
+          const answerIndex =
+            typeof item.correctAnswer === "string" ? answers.indexOf(item.correctAnswer) : -1;
 
           return {
             id: Date.now() + index,
             type: item.type === "ai_image" ? "ai_image" : "multiple_choice",
-            text: item.question || "",
-            aiPrompt: item.aiPrompt || "",
+            text: questionText,
+            aiPrompt: aiPromptText,
             mediaUrl: "",
-            answers: Array.isArray(item.options) ? item.options : ["", "", "", ""],
-            correctIndex:
-              typeof item.correctAnswer === "string" && Array.isArray(item.options)
-                ? item.options.indexOf(item.correctAnswer)
-                : 0,
-            lat: null as number | null,
-            lng: null as number | null,
-          } as Question;
+            answers,
+            correctIndex: answerIndex >= 0 ? answerIndex : 0,
+            lat: null,
+            lng: null,
+          };
         })
         .filter((q): q is Question => q !== null);
 
@@ -598,10 +621,14 @@ export default function OpretLoebPage() {
                       animate={{ opacity: 1, scale: 1 }}
                       className="relative mx-auto aspect-video w-full max-w-[300px] overflow-hidden rounded-xl border border-emerald-100 bg-white/80 shadow-2xl"
                     >
-                      <img
+                      <Image
                         src={question.mediaUrl}
                         alt="Preview"
-                        className="h-full w-full object-cover"
+                        fill
+                        sizes="(max-width: 640px) 100vw, 300px"
+                        className="object-cover"
+                        unoptimized
+                        loader={({ src }) => src}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                       <button
