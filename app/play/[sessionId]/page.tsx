@@ -67,6 +67,10 @@ type PhotoFeedbackState = {
   tone: "success" | "error";
   message: string;
 } | null;
+type EscapeRewardState = {
+  key: string;
+  reward: string;
+} | null;
 
 type Location = {
   lat: number;
@@ -211,11 +215,14 @@ function getActivePostVariant(question: Question): ActivePostVariant {
   if (question.type === "unknown") return "unknown";
 
   const [answer0 = "", answer1 = "", answer2 = "", answer3 = ""] = question.answers;
-  const hasRoleplayMeta = Boolean(answer1.trim() || answer2.trim());
+  const hasRoleplayMeta = Boolean(answer2.trim());
+  const hasPrimaryAndReward =
+    Boolean(answer0.trim()) && Boolean(answer1.trim()) && !answer2.trim() && !answer3.trim();
   const hasOnlyPrimaryAnswer =
     Boolean(answer0.trim()) && !answer1.trim() && !answer2.trim() && !answer3.trim();
 
   if (hasRoleplayMeta && !answer3.trim()) return "roleplay";
+  if (hasPrimaryAndReward) return "escape";
   if (hasOnlyPrimaryAnswer && question.aiPrompt?.trim()) return "escape";
   return "quiz";
 }
@@ -286,6 +293,7 @@ function PlayScreen() {
   const [resumeMessage, setResumeMessage] = useState<string | null>(null);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [photoFeedback, setPhotoFeedback] = useState<PhotoFeedbackState>(null);
+  const [escapeReward, setEscapeReward] = useState<EscapeRewardState>(null);
   const [typedAnswerError, setTypedAnswerError] = useState<{ key: string; message: string } | null>(
     null
   );
@@ -304,6 +312,7 @@ function PlayScreen() {
   const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   const unlockCurrentPost = useCallback(() => {
+    setEscapeReward(null);
     setShowQuestion(true);
   }, []);
 
@@ -987,6 +996,7 @@ function PlayScreen() {
 
     const isCorrect = selectedIndex === current.correctIndex;
     const postNumber = currentPostIndex + 1;
+    const currentVariant = getActivePostVariant(current);
 
     if (isCorrect) {
       await insertAnswerRecord(
@@ -997,16 +1007,21 @@ function PlayScreen() {
         myLoc?.lat ?? null,
         myLoc?.lng ?? null
       );
-      alert("KORREKT! 🎉 Find næste post!");
-      setShowQuestion(false);
-      setDistance(null);
       setCorrectAnswersCount((prev) => prev + 1);
-      if (currentPostIndex + 1 < questions.length) {
-        setCurrentPostIndex((prev) => prev + 1);
-      } else {
-        await markParticipantFinished();
-        setIsFinished(true);
+      if (currentVariant === "escape") {
+        const rewardMessage =
+          current.answers[1]?.trim() ||
+          current.aiPrompt?.trim() ||
+          "Du har fundet en vigtig kode-brik!";
+        setEscapeReward({
+          key: `${currentPostIndex}-escape`,
+          reward: rewardMessage,
+        });
+        return;
       }
+
+      alert("KORREKT! 🎉 Find næste post!");
+      await continueFromSolvedPost();
     } else {
       alert("Forkert! Prøv igen ❌");
     }
@@ -1039,6 +1054,7 @@ function PlayScreen() {
   const activeTypedAnswerError =
     typedAnswerError?.key === activeTypedAnswerKey ? typedAnswerError.message : null;
   const activePhotoFeedback = photoFeedback?.key === activeTypedAnswerKey ? photoFeedback : null;
+  const activeEscapeReward = escapeReward?.key === activeTypedAnswerKey ? escapeReward.reward : null;
   const gpsErrorContent =
     gpsError === "permission_denied"
       ? {
@@ -1067,6 +1083,19 @@ function PlayScreen() {
                 "GPS-søgningen tog for lang tid. Tjek din internetforbindelse og prøv igen.",
               helper: "Det hjælper ofte at genindlæse siden og stå et sted med bedre signal.",
             };
+
+  const continueFromSolvedPost = async () => {
+    setEscapeReward(null);
+    setShowQuestion(false);
+    setDistance(null);
+    if (currentPostIndex + 1 < questions.length) {
+      setCurrentPostIndex((prev) => prev + 1);
+      return;
+    }
+
+    await markParticipantFinished();
+    setIsFinished(true);
+  };
 
   const handleTypedAnswerSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1642,7 +1671,7 @@ function PlayScreen() {
             ) : null}
 
             {activePostVariant === "escape" ? (
-              <form onSubmit={handleTypedAnswerSubmit} className="space-y-5 overflow-hidden">
+              <div className="space-y-5 overflow-hidden">
                 <div className="overflow-hidden rounded-3xl border border-amber-300/15 bg-amber-950/25 p-5">
                   <p className="break-words hyphens-auto text-xs font-semibold tracking-[0.24em] text-amber-200/70 uppercase">
                     Escape Room
@@ -1652,35 +1681,69 @@ function PlayScreen() {
                   </p>
                 </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <input
-                    key={`escape-input-${activeTypedAnswerKey}`}
-                    ref={typedAnswerInputRef}
-                    type="text"
-                    onChange={() => {
-                      if (activeTypedAnswerError) setTypedAnswerError(null);
-                    }}
-                    placeholder="🔒 Indtast koden..."
-                    className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-slate-900/80 px-4 py-3 text-white outline-none transition focus:border-amber-300/50 focus:ring-2 focus:ring-amber-300/20"
-                  />
-                  <button
-                    type="submit"
-                    className="rounded-2xl bg-amber-500 px-5 py-3 font-semibold text-slate-950 transition hover:bg-amber-400"
-                  >
-                    Bekræft
-                  </button>
-                </div>
+                {activeEscapeReward ? (
+                  <div className="space-y-4">
+                    <div className="overflow-hidden rounded-[1.75rem] border border-amber-500/50 bg-amber-900/40 p-5 text-amber-100 shadow-[0_22px_45px_rgba(245,158,11,0.18)] backdrop-blur-md">
+                      <div className="flex items-start gap-3">
+                        <div className="rounded-full border border-amber-300/35 bg-amber-300/10 p-3 text-2xl">
+                          🔑
+                        </div>
+                        <div className="min-w-0">
+                          <p className="break-words hyphens-auto text-xs font-semibold tracking-[0.24em] text-amber-200/80 uppercase">
+                            Kode-brik fundet
+                          </p>
+                          <p className="mt-2 break-words hyphens-auto text-xl font-black text-amber-50">
+                            {activeEscapeReward}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
 
-                {activeTypedAnswerError ? (
-                  <p className="break-words hyphens-auto text-sm text-amber-200/85">
-                    {activeTypedAnswerError}
-                  </p>
+                    <p className="break-words hyphens-auto text-sm text-amber-100/85">
+                      Skriv koden ned! Du skal bruge den til at bryde helt ud til sidst.
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() => void continueFromSolvedPost()}
+                      className="w-full rounded-2xl border border-amber-400/40 bg-amber-400 px-5 py-3 text-sm font-black tracking-[0.2em] text-slate-950 uppercase transition hover:bg-amber-300"
+                    >
+                      Videre til næste post
+                    </button>
+                  </div>
                 ) : (
-                  <p className="break-words hyphens-auto text-sm text-white/60">
-                    Ved korrekt svar får I udleveret næste kode-brik.
-                  </p>
+                  <form onSubmit={handleTypedAnswerSubmit} className="space-y-5">
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <input
+                        key={`escape-input-${activeTypedAnswerKey}`}
+                        ref={typedAnswerInputRef}
+                        type="text"
+                        onChange={() => {
+                          if (activeTypedAnswerError) setTypedAnswerError(null);
+                        }}
+                        placeholder="🔒 Indtast koden..."
+                        className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-slate-900/80 px-4 py-3 text-white outline-none transition focus:border-amber-300/50 focus:ring-2 focus:ring-amber-300/20"
+                      />
+                      <button
+                        type="submit"
+                        className="rounded-2xl bg-amber-500 px-5 py-3 font-semibold text-slate-950 transition hover:bg-amber-400"
+                      >
+                        Bekræft
+                      </button>
+                    </div>
+
+                    {activeTypedAnswerError ? (
+                      <p className="break-words hyphens-auto text-sm text-amber-200/85">
+                        {activeTypedAnswerError}
+                      </p>
+                    ) : (
+                      <p className="break-words hyphens-auto text-sm text-white/60">
+                        Ved korrekt svar får I udleveret næste kode-brik.
+                      </p>
+                    )}
+                  </form>
                 )}
-              </form>
+              </div>
             ) : null}
 
             {activePostVariant === "roleplay" ? (
