@@ -41,7 +41,7 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
 }
 
 type Question = {
-  type: "multiple_choice" | "ai_image";
+  type: "multiple_choice" | "ai_image" | "unknown";
   text: string;
   aiPrompt?: string;
   answers: string[];
@@ -51,7 +51,8 @@ type Question = {
   mediaUrl?: string;
 };
 
-type ActivePostVariant = "quiz" | "photo" | "escape" | "roleplay";
+type ActivePostVariant = "quiz" | "photo" | "escape" | "roleplay" | "unknown";
+type GpsErrorState = "permission_denied" | "position_unavailable" | "timeout" | "unsupported";
 
 type Location = {
   lat: number;
@@ -166,7 +167,9 @@ function parseQuestion(raw: unknown): Question | null {
   while (answers.length < 4) answers.push("");
 
   const correctIndex = Number(candidate.correctIndex);
-  const type = candidate.type === "ai_image" ? "ai_image" : "multiple_choice";
+  const rawType = candidate.type;
+  const type: Question["type"] =
+    rawType === "multiple_choice" || rawType === "ai_image" ? rawType : "unknown";
   const aiPrompt =
     typeof candidate.aiPrompt === "string"
       ? candidate.aiPrompt
@@ -191,6 +194,7 @@ function parseQuestion(raw: unknown): Question | null {
 
 function getActivePostVariant(question: Question): ActivePostVariant {
   if (question.type === "ai_image") return "photo";
+  if (question.type === "unknown") return "unknown";
 
   const [answer0 = "", answer1 = "", answer2 = "", answer3 = ""] = question.answers;
   const hasRoleplayMeta = Boolean(answer1.trim() || answer2.trim());
@@ -245,7 +249,7 @@ function PlayScreen() {
   const [isFinished, setIsFinished] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [gpsError, setGpsError] = useState<GpsErrorState | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [isKicked, setIsKicked] = useState(false);
   const [latestMessage, setLatestMessage] = useState<string | null>(null);
@@ -804,14 +808,14 @@ function PlayScreen() {
   }, [shouldKeepScreenAwake]);
 
   useEffect(() => {
-    if (
-      !navigator.geolocation ||
-      questions.length === 0 ||
-      isFinished ||
-      isKicked ||
-      !hasConfirmedName ||
-      !sessionId
-    ) {
+    if (questions.length === 0 || isFinished || isKicked || !hasConfirmedName || !sessionId) {
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      queueMicrotask(() => {
+        setGpsError("unsupported");
+      });
       return;
     }
 
@@ -838,7 +842,20 @@ function PlayScreen() {
         console.error("GPS Error:", err);
         if (err.code === err.PERMISSION_DENIED || err.code === 1) {
           setGpsError("permission_denied");
+          return;
         }
+
+        if (err.code === err.POSITION_UNAVAILABLE || err.code === 2) {
+          setGpsError("position_unavailable");
+          return;
+        }
+
+        if (err.code === err.TIMEOUT || err.code === 3) {
+          setGpsError("timeout");
+          return;
+        }
+
+        setGpsError("timeout");
       },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
     );
@@ -957,7 +974,7 @@ function PlayScreen() {
   };
 
   const activeQuestion = questions[currentPostIndex];
-  const activePostVariant = activeQuestion ? getActivePostVariant(activeQuestion) : "quiz";
+  const activePostVariant = activeQuestion ? getActivePostVariant(activeQuestion) : "unknown";
   const roleplayCharacterName =
     activePostVariant === "roleplay" ? activeQuestion?.answers[1]?.trim() || "Ukendt karakter" : "";
   const roleplayAvatar = activePostVariant === "roleplay" ? activeQuestion?.answers[2]?.trim() || "" : "";
@@ -977,6 +994,34 @@ function PlayScreen() {
   const activeTypedAnswerKey = `${currentPostIndex}-${activePostVariant}`;
   const activeTypedAnswerError =
     typedAnswerError?.key === activeTypedAnswerKey ? typedAnswerError.message : null;
+  const gpsErrorContent =
+    gpsError === "permission_denied"
+      ? {
+          title: "Hov! GPS-adgang mangler 🛑",
+          message:
+            "Du har afvist GPS-adgang. På iPhone: Tryk på 'Aa' i adressebaren for at tillade. På Android/Chrome: Tryk på hængelåsen ved siden af webadressen.",
+          helper: "Når GPS-adgangen er tilladt, kan løbet finde dine poster igen.",
+        }
+      : gpsError === "position_unavailable"
+        ? {
+            title: "Vi kan ikke finde dig præcist endnu 📍",
+            message:
+              "Vi kan ikke finde din præcise placering lige nu. Sørg for at du er udenfor og har frit udsyn til himlen.",
+            helper: "Prøv at bevæge dig et øjeblik og vent et par sekunder, så finder GPS'en ofte signal igen.",
+          }
+        : gpsError === "unsupported"
+          ? {
+              title: "GPS er ikke tilgængelig på denne enhed",
+              message:
+                "Din browser eller enhed giver ikke adgang til GPS her. Prøv i en nyere mobilbrowser med lokalitet slået til.",
+              helper: "Åbn siden i Safari på iPhone eller Chrome på Android og prøv igen.",
+            }
+          : {
+              title: "GPS'en svarer for langsomt ⏳",
+              message:
+                "GPS-søgningen tog for lang tid. Tjek din internetforbindelse og prøv igen.",
+              helper: "Det hjælper ofte at genindlæse siden og stå et sted med bedre signal.",
+            };
 
   const handleTypedAnswerSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1110,27 +1155,20 @@ function PlayScreen() {
         <div className="w-full max-w-2xl rounded-3xl border border-red-400/40 bg-red-900/20 p-8 shadow-[0_0_40px_rgba(239,68,68,0.25)] backdrop-blur-md">
           <div className="mb-4 flex items-center gap-3 text-red-200">
             <AlertCircle className="h-7 w-7" />
-            <h1 className="text-2xl font-black md:text-3xl">Hov! Manglende GPS-tilladelse 🛑</h1>
+            <h1 className="break-words hyphens-auto text-2xl font-black md:text-3xl">
+              {gpsErrorContent.title}
+            </h1>
           </div>
-          <p className="mb-5 text-red-50">
-            Du har blokeret for, at gpslob.dk må se din lokation. Uden GPS kan vi ikke se, hvornår
-            du finder posterne!
+          <p className="mb-5 break-words hyphens-auto text-red-50">
+            {gpsErrorContent.message}
           </p>
-          <p className="mb-3 text-sm font-semibold tracking-wide text-red-200 uppercase">
-            Sådan løser du det:
-          </p>
-          <ol className="list-decimal space-y-2 pl-5 text-sm text-red-100">
-            <li>Tryk på &apos;Aa&apos; eller hængelåsen oppe i adressefeltet i din browser.</li>
-            <li>Find &apos;Lokalitet&apos; eller &apos;Websiteindstillinger&apos;.</li>
-            <li>Skift til &apos;Tillad&apos;.</li>
-            <li>Genindlæs siden.</li>
-          </ol>
+          <p className="break-words hyphens-auto text-sm text-red-100/90">{gpsErrorContent.helper}</p>
           <button
             type="button"
             onClick={() => window.location.reload()}
             className="mt-7 rounded-xl border border-red-200/60 bg-red-100 px-5 py-3 font-bold text-red-900 transition-colors hover:bg-white"
           >
-            Jeg har givet tilladelse - Prøv igen
+            Prøv igen
           </button>
         </div>
       </div>
@@ -1291,11 +1329,13 @@ function PlayScreen() {
       </div>
 
       {showQuestion && activeQuestion ? (
-        <div className="animate-in fade-in zoom-in absolute inset-0 z-[2000] flex flex-col items-center justify-center bg-[#050816]/90 p-6 backdrop-blur-xl duration-300">
-          <div className="w-full max-w-md rounded-3xl border border-white/20 bg-slate-950/80 p-8 shadow-2xl shadow-cyan-950/40 backdrop-blur-xl">
+        <div className="animate-in fade-in zoom-in absolute inset-0 z-[2000] flex flex-col items-center justify-center overflow-y-auto bg-[#050816]/90 p-6 backdrop-blur-xl duration-300">
+          <div className="w-full max-w-md overflow-hidden rounded-3xl border border-white/20 bg-slate-950/80 p-8 shadow-2xl shadow-cyan-950/40 backdrop-blur-xl">
             <div className="mb-6 flex items-center gap-3 text-cyan-400">
               <CheckCircle2 size={32} />
-              <h2 className="text-2xl font-black uppercase">Post Fundet!</h2>
+              <h2 className="break-words hyphens-auto text-2xl font-black uppercase">
+                Post Fundet!
+              </h2>
             </div>
 
             {activeQuestion.mediaUrl ? (
@@ -1314,14 +1354,14 @@ function PlayScreen() {
 
             {activePostVariant === "quiz" ? (
               <>
-                <p className="mb-8 text-xl font-bold">{activeQuestion.text}</p>
+                <p className="mb-8 break-words hyphens-auto text-xl font-bold">{activeQuestion.text}</p>
 
                 <div className="space-y-3">
                   {activeQuestion.answers.map((answer: string, idx: number) => (
                     <button
                       key={idx}
                       onClick={() => handleAnswer(idx)}
-                      className="w-full rounded-xl border border-white/10 bg-white/5 p-4 text-left font-medium transition-all hover:border-purple-500/50 hover:bg-purple-500/20"
+                      className="w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 p-4 text-left font-medium break-words hyphens-auto transition-all hover:border-purple-500/50 hover:bg-purple-500/20"
                     >
                       {answer}
                     </button>
@@ -1331,23 +1371,25 @@ function PlayScreen() {
             ) : null}
 
             {activePostVariant === "photo" ? (
-              <div className="space-y-6">
-                <div className="rounded-3xl border border-sky-400/20 bg-sky-950/35 p-5">
-                  <p className="text-xs font-semibold tracking-[0.24em] text-sky-200/70 uppercase">
+              <div className="space-y-6 overflow-hidden">
+                <div className="overflow-hidden rounded-3xl border border-sky-400/20 bg-sky-950/35 p-5">
+                  <p className="break-words hyphens-auto text-xs font-semibold tracking-[0.24em] text-sky-200/70 uppercase">
                     Foto-mission
                   </p>
-                  <p className="mt-3 text-xl font-bold text-white">{activeQuestion.text}</p>
+                  <p className="mt-3 break-words hyphens-auto text-xl font-bold text-white">
+                    {activeQuestion.text}
+                  </p>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => console.log("Åbner kamera...")}
-                  className="w-full rounded-full bg-sky-600 px-6 py-4 text-lg font-black text-white shadow-lg shadow-sky-950/40 transition-all hover:bg-sky-500"
+                  className="w-full overflow-hidden rounded-full bg-sky-600 px-6 py-4 text-lg font-black text-white break-words hyphens-auto shadow-lg shadow-sky-950/40 transition-all hover:bg-sky-500"
                 >
                   📸 Åbn Kamera
                 </button>
 
-                <p className="text-center text-sm text-sky-100/70">
+                <p className="break-words hyphens-auto text-center text-sm text-sky-100/70">
                   Kameraet kobles på i næste trin. Indtil da viser knappen den rigtige placering i
                   UI&apos;et.
                 </p>
@@ -1355,12 +1397,14 @@ function PlayScreen() {
             ) : null}
 
             {activePostVariant === "escape" ? (
-              <form onSubmit={handleTypedAnswerSubmit} className="space-y-5">
-                <div className="rounded-3xl border border-amber-300/15 bg-amber-950/25 p-5">
-                  <p className="text-xs font-semibold tracking-[0.24em] text-amber-200/70 uppercase">
+              <form onSubmit={handleTypedAnswerSubmit} className="space-y-5 overflow-hidden">
+                <div className="overflow-hidden rounded-3xl border border-amber-300/15 bg-amber-950/25 p-5">
+                  <p className="break-words hyphens-auto text-xs font-semibold tracking-[0.24em] text-amber-200/70 uppercase">
                     Escape Room
                   </p>
-                  <p className="mt-3 text-xl font-bold text-white">{activeQuestion.text}</p>
+                  <p className="mt-3 break-words hyphens-auto text-xl font-bold text-white">
+                    {activeQuestion.text}
+                  </p>
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row">
@@ -1383,9 +1427,11 @@ function PlayScreen() {
                 </div>
 
                 {activeTypedAnswerError ? (
-                  <p className="text-sm text-amber-200/85">{activeTypedAnswerError}</p>
+                  <p className="break-words hyphens-auto text-sm text-amber-200/85">
+                    {activeTypedAnswerError}
+                  </p>
                 ) : (
-                  <p className="text-sm text-white/60">
+                  <p className="break-words hyphens-auto text-sm text-white/60">
                     Ved korrekt svar får I udleveret næste kode-brik.
                   </p>
                 )}
@@ -1393,7 +1439,7 @@ function PlayScreen() {
             ) : null}
 
             {activePostVariant === "roleplay" ? (
-              <form onSubmit={handleTypedAnswerSubmit} className="space-y-5">
+              <form onSubmit={handleTypedAnswerSubmit} className="space-y-5 overflow-hidden">
                 <div className="flex items-start gap-4">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/8 text-2xl shadow-inner shadow-black/20">
                     {roleplayAvatar && looksLikeImageSource(roleplayAvatar) ? (
@@ -1412,15 +1458,19 @@ function PlayScreen() {
                   </div>
 
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold tracking-[0.24em] text-cyan-200/70 uppercase">
+                    <p className="break-words hyphens-auto text-xs font-semibold tracking-[0.24em] text-cyan-200/70 uppercase">
                       Karakter
                     </p>
-                    <p className="mt-1 text-lg font-black text-white">{roleplayCharacterName}</p>
+                    <p className="mt-1 break-words hyphens-auto text-lg font-black text-white">
+                      {roleplayCharacterName}
+                    </p>
                   </div>
                 </div>
 
-                <div className="rounded-[1.75rem] border border-cyan-300/15 bg-cyan-950/20 p-5">
-                  <p className="text-sm leading-relaxed text-white">{activeQuestion.text}</p>
+                <div className="overflow-hidden rounded-[1.75rem] border border-cyan-300/15 bg-cyan-950/20 p-5">
+                  <p className="break-words hyphens-auto text-sm leading-relaxed text-white">
+                    {activeQuestion.text}
+                  </p>
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row">
@@ -1443,13 +1493,29 @@ function PlayScreen() {
                 </div>
 
                 {activeTypedAnswerError ? (
-                  <p className="text-sm text-cyan-200/85">{activeTypedAnswerError}</p>
+                  <p className="break-words hyphens-auto text-sm text-cyan-200/85">
+                    {activeTypedAnswerError}
+                  </p>
                 ) : (
-                  <p className="text-sm text-white/60">
+                  <p className="break-words hyphens-auto text-sm text-white/60">
                     Svar rigtigt for at drive historien videre til næste post.
                   </p>
                 )}
               </form>
+            ) : null}
+
+            {activePostVariant === "unknown" ? (
+              <div className="space-y-4 overflow-hidden rounded-3xl border border-amber-300/20 bg-amber-950/20 p-5">
+                <p className="break-words hyphens-auto text-xs font-semibold tracking-[0.24em] text-amber-200/70 uppercase">
+                  Ukendt post
+                </p>
+                <h3 className="break-words hyphens-auto text-xl font-black text-white">
+                  ⚠️ Ukendt post-type
+                </h3>
+                <p className="break-words hyphens-auto text-sm leading-relaxed text-white/80">
+                  Noget gik galt med dataen for denne post. Kontakt din underviser.
+                </p>
+              </div>
             ) : null}
           </div>
         </div>
