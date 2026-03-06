@@ -21,7 +21,12 @@ type HubCard = {
   badge: string;
   cta: string;
   icon: LucideIcon;
-  accentClass: string;
+  surfaceClass: string;
+  borderClass: string;
+  titleClass: string;
+  accentTextClass: string;
+  accentMutedClass: string;
+  iconSurfaceClass: string;
 };
 
 const cards: HubCard[] = [
@@ -33,7 +38,12 @@ const cards: HubCard[] = [
     badge: "Klar nu",
     cta: "Åbn quiz-bygger",
     icon: BrainCircuit,
-    accentClass: "from-emerald-100/90 via-white/80 to-sky-100/75",
+    surfaceClass: "bg-emerald-50/90",
+    borderClass: "border-emerald-200/50",
+    titleClass: "text-emerald-950",
+    accentTextClass: "text-emerald-700",
+    accentMutedClass: "text-emerald-700/80",
+    iconSurfaceClass: "border-emerald-200/50 bg-emerald-100/80",
   },
   {
     title: "AI Foto-mission",
@@ -44,7 +54,12 @@ const cards: HubCard[] = [
     badge: "Klar nu",
     cta: "Åbn foto-mission",
     icon: Camera,
-    accentClass: "from-sky-100/90 via-white/80 to-emerald-100/75",
+    surfaceClass: "bg-sky-50/90",
+    borderClass: "border-sky-200/50",
+    titleClass: "text-sky-950",
+    accentTextClass: "text-sky-700",
+    accentMutedClass: "text-sky-700/80",
+    iconSurfaceClass: "border-sky-200/50 bg-sky-100/80",
   },
   {
     title: "Nye eventyr på vej...",
@@ -52,7 +67,12 @@ const cards: HubCard[] = [
     badge: "Kommer snart",
     cta: "Mere på vej",
     icon: Compass,
-    accentClass: "from-white/90 via-emerald-50/70 to-sky-50/60",
+    surfaceClass: "bg-amber-50/90",
+    borderClass: "border-amber-200/50",
+    titleClass: "text-amber-950",
+    accentTextClass: "text-amber-700/50",
+    accentMutedClass: "text-amber-700/50",
+    iconSurfaceClass: "border-amber-200/50 bg-amber-100/70",
   },
   {
     title: "Nye eventyr på vej...",
@@ -60,7 +80,12 @@ const cards: HubCard[] = [
     badge: "Kommer snart",
     cta: "Mere på vej",
     icon: Sparkles,
-    accentClass: "from-white/90 via-emerald-50/70 to-sky-50/60",
+    surfaceClass: "bg-stone-100/90",
+    borderClass: "border-stone-200/50",
+    titleClass: "text-stone-900",
+    accentTextClass: "text-stone-500/50",
+    accentMutedClass: "text-stone-500/50",
+    iconSurfaceClass: "border-stone-200/50 bg-stone-50/70",
   },
 ];
 
@@ -120,39 +145,41 @@ export default function ValgHubPage() {
                   className="group block h-full focus:outline-none"
                 >
                   <article
-                    className="relative flex h-full flex-col justify-between overflow-hidden rounded-[2rem] border border-white/50 bg-white/90 p-7 shadow-xl backdrop-blur-md transition-all duration-300 group-hover:scale-[1.03] group-hover:bg-white/95 group-hover:shadow-2xl group-focus-visible:scale-[1.03] group-focus-visible:bg-white/95 group-focus-visible:shadow-2xl"
+                    className={`relative flex h-full flex-col justify-between overflow-hidden rounded-[2rem] border p-7 shadow-lg backdrop-blur-md transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-xl group-focus-visible:scale-[1.02] group-focus-visible:shadow-xl ${card.surfaceClass} ${card.borderClass}`}
                   >
-                    <div className={`absolute inset-0 bg-gradient-to-br ${card.accentClass}`} />
-
                     <div className="relative z-10 flex h-full flex-col justify-between">
                       <div className="flex items-start justify-between gap-4">
-                        <span className="rounded-full border border-emerald-200 bg-white/75 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-emerald-800 uppercase">
+                        <span
+                          className={`rounded-full border bg-white/75 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] uppercase ${card.borderClass} ${card.accentMutedClass}`}
+                        >
                           {card.badge}
                         </span>
-                        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 shadow-inner text-emerald-700">
+                        <div
+                          className={`flex h-14 w-14 items-center justify-center rounded-full border shadow-inner ${card.iconSurfaceClass} ${card.accentTextClass}`}
+                        >
                           <Icon className="h-6 w-6" />
                         </div>
                       </div>
 
                       <div className="mt-8 flex-1">
-                        <h2 className={`text-2xl font-black tracking-wide text-emerald-950 ${rubik.className}`}>
+                        <h2 className={`text-2xl font-black tracking-wide ${card.titleClass} ${rubik.className}`}>
                           {card.title}
                         </h2>
-                        <p className="mt-4 text-sm leading-relaxed text-emerald-900/80">
+                        <p className="mt-4 text-sm leading-relaxed text-slate-700">
                           {card.shortText}
                         </p>
                         {card.detail ? (
-                          <p className="mt-4 text-sm leading-relaxed text-emerald-900/80">
+                          <p className="mt-4 text-sm leading-relaxed text-slate-700">
                             {card.detail}
                           </p>
                         ) : null}
                       </div>
 
                       <div className="mt-6 flex items-center justify-between gap-3">
-                        <p className="text-xs font-bold tracking-[0.18em] text-emerald-700 uppercase">
+                        <p className={`text-xs font-bold tracking-[0.18em] uppercase ${card.accentTextClass}`}>
                           Vælg løbstype
                         </p>
-                        <span className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-800">
+                        <span className={`inline-flex items-center gap-2 text-sm font-semibold ${card.accentTextClass}`}>
                           {card.cta}
                           <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1 group-focus-visible:translate-x-1" />
                         </span>
@@ -166,30 +193,33 @@ export default function ValgHubPage() {
             return (
               <article
                 key={`${card.title}-${index}`}
-                className="relative flex flex-col justify-between overflow-hidden rounded-[2rem] border border-white/50 bg-white/75 p-7 shadow-xl backdrop-blur-md"
+                className={`relative flex flex-col justify-between overflow-hidden rounded-[2rem] border p-7 shadow-lg backdrop-blur-md ${card.surfaceClass} ${card.borderClass}`}
               >
-                <div className={`absolute inset-0 bg-gradient-to-br ${card.accentClass}`} />
                 <div className="relative z-10 flex h-full flex-col justify-between">
                   <div className="flex items-start justify-between gap-4">
-                    <span className="rounded-full border border-emerald-200 bg-white/70 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-emerald-800/80 uppercase">
+                    <span
+                      className={`rounded-full border bg-white/70 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] uppercase ${card.borderClass} ${card.accentMutedClass}`}
+                    >
                       {card.badge}
                     </span>
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-emerald-200 bg-white/70 text-emerald-700 shadow-inner">
+                    <div
+                      className={`flex h-14 w-14 items-center justify-center rounded-full border bg-white/70 shadow-inner ${card.borderClass} ${card.accentTextClass}`}
+                    >
                       <Icon className="h-6 w-6" />
                     </div>
                   </div>
 
                   <div className="mt-8 flex-1">
-                    <h2 className={`text-2xl font-black tracking-wide text-emerald-950 ${rubik.className}`}>
+                    <h2 className={`text-2xl font-black tracking-wide ${card.titleClass} ${rubik.className}`}>
                       {card.title}
                     </h2>
-                    <p className="mt-4 text-sm leading-relaxed text-emerald-900/80">
+                    <p className="mt-4 text-sm leading-relaxed text-slate-700">
                       {card.shortText}
                     </p>
                   </div>
 
                   <div className="mt-6 pt-2">
-                    <span className="inline-flex items-center text-sm font-semibold text-emerald-800/80">
+                    <span className={`inline-flex items-center text-sm font-semibold ${card.accentMutedClass}`}>
                       {card.cta}
                     </span>
                   </div>
