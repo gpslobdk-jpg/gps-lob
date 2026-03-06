@@ -72,7 +72,7 @@ export default function OpretSporPage() {
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-emerald-800">
                 {
-                  "Lad teknologien g\u00f8re arbejdet. Beskriv dit tema, og f\u00e5 et komplet l\u00f8b med sp\u00f8rgsm\u00e5l og fotomissioner p\u00e5 f\u00e5 sekunder."
+                  "Lad teknologien g\u00f8re arbejdet. Beskriv dit tema, og f\u00e5 et komplet klassisk quiz-l\u00f8b med sp\u00f8rgsm\u00e5l p\u00e5 f\u00e5 sekunder."
                 }
               </p>
               <p className="mt-6 text-xs font-bold tracking-[0.18em] text-emerald-700 uppercase">

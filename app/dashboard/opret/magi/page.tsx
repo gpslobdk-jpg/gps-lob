@@ -59,15 +59,26 @@ export default function OpretMagiPage() {
 
   return (
     <main
-      className={`min-h-screen bg-gradient-to-t from-emerald-100 via-sky-50 to-sky-300 px-6 py-12 text-white md:px-10 ${poppins.className}`}
+      className={`relative min-h-screen overflow-hidden bg-slate-950 px-6 py-12 text-white md:px-10 ${poppins.className}`}
     >
-      <section className="mx-auto w-full max-w-4xl rounded-[2.5rem] border border-white/50 bg-white/80 p-10 shadow-2xl backdrop-blur-md">
-        <h1 className={`text-3xl font-black tracking-tight text-white drop-shadow-lg md:text-4xl ${rubik.className}`}>
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="fixed inset-0 -z-20 h-full w-full object-cover"
+        src="/arkiv-bg.mp4"
+      />
+      <div className="fixed inset-0 -z-10 bg-slate-950/60 backdrop-blur-md" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.12),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(255,255,255,0.07),_transparent_28%)]" />
+
+      <section className="relative z-10 mx-auto w-full max-w-4xl rounded-[2.5rem] border border-white/10 bg-slate-900/80 p-10 shadow-[0_32px_90px_rgba(0,0,0,0.48)] backdrop-blur-xl">
+        <h1 className={`text-3xl font-black tracking-tight text-white md:text-4xl ${rubik.className}`}>
           {"AI-drevet L\u00f8bsbygger"}
         </h1>
 
         <div className="mt-8">
-          <label htmlFor="magic-theme" className="mb-2 block text-sm font-semibold text-emerald-950">
+          <label htmlFor="magic-theme" className="mb-2 block text-sm font-semibold text-white">
             {"Hvad skal l\u00f8bet handle om?"}
           </label>
           <textarea
@@ -75,8 +86,8 @@ export default function OpretMagiPage() {
             rows={7}
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
-            placeholder="F.eks. Skattejagt med Harry Potter tema. Lav 6 poster, hvor 2 af dem er sjove foto-opgaver..."
-            className="w-full rounded-xl border border-emerald-100 bg-white/50 px-4 py-4 text-sm text-emerald-950 placeholder:text-emerald-600/60 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+            placeholder="F.eks. Skattejagt med Harry Potter tema. Lav 6 poster med sjove quiz-sp\u00f8rgsm\u00e5l og 4 svarmuligheder..."
+            className="w-full rounded-xl border border-white/10 bg-black/25 px-4 py-4 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-400"
           />
         </div>
 
@@ -90,7 +101,7 @@ export default function OpretMagiPage() {
         </button>
 
         {isLoading ? (
-          <p className="mt-4 text-sm font-semibold text-emerald-800">
+          <p className="mt-4 text-sm font-semibold text-emerald-100/85">
             {"AI'en designer poster, udt\u00e6nker foto-missioner og pakker rygs\u00e6kken... \u{1F916}\u{1F392}"}
           </p>
         ) : null}
