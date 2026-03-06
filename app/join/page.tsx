@@ -11,11 +11,14 @@ function JoinForm() {
   const searchParams = useSearchParams();
   const supabase = createClient();
 
-  const [pin, setPin] = useState(searchParams.get("pin") || "");
+  const [pin, setPin] = useState(() =>
+    (searchParams.get("pin") || "").replace(/\D/g, "").slice(0, 6)
+  );
   const [name, setName] = useState("");
   const [isWaiting, setIsWaiting] = useState(false);
   const [error, setError] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const isPinEmpty = pin.trim().length === 0;
 
   useEffect(() => {
     if (!isWaiting || !sessionId) return;
@@ -130,9 +133,12 @@ function JoinForm() {
               type="text"
               placeholder="Pinkode (f.eks. 4921)"
               value={pin}
-              onChange={(e) => setPin(e.target.value)}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
               className="w-full rounded-xl border border-white/10 bg-[#050816]/50 py-4 pr-4 pl-12 font-mono text-lg text-white placeholder-white/30 transition-all focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 focus:outline-none"
               inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              autoComplete="one-time-code"
             />
           </div>
 
@@ -151,7 +157,8 @@ function JoinForm() {
 
           <button
             type="submit"
-            className="mt-4 w-full rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 py-4 text-xl font-black tracking-widest text-white uppercase shadow-[0_0_20px_rgba(34,211,238,0.4)] transition-transform hover:scale-[1.02]"
+            disabled={isPinEmpty}
+            className="mt-4 w-full rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 py-4 text-xl font-black tracking-widest text-white uppercase shadow-[0_0_20px_rgba(34,211,238,0.4)] transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:scale-100"
           >
             Gør Klar! 🚀
           </button>
