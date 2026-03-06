@@ -103,6 +103,12 @@ export default function DashboardPage() {
     setLiveHint("Start et l\u00f8b fra arkivet f\u00f8rst.");
   };
 
+  const handleLogUd = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/");
+  };
+
   const liveCardClass = useMemo(() => {
     if (isCheckingLiveSession) {
       return `${cardBaseClass} cursor-progress opacity-85 hover:scale-100`;
@@ -139,6 +145,7 @@ export default function DashboardPage() {
           </Link>
           <button
             type="button"
+            onClick={() => void handleLogUd()}
             className="text-white drop-shadow-md transition-colors hover:text-white/90"
           >
             Log ud
