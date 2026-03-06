@@ -3,9 +3,23 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 export default function LoginPage() {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.get("code")) return;
+
+    const callbackUrl = new URL("/api/auth/callback", window.location.origin);
+    callbackUrl.search = params.toString();
+    if (!callbackUrl.searchParams.get("next")) {
+      callbackUrl.searchParams.set("next", "/dashboard");
+    }
+
+    window.location.replace(callbackUrl.toString());
+  }, []);
+
   const getSafeNextPath = () => {
     const params = new URLSearchParams(window.location.search);
     const requested = params.get("next")?.trim() ?? "";
@@ -13,19 +27,9 @@ export default function LoginPage() {
     return "/dashboard";
   };
 
-  const getSiteUrl = () => {
-    const origin = window.location.origin.replace(/\/+$/, "");
-    const isLocalhost =
-      origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1");
-    if (isLocalhost) {
-      return origin;
-    }
-    return origin.replace(/^http:\/\//, "https://");
-  };
-
   const handleOAuthLogin = async (provider: "google" | "facebook" | "azure") => {
     const supabase = createClient();
-    const callbackUrl = new URL("/api/auth/callback", getSiteUrl());
+    const callbackUrl = new URL("/api/auth/callback", window.location.origin);
     callbackUrl.searchParams.set("next", getSafeNextPath());
 
     await supabase.auth.signInWithOAuth({

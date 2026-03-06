@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import Lottie from "lottie-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 import AIChatButton from "@/components/AIChatButton";
 import natureAnimation from "@/public/nature.json";
@@ -19,6 +19,19 @@ export default function Home() {
   const [codeError, setCodeError] = useState("");
   const [showIntroToken, setShowIntroToken] = useState(0);
   const router = useRouter();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.get("code")) return;
+
+    const callbackUrl = new URL("/api/auth/callback", window.location.origin);
+    callbackUrl.search = params.toString();
+    if (!callbackUrl.searchParams.get("next")) {
+      callbackUrl.searchParams.set("next", "/dashboard");
+    }
+
+    window.location.replace(callbackUrl.toString());
+  }, []);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

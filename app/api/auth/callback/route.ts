@@ -4,6 +4,12 @@ import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const safeOrigin =
+    forwardedHost && forwardedProto
+      ? `${forwardedProto}://${forwardedHost}`
+      : requestUrl.origin;
   const code = requestUrl.searchParams.get("code");
   const requestedNext = requestUrl.searchParams.get("next");
   const nextPath =
@@ -31,9 +37,9 @@ export async function GET(request: Request) {
 
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      return NextResponse.redirect(`${requestUrl.origin}${nextPath}`);
+      return NextResponse.redirect(`${safeOrigin}${nextPath}`);
     }
   }
 
-  return NextResponse.redirect(`${requestUrl.origin}/login`);
+  return NextResponse.redirect(`${safeOrigin}/login`);
 }
