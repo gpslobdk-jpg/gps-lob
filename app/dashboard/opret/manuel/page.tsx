@@ -249,19 +249,6 @@ function OpretLoebPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const defaultQuestionType = getQuestionTypeFromQuery(searchParams.get("type"));
-  const pageTitle = defaultQuestionType === "ai_image" ? "Foto-mission-bygger" : "Quiz-bygger";
-  const pageIntro =
-    defaultQuestionType === "ai_image"
-      ? "Skab missioner i et roligt arbejdsrum, placer pins på kortet og finpuds detaljerne, når ruten er klar."
-      : "Byg 4-svars spørgsmål i et fokuseret arbejdsrum, placer pins på kortet og gem løbet, når ruten er klar.";
-  const aiShortcutTitle =
-    defaultQuestionType === "ai_image"
-      ? "Lad AI skrive de første missioner"
-      : "Lad AI skrive de første spørgsmål";
-  const aiShortcutText =
-    defaultQuestionType === "ai_image"
-      ? "Beskriv temaet kort, så får du et første udkast til poster, du kan tilpasse bagefter."
-      : "Beskriv temaet kort, så får du et første udkast til quiz-spørgsmål med 4 svarmuligheder.";
   const addQuestionLabel =
     defaultQuestionType === "ai_image" ? "Tilføj ny mission" : "Tilføj nyt spørgsmål";
   const [title, setTitle] = useState("");
@@ -673,70 +660,45 @@ function OpretLoebPageContent() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.14),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(255,255,255,0.08),_transparent_28%)]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row">
           <section className="w-full overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 lg:w-[52%] lg:px-8 lg:py-8">
-            <div className="mx-auto max-w-3xl space-y-5">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAIModal(true);
-                  setPreviewQuestions([]);
-                }}
-                className="group w-full rounded-[2rem] border border-white/10 bg-white/[0.06] p-6 text-left shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl transition hover:border-emerald-300/30 hover:bg-white/[0.09]"
-              >
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-semibold tracking-[0.24em] text-emerald-100 uppercase">
-                  <span aria-hidden>✨</span>
-                  Auto-udfyld med AI
-                </div>
-                <h1 className={`mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl ${rubik.className}`}>
-                  {aiShortcutTitle}
-                </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/70 sm:text-base">
-                  {aiShortcutText}
-                </p>
-              </button>
-
-              <div className="rounded-[2rem] border border-white/10 bg-white/[0.05] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-7">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-semibold tracking-[0.28em] text-white/[0.55] uppercase">
-                      Version A
-                    </p>
-                    <h2 className={`mt-3 text-3xl font-black tracking-tight text-white ${rubik.className}`}>
-                      {pageTitle}
-                    </h2>
-                    <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/[0.65]">
-                      {pageIntro}
-                    </p>
-                  </div>
-                  <div className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm font-semibold text-white/70">
-                    {questions.length} poster
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
-                    Løbets titel
-                  </label>
-                  <input
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    placeholder="F.eks. Eventyr i skolegården"
-                    className="w-full rounded-[1.5rem] border border-white/10 bg-black/25 px-5 py-4 text-xl font-bold text-white placeholder:text-white/[0.35] focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
+            <div className="mx-auto max-w-3xl space-y-6">
+              <div className="px-1 pt-1">
+                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
+                  Løbets titel
+                </label>
+                <input
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="F.eks. Eventyr i skolegården"
+                  className="w-full rounded-[1.6rem] border border-white/10 bg-white/[0.05] px-5 py-4 text-xl font-bold text-white placeholder:text-white/[0.35] shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
               </div>
 
-              <div className="flex items-end justify-between gap-4 px-1">
-                <div>
-                  <p className="text-xs font-semibold tracking-[0.24em] text-white/[0.55] uppercase">
-                    Dine poster
-                  </p>
-                  <p className="mt-2 text-sm text-white/60">
-                    Skriv spørgsmål, vælg korrekt svar og hent en pin fra kortet, når posten er klar.
-                  </p>
+              <div className="space-y-4 px-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAIModal(true);
+                    setPreviewQuestions([]);
+                  }}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-[1.4rem] border border-white/10 bg-white/[0.06] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(0,0,0,0.24)] backdrop-blur-xl transition hover:border-emerald-300/30 hover:bg-white/[0.1] sm:w-auto"
+                >
+                  <span aria-hidden>✨</span>
+                  Auto-udfyld med AI
+                </button>
+
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold tracking-[0.24em] text-white/[0.55] uppercase">
+                      Dine poster
+                    </p>
+                    <p className="mt-2 text-sm text-white/60">
+                      Skriv spørgsmål, vælg korrekt svar og hent en pin fra kortet, når posten er klar.
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm font-semibold text-white/[0.65]">
+                    {questions.length}
+                  </span>
                 </div>
-                <span className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm font-semibold text-white/[0.65]">
-                  {questions.length}
-                </span>
               </div>
 
               {questions.map((question, questionIndex) => (
