@@ -62,6 +62,11 @@ type Question = {
 
 type ActivePostVariant = "quiz" | "photo" | "escape" | "roleplay" | "unknown";
 type GpsErrorState = "permission_denied" | "position_unavailable" | "timeout" | "unsupported";
+type PhotoFeedbackState = {
+  key: string;
+  tone: "success" | "error";
+  message: string;
+} | null;
 
 type Location = {
   lat: number;
@@ -223,6 +228,22 @@ function looksLikeImageSource(value: string) {
   return /^(https?:\/\/|\/|data:image\/)/i.test(value.trim());
 }
 
+function readFileAsDataUri(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === "string") {
+        resolve(result);
+        return;
+      }
+      reject(new Error("Kunne ikke læse billedet som tekst."));
+    };
+    reader.onerror = () => reject(new Error("Kunne ikke læse billedet."));
+    reader.readAsDataURL(file);
+  });
+}
+
 function PlayScreen() {
   const params = useParams<{ sessionId: string }>();
   const searchParams = useSearchParams();
@@ -264,6 +285,7 @@ function PlayScreen() {
   const [latestMessage, setLatestMessage] = useState<string | null>(null);
   const [resumeMessage, setResumeMessage] = useState<string | null>(null);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
+  const [photoFeedback, setPhotoFeedback] = useState<PhotoFeedbackState>(null);
   const [typedAnswerError, setTypedAnswerError] = useState<{ key: string; message: string } | null>(
     null
   );
@@ -1011,6 +1033,7 @@ function PlayScreen() {
   const activeTypedAnswerKey = `${currentPostIndex}-${activePostVariant}`;
   const activeTypedAnswerError =
     typedAnswerError?.key === activeTypedAnswerKey ? typedAnswerError.message : null;
+  const activePhotoFeedback = photoFeedback?.key === activeTypedAnswerKey ? photoFeedback : null;
   const gpsErrorContent =
     gpsError === "permission_denied"
       ? {
@@ -1074,19 +1097,82 @@ function PlayScreen() {
 
     if (!file || !activeQuestion || activePostVariant !== "photo" || isAnalyzingPhoto) return;
 
+    const targetObject = activeQuestion.answers[0]?.trim() || activeQuestion.aiPrompt?.trim() || "";
+
+    if (!targetObject) {
+      setPhotoFeedback({
+        key: activeTypedAnswerKey,
+        tone: "error",
+        message: "Denne mission mangler et motiv. Kontakt din underviser.",
+      });
+      return;
+    }
+
+    setPhotoFeedback(null);
     setIsAnalyzingPhoto(true);
 
-    await new Promise<void>((resolve) => {
-      photoAnalysisTimerRef.current = setTimeout(() => {
-        photoAnalysisTimerRef.current = null;
-        resolve();
-      }, 3000);
-    });
+    try {
+      const image = await readFileAsDataUri(file);
+      const response = await fetch("/api/analyze-photo", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          image,
+          targetObject,
+        }),
+      });
 
-    if (!isMountedRef.current) return;
+      const payload = (await response.json()) as {
+        isMatch?: boolean;
+        message?: string;
+        error?: string;
+      };
 
-    setIsAnalyzingPhoto(false);
-    await handleAnswer(activeQuestion.correctIndex);
+      if (!response.ok || typeof payload.isMatch !== "boolean" || typeof payload.message !== "string") {
+        throw new Error(payload.error || "Ugyldigt svar fra billedanalysen.");
+      }
+
+      if (!isMountedRef.current) return;
+
+      setIsAnalyzingPhoto(false);
+
+      if (!payload.isMatch) {
+        setPhotoFeedback({
+          key: activeTypedAnswerKey,
+          tone: "error",
+          message: payload.message,
+        });
+        return;
+      }
+
+      setPhotoFeedback({
+        key: activeTypedAnswerKey,
+        tone: "success",
+        message: payload.message,
+      });
+
+      await new Promise<void>((resolve) => {
+        photoAnalysisTimerRef.current = setTimeout(() => {
+          photoAnalysisTimerRef.current = null;
+          resolve();
+        }, 2500);
+      });
+
+      if (!isMountedRef.current) return;
+
+      await handleAnswer(activeQuestion.correctIndex);
+    } catch (error) {
+      console.error("Fotoanalyse fejlede:", error);
+      if (!isMountedRef.current) return;
+      setIsAnalyzingPhoto(false);
+      setPhotoFeedback({
+        key: activeTypedAnswerKey,
+        tone: "error",
+        message: "Ups, AI'en er lidt træt. Prøv at tage billedet igen.",
+      });
+    }
   };
 
   const playerIcon = useMemo(
@@ -1431,7 +1517,7 @@ function PlayScreen() {
                 <button
                   type="button"
                   onClick={() => photoInputRef.current?.click()}
-                  disabled={isAnalyzingPhoto}
+                  disabled={isAnalyzingPhoto || activePhotoFeedback?.tone === "success"}
                   className="inline-flex w-full items-center justify-center gap-3 overflow-hidden rounded-full bg-sky-600 px-6 py-4 text-lg font-black text-white break-words hyphens-auto shadow-lg shadow-sky-950/40 transition-all hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-sky-700/70"
                 >
                   {isAnalyzingPhoto ? (
@@ -1443,6 +1529,20 @@ function PlayScreen() {
                     "📸 Åbn Kamera"
                   )}
                 </button>
+
+                {activePhotoFeedback ? (
+                  <div
+                    className={`animate-in fade-in zoom-in-95 overflow-hidden rounded-2xl border px-4 py-3 text-sm shadow-lg backdrop-blur-md duration-300 ${
+                      activePhotoFeedback.tone === "success"
+                        ? "border-emerald-300/30 bg-emerald-500/15 text-emerald-50 shadow-emerald-950/30"
+                        : "border-orange-300/30 bg-orange-500/15 text-orange-50 shadow-orange-950/30"
+                    }`}
+                  >
+                    <p className="break-words hyphens-auto font-semibold">
+                      {activePhotoFeedback.message}
+                    </p>
+                  </div>
+                ) : null}
 
                 {isAnalyzingPhoto ? (
                   <p className="break-words hyphens-auto text-center text-sm text-sky-100/70">
