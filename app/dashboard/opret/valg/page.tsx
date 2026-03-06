@@ -29,98 +29,87 @@ const cards: HubCard[] = [
     title: "Klassisk Quiz-løb",
     shortText: "Multiple-choice spørgsmål med AI-assistent.",
     detail:
-      "Skab en traditionel rute, hvor viden er i fokus. Hver post indeholder et spørgsmål med 4 svarmuligheder. Ideelt til faglige gentagelser eller sjove skattejagter. Brug vores pædagogiske AI til at generere spørgsmål, der passer præcis til dit emne og niveau.",
+      "Skab en klassisk rute med spørgsmål og fire svarmuligheder. Perfekt til teambuilding, quiz-aftener eller skattejagter, hvor deltagerne skal samarbejde og tænke hurtigt. AI-assistenten kan hjælpe med at formulere spørgsmål, der passer til tema og sværhedsgrad.",
     href: "/dashboard/opret/manuel",
     badge: "Klar nu",
     cta: "Åbn quiz-bygger",
     icon: BrainCircuit,
-    accentClass: "from-emerald-300/20 via-white/5 to-sky-300/10",
+    accentClass: "from-emerald-100/90 via-white/80 to-sky-100/75",
   },
   {
     title: "AI Foto-mission",
-    shortText: "Gør naturen til en interaktiv opgave.",
+    shortText: "Gør virkeligheden til en interaktiv opgave.",
     detail:
-      "Her skal eleverne bruge øjnene! I stedet for at svare på spørgsmål, skal de finde og fotografere specifikke motiver i naturen. Vores AI analyserer billedet med det samme og tjekker, om de har fundet det rigtige. Perfekt til undersøgelser i skoven, mønstergenkendelse eller kreative opgaver.",
+      "Deltagerne skal bruge øjnene! I stedet for at svare på spørgsmål, skal de finde og fotografere specifikke motiver i virkeligheden.",
     href: "/dashboard/opret/foto",
     badge: "Klar nu",
     cta: "Åbn foto-mission",
     icon: Camera,
-    accentClass: "from-sky-300/20 via-white/5 to-emerald-300/10",
+    accentClass: "from-sky-100/90 via-white/80 to-emerald-100/75",
   },
   {
     title: "Nye eventyr på vej...",
-    shortText: "Vi udvikler løbende nye måder at lære og lege på i det fri.",
+    shortText: "Vi udvikler løbende nye måder at udforske, konkurrere og lege på i det fri.",
     badge: "Kommer snart",
     cta: "Mere på vej",
     icon: Compass,
-    accentClass: "from-white/10 via-white/[0.02] to-white/[0.04]",
+    accentClass: "from-white/90 via-emerald-50/70 to-sky-50/60",
   },
   {
     title: "Nye eventyr på vej...",
-    shortText: "Vi udvikler løbende nye måder at lære og lege på i det fri.",
+    shortText: "Vi udvikler løbende nye måder at udforske, konkurrere og lege på i det fri.",
     badge: "Kommer snart",
     cta: "Mere på vej",
     icon: Sparkles,
-    accentClass: "from-white/10 via-white/[0.02] to-white/[0.04]",
+    accentClass: "from-white/90 via-emerald-50/70 to-sky-50/60",
   },
 ];
 
 export default function ValgHubPage() {
   return (
     <main
-      className={`relative min-h-screen overflow-hidden px-6 py-8 text-white md:px-10 md:py-10 ${poppins.className}`}
+      className={`relative min-h-screen overflow-hidden bg-gradient-to-b from-sky-300 via-emerald-50 to-emerald-200 px-6 py-12 text-emerald-950 md:px-10 lg:bg-none lg:bg-transparent ${poppins.className}`}
     >
-      <div className="fixed inset-0 -z-30">
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="metadata"
-          className="h-full w-full object-cover"
-          src="/arkiv-bg.mp4"
-        />
-        <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),_transparent_35%),linear-gradient(180deg,rgba(2,6,23,0.25)_0%,rgba(2,6,23,0.8)_100%)]" />
-      </div>
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="fixed top-0 left-0 -z-20 hidden h-full w-full object-cover lg:block"
+        src="/opret-bg.mp4"
+      />
+      <div className="fixed inset-0 -z-10 hidden bg-gradient-to-b from-sky-900/10 to-emerald-900/50 backdrop-blur-[2px] lg:block" />
 
-      <div className="pointer-events-none fixed inset-0 -z-20 overflow-hidden">
-        <div className="absolute top-12 left-[8%] h-56 w-56 rounded-full bg-emerald-300/10 blur-3xl" />
-        <div className="absolute right-[6%] bottom-20 h-72 w-72 rounded-full bg-sky-300/10 blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/5 blur-3xl" />
-      </div>
-
-      <section className="relative z-10 mx-auto flex w-full max-w-7xl flex-col">
+      <section className="relative z-10 mx-auto flex w-full max-w-4xl flex-col">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <Link
             href="/dashboard/opret"
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm font-medium text-white/90 backdrop-blur-xl transition-colors hover:border-white/20 hover:bg-black/30"
+            className="inline-flex items-center gap-2 rounded-full border border-white/50 bg-white/80 px-4 py-2 text-sm font-medium text-emerald-900 shadow-lg backdrop-blur-md transition-all duration-300 hover:bg-white/95 hover:shadow-xl"
           >
             <ArrowLeft className="h-4 w-4" />
             Tilbage til opret
           </Link>
-          <p className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-xs font-semibold tracking-[0.24em] text-white/70 uppercase backdrop-blur-xl">
-            Valg-Hub
+          <p className="rounded-full border border-white/50 bg-white/75 px-4 py-2 text-xs font-semibold tracking-[0.24em] text-emerald-800/80 uppercase shadow-lg backdrop-blur-md">
+            Løbstyper
           </p>
         </div>
 
         <div className="mt-12 max-w-3xl">
-          <p className="text-sm font-semibold tracking-[0.32em] text-emerald-100/80 uppercase">
-            Vælg oplevelsen
+          <p className="text-sm font-semibold tracking-[0.32em] text-white/90 drop-shadow-md uppercase">
+            Vælg format
           </p>
           <h1
-            className={`mt-4 text-4xl font-black tracking-tight text-white md:text-6xl ${rubik.className}`}
+            className={`mt-4 text-4xl font-black tracking-tight text-white drop-shadow-md md:text-5xl ${rubik.className}`}
           >
-            Hvilket læringseventyr skal eleverne sendes ud på?
+            Hvilken type løb vil du bygge?
           </h1>
-          <p className="mt-5 max-w-2xl text-sm leading-relaxed text-white/75 md:text-base">
-            Vælg et format, der passer til dagens mål. De aktive kort folder sig ud med en
-            grundig forklaring, så du hurtigt kan mærke forskellen mellem klassisk quiz og
-            billeddrevet feltarbejde.
+          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white drop-shadow-md md:text-base">
+            Vælg det format, der passer bedst til dit arrangement. Uanset om det er
+            teambuilding, en skattejagt eller undervisning, tilpasser systemet sig automatisk.
           </p>
         </div>
 
-        <div className="mt-10 grid auto-rows-fr gap-6 md:grid-cols-2 xl:gap-8">
+        <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
           {cards.map((card, index) => {
             const Icon = card.icon;
 
@@ -132,42 +121,41 @@ export default function ValgHubPage() {
                   className="group block h-full focus:outline-none"
                 >
                   <article
-                    className="relative flex h-full min-h-[350px] flex-col justify-between overflow-hidden rounded-3xl border border-white/10 bg-black/25 p-8 shadow-[0_24px_60px_rgba(2,6,23,0.42)] backdrop-blur-2xl transition-[transform,border-color,box-shadow] duration-500 will-change-transform md:min-h-[380px] md:group-hover:-translate-y-2 md:group-hover:border-white/20 md:group-hover:shadow-[0_30px_80px_rgba(2,6,23,0.48)] md:group-focus-visible:-translate-y-2 md:group-focus-visible:border-white/20 md:group-focus-visible:shadow-[0_30px_80px_rgba(2,6,23,0.48)]"
+                    className="relative flex h-full min-h-[280px] flex-col justify-between overflow-hidden rounded-[2rem] border border-white/50 bg-white/90 p-7 shadow-xl backdrop-blur-md transition-all duration-300 group-hover:scale-[1.03] group-hover:bg-white/95 group-hover:shadow-2xl group-focus-visible:scale-[1.03] group-focus-visible:bg-white/95 group-focus-visible:shadow-2xl"
                   >
                     <div className={`absolute inset-0 bg-gradient-to-br ${card.accentClass}`} />
-                    <div className="absolute inset-x-8 top-8 h-24 rounded-full bg-white/10 blur-3xl transition-opacity duration-500 md:opacity-40 md:group-hover:opacity-80 md:group-focus-visible:opacity-80" />
 
                     <div className="relative z-10 flex h-full flex-col justify-between">
                       <div className="flex items-start justify-between gap-4">
-                        <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-white/75 uppercase">
+                        <span className="rounded-full border border-emerald-200 bg-white/75 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-emerald-800 uppercase">
                           {card.badge}
                         </span>
-                        <div className="flex h-14 w-14 items-center justify-center rounded-[1.75rem] border border-white/10 bg-black/20 text-emerald-100 backdrop-blur-xl">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 shadow-inner text-emerald-700">
                           <Icon className="h-6 w-6" />
                         </div>
                       </div>
 
-                      <div className="mt-10 flex-1">
-                        <h2 className={`text-3xl font-black tracking-tight text-white ${rubik.className}`}>
+                      <div className="mt-8 flex-1">
+                        <h2 className={`text-2xl font-black tracking-wide text-emerald-950 ${rubik.className}`}>
                           {card.title}
                         </h2>
-                        <p className="mt-4 max-w-lg text-base leading-relaxed text-white/80">
+                        <p className="mt-4 text-sm leading-relaxed text-emerald-900/80">
                           {card.shortText}
                         </p>
-                        <div className="min-h-[9rem]">
-                          <p className="mt-4 text-sm leading-relaxed text-white transition-all duration-300 md:translate-y-2 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 md:group-focus-visible:translate-y-0 md:group-focus-visible:opacity-100">
+                        {card.detail ? (
+                          <p className="mt-4 text-sm leading-relaxed text-emerald-900/80">
                             {card.detail}
                           </p>
-                        </div>
+                        ) : null}
                       </div>
 
-                      <div className="mt-8 flex items-end justify-between gap-4 pt-4">
-                        <p className="text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
-                          Hold musen over eller tryk for mere
+                      <div className="mt-6 flex items-center justify-between gap-3">
+                        <p className="text-xs font-bold tracking-[0.18em] text-emerald-700 uppercase">
+                          Vælg løbstype
                         </p>
-                        <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm font-semibold text-white/90 backdrop-blur-xl transition-all duration-500 md:group-hover:border-white/20 md:group-hover:bg-black/30 md:group-focus-visible:border-white/20 md:group-focus-visible:bg-black/30">
+                        <span className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-800">
                           {card.cta}
-                          <ArrowRight className="h-4 w-4 transition-transform duration-500 md:group-hover:translate-x-1 md:group-focus-visible:translate-x-1" />
+                          <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1 group-focus-visible:translate-x-1" />
                         </span>
                       </div>
                     </div>
@@ -179,30 +167,30 @@ export default function ValgHubPage() {
             return (
               <article
                 key={`${card.title}-${index}`}
-                className="relative flex min-h-[350px] flex-col justify-between overflow-hidden rounded-3xl border border-white/10 bg-white/[0.05] p-8 opacity-75 shadow-[0_20px_50px_rgba(2,6,23,0.32)] backdrop-blur-2xl md:min-h-[380px]"
+                className="relative flex min-h-[280px] flex-col justify-between overflow-hidden rounded-[2rem] border border-white/50 bg-white/75 p-7 shadow-xl backdrop-blur-md"
               >
                 <div className={`absolute inset-0 bg-gradient-to-br ${card.accentClass}`} />
                 <div className="relative z-10 flex h-full flex-col justify-between">
                   <div className="flex items-start justify-between gap-4">
-                    <span className="rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-white/[0.65] uppercase">
+                    <span className="rounded-full border border-emerald-200 bg-white/70 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-emerald-800/80 uppercase">
                       {card.badge}
                     </span>
-                    <div className="flex h-14 w-14 items-center justify-center rounded-[1.75rem] border border-white/10 bg-black/[0.15] text-white/75 backdrop-blur-xl">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-emerald-200 bg-white/70 text-emerald-700 shadow-inner">
                       <Icon className="h-6 w-6" />
                     </div>
                   </div>
 
-                  <div className="mt-10 flex-1">
-                    <h2 className={`text-3xl font-black tracking-tight text-white/90 ${rubik.className}`}>
+                  <div className="mt-8 flex-1">
+                    <h2 className={`text-2xl font-black tracking-wide text-emerald-950 ${rubik.className}`}>
                       {card.title}
                     </h2>
-                    <p className="mt-4 max-w-lg text-base leading-relaxed text-white/80">
+                    <p className="mt-4 text-sm leading-relaxed text-emerald-900/80">
                       {card.shortText}
                     </p>
                   </div>
 
-                  <div className="mt-8 pt-4">
-                    <span className="inline-flex items-center rounded-full border border-white/10 bg-black/[0.15] px-4 py-2 text-sm font-semibold text-white/[0.65] backdrop-blur-xl">
+                  <div className="mt-6 pt-2">
+                    <span className="inline-flex items-center text-sm font-semibold text-emerald-800/80">
                       {card.cta}
                     </span>
                   </div>
