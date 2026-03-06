@@ -30,11 +30,16 @@ export async function proxy(request: NextRequest) {
   );
 
   const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const {
     data: { user },
-    error,
+    error: userError,
   } = await supabase.auth.getUser();
 
-  if (error || !user) {
+  // Hvis vi har en session-cookie men getUser fejler midlertidigt, undgår vi login-loop.
+  if (!user && !(session && userError)) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);

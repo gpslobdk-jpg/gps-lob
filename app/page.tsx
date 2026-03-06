@@ -16,13 +16,22 @@ const WelcomeModal = dynamic(() => import("@/components/WelcomeModal"), {
 
 export default function Home() {
   const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState("");
   const [showIntroToken, setShowIntroToken] = useState(0);
   const router = useRouter();
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const cleanedCode = code.replace(/\D/g, "").slice(0, 5);
-    if (cleanedCode.length !== 5) return;
+    if (cleanedCode.length === 0) {
+      setCodeError("Husk at skrive koden først!");
+      return;
+    }
+    if (cleanedCode.length !== 5) {
+      setCodeError("Koden skal bestå af 5 tal.");
+      return;
+    }
+    setCodeError("");
     router.push(`/join?pin=${cleanedCode}`);
   };
 
@@ -71,9 +80,10 @@ export default function Home() {
             <form onSubmit={handleSubmit} className="space-y-3">
               <input
                 value={code}
-                onChange={(event) =>
-                  setCode(event.target.value.replace(/\D/g, "").slice(0, 5))
-                }
+                onChange={(event) => {
+                  setCode(event.target.value.replace(/\D/g, "").slice(0, 5));
+                  if (codeError) setCodeError("");
+                }}
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
@@ -83,11 +93,13 @@ export default function Home() {
               />
               <button
                 type="submit"
-                disabled={code.length !== 5}
-                className="w-full rounded-2xl bg-emerald-600 px-4 py-3 text-base font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-45"
+                className="w-full rounded-2xl bg-emerald-600 px-4 py-3 text-base font-black text-white transition hover:bg-emerald-700"
               >
                 Deltag
               </button>
+              {codeError ? (
+                <p className="text-center text-xs font-medium text-rose-700">{codeError}</p>
+              ) : null}
             </form>
           </div>
 

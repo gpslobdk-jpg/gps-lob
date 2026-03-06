@@ -6,12 +6,31 @@ import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 
 export default function LoginPage() {
+  const getSiteUrl = () => {
+    const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+    if (configured) {
+      const trimmed = configured.replace(/\/+$/, "");
+      if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+        return trimmed;
+      }
+      return `https://${trimmed}`;
+    }
+
+    const origin = window.location.origin.replace(/\/+$/, "");
+    const isLocalhost =
+      origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1");
+    if (isLocalhost) {
+      return origin;
+    }
+    return origin.replace(/^http:\/\//, "https://");
+  };
+
   const handleOAuthLogin = async (provider: "google" | "facebook" | "azure") => {
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback`,
+        redirectTo: `${getSiteUrl()}/api/auth/callback`,
         ...(provider === "azure" ? { scopes: "email" } : {}),
       },
     });
