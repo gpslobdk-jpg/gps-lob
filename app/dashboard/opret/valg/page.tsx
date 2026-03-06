@@ -31,7 +31,7 @@ const cards: HubCard[] = [
     shortText: "Multiple-choice spørgsmål med AI-assistent.",
     detail:
       "Skab en traditionel rute, hvor viden er i fokus. Hver post indeholder et spørgsmål med 4 svarmuligheder. Ideelt til faglige gentagelser eller sjove skattejagter. Brug vores pædagogiske AI til at generere spørgsmål, der passer præcis til dit emne og niveau.",
-    href: "/dashboard/opret/manuel?type=multiple_choice",
+    href: "/dashboard/opret/manuel",
     badge: "Klar nu",
     cta: "Åbn quiz-bygger",
     icon: BrainCircuit,
@@ -43,7 +43,7 @@ const cards: HubCard[] = [
     shortText: "Gør naturen til en interaktiv opgave.",
     detail:
       "Her skal eleverne bruge øjnene! I stedet for at svare på spørgsmål, skal de finde og fotografere specifikke motiver i naturen. Vores AI analyserer billedet med det samme og tjekker, om de har fundet det rigtige. Perfekt til undersøgelser i skoven, mønstergenkendelse eller kreative opgaver.",
-    href: "/dashboard/opret/manuel?type=ai_image",
+    href: "/dashboard/opret/foto",
     badge: "Klar nu",
     cta: "Åbn foto-mission",
     icon: Camera,
