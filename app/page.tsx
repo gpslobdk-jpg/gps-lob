@@ -21,6 +21,7 @@ export default function Home() {
   const [showIntroToken, setShowIntroToken] = useState(0);
   const [showIntroModal, setShowIntroModal] = useState(false);
   const [isIntroMuted, setIsIntroMuted] = useState(true);
+  const [isIntroVideoLoaded, setIsIntroVideoLoaded] = useState(false);
   const introVideoRef = useRef<HTMLVideoElement | null>(null);
   const router = useRouter();
 
@@ -56,15 +57,18 @@ export default function Home() {
     }
   };
 
-  const toggleIntroSound = () => {
-    setIsIntroMuted((prev) => {
-      const nextMuted = !prev;
-      if (introVideoRef.current) {
-        introVideoRef.current.muted = nextMuted;
-        void introVideoRef.current.play().catch(() => undefined);
-      }
-      return nextMuted;
-    });
+  const enableIntroSound = () => {
+    setIsIntroMuted(false);
+    if (introVideoRef.current) {
+      introVideoRef.current.muted = false;
+      introVideoRef.current.volume = 1;
+      void introVideoRef.current.play().catch(() => undefined);
+    }
+  };
+
+  const handleIntroVideoLoaded = () => {
+    setIsIntroVideoLoaded(true);
+    void introVideoRef.current?.play().catch(() => undefined);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -191,19 +195,19 @@ export default function Home() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 px-4 py-8 backdrop-blur-sm"
+            className="fixed inset-0 z-[120] bg-slate-950/65 backdrop-blur-xl"
           >
             <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.98 }}
-              transition={{ duration: 0.35, ease: "easeOut" }}
-              className="relative w-full max-w-2xl rounded-3xl border border-white/10 bg-slate-900/90 p-5 text-white shadow-2xl shadow-emerald-950/40 backdrop-blur-xl sm:p-6"
+              initial={{ opacity: 0, scale: 1.01 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.995 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+              className="relative h-screen w-screen overflow-hidden border border-white/10 bg-emerald-950/90 text-white"
             >
               <button
                 type="button"
                 onClick={closeIntroModal}
-                className="absolute right-3 top-3 rounded-full p-2 text-white/80 transition hover:bg-white/10 hover:text-white"
+                className="absolute right-4 top-4 z-20 rounded-full p-2 text-white/80 transition hover:bg-white/10 hover:text-white"
                 aria-label="Luk introduktion"
               >
                 <span aria-hidden="true" className="text-base font-semibold">
@@ -211,40 +215,66 @@ export default function Home() {
                 </span>
               </button>
 
-              <h2 className="mb-4 pr-10 text-xl font-bold text-emerald-50 sm:text-2xl">
-                Velkommen til GPSLØB.DK
-              </h2>
-
-              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/20">
-                <video
-                  ref={introVideoRef}
-                  src="/introvideo.mp4"
-                  autoPlay
-                  muted={isIntroMuted}
-                  playsInline
-                  preload="metadata"
-                  className="h-full w-full rounded-2xl object-cover"
-                  onLoadedData={() => {
-                    void introVideoRef.current?.play().catch(() => undefined);
-                  }}
+              <div
+                className={`absolute inset-0 transition-opacity duration-500 ${
+                  isIntroVideoLoaded ? "opacity-0" : "opacity-100"
+                }`}
+              >
+                <Image
+                  src="/intro-poster.jpg"
+                  alt=""
+                  fill
+                  priority
+                  sizes="100vw"
+                  className="object-cover"
                 />
-                <button
-                  type="button"
-                  onClick={toggleIntroSound}
-                  className="absolute bottom-3 right-3 rounded-full border border-white/20 bg-black/40 px-3 py-1 text-xs font-semibold text-white transition hover:bg-black/60"
-                  aria-label={isIntroMuted ? "Slå lyd til" : "Slå lyd fra"}
-                >
-                  {isIntroMuted ? "Lyd til" : "Lyd fra"}
-                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={closeIntroModal}
-                className="mt-5 w-full rounded-2xl bg-emerald-500 px-4 py-3 text-base font-bold text-emerald-950 transition hover:bg-emerald-400"
-              >
-                Kom i gang
-              </button>
+              <video
+                ref={introVideoRef}
+                src="/introvideo.mp4"
+                poster="/intro-poster.jpg"
+                autoPlay
+                muted={isIntroMuted}
+                playsInline
+                preload="auto"
+                className={`h-full w-full object-cover transition-opacity duration-500 ${
+                  isIntroVideoLoaded ? "opacity-100" : "opacity-0"
+                }`}
+                onLoadedData={handleIntroVideoLoaded}
+              />
+
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-slate-950/55 via-transparent to-slate-950/45" />
+
+              {isIntroMuted ? (
+                <button
+                  type="button"
+                  onClick={enableIntroSound}
+                  className="absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 rounded-xl border border-white/20 bg-emerald-950/80 px-6 py-4 text-base font-bold text-white shadow-xl shadow-black/30 backdrop-blur-md transition hover:bg-emerald-900/85"
+                  aria-label="Slå lyd til"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-5 w-5"
+                    aria-hidden="true"
+                  >
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                    <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+                    <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+                  </svg>
+                  <span>Slå lyd til</span>
+                </button>
+              ) : null}
+
+              <p className="pointer-events-none absolute bottom-5 left-1/2 z-20 w-full -translate-x-1/2 px-6 text-center text-sm font-medium text-emerald-50/85">
+                Tryk på X for at lukke introen
+              </p>
             </motion.div>
           </motion.div>
         ) : null}
