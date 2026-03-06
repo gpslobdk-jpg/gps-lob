@@ -5,6 +5,9 @@ import { NextResponse } from "next/server";
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
+  const requestedNext = requestUrl.searchParams.get("next");
+  const nextPath =
+    requestedNext && requestedNext.startsWith("/dashboard") ? requestedNext : "/dashboard";
 
   if (code) {
     const cookieStore = await cookies();
@@ -26,8 +29,11 @@ export async function GET(request: Request) {
       }
     );
 
-    await supabase.auth.exchangeCodeForSession(code);
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error) {
+      return NextResponse.redirect(`${requestUrl.origin}${nextPath}`);
+    }
   }
 
-  return NextResponse.redirect(`${requestUrl.origin}/dashboard`);
+  return NextResponse.redirect(`${requestUrl.origin}/login`);
 }

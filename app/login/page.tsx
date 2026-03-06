@@ -6,16 +6,14 @@ import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 
 export default function LoginPage() {
-  const getSiteUrl = () => {
-    const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-    if (configured) {
-      const trimmed = configured.replace(/\/+$/, "");
-      if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-        return trimmed;
-      }
-      return `https://${trimmed}`;
-    }
+  const getSafeNextPath = () => {
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get("next")?.trim() ?? "";
+    if (requested.startsWith("/dashboard")) return requested;
+    return "/dashboard";
+  };
 
+  const getSiteUrl = () => {
     const origin = window.location.origin.replace(/\/+$/, "");
     const isLocalhost =
       origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1");
@@ -27,10 +25,13 @@ export default function LoginPage() {
 
   const handleOAuthLogin = async (provider: "google" | "facebook" | "azure") => {
     const supabase = createClient();
+    const callbackUrl = new URL("/api/auth/callback", getSiteUrl());
+    callbackUrl.searchParams.set("next", getSafeNextPath());
+
     await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${getSiteUrl()}/api/auth/callback`,
+        redirectTo: callbackUrl.toString(),
         ...(provider === "azure" ? { scopes: "email" } : {}),
       },
     });
