@@ -5,11 +5,10 @@ import Image from "next/image";
 import Link from "next/link";
 import Lottie from "lottie-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 
 import AIChatButton from "@/components/AIChatButton";
 import natureAnimation from "@/public/nature.json";
-import { createClient } from "@/utils/supabase/client";
 
 const WelcomeModal = dynamic(() => import("@/components/WelcomeModal"), {
   ssr: false,
@@ -19,25 +18,6 @@ export default function Home() {
   const [code, setCode] = useState("");
   const [showIntroToken, setShowIntroToken] = useState(0);
   const router = useRouter();
-  const [supabase] = useState(() => createClient());
-
-  useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        router.push("/dashboard");
-      }
-    });
-
-    void supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        router.push("/dashboard");
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [router, supabase]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -112,10 +92,10 @@ export default function Home() {
           </div>
 
           <Link
-            href="/dashboard/opret"
+            href="/login"
             className="block w-full rounded-2xl border border-white/55 bg-white/55 px-4 py-3 text-center text-base font-semibold text-emerald-950 transition hover:bg-white/75"
           >
-            {"Opret nyt l\u00f8b"}
+            {"Log ind for arrang\u00f8rer"}
           </Link>
         </section>
 
