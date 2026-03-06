@@ -20,6 +20,7 @@ export default function Home() {
   const [codeError, setCodeError] = useState("");
   const [showIntroToken, setShowIntroToken] = useState(0);
   const [showIntroModal, setShowIntroModal] = useState(false);
+  const [showMobileIntroModal, setShowMobileIntroModal] = useState(false);
   const [isIntroMuted, setIsIntroMuted] = useState(true);
   const [isIntroVideoLoaded, setIsIntroVideoLoaded] = useState(false);
   const introVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -42,8 +43,13 @@ export default function Home() {
     if (typeof window === "undefined") return;
     const hasSeenIntro = window.localStorage.getItem("hasSeenIntro");
     if (hasSeenIntro) return;
+    const isMobileViewport = window.matchMedia("(max-width: 767px)").matches;
 
     const frame = window.requestAnimationFrame(() => {
+      if (isMobileViewport) {
+        setShowMobileIntroModal(true);
+        return;
+      }
       setShowIntroModal(true);
     });
 
@@ -52,6 +58,7 @@ export default function Home() {
 
   const closeIntroModal = () => {
     setShowIntroModal(false);
+    setShowMobileIntroModal(false);
     if (typeof window !== "undefined") {
       window.localStorage.setItem("hasSeenIntro", "true");
     }
@@ -102,7 +109,41 @@ export default function Home() {
 
       <WelcomeModal forceOpenToken={showIntroToken} />
 
-      <main className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-10">
+      <main className="relative mx-auto flex w-full flex-1 flex-col justify-center px-4 py-8 md:hidden">
+        <section className="flex flex-1 items-center justify-center">
+          <div className="w-full max-w-lg rounded-[2rem] border border-white/20 bg-slate-900/60 p-5 shadow-2xl shadow-slate-950/30 backdrop-blur-xl">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <p className="text-center text-sm font-semibold tracking-wide text-white/90">
+                Indtast løbskode
+              </p>
+              <input
+                value={code}
+                onChange={(event) => {
+                  setCode(event.target.value.replace(/\D/g, "").slice(0, 5));
+                  if (codeError) setCodeError("");
+                }}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={5}
+                placeholder="Indtast løbskode"
+                className="w-full rounded-3xl border border-emerald-200/80 bg-white px-6 py-8 text-center text-3xl font-black tracking-[0.24em] text-emerald-950 outline-none placeholder:tracking-normal placeholder:text-emerald-900/45 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/25"
+              />
+              <button
+                type="submit"
+                className="w-full rounded-3xl bg-emerald-600 px-6 py-8 text-3xl font-black text-white transition active:scale-[0.99]"
+              >
+                Deltag
+              </button>
+              {codeError ? (
+                <p className="text-center text-sm font-semibold text-rose-200">{codeError}</p>
+              ) : null}
+            </form>
+          </div>
+        </section>
+      </main>
+
+      <main className="relative mx-auto hidden w-full max-w-md flex-1 flex-col justify-center px-6 py-10 md:flex">
         <section className="space-y-6">
           <div className="flex justify-center">
             <div className="relative h-52 w-full max-w-[300px]">
@@ -173,7 +214,7 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="relative mx-auto w-full max-w-4xl px-6 pb-8 pt-3">
+      <footer className="relative mx-auto hidden w-full max-w-4xl px-6 pb-8 pt-3 md:block">
         <div className="flex flex-col items-center gap-3 text-center text-sm text-slate-600 sm:flex-row sm:justify-between sm:text-left">
           <div>
             <a
@@ -189,13 +230,43 @@ export default function Home() {
       </footer>
 
       <AnimatePresence>
+        {showMobileIntroModal ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/70 px-6 backdrop-blur-xl md:hidden"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="w-full max-w-md rounded-3xl border border-white/20 bg-slate-900/70 p-6 text-white shadow-2xl shadow-black/40 backdrop-blur-xl"
+            >
+              <p className="text-center text-lg font-semibold leading-relaxed text-white">
+                Velkommen til GPS Løb! Indtast koden fra din lærer/arrangør for at
+                starte eventyret.
+              </p>
+              <button
+                type="button"
+                onClick={closeIntroModal}
+                className="mt-6 w-full rounded-2xl bg-emerald-500 px-5 py-4 text-xl font-black text-white transition active:scale-[0.99]"
+              >
+                OK
+              </button>
+            </motion.div>
+          </motion.div>
+        ) : null}
+
         {showIntroModal ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="fixed inset-0 z-[120] bg-slate-950/65 backdrop-blur-xl"
+            className="fixed inset-0 z-[120] hidden bg-slate-950/65 backdrop-blur-xl md:block"
           >
             <motion.div
               initial={{ opacity: 0, scale: 1.01 }}
