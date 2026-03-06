@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
 import type { SavedPin } from "@/components/MapPicker";
 import { createClient } from "@/utils/supabase/client";
@@ -223,6 +223,29 @@ const isQuestionEmpty = (question: Question) =>
   question.lng === null;
 
 export default function OpretLoebPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className={`min-h-screen bg-slate-950 ${poppins.className}`}>
+          <div className="flex min-h-screen items-center justify-center px-6 text-center">
+            <div className="rounded-[2rem] border border-white/10 bg-white/[0.05] px-8 py-10 text-white shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+              <p className="text-xs font-semibold tracking-[0.28em] text-white/55 uppercase">
+                Indlæser
+              </p>
+              <h1 className={`mt-3 text-3xl font-black tracking-tight text-white ${rubik.className}`}>
+                Quiz-bygger
+              </h1>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <OpretLoebPageContent />
+    </Suspense>
+  );
+}
+
+function OpretLoebPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const defaultQuestionType = getQuestionTypeFromQuery(searchParams.get("type"));
