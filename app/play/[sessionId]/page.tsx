@@ -4,9 +4,18 @@ import dynamic from "next/dynamic";
 import { Player } from "@lottiefiles/react-lottie-player";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { AlertCircle, CheckCircle2, Crosshair, MapPin } from "lucide-react";
+import { AlertCircle, CheckCircle2, Crosshair, Loader2, MapPin } from "lucide-react";
 import Image from "next/image";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { useParams, useSearchParams } from "next/navigation";
 
 import trophyAnimation from "@/public/trophy.json";
@@ -254,6 +263,7 @@ function PlayScreen() {
   const [isKicked, setIsKicked] = useState(false);
   const [latestMessage, setLatestMessage] = useState<string | null>(null);
   const [resumeMessage, setResumeMessage] = useState<string | null>(null);
+  const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [typedAnswerError, setTypedAnswerError] = useState<{ key: string; message: string } | null>(
     null
   );
@@ -266,7 +276,10 @@ function PlayScreen() {
   const hasRestoredRef = useRef(!Boolean(storedParticipantOnLoad));
   const resumeMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wakeLockSentinelRef = useRef<WakeLockSentinelLike | null>(null);
+  const photoAnalysisTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
   const typedAnswerInputRef = useRef<HTMLInputElement | null>(null);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   const unlockCurrentPost = useCallback(() => {
     setShowQuestion(true);
@@ -326,8 +339,12 @@ function PlayScreen() {
 
   useEffect(() => {
     return () => {
+      isMountedRef.current = false;
       if (resumeMessageTimerRef.current) {
         clearTimeout(resumeMessageTimerRef.current);
+      }
+      if (photoAnalysisTimerRef.current) {
+        clearTimeout(photoAnalysisTimerRef.current);
       }
     };
   }, []);
@@ -1051,6 +1068,27 @@ function PlayScreen() {
     await handleAnswer(activeQuestion.correctIndex);
   };
 
+  const handlePhotoCapture = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file || !activeQuestion || activePostVariant !== "photo" || isAnalyzingPhoto) return;
+
+    setIsAnalyzingPhoto(true);
+
+    await new Promise<void>((resolve) => {
+      photoAnalysisTimerRef.current = setTimeout(() => {
+        photoAnalysisTimerRef.current = null;
+        resolve();
+      }, 3000);
+    });
+
+    if (!isMountedRef.current) return;
+
+    setIsAnalyzingPhoto(false);
+    await handleAnswer(activeQuestion.correctIndex);
+  };
+
   const playerIcon = useMemo(
     () =>
       L.divIcon({
@@ -1381,18 +1419,40 @@ function PlayScreen() {
                   </p>
                 </div>
 
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handlePhotoCapture}
+                  className="hidden"
+                />
+
                 <button
                   type="button"
-                  onClick={() => console.log("Åbner kamera...")}
-                  className="w-full overflow-hidden rounded-full bg-sky-600 px-6 py-4 text-lg font-black text-white break-words hyphens-auto shadow-lg shadow-sky-950/40 transition-all hover:bg-sky-500"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={isAnalyzingPhoto}
+                  className="inline-flex w-full items-center justify-center gap-3 overflow-hidden rounded-full bg-sky-600 px-6 py-4 text-lg font-black text-white break-words hyphens-auto shadow-lg shadow-sky-950/40 transition-all hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-sky-700/70"
                 >
-                  📸 Åbn Kamera
+                  {isAnalyzingPhoto ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      AI&apos;en vurderer dit billede...
+                    </>
+                  ) : (
+                    "📸 Åbn Kamera"
+                  )}
                 </button>
 
-                <p className="break-words hyphens-auto text-center text-sm text-sky-100/70">
-                  Kameraet kobles på i næste trin. Indtil da viser knappen den rigtige placering i
-                  UI&apos;et.
-                </p>
+                {isAnalyzingPhoto ? (
+                  <p className="break-words hyphens-auto text-center text-sm text-sky-100/70">
+                    AI&apos;en vurderer dit billede. Vent et øjeblik...
+                  </p>
+                ) : (
+                  <p className="break-words hyphens-auto text-center text-sm text-sky-100/70">
+                    Tag et billede af motivet, så vurderer AI&apos;en det automatisk.
+                  </p>
+                )}
               </div>
             ) : null}
 
