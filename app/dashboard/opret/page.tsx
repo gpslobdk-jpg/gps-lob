@@ -29,15 +29,14 @@ export default function OpretSporPage() {
 
       <section className="relative z-10 mx-auto w-full max-w-6xl">
         <p className="mb-3 text-xs font-bold tracking-[0.2em] text-white/90 drop-shadow-md uppercase">
-          {"Kontrolt\u00e5rnet"}
+          Kontroltårnet
         </p>
         <h1 className={`text-4xl font-black tracking-tight text-white drop-shadow-md md:text-5xl ${rubik.className}`}>
-          {"Hvordan vil du bygge dit l\u00f8b? \u{1F3C1}"}
+          Hvordan vil du bygge dit løb? 🏁
         </h1>
         <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white drop-shadow-md md:text-base">
-          {
-            "V\u00e6lg det spor, der passer til din stil. Du kan enten bygge manuelt med fuld kontrol eller lade AI'en skabe et komplet l\u00f8b p\u00e5 f\u00e5 sekunder."
-          }
+          Vælg det spor, der passer til din stil. Du kan enten bygge manuelt med fuld kontrol
+          eller lade AI&apos;en skabe et komplet løb på få sekunder.
         </p>
 
         <div className="mt-10 grid gap-6 md:grid-cols-2">
@@ -51,12 +50,11 @@ export default function OpretSporPage() {
                 Byg fra bunden
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-emerald-800">
-                {
-                  "V\u00e6lg f\u00f8rst, om du vil bygge et klassisk quiz-l\u00f8b eller en AI foto-mission, og finpuds derefter poster og lokationer manuelt."
-                }
+                Vælg først, om du vil bygge et klassisk quiz-løb eller en AI foto-mission, og
+                finpuds derefter poster og lokationer manuelt.
               </p>
               <p className="mt-6 text-xs font-bold tracking-[0.18em] text-emerald-700 uppercase">
-                V\u00e6lg l\u00f8bstype
+                Vælg løbstype
               </p>
             </article>
           </Link>
@@ -71,9 +69,8 @@ export default function OpretSporPage() {
                 Lyn-Oprettelse
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-emerald-800">
-                {
-                  "Lad teknologien g\u00f8re arbejdet. Beskriv dit tema, og f\u00e5 et komplet klassisk quiz-l\u00f8b med sp\u00f8rgsm\u00e5l p\u00e5 f\u00e5 sekunder."
-                }
+                Lad teknologien gøre arbejdet. Beskriv dit tema, og få et komplet klassisk
+                quiz-løb med spørgsmål på få sekunder.
               </p>
               <p className="mt-6 text-xs font-bold tracking-[0.18em] text-emerald-700 uppercase">
                 Generer med AI
