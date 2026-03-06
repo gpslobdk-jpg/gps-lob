@@ -28,8 +28,7 @@ const cards: HubCard[] = [
   {
     title: "Klassisk Quiz-løb",
     shortText: "Multiple-choice spørgsmål med AI-assistent.",
-    detail:
-      "Skab en klassisk rute med spørgsmål og fire svarmuligheder. Perfekt til teambuilding, quiz-aftener eller skattejagter, hvor deltagerne skal samarbejde og tænke hurtigt. AI-assistenten kan hjælpe med at formulere spørgsmål, der passer til tema og sværhedsgrad.",
+    detail: "Skab en klassisk rute med spørgsmål og fire svarmuligheder.",
     href: "/dashboard/opret/manuel",
     badge: "Klar nu",
     cta: "Åbn quiz-bygger",
@@ -80,7 +79,7 @@ export default function ValgHubPage() {
       />
       <div className="fixed inset-0 -z-10 hidden bg-gradient-to-b from-sky-900/10 to-emerald-900/50 backdrop-blur-[2px] lg:block" />
 
-      <section className="relative z-10 mx-auto flex w-full max-w-4xl flex-col">
+      <section className="relative z-10 mx-auto flex w-full max-w-6xl flex-col">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <Link
             href="/dashboard/opret"
@@ -121,7 +120,7 @@ export default function ValgHubPage() {
                   className="group block h-full focus:outline-none"
                 >
                   <article
-                    className="relative flex h-full min-h-[280px] flex-col justify-between overflow-hidden rounded-[2rem] border border-white/50 bg-white/90 p-7 shadow-xl backdrop-blur-md transition-all duration-300 group-hover:scale-[1.03] group-hover:bg-white/95 group-hover:shadow-2xl group-focus-visible:scale-[1.03] group-focus-visible:bg-white/95 group-focus-visible:shadow-2xl"
+                    className="relative flex h-full flex-col justify-between overflow-hidden rounded-[2rem] border border-white/50 bg-white/90 p-7 shadow-xl backdrop-blur-md transition-all duration-300 group-hover:scale-[1.03] group-hover:bg-white/95 group-hover:shadow-2xl group-focus-visible:scale-[1.03] group-focus-visible:bg-white/95 group-focus-visible:shadow-2xl"
                   >
                     <div className={`absolute inset-0 bg-gradient-to-br ${card.accentClass}`} />
 
@@ -167,7 +166,7 @@ export default function ValgHubPage() {
             return (
               <article
                 key={`${card.title}-${index}`}
-                className="relative flex min-h-[280px] flex-col justify-between overflow-hidden rounded-[2rem] border border-white/50 bg-white/75 p-7 shadow-xl backdrop-blur-md"
+                className="relative flex flex-col justify-between overflow-hidden rounded-[2rem] border border-white/50 bg-white/75 p-7 shadow-xl backdrop-blur-md"
               >
                 <div className={`absolute inset-0 bg-gradient-to-br ${card.accentClass}`} />
                 <div className="relative z-10 flex h-full flex-col justify-between">
