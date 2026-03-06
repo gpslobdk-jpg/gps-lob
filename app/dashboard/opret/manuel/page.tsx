@@ -1,10 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ImageIcon, Loader2, Sparkles, Youtube } from "lucide-react";
+import { ChevronDown, ChevronUp, ImageIcon, Loader2, Plus, Sparkles, Youtube } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useMemo, useState } from "react";
 
@@ -179,9 +179,12 @@ type MagicDraftQuestion = {
 
 const MAGIC_DRAFT_STORAGE_KEY = "magicRunDraft";
 
-const createQuestion = (): Question => ({
+const getQuestionTypeFromQuery = (value: string | null | undefined): Question["type"] =>
+  value === "ai_image" ? "ai_image" : "multiple_choice";
+
+const createQuestion = (type: Question["type"] = "multiple_choice"): Question => ({
   id: Date.now() + Math.floor(Math.random() * 100000),
-  type: "multiple_choice",
+  type,
   text: "",
   aiPrompt: "",
   mediaUrl: "",
@@ -192,10 +195,10 @@ const createQuestion = (): Question => ({
 });
 
 const inputClass =
-  "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-emerald-50/45 focus:outline-none focus:ring-2 focus:ring-emerald-500";
+  "w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white placeholder:text-white/[0.35] focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500";
 
 const reviewInputClass =
-  "w-full rounded-lg border border-white/20 bg-black/20 p-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500";
+  "w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white placeholder:text-white/[0.35] focus:outline-none focus:ring-2 focus:ring-emerald-500";
 
 const DEFAULT_ANSWERS: [string, string, string, string] = ["", "", "", ""];
 
@@ -211,8 +214,33 @@ function toAnswersTuple(value: unknown): [string, string, string, string] {
   return [padded[0] ?? "", padded[1] ?? "", padded[2] ?? "", padded[3] ?? ""];
 }
 
+const isQuestionEmpty = (question: Question) =>
+  !question.text &&
+  !question.aiPrompt &&
+  !question.mediaUrl &&
+  question.answers.every((answer) => !answer) &&
+  question.lat === null &&
+  question.lng === null;
+
 export default function OpretLoebPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const defaultQuestionType = getQuestionTypeFromQuery(searchParams.get("type"));
+  const pageTitle = defaultQuestionType === "ai_image" ? "Foto-mission-bygger" : "Quiz-bygger";
+  const pageIntro =
+    defaultQuestionType === "ai_image"
+      ? "Skab missioner i et roligt arbejdsrum, placer pins på kortet og finpuds detaljerne, når ruten er klar."
+      : "Byg 4-svars spørgsmål i et fokuseret arbejdsrum, placer pins på kortet og gem løbet, når ruten er klar.";
+  const aiShortcutTitle =
+    defaultQuestionType === "ai_image"
+      ? "Lad AI skrive de første missioner"
+      : "Lad AI skrive de første spørgsmål";
+  const aiShortcutText =
+    defaultQuestionType === "ai_image"
+      ? "Beskriv temaet kort, så får du et første udkast til poster, du kan tilpasse bagefter."
+      : "Beskriv temaet kort, så får du et første udkast til quiz-spørgsmål med 4 svarmuligheder.";
+  const addQuestionLabel =
+    defaultQuestionType === "ai_image" ? "Tilføj ny mission" : "Tilføj nyt spørgsmål";
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState<string>("");
   const [showTeacherField, setShowTeacherField] = useState(false);
@@ -226,7 +254,7 @@ export default function OpretLoebPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [generatingImages, setGeneratingImages] = useState<Record<number, boolean>>({});
-  const [questions, setQuestions] = useState<Question[]>([createQuestion()]);
+  const [questions, setQuestions] = useState<Question[]>(() => [createQuestion(defaultQuestionType)]);
   const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
   const [mapCenter, setMapCenter] = useState<MapCenter>({
     lat: 55.6761,
@@ -276,6 +304,19 @@ export default function OpretLoebPage() {
       window.sessionStorage.removeItem(MAGIC_DRAFT_STORAGE_KEY);
     }
   }, []);
+
+  useEffect(() => {
+    setQuestions((current) => {
+      if (current.length !== 1) return current;
+
+      const [firstQuestion] = current;
+      if (!firstQuestion || !isQuestionEmpty(firstQuestion) || firstQuestion.type === defaultQuestionType) {
+        return current;
+      }
+
+      return [{ ...firstQuestion, type: defaultQuestionType }];
+    });
+  }, [defaultQuestionType]);
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -327,7 +368,7 @@ export default function OpretLoebPage() {
   };
 
   const addQuestion = () => {
-    setQuestions((prev) => [...prev, createQuestion()]);
+    setQuestions((prev) => [...prev, createQuestion(defaultQuestionType)]);
   };
 
   const closeAIModal = () => {
@@ -587,7 +628,7 @@ export default function OpretLoebPage() {
       setTitle("");
       setSubject("");
       setShowTeacherField(false);
-      setQuestions([createQuestion()]);
+      setQuestions([createQuestion(defaultQuestionType)]);
       setAiRunBrief("");
       setGeneratingImages({});
 
@@ -605,304 +646,363 @@ export default function OpretLoebPage() {
 
   return (
     <>
-      <div
-        className={`flex min-h-screen flex-col overflow-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-emerald-950 text-white lg:h-screen lg:flex-row ${poppins.className}`}
-      >
-        <section className="w-full overflow-y-auto p-6 lg:w-1/2 lg:p-10">
-          <div className="mx-auto max-w-3xl rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-2xl lg:p-8">
-            <h1
-              className={`text-3xl font-black tracking-wide text-white sm:text-4xl ${rubik.className}`}
-            >
-              Opret Nyt Løb
-            </h1>
-            <p className="mt-2 text-sm text-emerald-50/80">
-              Byg dit forløb, marker poster og gør holdet klar på få minutter.
-            </p>
-
-            <div className="mt-6 mb-6 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-2xl">
-              <label className="mb-2 block text-xs uppercase tracking-widest text-emerald-50/80">
-                Titel
-              </label>
-              <input
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="fx Eventyr i Skolegården"
-                className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-2xl font-bold text-white placeholder:text-emerald-50/45 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-
-              <button
-                type="button"
-                onClick={() => setShowTeacherField((prev) => !prev)}
-                className="mt-3 text-xs text-emerald-50/70 transition hover:text-emerald-50"
-              >
-                Er du lærer? Tilføj fag her
-              </button>
-
-              {showTeacherField ? (
-                <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-emerald-50">
-                    Fag
-                  </label>
-                  <select
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    className="w-full appearance-none rounded-xl border border-white/10 bg-black/20 p-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="" className="bg-slate-900 text-white">
-                      Vælg et fag...
-                    </option>
-                    {Object.keys(SUBJECT_TOPICS).map((subj) => (
-                      <option key={subj} value={subj} className="bg-slate-900 text-white">
-                        {subj}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
-
+      <div className={`relative min-h-screen overflow-hidden bg-slate-950 text-white ${poppins.className}`}>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.14),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(255,255,255,0.08),_transparent_28%)]" />
+        <div className="relative flex min-h-screen flex-col lg:flex-row">
+          <section className="w-full overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 lg:w-[52%] lg:px-8 lg:py-8">
+            <div className="mx-auto max-w-3xl space-y-5">
               <button
                 type="button"
                 onClick={() => {
                   setShowAIModal(true);
                   setPreviewQuestions([]);
                 }}
-                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-bold uppercase tracking-wide text-emerald-950 shadow-md transition hover:bg-emerald-400"
+                className="group w-full rounded-[2rem] border border-white/10 bg-white/[0.06] p-6 text-left shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl transition hover:border-emerald-300/30 hover:bg-white/[0.09]"
               >
-                <Sparkles className="h-4 w-4" />
-                Auto-udfyld med AI
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-semibold tracking-[0.24em] text-emerald-100 uppercase">
+                  <span aria-hidden>✨</span>
+                  Auto-udfyld med AI
+                </div>
+                <h1 className={`mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl ${rubik.className}`}>
+                  {aiShortcutTitle}
+                </h1>
+                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/70 sm:text-base">
+                  {aiShortcutText}
+                </p>
               </button>
-            </div>
 
-            {questions.map((question, questionIndex) => (
-              <div
-                key={question.id}
-                className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-2xl"
-              >
-                <div className="mb-5 flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/30 font-bold text-emerald-100">
-                    {questionIndex + 1}
-                  </div>
-                  <h2 className={`text-xl font-bold text-white ${rubik.className}`}>
-                    Spørgsmål
-                  </h2>
-                </div>
-
-                <input
-                  value={question.text}
-                  onChange={(event) =>
-                    updateQuestion(question.id, { text: event.target.value })
-                  }
-                  placeholder="Skriv spørgsmålet her..."
-                  className={inputClass}
-                />
-
-                <div className="mt-4">
-                  <p className="mb-2 text-xs font-bold tracking-widest text-emerald-50/80 uppercase">
-                    Post-type
-                  </p>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <button
-                      type="button"
-                      onClick={() => updateQuestion(question.id, "type", "multiple_choice")}
-                      className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
-                        question.type === "multiple_choice"
-                          ? "border-emerald-400 bg-emerald-500 text-emerald-950 shadow-md"
-                          : "border-white/15 bg-black/20 text-emerald-50 hover:border-emerald-300 hover:bg-white/10"
-                      }`}
-                    >
-                      Multiple Choice
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => updateQuestion(question.id, "type", "ai_image")}
-                      className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
-                        question.type === "ai_image"
-                          ? "border-emerald-400 bg-emerald-500 text-emerald-950 shadow-md"
-                          : "border-white/15 bg-black/20 text-emerald-50 hover:border-emerald-300 hover:bg-white/10"
-                      }`}
-                    >
-                      ✨ AI Fotomission
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-3 mb-4 flex flex-col gap-3 rounded-xl border border-white/10 bg-black/20 p-3 transition-all focus-within:border-emerald-400 focus-within:ring-1 focus-within:ring-emerald-500">
-                  {question.mediaUrl && question.mediaUrl.startsWith("http") && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="relative mx-auto aspect-video w-full max-w-[300px] overflow-hidden rounded-xl border border-white/15 bg-black/30 shadow-2xl"
-                    >
-                      <Image
-                        src={question.mediaUrl}
-                        alt="Preview"
-                        fill
-                        sizes="(max-width: 640px) 100vw, 300px"
-                        className="object-cover"
-                        unoptimized
-                        loader={({ src }) => src}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                      <button
-                        type="button"
-                        onClick={() => updateQuestion(question.id, "mediaUrl", "")}
-                        className="absolute top-2 right-2 rounded-full bg-emerald-900/70 p-1.5 text-white transition-all hover:bg-emerald-900"
-                      >
-                        ✕
-                      </button>
-                    </motion.div>
-                  )}
-
-                  <div className="flex items-center gap-3 p-1 transition-all">
-                    <div className="flex gap-2 pl-2 text-emerald-300">
-                      <ImageIcon size={16} />
-                      <Youtube size={16} />
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="Indsæt link til billede eller YouTube-video (valgfrit)..."
-                      value={question.mediaUrl || ""}
-                      onChange={(e) => updateQuestion(question.id, "mediaUrl", e.target.value)}
-                      className="flex-1 bg-transparent text-sm text-emerald-50 placeholder:text-emerald-50/45 focus:ring-0 focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleGenerateAIImage(question.id, question.text)}
-                      disabled={generatingImages[question.id] || !question.text}
-                      className="ml-auto flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 p-2 text-xs font-bold uppercase tracking-wider text-emerald-50 transition-all hover:bg-white/15 disabled:opacity-50 disabled:hover:bg-white/10"
-                    >
-                      {generatingImages[question.id] ? (
-                        <span className="animate-pulse">Tænker... ✨</span>
-                      ) : (
-                        <>
-                          <Sparkles size={14} />
-                          Generér billede til: &quot;
-                          {truncateText(question.text || "dette spørgsmål", 35)}
-                          &quot;
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {question.type === "ai_image" ? (
-                  <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <label className="mb-2 block text-sm font-bold text-white">
-                      Instruks til AI-dommeren 🤖📸
-                    </label>
-                    <textarea
-                      value={question.aiPrompt}
-                      onChange={(event) =>
-                        updateQuestion(question.id, { aiPrompt: event.target.value })
-                      }
-                      rows={4}
-                      placeholder="Hvad skal deltagerne tage billede af? F.eks. 'Find et egetræ' eller 'Tag et billede af noget rundt og blåt'. AI'en vil godkende billedet automatisk ud fra dette."
-                      className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white placeholder:text-emerald-50/45 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                    <p className="mt-2 text-xs text-emerald-50/80">
-                      Skriv en tydelig dommer-instruks, så AI&apos;en kan vurdere deltagerens foto præcist.
+              <div className="rounded-[2rem] border border-white/10 bg-white/[0.05] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-7">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold tracking-[0.28em] text-white/[0.55] uppercase">
+                      Version A
+                    </p>
+                    <h2 className={`mt-3 text-3xl font-black tracking-tight text-white ${rubik.className}`}>
+                      {pageTitle}
+                    </h2>
+                    <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/[0.65]">
+                      {pageIntro}
                     </p>
                   </div>
-                ) : (
-                  <div className="mt-4 space-y-3">
-                    {question.answers.map((answer, answerIndex) => (
-                      <label
-                        key={`${question.id}-${answerIndex}`}
-                        className="flex items-center gap-3"
-                      >
-                        <input
-                          type="radio"
-                          checked={question.correctIndex === answerIndex}
-                          onChange={() =>
-                            updateQuestion(question.id, { correctIndex: answerIndex })
-                          }
-                          className="h-4 w-4 accent-emerald-600"
-                        />
-                        <input
-                          value={answer}
-                          onChange={(event) =>
-                            updateAnswer(question.id, answerIndex, event.target.value)
-                          }
-                          placeholder={`Svar ${answerIndex + 1}`}
-                          className={inputClass}
-                        />
-                      </label>
-                    ))}
+                  <div className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm font-semibold text-white/70">
+                    {questions.length} poster
                   </div>
-                )}
+                </div>
+
+                <div className="mt-6">
+                  <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
+                    Løbets titel
+                  </label>
+                  <input
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                    placeholder="F.eks. Eventyr i skolegården"
+                    className="w-full rounded-[1.5rem] border border-white/10 bg-black/25 px-5 py-4 text-xl font-bold text-white placeholder:text-white/[0.35] focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-end justify-between gap-4 px-1">
+                <div>
+                  <p className="text-xs font-semibold tracking-[0.24em] text-white/[0.55] uppercase">
+                    Dine poster
+                  </p>
+                  <p className="mt-2 text-sm text-white/60">
+                    Skriv spørgsmål, vælg korrekt svar og hent en pin fra kortet, når posten er klar.
+                  </p>
+                </div>
+                <span className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm font-semibold text-white/[0.65]">
+                  {questions.length}
+                </span>
+              </div>
+
+              {questions.map((question, questionIndex) => (
+                <article
+                  key={question.id}
+                  className="rounded-[2rem] border border-white/10 bg-white/[0.05] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/25 text-sm font-bold text-emerald-100">
+                        {questionIndex + 1}
+                      </div>
+                      <div>
+                        <h3 className={`text-xl font-bold text-white ${rubik.className}`}>
+                          {question.type === "ai_image" ? "Foto-post" : "Quiz-post"}
+                        </h3>
+                        <p className="text-xs text-white/[0.55]">
+                          {question.lat !== null && question.lng !== null
+                            ? "Pin er valgt på kortet"
+                            : "Ingen pin valgt endnu"}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-white/[0.55] uppercase">
+                      {question.type === "ai_image" ? "AI foto" : "4 svar"}
+                    </span>
+                  </div>
+
+                  <div className="mt-5">
+                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
+                      Spørgsmålstekst
+                    </label>
+                    <input
+                      value={question.text}
+                      onChange={(event) => updateQuestion(question.id, { text: event.target.value })}
+                      placeholder="Skriv spørgsmålet her..."
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div className="mt-5">
+                    <p className="mb-2 text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
+                      Posttype
+                    </p>
+                    <div className="grid grid-cols-1 gap-2 rounded-[1.5rem] border border-white/10 bg-black/20 p-1 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => updateQuestion(question.id, "type", "multiple_choice")}
+                        className={`rounded-[1.2rem] px-4 py-3 text-left text-sm font-semibold transition ${
+                          question.type === "multiple_choice"
+                            ? "bg-emerald-400 text-slate-950 shadow-[0_10px_30px_rgba(16,185,129,0.22)]"
+                            : "bg-transparent text-white/75 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        Klassisk quiz med 4 svar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateQuestion(question.id, "type", "ai_image")}
+                        className={`rounded-[1.2rem] px-4 py-3 text-left text-sm font-semibold transition ${
+                          question.type === "ai_image"
+                            ? "bg-emerald-400 text-slate-950 shadow-[0_10px_30px_rgba(16,185,129,0.22)]"
+                            : "bg-transparent text-white/75 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        ✨ AI foto-mission
+                      </button>
+                    </div>
+                  </div>
+
+                  {question.type === "ai_image" ? (
+                    <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-black/20 p-4">
+                      <label className="mb-2 block text-sm font-semibold text-white">
+                        Instruks til AI-dommeren
+                      </label>
+                      <textarea
+                        value={question.aiPrompt}
+                        onChange={(event) => updateQuestion(question.id, { aiPrompt: event.target.value })}
+                        rows={4}
+                        placeholder="Hvad skal deltagerne tage billede af? F.eks. 'Find et egetræ' eller 'Tag et billede af noget rundt og blåt'."
+                        className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-white/[0.35] focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <p className="mt-2 text-xs text-white/[0.55]">
+                        Skriv en tydelig dommer-instruks, så AI&apos;en kan vurdere billedet præcist.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-5 space-y-3">
+                      {question.answers.map((answer, answerIndex) => (
+                        <label
+                          key={`${question.id}-${answerIndex}`}
+                          className="flex items-center gap-3 rounded-[1.4rem] border border-white/10 bg-black/20 px-4 py-3 transition hover:border-white/15"
+                        >
+                          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-bold text-white/75">
+                            {String.fromCharCode(65 + answerIndex)}
+                          </span>
+                          <input
+                            type="radio"
+                            checked={question.correctIndex === answerIndex}
+                            onChange={() => updateQuestion(question.id, { correctIndex: answerIndex })}
+                            className="h-4 w-4 accent-emerald-500"
+                          />
+                          <input
+                            value={answer}
+                            onChange={(event) => updateAnswer(question.id, answerIndex, event.target.value)}
+                            placeholder={`Svar ${answerIndex + 1}`}
+                            className="min-w-0 flex-1 bg-transparent text-white placeholder:text-white/[0.35] focus:outline-none"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-black/20 p-4">
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-white/[0.65]">
+                      <ImageIcon className="h-4 w-4 text-emerald-200" />
+                      <Youtube className="h-4 w-4 text-emerald-200" />
+                      <span>Medie (valgfrit)</span>
+                    </div>
+
+                    {question.mediaUrl && question.mediaUrl.startsWith("http") && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="relative mx-auto mt-4 aspect-video w-full max-w-[300px] overflow-hidden rounded-2xl border border-white/15 bg-black/30 shadow-2xl"
+                      >
+                        <Image
+                          src={question.mediaUrl}
+                          alt="Preview"
+                          fill
+                          sizes="(max-width: 640px) 100vw, 300px"
+                          className="object-cover"
+                          unoptimized
+                          loader={({ src }) => src}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                        <button
+                          type="button"
+                          onClick={() => updateQuestion(question.id, "mediaUrl", "")}
+                          className="absolute top-2 right-2 rounded-full bg-black/60 p-1.5 text-white transition hover:bg-black/80"
+                        >
+                          ✕
+                        </button>
+                      </motion.div>
+                    )}
+
+                    <div className="mt-4 flex flex-col gap-3 xl:flex-row xl:items-center">
+                      <input
+                        type="text"
+                        placeholder="Indsæt link til billede eller YouTube-video..."
+                        value={question.mediaUrl || ""}
+                        onChange={(e) => updateQuestion(question.id, "mediaUrl", e.target.value)}
+                        className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-white/[0.35] focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleGenerateAIImage(question.id, question.text)}
+                        disabled={generatingImages[question.id] || !question.text}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {generatingImages[question.id] ? (
+                          <span className="inline-flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Tænker...
+                          </span>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4" />
+                            Generér billede til &quot;{truncateText(question.text || "posten", 24)}&quot;
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => assignPinFromCenter(question.id)}
+                    className="mt-5 w-full rounded-[1.4rem] border border-emerald-300/25 bg-emerald-300/90 px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-[0_12px_32px_rgba(16,185,129,0.22)] transition hover:bg-emerald-200"
+                  >
+                    Hent pin fra kortet
+                  </button>
+
+                  {question.lat !== null && question.lng !== null ? (
+                    <p className="mt-3 text-xs text-white/60">
+                      Pin gemt: {question.lat.toFixed(5)}, {question.lng.toFixed(5)}
+                    </p>
+                  ) : null}
+                </article>
+              ))}
+
+              <div className="rounded-[2rem] border border-white/10 bg-white/[0.05] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+                <button
+                  type="button"
+                  onClick={addQuestion}
+                  className="inline-flex items-center gap-2 rounded-[1.4rem] border border-white/10 bg-black/20 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+                >
+                  <Plus className="h-4 w-4" />
+                  {addQuestionLabel}
+                </button>
 
                 <button
                   type="button"
-                  onClick={() => assignPinFromCenter(question.id)}
-                  className="mt-5 w-full rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold uppercase tracking-wide text-emerald-950 shadow-md transition hover:bg-emerald-400"
+                  onClick={() => setShowTeacherField((prev) => !prev)}
+                  className="mt-5 inline-flex items-center gap-2 text-sm text-white/60 transition hover:text-white"
                 >
-                  HENT PIN FRA KORT (Sigt og klik)
+                  {showTeacherField ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  {showTeacherField ? "Skjul fag (valgfrit)" : "Tilføj fag (valgfrit)"}
                 </button>
 
-                {question.lat !== null && question.lng !== null ? (
-                  <p className="mt-3 text-xs text-emerald-50/80">
-                    Pin gemt: {question.lat.toFixed(5)}, {question.lng.toFixed(5)}
-                  </p>
+                {showTeacherField ? (
+                  <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-black/20 p-4">
+                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
+                      Fag
+                    </label>
+                    <select
+                      value={subject}
+                      onChange={(e) => setSubject(e.target.value)}
+                      className="w-full appearance-none rounded-2xl border border-white/10 bg-black/25 p-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="" className="bg-slate-900 text-white">
+                        Vælg et fag...
+                      </option>
+                      {Object.keys(SUBJECT_TOPICS).map((subj) => (
+                        <option key={subj} value={subj} className="bg-slate-900 text-white">
+                          {subj}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 ) : null}
+
+                <button
+                  type="button"
+                  onClick={handleSaveRun}
+                  disabled={isSaving}
+                  className="mt-6 w-full rounded-[1.6rem] border border-emerald-300/25 bg-emerald-300/90 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-[0_14px_34px_rgba(16,185,129,0.22)] transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
+                </button>
               </div>
-            ))}
-
-            <button
-              type="button"
-              onClick={addQuestion}
-              className="mb-6 rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-emerald-50 transition hover:bg-white/10"
-            >
-              Tilføj Nyt Spørgsmål
-            </button>
-
-            <button
-              type="button"
-              onClick={handleSaveRun}
-              disabled={isSaving}
-              className="w-full rounded-xl bg-emerald-500 px-6 py-4 text-lg font-extrabold uppercase tracking-wider text-emerald-950 shadow-md transition hover:bg-emerald-400"
-            >
-              {isSaving ? "GEMMER..." : "GEM LØB I ARKIVET"}
-            </button>
           </div>
         </section>
 
-        <aside className="h-[40vh] w-full p-4 lg:h-full lg:w-1/2 lg:p-6">
-          <div className="h-full w-full overflow-hidden rounded-3xl border border-white/20 bg-black/20 shadow-2xl backdrop-blur-xl">
+        <aside className="h-[42vh] w-full p-4 pt-0 sm:px-6 lg:h-auto lg:w-[48%] lg:p-8 lg:pl-0">
+          <div className="h-full min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-white/10 bg-black/25 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_0_36px_rgba(255,255,255,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-xl">
             <MapPicker center={mapCenter} pins={pins} onCenterChange={setMapCenter} />
           </div>
         </aside>
       </div>
+      </div>
 
       {showAIModal && (
-        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-emerald-950/95 p-6 shadow-2xl backdrop-blur-2xl">
-            <h3
-              className={`flex items-center gap-2 text-2xl font-extrabold text-white ${rubik.className}`}
-            >
-              <span aria-hidden>✨</span>
-              Intelligent AI-Assistent
-            </h3>
-            <p className="mt-2 text-sm text-emerald-50/80">
-              Opbyg professionelle spørgsmål med pædagogisk retning og tydelige instruktioner.
-            </p>
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md">
+          <div className="w-full max-w-3xl rounded-[2rem] border border-white/10 bg-slate-950/95 p-6 shadow-[0_32px_100px_rgba(0,0,0,0.72)] backdrop-blur-2xl sm:p-8">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold tracking-[0.28em] text-white/50 uppercase">
+                  AI-modal
+                </p>
+                <h3
+                  className={`mt-3 flex items-center gap-2 text-3xl font-extrabold text-white ${rubik.className}`}
+                >
+                  <span aria-hidden>✨</span>
+                  Intelligent AI-assistent
+                </h3>
+                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/[0.65]">
+                  Skriv kort, hvad du vil have hjælp til. Du kan altid finjustere spørgsmålene, før de lægges på kortet.
+                </p>
+              </div>
+            </div>
 
             {previewQuestions.length > 0 ? (
-              <div className="mt-6">
-                <p className="mb-4 text-sm text-emerald-50/80">
-                  Gennemgå og ret spørgsmålene, før de overføres til kortet.
+              <div className="mt-8">
+                <p className="mb-4 text-sm text-white/[0.65]">
+                  Gennemgå spørgsmålene og ret dem til, før de overføres til kortet.
                 </p>
 
-                <div className="max-h-[58vh] overflow-y-auto pr-1">
+                <div className="max-h-[58vh] space-y-4 overflow-y-auto pr-1">
                   {previewQuestions.map((previewQuestion, previewIndex) => (
                     <div
                       key={previewQuestion.id}
-                      className="mb-4 rounded-xl border border-white/10 bg-white/5 p-4"
+                      className="rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-4"
                     >
-                      <p className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-50/80">
+                      <p className="mb-3 text-xs font-semibold tracking-[0.22em] text-white/[0.55] uppercase">
                         Spørgsmål {previewIndex + 1}
                       </p>
 
-                      <label className="mb-1 block text-xs font-semibold text-emerald-50">
+                      <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-white/60 uppercase">
                         Spørgsmålstekst
                       </label>
                       <input
@@ -914,10 +1014,10 @@ export default function OpretLoebPage() {
                         className={reviewInputClass}
                       />
 
-                      <div className="mt-3 space-y-2">
+                      <div className="mt-4 space-y-3">
                         {previewQuestion.answers.map((answer, answerIndex) => (
                           <div key={`${previewQuestion.id}-answer-${answerIndex}`}>
-                            <label className="mb-1 block text-xs font-semibold text-emerald-50">
+                            <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-white/60 uppercase">
                               Svar {answerIndex + 1}
                             </label>
                             <input
@@ -939,55 +1039,58 @@ export default function OpretLoebPage() {
                   ))}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleApproveAIPreview}
-                  className="w-full rounded-xl bg-emerald-500 py-3 font-bold text-emerald-950 transition hover:bg-emerald-400"
-                >
-                  Godkend og placer på kortet
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDiscardAIPreview}
-                  className="mt-4 block w-full text-center text-sm text-red-400 transition hover:text-red-300"
-                >
-                  Kassér og prøv igen
-                </button>
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={handleApproveAIPreview}
+                    className="w-full rounded-[1.4rem] border border-emerald-300/25 bg-emerald-300/90 py-3 font-bold text-slate-950 transition hover:bg-emerald-200"
+                  >
+                    Godkend og placer på kortet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDiscardAIPreview}
+                    className="w-full rounded-[1.4rem] border border-white/10 bg-white/[0.04] py-3 font-semibold text-white/75 transition hover:bg-white/[0.08]"
+                  >
+                    Kassér og prøv igen
+                  </button>
+                </div>
               </div>
             ) : (
               <>
-                <div className="mt-6">
-                  <label className="mb-2 block text-sm font-semibold text-emerald-50">
-                    Hvad skal løbet handle om?
+                <div className="mt-8">
+                  <label className="mb-3 block text-sm font-semibold text-white">
+                    Hvad skal AI&apos;en skrive om?
                   </label>
                   <textarea
                     value={aiRunBrief}
                     onChange={(e) => setAiRunBrief(e.target.value)}
-                    rows={7}
-                    placeholder="F.eks: Vi skal have teambuilding i skoven, og det må gerne handle om samarbejde..."
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 p-4 text-white placeholder:text-emerald-50/45 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    rows={8}
+                    placeholder="F.eks. Lav et quiz-løb om skovens dyr til mellemtrinnet med tydelige spørgsmål og 4 svarmuligheder."
+                    className="w-full rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5 text-white placeholder:text-white/[0.35] focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setShowAITeacherFields((prev) => !prev)}
-                  className="mt-3 text-xs text-emerald-50/70 transition hover:text-emerald-50"
+                  className="mt-4 inline-flex items-center gap-2 text-sm text-white/60 transition hover:text-white"
                 >
-                  Er du lærer? Optimér til undervisning
+                  {showAITeacherFields ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  Er du lærer? Tilpas fag og niveau
                 </button>
 
                 {showAITeacherFields ? (
-                  <section className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <section className="mt-4 rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-4">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
-                        <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-emerald-50">
+                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-white/60 uppercase">
                           Fag
                         </label>
                         <select
                           value={aiSubject}
                           onChange={(e) => setAiSubject(e.target.value)}
-                          className="w-full rounded-xl border border-white/10 bg-black/20 p-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          className="w-full rounded-2xl border border-white/10 bg-black/25 p-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         >
                           <option value="" className="bg-slate-900 text-white">
                             Vælg fag...
@@ -1005,13 +1108,13 @@ export default function OpretLoebPage() {
                       </div>
 
                       <div>
-                        <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-emerald-50">
+                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-white/60 uppercase">
                           Klassetrin
                         </label>
                         <select
                           value={aiGrade}
                           onChange={(e) => setAiGrade(e.target.value)}
-                          className="w-full rounded-xl border border-white/10 bg-black/20 p-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          className="w-full rounded-2xl border border-white/10 bg-black/25 p-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         >
                           {AI_GRADE_OPTIONS.map((gradeOption) => (
                             <option
@@ -1028,12 +1131,12 @@ export default function OpretLoebPage() {
                   </section>
                 ) : null}
 
-                <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+                <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
                   <button
                     type="button"
                     onClick={closeAIModal}
                     disabled={isGenerating}
-                    className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold text-emerald-50 transition hover:bg-white/10 disabled:opacity-60"
+                    className="rounded-[1.4rem] border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-white/75 transition hover:bg-white/[0.08] disabled:opacity-60"
                   >
                     Luk
                   </button>
@@ -1041,7 +1144,7 @@ export default function OpretLoebPage() {
                     type="button"
                     onClick={handleAIGenerate}
                     disabled={isGenerating}
-                    className="w-full rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold text-emerald-950 transition hover:bg-emerald-400 disabled:opacity-60 disabled:hover:bg-emerald-500"
+                    className="w-full rounded-[1.4rem] border border-emerald-300/25 bg-emerald-300/90 px-6 py-3 text-sm font-bold text-slate-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isGenerating ? (
                       <span className="inline-flex items-center gap-2">
@@ -1054,9 +1157,9 @@ export default function OpretLoebPage() {
                   </button>
                 </div>
                 {isGenerating ? (
-                  <div className="mt-3 inline-flex items-center gap-2 text-sm text-emerald-50">
+                  <div className="mt-4 inline-flex items-center gap-2 text-sm text-white/70">
                     <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-300" />
-                    Tænker...
+                    AI&apos;en skriver forslag...
                   </div>
                 ) : null}
               </>

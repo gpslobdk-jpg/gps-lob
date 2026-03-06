@@ -41,7 +41,7 @@ export default function OpretSporPage() {
         </p>
 
         <div className="mt-10 grid gap-6 md:grid-cols-2">
-          <Link href="/dashboard/opret/manuel" className="group block">
+          <Link href="/dashboard/opret/valg" className="group block">
             <article className="relative h-full rounded-[2.5rem] border border-white/50 bg-white/80 p-7 shadow-xl backdrop-blur-md transition-all duration-300 group-hover:scale-105 group-hover:bg-white/95 group-hover:shadow-2xl">
               <div className="mb-6 flex h-16 w-16 items-center justify-center gap-1 rounded-full border border-emerald-200 bg-emerald-100 shadow-inner">
                 <MapPin className="h-6 w-6 text-emerald-600" />
@@ -52,11 +52,11 @@ export default function OpretSporPage() {
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-emerald-800">
                 {
-                  "Design dit l\u00f8b pr\u00e6cis som du vil have det. Tilf\u00f8j poster, svarmuligheder og lokationer manuelt."
+                  "V\u00e6lg f\u00f8rst, om du vil bygge et klassisk quiz-l\u00f8b eller en AI foto-mission, og finpuds derefter poster og lokationer manuelt."
                 }
               </p>
               <p className="mt-6 text-xs font-bold tracking-[0.18em] text-emerald-700 uppercase">
-                Start manuelt
+                V\u00e6lg l\u00f8bstype
               </p>
             </article>
           </Link>
