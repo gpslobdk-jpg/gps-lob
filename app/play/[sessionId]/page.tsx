@@ -71,6 +71,7 @@ type EscapeRewardState = {
   key: string;
   reward: string;
 } | null;
+type MasterLockStatus = "locked" | "unlocked";
 
 type Location = {
   lat: number;
@@ -251,6 +252,24 @@ function readFileAsDataUri(file: File) {
   });
 }
 
+function normalizeMasterCode(value: string) {
+  return value.toLocaleUpperCase("da-DK").replace(/[^0-9A-ZÆØÅ]/g, "");
+}
+
+function extractCodeFragment(text: string) {
+  const trimmed = text.trim();
+  if (!trimmed) return "";
+
+  const colonMatch = trimmed.match(/:\s*([A-Za-zÆØÅæøå0-9-]+)/u);
+  if (colonMatch?.[1]) return normalizeMasterCode(colonMatch[1]);
+
+  const erMatch = trimmed.match(/\ber\s+([A-Za-zÆØÅæøå0-9-]+)/iu);
+  if (erMatch?.[1]) return normalizeMasterCode(erMatch[1]);
+
+  const lastTokenMatch = trimmed.match(/([A-Za-zÆØÅæøå0-9]+)[^A-Za-zÆØÅæøå0-9]*$/u);
+  return lastTokenMatch?.[1] ? normalizeMasterCode(lastTokenMatch[1]) : "";
+}
+
 function PlayScreen() {
   const params = useParams<{ sessionId: string }>();
   const searchParams = useSearchParams();
@@ -294,6 +313,11 @@ function PlayScreen() {
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [photoFeedback, setPhotoFeedback] = useState<PhotoFeedbackState>(null);
   const [escapeReward, setEscapeReward] = useState<EscapeRewardState>(null);
+  const [masterLockInput, setMasterLockInput] = useState("");
+  const [masterLockError, setMasterLockError] = useState<string | null>(null);
+  const [masterLockStatus, setMasterLockStatus] = useState<MasterLockStatus>("locked");
+  const [masterLockShakeNonce, setMasterLockShakeNonce] = useState(0);
+  const [showEscapeResults, setShowEscapeResults] = useState(false);
   const [typedAnswerError, setTypedAnswerError] = useState<{ key: string; message: string } | null>(
     null
   );
@@ -1050,6 +1074,17 @@ function PlayScreen() {
       ? Math.max(0, Math.min(100, Math.round((correctAnswersCount / questions.length) * 100)))
       : 0;
   const activeTeamName = playerName || pendingPlayerName || "Dit hold";
+  const isEscapeRace =
+    questions.length > 0 && questions.every((question) => getActivePostVariant(question) === "escape");
+  const escapeMasterCode = useMemo(
+    () =>
+      questions
+        .map((question) => question.answers[1]?.trim() || question.aiPrompt?.trim() || "")
+        .map(extractCodeFragment)
+        .filter(Boolean)
+        .join(""),
+    [questions]
+  );
   const activeTypedAnswerKey = `${currentPostIndex}-${activePostVariant}`;
   const activeTypedAnswerError =
     typedAnswerError?.key === activeTypedAnswerKey ? typedAnswerError.message : null;
@@ -1095,6 +1130,27 @@ function PlayScreen() {
 
     await markParticipantFinished();
     setIsFinished(true);
+  };
+
+  const handleMasterLockSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const normalizedInput = normalizeMasterCode(masterLockInput);
+    if (!normalizedInput) {
+      setMasterLockError("Indtast master-koden fra jeres kode-brikker først.");
+      setMasterLockShakeNonce((prev) => prev + 1);
+      return;
+    }
+
+    if (!escapeMasterCode || normalizedInput !== escapeMasterCode) {
+      setMasterLockError("Koden passer ikke endnu. Tjek jeres kode-brikker og prøv igen.");
+      setMasterLockStatus("locked");
+      setMasterLockShakeNonce((prev) => prev + 1);
+      return;
+    }
+
+    setMasterLockError(null);
+    setMasterLockStatus("unlocked");
   };
 
   const handleTypedAnswerSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -1328,6 +1384,110 @@ function PlayScreen() {
           >
             Prøv igen
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isFinished && isEscapeRace && correctAnswersCount >= questions.length && !showEscapeResults) {
+    return (
+      <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-950 px-6 py-10 text-white">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.24),transparent_30%),radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.12),transparent_26%),linear-gradient(180deg,rgba(2,6,23,0.72)_0%,rgba(2,6,23,0.94)_52%,rgba(2,6,23,1)_100%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom,rgba(120,53,15,0.42),transparent_38%)] blur-2xl" />
+
+        {masterLockStatus === "unlocked" ? (
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            {Array.from({ length: 16 }).map((_, index) => (
+              <span
+                key={`master-lock-spark-${index}`}
+                className="absolute h-3 w-3 rounded-full bg-gradient-to-br from-amber-200 via-yellow-300 to-orange-400 opacity-0 animate-[master-lock-spark_1.2s_ease-out_forwards]"
+                style={{
+                  top: `${18 + (index % 5) * 12}%`,
+                  left: `${10 + (index * 6) % 80}%`,
+                  animationDelay: `${(index % 8) * 0.08}s`,
+                }}
+              />
+            ))}
+          </div>
+        ) : null}
+
+        <div
+          key={`master-lock-${masterLockStatus}-${masterLockShakeNonce}`}
+          className={`relative z-10 w-full max-w-xl overflow-hidden rounded-[2rem] border p-8 shadow-[0_30px_90px_rgba(2,6,23,0.55)] backdrop-blur-xl ${
+            masterLockStatus === "unlocked"
+              ? "border-amber-300/40 bg-amber-900/30"
+              : `${masterLockError ? "animate-[master-lock-shake_0.45s_ease-in-out]" : ""} border-white/10 bg-slate-900/80`
+          }`}
+        >
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.14),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(251,191,36,0.12),transparent_32%)]" />
+
+          <div className="relative text-center">
+            <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-full border border-amber-300/35 bg-amber-300/10 text-6xl shadow-[0_0_35px_rgba(245,158,11,0.18)]">
+              🔒
+            </div>
+
+            <p className="mt-6 text-xs font-semibold tracking-[0.32em] text-amber-200/80 uppercase">
+              Master-lås
+            </p>
+            <h1 className="mt-3 break-words text-3xl font-black text-white md:text-4xl">
+              I er næsten ude!
+            </h1>
+            <p className="mt-4 break-words text-base leading-relaxed text-amber-50/88">
+              Indtast den samlede Master-kode fra alle posterne for at bryde ud af skoven!
+            </p>
+            <p className="mt-3 text-sm text-white/70">
+              Kode-brikker samlet: {correctAnswersCount}/{questions.length}
+            </p>
+
+            <div className="mt-8 rounded-[1.75rem] border border-amber-500/25 bg-amber-900/25 p-5 text-left">
+              <p className="text-[11px] font-semibold tracking-[0.28em] text-amber-200/70 uppercase">
+                Hold
+              </p>
+              <p className="mt-2 break-words text-xl font-black text-amber-50">{activeTeamName}</p>
+            </div>
+
+            <form onSubmit={handleMasterLockSubmit} className="mt-6 space-y-4">
+              <input
+                type="text"
+                value={masterLockInput}
+                disabled={masterLockStatus === "unlocked"}
+                onChange={(event) => {
+                  setMasterLockInput(event.target.value.toLocaleUpperCase("da-DK"));
+                  if (masterLockError) setMasterLockError(null);
+                }}
+                placeholder="Indtast hele master-koden"
+                className="w-full rounded-2xl border border-white/10 bg-black/30 px-5 py-4 text-center text-2xl font-black tracking-[0.35em] text-amber-50 outline-none transition focus:border-amber-300/50 focus:ring-2 focus:ring-amber-300/20 disabled:cursor-default disabled:opacity-80"
+              />
+
+              {masterLockError ? (
+                <div className="rounded-2xl border border-red-300/25 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-100">
+                  {masterLockError}
+                </div>
+              ) : null}
+
+              {masterLockStatus === "unlocked" ? (
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-emerald-300/25 bg-emerald-500/10 px-4 py-4 text-sm font-semibold text-emerald-50">
+                    Låsen giver efter! Skoven åbner sig, og udgangen ligger lige foran jer.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowEscapeResults(true)}
+                    className="w-full rounded-2xl bg-amber-400 px-5 py-4 text-base font-black tracking-[0.24em] text-slate-950 uppercase transition hover:bg-amber-300"
+                  >
+                    Se din placering
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="submit"
+                  className="w-full rounded-2xl border border-amber-400/30 bg-amber-400/90 px-5 py-4 text-base font-black tracking-[0.24em] text-slate-950 uppercase transition hover:bg-amber-300"
+                >
+                  Bryd låsen op
+                </button>
+              )}
+            </form>
+          </div>
         </div>
       </div>
     );
@@ -1834,15 +1994,51 @@ function PlayScreen() {
 
 export default function PlayPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex h-screen items-center justify-center bg-[#050816] text-cyan-300">
-          <Crosshair className="h-8 w-8 animate-spin" />
-        </div>
-      }
-    >
-      <PlayScreen />
-    </Suspense>
+    <>
+      <Suspense
+        fallback={
+          <div className="flex h-screen items-center justify-center bg-[#050816] text-cyan-300">
+            <Crosshair className="h-8 w-8 animate-spin" />
+          </div>
+        }
+      >
+        <PlayScreen />
+      </Suspense>
+      <style jsx global>{`
+        @keyframes master-lock-shake {
+          0%,
+          100% {
+            transform: translateX(0);
+          }
+          20% {
+            transform: translateX(-10px);
+          }
+          40% {
+            transform: translateX(8px);
+          }
+          60% {
+            transform: translateX(-6px);
+          }
+          80% {
+            transform: translateX(4px);
+          }
+        }
+
+        @keyframes master-lock-spark {
+          0% {
+            opacity: 0;
+            transform: scale(0.2) translateY(20px);
+          }
+          20% {
+            opacity: 1;
+          }
+          100% {
+            opacity: 0;
+            transform: scale(1.4) translateY(-80px);
+          }
+        }
+      `}</style>
+    </>
   );
 }
 
