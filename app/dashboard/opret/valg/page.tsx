@@ -21,7 +21,6 @@ type HubCard = {
   badge: string;
   cta: string;
   icon: LucideIcon;
-  shapeClass: string;
   accentClass: string;
 };
 
@@ -35,7 +34,6 @@ const cards: HubCard[] = [
     badge: "Klar nu",
     cta: "Åbn quiz-bygger",
     icon: BrainCircuit,
-    shapeClass: "[border-radius:34%_66%_59%_41%/42%_39%_61%_58%]",
     accentClass: "from-emerald-300/20 via-white/5 to-sky-300/10",
   },
   {
@@ -47,7 +45,6 @@ const cards: HubCard[] = [
     badge: "Klar nu",
     cta: "Åbn foto-mission",
     icon: Camera,
-    shapeClass: "[border-radius:59%_41%_36%_64%/39%_58%_42%_61%]",
     accentClass: "from-sky-300/20 via-white/5 to-emerald-300/10",
   },
   {
@@ -56,7 +53,6 @@ const cards: HubCard[] = [
     badge: "Kommer snart",
     cta: "Mere på vej",
     icon: Compass,
-    shapeClass: "[border-radius:41%_59%_63%_37%/46%_38%_62%_54%]",
     accentClass: "from-white/10 via-white/[0.02] to-white/[0.04]",
   },
   {
@@ -65,7 +61,6 @@ const cards: HubCard[] = [
     badge: "Kommer snart",
     cta: "Mere på vej",
     icon: Sparkles,
-    shapeClass: "[border-radius:61%_39%_46%_54%/35%_57%_43%_65%]",
     accentClass: "from-white/10 via-white/[0.02] to-white/[0.04]",
   },
 ];
@@ -125,7 +120,7 @@ export default function ValgHubPage() {
           </p>
         </div>
 
-        <div className="mt-10 grid gap-6 md:grid-cols-2 xl:gap-8">
+        <div className="mt-10 grid auto-rows-fr gap-6 md:grid-cols-2 xl:gap-8">
           {cards.map((card, index) => {
             const Icon = card.icon;
 
@@ -137,12 +132,12 @@ export default function ValgHubPage() {
                   className="group block h-full focus:outline-none"
                 >
                   <article
-                    className={`relative flex h-full min-h-[320px] flex-col overflow-hidden border border-white/10 bg-black/25 p-7 shadow-[0_24px_60px_rgba(2,6,23,0.42)] backdrop-blur-2xl transition-all duration-500 will-change-transform md:min-h-[360px] md:group-hover:-translate-y-2 md:group-hover:scale-[1.02] md:group-hover:border-white/20 md:group-focus-visible:-translate-y-2 md:group-focus-visible:scale-[1.02] md:group-focus-visible:border-white/20 ${card.shapeClass}`}
+                    className="relative flex h-full min-h-[350px] flex-col justify-between overflow-hidden rounded-3xl border border-white/10 bg-black/25 p-8 shadow-[0_24px_60px_rgba(2,6,23,0.42)] backdrop-blur-2xl transition-[transform,border-color,box-shadow] duration-500 will-change-transform md:min-h-[380px] md:group-hover:-translate-y-2 md:group-hover:border-white/20 md:group-hover:shadow-[0_30px_80px_rgba(2,6,23,0.48)] md:group-focus-visible:-translate-y-2 md:group-focus-visible:border-white/20 md:group-focus-visible:shadow-[0_30px_80px_rgba(2,6,23,0.48)]"
                   >
                     <div className={`absolute inset-0 bg-gradient-to-br ${card.accentClass}`} />
                     <div className="absolute inset-x-8 top-8 h-24 rounded-full bg-white/10 blur-3xl transition-opacity duration-500 md:opacity-40 md:group-hover:opacity-80 md:group-focus-visible:opacity-80" />
 
-                    <div className="relative z-10 flex h-full flex-col">
+                    <div className="relative z-10 flex h-full flex-col justify-between">
                       <div className="flex items-start justify-between gap-4">
                         <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-white/75 uppercase">
                           {card.badge}
@@ -152,19 +147,21 @@ export default function ValgHubPage() {
                         </div>
                       </div>
 
-                      <div className="mt-10">
+                      <div className="mt-10 flex-1">
                         <h2 className={`text-3xl font-black tracking-tight text-white ${rubik.className}`}>
                           {card.title}
                         </h2>
-                        <p className="mt-4 max-w-lg text-base leading-relaxed text-white/[0.78]">
+                        <p className="mt-4 max-w-lg text-base leading-relaxed text-white/80">
                           {card.shortText}
                         </p>
-                        <p className="mt-5 text-sm leading-relaxed text-white/80 transition-all duration-500 md:max-h-0 md:-translate-y-3 md:overflow-hidden md:opacity-0 md:group-hover:max-h-72 md:group-hover:translate-y-0 md:group-hover:opacity-100 md:group-focus-visible:max-h-72 md:group-focus-visible:translate-y-0 md:group-focus-visible:opacity-100">
-                          {card.detail}
-                        </p>
+                        <div className="min-h-[9rem]">
+                          <p className="mt-4 text-sm leading-relaxed text-white transition-all duration-300 md:translate-y-2 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 md:group-focus-visible:translate-y-0 md:group-focus-visible:opacity-100">
+                            {card.detail}
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="mt-auto flex items-center justify-between gap-4 pt-8">
+                      <div className="mt-8 flex items-end justify-between gap-4 pt-4">
                         <p className="text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
                           Hold musen over eller tryk for mere
                         </p>
@@ -182,10 +179,10 @@ export default function ValgHubPage() {
             return (
               <article
                 key={`${card.title}-${index}`}
-                className={`relative flex min-h-[320px] flex-col overflow-hidden border border-white/10 bg-white/[0.05] p-7 opacity-75 shadow-[0_20px_50px_rgba(2,6,23,0.32)] backdrop-blur-2xl md:min-h-[360px] ${card.shapeClass}`}
+                className="relative flex min-h-[350px] flex-col justify-between overflow-hidden rounded-3xl border border-white/10 bg-white/[0.05] p-8 opacity-75 shadow-[0_20px_50px_rgba(2,6,23,0.32)] backdrop-blur-2xl md:min-h-[380px]"
               >
                 <div className={`absolute inset-0 bg-gradient-to-br ${card.accentClass}`} />
-                <div className="relative z-10 flex h-full flex-col">
+                <div className="relative z-10 flex h-full flex-col justify-between">
                   <div className="flex items-start justify-between gap-4">
                     <span className="rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-white/[0.65] uppercase">
                       {card.badge}
@@ -195,16 +192,16 @@ export default function ValgHubPage() {
                     </div>
                   </div>
 
-                  <div className="mt-10">
+                  <div className="mt-10 flex-1">
                     <h2 className={`text-3xl font-black tracking-tight text-white/90 ${rubik.className}`}>
                       {card.title}
                     </h2>
-                    <p className="mt-4 max-w-lg text-base leading-relaxed text-white/[0.68]">
+                    <p className="mt-4 max-w-lg text-base leading-relaxed text-white/80">
                       {card.shortText}
                     </p>
                   </div>
 
-                  <div className="mt-auto pt-8">
+                  <div className="mt-8 pt-4">
                     <span className="inline-flex items-center rounded-full border border-white/10 bg-black/[0.15] px-4 py-2 text-sm font-semibold text-white/[0.65] backdrop-blur-xl">
                       {card.cta}
                     </span>
