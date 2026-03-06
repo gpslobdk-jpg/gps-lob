@@ -691,9 +691,6 @@ function OpretLoebPageContent() {
                     <p className="text-xs font-semibold tracking-[0.24em] text-white/[0.55] uppercase">
                       Dine poster
                     </p>
-                    <p className="mt-2 text-sm text-white/60">
-                      Skriv spørgsmål, vælg korrekt svar og hent en pin fra kortet, når posten er klar.
-                    </p>
                   </div>
                   <span className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm font-semibold text-white/[0.65]">
                     {questions.length}
@@ -737,36 +734,6 @@ function OpretLoebPageContent() {
                       placeholder="Skriv spørgsmålet her..."
                       className={inputClass}
                     />
-                  </div>
-
-                  <div className="mt-5">
-                    <p className="mb-2 text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
-                      Posttype
-                    </p>
-                    <div className="grid grid-cols-1 gap-2 rounded-[1.5rem] border border-white/10 bg-black/20 p-1 sm:grid-cols-2">
-                      <button
-                        type="button"
-                        onClick={() => updateQuestion(question.id, "type", "multiple_choice")}
-                        className={`rounded-[1.2rem] px-4 py-3 text-left text-sm font-semibold transition ${
-                          question.type === "multiple_choice"
-                            ? "bg-emerald-400 text-slate-950 shadow-[0_10px_30px_rgba(16,185,129,0.22)]"
-                            : "bg-transparent text-white/75 hover:bg-white/10 hover:text-white"
-                        }`}
-                      >
-                        Klassisk quiz med 4 svar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => updateQuestion(question.id, "type", "ai_image")}
-                        className={`rounded-[1.2rem] px-4 py-3 text-left text-sm font-semibold transition ${
-                          question.type === "ai_image"
-                            ? "bg-emerald-400 text-slate-950 shadow-[0_10px_30px_rgba(16,185,129,0.22)]"
-                            : "bg-transparent text-white/75 hover:bg-white/10 hover:text-white"
-                        }`}
-                      >
-                        ✨ AI foto-mission
-                      </button>
-                    </div>
                   </div>
 
                   {question.type === "ai_image" ? (
@@ -1045,13 +1012,13 @@ function OpretLoebPageContent() {
               <>
                 <div className="mt-8">
                   <label className="mb-3 block text-sm font-semibold text-white">
-                    Hvad skal AI&apos;en skrive om?
+                    Hvad skal løbet handle om, og hvor mange poster vil du have? (F.eks: Lav 6 spørgsmål om solsystemet...)
                   </label>
                   <textarea
                     value={aiRunBrief}
                     onChange={(e) => setAiRunBrief(e.target.value)}
                     rows={8}
-                    placeholder="F.eks. Lav et quiz-løb om skovens dyr til mellemtrinnet med tydelige spørgsmål og 4 svarmuligheder."
+                    placeholder="Hvad skal løbet handle om, og hvor mange poster vil du have? (F.eks: Lav 6 spørgsmål om solsystemet...)"
                     className="w-full rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5 text-white placeholder:text-white/[0.35] focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
