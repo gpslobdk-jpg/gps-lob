@@ -1,11 +1,12 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import Lottie from "lottie-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 import AIChatButton from "@/components/AIChatButton";
 import natureAnimation from "@/public/nature.json";
@@ -18,6 +19,9 @@ export default function Home() {
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState("");
   const [showIntroToken, setShowIntroToken] = useState(0);
+  const [showIntroModal, setShowIntroModal] = useState(false);
+  const [isIntroMuted, setIsIntroMuted] = useState(true);
+  const introVideoRef = useRef<HTMLVideoElement | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -32,6 +36,36 @@ export default function Home() {
 
     window.location.replace(callbackUrl.toString());
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hasSeenIntro = window.localStorage.getItem("hasSeenIntro");
+    if (hasSeenIntro) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      setShowIntroModal(true);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  const closeIntroModal = () => {
+    setShowIntroModal(false);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("hasSeenIntro", "true");
+    }
+  };
+
+  const toggleIntroSound = () => {
+    setIsIntroMuted((prev) => {
+      const nextMuted = !prev;
+      if (introVideoRef.current) {
+        introVideoRef.current.muted = nextMuted;
+        void introVideoRef.current.play().catch(() => undefined);
+      }
+      return nextMuted;
+    });
+  };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -149,6 +183,72 @@ export default function Home() {
           <p>{"\u00a9 2026 gpsl\u00f8b.dk"}</p>
         </div>
       </footer>
+
+      <AnimatePresence>
+        {showIntroModal ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 px-4 py-8 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.98 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="relative w-full max-w-2xl rounded-3xl border border-white/10 bg-slate-900/90 p-5 text-white shadow-2xl shadow-emerald-950/40 backdrop-blur-xl sm:p-6"
+            >
+              <button
+                type="button"
+                onClick={closeIntroModal}
+                className="absolute right-3 top-3 rounded-full p-2 text-white/80 transition hover:bg-white/10 hover:text-white"
+                aria-label="Luk introduktion"
+              >
+                <span aria-hidden="true" className="text-base font-semibold">
+                  ×
+                </span>
+              </button>
+
+              <h2 className="mb-4 pr-10 text-xl font-bold text-emerald-50 sm:text-2xl">
+                Velkommen til GPSLØB.DK
+              </h2>
+
+              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                <video
+                  ref={introVideoRef}
+                  src="/introvideo.mp4"
+                  autoPlay
+                  muted={isIntroMuted}
+                  playsInline
+                  preload="metadata"
+                  className="h-full w-full rounded-2xl object-cover"
+                  onLoadedData={() => {
+                    void introVideoRef.current?.play().catch(() => undefined);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={toggleIntroSound}
+                  className="absolute bottom-3 right-3 rounded-full border border-white/20 bg-black/40 px-3 py-1 text-xs font-semibold text-white transition hover:bg-black/60"
+                  aria-label={isIntroMuted ? "Slå lyd til" : "Slå lyd fra"}
+                >
+                  {isIntroMuted ? "Lyd til" : "Lyd fra"}
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeIntroModal}
+                className="mt-5 w-full rounded-2xl bg-emerald-500 px-4 py-3 text-base font-bold text-emerald-950 transition hover:bg-emerald-400"
+              >
+                Kom i gang
+              </button>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <AIChatButton />
     </div>
