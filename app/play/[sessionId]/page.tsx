@@ -51,6 +51,8 @@ type Question = {
   mediaUrl?: string;
 };
 
+type ActivePostVariant = "quiz" | "photo" | "escape" | "roleplay";
+
 type Location = {
   lat: number;
   lng: number;
@@ -187,6 +189,27 @@ function parseQuestion(raw: unknown): Question | null {
   };
 }
 
+function getActivePostVariant(question: Question): ActivePostVariant {
+  if (question.type === "ai_image") return "photo";
+
+  const [answer0 = "", answer1 = "", answer2 = "", answer3 = ""] = question.answers;
+  const hasRoleplayMeta = Boolean(answer1.trim() || answer2.trim());
+  const hasOnlyPrimaryAnswer =
+    Boolean(answer0.trim()) && !answer1.trim() && !answer2.trim() && !answer3.trim();
+
+  if (hasRoleplayMeta && !answer3.trim()) return "roleplay";
+  if (hasOnlyPrimaryAnswer && question.aiPrompt?.trim()) return "escape";
+  return "quiz";
+}
+
+function normalizeTypedAnswer(value: string) {
+  return value.toLocaleLowerCase("da-DK").trim().replace(/\s+/g, " ");
+}
+
+function looksLikeImageSource(value: string) {
+  return /^(https?:\/\/|\/|data:image\/)/i.test(value.trim());
+}
+
 function PlayScreen() {
   const params = useParams<{ sessionId: string }>();
   const searchParams = useSearchParams();
@@ -227,6 +250,9 @@ function PlayScreen() {
   const [isKicked, setIsKicked] = useState(false);
   const [latestMessage, setLatestMessage] = useState<string | null>(null);
   const [resumeMessage, setResumeMessage] = useState<string | null>(null);
+  const [typedAnswerError, setTypedAnswerError] = useState<{ key: string; message: string } | null>(
+    null
+  );
   const [participantId, setParticipantId] = useState<string | null>(
     () => storedParticipantOnLoad?.participantId ?? null
   );
@@ -236,6 +262,7 @@ function PlayScreen() {
   const hasRestoredRef = useRef(!Boolean(storedParticipantOnLoad));
   const resumeMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wakeLockSentinelRef = useRef<WakeLockSentinelLike | null>(null);
+  const typedAnswerInputRef = useRef<HTMLInputElement | null>(null);
 
   const unlockCurrentPost = useCallback(() => {
     setShowQuestion(true);
@@ -930,6 +957,10 @@ function PlayScreen() {
   };
 
   const activeQuestion = questions[currentPostIndex];
+  const activePostVariant = activeQuestion ? getActivePostVariant(activeQuestion) : "quiz";
+  const roleplayCharacterName =
+    activePostVariant === "roleplay" ? activeQuestion?.answers[1]?.trim() || "Ukendt karakter" : "";
+  const roleplayAvatar = activePostVariant === "roleplay" ? activeQuestion?.answers[2]?.trim() || "" : "";
   const mapCenter: [number, number] = myLoc
     ? [myLoc.lat, myLoc.lng]
     : activeQuestion
@@ -943,6 +974,37 @@ function PlayScreen() {
     distance > AUTO_UNLOCK_RADIUS &&
     distance <= MANUAL_UNLOCK_RADIUS;
   const celebrationName = playerName || pendingPlayerName || "Holdet";
+  const activeTypedAnswerKey = `${currentPostIndex}-${activePostVariant}`;
+  const activeTypedAnswerError =
+    typedAnswerError?.key === activeTypedAnswerKey ? typedAnswerError.message : null;
+
+  const handleTypedAnswerSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!activeQuestion) return;
+
+    const typedAnswer = typedAnswerInputRef.current?.value ?? "";
+    const expectedAnswer = activeQuestion.answers[activeQuestion.correctIndex] ?? "";
+    if (!typedAnswer.trim()) {
+      setTypedAnswerError(
+        activePostVariant === "roleplay"
+          ? { key: activeTypedAnswerKey, message: "Skriv et svar til karakteren først." }
+          : { key: activeTypedAnswerKey, message: "Indtast koden, før du bekræfter." }
+      );
+      return;
+    }
+
+    if (normalizeTypedAnswer(typedAnswer) !== normalizeTypedAnswer(expectedAnswer)) {
+      setTypedAnswerError(
+        activePostVariant === "roleplay"
+          ? { key: activeTypedAnswerKey, message: "Karakteren afviser svaret. Prøv igen." }
+          : { key: activeTypedAnswerKey, message: "Koden passer ikke endnu. Prøv igen." }
+      );
+      return;
+    }
+
+    setTypedAnswerError(null);
+    await handleAnswer(activeQuestion.correctIndex);
+  };
 
   const playerIcon = useMemo(
     () =>
@@ -1230,7 +1292,7 @@ function PlayScreen() {
 
       {showQuestion && activeQuestion ? (
         <div className="animate-in fade-in zoom-in absolute inset-0 z-[2000] flex flex-col items-center justify-center bg-[#050816]/90 p-6 backdrop-blur-xl duration-300">
-          <div className="w-full max-w-md rounded-3xl border border-white/20 bg-white/10 p-8 shadow-2xl">
+          <div className="w-full max-w-md rounded-3xl border border-white/20 bg-slate-950/80 p-8 shadow-2xl shadow-cyan-950/40 backdrop-blur-xl">
             <div className="mb-6 flex items-center gap-3 text-cyan-400">
               <CheckCircle2 size={32} />
               <h2 className="text-2xl font-black uppercase">Post Fundet!</h2>
@@ -1250,19 +1312,145 @@ function PlayScreen() {
               </div>
             ) : null}
 
-            <p className="mb-8 text-xl font-bold">{activeQuestion.text}</p>
+            {activePostVariant === "quiz" ? (
+              <>
+                <p className="mb-8 text-xl font-bold">{activeQuestion.text}</p>
 
-            <div className="space-y-3">
-              {activeQuestion.answers.map((answer: string, idx: number) => (
+                <div className="space-y-3">
+                  {activeQuestion.answers.map((answer: string, idx: number) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleAnswer(idx)}
+                      className="w-full rounded-xl border border-white/10 bg-white/5 p-4 text-left font-medium transition-all hover:border-purple-500/50 hover:bg-purple-500/20"
+                    >
+                      {answer}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
+
+            {activePostVariant === "photo" ? (
+              <div className="space-y-6">
+                <div className="rounded-3xl border border-sky-400/20 bg-sky-950/35 p-5">
+                  <p className="text-xs font-semibold tracking-[0.24em] text-sky-200/70 uppercase">
+                    Foto-mission
+                  </p>
+                  <p className="mt-3 text-xl font-bold text-white">{activeQuestion.text}</p>
+                </div>
+
                 <button
-                  key={idx}
-                  onClick={() => handleAnswer(idx)}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 p-4 text-left font-medium transition-all hover:border-purple-500/50 hover:bg-purple-500/20"
+                  type="button"
+                  onClick={() => console.log("Åbner kamera...")}
+                  className="w-full rounded-full bg-sky-600 px-6 py-4 text-lg font-black text-white shadow-lg shadow-sky-950/40 transition-all hover:bg-sky-500"
                 >
-                  {answer}
+                  📸 Åbn Kamera
                 </button>
-              ))}
-            </div>
+
+                <p className="text-center text-sm text-sky-100/70">
+                  Kameraet kobles på i næste trin. Indtil da viser knappen den rigtige placering i
+                  UI&apos;et.
+                </p>
+              </div>
+            ) : null}
+
+            {activePostVariant === "escape" ? (
+              <form onSubmit={handleTypedAnswerSubmit} className="space-y-5">
+                <div className="rounded-3xl border border-amber-300/15 bg-amber-950/25 p-5">
+                  <p className="text-xs font-semibold tracking-[0.24em] text-amber-200/70 uppercase">
+                    Escape Room
+                  </p>
+                  <p className="mt-3 text-xl font-bold text-white">{activeQuestion.text}</p>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <input
+                    key={`escape-input-${activeTypedAnswerKey}`}
+                    ref={typedAnswerInputRef}
+                    type="text"
+                    onChange={() => {
+                      if (activeTypedAnswerError) setTypedAnswerError(null);
+                    }}
+                    placeholder="🔒 Indtast koden..."
+                    className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-slate-900/80 px-4 py-3 text-white outline-none transition focus:border-amber-300/50 focus:ring-2 focus:ring-amber-300/20"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-2xl bg-amber-500 px-5 py-3 font-semibold text-slate-950 transition hover:bg-amber-400"
+                  >
+                    Bekræft
+                  </button>
+                </div>
+
+                {activeTypedAnswerError ? (
+                  <p className="text-sm text-amber-200/85">{activeTypedAnswerError}</p>
+                ) : (
+                  <p className="text-sm text-white/60">
+                    Ved korrekt svar får I udleveret næste kode-brik.
+                  </p>
+                )}
+              </form>
+            ) : null}
+
+            {activePostVariant === "roleplay" ? (
+              <form onSubmit={handleTypedAnswerSubmit} className="space-y-5">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/8 text-2xl shadow-inner shadow-black/20">
+                    {roleplayAvatar && looksLikeImageSource(roleplayAvatar) ? (
+                      <Image
+                        src={roleplayAvatar}
+                        alt={roleplayCharacterName}
+                        width={56}
+                        height={56}
+                        className="h-full w-full object-cover"
+                        unoptimized
+                        loader={({ src }) => src}
+                      />
+                    ) : (
+                      <span>{roleplayAvatar || "🕰️"}</span>
+                    )}
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold tracking-[0.24em] text-cyan-200/70 uppercase">
+                      Karakter
+                    </p>
+                    <p className="mt-1 text-lg font-black text-white">{roleplayCharacterName}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-[1.75rem] border border-cyan-300/15 bg-cyan-950/20 p-5">
+                  <p className="text-sm leading-relaxed text-white">{activeQuestion.text}</p>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <input
+                    key={`roleplay-input-${activeTypedAnswerKey}`}
+                    ref={typedAnswerInputRef}
+                    type="text"
+                    onChange={() => {
+                      if (activeTypedAnswerError) setTypedAnswerError(null);
+                    }}
+                    placeholder="Skriv dit svar til karakteren..."
+                    className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-slate-900/80 px-4 py-3 text-white outline-none transition focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/20"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-2xl bg-cyan-500 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-400"
+                  >
+                    Send besked
+                  </button>
+                </div>
+
+                {activeTypedAnswerError ? (
+                  <p className="text-sm text-cyan-200/85">{activeTypedAnswerError}</p>
+                ) : (
+                  <p className="text-sm text-white/60">
+                    Svar rigtigt for at drive historien videre til næste post.
+                  </p>
+                )}
+              </form>
+            ) : null}
           </div>
         </div>
       ) : null}
