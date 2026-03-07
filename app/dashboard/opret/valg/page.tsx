@@ -17,103 +17,98 @@ const poppins = Poppins({
 
 type HubCard = {
   title: string;
-  shortText: string;
-  detail?: string;
+  description: string;
   href: string;
   animationUrl: string;
   surfaceClass: string;
   borderClass: string;
   titleClass: string;
+  hoverGlowClass: string;
 };
 
 const cards: HubCard[] = [
   {
     title: "Klassisk Quiz-løb",
-    shortText: "Multiple-choice spørgsmål med AI-assistent.",
-    detail: "Skab en klassisk rute med spørgsmål og fire svarmuligheder.",
+    description: "Skab en klassisk rute med spørgsmål og fire svarmuligheder.",
     href: "/dashboard/opret/manuel",
     animationUrl: "/quiz.png",
     surfaceClass: "bg-emerald-50/90",
     borderClass: "border-emerald-200/50",
     titleClass: "text-emerald-950",
+    hoverGlowClass: "group-hover:bg-emerald-50/95",
   },
   {
     title: "AI Foto-mission",
-    shortText: "Gør virkeligheden til en interaktiv opgave.",
-    detail:
-      "Deltagerne skal bruge øjnene! I stedet for at svare på spørgsmål, skal de finde og fotografere specifikke motiver i virkeligheden.",
+    description:
+      "Deltagerne skal finde og fotografere specifikke motiver i virkeligheden.",
     href: "/dashboard/opret/foto",
     animationUrl: "/foto.png",
     surfaceClass: "bg-sky-50/90",
     borderClass: "border-sky-200/50",
     titleClass: "text-sky-950",
+    hoverGlowClass: "group-hover:bg-sky-50/95",
   },
   {
     title: "Escape Room i Naturen",
-    shortText: "Knæk koden og løs logiske gåder.",
-    detail:
-      "Fokus på logik, matematik og samarbejde. Deltagerne skal løse gåder ved hver post for at samle tal eller bogstaver til en endelig master-kode. Perfekt til teambuilding og udendørs 'break-out' spil.",
+    description:
+      "Løs gåder ved hver post og saml kode-brikker til en endelig master-kode.",
     href: "/dashboard/opret/escape",
     animationUrl: "/escape.png",
     surfaceClass: "bg-amber-50/90",
     borderClass: "border-amber-200/50",
     titleClass: "text-amber-950",
+    hoverGlowClass: "group-hover:bg-amber-50/95",
   },
   {
     title: "Tidsmaskinen",
-    shortText: "Lad en historisk person styre løbet.",
-    detail:
-      "AI'en spiller en fiktiv eller historisk karakter. Deltagerne modtager dramatiske beskeder og skal svare for at drive historien frem.",
+    description:
+      "Lad en fiktiv eller historisk karakter styre løbet med beskeder og svar.",
     href: "/dashboard/opret/rollespil",
     animationUrl: "/rollespil.png",
     surfaceClass: "bg-violet-50/90",
     borderClass: "border-violet-200/50",
     titleClass: "text-violet-950",
+    hoverGlowClass: "group-hover:bg-violet-50/95",
   },
   {
     title: "Selfie-jagt",
-    shortText: "Gør løbet personligt med smil.",
-    detail:
-      "Deltagerne skal finde specifikke lokationer og tage en selfie med tingen i baggrunden. AI'en tjekker både ansigt og motiv!",
+    description:
+      "Tag en selfie på den rigtige lokation, mens AI'en tjekker ansigt og baggrund.",
     href: "/dashboard/opret/selfie",
     animationUrl: "/selfie.png",
     surfaceClass:
       "bg-[linear-gradient(145deg,rgba(255,237,213,0.95),rgba(255,228,230,0.92))]",
     borderClass: "border-orange-200/70",
     titleClass: "text-rose-950",
+    hoverGlowClass:
+      "group-hover:bg-[linear-gradient(145deg,rgba(255,237,213,1),rgba(255,228,230,0.98))]",
   },
 ];
 
-function CardIcon({ src, alt }: { src: string; alt: string }) {
+function DefaultCardState({ card }: { card: HubCard }) {
   return (
-    <div className="pointer-events-none mx-auto mb-4 flex w-full justify-center">
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 px-6 text-center transition-all duration-300 group-hover:translate-y-1 group-hover:scale-[0.96] group-hover:opacity-0 group-focus-visible:translate-y-1 group-focus-visible:scale-[0.96] group-focus-visible:opacity-0">
+      <h2 className={`text-xl font-black tracking-wide sm:text-2xl ${card.titleClass} ${rubik.className}`}>
+        {card.title}
+      </h2>
       <Image
-        src={src}
-        alt={alt}
+        src={card.animationUrl}
+        alt={card.title}
         width={96}
         height={96}
-        className="h-24 w-24 object-contain opacity-80"
+        className="h-24 w-24 object-contain opacity-85"
       />
     </div>
   );
 }
 
-function HubCardBody({ card }: { card: HubCard }) {
+function HoverCardState({ card }: { card: HubCard }) {
   return (
-    <div className="relative flex h-full flex-col justify-between">
-      <div className="relative z-10 text-center">
-        <h2 className={`text-xl font-black tracking-wide sm:text-2xl ${card.titleClass} ${rubik.className}`}>
-          {card.title}
-        </h2>
-        <p className="mt-2 text-sm leading-relaxed text-slate-700">{card.shortText}</p>
-        {card.detail ? (
-          <p className="mt-4 text-sm leading-relaxed text-slate-700">{card.detail}</p>
-        ) : null}
-      </div>
-
-      <div className="relative z-10 mt-10 flex flex-1 items-end justify-center">
-        <CardIcon src={card.animationUrl} alt={card.title} />
-      </div>
+    <div className="absolute inset-0 flex flex-col items-center justify-center px-7 text-center opacity-0 transition-all duration-300 group-hover:opacity-100 group-focus-visible:opacity-100">
+      <h2 className={`text-xl font-black tracking-wide sm:text-2xl ${card.titleClass} ${rubik.className}`}>
+        {card.title}
+      </h2>
+      <p className="mt-4 text-sm leading-relaxed text-slate-700">{card.description}</p>
     </div>
   );
 }
@@ -127,9 +122,10 @@ function renderCard(card: HubCard, index: number) {
       className="group block h-full focus:outline-none"
     >
       <article
-        className={`relative flex h-full min-h-[380px] flex-col overflow-hidden rounded-[2rem] border p-8 shadow-lg backdrop-blur-md transition-all duration-300 group-hover:-translate-y-1 group-hover:scale-[1.01] group-hover:shadow-2xl group-focus-visible:-translate-y-1 group-focus-visible:scale-[1.01] group-focus-visible:shadow-2xl ${card.surfaceClass} ${card.borderClass}`}
+        className={`relative h-[240px] overflow-hidden rounded-[1.75rem] border p-8 shadow-lg backdrop-blur-md transition-all duration-300 group-hover:-translate-y-1.5 group-hover:scale-[1.015] group-hover:shadow-2xl group-focus-visible:-translate-y-1.5 group-focus-visible:scale-[1.015] group-focus-visible:shadow-2xl ${card.surfaceClass} ${card.borderClass} ${card.hoverGlowClass}`}
       >
-        <HubCardBody card={card} />
+        <DefaultCardState card={card} />
+        <HoverCardState card={card} />
       </article>
     </Link>
   );
@@ -188,7 +184,7 @@ export default function ValgHubPage() {
             {bottomRowCards.map((card, index) => (
               <div
                 key={`${card.title}-${index + topRowCards.length}-wrapper`}
-                className="lg:w-full lg:max-w-[calc((100%-1.5rem)*0.3334)]"
+                className="lg:w-full lg:max-w-[240px]"
               >
                 {renderCard(card, index + topRowCards.length)}
               </div>
