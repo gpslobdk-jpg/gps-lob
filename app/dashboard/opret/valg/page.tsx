@@ -42,13 +42,13 @@ type CardIconProps = {
 
 function CardIcon({ src, alt }: CardIconProps) {
   return (
-    <div className="relative flex justify-center pb-2">
+    <div className="pointer-events-none absolute inset-x-0 top-14 z-0 flex justify-center">
       <Image
         src={src}
         alt={alt}
         width={112}
         height={112}
-        className="mx-auto mb-4 h-28 w-28 object-contain opacity-80"
+        className="h-28 w-28 object-contain opacity-70"
       />
     </div>
   );
@@ -56,19 +56,17 @@ function CardIcon({ src, alt }: CardIconProps) {
 
 function HubCardBody({ card }: { card: HubCard }) {
   return (
-    <div className="relative z-10 flex h-full flex-col justify-between">
+    <div className="relative flex h-full flex-col justify-between">
+      <CardIcon src={card.animationUrl} alt={card.title} />
+
       <div>
         <span
-          className={`inline-flex rounded-full border bg-white/75 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] uppercase ${card.borderClass} ${card.accentMutedClass}`}
+          className={`relative z-10 inline-flex rounded-full border bg-white/75 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] uppercase ${card.borderClass} ${card.accentMutedClass}`}
         >
           {card.badge}
         </span>
 
-        <div className="mt-4 flex justify-center">
-          <CardIcon src={card.animationUrl} alt={card.title} />
-        </div>
-
-        <div className="mt-6 flex-1 text-center">
+        <div className="relative z-10 mt-20 flex-1 text-center">
           <h2 className={`text-2xl font-black tracking-wide ${card.titleClass} ${rubik.className}`}>
             {card.title}
           </h2>
