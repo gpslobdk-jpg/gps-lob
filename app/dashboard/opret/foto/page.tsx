@@ -471,6 +471,7 @@ export default function FotoMissionBuilderPage() {
         user_id: user.id,
         title: title.trim(),
         subject: subject.trim() || "Generelt",
+        description: "",
         topic: aiRunBrief.trim() || aiTopic || "",
         questions: normalizedQuestions,
       });

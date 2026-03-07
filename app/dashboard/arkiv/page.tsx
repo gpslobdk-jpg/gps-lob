@@ -372,7 +372,7 @@ export default function ArkivPage() {
     try {
       const { error } = await supabase
         .from("gps_runs")
-        .update({ [update.key]: update.value })
+        .update(update.updates)
         .eq("id", scheduleRun.id);
 
       if (error) {
@@ -384,7 +384,7 @@ export default function ArkivPage() {
           run.id === scheduleRun.id
             ? {
                 ...run,
-                [update.key]: update.value,
+                ...update.updates,
               }
             : run
         )
@@ -394,7 +394,7 @@ export default function ArkivPage() {
         prev
           ? {
               ...prev,
-              [update.key]: update.value,
+              ...update.updates,
             }
           : prev
       );

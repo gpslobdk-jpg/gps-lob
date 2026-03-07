@@ -48,7 +48,7 @@ function CardIcon({ src, alt }: CardIconProps) {
         alt={alt}
         width={112}
         height={112}
-        className="h-28 w-28 object-contain opacity-70"
+        className="h-28 w-28 object-contain opacity-80"
       />
     </div>
   );
@@ -148,11 +148,11 @@ const cards: HubCard[] = [
     badge: "Klar nu",
     cta: "Åbn rollespil",
     animationUrl: roleplayAnimationUrl,
-    surfaceClass: "bg-stone-100/90",
-    borderClass: "border-stone-200/50",
-    titleClass: "text-stone-900",
-    accentTextClass: "text-stone-700",
-    accentMutedClass: "text-stone-700/80",
+    surfaceClass: "bg-violet-50/90",
+    borderClass: "border-violet-200/50",
+    titleClass: "text-violet-950",
+    accentTextClass: "text-violet-700",
+    accentMutedClass: "text-violet-700/80",
   },
 ];
 

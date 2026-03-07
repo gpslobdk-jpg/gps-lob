@@ -1,9 +1,10 @@
 const SCHEDULE_MARKER = "[gpslob_schedule]";
-const SCHEDULE_PROPERTY = "gpslobSchedule";
+const SCHEDULE_PROPERTY = "schedule";
+const LEGACY_SCHEDULE_PROPERTY = "gpslobSchedule";
 
 const SCHEDULE_STORAGE_KEYS = [
-  "metadata",
   "description",
+  "metadata",
   "meta",
   "settings",
   "config",
@@ -27,6 +28,14 @@ const normalizeDateValue = (value: unknown) => {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+};
+
+const tryParseJson = (value: string) => {
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return null;
+  }
 };
 
 const hasScheduleShape = (value: Record<string, unknown>) =>
@@ -72,25 +81,25 @@ const parseScheduleFromFieldValue = (value: unknown): RunSchedule | null => {
       return null;
     }
 
-    try {
-      const parsed = JSON.parse(jsonPayload) as unknown;
-      return parseScheduleFromFieldValue(parsed);
-    } catch {
-      return null;
-    }
+    const parsed = tryParseJson(jsonPayload);
+    return parsed ? parseScheduleFromFieldValue(parsed) : null;
   }
 
   if (!isRecord(value)) {
     return null;
   }
 
-  const directMatch = parseScheduleObject(value);
-  if (directMatch) {
-    return directMatch;
+  const nestedValue = value[SCHEDULE_PROPERTY];
+  if (isRecord(nestedValue)) {
+    return parseScheduleObject(nestedValue);
   }
 
-  const nestedValue = value[SCHEDULE_PROPERTY];
-  return isRecord(nestedValue) ? parseScheduleObject(nestedValue) : null;
+  const legacyNestedValue = value[LEGACY_SCHEDULE_PROPERTY];
+  if (isRecord(legacyNestedValue)) {
+    return parseScheduleObject(legacyNestedValue);
+  }
+
+  return parseScheduleObject(value);
 };
 
 export const getRunSchedule = (run: RunRecord): RunSchedule | null => {
@@ -108,6 +117,21 @@ export const getRunSchedule = (run: RunRecord): RunSchedule | null => {
   return null;
 };
 
+const removeScheduleFromObject = (value: Record<string, unknown>) => {
+  const nextValue: Record<string, unknown> = { ...value };
+  const hasNestedSchedule =
+    isRecord(value[SCHEDULE_PROPERTY]) || isRecord(value[LEGACY_SCHEDULE_PROPERTY]);
+  delete nextValue[SCHEDULE_PROPERTY];
+  delete nextValue[LEGACY_SCHEDULE_PROPERTY];
+
+  if (!hasNestedSchedule && parseScheduleObject(value)) {
+    delete nextValue.startAt;
+    delete nextValue.endAt;
+  }
+
+  return nextValue;
+};
+
 const stripStoredSchedule = (value: string) => {
   const markerIndex = value.lastIndexOf(SCHEDULE_MARKER);
 
@@ -116,45 +140,42 @@ const stripStoredSchedule = (value: string) => {
   }
 
   const trimmedValue = value.trim();
+  const parsedValue = trimmedValue.startsWith("{") ? tryParseJson(trimmedValue) : null;
 
-  if (trimmedValue.startsWith("{") && parseScheduleFromFieldValue(trimmedValue)) {
-    return "";
+  if (isRecord(parsedValue) && parseScheduleFromFieldValue(parsedValue)) {
+    const nextValue = removeScheduleFromObject(parsedValue);
+    return Object.keys(nextValue).length > 0 ? JSON.stringify(nextValue) : "";
   }
 
   return value.trimEnd();
 };
 
 const resolveScheduleStorageKey = (run: RunRecord) => {
-  for (const key of SCHEDULE_STORAGE_KEYS) {
-    if (!Object.prototype.hasOwnProperty.call(run, key)) {
-      continue;
-    }
-
-    if (parseScheduleFromFieldValue(run[key])) {
-      return key;
-    }
+  if (Object.prototype.hasOwnProperty.call(run, "description")) {
+    return "description";
   }
 
-  for (const key of SCHEDULE_STORAGE_KEYS) {
-    if (Object.prototype.hasOwnProperty.call(run, key)) {
-      return key;
-    }
-  }
-
-  return "topic";
+  return "description";
 };
 
 const writeScheduleToFieldValue = (currentValue: unknown, schedule: RunSchedule | null) => {
   if (isRecord(currentValue)) {
-    const nextValue: Record<string, unknown> = { ...currentValue };
+    const nextValue = removeScheduleFromObject(currentValue);
+    return schedule ? { ...nextValue, [SCHEDULE_PROPERTY]: schedule } : nextValue;
+  }
 
-    if (schedule) {
-      nextValue[SCHEDULE_PROPERTY] = schedule;
-    } else {
-      delete nextValue[SCHEDULE_PROPERTY];
+  if (typeof currentValue === "string") {
+    const trimmedValue = currentValue.trim();
+    const parsedValue = trimmedValue.startsWith("{") ? tryParseJson(trimmedValue) : null;
+
+    if (isRecord(parsedValue)) {
+      const nextValue = removeScheduleFromObject(parsedValue);
+      if (schedule) {
+        nextValue[SCHEDULE_PROPERTY] = schedule;
+      }
+
+      return Object.keys(nextValue).length > 0 ? JSON.stringify(nextValue) : "";
     }
-
-    return nextValue;
   }
 
   const baseText = typeof currentValue === "string" ? stripStoredSchedule(currentValue) : "";
@@ -175,10 +196,24 @@ export const buildRunScheduleUpdate = (
 ) => {
   const key = resolveScheduleStorageKey(run);
   const normalizedSchedule = normalizeRunSchedule(schedule);
+  const updates: Record<string, unknown> = {
+    [key]: writeScheduleToFieldValue(run[key], normalizedSchedule),
+  };
+
+  for (const storageKey of SCHEDULE_STORAGE_KEYS) {
+    if (storageKey === key || !Object.prototype.hasOwnProperty.call(run, storageKey)) {
+      continue;
+    }
+
+    if (parseScheduleFromFieldValue(run[storageKey])) {
+      updates[storageKey] = writeScheduleToFieldValue(run[storageKey], null);
+    }
+  }
 
   return {
     key,
-    value: writeScheduleToFieldValue(run[key], normalizedSchedule),
+    value: updates[key],
+    updates,
   };
 };
 
