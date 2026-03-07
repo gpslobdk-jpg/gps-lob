@@ -34,6 +34,7 @@ const quizAnimationUrl = "/quiz.png";
 const photoAnimationUrl = "/foto.png";
 const escapeAnimationUrl = "/escape.png";
 const roleplayAnimationUrl = "/rollespil.png";
+const selfieAnimationUrl = "/selfie.png";
 
 type CardIconProps = {
   src: string;
@@ -90,6 +91,35 @@ function HubCardBody({ card }: { card: HubCard }) {
           <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1 group-focus-visible:translate-x-1" />
         </span>
       </div>
+    </div>
+  );
+}
+
+function renderCard(card: HubCard, index: number) {
+  const body = (
+    <article
+      className={`relative flex h-full flex-col justify-between overflow-hidden rounded-[2rem] border p-7 shadow-lg backdrop-blur-md transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-xl group-focus-visible:scale-[1.02] group-focus-visible:shadow-xl ${card.surfaceClass} ${card.borderClass}`}
+    >
+      <HubCardBody card={card} />
+    </article>
+  );
+
+  if (card.href) {
+    return (
+      <Link
+        key={`${card.title}-${index}`}
+        href={card.href}
+        data-tour={index === 0 ? "valg-classic-quiz" : undefined}
+        className="group block h-full focus:outline-none"
+      >
+        {body}
+      </Link>
+    );
+  }
+
+  return (
+    <div key={`${card.title}-${index}`} className="group block h-full">
+      {body}
     </div>
   );
 }
@@ -154,9 +184,28 @@ const cards: HubCard[] = [
     accentTextClass: "text-violet-700",
     accentMutedClass: "text-violet-700/80",
   },
+  {
+    title: "Selfie-jagt",
+    shortText: "Gør løbet personligt med smil.",
+    detail:
+      "Deltagerne skal finde specifikke lokationer og tage en selfie med tingen i baggrunden. AI'en tjekker både ansigt og motiv!",
+    href: "/dashboard/opret/selfie",
+    badge: "Klar nu",
+    cta: "Åbn selfie-bygger",
+    animationUrl: selfieAnimationUrl,
+    surfaceClass:
+      "bg-[linear-gradient(145deg,rgba(255,237,213,0.95),rgba(255,228,230,0.92))]",
+    borderClass: "border-orange-200/70",
+    titleClass: "text-rose-950",
+    accentTextClass: "text-orange-700",
+    accentMutedClass: "text-orange-700/80",
+  },
 ];
 
 export default function ValgHubPage() {
+  const topRowCards = cards.slice(0, 3);
+  const bottomRowCards = cards.slice(3);
+
   return (
     <main
       className={`relative min-h-screen overflow-hidden bg-transparent px-6 py-12 text-emerald-950 md:px-10 ${poppins.className}`}
@@ -200,34 +249,18 @@ export default function ValgHubPage() {
           </p>
         </div>
 
-        <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
-          {cards.map((card, index) => {
-            if (card.href) {
-              return (
-                <Link
-                  key={`${card.title}-${index}`}
-                  href={card.href}
-                  data-tour={index === 0 ? "valg-classic-quiz" : undefined}
-                  className="group block h-full focus:outline-none"
-                >
-                  <article
-                    className={`relative flex h-full flex-col justify-between overflow-hidden rounded-[2rem] border p-7 shadow-lg backdrop-blur-md transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-xl group-focus-visible:scale-[1.02] group-focus-visible:shadow-xl ${card.surfaceClass} ${card.borderClass}`}
-                  >
-                    <HubCardBody card={card} />
-                  </article>
-                </Link>
-              );
-            }
-
-            return (
-              <article
-                key={`${card.title}-${index}`}
-                className={`relative flex flex-col justify-between overflow-hidden rounded-[2rem] border p-7 shadow-lg backdrop-blur-md ${card.surfaceClass} ${card.borderClass}`}
+        <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {topRowCards.map((card, index) => renderCard(card, index))}
+          <div className="contents lg:col-span-3 lg:flex lg:justify-center lg:gap-6">
+            {bottomRowCards.map((card, index) => (
+              <div
+                key={`${card.title}-${index + topRowCards.length}-wrapper`}
+                className="lg:w-full lg:max-w-[calc((100%-1.5rem)*0.3334)]"
               >
-                <HubCardBody card={card} />
-              </article>
-            );
-          })}
+                {renderCard(card, index + topRowCards.length)}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
     </main>
