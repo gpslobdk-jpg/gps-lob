@@ -1,6 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const isDashboardPath = (pathname: string) => pathname.startsWith("/dashboard");
+const isLoginPath = (pathname: string) => pathname === "/login";
+
+const getSafeNextPath = (request: NextRequest) => {
+  const requested = request.nextUrl.searchParams.get("next")?.trim() ?? "";
+  return requested.startsWith("/dashboard") ? requested : "/dashboard";
+};
+
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({
     request,
@@ -21,9 +29,9 @@ export async function proxy(request: NextRequest) {
             request,
           });
 
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
         },
       },
     }
@@ -39,16 +47,20 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Hvis vi har en session-cookie men getUser fejler midlertidigt, undgår vi login-loop.
-  if (!user && !(session && userError)) {
+  if (isDashboardPath(request.nextUrl.pathname) && !user && !(session && userError)) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
     return NextResponse.redirect(loginUrl);
   }
 
+  if (isLoginPath(request.nextUrl.pathname) && user) {
+    return NextResponse.redirect(new URL(getSafeNextPath(request), request.url));
+  }
+
   return response;
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/dashboard/:path*", "/login"],
 };

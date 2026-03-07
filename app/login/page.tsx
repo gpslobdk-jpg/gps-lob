@@ -3,46 +3,90 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+
+import AuthLoadingScreen from "@/components/AuthLoadingScreen";
+import { useAuth } from "@/components/AuthProvider";
 import { createClient } from "@/utils/supabase/client";
 
 export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthLoadingScreen
+          title="Gør login klar"
+          description="Vi læser din session, så du ikke bliver sendt rundt unødigt."
+        />
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function LoginPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const [isRedirecting, setIsRedirecting] = useState(false);
+
+  const searchParamsString = searchParams.toString();
+  const hasCodeParam = searchParams.has("code");
+  const safeNextPath = (() => {
+    const requested = searchParams.get("next")?.trim() ?? "";
+    return requested.startsWith("/dashboard") ? requested : "/dashboard";
+  })();
+
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (!params.get("code")) return;
+    if (!hasCodeParam) return;
 
     const callbackUrl = new URL("/api/auth/callback", window.location.origin);
-    callbackUrl.search = params.toString();
+    callbackUrl.search = searchParamsString;
     if (!callbackUrl.searchParams.get("next")) {
-      callbackUrl.searchParams.set("next", "/dashboard");
+      callbackUrl.searchParams.set("next", safeNextPath);
     }
 
     window.location.replace(callbackUrl.toString());
-  }, []);
+  }, [hasCodeParam, safeNextPath, searchParamsString]);
 
-  const getSafeNextPath = () => {
-    const params = new URLSearchParams(window.location.search);
-    const requested = params.get("next")?.trim() ?? "";
-    if (requested.startsWith("/dashboard")) return requested;
-    return "/dashboard";
-  };
+  useEffect(() => {
+    if (isAuthLoading || isRedirecting || hasCodeParam || !user) return;
+    router.replace(safeNextPath);
+  }, [hasCodeParam, isAuthLoading, isRedirecting, router, safeNextPath, user]);
 
   const handleOAuthLogin = async (provider: "google" | "facebook" | "azure") => {
+    setIsRedirecting(true);
+
     const supabase = createClient();
     const callbackUrl = new URL("/api/auth/callback", window.location.origin);
-    callbackUrl.searchParams.set("next", getSafeNextPath());
+    callbackUrl.searchParams.set("next", safeNextPath);
 
-    await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
         redirectTo: callbackUrl.toString(),
         ...(provider === "azure" ? { scopes: "email" } : {}),
       },
     });
+
+    if (error) {
+      console.error("OAuth-login fejlede:", error);
+      setIsRedirecting(false);
+    }
   };
 
+  if (isAuthLoading || isRedirecting || hasCodeParam || !!user) {
+    return (
+      <AuthLoadingScreen
+        title="Logger dig ind"
+        description="Vi læser din session og sender dig videre til dashboardet uden auth-flicker."
+      />
+    );
+  }
+
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-t from-emerald-100 via-sky-50 to-sky-300 p-4 lg:bg-none lg:bg-transparent">
+    <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-t from-emerald-100 via-sky-50 to-sky-300 p-4 lg:bg-none lg:bg-transparent">
       <video
         autoPlay
         loop
@@ -51,7 +95,7 @@ export default function LoginPage() {
         className="fixed top-0 left-0 hidden h-full w-full object-cover -z-20 lg:block"
         src="/promo.mp4"
       />
-      <div className="fixed inset-0 hidden bg-gradient-to-b from-sky-900/10 to-emerald-900/50 backdrop-blur-[3px] -z-10 lg:block" />
+      <div className="fixed inset-0 hidden -z-10 bg-gradient-to-b from-sky-900/10 to-emerald-900/50 backdrop-blur-[3px] lg:block" />
 
       <motion.section
         initial={{ opacity: 0, y: 30 }}
@@ -77,7 +121,7 @@ export default function LoginPage() {
 
           <button
             type="button"
-            onClick={() => handleOAuthLogin("google")}
+            onClick={() => void handleOAuthLogin("google")}
             className="mt-6 h-12 w-full rounded-full border border-emerald-200 bg-white/90 px-5 text-base font-semibold text-emerald-950 shadow-sm transition-all duration-300 hover:bg-white"
           >
             <span className="flex items-center justify-center gap-3">
@@ -105,7 +149,7 @@ export default function LoginPage() {
 
           <button
             type="button"
-            onClick={() => handleOAuthLogin("azure")}
+            onClick={() => void handleOAuthLogin("azure")}
             className="mt-3 h-12 w-full rounded-full border border-emerald-200 bg-white/90 px-5 text-base font-semibold text-emerald-950 shadow-sm transition-all duration-300 hover:bg-white"
           >
             <span className="flex items-center justify-center gap-3">

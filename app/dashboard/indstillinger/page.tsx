@@ -39,7 +39,9 @@ export default function IndstillingerPage() {
         }
 
         if (!user) {
-          router.push("/login");
+          if (isMounted) {
+            setFejlBesked("Din session kunne ikke indlæses endnu. Prøv at opdatere siden.");
+          }
           return;
         }
 
@@ -169,4 +171,3 @@ export default function IndstillingerPage() {
     </main>
   );
 }
-
