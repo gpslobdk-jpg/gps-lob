@@ -1,27 +1,80 @@
 "use client";
 
-import { useEffect, useState, Suspense, type FormEvent } from "react";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Gamepad2, User, KeyRound, Loader2 } from "lucide-react";
+import { ArrowLeft, KeyRound, Leaf, Loader2, Timer, User } from "lucide-react";
 
+import {
+  getRunSchedule,
+  getRunScheduleGate,
+  type RunRecord,
+  type RunSchedule,
+} from "@/utils/runSchedule";
 import { createClient } from "@/utils/supabase/client";
+
+type JoinView = "form" | "waiting" | "scheduled" | "expired";
+
+type LiveSessionRow = {
+  id?: string | number | null;
+  status?: string | null;
+  run_id?: string | null;
+  created_at?: string | null;
+};
+
+type InsertErrorLike = {
+  code?: string;
+};
+
+const formatLongDate = (value: string | null | undefined) => {
+  if (!value) return null;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat("da-DK", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+};
+
+const formatClockTime = (value: string | null | undefined) => {
+  if (!value) return null;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat("da-DK", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+};
 
 function JoinForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
 
   const [pin, setPin] = useState(() =>
     (searchParams.get("pin") || "").replace(/\D/g, "").slice(0, 6)
   );
   const [name, setName] = useState("");
-  const [isWaiting, setIsWaiting] = useState(false);
+  const [view, setView] = useState<JoinView>("form");
   const [error, setError] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const isPinEmpty = pin.trim().length === 0;
+  const [runTitle, setRunTitle] = useState("");
+  const [schedule, setSchedule] = useState<RunSchedule | null>(null);
+
+  const trimmedName = name.trim();
+  const trimmedPin = pin.trim();
+  const canSubmit = trimmedPin.length > 0 && trimmedName.length > 0;
 
   useEffect(() => {
-    if (!isWaiting || !sessionId) return;
+    if (!sessionId || (view !== "waiting" && view !== "scheduled")) return;
 
     const channel = supabase
       .channel(`session-status-${sessionId}`)
@@ -34,8 +87,15 @@ function JoinForm() {
           filter: `id=eq.${sessionId}`,
         },
         (payload) => {
-          if ((payload.new as { status?: string }).status === "running") {
-            router.push(`/play/${sessionId}?name=${encodeURIComponent(name)}`);
+          const nextStatus = (payload.new as { status?: string | null }).status ?? null;
+
+          if (nextStatus === "finished") {
+            setView("expired");
+            return;
+          }
+
+          if (nextStatus === "running") {
+            router.push(`/play/${sessionId}?name=${encodeURIComponent(name.trim())}`);
           }
         }
       )
@@ -44,125 +104,366 @@ function JoinForm() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [isWaiting, sessionId, name, router, supabase]);
+  }, [view, sessionId, name, router, supabase]);
 
-  const handleJoin = async (e: FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (view !== "scheduled" || !sessionId || !schedule?.startAt) return;
+
+    const startAtMs = Date.parse(schedule.startAt);
+    if (!Number.isFinite(startAtMs)) {
+      return;
+    }
+
+    const timeUntilStart = startAtMs - Date.now();
+    if (timeUntilStart <= 0) {
+      router.push(`/play/${sessionId}?name=${encodeURIComponent(name.trim())}`);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      router.push(`/play/${sessionId}?name=${encodeURIComponent(name.trim())}`);
+    }, timeUntilStart);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [view, sessionId, name, schedule?.startAt, router]);
+
+  useEffect(() => {
+    if (!schedule?.endAt || (view !== "waiting" && view !== "scheduled")) return;
+
+    const endAtMs = Date.parse(schedule.endAt);
+    if (!Number.isFinite(endAtMs)) {
+      return;
+    }
+
+    if (Date.now() >= endAtMs) {
+      setView("expired");
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setView("expired");
+    }, endAtMs - Date.now());
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [view, schedule?.endAt]);
+
+  const resetToForm = () => {
+    setView("form");
+    setError("");
+    setSessionId(null);
+    setRunTitle("");
+    setSchedule(null);
+  };
+
+  const fetchRunDetails = async (runId: string) => {
+    const { data, error } = await supabase.from("gps_runs").select("*").eq("id", runId).single();
+
+    if (error) {
+      throw error;
+    }
+
+    return (data ?? null) as RunRecord | null;
+  };
+
+  const handleJoin = async (event: FormEvent) => {
+    event.preventDefault();
     setError("");
 
-    const trimmedPin = pin.trim();
-    const trimmedName = name.trim();
-
     if (!trimmedPin || !trimmedName) {
-      setError("Udfyld venligst både kode og navn.");
+      setError("Udfyld venligst både pinkode og navn.");
       return;
     }
 
     try {
-      const { data: sessionData, error: sessionError } = await supabase
+      const { data: activeSessions, error: activeSessionsError } = await supabase
         .from("live_sessions")
-        .select("id")
+        .select("id,status,run_id,created_at")
         .eq("pin", trimmedPin)
-        .eq("status", "waiting")
-        .single();
+        .in("status", ["waiting", "running"])
+        .order("created_at", { ascending: false })
+        .limit(1);
 
-      if (sessionError || !sessionData) {
-        setError("Ugyldig kode eller løbet er allerede i gang!");
+      if (activeSessionsError) {
+        throw activeSessionsError;
+      }
+
+      const activeSession = (activeSessions?.[0] ?? null) as LiveSessionRow | null;
+
+      if (!activeSession?.id || !activeSession.run_id) {
+        const { data: finishedSessions, error: finishedSessionsError } = await supabase
+          .from("live_sessions")
+          .select("id,run_id,created_at")
+          .eq("pin", trimmedPin)
+          .eq("status", "finished")
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (finishedSessionsError) {
+          throw finishedSessionsError;
+        }
+
+        const finishedSession = (finishedSessions?.[0] ?? null) as LiveSessionRow | null;
+
+        if (finishedSession?.run_id) {
+          const finishedRun = await fetchRunDetails(String(finishedSession.run_id)).catch(() => null);
+          setRunTitle(typeof finishedRun?.title === "string" ? finishedRun.title : "");
+          setSchedule(finishedRun ? getRunSchedule(finishedRun) : null);
+          setView("expired");
+          return;
+        }
+
+        setError("Ugyldig pinkode.");
+        return;
+      }
+
+      const runData = await fetchRunDetails(String(activeSession.run_id));
+      const runSchedule = runData ? getRunSchedule(runData) : null;
+      const scheduleGate = getRunScheduleGate(runSchedule);
+      const resolvedTitle = typeof runData?.title === "string" ? runData.title : "";
+
+      setRunTitle(resolvedTitle);
+      setSchedule(runSchedule);
+
+      if (scheduleGate === "expired") {
+        setView("expired");
         return;
       }
 
       const { error: insertError } = await supabase.from("session_students").insert({
-        session_id: sessionData.id,
+        session_id: String(activeSession.id),
         student_name: trimmedName,
       });
 
-      if (insertError) throw insertError;
+      if (insertError && (insertError as InsertErrorLike).code !== "23505") {
+        throw insertError;
+      }
 
-      setSessionId(sessionData.id as string);
       setName(trimmedName);
-      setIsWaiting(true);
+      setSessionId(String(activeSession.id));
+
+      if (scheduleGate === "scheduled") {
+        setView("scheduled");
+        return;
+      }
+
+      if (activeSession.status === "running" || runSchedule?.startAt) {
+        router.push(`/play/${activeSession.id}?name=${encodeURIComponent(trimmedName)}`);
+        return;
+      }
+
+      setView("waiting");
     } catch (err) {
-      console.error(err);
+      console.error("Fejl ved deltagelse i løbet:", err);
       setError("Der skete en fejl. Prøv igen.");
     }
   };
 
-  if (isWaiting) {
+  const scheduledDate = formatLongDate(schedule?.startAt);
+  const scheduledTime = formatClockTime(schedule?.startAt);
+  const endDate = formatLongDate(schedule?.endAt);
+  const endTime = formatClockTime(schedule?.endAt);
+
+  if (view === "scheduled") {
     return (
-      <div className="animate-in fade-in flex h-full flex-col items-center justify-center space-y-8 duration-700">
-        <div className="relative">
-          <div className="absolute inset-0 rounded-full bg-cyan-500 opacity-20 blur-[50px] animate-pulse" />
-          <Gamepad2 size={80} className="relative z-10 text-cyan-400 animate-bounce" />
+      <div className="mx-auto flex h-full w-full max-w-3xl items-center justify-center px-6 py-10">
+        <div className="relative w-full overflow-hidden rounded-[2rem] border border-emerald-100/12 bg-[linear-gradient(160deg,rgba(10,30,22,0.88),rgba(6,18,14,0.78))] p-8 text-white shadow-[0_32px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:p-10">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(74,222,128,0.18),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(163,230,53,0.12),transparent_32%),linear-gradient(140deg,rgba(255,255,255,0.05),transparent_45%)]" />
+
+          <div className="relative text-center">
+            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border border-emerald-200/20 bg-emerald-300/10 shadow-[0_0_36px_rgba(74,222,128,0.18)]">
+              <div className="absolute h-24 w-24 rounded-full bg-emerald-300/10 blur-2xl" />
+              <Timer className="relative h-10 w-10 text-emerald-100" />
+            </div>
+
+            <p className="mt-6 text-xs font-semibold tracking-[0.38em] text-emerald-100/60 uppercase">
+              Planlagt løb
+            </p>
+            <h1 className="mt-4 text-3xl font-black text-white sm:text-4xl">
+              Skoven gør sig klar
+            </h1>
+            <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-emerald-50/85 sm:text-lg">
+              Løbet er planlagt! Vi starter automatisk d. {scheduledDate ?? "ukendt dato"} kl.{" "}
+              {scheduledTime ?? "ukendt tid"}. Hold telefonen klar!
+            </p>
+
+            {runTitle ? (
+              <div className="mt-5 inline-flex rounded-full border border-emerald-100/12 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-emerald-50/90">
+                {runTitle}
+              </div>
+            ) : null}
+
+            <div className="mt-8 grid gap-3 text-left sm:grid-cols-2">
+              <div className="rounded-[1.5rem] border border-white/10 bg-black/[0.18] p-5 backdrop-blur-xl">
+                <p className="text-xs font-semibold tracking-[0.24em] text-emerald-100/50 uppercase">
+                  Starter
+                </p>
+                <p className="mt-3 text-lg font-semibold text-white">
+                  {scheduledDate ?? "Tid ikke sat"}
+                </p>
+                <p className="text-3xl font-black text-emerald-100">
+                  {scheduledTime ?? "--:--"}
+                </p>
+              </div>
+
+              <div className="rounded-[1.5rem] border border-white/10 bg-black/[0.18] p-5 backdrop-blur-xl">
+                <p className="text-xs font-semibold tracking-[0.24em] text-emerald-100/50 uppercase">
+                  Slutter
+                </p>
+                <p className="mt-3 text-lg font-semibold text-white">
+                  {endDate ?? "Når arrangøren lukker"}
+                </p>
+                <p className="text-3xl font-black text-emerald-100">
+                  {endTime ?? "--:--"}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="space-y-2 text-center">
-          <h2 className="bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-2xl font-black tracking-widest text-transparent uppercase">
-            Klar til start!
-          </h2>
-          <p className="text-sm text-white/50">Venter på at læreren starter løbet...</p>
+      </div>
+    );
+  }
+
+  if (view === "waiting") {
+    return (
+      <div className="mx-auto flex h-full w-full max-w-2xl items-center justify-center px-6 py-10">
+        <div className="relative w-full overflow-hidden rounded-[2rem] border border-emerald-100/12 bg-[linear-gradient(160deg,rgba(9,25,19,0.88),rgba(5,16,12,0.76))] p-8 text-center text-white shadow-[0_32px_90px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-10">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(74,222,128,0.16),transparent_32%),linear-gradient(140deg,rgba(255,255,255,0.05),transparent_42%)]" />
+
+          <div className="relative">
+            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border border-emerald-200/18 bg-emerald-300/[0.08] shadow-[0_0_36px_rgba(74,222,128,0.16)]">
+              <Loader2 className="h-10 w-10 animate-spin text-emerald-100" />
+            </div>
+
+            <p className="mt-6 text-xs font-semibold tracking-[0.38em] text-emerald-100/55 uppercase">
+              Lobby åben
+            </p>
+            <h1 className="mt-4 text-3xl font-black text-white sm:text-4xl">
+              Vi venter på startsignalet
+            </h1>
+            <p className="mx-auto mt-4 max-w-lg text-base leading-7 text-emerald-50/80 sm:text-lg">
+              Du er med i løbet. Arrangøren starter det snart, og så sender vi dig direkte videre.
+            </p>
+
+            {runTitle ? (
+              <p className="mt-5 text-sm font-semibold text-emerald-100/70">{runTitle}</p>
+            ) : null}
+          </div>
         </div>
-        <Loader2 size={32} className="text-purple-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (view === "expired") {
+    return (
+      <div className="mx-auto flex h-full w-full max-w-2xl items-center justify-center px-6 py-10">
+        <div className="relative w-full overflow-hidden rounded-[2rem] border border-amber-100/12 bg-[linear-gradient(160deg,rgba(34,22,12,0.88),rgba(18,10,6,0.8))] p-8 text-center text-white shadow-[0_32px_90px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-10">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.14),transparent_30%),linear-gradient(140deg,rgba(255,255,255,0.04),transparent_42%)]" />
+
+          <div className="relative">
+            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border border-amber-200/18 bg-amber-300/[0.08] shadow-[0_0_36px_rgba(251,191,36,0.14)]">
+              <Leaf className="h-10 w-10 text-amber-100" />
+            </div>
+
+            <p className="mt-6 text-xs font-semibold tracking-[0.38em] text-amber-100/55 uppercase">
+              Løbet er lukket
+            </p>
+            <h1 className="mt-4 text-3xl font-black text-white sm:text-4xl">
+              Dette løb er desværre slut
+            </h1>
+            <p className="mx-auto mt-4 max-w-lg text-base leading-7 text-amber-50/80 sm:text-lg">
+              Dette løb er desværre slut. Kontakt din arrangør.
+            </p>
+
+            {runTitle ? (
+              <p className="mt-5 text-sm font-semibold text-amber-100/70">{runTitle}</p>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={resetToForm}
+              className="mx-auto mt-8 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.08] px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/12"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Prøv en anden kode
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-md flex-col items-center justify-center px-6">
-      <div className="w-full rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_0_30px_rgba(168,85,247,0.15)] backdrop-blur-xl">
-        <div className="mb-8 flex justify-center">
-          <div className="rounded-2xl border border-purple-500/30 bg-purple-500/20 p-4 shadow-[0_0_15px_rgba(168,85,247,0.4)]">
-            <Gamepad2 size={40} className="text-purple-400" />
+    <div className="mx-auto flex h-full w-full max-w-md flex-col items-center justify-center px-6 py-10">
+      <div className="relative w-full overflow-hidden rounded-[2rem] border border-emerald-100/12 bg-[linear-gradient(160deg,rgba(10,30,22,0.82),rgba(5,16,12,0.74))] p-8 text-white shadow-[0_32px_90px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(74,222,128,0.18),transparent_34%),linear-gradient(140deg,rgba(255,255,255,0.04),transparent_42%)]" />
+
+        <div className="relative">
+          <div className="mb-8 flex justify-center">
+            <div className="flex h-20 w-20 items-center justify-center rounded-[1.75rem] border border-emerald-200/15 bg-emerald-300/10 shadow-[0_0_26px_rgba(74,222,128,0.16)]">
+              <Leaf className="h-9 w-9 text-emerald-100" />
+            </div>
           </div>
+
+          <p className="text-center text-xs font-semibold tracking-[0.34em] text-emerald-100/55 uppercase">
+            gpslob.dk
+          </p>
+          <h1 className="mt-4 text-center text-3xl font-black text-white">
+            Deltag i løbet
+          </h1>
+          <p className="mt-3 text-center text-sm leading-6 text-emerald-50/75">
+            Indtast pinkoden og dit navn. Vi checker automatisk, om løbet er klar til start.
+          </p>
+
+          <form onSubmit={handleJoin} className="mt-8 space-y-5">
+            {error ? (
+              <div className="rounded-2xl border border-rose-300/25 bg-rose-400/10 p-3 text-center text-sm text-rose-100">
+                {error}
+              </div>
+            ) : null}
+
+            <div className="relative">
+              <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-emerald-100/60">
+                <KeyRound className="h-5 w-5" />
+              </div>
+              <input
+                type="text"
+                placeholder="Pinkode, f.eks. 4921"
+                value={pin}
+                onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                className="w-full rounded-2xl border border-white/10 bg-black/20 py-4 pr-4 pl-12 font-mono text-lg text-white outline-none transition placeholder:text-white/30 focus:border-emerald-300/60 focus:ring-2 focus:ring-emerald-300/20"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                autoComplete="one-time-code"
+              />
+            </div>
+
+            <div className="relative">
+              <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-emerald-100/60">
+                <User className="h-5 w-5" />
+              </div>
+              <input
+                type="text"
+                placeholder="Dit navn"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                className="w-full rounded-2xl border border-white/10 bg-black/20 py-4 pr-4 pl-12 text-lg text-white outline-none transition placeholder:text-white/30 focus:border-emerald-300/60 focus:ring-2 focus:ring-emerald-300/20"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="mt-2 w-full rounded-2xl bg-[linear-gradient(135deg,#7ee787,#22c55e)] py-4 text-base font-black tracking-[0.3em] text-emerald-950 uppercase shadow-[0_16px_40px_rgba(74,222,128,0.2)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              Gør klar
+            </button>
+          </form>
         </div>
-
-        <h1 className="mb-8 text-center text-3xl font-black tracking-widest text-white uppercase drop-shadow-md">
-          Join Løbet
-        </h1>
-
-        <form onSubmit={handleJoin} className="space-y-5">
-          {error ? (
-            <div className="animate-pulse rounded-xl border border-red-500/50 bg-red-500/20 p-3 text-center text-sm text-red-200">
-              {error}
-            </div>
-          ) : null}
-
-          <div className="relative">
-            <div className="absolute inset-y-0 left-4 flex items-center text-cyan-400">
-              <KeyRound size={20} />
-            </div>
-            <input
-              type="text"
-              placeholder="Pinkode (f.eks. 4921)"
-              value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              className="w-full rounded-xl border border-white/10 bg-[#050816]/50 py-4 pr-4 pl-12 font-mono text-lg text-white placeholder-white/30 transition-all focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 focus:outline-none"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={6}
-              autoComplete="one-time-code"
-            />
-          </div>
-
-          <div className="relative">
-            <div className="absolute inset-y-0 left-4 flex items-center text-purple-400">
-              <User size={20} />
-            </div>
-            <input
-              type="text"
-              placeholder="Dit Gamer Tag (Navn)"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-[#050816]/50 py-4 pr-4 pl-12 text-lg text-white placeholder-white/30 transition-all focus:border-purple-400 focus:ring-1 focus:ring-purple-400 focus:outline-none"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={isPinEmpty}
-            className="mt-4 w-full rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 py-4 text-xl font-black tracking-widest text-white uppercase shadow-[0_0_20px_rgba(34,211,238,0.4)] transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:scale-100"
-          >
-            Gør Klar! 🚀
-          </button>
-        </form>
       </div>
     </div>
   );
@@ -170,12 +471,15 @@ function JoinForm() {
 
 export default function JoinPage() {
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050816]">
-      <div className="pointer-events-none absolute top-0 left-0 h-96 w-full -translate-y-1/2 transform rounded-full bg-purple-600/10 blur-[100px]" />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#03110d] text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#0d261b_0%,#07140f_48%,#020805_100%)]" />
+      <div className="pointer-events-none absolute left-[-7rem] top-[-5rem] h-72 w-72 rounded-full bg-emerald-400/14 blur-[120px]" />
+      <div className="pointer-events-none absolute bottom-[-8rem] right-[-5rem] h-80 w-80 rounded-full bg-lime-300/10 blur-[140px]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(74,222,128,0.12),transparent_28%),radial-gradient(circle_at_bottom,rgba(163,230,53,0.08),transparent_22%)]" />
 
       <Suspense
         fallback={
-          <div className="text-cyan-400 animate-pulse">
+          <div className="relative z-10 text-emerald-100">
             <Loader2 size={32} className="animate-spin" />
           </div>
         }
