@@ -18,7 +18,13 @@ export type RunSchedule = {
   endAt: string | null;
 };
 
-export type RunScheduleGate = "scheduled" | "active" | "expired";
+export type RunScheduleReadState = "missing" | "valid" | "error";
+export type RunScheduleReadResult = {
+  schedule: RunSchedule | null;
+  state: RunScheduleReadState;
+};
+
+export type RunScheduleGate = "scheduled" | "active" | "expired" | "error";
 export type RunRecord = Record<string, unknown>;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -41,6 +47,21 @@ const tryParseJson = (value: string) => {
 const hasScheduleShape = (value: Record<string, unknown>) =>
   Object.prototype.hasOwnProperty.call(value, "startAt") ||
   Object.prototype.hasOwnProperty.call(value, "endAt");
+
+const missingScheduleResult = (): RunScheduleReadResult => ({
+  schedule: null,
+  state: "missing",
+});
+
+const invalidScheduleResult = (): RunScheduleReadResult => ({
+  schedule: null,
+  state: "error",
+});
+
+const validScheduleResult = (schedule: RunSchedule): RunScheduleReadResult => ({
+  schedule,
+  state: "valid",
+});
 
 export const normalizeRunSchedule = (value: Partial<RunSchedule> | null | undefined) => {
   const startAt = normalizeDateValue(value?.startAt);
@@ -67,55 +88,79 @@ const parseScheduleObject = (value: Record<string, unknown>) => {
   });
 };
 
-const parseScheduleFromFieldValue = (value: unknown): RunSchedule | null => {
+const parseScheduleObjectDetailed = (value: Record<string, unknown>): RunScheduleReadResult => {
+  if (!hasScheduleShape(value)) {
+    return missingScheduleResult();
+  }
+
+  const schedule = parseScheduleObject(value);
+  return schedule ? validScheduleResult(schedule) : invalidScheduleResult();
+};
+
+const parseScheduleFromFieldValueDetailed = (value: unknown): RunScheduleReadResult => {
   if (!value) {
-    return null;
+    return missingScheduleResult();
   }
 
   if (typeof value === "string") {
     const markerIndex = value.lastIndexOf(SCHEDULE_MARKER);
+    const trimmedValue = value.trim();
     const jsonPayload =
-      markerIndex >= 0 ? value.slice(markerIndex + SCHEDULE_MARKER.length).trim() : value.trim();
+      markerIndex >= 0 ? value.slice(markerIndex + SCHEDULE_MARKER.length).trim() : trimmedValue;
 
     if (!jsonPayload.startsWith("{")) {
-      return null;
+      return markerIndex >= 0 ? invalidScheduleResult() : missingScheduleResult();
     }
 
     const parsed = tryParseJson(jsonPayload);
-    return parsed ? parseScheduleFromFieldValue(parsed) : null;
+    return parsed ? parseScheduleFromFieldValueDetailed(parsed) : invalidScheduleResult();
   }
 
   if (!isRecord(value)) {
-    return null;
+    return missingScheduleResult();
   }
 
-  const nestedValue = value[SCHEDULE_PROPERTY];
-  if (isRecord(nestedValue)) {
-    return parseScheduleObject(nestedValue);
+  if (Object.prototype.hasOwnProperty.call(value, SCHEDULE_PROPERTY)) {
+    const nestedValue = value[SCHEDULE_PROPERTY];
+    if (!isRecord(nestedValue)) {
+      return invalidScheduleResult();
+    }
+
+    return parseScheduleObjectDetailed(nestedValue);
   }
 
-  const legacyNestedValue = value[LEGACY_SCHEDULE_PROPERTY];
-  if (isRecord(legacyNestedValue)) {
-    return parseScheduleObject(legacyNestedValue);
+  if (Object.prototype.hasOwnProperty.call(value, LEGACY_SCHEDULE_PROPERTY)) {
+    const legacyNestedValue = value[LEGACY_SCHEDULE_PROPERTY];
+    if (!isRecord(legacyNestedValue)) {
+      return invalidScheduleResult();
+    }
+
+    return parseScheduleObjectDetailed(legacyNestedValue);
   }
 
-  return parseScheduleObject(value);
+  return parseScheduleObjectDetailed(value);
 };
 
-export const getRunSchedule = (run: RunRecord): RunSchedule | null => {
+const parseScheduleFromFieldValue = (value: unknown): RunSchedule | null =>
+  parseScheduleFromFieldValueDetailed(value).schedule;
+
+export const inspectRunSchedule = (run: RunRecord): RunScheduleReadResult => {
   for (const key of SCHEDULE_STORAGE_KEYS) {
     if (!Object.prototype.hasOwnProperty.call(run, key)) {
       continue;
     }
 
-    const parsedSchedule = parseScheduleFromFieldValue(run[key]);
-    if (parsedSchedule) {
-      return parsedSchedule;
+    const result = parseScheduleFromFieldValueDetailed(run[key]);
+    if (result.state === "valid" || result.state === "error") {
+      return result;
     }
   }
 
-  return null;
+  return missingScheduleResult();
 };
+
+export const getRunSchedule = (run: RunRecord): RunSchedule | null =>
+  inspectRunSchedule(run).schedule;
 
 const removeScheduleFromObject = (value: Record<string, unknown>) => {
   const nextValue: Record<string, unknown> = { ...value };
@@ -218,11 +263,26 @@ export const buildRunScheduleUpdate = (
 };
 
 export const getRunScheduleGate = (
-  schedule: RunSchedule | null | undefined,
+  scheduleOrResult: RunSchedule | RunScheduleReadResult | null | undefined,
   now = Date.now()
 ): RunScheduleGate => {
+  const schedule =
+    isRecord(scheduleOrResult) && "state" in scheduleOrResult
+      ? scheduleOrResult.schedule
+      : scheduleOrResult;
+  const state =
+    isRecord(scheduleOrResult) && "state" in scheduleOrResult ? scheduleOrResult.state : "valid";
+
+  if (state === "error") {
+    return "error";
+  }
+
   const startAt = schedule?.startAt ? Date.parse(schedule.startAt) : Number.NaN;
   const endAt = schedule?.endAt ? Date.parse(schedule.endAt) : Number.NaN;
+
+  if ((schedule?.startAt && !Number.isFinite(startAt)) || (schedule?.endAt && !Number.isFinite(endAt))) {
+    return "error";
+  }
 
   if (Number.isFinite(endAt) && now >= endAt) {
     return "expired";

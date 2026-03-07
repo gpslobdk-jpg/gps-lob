@@ -61,6 +61,7 @@ type Question = {
 };
 
 type ActivePostVariant = "quiz" | "photo" | "escape" | "roleplay" | "unknown";
+type RaceMode = ActivePostVariant;
 type GpsErrorState = "permission_denied" | "position_unavailable" | "timeout" | "unsupported";
 type PhotoFeedbackState = {
   key: string;
@@ -103,6 +104,19 @@ type ParticipantRow = {
   finished_at?: string | null;
 };
 
+type EscapeResultEntry = {
+  place: number;
+  studentName: string;
+  finishedAt: string | null;
+};
+
+type RunRow = {
+  questions?: unknown;
+  description?: unknown;
+  raceType?: unknown;
+  race_type?: unknown;
+};
+
 type AnswerProgressRow = {
   post_index?: number | string | null;
   question_index?: number | string | null;
@@ -125,6 +139,11 @@ const AUTO_UNLOCK_RADIUS = 15;
 const MANUAL_UNLOCK_RADIUS = 50;
 const BAD_WORDS = ["tissemand", "lort", "pik", "fisse", "idiot", "bøsse", "luder", "snot"];
 const FIREWORKS_LOTTIE_URL = "https://assets2.lottiefiles.com/packages/lf20_touohxv0.json";
+const wrapTextClass = "break-words [overflow-wrap:anywhere] hyphens-auto";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 function containsBadWord(value: string) {
   const normalized = value.toLocaleLowerCase("da-DK");
@@ -215,7 +234,7 @@ function parseQuestion(raw: unknown): Question | null {
   };
 }
 
-function getActivePostVariant(question: Question): ActivePostVariant {
+function inferPostVariant(question: Question): ActivePostVariant {
   if (question.type === "ai_image") return "photo";
   if (question.type === "unknown") return "unknown";
 
@@ -230,6 +249,39 @@ function getActivePostVariant(question: Question): ActivePostVariant {
   if (hasPrimaryAndReward) return "escape";
   if (hasOnlyPrimaryAnswer && question.aiPrompt?.trim()) return "escape";
   return "quiz";
+}
+
+function normalizeRaceMode(value: unknown): RaceMode {
+  if (typeof value !== "string") return "unknown";
+
+  switch (value.trim().toLocaleLowerCase("da-DK")) {
+    case "quiz":
+    case "manuel":
+    case "manual":
+      return "quiz";
+    case "foto":
+    case "photo":
+      return "photo";
+    case "escape":
+    case "escape_room":
+    case "escaperoom":
+      return "escape";
+    case "rollespil":
+    case "roleplay":
+    case "role_play":
+    case "tidsmaskinen":
+      return "roleplay";
+    default:
+      return "unknown";
+  }
+}
+
+function resolvePostVariant(raceMode: RaceMode, question: Question): ActivePostVariant {
+  if (raceMode !== "unknown") {
+    return raceMode;
+  }
+
+  return inferPostVariant(question);
 }
 
 function normalizeTypedAnswer(value: string) {
@@ -260,18 +312,46 @@ function normalizeMasterCode(value: string) {
   return value.toLocaleUpperCase("da-DK").replace(/[^0-9A-ZÆØÅ]/g, "");
 }
 
-function extractCodeFragment(text: string) {
-  const trimmed = text.trim();
-  if (!trimmed) return "";
+function parseRunDescriptionMetadata(value: unknown) {
+  if (isRecord(value)) {
+    return value;
+  }
 
-  const colonMatch = trimmed.match(/:\s*([A-Za-zÆØÅæøå0-9-]+)/u);
-  if (colonMatch?.[1]) return normalizeMasterCode(colonMatch[1]);
+  if (typeof value !== "string") {
+    return null;
+  }
 
-  const erMatch = trimmed.match(/\ber\s+([A-Za-zÆØÅæøå0-9-]+)/iu);
-  if (erMatch?.[1]) return normalizeMasterCode(erMatch[1]);
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{")) {
+    return null;
+  }
 
-  const lastTokenMatch = trimmed.match(/([A-Za-zÆØÅæøå0-9]+)[^A-Za-zÆØÅæøå0-9]*$/u);
-  return lastTokenMatch?.[1] ? normalizeMasterCode(lastTokenMatch[1]) : "";
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function formatPlacement(position: number) {
+  if (position === 1) return "1. plads";
+  return `${position}. plads`;
+}
+
+function formatFinishedAt(value: string | null) {
+  if (!value) return "Tidspunkt mangler";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Tidspunkt mangler";
+  }
+
+  return new Intl.DateTimeFormat("da-DK", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date);
 }
 
 function PlayScreen() {
@@ -302,6 +382,8 @@ function PlayScreen() {
   );
 
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [raceMode, setRaceMode] = useState<RaceMode>("unknown");
+  const [storedMasterCode, setStoredMasterCode] = useState("");
   const [currentPostIndex, setCurrentPostIndex] = useState(0);
   const [myLoc, setMyLoc] = useState<Location | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
@@ -322,7 +404,11 @@ function PlayScreen() {
   const [masterLockError, setMasterLockError] = useState<string | null>(null);
   const [masterLockStatus, setMasterLockStatus] = useState<MasterLockStatus>("locked");
   const [masterLockShakeNonce, setMasterLockShakeNonce] = useState(0);
+  const [isFinalizingEscape, setIsFinalizingEscape] = useState(false);
   const [showEscapeResults, setShowEscapeResults] = useState(false);
+  const [escapeResults, setEscapeResults] = useState<EscapeResultEntry[]>([]);
+  const [isLoadingEscapeResults, setIsLoadingEscapeResults] = useState(false);
+  const [escapeResultsError, setEscapeResultsError] = useState<string | null>(null);
   const [typedAnswerError, setTypedAnswerError] = useState<{ key: string; message: string } | null>(
     null
   );
@@ -795,9 +881,9 @@ function PlayScreen() {
 
       const { data: runData, error: runError } = await supabase
         .from("gps_runs")
-        .select("questions")
+        .select("*")
         .eq("id", sessionData.run_id)
-        .single();
+        .single<RunRow>();
 
       if (!isActive) return;
 
@@ -810,12 +896,19 @@ function PlayScreen() {
       const parsedQuestions = Array.isArray(runData?.questions)
         ? runData.questions.map(parseQuestion).filter((q): q is Question => q !== null)
         : [];
+      const metadata = parseRunDescriptionMetadata(runData?.description);
+      const nextMasterCode = normalizeMasterCode(
+        typeof metadata?.masterCode === "string" ? metadata.masterCode : ""
+      );
 
       if (parsedQuestions.length === 0) {
         setLoadError("Dette løb har ingen gyldige GPS-poster endnu.");
       } else {
         setQuestions(parsedQuestions);
       }
+
+      setRaceMode(normalizeRaceMode(runData?.raceType ?? runData?.race_type));
+      setStoredMasterCode(nextMasterCode);
 
       setIsLoading(false);
     };
@@ -826,6 +919,64 @@ function PlayScreen() {
       isActive = false;
     };
   }, [sessionId, supabase]);
+
+  useEffect(() => {
+    const escapeRaceActive =
+      raceMode === "escape" ||
+      (raceMode === "unknown" &&
+        questions.length > 0 &&
+        questions.every((question) => resolvePostVariant(raceMode, question) === "escape"));
+
+    if (!showEscapeResults || !escapeRaceActive || !sessionId) return;
+
+    let isActive = true;
+
+    const fetchEscapeResults = async () => {
+      setIsLoadingEscapeResults(true);
+      setEscapeResultsError(null);
+
+      const loadPlacements = async (table: "participants" | "session_students") =>
+        supabase
+          .from(table)
+          .select("student_name,finished_at")
+          .eq("session_id", sessionId)
+          .not("finished_at", "is", null)
+          .order("finished_at", { ascending: true });
+
+      let result = await loadPlacements("participants");
+      if (result.error?.code === "PGRST205") {
+        result = await loadPlacements("session_students");
+      }
+
+      if (!isActive) return;
+
+      if (result.error) {
+        console.error("Kunne ikke hente escape-placeringer:", result.error);
+        setEscapeResults([]);
+        setEscapeResultsError("Placeringen kunne ikke hentes endnu. Prøv igen om et øjeblik.");
+        setIsLoadingEscapeResults(false);
+        return;
+      }
+
+      const rows = Array.isArray(result.data) ? (result.data as ParticipantRow[]) : [];
+      const nextResults = rows
+        .filter((row) => typeof row.student_name === "string" && row.student_name.trim().length > 0)
+        .map((row, index) => ({
+          place: index + 1,
+          studentName: row.student_name?.trim() ?? `Hold ${index + 1}`,
+          finishedAt: typeof row.finished_at === "string" ? row.finished_at : null,
+        }));
+
+      setEscapeResults(nextResults);
+      setIsLoadingEscapeResults(false);
+    };
+
+    void fetchEscapeResults();
+
+    return () => {
+      isActive = false;
+    };
+  }, [questions, raceMode, sessionId, showEscapeResults, supabase]);
 
   const shouldKeepScreenAwake =
     !isLoading &&
@@ -1026,7 +1177,7 @@ function PlayScreen() {
 
     const isCorrect = selectedIndex === current.correctIndex;
     const postNumber = currentPostIndex + 1;
-    const currentVariant = getActivePostVariant(current);
+    const currentVariant = resolvePostVariant(raceMode, current);
 
     if (isCorrect) {
       await insertAnswerRecord(
@@ -1067,7 +1218,7 @@ function PlayScreen() {
   };
 
   const activeQuestion = questions[currentPostIndex];
-  const activePostVariant = activeQuestion ? getActivePostVariant(activeQuestion) : "unknown";
+  const activePostVariant = activeQuestion ? resolvePostVariant(raceMode, activeQuestion) : "unknown";
   const roleplayCharacterName =
     activePostVariant === "roleplay" ? activeQuestion?.answers[1]?.trim() || "Ukendt karakter" : "";
   const roleplayAvatar = activePostVariant === "roleplay" ? activeQuestion?.answers[2]?.trim() || "" : "";
@@ -1090,16 +1241,18 @@ function PlayScreen() {
       : 0;
   const activeTeamName = playerName || pendingPlayerName || "Dit hold";
   const isEscapeRace =
-    questions.length > 0 && questions.every((question) => getActivePostVariant(question) === "escape");
-  const escapeMasterCode = useMemo(
-    () =>
-      questions
-        .map((question) => question.answers[1]?.trim() || question.aiPrompt?.trim() || "")
-        .map(extractCodeFragment)
-        .filter(Boolean)
-        .join(""),
-    [questions]
-  );
+    raceMode === "escape" ||
+    (raceMode === "unknown" &&
+      questions.length > 0 &&
+      questions.every((question) => resolvePostVariant(raceMode, question) === "escape"));
+  const escapeMasterCode = storedMasterCode;
+  const normalizedActiveTeamName = activeTeamName.trim().toLocaleLowerCase("da-DK");
+  const myEscapePlacement =
+    normalizedActiveTeamName.length > 0
+      ? escapeResults.find(
+          (entry) => entry.studentName.trim().toLocaleLowerCase("da-DK") === normalizedActiveTeamName
+        ) ?? null
+      : null;
   const activeTypedAnswerKey = `${currentPostIndex}-${activePostVariant}`;
   const activeTypedAnswerError =
     typedAnswerError?.key === activeTypedAnswerKey ? typedAnswerError.message : null;
@@ -1145,11 +1298,14 @@ function PlayScreen() {
       return;
     }
 
-    await markParticipantFinished();
+    if (!isEscapeRace) {
+      await markParticipantFinished();
+    }
+
     setIsFinished(true);
   };
 
-  const handleMasterLockSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleMasterLockSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const normalizedInput = normalizeMasterCode(masterLockInput);
@@ -1159,7 +1315,14 @@ function PlayScreen() {
       return;
     }
 
-    if (!escapeMasterCode || normalizedInput !== escapeMasterCode) {
+    if (!escapeMasterCode) {
+      setMasterLockError("Master-koden mangler i løbet. Kontakt arrangøren.");
+      setMasterLockStatus("locked");
+      setMasterLockShakeNonce((prev) => prev + 1);
+      return;
+    }
+
+    if (normalizedInput !== escapeMasterCode) {
       setMasterLockError("Koden passer ikke endnu. Tjek jeres kode-brikker og prøv igen.");
       setMasterLockStatus("locked");
       setMasterLockShakeNonce((prev) => prev + 1);
@@ -1167,7 +1330,14 @@ function PlayScreen() {
     }
 
     setMasterLockError(null);
-    setMasterLockStatus("unlocked");
+    setIsFinalizingEscape(true);
+
+    try {
+      await markParticipantFinished();
+      setMasterLockStatus("unlocked");
+    } finally {
+      setIsFinalizingEscape(false);
+    }
   };
 
   const handleTypedAnswerSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -1286,7 +1456,7 @@ function PlayScreen() {
     () =>
       L.divIcon({
         className: "bg-transparent border-none",
-        html: '<div class="w-5 h-5 rounded-full bg-purple-400 border-2 border-purple-100 shadow-[0_0_18px_rgba(168,85,247,0.9)]"></div>',
+        html: '<div class="w-5 h-5 rounded-full bg-emerald-400 border-2 border-emerald-100 shadow-[0_0_18px_rgba(52,211,153,0.9)]"></div>',
         iconSize: [20, 20],
         iconAnchor: [10, 10],
       }),
@@ -1297,7 +1467,7 @@ function PlayScreen() {
     () =>
       L.divIcon({
         className: "bg-transparent border-none",
-        html: '<div class="relative w-8 h-8"><div class="absolute inset-0 rounded-full bg-cyan-400/20 animate-ping"></div><div class="relative w-8 h-8 rounded-full bg-cyan-900 border-2 border-cyan-300 shadow-[0_0_18px_rgba(34,211,238,0.8)] flex items-center justify-center text-cyan-200 font-black">◎</div></div>',
+        html: '<div class="relative w-8 h-8"><div class="absolute inset-0 rounded-full bg-amber-300/20 animate-ping"></div><div class="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-amber-200 bg-amber-950 text-amber-100 font-black shadow-[0_0_18px_rgba(251,191,36,0.8)]">◎</div></div>',
         iconSize: [32, 32],
         iconAnchor: [16, 16],
       }),
@@ -1306,7 +1476,7 @@ function PlayScreen() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#050816] text-cyan-300">
+      <div className="flex h-screen items-center justify-center bg-slate-950 text-emerald-200">
         <div className="text-center">
           <Crosshair className="mx-auto mb-3 h-8 w-8 animate-pulse" />
           <p className="text-sm uppercase tracking-widest">Indlæser mission...</p>
@@ -1317,10 +1487,10 @@ function PlayScreen() {
 
   if (loadError) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#050816] px-6 text-center text-white">
-        <div className="max-w-md rounded-2xl border border-red-400/30 bg-red-500/10 p-6">
+      <div className="flex h-screen items-center justify-center bg-slate-950 px-6 text-center text-white">
+        <div className="max-w-md rounded-2xl border border-rose-400/30 bg-rose-500/10 p-6 backdrop-blur-xl">
           <AlertCircle className="mx-auto mb-3 h-8 w-8 text-red-300" />
-          <p className="font-semibold">{loadError}</p>
+          <p className={`font-semibold ${wrapTextClass}`}>{loadError}</p>
         </div>
       </div>
     );
@@ -1340,13 +1510,13 @@ function PlayScreen() {
 
   if (!hasConfirmedName && !isFinished) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#050816] px-6 text-white">
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
         <form
           onSubmit={handleNameSubmit}
-          className="w-full max-w-xl rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_0_28px_rgba(56,189,248,0.2)] backdrop-blur-md"
+          className="w-full max-w-xl rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_0_28px_rgba(16,185,129,0.18)] backdrop-blur-xl"
         >
           <h1 className="mb-5 text-2xl font-black tracking-wide uppercase">Klar til at starte?</h1>
-          <label htmlFor="player-name" className="mb-2 block text-sm font-semibold text-cyan-100">
+          <label htmlFor="player-name" className="mb-2 block text-sm font-semibold text-emerald-100">
             Dit/jeres rigtige navn(e)
           </label>
           <input
@@ -1358,20 +1528,20 @@ function PlayScreen() {
               if (nameError) setNameError(null);
             }}
             placeholder="Dit/jeres rigtige navn(e)"
-            className="w-full rounded-xl border border-white/20 bg-black/40 px-4 py-3 text-base text-white placeholder:text-white/45 focus:border-cyan-400/60 focus:outline-none"
+            className="w-full rounded-xl border border-white/20 bg-black/40 px-4 py-3 text-base text-white placeholder:text-white/45 focus:border-emerald-400/60 focus:outline-none"
           />
-          <p className="mt-3 text-sm text-white/80">
+          <p className={`mt-3 text-sm text-white/80 ${wrapTextClass}`}>
             Skriv dit rigtige navn. Hvis I er en gruppe, så skriv alle navnene (f.eks. &quot;Ali,
             Emma &amp; Sofie&quot;). Brug ikke opdigtede navne.
           </p>
           {nameError ? (
-            <div className="mt-4 rounded-xl border border-red-400/50 bg-red-500/15 px-4 py-3 text-sm font-semibold text-red-100">
+            <div className={`mt-4 rounded-xl border border-red-400/50 bg-red-500/15 px-4 py-3 text-sm font-semibold text-red-100 ${wrapTextClass}`}>
               {nameError}
             </div>
           ) : null}
           <button
             type="submit"
-            className="mt-6 w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-3 text-base font-black tracking-wide text-[#03101c] uppercase transition-transform hover:scale-[1.01]"
+            className="mt-6 w-full rounded-xl bg-gradient-to-r from-emerald-400 to-sky-400 px-4 py-3 text-base font-black tracking-wide text-[#03110d] uppercase transition-transform hover:scale-[1.01]"
           >
             Start Løb
           </button>
@@ -1386,14 +1556,14 @@ function PlayScreen() {
         <div className="w-full max-w-2xl rounded-3xl border border-red-400/40 bg-red-900/20 p-8 shadow-[0_0_40px_rgba(239,68,68,0.25)] backdrop-blur-md">
           <div className="mb-4 flex items-center gap-3 text-red-200">
             <AlertCircle className="h-7 w-7" />
-            <h1 className="break-words hyphens-auto text-2xl font-black md:text-3xl">
+            <h1 className={`text-2xl font-black md:text-3xl ${wrapTextClass}`}>
               {gpsErrorContent.title}
             </h1>
           </div>
-          <p className="mb-5 break-words hyphens-auto text-red-50">
+          <p className={`mb-5 text-red-50 ${wrapTextClass}`}>
             {gpsErrorContent.message}
           </p>
-          <p className="break-words hyphens-auto text-sm text-red-100/90">{gpsErrorContent.helper}</p>
+          <p className={`text-sm text-red-100/90 ${wrapTextClass}`}>{gpsErrorContent.helper}</p>
           <button
             type="button"
             onClick={() => window.location.reload()}
@@ -1460,14 +1630,16 @@ function PlayScreen() {
               <p className="text-[11px] font-semibold tracking-[0.28em] text-amber-200/70 uppercase">
                 Hold
               </p>
-              <p className="mt-2 break-words text-xl font-black text-amber-50">{activeTeamName}</p>
+              <p className={`mt-2 text-xl font-black text-amber-50 ${wrapTextClass}`}>
+                {activeTeamName}
+              </p>
             </div>
 
             <form onSubmit={handleMasterLockSubmit} className="mt-6 space-y-4">
               <input
                 type="text"
                 value={masterLockInput}
-                disabled={masterLockStatus === "unlocked"}
+                disabled={masterLockStatus === "unlocked" || isFinalizingEscape}
                 onChange={(event) => {
                   setMasterLockInput(event.target.value.toLocaleUpperCase("da-DK"));
                   if (masterLockError) setMasterLockError(null);
@@ -1477,7 +1649,7 @@ function PlayScreen() {
               />
 
               {masterLockError ? (
-                <div className="rounded-2xl border border-red-300/25 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-100">
+                <div className={`rounded-2xl border border-red-300/25 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-100 ${wrapTextClass}`}>
                   {masterLockError}
                 </div>
               ) : null}
@@ -1498,9 +1670,10 @@ function PlayScreen() {
               ) : (
                 <button
                   type="submit"
+                  disabled={isFinalizingEscape}
                   className="w-full rounded-2xl border border-amber-400/30 bg-amber-400/90 px-5 py-4 text-base font-black tracking-[0.24em] text-slate-950 uppercase transition hover:bg-amber-300"
                 >
-                  Bryd låsen op
+                  {isFinalizingEscape ? "Åbner låsen..." : "Bryd låsen op"}
                 </button>
               )}
             </form>
@@ -1510,10 +1683,140 @@ function PlayScreen() {
     );
   }
 
+  if (isFinished && isEscapeRace && showEscapeResults) {
+    return (
+      <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-950 px-6 py-10 text-white">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.2),transparent_30%),radial-gradient(circle_at_18%_18%,rgba(16,185,129,0.12),transparent_24%),radial-gradient(circle_at_82%_12%,rgba(139,92,246,0.12),transparent_24%),linear-gradient(180deg,rgba(3,7,18,0.78)_0%,rgba(2,6,23,0.92)_55%,rgba(2,6,23,1)_100%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom,rgba(120,53,15,0.4),transparent_36%)] blur-3xl" />
+
+        <div className="relative z-10 w-full max-w-4xl overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900/78 p-8 shadow-[0_32px_90px_rgba(2,6,23,0.56)] backdrop-blur-2xl sm:p-10">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.08),transparent_28%)]" />
+
+          <div className="relative">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="max-w-2xl">
+                <p className="text-xs font-semibold tracking-[0.32em] text-amber-200/70 uppercase">
+                  Escape-finale
+                </p>
+                <h1 className={`mt-3 text-3xl font-black text-white sm:text-4xl ${wrapTextClass}`}>
+                  I slap ud af skoven
+                </h1>
+                <p className={`mt-4 text-base leading-7 text-amber-50/85 sm:text-lg ${wrapTextClass}`}>
+                  Her er jeres placering, nu hvor master-låsen er brudt op og målgangen er registreret.
+                </p>
+              </div>
+
+              <div className="rounded-[1.6rem] border border-amber-300/20 bg-amber-500/10 px-5 py-4 text-left shadow-[0_18px_40px_rgba(245,158,11,0.12)]">
+                <p className="text-[11px] font-semibold tracking-[0.28em] text-amber-200/70 uppercase">
+                  Hold
+                </p>
+                <p className={`mt-2 text-xl font-black text-amber-50 ${wrapTextClass}`}>
+                  {activeTeamName}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-8 grid gap-4 lg:grid-cols-[1.1fr,1.3fr]">
+              <div className="rounded-[1.8rem] border border-emerald-300/18 bg-emerald-950/35 p-6 shadow-[0_20px_45px_rgba(16,185,129,0.12)] backdrop-blur-xl">
+                <p className="text-xs font-semibold tracking-[0.26em] text-emerald-200/70 uppercase">
+                  Jeres placering
+                </p>
+
+                {isLoadingEscapeResults ? (
+                  <div className="mt-5 flex items-center gap-3 text-emerald-100/80">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className={wrapTextClass}>Henter ranglisten...</span>
+                  </div>
+                ) : myEscapePlacement ? (
+                  <>
+                    <p className="mt-4 text-5xl font-black text-emerald-200">
+                      {formatPlacement(myEscapePlacement.place)}
+                    </p>
+                    <p className={`mt-3 text-sm text-emerald-50/80 ${wrapTextClass}`}>
+                      Registreret kl. {formatFinishedAt(myEscapePlacement.finishedAt)}
+                    </p>
+                  </>
+                ) : (
+                  <p className={`mt-4 text-sm text-emerald-50/80 ${wrapTextClass}`}>
+                    Jeres placering bliver opdateret, så snart målgangen er synkroniseret.
+                  </p>
+                )}
+              </div>
+
+              <div className="rounded-[1.8rem] border border-violet-300/18 bg-violet-950/24 p-6 shadow-[0_20px_45px_rgba(91,33,182,0.14)] backdrop-blur-xl">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold tracking-[0.26em] text-violet-200/70 uppercase">
+                    Rangliste
+                  </p>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold tracking-[0.22em] text-white/60 uppercase">
+                    {escapeResults.length} hold
+                  </span>
+                </div>
+
+                {isLoadingEscapeResults ? (
+                  <div className="mt-5 flex items-center gap-3 text-violet-100/80">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className={wrapTextClass}>Henter placeringer...</span>
+                  </div>
+                ) : escapeResultsError ? (
+                  <div className="mt-5 rounded-[1.35rem] border border-rose-300/20 bg-rose-500/10 px-4 py-4 text-sm text-rose-100">
+                    <p className={wrapTextClass}>{escapeResultsError}</p>
+                  </div>
+                ) : escapeResults.length > 0 ? (
+                  <div className="mt-5 space-y-3">
+                    {escapeResults.map((entry) => {
+                      const isCurrentTeam =
+                        entry.studentName.trim().toLocaleLowerCase("da-DK") === normalizedActiveTeamName;
+
+                      return (
+                        <div
+                          key={`${entry.studentName}-${entry.place}`}
+                          className={`rounded-[1.35rem] border px-4 py-3 backdrop-blur-md ${
+                            isCurrentTeam
+                              ? "border-amber-300/30 bg-amber-500/12 shadow-[0_16px_34px_rgba(245,158,11,0.12)]"
+                              : "border-white/10 bg-black/18"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold tracking-[0.22em] text-white/45 uppercase">
+                                {formatPlacement(entry.place)}
+                              </p>
+                              <p className={`mt-1 text-lg font-black text-white ${wrapTextClass}`}>
+                                {entry.studentName}
+                              </p>
+                            </div>
+                            <p className="shrink-0 text-sm font-semibold text-amber-100/80">
+                              {formatFinishedAt(entry.finishedAt)}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className={`mt-5 text-sm text-violet-100/80 ${wrapTextClass}`}>
+                    Ingen placeringer er registreret endnu.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-8 rounded-[1.5rem] border border-white/10 bg-black/20 px-5 py-4 text-sm text-amber-50/85 backdrop-blur-xl">
+              <p className={wrapTextClass}>
+                Kig op på arrangørens skærm, hvis I også vil se den store fælles finale.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isFinished) {
     return (
-      <div className="relative flex min-h-screen w-full flex-col items-center overflow-hidden bg-[#050816] px-6 py-10 text-white">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_20%,rgba(16,185,129,0.25),transparent_40%),radial-gradient(circle_at_80%_10%,rgba(251,191,36,0.22),transparent_42%),radial-gradient(circle_at_50%_90%,rgba(244,114,182,0.2),transparent_40%)]" />
+      <div className="relative flex min-h-screen w-full flex-col items-center overflow-hidden bg-slate-950 px-6 py-10 text-white">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_20%,rgba(16,185,129,0.25),transparent_40%),radial-gradient(circle_at_80%_10%,rgba(251,191,36,0.22),transparent_42%),radial-gradient(circle_at_50%_90%,rgba(139,92,246,0.16),transparent_40%)]" />
         <div className="pointer-events-none absolute inset-0 opacity-80">
           <Player
             autoplay
@@ -1526,7 +1829,7 @@ function PlayScreen() {
           {Array.from({ length: 20 }).map((_, index) => (
             <span
               key={`student-confetti-${index}`}
-              className="absolute h-2.5 w-2.5 animate-pulse rounded-full bg-gradient-to-br from-yellow-300 via-pink-300 to-cyan-300 shadow-[0_0_10px_rgba(255,255,255,0.35)]"
+              className="absolute h-2.5 w-2.5 animate-pulse rounded-full bg-gradient-to-br from-amber-300 via-emerald-300 to-violet-300 shadow-[0_0_10px_rgba(255,255,255,0.35)]"
               style={{
                 top: `${(index * 29) % 100}%`,
                 left: `${(index * 17) % 100}%`,
@@ -1545,10 +1848,10 @@ function PlayScreen() {
             <br />
             Fuldført!
           </h1>
-          <p className="mb-3 text-lg font-bold text-emerald-100">
+          <p className={`mb-3 text-lg font-bold text-emerald-100 ${wrapTextClass}`}>
             Fantastisk gået, {playerName || "mester"}!
           </p>
-          <p className="mb-6 text-sm font-semibold tracking-wide text-amber-100 uppercase">
+          <p className={`mb-6 text-sm font-semibold tracking-wide text-amber-100 uppercase ${wrapTextClass}`}>
             KÆMPE TILLYKKE, {celebrationName}! I er GPS MESTRE!
           </p>
           <div className="rounded-xl border border-white/20 bg-black/35 px-4 py-3 text-sm font-medium text-slate-100">
@@ -1584,7 +1887,7 @@ function PlayScreen() {
                     <p className="text-[11px] font-semibold tracking-[0.28em] text-white/45 uppercase">
                       Holdnavn
                     </p>
-                    <p className="mt-2 break-words text-2xl font-black text-white">
+                    <p className={`mt-2 text-2xl font-black text-white ${wrapTextClass}`}>
                       {activeTeamName}
                     </p>
                     <p className="mt-2 text-sm text-emerald-100/70">
@@ -1670,15 +1973,15 @@ function PlayScreen() {
 
         {latestMessage ? (
           <div className="animate-in slide-in-from-top fade-in duration-500">
-            <div className="flex items-start gap-3 rounded-[1.5rem] border border-white/10 bg-slate-900/78 p-4 shadow-[0_18px_40px_rgba(6,182,212,0.14)] backdrop-blur-xl">
-              <div className="mt-0.5 rounded-full border border-cyan-400/20 bg-cyan-400/10 p-2 text-cyan-300">
+            <div className="flex items-start gap-3 rounded-[1.5rem] border border-white/10 bg-slate-900/78 p-4 shadow-[0_18px_40px_rgba(14,165,233,0.14)] backdrop-blur-xl">
+              <div className="mt-0.5 rounded-full border border-sky-400/20 bg-sky-400/10 p-2 text-sky-300">
                 <AlertCircle className="h-4 w-4" />
               </div>
               <div>
-                <div className="mb-1 text-xs font-bold tracking-[0.24em] text-cyan-300/80 uppercase">
+                <div className="mb-1 text-xs font-bold tracking-[0.24em] text-sky-300/80 uppercase">
                   Besked fra arrangøren
                 </div>
-                <div className="text-sm font-medium text-white">{latestMessage}</div>
+                <div className={`text-sm font-medium text-white ${wrapTextClass}`}>{latestMessage}</div>
               </div>
             </div>
           </div>
@@ -1690,7 +1993,7 @@ function PlayScreen() {
               <div className="mt-0.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 p-2 text-emerald-300">
                 <CheckCircle2 className="h-4 w-4" />
               </div>
-              <div className="text-sm font-medium text-white">{resumeMessage}</div>
+              <div className={`text-sm font-medium text-white ${wrapTextClass}`}>{resumeMessage}</div>
             </div>
           </div>
         ) : null}
@@ -1717,8 +2020,8 @@ function PlayScreen() {
             {activeQuestion ? (
               <Marker position={[activeQuestion.lat, activeQuestion.lng]} icon={targetIcon}>
                 <Popup>
-                  <div className="text-sm">
-                    <div className="mb-1 flex items-center gap-2 font-semibold text-cyan-500">
+                  <div className={`text-sm ${wrapTextClass}`}>
+                    <div className="mb-1 flex items-center gap-2 font-semibold text-amber-600">
                       <MapPin className="h-4 w-4" />
                       Næste post
                     </div>
@@ -1738,17 +2041,17 @@ function PlayScreen() {
 
         <div className="pointer-events-none absolute right-4 bottom-6 left-4 z-[900] flex justify-center">
           <div className="rounded-full border border-white/10 bg-slate-900/78 px-3 py-2 text-xs text-emerald-100/80 shadow-[0_18px_30px_rgba(15,23,42,0.4)] backdrop-blur-md">
-            Hold kursen mod den cyan markør
+            Hold kursen mod den ravgule markør
           </div>
         </div>
       </div>
 
       {showQuestion && activeQuestion ? (
-        <div className="animate-in fade-in zoom-in absolute inset-0 z-[2000] flex flex-col items-center justify-center overflow-y-auto bg-[#050816]/90 p-6 backdrop-blur-xl duration-300">
-          <div className="w-full max-w-md overflow-hidden rounded-3xl border border-white/20 bg-slate-950/80 p-8 shadow-2xl shadow-cyan-950/40 backdrop-blur-xl">
-            <div className="mb-6 flex items-center gap-3 text-cyan-400">
+        <div className="animate-in fade-in zoom-in absolute inset-0 z-[2000] flex flex-col items-center justify-center overflow-y-auto bg-slate-950/90 p-6 backdrop-blur-xl duration-300">
+          <div className="w-full max-w-md overflow-hidden rounded-3xl border border-white/20 bg-slate-950/80 p-8 shadow-2xl shadow-emerald-950/30 backdrop-blur-xl">
+            <div className="mb-6 flex items-center gap-3 text-emerald-300">
               <CheckCircle2 size={32} />
-              <h2 className="break-words hyphens-auto text-2xl font-black uppercase">
+              <h2 className={`text-2xl font-black uppercase ${wrapTextClass}`}>
                 Post Fundet!
               </h2>
             </div>
@@ -1769,14 +2072,14 @@ function PlayScreen() {
 
             {activePostVariant === "quiz" ? (
               <>
-                <p className="mb-8 break-words hyphens-auto text-xl font-bold">{activeQuestion.text}</p>
+                <p className={`mb-8 text-xl font-bold ${wrapTextClass}`}>{activeQuestion.text}</p>
 
                 <div className="space-y-3">
                   {activeQuestion.answers.map((answer: string, idx: number) => (
                     <button
                       key={idx}
                       onClick={() => handleAnswer(idx)}
-                      className="w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 p-4 text-left font-medium break-words hyphens-auto transition-all hover:border-purple-500/50 hover:bg-purple-500/20"
+                      className={`w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 p-4 text-left font-medium transition-all hover:border-emerald-400/50 hover:bg-emerald-500/18 ${wrapTextClass}`}
                     >
                       {answer}
                     </button>
@@ -1788,10 +2091,10 @@ function PlayScreen() {
             {activePostVariant === "photo" ? (
               <div className="space-y-6 overflow-hidden">
                 <div className="overflow-hidden rounded-3xl border border-sky-400/20 bg-sky-950/35 p-5">
-                  <p className="break-words hyphens-auto text-xs font-semibold tracking-[0.24em] text-sky-200/70 uppercase">
+                  <p className={`text-xs font-semibold tracking-[0.24em] text-sky-200/70 uppercase ${wrapTextClass}`}>
                     Foto-mission
                   </p>
-                  <p className="mt-3 break-words hyphens-auto text-xl font-bold text-white">
+                  <p className={`mt-3 text-xl font-bold text-white ${wrapTextClass}`}>
                     {activeQuestion.text}
                   </p>
                 </div>
@@ -1829,18 +2132,18 @@ function PlayScreen() {
                         : "border-orange-300/30 bg-orange-500/15 text-orange-50 shadow-orange-950/30"
                     }`}
                   >
-                    <p className="break-words hyphens-auto font-semibold">
+                    <p className={`font-semibold ${wrapTextClass}`}>
                       {activePhotoFeedback.message}
                     </p>
                   </div>
                 ) : null}
 
                 {isAnalyzingPhoto ? (
-                  <p className="break-words hyphens-auto text-center text-sm text-sky-100/70">
+                  <p className={`text-center text-sm text-sky-100/70 ${wrapTextClass}`}>
                     AI&apos;en vurderer dit billede. Vent et øjeblik...
                   </p>
                 ) : (
-                  <p className="break-words hyphens-auto text-center text-sm text-sky-100/70">
+                  <p className={`text-center text-sm text-sky-100/70 ${wrapTextClass}`}>
                     Tag et billede af motivet, så vurderer AI&apos;en det automatisk.
                   </p>
                 )}
@@ -1850,10 +2153,10 @@ function PlayScreen() {
             {activePostVariant === "escape" ? (
               <div className="space-y-5 overflow-hidden">
                 <div className="overflow-hidden rounded-3xl border border-amber-300/15 bg-amber-950/25 p-5">
-                  <p className="break-words hyphens-auto text-xs font-semibold tracking-[0.24em] text-amber-200/70 uppercase">
+                  <p className={`text-xs font-semibold tracking-[0.24em] text-amber-200/70 uppercase ${wrapTextClass}`}>
                     Escape Room
                   </p>
-                  <p className="mt-3 break-words hyphens-auto text-xl font-bold text-white">
+                  <p className={`mt-3 text-xl font-bold text-white ${wrapTextClass}`}>
                     {activeQuestion.text}
                   </p>
                 </div>
@@ -1866,17 +2169,17 @@ function PlayScreen() {
                           🔑
                         </div>
                         <div className="min-w-0">
-                          <p className="break-words hyphens-auto text-xs font-semibold tracking-[0.24em] text-amber-200/80 uppercase">
+                          <p className={`text-xs font-semibold tracking-[0.24em] text-amber-200/80 uppercase ${wrapTextClass}`}>
                             Kode-brik fundet
                           </p>
-                          <p className="mt-2 break-words hyphens-auto text-xl font-black text-amber-50">
+                          <p className={`mt-2 text-xl font-black text-amber-50 ${wrapTextClass}`}>
                             {activeEscapeReward}
                           </p>
                         </div>
                       </div>
                     </div>
 
-                    <p className="break-words hyphens-auto text-sm text-amber-100/85">
+                    <p className={`text-sm text-amber-100/85 ${wrapTextClass}`}>
                       Skriv koden ned! Du skal bruge den til at bryde helt ud til sidst.
                     </p>
 
@@ -1910,11 +2213,11 @@ function PlayScreen() {
                     </div>
 
                     {activeTypedAnswerError ? (
-                      <p className="break-words hyphens-auto text-sm text-amber-200/85">
+                      <p className={`text-sm text-amber-200/85 ${wrapTextClass}`}>
                         {activeTypedAnswerError}
                       </p>
                     ) : (
-                      <p className="break-words hyphens-auto text-sm text-white/60">
+                      <p className={`text-sm text-white/60 ${wrapTextClass}`}>
                         Ved korrekt svar får I udleveret næste kode-brik.
                       </p>
                     )}
@@ -1944,10 +2247,10 @@ function PlayScreen() {
                     </div>
 
                     <div className="min-w-0">
-                      <p className="break-words hyphens-auto text-xs font-semibold tracking-[0.24em] text-violet-200/75 uppercase">
+                      <p className={`text-xs font-semibold tracking-[0.24em] text-violet-200/75 uppercase ${wrapTextClass}`}>
                         Tidsmaskinen
                       </p>
-                      <p className="mt-1 break-words hyphens-auto text-lg font-black text-white">
+                      <p className={`mt-1 text-lg font-black text-white ${wrapTextClass}`}>
                         {roleplayCharacterName}
                       </p>
                     </div>
@@ -1956,18 +2259,18 @@ function PlayScreen() {
 
                 <div className="relative ml-2 overflow-hidden rounded-[1.75rem] border border-violet-300/20 bg-slate-800/60 p-5 shadow-[0_18px_40px_rgba(59,130,246,0.16)] backdrop-blur-xl">
                   <span className="absolute -left-2 top-6 h-4 w-4 rotate-45 rounded-[0.45rem] border-l border-t border-violet-300/20 bg-slate-800/60" />
-                  <p className="break-words hyphens-auto pr-1 text-sm leading-relaxed text-white">
+                  <p className={`pr-1 text-sm leading-relaxed text-white ${wrapTextClass}`}>
                     {activeQuestion.text}
                   </p>
                 </div>
 
                 {activeRoleplayReply ? (
                   <div className="space-y-4 overflow-hidden rounded-[1.75rem] border border-violet-300/25 bg-violet-950/35 p-5 shadow-[0_20px_45px_rgba(91,33,182,0.22)] backdrop-blur-xl">
-                    <p className="break-words hyphens-auto text-xs font-semibold tracking-[0.24em] text-violet-200/75 uppercase">
+                    <p className={`text-xs font-semibold tracking-[0.24em] text-violet-200/75 uppercase ${wrapTextClass}`}>
                       Svar fra {roleplayCharacterName}
                     </p>
                     <div className="rounded-[1.35rem] border border-violet-200/15 bg-white/6 p-4">
-                      <p className="break-words hyphens-auto text-sm leading-relaxed text-violet-50">
+                      <p className={`text-sm leading-relaxed text-violet-50 ${wrapTextClass}`}>
                         {activeRoleplayReply}
                       </p>
                     </div>
@@ -2004,11 +2307,11 @@ function PlayScreen() {
                     </div>
 
                     {activeTypedAnswerError ? (
-                      <p className="mt-3 break-words hyphens-auto text-sm text-violet-200/85">
+                      <p className={`mt-3 text-sm text-violet-200/85 ${wrapTextClass}`}>
                         {activeTypedAnswerError}
                       </p>
                     ) : (
-                      <p className="mt-3 break-words hyphens-auto text-sm text-white/60">
+                      <p className={`mt-3 text-sm text-white/60 ${wrapTextClass}`}>
                         Svar rigtigt for at drive historien videre til næste post.
                       </p>
                     )}
@@ -2019,13 +2322,13 @@ function PlayScreen() {
 
             {activePostVariant === "unknown" ? (
               <div className="space-y-4 overflow-hidden rounded-3xl border border-amber-300/20 bg-amber-950/20 p-5">
-                <p className="break-words hyphens-auto text-xs font-semibold tracking-[0.24em] text-amber-200/70 uppercase">
+                <p className={`text-xs font-semibold tracking-[0.24em] text-amber-200/70 uppercase ${wrapTextClass}`}>
                   Ukendt post
                 </p>
-                <h3 className="break-words hyphens-auto text-xl font-black text-white">
+                <h3 className={`text-xl font-black text-white ${wrapTextClass}`}>
                   ⚠️ Ukendt post-type
                 </h3>
-                <p className="break-words hyphens-auto text-sm leading-relaxed text-white/80">
+                <p className={`text-sm leading-relaxed text-white/80 ${wrapTextClass}`}>
                   Noget gik galt med dataen for denne post. Kontakt din underviser.
                 </p>
               </div>
@@ -2042,7 +2345,7 @@ export default function PlayPage() {
     <>
       <Suspense
         fallback={
-          <div className="flex h-screen items-center justify-center bg-[#050816] text-cyan-300">
+          <div className="flex h-screen items-center justify-center bg-slate-950 text-emerald-200">
             <Crosshair className="h-8 w-8 animate-spin" />
           </div>
         }

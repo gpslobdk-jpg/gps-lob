@@ -209,6 +209,10 @@ function fallbackCodeBrick(index: number) {
   return `Du har fundet kode-brik ${index + 1}!`;
 }
 
+function normalizeMasterCode(value: string) {
+  return value.toLocaleUpperCase("da-DK").replace(/[^0-9A-ZÆØÅ]/g, "");
+}
+
 function parseEscapeText(rawText: string, index: number) {
   const trimmedText = rawText.trim();
   if (!trimmedText) {
@@ -231,6 +235,7 @@ function parseEscapeText(rawText: string, index: number) {
 export default function EscapeBuilderPage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
+  const [masterCode, setMasterCode] = useState("");
   const [subject, setSubject] = useState("");
   const [showTeacherField, setShowTeacherField] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
@@ -478,6 +483,12 @@ export default function EscapeBuilderPage() {
       return;
     }
 
+    const normalizedMasterCode = normalizeMasterCode(masterCode);
+    if (!normalizedMasterCode) {
+      alert("Udfyld master-koden til finalen.");
+      return;
+    }
+
     setIsSaving(true);
 
     try {
@@ -496,7 +507,7 @@ export default function EscapeBuilderPage() {
         user_id: user.id,
         title: title.trim(),
         subject: subject.trim() || "Generelt",
-        description: "",
+        description: JSON.stringify({ masterCode: normalizedMasterCode }),
         topic: aiRunBrief.trim() || aiTopic || "",
         questions: normalizedQuestions,
       });
@@ -508,6 +519,7 @@ export default function EscapeBuilderPage() {
       alert("Escape room-løbet er gemt i arkivet!");
 
       setTitle("");
+      setMasterCode("");
       setSubject("");
       setShowTeacherField(false);
       setQuestions([createQuestion()]);
@@ -543,6 +555,23 @@ export default function EscapeBuilderPage() {
                 <p className="mt-3 text-sm leading-relaxed text-amber-100/75">
                   Kort fortalt: Skriv en gåde. Når deltagerne indtaster det rigtige svar, får de
                   udleveret en hemmelig kode-brik.
+                </p>
+              </div>
+
+              <div className="rounded-[2rem] border border-amber-500/20 bg-amber-950/50 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
+                  Master-kode til finalen
+                </label>
+                <input
+                  value={masterCode}
+                  onChange={(event) => setMasterCode(normalizeMasterCode(event.target.value))}
+                  placeholder="fx SKOV42"
+                  className={textInputClass}
+                  maxLength={12}
+                />
+                <p className="mt-3 text-sm leading-relaxed text-amber-100/75">
+                  Denne kode gemmes i løbets metadata og er den samlede kode, holdene skal taste
+                  ind i master-låsen til sidst.
                 </p>
               </div>
 

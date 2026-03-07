@@ -2,17 +2,17 @@
 
 import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, KeyRound, Leaf, Loader2, Timer, User } from "lucide-react";
+import { AlertCircle, ArrowLeft, KeyRound, Leaf, Loader2, Timer, User } from "lucide-react";
 
 import {
-  getRunSchedule,
   getRunScheduleGate,
+  inspectRunSchedule,
   type RunRecord,
   type RunSchedule,
 } from "@/utils/runSchedule";
 import { createClient } from "@/utils/supabase/client";
 
-type JoinView = "form" | "waiting" | "scheduled" | "expired";
+type JoinView = "form" | "waiting" | "scheduled" | "expired" | "scheduleError";
 
 type LiveSessionRow = {
   id?: string | number | null;
@@ -210,9 +210,10 @@ function JoinForm() {
 
         if (finishedSession?.run_id) {
           const finishedRun = await fetchRunDetails(String(finishedSession.run_id)).catch(() => null);
+          const finishedScheduleResult = finishedRun ? inspectRunSchedule(finishedRun) : null;
           setRunTitle(typeof finishedRun?.title === "string" ? finishedRun.title : "");
-          setSchedule(finishedRun ? getRunSchedule(finishedRun) : null);
-          setView("expired");
+          setSchedule(finishedScheduleResult?.schedule ?? null);
+          setView(getRunScheduleGate(finishedScheduleResult) === "error" ? "scheduleError" : "expired");
           return;
         }
 
@@ -221,12 +222,18 @@ function JoinForm() {
       }
 
       const runData = await fetchRunDetails(String(activeSession.run_id));
-      const runSchedule = runData ? getRunSchedule(runData) : null;
-      const scheduleGate = getRunScheduleGate(runSchedule);
+      const runScheduleResult = runData ? inspectRunSchedule(runData) : null;
+      const runSchedule = runScheduleResult?.schedule ?? null;
+      const scheduleGate = getRunScheduleGate(runScheduleResult);
       const resolvedTitle = typeof runData?.title === "string" ? runData.title : "";
 
       setRunTitle(resolvedTitle);
       setSchedule(runSchedule);
+
+      if (scheduleGate === "error") {
+        setView("scheduleError");
+        return;
+      }
 
       if (scheduleGate === "expired") {
         setView("expired");
@@ -351,6 +358,45 @@ function JoinForm() {
             {runTitle ? (
               <p className="mt-5 text-sm font-semibold text-emerald-100/70">{runTitle}</p>
             ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === "scheduleError") {
+    return (
+      <div className="mx-auto flex h-full w-full max-w-2xl items-center justify-center px-6 py-10">
+        <div className="relative w-full overflow-hidden rounded-[2rem] border border-rose-100/12 bg-[linear-gradient(160deg,rgba(34,16,14,0.88),rgba(20,8,8,0.8))] p-8 text-center text-white shadow-[0_32px_90px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-10">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(251,113,133,0.16),transparent_30%),linear-gradient(140deg,rgba(255,255,255,0.04),transparent_42%)]" />
+
+          <div className="relative">
+            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border border-rose-200/18 bg-rose-300/[0.08] shadow-[0_0_36px_rgba(251,113,133,0.14)]">
+              <AlertCircle className="h-10 w-10 text-rose-100" />
+            </div>
+
+            <p className="mt-6 text-xs font-semibold tracking-[0.38em] text-rose-100/55 uppercase">
+              Tidsplan utilgængelig
+            </p>
+            <h1 className="mt-4 text-3xl font-black text-white sm:text-4xl">
+              Kunne ikke læse tidsplanen
+            </h1>
+            <p className="mx-auto mt-4 max-w-lg text-base leading-7 text-rose-50/80 sm:text-lg">
+              Kunne ikke læse tidsplanen. Kontakt arrangøren.
+            </p>
+
+            {runTitle ? (
+              <p className="mt-5 text-sm font-semibold text-rose-100/70">{runTitle}</p>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={resetToForm}
+              className="mx-auto mt-8 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.08] px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/12"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Prøv en anden kode
+            </button>
           </div>
         </div>
       </div>
