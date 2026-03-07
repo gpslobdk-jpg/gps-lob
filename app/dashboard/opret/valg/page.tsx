@@ -159,17 +159,17 @@ const cards: HubCard[] = [
 export default function ValgHubPage() {
   return (
     <main
-      className={`relative min-h-screen overflow-hidden bg-gradient-to-b from-sky-300 via-emerald-50 to-emerald-200 px-6 py-12 text-emerald-950 md:px-10 lg:bg-none lg:bg-transparent ${poppins.className}`}
+      className={`relative min-h-screen overflow-hidden bg-transparent px-6 py-12 text-emerald-950 md:px-10 ${poppins.className}`}
     >
       <video
         autoPlay
         loop
         muted
         playsInline
-        className="fixed top-0 left-0 -z-20 hidden h-full w-full scale-105 object-cover brightness-[0.48] blur-sm lg:block"
+        className="fixed top-0 left-0 -z-20 h-full w-full scale-105 object-cover brightness-[0.48] blur-sm"
         src="/baggrundvalgside.mp4"
       />
-      <div className="fixed inset-0 -z-10 hidden bg-gradient-to-b from-sky-950/20 via-emerald-950/18 to-emerald-950/60 backdrop-blur-[2px] lg:block" />
+      <div className="fixed inset-0 -z-10 bg-gradient-to-b from-sky-950/20 via-emerald-950/18 to-emerald-950/60 backdrop-blur-[2px]" />
 
       <section className="relative z-10 mx-auto flex w-full max-w-6xl flex-col">
         <div className="flex flex-wrap items-center justify-between gap-4">

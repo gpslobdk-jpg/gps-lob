@@ -34,8 +34,15 @@ function normalizeAnalysisResult(raw: unknown): AnalyzePhotoResult | null {
 }
 
 export async function POST(req: Request) {
+  let payload: AnalyzePhotoPayload;
+
   try {
-    const payload = (await req.json()) as AnalyzePhotoPayload;
+    payload = (await req.json()) as AnalyzePhotoPayload;
+  } catch {
+    return NextResponse.json({ error: "Ugyldig forespørgsel." }, { status: 400 });
+  }
+
+  try {
     const image = asTrimmedString(payload.image);
     const targetObject = asTrimmedString(payload.targetObject);
 
@@ -59,7 +66,8 @@ Returner KUN et validt JSON-objekt med dette format:
 }
 Regler:
 - "isMatch" skal være true hvis motivet tydeligt er på billedet, ellers false.
-- "message" skal være en kort, sjov og opmuntrende kommentar på max 2 sætninger på dansk.
+- Svar altid på dansk.
+- "message" skal være en kort, opmuntrende kommentar på højst 2 sætninger.
 - Svar kun med valid JSON. Ingen markdown, ingen forklaringer uden for JSON.`;
 
     const response = await openai.chat.completions.create({

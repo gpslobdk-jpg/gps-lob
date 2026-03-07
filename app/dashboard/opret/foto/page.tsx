@@ -196,6 +196,11 @@ const previewInputClass =
 
 const BLANK_ANSWERS: [string, string, string, string] = ["", "", "", ""];
 
+function extractRequestedCount(text: string) {
+  const match = text.match(/\b([1-9]|1\d|20)\b/);
+  return match ? Number(match[1]) : 5;
+}
+
 function normalizePhotoInstruction(text: string, targetObject: string) {
   const trimmedText = text.trim();
   const trimmedTarget = targetObject.trim();
@@ -328,13 +333,16 @@ export default function FotoMissionBuilderPage() {
     const normalizedBrief = aiRunBrief.trim();
     const normalizedSubject = aiSubject.trim() || subject.trim() || "Generelt";
     const normalizedGrade = aiGrade.trim() || "Ikke angivet";
+    const requestedCount = extractRequestedCount(normalizedBrief);
 
     if (!normalizedBrief) {
       alert("Skriv først, hvilket terræn eller emne AI'en skal tage udgangspunkt i.");
       return;
     }
 
-    const pedagogicalContext = `Du er en natur- og aktivitetsguide. Foreslå 5 ting man kan finde og fotografere i ${normalizedBrief}, som en AI nemt kan genkende.`;
+    const pedagogicalContext =
+      `Du er en natur- og aktivitetsguide. Foreslå præcis ${requestedCount} foto-missioner i ${normalizedBrief} til niveauet ${normalizedGrade} i faget ${normalizedSubject}. ` +
+      `Hver mission skal have en kort dansk elevinstruktion i "question" og ét tydeligt målobjekt som correct answer, så AI'en let kan genkende motivet på et foto.`;
 
     setIsGenerating(true);
     setPreviewQuestions([]);
@@ -348,9 +356,10 @@ export default function FotoMissionBuilderPage() {
           subject: normalizedSubject,
           topic: normalizedBrief,
           grade: normalizedGrade,
-          count: 5,
+          count: requestedCount,
           prompt:
-            "Brug question-teksten som en kort elevinstruktion. Brug correct answer som mål-objektet, der skal genkendes af AI'en.",
+            `Lav præcis ${requestedCount} foto-missioner. Brug question-teksten som en kort dansk elevinstruktion. ` +
+            `Brug correct answer som ét konkret mål-objekt, der skal genkendes af AI'en på billedet.`,
           pedagogicalContext,
         }),
       });

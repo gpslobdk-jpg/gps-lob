@@ -214,6 +214,11 @@ function toAnswersTuple(value: unknown): [string, string, string, string] {
   return [padded[0] ?? "", padded[1] ?? "", padded[2] ?? "", padded[3] ?? ""];
 }
 
+function extractRequestedCount(text: string) {
+  const match = text.match(/\b([1-9]|1\d|20)\b/);
+  return match ? Number(match[1]) : 5;
+}
+
 const isQuestionEmpty = (question: Question) =>
   !question.text &&
   !question.aiPrompt &&
@@ -260,7 +265,6 @@ function OpretLoebPageContent() {
   const [aiSubject, setAiSubject] = useState("");
   const [aiTopic, setAiTopic] = useState("");
   const [aiGrade, setAiGrade] = useState("Mellemtrin");
-  const [aiCount] = useState(5);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [generatingImages, setGeneratingImages] = useState<Record<number, boolean>>({});
@@ -438,6 +442,7 @@ function OpretLoebPageContent() {
     const normalizedBrief = aiRunBrief.trim();
     const normalizedSubject = aiSubject.trim() || subject.trim() || "Generelt";
     const normalizedGrade = aiGrade.trim() || "Ikke angivet";
+    const requestedCount = extractRequestedCount(normalizedBrief);
 
     if (!normalizedBrief) {
       alert("Skriv først, hvad løbet skal handle om.");
@@ -447,7 +452,10 @@ function OpretLoebPageContent() {
     const teacherGrade = showAITeacherFields ? normalizedGrade : "blandet niveau";
     const teacherSubject = showAITeacherFields ? normalizedSubject : "et valgfrit fag";
 
-    const pedagogicalContext = `Du er en pædagogisk konsulent. Generer ${aiCount} GPS-løb poster til ${teacherGrade} i faget ${teacherSubject} om emnet ${normalizedBrief}.`;
+    const pedagogicalContext =
+      `Du er en pædagogisk konsulent, som designer klassiske quiz-løb. Generer præcis ${requestedCount} quiz-poster til ${teacherGrade} i faget ${teacherSubject} om emnet ${normalizedBrief}. ` +
+      `Hver post SKAL have ét tydeligt spørgsmål, præcis 4 svarmuligheder i "answers" og et gyldigt "correctIndex" mellem 0 og 3, der peger på det rigtige svar. ` +
+      `Alle spørgsmål og svar skal være på dansk, alderssvarende og passe til et GPS-løb udendørs.`;
 
     setIsGenerating(true);
     setPreviewQuestions([]);
@@ -461,8 +469,10 @@ function OpretLoebPageContent() {
           subject: normalizedSubject,
           topic: normalizedBrief,
           grade: normalizedGrade,
-          count: aiCount,
-          prompt: normalizedBrief,
+          count: requestedCount,
+          prompt:
+            `Lav præcis ${requestedCount} multiple-choice spørgsmål om ${normalizedBrief}. ` +
+            `Hvert spørgsmål skal returneres med præcis 4 svarmuligheder i answers og et correctIndex, der peger på det rigtige svar.`,
           pedagogicalContext,
         }),
       });
