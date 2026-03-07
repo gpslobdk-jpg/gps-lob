@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
-import { AlertCircle, CheckCircle2, Crosshair, Loader2, MapPin } from "lucide-react";
+import { AlertCircle, Camera, CheckCircle2, Crosshair, Loader2, MapPin } from "lucide-react";
 import Image from "next/image";
 import {
   Suspense,
@@ -322,6 +322,24 @@ function normalizeTypedAnswer(value: string) {
 
 function looksLikeImageSource(value: string) {
   return /^(https?:\/\/|\/|data:image\/)/i.test(value.trim());
+}
+
+function formatPhotoFailureMessage(message: string, isSelfie: boolean) {
+  const trimmed = message.trim();
+  if (!isSelfie) {
+    return trimmed || "Prøv igen med et tydeligere billede.";
+  }
+
+  if (!trimmed) {
+    return "Tæt på! Prøv igen med både ansigtet og baggrunden tydeligt i billedet.";
+  }
+
+  const normalized = trimmed.toLocaleLowerCase("da-DK");
+  if (normalized.includes("ansigt") || normalized.includes("baggrund") || normalized.includes("motiv")) {
+    return trimmed;
+  }
+
+  return `Tæt på! ${trimmed}`;
 }
 
 function readFileAsDataUri(file: File) {
@@ -1258,6 +1276,7 @@ function PlayScreen() {
   const activeTypedAnswerError =
     typedAnswerError?.key === activeTypedAnswerKey ? typedAnswerError.message : null;
   const activePhotoFeedback = photoFeedback?.key === activeTypedAnswerKey ? photoFeedback : null;
+  const isSelfiePhotoTask = activePostVariant === "photo" && activeQuestion?.isSelfie === true;
   const activeEscapeReward = escapeReward?.key === activeTypedAnswerKey ? escapeReward.reward : null;
   const activeRoleplayReply = roleplayReply?.key === activeTypedAnswerKey ? roleplayReply.message : null;
   const gpsErrorContent =
@@ -1374,6 +1393,7 @@ function PlayScreen() {
     event.target.value = "";
 
     if (!file || !activeQuestion || activePostVariant !== "photo" || isAnalyzingPhoto) return;
+    const isSelfie = activeQuestion.isSelfie === true;
 
     const targetObject = activeQuestion.answers[0]?.trim() || activeQuestion.aiPrompt?.trim() || "";
 
@@ -1381,7 +1401,9 @@ function PlayScreen() {
       setPhotoFeedback({
         key: activeTypedAnswerKey,
         tone: "error",
-        message: "Denne mission mangler et motiv. Kontakt din underviser.",
+        message: isSelfie
+          ? "Denne selfie-post mangler et baggrundsmotiv. Kontakt din arrangør."
+          : "Denne mission mangler et motiv. Kontakt din underviser.",
       });
       return;
     }
@@ -1399,7 +1421,7 @@ function PlayScreen() {
         body: JSON.stringify({
           image,
           targetObject,
-          isSelfie: activeQuestion.isSelfie === true,
+          isSelfie,
         }),
       });
 
@@ -1421,7 +1443,7 @@ function PlayScreen() {
         setPhotoFeedback({
           key: activeTypedAnswerKey,
           tone: "error",
-          message: payload.message,
+          message: formatPhotoFailureMessage(payload.message, isSelfie),
         });
         return;
       }
@@ -1429,7 +1451,7 @@ function PlayScreen() {
       setPhotoFeedback({
         key: activeTypedAnswerKey,
         tone: "success",
-        message: payload.message,
+        message: isSelfie ? `Selfie godkendt! ${payload.message}` : payload.message,
       });
 
       await new Promise<void>((resolve) => {
@@ -1449,7 +1471,9 @@ function PlayScreen() {
       setPhotoFeedback({
         key: activeTypedAnswerKey,
         tone: "error",
-        message: "Ups, AI'en er lidt træt. Prøv at tage billedet igen.",
+        message: isSelfie
+          ? "Vi kunne ikke læse selfien helt endnu. Prøv igen med bedre lys og få både ansigt og baggrund tydeligt med."
+          : "Ups, AI'en er lidt træt. Prøv at tage billedet igen.",
       });
     }
   };
@@ -2083,9 +2107,19 @@ function PlayScreen() {
 
             {activePostVariant === "photo" ? (
               <div className="space-y-6 overflow-hidden">
-                <div className="overflow-hidden rounded-3xl border border-sky-400/20 bg-sky-950/35 p-5">
-                  <p className={`text-xs font-semibold tracking-[0.24em] text-sky-200/70 uppercase ${wrapTextClass}`}>
-                    Foto-mission
+                <div
+                  className={`overflow-hidden rounded-3xl border p-5 ${
+                    isSelfiePhotoTask
+                      ? "border-orange-300/20 bg-[linear-gradient(145deg,rgba(154,52,18,0.34),rgba(131,24,67,0.28))]"
+                      : "border-sky-400/20 bg-sky-950/35"
+                  }`}
+                >
+                  <p
+                    className={`text-xs font-semibold tracking-[0.24em] uppercase ${wrapTextClass} ${
+                      isSelfiePhotoTask ? "text-orange-100/70" : "text-sky-200/70"
+                    }`}
+                  >
+                    {isSelfiePhotoTask ? "Selfie-jagt" : "Foto-mission"}
                   </p>
                   <p className={`mt-3 text-xl font-bold text-white ${wrapTextClass}`}>
                     {activeQuestion.text}
@@ -2096,7 +2130,7 @@ function PlayScreen() {
                   ref={photoInputRef}
                   type="file"
                   accept="image/*"
-                  capture="environment"
+                  capture={isSelfiePhotoTask ? "user" : "environment"}
                   onChange={handlePhotoCapture}
                   className="hidden"
                 />
@@ -2105,24 +2139,41 @@ function PlayScreen() {
                   type="button"
                   onClick={() => photoInputRef.current?.click()}
                   disabled={isAnalyzingPhoto || activePhotoFeedback?.tone === "success"}
-                  className="inline-flex w-full items-center justify-center gap-3 overflow-hidden rounded-full bg-sky-600 px-6 py-4 text-lg font-black text-white break-words hyphens-auto shadow-lg shadow-sky-950/40 transition-all hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-sky-700/70"
+                  className={`inline-flex w-full items-center justify-center gap-3 overflow-hidden rounded-full px-6 py-4 text-lg font-black text-white break-words hyphens-auto shadow-lg transition-all disabled:cursor-not-allowed ${
+                    isSelfiePhotoTask
+                      ? "bg-[linear-gradient(145deg,#f97316,#ec4899)] shadow-orange-950/40 hover:brightness-110 disabled:bg-[linear-gradient(145deg,rgba(249,115,22,0.5),rgba(236,72,153,0.5))]"
+                      : "bg-sky-600 shadow-sky-950/40 hover:bg-sky-500 disabled:bg-sky-700/70"
+                  }`}
                 >
                   {isAnalyzingPhoto ? (
                     <>
                       <Loader2 className="h-5 w-5 animate-spin" />
-                      AI&apos;en vurderer dit billede...
+                      {isSelfiePhotoTask
+                        ? "AI&apos;en tjekker din selfie..."
+                        : "AI&apos;en vurderer dit billede..."}
                     </>
                   ) : (
-                    "📸 Åbn Kamera"
+                    <>
+                      <Camera className="h-5 w-5" />
+                      {isSelfiePhotoTask ? "TAG SELFIE" : "ÅBN KAMERA"}
+                    </>
                   )}
                 </button>
+
+                {isSelfiePhotoTask ? (
+                  <p className={`text-center text-sm text-orange-100/72 ${wrapTextClass}`}>
+                    Frontkameraet åbner med det samme, og selfien bliver sendt automatisk til AI&apos;en.
+                  </p>
+                ) : null}
 
                 {activePhotoFeedback ? (
                   <div
                     className={`animate-in fade-in zoom-in-95 overflow-hidden rounded-2xl border px-4 py-3 text-sm shadow-lg backdrop-blur-md duration-300 ${
                       activePhotoFeedback.tone === "success"
                         ? "border-emerald-300/30 bg-emerald-500/15 text-emerald-50 shadow-emerald-950/30"
-                        : "border-orange-300/30 bg-orange-500/15 text-orange-50 shadow-orange-950/30"
+                        : isSelfiePhotoTask
+                          ? "border-orange-300/30 bg-[linear-gradient(145deg,rgba(249,115,22,0.18),rgba(236,72,153,0.16))] text-orange-50 shadow-orange-950/30"
+                          : "border-orange-300/30 bg-orange-500/15 text-orange-50 shadow-orange-950/30"
                     }`}
                   >
                     <p className={`font-semibold ${wrapTextClass}`}>
@@ -2132,12 +2183,24 @@ function PlayScreen() {
                 ) : null}
 
                 {isAnalyzingPhoto ? (
-                  <p className={`text-center text-sm text-sky-100/70 ${wrapTextClass}`}>
-                    AI&apos;en vurderer dit billede. Vent et øjeblik...
+                  <p
+                    className={`text-center text-sm ${wrapTextClass} ${
+                      isSelfiePhotoTask ? "text-orange-100/72" : "text-sky-100/70"
+                    }`}
+                  >
+                    {isSelfiePhotoTask
+                      ? "AI&apos;en tjekker både ansigt og baggrund. Vent et øjeblik..."
+                      : "AI&apos;en vurderer dit billede. Vent et øjeblik..."}
                   </p>
                 ) : (
-                  <p className={`text-center text-sm text-sky-100/70 ${wrapTextClass}`}>
-                    Tag et billede af motivet, så vurderer AI&apos;en det automatisk.
+                  <p
+                    className={`text-center text-sm ${wrapTextClass} ${
+                      isSelfiePhotoTask ? "text-orange-100/72" : "text-sky-100/70"
+                    }`}
+                  >
+                    {isSelfiePhotoTask
+                      ? "Tag selfien, så tjekker AI&apos;en automatisk både ansigtet og motivet."
+                      : "Tag et billede af motivet, så vurderer AI&apos;en det automatisk."}
                   </p>
                 )}
               </div>
