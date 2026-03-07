@@ -11,8 +11,8 @@ const PLAY_SESSION_ID =
   (__ENV.PLAY_SESSION_ID || SESSION_ID || "00000000-0000-0000-0000-000000000000").trim();
 const STUDENT_PREFIX = (__ENV.STUDENT_PREFIX || "stress-elev").trim();
 const PLAY_NAME = (__ENV.PLAY_NAME || "stress-elev").trim();
-const ENABLE_EXTERNAL = (__ENV.ENABLE_EXTERNAL || "false").toLowerCase() === "true";
-const VUS = Number(__ENV.VUS || 500);
+const ENABLE_EXTERNAL = (__ENV.ENABLE_EXTERNAL || "true").toLowerCase() === "true";
+const VUS = Number(__ENV.VUS || 250);
 const DURATION = __ENV.DURATION || "3m";
 
 const hasSupabaseConfig =
@@ -40,7 +40,8 @@ export const options = {
   noVUConnectionReuse: false,
   thresholds: {
     http_req_failed: ["rate<0.01"],
-    http_req_duration: ["p(95)<2000"],
+    page_duration: ["p(95)<1000"],
+    join_lookup_duration: ["p(95)<200"],
     scenario_failed: ["rate<0.01"],
   },
 };
