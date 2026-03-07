@@ -24,7 +24,6 @@ type HubCard = {
   surfaceClass: string;
   borderClass: string;
   titleClass: string;
-  accentTextClass: string;
 };
 
 const cards: HubCard[] = [
@@ -37,7 +36,6 @@ const cards: HubCard[] = [
     surfaceClass: "bg-emerald-50/90",
     borderClass: "border-emerald-200/50",
     titleClass: "text-emerald-950",
-    accentTextClass: "text-emerald-700",
   },
   {
     title: "AI Foto-mission",
@@ -49,7 +47,6 @@ const cards: HubCard[] = [
     surfaceClass: "bg-sky-50/90",
     borderClass: "border-sky-200/50",
     titleClass: "text-sky-950",
-    accentTextClass: "text-sky-700",
   },
   {
     title: "Escape Room i Naturen",
@@ -61,7 +58,6 @@ const cards: HubCard[] = [
     surfaceClass: "bg-amber-50/90",
     borderClass: "border-amber-200/50",
     titleClass: "text-amber-950",
-    accentTextClass: "text-amber-700",
   },
   {
     title: "Tidsmaskinen",
@@ -73,7 +69,6 @@ const cards: HubCard[] = [
     surfaceClass: "bg-violet-50/90",
     borderClass: "border-violet-200/50",
     titleClass: "text-violet-950",
-    accentTextClass: "text-violet-700",
   },
   {
     title: "Selfie-jagt",
@@ -86,13 +81,12 @@ const cards: HubCard[] = [
       "bg-[linear-gradient(145deg,rgba(255,237,213,0.95),rgba(255,228,230,0.92))]",
     borderClass: "border-orange-200/70",
     titleClass: "text-rose-950",
-    accentTextClass: "text-orange-700",
   },
 ];
 
 function CardIcon({ src, alt }: { src: string; alt: string }) {
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-14 z-0 flex justify-center">
+    <div className="pointer-events-none flex justify-center">
       <Image
         src={src}
         alt={alt}
@@ -106,10 +100,8 @@ function CardIcon({ src, alt }: { src: string; alt: string }) {
 
 function HubCardBody({ card }: { card: HubCard }) {
   return (
-    <div className="relative flex h-full flex-col justify-between">
-      <CardIcon src={card.animationUrl} alt={card.title} />
-
-      <div className="relative z-10 mt-20 flex-1 text-center">
+    <div className="relative flex h-full flex-col text-center">
+      <div className="relative z-10">
         <h2 className={`text-2xl font-black tracking-wide ${card.titleClass} ${rubik.className}`}>
           {card.title}
         </h2>
@@ -119,10 +111,8 @@ function HubCardBody({ card }: { card: HubCard }) {
         ) : null}
       </div>
 
-      <div className="mt-6">
-        <p className={`text-xs font-bold tracking-[0.18em] uppercase ${card.accentTextClass}`}>
-          Vælg løbstype
-        </p>
+      <div className="relative z-10 mt-10 flex flex-1 items-center justify-center pb-2">
+        <CardIcon src={card.animationUrl} alt={card.title} />
       </div>
     </div>
   );
@@ -137,7 +127,7 @@ function renderCard(card: HubCard, index: number) {
       className="group block h-full focus:outline-none"
     >
       <article
-        className={`relative flex h-full flex-col justify-between overflow-hidden rounded-[2rem] border p-7 shadow-lg backdrop-blur-md transition-all duration-300 group-hover:-translate-y-1 group-hover:scale-[1.01] group-hover:shadow-2xl group-focus-visible:-translate-y-1 group-focus-visible:scale-[1.01] group-focus-visible:shadow-2xl ${card.surfaceClass} ${card.borderClass}`}
+        className={`relative flex h-full flex-col overflow-hidden rounded-[2rem] border px-7 pt-6 pb-7 shadow-lg backdrop-blur-md transition-all duration-300 group-hover:-translate-y-1 group-hover:scale-[1.01] group-hover:shadow-2xl group-focus-visible:-translate-y-1 group-focus-visible:scale-[1.01] group-focus-visible:shadow-2xl ${card.surfaceClass} ${card.borderClass}`}
       >
         <HubCardBody card={card} />
       </article>
