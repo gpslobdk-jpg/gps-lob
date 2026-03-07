@@ -1,7 +1,10 @@
-import type { LucideIcon } from "lucide-react";
-import { ArrowLeft, ArrowRight, BrainCircuit, Camera, Compass, Sparkles } from "lucide-react";
+"use client";
+
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import Lottie from "lottie-react";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
+import { useEffect, useState } from "react";
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -20,14 +23,124 @@ type HubCard = {
   href?: string;
   badge: string;
   cta: string;
-  icon: LucideIcon;
+  animationUrl: string;
   surfaceClass: string;
   borderClass: string;
   titleClass: string;
   accentTextClass: string;
   accentMutedClass: string;
-  iconSurfaceClass: string;
+  animationShellClass: string;
 };
+
+const quizAnimationUrl = "/opret.json";
+const photoAnimationUrl = "/phone.json";
+const escapeAnimationUrl = "/runner.json";
+const roleplayAnimationUrl = "/nature.json";
+
+type LottieCardAnimationProps = {
+  src: string;
+  shellClass: string;
+};
+
+function LottieCardAnimation({ src, shellClass }: LottieCardAnimationProps) {
+  const [animationData, setAnimationData] = useState<unknown | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let isActive = true;
+
+    const loadAnimation = async () => {
+      try {
+        const response = await fetch(src, {
+          signal: controller.signal,
+          cache: "force-cache",
+        });
+
+        if (!response.ok) {
+          throw new Error("Animationen kunne ikke hentes.");
+        }
+
+        const nextAnimationData = (await response.json()) as unknown;
+        if (isActive) {
+          setAnimationData(nextAnimationData);
+        }
+      } catch {
+        if (isActive) {
+          setAnimationData(null);
+        }
+      }
+    };
+
+    void loadAnimation();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [src]);
+
+  return (
+    <div
+      className={`relative h-32 w-32 overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/80 shadow-[0_18px_40px_rgba(15,23,42,0.25)] backdrop-blur-xl ${shellClass}`}
+    >
+      <div className="absolute inset-3 rounded-[1.4rem] bg-white/6" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.14),transparent_65%)]" />
+      {animationData ? (
+        <Lottie animationData={animationData} loop={true} autoplay={true} className="relative z-10 h-full w-full p-2" />
+      ) : (
+        <div className="relative z-10 flex h-full w-full items-center justify-center">
+          <div className="relative h-14 w-14">
+            <span className="absolute inset-0 animate-pulse rounded-full bg-white/12" />
+            <span className="absolute inset-2 rounded-full border border-white/20" />
+            <span className="absolute inset-5 rounded-full bg-white/20" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HubCardBody({ card }: { card: HubCard }) {
+  return (
+    <div className="relative z-10 flex h-full flex-col justify-between">
+      <div>
+        <span
+          className={`inline-flex rounded-full border bg-white/75 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] uppercase ${card.borderClass} ${card.accentMutedClass}`}
+        >
+          {card.badge}
+        </span>
+
+        <div className="mt-5 flex justify-center">
+          <LottieCardAnimation src={card.animationUrl} shellClass={card.animationShellClass} />
+        </div>
+
+        <div className="mt-6 flex-1 text-center">
+          <h2 className={`text-2xl font-black tracking-wide ${card.titleClass} ${rubik.className}`}>
+            {card.title}
+          </h2>
+          <p className="mt-4 text-sm leading-relaxed text-slate-700">
+            {card.shortText}
+          </p>
+          {card.detail ? (
+            <p className="mt-4 text-sm leading-relaxed text-slate-700">
+              {card.detail}
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-6 flex items-center justify-between gap-3">
+        <p className={`text-xs font-bold tracking-[0.18em] uppercase ${card.accentTextClass}`}>
+          Vælg løbstype
+        </p>
+        <span className={`inline-flex items-center gap-2 text-sm font-semibold ${card.accentTextClass}`}>
+          {card.cta}
+          <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1 group-focus-visible:translate-x-1" />
+        </span>
+      </div>
+    </div>
+  );
+}
 
 const cards: HubCard[] = [
   {
@@ -37,13 +150,13 @@ const cards: HubCard[] = [
     href: "/dashboard/opret/manuel",
     badge: "Klar nu",
     cta: "Åbn quiz-bygger",
-    icon: BrainCircuit,
+    animationUrl: quizAnimationUrl,
     surfaceClass: "bg-emerald-50/90",
     borderClass: "border-emerald-200/50",
     titleClass: "text-emerald-950",
     accentTextClass: "text-emerald-700",
     accentMutedClass: "text-emerald-700/80",
-    iconSurfaceClass: "border-emerald-200/50 bg-emerald-100/80",
+    animationShellClass: "shadow-emerald-950/25",
   },
   {
     title: "AI Foto-mission",
@@ -53,13 +166,13 @@ const cards: HubCard[] = [
     href: "/dashboard/opret/foto",
     badge: "Klar nu",
     cta: "Åbn foto-mission",
-    icon: Camera,
+    animationUrl: photoAnimationUrl,
     surfaceClass: "bg-sky-50/90",
     borderClass: "border-sky-200/50",
     titleClass: "text-sky-950",
     accentTextClass: "text-sky-700",
     accentMutedClass: "text-sky-700/80",
-    iconSurfaceClass: "border-sky-200/50 bg-sky-100/80",
+    animationShellClass: "shadow-sky-950/25",
   },
   {
     title: "Escape Room i Naturen",
@@ -69,13 +182,13 @@ const cards: HubCard[] = [
     href: "/dashboard/opret/escape",
     badge: "Klar nu",
     cta: "Åbn escape room",
-    icon: Compass,
+    animationUrl: escapeAnimationUrl,
     surfaceClass: "bg-amber-50/90",
     borderClass: "border-amber-200/50",
     titleClass: "text-amber-950",
     accentTextClass: "text-amber-700",
     accentMutedClass: "text-amber-700/80",
-    iconSurfaceClass: "border-amber-200/50 bg-amber-100/70",
+    animationShellClass: "shadow-amber-950/25",
   },
   {
     title: "Tidsmaskinen",
@@ -85,13 +198,13 @@ const cards: HubCard[] = [
     href: "/dashboard/opret/rollespil",
     badge: "Klar nu",
     cta: "Åbn rollespil",
-    icon: Sparkles,
+    animationUrl: roleplayAnimationUrl,
     surfaceClass: "bg-stone-100/90",
     borderClass: "border-stone-200/50",
     titleClass: "text-stone-900",
     accentTextClass: "text-stone-700",
     accentMutedClass: "text-stone-700/80",
-    iconSurfaceClass: "border-stone-200/50 bg-stone-50/70",
+    animationShellClass: "shadow-stone-950/20",
   },
 ];
 
@@ -141,8 +254,6 @@ export default function ValgHubPage() {
 
         <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
           {cards.map((card, index) => {
-            const Icon = card.icon;
-
             if (card.href) {
               return (
                 <Link
@@ -153,44 +264,7 @@ export default function ValgHubPage() {
                   <article
                     className={`relative flex h-full flex-col justify-between overflow-hidden rounded-[2rem] border p-7 shadow-lg backdrop-blur-md transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-xl group-focus-visible:scale-[1.02] group-focus-visible:shadow-xl ${card.surfaceClass} ${card.borderClass}`}
                   >
-                    <div className="relative z-10 flex h-full flex-col justify-between">
-                      <div className="flex items-start justify-between gap-4">
-                        <span
-                          className={`rounded-full border bg-white/75 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] uppercase ${card.borderClass} ${card.accentMutedClass}`}
-                        >
-                          {card.badge}
-                        </span>
-                        <div
-                          className={`flex h-14 w-14 items-center justify-center rounded-full border shadow-inner ${card.iconSurfaceClass} ${card.accentTextClass}`}
-                        >
-                          <Icon className="h-6 w-6" />
-                        </div>
-                      </div>
-
-                      <div className="mt-8 flex-1">
-                        <h2 className={`text-2xl font-black tracking-wide ${card.titleClass} ${rubik.className}`}>
-                          {card.title}
-                        </h2>
-                        <p className="mt-4 text-sm leading-relaxed text-slate-700">
-                          {card.shortText}
-                        </p>
-                        {card.detail ? (
-                          <p className="mt-4 text-sm leading-relaxed text-slate-700">
-                            {card.detail}
-                          </p>
-                        ) : null}
-                      </div>
-
-                      <div className="mt-6 flex items-center justify-between gap-3">
-                        <p className={`text-xs font-bold tracking-[0.18em] uppercase ${card.accentTextClass}`}>
-                          Vælg løbstype
-                        </p>
-                        <span className={`inline-flex items-center gap-2 text-sm font-semibold ${card.accentTextClass}`}>
-                          {card.cta}
-                          <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1 group-focus-visible:translate-x-1" />
-                        </span>
-                      </div>
-                    </div>
+                    <HubCardBody card={card} />
                   </article>
                 </Link>
               );
@@ -201,35 +275,7 @@ export default function ValgHubPage() {
                 key={`${card.title}-${index}`}
                 className={`relative flex flex-col justify-between overflow-hidden rounded-[2rem] border p-7 shadow-lg backdrop-blur-md ${card.surfaceClass} ${card.borderClass}`}
               >
-                <div className="relative z-10 flex h-full flex-col justify-between">
-                  <div className="flex items-start justify-between gap-4">
-                    <span
-                      className={`rounded-full border bg-white/70 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] uppercase ${card.borderClass} ${card.accentMutedClass}`}
-                    >
-                      {card.badge}
-                    </span>
-                    <div
-                      className={`flex h-14 w-14 items-center justify-center rounded-full border bg-white/70 shadow-inner ${card.borderClass} ${card.accentTextClass}`}
-                    >
-                      <Icon className="h-6 w-6" />
-                    </div>
-                  </div>
-
-                  <div className="mt-8 flex-1">
-                    <h2 className={`text-2xl font-black tracking-wide ${card.titleClass} ${rubik.className}`}>
-                      {card.title}
-                    </h2>
-                    <p className="mt-4 text-sm leading-relaxed text-slate-700">
-                      {card.shortText}
-                    </p>
-                  </div>
-
-                  <div className="mt-6 pt-2">
-                    <span className={`inline-flex items-center text-sm font-semibold ${card.accentMutedClass}`}>
-                      {card.cta}
-                    </span>
-                  </div>
-                </div>
+                <HubCardBody card={card} />
               </article>
             );
           })}
