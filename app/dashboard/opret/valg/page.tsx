@@ -95,6 +95,29 @@ const cards: HubCard[] = [
   },
 ];
 
+const guideItems = [
+  {
+    icon: "🌲",
+    title: "Quiz",
+    text: "Klassiske poster med spørgsmål og fire svarmuligheder.",
+  },
+  {
+    icon: "📸",
+    title: "Foto",
+    text: "Deltagerne finder motiver i virkeligheden og tager et billede.",
+  },
+  {
+    icon: "🗝️",
+    title: "Escape",
+    text: "Logiske gåder giver kode-brikker, som samles til en finale.",
+  },
+  {
+    icon: "🎭",
+    title: "Tidsmaskine",
+    text: "En karakter styrer historien med beskeder, svar og stemning.",
+  },
+] as const;
+
 export default function ValgHubPage() {
   return (
     <main
@@ -137,6 +160,34 @@ export default function ValgHubPage() {
             Vælg det format, der passer bedst til dit arrangement. Uanset om det er
             teambuilding, en skattejagt eller undervisning, tilpasser systemet sig automatisk.
           </p>
+        </div>
+
+        <div className="mt-8 overflow-hidden rounded-[1.75rem] border border-white/15 bg-slate-900/40 p-4 text-white shadow-lg backdrop-blur-md sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs font-semibold tracking-[0.28em] text-white/75 uppercase">
+              Lærer-guide
+            </p>
+            <p className="text-xs text-white/65">
+              Få hurtigt overblik over de fire måder at bygge et løb på.
+            </p>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {guideItems.map((item) => (
+              <div
+                key={item.title}
+                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+              >
+                <p className="text-sm font-semibold text-white">
+                  <span className="mr-2">{item.icon}</span>
+                  {item.title}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-white/75 sm:text-sm">
+                  {item.text}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
