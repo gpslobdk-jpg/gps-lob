@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import type { SavedPin } from "@/components/MapPicker";
+import { SYSTEM_ARKITEKT, TIDSMASKINE_PROMPT } from "@/constants/aiPrompts";
 import { createClient } from "@/utils/supabase/client";
 
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
@@ -227,6 +228,17 @@ function parseRoleplayText(rawText: string, index: number) {
     };
   }
 
+  const structuredMatch = trimmedText.match(
+    /^Karakter:\s*(.*?)\s*\|\|\s*Avatar:\s*(.*?)\s*\|\|\s*Besked:\s*(.+)$/i
+  );
+  if (structuredMatch) {
+    return {
+      message: structuredMatch[3]?.trim() ?? "",
+      characterName: structuredMatch[1]?.trim() || fallbackCharacterName(index),
+      avatar: structuredMatch[2]?.trim() || fallbackAvatar(),
+    };
+  }
+
   const [messagePart, ...restAfterCharacter] = trimmedText.split(/\|\|\s*KARAKTER:\s*/i);
   const message = messagePart.trim();
 
@@ -300,23 +312,28 @@ export default function RollespilBuilderPage() {
     );
   }
 
-  const updateRoleplayAnswers = (
+  const updateRoleplayQuestion = (
     id: number,
     updates: {
       correctAnswer?: string;
       characterName?: string;
       avatar?: string;
+      message?: string;
     }
   ) => {
     setQuestions((current) =>
       current.map((question) => {
         if (question.id !== id) return question;
         const nextCorrectAnswer = updates.correctAnswer ?? question.answers[0];
-        const nextCharacterName = updates.characterName ?? question.answers[1];
+        const nextCharacterName =
+          updates.characterName ?? (question.text || question.answers[1] || "");
         const nextAvatar = updates.avatar ?? question.answers[2];
+        const nextMessage = updates.message ?? question.aiPrompt;
 
         return {
           ...question,
+          text: nextCharacterName,
+          aiPrompt: nextMessage,
           answers: toRoleplayAnswers(nextCorrectAnswer, nextCharacterName, nextAvatar),
           correctIndex: 0,
         };
@@ -324,29 +341,28 @@ export default function RollespilBuilderPage() {
     );
   };
 
-  const updatePreviewQuestion = (id: number, updates: Partial<Question>) => {
-    setPreviewQuestions((current) =>
-      current.map((question) => (question.id === id ? { ...question, ...updates } : question))
-    );
-  };
-
-  const updatePreviewRoleplayAnswers = (
+  const updatePreviewRoleplayQuestion = (
     id: number,
     updates: {
       correctAnswer?: string;
       characterName?: string;
       avatar?: string;
+      message?: string;
     }
   ) => {
     setPreviewQuestions((current) =>
       current.map((question) => {
         if (question.id !== id) return question;
         const nextCorrectAnswer = updates.correctAnswer ?? question.answers[0];
-        const nextCharacterName = updates.characterName ?? question.answers[1];
+        const nextCharacterName =
+          updates.characterName ?? (question.text || question.answers[1] || "");
         const nextAvatar = updates.avatar ?? question.answers[2];
+        const nextMessage = updates.message ?? question.aiPrompt;
 
         return {
           ...question,
+          text: nextCharacterName,
+          aiPrompt: nextMessage,
           answers: toRoleplayAnswers(nextCorrectAnswer, nextCharacterName, nextAvatar),
           correctIndex: 0,
         };
@@ -378,10 +394,10 @@ export default function RollespilBuilderPage() {
       id: timestamp + index,
       type: "multiple_choice" as const,
       text: question.text.trim(),
-      aiPrompt: "",
+      aiPrompt: question.aiPrompt.trim(),
       answers: toRoleplayAnswers(
         question.answers[0]?.trim() ?? "",
-        question.answers[1]?.trim() ?? "",
+        question.text.trim() || question.answers[1]?.trim() || "",
         question.answers[2]?.trim() ?? ""
       ),
       correctIndex: 0,
@@ -411,12 +427,14 @@ export default function RollespilBuilderPage() {
       return;
     }
 
-    const pedagogicalContext =
-      `Du er en rollespilsforfatter for udendørs GPS-løb. Generer ${requestedCount} poster om ${normalizedBrief} til niveauet ${normalizedGrade} i faget ${normalizedSubject}. ` +
-      `Hver post skal have én karakter, én avatar og ét korrekt svar fra deltageren. Returnér stadig præcis 4 svarmuligheder i "answers", hvor det rigtige svar er markeret med "correctIndex". ` +
-      `I feltet "text" skal du skrive karakterens besked efterfulgt af " || KARAKTER: " og navnet, og derefter " || AVATAR: " og en emoji eller kort avatar-beskrivelse. ` +
-      `Eksempel på text-format: "Hvem vover at træde ind på min borg uden tilladelse? || KARAKTER: Kong Valdemar || AVATAR: 👑" ` +
-      `Svarmulighederne skal være plausible, men vi bruger kun det rigtige svar i builderen. Hele indholdet skal være på dansk.`;
+    const preparedBuilderPrompt = TIDSMASKINE_PROMPT.replace("[EMNE]", normalizedBrief).replace(
+      "[MÅLGRUPPE]",
+      normalizedGrade
+    );
+    const userRequest =
+      `Lav præcis ${requestedCount} rolleposter om ${normalizedBrief}. ` +
+      `Kontekst: ${normalizedSubject}. Niveau: ${normalizedGrade}. ` +
+      `Hver post skal returnere karakter, avatar og besked i text-feltet med markørerne "Karakter:", "Avatar:" og "Besked:".`;
 
     setIsGenerating(true);
     setPreviewQuestions([]);
@@ -431,7 +449,9 @@ export default function RollespilBuilderPage() {
           topic: normalizedBrief,
           grade: normalizedGrade,
           count: requestedCount,
-          pedagogicalContext,
+          prompt: userRequest,
+          systemContext: SYSTEM_ARKITEKT,
+          builderContext: preparedBuilderPrompt,
         }),
       });
 
@@ -462,8 +482,8 @@ export default function RollespilBuilderPage() {
               return {
                 id: Date.now() + index,
                 type: "multiple_choice",
-                text: message,
-                aiPrompt: "",
+                text: characterName,
+                aiPrompt: message,
                 answers: toRoleplayAnswers(correctAnswer, characterName, avatar),
                 correctIndex: 0,
                 lat: null,
@@ -499,10 +519,10 @@ export default function RollespilBuilderPage() {
         ...question,
         type: "multiple_choice" as const,
         text: question.text.trim(),
-        aiPrompt: "",
+        aiPrompt: question.aiPrompt.trim(),
         answers: toRoleplayAnswers(
           question.answers[0]?.trim() ?? "",
-          question.answers[1]?.trim() ?? "",
+          question.text.trim() || question.answers[1]?.trim() || "",
           question.answers[2]?.trim() ?? ""
         ),
         correctIndex: 0,
@@ -524,8 +544,7 @@ export default function RollespilBuilderPage() {
     }
 
     const hasIncompleteQuestions = normalizedQuestions.some(
-      (question) =>
-        !question.text || !question.answers[0] || !question.answers[1] || !question.answers[2]
+      (question) => !question.text || !question.aiPrompt || !question.answers[0] || !question.answers[2]
     );
     if (hasIncompleteQuestions) {
       alert("Udfyld karakterens navn, avatar, besked og det rigtige svar på hver post.");
@@ -663,9 +682,9 @@ export default function RollespilBuilderPage() {
                         Karakterens Navn
                       </label>
                       <input
-                        value={question.answers[1]}
+                        value={question.text}
                         onChange={(event) =>
-                          updateRoleplayAnswers(question.id, { characterName: event.target.value })
+                          updateRoleplayQuestion(question.id, { characterName: event.target.value })
                         }
                         placeholder="F.eks. Valdemar Atterdag"
                         className={textInputClass}
@@ -679,7 +698,7 @@ export default function RollespilBuilderPage() {
                       <input
                         value={question.answers[2]}
                         onChange={(event) =>
-                          updateRoleplayAnswers(question.id, { avatar: event.target.value })
+                          updateRoleplayQuestion(question.id, { avatar: event.target.value })
                         }
                         placeholder="F.eks. 👑"
                         className={textInputClass}
@@ -691,8 +710,10 @@ export default function RollespilBuilderPage() {
                         Karakterens besked / Gåde
                       </label>
                       <textarea
-                        value={question.text}
-                        onChange={(event) => updateQuestion(question.id, { text: event.target.value })}
+                        value={question.aiPrompt}
+                        onChange={(event) =>
+                          updateRoleplayQuestion(question.id, { message: event.target.value })
+                        }
                         rows={4}
                         placeholder="F.eks. Hvem vover at træde ind på min borg uden tilladelse?"
                         className={textareaClass}
@@ -706,7 +727,7 @@ export default function RollespilBuilderPage() {
                       <input
                         value={question.answers[0]}
                         onChange={(event) =>
-                          updateRoleplayAnswers(question.id, { correctAnswer: event.target.value })
+                          updateRoleplayQuestion(question.id, { correctAnswer: event.target.value })
                         }
                         placeholder="F.eks. Fred"
                         className={textInputClass}
@@ -843,9 +864,9 @@ export default function RollespilBuilderPage() {
                           </label>
                           <input
                             type="text"
-                            value={question.answers[1]}
+                            value={question.text}
                             onChange={(event) =>
-                              updatePreviewRoleplayAnswers(question.id, {
+                              updatePreviewRoleplayQuestion(question.id, {
                                 characterName: event.target.value,
                               })
                             }
@@ -861,7 +882,7 @@ export default function RollespilBuilderPage() {
                             type="text"
                             value={question.answers[2]}
                             onChange={(event) =>
-                              updatePreviewRoleplayAnswers(question.id, {
+                              updatePreviewRoleplayQuestion(question.id, {
                                 avatar: event.target.value,
                               })
                             }
@@ -874,9 +895,9 @@ export default function RollespilBuilderPage() {
                             Karakterens besked / Gåde
                           </label>
                           <textarea
-                            value={question.text}
+                            value={question.aiPrompt}
                             onChange={(event) =>
-                              updatePreviewQuestion(question.id, { text: event.target.value })
+                              updatePreviewRoleplayQuestion(question.id, { message: event.target.value })
                             }
                             rows={3}
                             className={previewInputClass}
@@ -891,7 +912,7 @@ export default function RollespilBuilderPage() {
                             type="text"
                             value={question.answers[0]}
                             onChange={(event) =>
-                              updatePreviewRoleplayAnswers(question.id, {
+                              updatePreviewRoleplayQuestion(question.id, {
                                 correctAnswer: event.target.value,
                               })
                             }

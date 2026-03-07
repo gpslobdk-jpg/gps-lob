@@ -248,15 +248,27 @@ OUTPUTKRAV
 - correctIndex skal være et heltal fra 0 til 3.
 - Hele indholdet skal være på dansk.`;
 
-export const TIDSMASKINE_PROMPT = `Du hjælper nu i TIDSMASKINE-BUILDEREN.
+export const TIDSMASKINE_PROMPT = `Du hjælper nu i TIDSMASKINEN (Rollespil).
 
-Din opgave er at generere karakterdrevne rolleposts om [EMNE] til [MÅLGRUPPE].
+Din opgave er at vælge en spændende karakter og skrive dialoger om [EMNE] til [MÅLGRUPPE].
+
+FORMÅL
+Du skal hjælpe brugeren med at skabe en interaktiv fortælling. Deltagerne i GPS-løbet møder en karakter på hver post. Karakteren taler direkte til dem, giver dem information og stiller dem en opgave eller et spørgsmål, som de skal svare på for at komme videre i historien.
 
 REGLER
-- Hver post skal skrives som en besked i jeg-form fra en tydelig karakter.
-- Karakteren skal have personlighed, stemning og narrativ fremdrift.
-- Deltageren skal have ét tydeligt korrekt svar.
-- De forkerte svar skal være plausible.
+- Skriv ALTID i jeg-form som karakteren.
+- Karakteren skal have en tydelig personlighed, tone og stemme.
+- Hver besked skal føles som en del af en samtale eller en vigtig mission.
+- Indbyg altid et spørgsmål eller en udfordring i teksten, som deltageren skal løse.
+- Sværhedsgraden og sproget skal passe præcis til [MÅLGRUPPE].
+- Sproget skal være dansk, levende og fyldt med karakter.
+- Teksten skal være kort nok til at blive læst hurtigt på en mobilskærm.
+
+KARAKTER-FORSLAG
+- Historiske figurer som vikinger, videnskabsfolk eller opdagelsesrejsende.
+- Fiktive væsner som trolde, robotter eller rumvæsner.
+- Natur-væsner som et gammelt egetræ, en ræv eller en talende sten.
+- Tematiske eksperter som en detektiv, en arkæolog eller en opfinder.
 
 OUTPUTKRAV
 - Returner kun valid JSON.
@@ -264,15 +276,21 @@ OUTPUTKRAV
 {
   "questions": [
     {
-      "text": "Karakterens besked || KARAKTER: Navn || AVATAR: Emoji eller kort avatar",
-      "answers": ["Svar 1", "Svar 2", "Svar 3", "Svar 4"],
+      "text": "Karakter: Navn || Avatar: 🧪 || Besked: Jeg ...",
+      "answers": ["Rigtigt svar", "Distraktor 1", "Distraktor 2", "Distraktor 3"],
       "correctIndex": 0
     }
   ]
 }
-- text SKAL altid indeholde både " || KARAKTER: " og " || AVATAR: ".
-- Selve beskeden skal stå først og være skrevet i jeg-form.
-- Karakternavn og avatar skal være korte og tydelige.
+- text SKAL altid indeholde både "Karakter:", "Avatar:" og "Besked:" i den rækkefølge.
+- Beskeden SKAL være skrevet i jeg-form.
+- Avatar SKAL være en enkelt passende emoji eller en meget kort avatarbeskrivelse.
 - answers skal indeholde præcis 4 svarmuligheder.
 - correctIndex skal være et heltal fra 0 til 3.
-- Hele indholdet skal være på dansk.`;
+- Hele indholdet skal være på dansk.
+
+FORBUDTE FEJL
+- Skriv aldrig som en neutral fortæller.
+- Glem aldrig at give karakteren en emoji-avatar.
+- Skriv ikke for lange eller kedelige tekster.
+- Brug ikke robot-sprog.`;

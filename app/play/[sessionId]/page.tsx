@@ -284,6 +284,27 @@ function resolvePostVariant(raceMode: RaceMode, question: Question): ActivePostV
   return inferPostVariant(question);
 }
 
+function getRoleplayCharacterName(question: Question) {
+  const hasDedicatedMessage = Boolean(question.aiPrompt?.trim());
+  if (hasDedicatedMessage) {
+    return question.text.trim() || question.answers[1]?.trim() || "Ukendt karakter";
+  }
+
+  return question.answers[1]?.trim() || question.text.trim() || "Ukendt karakter";
+}
+
+function getRoleplayAvatar(question: Question) {
+  return question.answers[2]?.trim() || "";
+}
+
+function getRoleplayMessage(question: Question) {
+  return question.aiPrompt?.trim() || question.text.trim();
+}
+
+function getQuestionDisplayText(question: Question, variant: ActivePostVariant) {
+  return variant === "roleplay" ? getRoleplayMessage(question) : question.text;
+}
+
 function normalizeTypedAnswer(value: string) {
   return value.toLocaleLowerCase("da-DK").trim().replace(/\s+/g, " ");
 }
@@ -1184,7 +1205,7 @@ function PlayScreen() {
         selectedIndex,
         true,
         postNumber,
-        current.text,
+        currentVariant === "roleplay" ? getRoleplayMessage(current) : current.text,
         myLoc?.lat ?? null,
         myLoc?.lng ?? null
       );
@@ -1202,7 +1223,7 @@ function PlayScreen() {
       }
 
       if (currentVariant === "roleplay") {
-        const characterName = current.answers[1]?.trim() || "Karakteren";
+        const characterName = getRoleplayCharacterName(current);
         setRoleplayReply({
           key: `${currentPostIndex}-roleplay`,
           message: `${characterName}: Godt svaret! Følg med mig videre...`,
@@ -1219,9 +1240,13 @@ function PlayScreen() {
 
   const activeQuestion = questions[currentPostIndex];
   const activePostVariant = activeQuestion ? resolvePostVariant(raceMode, activeQuestion) : "unknown";
+  const activeQuestionDisplayText =
+    activeQuestion && activePostVariant !== "unknown"
+      ? getQuestionDisplayText(activeQuestion, activePostVariant)
+      : activeQuestion?.text ?? "";
   const roleplayCharacterName =
-    activePostVariant === "roleplay" ? activeQuestion?.answers[1]?.trim() || "Ukendt karakter" : "";
-  const roleplayAvatar = activePostVariant === "roleplay" ? activeQuestion?.answers[2]?.trim() || "" : "";
+    activePostVariant === "roleplay" && activeQuestion ? getRoleplayCharacterName(activeQuestion) : "";
+  const roleplayAvatar = activePostVariant === "roleplay" && activeQuestion ? getRoleplayAvatar(activeQuestion) : "";
   const mapCenter: [number, number] = myLoc
     ? [myLoc.lat, myLoc.lng]
     : activeQuestion
@@ -2025,7 +2050,7 @@ function PlayScreen() {
                       <MapPin className="h-4 w-4" />
                       Næste post
                     </div>
-                    {activeQuestion.text}
+                    {activeQuestionDisplayText}
                   </div>
                 </Popup>
               </Marker>
@@ -2260,7 +2285,7 @@ function PlayScreen() {
                 <div className="relative ml-2 overflow-hidden rounded-[1.75rem] border border-violet-300/20 bg-slate-800/60 p-5 shadow-[0_18px_40px_rgba(59,130,246,0.16)] backdrop-blur-xl">
                   <span className="absolute -left-2 top-6 h-4 w-4 rotate-45 rounded-[0.45rem] border-l border-t border-violet-300/20 bg-slate-800/60" />
                   <p className={`pr-1 text-sm leading-relaxed text-white ${wrapTextClass}`}>
-                    {activeQuestion.text}
+                    {getRoleplayMessage(activeQuestion)}
                   </p>
                 </div>
 
