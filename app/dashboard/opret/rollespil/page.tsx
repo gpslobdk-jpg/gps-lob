@@ -12,7 +12,7 @@ import { createClient } from "@/utils/supabase/client";
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ssr: false,
   loading: () => (
-    <div className="h-full w-full animate-pulse rounded-3xl border border-violet-500/20 bg-violet-950/30" />
+    <div className="h-full w-full animate-pulse rounded-3xl border border-violet-500/20 bg-violet-950/50" />
   ),
 });
 
@@ -174,13 +174,13 @@ type GeneratedRoleplayQuestion = {
 };
 
 const textInputClass =
-  "w-full rounded-2xl border border-violet-500/20 bg-violet-950/25 px-4 py-3 text-white placeholder:text-white/[0.35] focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-500";
+  "w-full rounded-2xl border border-violet-500/20 bg-violet-950/50 px-4 py-3 text-violet-100 placeholder:text-violet-100/35 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-500";
 
 const textareaClass =
-  "w-full rounded-2xl border border-violet-500/20 bg-violet-950/25 px-4 py-3 text-white placeholder:text-white/[0.35] focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-500";
+  "w-full rounded-2xl border border-violet-500/20 bg-violet-950/50 px-4 py-3 text-violet-100 placeholder:text-violet-100/35 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-500";
 
 const previewInputClass =
-  "w-full rounded-2xl border border-violet-500/20 bg-violet-950/30 px-4 py-3 text-white placeholder:text-white/[0.35] focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-500";
+  "w-full rounded-2xl border border-violet-500/20 bg-violet-950/50 px-4 py-3 text-violet-100 placeholder:text-violet-100/35 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-500";
 
 const BLANK_ANSWERS: [string, string, string, string] = ["", "", "", ""];
 
@@ -586,13 +586,13 @@ export default function RollespilBuilderPage() {
 
   return (
     <>
-      <div className={`relative min-h-screen overflow-hidden bg-violet-950 text-white ${poppins.className}`}>
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(139,92,246,0.2),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(196,181,253,0.08),_transparent_28%)]" />
+      <div className={`relative min-h-screen overflow-hidden bg-violet-950 text-violet-100 ${poppins.className}`}>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(139,92,246,0.28),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(196,181,253,0.12),_transparent_28%)]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row">
           <section className="w-full overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 lg:w-[52%] lg:px-8 lg:py-8">
             <div className="mx-auto max-w-3xl space-y-6">
               <div className="px-1 pt-1">
-                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
+                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                   Løbets titel
                 </label>
                 <input
@@ -614,17 +614,17 @@ export default function RollespilBuilderPage() {
                     setShowAIModal(true);
                     setPreviewQuestions([]);
                   }}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-[1.4rem] border border-violet-500/20 bg-violet-950/40 px-5 py-3 text-sm font-semibold text-violet-50 shadow-[0_16px_36px_rgba(0,0,0,0.24)] backdrop-blur-xl transition hover:border-violet-300/35 hover:bg-violet-900/45 sm:w-auto"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-[1.4rem] border border-violet-500/20 bg-violet-950/50 px-5 py-3 text-sm font-semibold text-violet-100 shadow-[0_16px_36px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition hover:border-violet-300/35 hover:bg-violet-900/60 sm:w-auto"
                 >
                   <span aria-hidden>✨</span>
                   Auto-udfyld historie med AI
                 </button>
 
                 <div className="flex items-end justify-between gap-4">
-                  <p className="text-xs font-semibold tracking-[0.24em] text-white/[0.55] uppercase">
+                  <p className="text-xs font-semibold tracking-[0.24em] text-violet-100/65 uppercase">
                     Dine poster
                   </p>
-                  <span className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm font-semibold text-white/[0.65]">
+                  <span className="rounded-full border border-violet-500/20 bg-violet-950/45 px-4 py-2 text-sm font-semibold text-violet-100/80 backdrop-blur-xl">
                     {questions.length}
                   </span>
                 </div>
@@ -633,7 +633,7 @@ export default function RollespilBuilderPage() {
               {questions.map((question, index) => (
                 <article
                   key={question.id}
-                  className="rounded-[2rem] border border-violet-500/20 bg-violet-950/40 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6"
+                  className="rounded-[2rem] border border-violet-500/20 bg-violet-950/50 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
@@ -641,24 +641,24 @@ export default function RollespilBuilderPage() {
                         {index + 1}
                       </div>
                       <div>
-                        <h3 className={`text-xl font-bold text-white ${rubik.className}`}>
+                        <h3 className={`text-xl font-bold text-violet-100 ${rubik.className}`}>
                           Post {index + 1}
                         </h3>
-                        <p className="text-xs text-white/[0.55]">
+                        <p className="text-xs text-violet-100/65">
                           {question.lat !== null && question.lng !== null
                             ? "Pin er valgt på kortet"
                             : "Ingen pin valgt endnu"}
                         </p>
                       </div>
                     </div>
-                    <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-white/[0.55] uppercase">
+                    <span className="rounded-full border border-violet-500/20 bg-violet-950/45 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-violet-100/75 uppercase backdrop-blur-xl">
                       Rollespil
                     </span>
                   </div>
 
                   <div className="mt-5 grid gap-5 md:grid-cols-2">
                     <div>
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
+                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                         Karakterens Navn
                       </label>
                       <input
@@ -672,7 +672,7 @@ export default function RollespilBuilderPage() {
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
+                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                         Avatar (Emoji eller Billed-URL)
                       </label>
                       <input
@@ -686,7 +686,7 @@ export default function RollespilBuilderPage() {
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
+                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                         Karakterens besked / Gåde
                       </label>
                       <textarea
@@ -699,7 +699,7 @@ export default function RollespilBuilderPage() {
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
+                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                         Det rigtige svar fra deltageren
                       </label>
                       <input
@@ -716,24 +716,24 @@ export default function RollespilBuilderPage() {
                   <button
                     type="button"
                     onClick={() => assignPinFromCenter(question.id)}
-                    className="mt-5 w-full rounded-[1.4rem] border border-violet-400/30 bg-violet-500/18 px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-violet-50 shadow-[0_12px_32px_rgba(139,92,246,0.16)] transition hover:bg-violet-500/26"
+                    className="mt-5 w-full rounded-[1.4rem] border border-violet-400/30 bg-violet-500/22 px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-violet-100 shadow-[0_12px_32px_rgba(139,92,246,0.18)] transition hover:bg-violet-500/30"
                   >
                     Hent pin fra kortet
                   </button>
 
                   {question.lat !== null && question.lng !== null ? (
-                    <p className="mt-3 text-xs text-white/60">
+                    <p className="mt-3 text-xs text-violet-100/70">
                       Pin gemt: {question.lat.toFixed(5)}, {question.lng.toFixed(5)}
                     </p>
                   ) : null}
                 </article>
               ))}
 
-              <div className="rounded-[2rem] border border-violet-500/20 bg-violet-950/40 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+              <div className="rounded-[2rem] border border-violet-500/20 bg-violet-950/50 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
                 <button
                   type="button"
                   onClick={addQuestion}
-                  className="inline-flex items-center gap-2 rounded-[1.4rem] border border-violet-500/20 bg-violet-950/35 px-4 py-3 text-sm font-semibold text-violet-50 transition hover:bg-violet-900/45"
+                  className="inline-flex items-center gap-2 rounded-[1.4rem] border border-violet-500/20 bg-violet-950/50 px-4 py-3 text-sm font-semibold text-violet-100 backdrop-blur-xl transition hover:bg-violet-900/60"
                 >
                   <Plus className="h-4 w-4" />
                   Tilføj ny post
@@ -742,7 +742,7 @@ export default function RollespilBuilderPage() {
                 <button
                   type="button"
                   onClick={() => setShowTeacherField((current) => !current)}
-                  className="mt-5 inline-flex items-center gap-2 text-sm text-white/60 transition hover:text-white"
+                  className="mt-5 inline-flex items-center gap-2 text-sm text-violet-100/70 transition hover:text-violet-100"
                 >
                   {showTeacherField ? (
                     <ChevronUp className="h-4 w-4" />
@@ -753,14 +753,14 @@ export default function RollespilBuilderPage() {
                 </button>
 
                 {showTeacherField ? (
-                  <div className="mt-4 rounded-[1.5rem] border border-violet-500/20 bg-violet-950/35 p-4">
-                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
+                  <div className="mt-4 rounded-[1.5rem] border border-violet-500/20 bg-violet-950/50 p-4 backdrop-blur-xl">
+                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                       Fag
                     </label>
                     <select
                       value={subject}
                       onChange={(event) => setSubject(event.target.value)}
-                      className="w-full appearance-none rounded-2xl border border-violet-500/20 bg-violet-950/25 p-3 text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      className="w-full appearance-none rounded-2xl border border-violet-500/20 bg-violet-950/50 p-3 text-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                     >
                       <option value="" className="bg-slate-900 text-white">
                         Vælg et fag...
@@ -782,7 +782,7 @@ export default function RollespilBuilderPage() {
                   type="button"
                   onClick={handleSaveRun}
                   disabled={isSaving}
-                  className="mt-6 w-full rounded-[1.6rem] border border-violet-400/30 bg-violet-500/18 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-violet-50 shadow-[0_14px_34px_rgba(139,92,246,0.16)] transition hover:bg-violet-500/26 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-6 w-full rounded-[1.6rem] border border-violet-400/30 bg-violet-500/22 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-violet-100 shadow-[0_14px_34px_rgba(139,92,246,0.18)] transition hover:bg-violet-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
                 </button>
@@ -791,7 +791,7 @@ export default function RollespilBuilderPage() {
           </section>
 
           <aside className="h-[42vh] w-full p-4 pt-0 sm:px-6 lg:h-auto lg:w-[48%] lg:p-8 lg:pl-0">
-            <div className="h-full min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-violet-500/20 bg-violet-950/35 shadow-[0_0_0_1px_rgba(139,92,246,0.08),0_0_36px_rgba(139,92,246,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-xl">
+            <div className="h-full min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-violet-500/20 bg-violet-950/50 shadow-[0_0_0_1px_rgba(139,92,246,0.08),0_0_36px_rgba(139,92,246,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl">
               <MapPicker center={mapCenter} pins={pins} onCenterChange={setMapCenter} />
             </div>
           </aside>
@@ -799,20 +799,20 @@ export default function RollespilBuilderPage() {
       </div>
 
       {showAIModal && (
-        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md">
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-violet-950/70 p-4 backdrop-blur-xl">
           <div className="w-full max-w-3xl rounded-[2rem] border border-violet-500/20 bg-violet-950/90 p-6 shadow-[0_32px_100px_rgba(0,0,0,0.72)] backdrop-blur-2xl sm:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold tracking-[0.28em] text-white/50 uppercase">
+                <p className="text-xs font-semibold tracking-[0.28em] text-violet-100/55 uppercase">
                   AI-modal
                 </p>
                 <h2
-                  className={`mt-3 flex items-center gap-2 text-3xl font-extrabold text-white ${rubik.className}`}
+                  className={`mt-3 flex items-center gap-2 text-3xl font-extrabold text-violet-100 ${rubik.className}`}
                 >
                   <span aria-hidden>✨</span>
                   Intelligent historie-assistent
                 </h2>
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/[0.65]">
+                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-violet-100/75">
                   Beskriv personen eller tidsalderen kort, så kan AI&apos;en foreslå karakterer,
                   beskeder og svar til hver post.
                 </p>
@@ -821,7 +821,7 @@ export default function RollespilBuilderPage() {
 
             {previewQuestions.length > 0 ? (
               <div className="mt-8">
-                <p className="mb-4 text-sm text-white/[0.65]">
+                <p className="mb-4 text-sm text-violet-100/75">
                   Gennemgå posterne og ret dem til, før de overføres til kortet.
                 </p>
 
@@ -829,15 +829,15 @@ export default function RollespilBuilderPage() {
                   {previewQuestions.map((question, index) => (
                     <div
                       key={question.id}
-                      className="rounded-[1.6rem] border border-violet-500/20 bg-violet-950/35 p-4"
+                      className="rounded-[1.6rem] border border-violet-500/20 bg-violet-950/50 p-4 backdrop-blur-xl"
                     >
-                      <p className="mb-3 text-xs font-semibold tracking-[0.22em] text-white/[0.55] uppercase">
+                      <p className="mb-3 text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                         Post {index + 1}
                       </p>
 
                       <div className="grid gap-4 md:grid-cols-2">
                         <div>
-                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-white/60 uppercase">
+                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
                             Karakterens Navn
                           </label>
                           <input
@@ -853,7 +853,7 @@ export default function RollespilBuilderPage() {
                         </div>
 
                         <div>
-                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-white/60 uppercase">
+                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
                             Avatar (Emoji eller Billed-URL)
                           </label>
                           <input
@@ -869,7 +869,7 @@ export default function RollespilBuilderPage() {
                         </div>
 
                         <div className="md:col-span-2">
-                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-white/60 uppercase">
+                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
                             Karakterens besked / Gåde
                           </label>
                           <textarea
@@ -883,7 +883,7 @@ export default function RollespilBuilderPage() {
                         </div>
 
                         <div className="md:col-span-2">
-                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-white/60 uppercase">
+                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
                             Det rigtige svar fra deltageren
                           </label>
                           <input
@@ -906,14 +906,14 @@ export default function RollespilBuilderPage() {
                   <button
                     type="button"
                     onClick={handleApproveAIPreview}
-                    className="w-full rounded-[1.4rem] border border-violet-400/30 bg-violet-500/18 py-3 font-bold text-violet-50 transition hover:bg-violet-500/26"
+                    className="w-full rounded-[1.4rem] border border-violet-400/30 bg-violet-500/22 py-3 font-bold text-violet-100 transition hover:bg-violet-500/30"
                   >
                     Godkend og placer på kortet
                   </button>
                   <button
                     type="button"
                     onClick={handleDiscardAIPreview}
-                    className="w-full rounded-[1.4rem] border border-white/10 bg-white/[0.04] py-3 font-semibold text-white/75 transition hover:bg-white/[0.08]"
+                    className="w-full rounded-[1.4rem] border border-violet-500/20 bg-violet-950/45 py-3 font-semibold text-violet-100/80 transition hover:bg-violet-900/55"
                   >
                     Kassér og prøv igen
                   </button>
@@ -932,14 +932,14 @@ export default function RollespilBuilderPage() {
                     onChange={(event) => setAiRunBrief(event.target.value)}
                     rows={8}
                     placeholder="Hvilken person eller tidsalder skal AI'en spille? (F.eks: Lav 5 poster om middelalderen ved Gåsetårnet, fortalt af Kong Valdemar, og giv ham en krone-emoji som avatar...)"
-                    className="w-full rounded-[1.6rem] border border-violet-500/20 bg-violet-950/35 p-5 text-white placeholder:text-white/[0.35] focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    className="w-full rounded-[1.6rem] border border-violet-500/20 bg-violet-950/50 p-5 text-violet-100 placeholder:text-violet-100/35 focus:outline-none focus:ring-2 focus:ring-violet-500"
                   />
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setShowAITeacherFields((current) => !current)}
-                  className="mt-4 inline-flex items-center gap-2 text-sm text-white/60 transition hover:text-white"
+                  className="mt-4 inline-flex items-center gap-2 text-sm text-violet-100/70 transition hover:text-violet-100"
                 >
                   {showAITeacherFields ? (
                     <ChevronUp className="h-4 w-4" />
@@ -950,16 +950,16 @@ export default function RollespilBuilderPage() {
                 </button>
 
                 {showAITeacherFields ? (
-                  <section className="mt-4 rounded-[1.6rem] border border-violet-500/20 bg-violet-950/35 p-4">
+                  <section className="mt-4 rounded-[1.6rem] border border-violet-500/20 bg-violet-950/50 p-4 backdrop-blur-xl">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
-                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-white/60 uppercase">
+                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
                           Fag
                         </label>
                         <select
                           value={aiSubject}
                           onChange={(event) => setAiSubject(event.target.value)}
-                          className="w-full rounded-2xl border border-violet-500/20 bg-violet-950/25 p-3 text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                          className="w-full rounded-2xl border border-violet-500/20 bg-violet-950/50 p-3 text-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                         >
                           <option value="" className="bg-slate-900 text-white">
                             Vælg fag...
@@ -977,13 +977,13 @@ export default function RollespilBuilderPage() {
                       </div>
 
                       <div>
-                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-white/60 uppercase">
+                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
                           Klassetrin
                         </label>
                         <select
                           value={aiGrade}
                           onChange={(event) => setAiGrade(event.target.value)}
-                          className="w-full rounded-2xl border border-violet-500/20 bg-violet-950/25 p-3 text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                          className="w-full rounded-2xl border border-violet-500/20 bg-violet-950/50 p-3 text-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                         >
                           {AI_GRADE_OPTIONS.map((gradeOption) => (
                             <option
@@ -1005,7 +1005,7 @@ export default function RollespilBuilderPage() {
                     type="button"
                     onClick={closeAIModal}
                     disabled={isGenerating}
-                    className="rounded-[1.4rem] border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-white/75 transition hover:bg-white/[0.08] disabled:opacity-60"
+                    className="rounded-[1.4rem] border border-violet-500/20 bg-violet-950/45 px-5 py-3 text-sm font-semibold text-violet-100/80 transition hover:bg-violet-900/55 disabled:opacity-60"
                   >
                     Luk
                   </button>
@@ -1013,7 +1013,7 @@ export default function RollespilBuilderPage() {
                     type="button"
                     onClick={handleAIGenerate}
                     disabled={isGenerating}
-                    className="w-full rounded-[1.4rem] border border-violet-400/30 bg-violet-500/18 px-6 py-3 text-sm font-bold text-violet-50 transition hover:bg-violet-500/26 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-[1.4rem] border border-violet-400/30 bg-violet-500/22 px-6 py-3 text-sm font-bold text-violet-100 transition hover:bg-violet-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isGenerating ? (
                       <span className="inline-flex items-center gap-2">
@@ -1027,7 +1027,7 @@ export default function RollespilBuilderPage() {
                 </div>
 
                 {isGenerating ? (
-                  <div className="mt-4 inline-flex items-center gap-2 text-sm text-white/70">
+                  <div className="mt-4 inline-flex items-center gap-2 text-sm text-violet-100/75">
                     <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-violet-300" />
                     AI&apos;en skriver karakterernes beskeder...
                   </div>
