@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import type { SavedPin } from "@/components/MapPicker";
+import { FOTO_PROMPT, SYSTEM_ARKITEKT } from "@/constants/aiPrompts";
 import { createClient } from "@/utils/supabase/client";
 
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
@@ -340,9 +341,14 @@ export default function FotoMissionBuilderPage() {
       return;
     }
 
-    const pedagogicalContext =
-      `Du er en natur- og aktivitetsguide. Foreslå præcis ${requestedCount} foto-missioner i ${normalizedBrief} til niveauet ${normalizedGrade} i faget ${normalizedSubject}. ` +
-      `Hver mission skal have en kort dansk elevinstruktion i "question" og ét tydeligt målobjekt som correct answer, så AI'en let kan genkende motivet på et foto.`;
+    const preparedBuilderPrompt = FOTO_PROMPT.replace("[EMNE]", normalizedBrief).replace(
+      "[MÅLGRUPPE]",
+      normalizedGrade
+    );
+    const userRequest =
+      `Lav præcis ${requestedCount} foto-missioner om ${normalizedBrief}. ` +
+      `Kontekst: ${normalizedSubject}. Niveau: ${normalizedGrade}. ` +
+      `Hver mission skal bruge en kort elevinstruktion i text og et konkret målobjekt som korrekt svar.`;
 
     setIsGenerating(true);
     setPreviewQuestions([]);
@@ -357,10 +363,9 @@ export default function FotoMissionBuilderPage() {
           topic: normalizedBrief,
           grade: normalizedGrade,
           count: requestedCount,
-          prompt:
-            `Lav præcis ${requestedCount} foto-missioner. Brug question-teksten som en kort dansk elevinstruktion. ` +
-            `Brug correct answer som ét konkret mål-objekt, der skal genkendes af AI'en på billedet.`,
-          pedagogicalContext,
+          prompt: userRequest,
+          systemContext: SYSTEM_ARKITEKT,
+          builderContext: preparedBuilderPrompt,
         }),
       });
 
