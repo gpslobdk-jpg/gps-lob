@@ -50,7 +50,7 @@ function supabaseUrl(path) {
   return `${SUPABASE_URL.replace(/\/$/, "")}${path}`;
 }
 
-export default function () {
+export default function runStressScenario() {
   const studentName = `${STUDENT_PREFIX}-${__VU}-${__ITER}`;
   const playUrl = `${BASE_URL}/play/${PLAY_SESSION_ID}?name=${encodeURIComponent(PLAY_NAME)}`;
   const lat = 55.6761 + (__VU % 10) * 0.0001;

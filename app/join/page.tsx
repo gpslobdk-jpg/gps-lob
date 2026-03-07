@@ -5,24 +5,38 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, ArrowLeft, KeyRound, Leaf, Loader2, Timer, User } from "lucide-react";
 
 import {
-  getRunScheduleGate,
-  inspectRunSchedule,
-  type RunRecord,
+  type RunScheduleGate,
   type RunSchedule,
 } from "@/utils/runSchedule";
 import { createClient } from "@/utils/supabase/client";
 
 type JoinView = "form" | "waiting" | "scheduled" | "expired" | "scheduleError";
 
-type LiveSessionRow = {
-  id?: string | number | null;
-  status?: string | null;
-  run_id?: string | null;
-  created_at?: string | null;
-};
-
 type InsertErrorLike = {
   code?: string;
+};
+
+type JoinLookupResponse =
+  | {
+      kind: "invalid";
+    }
+  | {
+      kind: "finished";
+      runTitle: string;
+      schedule: RunSchedule | null;
+      scheduleGate: RunScheduleGate;
+    }
+  | {
+      kind: "active";
+      sessionId: string;
+      sessionStatus: string | null;
+      runTitle: string;
+      schedule: RunSchedule | null;
+      scheduleGate: RunScheduleGate;
+    };
+
+type JoinLookupErrorResponse = {
+  error?: string;
 };
 
 const formatLongDate = (value: string | null | undefined) => {
@@ -159,16 +173,6 @@ function JoinForm() {
     setSchedule(null);
   };
 
-  const fetchRunDetails = async (runId: string) => {
-    const { data, error } = await supabase.from("gps_runs").select("*").eq("id", runId).single();
-
-    if (error) {
-      throw error;
-    }
-
-    return (data ?? null) as RunRecord | null;
-  };
-
   const handleJoin = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
@@ -179,69 +183,41 @@ function JoinForm() {
     }
 
     try {
-      const { data: activeSessions, error: activeSessionsError } = await supabase
-        .from("live_sessions")
-        .select("id,status,run_id,created_at")
-        .eq("pin", trimmedPin)
-        .in("status", ["waiting", "running"])
-        .order("created_at", { ascending: false })
-        .limit(1);
+      const response = await fetch(`/api/join?pin=${encodeURIComponent(trimmedPin)}`);
+      const joinData = (await response.json()) as JoinLookupResponse | JoinLookupErrorResponse;
 
-      if (activeSessionsError) {
-        throw activeSessionsError;
-      }
-
-      const activeSession = (activeSessions?.[0] ?? null) as LiveSessionRow | null;
-
-      if (!activeSession?.id || !activeSession.run_id) {
-        const { data: finishedSessions, error: finishedSessionsError } = await supabase
-          .from("live_sessions")
-          .select("id,run_id,created_at")
-          .eq("pin", trimmedPin)
-          .eq("status", "finished")
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        if (finishedSessionsError) {
-          throw finishedSessionsError;
-        }
-
-        const finishedSession = (finishedSessions?.[0] ?? null) as LiveSessionRow | null;
-
-        if (finishedSession?.run_id) {
-          const finishedRun = await fetchRunDetails(String(finishedSession.run_id)).catch(() => null);
-          const finishedScheduleResult = finishedRun ? inspectRunSchedule(finishedRun) : null;
-          setRunTitle(typeof finishedRun?.title === "string" ? finishedRun.title : "");
-          setSchedule(finishedScheduleResult?.schedule ?? null);
-          setView(getRunScheduleGate(finishedScheduleResult) === "error" ? "scheduleError" : "expired");
-          return;
-        }
-
+      if (response.status === 404 || ("kind" in joinData && joinData.kind === "invalid")) {
         setError("Ugyldig pinkode.");
         return;
       }
 
-      const runData = await fetchRunDetails(String(activeSession.run_id));
-      const runScheduleResult = runData ? inspectRunSchedule(runData) : null;
-      const runSchedule = runScheduleResult?.schedule ?? null;
-      const scheduleGate = getRunScheduleGate(runScheduleResult);
-      const resolvedTitle = typeof runData?.title === "string" ? runData.title : "";
+      if (!response.ok || !("kind" in joinData)) {
+        const errorMessage = "error" in joinData ? joinData.error : undefined;
+        throw new Error(errorMessage || "Kunne ikke hente sessionen.");
+      }
 
-      setRunTitle(resolvedTitle);
-      setSchedule(runSchedule);
+      if (joinData.kind === "finished") {
+        setRunTitle(joinData.runTitle);
+        setSchedule(joinData.schedule);
+        setView(joinData.scheduleGate === "error" ? "scheduleError" : "expired");
+        return;
+      }
 
-      if (scheduleGate === "error") {
+      setRunTitle(joinData.runTitle);
+      setSchedule(joinData.schedule);
+
+      if (joinData.scheduleGate === "error") {
         setView("scheduleError");
         return;
       }
 
-      if (scheduleGate === "expired") {
+      if (joinData.scheduleGate === "expired") {
         setView("expired");
         return;
       }
 
       const { error: insertError } = await supabase.from("session_students").insert({
-        session_id: String(activeSession.id),
+        session_id: joinData.sessionId,
         student_name: trimmedName,
       });
 
@@ -250,15 +226,15 @@ function JoinForm() {
       }
 
       setName(trimmedName);
-      setSessionId(String(activeSession.id));
+      setSessionId(joinData.sessionId);
 
-      if (scheduleGate === "scheduled") {
+      if (joinData.scheduleGate === "scheduled") {
         setView("scheduled");
         return;
       }
 
-      if (activeSession.status === "running" || runSchedule?.startAt) {
-        router.push(`/play/${activeSession.id}?name=${encodeURIComponent(trimmedName)}`);
+      if (joinData.sessionStatus === "running" || joinData.scheduleGate === "active") {
+        router.push(`/play/${joinData.sessionId}?name=${encodeURIComponent(trimmedName)}`);
         return;
       }
 

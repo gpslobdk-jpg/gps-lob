@@ -710,119 +710,40 @@ function PlayScreen() {
       const activeName = playerName.trim();
       if (!sessionId || !activeName) return;
 
-      const timestamp = new Date().toISOString();
+      try {
+        const response = await fetch("/api/play/location", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+          body: JSON.stringify({
+            sessionId,
+            studentName: activeName,
+            participantId,
+            lat,
+            lng,
+          }),
+        });
 
-      if (!participantsTableMissingRef.current) {
-        let { data, error } = await supabase
-          .from("participants")
-          .update({ lat, lng, last_updated: timestamp })
-          .eq("session_id", sessionId)
-          .eq("student_name", activeName)
-          .select("id");
-
-        if (error && isMissingColumnError(error)) {
-          const retry = await supabase
-            .from("participants")
-            .update({ lat, lng })
-            .eq("session_id", sessionId)
-            .eq("student_name", activeName)
-            .select("id");
-          data = retry.data;
-          error = retry.error;
-        }
-
-        if (!error && data && data.length > 0) {
-          const resolvedId = (data[0] as { id?: string | null }).id;
-          if (resolvedId) {
-            rememberActiveParticipant(String(resolvedId), activeName);
-          }
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+          console.error("Kunne ikke opdatere elevposition:", payload?.error ?? response.statusText);
           return;
         }
 
-        if (!error && (!data || data.length === 0)) {
-          const createPayloads: Record<string, unknown>[] = [
-            {
-              session_id: sessionId,
-              student_name: activeName,
-              lat,
-              lng,
-              last_updated: timestamp,
-            },
-            {
-              session_id: sessionId,
-              student_name: activeName,
-              lat,
-              lng,
-            },
-          ];
+        const payload = (await response.json().catch(() => null)) as
+          | { participantId?: string | null }
+          | null;
 
-          for (const payload of createPayloads) {
-            const { data: inserted, error: insertError } = await supabase
-              .from("participants")
-              .insert(payload)
-              .select("id")
-              .single();
-
-            if (!insertError) {
-              const resolvedId = inserted?.id;
-              if (resolvedId) {
-                rememberActiveParticipant(String(resolvedId), activeName);
-              }
-              return;
-            }
-
-            if (insertError.code === "23505") {
-              const { data: existing } = await supabase
-                .from("participants")
-                .select("id")
-                .eq("session_id", sessionId)
-                .eq("student_name", activeName)
-                .maybeSingle();
-
-              const resolvedId = existing?.id;
-              if (resolvedId) {
-                rememberActiveParticipant(String(resolvedId), activeName);
-              }
-              return;
-            }
-
-            if (insertError.code === "PGRST205") {
-              participantsTableMissingRef.current = true;
-              break;
-            }
-            if (isMissingColumnError(insertError)) continue;
-            console.error("Kunne ikke oprette participant:", insertError);
-            break;
-          }
-        } else if (error) {
-          if (error.code === "PGRST205") {
-            participantsTableMissingRef.current = true;
-          } else {
-            console.error("Kunne ikke opdatere participant:", error);
-          }
+        if (typeof payload?.participantId === "string" && payload.participantId) {
+          rememberActiveParticipant(payload.participantId, activeName);
         }
-      }
-
-      let { error: fallbackError } = await supabase
-        .from("session_students")
-        .update({ lat, lng, last_updated: timestamp })
-        .eq("session_id", sessionId)
-        .eq("student_name", activeName);
-
-      if (fallbackError && isMissingColumnError(fallbackError)) {
-        const retry = await supabase
-          .from("session_students")
-          .update({ lat, lng })
-          .eq("session_id", sessionId)
-          .eq("student_name", activeName);
-        fallbackError = retry.error;
-      }
-
-      if (fallbackError && fallbackError.code !== "PGRST205") {
-        console.error("Kunne ikke opdatere elevposition:", fallbackError);
+      } catch (error) {
+        console.error("Kunne ikke synkronisere elevposition:", error);
       }
     },
-    [playerName, rememberActiveParticipant, sessionId, supabase]
+    [participantId, playerName, rememberActiveParticipant, sessionId]
   );
 
   const markParticipantFinished = useCallback(async () => {
