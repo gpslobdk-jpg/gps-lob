@@ -32,10 +32,10 @@ type HubCard = {
   animationShellClass: string;
 };
 
-const quizAnimationUrl = "/opret.json";
-const photoAnimationUrl = "/phone.json";
-const escapeAnimationUrl = "/runner.json";
-const roleplayAnimationUrl = "/nature.json";
+const quizAnimationUrl = "https://lottie.host/delicate-quiz-list.json";
+const photoAnimationUrl = "https://lottie.host/transparent-camera.json";
+const escapeAnimationUrl = "https://lottie.host/elegant-key-lock.json";
+const roleplayAnimationUrl = "https://lottie.host/time-travel-silhouette.json";
 
 type LottieCardAnimationProps = {
   src: string;
@@ -81,15 +81,20 @@ function LottieCardAnimation({ src, shellClass }: LottieCardAnimationProps) {
 
   return (
     <div
-      className={`relative h-32 w-32 overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/80 shadow-[0_18px_40px_rgba(15,23,42,0.25)] backdrop-blur-xl ${shellClass}`}
+      className={`relative h-24 w-24 overflow-hidden rounded-[1.75rem] border border-white/12 bg-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.32),0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur-2xl ${shellClass}`}
     >
-      <div className="absolute inset-3 rounded-[1.4rem] bg-white/6" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.14),transparent_65%)]" />
+      <div className="absolute inset-[5px] rounded-[1.45rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.2),rgba(255,255,255,0.04))]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.28),transparent_48%),radial-gradient(circle_at_bottom,rgba(255,255,255,0.08),transparent_58%)]" />
       {animationData ? (
-        <Lottie animationData={animationData} loop={true} autoplay={true} className="relative z-10 h-full w-full p-2" />
+        <Lottie
+          animationData={animationData}
+          loop={true}
+          autoplay={true}
+          className="relative z-10 h-full w-full p-1.5 opacity-80"
+        />
       ) : (
         <div className="relative z-10 flex h-full w-full items-center justify-center">
-          <div className="relative h-14 w-14">
+          <div className="relative h-12 w-12 opacity-70">
             <span className="absolute inset-0 animate-pulse rounded-full bg-white/12" />
             <span className="absolute inset-2 rounded-full border border-white/20" />
             <span className="absolute inset-5 rounded-full bg-white/20" />
@@ -156,7 +161,8 @@ const cards: HubCard[] = [
     titleClass: "text-emerald-950",
     accentTextClass: "text-emerald-700",
     accentMutedClass: "text-emerald-700/80",
-    animationShellClass: "shadow-emerald-950/25",
+    animationShellClass:
+      "border-emerald-200/20 bg-emerald-100/[0.10] shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_14px_26px_rgba(6,78,59,0.08)]",
   },
   {
     title: "AI Foto-mission",
@@ -172,7 +178,8 @@ const cards: HubCard[] = [
     titleClass: "text-sky-950",
     accentTextClass: "text-sky-700",
     accentMutedClass: "text-sky-700/80",
-    animationShellClass: "shadow-sky-950/25",
+    animationShellClass:
+      "border-sky-200/20 bg-sky-100/[0.10] shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_14px_26px_rgba(14,116,144,0.08)]",
   },
   {
     title: "Escape Room i Naturen",
@@ -188,7 +195,8 @@ const cards: HubCard[] = [
     titleClass: "text-amber-950",
     accentTextClass: "text-amber-700",
     accentMutedClass: "text-amber-700/80",
-    animationShellClass: "shadow-amber-950/25",
+    animationShellClass:
+      "border-amber-200/20 bg-amber-100/[0.10] shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_14px_26px_rgba(180,83,9,0.08)]",
   },
   {
     title: "Tidsmaskinen",
@@ -204,7 +212,8 @@ const cards: HubCard[] = [
     titleClass: "text-stone-900",
     accentTextClass: "text-stone-700",
     accentMutedClass: "text-stone-700/80",
-    animationShellClass: "shadow-stone-950/20",
+    animationShellClass:
+      "border-violet-200/20 bg-slate-100/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_14px_26px_rgba(71,85,105,0.08)]",
   },
 ];
 
