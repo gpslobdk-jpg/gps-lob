@@ -6,13 +6,13 @@ import Image from "next/image";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 const QUICK_QUESTIONS = [
-  "Hvordan opretter jeg et l\u00f8b?",
-  "Hvor finder jeg mine koder?",
-  "Kan jeg bruge mine egne sp\u00f8rgsm\u00e5l?",
+  "Hvordan kommer jeg i gang?",
+  "Hvordan bruger jeg arkivet og AI-hjælpen?",
+  "Hvordan deltager man med pinkode?",
 ] as const;
 
 const WELCOME_MESSAGE =
-  "Hej! Jeg er din GPSL\u00d8B-guide. Hvordan kan jeg hj\u00e6lpe dig med at skabe eller deltage i et l\u00f8b i dag?";
+  'Hej! Jeg kan guide dig trin for trin gennem GPSLØB. Spørg fx "Hvordan kommer jeg i gang?" eller "Hvordan bruger jeg arkivet?", så peger jeg dig direkte hen til de rigtige knapper og menuer.';
 
 const extractMessageText = (message: UIMessage) =>
   message.parts.filter(isTextUIPart).map((part) => part.text).join("").trim();
