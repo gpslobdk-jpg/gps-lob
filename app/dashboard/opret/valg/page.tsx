@@ -1,10 +1,9 @@
 "use client";
 
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import Lottie from "lottie-react";
+import Image from "next/image";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
-import { useEffect, useState } from "react";
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -32,75 +31,31 @@ type HubCard = {
   animationShellClass: string;
 };
 
-const quizAnimationUrl = "https://lottie.host/delicate-quiz-list.json";
-const photoAnimationUrl = "https://lottie.host/transparent-camera.json";
-const escapeAnimationUrl = "https://lottie.host/elegant-key-lock.json";
-const roleplayAnimationUrl = "https://lottie.host/time-travel-silhouette.json";
+const quizAnimationUrl = "/quiz.png";
+const photoAnimationUrl = "/foto.png";
+const escapeAnimationUrl = "/escape.png";
+const roleplayAnimationUrl = "/rollespil.png";
 
-type LottieCardAnimationProps = {
+type CardIconProps = {
   src: string;
   shellClass: string;
+  alt: string;
 };
 
-function LottieCardAnimation({ src, shellClass }: LottieCardAnimationProps) {
-  const [animationData, setAnimationData] = useState<unknown | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let isActive = true;
-
-    const loadAnimation = async () => {
-      try {
-        const response = await fetch(src, {
-          signal: controller.signal,
-          cache: "force-cache",
-        });
-
-        if (!response.ok) {
-          throw new Error("Animationen kunne ikke hentes.");
-        }
-
-        const nextAnimationData = (await response.json()) as unknown;
-        if (isActive) {
-          setAnimationData(nextAnimationData);
-        }
-      } catch {
-        if (isActive) {
-          setAnimationData(null);
-        }
-      }
-    };
-
-    void loadAnimation();
-
-    return () => {
-      isActive = false;
-      controller.abort();
-    };
-  }, [src]);
-
+function CardIcon({ src, shellClass, alt }: CardIconProps) {
   return (
     <div
-      className={`relative h-24 w-24 overflow-hidden rounded-[1.75rem] border border-white/12 bg-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.32),0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur-2xl ${shellClass}`}
+      className={`relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-[2rem] border border-white/12 bg-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.32),0_14px_34px_rgba(15,23,42,0.1)] backdrop-blur-2xl ${shellClass}`}
     >
-      <div className="absolute inset-[5px] rounded-[1.45rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.2),rgba(255,255,255,0.04))]" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.28),transparent_48%),radial-gradient(circle_at_bottom,rgba(255,255,255,0.08),transparent_58%)]" />
-      {animationData ? (
-        <Lottie
-          animationData={animationData}
-          loop={true}
-          autoplay={true}
-          className="relative z-10 h-full w-full p-1.5 opacity-80"
-        />
-      ) : (
-        <div className="relative z-10 flex h-full w-full items-center justify-center">
-          <div className="relative h-12 w-12 opacity-70">
-            <span className="absolute inset-0 animate-pulse rounded-full bg-white/12" />
-            <span className="absolute inset-2 rounded-full border border-white/20" />
-            <span className="absolute inset-5 rounded-full bg-white/20" />
-          </div>
-        </div>
-      )}
+      <div className="absolute inset-[6px] rounded-[1.6rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.04))]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.3),transparent_48%),radial-gradient(circle_at_bottom,rgba(255,255,255,0.08),transparent_58%)]" />
+      <Image
+        src={src}
+        alt={alt}
+        width={96}
+        height={96}
+        className="relative z-10 mx-auto mb-4 h-24 w-24 object-contain opacity-90"
+      />
     </div>
   );
 }
@@ -116,7 +71,7 @@ function HubCardBody({ card }: { card: HubCard }) {
         </span>
 
         <div className="mt-5 flex justify-center">
-          <LottieCardAnimation src={card.animationUrl} shellClass={card.animationShellClass} />
+          <CardIcon src={card.animationUrl} alt={card.title} shellClass={card.animationShellClass} />
         </div>
 
         <div className="mt-6 flex-1 text-center">
@@ -227,10 +182,10 @@ export default function ValgHubPage() {
         loop
         muted
         playsInline
-        className="fixed top-0 left-0 -z-20 hidden h-full w-full object-cover lg:block"
-        src="/opret-bg.mp4"
+        className="fixed top-0 left-0 -z-20 hidden h-full w-full scale-105 object-cover brightness-[0.48] blur-sm lg:block"
+        src="/baggrundvalgside.mp4"
       />
-      <div className="fixed inset-0 -z-10 hidden bg-gradient-to-b from-sky-900/10 to-emerald-900/50 backdrop-blur-[2px] lg:block" />
+      <div className="fixed inset-0 -z-10 hidden bg-gradient-to-b from-sky-950/20 via-emerald-950/18 to-emerald-950/60 backdrop-blur-[2px] lg:block" />
 
       <section className="relative z-10 mx-auto flex w-full max-w-6xl flex-col">
         <div className="flex flex-wrap items-center justify-between gap-4">
