@@ -86,13 +86,13 @@ const cards: HubCard[] = [
 
 function CardIcon({ src, alt }: { src: string; alt: string }) {
   return (
-    <div className="pointer-events-none flex justify-center">
+    <div className="pointer-events-none mx-auto mb-4 flex w-full justify-center">
       <Image
         src={src}
         alt={alt}
-        width={112}
-        height={112}
-        className="h-28 w-28 object-contain opacity-80"
+        width={96}
+        height={96}
+        className="h-24 w-24 object-contain opacity-80"
       />
     </div>
   );
@@ -100,18 +100,18 @@ function CardIcon({ src, alt }: { src: string; alt: string }) {
 
 function HubCardBody({ card }: { card: HubCard }) {
   return (
-    <div className="relative flex h-full flex-col text-center">
-      <div className="relative z-10">
-        <h2 className={`text-2xl font-black tracking-wide ${card.titleClass} ${rubik.className}`}>
+    <div className="relative flex h-full flex-col justify-between">
+      <div className="relative z-10 text-center">
+        <h2 className={`text-xl font-black tracking-wide sm:text-2xl ${card.titleClass} ${rubik.className}`}>
           {card.title}
         </h2>
-        <p className="mt-4 text-sm leading-relaxed text-slate-700">{card.shortText}</p>
+        <p className="mt-2 text-sm leading-relaxed text-slate-700">{card.shortText}</p>
         {card.detail ? (
           <p className="mt-4 text-sm leading-relaxed text-slate-700">{card.detail}</p>
         ) : null}
       </div>
 
-      <div className="relative z-10 mt-10 flex flex-1 items-center justify-center pb-2">
+      <div className="relative z-10 mt-10 flex flex-1 items-end justify-center">
         <CardIcon src={card.animationUrl} alt={card.title} />
       </div>
     </div>
@@ -127,7 +127,7 @@ function renderCard(card: HubCard, index: number) {
       className="group block h-full focus:outline-none"
     >
       <article
-        className={`relative flex h-full flex-col overflow-hidden rounded-[2rem] border px-7 pt-6 pb-7 shadow-lg backdrop-blur-md transition-all duration-300 group-hover:-translate-y-1 group-hover:scale-[1.01] group-hover:shadow-2xl group-focus-visible:-translate-y-1 group-focus-visible:scale-[1.01] group-focus-visible:shadow-2xl ${card.surfaceClass} ${card.borderClass}`}
+        className={`relative flex h-full min-h-[380px] flex-col overflow-hidden rounded-[2rem] border p-8 shadow-lg backdrop-blur-md transition-all duration-300 group-hover:-translate-y-1 group-hover:scale-[1.01] group-hover:shadow-2xl group-focus-visible:-translate-y-1 group-focus-visible:scale-[1.01] group-focus-visible:shadow-2xl ${card.surfaceClass} ${card.borderClass}`}
       >
         <HubCardBody card={card} />
       </article>
