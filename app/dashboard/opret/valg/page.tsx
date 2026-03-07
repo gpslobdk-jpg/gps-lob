@@ -207,6 +207,7 @@ export default function ValgHubPage() {
                 <Link
                   key={`${card.title}-${index}`}
                   href={card.href}
+                  data-tour={index === 0 ? "valg-classic-quiz" : undefined}
                   className="group block h-full focus:outline-none"
                 >
                   <article

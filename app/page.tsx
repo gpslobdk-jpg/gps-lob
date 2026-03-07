@@ -197,6 +197,7 @@ export default function Home() {
 
           <Link
             href="/login"
+            data-tour="home-organizer-login"
             className="block w-full rounded-2xl border border-white/55 bg-white/55 px-4 py-3 text-center text-base font-semibold text-emerald-950 transition hover:bg-white/75"
           >
             {"Log ind for arrang\u00f8rer"}

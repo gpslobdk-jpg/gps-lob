@@ -40,7 +40,7 @@ export default function OpretSporPage() {
         </p>
 
         <div className="mt-10 grid gap-6 md:grid-cols-2">
-          <Link href="/dashboard/opret/valg" className="group block">
+          <Link href="/dashboard/opret/valg" data-tour="opret-build-from-scratch" className="group block">
             <article className="relative h-full rounded-[2.5rem] border border-white/50 bg-white/80 p-7 shadow-xl backdrop-blur-md transition-all duration-300 group-hover:scale-105 group-hover:bg-white/95 group-hover:shadow-2xl">
               <div className="mb-6 flex h-16 w-16 items-center justify-center gap-1 rounded-full border border-emerald-200 bg-emerald-100 shadow-inner">
                 <MapPin className="h-6 w-6 text-emerald-600" />
