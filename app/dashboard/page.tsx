@@ -121,7 +121,7 @@ export default function DashboardPage() {
 
   return (
     <div
-      className={`relative min-h-screen bg-gradient-to-b from-sky-300 via-emerald-50 to-emerald-200 p-6 text-white md:p-12 lg:bg-none lg:bg-transparent ${poppins.className}`}
+      className={`relative flex min-h-screen flex-col bg-gradient-to-b from-sky-300 via-emerald-50 to-emerald-200 p-6 text-white md:p-12 lg:bg-none lg:bg-transparent ${poppins.className}`}
     >
       <video
         autoPlay
@@ -159,6 +159,11 @@ export default function DashboardPage() {
         >
           UDSIGTSPOSTEN
         </h1>
+        <div className="mt-4 flex justify-center">
+          <span className="inline-flex rounded-full border border-white/45 bg-white/12 px-4 py-1.5 text-xs font-medium text-white/90 shadow-[0_8px_20px_rgba(15,23,42,0.12)] backdrop-blur-sm">
+            100% menneskabt arkitektur – med et strejf af AI-magi
+          </span>
+        </div>
         <p className="text-emerald-50">{"V\u00e6lg din n\u00e6ste handling og kom i gang"}</p>
       </section>
 
@@ -239,6 +244,18 @@ export default function DashboardPage() {
           </article>
         </Link>
       </section>
+
+      <footer className="mx-auto mt-auto w-full max-w-5xl pt-14 text-center">
+        <p className="text-sm text-emerald-950/55 lg:text-white/65">
+          Håndlavet af et menneske med passion for læring.{" "}
+          <Link
+            href="/om"
+            className="font-medium text-emerald-900 underline decoration-emerald-700/40 underline-offset-4 transition hover:text-emerald-950 lg:text-emerald-50 lg:decoration-emerald-100/45 lg:hover:text-white"
+          >
+            Læs mere om udvikleren her
+          </Link>
+        </p>
+      </footer>
     </div>
   );
 }
