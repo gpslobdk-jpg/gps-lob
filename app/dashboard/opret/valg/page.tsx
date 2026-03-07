@@ -28,7 +28,6 @@ type HubCard = {
   titleClass: string;
   accentTextClass: string;
   accentMutedClass: string;
-  animationShellClass: string;
 };
 
 const quizAnimationUrl = "/quiz.png";
@@ -38,23 +37,18 @@ const roleplayAnimationUrl = "/rollespil.png";
 
 type CardIconProps = {
   src: string;
-  shellClass: string;
   alt: string;
 };
 
-function CardIcon({ src, shellClass, alt }: CardIconProps) {
+function CardIcon({ src, alt }: CardIconProps) {
   return (
-    <div
-      className={`relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-[2rem] border border-white/12 bg-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.32),0_14px_34px_rgba(15,23,42,0.1)] backdrop-blur-2xl ${shellClass}`}
-    >
-      <div className="absolute inset-[6px] rounded-[1.6rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.04))]" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.3),transparent_48%),radial-gradient(circle_at_bottom,rgba(255,255,255,0.08),transparent_58%)]" />
+    <div className="relative flex justify-center pb-2">
       <Image
         src={src}
         alt={alt}
-        width={96}
-        height={96}
-        className="relative z-10 mx-auto mb-4 h-24 w-24 object-contain opacity-90"
+        width={112}
+        height={112}
+        className="mx-auto mb-4 h-28 w-28 object-contain opacity-80"
       />
     </div>
   );
@@ -70,8 +64,8 @@ function HubCardBody({ card }: { card: HubCard }) {
           {card.badge}
         </span>
 
-        <div className="mt-5 flex justify-center">
-          <CardIcon src={card.animationUrl} alt={card.title} shellClass={card.animationShellClass} />
+        <div className="mt-4 flex justify-center">
+          <CardIcon src={card.animationUrl} alt={card.title} />
         </div>
 
         <div className="mt-6 flex-1 text-center">
@@ -116,8 +110,6 @@ const cards: HubCard[] = [
     titleClass: "text-emerald-950",
     accentTextClass: "text-emerald-700",
     accentMutedClass: "text-emerald-700/80",
-    animationShellClass:
-      "border-emerald-200/20 bg-emerald-100/[0.10] shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_14px_26px_rgba(6,78,59,0.08)]",
   },
   {
     title: "AI Foto-mission",
@@ -133,8 +125,6 @@ const cards: HubCard[] = [
     titleClass: "text-sky-950",
     accentTextClass: "text-sky-700",
     accentMutedClass: "text-sky-700/80",
-    animationShellClass:
-      "border-sky-200/20 bg-sky-100/[0.10] shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_14px_26px_rgba(14,116,144,0.08)]",
   },
   {
     title: "Escape Room i Naturen",
@@ -150,8 +140,6 @@ const cards: HubCard[] = [
     titleClass: "text-amber-950",
     accentTextClass: "text-amber-700",
     accentMutedClass: "text-amber-700/80",
-    animationShellClass:
-      "border-amber-200/20 bg-amber-100/[0.10] shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_14px_26px_rgba(180,83,9,0.08)]",
   },
   {
     title: "Tidsmaskinen",
@@ -167,8 +155,6 @@ const cards: HubCard[] = [
     titleClass: "text-stone-900",
     accentTextClass: "text-stone-700",
     accentMutedClass: "text-stone-700/80",
-    animationShellClass:
-      "border-violet-200/20 bg-slate-100/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_14px_26px_rgba(71,85,105,0.08)]",
   },
 ];
 
