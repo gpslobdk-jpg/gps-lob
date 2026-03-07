@@ -12,6 +12,8 @@ type GeneratePayload = {
   count?: unknown;
   prompt?: unknown;
   pedagogicalContext?: unknown;
+  systemContext?: unknown;
+  builderContext?: unknown;
 };
 
 type GeneratedQuestion = {
@@ -27,6 +29,13 @@ function asTrimmedString(value: unknown): string {
 function asCount(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_COUNT;
   return Math.min(20, Math.max(1, Math.floor(value)));
+}
+
+function joinPromptSections(parts: Array<string | null | undefined>): string {
+  return parts
+    .map((part) => (typeof part === "string" ? part.trim() : ""))
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 function getLevelInstruction(grade: string): string {
@@ -104,6 +113,8 @@ export async function POST(req: Request) {
     const topic = asTrimmedString(payload.topic);
     const grade = asTrimmedString(payload.grade);
     const extraPrompt = asTrimmedString(payload.prompt);
+    const providedSystemContext = asTrimmedString(payload.systemContext);
+    const providedBuilderContext = asTrimmedString(payload.builderContext);
     const count = asCount(payload.count);
 
     if (!subject || !topic) {
@@ -125,16 +136,16 @@ export async function POST(req: Request) {
 
     const levelInstruction = getLevelInstruction(grade);
 
-    const systemPrompt = `Du er en pædagogisk konsulent, der designer spørgsmål til GPS-løb i undervisning.
+    const fallbackSystemContext = `Du er en pædagogisk konsulent, der designer spørgsmål til GPS-løb i undervisning.
 ${contextualPrompt}
 Målgruppe: ${grade || "ikke angivet"}.
 Strikte niveauregler:
 - Hvis niveauet er Indskoling, skal sproget være ekstremt simpelt og legende.
 - Hvis niveauet er Gymnasialt eller Ungdomsuddannelse, skal indholdet være fagligt udfordrende og komplekst.
 - For øvrige niveauer skal sværhedsgrad og sprog være alderssvarende.
-Aktiv niveautolkning til dette kald: ${levelInstruction}
+ Aktiv niveautolkning til dette kald: ${levelInstruction}`;
 
-Krav til output:
+    const fallbackBuilderContext = `Krav til output:
 - Returner KUN valid JSON (ingen markdown, ingen forklaringer).
 - JSON skal have denne præcise struktur:
 {
@@ -151,12 +162,30 @@ Krav til output:
 - "correctIndex" skal altid være et heltal fra 0 til 3.
 - Hele indholdet skal være på dansk.`;
 
+    const systemPrompt = joinPromptSections([
+      providedSystemContext || fallbackSystemContext,
+      providedBuilderContext || fallbackBuilderContext,
+    ]);
+
+    const userPrompt = joinPromptSections([
+      `Brugerens emne: ${topic}.`,
+      `Fag eller kontekst: ${subject}.`,
+      grade ? `Målgruppe eller niveau: ${grade}.` : null,
+      `Ønsket antal poster: ${count}.`,
+      extraPrompt
+        ? extraPrompt.endsWith(".")
+          ? `Brugerens ønske: ${extraPrompt}`
+          : `Brugerens ønske: ${extraPrompt}.`
+        : "Brugerens ønske: Lav indhold, der matcher emnet, målgruppen og GPS-konteksten.",
+      "Returner nu kun valid JSON i det aftalte format.",
+    ]);
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: "Returner nu kun JSON." },
+        { role: "user", content: userPrompt },
       ],
     });
 
