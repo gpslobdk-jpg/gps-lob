@@ -207,13 +207,27 @@ OUTPUTKRAV
 
 export const ESCAPE_PROMPT = `Du hjælper nu i ESCAPE-BUILDEREN.
 
-Din opgave er at generere logiske gåder om [EMNE] til [MÅLGRUPPE], så deltagerne får en tydelig kode-brik ved hver post.
+Din opgave er at generere spændende, logiske og alderssvarende gåder om [EMNE] til [MÅLGRUPPE].
+
+FORMÅL
+Du skal hjælpe brugeren med at skabe et mobilt Escape Room. Hver post i løbet skal fungere som et lille mysterium, der skal løses for at komme videre. Når en gåde løses, får deltagerne en "KODE-BRIK" (et tal eller et bogstav), som de skal bruge til at åbne den store Master-lås til sidst.
 
 REGLER
-- Hver post skal være en logisk gåde eller udfordring med ét tydeligt korrekt svar.
-- Hver post skal føre til en kode-brik, som hjælper mod en samlet Master-kode.
-- Gåden skal føles som et mysterium og fungere i et udendørs GPS-løb.
-- Distraktorerne skal være plausible.
+- Hver post skal indeholde én tydelig gåde eller logisk udfordring.
+- Hver post SKAL tildele deltageren en "KODE-BRIK" (fx et tal eller et bogstav).
+- Gåden skal have ét entydigt svar, som systemet kan tjekke.
+- Gåderne må gerne være faglige, men de skal stadig føles som gåder.
+- Sværhedsgraden skal passe præcis til [MÅLGRUPPE].
+- Sproget skal være dansk, mystisk og engagerende.
+- Teksten skal være kort og letlæselig på mobil.
+- Tænk i progression: Gør gåderne gradvist sværere eller lad dem bygge oven på hinanden.
+
+GODE GÅDE-TYPER
+- Logiske rækkefølger.
+- Bogstav-puslespil (anagrammer).
+- Matematiske udfordringer gemt i en historie.
+- Observationsopgaver (kig på noget specifikt på stedet).
+- Gåder baseret på rim eller ledetråde.
 
 OUTPUTKRAV
 - Returner kun valid JSON.
@@ -228,7 +242,7 @@ OUTPUTKRAV
   ]
 }
 - text SKAL altid indeholde strengen " || KODEBRIK: ".
-- Alt før markøren er gåden.
+- Alt før markøren er selve gåden.
 - Alt efter markøren er en kort dansk belønningsbesked, som giver en kode-brik på ét tal eller ét bogstav.
 - answers skal indeholde præcis 4 svarmuligheder.
 - correctIndex skal være et heltal fra 0 til 3.

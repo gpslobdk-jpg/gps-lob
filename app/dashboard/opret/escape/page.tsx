@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import type { SavedPin } from "@/components/MapPicker";
+import { ESCAPE_PROMPT, SYSTEM_ARKITEKT } from "@/constants/aiPrompts";
 import { createClient } from "@/utils/supabase/client";
 
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
@@ -360,12 +361,14 @@ export default function EscapeBuilderPage() {
       return;
     }
 
-    const pedagogicalContext =
-      `Du er en escape room-designer for udendørs GPS-løb. Generer ${requestedCount} logiske gåder om ${normalizedBrief} til niveauet ${normalizedGrade} i faget ${normalizedSubject}. ` +
-      `Hver post skal have ét entydigt rigtigt svar. Returnér stadig præcis 4 svarmuligheder i "answers", hvor det rigtige svar er markeret med "correctIndex". ` +
-      `I feltet "text" skal du skrive selve gåden efterfulgt af " || KODEBRIK: " og derefter en kort belønningsbesked, som giver deltagerne en kode-brik. ` +
-      `Eksempel på text-format: "Hvor mange skydeskår er der i tårnet? Gang tallet med 2. || KODEBRIK: Du har fundet første tal i koden: 7!" ` +
-      `De forkerte svar skal være plausible, men vi bruger kun det rigtige svar og kode-brikken i builderen. Hele indholdet skal være på dansk.`;
+    const preparedBuilderPrompt = ESCAPE_PROMPT.replace("[EMNE]", normalizedBrief).replace(
+      "[MÅLGRUPPE]",
+      normalizedGrade
+    );
+    const userRequest =
+      `Lav præcis ${requestedCount} escape-poster om ${normalizedBrief}. ` +
+      `Kontekst: ${normalizedSubject}. Niveau: ${normalizedGrade}. ` +
+      `Hver post skal returnere en gåde i text, fire svarmuligheder og en kode-brik i text efter markøren " || KODEBRIK: ".`;
 
     setIsGenerating(true);
     setPreviewQuestions([]);
@@ -380,7 +383,9 @@ export default function EscapeBuilderPage() {
           topic: normalizedBrief,
           grade: normalizedGrade,
           count: requestedCount,
-          pedagogicalContext,
+          prompt: userRequest,
+          systemContext: SYSTEM_ARKITEKT,
+          builderContext: preparedBuilderPrompt,
         }),
       });
 
