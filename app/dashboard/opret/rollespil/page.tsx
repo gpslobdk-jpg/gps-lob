@@ -606,10 +606,10 @@ export default function RollespilBuilderPage() {
 
   return (
     <>
-      <div className={`relative min-h-screen overflow-hidden bg-violet-950 text-violet-100 ${poppins.className}`}>
+      <div className={`relative min-h-screen overflow-x-hidden bg-violet-950 text-violet-100 ${poppins.className}`}>
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(139,92,246,0.28),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(196,181,253,0.12),_transparent_28%)]" />
-        <div className="relative flex min-h-screen flex-col lg:flex-row">
-          <section className="w-full overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 lg:w-[52%] lg:px-8 lg:py-8">
+        <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
+          <section className="w-full px-4 py-4 sm:px-6 sm:py-6 lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
             <div className="mx-auto max-w-3xl space-y-6">
               <div className="px-1 pt-1">
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
@@ -812,9 +812,11 @@ export default function RollespilBuilderPage() {
             </div>
           </section>
 
-          <aside className="h-[42vh] w-full p-4 pt-0 sm:px-6 lg:h-auto lg:w-[48%] lg:p-8 lg:pl-0">
-            <div className="h-full min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-violet-500/20 bg-violet-950/50 shadow-[0_0_0_1px_rgba(139,92,246,0.08),0_0_36px_rgba(139,92,246,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl">
-              <MapPicker center={mapCenter} pins={pins} onCenterChange={setMapCenter} />
+          <aside className="w-full p-4 pt-0 sm:px-6 lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
+            <div className="lg:sticky lg:top-5">
+              <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-violet-500/20 bg-violet-950/50 shadow-[0_0_0_1px_rgba(139,92,246,0.08),0_0_36px_rgba(139,92,246,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
+                <MapPicker center={mapCenter} pins={pins} onCenterChange={setMapCenter} />
+              </div>
             </div>
           </aside>
         </div>
