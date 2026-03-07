@@ -1,9 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Player } from "@lottiefiles/react-lottie-player";
 import "leaflet/dist/leaflet.css";
-import L from "leaflet";
 import { AlertCircle, CheckCircle2, Crosshair, Loader2, MapPin } from "lucide-react";
 import Image from "next/image";
 import {
@@ -17,11 +15,16 @@ import {
   type FormEvent,
 } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import type { DivIcon } from "leaflet";
 
 import trophyAnimation from "@/public/trophy.json";
 import { createClient } from "@/utils/supabase/client";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
+const LottiePlayer = dynamic(
+  () => import("@lottiefiles/react-lottie-player").then((mod) => mod.Player),
+  { ssr: false }
+);
 const MapContainer = dynamic(
   () => import("react-leaflet").then((m) => m.MapContainer),
   { ssr: false }
@@ -192,6 +195,12 @@ function saveStoredActiveParticipant(value: StoredActiveParticipant) {
 function clearStoredActiveParticipant() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(ACTIVE_PARTICIPANT_STORAGE_KEY);
+}
+
+function reloadPage() {
+  if (typeof window !== "undefined") {
+    window.location.reload();
+  }
 }
 
 function parseQuestion(raw: unknown): Question | null {
@@ -433,6 +442,8 @@ function PlayScreen() {
   const [typedAnswerError, setTypedAnswerError] = useState<{ key: string; message: string } | null>(
     null
   );
+  const [playerIcon, setPlayerIcon] = useState<DivIcon | null>(null);
+  const [targetIcon, setTargetIcon] = useState<DivIcon | null>(null);
   const [participantId, setParticipantId] = useState<string | null>(
     () => storedParticipantOnLoad?.participantId ?? null
   );
@@ -514,6 +525,46 @@ function PlayScreen() {
       if (photoAnalysisTimerRef.current) {
         clearTimeout(photoAnalysisTimerRef.current);
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    let isDisposed = false;
+
+    if (typeof window === "undefined") return;
+
+    void import("leaflet")
+      .then((leafletModule) => {
+        if (isDisposed) return;
+
+        const leaflet = leafletModule.default ?? leafletModule;
+
+        setPlayerIcon(
+          leaflet.divIcon({
+            className: "bg-transparent border-none",
+            html: '<div class="w-5 h-5 rounded-full bg-emerald-400 border-2 border-emerald-100 shadow-[0_0_18px_rgba(52,211,153,0.9)]"></div>',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10],
+          })
+        );
+
+        setTargetIcon(
+          leaflet.divIcon({
+            className: "bg-transparent border-none",
+            html: '<div class="relative w-8 h-8"><div class="absolute inset-0 rounded-full bg-amber-300/20 animate-ping"></div><div class="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-amber-200 bg-amber-950 text-amber-100 font-black shadow-[0_0_18px_rgba(251,191,36,0.8)]">â—Ž</div></div>',
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+          })
+        );
+      })
+      .catch(() => {
+        if (isDisposed) return;
+        setPlayerIcon(null);
+        setTargetIcon(null);
+      });
+
+    return () => {
+      isDisposed = true;
     };
   }, []);
 
@@ -1009,6 +1060,8 @@ function PlayScreen() {
     questions.length > 0;
 
   useEffect(() => {
+    if (typeof document === "undefined") return;
+
     const wakeLockApi = (navigator as NavigatorWithWakeLock).wakeLock;
     if (!shouldKeepScreenAwake || !wakeLockApi) {
       const activeSentinel = wakeLockSentinelRef.current;
@@ -1477,18 +1530,7 @@ function PlayScreen() {
     }
   };
 
-  const playerIcon = useMemo(
-    () =>
-      L.divIcon({
-        className: "bg-transparent border-none",
-        html: '<div class="w-5 h-5 rounded-full bg-emerald-400 border-2 border-emerald-100 shadow-[0_0_18px_rgba(52,211,153,0.9)]"></div>',
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
-      }),
-    []
-  );
-
-  const targetIcon = useMemo(
+  /* const targetIcon = useMemo(
     () =>
       L.divIcon({
         className: "bg-transparent border-none",
@@ -1498,6 +1540,8 @@ function PlayScreen() {
       }),
     []
   );
+
+  ); */
 
   if (isLoading) {
     return (
@@ -1591,7 +1635,7 @@ function PlayScreen() {
           <p className={`text-sm text-red-100/90 ${wrapTextClass}`}>{gpsErrorContent.helper}</p>
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={reloadPage}
             className="mt-7 rounded-xl border border-red-200/60 bg-red-100 px-5 py-3 font-bold text-red-900 transition-colors hover:bg-white"
           >
             Prøv igen
@@ -1843,7 +1887,7 @@ function PlayScreen() {
       <div className="relative flex min-h-screen w-full flex-col items-center overflow-hidden bg-slate-950 px-6 py-10 text-white">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_20%,rgba(16,185,129,0.25),transparent_40%),radial-gradient(circle_at_80%_10%,rgba(251,191,36,0.22),transparent_42%),radial-gradient(circle_at_50%_90%,rgba(139,92,246,0.16),transparent_40%)]" />
         <div className="pointer-events-none absolute inset-0 opacity-80">
-          <Player
+          <LottiePlayer
             autoplay
             loop
             src={FIREWORKS_LOTTIE_URL}
@@ -2042,7 +2086,7 @@ function PlayScreen() {
           >
             <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
 
-            {activeQuestion ? (
+            {activeQuestion && targetIcon ? (
               <Marker position={[activeQuestion.lat, activeQuestion.lng]} icon={targetIcon}>
                 <Popup>
                   <div className={`text-sm ${wrapTextClass}`}>
@@ -2056,7 +2100,7 @@ function PlayScreen() {
               </Marker>
             ) : null}
 
-            {myLoc ? (
+            {myLoc && playerIcon ? (
               <Marker position={[myLoc.lat, myLoc.lng]} icon={playerIcon}>
                 <Popup>Du er her{playerName ? `, ${playerName}` : ""}</Popup>
               </Marker>
