@@ -26,6 +26,8 @@ export default function LoginPage() {
 }
 
 function LoginPageContent() {
+  const TOUR_FINISHED_KEY = "gpslob_tour_finished";
+  const TOUR_STEP_KEY = "gpslob_tour_step";
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -57,6 +59,10 @@ function LoginPageContent() {
 
   const handleOAuthLogin = async (provider: "google" | "facebook" | "azure") => {
     setIsRedirecting(true);
+
+    if (typeof window !== "undefined" && window.localStorage.getItem(TOUR_FINISHED_KEY) !== "true") {
+      window.localStorage.setItem(TOUR_STEP_KEY, "1");
+    }
 
     const supabase = createClient();
     const callbackUrl = new URL("/api/auth/callback", window.location.origin);
@@ -119,49 +125,61 @@ function LoginPageContent() {
             Velkommen til gpsløb.dk
           </h1>
 
-          <button
-            type="button"
-            onClick={() => void handleOAuthLogin("google")}
-            className="mt-6 h-12 w-full rounded-full border border-emerald-200 bg-white/90 px-5 text-base font-semibold text-emerald-950 shadow-sm transition-all duration-300 hover:bg-white"
+          <div
+            data-tour="login-organizer-entry"
+            className="mt-6 rounded-[1.75rem] border border-emerald-200/80 bg-emerald-50/80 p-4 text-left shadow-sm"
           >
-            <span className="flex items-center justify-center gap-3">
-              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5">
-                <path
-                  fill="#4285F4"
-                  d="M22.5 12.27c0-.79-.07-1.54-.2-2.27H12v4.29h5.9a5.05 5.05 0 0 1-2.2 3.31v2.75h3.56c2.09-1.92 3.24-4.75 3.24-8.08Z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.93 0 5.4-.97 7.2-2.65l-3.56-2.75c-.97.65-2.2 1.04-3.64 1.04-2.8 0-5.16-1.9-6-4.45H2.3v2.8A10.9 10.9 0 0 0 12 23Z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M6 14.19a6.53 6.53 0 0 1-.33-2.19c0-.76.12-1.5.33-2.19V7.01H2.3A10.98 10.98 0 0 0 1 12c0 1.77.43 3.45 1.3 4.99l2.86-2.8H6Z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.36c1.6 0 3.04.56 4.17 1.63l3.13-3.13C17.4 2.07 14.93 1 12 1 7.73 1 4.05 3.42 2.3 7.01L6 9.81c.84-2.55 3.2-4.45 6-4.45Z"
-                />
-              </svg>
-              Log ind med Google
-            </span>
-          </button>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700/80">
+              Log ind for arrangører
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-emerald-900/80">
+              Brug en af disse login-metoder for at åbne dashboardet og styre dine løb.
+            </p>
 
-          <button
-            type="button"
-            onClick={() => void handleOAuthLogin("azure")}
-            className="mt-3 h-12 w-full rounded-full border border-emerald-200 bg-white/90 px-5 text-base font-semibold text-emerald-950 shadow-sm transition-all duration-300 hover:bg-white"
-          >
-            <span className="flex items-center justify-center gap-3">
-              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5">
-                <rect x="2" y="2" width="9" height="9" fill="#f35325" />
-                <rect x="13" y="2" width="9" height="9" fill="#81bc06" />
-                <rect x="2" y="13" width="9" height="9" fill="#05a6f0" />
-                <rect x="13" y="13" width="9" height="9" fill="#ffba08" />
-              </svg>
-              Log ind med Microsoft
-            </span>
-          </button>
+            <button
+              type="button"
+              onClick={() => void handleOAuthLogin("google")}
+              className="mt-4 h-12 w-full rounded-full border border-emerald-200 bg-white/90 px-5 text-base font-semibold text-emerald-950 shadow-sm transition-all duration-300 hover:bg-white"
+            >
+              <span className="flex items-center justify-center gap-3">
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5">
+                  <path
+                    fill="#4285F4"
+                    d="M22.5 12.27c0-.79-.07-1.54-.2-2.27H12v4.29h5.9a5.05 5.05 0 0 1-2.2 3.31v2.75h3.56c2.09-1.92 3.24-4.75 3.24-8.08Z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.93 0 5.4-.97 7.2-2.65l-3.56-2.75c-.97.65-2.2 1.04-3.64 1.04-2.8 0-5.16-1.9-6-4.45H2.3v2.8A10.9 10.9 0 0 0 12 23Z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M6 14.19a6.53 6.53 0 0 1-.33-2.19c0-.76.12-1.5.33-2.19V7.01H2.3A10.98 10.98 0 0 0 1 12c0 1.77.43 3.45 1.3 4.99l2.86-2.8H6Z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.36c1.6 0 3.04.56 4.17 1.63l3.13-3.13C17.4 2.07 14.93 1 12 1 7.73 1 4.05 3.42 2.3 7.01L6 9.81c.84-2.55 3.2-4.45 6-4.45Z"
+                  />
+                </svg>
+                Log ind med Google
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void handleOAuthLogin("azure")}
+              className="mt-3 h-12 w-full rounded-full border border-emerald-200 bg-white/90 px-5 text-base font-semibold text-emerald-950 shadow-sm transition-all duration-300 hover:bg-white"
+            >
+              <span className="flex items-center justify-center gap-3">
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5">
+                  <rect x="2" y="2" width="9" height="9" fill="#f35325" />
+                  <rect x="13" y="2" width="9" height="9" fill="#81bc06" />
+                  <rect x="2" y="13" width="9" height="9" fill="#05a6f0" />
+                  <rect x="13" y="13" width="9" height="9" fill="#ffba08" />
+                </svg>
+                Log ind med Microsoft
+              </span>
+            </button>
+          </div>
 
           <div className="my-6 flex items-center gap-3">
             <div className="h-px flex-1 bg-emerald-200" />

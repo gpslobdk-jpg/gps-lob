@@ -1,11 +1,13 @@
 "use client";
 
-import { driver } from "driver.js";
+import { driver, type PopoverDOM } from "driver.js";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
-const TOUR_SEEN_KEY = "gpslob-tour-seen";
-const TOUR_STEP_KEY = "gpslob-tour-step";
+const LEGACY_TOUR_SEEN_KEY = "gpslob-tour-seen";
+const LEGACY_TOUR_STEP_KEY = "gpslob-tour-step";
+const TOUR_FINISHED_KEY = "gpslob_tour_finished";
+const TOUR_STEP_KEY = "gpslob_tour_step";
 
 type TourStep = {
   index: number;
@@ -16,28 +18,29 @@ type TourStep = {
   side?: "top" | "bottom" | "left" | "right";
   align?: "start" | "center" | "end";
   nextPath?: string;
+  nextButtonLabel?: string;
+  showNextButton?: boolean;
   done?: boolean;
 };
 
 const TOUR_STEPS: TourStep[] = [
   {
     index: 0,
-    path: "/",
-    selector: '[data-tour="home-organizer-login"]',
-    title: "Start her som arrangør",
-    description:
-      "Det her er indgangen til builderen. Klik her, hvis du vil oprette og styre dine egne GPS-løb.",
-    side: "top",
+    path: "/login",
+    selector: '[data-tour="login-organizer-entry"]',
+    title: "Log ind som arrangør",
+    description: "Velkommen! Start med at logge ind her for at styre dine løb.",
+    side: "bottom",
     align: "center",
-    nextPath: "/login",
+    nextPath: "/dashboard",
+    showNextButton: false,
   },
   {
     index: 1,
     path: "/dashboard",
     selector: '[data-tour="dashboard-create-run"]',
-    title: "Her opretter du dit første løb",
-    description:
-      "Når du er landet i Udsigtsposten, er det her dit vigtigste næste klik. Herfra går du videre til selve oprettelsen.",
+    title: "Her starter magien",
+    description: "Her starter magien. Klik her for at lave dit første ræs.",
     side: "bottom",
     align: "center",
     nextPath: "/dashboard/opret",
@@ -46,9 +49,8 @@ const TOUR_STEPS: TourStep[] = [
     index: 2,
     path: "/dashboard/opret",
     selector: '[data-tour="opret-build-from-scratch"]',
-    title: "Vælg den manuelle vej først",
-    description:
-      "Byg fra bunden er den bedste start, hvis du vil lære platformen hurtigt at kende og selv styre flowet.",
+    title: "Byg med fuld kontrol",
+    description: "Vælg denne for fuld kontrol over dine poster.",
     side: "bottom",
     align: "start",
     nextPath: "/dashboard/opret/valg",
@@ -57,11 +59,11 @@ const TOUR_STEPS: TourStep[] = [
     index: 3,
     path: "/dashboard/opret/valg",
     selector: '[data-tour="valg-classic-quiz"]',
-    title: "Begynd med Klassisk Quiz-løb",
-    description:
-      "Det er den mest ligetil builder og den hurtigste måde at forstå poster, spørgsmål og ruteopsætning på.",
+    title: "Start med Klassisk Quiz",
+    description: "Vores mest populære type. Perfekt til en tur i skoven!",
     side: "bottom",
     align: "start",
+    nextButtonLabel: "Færdig",
     done: true,
   },
 ];
@@ -82,13 +84,28 @@ const setStoredStep = (step: number) => {
 };
 
 const completeTour = () => {
-  window.localStorage.setItem(TOUR_SEEN_KEY, "true");
+  window.localStorage.setItem(TOUR_FINISHED_KEY, "true");
   window.localStorage.removeItem(TOUR_STEP_KEY);
+};
+
+const migrateLegacyState = () => {
+  if (window.localStorage.getItem(TOUR_FINISHED_KEY) === "true") return;
+
+  if (window.localStorage.getItem(LEGACY_TOUR_SEEN_KEY) === "true") {
+    window.localStorage.setItem(TOUR_FINISHED_KEY, "true");
+    window.localStorage.removeItem(LEGACY_TOUR_STEP_KEY);
+    return;
+  }
+
+  const legacyStep = window.localStorage.getItem(LEGACY_TOUR_STEP_KEY);
+  if (legacyStep && !window.localStorage.getItem(TOUR_STEP_KEY)) {
+    window.localStorage.setItem(TOUR_STEP_KEY, legacyStep);
+  }
 };
 
 const syncStepWithPath = (pathname: string, currentStep: number) => {
   if (pathname === "/login") {
-    return Math.max(currentStep, 1);
+    return currentStep;
   }
 
   if (pathname === "/dashboard") {
@@ -116,7 +133,7 @@ const syncStepWithPath = (pathname: string, currentStep: number) => {
 };
 
 const canShowTourOnPath = (pathname: string) =>
-  pathname === "/" ||
+  pathname === "/login" ||
   pathname === "/dashboard" ||
   pathname === "/dashboard/opret" ||
   pathname === "/dashboard/opret/valg";
@@ -128,6 +145,17 @@ const isElementVisible = (element: Element | null) => {
   return rect.width > 0 && rect.height > 0;
 };
 
+const setSkipButtonLabel = (popover: PopoverDOM) => {
+  popover.closeButton.innerText = "Spring over";
+  popover.closeButton.classList.add("gpslob-tour-skip-btn");
+  popover.footerButtons.prepend(popover.closeButton);
+};
+
+const openNextRoute = (router: ReturnType<typeof useRouter>, nextPath?: string) => {
+  if (!nextPath) return;
+  router.push(nextPath);
+};
+
 export default function OnboardingTour() {
   const pathname = usePathname();
   const router = useRouter();
@@ -136,7 +164,9 @@ export default function OnboardingTour() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!pathname) return;
-    if (window.localStorage.getItem(TOUR_SEEN_KEY) === "true") return;
+
+    migrateLegacyState();
+    if (window.localStorage.getItem(TOUR_FINISHED_KEY) === "true") return;
 
     const rawStoredStep = getStoredStep();
     const storedStep = syncStepWithPath(pathname, rawStoredStep);
@@ -151,8 +181,11 @@ export default function OnboardingTour() {
 
     let cancelled = false;
     let attemptCount = 0;
+    let cleanupTargetClick: (() => void) | null = null;
 
     const teardown = () => {
+      cleanupTargetClick?.();
+      cleanupTargetClick = null;
       driverRef.current?.destroy();
       driverRef.current = null;
     };
@@ -173,6 +206,26 @@ export default function OnboardingTour() {
 
       teardown();
 
+      const handleTargetAdvance = () => {
+        if (nextStep.done) {
+          completeTour();
+          teardown();
+          return;
+        }
+
+        setStoredStep(nextStep.index + 1);
+      };
+
+      if (targetElement instanceof HTMLElement) {
+        const clickHandler = () => {
+          handleTargetAdvance();
+        };
+        targetElement.addEventListener("click", clickHandler, { once: true });
+        cleanupTargetClick = () => {
+          targetElement.removeEventListener("click", clickHandler);
+        };
+      }
+
       const driverObj = driver({
         animate: true,
         allowClose: true,
@@ -180,10 +233,11 @@ export default function OnboardingTour() {
         overlayColor: "rgba(15, 23, 42, 0.72)",
         stagePadding: 10,
         stageRadius: 18,
+        disableActiveInteraction: false,
         showProgress: true,
         smoothScroll: true,
         popoverClass: "gpslob-tour-popover",
-        nextBtnText: nextStep.done ? "Færdig" : "Videre",
+        nextBtnText: nextStep.nextButtonLabel ?? (nextStep.done ? "Færdig" : "Videre"),
         prevBtnText: "Tilbage",
         doneBtnText: "Færdig",
         onCloseClick: () => {
@@ -198,7 +252,10 @@ export default function OnboardingTour() {
               description: nextStep.description,
               side: nextStep.side ?? "bottom",
               align: nextStep.align ?? "start",
-              showButtons: ["next", "close"],
+              showButtons: nextStep.showNextButton === false ? ["close"] : ["next", "close"],
+              onPopoverRender: (popover) => {
+                setSkipButtonLabel(popover);
+              },
               onNextClick: () => {
                 if (nextStep.done) {
                   completeTour();
@@ -208,10 +265,7 @@ export default function OnboardingTour() {
 
                 setStoredStep(nextStep.index + 1);
                 teardown();
-
-                if (nextStep.nextPath) {
-                  router.push(nextStep.nextPath);
-                }
+                openNextRoute(router, nextStep.nextPath);
               },
               onCloseClick: () => {
                 completeTour();
