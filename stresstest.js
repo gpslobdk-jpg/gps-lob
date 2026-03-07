@@ -10,8 +10,13 @@ const SESSION_ID = (__ENV.SESSION_ID || "").trim();
 const PLAY_SESSION_ID =
   (__ENV.PLAY_SESSION_ID || SESSION_ID || "00000000-0000-0000-0000-000000000000").trim();
 const STUDENT_PREFIX = (__ENV.STUDENT_PREFIX || "stress-elev").trim();
+const PLAY_NAME = (__ENV.PLAY_NAME || "stress-elev").trim();
+const ENABLE_EXTERNAL = (__ENV.ENABLE_EXTERNAL || "false").toLowerCase() === "true";
+const VUS = Number(__ENV.VUS || 500);
+const DURATION = __ENV.DURATION || "3m";
 
-const hasSupabaseConfig = SUPABASE_URL.length > 0 && SUPABASE_ANON_KEY.length > 0;
+const hasSupabaseConfig =
+  ENABLE_EXTERNAL && SUPABASE_URL.length > 0 && SUPABASE_ANON_KEY.length > 0;
 const joinLookupTrend = new Trend("join_lookup_duration");
 const gpsPingTrend = new Trend("gps_ping_duration");
 const joinInsertTrend = new Trend("join_insert_duration");
@@ -28,13 +33,15 @@ const supabaseHeaders = hasSupabaseConfig
   : null;
 
 export const options = {
-  vus: 500,
-  duration: "3m",
+  vus: VUS,
+  duration: DURATION,
   discardResponseBodies: true,
+  noConnectionReuse: false,
+  noVUConnectionReuse: false,
   thresholds: {
-    http_req_failed: ["rate<0.10"],
-    http_req_duration: ["p(95)<3000", "avg<1500"],
-    scenario_failed: ["rate<0.10"],
+    http_req_failed: ["rate<0.01"],
+    http_req_duration: ["p(95)<2000"],
+    scenario_failed: ["rate<0.01"],
   },
 };
 
@@ -44,18 +51,19 @@ function supabaseUrl(path) {
 
 export default function () {
   const studentName = `${STUDENT_PREFIX}-${__VU}-${__ITER}`;
+  const playUrl = `${BASE_URL}/play/${PLAY_SESSION_ID}?name=${encodeURIComponent(PLAY_NAME)}`;
   const lat = 55.6761 + (__VU % 10) * 0.0001;
   const lng = 12.5683 + (__ITER % 10) * 0.0001;
 
   const pageResponses = http.batch([
-    ["GET", `${BASE_URL}/`, null, { tags: { flow: "landing" } }],
-    ["GET", `${BASE_URL}/join`, null, { tags: { flow: "join-page" } }],
+    ["GET", `${BASE_URL}/`, null, { tags: { flow: "landing", name: "landing" } }],
     [
       "GET",
-      `${BASE_URL}/play/${PLAY_SESSION_ID}?name=${encodeURIComponent(studentName)}`,
+      `${BASE_URL}/join`,
       null,
-      { tags: { flow: "play-page" } },
+      { tags: { flow: "join-page", name: "join-page" } },
     ],
+    ["GET", playUrl, null, { tags: { flow: "play-page", name: "play-page" } }],
   ]);
 
   for (const response of pageResponses) {
@@ -64,7 +72,7 @@ export default function () {
 
   const pageChecksOk = pageResponses.every((response) =>
     check(response, {
-      "side svarer": (res) => res.status >= 200 && res.status < 500,
+      "side svarer": (res) => res.status >= 200 && res.status < 400,
     })
   );
 
