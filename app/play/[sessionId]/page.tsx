@@ -61,6 +61,7 @@ type Question = {
   lat: number;
   lng: number;
   mediaUrl?: string;
+  isSelfie?: boolean;
 };
 
 type ActivePostVariant = "quiz" | "photo" | "escape" | "roleplay" | "unknown";
@@ -240,6 +241,7 @@ function parseQuestion(raw: unknown): Question | null {
     lat,
     lng,
     mediaUrl: typeof candidate.mediaUrl === "string" ? candidate.mediaUrl : "",
+    isSelfie: candidate.isSelfie === true || candidate.is_selfie === true,
   };
 }
 
@@ -1397,6 +1399,7 @@ function PlayScreen() {
         body: JSON.stringify({
           image,
           targetObject,
+          isSelfie: activeQuestion.isSelfie === true,
         }),
       });
 

@@ -205,6 +205,36 @@ OUTPUTKRAV
 - correctIndex skal pege på det objekt, som deltageren faktisk skal finde og fotografere.
 - Hele indholdet skal være på dansk.`;
 
+export const SELFIE_PROMPT = `Du hjælper nu i SELFIE-BUILDEREN.
+
+Din opgave er at generere konkrete, visuelle og mobilvenlige selfie-missioner om [EMNE] til [MÅLGRUPPE].
+
+REGLER
+- Hver mission skal have en klar instruktion om at tage en selfie på et bestemt sted.
+- Hver mission skal udpege ét konkret objekt eller ét tydeligt sted, som skal være i baggrunden.
+- Baggrundsmotivet skal være visuelt entydigt og realistisk at finde i naturen, skolegården eller nærområdet.
+- Instruktionen skal være kort, dansk og let at læse på mobil.
+- Instruktionen må gerne nævne selfie direkte, men den behøver ikke indeholde den faste påmindelse om ansigtet. Systemet tilføjer selv den til sidst.
+- Forkerte svar skal også være konkrete baggrundsobjekter eller korte stedbeskrivelser.
+- Den korrekte svarmulighed skal være det nøjagtige baggrundsmotiv, som AI'en senere skal tjekke sammen med deltagerens ansigt.
+
+OUTPUTKRAV
+- Returner kun valid JSON.
+- JSON skal have strukturen:
+{
+  "questions": [
+    {
+      "text": "Kort dansk elevinstruktion",
+      "answers": ["Korrekt baggrundsmotiv", "Distraktor 1", "Distraktor 2", "Distraktor 3"],
+      "correctIndex": 0
+    }
+  ]
+}
+- text skal være en kort elevinstruktion på dansk.
+- answers skal altid indeholde præcis 4 korte, konkrete baggrundsobjekter eller stedbeskrivelser.
+- correctIndex skal pege på det motiv, der faktisk skal være i baggrunden af selfien.
+- Hele indholdet skal være på dansk.`;
+
 export const ESCAPE_PROMPT = `Du hjælper nu i ESCAPE-BUILDEREN.
 
 Din opgave er at generere spændende, logiske og alderssvarende gåder om [EMNE] til [MÅLGRUPPE].

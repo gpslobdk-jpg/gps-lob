@@ -6,6 +6,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 type AnalyzePhotoPayload = {
   image?: unknown;
   targetObject?: unknown;
+  isSelfie?: unknown;
 };
 
 type AnalyzePhotoResult = {
@@ -45,6 +46,7 @@ export async function POST(req: Request) {
   try {
     const image = asTrimmedString(payload.image);
     const targetObject = asTrimmedString(payload.targetObject);
+    const isSelfie = payload.isSelfie === true;
 
     if (!image || !targetObject) {
       return NextResponse.json({ error: "Billede eller mål-objekt mangler." }, { status: 400 });
@@ -58,14 +60,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "OPENAI_API_KEY mangler i miljøet." }, { status: 500 });
     }
 
-    const systemPrompt = `Du er en sjov og opmuntrende dommer i et udendørs GPS-løb for børn og voksne. Din opgave er at vurdere, om det uploadede billede indeholder det anmodede motiv: ${targetObject}.
+    const systemPrompt = `Du er en sjov og opmuntrende dommer i et udendørs GPS-løb for børn og voksne. Din opgave er at vurdere, om det uploadede billede ${
+      isSelfie
+        ? `er en selfie, hvor mindst ét ansigt er tydeligt, og om motivet ${targetObject} også er synligt i baggrunden eller samme billede`
+        : `indeholder det anmodede motiv: ${targetObject}`
+    }.
 Returner KUN et validt JSON-objekt med dette format:
 {
   "isMatch": boolean,
   "message": string
 }
 Regler:
-- "isMatch" skal være true hvis motivet tydeligt er på billedet, ellers false.
+- "isMatch" skal være true hvis kravene er tydeligt opfyldt, ellers false.
+- Hvis dette er en selfie-opgave, må "isMatch" kun være true når både et ansigt og motivet ${targetObject} er tydeligt synlige.
 - Svar altid på dansk.
 - "message" skal være en kort, opmuntrende kommentar på højst 2 sætninger.
 - Svar kun med valid JSON. Ingen markdown, ingen forklaringer uden for JSON.`;
@@ -80,7 +87,9 @@ Regler:
           content: [
             {
               type: "text",
-              text: `Vurder om billedet matcher dette motiv: ${targetObject}.`,
+              text: isSelfie
+                ? `Vurder om billedet er en selfie, hvor mindst ét ansigt er tydeligt, og hvor dette motiv er synligt: ${targetObject}.`
+                : `Vurder om billedet matcher dette motiv: ${targetObject}.`,
             },
             {
               type: "image_url",
