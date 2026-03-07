@@ -12,7 +12,7 @@ import { createClient } from "@/utils/supabase/client";
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ssr: false,
   loading: () => (
-    <div className="h-full w-full animate-pulse rounded-3xl border border-white/20 bg-white/5" />
+    <div className="h-full w-full animate-pulse rounded-3xl border border-sky-500/20 bg-sky-950/30" />
   ),
 });
 
@@ -186,13 +186,13 @@ const createQuestion = (): Question => ({
 });
 
 const textInputClass =
-  "w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white placeholder:text-white/[0.35] focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500";
+  "w-full rounded-2xl border border-sky-500/20 bg-sky-950/25 px-4 py-3 text-white placeholder:text-white/[0.35] focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500";
 
 const textareaClass =
-  "w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white placeholder:text-white/[0.35] focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500";
+  "w-full rounded-2xl border border-sky-500/20 bg-sky-950/25 px-4 py-3 text-white placeholder:text-white/[0.35] focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500";
 
 const previewInputClass =
-  "w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white placeholder:text-white/[0.35] focus:outline-none focus:ring-2 focus:ring-emerald-500";
+  "w-full rounded-2xl border border-sky-500/20 bg-sky-950/30 px-4 py-3 text-white placeholder:text-white/[0.35] focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500";
 
 const BLANK_ANSWERS: [string, string, string, string] = ["", "", "", ""];
 
@@ -499,8 +499,8 @@ export default function FotoMissionBuilderPage() {
 
   return (
     <>
-      <div className={`relative min-h-screen overflow-hidden bg-slate-950 text-white ${poppins.className}`}>
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.14),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(255,255,255,0.08),_transparent_28%)]" />
+      <div className={`relative min-h-screen overflow-hidden bg-sky-950 text-white ${poppins.className}`}>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.22),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(125,211,252,0.08),_transparent_28%)]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row">
           <section className="w-full overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 lg:w-[52%] lg:px-8 lg:py-8">
             <div className="mx-auto max-w-3xl space-y-6">
@@ -514,7 +514,7 @@ export default function FotoMissionBuilderPage() {
                   placeholder="F.eks. Skovens skjulte spor"
                   className={textInputClass}
                 />
-                <p className="mt-3 text-sm leading-relaxed text-emerald-100/70">
+                <p className="mt-3 text-sm leading-relaxed text-sky-100/70">
                   Kort fortalt: Beskriv et motiv. Deltagerne tager et billede af det med telefonen,
                   og vores AI fortæller dem med det samme, om det er rigtigt.
                 </p>
@@ -527,7 +527,7 @@ export default function FotoMissionBuilderPage() {
                     setShowAIModal(true);
                     setPreviewQuestions([]);
                   }}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-[1.4rem] border border-white/10 bg-white/[0.06] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(0,0,0,0.24)] backdrop-blur-xl transition hover:border-emerald-300/30 hover:bg-white/[0.1] sm:w-auto"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-[1.4rem] border border-sky-500/20 bg-sky-950/40 px-5 py-3 text-sm font-semibold text-sky-50 shadow-[0_16px_36px_rgba(0,0,0,0.24)] backdrop-blur-xl transition hover:border-sky-300/35 hover:bg-sky-900/45 sm:w-auto"
                 >
                   <span aria-hidden>✨</span>
                   Auto-udfyld med AI
@@ -546,11 +546,11 @@ export default function FotoMissionBuilderPage() {
               {questions.map((question, index) => (
                 <article
                   key={question.id}
-                  className="rounded-[2rem] border border-white/10 bg-white/[0.05] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6"
+                  className="rounded-[2rem] border border-sky-500/20 bg-sky-950/40 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/25 text-sm font-bold text-emerald-100">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-sky-500/20 bg-sky-950/50 text-sm font-bold text-sky-100">
                         {index + 1}
                       </div>
                       <div>
@@ -599,7 +599,7 @@ export default function FotoMissionBuilderPage() {
                   <button
                     type="button"
                     onClick={() => assignPinFromCenter(question.id)}
-                    className="mt-5 w-full rounded-[1.4rem] border border-emerald-300/25 bg-emerald-300/90 px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-[0_12px_32px_rgba(16,185,129,0.22)] transition hover:bg-emerald-200"
+                    className="mt-5 w-full rounded-[1.4rem] border border-sky-400/30 bg-sky-500/18 px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-sky-50 shadow-[0_12px_32px_rgba(14,165,233,0.16)] transition hover:bg-sky-500/26"
                   >
                     Hent pin fra kortet
                   </button>
@@ -612,11 +612,11 @@ export default function FotoMissionBuilderPage() {
                 </article>
               ))}
 
-              <div className="rounded-[2rem] border border-white/10 bg-white/[0.05] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+              <div className="rounded-[2rem] border border-sky-500/20 bg-sky-950/40 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
                 <button
                   type="button"
                   onClick={addQuestion}
-                  className="inline-flex items-center gap-2 rounded-[1.4rem] border border-white/10 bg-black/20 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+                  className="inline-flex items-center gap-2 rounded-[1.4rem] border border-sky-500/20 bg-sky-950/35 px-4 py-3 text-sm font-semibold text-sky-50 transition hover:bg-sky-900/45"
                 >
                   <Plus className="h-4 w-4" />
                   Tilføj ny mission
@@ -636,14 +636,14 @@ export default function FotoMissionBuilderPage() {
                 </button>
 
                 {showTeacherField ? (
-                  <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-black/20 p-4">
+                  <div className="mt-4 rounded-[1.5rem] border border-sky-500/20 bg-sky-950/35 p-4">
                     <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
                       Fag
                     </label>
                     <select
                       value={subject}
                       onChange={(event) => setSubject(event.target.value)}
-                      className="w-full appearance-none rounded-2xl border border-white/10 bg-black/25 p-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full appearance-none rounded-2xl border border-sky-500/20 bg-sky-950/25 p-3 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                     >
                       <option value="" className="bg-slate-900 text-white">
                         Vælg et fag...
@@ -665,7 +665,7 @@ export default function FotoMissionBuilderPage() {
                   type="button"
                   onClick={handleSaveRun}
                   disabled={isSaving}
-                  className="mt-6 w-full rounded-[1.6rem] border border-emerald-300/25 bg-emerald-300/90 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-[0_14px_34px_rgba(16,185,129,0.22)] transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-6 w-full rounded-[1.6rem] border border-sky-400/30 bg-sky-500/18 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-sky-50 shadow-[0_14px_34px_rgba(14,165,233,0.16)] transition hover:bg-sky-500/26 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
                 </button>
@@ -674,7 +674,7 @@ export default function FotoMissionBuilderPage() {
           </section>
 
           <aside className="h-[42vh] w-full p-4 pt-0 sm:px-6 lg:h-auto lg:w-[48%] lg:p-8 lg:pl-0">
-            <div className="h-full min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-white/10 bg-black/25 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_0_36px_rgba(255,255,255,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-xl">
+            <div className="h-full min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-sky-500/20 bg-sky-950/35 shadow-[0_0_0_1px_rgba(14,165,233,0.08),0_0_36px_rgba(14,165,233,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-xl">
               <MapPicker center={mapCenter} pins={pins} onCenterChange={setMapCenter} />
             </div>
           </aside>
@@ -683,7 +683,7 @@ export default function FotoMissionBuilderPage() {
 
       {showAIModal && (
         <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md">
-          <div className="w-full max-w-3xl rounded-[2rem] border border-white/10 bg-slate-950/95 p-6 shadow-[0_32px_100px_rgba(0,0,0,0.72)] backdrop-blur-2xl sm:p-8">
+          <div className="w-full max-w-3xl rounded-[2rem] border border-sky-500/20 bg-sky-950/90 p-6 shadow-[0_32px_100px_rgba(0,0,0,0.72)] backdrop-blur-2xl sm:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold tracking-[0.28em] text-white/50 uppercase">
@@ -712,7 +712,7 @@ export default function FotoMissionBuilderPage() {
                   {previewQuestions.map((question, index) => (
                     <div
                       key={question.id}
-                      className="rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-4"
+                      className="rounded-[1.6rem] border border-sky-500/20 bg-sky-950/35 p-4"
                     >
                       <p className="mb-3 text-xs font-semibold tracking-[0.22em] text-white/[0.55] uppercase">
                         Mission {index + 1}
@@ -749,7 +749,7 @@ export default function FotoMissionBuilderPage() {
                   <button
                     type="button"
                     onClick={handleApproveAIPreview}
-                    className="w-full rounded-[1.4rem] border border-emerald-300/25 bg-emerald-300/90 py-3 font-bold text-slate-950 transition hover:bg-emerald-200"
+                    className="w-full rounded-[1.4rem] border border-sky-400/30 bg-sky-500/18 py-3 font-bold text-sky-50 transition hover:bg-sky-500/26"
                   >
                     Godkend og placer på kortet
                   </button>
@@ -773,7 +773,7 @@ export default function FotoMissionBuilderPage() {
                     onChange={(event) => setAiRunBrief(event.target.value)}
                     rows={8}
                     placeholder="Hvor er I, og hvor mange motiver skal AI'en finde på? (F.eks: Find 7 sjove ting man kan tage billeder af i Tivoli...)"
-                    className="w-full rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5 text-white placeholder:text-white/[0.35] focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full rounded-[1.6rem] border border-sky-500/20 bg-sky-950/35 p-5 text-white placeholder:text-white/[0.35] focus:outline-none focus:ring-2 focus:ring-sky-500"
                   />
                 </div>
 
@@ -791,7 +791,7 @@ export default function FotoMissionBuilderPage() {
                 </button>
 
                 {showAITeacherFields ? (
-                  <section className="mt-4 rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-4">
+                  <section className="mt-4 rounded-[1.6rem] border border-sky-500/20 bg-sky-950/35 p-4">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-white/60 uppercase">
@@ -800,7 +800,7 @@ export default function FotoMissionBuilderPage() {
                         <select
                           value={aiSubject}
                           onChange={(event) => setAiSubject(event.target.value)}
-                          className="w-full rounded-2xl border border-white/10 bg-black/25 p-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          className="w-full rounded-2xl border border-sky-500/20 bg-sky-950/25 p-3 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                         >
                           <option value="" className="bg-slate-900 text-white">
                             Vælg fag...
@@ -824,7 +824,7 @@ export default function FotoMissionBuilderPage() {
                         <select
                           value={aiGrade}
                           onChange={(event) => setAiGrade(event.target.value)}
-                          className="w-full rounded-2xl border border-white/10 bg-black/25 p-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          className="w-full rounded-2xl border border-sky-500/20 bg-sky-950/25 p-3 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                         >
                           {AI_GRADE_OPTIONS.map((gradeOption) => (
                             <option
@@ -854,7 +854,7 @@ export default function FotoMissionBuilderPage() {
                     type="button"
                     onClick={handleAIGenerate}
                     disabled={isGenerating}
-                    className="w-full rounded-[1.4rem] border border-emerald-300/25 bg-emerald-300/90 px-6 py-3 text-sm font-bold text-slate-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-[1.4rem] border border-sky-400/30 bg-sky-500/18 px-6 py-3 text-sm font-bold text-sky-50 transition hover:bg-sky-500/26 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isGenerating ? (
                       <span className="inline-flex items-center gap-2">
@@ -869,7 +869,7 @@ export default function FotoMissionBuilderPage() {
 
                 {isGenerating ? (
                   <div className="mt-4 inline-flex items-center gap-2 text-sm text-white/70">
-                    <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-300" />
+                    <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-sky-300" />
                     AI&apos;en leder efter gode motiver...
                   </div>
                 ) : null}
