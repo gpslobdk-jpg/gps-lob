@@ -238,9 +238,9 @@ export default function EscapeBuilderPage() {
   const [title, setTitle] = useState("");
   const [masterCode, setMasterCode] = useState("");
   const [subject, setSubject] = useState("");
-  const [showTeacherField, setShowTeacherField] = useState(false);
+  const [showSubjectField, setShowSubjectField] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
-  const [showAITeacherFields, setShowAITeacherFields] = useState(false);
+  const [showAIMetadataFields, setShowAIMetadataFields] = useState(false);
   const [aiRunBrief, setAiRunBrief] = useState("");
   const [aiSubject, setAiSubject] = useState("");
   const [aiTopic, setAiTopic] = useState("");
@@ -320,7 +320,7 @@ export default function EscapeBuilderPage() {
     if (isGenerating) return;
     setShowAIModal(false);
     setPreviewQuestions([]);
-    setShowAITeacherFields(false);
+    setShowAIMetadataFields(false);
   };
 
   const handleApproveAIPreview = () => {
@@ -343,7 +343,7 @@ export default function EscapeBuilderPage() {
     setQuestions(approvedQuestions);
     setPreviewQuestions([]);
     setShowAIModal(false);
-    setShowAITeacherFields(false);
+    setShowAIMetadataFields(false);
   };
 
   const handleDiscardAIPreview = () => {
@@ -468,7 +468,7 @@ export default function EscapeBuilderPage() {
       );
 
     if (normalizedQuestions.length === 0) {
-      alert("Tilføj mindst én udfyldt post.");
+      alert("Tilføj mindst én udfyldt gåde.");
       return;
     }
 
@@ -476,7 +476,7 @@ export default function EscapeBuilderPage() {
       (question) => !question.text || !question.answers[0] || !question.aiPrompt
     );
     if (hasIncompleteQuestions) {
-      alert("Udfyld både gåde, løsen og kode-brik på hver post.");
+      alert("Udfyld både gåde, svar og belønning på hver post.");
       return;
     }
 
@@ -484,7 +484,7 @@ export default function EscapeBuilderPage() {
       (question) => question.lat !== null && question.lng !== null
     );
     if (!hasAtLeastOnePin) {
-      alert("Du mangler at sætte pins på kortet. Mindst én post skal have koordinater.");
+      alert("Du mangler at sætte pins på kortet. Mindst én gåde skal have koordinater.");
       return;
     }
 
@@ -526,7 +526,7 @@ export default function EscapeBuilderPage() {
       setTitle("");
       setMasterCode("");
       setSubject("");
-      setShowTeacherField(false);
+      setShowSubjectField(false);
       setQuestions([createQuestion()]);
       setAiRunBrief("");
       setAiTopic("");
@@ -554,50 +554,42 @@ export default function EscapeBuilderPage() {
                 <input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
-                  placeholder="F.eks. Koden ved Gåsetårnet"
+                  placeholder="f.eks. Agent-missionen"
                   className={textInputClass}
                 />
-                <p className="mt-3 text-sm leading-relaxed text-amber-100/75">
-                  Kort fortalt: Skriv en gåde. Når deltagerne indtaster det rigtige svar, får de
-                  udleveret en hemmelig kode-brik.
-                </p>
               </div>
 
-              <div className="rounded-[2rem] border border-amber-500/20 bg-amber-950/50 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+              <div className="rounded-[1.7rem] border border-amber-500/20 bg-amber-950/50 p-4 shadow-[0_20px_48px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-5">
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
-                  Master-kode til finalen
+                  Slut-kode (Master-kode)
                 </label>
                 <input
                   value={masterCode}
                   onChange={(event) => setMasterCode(normalizeMasterCode(event.target.value))}
-                  placeholder="fx SKOV42"
+                  placeholder="f.eks. GULD77"
                   className={textInputClass}
                   maxLength={12}
                 />
-                <p className="mt-3 text-sm leading-relaxed text-amber-100/75">
-                  Denne kode gemmes i løbets metadata og er den samlede kode, holdene skal taste
-                  ind i master-låsen til sidst.
-                </p>
               </div>
 
-              <div className="space-y-4 px-1">
+              <div className="space-y-3 px-1">
                 <button
                   type="button"
                   onClick={() => {
                     setShowAIModal(true);
                     setPreviewQuestions([]);
                   }}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-[1.4rem] border border-amber-500/20 bg-amber-950/50 px-5 py-3 text-sm font-semibold text-amber-100 shadow-[0_16px_36px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition hover:border-amber-300/35 hover:bg-amber-900/60 sm:w-auto"
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-500/20 bg-amber-950/50 px-4 py-2 text-xs font-semibold text-amber-100/90 backdrop-blur-xl transition hover:border-amber-300/35 hover:bg-amber-900/55"
                 >
                   <span aria-hidden>✨</span>
-                  Auto-udfyld gåder med AI
+                  AI-udfyld
                 </button>
 
                 <div className="flex items-end justify-between gap-4">
                   <p className="text-xs font-semibold tracking-[0.24em] text-amber-100/65 uppercase">
-                    Dine poster
+                    Dine gåder
                   </p>
-                  <span className="rounded-full border border-amber-500/20 bg-amber-950/45 px-4 py-2 text-sm font-semibold text-amber-100/80 backdrop-blur-xl">
+                  <span className="rounded-full border border-amber-500/20 bg-amber-950/45 px-3 py-1.5 text-sm font-semibold text-amber-100/80 backdrop-blur-xl">
                     {questions.length}
                   </span>
                 </div>
@@ -606,7 +598,7 @@ export default function EscapeBuilderPage() {
               {questions.map((question, index) => (
                 <article
                   key={question.id}
-                  className="rounded-[2rem] border border-amber-500/20 bg-amber-950/50 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6"
+                  className="rounded-[1.7rem] border border-amber-500/20 bg-amber-950/50 p-4 shadow-[0_20px_48px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-5"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
@@ -614,56 +606,51 @@ export default function EscapeBuilderPage() {
                         {index + 1}
                       </div>
                       <div>
-                        <h3 className={`text-xl font-bold text-amber-100 ${rubik.className}`}>
-                          Post {index + 1}
+                        <h3 className={`text-lg font-bold text-amber-100 ${rubik.className}`}>
+                          Gåde {index + 1}
                         </h3>
                         <p className="text-xs text-amber-100/65">
-                          {question.lat !== null && question.lng !== null
-                            ? "Pin er valgt på kortet"
-                            : "Ingen pin valgt endnu"}
+                          {question.lat !== null && question.lng !== null ? "Pin valgt på kortet" : "Pin mangler"}
                         </p>
                       </div>
                     </div>
-                    <span className="rounded-full border border-amber-500/20 bg-amber-950/45 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-amber-100/75 uppercase backdrop-blur-xl">
-                      Escape room
-                    </span>
                   </div>
 
-                  <div className="mt-5">
+                  <div className="mt-4">
                     <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
-                      Gåden / Opgaven
+                      Gåden
                     </label>
                     <textarea
                       value={question.text}
                       onChange={(event) => updateQuestion(question.id, { text: event.target.value })}
-                      rows={4}
-                      placeholder="fx Hvor mange skydeskår er der i tårnet? Gang tallet med 2..."
+                      rows={3}
+                      placeholder="f.eks. Hvad er 12 + 8 * 2? eller Find det manglende tal: 2, 4, 8, __?"
                       className={textareaClass}
                     />
                   </div>
 
-                  <div className="mt-5">
+                  <div className="mt-4">
                     <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
-                      Det rigtige svar (Løsen)
+                      Svaret
                     </label>
                     <input
                       value={question.answers[0]}
                       onChange={(event) => updateSolution(question.id, event.target.value)}
-                      placeholder="fx 14"
+                      placeholder="f.eks. 28"
                       className={textInputClass}
                     />
                   </div>
 
-                  <div className="mt-5">
+                  <div className="mt-4">
                     <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
-                      Kode-brik (Belønning)
+                      Belønning
                     </label>
                     <input
                       value={question.aiPrompt}
                       onChange={(event) =>
                         updateQuestion(question.id, { aiPrompt: event.target.value })
                       }
-                      placeholder="fx Du har fundet første tal i koden: 7!"
+                      placeholder="f.eks. Dit første tegn er: G"
                       className={textInputClass}
                     />
                   </div>
@@ -671,7 +658,7 @@ export default function EscapeBuilderPage() {
                   <button
                     type="button"
                     onClick={() => assignPinFromCenter(question.id)}
-                    className="mt-5 w-full rounded-[1.4rem] border border-amber-400/30 bg-amber-500/22 px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-amber-100 shadow-[0_12px_32px_rgba(245,158,11,0.18)] transition hover:bg-amber-500/30"
+                    className="mt-4 w-full rounded-[1.2rem] border border-amber-400/30 bg-amber-500/22 px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-amber-100 shadow-[0_10px_24px_rgba(245,158,11,0.16)] transition hover:bg-amber-500/30"
                   >
                     Hent pin fra kortet
                   </button>
@@ -684,31 +671,31 @@ export default function EscapeBuilderPage() {
                 </article>
               ))}
 
-              <div className="rounded-[2rem] border border-amber-500/20 bg-amber-950/50 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+              <div className="rounded-[1.7rem] border border-amber-500/20 bg-amber-950/50 p-4 shadow-[0_20px_48px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-5">
                 <button
                   type="button"
                   onClick={addQuestion}
-                  className="inline-flex items-center gap-2 rounded-[1.4rem] border border-amber-500/20 bg-amber-950/50 px-4 py-3 text-sm font-semibold text-amber-100 backdrop-blur-xl transition hover:bg-amber-900/60"
+                  className="inline-flex items-center gap-2 rounded-[1.2rem] border border-amber-500/20 bg-amber-950/50 px-4 py-3 text-sm font-semibold text-amber-100 backdrop-blur-xl transition hover:bg-amber-900/60"
                 >
                   <Plus className="h-4 w-4" />
-                  Tilføj ny post
+                  Tilføj ny gåde
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setShowTeacherField((current) => !current)}
-                  className="mt-5 inline-flex items-center gap-2 text-sm text-amber-100/70 transition hover:text-amber-100"
+                  onClick={() => setShowSubjectField((current) => !current)}
+                  className="mt-4 inline-flex items-center gap-2 text-sm text-amber-100/70 transition hover:text-amber-100"
                 >
-                  {showTeacherField ? (
+                  {showSubjectField ? (
                     <ChevronUp className="h-4 w-4" />
                   ) : (
                     <ChevronDown className="h-4 w-4" />
                   )}
-                  {showTeacherField ? "Skjul fag (valgfrit)" : "Tilføj fag (valgfrit)"}
+                  {showSubjectField ? "Skjul fag (valgfrit)" : "Tilføj fag (valgfrit)"}
                 </button>
 
-                {showTeacherField ? (
-                  <div className="mt-4 rounded-[1.5rem] border border-amber-500/20 bg-amber-950/50 p-4 backdrop-blur-xl">
+                {showSubjectField ? (
+                  <div className="mt-4 rounded-[1.4rem] border border-amber-500/20 bg-amber-950/50 p-4 backdrop-blur-xl">
                     <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
                       Fag
                     </label>
@@ -737,7 +724,7 @@ export default function EscapeBuilderPage() {
                   type="button"
                   onClick={handleSaveRun}
                   disabled={isSaving}
-                  className="mt-6 w-full rounded-[1.6rem] border border-amber-400/30 bg-amber-500/22 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-amber-100 shadow-[0_14px_34px_rgba(245,158,11,0.18)] transition hover:bg-amber-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-5 w-full rounded-[1.5rem] border border-amber-400/30 bg-amber-500/22 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-amber-100 shadow-[0_14px_34px_rgba(245,158,11,0.18)] transition hover:bg-amber-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
                 </button>
@@ -770,8 +757,7 @@ export default function EscapeBuilderPage() {
                   Intelligent escape-assistent
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-relaxed text-amber-100/75">
-                  Beskriv stedet kort, så kan AI&apos;en foreslå gåder med ét løsen og en kode-brik
-                  til hver post.
+                  Beskriv stedet kort, så kan AI&apos;en foreslå gåder med ét svar og en belønning til hver post.
                 </p>
               </div>
             </div>
@@ -779,7 +765,7 @@ export default function EscapeBuilderPage() {
             {previewQuestions.length > 0 ? (
               <div className="mt-8">
                 <p className="mb-4 text-sm text-amber-100/75">
-                  Gennemgå posterne og ret dem til, før de overføres til kortet.
+                  Gennemgå gåderne og ret dem til, før de overføres til kortet.
                 </p>
 
                 <div className="max-h-[58vh] space-y-4 overflow-y-auto pr-1">
@@ -789,11 +775,11 @@ export default function EscapeBuilderPage() {
                       className="rounded-[1.6rem] border border-amber-500/20 bg-amber-950/50 p-4 backdrop-blur-xl"
                     >
                       <p className="mb-3 text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
-                        Post {index + 1}
+                        Gåde {index + 1}
                       </p>
 
                       <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-amber-100/65 uppercase">
-                        Gåden / Opgaven
+                        Gåden
                       </label>
                       <textarea
                         value={question.text}
@@ -805,7 +791,7 @@ export default function EscapeBuilderPage() {
                       />
 
                       <label className="mt-4 mb-2 block text-xs font-semibold tracking-[0.2em] text-amber-100/65 uppercase">
-                        Det rigtige svar (Løsen)
+                        Svaret
                       </label>
                       <input
                         type="text"
@@ -815,7 +801,7 @@ export default function EscapeBuilderPage() {
                       />
 
                       <label className="mt-4 mb-2 block text-xs font-semibold tracking-[0.2em] text-amber-100/65 uppercase">
-                        Kode-brik (Belønning)
+                        Belønning
                       </label>
                       <input
                         type="text"
@@ -850,32 +836,31 @@ export default function EscapeBuilderPage() {
               <>
                 <div className="mt-8">
                   <label className="mb-3 block text-sm font-semibold text-white">
-                    Hvor er I, og hvor mange gåder skal AI&apos;en lave? (F.eks: Lav 5 logiske
-                    gåder omkring Gåsetårnet, hvor svarene giver tal til en hængelås...)
+                    Hvad skal AI&apos;en bygge ud fra?
                   </label>
                   <textarea
                     value={aiRunBrief}
                     onChange={(event) => setAiRunBrief(event.target.value)}
-                    rows={8}
-                    placeholder="Hvor er I, og hvor mange gåder skal AI'en lave? (F.eks: Lav 5 logiske gåder omkring Gåsetårnet, hvor svarene giver tal til en hængelås...)"
+                    rows={6}
+                    placeholder="F.eks. Lav 5 logiske gåder omkring Gåsetårnet, hvor svarene giver tegn til en slut-kode."
                     className="w-full rounded-[1.6rem] border border-amber-500/20 bg-amber-950/50 p-5 text-amber-100 placeholder:text-amber-100/35 focus:outline-none focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
 
                 <button
                   type="button"
-                  onClick={() => setShowAITeacherFields((current) => !current)}
+                  onClick={() => setShowAIMetadataFields((current) => !current)}
                   className="mt-4 inline-flex items-center gap-2 text-sm text-amber-100/70 transition hover:text-amber-100"
                 >
-                  {showAITeacherFields ? (
+                  {showAIMetadataFields ? (
                     <ChevronUp className="h-4 w-4" />
                   ) : (
                     <ChevronDown className="h-4 w-4" />
                   )}
-                  Er du lærer? Tilpas fag og niveau
+                  Tilpas fag og niveau (valgfrit)
                 </button>
 
-                {showAITeacherFields ? (
+                {showAIMetadataFields ? (
                   <section className="mt-4 rounded-[1.6rem] border border-amber-500/20 bg-amber-950/50 p-4 backdrop-blur-xl">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
@@ -947,7 +932,7 @@ export default function EscapeBuilderPage() {
                         Tænker...
                       </span>
                     ) : (
-                      "Generer gåder"
+                      "Generer poster"
                     )}
                   </button>
                 </div>
@@ -955,7 +940,7 @@ export default function EscapeBuilderPage() {
                 {isGenerating ? (
                   <div className="mt-4 inline-flex items-center gap-2 text-sm text-amber-100/75">
                     <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-amber-300" />
-                    AI&apos;en skriver logiske gåder...
+                    AI&apos;en skriver gåder...
                   </div>
                 ) : null}
               </>
