@@ -56,8 +56,9 @@ type Question = {
   type: "multiple_choice" | "ai_image" | "unknown";
   text: string;
   aiPrompt?: string;
+  hint?: string;
   answers: string[];
-  correctIndex: number;
+  correctIndex: number | null;
   lat: number;
   lng: number;
   mediaUrl?: string;
@@ -72,13 +73,22 @@ type PhotoFeedbackState = {
   tone: "success" | "error";
   message: string;
 } | null;
+type PostActionErrorState = {
+  key: string;
+  message: string;
+} | null;
+type QuizAnswerFeedbackState = {
+  key: string;
+  selectedIndex: number;
+  tone: "success" | "error";
+} | null;
 type EscapeRewardState = {
   key: string;
-  reward: string;
+  brick: string;
 } | null;
 type EscapeCodeEntry = {
   postIndex: number;
-  reward: string;
+  brick: string;
 };
 type RoleplayReplyState = {
   key: string;
@@ -118,17 +128,22 @@ type EscapeResultEntry = {
   finishedAt: string | null;
 };
 
-type RunRow = {
+type PlaySessionPayload = {
   questions?: unknown;
-  description?: unknown;
   raceType?: unknown;
-  race_type?: unknown;
+  error?: string;
 };
 
 type AnswerProgressRow = {
   post_index?: number | string | null;
   question_index?: number | string | null;
   is_correct?: boolean | null;
+};
+
+type ValidateAnswerPayload = {
+  isCorrect?: boolean;
+  brick?: string | null;
+  error?: string;
 };
 
 type WakeLockSentinelLike = {
@@ -145,13 +160,11 @@ type NavigatorWithWakeLock = Navigator & {
 const ACTIVE_PARTICIPANT_STORAGE_KEY = "gpslob_active_participant";
 const AUTO_UNLOCK_RADIUS = 15;
 const MANUAL_UNLOCK_RADIUS = 50;
+const LOCATION_SYNC_INTERVAL_MS = 4000;
+const LOCATION_SYNC_DISTANCE_METERS = 5;
 const BAD_WORDS = ["tissemand", "lort", "pik", "fisse", "idiot", "bøsse", "luder", "snot"];
 const FIREWORKS_LOTTIE_URL = "https://assets2.lottiefiles.com/packages/lf20_touohxv0.json";
 const wrapTextClass = "break-words [overflow-wrap:anywhere] hyphens-auto";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function containsBadWord(value: string) {
   const normalized = value.toLocaleLowerCase("da-DK");
@@ -237,11 +250,12 @@ function parseQuestion(raw: unknown): Question | null {
     type,
     text: typeof candidate.text === "string" ? candidate.text : "",
     aiPrompt: aiPrompt || undefined,
+    hint: typeof candidate.hint === "string" ? candidate.hint : undefined,
     answers,
     correctIndex:
       Number.isInteger(correctIndex) && correctIndex >= 0 && correctIndex <= 3
         ? correctIndex
-        : 0,
+        : null,
     lat,
     lng,
     mediaUrl: typeof candidate.mediaUrl === "string" ? candidate.mediaUrl : "",
@@ -312,12 +326,29 @@ function getRoleplayAvatar(question: Question) {
   return question.answers[2]?.trim() || "";
 }
 
-function getEscapeRewardText(question: Question, postIndex: number) {
-  return (
+function extractEscapeCodeBrick(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  const upper = trimmed.toLocaleUpperCase("da-DK");
+  const standaloneMatch = upper.match(/(?:^|[^0-9A-ZÆØÅ])([0-9A-ZÆØÅ])(?:$|[^0-9A-ZÆØÅ])/u);
+  if (standaloneMatch?.[1]) {
+    return standaloneMatch[1];
+  }
+
+  const normalized = normalizeMasterCode(trimmed);
+  if (normalized.length === 1) return normalized;
+  if (normalized.length > 0) return normalized.slice(-1);
+  return "";
+}
+
+function getEscapeCodeBrick(question: Question, postIndex: number) {
+  const rawReward =
     question.answers[1]?.trim() ||
     question.aiPrompt?.trim() ||
-    `Kode-brik ${postIndex + 1}`
-  );
+    `Kode-brik ${postIndex + 1}`;
+
+  return extractEscapeCodeBrick(rawReward) || String(postIndex + 1);
 }
 
 function getEscapeCodeEntriesFromRows(rows: AnswerProgressRow[], questions: Question[]) {
@@ -340,7 +371,7 @@ function getEscapeCodeEntriesFromRows(rows: AnswerProgressRow[], questions: Ques
     seen.add(postIndex);
     collected.push({
       postIndex,
-      reward: getEscapeRewardText(questions[postIndex], postIndex),
+      brick: getEscapeCodeBrick(questions[postIndex], postIndex),
     });
   }
 
@@ -353,10 +384,6 @@ function getRoleplayMessage(question: Question) {
 
 function getQuestionDisplayText(question: Question, variant: ActivePostVariant) {
   return variant === "roleplay" ? getRoleplayMessage(question) : question.text;
-}
-
-function normalizeTypedAnswer(value: string) {
-  return value.toLocaleLowerCase("da-DK").trim().replace(/\s+/g, " ");
 }
 
 function looksLikeImageSource(value: string) {
@@ -399,28 +426,6 @@ function readFileAsDataUri(file: File) {
 
 function normalizeMasterCode(value: string) {
   return value.toLocaleUpperCase("da-DK").replace(/[^0-9A-ZÆØÅ]/g, "");
-}
-
-function parseRunDescriptionMetadata(value: unknown) {
-  if (isRecord(value)) {
-    return value;
-  }
-
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed.startsWith("{")) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(trimmed) as unknown;
-    return isRecord(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
 }
 
 function formatPlacement(position: number) {
@@ -472,7 +477,6 @@ function PlayScreen() {
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [raceMode, setRaceMode] = useState<RaceMode>("unknown");
-  const [storedMasterCode, setStoredMasterCode] = useState("");
   const [currentPostIndex, setCurrentPostIndex] = useState(0);
   const [myLoc, setMyLoc] = useState<Location | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
@@ -486,7 +490,10 @@ function PlayScreen() {
   const [latestMessage, setLatestMessage] = useState<string | null>(null);
   const [resumeMessage, setResumeMessage] = useState<string | null>(null);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
+  const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
   const [photoFeedback, setPhotoFeedback] = useState<PhotoFeedbackState>(null);
+  const [postActionError, setPostActionError] = useState<PostActionErrorState>(null);
+  const [quizAnswerFeedback, setQuizAnswerFeedback] = useState<QuizAnswerFeedbackState>(null);
   const [escapeReward, setEscapeReward] = useState<EscapeRewardState>(null);
   const [collectedEscapeRewards, setCollectedEscapeRewards] = useState<EscapeCodeEntry[]>([]);
   const [roleplayReply, setRoleplayReply] = useState<RoleplayReplyState>(null);
@@ -499,9 +506,14 @@ function PlayScreen() {
   const [escapeResults, setEscapeResults] = useState<EscapeResultEntry[]>([]);
   const [isLoadingEscapeResults, setIsLoadingEscapeResults] = useState(false);
   const [escapeResultsError, setEscapeResultsError] = useState<string | null>(null);
+  const [isCheckingEscapeAnswer, setIsCheckingEscapeAnswer] = useState(false);
+  const [wrongAttempts, setWrongAttempts] = useState(0);
+  const [dismissedPostIndex, setDismissedPostIndex] = useState<number | null>(null);
+  const [showMasterVictory, setShowMasterVictory] = useState(false);
   const [typedAnswerError, setTypedAnswerError] = useState<{ key: string; message: string } | null>(
     null
   );
+  const [hasRoleplayInputErrorTone, setHasRoleplayInputErrorTone] = useState(false);
   const [playerIcon, setPlayerIcon] = useState<DivIcon | null>(null);
   const [targetIcon, setTargetIcon] = useState<DivIcon | null>(null);
   const [participantId, setParticipantId] = useState<string | null>(
@@ -512,17 +524,68 @@ function PlayScreen() {
   const answersTableMissingRef = useRef(false);
   const hasRestoredRef = useRef(!Boolean(storedParticipantOnLoad));
   const resumeMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const quizAnswerFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const roleplayInputErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wakeLockSentinelRef = useRef<WakeLockSentinelLike | null>(null);
-  const photoAnalysisTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const masterVictoryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastLocationSyncRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
+  const isLocationSyncInFlightRef = useRef(false);
   const isMountedRef = useRef(true);
   const typedAnswerInputRef = useRef<HTMLInputElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
 
+  const clearRoleplayInputErrorTone = useCallback(() => {
+    if (roleplayInputErrorTimerRef.current) {
+      clearTimeout(roleplayInputErrorTimerRef.current);
+      roleplayInputErrorTimerRef.current = null;
+    }
+    setHasRoleplayInputErrorTone(false);
+  }, []);
+
+  const triggerRoleplayInputError = useCallback(() => {
+    clearRoleplayInputErrorTone();
+    setHasRoleplayInputErrorTone(true);
+    roleplayInputErrorTimerRef.current = setTimeout(() => {
+      setHasRoleplayInputErrorTone(false);
+      roleplayInputErrorTimerRef.current = null;
+    }, 420);
+
+    typedAnswerInputRef.current?.animate(
+      [
+        { transform: "translateX(0)" },
+        { transform: "translateX(-8px)" },
+        { transform: "translateX(7px)" },
+        { transform: "translateX(-5px)" },
+        { transform: "translateX(3px)" },
+        { transform: "translateX(0)" },
+      ],
+      {
+        duration: 360,
+        easing: "ease-in-out",
+      }
+    );
+  }, [clearRoleplayInputErrorTone]);
+
   const unlockCurrentPost = useCallback(() => {
+    clearRoleplayInputErrorTone();
+    setDismissedPostIndex(null);
+    setPhotoFeedback(null);
+    setPostActionError(null);
+    setQuizAnswerFeedback(null);
     setEscapeReward(null);
     setRoleplayReply(null);
     setShowQuestion(true);
-  }, []);
+  }, [clearRoleplayInputErrorTone]);
+
+  const dismissCurrentPost = useCallback(() => {
+    clearRoleplayInputErrorTone();
+    setPhotoFeedback(null);
+    setPostActionError(null);
+    setQuizAnswerFeedback(null);
+    setTypedAnswerError(null);
+    setShowQuestion(false);
+    setDismissedPostIndex(currentPostIndex);
+  }, [clearRoleplayInputErrorTone, currentPostIndex]);
 
   const showResumeNotice = useCallback((message: string) => {
     setResumeMessage(message);
@@ -582,8 +645,14 @@ function PlayScreen() {
       if (resumeMessageTimerRef.current) {
         clearTimeout(resumeMessageTimerRef.current);
       }
-      if (photoAnalysisTimerRef.current) {
-        clearTimeout(photoAnalysisTimerRef.current);
+      if (quizAnswerFeedbackTimerRef.current) {
+        clearTimeout(quizAnswerFeedbackTimerRef.current);
+      }
+      if (roleplayInputErrorTimerRef.current) {
+        clearTimeout(roleplayInputErrorTimerRef.current);
+      }
+      if (masterVictoryTimerRef.current) {
+        clearTimeout(masterVictoryTimerRef.current);
       }
     };
   }, []);
@@ -728,9 +797,15 @@ function PlayScreen() {
           }
 
           if (highestCompletedPost >= questions.length) {
-            clearStoredActiveParticipant();
-            setParticipantId(null);
+            setShowQuestion(false);
+            setDistance(null);
+            setEscapeReward(null);
+            setRoleplayReply(null);
+            setMasterLockStatus("locked");
+            setMasterLockError(null);
+            setMasterLockInput("");
             setIsFinished(true);
+            showResumeNotice("Dine kode-brikker er gendannet. Master-låsen er klar.");
             hasRestoredRef.current = true;
             return;
           }
@@ -810,7 +885,7 @@ function PlayScreen() {
 
   const markParticipantFinished = useCallback(async () => {
     const activeName = playerName.trim();
-    if (!sessionId || !activeName) return;
+    if (!sessionId || !activeName) return false;
     const finishedAt = new Date().toISOString();
 
     if (!participantsTableMissingRef.current) {
@@ -823,7 +898,7 @@ function PlayScreen() {
       if (!error) {
         clearStoredActiveParticipant();
         setParticipantId(null);
-        return;
+        return true;
       }
       if (error.code === "PGRST205") {
         participantsTableMissingRef.current = true;
@@ -840,9 +915,11 @@ function PlayScreen() {
 
     if (fallbackError) {
       console.error("Kunne ikke gemme målgangstid:", fallbackError);
+      return false;
     }
     clearStoredActiveParticipant();
     setParticipantId(null);
+    return true;
   }, [playerName, sessionId, supabase]);
 
   const insertAnswerRecord = useCallback(
@@ -855,7 +932,7 @@ function PlayScreen() {
       lng: number | null
     ) => {
       const activeName = playerName.trim();
-      if (!sessionId || !activeName || answersTableMissingRef.current) return;
+      if (!sessionId || !activeName || answersTableMissingRef.current) return false;
 
       const timestamp = new Date().toISOString();
       const payloads: Record<string, unknown>[] = [
@@ -898,15 +975,17 @@ function PlayScreen() {
 
       for (const payload of payloads) {
         const { error } = await supabase.from("answers").insert(payload);
-        if (!error) return;
+        if (!error) return true;
         if (error.code === "PGRST205") {
           answersTableMissingRef.current = true;
-          return;
+          return false;
         }
         if (isMissingColumnError(error)) continue;
         console.error("Kunne ikke gemme svar i answers:", error);
-        return;
+        return false;
       }
+
+      return false;
     },
     [playerName, sessionId, supabase]
   );
@@ -919,55 +998,49 @@ function PlayScreen() {
     const fetchRun = async () => {
       setIsLoading(true);
       setLoadError("");
+      try {
+        const response = await fetch(`/api/play/session?sessionId=${encodeURIComponent(sessionId)}`, {
+          cache: "no-store",
+        });
+        const payload = (await response.json().catch(() => null)) as PlaySessionPayload | null;
 
-      const { data: sessionData, error: sessionError } = await supabase
-        .from("live_sessions")
-        .select("run_id")
-        .eq("id", sessionId)
-        .single();
+        if (!isActive) return;
 
-      if (!isActive) return;
+        if (!response.ok) {
+          setLoadError(payload?.error || "Kunne ikke hente løbet.");
+          setIsLoading(false);
+          return;
+        }
 
-      if (sessionError || !sessionData?.run_id) {
-        setLoadError("Kunne ikke finde denne session.");
+        const parsedQuestions = Array.isArray(payload?.questions)
+          ? payload.questions.map(parseQuestion).filter((q): q is Question => q !== null)
+          : [];
+
+        if (parsedQuestions.length === 0) {
+          setLoadError("Dette løb har ingen gyldige GPS-poster endnu.");
+        } else {
+          setQuestions(parsedQuestions);
+        }
+
+        setRaceMode(normalizeRaceMode(payload?.raceType));
+        setCollectedEscapeRewards([]);
+        setEscapeReward(null);
+        setPostActionError(null);
+        setDismissedPostIndex(null);
+        setIsSubmittingAnswer(false);
+        lastLocationSyncRef.current = null;
+        isLocationSyncInFlightRef.current = false;
+        setShowMasterVictory(false);
+        setMasterLockStatus("locked");
+        setMasterLockError(null);
+        setMasterLockInput("");
         setIsLoading(false);
-        return;
-      }
-
-      const { data: runData, error: runError } = await supabase
-        .from("gps_runs")
-        .select("*")
-        .eq("id", sessionData.run_id)
-        .single<RunRow>();
-
-      if (!isActive) return;
-
-      if (runError) {
+      } catch (error) {
+        if (!isActive) return;
+        console.error("Kunne ikke hente play-data:", error);
         setLoadError("Kunne ikke hente løbet.");
         setIsLoading(false);
-        return;
       }
-
-      const parsedQuestions = Array.isArray(runData?.questions)
-        ? runData.questions.map(parseQuestion).filter((q): q is Question => q !== null)
-        : [];
-      const metadata = parseRunDescriptionMetadata(runData?.description);
-      const nextMasterCode = normalizeMasterCode(
-        typeof metadata?.masterCode === "string" ? metadata.masterCode : ""
-      );
-
-      if (parsedQuestions.length === 0) {
-        setLoadError("Dette løb har ingen gyldige GPS-poster endnu.");
-      } else {
-        setQuestions(parsedQuestions);
-      }
-
-      setRaceMode(normalizeRaceMode(runData?.raceType ?? runData?.race_type));
-      setStoredMasterCode(nextMasterCode);
-      setCollectedEscapeRewards([]);
-      setEscapeReward(null);
-
-      setIsLoading(false);
     };
 
     void fetchRun();
@@ -975,7 +1048,7 @@ function PlayScreen() {
     return () => {
       isActive = false;
     };
-  }, [sessionId, supabase]);
+  }, [sessionId]);
 
   useEffect(() => {
     const escapeRaceActive =
@@ -1020,7 +1093,7 @@ function PlayScreen() {
         .filter((row) => typeof row.student_name === "string" && row.student_name.trim().length > 0)
         .map((row, index) => ({
           place: index + 1,
-          studentName: row.student_name?.trim() ?? `Hold ${index + 1}`,
+          studentName: row.student_name?.trim() ?? `Deltager ${index + 1}`,
           finishedAt: typeof row.finished_at === "string" ? row.finished_at : null,
         }));
 
@@ -1119,12 +1192,40 @@ function PlayScreen() {
           const dist = getDistance(lat, lng, target.lat, target.lng);
           setDistance(dist);
 
-          if (dist <= AUTO_UNLOCK_RADIUS && !showQuestion) {
+          if (
+            dist <= AUTO_UNLOCK_RADIUS &&
+            !showQuestion &&
+            dismissedPostIndex !== currentPostIndex
+          ) {
             unlockCurrentPost();
+          }
+
+          if (dist > AUTO_UNLOCK_RADIUS && dismissedPostIndex === currentPostIndex) {
+            setDismissedPostIndex(null);
           }
         }
 
-        await syncParticipantLocation(lat, lng);
+        const lastLocationSync = lastLocationSyncRef.current;
+        const hasMovedEnough =
+          !lastLocationSync ||
+          getDistance(lat, lng, lastLocationSync.lat, lastLocationSync.lng) >= LOCATION_SYNC_DISTANCE_METERS;
+        const waitedLongEnough =
+          !lastLocationSync || Date.now() - lastLocationSync.at >= LOCATION_SYNC_INTERVAL_MS;
+
+        if ((hasMovedEnough || waitedLongEnough) && !isLocationSyncInFlightRef.current) {
+          isLocationSyncInFlightRef.current = true;
+          lastLocationSyncRef.current = {
+            lat,
+            lng,
+            at: Date.now(),
+          };
+
+          try {
+            await syncParticipantLocation(lat, lng);
+          } finally {
+            isLocationSyncInFlightRef.current = false;
+          }
+        }
       },
       (err) => {
         console.error("GPS Error:", err);
@@ -1157,6 +1258,7 @@ function PlayScreen() {
     isKicked,
     hasConfirmedName,
     showQuestion,
+    dismissedPostIndex,
     unlockCurrentPost,
     syncParticipantLocation,
   ]);
@@ -1230,54 +1332,136 @@ function PlayScreen() {
     };
   }, [participantId, sessionId, supabase]);
 
-  const handleAnswer = async (selectedIndex: number) => {
-    const current = questions[currentPostIndex];
-    if (!current) return;
+  const handleWrongQuizAnswer = useCallback((selectedIndex: number, feedbackKey: string) => {
+    if (quizAnswerFeedbackTimerRef.current) {
+      clearTimeout(quizAnswerFeedbackTimerRef.current);
+    }
 
-    const isCorrect = selectedIndex === current.correctIndex;
+    setQuizAnswerFeedback({
+      key: feedbackKey,
+      selectedIndex,
+      tone: "error",
+    });
+    quizAnswerFeedbackTimerRef.current = setTimeout(() => {
+      setQuizAnswerFeedback((currentFeedback) =>
+        currentFeedback?.key === feedbackKey && currentFeedback.tone === "error" ? null : currentFeedback
+      );
+      quizAnswerFeedbackTimerRef.current = null;
+    }, 900);
+    setTypedAnswerError({
+      key: feedbackKey,
+      message: "Forkert svar. Prøv igen.",
+    });
+  }, []);
+
+  const validateAnswerOnServer = useCallback(
+    async (payload: { selectedIndex?: number; answer?: string }) => {
+      const response = await fetch("/api/play/validate-answer", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify({
+          sessionId,
+          postIndex: currentPostIndex,
+          ...payload,
+        }),
+      });
+
+      const data = (await response.json().catch(() => null)) as ValidateAnswerPayload | null;
+      if (!response.ok) {
+        throw new Error(data?.error || "Svaret kunne ikke tjekkes.");
+      }
+
+      return data;
+    },
+    [currentPostIndex, sessionId]
+  );
+
+  const handleAnswer = async (selectedIndex: number, escapeBrick?: string | null) => {
+    const current = questions[currentPostIndex];
+    if (!current) return false;
+
     const postNumber = currentPostIndex + 1;
     const currentVariant = resolvePostVariant(raceMode, current);
+    const feedbackKey = `${currentPostIndex}-${currentVariant}`;
 
-    if (isCorrect) {
-      await insertAnswerRecord(
-        selectedIndex,
-        true,
-        postNumber,
-        currentVariant === "roleplay" ? getRoleplayMessage(current) : current.text,
-        myLoc?.lat ?? null,
-        myLoc?.lng ?? null
-      );
-      setCorrectAnswersCount((prev) => prev + 1);
-      if (currentVariant === "escape") {
-        const rewardMessage = getEscapeRewardText(current, currentPostIndex);
-        setCollectedEscapeRewards((prev) =>
-          prev.some((entry) => entry.postIndex === currentPostIndex)
-            ? prev
-            : [...prev, { postIndex: currentPostIndex, reward: rewardMessage }].sort(
-                (a, b) => a.postIndex - b.postIndex
-              )
-        );
-        setEscapeReward({
-          key: `${currentPostIndex}-escape`,
-          reward: rewardMessage,
-        });
-        return;
-      }
-
-      if (currentVariant === "roleplay") {
-        const characterName = getRoleplayCharacterName(current);
-        setRoleplayReply({
-          key: `${currentPostIndex}-roleplay`,
-          message: `${characterName}: Godt svaret! Følg med mig videre...`,
-        });
-        return;
-      }
-
-      alert("KORREKT! 🎉 Find næste post!");
-      await continueFromSolvedPost();
-    } else {
-      alert("Forkert! Prøv igen ❌");
+    if (quizAnswerFeedbackTimerRef.current) {
+      clearTimeout(quizAnswerFeedbackTimerRef.current);
+      quizAnswerFeedbackTimerRef.current = null;
     }
+
+    if (currentVariant === "quiz") {
+      setQuizAnswerFeedback(null);
+    }
+    setTypedAnswerError(null);
+    setPostActionError(null);
+
+    const didSaveAnswer = await insertAnswerRecord(
+      selectedIndex,
+      true,
+      postNumber,
+      currentVariant === "roleplay" ? getRoleplayMessage(current) : current.text,
+      myLoc?.lat ?? null,
+      myLoc?.lng ?? null
+    );
+
+    if (!didSaveAnswer) {
+      if (currentVariant === "photo") {
+        setPhotoFeedback({
+          key: feedbackKey,
+          tone: "error",
+          message: "Netværksfejl - prøv igen",
+        });
+      } else {
+        setTypedAnswerError({
+          key: feedbackKey,
+          message: "Netværksfejl - prøv igen",
+        });
+      }
+      return false;
+    }
+
+    setCorrectAnswersCount((prev) => prev + 1);
+
+    if (currentVariant === "escape") {
+      const codeBrick = escapeBrick?.trim() || getEscapeCodeBrick(current, currentPostIndex);
+      setCollectedEscapeRewards((prev) =>
+        prev.some((entry) => entry.postIndex === currentPostIndex)
+          ? prev
+          : [...prev, { postIndex: currentPostIndex, brick: codeBrick }].sort((a, b) => a.postIndex - b.postIndex)
+      );
+      setEscapeReward({
+        key: `${currentPostIndex}-escape`,
+        brick: codeBrick,
+      });
+      return true;
+    }
+
+    if (currentVariant === "quiz") {
+      setQuizAnswerFeedback({
+        key: feedbackKey,
+        selectedIndex,
+        tone: "success",
+      });
+      return true;
+    }
+
+    if (currentVariant === "photo") {
+      return true;
+    }
+
+    if (currentVariant === "roleplay") {
+      const characterName = getRoleplayCharacterName(current);
+      setRoleplayReply({
+        key: `${currentPostIndex}-roleplay`,
+        message: `${characterName}: Godt svaret! Følg med mig videre...`,
+      });
+      return true;
+    }
+
+    return continueFromSolvedPost();
   };
 
   const activeQuestion = questions[currentPostIndex];
@@ -1299,35 +1483,52 @@ function PlayScreen() {
   const canManualUnlock =
     !showQuestion &&
     distance !== null &&
-    distance > AUTO_UNLOCK_RADIUS &&
-    distance <= MANUAL_UNLOCK_RADIUS;
-  const celebrationName = playerName || pendingPlayerName || "Holdet";
+    ((distance > AUTO_UNLOCK_RADIUS && distance <= MANUAL_UNLOCK_RADIUS) ||
+      dismissedPostIndex === currentPostIndex);
+  const celebrationName = playerName || pendingPlayerName || "Deltager";
   const progressPercent =
     questions.length > 0
       ? Math.max(0, Math.min(100, Math.round((correctAnswersCount / questions.length) * 100)))
       : 0;
-  const activeTeamName = playerName || pendingPlayerName || "Dit hold";
   const isEscapeRace =
     raceMode === "escape" ||
     (raceMode === "unknown" &&
       questions.length > 0 &&
       questions.every((question) => resolvePostVariant(raceMode, question) === "escape"));
-  const escapeMasterCode = storedMasterCode;
-  const normalizedActiveTeamName = activeTeamName.trim().toLocaleLowerCase("da-DK");
+  const activeDisplayName = playerName || pendingPlayerName || "Deltager";
+  const normalizedActiveDisplayName = activeDisplayName.trim().toLocaleLowerCase("da-DK");
   const myEscapePlacement =
-    normalizedActiveTeamName.length > 0
+    normalizedActiveDisplayName.length > 0
       ? escapeResults.find(
-          (entry) => entry.studentName.trim().toLocaleLowerCase("da-DK") === normalizedActiveTeamName
+          (entry) =>
+            entry.studentName.trim().toLocaleLowerCase("da-DK") === normalizedActiveDisplayName
         ) ?? null
       : null;
   const activeTypedAnswerKey = `${currentPostIndex}-${activePostVariant}`;
   const activeTypedAnswerError =
     typedAnswerError?.key === activeTypedAnswerKey ? typedAnswerError.message : null;
+  const activePostActionError =
+    postActionError?.key === activeTypedAnswerKey ? postActionError.message : null;
   const activePhotoFeedback = photoFeedback?.key === activeTypedAnswerKey ? photoFeedback : null;
+  const activeQuizAnswerFeedback =
+    quizAnswerFeedback?.key === activeTypedAnswerKey ? quizAnswerFeedback : null;
+  const hasActiveQuizSuccess = activePostVariant === "quiz" && activeQuizAnswerFeedback?.tone === "success";
+  const hasActivePhotoSuccess = activePhotoFeedback?.tone === "success";
   const isSelfiePhotoTask = activePostVariant === "photo" && activeQuestion?.isSelfie === true;
-  const activeEscapeReward = escapeReward?.key === activeTypedAnswerKey ? escapeReward.reward : null;
+  const activeEscapeReward = escapeReward?.key === activeTypedAnswerKey ? escapeReward.brick : null;
   const activeRoleplayReply = roleplayReply?.key === activeTypedAnswerKey ? roleplayReply.message : null;
+  const activeEscapeHint =
+    activePostVariant === "escape" && wrongAttempts >= 3 ? activeQuestion?.hint?.trim() ?? "" : "";
+  const isRoleplayImmersed = showQuestion && activePostVariant === "roleplay";
   const collectedEscapeRewardsCount = collectedEscapeRewards.length;
+  const hasAllEscapeBricks = isEscapeRace && questions.length > 0 && collectedEscapeRewardsCount >= questions.length;
+  const escapeCodeByPostIndex = new Map(
+    collectedEscapeRewards.map((entry) => [entry.postIndex, entry.brick] as const)
+  );
+  const escapeCodeOverview = isEscapeRace
+    ? questions.map((_, index) => escapeCodeByPostIndex.get(index) ?? "_")
+    : [];
+  const escapeCodeOverviewText = escapeCodeOverview.join(" ");
   const gpsErrorContent =
     gpsError === "permission_denied"
       ? {
@@ -1357,21 +1558,64 @@ function PlayScreen() {
               helper: "Det hjælper ofte at genindlæse siden og stå et sted med bedre signal.",
             };
 
+  useEffect(() => {
+    if (!isRoleplayImmersed || activeRoleplayReply) return;
+
+    const timeoutId = window.setTimeout(() => {
+      typedAnswerInputRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 120);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [activeRoleplayReply, activeTypedAnswerKey, isRoleplayImmersed]);
+
+  useEffect(() => {
+    setWrongAttempts(0);
+  }, [currentPostIndex]);
+
   const continueFromSolvedPost = async () => {
-    setEscapeReward(null);
-    setRoleplayReply(null);
-    setShowQuestion(false);
-    setDistance(null);
+    clearRoleplayInputErrorTone();
+    setPostActionError(null);
     if (currentPostIndex + 1 < questions.length) {
+      setDismissedPostIndex(null);
+      setPhotoFeedback(null);
+      setQuizAnswerFeedback(null);
+      setTypedAnswerError(null);
+      setEscapeReward(null);
+      setRoleplayReply(null);
+      setWrongAttempts(0);
+      setShowQuestion(false);
+      setDistance(null);
       setCurrentPostIndex((prev) => prev + 1);
-      return;
+      return true;
     }
 
     if (!isEscapeRace) {
-      await markParticipantFinished();
+      const didFinish = await markParticipantFinished();
+      if (!didFinish) {
+        setPostActionError({
+          key: activeTypedAnswerKey,
+          message: "Netværksfejl - prøv igen",
+        });
+        return false;
+      }
     }
 
+    setDismissedPostIndex(null);
+    setPhotoFeedback(null);
+    setQuizAnswerFeedback(null);
+    setTypedAnswerError(null);
+    setEscapeReward(null);
+    setRoleplayReply(null);
+    setWrongAttempts(0);
+    setShowQuestion(false);
+    setDistance(null);
     setIsFinished(true);
+    return true;
   };
 
   const handleMasterLockSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -1379,31 +1623,63 @@ function PlayScreen() {
 
     const normalizedInput = normalizeMasterCode(masterLockInput);
     if (!normalizedInput) {
-      setMasterLockError("Indtast master-koden fra jeres kode-brikker først.");
-      setMasterLockShakeNonce((prev) => prev + 1);
-      return;
-    }
-
-    if (!escapeMasterCode) {
-      setMasterLockError("Master-koden mangler i løbet. Kontakt arrangøren.");
-      setMasterLockStatus("locked");
-      setMasterLockShakeNonce((prev) => prev + 1);
-      return;
-    }
-
-    if (normalizedInput !== escapeMasterCode) {
-      setMasterLockError("Koden passer ikke endnu. Tjek jeres kode-brikker og prøv igen.");
-      setMasterLockStatus("locked");
+      setMasterLockError("Indtast master-koden fra dine kode-brikker først.");
       setMasterLockShakeNonce((prev) => prev + 1);
       return;
     }
 
     setMasterLockError(null);
+    setShowMasterVictory(false);
     setIsFinalizingEscape(true);
 
     try {
-      await markParticipantFinished();
+      const response = await fetch("/api/play/validate-master", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify({
+          sessionId,
+          masterCode: normalizedInput,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { isCorrect?: boolean; error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Master-koden kunne ikke tjekkes.");
+      }
+
+      if (payload?.isCorrect !== true) {
+        setMasterLockError("Forkert kode - prøv igen.");
+        setMasterLockStatus("locked");
+        setMasterLockShakeNonce((prev) => prev + 1);
+        return;
+      }
+
+      const didFinish = await markParticipantFinished();
+      if (!didFinish) {
+        setMasterLockError("Netværksfejl - prøv igen");
+        setMasterLockStatus("locked");
+        setMasterLockShakeNonce((prev) => prev + 1);
+        return;
+      }
       setMasterLockStatus("unlocked");
+      setShowMasterVictory(true);
+      if (masterVictoryTimerRef.current) {
+        clearTimeout(masterVictoryTimerRef.current);
+      }
+      masterVictoryTimerRef.current = setTimeout(() => {
+        setShowEscapeResults(true);
+        masterVictoryTimerRef.current = null;
+      }, 2200);
+    } catch (error) {
+      console.error("Master-lås kunne ikke valideres:", error);
+      setMasterLockError("Master-låsen kunne ikke tjekkes lige nu. Prøv igen.");
+      setMasterLockStatus("locked");
+      setMasterLockShakeNonce((prev) => prev + 1);
     } finally {
       setIsFinalizingEscape(false);
     }
@@ -1411,57 +1687,79 @@ function PlayScreen() {
 
   const handleTypedAnswerSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!activeQuestion) return;
+    if (!activeQuestion || activePostVariant === "photo" || activePostVariant === "quiz") return;
 
     const typedAnswer = typedAnswerInputRef.current?.value ?? "";
-    const expectedAnswer = activeQuestion.answers[activeQuestion.correctIndex] ?? "";
     if (!typedAnswer.trim()) {
       setTypedAnswerError(
         activePostVariant === "roleplay"
           ? { key: activeTypedAnswerKey, message: "Skriv et svar til karakteren først." }
           : activePostVariant === "escape"
-            ? { key: activeTypedAnswerKey, message: "Indtast svar først." }
+            ? { key: activeTypedAnswerKey, message: "Skriv svaret først." }
             : { key: activeTypedAnswerKey, message: "Indtast svaret, før du bekræfter." }
       );
       return;
     }
 
-    if (normalizeTypedAnswer(typedAnswer) !== normalizeTypedAnswer(expectedAnswer)) {
-      setTypedAnswerError(
-        activePostVariant === "roleplay"
-          ? { key: activeTypedAnswerKey, message: "Karakteren afviser svaret. Prøv igen." }
-          : activePostVariant === "escape"
-            ? { key: activeTypedAnswerKey, message: "Svaret passer ikke endnu. Prøv igen." }
-            : { key: activeTypedAnswerKey, message: "Svaret passer ikke endnu. Prøv igen." }
-      );
-      return;
+    setTypedAnswerError(null);
+    setPostActionError(null);
+
+    if (activePostVariant === "escape") {
+      setIsCheckingEscapeAnswer(true);
+    } else {
+      setIsSubmittingAnswer(true);
     }
 
-    setTypedAnswerError(null);
-    await handleAnswer(activeQuestion.correctIndex);
+    try {
+      const payload = await validateAnswerOnServer({ answer: typedAnswer });
+
+      if (payload?.isCorrect !== true) {
+        if (activePostVariant === "roleplay") {
+          triggerRoleplayInputError();
+        }
+        if (activePostVariant === "escape") {
+          setWrongAttempts((current) => current + 1);
+        }
+        setTypedAnswerError(
+          activePostVariant === "roleplay"
+            ? {
+                key: activeTypedAnswerKey,
+                message: `${roleplayCharacterName || "Karakteren"} ser uforstående ud. Prøv igen.`,
+              }
+            : { key: activeTypedAnswerKey, message: "Svaret passer ikke endnu. Prøv igen." }
+        );
+        return;
+      }
+
+      clearRoleplayInputErrorTone();
+      if (activePostVariant === "escape") {
+        setWrongAttempts(0);
+      }
+      await handleAnswer(0, payload?.brick ?? null);
+    } catch (error) {
+      console.error("Kunne ikke validere svar:", error);
+      setTypedAnswerError({
+        key: activeTypedAnswerKey,
+        message: "Netværksfejl - prøv igen",
+      });
+    } finally {
+      if (activePostVariant === "escape") {
+        setIsCheckingEscapeAnswer(false);
+      } else {
+        setIsSubmittingAnswer(false);
+      }
+    }
   };
 
   const handlePhotoCapture = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
 
-    if (!file || !activeQuestion || activePostVariant !== "photo" || isAnalyzingPhoto) return;
+    if (!file || !activeQuestion || activePostVariant !== "photo" || isAnalyzingPhoto || !sessionId) return;
     const isSelfie = activeQuestion.isSelfie === true;
 
-    const targetObject = activeQuestion.answers[0]?.trim() || activeQuestion.aiPrompt?.trim() || "";
-
-    if (!targetObject) {
-      setPhotoFeedback({
-        key: activeTypedAnswerKey,
-        tone: "error",
-        message: isSelfie
-          ? "Denne selfie-post mangler et baggrundsmotiv. Kontakt din arrangør."
-          : "Denne mission mangler et motiv. Kontakt din arrangør.",
-      });
-      return;
-    }
-
     setPhotoFeedback(null);
+    setPostActionError(null);
     setIsAnalyzingPhoto(true);
 
     try {
@@ -1473,8 +1771,8 @@ function PlayScreen() {
         },
         body: JSON.stringify({
           image,
-          targetObject,
-          isSelfie,
+          sessionId,
+          postIndex: currentPostIndex,
         }),
       });
 
@@ -1490,9 +1788,8 @@ function PlayScreen() {
 
       if (!isMountedRef.current) return;
 
-      setIsAnalyzingPhoto(false);
-
       if (!payload.isMatch) {
+        setIsAnalyzingPhoto(false);
         setPhotoFeedback({
           key: activeTypedAnswerKey,
           tone: "error",
@@ -1501,22 +1798,19 @@ function PlayScreen() {
         return;
       }
 
+      const didSaveAnswer = await handleAnswer(0);
+      if (!didSaveAnswer) {
+        setIsAnalyzingPhoto(false);
+        return;
+      }
+      if (!isMountedRef.current) return;
+
       setPhotoFeedback({
         key: activeTypedAnswerKey,
         tone: "success",
         message: isSelfie ? `Selfie godkendt! ${payload.message}` : payload.message,
       });
-
-      await new Promise<void>((resolve) => {
-        photoAnalysisTimerRef.current = setTimeout(() => {
-          photoAnalysisTimerRef.current = null;
-          resolve();
-        }, 2500);
-      });
-
-      if (!isMountedRef.current) return;
-
-      await handleAnswer(activeQuestion.correctIndex);
+      setIsAnalyzingPhoto(false);
     } catch (error) {
       console.error("Fotoanalyse fejlede:", error);
       if (!isMountedRef.current) return;
@@ -1587,7 +1881,7 @@ function PlayScreen() {
         >
           <h1 className="mb-5 text-2xl font-black tracking-wide uppercase">Klar til at starte?</h1>
           <label htmlFor="player-name" className="mb-2 block text-sm font-semibold text-emerald-100">
-            Dit/jeres rigtige navn(e)
+            Dit navn
           </label>
           <input
             id="player-name"
@@ -1597,12 +1891,11 @@ function PlayScreen() {
               setPendingPlayerName(event.target.value);
               if (nameError) setNameError(null);
             }}
-            placeholder="Dit/jeres rigtige navn(e)"
+            placeholder="Dit navn"
             className="w-full rounded-xl border border-white/20 bg-black/40 px-4 py-3 text-base text-white placeholder:text-white/45 focus:border-emerald-400/60 focus:outline-none"
           />
           <p className={`mt-3 text-sm text-white/80 ${wrapTextClass}`}>
-            Skriv dit rigtige navn. Hvis I er en gruppe, så skriv alle navnene (f.eks. &quot;Ali,
-            Emma &amp; Sofie&quot;). Brug ikke opdigtede navne.
+            Skriv dit rigtige navn. Brug ikke et opdigtet navn.
           </p>
           {nameError ? (
             <div className={`mt-4 rounded-xl border border-red-400/50 bg-red-500/15 px-4 py-3 text-sm font-semibold text-red-100 ${wrapTextClass}`}>
@@ -1678,6 +1971,27 @@ function PlayScreen() {
         >
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.14),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(251,191,36,0.12),transparent_32%)]" />
 
+          {showMasterVictory ? (
+            <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(251,191,36,0.16),transparent_42%)]" />
+              <div className="absolute inset-0 opacity-90">
+                <LottiePlayer autoplay loop src={FIREWORKS_LOTTIE_URL} style={{ width: "100%", height: "100%" }} />
+              </div>
+              <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
+                <div className="h-36 w-36 drop-shadow-[0_0_35px_rgba(251,191,36,0.45)]">
+                  <Lottie animationData={trophyAnimation} loop={true} />
+                </div>
+                <p className="mt-4 text-xs font-semibold tracking-[0.32em] text-amber-200/80 uppercase">
+                  Vinder-fejring
+                </p>
+                <h2 className="mt-3 text-3xl font-black text-amber-50">Master-låsen er brudt op!</h2>
+                <p className="mt-3 text-sm font-semibold text-amber-100/90">
+                  Resultatet gøres klar...
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           <div className="relative text-center">
             <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-full border border-amber-300/35 bg-amber-300/10 text-6xl shadow-[0_0_35px_rgba(245,158,11,0.18)]">
               🔒
@@ -1687,21 +2001,39 @@ function PlayScreen() {
               Master-lås
             </p>
             <h1 className="mt-3 break-words text-3xl font-black text-white md:text-4xl">
-              I er næsten ude!
+              Du er næsten i mål!
             </h1>
             <p className="mt-4 break-words text-base leading-relaxed text-amber-50/88">
-              Indtast den samlede Master-kode fra alle posterne for at bryde ud af skoven!
+              Indtast den samlede Master-kode fra alle posterne for at vinde løbet.
             </p>
             <p className="mt-3 text-sm text-white/70">
               Kode-brikker samlet: {correctAnswersCount}/{questions.length}
             </p>
 
+            {hasAllEscapeBricks ? (
+              <div className="mt-6 rounded-[1.6rem] border border-emerald-300/25 bg-emerald-500/10 px-5 py-4 text-left shadow-[0_18px_40px_rgba(16,185,129,0.12)]">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 rounded-full border border-emerald-300/20 bg-emerald-400/10 p-2 text-emerald-200">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold tracking-[0.28em] text-emerald-200/70 uppercase">
+                      Klar til at vinde
+                    </p>
+                    <p className={`mt-2 text-base font-bold text-emerald-50 ${wrapTextClass}`}>
+                      Alle kode-brikker er fundet. Indtast master-koden for at vinde løbet.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             <div className="mt-8 rounded-[1.75rem] border border-amber-500/25 bg-amber-900/25 p-5 text-left">
               <p className="text-[11px] font-semibold tracking-[0.28em] text-amber-200/70 uppercase">
-                Hold
+                Deltager
               </p>
               <p className={`mt-2 text-xl font-black text-amber-50 ${wrapTextClass}`}>
-                {activeTeamName}
+                {activeDisplayName}
               </p>
             </div>
 
@@ -1710,7 +2042,7 @@ function PlayScreen() {
                 <div className="flex items-center gap-2 text-amber-100">
                   <KeyRound className="h-4 w-4" />
                   <p className="text-[11px] font-semibold tracking-[0.28em] text-amber-200/70 uppercase">
-                    Kode-arkiv
+                    Kode-oversigt
                   </p>
                 </div>
                 <p className="text-xs font-bold text-amber-50">
@@ -1718,27 +2050,12 @@ function PlayScreen() {
                 </p>
               </div>
 
-              <div className="mt-4 max-h-44 space-y-2 overflow-y-auto pr-1">
-                {collectedEscapeRewardsCount > 0 ? (
-                  collectedEscapeRewards.map((entry) => (
-                    <div
-                      key={`master-code-${entry.postIndex}`}
-                      className="rounded-2xl border border-amber-300/10 bg-black/20 px-3 py-2"
-                    >
-                      <p className="text-[11px] font-semibold tracking-[0.2em] text-amber-200/60 uppercase">
-                        Brik {entry.postIndex + 1}
-                      </p>
-                      <p className={`mt-1 text-sm font-semibold text-amber-50 ${wrapTextClass}`}>
-                        {entry.reward}
-                      </p>
-                    </div>
-                  ))
-                ) : (
-                  <p className={`text-sm text-amber-100/75 ${wrapTextClass}`}>
-                    Ingen kode-brikker er gemt endnu.
-                  </p>
-                )}
-              </div>
+              <p className="mt-4 text-sm text-amber-100/75">Dine brikker</p>
+              <p
+                className={`mt-3 rounded-2xl border border-amber-300/12 bg-black/20 px-4 py-4 text-center text-2xl font-black tracking-[0.34em] text-amber-100 ${wrapTextClass}`}
+              >
+                {escapeCodeOverviewText}
+              </p>
             </div>
 
             <form onSubmit={handleMasterLockSubmit} className="mt-6 space-y-4">
@@ -1763,11 +2080,12 @@ function PlayScreen() {
               {masterLockStatus === "unlocked" ? (
                 <div className="space-y-4">
                   <div className="rounded-2xl border border-emerald-300/25 bg-emerald-500/10 px-4 py-4 text-sm font-semibold text-emerald-50">
-                    Låsen giver efter! Skoven åbner sig, og udgangen ligger lige foran jer.
+                    Låsen giver efter! Resultatet venter lige foran dig.
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowEscapeResults(true)}
+                    disabled={showMasterVictory}
                     className="w-full rounded-2xl bg-amber-400 px-5 py-4 text-base font-black tracking-[0.24em] text-slate-950 uppercase transition hover:bg-amber-300"
                   >
                     Se din placering
@@ -1805,19 +2123,19 @@ function PlayScreen() {
                   Escape-finale
                 </p>
                 <h1 className={`mt-3 text-3xl font-black text-white sm:text-4xl ${wrapTextClass}`}>
-                  I slap ud af skoven
+                  Du klarede det!
                 </h1>
                 <p className={`mt-4 text-base leading-7 text-amber-50/85 sm:text-lg ${wrapTextClass}`}>
-                  Her er jeres placering, nu hvor master-låsen er brudt op og målgangen er registreret.
+                  Her er placeringen, nu hvor master-låsen er brudt op og målgangen er registreret.
                 </p>
               </div>
 
               <div className="rounded-[1.6rem] border border-amber-300/20 bg-amber-500/10 px-5 py-4 text-left shadow-[0_18px_40px_rgba(245,158,11,0.12)]">
                 <p className="text-[11px] font-semibold tracking-[0.28em] text-amber-200/70 uppercase">
-                  Hold
+                  Deltager
                 </p>
                 <p className={`mt-2 text-xl font-black text-amber-50 ${wrapTextClass}`}>
-                  {activeTeamName}
+                  {activeDisplayName}
                 </p>
               </div>
             </div>
@@ -1855,7 +2173,7 @@ function PlayScreen() {
                     Rangliste
                   </p>
                   <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold tracking-[0.22em] text-white/60 uppercase">
-                    {escapeResults.length} hold
+                    {escapeResults.length} deltagere
                   </span>
                 </div>
 
@@ -1872,7 +2190,8 @@ function PlayScreen() {
                   <div className="mt-5 space-y-3">
                     {escapeResults.map((entry) => {
                       const isCurrentTeam =
-                        entry.studentName.trim().toLocaleLowerCase("da-DK") === normalizedActiveTeamName;
+                        entry.studentName.trim().toLocaleLowerCase("da-DK") ===
+                        normalizedActiveDisplayName;
 
                       return (
                         <div
@@ -1958,7 +2277,7 @@ function PlayScreen() {
             Fantastisk gået, {playerName || "mester"}!
           </p>
           <p className={`mb-6 text-sm font-semibold tracking-wide text-amber-100 uppercase ${wrapTextClass}`}>
-            KÆMPE TILLYKKE, {celebrationName}! I er GPS MESTRE!
+            KÆMPE TILLYKKE, {celebrationName}! Du er i mål!
           </p>
           <div className="rounded-xl border border-white/20 bg-black/35 px-4 py-3 text-sm font-medium text-slate-100">
             Løbet er slut. Kig op på arrangørens skærm og se den store podie-fejring!
@@ -1973,7 +2292,11 @@ function PlayScreen() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_28%),radial-gradient(circle_at_20%_18%,rgba(56,189,248,0.12),transparent_24%),radial-gradient(circle_at_80%_8%,rgba(34,197,94,0.1),transparent_22%),linear-gradient(180deg,rgba(2,6,23,0.78)_0%,rgba(2,6,23,0.92)_52%,rgba(2,6,23,1)_100%)]" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_60%)]" />
 
-      <div className="absolute top-4 right-4 left-4 z-[1000] space-y-4">
+      <div
+        className={`absolute top-4 right-4 left-4 z-[1000] space-y-4 transition-all duration-300 ${
+          isRoleplayImmersed ? "pointer-events-none opacity-0 blur-md" : "opacity-100"
+        }`}
+      >
         <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900/80 p-4 shadow-[0_24px_80px_rgba(2,6,23,0.5)] backdrop-blur-xl md:p-5">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.08),transparent_30%)]" />
           <div className="relative flex flex-col gap-5">
@@ -1981,20 +2304,40 @@ function PlayScreen() {
               <div className="min-w-0 flex-1 space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold tracking-[0.28em] text-emerald-200/85 uppercase">
-                    Aktivt hold
+                    Deltager
                   </span>
                   <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-white/60 uppercase">
                     Nature-Glass
                   </span>
                 </div>
 
+                {isEscapeRace ? (
+                  <div className="overflow-hidden rounded-[1.6rem] border border-amber-300/20 bg-amber-500/10 p-4 shadow-[0_0_24px_rgba(245,158,11,0.14)]">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-amber-100">
+                        <KeyRound className="h-4 w-4" />
+                        <p className="text-[11px] font-semibold tracking-[0.28em] text-amber-200/70 uppercase">
+                          Kode-oversigt
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-amber-300/20 bg-amber-950/60 px-3 py-1 text-xs font-bold text-amber-100">
+                        {collectedEscapeRewardsCount}/{questions.length}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm text-amber-50/80">Dine brikker</p>
+                    <p className={`mt-2 text-xl font-black tracking-[0.3em] text-amber-200 ${wrapTextClass}`}>
+                      {escapeCodeOverviewText}
+                    </p>
+                  </div>
+                ) : null}
+
                 <div className="grid gap-3 sm:grid-cols-[1.35fr,1fr]">
                   <div className="overflow-hidden rounded-[1.6rem] border border-white/10 bg-black/20 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                     <p className="text-[11px] font-semibold tracking-[0.28em] text-white/45 uppercase">
-                      Holdnavn
+                      Deltagernavn
                     </p>
                     <p className={`mt-2 text-2xl font-black text-white ${wrapTextClass}`}>
-                      {activeTeamName}
+                      {activeDisplayName}
                     </p>
                     <p className="mt-2 text-sm text-emerald-100/70">
                       Find post {currentPostIndex + 1} af {questions.length}
@@ -2027,7 +2370,7 @@ function PlayScreen() {
                         Fremskridt
                       </p>
                       <p className="mt-1 text-sm text-white/75">
-                        I er {progressPercent}% gennem ruten.
+                        Du er {progressPercent}% gennem ruten.
                       </p>
                     </div>
                     <p className="text-sm font-bold text-emerald-200">
@@ -2044,50 +2387,7 @@ function PlayScreen() {
               </div>
 
               <div className="flex flex-col gap-3 md:items-end">
-                {isEscapeRace ? (
-                  <div className="w-full max-w-sm overflow-hidden rounded-[1.75rem] border border-amber-300/20 bg-amber-500/10 p-4 shadow-[0_0_24px_rgba(245,158,11,0.16)] backdrop-blur-xl">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-amber-200/20 bg-amber-950/65 text-amber-300">
-                        <KeyRound className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-semibold tracking-[0.24em] text-amber-100/55 uppercase">
-                          Kode-arkiv
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-white/90">
-                          {collectedEscapeRewardsCount > 0
-                            ? `${collectedEscapeRewardsCount} brikker gemt`
-                            : "Ingen brikker endnu"}
-                        </p>
-                      </div>
-                      <div className="rounded-full border border-amber-300/20 bg-amber-950/60 px-3 py-1 text-xs font-bold text-amber-100">
-                        {collectedEscapeRewardsCount}/{questions.length}
-                      </div>
-                    </div>
-
-                    <div className="mt-4 max-h-40 space-y-2 overflow-y-auto pr-1">
-                      {collectedEscapeRewardsCount > 0 ? (
-                        collectedEscapeRewards.map((entry) => (
-                          <div
-                            key={`escape-code-${entry.postIndex}`}
-                            className="rounded-2xl border border-amber-300/10 bg-black/20 px-3 py-2"
-                          >
-                            <p className="text-[11px] font-semibold tracking-[0.2em] text-amber-200/60 uppercase">
-                              Brik {entry.postIndex + 1}
-                            </p>
-                            <p className={`mt-1 text-sm font-semibold text-amber-50 ${wrapTextClass}`}>
-                              {entry.reward}
-                            </p>
-                          </div>
-                        ))
-                      ) : (
-                        <p className={`text-sm text-amber-100/70 ${wrapTextClass}`}>
-                          Løs gåderne, så gemmer vi jeres kode-brikker her.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ) : (
+                {!isEscapeRace ? (
                   <div className="inline-flex items-center gap-3 self-start rounded-[1.75rem] border border-emerald-300/20 bg-emerald-500/10 px-3 py-3 shadow-[0_0_24px_rgba(16,185,129,0.16)] md:self-auto">
                     <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full border border-white/10 bg-slate-950/75 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                       <div className="text-center">
@@ -2102,11 +2402,11 @@ function PlayScreen() {
                         Medalje
                       </p>
                       <p className="mt-1 text-sm font-semibold text-white/85">
-                        Holdets score vokser for hver fundet post.
+                        Din score vokser for hver fundet post.
                       </p>
                     </div>
                   </div>
-                )}
+                ) : null}
 
                 {canManualUnlock ? (
                   <button
@@ -2114,7 +2414,9 @@ function PlayScreen() {
                     onClick={unlockCurrentPost}
                     className="rounded-2xl border border-amber-300/40 bg-amber-400/10 px-4 py-3 text-xs font-bold tracking-[0.2em] text-amber-100 uppercase transition-colors hover:bg-amber-400/20"
                   >
-                    📍 Står du ved posten? Lås op manuelt
+                    {dismissedPostIndex === currentPostIndex
+                      ? "Åbn gåden igen"
+                      : "📍 Står du ved posten? Lås op manuelt"}
                   </button>
                 ) : null}
               </div>
@@ -2150,14 +2452,22 @@ function PlayScreen() {
         ) : null}
       </div>
 
-      <div className="pointer-events-none absolute right-4 bottom-20 left-4 z-[950] flex justify-center">
+      <div
+        className={`pointer-events-none absolute right-4 bottom-20 left-4 z-[950] flex justify-center transition-all duration-300 ${
+          isRoleplayImmersed ? "opacity-0 blur-md" : "opacity-100"
+        }`}
+      >
         <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-slate-900/78 px-4 py-3 text-center text-xs font-semibold text-amber-50 shadow-[0_18px_40px_rgba(245,158,11,0.12)] backdrop-blur-xl">
           <span className="text-amber-300">Tip:</span> Hold skærmen tændt mens du går, så
           arrangøren kan se dig på kortet!
         </div>
       </div>
 
-      <div className="relative z-0 flex-1">
+      <div
+        className={`relative z-0 flex-1 transition-all duration-300 ${
+          isRoleplayImmersed ? "pointer-events-none opacity-0 blur-xl" : "opacity-100"
+        }`}
+      >
         {typeof window !== "undefined" ? (
           <MapContainer
             key={mapKey}
@@ -2200,23 +2510,15 @@ function PlayScreen() {
       {showQuestion && activeQuestion ? (
         <div className="animate-in fade-in zoom-in absolute inset-0 z-[2000] flex flex-col items-center justify-center overflow-y-auto bg-slate-950/90 p-6 backdrop-blur-xl duration-300">
           <div className="w-full max-w-md overflow-hidden rounded-3xl border border-white/20 bg-slate-950/80 p-8 shadow-2xl shadow-emerald-950/30 backdrop-blur-xl">
-            {activePostVariant !== "escape" ? (
-              <div className="mb-6 flex items-center gap-3 text-emerald-300">
-                <CheckCircle2 size={32} />
-                <h2 className={`text-2xl font-black uppercase ${wrapTextClass}`}>
-                  Post fundet!
+            {activePostVariant === "escape" ? (
+              <div className="mb-6">
+                <h2 className={`text-2xl font-black text-white ${wrapTextClass}`}>
+                  Løs gåden for at få en kode-brik
                 </h2>
               </div>
-            ) : (
-              <div className="mb-6">
-                <p className="text-xs font-semibold tracking-[0.28em] text-amber-200/75 uppercase">
-                  Escape room
-                </p>
-                <h2 className={`mt-2 text-2xl font-black text-white ${wrapTextClass}`}>Løs gåden</h2>
-              </div>
-            )}
+            ) : null}
 
-            {activeQuestion.mediaUrl ? (
+            {activeQuestion.mediaUrl && activePostVariant !== "escape" && activePostVariant !== "photo" ? (
               <div className="mb-5 overflow-hidden rounded-xl border border-white/15">
                 <Image
                   src={activeQuestion.mediaUrl}
@@ -2232,43 +2534,101 @@ function PlayScreen() {
 
             {activePostVariant === "quiz" ? (
               <>
-                <p className={`mb-8 text-xl font-bold ${wrapTextClass}`}>{activeQuestion.text}</p>
+                <p className={`mb-6 text-2xl font-black text-white ${wrapTextClass}`}>{activeQuestion.text}</p>
 
                 <div className="space-y-3">
                   {activeQuestion.answers.map((answer: string, idx: number) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleAnswer(idx)}
-                      className={`w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 p-4 text-left font-medium transition-all hover:border-emerald-400/50 hover:bg-emerald-500/18 ${wrapTextClass}`}
-                    >
-                      {answer}
-                    </button>
+                    (() => {
+                      const isSelectedFeedback = activeQuizAnswerFeedback?.selectedIndex === idx;
+                      const isSuccessAnswer = isSelectedFeedback && activeQuizAnswerFeedback?.tone === "success";
+                      const isErrorAnswer = isSelectedFeedback && activeQuizAnswerFeedback?.tone === "error";
+
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          disabled={Boolean(hasActiveQuizSuccess) || isSubmittingAnswer}
+                          onClick={async () => {
+                            if (activeTypedAnswerError) setTypedAnswerError(null);
+                            if (activePostActionError) setPostActionError(null);
+                            setIsSubmittingAnswer(true);
+
+                            try {
+                              const payload = await validateAnswerOnServer({ selectedIndex: idx });
+                              if (payload?.isCorrect === true) {
+                                await handleAnswer(idx);
+                              } else {
+                                handleWrongQuizAnswer(idx, activeTypedAnswerKey);
+                              }
+                            } catch (error) {
+                              console.error("Kunne ikke validere quiz-svar:", error);
+                              setTypedAnswerError({
+                                key: activeTypedAnswerKey,
+                                message: "Netværksfejl - prøv igen",
+                              });
+                            } finally {
+                              setIsSubmittingAnswer(false);
+                            }
+                          }}
+                          className={`w-full overflow-hidden rounded-2xl border p-4 text-left font-semibold transition-all ${wrapTextClass} ${
+                            isSuccessAnswer
+                              ? "border-emerald-600 bg-emerald-500 text-white shadow-[0_18px_38px_rgba(16,185,129,0.3)]"
+                              : isErrorAnswer
+                                ? "border-rose-400/60 bg-rose-500/18 text-rose-50 shadow-[0_14px_30px_rgba(244,63,94,0.18)]"
+                                : "border-white/10 bg-white/5 text-white hover:border-emerald-400/50 hover:bg-emerald-500/18"
+                          } disabled:cursor-default disabled:hover:border-emerald-600 disabled:hover:bg-emerald-500`}
+                        >
+                          {answer}
+                        </button>
+                      );
+                    })()
                   ))}
                 </div>
+
+                {hasActiveQuizSuccess ? (
+                  <div className="mt-4 space-y-4">
+                    <div className="overflow-hidden rounded-[1.9rem] border border-emerald-300/35 bg-[linear-gradient(145deg,rgba(6,95,70,0.78),rgba(16,185,129,0.2))] p-6 text-center text-emerald-50 shadow-[0_26px_55px_rgba(16,185,129,0.2)] backdrop-blur-md">
+                      <p className="text-xs font-semibold tracking-[0.24em] text-emerald-100/75 uppercase">
+                        Godkendt
+                      </p>
+                      <p className={`mt-3 text-xl font-bold text-white ${wrapTextClass}`}>
+                        Korrekt! Godt gået 🎉
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => void continueFromSolvedPost()}
+                      className="w-full rounded-2xl border border-emerald-300/40 bg-emerald-400 px-5 py-3 text-sm font-black tracking-[0.2em] text-slate-950 uppercase transition hover:bg-emerald-300"
+                    >
+                      {currentPostIndex + 1 < questions.length ? "Gå til næste post" : "Se resultat"}
+                    </button>
+
+                    {activePostActionError ? (
+                      <div
+                        className={`rounded-2xl border border-red-300/30 bg-red-500/12 px-4 py-3 text-sm font-semibold text-red-50 ${wrapTextClass}`}
+                      >
+                        {activePostActionError}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {activeTypedAnswerError ? (
+                  <div
+                    className={`mt-4 rounded-2xl border border-red-300/30 bg-red-500/12 px-4 py-3 text-sm font-semibold text-red-50 ${wrapTextClass}`}
+                  >
+                    {activeTypedAnswerError}
+                  </div>
+                ) : null}
               </>
             ) : null}
 
             {activePostVariant === "photo" ? (
-              <div className="space-y-6 overflow-hidden">
-                <div
-                  className={`overflow-hidden rounded-3xl border p-5 ${
-                    isSelfiePhotoTask
-                      ? "border-orange-300/20 bg-[linear-gradient(145deg,rgba(154,52,18,0.34),rgba(131,24,67,0.28))]"
-                      : "border-sky-400/20 bg-sky-950/35"
-                  }`}
-                >
-                  <p
-                    className={`text-xs font-semibold tracking-[0.24em] uppercase ${wrapTextClass} ${
-                      isSelfiePhotoTask ? "text-orange-100/70" : "text-sky-200/70"
-                    }`}
-                  >
-                    {isSelfiePhotoTask ? "Selfie-jagt" : "Foto-mission"}
-                  </p>
-                  <p className={`mt-3 text-xl font-bold text-white ${wrapTextClass}`}>
-                    {activeQuestion.text}
-                  </p>
-                </div>
-
+              <div className="space-y-5 overflow-hidden">
+                <p className={`text-2xl font-black text-white sm:text-3xl ${wrapTextClass}`}>
+                  {activeQuestion.text}
+                </p>
                 <input
                   ref={photoInputRef}
                   type="file"
@@ -2278,95 +2638,90 @@ function PlayScreen() {
                   className="hidden"
                 />
 
-                <button
-                  type="button"
-                  onClick={() => photoInputRef.current?.click()}
-                  disabled={isAnalyzingPhoto || activePhotoFeedback?.tone === "success"}
-                  className={`inline-flex w-full items-center justify-center gap-3 overflow-hidden rounded-full px-6 py-4 text-lg font-black text-white break-words hyphens-auto shadow-lg transition-all disabled:cursor-not-allowed ${
-                    isSelfiePhotoTask
-                      ? "bg-[linear-gradient(145deg,#f97316,#ec4899)] shadow-orange-950/40 hover:brightness-110 disabled:bg-[linear-gradient(145deg,rgba(249,115,22,0.5),rgba(236,72,153,0.5))]"
-                      : "bg-sky-600 shadow-sky-950/40 hover:bg-sky-500 disabled:bg-sky-700/70"
-                  }`}
-                >
-                  {isAnalyzingPhoto ? (
-                    <>
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      {isSelfiePhotoTask
-                        ? "AI&apos;en tjekker din selfie..."
-                        : "AI&apos;en vurderer dit billede..."}
-                    </>
-                  ) : (
-                    <>
-                      <Camera className="h-5 w-5" />
-                      {isSelfiePhotoTask ? "TAG SELFIE" : "ÅBN KAMERA"}
-                    </>
-                  )}
-                </button>
-
-                {isSelfiePhotoTask ? (
-                  <p className={`text-center text-sm text-orange-100/72 ${wrapTextClass}`}>
-                    Frontkameraet åbner med det samme, og selfien bliver sendt automatisk til AI&apos;en.
-                  </p>
+                {!hasActivePhotoSuccess ? (
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={isAnalyzingPhoto}
+                    className="inline-flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-sky-500 px-6 py-4 text-lg font-black text-slate-950 break-words hyphens-auto shadow-[0_24px_45px_rgba(14,165,233,0.22)] transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-sky-400/60"
+                  >
+                    {isAnalyzingPhoto ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        AI analyserer billedet...
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="h-5 w-5" />
+                        {isSelfiePhotoTask ? "TAG SELFIE" : "ÅBN KAMERA"}
+                      </>
+                    )}
+                  </button>
                 ) : null}
 
                 {activePhotoFeedback ? (
-                  <div
-                    className={`animate-in fade-in zoom-in-95 overflow-hidden rounded-2xl border px-4 py-3 text-sm shadow-lg backdrop-blur-md duration-300 ${
-                      activePhotoFeedback.tone === "success"
-                        ? "border-emerald-300/30 bg-emerald-500/15 text-emerald-50 shadow-emerald-950/30"
-                        : isSelfiePhotoTask
-                          ? "border-orange-300/30 bg-[linear-gradient(145deg,rgba(249,115,22,0.18),rgba(236,72,153,0.16))] text-orange-50 shadow-orange-950/30"
-                          : "border-orange-300/30 bg-orange-500/15 text-orange-50 shadow-orange-950/30"
-                    }`}
-                  >
-                    <p className={`font-semibold ${wrapTextClass}`}>
-                      {activePhotoFeedback.message}
-                    </p>
-                  </div>
-                ) : null}
+                  activePhotoFeedback.tone === "success" ? (
+                    <div className="space-y-4">
+                      <div className="overflow-hidden rounded-[1.9rem] border border-sky-300/35 bg-[linear-gradient(145deg,rgba(12,74,110,0.72),rgba(14,165,233,0.18))] p-6 text-center text-sky-50 shadow-[0_26px_55px_rgba(14,165,233,0.2)] backdrop-blur-md">
+                        <p className="text-xs font-semibold tracking-[0.24em] text-sky-100/75 uppercase">
+                          Godkendt
+                        </p>
+                        <p className={`mt-3 text-xl font-bold text-white ${wrapTextClass}`}>
+                          {activePhotoFeedback.message}
+                        </p>
+                      </div>
 
-                {isAnalyzingPhoto ? (
-                  <p
-                    className={`text-center text-sm ${wrapTextClass} ${
-                      isSelfiePhotoTask ? "text-orange-100/72" : "text-sky-100/70"
-                    }`}
-                  >
-                    {isSelfiePhotoTask
-                      ? "AI&apos;en tjekker både ansigt og baggrund. Vent et øjeblik..."
-                      : "AI&apos;en vurderer dit billede. Vent et øjeblik..."}
-                  </p>
-                ) : (
-                  <p
-                    className={`text-center text-sm ${wrapTextClass} ${
-                      isSelfiePhotoTask ? "text-orange-100/72" : "text-sky-100/70"
-                    }`}
-                  >
-                    {isSelfiePhotoTask
-                      ? "Tag selfien, så tjekker AI&apos;en automatisk både ansigtet og motivet."
-                      : "Tag et billede af motivet, så vurderer AI&apos;en det automatisk."}
-                  </p>
-                )}
+                      <button
+                        type="button"
+                        onClick={() => void continueFromSolvedPost()}
+                        className="w-full rounded-2xl border border-sky-300/40 bg-sky-400 px-5 py-3 text-sm font-black tracking-[0.2em] text-slate-950 uppercase transition hover:bg-sky-300"
+                      >
+                        Gå videre
+                      </button>
+
+                      {activePostActionError ? (
+                        <div
+                          className={`rounded-2xl border border-red-300/30 bg-red-500/12 px-4 py-3 text-sm font-semibold text-red-50 ${wrapTextClass}`}
+                        >
+                          {activePostActionError}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="overflow-hidden rounded-2xl border border-orange-300/35 bg-orange-500/12 px-4 py-4 text-sm text-orange-50 shadow-[0_18px_40px_rgba(249,115,22,0.16)] backdrop-blur-md">
+                      <p className={`font-semibold ${wrapTextClass}`}>{activePhotoFeedback.message}</p>
+                    </div>
+                  )
+                ) : null}
               </div>
             ) : null}
 
             {activePostVariant === "escape" ? (
-              <div className="space-y-5 overflow-hidden">
-                <div className="overflow-hidden rounded-3xl border border-amber-300/15 bg-amber-950/25 p-5">
-                  <p className="text-xs font-semibold tracking-[0.24em] text-amber-200/70 uppercase">
-                    Gåden
-                  </p>
-                  <p className={`mt-3 text-xl font-bold text-white ${wrapTextClass}`}>
-                    {activeQuestion.text}
-                  </p>
-                </div>
+              <div className="space-y-6 overflow-hidden">
+                <p className={`text-xl font-bold text-amber-50 ${wrapTextClass}`}>{activeQuestion.text}</p>
 
                 {activeEscapeReward ? (
                   <div className="space-y-4">
-                    <div className="overflow-hidden rounded-[1.75rem] border border-amber-500/50 bg-amber-900/40 p-5 text-amber-100 shadow-[0_22px_45px_rgba(245,158,11,0.18)] backdrop-blur-md">
-                      <p className="text-sm font-semibold text-amber-100/85">Flot klaret!</p>
-                      <p className={`mt-2 text-2xl font-black text-amber-50 ${wrapTextClass}`}>
-                        Din kode-brik er: {activeEscapeReward}
+                    <div className="overflow-hidden rounded-[1.9rem] border border-amber-300/40 bg-[linear-gradient(145deg,rgba(120,53,15,0.58),rgba(245,158,11,0.2))] p-6 text-center text-amber-100 shadow-[0_26px_55px_rgba(245,158,11,0.2)] backdrop-blur-md">
+                      <p className="text-xs font-semibold tracking-[0.24em] text-amber-100/75 uppercase">
+                        Belønning
                       </p>
+                      <p className={`mt-3 text-lg font-bold text-amber-50 ${wrapTextClass}`}>
+                        Flot! Din kode-brik er:
+                      </p>
+                      <div className="mt-5 rounded-[1.6rem] border border-amber-200/30 bg-amber-200/10 px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                        <p
+                          className={`text-5xl font-black tracking-[0.36em] text-amber-200 sm:text-6xl ${wrapTextClass}`}
+                        >
+                          {activeEscapeReward}
+                        </p>
+                      </div>
+                      <p className="mt-4 text-sm text-amber-50/80">Brikken er gemt i din kode-oversigt.</p>
+                      {hasAllEscapeBricks ? (
+                        <p className="mt-3 text-sm font-semibold text-emerald-100">
+                          Du har alle kode-brikker. Master-låsen er klar.
+                        </p>
+                      ) : null}
                     </div>
 
                     <button
@@ -2374,33 +2729,71 @@ function PlayScreen() {
                       onClick={() => void continueFromSolvedPost()}
                       className="w-full rounded-2xl border border-amber-400/40 bg-amber-400 px-5 py-3 text-sm font-black tracking-[0.2em] text-slate-950 uppercase transition hover:bg-amber-300"
                     >
-                      Gem brikken og gå videre
+                      {hasAllEscapeBricks ? "Åbn Master-lås" : "Videre til næste post"}
                     </button>
+
+                    {activePostActionError ? (
+                      <div
+                        className={`rounded-2xl border border-red-300/30 bg-red-500/12 px-4 py-3 text-sm font-semibold text-red-50 ${wrapTextClass}`}
+                      >
+                        {activePostActionError}
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <form onSubmit={handleTypedAnswerSubmit} className="space-y-5">
                     <div className="space-y-3">
                       <label className="text-xs font-semibold tracking-[0.24em] text-amber-200/70 uppercase">
-                        Indtast svar
+                        Svaret
                       </label>
                       <input
                         key={`escape-input-${activeTypedAnswerKey}`}
                         ref={typedAnswerInputRef}
                         type="text"
+                        autoComplete="off"
+                        spellCheck={false}
+                        disabled={isCheckingEscapeAnswer}
                         onChange={() => {
                           if (activeTypedAnswerError) setTypedAnswerError(null);
+                          if (activePostActionError) setPostActionError(null);
                         }}
-                        placeholder="Skriv svaret her"
-                        className="w-full rounded-2xl border border-white/10 bg-slate-900/80 px-4 py-3 text-white outline-none transition focus:border-amber-300/50 focus:ring-2 focus:ring-amber-300/20"
+                        placeholder="Skriv tallet eller ordet her"
+                        className="w-full rounded-2xl border border-amber-300/20 bg-slate-900/80 px-4 py-4 text-lg text-white outline-none transition placeholder:text-amber-100/35 focus:border-amber-300/50 focus:ring-2 focus:ring-amber-300/20 disabled:cursor-not-allowed disabled:opacity-70"
                       />
                     </div>
 
-                    <button
-                      type="submit"
-                      className="w-full rounded-2xl bg-amber-500 px-5 py-3 font-semibold text-slate-950 transition hover:bg-amber-400"
-                    >
-                      Tjek kode
-                    </button>
+                    {activeEscapeHint ? (
+                      <div
+                        className={`rounded-2xl border border-amber-300/30 bg-amber-500/12 px-4 py-3 text-sm font-semibold text-amber-50 shadow-[0_16px_34px_rgba(245,158,11,0.12)] ${wrapTextClass}`}
+                      >
+                        {`💡 Brug for hjælp? Hint: ${activeEscapeHint}`}
+                      </div>
+                    ) : null}
+
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={dismissCurrentPost}
+                        disabled={isCheckingEscapeAnswer}
+                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Annuller
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isCheckingEscapeAnswer}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 px-5 py-3 font-semibold text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-amber-400/60"
+                      >
+                        {isCheckingEscapeAnswer ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Tjekker...
+                          </>
+                        ) : (
+                          "Tjek svar"
+                        )}
+                      </button>
+                    </div>
 
                     {activeTypedAnswerError ? (
                       <p className={`text-sm text-amber-200/85 ${wrapTextClass}`}>
@@ -2451,42 +2844,68 @@ function PlayScreen() {
                 </div>
 
                 {activeRoleplayReply ? (
-                  <div className="space-y-4 overflow-hidden rounded-[1.75rem] border border-violet-300/25 bg-violet-950/35 p-5 shadow-[0_20px_45px_rgba(91,33,182,0.22)] backdrop-blur-xl">
-                    <p className={`text-xs font-semibold tracking-[0.24em] text-violet-200/75 uppercase ${wrapTextClass}`}>
+                  <div className="animate-in fade-in zoom-in-95 duration-300 space-y-4 overflow-hidden rounded-[1.85rem] border border-emerald-300/30 bg-[linear-gradient(145deg,rgba(6,78,59,0.68),rgba(91,33,182,0.2))] p-5 shadow-[0_24px_55px_rgba(16,185,129,0.18)] backdrop-blur-xl">
+                    <p className={`text-xs font-semibold tracking-[0.24em] text-emerald-100/75 uppercase ${wrapTextClass}`}>
                       Svar fra {roleplayCharacterName}
                     </p>
-                    <div className="rounded-[1.35rem] border border-violet-200/15 bg-white/6 p-4">
-                      <p className={`text-sm leading-relaxed text-violet-50 ${wrapTextClass}`}>
+                    <div className="rounded-[1.35rem] border border-emerald-200/15 bg-white/8 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                      <p className={`text-sm leading-relaxed text-emerald-50 ${wrapTextClass}`}>
                         {activeRoleplayReply}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => void continueFromSolvedPost()}
-                      className="w-full rounded-2xl bg-violet-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-violet-300"
+                      className="w-full rounded-2xl border border-emerald-300/35 bg-emerald-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-emerald-300"
                     >
                       Fortsæt rejsen -&gt;
                     </button>
+
+                    {activePostActionError ? (
+                      <div
+                        className={`rounded-2xl border border-red-300/30 bg-red-500/12 px-4 py-3 text-sm font-semibold text-red-50 ${wrapTextClass}`}
+                      >
+                        {activePostActionError}
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <form
                     onSubmit={handleTypedAnswerSubmit}
-                    className="overflow-hidden rounded-[1.75rem] border border-violet-300/15 bg-slate-900/70 p-4 shadow-[0_18px_38px_rgba(67,56,202,0.16)] backdrop-blur-xl"
+                    className={`overflow-hidden rounded-[1.75rem] border bg-slate-900/70 p-4 shadow-[0_18px_38px_rgba(67,56,202,0.16)] backdrop-blur-xl transition-all ${
+                      hasRoleplayInputErrorTone
+                        ? "border-rose-300/45 shadow-[0_20px_45px_rgba(244,63,94,0.18)]"
+                        : "border-violet-300/15"
+                    }`}
                   >
                     <div className="flex items-end gap-3">
                       <input
                         key={`roleplay-input-${activeTypedAnswerKey}`}
                         ref={typedAnswerInputRef}
                         type="text"
+                        disabled={isSubmittingAnswer}
                         onChange={() => {
+                          clearRoleplayInputErrorTone();
                           if (activeTypedAnswerError) setTypedAnswerError(null);
+                          if (activePostActionError) setPostActionError(null);
+                        }}
+                        onFocus={(event) => {
+                          event.currentTarget.scrollIntoView({
+                            behavior: "smooth",
+                            block: "center",
+                          });
                         }}
                         placeholder={`Skriv dit svar til ${roleplayCharacterName}...`}
-                        className="min-w-0 flex-1 rounded-2xl border border-violet-200/15 bg-slate-950/80 px-4 py-3 text-white outline-none transition placeholder:text-violet-100/35 focus:border-violet-300/50 focus:ring-2 focus:ring-violet-300/20"
+                        className={`min-w-0 flex-1 rounded-2xl border bg-slate-950/80 px-4 py-3 text-white outline-none transition placeholder:text-violet-100/35 focus:ring-2 ${
+                          hasRoleplayInputErrorTone
+                            ? "border-rose-300/45 focus:border-rose-300/55 focus:ring-rose-300/20"
+                            : "border-violet-200/15 focus:border-violet-300/50 focus:ring-violet-300/20"
+                        } disabled:cursor-not-allowed disabled:opacity-70`}
                       />
                       <button
                         type="submit"
-                        className="shrink-0 rounded-2xl bg-violet-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-violet-300"
+                        disabled={isSubmittingAnswer}
+                        className="shrink-0 rounded-2xl bg-violet-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-violet-300 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Send besked
                       </button>
@@ -2496,11 +2915,7 @@ function PlayScreen() {
                       <p className={`mt-3 text-sm text-violet-200/85 ${wrapTextClass}`}>
                         {activeTypedAnswerError}
                       </p>
-                    ) : (
-                      <p className={`mt-3 text-sm text-white/60 ${wrapTextClass}`}>
-                        Svar rigtigt for at drive historien videre til næste post.
-                      </p>
-                    )}
+                    ) : null}
                   </form>
                 )}
               </div>

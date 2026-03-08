@@ -184,7 +184,7 @@ REGLER
 - Motivet skal være visuelt entydigt.
 - Motivet må ikke være abstrakt.
 - Instruktionen skal begynde med et handlingsord som Find, Fang, Spot eller Tag billede af.
-- Motiverne skal være realistiske at finde i naturen, skolegården eller nærområdet.
+- Motiverne skal være realistiske at finde på en byvandring, ved en firmafest, i naturen eller til et event.
 - Forkerte svar skal også være konkrete objekter, så outputtet stadig kan bruge præcis 4 svarmuligheder.
 - Den korrekte svarmulighed skal være det nøjagtige målobjekt, som AI'en senere skal genkende på billedet.
 
@@ -194,7 +194,7 @@ OUTPUTKRAV
 {
   "questions": [
     {
-      "text": "Kort dansk elevinstruktion",
+      "text": "Kort dansk instruktion til deltageren",
       "answers": ["Målobjekt", "Distraktor 1", "Distraktor 2", "Distraktor 3"],
       "correctIndex": 0
     }
@@ -212,7 +212,7 @@ Din opgave er at generere konkrete, visuelle og mobilvenlige selfie-missioner om
 REGLER
 - Hver mission skal have en klar instruktion om at tage en selfie på et bestemt sted.
 - Hver mission skal udpege ét konkret objekt eller ét tydeligt sted, som skal være i baggrunden.
-- Baggrundsmotivet skal være visuelt entydigt og realistisk at finde i naturen, skolegården eller nærområdet.
+- Baggrundsmotivet skal være visuelt entydigt og realistisk at finde på en byvandring, ved en firmafest, i naturen eller til et event.
 - Instruktionen skal være kort, dansk og let at læse på mobil.
 - Instruktionen må gerne nævne selfie direkte, men den behøver ikke indeholde den faste påmindelse om ansigtet. Systemet tilføjer selv den til sidst.
 - Forkerte svar skal også være konkrete baggrundsobjekter eller korte stedbeskrivelser.
@@ -224,70 +224,42 @@ OUTPUTKRAV
 {
   "questions": [
     {
-      "text": "Kort dansk elevinstruktion",
+      "text": "Kort dansk instruktion til deltageren",
       "answers": ["Korrekt baggrundsmotiv", "Distraktor 1", "Distraktor 2", "Distraktor 3"],
       "correctIndex": 0
     }
   ]
 }
-- text skal være en kort elevinstruktion på dansk.
+- text skal være en kort instruktion til deltageren på dansk.
 - answers skal altid indeholde præcis 4 korte, konkrete baggrundsobjekter eller stedbeskrivelser.
 - correctIndex skal pege på det motiv, der faktisk skal være i baggrunden af selfien.
 - Hele indholdet skal være på dansk.`;
 
-export const ESCAPE_PROMPT = `Du hjælper nu i ESCAPE-BUILDEREN.
+export const ESCAPE_PROMPT = `Du er en gåde-ekspert. Generer matematiske eller logiske gåder til et ægte "lås og nøgle" escape room.
 
-Din opgave er at generere spændende, logiske og alderssvarende gåder om [EMNE] til [MÅLGRUPPE].
+VIGTIGT: Ignorer den generelle instruks om at inddrage natur og fysisk tilstedeværelse. Gåderne i et Escape Room må IKKE afhænge af fysiske lokationer. De skal være 100% logiske, mentale gåder som koder, mønstre, tal og sprog, der kan løses hvor som helst.
 
-FORMÅL
-Du skal hjælpe brugeren med at skabe et mobilt Escape Room. Hver post i løbet skal fungere som et lille mysterium, der skal løses for at komme videre. Når en gåde løses, får deltagerne en "KODE-BRIK" (et tal eller et bogstav), som de skal bruge til at åbne den store Master-lås til sidst.
-
-REGLER
-- Hver post skal indeholde én tydelig gåde eller logisk udfordring.
-- Hver post SKAL tildele deltageren en "KODE-BRIK" (fx et tal eller et bogstav).
-- Gåden skal have ét entydigt svar, som systemet kan tjekke.
-- Gåderne må gerne være faglige, men de skal stadig føles som gåder.
-- Sværhedsgraden skal passe præcis til [MÅLGRUPPE].
-- Sproget skal være dansk, mystisk og engagerende.
-- Teksten skal være kort og letlæselig på mobil.
-- Tænk i progression: Gør gåderne gradvist sværere eller lad dem bygge oven på hinanden.
-
-GODE GÅDE-TYPER
-- Logiske rækkefølger.
-- Bogstav-puslespil (anagrammer).
-- Matematiske udfordringer gemt i en historie.
-- Observationsopgaver (kig på noget specifikt på stedet).
-- Gåder baseret på rim eller ledetråde.
-
-OUTPUTKRAV
-- Returner kun valid JSON.
-- JSON skal have strukturen:
-{
-  "questions": [
-    {
-      "text": "Selve gåden || KODEBRIK: Kort belønningsbesked med kode-brikken",
-      "answers": ["Svar 1", "Svar 2", "Svar 3", "Svar 4"],
-      "correctIndex": 0
-    }
-  ]
-}
-- text SKAL altid indeholde strengen " || KODEBRIK: ".
-- Alt før markøren er selve gåden.
-- Alt efter markøren er en kort dansk belønningsbesked, som giver en kode-brik på ét tal eller ét bogstav.
-- answers skal indeholde præcis 4 svarmuligheder.
-- correctIndex skal være et heltal fra 0 til 3.
-- Hele indholdet skal være på dansk.`;
+Regler:
+1. Gåden må IKKE kræve, at man ser på sine omgivelser eller bruger en fysisk lokation.
+2. Lav en blanding af forskellige gådetyper: sproglige gåder og ordspil, logiske mønstre og sjove eller skæve matematiske gåder.
+3. Der må kun være ét reelt korrekt svar, og det skal altid være ultra-kort: ét ord eller ét tal.
+4. Giv også et kort, hjælpsomt hint, som skubber deltageren i den rigtige retning uden at afsløre svaret.
+5. Giv en belønning i form af ét tegn til en slut-kode.
+6. Tænk ikke i multiple choice. Det eneste rigtige svar skal ligge i answers[0], og correctIndex skal være 0.
+7. Skriv text i dette format: "Selve gåden || HINT: kort hint || KODEBRIK: belønning eller ledetråd".`;
 
 export const TIDSMASKINE_PROMPT = `Du hjælper nu i TIDSMASKINEN (Rollespil).
 
-Din opgave er at vælge en spændende karakter og skrive dialoger om [EMNE] til [MÅLGRUPPE].
+Din opgave er at påtage dig rollen som en spændende karakter og skrive levende dialoger om [EMNE] til [MÅLGRUPPE].
 
 FORMÅL
 Du skal hjælpe brugeren med at skabe en interaktiv fortælling. Deltagerne i GPS-løbet møder en karakter på hver post. Karakteren taler direkte til dem, giver dem information og stiller dem en opgave eller et spørgsmål, som de skal svare på for at komme videre i historien.
 
 REGLER
+- Du SKAL påtage dig rollen fuldt ud og tale direkte som karakteren.
 - Skriv ALTID i jeg-form som karakteren.
 - Karakteren skal have en tydelig personlighed, tone og stemme.
+- Du SKAL skrive i en tone, dialekt og med et ordvalg, der passer perfekt til karakteren og tidsalderen. Vær kreativ og levende.
 - Hver besked skal føles som en del af en samtale eller en vigtig mission.
 - Indbyg altid et spørgsmål eller en udfordring i teksten, som deltageren skal løse.
 - Sværhedsgraden og sproget skal passe præcis til [MÅLGRUPPE].

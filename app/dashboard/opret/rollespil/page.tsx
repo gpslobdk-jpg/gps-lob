@@ -127,11 +127,11 @@ const SUBJECT_TOPICS: Record<string, string[]> = {
   Musik: ["Nodelære & Rytmik", "Instrumentkendskab", "Musikhistorie & Genrer"],
 };
 
-const AI_GRADE_OPTIONS = [
-  "Indskoling",
-  "Mellemtrin",
-  "Udskoling",
-  "Ungdomsuddannelse",
+const AI_AUDIENCE_OPTIONS = [
+  { value: "Indskoling", label: "Let og legende" },
+  { value: "Mellemtrin", label: "Bred og tilgængelig" },
+  { value: "Udskoling", label: "Mere udfordrende" },
+  { value: "Ungdomsuddannelse", label: "Avanceret" },
 ] as const;
 
 const AI_SUBJECT_OPTIONS = [
@@ -150,6 +150,20 @@ const AI_SUBJECT_OPTIONS = [
   "Billedkunst",
   "Madkundskab",
 ] as const;
+
+const ROLEPLAY_TOPIC_SUGGESTIONS = Array.from(
+  new Set([
+    "Tordenskjold i 1700-tallet",
+    "H.C. Andersen",
+    "Firmaets grundlægger i 1980'erne",
+    "Middelalderen",
+    "Vikingetiden",
+    "Opdagelsesrejser",
+    "En excentrisk opfinder",
+    ...Object.keys(SUBJECT_TOPICS),
+    ...AI_SUBJECT_OPTIONS,
+  ])
+).sort((a, b) => a.localeCompare(b, "da-DK"));
 
 type Question = {
   id: number;
@@ -174,11 +188,16 @@ type GeneratedRoleplayQuestion = {
   correctIndex?: number;
 };
 
+type BuilderNotice = {
+  tone: "success" | "error";
+  message: string;
+};
+
 const textInputClass =
-  "w-full rounded-2xl border border-violet-500/20 bg-violet-950/50 px-4 py-3 text-violet-100 placeholder:text-violet-100/35 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-500";
+  "w-full rounded-2xl border border-violet-500/20 bg-violet-950/50 px-4 py-2.5 text-violet-100 placeholder:text-violet-100/35 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-500";
 
 const textareaClass =
-  "w-full rounded-2xl border border-violet-500/20 bg-violet-950/50 px-4 py-3 text-violet-100 placeholder:text-violet-100/35 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-500";
+  "w-full rounded-2xl border border-violet-500/20 bg-violet-950/50 px-4 py-2.5 text-violet-100 placeholder:text-violet-100/35 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-500";
 
 const previewInputClass =
   "w-full rounded-2xl border border-violet-500/20 bg-violet-950/50 px-4 py-3 text-violet-100 placeholder:text-violet-100/35 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-500";
@@ -273,10 +292,24 @@ export default function RollespilBuilderPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([createQuestion()]);
   const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
+  const [notice, setNotice] = useState<BuilderNotice | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>({
     lat: 55.6761,
     lng: 12.5683,
   });
+
+  const renderNotice = (className = "") =>
+    notice ? (
+      <div
+        className={`rounded-[1.5rem] border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
+          notice.tone === "success"
+            ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-50"
+            : "border-red-300/30 bg-red-500/10 text-red-100"
+        } ${className}`}
+      >
+        {notice.message}
+      </div>
+    ) : null;
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -380,6 +413,7 @@ export default function RollespilBuilderPage() {
 
   const closeAIModal = () => {
     if (isGenerating) return;
+    setNotice(null);
     setShowAIModal(false);
     setPreviewQuestions([]);
     setShowAITeacherFields(false);
@@ -388,6 +422,7 @@ export default function RollespilBuilderPage() {
   const handleApproveAIPreview = () => {
     if (previewQuestions.length === 0) return;
 
+    setNotice(null);
     const timestamp = Date.now();
     const approvedQuestions = previewQuestions.map((question, index) => ({
       ...question,
@@ -413,17 +448,23 @@ export default function RollespilBuilderPage() {
   };
 
   const handleDiscardAIPreview = () => {
+    setNotice(null);
     setPreviewQuestions([]);
   };
 
   const handleAIGenerate = async () => {
     const normalizedBrief = aiRunBrief.trim();
-    const normalizedSubject = aiSubject.trim() || subject.trim() || "Generelt";
+    const normalizedSubject = aiSubject.trim() || subject.trim() || "Generelt tema";
     const normalizedGrade = aiGrade.trim() || "Ikke angivet";
     const requestedCount = extractRequestedCount(normalizedBrief);
 
+    setNotice(null);
+
     if (!normalizedBrief) {
-      alert("Skriv først, hvilken person eller tidsalder AI'en skal spille.");
+      setNotice({
+        tone: "error",
+        message: "Skriv først, hvilken person eller tidsalder AI'en skal spille.",
+      });
       return;
     }
 
@@ -433,7 +474,8 @@ export default function RollespilBuilderPage() {
     );
     const userRequest =
       `Lav præcis ${requestedCount} rolleposter om ${normalizedBrief}. ` +
-      `Kontekst: ${normalizedSubject}. Niveau: ${normalizedGrade}. ` +
+      `Emne/tidsalder: ${normalizedSubject}. Målgruppe/sværhedsgrad: ${normalizedGrade}. ` +
+      `Karakteren skal påtage sig rollen fuldt ud og lyde tro mod personen eller perioden. ` +
       `Hver post skal returnere karakter, avatar og besked i text-feltet med markørerne "Karakter:", "Avatar:" og "Besked:".`;
 
     setIsGenerating(true);
@@ -495,22 +537,27 @@ export default function RollespilBuilderPage() {
         : [];
 
       if (formattedQuestions.length === 0) {
-        alert("AI returnerede ingen brugbare rolleposter. Prøv igen.");
+        setNotice({
+          tone: "error",
+          message: "AI returnerede ingen brugbare rolleposter. Prøv igen.",
+        });
         return;
       }
 
       setPreviewQuestions(formattedQuestions);
     } catch (error) {
       console.error("AI-generering af rolleposter fejlede:", error);
-      alert("Der skete en fejl. Prøv igen.");
+      setNotice({ tone: "error", message: "Der skete en fejl. Prøv igen." });
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleSaveRun = async () => {
+    setNotice(null);
+
     if (!title.trim()) {
-      alert("Udfyld venligst løbets titel.");
+      setNotice({ tone: "error", message: "Udfyld venligst løbets titel." });
       return;
     }
 
@@ -539,7 +586,7 @@ export default function RollespilBuilderPage() {
       );
 
     if (normalizedQuestions.length === 0) {
-      alert("Tilføj mindst én udfyldt post.");
+      setNotice({ tone: "error", message: "Tilføj mindst én udfyldt post." });
       return;
     }
 
@@ -547,7 +594,10 @@ export default function RollespilBuilderPage() {
       (question) => !question.text || !question.aiPrompt || !question.answers[0] || !question.answers[2]
     );
     if (hasIncompleteQuestions) {
-      alert("Udfyld karakterens navn, avatar, besked og det rigtige svar på hver post.");
+      setNotice({
+        tone: "error",
+        message: "Udfyld karakterens navn, avatar, besked og det rigtige svar på hver post.",
+      });
       return;
     }
 
@@ -555,7 +605,10 @@ export default function RollespilBuilderPage() {
       (question) => question.lat !== null && question.lng !== null
     );
     if (!hasAtLeastOnePin) {
-      alert("Du mangler at sætte pins på kortet. Mindst én post skal have koordinater.");
+      setNotice({
+        tone: "error",
+        message: "Du mangler at sætte pins på kortet. Mindst én post skal have koordinater.",
+      });
       return;
     }
 
@@ -569,7 +622,10 @@ export default function RollespilBuilderPage() {
       } = await supabase.auth.getUser();
 
       if (userError || !user) {
-        alert("Du skal være logget ind for at gemme løbet.");
+        setNotice({
+          tone: "error",
+          message: "Du skal være logget ind for at gemme løbet.",
+        });
         return;
       }
 
@@ -586,7 +642,10 @@ export default function RollespilBuilderPage() {
         throw error;
       }
 
-      alert("Rollespilsløbet er gemt i arkivet!");
+      setNotice({
+        tone: "success",
+        message: "Rollespilsløbet er gemt i arkivet!",
+      });
 
       setTitle("");
       setSubject("");
@@ -595,10 +654,11 @@ export default function RollespilBuilderPage() {
       setAiRunBrief("");
       setAiTopic("");
 
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
       router.push("/dashboard/arkiv");
     } catch (error) {
       console.error("Fejl ved gemning af rollespilsløb:", error);
-      alert("Kunne ikke gemme løbet. Prøv igen.");
+      setNotice({ tone: "error", message: "Kunne ikke gemme løbet. Prøv igen." });
     } finally {
       setIsSaving(false);
     }
@@ -610,7 +670,7 @@ export default function RollespilBuilderPage() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(139,92,246,0.28),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(196,181,253,0.12),_transparent_28%)]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
           <section className="w-full px-4 py-4 sm:px-6 sm:py-6 lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
-            <div className="mx-auto max-w-3xl space-y-6">
+            <div className="mx-auto max-w-3xl space-y-5">
               <div className="px-1 pt-1">
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                   Løbets titel
@@ -621,16 +681,13 @@ export default function RollespilBuilderPage() {
                   placeholder="F.eks. Kongens hemmelige rejse"
                   className={textInputClass}
                 />
-                <p className="mt-3 text-sm leading-relaxed text-violet-100/75">
-                  Kort fortalt: Lad en historisk eller fiktiv person styre løbet. Skriv hvem
-                  karakteren er, og lad AI&apos;en generere deres beskeder og avatar.
-                </p>
               </div>
 
               <div className="space-y-4 px-1">
                 <button
                   type="button"
                   onClick={() => {
+                    setNotice(null);
                     setShowAIModal(true);
                     setPreviewQuestions([]);
                   }}
@@ -648,20 +705,22 @@ export default function RollespilBuilderPage() {
                     {questions.length}
                   </span>
                 </div>
+
+                {renderNotice()}
               </div>
 
               {questions.map((question, index) => (
                 <article
                   key={question.id}
-                  className="rounded-[2rem] border border-violet-500/20 bg-violet-950/50 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6"
+                  className="rounded-[1.8rem] border border-violet-500/20 bg-violet-950/50 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-violet-500/20 bg-violet-950/50 text-sm font-bold text-violet-100">
+                  <div className="flex flex-wrap items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full border border-violet-500/20 bg-violet-950/50 text-sm font-bold text-violet-100">
                         {index + 1}
                       </div>
                       <div>
-                        <h3 className={`text-xl font-bold text-violet-100 ${rubik.className}`}>
+                        <h3 className={`text-lg font-bold text-violet-100 ${rubik.className}`}>
                           Post {index + 1}
                         </h3>
                         <p className="text-xs text-violet-100/65">
@@ -676,7 +735,7 @@ export default function RollespilBuilderPage() {
                     </span>
                   </div>
 
-                  <div className="mt-5 grid gap-5 md:grid-cols-2">
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
                     <div>
                       <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                         Karakterens Navn
@@ -714,7 +773,7 @@ export default function RollespilBuilderPage() {
                         onChange={(event) =>
                           updateRoleplayQuestion(question.id, { message: event.target.value })
                         }
-                        rows={4}
+                        rows={3}
                         placeholder="F.eks. Hvem vover at træde ind på min borg uden tilladelse?"
                         className={textareaClass}
                       />
@@ -738,20 +797,20 @@ export default function RollespilBuilderPage() {
                   <button
                     type="button"
                     onClick={() => assignPinFromCenter(question.id)}
-                    className="mt-5 w-full rounded-[1.4rem] border border-violet-400/30 bg-violet-500/22 px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-violet-100 shadow-[0_12px_32px_rgba(139,92,246,0.18)] transition hover:bg-violet-500/30"
+                    className="mt-4 w-full rounded-[1.35rem] border border-violet-400/30 bg-violet-500/22 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-violet-100 shadow-[0_12px_32px_rgba(139,92,246,0.18)] transition hover:bg-violet-500/30"
                   >
                     Hent pin fra kortet
                   </button>
 
                   {question.lat !== null && question.lng !== null ? (
-                    <p className="mt-3 text-xs text-violet-100/70">
+                    <p className="mt-2.5 text-xs text-violet-100/70">
                       Pin gemt: {question.lat.toFixed(5)}, {question.lng.toFixed(5)}
                     </p>
                   ) : null}
                 </article>
               ))}
 
-              <div className="rounded-[2rem] border border-violet-500/20 bg-violet-950/50 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+              <div className="rounded-[1.8rem] border border-violet-500/20 bg-violet-950/50 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl">
                 <button
                   type="button"
                   onClick={addQuestion}
@@ -771,32 +830,21 @@ export default function RollespilBuilderPage() {
                   ) : (
                     <ChevronDown className="h-4 w-4" />
                   )}
-                  {showTeacherField ? "Skjul fag (valgfrit)" : "Tilføj fag (valgfrit)"}
+                  {showTeacherField ? "Skjul emne/tidsalder (valgfrit)" : "Tilføj emne/tidsalder (valgfrit)"}
                 </button>
 
                 {showTeacherField ? (
                   <div className="mt-4 rounded-[1.5rem] border border-violet-500/20 bg-violet-950/50 p-4 backdrop-blur-xl">
                     <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
-                      Fag
+                      Emne/Tidsalder
                     </label>
-                    <select
+                    <input
                       value={subject}
                       onChange={(event) => setSubject(event.target.value)}
-                      className="w-full appearance-none rounded-2xl border border-violet-500/20 bg-violet-950/50 p-3 text-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                    >
-                      <option value="" className="bg-slate-900 text-white">
-                        Vælg et fag...
-                      </option>
-                      {Object.keys(SUBJECT_TOPICS).map((subjectOption) => (
-                        <option
-                          key={subjectOption}
-                          value={subjectOption}
-                          className="bg-slate-900 text-white"
-                        >
-                          {subjectOption}
-                        </option>
-                      ))}
-                    </select>
+                      list="roleplay-topic-suggestions"
+                      placeholder="f.eks. Tordenskjold i 1700-tallet eller H.C. Andersen"
+                      className="w-full rounded-2xl border border-violet-500/20 bg-violet-950/50 px-4 py-3 text-violet-100 placeholder:text-violet-100/35 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
                   </div>
                 ) : null}
 
@@ -822,6 +870,12 @@ export default function RollespilBuilderPage() {
         </div>
       </div>
 
+      <datalist id="roleplay-topic-suggestions">
+        {ROLEPLAY_TOPIC_SUGGESTIONS.map((topicOption) => (
+          <option key={topicOption} value={topicOption} />
+        ))}
+      </datalist>
+
       {showAIModal && (
         <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-violet-950/70 p-4 backdrop-blur-xl">
           <div className="w-full max-w-3xl rounded-[2rem] border border-violet-500/20 bg-violet-950/90 p-6 shadow-[0_32px_100px_rgba(0,0,0,0.72)] backdrop-blur-2xl sm:p-8">
@@ -837,11 +891,13 @@ export default function RollespilBuilderPage() {
                   Intelligent historie-assistent
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-relaxed text-violet-100/75">
-                  Beskriv personen eller tidsalderen kort, så kan AI&apos;en foreslå karakterer,
-                  beskeder og svar til hver post.
+                  Beskriv en karakter, person eller tidsalder kort, så kan AI&apos;en foreslå
+                  karakterer, beskeder og svar til hver post.
                 </p>
               </div>
             </div>
+
+            {renderNotice("mt-6")}
 
             {previewQuestions.length > 0 ? (
               <div className="mt-8">
@@ -947,15 +1003,14 @@ export default function RollespilBuilderPage() {
               <>
                 <div className="mt-8">
                   <label className="mb-3 block text-sm font-semibold text-white">
-                    Hvilken person eller tidsalder skal AI&apos;en spille? (F.eks: Lav 5 poster om
-                    middelalderen ved Gåsetårnet, fortalt af Kong Valdemar, og giv ham en
-                    krone-emoji som avatar...)
+                    Hvem eller hvilken tidsalder skal AI&apos;en spille? (F.eks. Tordenskjold i
+                    1700-tallet, H.C. Andersen eller firmaets grundlægger i 1980&apos;erne)
                   </label>
                   <textarea
                     value={aiRunBrief}
                     onChange={(event) => setAiRunBrief(event.target.value)}
                     rows={8}
-                    placeholder="Hvilken person eller tidsalder skal AI'en spille? (F.eks: Lav 5 poster om middelalderen ved Gåsetårnet, fortalt af Kong Valdemar, og giv ham en krone-emoji som avatar...)"
+                    placeholder="f.eks. Lav 5 poster med Tordenskjold i 1700-tallet, H.C. Andersen eller firmaets grundlægger i 1980'erne"
                     className="w-full rounded-[1.6rem] border border-violet-500/20 bg-violet-950/50 p-5 text-violet-100 placeholder:text-violet-100/35 focus:outline-none focus:ring-2 focus:ring-violet-500"
                   />
                 </div>
@@ -970,7 +1025,7 @@ export default function RollespilBuilderPage() {
                   ) : (
                     <ChevronDown className="h-4 w-4" />
                   )}
-                  Er du lærer? Tilpas fag og niveau
+                  Tilpas tidsalder og målgruppe (valgfrit)
                 </button>
 
                 {showAITeacherFields ? (
@@ -978,44 +1033,33 @@ export default function RollespilBuilderPage() {
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
-                          Fag
+                          Emne/Tidsalder
                         </label>
-                        <select
+                        <input
                           value={aiSubject}
                           onChange={(event) => setAiSubject(event.target.value)}
-                          className="w-full rounded-2xl border border-violet-500/20 bg-violet-950/50 p-3 text-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                        >
-                          <option value="" className="bg-slate-900 text-white">
-                            Vælg fag...
-                          </option>
-                          {AI_SUBJECT_OPTIONS.map((subjectOption) => (
-                            <option
-                              key={subjectOption}
-                              value={subjectOption}
-                              className="bg-slate-900 text-white"
-                            >
-                              {subjectOption}
-                            </option>
-                          ))}
-                        </select>
+                          list="roleplay-topic-suggestions"
+                          placeholder="f.eks. Tordenskjold i 1700-tallet, H.C. Andersen eller 1980'erne"
+                          className="w-full rounded-2xl border border-violet-500/20 bg-violet-950/50 px-4 py-3 text-violet-100 placeholder:text-violet-100/35 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                        />
                       </div>
 
                       <div>
                         <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
-                          Klassetrin
+                          Målgruppe/Sværhedsgrad
                         </label>
                         <select
                           value={aiGrade}
                           onChange={(event) => setAiGrade(event.target.value)}
                           className="w-full rounded-2xl border border-violet-500/20 bg-violet-950/50 p-3 text-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                         >
-                          {AI_GRADE_OPTIONS.map((gradeOption) => (
+                          {AI_AUDIENCE_OPTIONS.map((gradeOption) => (
                             <option
-                              key={gradeOption}
-                              value={gradeOption}
+                              key={gradeOption.value}
+                              value={gradeOption.value}
                               className="bg-slate-900 text-white"
                             >
-                              {gradeOption}
+                              {gradeOption.label}
                             </option>
                           ))}
                         </select>

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ChevronDown, ChevronUp, ImageIcon, Loader2, Plus, Sparkles, Youtube } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, ImageIcon, Loader2, Plus, Sparkles, Youtube } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -128,11 +128,11 @@ export const SUBJECT_TOPICS: Record<string, string[]> = {
   Musik: ["Nodelære & Rytmik", "Instrumentkendskab", "Musikhistorie & Genrer"],
 };
 
-const AI_GRADE_OPTIONS = [
-  "Indskoling",
-  "Mellemtrin",
-  "Udskoling",
-  "Ungdomsuddannelse",
+const AI_AUDIENCE_OPTIONS = [
+  { value: "Indskoling", label: "Let og legende" },
+  { value: "Mellemtrin", label: "Bred og tilgængelig" },
+  { value: "Udskoling", label: "Mere udfordrende" },
+  { value: "Ungdomsuddannelse", label: "Avanceret" },
 ] as const;
 
 const AI_SUBJECT_OPTIONS = [
@@ -151,6 +151,21 @@ const AI_SUBJECT_OPTIONS = [
   "Billedkunst",
   "Madkundskab",
 ] as const;
+
+const TOPIC_SUGGESTIONS = Array.from(
+  new Set([
+    "Firmahistorie",
+    "Popkultur",
+    "80'ernes popmusik",
+    "Sommerfest",
+    "Musik",
+    "Historie",
+    "Matematik",
+    "Natur",
+    ...Object.keys(SUBJECT_TOPICS),
+    ...AI_SUBJECT_OPTIONS,
+  ])
+).sort((a, b) => a.localeCompare(b, "da-DK"));
 
 type Question = {
   id: number;
@@ -177,6 +192,11 @@ type MagicDraftQuestion = {
   correctAnswer?: unknown;
 };
 
+type BuilderNotice = {
+  tone: "success" | "error";
+  message: string;
+};
+
 const MAGIC_DRAFT_STORAGE_KEY = "magicRunDraft";
 
 const getQuestionTypeFromQuery = (value: string | null | undefined): Question["type"] =>
@@ -195,7 +215,7 @@ const createQuestion = (type: Question["type"] = "multiple_choice"): Question =>
 });
 
 const inputClass =
-  "w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 px-4 py-3 text-emerald-100 placeholder:text-emerald-100/35 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500";
+  "w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 px-4 py-2.5 text-emerald-100 placeholder:text-emerald-100/35 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500";
 
 const reviewInputClass =
   "w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 px-4 py-3 text-emerald-100 placeholder:text-emerald-100/35 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500";
@@ -270,10 +290,24 @@ function OpretLoebPageContent() {
   const [generatingImages, setGeneratingImages] = useState<Record<number, boolean>>({});
   const [questions, setQuestions] = useState<Question[]>(() => [createQuestion(defaultQuestionType)]);
   const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
+  const [notice, setNotice] = useState<BuilderNotice | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>({
     lat: 55.6761,
     lng: 12.5683,
   });
+
+  const renderNotice = (className = "") =>
+    notice ? (
+      <div
+        className={`rounded-[1.5rem] border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
+          notice.tone === "success"
+            ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-50"
+            : "border-red-300/30 bg-red-500/10 text-red-100"
+        } ${className}`}
+      >
+        {notice.message}
+      </div>
+    ) : null;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -387,6 +421,7 @@ function OpretLoebPageContent() {
 
   const closeAIModal = () => {
     if (isGenerating) return;
+    setNotice(null);
     setShowAIModal(false);
     setPreviewQuestions([]);
     setShowAITeacherFields(false);
@@ -412,6 +447,7 @@ function OpretLoebPageContent() {
   const handleApproveAIPreview = () => {
     if (previewQuestions.length === 0) return;
 
+    setNotice(null);
     const timestamp = Date.now();
     const approvedQuestions: Question[] = previewQuestions.map((q, index) => ({
       ...q,
@@ -435,6 +471,7 @@ function OpretLoebPageContent() {
   };
 
   const handleDiscardAIPreview = () => {
+    setNotice(null);
     setPreviewQuestions([]);
   };
 
@@ -444,18 +481,20 @@ function OpretLoebPageContent() {
     const normalizedGrade = aiGrade.trim() || "Ikke angivet";
     const requestedCount = extractRequestedCount(normalizedBrief);
 
+    setNotice(null);
+
     if (!normalizedBrief) {
-      alert("Skriv først, hvad løbet skal handle om.");
+      setNotice({ tone: "error", message: "Skriv først, hvad løbet skal handle om." });
       return;
     }
 
     const teacherGrade = showAITeacherFields ? normalizedGrade : "blandet niveau";
-    const teacherSubject = showAITeacherFields ? normalizedSubject : "et valgfrit fag";
+    const teacherSubject = showAITeacherFields ? normalizedSubject : "et valgfrit emne";
 
     const pedagogicalContext =
-      `Du er en pædagogisk konsulent, som designer klassiske quiz-løb. Generer præcis ${requestedCount} quiz-poster til ${teacherGrade} i faget ${teacherSubject} om emnet ${normalizedBrief}. ` +
+      `Du designer klassiske quiz-løb. Generer præcis ${requestedCount} quiz-poster om ${normalizedBrief} med fokus på ${teacherSubject} og en sværhedsgrad, der passer til ${teacherGrade}. ` +
       `Hver post SKAL have ét tydeligt spørgsmål, præcis 4 svarmuligheder i "answers" og et gyldigt "correctIndex" mellem 0 og 3, der peger på det rigtige svar. ` +
-      `Alle spørgsmål og svar skal være på dansk, alderssvarende og passe til et GPS-løb udendørs.`;
+      `Alle spørgsmål og svar skal være på dansk, lette at forstå og passe til et GPS-løb udendørs.`;
 
     setIsGenerating(true);
     setPreviewQuestions([]);
@@ -525,11 +564,11 @@ function OpretLoebPageContent() {
 
         setPreviewQuestions(formattedQuestions);
       } else {
-        alert("AI returnerede ingen spørgsmål. Prøv igen.");
+        setNotice({ tone: "error", message: "AI returnerede ingen spørgsmål. Prøv igen." });
       }
     } catch (error) {
       console.error(error);
-      alert("Der skete en fejl. Prøv igen.");
+      setNotice({ tone: "error", message: "Der skete en fejl. Prøv igen." });
     } finally {
       setIsGenerating(false);
     }
@@ -540,7 +579,10 @@ function OpretLoebPageContent() {
     const normalizedTopic = aiTopic.trim() || aiRunBrief.trim();
 
     if (!normalizedTopic) {
-      alert("Generér først spørgsmål i AI-assistenten, så emnet er sat.");
+      setNotice({
+        tone: "error",
+        message: "Generér først spørgsmål i AI-assistenten, så emnet er sat.",
+      });
       return;
     }
 
@@ -563,15 +605,17 @@ function OpretLoebPageContent() {
       }
     } catch (error) {
       console.error(error);
-      alert("Der skete en fejl. Prøv igen.");
+      setNotice({ tone: "error", message: "Der skete en fejl. Prøv igen." });
     } finally {
       setGeneratingImages((prev) => ({ ...prev, [questionId]: false }));
     }
   };
 
   const handleSaveRun = async () => {
+    setNotice(null);
+
     if (!title.trim()) {
-      alert("Udfyld venligst titel.");
+      setNotice({ tone: "error", message: "Udfyld venligst titel." });
       return;
     }
 
@@ -593,7 +637,7 @@ function OpretLoebPageContent() {
       );
 
     if (normalizedQuestions.length === 0) {
-      alert("Tilføj mindst ét udfyldt spørgsmål.");
+      setNotice({ tone: "error", message: "Tilføj mindst ét udfyldt spørgsmål." });
       return;
     }
 
@@ -603,9 +647,11 @@ function OpretLoebPageContent() {
       return q.answers.some((answer) => !answer);
     });
     if (hasIncompleteQuestions) {
-      alert(
-        "Udfyld postens tekst. Multiple choice kræver fire svarmuligheder, og AI-billede kræver AI-instruks."
-      );
+      setNotice({
+        tone: "error",
+        message:
+          "Udfyld postens tekst. Multiple choice kræver fire svarmuligheder, og AI-billede kræver AI-instruks.",
+      });
       return;
     }
 
@@ -613,7 +659,10 @@ function OpretLoebPageContent() {
       (q) => q.lat !== null && q.lng !== null
     );
     if (!hasAtLeastOnePin) {
-      alert("Du mangler at sætte pins på kortet. Mindst ét spørgsmål skal have koordinater.");
+      setNotice({
+        tone: "error",
+        message: "Du mangler at sætte pins på kortet. Mindst ét spørgsmål skal have koordinater.",
+      });
       return;
     }
 
@@ -627,7 +676,10 @@ function OpretLoebPageContent() {
       } = await supabase.auth.getUser();
 
       if (userError || !user) {
-        alert("Du skal være logget ind for at gemme løbet.");
+        setNotice({
+          tone: "error",
+          message: "Du skal være logget ind for at gemme løbet.",
+        });
         return;
       }
 
@@ -644,7 +696,7 @@ function OpretLoebPageContent() {
         throw error;
       }
 
-      alert("Løbet er gemt i arkivet!");
+      setNotice({ tone: "success", message: "Løbet er gemt i arkivet!" });
 
       setTitle("");
       setSubject("");
@@ -653,10 +705,11 @@ function OpretLoebPageContent() {
       setAiRunBrief("");
       setGeneratingImages({});
 
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
       router.push("/dashboard/arkiv");
     } catch (error) {
       console.error("Fejl ved gemning af løb:", error);
-      alert("Kunne ikke gemme løbet. Prøv igen.");
+      setNotice({ tone: "error", message: "Kunne ikke gemme løbet. Prøv igen." });
     } finally {
       setIsSaving(false);
     }
@@ -671,7 +724,7 @@ function OpretLoebPageContent() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.28),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(110,231,183,0.12),_transparent_28%)]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
           <section className="w-full px-4 py-4 sm:px-6 sm:py-6 lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
-            <div className="mx-auto max-w-3xl space-y-6">
+            <div className="mx-auto max-w-3xl space-y-5">
               <div className="px-1 pt-1">
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
                   Løbets titel
@@ -679,7 +732,7 @@ function OpretLoebPageContent() {
                 <input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
-                  placeholder="F.eks. Eventyr i skolegården"
+                  placeholder="F.eks. Firmaets sommerfest"
                   className="w-full rounded-[1.6rem] border border-emerald-500/20 bg-emerald-950/50 px-5 py-4 text-xl font-bold text-emerald-100 placeholder:text-emerald-100/35 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
@@ -688,6 +741,7 @@ function OpretLoebPageContent() {
                 <button
                   type="button"
                   onClick={() => {
+                    setNotice(null);
                     setShowAIModal(true);
                     setPreviewQuestions([]);
                   }}
@@ -707,20 +761,22 @@ function OpretLoebPageContent() {
                     {questions.length}
                   </span>
                 </div>
+
+                {renderNotice()}
               </div>
 
               {questions.map((question, questionIndex) => (
                 <article
                   key={question.id}
-                  className="rounded-[2rem] border border-emerald-500/20 bg-emerald-950/50 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6"
+                  className="rounded-[1.8rem] border border-emerald-500/20 bg-emerald-950/50 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-950/50 text-sm font-bold text-emerald-100">
+                  <div className="flex flex-wrap items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-950/50 text-sm font-bold text-emerald-100">
                         {questionIndex + 1}
                       </div>
                       <div>
-                        <h3 className={`text-xl font-bold text-emerald-100 ${rubik.className}`}>
+                        <h3 className={`text-lg font-bold text-emerald-100 ${rubik.className}`}>
                           {question.type === "ai_image" ? "Foto-post" : "Quiz-post"}
                         </h3>
                         <p className="text-xs text-emerald-100/65">
@@ -732,10 +788,10 @@ function OpretLoebPageContent() {
                     </div>
                     <span className="rounded-full border border-emerald-500/20 bg-emerald-950/45 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-emerald-100/75 uppercase backdrop-blur-xl">
                       {question.type === "ai_image" ? "AI foto" : "4 svar"}
-                    </span>
+                      </span>
                   </div>
 
-                  <div className="mt-5">
+                  <div className="mt-4">
                     <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
                       Spørgsmålstekst
                     </label>
@@ -748,7 +804,7 @@ function OpretLoebPageContent() {
                   </div>
 
                   {question.type === "ai_image" ? (
-                    <div className="mt-5 rounded-[1.5rem] border border-emerald-500/20 bg-emerald-950/50 p-4 backdrop-blur-xl">
+                    <div className="mt-4 rounded-[1.4rem] border border-emerald-500/20 bg-emerald-950/50 p-3 backdrop-blur-xl">
                       <label className="mb-2 block text-sm font-semibold text-emerald-100">
                         Instruks til AI-dommeren
                       </label>
@@ -764,33 +820,59 @@ function OpretLoebPageContent() {
                       </p>
                     </div>
                   ) : (
-                    <div className="mt-5 space-y-3">
-                      {question.answers.map((answer, answerIndex) => (
-                        <label
-                          key={`${question.id}-${answerIndex}`}
-                          className="flex items-center gap-3 rounded-[1.4rem] border border-emerald-500/20 bg-emerald-950/45 px-4 py-3 transition hover:border-emerald-400/25"
-                        >
-                          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-950/55 text-sm font-bold text-emerald-100/80">
-                            {String.fromCharCode(65 + answerIndex)}
-                          </span>
-                          <input
-                            type="radio"
-                            checked={question.correctIndex === answerIndex}
-                            onChange={() => updateQuestion(question.id, { correctIndex: answerIndex })}
-                            className="h-4 w-4 accent-emerald-500"
-                          />
-                          <input
-                            value={answer}
-                            onChange={(event) => updateAnswer(question.id, answerIndex, event.target.value)}
-                            placeholder={`Svar ${answerIndex + 1}`}
-                            className="min-w-0 flex-1 bg-transparent text-emerald-100 placeholder:text-emerald-100/35 focus:outline-none"
-                          />
-                        </label>
-                      ))}
+                    <div className="mt-4 space-y-2">
+                      {question.answers.map((answer, answerIndex) => {
+                        const isCorrectAnswer = question.correctIndex === answerIndex;
+
+                        return (
+                          <div
+                            key={`${question.id}-${answerIndex}`}
+                            className={`flex items-center gap-2.5 rounded-[1.25rem] border px-3 py-2.5 transition ${
+                              isCorrectAnswer
+                                ? "border-emerald-300/40 bg-emerald-500/12 shadow-[0_14px_28px_rgba(16,185,129,0.12)]"
+                                : "border-emerald-500/20 bg-emerald-950/45 hover:border-emerald-400/25"
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => updateQuestion(question.id, { correctIndex: answerIndex })}
+                              aria-label={`Markér svar ${answerIndex + 1} som korrekt`}
+                              aria-pressed={isCorrectAnswer}
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-black transition ${
+                                isCorrectAnswer
+                                  ? "border-emerald-200 bg-emerald-300 text-[#062515] shadow-[0_0_18px_rgba(110,231,183,0.24)]"
+                                  : "border-emerald-500/20 bg-emerald-950/60 text-emerald-100/78 hover:border-emerald-300/30"
+                              }`}
+                            >
+                              {String.fromCharCode(65 + answerIndex)}
+                            </button>
+
+                            <input
+                              value={answer}
+                              onChange={(event) => updateAnswer(question.id, answerIndex, event.target.value)}
+                              placeholder={`Svar ${answerIndex + 1}`}
+                              className="min-w-0 flex-1 bg-transparent py-1 text-sm text-emerald-100 placeholder:text-emerald-100/35 focus:outline-none"
+                            />
+
+                            <button
+                              type="button"
+                              onClick={() => updateQuestion(question.id, { correctIndex: answerIndex })}
+                              className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] transition ${
+                                isCorrectAnswer
+                                  ? "border-emerald-200/60 bg-emerald-300 text-[#062515]"
+                                  : "border-emerald-500/20 bg-emerald-950/55 text-emerald-100/72 hover:border-emerald-300/30 hover:text-emerald-100"
+                              }`}
+                            >
+                              {isCorrectAnswer ? <Check className="h-3.5 w-3.5" /> : null}
+                              {isCorrectAnswer ? "Korrekt" : "Markér"}
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
 
-                    <div className="mt-5 rounded-[1.5rem] border border-emerald-500/20 bg-emerald-950/50 p-4 backdrop-blur-xl">
+                  <div className="mt-4 rounded-[1.4rem] border border-emerald-500/20 bg-emerald-950/50 p-3 backdrop-blur-xl">
                     <div className="flex flex-wrap items-center gap-2 text-sm text-emerald-100/75">
                       <ImageIcon className="h-4 w-4 text-emerald-200" />
                       <Youtube className="h-4 w-4 text-emerald-200" />
@@ -823,7 +905,7 @@ function OpretLoebPageContent() {
                       </motion.div>
                     )}
 
-                    <div className="mt-4 flex flex-col gap-3 xl:flex-row xl:items-center">
+                    <div className="mt-3 flex flex-col gap-2.5 xl:flex-row xl:items-center">
                       <input
                         type="text"
                         placeholder="Indsæt link til billede eller YouTube-video..."
@@ -855,13 +937,13 @@ function OpretLoebPageContent() {
                   <button
                     type="button"
                     onClick={() => assignPinFromCenter(question.id)}
-                    className="mt-5 w-full rounded-[1.4rem] border border-emerald-400/30 bg-emerald-500/22 px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-emerald-100 shadow-[0_12px_32px_rgba(16,185,129,0.18)] transition hover:bg-emerald-500/30"
+                    className="mt-4 w-full rounded-[1.35rem] border border-emerald-400/30 bg-emerald-500/22 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-emerald-100 shadow-[0_12px_32px_rgba(16,185,129,0.18)] transition hover:bg-emerald-500/30"
                   >
                     Hent pin fra kortet
                   </button>
 
                   {question.lat !== null && question.lng !== null ? (
-                    <p className="mt-3 text-xs text-emerald-100/70">
+                    <p className="mt-2.5 text-xs text-emerald-100/70">
                       Pin gemt: {question.lat.toFixed(5)}, {question.lng.toFixed(5)}
                     </p>
                   ) : null}
@@ -884,28 +966,21 @@ function OpretLoebPageContent() {
                   className="mt-5 inline-flex items-center gap-2 text-sm text-emerald-100/70 transition hover:text-emerald-100"
                 >
                   {showTeacherField ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  {showTeacherField ? "Skjul fag (valgfrit)" : "Tilføj fag (valgfrit)"}
+                  {showTeacherField ? "Skjul emne (valgfrit)" : "Tilføj emne (valgfrit)"}
                 </button>
 
                 {showTeacherField ? (
                   <div className="mt-4 rounded-[1.5rem] border border-emerald-500/20 bg-emerald-950/50 p-4 backdrop-blur-xl">
                     <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
-                      Fag
+                      Emne
                     </label>
-                    <select
+                    <input
                       value={subject}
                       onChange={(e) => setSubject(e.target.value)}
-                      className="w-full appearance-none rounded-2xl border border-emerald-500/20 bg-emerald-950/50 p-3 text-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    >
-                      <option value="" className="bg-slate-900 text-white">
-                        Vælg et fag...
-                      </option>
-                      {Object.keys(SUBJECT_TOPICS).map((subj) => (
-                        <option key={subj} value={subj} className="bg-slate-900 text-white">
-                          {subj}
-                        </option>
-                      ))}
-                    </select>
+                      list="quiz-topic-suggestions"
+                      placeholder="f.eks. popkultur, firmahistorie eller matematik"
+                      className="w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 px-4 py-3 text-emerald-100 placeholder:text-emerald-100/35 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
                   </div>
                 ) : null}
 
@@ -931,6 +1006,12 @@ function OpretLoebPageContent() {
       </div>
       </div>
 
+      <datalist id="quiz-topic-suggestions">
+        {TOPIC_SUGGESTIONS.map((topicOption) => (
+          <option key={topicOption} value={topicOption} />
+        ))}
+      </datalist>
+
       {showAIModal && (
         <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-emerald-950/70 p-4 backdrop-blur-xl">
           <div className="w-full max-w-3xl rounded-[2rem] border border-emerald-500/20 bg-emerald-950/90 p-6 shadow-[0_32px_100px_rgba(0,0,0,0.72)] backdrop-blur-2xl sm:p-8">
@@ -950,6 +1031,8 @@ function OpretLoebPageContent() {
                 </p>
               </div>
             </div>
+
+            {renderNotice("mt-6")}
 
             {previewQuestions.length > 0 ? (
               <div className="mt-8">
@@ -1042,7 +1125,7 @@ function OpretLoebPageContent() {
                   className="mt-4 inline-flex items-center gap-2 text-sm text-emerald-100/70 transition hover:text-emerald-100"
                 >
                   {showAITeacherFields ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  Er du lærer? Tilpas fag og niveau
+                  Tilpas emne og sværhedsgrad (valgfrit)
                 </button>
 
                 {showAITeacherFields ? (
@@ -1050,44 +1133,33 @@ function OpretLoebPageContent() {
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-emerald-100/65 uppercase">
-                          Fag
+                          Emne
                         </label>
-                        <select
+                        <input
                           value={aiSubject}
                           onChange={(e) => setAiSubject(e.target.value)}
-                          className="w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 p-3 text-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        >
-                          <option value="" className="bg-slate-900 text-white">
-                            Vælg fag...
-                          </option>
-                          {AI_SUBJECT_OPTIONS.map((subjectOption) => (
-                            <option
-                              key={subjectOption}
-                              value={subjectOption}
-                              className="bg-slate-900 text-white"
-                            >
-                              {subjectOption}
-                            </option>
-                          ))}
-                        </select>
+                          list="quiz-topic-suggestions"
+                          placeholder="f.eks. popkultur, natur eller firmahistorie"
+                          className="w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 px-4 py-3 text-emerald-100 placeholder:text-emerald-100/35 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
                       </div>
 
                       <div>
                         <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-emerald-100/65 uppercase">
-                          Klassetrin
+                          Målgruppe/Sværhedsgrad
                         </label>
                         <select
                           value={aiGrade}
                           onChange={(e) => setAiGrade(e.target.value)}
                           className="w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 p-3 text-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         >
-                          {AI_GRADE_OPTIONS.map((gradeOption) => (
+                          {AI_AUDIENCE_OPTIONS.map((gradeOption) => (
                             <option
-                              key={gradeOption}
-                              value={gradeOption}
+                              key={gradeOption.value}
+                              value={gradeOption.value}
                               className="bg-slate-900 text-white"
                             >
-                              {gradeOption}
+                              {gradeOption.label}
                             </option>
                           ))}
                         </select>

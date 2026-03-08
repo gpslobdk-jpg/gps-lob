@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
+import {
+  asTrimmedString,
+  fetchRunForSession,
+  getPhotoMissionConfig,
+  resolveQuestionVariant,
+} from "@/app/api/play/_shared";
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 type AnalyzePhotoPayload = {
   image?: unknown;
-  targetObject?: unknown;
-  isSelfie?: unknown;
+  sessionId?: unknown;
+  postIndex?: unknown;
 };
 
 type AnalyzePhotoResult = {
@@ -14,8 +21,8 @@ type AnalyzePhotoResult = {
   message: string;
 };
 
-function asTrimmedString(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
+function asPostIndex(value: unknown) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null;
 }
 
 function normalizeAnalysisResult(raw: unknown): AnalyzePhotoResult | null {
@@ -45,15 +52,31 @@ export async function POST(req: Request) {
 
   try {
     const image = asTrimmedString(payload.image);
-    const targetObject = asTrimmedString(payload.targetObject);
-    const isSelfie = payload.isSelfie === true;
+    const sessionId = asTrimmedString(payload.sessionId);
+    const postIndex = asPostIndex(payload.postIndex);
 
-    if (!image || !targetObject) {
-      return NextResponse.json({ error: "Billede eller mål-objekt mangler." }, { status: 400 });
+    if (!image || !sessionId || postIndex === null) {
+      return NextResponse.json({ error: "Billede eller postdata mangler." }, { status: 400 });
     }
 
     if (!image.startsWith("data:image/")) {
       return NextResponse.json({ error: "Billedet skal være et base64 data-URI." }, { status: 400 });
+    }
+
+    const run = await fetchRunForSession(sessionId);
+    if (!run || !Array.isArray(run.questions) || postIndex >= run.questions.length) {
+      return NextResponse.json({ error: "Foto-posten kunne ikke findes." }, { status: 404 });
+    }
+
+    const rawQuestion = run.questions[postIndex];
+    const variant = resolveQuestionVariant(run.raceType ?? run.race_type, rawQuestion);
+    if (variant !== "photo") {
+      return NextResponse.json({ error: "Denne post bruger ikke foto-dommeren." }, { status: 400 });
+    }
+
+    const { targetObject, isSelfie } = getPhotoMissionConfig(rawQuestion);
+    if (!targetObject) {
+      return NextResponse.json({ error: "Foto-posten mangler et gyldigt motiv." }, { status: 400 });
     }
 
     if (!process.env.OPENAI_API_KEY) {

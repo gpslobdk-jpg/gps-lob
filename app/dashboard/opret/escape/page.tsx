@@ -127,11 +127,11 @@ const SUBJECT_TOPICS: Record<string, string[]> = {
   Musik: ["Nodelære & Rytmik", "Instrumentkendskab", "Musikhistorie & Genrer"],
 };
 
-const AI_GRADE_OPTIONS = [
-  "Indskoling",
-  "Mellemtrin",
-  "Udskoling",
-  "Ungdomsuddannelse",
+const AI_AUDIENCE_OPTIONS = [
+  { value: "Indskoling", label: "Let og legende" },
+  { value: "Mellemtrin", label: "Bred og tilgængelig" },
+  { value: "Udskoling", label: "Mere udfordrende" },
+  { value: "Ungdomsuddannelse", label: "Avanceret" },
 ] as const;
 
 const AI_SUBJECT_OPTIONS = [
@@ -156,6 +156,7 @@ type Question = {
   type: "multiple_choice";
   text: string;
   aiPrompt: string;
+  hint: string;
   mediaUrl: string;
   answers: [string, string, string, string];
   correctIndex: number;
@@ -174,6 +175,11 @@ type GeneratedEscapeQuestion = {
   correctIndex?: number;
 };
 
+type BuilderNotice = {
+  tone: "success" | "error";
+  message: string;
+};
+
 const textInputClass =
   "w-full rounded-2xl border border-amber-500/20 bg-amber-950/50 px-4 py-3 text-amber-100 placeholder:text-amber-100/35 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500";
 
@@ -190,6 +196,7 @@ const createQuestion = (): Question => ({
   type: "multiple_choice",
   text: "",
   aiPrompt: "",
+  hint: "",
   mediaUrl: "",
   answers: BLANK_ANSWERS,
   correctIndex: 0,
@@ -217,19 +224,24 @@ function normalizeMasterCode(value: string) {
 function parseEscapeText(rawText: string, index: number) {
   const trimmedText = rawText.trim();
   if (!trimmedText) {
-    return { riddle: "", codeBrick: fallbackCodeBrick(index) };
+    return { riddle: "", hint: "", codeBrick: fallbackCodeBrick(index) };
   }
 
-  const parts = trimmedText.split(/\|\|\s*KODE-?BRIK:\s*/i);
-  if (parts.length >= 2) {
-    const riddle = parts[0]?.trim() ?? "";
-    const codeBrick = parts.slice(1).join(" || ").trim() || fallbackCodeBrick(index);
-    return { riddle, codeBrick };
-  }
+  const hint =
+    trimmedText.match(/\|\|\s*HINT\s*:\s*([\s\S]*?)(?=\|\|\s*KODE-?BRIK\s*:|$)/i)?.[1]?.trim() ?? "";
+  const codeBrick =
+    trimmedText.match(/\|\|\s*KODE-?BRIK\s*:\s*([\s\S]*?)(?=\|\|\s*HINT\s*:|$)/i)?.[1]?.trim() ??
+    "";
+  const riddle = trimmedText
+    .replace(/\|\|\s*HINT\s*:\s*[\s\S]*?(?=\|\|\s*KODE-?BRIK\s*:|$)/i, "")
+    .replace(/\|\|\s*KODE-?BRIK\s*:\s*[\s\S]*?(?=\|\|\s*HINT\s*:|$)/i, "")
+    .replace(/\|\|\s*$/g, "")
+    .trim();
 
   return {
-    riddle: trimmedText,
-    codeBrick: fallbackCodeBrick(index),
+    riddle,
+    hint,
+    codeBrick: codeBrick || fallbackCodeBrick(index),
   };
 }
 
@@ -249,10 +261,24 @@ export default function EscapeBuilderPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([createQuestion()]);
   const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
+  const [notice, setNotice] = useState<BuilderNotice | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>({
     lat: 55.6761,
     lng: 12.5683,
   });
+
+  const renderNotice = (className = "") =>
+    notice ? (
+      <div
+        className={`rounded-[1.4rem] border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
+          notice.tone === "success"
+            ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-50"
+            : "border-red-300/30 bg-red-500/10 text-red-100"
+        } ${className}`}
+      >
+        {notice.message}
+      </div>
+    ) : null;
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -318,6 +344,7 @@ export default function EscapeBuilderPage() {
 
   const closeAIModal = () => {
     if (isGenerating) return;
+    setNotice(null);
     setShowAIModal(false);
     setPreviewQuestions([]);
     setShowAIMetadataFields(false);
@@ -326,6 +353,7 @@ export default function EscapeBuilderPage() {
   const handleApproveAIPreview = () => {
     if (previewQuestions.length === 0) return;
 
+    setNotice(null);
     const timestamp = Date.now();
     const approvedQuestions = previewQuestions.map((question, index) => ({
       ...question,
@@ -333,6 +361,7 @@ export default function EscapeBuilderPage() {
       type: "multiple_choice" as const,
       text: question.text.trim(),
       aiPrompt: question.aiPrompt.trim(),
+      hint: question.hint.trim(),
       answers: toEscapeAnswers(question.answers[0]?.trim() ?? ""),
       correctIndex: 0,
       lat: null,
@@ -347,6 +376,7 @@ export default function EscapeBuilderPage() {
   };
 
   const handleDiscardAIPreview = () => {
+    setNotice(null);
     setPreviewQuestions([]);
   };
 
@@ -356,8 +386,13 @@ export default function EscapeBuilderPage() {
     const normalizedGrade = aiGrade.trim() || "Ikke angivet";
     const requestedCount = extractRequestedCount(normalizedBrief);
 
+    setNotice(null);
+
     if (!normalizedBrief) {
-      alert("Skriv først, hvor I er, og hvad AI'en skal lave gåder om.");
+      setNotice({
+        tone: "error",
+        message: "Skriv først, hvilket emne eller niveau AI'en skal lave gåder om.",
+      });
       return;
     }
 
@@ -368,7 +403,10 @@ export default function EscapeBuilderPage() {
     const userRequest =
       `Lav præcis ${requestedCount} escape-poster om ${normalizedBrief}. ` +
       `Kontekst: ${normalizedSubject}. Niveau: ${normalizedGrade}. ` +
-      `Hver post skal returnere en gåde i text, fire svarmuligheder og en kode-brik i text efter markøren " || KODEBRIK: ".`;
+      `Bland sproglige gåder og ordspil, logiske mønstre og sjove matematiske gåder. ` +
+      `Hver post skal returnere en gåde i text, ét præcist svar som kode eller ord i answers[0], correctIndex: 0, ` +
+      `et kort hjælpsomt hint i text efter markøren " || HINT: ", ` +
+      `og en belønning eller ledetråd i text efter markøren " || KODEBRIK: ".`;
 
     setIsGenerating(true);
     setPreviewQuestions([]);
@@ -409,7 +447,7 @@ export default function EscapeBuilderPage() {
                   ? question.correctIndex
                   : 0;
               const solution = answers[safeCorrectIndex]?.trim() || "";
-              const { riddle, codeBrick } = parseEscapeText(question.text ?? "", index);
+              const { riddle, hint, codeBrick } = parseEscapeText(question.text ?? "", index);
 
               if (!riddle || !solution) return null;
 
@@ -418,6 +456,7 @@ export default function EscapeBuilderPage() {
                 type: "multiple_choice",
                 text: riddle,
                 aiPrompt: codeBrick,
+                hint,
                 answers: toEscapeAnswers(solution),
                 correctIndex: 0,
                 lat: null,
@@ -429,22 +468,27 @@ export default function EscapeBuilderPage() {
         : [];
 
       if (formattedQuestions.length === 0) {
-        alert("AI returnerede ingen brugbare gåder. Prøv igen.");
+        setNotice({
+          tone: "error",
+          message: "AI returnerede ingen brugbare gåder. Prøv igen.",
+        });
         return;
       }
 
       setPreviewQuestions(formattedQuestions);
     } catch (error) {
       console.error("AI-generering af escape-gåder fejlede:", error);
-      alert("Der skete en fejl. Prøv igen.");
+      setNotice({ tone: "error", message: "Der skete en fejl. Prøv igen." });
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleSaveRun = async () => {
+    setNotice(null);
+
     if (!title.trim()) {
-      alert("Udfyld venligst løbets titel.");
+      setNotice({ tone: "error", message: "Udfyld venligst løbets titel." });
       return;
     }
 
@@ -454,6 +498,7 @@ export default function EscapeBuilderPage() {
         type: "multiple_choice" as const,
         text: question.text.trim(),
         aiPrompt: question.aiPrompt.trim(),
+        hint: question.hint.trim(),
         answers: toEscapeAnswers(question.answers[0]?.trim() ?? ""),
         correctIndex: 0,
         mediaUrl: "",
@@ -468,7 +513,7 @@ export default function EscapeBuilderPage() {
       );
 
     if (normalizedQuestions.length === 0) {
-      alert("Tilføj mindst én udfyldt gåde.");
+      setNotice({ tone: "error", message: "Tilføj mindst én udfyldt gåde." });
       return;
     }
 
@@ -476,7 +521,10 @@ export default function EscapeBuilderPage() {
       (question) => !question.text || !question.answers[0] || !question.aiPrompt
     );
     if (hasIncompleteQuestions) {
-      alert("Udfyld både gåde, svar og belønning på hver post.");
+      setNotice({
+        tone: "error",
+        message: "Udfyld både gåde, svar og belønning på hver post.",
+      });
       return;
     }
 
@@ -484,13 +532,16 @@ export default function EscapeBuilderPage() {
       (question) => question.lat !== null && question.lng !== null
     );
     if (!hasAtLeastOnePin) {
-      alert("Du mangler at sætte pins på kortet. Mindst én gåde skal have koordinater.");
+      setNotice({
+        tone: "error",
+        message: "Du mangler at sætte pins på kortet. Mindst én gåde skal have koordinater.",
+      });
       return;
     }
 
     const normalizedMasterCode = normalizeMasterCode(masterCode);
     if (!normalizedMasterCode) {
-      alert("Udfyld master-koden til finalen.");
+      setNotice({ tone: "error", message: "Udfyld master-koden til finalen." });
       return;
     }
 
@@ -504,7 +555,10 @@ export default function EscapeBuilderPage() {
       } = await supabase.auth.getUser();
 
       if (userError || !user) {
-        alert("Du skal være logget ind for at gemme løbet.");
+        setNotice({
+          tone: "error",
+          message: "Du skal være logget ind for at gemme løbet.",
+        });
         return;
       }
 
@@ -521,7 +575,10 @@ export default function EscapeBuilderPage() {
         throw error;
       }
 
-      alert("Escape room-løbet er gemt i arkivet!");
+      setNotice({
+        tone: "success",
+        message: "Escape room-løbet er gemt i arkivet!",
+      });
 
       setTitle("");
       setMasterCode("");
@@ -531,10 +588,11 @@ export default function EscapeBuilderPage() {
       setAiRunBrief("");
       setAiTopic("");
 
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
       router.push("/dashboard/arkiv");
     } catch (error) {
       console.error("Fejl ved gemning af escape room-løb:", error);
-      alert("Kunne ikke gemme løbet. Prøv igen.");
+      setNotice({ tone: "error", message: "Kunne ikke gemme løbet. Prøv igen." });
     } finally {
       setIsSaving(false);
     }
@@ -576,6 +634,7 @@ export default function EscapeBuilderPage() {
                 <button
                   type="button"
                   onClick={() => {
+                    setNotice(null);
                     setShowAIModal(true);
                     setPreviewQuestions([]);
                   }}
@@ -593,6 +652,8 @@ export default function EscapeBuilderPage() {
                     {questions.length}
                   </span>
                 </div>
+
+                {renderNotice()}
               </div>
 
               {questions.map((question, index) => (
@@ -637,6 +698,18 @@ export default function EscapeBuilderPage() {
                       value={question.answers[0]}
                       onChange={(event) => updateSolution(question.id, event.target.value)}
                       placeholder="f.eks. 28"
+                      className={textInputClass}
+                    />
+                  </div>
+
+                  <div className="mt-4">
+                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
+                      Hint til deltageren (valgfrit)
+                    </label>
+                    <input
+                      value={question.hint}
+                      onChange={(event) => updateQuestion(question.id, { hint: event.target.value })}
+                      placeholder="f.eks. Tænk i bogstaver, mønstre eller en skjult regel"
                       className={textInputClass}
                     />
                   </div>
@@ -691,13 +764,13 @@ export default function EscapeBuilderPage() {
                   ) : (
                     <ChevronDown className="h-4 w-4" />
                   )}
-                  {showSubjectField ? "Skjul fag (valgfrit)" : "Tilføj fag (valgfrit)"}
+                  {showSubjectField ? "Skjul emne (valgfrit)" : "Tilføj emne (valgfrit)"}
                 </button>
 
                 {showSubjectField ? (
                   <div className="mt-4 rounded-[1.4rem] border border-amber-500/20 bg-amber-950/50 p-4 backdrop-blur-xl">
                     <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
-                      Fag
+                      Emne
                     </label>
                     <select
                       value={subject}
@@ -705,7 +778,7 @@ export default function EscapeBuilderPage() {
                       className="w-full appearance-none rounded-2xl border border-amber-500/20 bg-amber-950/50 p-3 text-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
                     >
                       <option value="" className="bg-slate-900 text-white">
-                        Vælg et fag...
+                        Vælg et emne...
                       </option>
                       {Object.keys(SUBJECT_TOPICS).map((subjectOption) => (
                         <option
@@ -754,13 +827,15 @@ export default function EscapeBuilderPage() {
                   className={`mt-3 flex items-center gap-2 text-3xl font-extrabold text-amber-100 ${rubik.className}`}
                 >
                   <span aria-hidden>✨</span>
-                  Intelligent escape-assistent
+                  Intelligent gåde-assistent
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-relaxed text-amber-100/75">
-                  Beskriv stedet kort, så kan AI&apos;en foreslå gåder med ét svar og en belønning til hver post.
+                  Fortæl kort hvilket emne eller niveau gåderne skal have (f.eks. matematik), så laver AI&apos;en resten.
                 </p>
               </div>
             </div>
+
+            {renderNotice("mt-6")}
 
             {previewQuestions.length > 0 ? (
               <div className="mt-8">
@@ -797,6 +872,18 @@ export default function EscapeBuilderPage() {
                         type="text"
                         value={question.answers[0]}
                         onChange={(event) => updatePreviewSolution(question.id, event.target.value)}
+                        className={previewInputClass}
+                      />
+
+                      <label className="mt-4 mb-2 block text-xs font-semibold tracking-[0.2em] text-amber-100/65 uppercase">
+                        Hint til deltageren (valgfrit)
+                      </label>
+                      <input
+                        type="text"
+                        value={question.hint}
+                        onChange={(event) =>
+                          updatePreviewQuestion(question.id, { hint: event.target.value })
+                        }
                         className={previewInputClass}
                       />
 
@@ -842,7 +929,7 @@ export default function EscapeBuilderPage() {
                     value={aiRunBrief}
                     onChange={(event) => setAiRunBrief(event.target.value)}
                     rows={6}
-                    placeholder="F.eks. Lav 5 logiske gåder omkring Gåsetårnet, hvor svarene giver tegn til en slut-kode."
+                    placeholder="f.eks. Lav 5 varierede spion-gåder (både ordspil og tal), hvor svarene er koderne til at bryde ind i banken."
                     className="w-full rounded-[1.6rem] border border-amber-500/20 bg-amber-950/50 p-5 text-amber-100 placeholder:text-amber-100/35 focus:outline-none focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
@@ -857,7 +944,7 @@ export default function EscapeBuilderPage() {
                   ) : (
                     <ChevronDown className="h-4 w-4" />
                   )}
-                  Tilpas fag og niveau (valgfrit)
+                  Tilpas emne og sværhedsgrad (valgfrit)
                 </button>
 
                 {showAIMetadataFields ? (
@@ -865,7 +952,7 @@ export default function EscapeBuilderPage() {
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-amber-100/65 uppercase">
-                          Fag
+                          Emne
                         </label>
                         <select
                           value={aiSubject}
@@ -873,7 +960,7 @@ export default function EscapeBuilderPage() {
                           className="w-full rounded-2xl border border-amber-500/20 bg-amber-950/50 p-3 text-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
                         >
                           <option value="" className="bg-slate-900 text-white">
-                            Vælg fag...
+                            Vælg et emne...
                           </option>
                           {AI_SUBJECT_OPTIONS.map((subjectOption) => (
                             <option
@@ -889,20 +976,20 @@ export default function EscapeBuilderPage() {
 
                       <div>
                         <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-amber-100/65 uppercase">
-                          Klassetrin
+                          Målgruppe/Sværhedsgrad
                         </label>
                         <select
                           value={aiGrade}
                           onChange={(event) => setAiGrade(event.target.value)}
                           className="w-full rounded-2xl border border-amber-500/20 bg-amber-950/50 p-3 text-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
                         >
-                          {AI_GRADE_OPTIONS.map((gradeOption) => (
+                          {AI_AUDIENCE_OPTIONS.map((gradeOption) => (
                             <option
-                              key={gradeOption}
-                              value={gradeOption}
+                              key={gradeOption.value}
+                              value={gradeOption.value}
                               className="bg-slate-900 text-white"
                             >
-                              {gradeOption}
+                              {gradeOption.label}
                             </option>
                           ))}
                         </select>

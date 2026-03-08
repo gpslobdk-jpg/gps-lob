@@ -127,11 +127,11 @@ const SUBJECT_TOPICS: Record<string, string[]> = {
   Musik: ["Nodelære & Rytmik", "Instrumentkendskab", "Musikhistorie & Genrer"],
 };
 
-const AI_GRADE_OPTIONS = [
-  "Indskoling",
-  "Mellemtrin",
-  "Udskoling",
-  "Ungdomsuddannelse",
+const AI_AUDIENCE_OPTIONS = [
+  { value: "Indskoling", label: "Let og legende" },
+  { value: "Mellemtrin", label: "Bred og tilgængelig" },
+  { value: "Udskoling", label: "Mere udfordrende" },
+  { value: "Ungdomsuddannelse", label: "Avanceret" },
 ] as const;
 
 const AI_SUBJECT_OPTIONS = [
@@ -172,6 +172,11 @@ type GeneratedPhotoQuestion = {
   text?: string;
   answers?: string[];
   correctIndex?: number;
+};
+
+type BuilderNotice = {
+  tone: "success" | "error";
+  message: string;
 };
 
 const createQuestion = (): Question => ({
@@ -243,10 +248,24 @@ export default function FotoMissionBuilderPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([createQuestion()]);
   const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
+  const [notice, setNotice] = useState<BuilderNotice | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>({
     lat: 55.6761,
     lng: 12.5683,
   });
+
+  const renderNotice = (className = "") =>
+    notice ? (
+      <div
+        className={`rounded-[1.5rem] border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
+          notice.tone === "success"
+            ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-50"
+            : "border-red-300/30 bg-red-500/10 text-red-100"
+        } ${className}`}
+      >
+        {notice.message}
+      </div>
+    ) : null;
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -298,6 +317,7 @@ export default function FotoMissionBuilderPage() {
 
   const closeAIModal = () => {
     if (isGenerating) return;
+    setNotice(null);
     setShowAIModal(false);
     setPreviewQuestions([]);
     setShowAITeacherFields(false);
@@ -306,6 +326,7 @@ export default function FotoMissionBuilderPage() {
   const handleApproveAIPreview = () => {
     if (previewQuestions.length === 0) return;
 
+    setNotice(null);
     const timestamp = Date.now();
     const approvedQuestions = previewQuestions.map((question, index) => ({
       ...question,
@@ -327,6 +348,7 @@ export default function FotoMissionBuilderPage() {
   };
 
   const handleDiscardAIPreview = () => {
+    setNotice(null);
     setPreviewQuestions([]);
   };
 
@@ -336,8 +358,13 @@ export default function FotoMissionBuilderPage() {
     const normalizedGrade = aiGrade.trim() || "Ikke angivet";
     const requestedCount = extractRequestedCount(normalizedBrief);
 
+    setNotice(null);
+
     if (!normalizedBrief) {
-      alert("Skriv først, hvilket terræn eller emne AI'en skal tage udgangspunkt i.");
+      setNotice({
+        tone: "error",
+        message: "Skriv først, hvilket emne eller motiv AI'en skal tage udgangspunkt i.",
+      });
       return;
     }
 
@@ -348,7 +375,7 @@ export default function FotoMissionBuilderPage() {
     const userRequest =
       `Lav præcis ${requestedCount} foto-missioner om ${normalizedBrief}. ` +
       `Kontekst: ${normalizedSubject}. Niveau: ${normalizedGrade}. ` +
-      `Hver mission skal bruge en kort elevinstruktion i text og et konkret målobjekt som korrekt svar.`;
+      `Hver mission skal bruge en kort instruktion til deltageren i text og et konkret målobjekt som korrekt svar.`;
 
     setIsGenerating(true);
     setPreviewQuestions([]);
@@ -409,22 +436,27 @@ export default function FotoMissionBuilderPage() {
         : [];
 
       if (formattedQuestions.length === 0) {
-        alert("AI returnerede ingen brugbare foto-missioner. Prøv igen.");
+        setNotice({
+          tone: "error",
+          message: "AI returnerede ingen brugbare foto-missioner. Prøv igen.",
+        });
         return;
       }
 
       setPreviewQuestions(formattedQuestions);
     } catch (error) {
       console.error("AI-fotogenerering fejlede:", error);
-      alert("Der skete en fejl. Prøv igen.");
+      setNotice({ tone: "error", message: "Der skete en fejl. Prøv igen." });
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleSaveRun = async () => {
+    setNotice(null);
+
     if (!title.trim()) {
-      alert("Udfyld venligst løbets titel.");
+      setNotice({ tone: "error", message: "Udfyld venligst løbets titel." });
       return;
     }
 
@@ -447,7 +479,7 @@ export default function FotoMissionBuilderPage() {
       );
 
     if (normalizedQuestions.length === 0) {
-      alert("Tilføj mindst én udfyldt mission.");
+      setNotice({ tone: "error", message: "Tilføj mindst én udfyldt mission." });
       return;
     }
 
@@ -455,7 +487,10 @@ export default function FotoMissionBuilderPage() {
       (question) => !question.text || !question.aiPrompt
     );
     if (hasIncompleteQuestions) {
-      alert("Udfyld både mål-objekt og instruktion på hver mission.");
+      setNotice({
+        tone: "error",
+        message: "Udfyld både hvad de skal finde og instruktionen på hver mission.",
+      });
       return;
     }
 
@@ -463,7 +498,10 @@ export default function FotoMissionBuilderPage() {
       (question) => question.lat !== null && question.lng !== null
     );
     if (!hasAtLeastOnePin) {
-      alert("Du mangler at sætte pins på kortet. Mindst én mission skal have koordinater.");
+      setNotice({
+        tone: "error",
+        message: "Du mangler at sætte pins på kortet. Mindst én mission skal have koordinater.",
+      });
       return;
     }
 
@@ -477,7 +515,10 @@ export default function FotoMissionBuilderPage() {
       } = await supabase.auth.getUser();
 
       if (userError || !user) {
-        alert("Du skal være logget ind for at gemme løbet.");
+        setNotice({
+          tone: "error",
+          message: "Du skal være logget ind for at gemme løbet.",
+        });
         return;
       }
 
@@ -494,7 +535,10 @@ export default function FotoMissionBuilderPage() {
         throw error;
       }
 
-      alert("Foto-missionen er gemt i arkivet!");
+      setNotice({
+        tone: "success",
+        message: "Foto-missionen er gemt i arkivet!",
+      });
 
       setTitle("");
       setSubject("");
@@ -503,10 +547,11 @@ export default function FotoMissionBuilderPage() {
       setAiRunBrief("");
       setAiTopic("");
 
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
       router.push("/dashboard/arkiv");
     } catch (error) {
       console.error("Fejl ved gemning af foto-mission:", error);
-      alert("Kunne ikke gemme løbet. Prøv igen.");
+      setNotice({ tone: "error", message: "Kunne ikke gemme løbet. Prøv igen." });
     } finally {
       setIsSaving(false);
     }
@@ -529,16 +574,13 @@ export default function FotoMissionBuilderPage() {
                   placeholder="F.eks. Skovens skjulte spor"
                   className={textInputClass}
                 />
-                <p className="mt-3 text-sm leading-relaxed text-sky-100/70">
-                  Kort fortalt: Beskriv et motiv. Deltagerne tager et billede af det med telefonen,
-                  og vores AI fortæller dem med det samme, om det er rigtigt.
-                </p>
               </div>
 
               <div className="space-y-4 px-1">
                 <button
                   type="button"
                   onClick={() => {
+                    setNotice(null);
                     setShowAIModal(true);
                     setPreviewQuestions([]);
                   }}
@@ -556,6 +598,8 @@ export default function FotoMissionBuilderPage() {
                     {questions.length}
                   </span>
                 </div>
+
+                {renderNotice()}
               </div>
 
               {questions.map((question, index) => (
@@ -585,8 +629,8 @@ export default function FotoMissionBuilderPage() {
                   </div>
 
                   <div className="mt-5">
-                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
-                      Mål-objekt
+                    <label className="mb-2 block text-xs font-semibold tracking-[0.12em] text-sky-100/65">
+                      Hvad skal de finde?
                     </label>
                     <input
                       value={question.aiPrompt}
@@ -647,13 +691,13 @@ export default function FotoMissionBuilderPage() {
                   ) : (
                     <ChevronDown className="h-4 w-4" />
                   )}
-                  {showTeacherField ? "Skjul fag (valgfrit)" : "Tilføj fag (valgfrit)"}
+                  {showTeacherField ? "Skjul emne (valgfrit)" : "Tilføj emne (valgfrit)"}
                 </button>
 
                 {showTeacherField ? (
                   <div className="mt-4 rounded-[1.5rem] border border-sky-500/20 bg-sky-950/50 p-4 backdrop-blur-xl">
                     <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
-                      Fag
+                      Emne
                     </label>
                     <select
                       value={subject}
@@ -661,7 +705,7 @@ export default function FotoMissionBuilderPage() {
                       className="w-full appearance-none rounded-2xl border border-sky-500/20 bg-sky-950/50 p-3 text-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
                     >
                       <option value="" className="bg-slate-900 text-white">
-                        Vælg et fag...
+                        Vælg et emne...
                       </option>
                       {Object.keys(SUBJECT_TOPICS).map((subjectOption) => (
                         <option
@@ -713,11 +757,13 @@ export default function FotoMissionBuilderPage() {
                   Intelligent foto-assistent
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-relaxed text-sky-100/75">
-                  Beskriv terræn eller emne, så foreslår AI&apos;en motiver, som er lette at finde
+                  Beskriv emne eller motivtype, så foreslår AI&apos;en motiver, som er lette at finde
                   og lette at genkende.
                 </p>
               </div>
             </div>
+
+            {renderNotice("mt-6")}
 
             {previewQuestions.length > 0 ? (
               <div className="mt-8">
@@ -735,8 +781,8 @@ export default function FotoMissionBuilderPage() {
                         Mission {index + 1}
                       </p>
 
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-sky-100/65 uppercase">
-                        Mål-objekt
+                      <label className="mb-2 block text-xs font-semibold tracking-[0.12em] text-sky-100/65">
+                        Hvad skal de finde?
                       </label>
                       <input
                         type="text"
@@ -789,7 +835,7 @@ export default function FotoMissionBuilderPage() {
                     value={aiRunBrief}
                     onChange={(event) => setAiRunBrief(event.target.value)}
                     rows={8}
-                    placeholder="Hvor er I, og hvor mange motiver skal AI'en finde på? (F.eks: Find 7 sjove ting man kan tage billeder af i Tivoli...)"
+                    placeholder="f.eks. Lav 6 opgaver om ting man finder i en skov"
                     className="w-full rounded-[1.6rem] border border-sky-500/20 bg-sky-950/50 p-5 text-sky-100 placeholder:text-sky-100/35 focus:outline-none focus:ring-2 focus:ring-sky-500"
                   />
                 </div>
@@ -804,7 +850,7 @@ export default function FotoMissionBuilderPage() {
                   ) : (
                     <ChevronDown className="h-4 w-4" />
                   )}
-                  Er du lærer? Tilpas fag og niveau
+                  Tilpas emne og sværhedsgrad (valgfrit)
                 </button>
 
                 {showAITeacherFields ? (
@@ -812,7 +858,7 @@ export default function FotoMissionBuilderPage() {
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-sky-100/65 uppercase">
-                          Fag
+                          Emne
                         </label>
                         <select
                           value={aiSubject}
@@ -820,7 +866,7 @@ export default function FotoMissionBuilderPage() {
                           className="w-full rounded-2xl border border-sky-500/20 bg-sky-950/50 p-3 text-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
                         >
                           <option value="" className="bg-slate-900 text-white">
-                            Vælg fag...
+                            Vælg et emne...
                           </option>
                           {AI_SUBJECT_OPTIONS.map((subjectOption) => (
                             <option
@@ -836,20 +882,20 @@ export default function FotoMissionBuilderPage() {
 
                       <div>
                         <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-sky-100/65 uppercase">
-                          Klassetrin
+                          Målgruppe/Sværhedsgrad
                         </label>
                         <select
                           value={aiGrade}
                           onChange={(event) => setAiGrade(event.target.value)}
                           className="w-full rounded-2xl border border-sky-500/20 bg-sky-950/50 p-3 text-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
                         >
-                          {AI_GRADE_OPTIONS.map((gradeOption) => (
+                          {AI_AUDIENCE_OPTIONS.map((gradeOption) => (
                             <option
-                              key={gradeOption}
-                              value={gradeOption}
+                              key={gradeOption.value}
+                              value={gradeOption.value}
                               className="bg-slate-900 text-white"
                             >
-                              {gradeOption}
+                              {gradeOption.label}
                             </option>
                           ))}
                         </select>
