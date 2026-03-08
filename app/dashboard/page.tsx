@@ -168,7 +168,7 @@ export default function DashboardPage() {
       </section>
 
       <section className="mx-auto mt-12 grid max-w-6xl grid-cols-1 gap-8 md:grid-cols-3">
-        <Link href="/dashboard/opret" data-tour="dashboard-create-run" className="block">
+        <Link href="/dashboard/opret/valg" data-tour="dashboard-create-run" className="block">
           <motion.article whileHover={{ scale: 1.03 }} className={`${cardBaseClass} cursor-pointer`}>
             <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-emerald-600">
               <MapPin className="h-7 w-7" />
