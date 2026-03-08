@@ -20,8 +20,13 @@ type HubCard = {
   description: string;
   href: string;
   imageSrc: string;
+  iconShellClass: string;
+  iconAccentClass: string;
   titleClass: string;
-  glowClass: string;
+  bodyClass: string;
+  badgeClass: string;
+  shadowClass: string;
+  hoverShadowClass: string;
 };
 
 const cards: HubCard[] = [
@@ -30,40 +35,65 @@ const cards: HubCard[] = [
     description: "Skab en klassisk rute med spørgsmål og fire svarmuligheder.",
     href: "/dashboard/opret/manuel",
     imageSrc: "/quiz.png",
-    titleClass: "text-white",
-    glowClass: "group-hover:bg-emerald-200/10 group-focus-visible:bg-emerald-200/10",
+    iconShellClass: "border-emerald-200 bg-emerald-50",
+    iconAccentClass: "bg-emerald-100 text-emerald-700",
+    titleClass: "text-emerald-950",
+    bodyClass: "text-emerald-900/80",
+    badgeClass: "bg-emerald-100 text-emerald-800",
+    shadowClass: "shadow-[0_18px_45px_rgba(16,185,129,0.18)]",
+    hoverShadowClass: "group-hover:shadow-[0_24px_58px_rgba(16,185,129,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(16,185,129,0.24)]",
   },
   {
     title: "AI Foto-mission",
     description: "Deltagerne skal finde og fotografere specifikke motiver i virkeligheden.",
     href: "/dashboard/opret/foto",
     imageSrc: "/foto.png",
-    titleClass: "text-white",
-    glowClass: "group-hover:bg-sky-200/10 group-focus-visible:bg-sky-200/10",
+    iconShellClass: "border-sky-200 bg-sky-50",
+    iconAccentClass: "bg-sky-100 text-sky-700",
+    titleClass: "text-sky-950",
+    bodyClass: "text-sky-900/80",
+    badgeClass: "bg-sky-100 text-sky-800",
+    shadowClass: "shadow-[0_18px_45px_rgba(14,165,233,0.18)]",
+    hoverShadowClass: "group-hover:shadow-[0_24px_58px_rgba(14,165,233,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(14,165,233,0.24)]",
   },
   {
     title: "Escape Room i Naturen",
     description: "Løs gåder ved hver post og saml kode-brikker til en endelig master-kode.",
     href: "/dashboard/opret/escape",
     imageSrc: "/escape.png",
-    titleClass: "text-white",
-    glowClass: "group-hover:bg-amber-200/10 group-focus-visible:bg-amber-200/10",
+    iconShellClass: "border-violet-200 bg-violet-50",
+    iconAccentClass: "bg-violet-100 text-violet-700",
+    titleClass: "text-violet-950",
+    bodyClass: "text-violet-900/80",
+    badgeClass: "bg-violet-100 text-violet-800",
+    shadowClass: "shadow-[0_18px_45px_rgba(139,92,246,0.18)]",
+    hoverShadowClass: "group-hover:shadow-[0_24px_58px_rgba(139,92,246,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(139,92,246,0.24)]",
   },
   {
     title: "Tidsmaskinen",
     description: "Lad en fiktiv eller historisk karakter styre løbet med beskeder og svar.",
     href: "/dashboard/opret/rollespil",
     imageSrc: "/rollespil.png",
-    titleClass: "text-white",
-    glowClass: "group-hover:bg-violet-200/10 group-focus-visible:bg-violet-200/10",
+    iconShellClass: "border-amber-200 bg-amber-50",
+    iconAccentClass: "bg-amber-100 text-amber-700",
+    titleClass: "text-amber-950",
+    bodyClass: "text-amber-900/80",
+    badgeClass: "bg-amber-100 text-amber-800",
+    shadowClass: "shadow-[0_18px_45px_rgba(245,158,11,0.18)]",
+    hoverShadowClass: "group-hover:shadow-[0_24px_58px_rgba(245,158,11,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(245,158,11,0.24)]",
   },
   {
     title: "Selfie-jagt",
-    description: "Tag en selfie på den rigtige lokation, mens AI'en tjekker ansigt og baggrund.",
+    description: "Gør løbet personligt med smil og AI-tjek af ansigt og baggrund.",
     href: "/dashboard/opret/selfie",
     imageSrc: "/selfie.png",
-    titleClass: "text-white",
-    glowClass: "group-hover:bg-rose-200/10 group-focus-visible:bg-rose-200/10",
+    iconShellClass: "border-rose-200 bg-rose-50",
+    iconAccentClass: "bg-orange-100 text-rose-700",
+    titleClass: "text-rose-950",
+    bodyClass: "text-rose-900/80",
+    badgeClass: "bg-orange-100 text-rose-800",
+    shadowClass: "shadow-[0_18px_45px_rgba(251,146,60,0.18)]",
+    hoverShadowClass: "group-hover:shadow-[0_24px_58px_rgba(251,146,60,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(251,146,60,0.24)]",
   },
 ];
 
@@ -73,33 +103,36 @@ function renderCard(card: HubCard, index: number) {
       key={`${card.title}-${index}`}
       href={card.href}
       data-tour={index === 0 ? "valg-classic-quiz" : undefined}
-      className="group block h-64 w-64 focus:outline-none"
+      className="group block h-full w-full focus:outline-none"
     >
       <article
-        className={`relative h-64 w-64 overflow-hidden rounded-[1.85rem] border border-white/20 bg-white/10 backdrop-blur-xl transition-all duration-300 ease-out group-hover:-translate-y-1.5 group-hover:bg-white/14 group-focus-visible:-translate-y-1.5 group-focus-visible:bg-white/14`}
+        className={`flex h-full min-h-[320px] flex-col rounded-3xl border border-white/70 bg-white/90 p-8 backdrop-blur-sm transition-all duration-300 ${card.shadowClass} ${card.hoverShadowClass} group-hover:-translate-y-1.5 group-hover:bg-white/95 group-focus-visible:-translate-y-1.5 group-focus-visible:bg-white/95`}
       >
-        <div className={`absolute inset-0 transition-colors duration-300 ${card.glowClass}`} />
-
-        <div className="relative flex h-full flex-col items-center justify-center p-6 text-center">
-          <div className="flex min-h-[3.5rem] items-start justify-center">
-            <h2 className={`text-lg font-bold leading-tight text-white ${rubik.className}`}>
-              {card.title}
-            </h2>
-          </div>
-
-          <div className="mt-4 flex min-h-[6rem] items-center justify-center transition-all duration-300 group-hover:translate-y-3 group-hover:opacity-0 group-focus-visible:translate-y-3 group-focus-visible:opacity-0">
+        <div className={`flex h-16 w-16 items-center justify-center rounded-full border ${card.iconShellClass}`}>
+          <div className={`flex h-11 w-11 items-center justify-center rounded-full ${card.iconAccentClass}`}>
             <Image
               src={card.imageSrc}
               alt={card.title}
-              width={96}
-              height={96}
-              className="h-24 w-24 object-contain"
+              width={48}
+              height={48}
+              className="h-8 w-8 object-contain"
             />
           </div>
+        </div>
 
-          <div className="pointer-events-none absolute inset-x-6 top-1/2 -translate-y-1/2 opacity-0 transition-all duration-300 group-hover:opacity-100 group-focus-visible:opacity-100">
-            <p className="text-sm text-center text-white/90">{card.description}</p>
-          </div>
+        <div className="mt-6">
+          <h2 className={`text-2xl font-black tracking-wide ${card.titleClass} ${rubik.className}`}>
+            {card.title}
+          </h2>
+          <p className={`mt-4 text-sm leading-relaxed ${card.bodyClass}`}>{card.description}</p>
+        </div>
+
+        <div className="mt-auto pt-8">
+          <span
+            className={`inline-flex rounded-full px-4 py-2 text-xs font-bold tracking-[0.18em] uppercase ${card.badgeClass}`}
+          >
+            Vælg løbstype
+          </span>
         </div>
       </article>
     </Link>
@@ -112,53 +145,58 @@ export default function ValgHubPage() {
 
   return (
     <main
-      className={`relative min-h-screen overflow-hidden bg-transparent px-6 py-12 text-white md:px-10 ${poppins.className}`}
+      className={`relative min-h-screen overflow-hidden bg-gradient-to-b from-sky-300 via-emerald-50 to-emerald-200 px-6 py-12 text-white md:px-10 lg:bg-none lg:bg-transparent ${poppins.className}`}
     >
       <video
         autoPlay
         loop
         muted
         playsInline
-        className="fixed top-0 left-0 -z-20 h-full w-full scale-105 object-cover brightness-[0.48] blur-sm"
+        className="fixed top-0 left-0 hidden h-full w-full object-cover -z-20 lg:block"
         src="/baggrundvalgside.mp4"
       />
-      <div className="fixed inset-0 -z-10 bg-gradient-to-b from-slate-950/18 via-emerald-950/14 to-slate-950/48" />
+      <div className="fixed inset-0 hidden -z-10 bg-gradient-to-b from-sky-900/10 to-emerald-900/45 backdrop-blur-[2px] lg:block" />
 
-      <section className="relative z-10 mx-auto flex w-full max-w-6xl flex-col">
+      <section className="relative z-10 mx-auto w-full max-w-6xl">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <Link
             href="/dashboard/opret"
-            className="inline-flex items-center gap-2 rounded-full border border-white/45 bg-white/12 px-4 py-2 text-sm font-medium text-white backdrop-blur-xl transition-colors duration-300 hover:bg-white/18"
+            className="inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/85 px-4 py-2 text-sm font-medium text-emerald-900 shadow-lg transition-all duration-300 hover:bg-white"
           >
             <ArrowLeft className="h-4 w-4" />
             Tilbage til opret
           </Link>
-          <p className="rounded-full border border-white/25 bg-white/8 px-4 py-2 text-xs font-semibold tracking-[0.24em] text-white/78 uppercase backdrop-blur-xl">
+          <p className="rounded-full border border-white/50 bg-white/75 px-4 py-2 text-xs font-semibold tracking-[0.24em] text-emerald-800 uppercase shadow-sm">
             Løbstyper
           </p>
         </div>
 
         <div className="mt-12 max-w-3xl">
-          <p className="text-sm font-semibold tracking-[0.32em] text-white/80 uppercase">
+          <p className="text-sm font-semibold tracking-[0.32em] text-white/90 drop-shadow-md uppercase">
             Vælg format
           </p>
           <h1
-            className={`mt-4 text-4xl font-black tracking-tight text-white md:text-5xl ${rubik.className}`}
+            className={`mt-4 text-4xl font-black tracking-tight text-white drop-shadow-md md:text-5xl ${rubik.className}`}
           >
             Hvilken type løb vil du bygge?
           </h1>
-          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/82 md:text-base">
-            Vælg det format, der passer bedst til dit arrangement. Kortene holder sig rolige, og
-            beskrivelsen toner først frem, når du bevæger dig ind over dem.
+          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white drop-shadow-md md:text-base">
+            Vælg det format, der passer bedst til dit arrangement. Hvert kort er bygget som en
+            lille, tydelig indgang til den builder, du vil arbejde videre i.
           </p>
         </div>
 
-        <div className="mt-12 flex justify-center">
-          <div className="grid grid-cols-1 justify-items-center gap-8 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-10 space-y-8">
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
             {topRowCards.map((card, index) => renderCard(card, index))}
-            <div className="contents lg:col-span-3 lg:flex lg:justify-center lg:gap-8">
-              {bottomRowCards.map((card, index) => renderCard(card, index + topRowCards.length))}
-            </div>
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-8">
+            {bottomRowCards.map((card, index) => (
+              <div key={`${card.title}-bottom-${index}`} className="w-full md:max-w-[calc(50%-1rem)] lg:w-[calc(33.333%-1.35rem)]">
+                {renderCard(card, index + topRowCards.length)}
+              </div>
+            ))}
           </div>
         </div>
       </section>
