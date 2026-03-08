@@ -135,9 +135,9 @@ export default function SelfieBuilderClient() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
-  const [showTeacherField, setShowTeacherField] = useState(false);
+  const [showSubjectField, setShowSubjectField] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
-  const [showAITeacherFields, setShowAITeacherFields] = useState(false);
+  const [showAIMetadataFields, setShowAIMetadataFields] = useState(false);
   const [aiRunBrief, setAiRunBrief] = useState("");
   const [aiSubject, setAiSubject] = useState("");
   const [aiGrade, setAiGrade] = useState("Mellemtrin");
@@ -186,7 +186,7 @@ export default function SelfieBuilderClient() {
     if (isGenerating) return;
     setShowAIModal(false);
     setPreviewQuestions([]);
-    setShowAITeacherFields(false);
+    setShowAIMetadataFields(false);
   };
 
   const handleApproveAIPreview = () => {
@@ -210,7 +210,7 @@ export default function SelfieBuilderClient() {
     );
     setPreviewQuestions([]);
     setShowAIModal(false);
-    setShowAITeacherFields(false);
+    setShowAIMetadataFields(false);
   };
 
   const handleAIGenerate = async () => {
@@ -333,7 +333,7 @@ export default function SelfieBuilderClient() {
       (question) => !question.text || !question.aiPrompt
     );
     if (hasIncompleteQuestions) {
-      alert("Udfyld både baggrundsmotiv og elev-instruktion på hver post.");
+      alert("Udfyld både baggrundsmotiv og instruktion til deltagerne på hver post.");
       return;
     }
 
@@ -370,7 +370,7 @@ export default function SelfieBuilderClient() {
       alert("Selfie-jagten er gemt i arkivet!");
       setTitle("");
       setSubject("");
-      setShowTeacherField(false);
+      setShowSubjectField(false);
       setQuestions([createQuestion()]);
       setAiRunBrief("");
       router.push("/dashboard/arkiv");
@@ -399,42 +399,36 @@ export default function SelfieBuilderClient() {
                   placeholder="F.eks. Selfie-jagt i slotsparken"
                   className={textInputClass}
                 />
-                <p className="mt-3 text-sm leading-relaxed text-orange-100/72">
-                  Deltagerne skal finde den rigtige lokation, tage en selfie og få motivet tydeligt
-                  med i baggrunden. Instruktionen får automatisk selfie-påmindelsen med.
-                </p>
               </div>
 
-              <div className="space-y-4 px-1">
+              <div className="space-y-3 px-1">
                 <button
                   type="button"
                   onClick={() => {
                     setShowAIModal(true);
                     setPreviewQuestions([]);
                   }}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-[1.4rem] border border-orange-400/20 bg-rose-950/55 px-5 py-3 text-sm font-semibold text-orange-100 shadow-[0_16px_36px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition hover:border-rose-300/35 hover:bg-rose-900/60 sm:w-auto"
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-orange-400/20 bg-rose-950/50 px-4 py-2 text-xs font-semibold text-orange-100/90 backdrop-blur-xl transition hover:border-rose-300/35 hover:bg-rose-900/55"
                 >
                   <span aria-hidden>✨</span>
-                  Auto-udfyld med AI
+                  AI-udfyld
                 </button>
 
                 <div className="flex items-end justify-between gap-4">
                   <p className="text-xs font-semibold tracking-[0.24em] text-orange-100/65 uppercase">
-                    Dine selfie-poster
+                    Dine poster
                   </p>
-                  <span className="rounded-full border border-orange-400/20 bg-rose-950/45 px-4 py-2 text-sm font-semibold text-orange-100/80 backdrop-blur-xl">
+                  <span className="rounded-full border border-orange-400/20 bg-rose-950/45 px-3 py-1.5 text-sm font-semibold text-orange-100/80 backdrop-blur-xl">
                     {questions.length}
                   </span>
                 </div>
               </div>
 
               {questions.map((question, index) => {
-                const preview = normalizeSelfieInstruction(question.text, question.aiPrompt);
-
                 return (
                   <article
                     key={question.id}
-                    className="rounded-[2rem] border border-orange-400/20 bg-rose-950/55 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6"
+                    className="rounded-[1.7rem] border border-orange-400/20 bg-rose-950/55 p-4 shadow-[0_20px_48px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-5"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
@@ -442,22 +436,17 @@ export default function SelfieBuilderClient() {
                           {index + 1}
                         </div>
                         <div>
-                          <h3 className={`text-xl font-bold text-orange-100 ${rubik.className}`}>
+                          <h3 className={`text-lg font-bold text-orange-100 ${rubik.className}`}>
                             Selfie-post {index + 1}
                           </h3>
                           <p className="text-xs text-orange-100/65">
-                            {question.lat !== null && question.lng !== null
-                              ? "Pin er valgt på kortet"
-                              : "Ingen pin valgt endnu"}
+                            {question.lat !== null && question.lng !== null ? "Pin valgt på kortet" : "Pin mangler"}
                           </p>
                         </div>
                       </div>
-                      <span className="rounded-full border border-orange-400/20 bg-rose-950/45 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-orange-100/75 uppercase backdrop-blur-xl">
-                        Selfie-jagt
-                      </span>
                     </div>
 
-                    <div className="mt-5">
+                    <div className="mt-4">
                       <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-orange-100/65 uppercase">
                         Hvad skal være i baggrunden?
                       </label>
@@ -469,35 +458,23 @@ export default function SelfieBuilderClient() {
                       />
                     </div>
 
-                    <div className="mt-5">
+                    <div className="mt-4">
                       <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-orange-100/65 uppercase">
-                        Elev-instruktion
+                        Instruktion til deltagerne
                       </label>
                       <textarea
                         value={question.text}
                         onChange={(event) => updateQuestion(question.id, { text: event.target.value })}
-                        rows={4}
+                        rows={3}
                         placeholder="fx Stil jer ved springvandet og få hele kanten med bag jer"
                         className={textareaClass}
                       />
-                      <p className="mt-2 text-xs leading-relaxed text-orange-100/68">
-                        Systemet tilføjer automatisk: &quot;{SELFIE_REMINDER}&quot;
-                      </p>
-                    </div>
-
-                    <div className="mt-5 rounded-[1.5rem] border border-orange-400/18 bg-[linear-gradient(145deg,rgba(251,146,60,0.14),rgba(244,114,182,0.12))] p-4 backdrop-blur-xl">
-                      <p className="text-xs font-semibold tracking-[0.2em] text-orange-100/60 uppercase">
-                        Sådan ser teksten ud for deltageren
-                      </p>
-                      <p className="mt-3 text-sm leading-relaxed text-orange-50">
-                        {preview || "Skriv instruktionen her, så viser vi den færdige selfie-tekst."}
-                      </p>
                     </div>
 
                     <button
                       type="button"
                       onClick={() => assignPinFromCenter(question.id)}
-                      className="mt-5 w-full rounded-[1.4rem] border border-orange-400/30 bg-[linear-gradient(145deg,rgba(251,146,60,0.22),rgba(244,114,182,0.18))] px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-orange-50 shadow-[0_12px_32px_rgba(251,146,60,0.18)] transition hover:brightness-110"
+                      className="mt-4 inline-flex w-full items-center justify-center rounded-[1.2rem] border border-orange-400/30 bg-[linear-gradient(145deg,rgba(251,146,60,0.22),rgba(244,114,182,0.18))] px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-orange-50 shadow-[0_10px_24px_rgba(251,146,60,0.16)] transition hover:brightness-110"
                     >
                       Hent pin fra kortet
                     </button>
@@ -511,11 +488,11 @@ export default function SelfieBuilderClient() {
                 );
               })}
 
-              <div className="rounded-[2rem] border border-orange-400/20 bg-rose-950/55 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+              <div className="rounded-[1.7rem] border border-orange-400/20 bg-rose-950/55 p-4 shadow-[0_20px_48px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-5">
                 <button
                   type="button"
                   onClick={addQuestion}
-                  className="inline-flex items-center gap-2 rounded-[1.4rem] border border-orange-400/20 bg-rose-950/50 px-4 py-3 text-sm font-semibold text-orange-100 backdrop-blur-xl transition hover:bg-rose-900/60"
+                  className="inline-flex items-center gap-2 rounded-[1.2rem] border border-orange-400/20 bg-rose-950/50 px-4 py-3 text-sm font-semibold text-orange-100 backdrop-blur-xl transition hover:bg-rose-900/60"
                 >
                   <Plus className="h-4 w-4" />
                   Tilføj ny selfie-post
@@ -523,15 +500,15 @@ export default function SelfieBuilderClient() {
 
                 <button
                   type="button"
-                  onClick={() => setShowTeacherField((current) => !current)}
-                  className="mt-5 inline-flex items-center gap-2 text-sm text-orange-100/70 transition hover:text-orange-100"
+                  onClick={() => setShowSubjectField((current) => !current)}
+                  className="mt-4 inline-flex items-center gap-2 text-sm text-orange-100/70 transition hover:text-orange-100"
                 >
-                  {showTeacherField ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  {showTeacherField ? "Skjul fag (valgfrit)" : "Tilføj fag (valgfrit)"}
+                  {showSubjectField ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  {showSubjectField ? "Skjul fag (valgfrit)" : "Tilføj fag (valgfrit)"}
                 </button>
 
-                {showTeacherField ? (
-                  <div className="mt-4 rounded-[1.5rem] border border-orange-400/20 bg-rose-950/50 p-4 backdrop-blur-xl">
+                {showSubjectField ? (
+                  <div className="mt-4 rounded-[1.4rem] border border-orange-400/20 bg-rose-950/50 p-4 backdrop-blur-xl">
                     <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-orange-100/65 uppercase">
                       Fag
                     </label>
@@ -556,7 +533,7 @@ export default function SelfieBuilderClient() {
                   type="button"
                   onClick={handleSaveRun}
                   disabled={isSaving}
-                  className="mt-6 w-full rounded-[1.6rem] border border-orange-400/30 bg-[linear-gradient(145deg,rgba(251,146,60,0.22),rgba(244,114,182,0.18))] px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-orange-50 shadow-[0_14px_34px_rgba(251,146,60,0.18)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-5 w-full rounded-[1.5rem] border border-orange-400/30 bg-[linear-gradient(145deg,rgba(251,146,60,0.22),rgba(244,114,182,0.18))] px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-orange-50 shadow-[0_14px_34px_rgba(251,146,60,0.18)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
                 </button>
@@ -586,8 +563,7 @@ export default function SelfieBuilderClient() {
                   Intelligent selfie-assistent
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-relaxed text-orange-100/75">
-                  Beskriv stedet, så foreslår AI&apos;en selfie-poster med tydelige baggrunde og
-                  korte instruktioner.
+                  Beskriv stedet, så foreslår AI&apos;en korte selfie-poster med tydelige baggrunde.
                 </p>
               </div>
             </div>
@@ -595,7 +571,7 @@ export default function SelfieBuilderClient() {
             {previewQuestions.length > 0 ? (
               <div className="mt-8">
                 <p className="mb-4 text-sm text-orange-100/75">
-                  Gennemgå selfie-posterne og ret dem til, før de overføres til kortet.
+                  Gennemgå posterne og ret dem til, før de overføres til kortet.
                 </p>
 
                 <div className="max-h-[58vh] space-y-4 overflow-y-auto pr-1">
@@ -650,27 +626,27 @@ export default function SelfieBuilderClient() {
               <>
                 <div className="mt-8">
                   <label className="mb-3 block text-sm font-semibold text-orange-50">
-                    Hvad skal AI&apos;en bygge selfie-jagten ud fra?
+                    Hvad skal AI&apos;en bygge ud fra?
                   </label>
                   <textarea
                     value={aiRunBrief}
                     onChange={(event) => setAiRunBrief(event.target.value)}
-                    rows={8}
-                    placeholder="F.eks. Lav 6 selfie-poster i en park, hvor deltagerne skal finde tydelige steder og naturdetaljer."
+                    rows={6}
+                    placeholder="F.eks. Lav 6 selfie-poster i en park med tydelige steder og naturdetaljer."
                     className="w-full rounded-[1.6rem] border border-orange-400/20 bg-rose-950/55 p-5 text-orange-100 placeholder:text-orange-100/35 focus:outline-none focus:ring-2 focus:ring-orange-400"
                   />
                 </div>
 
                 <button
                   type="button"
-                  onClick={() => setShowAITeacherFields((current) => !current)}
+                  onClick={() => setShowAIMetadataFields((current) => !current)}
                   className="mt-4 inline-flex items-center gap-2 text-sm text-orange-100/70 transition hover:text-orange-100"
                 >
-                  {showAITeacherFields ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  Er du lærer? Tilpas fag og niveau
+                  {showAIMetadataFields ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  Tilpas fag og niveau (valgfrit)
                 </button>
 
-                {showAITeacherFields ? (
+                {showAIMetadataFields ? (
                   <section className="mt-4 rounded-[1.6rem] border border-orange-400/20 bg-rose-950/55 p-4 backdrop-blur-xl">
                     <div className="grid gap-4 md:grid-cols-2">
                       <select
@@ -723,7 +699,7 @@ export default function SelfieBuilderClient() {
                         Tænker...
                       </span>
                     ) : (
-                      "Generer selfie-poster"
+                      "Generer poster"
                     )}
                   </button>
                 </div>
