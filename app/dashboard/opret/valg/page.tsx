@@ -45,7 +45,8 @@ const cards: HubCard[] = [
   },
   {
     title: "AI Foto-mission",
-    description: "Deltagerne skal finde og fotografere specifikke motiver i virkeligheden.",
+    description:
+      "Deltagerne fotograferer motiver i virkeligheden. Vores AI analyserer og godkender billedet på sekunder - og den gennemskuer snyd (f.eks. billeder af en skærm!).",
     href: "/dashboard/opret/foto",
     imageSrc: "/foto.png",
     iconShellClass: "border-sky-200 bg-sky-50",

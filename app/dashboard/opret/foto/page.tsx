@@ -650,7 +650,7 @@ export default function FotoMissionBuilderPage() {
                       value={question.text}
                       onChange={(event) => updateQuestion(question.id, { text: event.target.value })}
                       rows={4}
-                      placeholder="fx Find et flot bøgeblad og tag et tæt billede af det"
+                      placeholder="f.eks. Find et rødt bøgeblad. Vores AI tjekker billedet med det samme (og husk: man kan ikke snyde ved at fotografere en skærm!)."
                       className={textareaClass}
                     />
                   </div>
