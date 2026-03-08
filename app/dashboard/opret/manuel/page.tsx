@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import type { SavedPin } from "@/components/MapPicker";
 import { createClient } from "@/utils/supabase/client";
@@ -308,6 +308,18 @@ function OpretLoebPageContent() {
         {notice.message}
       </div>
     ) : null;
+  const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToSaveFeedback = () => {
+    if (saveFeedbackRef.current) {
+      saveFeedbackRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    }
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -616,6 +628,7 @@ function OpretLoebPageContent() {
 
     if (!title.trim()) {
       setNotice({ tone: "error", message: "Udfyld venligst titel." });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -638,6 +651,7 @@ function OpretLoebPageContent() {
 
     if (normalizedQuestions.length === 0) {
       setNotice({ tone: "error", message: "Tilføj mindst ét udfyldt spørgsmål." });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -652,6 +666,7 @@ function OpretLoebPageContent() {
         message:
           "Udfyld postens tekst. Multiple choice kræver fire svarmuligheder, og AI-billede kræver AI-instruks.",
       });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -663,6 +678,7 @@ function OpretLoebPageContent() {
         tone: "error",
         message: "Du mangler at sætte pins på kortet. Mindst ét spørgsmål skal have koordinater.",
       });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -680,6 +696,7 @@ function OpretLoebPageContent() {
           tone: "error",
           message: "Du skal være logget ind for at gemme løbet.",
         });
+        scrollToSaveFeedback();
         return;
       }
 
@@ -984,14 +1001,17 @@ function OpretLoebPageContent() {
                   </div>
                 ) : null}
 
-                <button
-                  type="button"
-                  onClick={handleSaveRun}
-                  disabled={isSaving}
-                  className="mt-6 w-full rounded-[1.6rem] border border-emerald-400/30 bg-emerald-500/22 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-emerald-100 shadow-[0_14px_34px_rgba(16,185,129,0.18)] transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
-                </button>
+                <div ref={saveFeedbackRef} className="mt-6 space-y-4">
+                  {notice?.tone === "error" ? renderNotice() : null}
+                  <button
+                    type="button"
+                    onClick={handleSaveRun}
+                    disabled={isSaving}
+                    className="w-full rounded-[1.6rem] border border-emerald-400/30 bg-emerald-500/22 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-emerald-100 shadow-[0_14px_34px_rgba(16,185,129,0.18)] transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
+                  </button>
+                </div>
               </div>
           </div>
         </section>

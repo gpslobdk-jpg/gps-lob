@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp, Loader2, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import type { SavedPin } from "@/components/MapPicker";
 import { SELFIE_PROMPT, SYSTEM_ARKITEKT } from "@/constants/aiPrompts";
@@ -72,6 +72,11 @@ type GeneratedQuestion = {
 type MapCenter = {
   lat: number;
   lng: number;
+};
+
+type BuilderNotice = {
+  tone: "success" | "error";
+  message: string;
 };
 
 const SELFIE_REMINDER = "Husk at få dit ansigt med på selfien!";
@@ -145,10 +150,36 @@ export default function SelfieBuilderClient() {
   const [isSaving, setIsSaving] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([createQuestion()]);
   const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
+  const [notice, setNotice] = useState<BuilderNotice | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>({
     lat: 55.6761,
     lng: 12.5683,
   });
+  const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
+
+  const renderNotice = (className = "") =>
+    notice ? (
+      <div
+        className={`rounded-[1.4rem] border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
+          notice.tone === "success"
+            ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-50"
+            : "border-red-300/30 bg-red-500/10 text-red-100"
+        } ${className}`}
+      >
+        {notice.message}
+      </div>
+    ) : null;
+
+  const scrollToSaveFeedback = () => {
+    if (saveFeedbackRef.current) {
+      saveFeedbackRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    }
+  };
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -300,8 +331,11 @@ export default function SelfieBuilderClient() {
   };
 
   const handleSaveRun = async () => {
+    setNotice(null);
+
     if (!title.trim()) {
-      alert("Udfyld venligst løbets titel.");
+      setNotice({ tone: "error", message: "Udfyld venligst løbets titel." });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -325,7 +359,8 @@ export default function SelfieBuilderClient() {
       );
 
     if (normalizedQuestions.length === 0) {
-      alert("Tilføj mindst én udfyldt selfie-post.");
+      setNotice({ tone: "error", message: "Tilføj mindst én udfyldt selfie-post." });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -333,12 +368,20 @@ export default function SelfieBuilderClient() {
       (question) => !question.text || !question.aiPrompt
     );
     if (hasIncompleteQuestions) {
-      alert("Udfyld både baggrundsmotiv og instruktion til deltagerne på hver post.");
+      setNotice({
+        tone: "error",
+        message: "Udfyld både baggrundsmotiv og instruktion til deltagerne på hver post.",
+      });
+      scrollToSaveFeedback();
       return;
     }
 
     if (!normalizedQuestions.some((question) => question.lat !== null && question.lng !== null)) {
-      alert("Du mangler at sætte pins på kortet. Mindst én selfie-post skal have koordinater.");
+      setNotice({
+        tone: "error",
+        message: "Du mangler at sætte pins på kortet. Mindst én selfie-post skal have koordinater.",
+      });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -352,7 +395,11 @@ export default function SelfieBuilderClient() {
       } = await supabase.auth.getUser();
 
       if (userError || !user) {
-        alert("Du skal være logget ind for at gemme løbet.");
+        setNotice({
+          tone: "error",
+          message: "Du skal være logget ind for at gemme løbet.",
+        });
+        scrollToSaveFeedback();
         return;
       }
 
@@ -367,6 +414,7 @@ export default function SelfieBuilderClient() {
 
       if (error) throw error;
 
+      setNotice(null);
       alert("Selfie-jagten er gemt i arkivet!");
       setTitle("");
       setSubject("");
@@ -376,7 +424,8 @@ export default function SelfieBuilderClient() {
       router.push("/dashboard/arkiv");
     } catch (error) {
       console.error("Fejl ved gemning af selfie-jagt:", error);
-      alert("Kunne ikke gemme løbet. Prøv igen.");
+      setNotice({ tone: "error", message: "Kunne ikke gemme løbet. Prøv igen." });
+      scrollToSaveFeedback();
     } finally {
       setIsSaving(false);
     }
@@ -422,6 +471,8 @@ export default function SelfieBuilderClient() {
                     {questions.length}
                   </span>
                 </div>
+
+                {renderNotice()}
               </div>
 
               {questions.map((question, index) => {
@@ -529,14 +580,17 @@ export default function SelfieBuilderClient() {
                   </div>
                 ) : null}
 
-                <button
-                  type="button"
-                  onClick={handleSaveRun}
-                  disabled={isSaving}
-                  className="mt-5 w-full rounded-[1.5rem] border border-orange-400/30 bg-[linear-gradient(145deg,rgba(251,146,60,0.22),rgba(244,114,182,0.18))] px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-orange-50 shadow-[0_14px_34px_rgba(251,146,60,0.18)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
-                </button>
+                <div ref={saveFeedbackRef} className="mt-5 space-y-4">
+                  {notice?.tone === "error" ? renderNotice() : null}
+                  <button
+                    type="button"
+                    onClick={handleSaveRun}
+                    disabled={isSaving}
+                    className="w-full rounded-[1.5rem] border border-orange-400/30 bg-[linear-gradient(145deg,rgba(251,146,60,0.22),rgba(244,114,182,0.18))] px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-orange-50 shadow-[0_14px_34px_rgba(251,146,60,0.18)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
+                  </button>
+                </div>
               </div>
             </div>
           </section>

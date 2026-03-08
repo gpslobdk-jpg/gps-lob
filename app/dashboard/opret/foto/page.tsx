@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp, Loader2, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import type { SavedPin } from "@/components/MapPicker";
 import { FOTO_PROMPT, SYSTEM_ARKITEKT } from "@/constants/aiPrompts";
@@ -266,6 +266,18 @@ export default function FotoMissionBuilderPage() {
         {notice.message}
       </div>
     ) : null;
+  const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToSaveFeedback = () => {
+    if (saveFeedbackRef.current) {
+      saveFeedbackRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    }
+  };
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -457,6 +469,7 @@ export default function FotoMissionBuilderPage() {
 
     if (!title.trim()) {
       setNotice({ tone: "error", message: "Udfyld venligst løbets titel." });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -480,6 +493,7 @@ export default function FotoMissionBuilderPage() {
 
     if (normalizedQuestions.length === 0) {
       setNotice({ tone: "error", message: "Tilføj mindst én udfyldt mission." });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -491,6 +505,7 @@ export default function FotoMissionBuilderPage() {
         tone: "error",
         message: "Udfyld både hvad de skal finde og instruktionen på hver mission.",
       });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -502,6 +517,7 @@ export default function FotoMissionBuilderPage() {
         tone: "error",
         message: "Du mangler at sætte pins på kortet. Mindst én mission skal have koordinater.",
       });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -519,6 +535,7 @@ export default function FotoMissionBuilderPage() {
           tone: "error",
           message: "Du skal være logget ind for at gemme løbet.",
         });
+        scrollToSaveFeedback();
         return;
       }
 
@@ -720,14 +737,17 @@ export default function FotoMissionBuilderPage() {
                   </div>
                 ) : null}
 
-                <button
-                  type="button"
-                  onClick={handleSaveRun}
-                  disabled={isSaving}
-                  className="mt-6 w-full rounded-[1.6rem] border border-sky-400/30 bg-sky-500/22 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-sky-100 shadow-[0_14px_34px_rgba(14,165,233,0.18)] transition hover:bg-sky-500/30 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
-                </button>
+                <div ref={saveFeedbackRef} className="mt-6 space-y-4">
+                  {notice?.tone === "error" ? renderNotice() : null}
+                  <button
+                    type="button"
+                    onClick={handleSaveRun}
+                    disabled={isSaving}
+                    className="w-full rounded-[1.6rem] border border-sky-400/30 bg-sky-500/22 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-sky-100 shadow-[0_14px_34px_rgba(14,165,233,0.18)] transition hover:bg-sky-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
+                  </button>
+                </div>
               </div>
             </div>
           </section>

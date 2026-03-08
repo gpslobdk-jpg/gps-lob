@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp, Loader2, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import type { SavedPin } from "@/components/MapPicker";
 import { SYSTEM_ARKITEKT, TIDSMASKINE_PROMPT } from "@/constants/aiPrompts";
@@ -310,6 +310,18 @@ export default function RollespilBuilderPage() {
         {notice.message}
       </div>
     ) : null;
+  const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToSaveFeedback = () => {
+    if (saveFeedbackRef.current) {
+      saveFeedbackRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    }
+  };
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -558,6 +570,7 @@ export default function RollespilBuilderPage() {
 
     if (!title.trim()) {
       setNotice({ tone: "error", message: "Udfyld venligst løbets titel." });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -587,6 +600,7 @@ export default function RollespilBuilderPage() {
 
     if (normalizedQuestions.length === 0) {
       setNotice({ tone: "error", message: "Tilføj mindst én udfyldt post." });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -598,6 +612,7 @@ export default function RollespilBuilderPage() {
         tone: "error",
         message: "Udfyld karakterens navn, avatar, besked og det rigtige svar på hver post.",
       });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -609,6 +624,7 @@ export default function RollespilBuilderPage() {
         tone: "error",
         message: "Du mangler at sætte pins på kortet. Mindst én post skal have koordinater.",
       });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -626,6 +642,7 @@ export default function RollespilBuilderPage() {
           tone: "error",
           message: "Du skal være logget ind for at gemme løbet.",
         });
+        scrollToSaveFeedback();
         return;
       }
 
@@ -848,14 +865,17 @@ export default function RollespilBuilderPage() {
                   </div>
                 ) : null}
 
-                <button
-                  type="button"
-                  onClick={handleSaveRun}
-                  disabled={isSaving}
-                  className="mt-6 w-full rounded-[1.6rem] border border-violet-400/30 bg-violet-500/22 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-violet-100 shadow-[0_14px_34px_rgba(139,92,246,0.18)] transition hover:bg-violet-500/30 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
-                </button>
+                <div ref={saveFeedbackRef} className="mt-6 space-y-4">
+                  {notice?.tone === "error" ? renderNotice() : null}
+                  <button
+                    type="button"
+                    onClick={handleSaveRun}
+                    disabled={isSaving}
+                    className="w-full rounded-[1.6rem] border border-violet-400/30 bg-violet-500/22 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-violet-100 shadow-[0_14px_34px_rgba(139,92,246,0.18)] transition hover:bg-violet-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
+                  </button>
+                </div>
               </div>
             </div>
           </section>

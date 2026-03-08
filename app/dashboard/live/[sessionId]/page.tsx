@@ -634,7 +634,7 @@ export default function LiveLobbyPage() {
 
               <div className="rounded-3xl bg-white p-4 shadow-[0_0_25px_rgba(255,255,255,0.25)]">
                 <QRCode
-                  value={`https://gpslob.dk/join?pin=${joinPin}`}
+                  value={`${typeof window !== "undefined" ? window.location.origin : ""}/join?pin=${joinPin}`}
                   size={200}
                   bgColor="#ffffff"
                   fgColor="#050816"

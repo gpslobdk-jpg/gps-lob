@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Edit2, MapPin, Play, Search, Timer, Trash2, X } from "lucide-react";
+import { Edit2, MapPin, Search, Timer, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useState, type FormEvent } from "react";
@@ -566,46 +566,57 @@ export default function ArkivPage() {
                       </p>
                     ) : null}
 
-                    <div className="mt-7 grid grid-cols-[1fr_auto_auto_auto] gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void handleStartRun(run.id)}
-                        disabled={startingRunId === run.id}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-emerald-700"
-                      >
-                        <Play className="h-4 w-4" />
-                        {startingRunId === run.id ? "STARTER..." : "START LØB"}
-                      </button>
+                    <div className="mt-7 space-y-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => void handleStartRun(run.id)}
+                          disabled={startingRunId === run.id}
+                          className="inline-flex min-h-12 flex-1 items-center justify-center rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white shadow-[0_16px_32px_rgba(5,150,105,0.24)] transition hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-70"
+                        >
+                          {startingRunId === run.id ? "STARTER..." : "🚀 Sæt i gang nu (Live)"}
+                        </button>
 
-                      <button
-                        type="button"
-                        aria-label="Planlæg løb"
-                        onClick={() => openScheduleModal(run)}
-                        className={`grid h-11 w-11 place-items-center rounded-xl border transition hover:bg-white ${
-                          hasRunSchedule(runSchedule)
-                            ? "border-emerald-300 bg-emerald-100 text-emerald-800"
-                            : "border-emerald-200 bg-white/50 text-emerald-700"
-                        }`}
-                      >
-                        <Timer className="h-4 w-4" />
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => openScheduleModal(run)}
+                          className={`inline-flex min-h-12 flex-1 items-center justify-center rounded-2xl border px-4 py-3 text-sm font-bold transition ${
+                            hasRunSchedule(runSchedule)
+                              ? "border-emerald-300 bg-emerald-100 text-emerald-900 shadow-[0_14px_28px_rgba(16,185,129,0.16)] hover:bg-emerald-50"
+                              : "border-emerald-200 bg-white/70 text-emerald-800 shadow-[0_14px_28px_rgba(16,185,129,0.1)] hover:bg-white"
+                          }`}
+                        >
+                          📅 Planlæg (Åben adgang)
+                        </button>
 
-                      <button
-                        type="button"
-                        aria-label="Rediger løb"
-                        className="grid h-11 w-11 place-items-center rounded-xl border border-emerald-200 bg-white/50 text-emerald-700 transition hover:bg-white"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/dashboard/resultater/${run.id}`)}
+                          className="inline-flex min-h-12 flex-1 items-center justify-center rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-bold text-sky-900 shadow-[0_14px_28px_rgba(14,165,233,0.14)] transition hover:bg-sky-100"
+                        >
+                          📊 Se Resultater
+                        </button>
+                      </div>
 
-                      <button
-                        type="button"
-                        aria-label="Slet løb"
-                        onClick={() => void handleDeleteRun(run.id)}
-                        className="grid h-11 w-11 place-items-center rounded-xl border border-emerald-200 bg-white/50 text-emerald-700 transition hover:bg-white"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          aria-label="Rediger løb"
+                          onClick={() => alert("Redigering af løb er under udvikling!")}
+                          className="grid h-11 w-11 place-items-center rounded-xl border border-emerald-200 bg-white/50 text-emerald-700 transition hover:bg-white"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+
+                        <button
+                          type="button"
+                          aria-label="Slet løb"
+                          onClick={() => void handleDeleteRun(run.id)}
+                          className="grid h-11 w-11 place-items-center rounded-xl border border-emerald-200 bg-white/50 text-emerald-700 transition hover:bg-white"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   </motion.div>
                 );

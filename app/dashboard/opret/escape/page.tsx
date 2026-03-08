@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp, Loader2, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import type { SavedPin } from "@/components/MapPicker";
 import { ESCAPE_PROMPT, SYSTEM_ARKITEKT } from "@/constants/aiPrompts";
@@ -279,6 +279,18 @@ export default function EscapeBuilderPage() {
         {notice.message}
       </div>
     ) : null;
+  const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToSaveFeedback = () => {
+    if (saveFeedbackRef.current) {
+      saveFeedbackRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    }
+  };
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -489,6 +501,7 @@ export default function EscapeBuilderPage() {
 
     if (!title.trim()) {
       setNotice({ tone: "error", message: "Udfyld venligst løbets titel." });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -514,6 +527,7 @@ export default function EscapeBuilderPage() {
 
     if (normalizedQuestions.length === 0) {
       setNotice({ tone: "error", message: "Tilføj mindst én udfyldt gåde." });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -525,6 +539,7 @@ export default function EscapeBuilderPage() {
         tone: "error",
         message: "Udfyld både gåde, svar og belønning på hver post.",
       });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -536,12 +551,14 @@ export default function EscapeBuilderPage() {
         tone: "error",
         message: "Du mangler at sætte pins på kortet. Mindst én gåde skal have koordinater.",
       });
+      scrollToSaveFeedback();
       return;
     }
 
     const normalizedMasterCode = normalizeMasterCode(masterCode);
     if (!normalizedMasterCode) {
       setNotice({ tone: "error", message: "Udfyld master-koden til finalen." });
+      scrollToSaveFeedback();
       return;
     }
 
@@ -559,6 +576,7 @@ export default function EscapeBuilderPage() {
           tone: "error",
           message: "Du skal være logget ind for at gemme løbet.",
         });
+        scrollToSaveFeedback();
         return;
       }
 
@@ -793,14 +811,17 @@ export default function EscapeBuilderPage() {
                   </div>
                 ) : null}
 
-                <button
-                  type="button"
-                  onClick={handleSaveRun}
-                  disabled={isSaving}
-                  className="mt-5 w-full rounded-[1.5rem] border border-amber-400/30 bg-amber-500/22 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-amber-100 shadow-[0_14px_34px_rgba(245,158,11,0.18)] transition hover:bg-amber-500/30 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
-                </button>
+                <div ref={saveFeedbackRef} className="mt-5 space-y-4">
+                  {notice?.tone === "error" ? renderNotice() : null}
+                  <button
+                    type="button"
+                    onClick={handleSaveRun}
+                    disabled={isSaving}
+                    className="w-full rounded-[1.5rem] border border-amber-400/30 bg-amber-500/22 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-amber-100 shadow-[0_14px_34px_rgba(245,158,11,0.18)] transition hover:bg-amber-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
+                  </button>
+                </div>
               </div>
             </div>
           </section>
