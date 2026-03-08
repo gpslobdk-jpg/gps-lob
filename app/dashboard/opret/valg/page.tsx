@@ -85,7 +85,8 @@ const cards: HubCard[] = [
   },
   {
     title: "Selfie-jagt",
-    description: "Gør løbet personligt med smil og AI-tjek af ansigt og baggrund.",
+    description:
+      "Gør løbet personligt! Vores AI tjekker live både ansigt og baggrund - og blokerer snyd (f.eks. billeder af en skærm).",
     href: "/dashboard/opret/selfie",
     imageSrc: "/selfie.png",
     iconShellClass: "border-rose-200 bg-rose-50",

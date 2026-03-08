@@ -466,7 +466,7 @@ export default function SelfieBuilderClient() {
                         value={question.text}
                         onChange={(event) => updateQuestion(question.id, { text: event.target.value })}
                         rows={3}
-                        placeholder="fx Stil jer ved springvandet og få hele kanten med bag jer"
+                        placeholder="f.eks. Stil jer ved springvandet. Vores AI tjekker ansigterne live og blokerer snyd med skærmbilleder!"
                         className={textareaClass}
                       />
                     </div>
