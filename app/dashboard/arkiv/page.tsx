@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Edit2, MapPin, Search, Timer, Trash2, X } from "lucide-react";
+import { Copy, Edit2, MapPin, Search, Timer, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useState, type FormEvent } from "react";
@@ -42,6 +42,12 @@ type Run = {
   [key: string]: unknown;
 };
 
+type LiveSession = {
+  id: string;
+  pin: string | null;
+  status: string | null;
+};
+
 const ALL_SUBJECTS = [
   "Alle",
   "Dansk",
@@ -80,6 +86,8 @@ const getQuestionCount = (questions: Run["questions"]) => {
   return Array.isArray(questions) ? questions.length : 0;
 };
 
+const generateJoinPin = () => Math.floor(1000 + Math.random() * 9000).toString();
+
 const padNumber = (value: number) => value.toString().padStart(2, "0");
 
 const toDateTimeLocalValue = (value: string | null | undefined) => {
@@ -107,6 +115,11 @@ const formatDanishDateTime = (value: string | null | undefined) => {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+};
+
+const buildJoinLink = (pin: string) => {
+  const path = `/join?pin=${encodeURIComponent(pin)}`;
+  return typeof window !== "undefined" ? `${window.location.origin}${path}` : path;
 };
 
 type SupabaseLikeError = {
@@ -176,6 +189,10 @@ export default function ArkivPage() {
   const [scheduleStart, setScheduleStart] = useState("");
   const [scheduleEnd, setScheduleEnd] = useState("");
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
+  const [scheduleSharePin, setScheduleSharePin] = useState("");
+  const [scheduleShareLink, setScheduleShareLink] = useState("");
+  const [scheduleSessionSource, setScheduleSessionSource] = useState<"created" | "reused" | null>(null);
+  const [didCopyScheduleAccess, setDidCopyScheduleAccess] = useState(false);
 
   useEffect(() => {
     const fetchRuns = async () => {
@@ -300,7 +317,7 @@ export default function ArkivPage() {
         return;
       }
 
-      const generatedPin = Math.floor(1000 + Math.random() * 9000).toString();
+      const generatedPin = generateJoinPin();
 
       const { data, error } = await supabase
         .from("live_sessions")
@@ -326,17 +343,90 @@ export default function ArkivPage() {
     }
   };
 
+  const resetScheduleAccessDetails = () => {
+    setScheduleSharePin("");
+    setScheduleShareLink("");
+    setScheduleSessionSource(null);
+    setDidCopyScheduleAccess(false);
+  };
+
+  const ensureLiveSessionForRun = async (runId: string, teacherId: string) => {
+    const supabase = createClient();
+    const { data: activeSessions, error: activeSessionsError } = await supabase
+      .from("live_sessions")
+      .select("id,pin,status")
+      .eq("run_id", runId)
+      .in("status", ["waiting", "running"])
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (activeSessionsError) {
+      throw activeSessionsError;
+    }
+
+    const existingSession = ((activeSessions ?? []) as LiveSession[])[0] ?? null;
+    const existingPin = typeof existingSession?.pin === "string" ? existingSession.pin.trim() : "";
+
+    if (existingSession?.id && existingPin) {
+      return {
+        pin: existingPin,
+        source: "reused" as const,
+      };
+    }
+
+    const generatedPin = generateJoinPin();
+    const { data: createdSession, error: createdSessionError } = await supabase
+      .from("live_sessions")
+      .insert({
+        run_id: runId,
+        teacher_id: teacherId,
+        pin: generatedPin,
+        status: "waiting",
+      })
+      .select("id,pin,status")
+      .single();
+
+    if (createdSessionError) {
+      throw createdSessionError;
+    }
+
+    const createdPin = typeof createdSession?.pin === "string" ? createdSession.pin.trim() : generatedPin;
+
+    return {
+      pin: createdPin,
+      source: "created" as const,
+    };
+  };
+
   const openScheduleModal = (run: Run) => {
     const schedule = getRunSchedule(run);
+    resetScheduleAccessDetails();
     setScheduleRun(run);
     setScheduleStart(toDateTimeLocalValue(schedule?.startAt));
     setScheduleEnd(toDateTimeLocalValue(schedule?.endAt));
   };
 
   const closeScheduleModal = () => {
+    resetScheduleAccessDetails();
     setScheduleRun(null);
     setScheduleStart("");
     setScheduleEnd("");
+  };
+
+  const handleCopyScheduleAccess = async () => {
+    if (!scheduleSharePin && !scheduleShareLink) return;
+
+    const copyText = [scheduleSharePin ? `PIN: ${scheduleSharePin}` : "", scheduleShareLink ? `Link: ${scheduleShareLink}` : ""]
+      .filter(Boolean)
+      .join("\n");
+
+    try {
+      await navigator.clipboard.writeText(copyText);
+      setDidCopyScheduleAccess(true);
+    } catch (error) {
+      console.error("Kunne ikke kopiere adgangsoplysninger:", error);
+      alert("Kunne ikke kopiere linket automatisk. Kopiér det manuelt fra boksen.");
+    }
   };
 
   const handleSaveSchedule = async (event: FormEvent<HTMLFormElement>) => {
@@ -364,16 +454,29 @@ export default function ArkivPage() {
 
     setIsSavingSchedule(true);
     const supabase = createClient();
-    const update = buildRunScheduleUpdate(scheduleRun, {
+    const activeRun = scheduleRun;
+    const update = buildRunScheduleUpdate(activeRun, {
       startAt: startDate?.toISOString() ?? null,
       endAt: endDate?.toISOString() ?? null,
     });
 
     try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        alert("Du skal vÃ¦re logget ind for at planlÃ¦gge et lÃ¸b.");
+        return;
+      }
+
+      const ensuredSession = await ensureLiveSessionForRun(activeRun.id, user.id);
+
       const { error } = await supabase
         .from("gps_runs")
         .update(update.updates)
-        .eq("id", scheduleRun.id);
+        .eq("id", activeRun.id);
 
       if (error) {
         throw error;
@@ -381,7 +484,7 @@ export default function ArkivPage() {
 
       setRuns((prev) =>
         prev.map((run) =>
-          run.id === scheduleRun.id
+          run.id === activeRun.id
             ? {
                 ...run,
                 ...update.updates,
@@ -399,7 +502,10 @@ export default function ArkivPage() {
           : prev
       );
 
-      closeScheduleModal();
+      setScheduleSharePin(ensuredSession.pin);
+      setScheduleShareLink(buildJoinLink(ensuredSession.pin));
+      setScheduleSessionSource(ensuredSession.source);
+      setDidCopyScheduleAccess(false);
     } catch (error) {
       console.error("Fejl ved gemning af tidsstyring:", error);
       alert("Kunne ikke gemme tidsstyringen. Prøv igen.");
@@ -713,6 +819,49 @@ export default function ArkivPage() {
                     Lad et felt stå tomt, hvis løbet kun skal have et automatisk start- eller
                     sluttidspunkt.
                   </div>
+
+                  {scheduleSharePin ? (
+                    <div className="space-y-4 rounded-[1.75rem] border border-emerald-200/20 bg-emerald-400/10 p-4 shadow-[0_18px_36px_rgba(16,185,129,0.12)]">
+                      <div>
+                        <p className="text-[11px] font-semibold tracking-[0.28em] text-emerald-100/70 uppercase">
+                          {scheduleSessionSource === "reused" ? "Eksisterende adgang genbrugt" : "Ny adgang klar"}
+                        </p>
+                        <h3 className={`mt-2 text-lg font-black text-white ${rubik.className}`}>
+                          Del PIN eller link med deltagerne
+                        </h3>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-start">
+                        <span className="text-xs font-semibold tracking-wide text-emerald-50/75 uppercase">
+                          PIN-kode
+                        </span>
+                        <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-2xl font-black tracking-[0.35em] text-emerald-100">
+                          {scheduleSharePin}
+                        </div>
+
+                        <span className="text-xs font-semibold tracking-wide text-emerald-50/75 uppercase">
+                          Delbart link
+                        </span>
+                        <div className="break-all rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm leading-6 text-emerald-50/90">
+                          {scheduleShareLink}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-xs leading-5 text-emerald-50/75">
+                          Deltagerne kan bruge PIN-koden på join-siden eller åbne linket direkte.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => void handleCopyScheduleAccess()}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.12] px-4 py-3 text-sm font-bold text-white transition hover:bg-white/[0.18]"
+                        >
+                          <Copy className="h-4 w-4" />
+                          {didCopyScheduleAccess ? "KOPIERET" : "KOPIER LINK / PIN"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
 
                   <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
                     <button
