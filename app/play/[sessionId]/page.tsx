@@ -1379,7 +1379,11 @@ function PlayScreen() {
     [currentPostIndex, sessionId]
   );
 
-  const handleAnswer = async (selectedIndex: number, escapeBrick?: string | null) => {
+  const handleAnswer = async (
+    selectedIndex: number,
+    escapeBrick?: string | null,
+    options?: { skipAnswerPersist?: boolean }
+  ) => {
     const current = questions[currentPostIndex];
     if (!current) return false;
 
@@ -1398,14 +1402,16 @@ function PlayScreen() {
     setTypedAnswerError(null);
     setPostActionError(null);
 
-    const didSaveAnswer = await insertAnswerRecord(
-      selectedIndex,
-      true,
-      postNumber,
-      currentVariant === "roleplay" ? getRoleplayMessage(current) : current.text,
-      myLoc?.lat ?? null,
-      myLoc?.lng ?? null
-    );
+    const didSaveAnswer = options?.skipAnswerPersist
+      ? true
+      : await insertAnswerRecord(
+          selectedIndex,
+          true,
+          postNumber,
+          currentVariant === "roleplay" ? getRoleplayMessage(current) : current.text,
+          myLoc?.lat ?? null,
+          myLoc?.lng ?? null
+        );
 
     if (!didSaveAnswer) {
       if (currentVariant === "photo") {
@@ -1764,6 +1770,7 @@ function PlayScreen() {
 
     try {
       const image = await readFileAsDataUri(file);
+      const activeStudentName = playerName.trim() || pendingPlayerName.trim();
       const response = await fetch("/api/analyze-photo", {
         method: "POST",
         headers: {
@@ -1773,12 +1780,15 @@ function PlayScreen() {
           image,
           sessionId,
           postIndex: currentPostIndex,
+          studentName: activeStudentName,
         }),
       });
 
       const payload = (await response.json()) as {
         isMatch?: boolean;
         message?: string;
+        imageUrl?: string | null;
+        storedAnswer?: boolean;
         error?: string;
       };
 
@@ -1798,7 +1808,9 @@ function PlayScreen() {
         return;
       }
 
-      const didSaveAnswer = await handleAnswer(0);
+      const didSaveAnswer = await handleAnswer(0, null, {
+        skipAnswerPersist: payload.storedAnswer === true,
+      });
       if (!didSaveAnswer) {
         setIsAnalyzingPhoto(false);
         return;

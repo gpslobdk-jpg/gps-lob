@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
 
 import ClearRunDataButton from "@/app/dashboard/resultater/[runId]/ClearRunDataButton";
+import StoredAnswerImage from "@/app/dashboard/resultater/[runId]/StoredAnswerImage";
 import { createClient } from "@/utils/supabase/server";
 
 const rubik = Rubik({
@@ -45,6 +46,8 @@ type AnswerRecord = {
   post_index: number | null;
   question_index: number | null;
   is_correct: boolean | null;
+  image_url?: string | null;
+  analysis_message?: string | null;
   answered_at: string | null;
   created_at: string | null;
 };
@@ -382,18 +385,27 @@ function SessionSection({
                           {participant.answers.length === 0 ? (
                             <span className="text-sm text-emerald-900/65">Ingen registrerede besvarelser endnu.</span>
                           ) : (
-                            <div className="flex flex-wrap gap-2">
+                            <div className="space-y-3">
                               {participant.answers.map((answer) => (
-                                <span
-                                  key={answer.id}
-                                  className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
-                                    answer.is_correct === false
-                                      ? "border-rose-200 bg-rose-50 text-rose-800"
-                                      : "border-emerald-200 bg-emerald-50 text-emerald-800"
-                                  }`}
-                                >
-                                  {getPostLabel(answer)} - {answer.is_correct === false ? "Forkert" : "Rigtig"}
-                                </span>
+                                <div key={answer.id} className="rounded-2xl border border-emerald-100 bg-emerald-50/50 px-4 py-3">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span
+                                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
+                                        answer.is_correct === false
+                                          ? "border-rose-200 bg-rose-50 text-rose-800"
+                                          : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                                      }`}
+                                    >
+                                      {getPostLabel(answer)} - {answer.is_correct === false ? "Forkert" : "Rigtig"}
+                                    </span>
+                                  </div>
+                                  <StoredAnswerImage imageUrl={answer.image_url} />
+                                  {answer.analysis_message ? (
+                                    <p className="mt-2 text-xs leading-5 text-emerald-900/75">
+                                      AI-note: {answer.analysis_message}
+                                    </p>
+                                  ) : null}
+                                </div>
                               ))}
                             </div>
                           )}
@@ -454,29 +466,48 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
   let participants: ParticipantRecord[] = [];
 
   if (sessionIds.length > 0) {
-    const [{ data: answersData, error: answersError }, { data: participantsData, error: participantsError }] =
-      await Promise.all([
-        supabase
-          .from("answers")
-          .select("id,session_id,student_name,post_index,question_index,is_correct,answered_at,created_at")
-          .in("session_id", sessionIds)
-          .order("answered_at", { ascending: true }),
-        supabase
-          .from("participants")
-          .select("id,session_id,student_name,finished_at,last_updated")
-          .in("session_id", sessionIds)
-          .order("last_updated", { ascending: false }),
-      ]);
+    const fetchAnswersWithFallback = async () => {
+      const fullSelect = await supabase
+        .from("answers")
+        .select("id,session_id,student_name,post_index,question_index,is_correct,image_url,analysis_message,answered_at,created_at")
+        .in("session_id", sessionIds)
+        .order("answered_at", { ascending: true });
 
-    if (answersError) {
-      throw new Error(answersError.message);
-    }
+      if (!fullSelect.error) {
+        return (fullSelect.data ?? []) as AnswerRecord[];
+      }
+
+      if (!isMissingRelationOrColumnError(fullSelect.error)) {
+        throw new Error(fullSelect.error.message);
+      }
+
+      const fallbackSelect = await supabase
+        .from("answers")
+        .select("id,session_id,student_name,post_index,question_index,is_correct,answered_at,created_at")
+        .in("session_id", sessionIds)
+        .order("answered_at", { ascending: true });
+
+      if (fallbackSelect.error) {
+        throw new Error(fallbackSelect.error.message);
+      }
+
+      return (fallbackSelect.data ?? []) as AnswerRecord[];
+    };
+
+    const [answersData, { data: participantsData, error: participantsError }] = await Promise.all([
+      fetchAnswersWithFallback(),
+      supabase
+        .from("participants")
+        .select("id,session_id,student_name,finished_at,last_updated")
+        .in("session_id", sessionIds)
+        .order("last_updated", { ascending: false }),
+    ]);
 
     if (participantsError) {
       throw new Error(participantsError.message);
     }
 
-    answers = (answersData ?? []) as AnswerRecord[];
+    answers = answersData;
     participants = (participantsData ?? []) as ParticipantRecord[];
   }
 

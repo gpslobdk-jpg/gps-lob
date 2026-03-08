@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import {
   asTrimmedString,
@@ -14,15 +15,198 @@ type AnalyzePhotoPayload = {
   image?: unknown;
   sessionId?: unknown;
   postIndex?: unknown;
+  studentName?: unknown;
 };
 
 type AnalyzePhotoResult = {
   isMatch: boolean;
   message: string;
+  imageUrl: string | null;
+  storedAnswer: boolean;
+};
+
+type SupabaseLikeError = {
+  code?: string;
+  message?: string;
+  details?: string;
+};
+
+type UploadedPhoto = {
+  imageUrl: string | null;
 };
 
 function asPostIndex(value: unknown) {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isMissingColumnError(error: SupabaseLikeError | null | undefined) {
+  if (!error) return false;
+  if (error.code === "PGRST205" || error.code === "42P01" || error.code === "42703") {
+    return true;
+  }
+
+  const message = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+  return message.includes("does not exist") || message.includes("column");
+}
+
+function getSupabaseApiClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return null;
+  }
+
+  return createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
+function parseImageDataUri(image: string) {
+  const match = image.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (!match) return null;
+
+  const mimeType = match[1]?.trim();
+  const base64Payload = match[2]?.trim();
+
+  if (!mimeType || !base64Payload) return null;
+
+  try {
+    return {
+      mimeType,
+      buffer: Buffer.from(base64Payload, "base64"),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getImageFileExtension(mimeType: string) {
+  const rawSubtype = mimeType.split("/")[1]?.toLowerCase() ?? "jpg";
+  const normalizedSubtype = rawSubtype.replace(/[^a-z0-9]/g, "");
+
+  if (normalizedSubtype === "jpeg") return "jpg";
+  return normalizedSubtype || "jpg";
+}
+
+function buildStoragePath(sessionId: string, postIndex: number, mimeType: string) {
+  const safeSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, "") || "session";
+  const extension = getImageFileExtension(mimeType);
+  return `${safeSessionId}/${Date.now()}-${postIndex}.${extension}`;
+}
+
+function getQuestionText(rawQuestion: unknown) {
+  if (!isRecord(rawQuestion)) return "";
+  return asTrimmedString(rawQuestion.text);
+}
+
+async function uploadPhotoToStorage(image: string, sessionId: string, postIndex: number): Promise<UploadedPhoto> {
+  const supabase = getSupabaseApiClient();
+  if (!supabase) {
+    console.error("Supabase Storage er ikke konfigureret. Springer upload over.");
+    return { imageUrl: null };
+  }
+
+  const parsedImage = parseImageDataUri(image);
+  if (!parsedImage) {
+    console.error("Kunne ikke parse data-URI til billedeupload.");
+    return { imageUrl: null };
+  }
+
+  const storagePath = buildStoragePath(sessionId, postIndex, parsedImage.mimeType);
+  const { error: uploadError } = await supabase.storage
+    .from("participant-uploads")
+    .upload(storagePath, parsedImage.buffer, {
+      contentType: parsedImage.mimeType,
+      upsert: false,
+    });
+
+  if (uploadError) {
+    console.error("Kunne ikke uploade deltagerbillede til Storage:", uploadError);
+    return { imageUrl: null };
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from("participant-uploads").getPublicUrl(storagePath);
+
+  return {
+    imageUrl: publicUrl || null,
+  };
+}
+
+async function persistPhotoAnalysisResult({
+  sessionId,
+  studentName,
+  postIndex,
+  questionText,
+  isMatch,
+  message,
+  imageUrl,
+}: {
+  sessionId: string;
+  studentName: string;
+  postIndex: number;
+  questionText: string;
+  isMatch: boolean;
+  message: string;
+  imageUrl: string | null;
+}) {
+  const normalizedStudentName = studentName.trim();
+  if (!normalizedStudentName) {
+    return false;
+  }
+
+  const supabase = getSupabaseApiClient();
+  if (!supabase) {
+    console.error("Supabase-klienten til fotoresultater er ikke konfigureret.");
+    return false;
+  }
+
+  const timestamp = new Date().toISOString();
+  const basePayload = {
+    session_id: sessionId,
+    student_name: normalizedStudentName,
+    post_index: postIndex + 1,
+    question_index: postIndex,
+    selected_index: 0,
+    answer_index: 0,
+    is_correct: isMatch,
+    question_text: questionText,
+    answered_at: timestamp,
+    created_at: timestamp,
+  };
+
+  const payloads: Record<string, unknown>[] = [
+    {
+      ...basePayload,
+      image_url: imageUrl,
+      analysis_message: message,
+    },
+    {
+      ...basePayload,
+      analysis_message: message,
+    },
+    basePayload,
+  ];
+
+  for (const payload of payloads) {
+    const { error } = await supabase.from("answers").insert(payload);
+    if (!error) return true;
+    if (isMissingColumnError(error)) continue;
+
+    console.error("Kunne ikke gemme fotoanalyse i answers:", error);
+    return false;
+  }
+
+  return false;
 }
 
 function normalizeAnalysisResult(raw: unknown): AnalyzePhotoResult | null {
@@ -38,6 +222,8 @@ function normalizeAnalysisResult(raw: unknown): AnalyzePhotoResult | null {
   return {
     isMatch,
     message: message.trim(),
+    imageUrl: null,
+    storedAnswer: false,
   };
 }
 
@@ -54,6 +240,7 @@ export async function POST(req: Request) {
     const image = asTrimmedString(payload.image);
     const sessionId = asTrimmedString(payload.sessionId);
     const postIndex = asPostIndex(payload.postIndex);
+    const studentName = asTrimmedString(payload.studentName);
 
     if (!image || !sessionId || postIndex === null) {
       return NextResponse.json({ error: "Billede eller postdata mangler." }, { status: 400 });
@@ -78,6 +265,8 @@ export async function POST(req: Request) {
     if (!targetObject) {
       return NextResponse.json({ error: "Foto-posten mangler et gyldigt motiv." }, { status: 400 });
     }
+
+    const uploadedPhoto = await uploadPhotoToStorage(image, sessionId, postIndex);
 
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json({ error: "OPENAI_API_KEY mangler i miljøet." }, { status: 500 });
@@ -143,7 +332,24 @@ Regler:
       throw new Error("AI returnerede ugyldig billedanalyse.");
     }
 
-    return NextResponse.json(result, { status: 200 });
+    const storedAnswer = await persistPhotoAnalysisResult({
+      sessionId,
+      studentName,
+      postIndex,
+      questionText: getQuestionText(rawQuestion),
+      isMatch: result.isMatch,
+      message: result.message,
+      imageUrl: uploadedPhoto.imageUrl,
+    });
+
+    return NextResponse.json(
+      {
+        ...result,
+        imageUrl: uploadedPhoto.imageUrl,
+        storedAnswer,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Analyze photo API-fejl:", error);
     return NextResponse.json({ error: "Kunne ikke analysere billedet lige nu." }, { status: 500 });
