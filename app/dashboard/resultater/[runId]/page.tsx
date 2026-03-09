@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
 
+import AutoRefresh from "@/app/dashboard/resultater/[runId]/AutoRefresh";
 import ClearRunDataButton from "@/app/dashboard/resultater/[runId]/ClearRunDataButton";
 import StoredAnswerImage from "@/app/dashboard/resultater/[runId]/StoredAnswerImage";
 import { createAdminClient } from "@/utils/supabase/admin";
@@ -252,7 +253,7 @@ const getSessionDurationMs = (sessionCreatedAt: string | null, sessionAnswers: A
   let endTime: number | null = null;
 
   for (const answer of sessionAnswers) {
-    const timestamp = parseTimestamp(answer.created_at ?? answer.answered_at);
+    const timestamp = parseTimestamp(answer.answered_at ?? answer.created_at);
     if (timestamp === null) continue;
 
     if (startTime === null || timestamp < startTime) {
@@ -620,7 +621,7 @@ function LeaderboardSection({ entries }: { entries: LeaderboardEntry[] }) {
             Holdenes placering
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-900/75">
-            Sessionerne er sorteret efter flest rigtige svar og derefter hurtigste tid fra foerste til sidste
+            Sessionerne er sorteret efter flest rigtige svar og derefter laengste tid fra foerste til sidste
             registrerede svar.
           </p>
         </div>
@@ -833,7 +834,7 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
       }
 
       if (a.durationMs !== b.durationMs) {
-        return a.durationMs - b.durationMs;
+        return b.durationMs - a.durationMs;
       }
 
       const aTime = parseTimestamp(a.created_at) ?? 0;
@@ -864,6 +865,7 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
     <main
       className={`relative min-h-screen bg-gradient-to-t from-emerald-100 via-sky-50 to-sky-300 p-6 text-slate-900 lg:bg-none lg:bg-transparent lg:p-12 ${poppins.className}`}
     >
+      <AutoRefresh />
       <video
         autoPlay
         loop
