@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Camera, Sparkles, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
@@ -19,7 +19,8 @@ type HubCard = {
   title: string;
   description: string;
   href: string;
-  imageSrc: string;
+  imageSrc?: string;
+  icon?: LucideIcon;
   iconShellClass: string;
   iconAccentClass: string;
   titleClass: string;
@@ -27,6 +28,9 @@ type HubCard = {
   badgeClass: string;
   shadowClass: string;
   hoverShadowClass: string;
+  cardClassName?: string;
+  topBadgeLabel?: string;
+  topBadgeClassName?: string;
 };
 
 const cards: HubCard[] = [
@@ -97,6 +101,24 @@ const cards: HubCard[] = [
     shadowClass: "shadow-[0_18px_45px_rgba(251,146,60,0.18)]",
     hoverShadowClass: "group-hover:shadow-[0_24px_58px_rgba(251,146,60,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(251,146,60,0.24)]",
   },
+  {
+    title: "Bog-Scanneren (AI)",
+    description:
+      "Upload et billede af en bogside eller tekst, og lad AI'en bygge et komplet løb med spørgsmål på 10 sekunder.",
+    href: "/dashboard/opret/scanner",
+    icon: Camera,
+    iconShellClass: "border-amber-200 bg-amber-50",
+    iconAccentClass: "bg-amber-100 text-amber-700",
+    titleClass: "text-amber-950",
+    bodyClass: "text-amber-950/80",
+    badgeClass: "bg-amber-200 text-amber-950",
+    shadowClass: "shadow-[0_18px_45px_rgba(245,158,11,0.2)]",
+    hoverShadowClass: "group-hover:shadow-[0_26px_60px_rgba(245,158,11,0.28)] group-focus-visible:shadow-[0_26px_60px_rgba(245,158,11,0.28)]",
+    cardClassName:
+      "border-amber-200/80 bg-[linear-gradient(180deg,rgba(255,251,235,0.96),rgba(255,247,237,0.96))] ring-1 ring-amber-200/70",
+    topBadgeLabel: "Nyhed",
+    topBadgeClassName: "bg-amber-500 text-white shadow-[0_10px_24px_rgba(245,158,11,0.28)]",
+  },
 ];
 
 function renderCard(card: HubCard, index: number) {
@@ -108,17 +130,35 @@ function renderCard(card: HubCard, index: number) {
       className="group block h-full w-full focus:outline-none"
     >
       <article
-        className={`flex h-full min-h-[320px] flex-col rounded-3xl border border-white/70 bg-white/90 p-8 backdrop-blur-sm transition-all duration-300 ${card.shadowClass} ${card.hoverShadowClass} group-hover:-translate-y-1.5 group-hover:bg-white/95 group-focus-visible:-translate-y-1.5 group-focus-visible:bg-white/95`}
+        className={`flex h-full min-h-[320px] flex-col rounded-3xl border border-white/70 bg-white/90 p-8 backdrop-blur-sm transition-all duration-300 ${card.shadowClass} ${card.hoverShadowClass} ${card.cardClassName ?? ""} group-hover:-translate-y-1.5 group-hover:bg-white/95 group-focus-visible:-translate-y-1.5 group-focus-visible:bg-white/95`}
       >
+        {card.topBadgeLabel ? (
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <span
+              className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-black tracking-[0.18em] uppercase ${card.topBadgeClassName ?? "bg-slate-900 text-white"}`}
+            >
+              {card.topBadgeLabel}
+            </span>
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold tracking-[0.18em] text-amber-800 uppercase">
+              <Sparkles className="h-3.5 w-3.5" />
+              AI
+            </span>
+          </div>
+        ) : null}
+
         <div className={`flex h-16 w-16 items-center justify-center rounded-full border ${card.iconShellClass}`}>
           <div className={`flex h-11 w-11 items-center justify-center rounded-full ${card.iconAccentClass}`}>
-            <Image
-              src={card.imageSrc}
-              alt={card.title}
-              width={48}
-              height={48}
-              className="h-8 w-8 object-contain"
-            />
+            {card.icon ? (
+              <card.icon className="h-6 w-6" />
+            ) : card.imageSrc ? (
+              <Image
+                src={card.imageSrc}
+                alt={card.title}
+                width={48}
+                height={48}
+                className="h-8 w-8 object-contain"
+              />
+            ) : null}
           </div>
         </div>
 
