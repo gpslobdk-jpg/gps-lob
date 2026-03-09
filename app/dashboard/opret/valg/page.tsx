@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Camera, Sparkles, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Camera, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
@@ -29,8 +29,6 @@ type HubCard = {
   shadowClass: string;
   hoverShadowClass: string;
   cardClassName?: string;
-  topBadgeLabel?: string;
-  topBadgeClassName?: string;
 };
 
 const cards: HubCard[] = [
@@ -43,7 +41,7 @@ const cards: HubCard[] = [
     iconAccentClass: "bg-emerald-100 text-emerald-700",
     titleClass: "text-emerald-950",
     bodyClass: "text-emerald-900/80",
-    badgeClass: "bg-emerald-100 text-emerald-800",
+    badgeClass: "bg-emerald-600 hover:bg-emerald-700 group-hover:bg-emerald-700",
     shadowClass: "shadow-[0_18px_45px_rgba(16,185,129,0.18)]",
     hoverShadowClass: "group-hover:shadow-[0_24px_58px_rgba(16,185,129,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(16,185,129,0.24)]",
   },
@@ -57,7 +55,7 @@ const cards: HubCard[] = [
     iconAccentClass: "bg-sky-100 text-sky-700",
     titleClass: "text-sky-950",
     bodyClass: "text-sky-900/80",
-    badgeClass: "bg-sky-100 text-sky-800",
+    badgeClass: "bg-blue-600 hover:bg-blue-700 group-hover:bg-blue-700",
     shadowClass: "shadow-[0_18px_45px_rgba(14,165,233,0.18)]",
     hoverShadowClass: "group-hover:shadow-[0_24px_58px_rgba(14,165,233,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(14,165,233,0.24)]",
   },
@@ -70,7 +68,7 @@ const cards: HubCard[] = [
     iconAccentClass: "bg-violet-100 text-violet-700",
     titleClass: "text-violet-950",
     bodyClass: "text-violet-900/80",
-    badgeClass: "bg-violet-100 text-violet-800",
+    badgeClass: "bg-purple-600 hover:bg-purple-700 group-hover:bg-purple-700",
     shadowClass: "shadow-[0_18px_45px_rgba(139,92,246,0.18)]",
     hoverShadowClass: "group-hover:shadow-[0_24px_58px_rgba(139,92,246,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(139,92,246,0.24)]",
   },
@@ -83,7 +81,7 @@ const cards: HubCard[] = [
     iconAccentClass: "bg-amber-100 text-amber-700",
     titleClass: "text-amber-950",
     bodyClass: "text-amber-900/80",
-    badgeClass: "bg-amber-100 text-amber-800",
+    badgeClass: "bg-amber-700 hover:bg-amber-800 group-hover:bg-amber-800",
     shadowClass: "shadow-[0_18px_45px_rgba(245,158,11,0.18)]",
     hoverShadowClass: "group-hover:shadow-[0_24px_58px_rgba(245,158,11,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(245,158,11,0.24)]",
   },
@@ -97,7 +95,7 @@ const cards: HubCard[] = [
     iconAccentClass: "bg-orange-100 text-rose-700",
     titleClass: "text-rose-950",
     bodyClass: "text-rose-900/80",
-    badgeClass: "bg-orange-100 text-rose-800",
+    badgeClass: "bg-rose-600 hover:bg-rose-700 group-hover:bg-rose-700",
     shadowClass: "shadow-[0_18px_45px_rgba(251,146,60,0.18)]",
     hoverShadowClass: "group-hover:shadow-[0_24px_58px_rgba(251,146,60,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(251,146,60,0.24)]",
   },
@@ -111,13 +109,11 @@ const cards: HubCard[] = [
     iconAccentClass: "bg-amber-100 text-amber-700",
     titleClass: "text-amber-950",
     bodyClass: "text-amber-950/80",
-    badgeClass: "bg-amber-200 text-amber-950",
+    badgeClass: "bg-amber-500 hover:bg-amber-600 group-hover:bg-amber-600",
     shadowClass: "shadow-[0_18px_45px_rgba(245,158,11,0.2)]",
     hoverShadowClass: "group-hover:shadow-[0_26px_60px_rgba(245,158,11,0.28)] group-focus-visible:shadow-[0_26px_60px_rgba(245,158,11,0.28)]",
     cardClassName:
       "border-amber-200/80 bg-[linear-gradient(180deg,rgba(255,251,235,0.96),rgba(255,247,237,0.96))] ring-1 ring-amber-200/70",
-    topBadgeLabel: "Nyhed",
-    topBadgeClassName: "bg-amber-500 text-white shadow-[0_10px_24px_rgba(245,158,11,0.28)]",
   },
 ];
 
@@ -132,20 +128,6 @@ function renderCard(card: HubCard, index: number) {
       <article
         className={`flex h-full min-h-[320px] flex-col rounded-3xl border border-white/70 bg-white/90 p-8 backdrop-blur-sm transition-all duration-300 ${card.shadowClass} ${card.hoverShadowClass} ${card.cardClassName ?? ""} group-hover:-translate-y-1.5 group-hover:bg-white/95 group-focus-visible:-translate-y-1.5 group-focus-visible:bg-white/95`}
       >
-        {card.topBadgeLabel ? (
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <span
-              className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-black tracking-[0.18em] uppercase ${card.topBadgeClassName ?? "bg-slate-900 text-white"}`}
-            >
-              {card.topBadgeLabel}
-            </span>
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold tracking-[0.18em] text-amber-800 uppercase">
-              <Sparkles className="h-3.5 w-3.5" />
-              AI
-            </span>
-          </div>
-        ) : null}
-
         <div className={`flex h-16 w-16 items-center justify-center rounded-full border ${card.iconShellClass}`}>
           <div className={`flex h-11 w-11 items-center justify-center rounded-full ${card.iconAccentClass}`}>
             {card.icon ? (
@@ -171,7 +153,7 @@ function renderCard(card: HubCard, index: number) {
 
         <div className="mt-auto pt-8">
           <span
-            className={`inline-flex rounded-full px-4 py-2 text-xs font-bold tracking-[0.18em] uppercase ${card.badgeClass}`}
+            className={`inline-flex rounded-full px-4 py-2 text-xs font-bold tracking-[0.18em] text-white uppercase transition-colors ${card.badgeClass}`}
           >
             Vælg løbstype
           </span>
