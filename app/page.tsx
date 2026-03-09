@@ -225,7 +225,7 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="relative mx-auto hidden w-full max-w-4xl px-6 pb-8 pt-3 md:block">
+      <footer className="relative mx-auto w-full max-w-4xl px-6 pb-8 pt-3">
         <div className="flex flex-col items-center gap-3 text-center text-sm text-slate-600 sm:flex-row sm:justify-between sm:text-left">
           <div>
             <a
@@ -236,7 +236,12 @@ export default function Home() {
             </a>
           </div>
 
-          <p>{"\u00a9 2026 gpsl\u00f8b.dk"}</p>
+          <div className="flex items-center gap-4">
+            <Link href="/priser" className="transition hover:text-emerald-700">
+              Priser
+            </Link>
+            <p>{"\u00a9 2026 gpsl\u00f8b.dk"}</p>
+          </div>
         </div>
       </footer>
 
