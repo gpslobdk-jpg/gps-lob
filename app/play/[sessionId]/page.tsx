@@ -93,6 +93,9 @@ type EscapeCodeEntry = {
 type RoleplayReplyState = {
   key: string;
   message: string;
+  tone: "success" | "hint";
+  canContinue: boolean;
+  isLoading?: boolean;
 } | null;
 type MasterLockStatus = "locked" | "unlocked";
 
@@ -376,6 +379,18 @@ function getRoleplayCharacterName(question: Question) {
 
 function getRoleplayAvatar(question: Question) {
   return question.answers[2]?.trim() || "";
+}
+
+function getRoleplayCharacterPersonality(question: Question) {
+  return (
+    question.answers[3]?.trim() ||
+    question.aiPrompt?.trim() ||
+    "teatralsk, levende og en smule kryptisk"
+  );
+}
+
+function getRoleplayCorrectAnswer(question: Question) {
+  return question.answers[0]?.trim() || "";
 }
 
 function extractEscapeCodeBrick(value: string) {
@@ -1486,6 +1501,50 @@ function PlayScreen() {
     });
   }, []);
 
+  const requestRoleplayWrongAnswerResponse = useCallback(
+    async (payload: {
+      characterName: string;
+      characterPersonality: string;
+      question: string;
+      wrongAnswer: string;
+      correctAnswer: string;
+    }) => {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => {
+        controller.abort();
+      }, 6000);
+
+      try {
+        const response = await fetch("/api/roleplay-response", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+          signal: controller.signal,
+          body: JSON.stringify(payload),
+        });
+
+        const data = (await response.json().catch(() => null)) as
+          | { message?: string; error?: string }
+          | null;
+
+        if (!response.ok) {
+          throw new Error(data?.error || "Kunne ikke hente rolle-svaret.");
+        }
+
+        const message = data?.message?.trim();
+        return message || null;
+      } catch (error) {
+        console.error("Kunne ikke hente AI-rolle-svar:", error);
+        return null;
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+    },
+    []
+  );
+
   const validateAnswerOnServer = useCallback(
     async (payload: { selectedIndex?: number; answer?: string }) => {
       const response = await fetch("/api/play/validate-answer", {
@@ -1595,6 +1654,8 @@ function PlayScreen() {
       setRoleplayReply({
         key: `${currentPostIndex}-roleplay`,
         message: `${characterName}: Godt svaret! Følg med mig videre...`,
+        tone: "success",
+        canContinue: true,
       });
       return true;
     }
@@ -1686,7 +1747,9 @@ function PlayScreen() {
   const hasActivePhotoSuccess = activePhotoFeedback?.tone === "success";
   const isSelfiePhotoTask = activePostVariant === "photo" && activeQuestion?.isSelfie === true;
   const activeEscapeReward = escapeReward?.key === activeTypedAnswerKey ? escapeReward.brick : null;
-  const activeRoleplayReply = roleplayReply?.key === activeTypedAnswerKey ? roleplayReply.message : null;
+  const activeRoleplayReply =
+    roleplayReply?.key === activeTypedAnswerKey ? roleplayReply : null;
+  const activeRoleplayReplyMessage = activeRoleplayReply?.message ?? null;
   const activeEscapeHint =
     activePostVariant === "escape" && wrongAttempts >= 3 ? activeQuestion?.hint?.trim() ?? "" : "";
   const isRoleplayImmersed = showQuestion && activePostVariant === "roleplay";
@@ -1888,6 +1951,9 @@ function PlayScreen() {
 
     setTypedAnswerError(null);
     setPostActionError(null);
+    if (activePostVariant === "roleplay") {
+      setRoleplayReply(null);
+    }
 
     if (activePostVariant === "escape") {
       setIsCheckingEscapeAnswer(true);
@@ -1901,18 +1967,49 @@ function PlayScreen() {
       if (payload?.isCorrect !== true) {
         if (activePostVariant === "roleplay") {
           triggerRoleplayInputError();
+          setRoleplayReply({
+            key: activeTypedAnswerKey,
+            message: "Tænker...",
+            tone: "hint",
+            canContinue: false,
+            isLoading: true,
+          });
         }
         if (activePostVariant === "escape") {
           setWrongAttempts((current) => current + 1);
         }
-        setTypedAnswerError(
-          activePostVariant === "roleplay"
-            ? {
-                key: activeTypedAnswerKey,
-                message: `${roleplayCharacterName || "Karakteren"} ser uforstående ud. Prøv igen.`,
-              }
-            : { key: activeTypedAnswerKey, message: "Svaret passer ikke endnu. Prøv igen." }
-        );
+
+        if (activePostVariant === "roleplay") {
+          const roleplayMessage = await requestRoleplayWrongAnswerResponse({
+            characterName: roleplayCharacterName || "Karakteren",
+            characterPersonality: getRoleplayCharacterPersonality(activeQuestion),
+            question: getRoleplayMessage(activeQuestion),
+            wrongAnswer: typedAnswer.trim(),
+            correctAnswer: getRoleplayCorrectAnswer(activeQuestion),
+          });
+
+          if (roleplayMessage) {
+            setRoleplayReply({
+              key: activeTypedAnswerKey,
+              message: roleplayMessage,
+              tone: "hint",
+              canContinue: false,
+            });
+            return;
+          }
+
+          setRoleplayReply(null);
+          setTypedAnswerError({
+            key: activeTypedAnswerKey,
+            message: "Forkert svar, prøv igen",
+          });
+          return;
+        }
+
+        setTypedAnswerError({
+          key: activeTypedAnswerKey,
+          message: "Svaret passer ikke endnu. Prøv igen.",
+        });
         return;
       }
 
@@ -3067,22 +3164,57 @@ function PlayScreen() {
                 </div>
 
                 {activeRoleplayReply ? (
-                  <div className="animate-in fade-in zoom-in-95 duration-300 space-y-4 overflow-hidden rounded-[1.85rem] border border-emerald-300/30 bg-[linear-gradient(145deg,rgba(6,78,59,0.68),rgba(91,33,182,0.2))] p-5 shadow-[0_24px_55px_rgba(16,185,129,0.18)] backdrop-blur-xl">
-                    <p className={`text-xs font-semibold tracking-[0.24em] text-emerald-100/75 uppercase ${wrapTextClass}`}>
-                      Svar fra {roleplayCharacterName}
+                  <div
+                    className={`animate-in fade-in zoom-in-95 duration-300 space-y-4 overflow-hidden rounded-[1.85rem] border p-5 backdrop-blur-xl ${
+                      activeRoleplayReply.tone === "success"
+                        ? "border-emerald-300/30 bg-[linear-gradient(145deg,rgba(6,78,59,0.68),rgba(91,33,182,0.2))] shadow-[0_24px_55px_rgba(16,185,129,0.18)]"
+                        : "border-violet-300/30 bg-[linear-gradient(145deg,rgba(76,29,149,0.55),rgba(30,41,59,0.82))] shadow-[0_24px_55px_rgba(76,29,149,0.18)]"
+                    }`}
+                  >
+                    <p
+                      className={`text-xs font-semibold tracking-[0.24em] uppercase ${wrapTextClass} ${
+                        activeRoleplayReply.tone === "success"
+                          ? "text-emerald-100/75"
+                          : "text-violet-100/80"
+                      }`}
+                    >
+                      {activeRoleplayReply.isLoading
+                        ? `${roleplayCharacterName} tænker...`
+                        : `Svar fra ${roleplayCharacterName}`}
                     </p>
-                    <div className="rounded-[1.35rem] border border-emerald-200/15 bg-white/8 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                      <p className={`text-sm leading-relaxed text-emerald-50 ${wrapTextClass}`}>
-                        {activeRoleplayReply}
+                    <div
+                      className={`rounded-[1.35rem] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${
+                        activeRoleplayReply.tone === "success"
+                          ? "border-emerald-200/15 bg-white/8"
+                          : "border-violet-200/15 bg-white/6"
+                      }`}
+                    >
+                      <p
+                        className={`text-sm leading-relaxed ${wrapTextClass} ${
+                          activeRoleplayReply.tone === "success"
+                            ? "text-emerald-50"
+                            : "text-violet-50"
+                        }`}
+                      >
+                        {activeRoleplayReply.isLoading ? (
+                          <span className="inline-flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Tænker...
+                          </span>
+                        ) : (
+                          activeRoleplayReplyMessage
+                        )}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => void continueFromSolvedPost()}
-                      className="w-full rounded-2xl border border-emerald-300/35 bg-emerald-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-emerald-300"
-                    >
-                      Fortsæt rejsen -&gt;
-                    </button>
+                    {activeRoleplayReply.canContinue ? (
+                      <button
+                        type="button"
+                        onClick={() => void continueFromSolvedPost()}
+                        className="w-full rounded-2xl border border-emerald-300/35 bg-emerald-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-emerald-300"
+                      >
+                        Fortsæt rejsen -&gt;
+                      </button>
+                    ) : null}
 
                     {activePostActionError ? (
                       <div
@@ -3092,7 +3224,9 @@ function PlayScreen() {
                       </div>
                     ) : null}
                   </div>
-                ) : (
+                ) : null}
+
+                {!activeRoleplayReply?.canContinue ? (
                   <form
                     onSubmit={handleTypedAnswerSubmit}
                     className={`overflow-hidden rounded-[1.75rem] border bg-slate-900/70 p-4 shadow-[0_18px_38px_rgba(67,56,202,0.16)] backdrop-blur-xl transition-all ${
@@ -3140,7 +3274,7 @@ function PlayScreen() {
                       </p>
                     ) : null}
                   </form>
-                )}
+                ) : null}
               </div>
             ) : null}
 
