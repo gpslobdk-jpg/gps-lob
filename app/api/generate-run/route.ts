@@ -4,6 +4,8 @@ import OpenAI from "openai";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const DEFAULT_COUNT = 5;
+const OPENAI_TIMEOUT_MS = 45_000;
+const MAX_TOPIC_LENGTH = 150;
 const MAX_SOURCE_TEXT_LENGTH = 18000;
 const MAX_IMAGE_DATA_LENGTH = 6_000_000;
 
@@ -108,6 +110,13 @@ export async function POST(req: Request) {
       );
     }
 
+    if (topic.length > MAX_TOPIC_LENGTH) {
+      return NextResponse.json(
+        { error: "Emnet er for langt. Hold det under 150 tegn." },
+        { status: 400 }
+      );
+    }
+
     if (sourceText.length > MAX_SOURCE_TEXT_LENGTH) {
       return NextResponse.json(
         { error: "Materialeteksten er for lang. Kort den ned og prøv igen." },
@@ -193,48 +202,64 @@ KRAV TIL JSON:
 - Beskrivelsen skal kort forklare, hvad læreren og eleverne møder.
 - Svar og spørgsmål skal være konkrete, varierede og realistiske for et GPS-løb.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
-      messages: hasMaterial
-        ? [
-            { role: "system", content: systemPrompt },
-            {
-              role: "user",
-              content: [
+    const timeoutController = new AbortController();
+    const timeoutId = setTimeout(() => {
+      timeoutController.abort();
+    }, OPENAI_TIMEOUT_MS);
+
+    let response;
+    try {
+      response = await openai.chat.completions.create(
+        {
+          model: "gpt-4o-mini",
+          response_format: { type: "json_object" },
+          messages: hasMaterial
+            ? [
+                { role: "system", content: systemPrompt },
                 {
-                  type: "text",
-                  text:
-                    `Læs materialet grundigt og lav nu et GPS-løb med 5 spørgsmål, hvor alle rigtige svar kan findes direkte i materialet.` +
-                    (sourceText
-                      ? `\n\nMaterialetekst:\n${sourceText}`
-                      : "\n\nBrug bogside-billedet som materiale.") +
-                    "\n\nReturner kun gyldigt JSON.",
+                  role: "user",
+                  content: [
+                    {
+                      type: "text",
+                      text:
+                        `Læs materialet grundigt og lav nu et GPS-løb med 5 spørgsmål, hvor alle rigtige svar kan findes direkte i materialet.` +
+                        (sourceText
+                          ? `\n\nMaterialetekst:\n${sourceText}`
+                          : "\n\nBrug bogside-billedet som materiale.") +
+                        "\n\nReturner kun gyldigt JSON.",
+                    },
+                    ...(imageBase64
+                      ? [
+                          {
+                            type: "image_url" as const,
+                            image_url: {
+                              url: imageBase64,
+                            },
+                          },
+                        ]
+                      : []),
+                  ],
                 },
-                ...(imageBase64
-                  ? [
-                      {
-                        type: "image_url" as const,
-                        image_url: {
-                          url: imageBase64,
-                        },
-                      },
-                    ]
-                  : []),
-              ],
-            },
-          ]
-        : [
-            { role: "system", content: systemPrompt },
-            {
-              role: "user",
-              content: `Lav nu et komplet GPS-løb om dette emne: ${topic}
+              ]
+            : [
+                { role: "system", content: systemPrompt },
+                {
+                  role: "user",
+                  content: `Lav nu et komplet GPS-løb om dette emne: ${topic}
 
 Husk at returnere præcis ${count} spørgsmål og kun gyldigt JSON.`,
-            },
-          ],
-      temperature: hasMaterial ? 0.3 : 0.7,
-    });
+                },
+              ],
+          temperature: hasMaterial ? 0.3 : 0.7,
+        },
+        {
+          signal: timeoutController.signal,
+          timeout: OPENAI_TIMEOUT_MS,
+        }
+      );
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     const rawContent = response.choices[0]?.message?.content;
     if (!rawContent) {
@@ -285,6 +310,17 @@ Husk at returnere præcis ${count} spørgsmål og kun gyldigt JSON.`,
     });
   } catch (error) {
     console.error("Fejl i generate-run:", error);
+    if (
+      error instanceof OpenAI.APIConnectionTimeoutError ||
+      error instanceof OpenAI.APIUserAbortError ||
+      (error instanceof Error && error.name === "AbortError")
+    ) {
+      return NextResponse.json(
+        { error: "AI'en var for længe om at svare. Prøv igen." },
+        { status: 504 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Kunne ikke auto-generere løbet lige nu." },
       { status: 500 }

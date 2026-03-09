@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const OPENAI_TIMEOUT_MS = 45_000;
 
 type RoleplayResponsePayload = {
   characterName?: unknown;
@@ -52,19 +53,35 @@ Vigtige regler:
 - Vær kort, levende og lidt drillende.
 - Returner kun gyldigt JSON i formatet { "message": "..." }.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
+    const timeoutController = new AbortController();
+    const timeoutId = setTimeout(() => {
+      timeoutController.abort();
+    }, OPENAI_TIMEOUT_MS);
+
+    let response;
+    try {
+      response = await openai.chat.completions.create(
         {
-          role: "user",
-          content:
-            "Skriv nu kun JSON med et kort rolle-svar og et kryptisk hint uden at afsløre facit.",
+          model: "gpt-4o-mini",
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: systemPrompt },
+            {
+              role: "user",
+              content:
+                "Skriv nu kun JSON med et kort rolle-svar og et kryptisk hint uden at afsløre facit.",
+            },
+          ],
+          temperature: 0.8,
         },
-      ],
-      temperature: 0.8,
-    });
+        {
+          signal: timeoutController.signal,
+          timeout: OPENAI_TIMEOUT_MS,
+        }
+      );
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     const rawContent = response.choices[0]?.message?.content;
     if (!rawContent) {
@@ -95,6 +112,17 @@ Vigtige regler:
     return NextResponse.json({ message });
   } catch (error) {
     console.error("Fejl i roleplay-response:", error);
+    if (
+      error instanceof OpenAI.APIConnectionTimeoutError ||
+      error instanceof OpenAI.APIUserAbortError ||
+      (error instanceof Error && error.name === "AbortError")
+    ) {
+      return NextResponse.json(
+        { error: "AI'en var for længe om at svare. Prøv igen." },
+        { status: 504 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Kunne ikke hente et rolle-svar lige nu." },
       { status: 500 }

@@ -253,6 +253,8 @@ const AUTO_GENERATED_RUN_CENTER: MapCenter = {
   lat: 55.0,
   lng: 11.9,
 };
+const AI_REQUEST_TIMEOUT_MS = 45_000;
+const MAX_AUTO_GENERATE_TOPIC_LENGTH = 150;
 const MAX_AUTO_GENERATE_SOURCE_TEXT_LENGTH = 18000;
 const MAX_AUTO_GENERATE_IMAGE_FILE_SIZE = 12 * 1024 * 1024;
 const MAX_AUTO_GENERATE_IMAGE_DATA_LENGTH = 6_000_000;
@@ -1000,6 +1002,14 @@ function OpretLoebPageContent() {
       return;
     }
 
+    if (normalizedTopic.length > MAX_AUTO_GENERATE_TOPIC_LENGTH) {
+      setAutoGenerateNotice({
+        tone: "error",
+        message: "Emnet er for langt. Hold det under 150 tegn.",
+      });
+      return;
+    }
+
     const hasExistingContent =
       title.trim().length > 0 ||
       description.trim().length > 0 ||
@@ -1019,10 +1029,15 @@ function OpretLoebPageContent() {
     setAutoGenerateNotice(null);
     setIsAutoGeneratingRun(true);
     setPreviewQuestions([]);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      controller.abort();
+    }, AI_REQUEST_TIMEOUT_MS);
 
     try {
       const res = await fetch("/api/generate-run", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           topic: normalizedTopic || undefined,
@@ -1073,9 +1088,13 @@ function OpretLoebPageContent() {
       console.error("Fejl ved auto-generering af løb:", error);
       setAutoGenerateNotice({
         tone: "error",
-        message: "Vi kunne ikke auto-generere løbet lige nu. Prøv igen om et øjeblik.",
+        message:
+          error instanceof Error && error.name === "AbortError"
+            ? "AI'en var for længe om at svare, prøv igen."
+            : "Vi kunne ikke auto-generere løbet lige nu. Prøv igen om et øjeblik.",
       });
     } finally {
+      window.clearTimeout(timeoutId);
       setIsAutoGeneratingRun(false);
     }
   };
@@ -1775,6 +1794,7 @@ function OpretLoebPageContent() {
                   value={autoGenerateTopic}
                   onChange={(event) => setAutoGenerateTopic(event.target.value)}
                   disabled={isAutoGeneratingRun}
+                  maxLength={150}
                   placeholder="f.eks. Brøker for 4. klasse"
                   className="mt-3 w-full rounded-[1.4rem] border border-emerald-500/20 bg-emerald-950/50 px-4 py-3 text-emerald-100 placeholder:text-emerald-100/35 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
                 />

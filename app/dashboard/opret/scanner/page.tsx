@@ -26,6 +26,7 @@ const poppins = Poppins({
 const MANUEL_DRAFT_STORAGE_KEY = "draft_run_manuel";
 const DEFAULT_LAT = 55.0;
 const DEFAULT_LNG = 11.9;
+const AI_REQUEST_TIMEOUT_MS = 45_000;
 const MAX_SOURCE_TEXT_LENGTH = 18_000;
 const MAX_IMAGE_FILE_SIZE = 12 * 1024 * 1024;
 const MAX_IMAGE_DATA_LENGTH = 6_000_000;
@@ -175,6 +176,7 @@ function isGeneratedRunPayload(value: unknown): value is GeneratedRunPayload {
 
 export default function ScannerPortalPage() {
   const router = useRouter();
+  const isMountedRef = useRef(true);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -199,7 +201,9 @@ export default function ScannerPortalPage() {
         ? "Klargør billede..."
         : selectedImageLabel || "Du kan indsætte tekst, uploade et billede eller bruge begge dele.";
 
-  function stopCameraStream() {
+  function stopCameraStream(options?: { skipStateReset?: boolean }) {
+    const skipStateReset = options?.skipStateReset ?? false;
+
     if (typeof window !== "undefined") {
       for (const timer of countdownTimersRef.current) {
         window.clearTimeout(timer);
@@ -207,8 +211,10 @@ export default function ScannerPortalPage() {
     }
 
     countdownTimersRef.current = [];
-    setCountdownValue(null);
-    setIsCapturingPhoto(false);
+    if (!skipStateReset) {
+      setCountdownValue(null);
+      setIsCapturingPhoto(false);
+    }
 
     const stream = streamRef.current;
     if (stream) {
@@ -222,12 +228,17 @@ export default function ScannerPortalPage() {
       videoRef.current.srcObject = null;
     }
 
-    setIsCameraActive(false);
+    if (!skipStateReset) {
+      setIsCameraActive(false);
+    }
   }
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
-      stopCameraStream();
+      isMountedRef.current = false;
+      stopCameraStream({ skipStateReset: true });
     };
   }, []);
 
@@ -254,6 +265,11 @@ export default function ScannerPortalPage() {
         audio: false,
       });
 
+      if (!isMountedRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
       streamRef.current = stream;
 
       if (videoRef.current) {
@@ -261,15 +277,24 @@ export default function ScannerPortalPage() {
         await videoRef.current.play();
       }
 
+      if (!isMountedRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        return;
+      }
+
       setSelectedImageLabel("");
       setCompressedImage("");
       setIsCameraActive(true);
     } catch (cameraError) {
       console.error("Fejl ved kameraadgang:", cameraError);
+      if (!isMountedRef.current) return;
       setError("Kameraadgang blev afvist eller kunne ikke startes. Prøv igen.");
       stopCameraStream();
     } finally {
-      setIsStartingCamera(false);
+      if (isMountedRef.current) {
+        setIsStartingCamera(false);
+      }
     }
   }
 
@@ -405,10 +430,15 @@ export default function ScannerPortalPage() {
 
     setIsGenerating(true);
     setError(null);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      controller.abort();
+    }, AI_REQUEST_TIMEOUT_MS);
 
     try {
       const response = await fetch("/api/generate-run", {
         method: "POST",
+        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
         },
@@ -443,11 +473,14 @@ export default function ScannerPortalPage() {
     } catch (requestError) {
       console.error("Fejl ved scanner-generering:", requestError);
       setError(
-        requestError instanceof Error
+        requestError instanceof Error && requestError.name === "AbortError"
+          ? "AI'en var for længe om at svare, prøv igen."
+          : requestError instanceof Error
           ? requestError.message
           : "Noget gik galt. Prøv igen om et øjeblik."
       );
     } finally {
+      window.clearTimeout(timeoutId);
       setIsGenerating(false);
     }
   }
