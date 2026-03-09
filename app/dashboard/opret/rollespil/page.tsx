@@ -17,6 +17,14 @@ import {
   isRecord,
   toQuestionId,
 } from "@/utils/gpsRuns";
+import {
+  clearRunDraft,
+  restoreDraftBoolean,
+  restoreDraftMapCenter,
+  restoreDraftString,
+  restoreRunDraft,
+  writeRunDraft,
+} from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
 
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
@@ -202,6 +210,8 @@ type StoredRoleplayQuestionRecord = {
   text?: unknown;
   aiPrompt?: unknown;
   ai_prompt?: unknown;
+  mediaUrl?: unknown;
+  media_url?: unknown;
   answers?: unknown;
   lat?: unknown;
   lng?: unknown;
@@ -210,6 +220,21 @@ type StoredRoleplayQuestionRecord = {
 type BuilderNotice = {
   tone: "success" | "error";
   message: string;
+};
+
+const ROLLESPIL_DRAFT_STORAGE_KEY = "draft_run_rollespil";
+
+type RollespilBuilderDraftState = {
+  title?: unknown;
+  subject?: unknown;
+  showTeacherField?: unknown;
+  showAITeacherFields?: unknown;
+  questions?: unknown;
+  aiRunBrief?: unknown;
+  aiSubject?: unknown;
+  aiTopic?: unknown;
+  aiGrade?: unknown;
+  mapCenter?: unknown;
 };
 
 const textInputClass =
@@ -306,18 +331,28 @@ function toRoleplayQuestions(value: unknown): Question[] {
       if (!isRecord(item)) return null;
 
       const candidate = item as StoredRoleplayQuestionRecord;
+      const rawText = asTrimmedString(candidate.text);
+      const parsedLegacyText = parseRoleplayText(rawText, index);
+      const hasLegacyMarkers = /Karakter:|Avatar:|Besked:/i.test(rawText);
       const answers = Array.isArray(candidate.answers)
         ? candidate.answers.filter((answer): answer is string => typeof answer === "string")
         : [];
-      const characterName = asTrimmedString(candidate.text) || asTrimmedString(answers[1]) || fallbackCharacterName(index);
-      const avatar = asTrimmedString(answers[2]) || fallbackAvatar();
+      const characterName =
+        asTrimmedString(answers[1]) ||
+        (hasLegacyMarkers ? parsedLegacyText.characterName : rawText) ||
+        rawText ||
+        fallbackCharacterName(index);
+      const avatar = asTrimmedString(answers[2]) || parsedLegacyText.avatar || fallbackAvatar();
+      const message =
+        asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt) ||
+        (hasLegacyMarkers ? parsedLegacyText.message : "");
 
       return {
         id: toQuestionId(candidate.id, timestamp + index),
         type: "multiple_choice",
         text: characterName,
-        aiPrompt: asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt),
-        mediaUrl: "",
+        aiPrompt: message,
+        mediaUrl: asTrimmedString(candidate.mediaUrl ?? candidate.media_url),
         answers: toRoleplayAnswers(asTrimmedString(answers[0]), characterName, avatar),
         correctIndex: 0,
         lat: asNumberOrNull(candidate.lat),
@@ -389,6 +424,7 @@ function RollespilBuilderPageContent() {
       </div>
     ) : null;
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
+  const hasInitializedDraftRef = useRef(false);
 
   const scrollToSaveFeedback = () => {
     if (saveFeedbackRef.current) {
@@ -484,6 +520,78 @@ function RollespilBuilderPageContent() {
       isActive = false;
     };
   }, [editRunId, isEditMode]);
+
+  useEffect(() => {
+    if (hasInitializedDraftRef.current) return;
+
+    if (isEditMode) {
+      if (isLoadingExistingRun) return;
+      if (loadedRunId !== editRunId) {
+        hasInitializedDraftRef.current = true;
+        return;
+      }
+    }
+
+    const restoredDraft = restoreRunDraft<RollespilBuilderDraftState>(
+      ROLLESPIL_DRAFT_STORAGE_KEY,
+      editRunId,
+      isEditMode
+        ? "Der ligger en ikke-gemt kladde til dette rollespilsløb. Vil du gendanne den?"
+        : "Der ligger en ikke-gemt kladde til rollespil-byggeren. Vil du gendanne den?"
+    );
+
+    if (restoredDraft) {
+      const restoredSubject = restoreDraftString(restoredDraft.subject);
+      const restoredQuestions = toRoleplayQuestions(restoredDraft.questions);
+
+      setTitle(restoreDraftString(restoredDraft.title));
+      setSubject(restoredSubject);
+      setShowTeacherField(
+        restoreDraftBoolean(restoredDraft.showTeacherField, Boolean(restoredSubject.trim()))
+      );
+      setShowAITeacherFields(restoreDraftBoolean(restoredDraft.showAITeacherFields));
+      setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
+      setPreviewQuestions([]);
+      setShowAIModal(false);
+      setAiRunBrief(restoreDraftString(restoredDraft.aiRunBrief));
+      setAiSubject(restoreDraftString(restoredDraft.aiSubject));
+      setAiTopic(restoreDraftString(restoredDraft.aiTopic));
+      setAiGrade(restoreDraftString(restoredDraft.aiGrade) || "Mellemtrin");
+      setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
+      setNotice(null);
+    }
+
+    hasInitializedDraftRef.current = true;
+  }, [editRunId, isEditMode, isLoadingExistingRun, loadedRunId]);
+
+  useEffect(() => {
+    if (!hasInitializedDraftRef.current) return;
+
+    writeRunDraft(ROLLESPIL_DRAFT_STORAGE_KEY, editRunId, {
+      title,
+      subject,
+      showTeacherField,
+      showAITeacherFields,
+      questions,
+      aiRunBrief,
+      aiSubject,
+      aiTopic,
+      aiGrade,
+      mapCenter,
+    } satisfies RollespilBuilderDraftState);
+  }, [
+    aiGrade,
+    aiRunBrief,
+    aiSubject,
+    aiTopic,
+    editRunId,
+    mapCenter,
+    questions,
+    showAITeacherFields,
+    showTeacherField,
+    subject,
+    title,
+  ]);
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -757,7 +865,7 @@ function RollespilBuilderPageContent() {
           question.answers[2]?.trim() ?? ""
         ),
         correctIndex: 0,
-        mediaUrl: "",
+        mediaUrl: question.mediaUrl.trim(),
       }))
       .filter(
         (question) =>
@@ -861,6 +969,7 @@ function RollespilBuilderPageContent() {
         tone: "success",
         message: isEditMode ? "Ændringerne er gemt i arkivet!" : "Rollespilsløbet er gemt i arkivet!",
       });
+      clearRunDraft(ROLLESPIL_DRAFT_STORAGE_KEY);
 
       if (!isEditMode) {
         setTitle("");

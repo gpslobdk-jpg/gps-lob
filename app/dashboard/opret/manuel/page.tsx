@@ -10,6 +10,14 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import type { SavedPin } from "@/components/MapPicker";
 import { RACE_TYPES } from "@/utils/gpsRuns";
+import {
+  clearRunDraft,
+  restoreDraftBoolean,
+  restoreDraftMapCenter,
+  restoreDraftString,
+  restoreRunDraft,
+  writeRunDraft,
+} from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
 
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
@@ -224,6 +232,25 @@ type BuilderNotice = {
 };
 
 const MAGIC_DRAFT_STORAGE_KEY = "magicRunDraft";
+const MANUEL_DRAFT_STORAGE_KEY = "draft_run_manuel";
+const DEFAULT_MAP_CENTER: MapCenter = {
+  lat: 55.6761,
+  lng: 12.5683,
+};
+
+type ManualBuilderDraftState = {
+  title?: unknown;
+  description?: unknown;
+  subject?: unknown;
+  showTeacherField?: unknown;
+  showAITeacherFields?: unknown;
+  questions?: unknown;
+  aiRunBrief?: unknown;
+  aiSubject?: unknown;
+  aiTopic?: unknown;
+  aiGrade?: unknown;
+  mapCenter?: unknown;
+};
 
 const getQuestionTypeFromQuery = (value: string | null | undefined): Question["type"] =>
   value === "ai_image" ? "ai_image" : "multiple_choice";
@@ -380,10 +407,7 @@ function OpretLoebPageContent() {
   const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
   const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
-  const [mapCenter, setMapCenter] = useState<MapCenter>({
-    lat: 55.6761,
-    lng: 12.5683,
-  });
+  const [mapCenter, setMapCenter] = useState<MapCenter>(DEFAULT_MAP_CENTER);
 
   const renderNotice = (className = "") =>
     notice ? (
@@ -398,6 +422,7 @@ function OpretLoebPageContent() {
       </div>
     ) : null;
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
+  const hasInitializedDraftRef = useRef(false);
 
   const scrollToSaveFeedback = () => {
     if (saveFeedbackRef.current) {
@@ -524,13 +549,10 @@ function OpretLoebPageContent() {
       setMapCenter(
         firstPinnedQuestion
           ? {
-              lat: firstPinnedQuestion.lat ?? 55.6761,
-              lng: firstPinnedQuestion.lng ?? 12.5683,
+              lat: firstPinnedQuestion.lat ?? DEFAULT_MAP_CENTER.lat,
+              lng: firstPinnedQuestion.lng ?? DEFAULT_MAP_CENTER.lng,
             }
-          : {
-              lat: 55.6761,
-              lng: 12.5683,
-            }
+          : DEFAULT_MAP_CENTER
       );
       setLoadedRunId(run.id);
       setIsLoadingExistingRun(false);
@@ -542,6 +564,84 @@ function OpretLoebPageContent() {
       isActive = false;
     };
   }, [defaultQuestionType, editRunId, isEditMode]);
+
+  useEffect(() => {
+    if (hasInitializedDraftRef.current) return;
+
+    if (isEditMode) {
+      if (isLoadingExistingRun) return;
+      if (loadedRunId !== editRunId) {
+        hasInitializedDraftRef.current = true;
+        return;
+      }
+    }
+
+    const restoredDraft = restoreRunDraft<ManualBuilderDraftState>(
+      MANUEL_DRAFT_STORAGE_KEY,
+      editRunId,
+      isEditMode
+        ? "Der ligger en ikke-gemt kladde til dette quiz-løb. Vil du gendanne den?"
+        : "Der ligger en ikke-gemt kladde til quiz-byggeren. Vil du gendanne den?"
+    );
+
+    if (restoredDraft) {
+      const restoredSubject = restoreDraftString(restoredDraft.subject);
+      const restoredQuestions = toQuestionList(restoredDraft.questions);
+
+      setTitle(restoreDraftString(restoredDraft.title));
+      setDescription(restoreDraftString(restoredDraft.description));
+      setSubject(restoredSubject);
+      setShowTeacherField(
+        restoreDraftBoolean(restoredDraft.showTeacherField, Boolean(restoredSubject.trim()))
+      );
+      setShowAITeacherFields(restoreDraftBoolean(restoredDraft.showAITeacherFields));
+      setQuestions(
+        restoredQuestions.length > 0 ? restoredQuestions : [createQuestion(defaultQuestionType)]
+      );
+      setPreviewQuestions([]);
+      setGeneratingImages({});
+      setShowAIModal(false);
+      setAiRunBrief(restoreDraftString(restoredDraft.aiRunBrief));
+      setAiSubject(restoreDraftString(restoredDraft.aiSubject));
+      setAiTopic(restoreDraftString(restoredDraft.aiTopic));
+      setAiGrade(restoreDraftString(restoredDraft.aiGrade) || "Mellemtrin");
+      setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
+      setNotice(null);
+    }
+
+    hasInitializedDraftRef.current = true;
+  }, [defaultQuestionType, editRunId, isEditMode, isLoadingExistingRun, loadedRunId]);
+
+  useEffect(() => {
+    if (!hasInitializedDraftRef.current) return;
+
+    writeRunDraft(MANUEL_DRAFT_STORAGE_KEY, editRunId, {
+      title,
+      description,
+      subject,
+      showTeacherField,
+      showAITeacherFields,
+      questions,
+      aiRunBrief,
+      aiSubject,
+      aiTopic,
+      aiGrade,
+      mapCenter,
+    } satisfies ManualBuilderDraftState);
+  }, [
+    aiGrade,
+    aiRunBrief,
+    aiSubject,
+    aiTopic,
+    description,
+    editRunId,
+    mapCenter,
+    questions,
+    showAITeacherFields,
+    showTeacherField,
+    subject,
+    title,
+  ]);
 
   useEffect(() => {
     setQuestions((current) => {
@@ -933,6 +1033,7 @@ function OpretLoebPageContent() {
         tone: "success",
         message: isEditMode ? "Ændringerne er gemt i arkivet!" : "Løbet er gemt i arkivet!",
       });
+      clearRunDraft(MANUEL_DRAFT_STORAGE_KEY);
 
       if (!isEditMode) {
         setTitle("");

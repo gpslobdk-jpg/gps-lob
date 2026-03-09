@@ -70,6 +70,20 @@ type ParticipantSummary = {
 type SessionSummary = LiveSessionRecord & {
   participantRows: ParticipantSummary[];
   answerCount: number;
+  correctAnswerCount: number;
+  durationMs: number;
+  leaderboardName: string;
+};
+
+type LeaderboardEntry = {
+  sessionId: string;
+  pin: string | null;
+  status: string | null;
+  teamName: string;
+  participantCount: number;
+  answerCount: number;
+  correctAnswerCount: number;
+  durationMs: number;
 };
 
 type DbErrorLike = {
@@ -224,6 +238,102 @@ const byAnswerTime = (a: AnswerRecord, b: AnswerRecord) => {
   const aTime = a.answered_at ?? a.created_at ?? "";
   const bTime = b.answered_at ?? b.created_at ?? "";
   return new Date(aTime).getTime() - new Date(bTime).getTime();
+};
+
+const parseTimestamp = (value: string | null | undefined) => {
+  if (!value) return null;
+
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? null : timestamp;
+};
+
+const getSessionDurationMs = (sessionCreatedAt: string | null, sessionAnswers: AnswerRecord[]) => {
+  let startTime = parseTimestamp(sessionCreatedAt);
+  let endTime: number | null = null;
+
+  for (const answer of sessionAnswers) {
+    const timestamp = parseTimestamp(answer.created_at ?? answer.answered_at);
+    if (timestamp === null) continue;
+
+    if (startTime === null || timestamp < startTime) {
+      startTime = timestamp;
+    }
+
+    if (endTime === null || timestamp > endTime) {
+      endTime = timestamp;
+    }
+  }
+
+  if (startTime === null || endTime === null) {
+    return 0;
+  }
+
+  return Math.max(0, endTime - startTime);
+};
+
+const formatDuration = (durationMs: number) => {
+  const totalSeconds = Math.max(0, Math.round(durationMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${minutes} min ${String(seconds).padStart(2, "0")} sek`;
+};
+
+const getLeaderboardTeamName = (participantRows: ParticipantSummary[], sessionPin: string | null) => {
+  const names = participantRows.map((participant) => participant.name).filter((name) => name.length > 0);
+
+  if (names.length === 1) {
+    return names[0];
+  }
+
+  if (names.length === 2) {
+    return `${names[0]} og ${names[1]}`;
+  }
+
+  if (names.length > 2) {
+    return `${names[0]}, ${names[1]} +${names.length - 2}`;
+  }
+
+  return sessionPin ? `PIN ${sessionPin}` : "Ukendt hold";
+};
+
+const getLeaderboardMedal = (index: number) => {
+  switch (index) {
+    case 0:
+      return "🥇";
+    case 1:
+      return "🥈";
+    case 2:
+      return "🥉";
+    default:
+      return `#${index + 1}`;
+  }
+};
+
+const getLeaderboardCardClassName = (index: number) => {
+  switch (index) {
+    case 0:
+      return "overflow-hidden rounded-[1.9rem] border border-amber-300/70 bg-[linear-gradient(145deg,rgba(255,251,235,0.96),rgba(254,243,199,0.88))] p-5 shadow-[0_24px_60px_rgba(245,158,11,0.18)] backdrop-blur-md";
+    case 1:
+      return "overflow-hidden rounded-[1.9rem] border border-slate-300/80 bg-[linear-gradient(145deg,rgba(248,250,252,0.96),rgba(226,232,240,0.88))] p-5 shadow-[0_22px_55px_rgba(100,116,139,0.16)] backdrop-blur-md";
+    case 2:
+      return "overflow-hidden rounded-[1.9rem] border border-orange-300/75 bg-[linear-gradient(145deg,rgba(255,247,237,0.96),rgba(254,215,170,0.88))] p-5 shadow-[0_22px_55px_rgba(234,88,12,0.16)] backdrop-blur-md";
+    default:
+      return "overflow-hidden rounded-[1.9rem] border border-white/60 bg-white/90 p-5 shadow-lg backdrop-blur-md";
+  }
+};
+
+const getLeaderboardBadgeClassName = (index: number) => {
+  switch (index) {
+    case 0:
+      return "border-amber-300 bg-amber-100 text-amber-900";
+    case 1:
+      return "border-slate-300 bg-slate-100 text-slate-800";
+    case 2:
+      return "border-orange-300 bg-orange-100 text-orange-900";
+    default:
+      return "border-emerald-200 bg-emerald-50 text-emerald-900";
+  }
 };
 
 const isMissingRelationOrColumnError = (error: DbErrorLike | null | undefined) => {
@@ -500,6 +610,92 @@ function SessionSection({
   );
 }
 
+function LeaderboardSection({ entries }: { entries: LeaderboardEntry[] }) {
+  return (
+    <section className="rounded-[2rem] border border-white/50 bg-white/88 p-5 shadow-xl backdrop-blur-md sm:p-7">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-xs font-semibold tracking-[0.28em] text-amber-700 uppercase">Rangliste</p>
+          <h2 className={`mt-2 text-3xl font-black text-emerald-950 sm:text-4xl ${rubik.className}`}>
+            Holdenes placering
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-900/75">
+            Sessionerne er sorteret efter flest rigtige svar og derefter hurtigste tid fra foerste til sidste
+            registrerede svar.
+          </p>
+        </div>
+
+        <div className="inline-flex w-fit rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold tracking-[0.2em] text-emerald-800 uppercase">
+          {entries.length} sessioner
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-4">
+        {entries.map((entry, index) => (
+          <article key={entry.sessionId} className={getLeaderboardCardClassName(index)}>
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex items-start gap-4">
+                <div
+                  className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border text-2xl font-black shadow-sm sm:h-16 sm:w-16 sm:text-3xl ${getLeaderboardBadgeClassName(index)}`}
+                >
+                  {getLeaderboardMedal(index)}
+                </div>
+
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-emerald-200 bg-white/70 px-3 py-1 text-[11px] font-bold tracking-[0.18em] text-emerald-800 uppercase">
+                      Plads {index + 1}
+                    </span>
+                    <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-bold tracking-[0.18em] text-sky-800 uppercase">
+                      {entry.pin ? `PIN ${entry.pin}` : "PIN ukendt"}
+                    </span>
+                    <span className={`rounded-full border px-3 py-1 text-[11px] font-bold uppercase ${getStatusClassName(entry.status)}`}>
+                      {getStatusLabel(entry.status)}
+                    </span>
+                  </div>
+
+                  <h3 className={`mt-3 break-words text-xl font-black text-emerald-950 sm:text-2xl ${rubik.className}`}>
+                    {entry.teamName}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-emerald-900/75">
+                    {entry.participantCount > 0
+                      ? `${entry.participantCount} deltagere i sessionen`
+                      : "Ingen deltagernavne er registreret endnu."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[24rem]">
+                <div className="rounded-[1.5rem] border border-emerald-200/80 bg-white/75 px-4 py-4">
+                  <p className="text-xs font-semibold tracking-[0.18em] text-emerald-700 uppercase">Point</p>
+                  <p className={`mt-2 text-3xl font-black text-emerald-950 ${rubik.className}`}>
+                    {entry.correctAnswerCount}
+                  </p>
+                  <p className="mt-1 text-sm text-emerald-900/70">
+                    {entry.answerCount > 0
+                      ? `af ${entry.answerCount} registrerede svar var rigtige`
+                      : "Ingen svar er registreret endnu"}
+                  </p>
+                </div>
+
+                <div className="rounded-[1.5rem] border border-sky-200/80 bg-sky-50/85 px-4 py-4">
+                  <p className="text-xs font-semibold tracking-[0.18em] text-sky-700 uppercase">Tid</p>
+                  <p className={`mt-2 text-2xl font-black text-sky-950 ${rubik.className}`}>
+                    {formatDuration(entry.durationMs)}
+                  </p>
+                  <p className="mt-1 text-sm text-sky-900/70">
+                    {entry.answerCount > 0 ? "Fra foerste til sidste svar" : "0 min fordi sessionen endnu er tom"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default async function RunResultsPage({ params, searchParams }: PageProps) {
   const { runId } = await params;
   const query = await searchParams;
@@ -589,9 +785,8 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
   }
 
   const sessionsWithSummaries: SessionSummary[] = liveSessions.map((session) => {
-    const sessionAnswers = answers
-      .filter((answer) => answer.session_id === session.id && normalizeName(answer.student_name).length > 0)
-      .sort(byAnswerTime);
+    const sessionAllAnswers = answers.filter((answer) => answer.session_id === session.id).sort(byAnswerTime);
+    const sessionAnswers = sessionAllAnswers.filter((answer) => normalizeName(answer.student_name).length > 0);
     const sessionParticipants = participants.filter(
       (participant) => participant.session_id === session.id && normalizeName(participant.student_name).length > 0
     );
@@ -624,9 +819,41 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
     return {
       ...session,
       participantRows,
-      answerCount: sessionAnswers.length,
+      answerCount: sessionAllAnswers.length,
+      correctAnswerCount: sessionAllAnswers.filter((answer) => answer.is_correct === true).length,
+      durationMs: getSessionDurationMs(session.created_at, sessionAllAnswers),
+      leaderboardName: getLeaderboardTeamName(participantRows, session.pin),
     };
   });
+
+  const leaderboardEntries: LeaderboardEntry[] = [...sessionsWithSummaries]
+    .sort((a, b) => {
+      if (b.correctAnswerCount !== a.correctAnswerCount) {
+        return b.correctAnswerCount - a.correctAnswerCount;
+      }
+
+      if (a.durationMs !== b.durationMs) {
+        return a.durationMs - b.durationMs;
+      }
+
+      const aTime = parseTimestamp(a.created_at) ?? 0;
+      const bTime = parseTimestamp(b.created_at) ?? 0;
+      if (aTime !== bTime) {
+        return aTime - bTime;
+      }
+
+      return a.leaderboardName.localeCompare(b.leaderboardName, "da");
+    })
+    .map((session) => ({
+      sessionId: session.id,
+      pin: session.pin,
+      status: session.status,
+      teamName: session.leaderboardName,
+      participantCount: session.participantRows.length,
+      answerCount: session.answerCount,
+      correctAnswerCount: session.correctAnswerCount,
+      durationMs: session.durationMs,
+    }));
 
   const activeSessions = sessionsWithSummaries.filter((session) => isSessionLive(session.status));
   const historicalSessions = sessionsWithSummaries.filter((session) => !isSessionLive(session.status));
@@ -695,6 +922,8 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
           </section>
         ) : (
           <div className="mt-10 space-y-10">
+            <LeaderboardSection entries={leaderboardEntries} />
+
             <SessionSection
               title="Aktive sessioner"
               description="Her ligger lobbyer og live-loeb, som stadig er aabne eller i gang lige nu."

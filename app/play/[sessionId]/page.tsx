@@ -160,6 +160,7 @@ type NavigatorWithWakeLock = Navigator & {
 const ACTIVE_PARTICIPANT_STORAGE_KEY = "gpslob_active_participant";
 const AUTO_UNLOCK_RADIUS = 15;
 const MANUAL_UNLOCK_RADIUS = 50;
+const AUTO_UNLOCK_CONFIRMATION_HITS = 2;
 const LOCATION_SYNC_INTERVAL_MS = 4000;
 const LOCATION_SYNC_DISTANCE_METERS = 5;
 const BAD_WORDS = ["tissemand", "lort", "pik", "fisse", "idiot", "bøsse", "luder", "snot"];
@@ -183,6 +184,20 @@ function toFiniteNumber(value: unknown): number | null {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
   }
+  return null;
+}
+
+function getNormalizedAnsweredPostIndex(row: AnswerProgressRow) {
+  const questionIndex = toFiniteNumber(row.question_index);
+  if (questionIndex !== null && questionIndex >= 0) {
+    return questionIndex;
+  }
+
+  const postNumber = toFiniteNumber(row.post_index);
+  if (postNumber !== null && postNumber > 0) {
+    return postNumber - 1;
+  }
+
   return null;
 }
 
@@ -219,6 +234,43 @@ function reloadPage() {
   if (typeof window !== "undefined") {
     window.location.reload();
   }
+}
+
+function getGpsErrorContent(gpsError: GpsErrorState | null) {
+  if (gpsError === "permission_denied") {
+    return {
+      title: "Hov! GPS-adgang mangler 🛑",
+      message:
+        "Du har afvist GPS-adgang. På iPhone: Tryk på 'Aa' i adressebaren for at tillade. På Android/Chrome: Tryk på hængelåsen ved siden af webadressen.",
+      helper: "Når GPS-adgangen er tilladt, kan løbet finde dine poster igen.",
+    };
+  }
+
+  if (gpsError === "position_unavailable") {
+    return {
+      title: "Dårligt GPS-signal lige nu",
+      message: "Vi kan ikke finde din præcise placering endnu. Bliv på siden, så prøver GPS'en igen.",
+      helper: "Det hjælper ofte at gå lidt væk fra høje bygninger og vente et øjeblik.",
+    };
+  }
+
+  if (gpsError === "unsupported") {
+    return {
+      title: "GPS er ikke tilgængelig på denne enhed",
+      message: "Din browser eller enhed giver ikke adgang til GPS her.",
+      helper: "Prøv i Safari på iPhone eller Chrome på Android, hvis I kan.",
+    };
+  }
+
+  if (gpsError === "timeout") {
+    return {
+      title: "Dårligt GPS-signal lige nu",
+      message: "GPS-søgningen tog for lang tid. Bliv på siden, så prøver vi igen automatisk.",
+      helper: "Det hjælper ofte at stå et sted med bedre udsyn til himlen.",
+    };
+  }
+
+  return null;
 }
 
 function parseQuestion(raw: unknown): Question | null {
@@ -424,6 +476,53 @@ function readFileAsDataUri(file: File) {
   });
 }
 
+function loadImageElement(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new window.Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Kunne ikke indlæse billedet."));
+    image.src = src;
+  });
+}
+
+async function compressImageForUpload(file: File) {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return readFileAsDataUri(file);
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await loadImageElement(objectUrl);
+    const sourceWidth = image.naturalWidth || image.width;
+    const sourceHeight = image.naturalHeight || image.height;
+    const longestSide = Math.max(sourceWidth, sourceHeight, 1);
+    const scale = longestSide > 1080 ? 1080 / longestSide : 1;
+    const targetWidth = Math.max(1, Math.round(sourceWidth * scale));
+    const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return readFileAsDataUri(file);
+    }
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, targetWidth, targetHeight);
+    context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+    return canvas.toDataURL("image/jpeg", 0.7);
+  } catch (error) {
+    console.error("Kunne ikke komprimere billedet lokalt:", error);
+    return readFileAsDataUri(file);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 function normalizeMasterCode(value: string) {
   return value.toLocaleUpperCase("da-DK").replace(/[^0-9A-ZÆØÅ]/g, "");
 }
@@ -514,6 +613,7 @@ function PlayScreen() {
     null
   );
   const [hasRoleplayInputErrorTone, setHasRoleplayInputErrorTone] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [playerIcon, setPlayerIcon] = useState<DivIcon | null>(null);
   const [targetIcon, setTargetIcon] = useState<DivIcon | null>(null);
   const [participantId, setParticipantId] = useState<string | null>(
@@ -530,6 +630,8 @@ function PlayScreen() {
   const masterVictoryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLocationSyncRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
   const isLocationSyncInFlightRef = useRef(false);
+  const submissionLockRef = useRef(false);
+  const autoUnlockConfirmationRef = useRef(0);
   const isMountedRef = useRef(true);
   const typedAnswerInputRef = useRef<HTMLInputElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
@@ -568,6 +670,7 @@ function PlayScreen() {
 
   const unlockCurrentPost = useCallback(() => {
     clearRoleplayInputErrorTone();
+    autoUnlockConfirmationRef.current = 0;
     setDismissedPostIndex(null);
     setPhotoFeedback(null);
     setPostActionError(null);
@@ -579,6 +682,7 @@ function PlayScreen() {
 
   const dismissCurrentPost = useCallback(() => {
     clearRoleplayInputErrorTone();
+    autoUnlockConfirmationRef.current = 0;
     setPhotoFeedback(null);
     setPostActionError(null);
     setQuizAnswerFeedback(null);
@@ -612,6 +716,21 @@ function PlayScreen() {
     },
     [sessionId]
   );
+
+  const beginSubmission = useCallback(() => {
+    if (isSubmitting || submissionLockRef.current) {
+      return false;
+    }
+
+    submissionLockRef.current = true;
+    setIsSubmitting(true);
+    return true;
+  }, [isSubmitting]);
+
+  const endSubmission = useCallback(() => {
+    submissionLockRef.current = false;
+    setIsSubmitting(false);
+  }, []);
 
   const handleNameSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
@@ -777,17 +896,22 @@ function PlayScreen() {
           }
         } else if (answersData) {
           const rows = answersData as AnswerProgressRow[];
-          const confirmedCorrect = rows.filter((row) => row.is_correct === true).length;
-          setCorrectAnswersCount(confirmedCorrect);
+          const confirmedCorrectPosts = new Set<number>();
+          for (const row of rows) {
+            if (row.is_correct !== true) continue;
+            const normalizedPostIndex = getNormalizedAnsweredPostIndex(row);
+            if (normalizedPostIndex === null || normalizedPostIndex < 0) continue;
+            confirmedCorrectPosts.add(normalizedPostIndex);
+          }
+          setCorrectAnswersCount(confirmedCorrectPosts.size);
           setCollectedEscapeRewards(getEscapeCodeEntriesFromRows(rows, questions));
 
           let highestCompletedPost = 0;
           for (const row of rows) {
             if (row.is_correct === false) continue;
-            const postFromPostIndex = toFiniteNumber(row.post_index);
-            const postFromQuestionIndex = toFiniteNumber(row.question_index);
+            const normalizedPostIndex = getNormalizedAnsweredPostIndex(row);
             const normalizedPostNumber =
-              postFromPostIndex ?? (postFromQuestionIndex === null ? null : postFromQuestionIndex + 1);
+              normalizedPostIndex === null ? null : normalizedPostIndex + 1;
             if (
               normalizedPostNumber !== null &&
               normalizedPostNumber > highestCompletedPost
@@ -1027,6 +1151,9 @@ function PlayScreen() {
         setEscapeReward(null);
         setPostActionError(null);
         setDismissedPostIndex(null);
+        autoUnlockConfirmationRef.current = 0;
+        submissionLockRef.current = false;
+        setIsSubmitting(false);
         setIsSubmittingAnswer(false);
         lastLocationSyncRef.current = null;
         isLocationSyncInFlightRef.current = false;
@@ -1111,7 +1238,7 @@ function PlayScreen() {
   const shouldKeepScreenAwake =
     !isLoading &&
     !loadError &&
-    !gpsError &&
+    gpsError !== "permission_denied" &&
     !isFinished &&
     !isKicked &&
     hasConfirmedName &&
@@ -1192,17 +1319,21 @@ function PlayScreen() {
           const dist = getDistance(lat, lng, target.lat, target.lng);
           setDistance(dist);
 
-          if (
-            dist <= AUTO_UNLOCK_RADIUS &&
-            !showQuestion &&
-            dismissedPostIndex !== currentPostIndex
-          ) {
-            unlockCurrentPost();
+          if (dist <= AUTO_UNLOCK_RADIUS && !showQuestion && dismissedPostIndex !== currentPostIndex) {
+            autoUnlockConfirmationRef.current += 1;
+            if (autoUnlockConfirmationRef.current >= AUTO_UNLOCK_CONFIRMATION_HITS) {
+              autoUnlockConfirmationRef.current = 0;
+              unlockCurrentPost();
+            }
+          } else {
+            autoUnlockConfirmationRef.current = 0;
           }
 
           if (dist > AUTO_UNLOCK_RADIUS && dismissedPostIndex === currentPostIndex) {
             setDismissedPostIndex(null);
           }
+        } else {
+          autoUnlockConfirmationRef.current = 0;
         }
 
         const lastLocationSync = lastLocationSyncRef.current;
@@ -1229,6 +1360,7 @@ function PlayScreen() {
       },
       (err) => {
         console.error("GPS Error:", err);
+        autoUnlockConfirmationRef.current = 0;
         if (err.code === err.PERMISSION_DENIED || err.code === 1) {
           setGpsError("permission_denied");
           return;
@@ -1470,6 +1602,38 @@ function PlayScreen() {
     return continueFromSolvedPost();
   };
 
+  const handleQuizAnswerSubmit = async (selectedIndex: number) => {
+    const current = questions[currentPostIndex];
+    if (!current || resolvePostVariant(raceMode, current) !== "quiz") return;
+    if (isSubmitting || submissionLockRef.current) return;
+    if (!beginSubmission()) return;
+
+    const feedbackKey = `${currentPostIndex}-quiz`;
+
+    if (activeTypedAnswerError) setTypedAnswerError(null);
+    if (activePostActionError) setPostActionError(null);
+    setIsSubmittingAnswer(true);
+
+    try {
+      const payload = await validateAnswerOnServer({ selectedIndex });
+      if (payload?.isCorrect === true) {
+        await handleAnswer(selectedIndex);
+      } else {
+        handleWrongQuizAnswer(selectedIndex, feedbackKey);
+      }
+    } catch (error) {
+      console.error("Kunne ikke validere quiz-svar:", error);
+      setTypedAnswerError({
+        key: feedbackKey,
+        message: "Netværksfejl - prøv igen",
+      });
+    } finally {
+      setIsSubmittingAnswer(false);
+      endSubmission();
+    }
+  };
+  void handleQuizAnswerSubmit;
+
   const activeQuestion = questions[currentPostIndex];
   const activePostVariant = activeQuestion ? resolvePostVariant(raceMode, activeQuestion) : "unknown";
   const activeQuestionDisplayText =
@@ -1564,6 +1728,10 @@ function PlayScreen() {
               helper: "Det hjælper ofte at genindlæse siden og stå et sted med bedre signal.",
             };
 
+  const isBlockingGpsError = gpsError === "permission_denied";
+  const gpsWarningContent =
+    gpsError && !isBlockingGpsError ? getGpsErrorContent(gpsError) : null;
+
   useEffect(() => {
     if (!isRoleplayImmersed || activeRoleplayReply) return;
 
@@ -1582,6 +1750,10 @@ function PlayScreen() {
   useEffect(() => {
     setWrongAttempts(0);
   }, [currentPostIndex]);
+
+  useEffect(() => {
+    autoUnlockConfirmationRef.current = 0;
+  }, [currentPostIndex, showQuestion]);
 
   const continueFromSolvedPost = async () => {
     clearRoleplayInputErrorTone();
@@ -1626,6 +1798,7 @@ function PlayScreen() {
 
   const handleMasterLockSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSubmitting || submissionLockRef.current) return;
 
     const normalizedInput = normalizeMasterCode(masterLockInput);
     if (!normalizedInput) {
@@ -1633,6 +1806,8 @@ function PlayScreen() {
       setMasterLockShakeNonce((prev) => prev + 1);
       return;
     }
+
+    if (!beginSubmission()) return;
 
     setMasterLockError(null);
     setShowMasterVictory(false);
@@ -1688,12 +1863,14 @@ function PlayScreen() {
       setMasterLockShakeNonce((prev) => prev + 1);
     } finally {
       setIsFinalizingEscape(false);
+      endSubmission();
     }
   };
 
   const handleTypedAnswerSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!activeQuestion || activePostVariant === "photo" || activePostVariant === "quiz") return;
+    if (isSubmitting || submissionLockRef.current) return;
 
     const typedAnswer = typedAnswerInputRef.current?.value ?? "";
     if (!typedAnswer.trim()) {
@@ -1706,6 +1883,8 @@ function PlayScreen() {
       );
       return;
     }
+
+    if (!beginSubmission()) return;
 
     setTypedAnswerError(null);
     setPostActionError(null);
@@ -1754,6 +1933,7 @@ function PlayScreen() {
       } else {
         setIsSubmittingAnswer(false);
       }
+      endSubmission();
     }
   };
 
@@ -1762,6 +1942,8 @@ function PlayScreen() {
     event.target.value = "";
 
     if (!file || !activeQuestion || activePostVariant !== "photo" || isAnalyzingPhoto || !sessionId) return;
+    if (isSubmitting || submissionLockRef.current) return;
+    if (!beginSubmission()) return;
     const isSelfie = activeQuestion.isSelfie === true;
 
     setPhotoFeedback(null);
@@ -1769,7 +1951,7 @@ function PlayScreen() {
     setIsAnalyzingPhoto(true);
 
     try {
-      const image = await readFileAsDataUri(file);
+      const image = await compressImageForUpload(file);
       const activeStudentName = playerName.trim() || pendingPlayerName.trim();
       const response = await fetch("/api/analyze-photo", {
         method: "POST",
@@ -1834,6 +2016,9 @@ function PlayScreen() {
           ? "Vi kunne ikke læse selfien helt endnu. Prøv igen med bedre lys og få både ansigt og baggrund tydeligt med."
           : "Ups, AI'en er lidt træt. Prøv at tage billedet igen.",
       });
+    } finally {
+      setIsAnalyzingPhoto(false);
+      endSubmission();
     }
   };
 
@@ -1925,7 +2110,7 @@ function PlayScreen() {
     );
   }
 
-  if (gpsError && !isFinished) {
+  if (isBlockingGpsError && !isFinished) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-red-950 via-[#2a0606] to-[#130303] px-6 text-white">
         <div className="w-full max-w-2xl rounded-3xl border border-red-400/40 bg-red-900/20 p-8 shadow-[0_0_40px_rgba(239,68,68,0.25)] backdrop-blur-md">
@@ -2074,7 +2259,7 @@ function PlayScreen() {
               <input
                 type="text"
                 value={masterLockInput}
-                disabled={masterLockStatus === "unlocked" || isFinalizingEscape}
+                disabled={masterLockStatus === "unlocked" || isFinalizingEscape || isSubmitting}
                 onChange={(event) => {
                   setMasterLockInput(event.target.value.toLocaleUpperCase("da-DK"));
                   if (masterLockError) setMasterLockError(null);
@@ -2106,7 +2291,7 @@ function PlayScreen() {
               ) : (
                 <button
                   type="submit"
-                  disabled={isFinalizingEscape}
+                  disabled={isFinalizingEscape || isSubmitting}
                   className="w-full rounded-2xl border border-amber-400/30 bg-amber-400/90 px-5 py-4 text-base font-black tracking-[0.24em] text-slate-950 uppercase transition hover:bg-amber-300"
                 >
                   {isFinalizingEscape ? "Åbner låsen..." : "Bryd låsen op"}
@@ -2304,8 +2489,31 @@ function PlayScreen() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_28%),radial-gradient(circle_at_20%_18%,rgba(56,189,248,0.12),transparent_24%),radial-gradient(circle_at_80%_8%,rgba(34,197,94,0.1),transparent_22%),linear-gradient(180deg,rgba(2,6,23,0.78)_0%,rgba(2,6,23,0.92)_52%,rgba(2,6,23,1)_100%)]" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_60%)]" />
 
+      {gpsWarningContent ? (
+        <div className="pointer-events-none absolute top-4 right-4 left-4 z-[1100] flex justify-center">
+          <div className="w-full max-w-xl rounded-[1.5rem] border border-amber-300/30 bg-amber-500/14 px-4 py-3 text-amber-50 shadow-[0_18px_40px_rgba(245,158,11,0.16)] backdrop-blur-xl">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-full border border-amber-300/25 bg-amber-300/12 p-2 text-amber-200">
+                <AlertCircle className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold tracking-[0.24em] text-amber-100/80 uppercase">
+                  Dårligt GPS-signal
+                </p>
+                <p className={`mt-1 text-sm font-semibold text-white ${wrapTextClass}`}>
+                  {gpsWarningContent.message}
+                </p>
+                <p className={`mt-1 text-xs text-amber-100/80 ${wrapTextClass}`}>{gpsWarningContent.helper}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div
-        className={`absolute top-4 right-4 left-4 z-[1000] space-y-4 transition-all duration-300 ${
+        className={`absolute right-4 left-4 z-[1000] space-y-4 transition-all duration-300 ${
+          gpsWarningContent ? "top-28" : "top-4"
+        } ${
           isRoleplayImmersed ? "pointer-events-none opacity-0 blur-md" : "opacity-100"
         }`}
       >
@@ -2521,7 +2729,7 @@ function PlayScreen() {
 
       {showQuestion && activeQuestion ? (
         <div className="animate-in fade-in zoom-in absolute inset-0 z-[2000] flex flex-col items-center justify-center overflow-y-auto bg-slate-950/90 p-6 backdrop-blur-xl duration-300">
-          <div className="w-full max-w-md overflow-hidden rounded-3xl border border-white/20 bg-slate-950/80 p-8 shadow-2xl shadow-emerald-950/30 backdrop-blur-xl">
+          <div className="w-full max-w-md overflow-hidden rounded-3xl border border-white/20 bg-slate-950/80 p-5 shadow-2xl shadow-emerald-950/30 backdrop-blur-xl sm:p-8">
             {activePostVariant === "escape" ? (
               <div className="mb-6">
                 <h2 className={`text-2xl font-black text-white ${wrapTextClass}`}>
@@ -2559,8 +2767,10 @@ function PlayScreen() {
                         <button
                           key={idx}
                           type="button"
-                          disabled={Boolean(hasActiveQuizSuccess) || isSubmittingAnswer}
+                          disabled={Boolean(hasActiveQuizSuccess) || isSubmittingAnswer || isSubmitting}
                           onClick={async () => {
+                            if (isSubmitting || submissionLockRef.current) return;
+                            if (!beginSubmission()) return;
                             if (activeTypedAnswerError) setTypedAnswerError(null);
                             if (activePostActionError) setPostActionError(null);
                             setIsSubmittingAnswer(true);
@@ -2580,9 +2790,10 @@ function PlayScreen() {
                               });
                             } finally {
                               setIsSubmittingAnswer(false);
+                              endSubmission();
                             }
                           }}
-                          className={`w-full overflow-hidden rounded-2xl border p-4 text-left font-semibold transition-all ${wrapTextClass} ${
+                          className={`min-h-[56px] w-full overflow-hidden rounded-2xl border p-4 text-left text-base font-semibold transition-all sm:text-lg ${wrapTextClass} ${
                             isSuccessAnswer
                               ? "border-emerald-600 bg-emerald-500 text-white shadow-[0_18px_38px_rgba(16,185,129,0.3)]"
                               : isErrorAnswer
@@ -2611,7 +2822,7 @@ function PlayScreen() {
                     <button
                       type="button"
                       onClick={() => void continueFromSolvedPost()}
-                      className="w-full rounded-2xl border border-emerald-300/40 bg-emerald-400 px-5 py-3 text-sm font-black tracking-[0.2em] text-slate-950 uppercase transition hover:bg-emerald-300"
+                      className="min-h-[56px] w-full rounded-2xl border border-emerald-300/40 bg-emerald-400 px-5 py-4 text-base font-black tracking-[0.2em] text-slate-950 uppercase transition hover:bg-emerald-300"
                     >
                       {currentPostIndex + 1 < questions.length ? "Gå til næste post" : "Se resultat"}
                     </button>
@@ -2654,7 +2865,7 @@ function PlayScreen() {
                   <button
                     type="button"
                     onClick={() => photoInputRef.current?.click()}
-                    disabled={isAnalyzingPhoto}
+                    disabled={isAnalyzingPhoto || isSubmitting}
                     className="inline-flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-sky-500 px-6 py-4 text-lg font-black text-slate-950 break-words hyphens-auto shadow-[0_24px_45px_rgba(14,165,233,0.22)] transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-sky-400/60"
                   >
                     {isAnalyzingPhoto ? (
@@ -2764,7 +2975,7 @@ function PlayScreen() {
                         type="text"
                         autoComplete="off"
                         spellCheck={false}
-                        disabled={isCheckingEscapeAnswer}
+                        disabled={isCheckingEscapeAnswer || isSubmitting}
                         onChange={() => {
                           if (activeTypedAnswerError) setTypedAnswerError(null);
                           if (activePostActionError) setPostActionError(null);
@@ -2786,15 +2997,15 @@ function PlayScreen() {
                       <button
                         type="button"
                         onClick={dismissCurrentPost}
-                        disabled={isCheckingEscapeAnswer}
+                          disabled={isCheckingEscapeAnswer || isSubmitting}
                         className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Annuller
                       </button>
                       <button
                         type="submit"
-                        disabled={isCheckingEscapeAnswer}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 px-5 py-3 font-semibold text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-amber-400/60"
+                          disabled={isCheckingEscapeAnswer || isSubmitting}
+                        className="inline-flex min-h-[56px] w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 px-5 py-4 text-base font-semibold text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-amber-400/60"
                       >
                         {isCheckingEscapeAnswer ? (
                           <>
@@ -2850,7 +3061,7 @@ function PlayScreen() {
 
                 <div className="relative ml-2 overflow-hidden rounded-[1.75rem] border border-violet-300/20 bg-slate-800/60 p-5 shadow-[0_18px_40px_rgba(59,130,246,0.16)] backdrop-blur-xl">
                   <span className="absolute -left-2 top-6 h-4 w-4 rotate-45 rounded-[0.45rem] border-l border-t border-violet-300/20 bg-slate-800/60" />
-                  <p className={`pr-1 text-sm leading-relaxed text-white ${wrapTextClass}`}>
+                  <p className={`pr-1 text-lg leading-relaxed text-white sm:text-xl ${wrapTextClass}`}>
                     {getRoleplayMessage(activeQuestion)}
                   </p>
                 </div>
@@ -2895,7 +3106,7 @@ function PlayScreen() {
                         key={`roleplay-input-${activeTypedAnswerKey}`}
                         ref={typedAnswerInputRef}
                         type="text"
-                        disabled={isSubmittingAnswer}
+                        disabled={isSubmittingAnswer || isSubmitting}
                         onChange={() => {
                           clearRoleplayInputErrorTone();
                           if (activeTypedAnswerError) setTypedAnswerError(null);
@@ -2908,7 +3119,7 @@ function PlayScreen() {
                           });
                         }}
                         placeholder={`Skriv dit svar til ${roleplayCharacterName}...`}
-                        className={`min-w-0 flex-1 rounded-2xl border bg-slate-950/80 px-4 py-3 text-white outline-none transition placeholder:text-violet-100/35 focus:ring-2 ${
+                        className={`min-w-0 flex-1 rounded-2xl border bg-slate-950/80 px-4 py-3 text-base text-white outline-none transition placeholder:text-violet-100/35 focus:ring-2 ${
                           hasRoleplayInputErrorTone
                             ? "border-rose-300/45 focus:border-rose-300/55 focus:ring-rose-300/20"
                             : "border-violet-200/15 focus:border-violet-300/50 focus:ring-violet-300/20"
@@ -2916,8 +3127,8 @@ function PlayScreen() {
                       />
                       <button
                         type="submit"
-                        disabled={isSubmittingAnswer}
-                        className="shrink-0 rounded-2xl bg-violet-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-violet-300 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={isSubmittingAnswer || isSubmitting}
+                        className="shrink-0 rounded-2xl bg-violet-400 px-5 py-4 text-base font-semibold text-slate-950 transition hover:bg-violet-300 disabled:cursor-not-allowed disabled:opacity-60 min-h-[56px]"
                       >
                         Send besked
                       </button>

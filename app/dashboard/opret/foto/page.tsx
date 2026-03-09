@@ -17,6 +17,14 @@ import {
   isRecord,
   toQuestionId,
 } from "@/utils/gpsRuns";
+import {
+  clearRunDraft,
+  restoreDraftBoolean,
+  restoreDraftMapCenter,
+  restoreDraftString,
+  restoreRunDraft,
+  writeRunDraft,
+} from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
 
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
@@ -200,6 +208,21 @@ type BuilderNotice = {
   message: string;
 };
 
+const FOTO_DRAFT_STORAGE_KEY = "draft_run_foto";
+
+type FotoBuilderDraftState = {
+  title?: unknown;
+  subject?: unknown;
+  showTeacherField?: unknown;
+  showAITeacherFields?: unknown;
+  questions?: unknown;
+  aiRunBrief?: unknown;
+  aiSubject?: unknown;
+  aiTopic?: unknown;
+  aiGrade?: unknown;
+  mapCenter?: unknown;
+};
+
 const createQuestion = (): Question => ({
   id: Date.now() + Math.floor(Math.random() * 100000),
   type: "ai_image",
@@ -342,6 +365,7 @@ function FotoMissionBuilderPageContent() {
       </div>
     ) : null;
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
+  const hasInitializedDraftRef = useRef(false);
 
   const scrollToSaveFeedback = () => {
     if (saveFeedbackRef.current) {
@@ -437,6 +461,78 @@ function FotoMissionBuilderPageContent() {
       isActive = false;
     };
   }, [editRunId, isEditMode]);
+
+  useEffect(() => {
+    if (hasInitializedDraftRef.current) return;
+
+    if (isEditMode) {
+      if (isLoadingExistingRun) return;
+      if (loadedRunId !== editRunId) {
+        hasInitializedDraftRef.current = true;
+        return;
+      }
+    }
+
+    const restoredDraft = restoreRunDraft<FotoBuilderDraftState>(
+      FOTO_DRAFT_STORAGE_KEY,
+      editRunId,
+      isEditMode
+        ? "Der ligger en ikke-gemt kladde til dette foto-løb. Vil du gendanne den?"
+        : "Der ligger en ikke-gemt kladde til foto-byggeren. Vil du gendanne den?"
+    );
+
+    if (restoredDraft) {
+      const restoredSubject = restoreDraftString(restoredDraft.subject);
+      const restoredQuestions = toPhotoQuestions(restoredDraft.questions);
+
+      setTitle(restoreDraftString(restoredDraft.title));
+      setSubject(restoredSubject);
+      setShowTeacherField(
+        restoreDraftBoolean(restoredDraft.showTeacherField, Boolean(restoredSubject.trim()))
+      );
+      setShowAITeacherFields(restoreDraftBoolean(restoredDraft.showAITeacherFields));
+      setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
+      setPreviewQuestions([]);
+      setShowAIModal(false);
+      setAiRunBrief(restoreDraftString(restoredDraft.aiRunBrief));
+      setAiSubject(restoreDraftString(restoredDraft.aiSubject));
+      setAiTopic(restoreDraftString(restoredDraft.aiTopic));
+      setAiGrade(restoreDraftString(restoredDraft.aiGrade) || "Mellemtrin");
+      setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
+      setNotice(null);
+    }
+
+    hasInitializedDraftRef.current = true;
+  }, [editRunId, isEditMode, isLoadingExistingRun, loadedRunId]);
+
+  useEffect(() => {
+    if (!hasInitializedDraftRef.current) return;
+
+    writeRunDraft(FOTO_DRAFT_STORAGE_KEY, editRunId, {
+      title,
+      subject,
+      showTeacherField,
+      showAITeacherFields,
+      questions,
+      aiRunBrief,
+      aiSubject,
+      aiTopic,
+      aiGrade,
+      mapCenter,
+    } satisfies FotoBuilderDraftState);
+  }, [
+    aiGrade,
+    aiRunBrief,
+    aiSubject,
+    aiTopic,
+    editRunId,
+    mapCenter,
+    questions,
+    showAITeacherFields,
+    showTeacherField,
+    subject,
+    title,
+  ]);
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -649,7 +745,7 @@ function FotoMissionBuilderPageContent() {
         aiPrompt: question.aiPrompt.trim(),
         answers: BLANK_ANSWERS,
         correctIndex: 0,
-        mediaUrl: "",
+        mediaUrl: question.mediaUrl.trim(),
       }))
       .filter(
         (question) =>
@@ -751,6 +847,7 @@ function FotoMissionBuilderPageContent() {
         tone: "success",
         message: isEditMode ? "Ændringerne er gemt i arkivet!" : "Foto-missionen er gemt i arkivet!",
       });
+      clearRunDraft(FOTO_DRAFT_STORAGE_KEY);
 
       if (!isEditMode) {
         setTitle("");

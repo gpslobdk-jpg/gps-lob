@@ -17,6 +17,14 @@ import {
   isRecord,
   toQuestionId,
 } from "@/utils/gpsRuns";
+import {
+  clearRunDraft,
+  restoreDraftBoolean,
+  restoreDraftMapCenter,
+  restoreDraftString,
+  restoreRunDraft,
+  writeRunDraft,
+} from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
 
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
@@ -100,8 +108,21 @@ type BuilderNotice = {
   message: string;
 };
 
+const SELFIE_DRAFT_STORAGE_KEY = "draft_run_selfie";
 const SELFIE_REMINDER = "Husk at få dit ansigt med på selfien!";
 const BLANK_ANSWERS: [string, string, string, string] = ["", "", "", ""];
+
+type SelfieBuilderDraftState = {
+  title?: unknown;
+  subject?: unknown;
+  showSubjectField?: unknown;
+  showAIMetadataFields?: unknown;
+  questions?: unknown;
+  aiRunBrief?: unknown;
+  aiSubject?: unknown;
+  aiGrade?: unknown;
+  mapCenter?: unknown;
+};
 
 const textInputClass =
   "w-full rounded-2xl border border-orange-400/20 bg-rose-950/55 px-4 py-3 text-orange-100 placeholder:text-orange-100/35 focus:border-rose-300 focus:outline-none focus:ring-2 focus:ring-orange-400";
@@ -209,6 +230,7 @@ export default function SelfieBuilderClient() {
     lng: DEFAULT_MAP_CENTER.lng,
   });
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
+  const hasInitializedDraftRef = useRef(false);
 
   const renderNotice = (className = "") =>
     notice ? (
@@ -316,6 +338,75 @@ export default function SelfieBuilderClient() {
       isActive = false;
     };
   }, [editRunId, isEditMode]);
+
+  useEffect(() => {
+    if (hasInitializedDraftRef.current) return;
+
+    if (isEditMode) {
+      if (isLoadingExistingRun) return;
+      if (loadedRunId !== editRunId) {
+        hasInitializedDraftRef.current = true;
+        return;
+      }
+    }
+
+    const restoredDraft = restoreRunDraft<SelfieBuilderDraftState>(
+      SELFIE_DRAFT_STORAGE_KEY,
+      editRunId,
+      isEditMode
+        ? "Der ligger en ikke-gemt kladde til dette selfie-løb. Vil du gendanne den?"
+        : "Der ligger en ikke-gemt kladde til selfie-byggeren. Vil du gendanne den?"
+    );
+
+    if (restoredDraft) {
+      const restoredSubject = restoreDraftString(restoredDraft.subject);
+      const restoredQuestions = toSelfieQuestions(restoredDraft.questions);
+
+      setTitle(restoreDraftString(restoredDraft.title));
+      setSubject(restoredSubject);
+      setShowSubjectField(
+        restoreDraftBoolean(restoredDraft.showSubjectField, Boolean(restoredSubject.trim()))
+      );
+      setShowAIMetadataFields(restoreDraftBoolean(restoredDraft.showAIMetadataFields));
+      setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
+      setPreviewQuestions([]);
+      setShowAIModal(false);
+      setAiRunBrief(restoreDraftString(restoredDraft.aiRunBrief));
+      setAiSubject(restoreDraftString(restoredDraft.aiSubject));
+      setAiGrade(restoreDraftString(restoredDraft.aiGrade) || "Mellemtrin");
+      setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
+      setNotice(null);
+    }
+
+    hasInitializedDraftRef.current = true;
+  }, [editRunId, isEditMode, isLoadingExistingRun, loadedRunId]);
+
+  useEffect(() => {
+    if (!hasInitializedDraftRef.current) return;
+
+    writeRunDraft(SELFIE_DRAFT_STORAGE_KEY, editRunId, {
+      title,
+      subject,
+      showSubjectField,
+      showAIMetadataFields,
+      questions,
+      aiRunBrief,
+      aiSubject,
+      aiGrade,
+      mapCenter,
+    } satisfies SelfieBuilderDraftState);
+  }, [
+    aiGrade,
+    aiRunBrief,
+    aiSubject,
+    editRunId,
+    mapCenter,
+    questions,
+    showAIMetadataFields,
+    showSubjectField,
+    subject,
+    title,
+  ]);
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -588,6 +679,7 @@ export default function SelfieBuilderClient() {
         tone: "success",
         message: isEditMode ? "Ændringerne er gemt i arkivet!" : "Selfie-jagten er gemt i arkivet!",
       });
+      clearRunDraft(SELFIE_DRAFT_STORAGE_KEY);
 
       if (!isEditMode) {
         setTitle("");

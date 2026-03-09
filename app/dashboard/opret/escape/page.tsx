@@ -18,6 +18,14 @@ import {
   readMasterCodeFromDescription,
   toQuestionId,
 } from "@/utils/gpsRuns";
+import {
+  clearRunDraft,
+  restoreDraftBoolean,
+  restoreDraftMapCenter,
+  restoreDraftString,
+  restoreRunDraft,
+  writeRunDraft,
+} from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
 
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
@@ -191,6 +199,8 @@ type StoredEscapeQuestionRecord = {
   aiPrompt?: unknown;
   ai_prompt?: unknown;
   hint?: unknown;
+  mediaUrl?: unknown;
+  media_url?: unknown;
   answers?: unknown;
   lat?: unknown;
   lng?: unknown;
@@ -199,6 +209,22 @@ type StoredEscapeQuestionRecord = {
 type BuilderNotice = {
   tone: "success" | "error";
   message: string;
+};
+
+const ESCAPE_DRAFT_STORAGE_KEY = "draft_run_escape";
+
+type EscapeBuilderDraftState = {
+  title?: unknown;
+  masterCode?: unknown;
+  subject?: unknown;
+  showSubjectField?: unknown;
+  showAIMetadataFields?: unknown;
+  questions?: unknown;
+  aiRunBrief?: unknown;
+  aiSubject?: unknown;
+  aiTopic?: unknown;
+  aiGrade?: unknown;
+  mapCenter?: unknown;
 };
 
 const textInputClass =
@@ -235,6 +261,8 @@ function toEscapeQuestions(value: unknown): Question[] {
       if (!isRecord(item)) return null;
 
       const candidate = item as StoredEscapeQuestionRecord;
+      const rawText = asTrimmedString(candidate.text);
+      const parsedLegacyText = parseEscapeText(rawText, index);
       const answers = Array.isArray(candidate.answers)
         ? candidate.answers.filter((answer): answer is string => typeof answer === "string")
         : [];
@@ -242,10 +270,10 @@ function toEscapeQuestions(value: unknown): Question[] {
       return {
         id: toQuestionId(candidate.id, timestamp + index),
         type: "multiple_choice",
-        text: asTrimmedString(candidate.text),
-        aiPrompt: asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt),
-        hint: asTrimmedString(candidate.hint),
-        mediaUrl: "",
+        text: parsedLegacyText.riddle || rawText,
+        aiPrompt: asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt) || parsedLegacyText.codeBrick,
+        hint: asTrimmedString(candidate.hint) || parsedLegacyText.hint,
+        mediaUrl: asTrimmedString(candidate.mediaUrl ?? candidate.media_url),
         answers: toEscapeAnswers(asTrimmedString(answers[0])),
         correctIndex: 0,
         lat: asNumberOrNull(candidate.lat),
@@ -359,6 +387,7 @@ function EscapeBuilderPageContent() {
       </div>
     ) : null;
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
+  const hasInitializedDraftRef = useRef(false);
 
   const scrollToSaveFeedback = () => {
     if (saveFeedbackRef.current) {
@@ -455,6 +484,81 @@ function EscapeBuilderPageContent() {
       isActive = false;
     };
   }, [editRunId, isEditMode]);
+
+  useEffect(() => {
+    if (hasInitializedDraftRef.current) return;
+
+    if (isEditMode) {
+      if (isLoadingExistingRun) return;
+      if (loadedRunId !== editRunId) {
+        hasInitializedDraftRef.current = true;
+        return;
+      }
+    }
+
+    const restoredDraft = restoreRunDraft<EscapeBuilderDraftState>(
+      ESCAPE_DRAFT_STORAGE_KEY,
+      editRunId,
+      isEditMode
+        ? "Der ligger en ikke-gemt kladde til dette escape-løb. Vil du gendanne den?"
+        : "Der ligger en ikke-gemt kladde til escape-byggeren. Vil du gendanne den?"
+    );
+
+    if (restoredDraft) {
+      const restoredSubject = restoreDraftString(restoredDraft.subject);
+      const restoredQuestions = toEscapeQuestions(restoredDraft.questions);
+
+      setTitle(restoreDraftString(restoredDraft.title));
+      setMasterCode(restoreDraftString(restoredDraft.masterCode));
+      setSubject(restoredSubject);
+      setShowSubjectField(
+        restoreDraftBoolean(restoredDraft.showSubjectField, Boolean(restoredSubject.trim()))
+      );
+      setShowAIMetadataFields(restoreDraftBoolean(restoredDraft.showAIMetadataFields));
+      setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
+      setPreviewQuestions([]);
+      setShowAIModal(false);
+      setAiRunBrief(restoreDraftString(restoredDraft.aiRunBrief));
+      setAiSubject(restoreDraftString(restoredDraft.aiSubject));
+      setAiTopic(restoreDraftString(restoredDraft.aiTopic));
+      setAiGrade(restoreDraftString(restoredDraft.aiGrade) || "Mellemtrin");
+      setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
+      setNotice(null);
+    }
+
+    hasInitializedDraftRef.current = true;
+  }, [editRunId, isEditMode, isLoadingExistingRun, loadedRunId]);
+
+  useEffect(() => {
+    if (!hasInitializedDraftRef.current) return;
+
+    writeRunDraft(ESCAPE_DRAFT_STORAGE_KEY, editRunId, {
+      title,
+      masterCode,
+      subject,
+      showSubjectField,
+      showAIMetadataFields,
+      questions,
+      aiRunBrief,
+      aiSubject,
+      aiTopic,
+      aiGrade,
+      mapCenter,
+    } satisfies EscapeBuilderDraftState);
+  }, [
+    aiGrade,
+    aiRunBrief,
+    aiSubject,
+    aiTopic,
+    editRunId,
+    mapCenter,
+    masterCode,
+    questions,
+    showAIMetadataFields,
+    showSubjectField,
+    subject,
+    title,
+  ]);
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -687,7 +791,7 @@ function EscapeBuilderPageContent() {
         hint: question.hint.trim(),
         answers: toEscapeAnswers(question.answers[0]?.trim() ?? ""),
         correctIndex: 0,
-        mediaUrl: "",
+        mediaUrl: question.mediaUrl.trim(),
       }))
       .filter(
         (question) =>
@@ -797,6 +901,7 @@ function EscapeBuilderPageContent() {
         tone: "success",
         message: isEditMode ? "Ændringerne er gemt i arkivet!" : "Escape room-løbet er gemt i arkivet!",
       });
+      clearRunDraft(ESCAPE_DRAFT_STORAGE_KEY);
 
       if (!isEditMode) {
         setTitle("");
