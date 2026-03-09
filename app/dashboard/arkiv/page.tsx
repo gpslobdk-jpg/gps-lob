@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useState, type FormEvent } from "react";
 
+import { getBuilderHrefForRaceType } from "@/utils/gpsRuns";
 import { buildRunScheduleUpdate, getRunSchedule, hasRunSchedule } from "@/utils/runSchedule";
 import { createClient } from "@/utils/supabase/client";
 
@@ -30,6 +31,8 @@ type RunQuestion = {
   lat?: number | null;
   lng?: number | null;
   mediaUrl?: string;
+  isSelfie?: boolean;
+  is_selfie?: boolean;
 };
 
 type Run = {
@@ -37,8 +40,11 @@ type Run = {
   title: string;
   subject: string;
   topic: string | null;
+  description?: string | null;
   questions: RunQuestion[] | null;
   created_at: string;
+  raceType?: string | null;
+  race_type?: string | null;
   [key: string]: unknown;
 };
 
@@ -193,6 +199,17 @@ export default function ArkivPage() {
   const [scheduleShareLink, setScheduleShareLink] = useState("");
   const [scheduleSessionSource, setScheduleSessionSource] = useState<"created" | "reused" | null>(null);
   const [didCopyScheduleAccess, setDidCopyScheduleAccess] = useState(false);
+
+  const handleEditRun = (run: Run) => {
+    const href = getBuilderHrefForRaceType(run.id, run.race_type ?? run.raceType);
+
+    if (!href) {
+      alert("Dette løb mangler en gyldig løbstype og kan ikke åbnes i redigering endnu.");
+      return;
+    }
+
+    router.push(href);
+  };
 
   useEffect(() => {
     const fetchRuns = async () => {
@@ -708,7 +725,7 @@ export default function ArkivPage() {
                         <button
                           type="button"
                           aria-label="Rediger løb"
-                          onClick={() => alert("Redigering af løb er under udvikling!")}
+                          onClick={() => handleEditRun(run)}
                           className="grid h-11 w-11 place-items-center rounded-xl border border-emerald-200 bg-white/50 text-emerald-700 transition hover:bg-white"
                         >
                           <Edit2 className="h-4 w-4" />

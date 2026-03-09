@@ -9,6 +9,7 @@ import { Poppins, Rubik } from "next/font/google";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import type { SavedPin } from "@/components/MapPicker";
+import { RACE_TYPES } from "@/utils/gpsRuns";
 import { createClient } from "@/utils/supabase/client";
 
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
@@ -179,6 +180,31 @@ type Question = {
   lng: number | null;
 };
 
+type StoredRunRecord = {
+  id: string;
+  user_id: string | null;
+  title: string | null;
+  subject: string | null;
+  description: string | null;
+  topic: string | null;
+  questions: unknown;
+};
+
+type StoredQuestionRecord = {
+  id?: unknown;
+  type?: unknown;
+  text?: unknown;
+  aiPrompt?: unknown;
+  ai_prompt?: unknown;
+  mediaUrl?: unknown;
+  media_url?: unknown;
+  answers?: unknown;
+  correctIndex?: unknown;
+  correct_index?: unknown;
+  lat?: unknown;
+  lng?: unknown;
+};
+
 type MapCenter = {
   lat: number;
   lng: number;
@@ -222,6 +248,27 @@ const reviewInputClass =
 
 const DEFAULT_ANSWERS: [string, string, string, string] = ["", "", "", ""];
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asTrimmedString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function asNumberOrNull(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
 function toAnswersTuple(value: unknown): [string, string, string, string] {
   if (!Array.isArray(value)) return DEFAULT_ANSWERS;
 
@@ -232,6 +279,43 @@ function toAnswersTuple(value: unknown): [string, string, string, string] {
   }
 
   return [padded[0] ?? "", padded[1] ?? "", padded[2] ?? "", padded[3] ?? ""];
+}
+
+function toQuestionId(value: unknown, fallback: number) {
+  const parsed = asNumberOrNull(value);
+  return parsed !== null && Number.isInteger(parsed) ? parsed : fallback;
+}
+
+function toQuestionList(value: unknown): Question[] {
+  if (!Array.isArray(value)) return [];
+
+  const timestamp = Date.now();
+
+  return value
+    .map((item, index): Question | null => {
+      if (!isRecord(item)) return null;
+
+      const candidate = item as StoredQuestionRecord;
+      const rawAnswers = toAnswersTuple(candidate.answers);
+      const correctIndex = asNumberOrNull(candidate.correctIndex ?? candidate.correct_index);
+      const safeCorrectIndex =
+        correctIndex !== null && Number.isInteger(correctIndex) && correctIndex >= 0 && correctIndex <= 3
+          ? correctIndex
+          : 0;
+
+      return {
+        id: toQuestionId(candidate.id, timestamp + index),
+        type: candidate.type === "ai_image" ? "ai_image" : "multiple_choice",
+        text: asTrimmedString(candidate.text),
+        aiPrompt: asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt),
+        mediaUrl: asTrimmedString(candidate.mediaUrl ?? candidate.media_url),
+        answers: rawAnswers,
+        correctIndex: safeCorrectIndex,
+        lat: asNumberOrNull(candidate.lat),
+        lng: asNumberOrNull(candidate.lng),
+      };
+    })
+    .filter((question): question is Question => question !== null);
 }
 
 function extractRequestedCount(text: string) {
@@ -274,9 +358,12 @@ function OpretLoebPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const defaultQuestionType = getQuestionTypeFromQuery(searchParams.get("type"));
+  const editRunId = searchParams.get("id")?.trim() ?? "";
+  const isEditMode = editRunId.length > 0;
   const addQuestionLabel =
     defaultQuestionType === "ai_image" ? "Tilføj ny mission" : "Tilføj nyt spørgsmål";
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [subject, setSubject] = useState<string>("");
   const [showTeacherField, setShowTeacherField] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
@@ -287,10 +374,12 @@ function OpretLoebPageContent() {
   const [aiGrade, setAiGrade] = useState("Mellemtrin");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingExistingRun, setIsLoadingExistingRun] = useState(isEditMode);
   const [generatingImages, setGeneratingImages] = useState<Record<number, boolean>>({});
   const [questions, setQuestions] = useState<Question[]>(() => [createQuestion(defaultQuestionType)]);
   const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
+  const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>({
     lat: 55.6761,
     lng: 12.5683,
@@ -323,6 +412,7 @@ function OpretLoebPageContent() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (editRunId) return;
 
     const rawDraft = window.sessionStorage.getItem(MAGIC_DRAFT_STORAGE_KEY);
     if (!rawDraft) return;
@@ -363,7 +453,95 @@ function OpretLoebPageContent() {
     } finally {
       window.sessionStorage.removeItem(MAGIC_DRAFT_STORAGE_KEY);
     }
-  }, []);
+  }, [editRunId]);
+
+  useEffect(() => {
+    if (!isEditMode) {
+      setIsLoadingExistingRun(false);
+      setLoadedRunId(null);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadRunForEditing = async () => {
+      setIsLoadingExistingRun(true);
+      setLoadedRunId(null);
+      setNotice(null);
+
+      const supabase = createClient();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (!isActive) return;
+
+      if (userError || !user) {
+        setNotice({ tone: "error", message: "Du skal være logget ind for at redigere dette løb." });
+        setIsLoadingExistingRun(false);
+        return;
+      }
+
+      const { data: run, error } = await supabase
+        .from("gps_runs")
+        .select("id,user_id,title,subject,description,topic,questions")
+        .eq("id", editRunId)
+        .eq("user_id", user.id)
+        .single<StoredRunRecord>();
+
+      if (!isActive) return;
+
+      if (error || !run) {
+        console.error("Kunne ikke hente løbet til redigering:", error);
+        setNotice({
+          tone: "error",
+          message: "Vi kunne ikke åbne dette løb til redigering. Tjek at du er ejer, og prøv igen fra arkivet.",
+        });
+        setIsLoadingExistingRun(false);
+        return;
+      }
+
+      const loadedQuestions = toQuestionList(run.questions);
+      const loadedDescription = asTrimmedString(run.description);
+      const loadedTopic = asTrimmedString(run.topic);
+      const nextDescription = loadedDescription || loadedTopic;
+      const firstPinnedQuestion =
+        loadedQuestions.find((question) => question.lat !== null && question.lng !== null) ?? null;
+
+      setTitle(asTrimmedString(run.title));
+      setDescription(nextDescription);
+      setSubject(asTrimmedString(run.subject));
+      setShowTeacherField(Boolean(asTrimmedString(run.subject)));
+      setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion(defaultQuestionType)]);
+      setPreviewQuestions([]);
+      setGeneratingImages({});
+      setShowAIModal(false);
+      setShowAITeacherFields(false);
+      setAiSubject("");
+      setAiRunBrief(loadedTopic || nextDescription);
+      setAiTopic(loadedTopic || nextDescription);
+      setMapCenter(
+        firstPinnedQuestion
+          ? {
+              lat: firstPinnedQuestion.lat ?? 55.6761,
+              lng: firstPinnedQuestion.lng ?? 12.5683,
+            }
+          : {
+              lat: 55.6761,
+              lng: 12.5683,
+            }
+      );
+      setLoadedRunId(run.id);
+      setIsLoadingExistingRun(false);
+    };
+
+    void loadRunForEditing();
+
+    return () => {
+      isActive = false;
+    };
+  }, [defaultQuestionType, editRunId, isEditMode]);
 
   useEffect(() => {
     setQuestions((current) => {
@@ -588,7 +766,7 @@ function OpretLoebPageContent() {
 
   const handleGenerateAIImage = async (questionId: number, questionText: string) => {
     const normalizedSubject = aiSubject.trim() || subject.trim() || "Generelt";
-    const normalizedTopic = aiTopic.trim() || aiRunBrief.trim();
+    const normalizedTopic = aiTopic.trim() || aiRunBrief.trim() || description.trim();
 
     if (!normalizedTopic) {
       setNotice({
@@ -625,6 +803,15 @@ function OpretLoebPageContent() {
 
   const handleSaveRun = async () => {
     setNotice(null);
+
+    if (isEditMode && loadedRunId !== editRunId) {
+      setNotice({
+        tone: "error",
+        message: "Løbet er ikke indlæst endnu. Vent et øjeblik og prøv igen.",
+      });
+      scrollToSaveFeedback();
+      return;
+    }
 
     if (!title.trim()) {
       setNotice({ tone: "error", message: "Udfyld venligst titel." });
@@ -685,6 +872,8 @@ function OpretLoebPageContent() {
     setIsSaving(true);
 
     try {
+      const normalizedDescription = description.trim();
+      const normalizedTopic = aiRunBrief.trim() || aiTopic.trim() || normalizedDescription;
       const supabase = createClient();
       const {
         data: { user },
@@ -700,27 +889,61 @@ function OpretLoebPageContent() {
         return;
       }
 
-      const { error } = await supabase.from("gps_runs").insert({
-        user_id: user.id,
+      const payload = {
         title: title.trim(),
         subject: subject.trim() || "Generelt",
-        description: "",
-        topic: aiRunBrief.trim() || aiTopic || "",
+        description: normalizedDescription,
+        topic: normalizedTopic,
         questions: normalizedQuestions,
-      });
+        race_type: RACE_TYPES.MANUEL,
+      };
 
-      if (error) {
-        throw error;
+      if (isEditMode) {
+        const { data: updatedRuns, error } = await supabase
+          .from("gps_runs")
+          .update(payload)
+          .eq("id", editRunId)
+          .eq("user_id", user.id)
+          .select("id");
+
+        if (error) {
+          throw error;
+        }
+
+        if (!updatedRuns || updatedRuns.length === 0) {
+          setNotice({
+            tone: "error",
+            message: "Vi kunne ikke gemme ændringerne. Tjek at du stadig ejer løbet.",
+          });
+          scrollToSaveFeedback();
+          return;
+        }
+      } else {
+        const { error } = await supabase.from("gps_runs").insert({
+          user_id: user.id,
+          ...payload,
+        });
+
+        if (error) {
+          throw error;
+        }
       }
 
-      setNotice({ tone: "success", message: "Løbet er gemt i arkivet!" });
+      setNotice({
+        tone: "success",
+        message: isEditMode ? "Ændringerne er gemt i arkivet!" : "Løbet er gemt i arkivet!",
+      });
 
-      setTitle("");
-      setSubject("");
-      setShowTeacherField(false);
-      setQuestions([createQuestion(defaultQuestionType)]);
-      setAiRunBrief("");
-      setGeneratingImages({});
+      if (!isEditMode) {
+        setTitle("");
+        setDescription("");
+        setSubject("");
+        setShowTeacherField(false);
+        setQuestions([createQuestion(defaultQuestionType)]);
+        setAiRunBrief("");
+        setAiTopic("");
+        setGeneratingImages({});
+      }
 
       await new Promise((resolve) => window.setTimeout(resolve, 450));
       router.push("/dashboard/arkiv");
@@ -735,6 +958,28 @@ function OpretLoebPageContent() {
   const truncateText = (text: string, length: number) =>
     text.length > length ? text.substring(0, length) + "..." : text;
 
+  if (isEditMode && isLoadingExistingRun) {
+    return (
+      <div className={`relative min-h-screen overflow-hidden bg-emerald-950 text-emerald-100 ${poppins.className}`}>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.28),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(110,231,183,0.12),_transparent_28%)]" />
+        <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
+          <div className="w-full max-w-md rounded-[2rem] border border-emerald-500/20 bg-emerald-950/55 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+            <Loader2 className="mx-auto h-10 w-10 animate-spin text-emerald-200" />
+            <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-emerald-100/55 uppercase">
+              Rediger løb
+            </p>
+            <h1 className={`mt-3 text-3xl font-black tracking-tight text-emerald-100 ${rubik.className}`}>
+              Indlæser dine spørgsmål
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-emerald-100/70">
+              Vi henter løbets data og klargør builderen til redigering.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className={`relative min-h-screen overflow-x-hidden bg-emerald-950 text-emerald-100 ${poppins.className}`}>
@@ -743,6 +988,11 @@ function OpretLoebPageContent() {
           <section className="w-full px-4 py-4 sm:px-6 sm:py-6 lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
             <div className="mx-auto max-w-3xl space-y-5">
               <div className="px-1 pt-1">
+                {isEditMode ? (
+                  <div className="mb-4 inline-flex items-center rounded-full border border-emerald-400/25 bg-emerald-400/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-emerald-100 uppercase">
+                    Edit-mode
+                  </div>
+                ) : null}
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
                   Løbets titel
                 </label>
@@ -751,6 +1001,19 @@ function OpretLoebPageContent() {
                   onChange={(event) => setTitle(event.target.value)}
                   placeholder="F.eks. Firmaets sommerfest"
                   className="w-full rounded-[1.6rem] border border-emerald-500/20 bg-emerald-950/50 px-5 py-4 text-xl font-bold text-emerald-100 placeholder:text-emerald-100/35 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="px-1">
+                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                  Beskrivelse
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  rows={3}
+                  placeholder="Kort intro eller beskrivelse af løbet (valgfrit)"
+                  className="w-full rounded-[1.6rem] border border-emerald-500/20 bg-emerald-950/50 px-5 py-4 text-sm leading-6 text-emerald-100 placeholder:text-emerald-100/35 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
@@ -1009,7 +1272,7 @@ function OpretLoebPageContent() {
                     disabled={isSaving}
                     className="w-full rounded-[1.6rem] border border-emerald-400/30 bg-emerald-500/22 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-emerald-100 shadow-[0_14px_34px_rgba(16,185,129,0.18)] transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
+                    {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
                   </button>
                 </div>
               </div>

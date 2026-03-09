@@ -3,11 +3,21 @@
 import { ChevronDown, ChevronUp, Loader2, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
-import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import type { SavedPin } from "@/components/MapPicker";
 import { ESCAPE_PROMPT, SYSTEM_ARKITEKT } from "@/constants/aiPrompts";
+import {
+  DEFAULT_MAP_CENTER,
+  RACE_TYPES,
+  type StoredRunRecord,
+  asNumberOrNull,
+  asTrimmedString,
+  isRecord,
+  readMasterCodeFromDescription,
+  toQuestionId,
+} from "@/utils/gpsRuns";
 import { createClient } from "@/utils/supabase/client";
 
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
@@ -175,6 +185,17 @@ type GeneratedEscapeQuestion = {
   correctIndex?: number;
 };
 
+type StoredEscapeQuestionRecord = {
+  id?: unknown;
+  text?: unknown;
+  aiPrompt?: unknown;
+  ai_prompt?: unknown;
+  hint?: unknown;
+  answers?: unknown;
+  lat?: unknown;
+  lng?: unknown;
+};
+
 type BuilderNotice = {
   tone: "success" | "error";
   message: string;
@@ -203,6 +224,36 @@ const createQuestion = (): Question => ({
   lat: null,
   lng: null,
 });
+
+function toEscapeQuestions(value: unknown): Question[] {
+  if (!Array.isArray(value)) return [];
+
+  const timestamp = Date.now();
+
+  return value
+    .map((item, index): Question | null => {
+      if (!isRecord(item)) return null;
+
+      const candidate = item as StoredEscapeQuestionRecord;
+      const answers = Array.isArray(candidate.answers)
+        ? candidate.answers.filter((answer): answer is string => typeof answer === "string")
+        : [];
+
+      return {
+        id: toQuestionId(candidate.id, timestamp + index),
+        type: "multiple_choice",
+        text: asTrimmedString(candidate.text),
+        aiPrompt: asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt),
+        hint: asTrimmedString(candidate.hint),
+        mediaUrl: "",
+        answers: toEscapeAnswers(asTrimmedString(answers[0])),
+        correctIndex: 0,
+        lat: asNumberOrNull(candidate.lat),
+        lng: asNumberOrNull(candidate.lng),
+      };
+    })
+    .filter((question): question is Question => question !== null);
+}
 
 function toEscapeAnswers(solution: string): [string, string, string, string] {
   return [solution, "", "", ""];
@@ -246,7 +297,33 @@ function parseEscapeText(rawText: string, index: number) {
 }
 
 export default function EscapeBuilderPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className={`min-h-screen bg-amber-950 ${poppins.className}`}>
+          <div className="flex min-h-screen items-center justify-center px-6 text-center">
+            <div className="rounded-[2rem] border border-amber-500/20 bg-amber-950/50 px-8 py-10 text-amber-100 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+              <p className="text-xs font-semibold tracking-[0.28em] text-amber-100/55 uppercase">
+                Indlæser
+              </p>
+              <h1 className={`mt-3 text-3xl font-black tracking-tight text-amber-100 ${rubik.className}`}>
+                Escape-bygger
+              </h1>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <EscapeBuilderPageContent />
+    </Suspense>
+  );
+}
+
+function EscapeBuilderPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editRunId = searchParams.get("id")?.trim() ?? "";
+  const isEditMode = editRunId.length > 0;
   const [title, setTitle] = useState("");
   const [masterCode, setMasterCode] = useState("");
   const [subject, setSubject] = useState("");
@@ -259,12 +336,14 @@ export default function EscapeBuilderPage() {
   const [aiGrade, setAiGrade] = useState("Mellemtrin");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingExistingRun, setIsLoadingExistingRun] = useState(isEditMode);
+  const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([createQuestion()]);
   const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>({
-    lat: 55.6761,
-    lng: 12.5683,
+    lat: DEFAULT_MAP_CENTER.lat,
+    lng: DEFAULT_MAP_CENTER.lng,
   });
 
   const renderNotice = (className = "") =>
@@ -291,6 +370,91 @@ export default function EscapeBuilderPage() {
       window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
     }
   };
+
+  useEffect(() => {
+    if (!isEditMode) {
+      setIsLoadingExistingRun(false);
+      setLoadedRunId(null);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadRunForEditing = async () => {
+      setIsLoadingExistingRun(true);
+      setLoadedRunId(null);
+      setNotice(null);
+
+      const supabase = createClient();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (!isActive) return;
+
+      if (userError || !user) {
+        setNotice({ tone: "error", message: "Du skal være logget ind for at redigere dette løb." });
+        setIsLoadingExistingRun(false);
+        return;
+      }
+
+      const { data: run, error } = await supabase
+        .from("gps_runs")
+        .select("id,user_id,title,subject,description,topic,questions,race_type")
+        .eq("id", editRunId)
+        .eq("user_id", user.id)
+        .single<StoredRunRecord>();
+
+      if (!isActive) return;
+
+      if (error || !run) {
+        console.error("Kunne ikke hente escape-løbet til redigering:", error);
+        setNotice({
+          tone: "error",
+          message: "Vi kunne ikke åbne dette escape-løb til redigering. Tjek at du er ejer, og prøv igen fra arkivet.",
+        });
+        setIsLoadingExistingRun(false);
+        return;
+      }
+
+      const loadedQuestions = toEscapeQuestions(run.questions);
+      const loadedTopic = asTrimmedString(run.topic);
+      const firstPinnedQuestion =
+        loadedQuestions.find((question) => question.lat !== null && question.lng !== null) ?? null;
+
+      setTitle(asTrimmedString(run.title));
+      setMasterCode(readMasterCodeFromDescription(run.description));
+      setSubject(asTrimmedString(run.subject));
+      setShowSubjectField(Boolean(asTrimmedString(run.subject)));
+      setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
+      setPreviewQuestions([]);
+      setShowAIModal(false);
+      setShowAIMetadataFields(false);
+      setAiSubject("");
+      setAiRunBrief(loadedTopic);
+      setAiTopic(loadedTopic);
+      setMapCenter(
+        firstPinnedQuestion
+          ? {
+              lat: firstPinnedQuestion.lat ?? DEFAULT_MAP_CENTER.lat,
+              lng: firstPinnedQuestion.lng ?? DEFAULT_MAP_CENTER.lng,
+            }
+          : {
+              lat: DEFAULT_MAP_CENTER.lat,
+              lng: DEFAULT_MAP_CENTER.lng,
+            }
+      );
+      setLoadedRunId(run.id);
+      setIsLoadingExistingRun(false);
+    };
+
+    void loadRunForEditing();
+
+    return () => {
+      isActive = false;
+    };
+  }, [editRunId, isEditMode]);
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -499,6 +663,15 @@ export default function EscapeBuilderPage() {
   const handleSaveRun = async () => {
     setNotice(null);
 
+    if (isEditMode && loadedRunId !== editRunId) {
+      setNotice({
+        tone: "error",
+        message: "Løbet er ikke indlæst endnu. Vent et øjeblik og prøv igen.",
+      });
+      scrollToSaveFeedback();
+      return;
+    }
+
     if (!title.trim()) {
       setNotice({ tone: "error", message: "Udfyld venligst løbets titel." });
       scrollToSaveFeedback();
@@ -580,31 +753,60 @@ export default function EscapeBuilderPage() {
         return;
       }
 
-      const { error } = await supabase.from("gps_runs").insert({
-        user_id: user.id,
+      const payload = {
         title: title.trim(),
         subject: subject.trim() || "Generelt",
         description: JSON.stringify({ masterCode: normalizedMasterCode }),
         topic: aiRunBrief.trim() || aiTopic || "",
         questions: normalizedQuestions,
-      });
+        race_type: RACE_TYPES.ESCAPE,
+      };
 
-      if (error) {
-        throw error;
+      if (isEditMode) {
+        const { data: updatedRuns, error } = await supabase
+          .from("gps_runs")
+          .update(payload)
+          .eq("id", editRunId)
+          .eq("user_id", user.id)
+          .select("id");
+
+        if (error) {
+          throw error;
+        }
+
+        if (!updatedRuns || updatedRuns.length === 0) {
+          setNotice({
+            tone: "error",
+            message: "Vi kunne ikke gemme ændringerne. Tjek at du stadig ejer løbet.",
+          });
+          scrollToSaveFeedback();
+          return;
+        }
+      } else {
+        const { error } = await supabase.from("gps_runs").insert({
+          user_id: user.id,
+          ...payload,
+        });
+
+        if (error) {
+          throw error;
+        }
       }
 
       setNotice({
         tone: "success",
-        message: "Escape room-løbet er gemt i arkivet!",
+        message: isEditMode ? "Ændringerne er gemt i arkivet!" : "Escape room-løbet er gemt i arkivet!",
       });
 
-      setTitle("");
-      setMasterCode("");
-      setSubject("");
-      setShowSubjectField(false);
-      setQuestions([createQuestion()]);
-      setAiRunBrief("");
-      setAiTopic("");
+      if (!isEditMode) {
+        setTitle("");
+        setMasterCode("");
+        setSubject("");
+        setShowSubjectField(false);
+        setQuestions([createQuestion()]);
+        setAiRunBrief("");
+        setAiTopic("");
+      }
 
       await new Promise((resolve) => window.setTimeout(resolve, 450));
       router.push("/dashboard/arkiv");
@@ -616,6 +818,28 @@ export default function EscapeBuilderPage() {
     }
   };
 
+  if (isEditMode && isLoadingExistingRun) {
+    return (
+      <div className={`relative min-h-screen overflow-hidden bg-amber-950 text-amber-100 ${poppins.className}`}>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(245,158,11,0.28),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(253,230,138,0.12),_transparent_28%)]" />
+        <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
+          <div className="w-full max-w-md rounded-[2rem] border border-amber-500/20 bg-amber-950/55 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+            <Loader2 className="mx-auto h-10 w-10 animate-spin text-amber-200" />
+            <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-amber-100/55 uppercase">
+              Rediger løb
+            </p>
+            <h1 className={`mt-3 text-3xl font-black tracking-tight text-amber-100 ${rubik.className}`}>
+              Indlæser dine escape-poster
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-amber-100/70">
+              Vi henter løbets data og klargør builderen til redigering.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className={`relative min-h-screen overflow-x-hidden bg-amber-950 text-amber-100 ${poppins.className}`}>
@@ -624,6 +848,11 @@ export default function EscapeBuilderPage() {
           <section className="w-full px-4 py-4 sm:px-6 sm:py-6 lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
             <div className="mx-auto max-w-3xl space-y-6">
               <div className="px-1 pt-1">
+                {isEditMode ? (
+                  <div className="mb-4 inline-flex items-center rounded-full border border-amber-400/25 bg-amber-400/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-amber-100 uppercase">
+                    Edit-mode
+                  </div>
+                ) : null}
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
                   Løbets titel
                 </label>
@@ -819,7 +1048,7 @@ export default function EscapeBuilderPage() {
                     disabled={isSaving}
                     className="w-full rounded-[1.5rem] border border-amber-400/30 bg-amber-500/22 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-amber-100 shadow-[0_14px_34px_rgba(245,158,11,0.18)] transition hover:bg-amber-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
+                    {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
                   </button>
                 </div>
               </div>

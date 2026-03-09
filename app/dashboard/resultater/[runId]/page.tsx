@@ -5,6 +5,7 @@ import { Poppins, Rubik } from "next/font/google";
 
 import ClearRunDataButton from "@/app/dashboard/resultater/[runId]/ClearRunDataButton";
 import StoredAnswerImage from "@/app/dashboard/resultater/[runId]/StoredAnswerImage";
+import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
 
 const rubik = Rubik({
@@ -84,6 +85,46 @@ type PageFeedback = {
 };
 
 const ACTIVE_STATUSES = new Set(["waiting", "running"]);
+const PARTICIPANT_UPLOADS_BUCKET = "participant-uploads";
+const STORAGE_REMOVE_CHUNK_SIZE = 100;
+const STORAGE_URL_PREFIXES = [
+  `/storage/v1/object/public/${PARTICIPANT_UPLOADS_BUCKET}/`,
+  `/storage/v1/object/authenticated/${PARTICIPANT_UPLOADS_BUCKET}/`,
+  `/storage/v1/object/sign/${PARTICIPANT_UPLOADS_BUCKET}/`,
+];
+
+const normalizeStoragePath = (value: string) => {
+  let normalized = value.trim().replace(/^\/+/, "");
+  const bucketPrefix = `${PARTICIPANT_UPLOADS_BUCKET}/`;
+
+  if (normalized.startsWith(bucketPrefix)) {
+    normalized = normalized.slice(bucketPrefix.length);
+  }
+
+  return normalized;
+};
+
+const extractParticipantUploadPath = (imageUrl: string | null | undefined) => {
+  const rawValue = imageUrl?.trim();
+  if (!rawValue) return null;
+
+  if (!rawValue.includes("://")) {
+    const normalized = normalizeStoragePath(rawValue);
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  try {
+    const parsedUrl = new URL(rawValue);
+    const matchingPrefix = STORAGE_URL_PREFIXES.find((prefix) => parsedUrl.pathname.startsWith(prefix));
+
+    if (!matchingPrefix) return null;
+
+    const normalized = normalizeStoragePath(decodeURIComponent(parsedUrl.pathname.slice(matchingPrefix.length)));
+    return normalized.length > 0 ? normalized : null;
+  } catch {
+    return null;
+  }
+};
 
 const normalizeName = (value: string | null | undefined) => value?.trim() ?? "";
 
@@ -203,7 +244,7 @@ const getFeedbackFromQuery = (searchParams: Record<string, string | string[] | u
     return {
       tone: "success",
       title: "Data ryddet",
-      message: "Alle besvarelser, deltagerspor og live-sessioner for dette loeb er slettet.",
+      message: "Alle gemte billeder, besvarelser, deltagerspor og live-sessioner for dette loeb er slettet.",
     };
   }
 
@@ -229,6 +270,7 @@ async function clearRunDataAction(runId: string) {
   "use server";
 
   const supabase = await createClient();
+  const adminSupabase = createAdminClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -264,6 +306,41 @@ async function clearRunDataAction(runId: string) {
     .filter((sessionId) => sessionId.length > 0);
 
   if (sessionIds.length > 0) {
+    const answersClient = adminSupabase ?? supabase;
+    const storageClient = adminSupabase ?? supabase;
+    const { data: answerImageRows, error: answerImagesError } = await answersClient
+      .from("answers")
+      .select("image_url")
+      .in("session_id", sessionIds)
+      .not("image_url", "is", null);
+
+    if (answerImagesError && !isMissingRelationOrColumnError(answerImagesError)) {
+      console.error("Kunne ikke hente billedstier til rydning:", answerImagesError);
+      redirect(`/dashboard/resultater/${runId}?error=delete_failed`);
+    }
+
+    const imagePaths = Array.from(
+      new Set(
+        (answerImageRows ?? [])
+          .map((row) => extractParticipantUploadPath((row as { image_url?: string | null }).image_url ?? null))
+          .filter((path): path is string => Boolean(path))
+      )
+    );
+
+    for (let index = 0; index < imagePaths.length; index += STORAGE_REMOVE_CHUNK_SIZE) {
+      const chunk = imagePaths.slice(index, index + STORAGE_REMOVE_CHUNK_SIZE);
+      const { error: storageDeleteError } = await storageClient.storage
+        .from(PARTICIPANT_UPLOADS_BUCKET)
+        .remove(chunk);
+
+      if (storageDeleteError) {
+        console.warn("Kunne ikke slette et eller flere deltagerbilleder fra Storage. Fortsaetter med databasen.", {
+          paths: chunk,
+          error: storageDeleteError,
+        });
+      }
+    }
+
     for (const tableName of ["answers", "participants", "session_students", "session_messages", "messages"] as const) {
       const { error } = await supabase.from(tableName).delete().in("session_id", sessionIds);
       if (error && !isMissingRelationOrColumnError(error)) {

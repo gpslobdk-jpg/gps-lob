@@ -3,11 +3,20 @@
 import { ChevronDown, ChevronUp, Loader2, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
-import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import type { SavedPin } from "@/components/MapPicker";
 import { SYSTEM_ARKITEKT, TIDSMASKINE_PROMPT } from "@/constants/aiPrompts";
+import {
+  DEFAULT_MAP_CENTER,
+  RACE_TYPES,
+  type StoredRunRecord,
+  asNumberOrNull,
+  asTrimmedString,
+  isRecord,
+  toQuestionId,
+} from "@/utils/gpsRuns";
 import { createClient } from "@/utils/supabase/client";
 
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
@@ -188,6 +197,16 @@ type GeneratedRoleplayQuestion = {
   correctIndex?: number;
 };
 
+type StoredRoleplayQuestionRecord = {
+  id?: unknown;
+  text?: unknown;
+  aiPrompt?: unknown;
+  ai_prompt?: unknown;
+  answers?: unknown;
+  lat?: unknown;
+  lng?: unknown;
+};
+
 type BuilderNotice = {
   tone: "success" | "error";
   message: string;
@@ -277,8 +296,65 @@ function parseRoleplayText(rawText: string, index: number) {
   return { message, characterName, avatar };
 }
 
+function toRoleplayQuestions(value: unknown): Question[] {
+  if (!Array.isArray(value)) return [];
+
+  const timestamp = Date.now();
+
+  return value
+    .map((item, index): Question | null => {
+      if (!isRecord(item)) return null;
+
+      const candidate = item as StoredRoleplayQuestionRecord;
+      const answers = Array.isArray(candidate.answers)
+        ? candidate.answers.filter((answer): answer is string => typeof answer === "string")
+        : [];
+      const characterName = asTrimmedString(candidate.text) || asTrimmedString(answers[1]) || fallbackCharacterName(index);
+      const avatar = asTrimmedString(answers[2]) || fallbackAvatar();
+
+      return {
+        id: toQuestionId(candidate.id, timestamp + index),
+        type: "multiple_choice",
+        text: characterName,
+        aiPrompt: asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt),
+        mediaUrl: "",
+        answers: toRoleplayAnswers(asTrimmedString(answers[0]), characterName, avatar),
+        correctIndex: 0,
+        lat: asNumberOrNull(candidate.lat),
+        lng: asNumberOrNull(candidate.lng),
+      };
+    })
+    .filter((question): question is Question => question !== null);
+}
+
 export default function RollespilBuilderPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className={`min-h-screen bg-violet-950 ${poppins.className}`}>
+          <div className="flex min-h-screen items-center justify-center px-6 text-center">
+            <div className="rounded-[2rem] border border-violet-500/20 bg-violet-950/50 px-8 py-10 text-violet-100 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+              <p className="text-xs font-semibold tracking-[0.28em] text-violet-100/55 uppercase">
+                Indlæser
+              </p>
+              <h1 className={`mt-3 text-3xl font-black tracking-tight text-violet-100 ${rubik.className}`}>
+                Rollespil-bygger
+              </h1>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <RollespilBuilderPageContent />
+    </Suspense>
+  );
+}
+
+function RollespilBuilderPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editRunId = searchParams.get("id")?.trim() ?? "";
+  const isEditMode = editRunId.length > 0;
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
   const [showTeacherField, setShowTeacherField] = useState(false);
@@ -290,12 +366,14 @@ export default function RollespilBuilderPage() {
   const [aiGrade, setAiGrade] = useState("Mellemtrin");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingExistingRun, setIsLoadingExistingRun] = useState(isEditMode);
+  const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([createQuestion()]);
   const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>({
-    lat: 55.6761,
-    lng: 12.5683,
+    lat: DEFAULT_MAP_CENTER.lat,
+    lng: DEFAULT_MAP_CENTER.lng,
   });
 
   const renderNotice = (className = "") =>
@@ -322,6 +400,90 @@ export default function RollespilBuilderPage() {
       window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
     }
   };
+
+  useEffect(() => {
+    if (!isEditMode) {
+      setIsLoadingExistingRun(false);
+      setLoadedRunId(null);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadRunForEditing = async () => {
+      setIsLoadingExistingRun(true);
+      setLoadedRunId(null);
+      setNotice(null);
+
+      const supabase = createClient();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (!isActive) return;
+
+      if (userError || !user) {
+        setNotice({ tone: "error", message: "Du skal være logget ind for at redigere dette løb." });
+        setIsLoadingExistingRun(false);
+        return;
+      }
+
+      const { data: run, error } = await supabase
+        .from("gps_runs")
+        .select("id,user_id,title,subject,description,topic,questions,race_type")
+        .eq("id", editRunId)
+        .eq("user_id", user.id)
+        .single<StoredRunRecord>();
+
+      if (!isActive) return;
+
+      if (error || !run) {
+        console.error("Kunne ikke hente rollespilsløbet til redigering:", error);
+        setNotice({
+          tone: "error",
+          message: "Vi kunne ikke åbne dette rollespilsløb til redigering. Tjek at du er ejer, og prøv igen fra arkivet.",
+        });
+        setIsLoadingExistingRun(false);
+        return;
+      }
+
+      const loadedQuestions = toRoleplayQuestions(run.questions);
+      const loadedTopic = asTrimmedString(run.topic);
+      const firstPinnedQuestion =
+        loadedQuestions.find((question) => question.lat !== null && question.lng !== null) ?? null;
+
+      setTitle(asTrimmedString(run.title));
+      setSubject(asTrimmedString(run.subject));
+      setShowTeacherField(Boolean(asTrimmedString(run.subject)));
+      setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
+      setPreviewQuestions([]);
+      setShowAIModal(false);
+      setShowAITeacherFields(false);
+      setAiSubject("");
+      setAiRunBrief(loadedTopic);
+      setAiTopic(loadedTopic);
+      setMapCenter(
+        firstPinnedQuestion
+          ? {
+              lat: firstPinnedQuestion.lat ?? DEFAULT_MAP_CENTER.lat,
+              lng: firstPinnedQuestion.lng ?? DEFAULT_MAP_CENTER.lng,
+            }
+          : {
+              lat: DEFAULT_MAP_CENTER.lat,
+              lng: DEFAULT_MAP_CENTER.lng,
+            }
+      );
+      setLoadedRunId(run.id);
+      setIsLoadingExistingRun(false);
+    };
+
+    void loadRunForEditing();
+
+    return () => {
+      isActive = false;
+    };
+  }, [editRunId, isEditMode]);
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -568,6 +730,15 @@ export default function RollespilBuilderPage() {
   const handleSaveRun = async () => {
     setNotice(null);
 
+    if (isEditMode && loadedRunId !== editRunId) {
+      setNotice({
+        tone: "error",
+        message: "Løbet er ikke indlæst endnu. Vent et øjeblik og prøv igen.",
+      });
+      scrollToSaveFeedback();
+      return;
+    }
+
     if (!title.trim()) {
       setNotice({ tone: "error", message: "Udfyld venligst løbets titel." });
       scrollToSaveFeedback();
@@ -646,30 +817,59 @@ export default function RollespilBuilderPage() {
         return;
       }
 
-      const { error } = await supabase.from("gps_runs").insert({
-        user_id: user.id,
+      const payload = {
         title: title.trim(),
         subject: subject.trim() || "Generelt",
         description: "",
         topic: aiRunBrief.trim() || aiTopic || "",
         questions: normalizedQuestions,
-      });
+        race_type: RACE_TYPES.ROLLESPIL,
+      };
 
-      if (error) {
-        throw error;
+      if (isEditMode) {
+        const { data: updatedRuns, error } = await supabase
+          .from("gps_runs")
+          .update(payload)
+          .eq("id", editRunId)
+          .eq("user_id", user.id)
+          .select("id");
+
+        if (error) {
+          throw error;
+        }
+
+        if (!updatedRuns || updatedRuns.length === 0) {
+          setNotice({
+            tone: "error",
+            message: "Vi kunne ikke gemme ændringerne. Tjek at du stadig ejer løbet.",
+          });
+          scrollToSaveFeedback();
+          return;
+        }
+      } else {
+        const { error } = await supabase.from("gps_runs").insert({
+          user_id: user.id,
+          ...payload,
+        });
+
+        if (error) {
+          throw error;
+        }
       }
 
       setNotice({
         tone: "success",
-        message: "Rollespilsløbet er gemt i arkivet!",
+        message: isEditMode ? "Ændringerne er gemt i arkivet!" : "Rollespilsløbet er gemt i arkivet!",
       });
 
-      setTitle("");
-      setSubject("");
-      setShowTeacherField(false);
-      setQuestions([createQuestion()]);
-      setAiRunBrief("");
-      setAiTopic("");
+      if (!isEditMode) {
+        setTitle("");
+        setSubject("");
+        setShowTeacherField(false);
+        setQuestions([createQuestion()]);
+        setAiRunBrief("");
+        setAiTopic("");
+      }
 
       await new Promise((resolve) => window.setTimeout(resolve, 450));
       router.push("/dashboard/arkiv");
@@ -681,6 +881,28 @@ export default function RollespilBuilderPage() {
     }
   };
 
+  if (isEditMode && isLoadingExistingRun) {
+    return (
+      <div className={`relative min-h-screen overflow-hidden bg-violet-950 text-violet-100 ${poppins.className}`}>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(139,92,246,0.28),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(196,181,253,0.12),_transparent_28%)]" />
+        <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
+          <div className="w-full max-w-md rounded-[2rem] border border-violet-500/20 bg-violet-950/55 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+            <Loader2 className="mx-auto h-10 w-10 animate-spin text-violet-200" />
+            <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-violet-100/55 uppercase">
+              Rediger løb
+            </p>
+            <h1 className={`mt-3 text-3xl font-black tracking-tight text-violet-100 ${rubik.className}`}>
+              Indlæser dine rolleposter
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-violet-100/70">
+              Vi henter løbets data og klargør builderen til redigering.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className={`relative min-h-screen overflow-x-hidden bg-violet-950 text-violet-100 ${poppins.className}`}>
@@ -689,6 +911,11 @@ export default function RollespilBuilderPage() {
           <section className="w-full px-4 py-4 sm:px-6 sm:py-6 lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
             <div className="mx-auto max-w-3xl space-y-5">
               <div className="px-1 pt-1">
+                {isEditMode ? (
+                  <div className="mb-4 inline-flex items-center rounded-full border border-violet-400/25 bg-violet-400/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-violet-100 uppercase">
+                    Edit-mode
+                  </div>
+                ) : null}
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                   Løbets titel
                 </label>
@@ -873,7 +1100,7 @@ export default function RollespilBuilderPage() {
                     disabled={isSaving}
                     className="w-full rounded-[1.6rem] border border-violet-400/30 bg-violet-500/22 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-violet-100 shadow-[0_14px_34px_rgba(139,92,246,0.18)] transition hover:bg-violet-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
+                    {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
                   </button>
                 </div>
               </div>

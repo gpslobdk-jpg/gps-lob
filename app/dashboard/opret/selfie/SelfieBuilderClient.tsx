@@ -3,11 +3,20 @@
 import { ChevronDown, ChevronUp, Loader2, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
-import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { SavedPin } from "@/components/MapPicker";
 import { SELFIE_PROMPT, SYSTEM_ARKITEKT } from "@/constants/aiPrompts";
+import {
+  DEFAULT_MAP_CENTER,
+  RACE_TYPES,
+  type StoredRunRecord,
+  asNumberOrNull,
+  asTrimmedString,
+  isRecord,
+  toQuestionId,
+} from "@/utils/gpsRuns";
 import { createClient } from "@/utils/supabase/client";
 
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
@@ -69,6 +78,18 @@ type GeneratedQuestion = {
   correctIndex?: number;
 };
 
+type StoredSelfieQuestionRecord = {
+  id?: unknown;
+  type?: unknown;
+  isSelfie?: unknown;
+  is_selfie?: unknown;
+  text?: unknown;
+  aiPrompt?: unknown;
+  ai_prompt?: unknown;
+  lat?: unknown;
+  lng?: unknown;
+};
+
 type MapCenter = {
   lat: number;
   lng: number;
@@ -107,6 +128,33 @@ const createQuestion = (): Question => ({
   lng: null,
 });
 
+function toSelfieQuestions(value: unknown): Question[] {
+  if (!Array.isArray(value)) return [];
+
+  const timestamp = Date.now();
+
+  return value
+    .map((item, index): Question | null => {
+      if (!isRecord(item)) return null;
+
+      const candidate = item as StoredSelfieQuestionRecord;
+      const normalizedTarget = asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt);
+
+      return {
+        id: toQuestionId(candidate.id, timestamp + index),
+        type: "ai_image",
+        isSelfie: true,
+        text: asTrimmedString(candidate.text),
+        aiPrompt: normalizedTarget,
+        answers: buildAnswers(normalizedTarget),
+        correctIndex: 0,
+        lat: asNumberOrNull(candidate.lat),
+        lng: asNumberOrNull(candidate.lng),
+      };
+    })
+    .filter((question): question is Question => question !== null);
+}
+
 function extractRequestedCount(text: string) {
   const match = text.match(/\b([1-9]|1\d|20)\b/);
   return match ? Number(match[1]) : 5;
@@ -138,6 +186,9 @@ function normalizeSelfieInstruction(text: string, targetObject: string) {
 
 export default function SelfieBuilderClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editRunId = searchParams.get("id")?.trim() ?? "";
+  const isEditMode = editRunId.length > 0;
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
   const [showSubjectField, setShowSubjectField] = useState(false);
@@ -148,12 +199,14 @@ export default function SelfieBuilderClient() {
   const [aiGrade, setAiGrade] = useState("Mellemtrin");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingExistingRun, setIsLoadingExistingRun] = useState(isEditMode);
+  const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([createQuestion()]);
   const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>({
-    lat: 55.6761,
-    lng: 12.5683,
+    lat: DEFAULT_MAP_CENTER.lat,
+    lng: DEFAULT_MAP_CENTER.lng,
   });
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
 
@@ -180,6 +233,89 @@ export default function SelfieBuilderClient() {
       window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
     }
   };
+
+  useEffect(() => {
+    if (!isEditMode) {
+      setIsLoadingExistingRun(false);
+      setLoadedRunId(null);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadRunForEditing = async () => {
+      setIsLoadingExistingRun(true);
+      setLoadedRunId(null);
+      setNotice(null);
+
+      const supabase = createClient();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (!isActive) return;
+
+      if (userError || !user) {
+        setNotice({ tone: "error", message: "Du skal være logget ind for at redigere dette løb." });
+        setIsLoadingExistingRun(false);
+        return;
+      }
+
+      const { data: run, error } = await supabase
+        .from("gps_runs")
+        .select("id,user_id,title,subject,description,topic,questions,race_type")
+        .eq("id", editRunId)
+        .eq("user_id", user.id)
+        .single<StoredRunRecord>();
+
+      if (!isActive) return;
+
+      if (error || !run) {
+        console.error("Kunne ikke hente selfie-løbet til redigering:", error);
+        setNotice({
+          tone: "error",
+          message: "Vi kunne ikke åbne dette selfie-løb til redigering. Tjek at du er ejer, og prøv igen fra arkivet.",
+        });
+        setIsLoadingExistingRun(false);
+        return;
+      }
+
+      const loadedQuestions = toSelfieQuestions(run.questions);
+      const loadedTopic = asTrimmedString(run.topic);
+      const firstPinnedQuestion =
+        loadedQuestions.find((question) => question.lat !== null && question.lng !== null) ?? null;
+
+      setTitle(asTrimmedString(run.title));
+      setSubject(asTrimmedString(run.subject));
+      setShowSubjectField(Boolean(asTrimmedString(run.subject)));
+      setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
+      setPreviewQuestions([]);
+      setShowAIModal(false);
+      setShowAIMetadataFields(false);
+      setAiSubject("");
+      setAiRunBrief(loadedTopic);
+      setMapCenter(
+        firstPinnedQuestion
+          ? {
+              lat: firstPinnedQuestion.lat ?? DEFAULT_MAP_CENTER.lat,
+              lng: firstPinnedQuestion.lng ?? DEFAULT_MAP_CENTER.lng,
+            }
+          : {
+              lat: DEFAULT_MAP_CENTER.lat,
+              lng: DEFAULT_MAP_CENTER.lng,
+            }
+      );
+      setLoadedRunId(run.id);
+      setIsLoadingExistingRun(false);
+    };
+
+    void loadRunForEditing();
+
+    return () => {
+      isActive = false;
+    };
+  }, [editRunId, isEditMode]);
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -333,6 +469,15 @@ export default function SelfieBuilderClient() {
   const handleSaveRun = async () => {
     setNotice(null);
 
+    if (isEditMode && loadedRunId !== editRunId) {
+      setNotice({
+        tone: "error",
+        message: "Løbet er ikke indlæst endnu. Vent et øjeblik og prøv igen.",
+      });
+      scrollToSaveFeedback();
+      return;
+    }
+
     if (!title.trim()) {
       setNotice({ tone: "error", message: "Udfyld venligst løbets titel." });
       scrollToSaveFeedback();
@@ -403,24 +548,54 @@ export default function SelfieBuilderClient() {
         return;
       }
 
-      const { error } = await supabase.from("gps_runs").insert({
-        user_id: user.id,
+      const payload = {
         title: title.trim(),
         subject: subject.trim() || "Generelt",
         description: "",
         topic: aiRunBrief.trim(),
         questions: normalizedQuestions,
+        race_type: RACE_TYPES.SELFIE,
+      };
+
+      if (isEditMode) {
+        const { data: updatedRuns, error } = await supabase
+          .from("gps_runs")
+          .update(payload)
+          .eq("id", editRunId)
+          .eq("user_id", user.id)
+          .select("id");
+
+        if (error) throw error;
+
+        if (!updatedRuns || updatedRuns.length === 0) {
+          setNotice({
+            tone: "error",
+            message: "Vi kunne ikke gemme ændringerne. Tjek at du stadig ejer løbet.",
+          });
+          scrollToSaveFeedback();
+          return;
+        }
+      } else {
+        const { error } = await supabase.from("gps_runs").insert({
+          user_id: user.id,
+          ...payload,
+        });
+
+        if (error) throw error;
+      }
+
+      setNotice({
+        tone: "success",
+        message: isEditMode ? "Ændringerne er gemt i arkivet!" : "Selfie-jagten er gemt i arkivet!",
       });
 
-      if (error) throw error;
-
-      setNotice(null);
-      alert("Selfie-jagten er gemt i arkivet!");
-      setTitle("");
-      setSubject("");
-      setShowSubjectField(false);
-      setQuestions([createQuestion()]);
-      setAiRunBrief("");
+      if (!isEditMode) {
+        setTitle("");
+        setSubject("");
+        setShowSubjectField(false);
+        setQuestions([createQuestion()]);
+        setAiRunBrief("");
+      }
       router.push("/dashboard/arkiv");
     } catch (error) {
       console.error("Fejl ved gemning af selfie-jagt:", error);
@@ -431,6 +606,28 @@ export default function SelfieBuilderClient() {
     }
   };
 
+  if (isEditMode && isLoadingExistingRun) {
+    return (
+      <div className={`relative min-h-screen overflow-hidden bg-rose-950 text-orange-100 ${poppins.className}`}>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(251,146,60,0.28),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(244,114,182,0.16),_transparent_28%)]" />
+        <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
+          <div className="w-full max-w-md rounded-[2rem] border border-orange-400/20 bg-rose-950/55 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+            <Loader2 className="mx-auto h-10 w-10 animate-spin text-orange-200" />
+            <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-orange-100/55 uppercase">
+              Rediger løb
+            </p>
+            <h1 className={`mt-3 text-3xl font-black tracking-tight text-orange-50 ${rubik.className}`}>
+              Indlæser dine selfie-poster
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-orange-100/70">
+              Vi henter løbets data og klargør builderen til redigering.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className={`relative min-h-screen overflow-x-hidden bg-rose-950 text-orange-100 ${poppins.className}`}>
@@ -439,6 +636,11 @@ export default function SelfieBuilderClient() {
           <section className="w-full px-4 py-4 sm:px-6 sm:py-6 lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
             <div className="mx-auto max-w-3xl space-y-6">
               <div className="px-1 pt-1">
+                {isEditMode ? (
+                  <div className="mb-4 inline-flex items-center rounded-full border border-orange-400/25 bg-orange-400/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-orange-50 uppercase">
+                    Edit-mode
+                  </div>
+                ) : null}
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-orange-100/65 uppercase">
                   Løbets titel
                 </label>
@@ -588,7 +790,7 @@ export default function SelfieBuilderClient() {
                     disabled={isSaving}
                     className="w-full rounded-[1.5rem] border border-orange-400/30 bg-[linear-gradient(145deg,rgba(251,146,60,0.22),rgba(244,114,182,0.18))] px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-orange-50 shadow-[0_14px_34px_rgba(251,146,60,0.18)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isSaving ? "Gemmer..." : "Gem løb i arkivet"}
+                    {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
                   </button>
                 </div>
               </div>
