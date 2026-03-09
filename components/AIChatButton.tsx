@@ -91,6 +91,21 @@ export default function AIChatButton() {
   const isLoading = status === "submitted" || status === "streaming";
 
   useEffect(() => {
+    if (pathname !== "/") return;
+
+    const hasClosedGuide = window.sessionStorage.getItem("aiGuideClosed");
+    if (hasClosedGuide) return;
+
+    const frameId = window.requestAnimationFrame(() => {
+      setIsOpen(true);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [pathname]);
+
+  useEffect(() => {
     setMessages((currentMessages) =>
       withPageContextMessage(currentMessages, pageContext)
     );
@@ -143,6 +158,20 @@ export default function AIChatButton() {
     void sendMessage({ text: question });
   };
 
+  const handleClose = () => {
+    setIsOpen(false);
+    window.sessionStorage.setItem("aiGuideClosed", "true");
+  };
+
+  const handleToggle = () => {
+    if (isOpen) {
+      handleClose();
+      return;
+    }
+
+    setIsOpen(true);
+  };
+
   return (
     <div className="fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 flex items-end sm:right-6 sm:bottom-6">
       <div className="flex flex-col items-end gap-3">
@@ -163,10 +192,12 @@ export default function AIChatButton() {
               </div>
               <button
                 type="button"
-                onClick={() => setIsOpen(false)}
-                className="rounded-lg px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-200 hover:text-slate-900"
+                onClick={handleClose}
+                className="flex items-center gap-1 rounded-md bg-slate-100 p-2 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-200"
+                aria-label="Luk AI Guide"
               >
-                Luk
+                <span aria-hidden="true">X</span>
+                <span>Luk</span>
               </button>
             </div>
 
@@ -259,7 +290,7 @@ export default function AIChatButton() {
 
         <button
           type="button"
-          onClick={() => setIsOpen((prev) => !prev)}
+          onClick={handleToggle}
           aria-expanded={isOpen}
           aria-label={"Åbn AI Guide"}
           className="inline-flex items-center gap-2.5 rounded-full border border-emerald-100 bg-white/80 px-3 py-2 text-slate-800 shadow-lg shadow-emerald-900/15 backdrop-blur-md transition hover:bg-white"
