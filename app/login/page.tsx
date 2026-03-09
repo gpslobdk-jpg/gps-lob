@@ -92,22 +92,22 @@ function LoginPageContent() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-t from-emerald-100 via-sky-50 to-sky-300 p-4 lg:bg-none lg:bg-transparent">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-t from-emerald-100 via-sky-50 to-sky-300 p-4 lg:bg-none lg:bg-transparent">
       <video
         autoPlay
         loop
         muted
         playsInline
-        className="fixed top-0 left-0 hidden h-full w-full object-cover -z-20 lg:block"
-        src="/promo.mp4"
+        className="absolute inset-0 z-0 h-full w-full object-cover"
+        src="/bg-loop.mp4"
       />
-      <div className="fixed inset-0 hidden -z-10 bg-gradient-to-b from-sky-900/10 to-emerald-900/50 backdrop-blur-[3px] lg:block" />
+      <div className="absolute inset-0 z-10 bg-black/60" />
 
       <motion.section
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 140, damping: 18 }}
-        className="relative w-full max-w-md overflow-hidden rounded-[2.5rem] border border-white/50 bg-white/80 p-10 text-center shadow-2xl backdrop-blur-md"
+        className="relative z-20 w-full max-w-md overflow-hidden rounded-[2.5rem] border border-white/50 bg-white/80 p-10 text-center shadow-2xl backdrop-blur-md"
       >
         <div className="relative z-10">
           <div className="flex justify-center">
