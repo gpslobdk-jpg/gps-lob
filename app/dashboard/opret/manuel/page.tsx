@@ -12,6 +12,7 @@ import type { SavedPin } from "@/components/MapPicker";
 import { RACE_TYPES } from "@/utils/gpsRuns";
 import {
   clearRunDraft,
+  readRunDraft,
   restoreDraftBoolean,
   restoreDraftMapCenter,
   restoreDraftString,
@@ -714,13 +715,21 @@ function OpretLoebPageContent() {
       }
     }
 
-    const restoredDraft = restoreRunDraft<ManualBuilderDraftState>(
-      MANUEL_DRAFT_STORAGE_KEY,
-      editRunId,
-      isEditMode
-        ? "Der ligger en ikke-gemt kladde til dette quiz-løb. Vil du gendanne den?"
-        : "Der ligger en ikke-gemt kladde til quiz-byggeren. Vil du gendanne den?"
-    );
+    const shouldAutoLoad = window.sessionStorage.getItem("autoLoadDraft");
+    if (shouldAutoLoad === "true") {
+      window.sessionStorage.removeItem("autoLoadDraft");
+    }
+
+    const restoredDraft =
+      shouldAutoLoad === "true"
+        ? readRunDraft<ManualBuilderDraftState>(MANUEL_DRAFT_STORAGE_KEY, editRunId)
+        : restoreRunDraft<ManualBuilderDraftState>(
+            MANUEL_DRAFT_STORAGE_KEY,
+            editRunId,
+            isEditMode
+              ? "Der ligger en ikke-gemt kladde til dette quiz-løb. Vil du gendanne den?"
+              : "Der ligger en ikke-gemt kladde til quiz-byggeren. Vil du gendanne den?"
+          );
 
     if (restoredDraft) {
       const restoredSubject = restoreDraftString(restoredDraft.subject);

@@ -64,11 +64,7 @@ export function writeRunDraft<T>(key: string, editRunId: string | null | undefin
   }
 }
 
-export function restoreRunDraft<T>(
-  key: string,
-  editRunId: string | null | undefined,
-  confirmMessage: string
-) {
+export function readRunDraft<T>(key: string, editRunId: string | null | undefined) {
   if (typeof window === "undefined") return null;
 
   try {
@@ -85,14 +81,25 @@ export function restoreRunDraft<T>(
       return null;
     }
 
-    if (!window.confirm(confirmMessage)) {
-      clearRunDraft(key);
-      return null;
-    }
-
     return parsed.data ?? null;
   } catch {
     clearRunDraft(key);
     return null;
   }
+}
+
+export function restoreRunDraft<T>(
+  key: string,
+  editRunId: string | null | undefined,
+  confirmMessage: string
+) {
+  const draft = readRunDraft<T>(key, editRunId);
+  if (!draft) return null;
+
+  if (!window.confirm(confirmMessage)) {
+    clearRunDraft(key);
+    return null;
+  }
+
+  return draft;
 }

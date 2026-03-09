@@ -441,6 +441,7 @@ export default function ScannerPortalPage() {
       const draft = toManualDraft(payload, trimmedSourceText);
       stopCameraStream();
       writeRunDraft(MANUEL_DRAFT_STORAGE_KEY, null, draft);
+      window.sessionStorage.setItem("autoLoadDraft", "true");
       router.push("/dashboard/opret/manuel");
     } catch (requestError) {
       console.error("Fejl ved scanner-generering:", requestError);
