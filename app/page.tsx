@@ -44,8 +44,10 @@ export default function Home() {
     const hasSeenIntro = window.localStorage.getItem("hasSeenIntro");
     if (hasSeenIntro) return;
     const isMobileViewport = window.matchMedia("(max-width: 767px)").matches;
+    let isCancelled = false;
 
-    const frame = window.requestAnimationFrame(() => {
+    queueMicrotask(() => {
+      if (isCancelled) return;
       if (isMobileViewport) {
         setShowMobileIntroModal(true);
         return;
@@ -53,7 +55,9 @@ export default function Home() {
       setShowIntroModal(true);
     });
 
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
   const closeIntroModal = () => {
@@ -279,10 +283,10 @@ export default function Home() {
               <button
                 type="button"
                 onClick={closeIntroModal}
-                className="absolute right-4 top-4 z-20 rounded-full p-2 text-white/80 transition hover:bg-white/10 hover:text-white"
+                className="absolute right-4 top-4 z-20 flex h-16 w-16 items-center justify-center rounded-full bg-slate-950/45 p-4 text-white/80 shadow-lg shadow-black/25 backdrop-blur-md transition hover:bg-white/10 hover:text-white"
                 aria-label="Luk introduktion"
               >
-                <span aria-hidden="true" className="text-base font-semibold">
+                <span aria-hidden="true" className="text-4xl font-bold leading-none">
                   ×
                 </span>
               </button>
@@ -344,7 +348,7 @@ export default function Home() {
                 </button>
               ) : null}
 
-              <p className="pointer-events-none absolute bottom-5 left-1/2 z-20 w-full -translate-x-1/2 px-6 text-center text-sm font-medium text-emerald-50/85">
+              <p className="pointer-events-none absolute bottom-5 left-1/2 z-20 -translate-x-1/2 rounded-2xl bg-slate-950/55 px-6 py-3 text-center text-lg font-bold text-emerald-50/90 shadow-lg shadow-black/25 backdrop-blur-md sm:text-xl">
                 Tryk på X for at lukke introen
               </p>
             </motion.div>
