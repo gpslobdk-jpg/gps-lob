@@ -3,6 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isTextUIPart, type UIMessage } from "ai";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 const QUICK_QUESTIONS = [
@@ -14,21 +15,94 @@ const QUICK_QUESTIONS = [
 const WELCOME_MESSAGE =
   'Hej! Jeg kan guide dig trin for trin gennem GPSLØB. Spørg fx "Hvordan kommer jeg i gang?" eller "Hvordan bruger jeg arkivet?", så peger jeg dig direkte hen til de rigtige knapper og menuer.';
 
+const PAGE_CONTEXT_MESSAGE_ID = "gpslob-page-context";
+
 const extractMessageText = (message: UIMessage) =>
   message.parts.filter(isTextUIPart).map((part) => part.text).join("").trim();
+
+const buildPageContext = (pathname: string) => {
+  if (pathname.includes("/opret/escape")) {
+    return 'Systemkontekst: Læreren er i gang med at bygge et Escape Room i GPSLØB. Svar altid på dansk. Vær proaktiv og tilbyd hjælp til at finde på en "Master Code", svære gåder, kodebrikker og små spor, som passer til et skoleløb.';
+  }
+
+  if (pathname.includes("/opret/rollespil")) {
+    return "Systemkontekst: Læreren bygger et rollespil i GPSLØB. Svar altid på dansk. Vær proaktiv og tilbyd hjælp til at opfinde sjove karakterer som trolde, agenter eller historiske personer samt dialoger og opgaver til posterne.";
+  }
+
+  if (pathname.includes("/resultater")) {
+    return "Systemkontekst: Læreren kigger på Leaderboardet for et løb i GPSLØB. Svar altid på dansk. Tilbyd gerne hjælp til at skrive en sjov tale, et vinderdiplom eller en kort præmiering, der kan læses op for holdene.";
+  }
+
+  return "Systemkontekst: Du er en hjælpsom assistent på GPS-platformen. Svar altid på dansk og hjælp lærere og vikarer konkret videre med næste klik, næste valg og praktiske forslag.";
+};
+
+const withPageContextMessage = (
+  messages: UIMessage[],
+  pageContext: string
+): UIMessage[] => {
+  const messagesWithoutContext = messages.filter(
+    (message) => message.id !== PAGE_CONTEXT_MESSAGE_ID
+  );
+
+  return [
+    {
+      id: PAGE_CONTEXT_MESSAGE_ID,
+      role: "system",
+      metadata: { hidden: true, type: "page-context" },
+      parts: [{ type: "text", text: pageContext }],
+    },
+    ...messagesWithoutContext,
+  ];
+};
 
 export default function AIChatButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
+  const pathname = usePathname();
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
+  const pageContext = useMemo(() => buildPageContext(pathname), [pathname]);
+
   const transport = useMemo(
-    () => new DefaultChatTransport({ api: "/api/chat" }),
-    []
+    () =>
+      new DefaultChatTransport({
+        api: "/api/chat",
+        prepareSendMessagesRequest: ({
+          api,
+          body,
+          credentials,
+          headers,
+          messages,
+        }) => ({
+          api,
+          credentials,
+          headers,
+          body: {
+            ...(body ?? {}),
+            messages: withPageContextMessage(messages, pageContext),
+          },
+        }),
+      }),
+    [pageContext]
   );
-  const { messages, sendMessage, status, error, clearError } = useChat({
+
+  const { messages, sendMessage, setMessages, status, error, clearError } = useChat({
     transport,
   });
   const isLoading = status === "submitted" || status === "streaming";
+
+  useEffect(() => {
+    setMessages((currentMessages) =>
+      withPageContextMessage(currentMessages, pageContext)
+    );
+  }, [pageContext, setMessages]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setMessages((currentMessages) =>
+      withPageContextMessage(currentMessages, pageContext)
+    );
+  }, [isOpen, pageContext, setMessages]);
 
   const chatMessages = useMemo(
     () =>
@@ -38,7 +112,7 @@ export default function AIChatButton() {
           role: message.role,
           text: extractMessageText(message),
         }))
-        .filter((message) => message.text.length > 0),
+        .filter((message) => message.role !== "system" && message.text.length > 0),
     [messages]
   );
 
@@ -78,7 +152,7 @@ export default function AIChatButton() {
               <div className="flex items-center gap-2">
                 <Image
                   src="/gpslogo.png"
-                  alt={"GPSL\u00d8B logo"}
+                  alt={"GPSLØB logo"}
                   width={28}
                   height={28}
                   className="h-6 w-auto"
@@ -132,7 +206,7 @@ export default function AIChatButton() {
                       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 [animation-delay:120ms]" />
                       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 [animation-delay:240ms]" />
                     </span>
-                    {"AI t\u00e6nker..."}
+                    {"AI tænker..."}
                   </div>
                 </div>
               ) : null}
@@ -142,7 +216,7 @@ export default function AIChatButton() {
 
             {error ? (
               <p className="mt-2 text-xs text-rose-600">
-                {"Forbindelsen fejlede. Pr\u00f8v igen om et \u00f8jeblik."}
+                {"Forbindelsen fejlede. Prøv igen om et øjeblik."}
               </p>
             ) : null}
 
@@ -164,7 +238,7 @@ export default function AIChatButton() {
               <input
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                placeholder={"Skriv dit sp\u00f8rgsm\u00e5l..."}
+                placeholder={"Skriv dit spørgsmål..."}
                 disabled={isLoading}
                 className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               />
@@ -178,7 +252,7 @@ export default function AIChatButton() {
             </form>
 
             <div className="mt-2 text-[11px] text-slate-500">
-              {"AI-svar kan indeholde fejl. Kontroll\u00e9r altid vigtige oplysninger."}
+              {"AI-svar kan indeholde fejl. Kontrollér altid vigtige oplysninger."}
             </div>
           </section>
         ) : null}
@@ -187,12 +261,12 @@ export default function AIChatButton() {
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
           aria-expanded={isOpen}
-          aria-label={"\u00c5bn AI Guide"}
+          aria-label={"Åbn AI Guide"}
           className="inline-flex items-center gap-2.5 rounded-full border border-emerald-100 bg-white/80 px-3 py-2 text-slate-800 shadow-lg shadow-emerald-900/15 backdrop-blur-md transition hover:bg-white"
         >
           <Image
             src="/gpslogo.png"
-            alt={"GPSL\u00d8B logo"}
+            alt={"GPSLØB logo"}
             width={32}
             height={32}
             className="h-6 w-auto"
