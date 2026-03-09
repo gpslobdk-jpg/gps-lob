@@ -19,10 +19,10 @@ import {
 } from "@/utils/gpsRuns";
 import {
   clearRunDraft,
+  readRunDraft,
   restoreDraftBoolean,
   restoreDraftMapCenter,
   restoreDraftString,
-  restoreRunDraft,
   writeRunDraft,
 } from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
@@ -532,13 +532,14 @@ function RollespilBuilderPageContent() {
       }
     }
 
-    const restoredDraft = restoreRunDraft<RollespilBuilderDraftState>(
-      ROLLESPIL_DRAFT_STORAGE_KEY,
-      editRunId,
-      isEditMode
-        ? "Der ligger en ikke-gemt kladde til dette rollespilsløb. Vil du gendanne den?"
-        : "Der ligger en ikke-gemt kladde til rollespil-byggeren. Vil du gendanne den?"
-    );
+    const shouldAutoLoad = window.sessionStorage.getItem("autoLoadDraft") === "true";
+    if (shouldAutoLoad) {
+      window.sessionStorage.removeItem("autoLoadDraft");
+    }
+
+    const restoredDraft = shouldAutoLoad
+      ? readRunDraft<RollespilBuilderDraftState>(ROLLESPIL_DRAFT_STORAGE_KEY, editRunId)
+      : null;
 
     if (restoredDraft) {
       const restoredSubject = restoreDraftString(restoredDraft.subject);

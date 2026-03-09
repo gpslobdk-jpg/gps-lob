@@ -87,19 +87,3 @@ export function readRunDraft<T>(key: string, editRunId: string | null | undefine
     return null;
   }
 }
-
-export function restoreRunDraft<T>(
-  key: string,
-  editRunId: string | null | undefined,
-  confirmMessage: string
-) {
-  const draft = readRunDraft<T>(key, editRunId);
-  if (!draft) return null;
-
-  if (!window.confirm(confirmMessage)) {
-    clearRunDraft(key);
-    return null;
-  }
-
-  return draft;
-}

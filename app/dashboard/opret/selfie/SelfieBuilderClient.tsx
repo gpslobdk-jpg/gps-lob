@@ -19,10 +19,10 @@ import {
 } from "@/utils/gpsRuns";
 import {
   clearRunDraft,
+  readRunDraft,
   restoreDraftBoolean,
   restoreDraftMapCenter,
   restoreDraftString,
-  restoreRunDraft,
   writeRunDraft,
 } from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
@@ -350,13 +350,14 @@ export default function SelfieBuilderClient() {
       }
     }
 
-    const restoredDraft = restoreRunDraft<SelfieBuilderDraftState>(
-      SELFIE_DRAFT_STORAGE_KEY,
-      editRunId,
-      isEditMode
-        ? "Der ligger en ikke-gemt kladde til dette selfie-løb. Vil du gendanne den?"
-        : "Der ligger en ikke-gemt kladde til selfie-byggeren. Vil du gendanne den?"
-    );
+    const shouldAutoLoad = window.sessionStorage.getItem("autoLoadDraft") === "true";
+    if (shouldAutoLoad) {
+      window.sessionStorage.removeItem("autoLoadDraft");
+    }
+
+    const restoredDraft = shouldAutoLoad
+      ? readRunDraft<SelfieBuilderDraftState>(SELFIE_DRAFT_STORAGE_KEY, editRunId)
+      : null;
 
     if (restoredDraft) {
       const restoredSubject = restoreDraftString(restoredDraft.subject);

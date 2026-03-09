@@ -16,7 +16,6 @@ import {
   restoreDraftBoolean,
   restoreDraftMapCenter,
   restoreDraftString,
-  restoreRunDraft,
   writeRunDraft,
 } from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
@@ -713,21 +712,14 @@ function OpretLoebPageContent() {
       }
     }
 
-    const shouldAutoLoad = window.sessionStorage.getItem("autoLoadDraft");
-    if (shouldAutoLoad === "true") {
+    const shouldAutoLoad = window.sessionStorage.getItem("autoLoadDraft") === "true";
+    if (shouldAutoLoad) {
       window.sessionStorage.removeItem("autoLoadDraft");
     }
 
-    const restoredDraft =
-      shouldAutoLoad === "true"
-        ? readRunDraft<ManualBuilderDraftState>(MANUEL_DRAFT_STORAGE_KEY, editRunId)
-        : restoreRunDraft<ManualBuilderDraftState>(
-            MANUEL_DRAFT_STORAGE_KEY,
-            editRunId,
-            isEditMode
-              ? "Der ligger en ikke-gemt kladde til dette quiz-løb. Vil du gendanne den?"
-              : "Der ligger en ikke-gemt kladde til quiz-byggeren. Vil du gendanne den?"
-          );
+    const restoredDraft = shouldAutoLoad
+      ? readRunDraft<ManualBuilderDraftState>(MANUEL_DRAFT_STORAGE_KEY, editRunId)
+      : null;
 
     if (restoredDraft) {
       const restoredSubject = restoreDraftString(restoredDraft.subject);

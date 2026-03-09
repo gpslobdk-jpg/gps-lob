@@ -19,10 +19,10 @@ import {
 } from "@/utils/gpsRuns";
 import {
   clearRunDraft,
+  readRunDraft,
   restoreDraftBoolean,
   restoreDraftMapCenter,
   restoreDraftString,
-  restoreRunDraft,
   writeRunDraft,
 } from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
@@ -473,13 +473,14 @@ function FotoMissionBuilderPageContent() {
       }
     }
 
-    const restoredDraft = restoreRunDraft<FotoBuilderDraftState>(
-      FOTO_DRAFT_STORAGE_KEY,
-      editRunId,
-      isEditMode
-        ? "Der ligger en ikke-gemt kladde til dette foto-løb. Vil du gendanne den?"
-        : "Der ligger en ikke-gemt kladde til foto-byggeren. Vil du gendanne den?"
-    );
+    const shouldAutoLoad = window.sessionStorage.getItem("autoLoadDraft") === "true";
+    if (shouldAutoLoad) {
+      window.sessionStorage.removeItem("autoLoadDraft");
+    }
+
+    const restoredDraft = shouldAutoLoad
+      ? readRunDraft<FotoBuilderDraftState>(FOTO_DRAFT_STORAGE_KEY, editRunId)
+      : null;
 
     if (restoredDraft) {
       const restoredSubject = restoreDraftString(restoredDraft.subject);
