@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { FolderOpen, MapPin, Radio, Settings } from "lucide-react";
+import { FolderOpen, MapPin, Radio } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
 import Image from "next/image";
@@ -136,22 +136,13 @@ export default function DashboardPage() {
 
       <header className="flex items-center justify-between">
         <Image src="/gpslogo.png" width={150} height={50} alt="Logo" priority />
-        <div className="flex items-center gap-4">
-          <Link
-            href="/dashboard/indstillinger"
-            className="rounded-xl border border-white/40 bg-white/15 p-2.5 text-white drop-shadow-md backdrop-blur-sm transition-colors hover:bg-white/25"
-            aria-label="Indstillinger"
-          >
-                  <Settings className="w-6 h-6 text-slate-700" />
-          </Link>
-          <button
-            type="button"
-            onClick={() => void handleLogUd()}
-            className="text-white drop-shadow-md transition-colors hover:text-white/90"
-          >
-            Log ud
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => void handleLogUd()}
+          className="text-white drop-shadow-md transition-colors hover:text-white/90"
+        >
+          Log ud
+        </button>
       </header>
 
       <section className="text-center">
@@ -247,7 +238,10 @@ export default function DashboardPage() {
       </section>
 
       <footer className="mx-auto mt-auto w-full max-w-5xl pt-14 text-center">
-        <div className="space-x-4 text-sm text-slate-500">
+        <div className="flex flex-wrap justify-center gap-6 text-sm text-slate-500">
+          <Link href="/dashboard/indstillinger" className="transition hover:text-slate-700">
+            Indstillinger
+          </Link>
           <Link href="/privacy" className="transition hover:text-slate-700">
             Privatlivspolitik
           </Link>

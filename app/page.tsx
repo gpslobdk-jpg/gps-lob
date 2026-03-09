@@ -216,6 +216,12 @@ export default function Home() {
           >
             {"Hvad er GPSL\u00d8B.DK? \u{1F914}"}
           </button>
+          <Link
+            href="/privacy"
+            className="mt-4 block text-sm text-emerald-950 opacity-70 transition-opacity hover:opacity-100"
+          >
+            Privatlivspolitik &amp; Vilkår
+          </Link>
         </div>
       </main>
 
