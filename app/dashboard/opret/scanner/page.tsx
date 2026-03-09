@@ -4,7 +4,12 @@ import { ArrowLeft, Camera, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
-import { type ChangeEvent, useState } from "react";
+import {
+  type ChangeEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { writeRunDraft } from "@/utils/runDrafts";
 
@@ -173,30 +178,182 @@ function isGeneratedRunPayload(value: unknown): value is GeneratedRunPayload {
 
 export default function ScannerPortalPage() {
   const router = useRouter();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const countdownTimersRef = useRef<number[]>([]);
+
   const [sourceText, setSourceText] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedImageLabel, setSelectedImageLabel] = useState("");
   const [compressedImage, setCompressedImage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPreparingImage, setIsPreparingImage] = useState(false);
+  const [isStartingCamera, setIsStartingCamera] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
+  const [countdownValue, setCountdownValue] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const helperText = isPreparingImage
-    ? "Klargør billede..."
-    : selectedFile
-      ? `Valgt billede: ${selectedFile.name}`
-      : "Du kan indsætte tekst, uploade et billede eller bruge begge dele.";
+
+  const helperText = isCapturingPhoto
+    ? "Kameraet tager billede..."
+    : isStartingCamera
+      ? "Starter kamera..."
+      : isPreparingImage
+        ? "Klargør billede..."
+        : selectedImageLabel || "Du kan indsætte tekst, uploade et billede eller bruge begge dele.";
+
+  function stopCameraStream() {
+    if (typeof window !== "undefined") {
+      for (const timer of countdownTimersRef.current) {
+        window.clearTimeout(timer);
+      }
+    }
+
+    countdownTimersRef.current = [];
+    setCountdownValue(null);
+    setIsCapturingPhoto(false);
+
+    const stream = streamRef.current;
+    if (stream) {
+      for (const track of stream.getTracks()) {
+        track.stop();
+      }
+      streamRef.current = null;
+    }
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
+    setIsCameraActive(false);
+  }
+
+  useEffect(() => {
+    return () => {
+      stopCameraStream();
+    };
+  }, []);
+
+  async function startCamera() {
+    if (isStartingCamera || isPreparingImage || isGenerating || isCapturingPhoto) return;
+
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices ||
+      typeof navigator.mediaDevices.getUserMedia !== "function"
+    ) {
+      setError("Din browser understøtter ikke kameraadgang på denne side.");
+      return;
+    }
+
+    setError(null);
+    setIsStartingCamera(true);
+
+    try {
+      stopCameraStream();
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+        audio: false,
+      });
+
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+
+      setSelectedImageLabel("");
+      setCompressedImage("");
+      setIsCameraActive(true);
+    } catch (cameraError) {
+      console.error("Fejl ved kameraadgang:", cameraError);
+      setError("Kameraadgang blev afvist eller kunne ikke startes. Prøv igen.");
+      stopCameraStream();
+    } finally {
+      setIsStartingCamera(false);
+    }
+  }
+
+  function captureFrameFromVideo() {
+    const video = videoRef.current;
+    const canvas = captureCanvasRef.current;
+    if (!video || !canvas) {
+      throw new Error("Kameraet er ikke klar endnu.");
+    }
+
+    const sourceWidth = video.videoWidth || 1280;
+    const sourceHeight = video.videoHeight || 720;
+    const longestSide = Math.max(sourceWidth, sourceHeight, 1);
+    const scale = longestSide > 1080 ? 1080 / longestSide : 1;
+    const targetWidth = Math.max(1, Math.round(sourceWidth * scale));
+    const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
+
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("Kunne ikke gøre kamera-billedet klar.");
+    }
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, targetWidth, targetHeight);
+    context.drawImage(video, 0, 0, targetWidth, targetHeight);
+
+    return canvas.toDataURL("image/jpeg", 0.7);
+  }
+
+  function handleTakePhoto() {
+    if (!isCameraActive || isCapturingPhoto || isGenerating || isPreparingImage) return;
+
+    setError(null);
+    setIsCapturingPhoto(true);
+    setCountdownValue(3);
+
+    const timers = [2, 1].map((value, index) =>
+      window.setTimeout(() => {
+        setCountdownValue(value);
+      }, (index + 1) * 1000)
+    );
+
+    const captureTimer = window.setTimeout(() => {
+      try {
+        const dataUrl = captureFrameFromVideo();
+        if (!dataUrl || dataUrl.length > MAX_IMAGE_DATA_LENGTH) {
+          throw new Error("Billedet blev for stort. Prøv igen med et roligere udsnit.");
+        }
+
+        setSelectedImageLabel("Billede taget med kameraet");
+        setCompressedImage(dataUrl);
+        stopCameraStream();
+      } catch (captureError) {
+        console.error("Fejl ved kameracapture:", captureError);
+        setError(
+          captureError instanceof Error
+            ? captureError.message
+            : "Kunne ikke tage billedet. Prøv igen."
+        );
+        stopCameraStream();
+      }
+    }, 3000);
+
+    countdownTimersRef.current = [...timers, captureTimer];
+  }
 
   async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
     setError(null);
 
     if (!file) {
-      setSelectedFile(null);
+      setSelectedImageLabel("");
       setCompressedImage("");
       return;
     }
 
     if (!file.type.startsWith("image/")) {
-      setSelectedFile(null);
+      setSelectedImageLabel("");
       setCompressedImage("");
       setError("Vælg et gyldigt billede af en bogside.");
       event.target.value = "";
@@ -204,13 +361,14 @@ export default function ScannerPortalPage() {
     }
 
     if (file.size > MAX_IMAGE_FILE_SIZE) {
-      setSelectedFile(null);
+      setSelectedImageLabel("");
       setCompressedImage("");
       setError("Billedet er for stort. Vælg et billede under 12 MB.");
       event.target.value = "";
       return;
     }
 
+    stopCameraStream();
     setIsPreparingImage(true);
 
     try {
@@ -219,11 +377,11 @@ export default function ScannerPortalPage() {
         throw new Error("Billedet er stadig for stort efter komprimering.");
       }
 
-      setSelectedFile(file);
+      setSelectedImageLabel(`Valgt billede: ${file.name}`);
       setCompressedImage(dataUrl);
     } catch (compressionError) {
       console.error("Fejl ved billedkomprimering:", compressionError);
-      setSelectedFile(null);
+      setSelectedImageLabel("");
       setCompressedImage("");
       setError("Kunne ikke klargøre billedet. Prøv et andet udsnit eller et mindre billede.");
       event.target.value = "";
@@ -233,7 +391,7 @@ export default function ScannerPortalPage() {
   }
 
   async function handleGenerateRun() {
-    if (isGenerating || isPreparingImage) return;
+    if (isGenerating || isPreparingImage || isStartingCamera || isCapturingPhoto) return;
 
     const trimmedSourceText = sourceText.trim();
     const hasImage = compressedImage.length > 0;
@@ -281,6 +439,7 @@ export default function ScannerPortalPage() {
       }
 
       const draft = toManualDraft(payload, trimmedSourceText);
+      stopCameraStream();
       writeRunDraft(MANUEL_DRAFT_STORAGE_KEY, null, draft);
       router.push("/dashboard/opret/manuel");
     } catch (requestError) {
@@ -359,13 +518,39 @@ export default function ScannerPortalPage() {
                 >
                   Bogside som billede
                 </label>
-                <label
-                  htmlFor="scanner-image-upload"
-                  className="flex cursor-pointer items-center justify-center gap-3 rounded-[1.75rem] border border-dashed border-emerald-300/30 bg-emerald-900/30 px-5 py-6 text-center text-base text-emerald-100/85 transition hover:border-emerald-200/45 hover:bg-emerald-900/40"
-                >
-                  <Camera className="h-5 w-5" />
-                  Upload et billede af en bogside
-                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label
+                    htmlFor="scanner-image-upload"
+                    className="flex cursor-pointer items-center justify-center gap-3 rounded-[1.75rem] border border-dashed border-emerald-300/30 bg-emerald-900/30 px-5 py-6 text-center text-base text-emerald-100/85 transition hover:border-emerald-200/45 hover:bg-emerald-900/40"
+                  >
+                    <Camera className="h-5 w-5" />
+                    Upload et billede
+                  </label>
+                  {isCameraActive ? (
+                    <div className="flex min-h-[72px] items-center justify-center rounded-[1.75rem] border border-amber-300/30 bg-amber-300/10 px-5 py-6 text-center text-base font-semibold text-amber-100">
+                      Kamera aktivt
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={startCamera}
+                      disabled={isStartingCamera || isPreparingImage || isGenerating || isCapturingPhoto}
+                      className="inline-flex min-h-[72px] items-center justify-center gap-3 rounded-[1.75rem] border border-amber-300/30 bg-amber-300/10 px-5 py-6 text-base font-semibold text-amber-100 transition hover:border-amber-200/45 hover:bg-amber-300/15 disabled:cursor-wait disabled:opacity-70"
+                    >
+                      {isStartingCamera ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          Starter kamera...
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="h-5 w-5" />
+                          📸 Start Kamera
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
                 <input
                   id="scanner-image-upload"
                   type="file"
@@ -373,6 +558,49 @@ export default function ScannerPortalPage() {
                   onChange={handleImageChange}
                   className="sr-only"
                 />
+
+                {isCameraActive ? (
+                  <div className="relative overflow-hidden rounded-[1.75rem] border border-emerald-300/25 bg-emerald-950/80">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      muted
+                      playsInline
+                      className="h-[320px] w-full object-cover sm:h-[380px]"
+                    />
+                    {countdownValue !== null ? (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/35">
+                        <span
+                          className={`text-7xl font-black text-white drop-shadow-[0_10px_25px_rgba(0,0,0,0.55)] ${rubik.className}`}
+                        >
+                          {countdownValue}
+                        </span>
+                      </div>
+                    ) : null}
+                    <div className="absolute inset-x-0 bottom-0 flex justify-center p-5">
+                      <button
+                        type="button"
+                        onClick={handleTakePhoto}
+                        disabled={isCapturingPhoto || isGenerating || isPreparingImage}
+                        className="inline-flex min-h-[60px] items-center justify-center gap-3 rounded-full bg-amber-400 px-8 py-4 text-base font-black tracking-wide text-emerald-950 transition hover:bg-amber-300 disabled:cursor-wait disabled:bg-amber-300/70"
+                      >
+                        {isCapturingPhoto ? (
+                          <>
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            Tager billede...
+                          </>
+                        ) : (
+                          <>
+                            <Camera className="h-5 w-5" />
+                            Tag billede
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                <canvas ref={captureCanvasRef} className="hidden" />
                 <p className="text-sm text-emerald-100/55">{helperText}</p>
               </div>
 
@@ -385,7 +613,7 @@ export default function ScannerPortalPage() {
               <button
                 type="button"
                 onClick={handleGenerateRun}
-                disabled={isGenerating || isPreparingImage}
+                disabled={isGenerating || isPreparingImage || isStartingCamera || isCapturingPhoto}
                 className="inline-flex min-h-[60px] w-full items-center justify-center gap-3 rounded-full bg-amber-400 px-6 py-4 text-base font-black tracking-wide text-emerald-950 transition hover:bg-amber-300 disabled:cursor-wait disabled:bg-amber-300/70"
               >
                 {isGenerating ? (
