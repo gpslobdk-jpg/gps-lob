@@ -201,6 +201,17 @@ export default function ValgHubPage() {
             ))}
           </div>
         </div>
+
+        <div className="mt-12 flex justify-center">
+          <div className="space-x-4 text-sm text-slate-500">
+            <Link href="/privacy" className="transition hover:text-slate-700">
+              Privatlivspolitik
+            </Link>
+            <Link href="/privacy" className="transition hover:text-slate-700">
+              Udvikler Info
+            </Link>
+          </div>
+        </div>
       </section>
     </main>
   );

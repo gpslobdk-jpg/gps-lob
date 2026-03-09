@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { FolderOpen, MapPin, Radio } from "lucide-react";
+import { FolderOpen, MapPin, Radio, Settings } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
 import Image from "next/image";
@@ -139,9 +139,10 @@ export default function DashboardPage() {
         <div className="flex items-center gap-4">
           <Link
             href="/dashboard/indstillinger"
-            className="rounded-xl border border-white/40 bg-white/15 px-4 py-2 text-white drop-shadow-md backdrop-blur-sm transition-colors hover:bg-white/25"
+            className="rounded-xl border border-white/40 bg-white/15 p-2.5 text-white drop-shadow-md backdrop-blur-sm transition-colors hover:bg-white/25"
+            aria-label="Indstillinger"
           >
-            Indstillinger
+                  <Settings className="w-6 h-6 text-slate-700" />
           </Link>
           <button
             type="button"
@@ -161,7 +162,7 @@ export default function DashboardPage() {
         </h1>
         <div className="mt-4 flex justify-center">
           <span className="inline-flex rounded-full border border-white/45 bg-white/12 px-4 py-1.5 text-xs font-medium text-white/90 shadow-[0_8px_20px_rgba(15,23,42,0.12)] backdrop-blur-sm">
-            100% menneskabt arkitektur – med et strejf af AI-magi
+            100% menneskabt arkitektur â€“ med et strejf af AI-magi
           </span>
         </div>
         <p className="text-emerald-50">{"V\u00e6lg din n\u00e6ste handling og kom i gang"}</p>
@@ -246,15 +247,14 @@ export default function DashboardPage() {
       </section>
 
       <footer className="mx-auto mt-auto w-full max-w-5xl pt-14 text-center">
-        <p className="text-sm text-emerald-950/55 lg:text-white/65">
-          Håndlavet af et menneske med passion for læring.{" "}
-          <Link
-            href="/om"
-            className="font-medium text-emerald-900 underline decoration-emerald-700/40 underline-offset-4 transition hover:text-emerald-950 lg:text-emerald-50 lg:decoration-emerald-100/45 lg:hover:text-white"
-          >
-            Læs mere om udvikleren her
+        <div className="space-x-4 text-sm text-slate-500">
+          <Link href="/privacy" className="transition hover:text-slate-700">
+            Privatlivspolitik
           </Link>
-        </p>
+          <Link href="/privacy" className="transition hover:text-slate-700">
+            Udvikler Info
+          </Link>
+        </div>
       </footer>
     </div>
   );
