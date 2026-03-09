@@ -34,8 +34,6 @@ type GeneratedQuestion = {
   question: string;
   options: [string, string, string, string];
   correctIndex: number;
-  lat: number;
-  lng: number;
 };
 
 type GeneratedRunPayload = {
@@ -52,8 +50,8 @@ type ManualDraftQuestion = {
   mediaUrl: string;
   answers: [string, string, string, string];
   correctIndex: number;
-  lat: number;
-  lng: number;
+  lat: null;
+  lng: null;
 };
 
 type ManualBuilderDraftState = {
@@ -137,14 +135,13 @@ function toQuestions(questions: GeneratedQuestion[]): ManualDraftQuestion[] {
     mediaUrl: "",
     answers: question.options,
     correctIndex: question.correctIndex,
-    lat: question.lat,
-    lng: question.lng,
+    lat: null,
+    lng: null,
   }));
 }
 
 function toManualDraft(run: GeneratedRunPayload, sourceText: string): ManualBuilderDraftState {
   const questions = toQuestions(run.questions);
-  const firstQuestion = questions[0];
   const safeSummary = sourceText.trim().slice(0, 180);
 
   return {
@@ -159,8 +156,8 @@ function toManualDraft(run: GeneratedRunPayload, sourceText: string): ManualBuil
     aiTopic: safeSummary,
     aiGrade: "Mellemtrin",
     mapCenter: {
-      lat: firstQuestion?.lat ?? DEFAULT_LAT,
-      lng: firstQuestion?.lng ?? DEFAULT_LNG,
+      lat: DEFAULT_LAT,
+      lng: DEFAULT_LNG,
     },
   };
 }

@@ -4,8 +4,6 @@ import OpenAI from "openai";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const DEFAULT_COUNT = 5;
-const DEFAULT_LAT = 55.0;
-const DEFAULT_LNG = 11.9;
 const MAX_SOURCE_TEXT_LENGTH = 18000;
 const MAX_IMAGE_DATA_LENGTH = 6_000_000;
 
@@ -20,8 +18,8 @@ type NormalizedQuestion = {
   question: string;
   options: [string, string, string, string];
   correctIndex: number;
-  lat: number;
-  lng: number;
+  lat: null;
+  lng: null;
 };
 
 function asTrimmedString(value: unknown): string {
@@ -79,8 +77,8 @@ function normalizeQuestions(value: unknown, desiredCount: number): NormalizedQue
           options[3] ?? "",
         ] as [string, string, string, string],
         correctIndex: questionRecord.correctIndex,
-        lat: DEFAULT_LAT,
-        lng: DEFAULT_LNG,
+        lat: null,
+        lng: null,
       };
     })
     .filter((question): question is NormalizedQuestion => question !== null)
@@ -153,9 +151,7 @@ Returner ALTID præcis denne struktur:
     {
       "question": "Selve spørgsmålet",
       "options": ["Svar A", "Svar B", "Svar C", "Svar D"],
-      "correctIndex": 0,
-      "lat": 55.0,
-      "lng": 11.9
+      "correctIndex": 0
     }
   ]
 }
@@ -164,7 +160,6 @@ KRAV TIL JSON:
 - "questions" skal indeholde præcis 5 objekter.
 - Hvert spørgsmål skal have præcis 4 svarmuligheder.
 - "correctIndex" skal være et heltal fra 0 til 3.
-- "lat" skal være 55.0 og "lng" skal være 11.9 for alle spørgsmål.
 - Titlen skal være kort, tydelig og brugbar som løbsnavn.
 - Beskrivelsen skal kort forklare, hvad læreren og eleverne møder.
 - Det korrekte svar i hvert spørgsmål skal kunne findes direkte i materialet.`
@@ -185,9 +180,7 @@ Returner ALTID præcis denne struktur:
     {
       "question": "Selve spørgsmålet",
       "options": ["Svar A", "Svar B", "Svar C", "Svar D"],
-      "correctIndex": 0,
-      "lat": 55.0,
-      "lng": 11.9
+      "correctIndex": 0
     }
   ]
 }
@@ -196,7 +189,6 @@ KRAV TIL JSON:
 - "questions" skal indeholde præcis ${count} objekter.
 - Hvert spørgsmål skal have præcis 4 svarmuligheder.
 - "correctIndex" skal være et heltal fra 0 til 3.
-- "lat" skal være 55.0 og "lng" skal være 11.9 for alle spørgsmål.
 - Titlen skal være kort, tydelig og brugbar som løbsnavn.
 - Beskrivelsen skal kort forklare, hvad læreren og eleverne møder.
 - Svar og spørgsmål skal være konkrete, varierede og realistiske for et GPS-løb.`;
