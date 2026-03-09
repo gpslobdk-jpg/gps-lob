@@ -108,6 +108,38 @@ export default function PrivacyPage() {
               </p>
             </section>
 
+            <section className="space-y-4 rounded-[1.75rem] border border-emerald-400/20 bg-emerald-400/8 p-6 shadow-[0_20px_50px_rgba(16,185,129,0.08)]">
+              <h2 className={`text-2xl font-bold text-white ${rubik.className}`}>
+                🔒 Sikkerhed i Topklasse
+              </h2>
+              <p className="text-slate-200 leading-relaxed md:text-lg">
+                Vi tager datasikkerhed ekstremt seriøst. For at beskytte både lærere og elever har vi
+                implementeret en række strenge sikkerhedsforanstaltninger:
+              </p>
+              <ul className="list-disc space-y-3 pl-6 text-slate-200 leading-relaxed md:text-lg">
+                <li>
+                  <span className="font-semibold text-white">Stram Adgangskontrol:</span> Vores
+                  avancerede AI- og løbsmotorer er låst bag sikker login-bekræftelse. Kun autoriserede
+                  lærere har adgang til at generere indhold.
+                </li>
+                <li>
+                  <span className="font-semibold text-white">Beskyttet AI-integration:</span> Al
+                  kommunikation med vores AI-modeller foregår via krypterede, lukkede
+                  server-forbindelser. Elev- eller lærerdata bruges ALDRIG til at træne offentlige
+                  AI-modeller.
+                </li>
+                <li>
+                  <span className="font-semibold text-white">Skudsikre API&apos;er:</span> Vores system er
+                  beskyttet mod overbelastning og misbrug med strenge grænser for datatrafik og
+                  automatiske timeouts.
+                </li>
+                <li>
+                  <span className="font-semibold text-white">Krypteret Data:</span> Al data-trafik mellem
+                  din enhed og vores servere er sikret med moderne kryptering (HTTPS/SSL).
+                </li>
+              </ul>
+            </section>
+
             <div className="border-t border-white/10 pt-2" />
 
             <section className="space-y-4">

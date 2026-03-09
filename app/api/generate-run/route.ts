@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import { createClient } from "@/utils/supabase/server";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -8,6 +9,7 @@ const OPENAI_TIMEOUT_MS = 45_000;
 const MAX_TOPIC_LENGTH = 150;
 const MAX_SOURCE_TEXT_LENGTH = 18000;
 const MAX_IMAGE_DATA_LENGTH = 6_000_000;
+const MAX_REQUEST_BODY_BYTES = 5_000_000;
 
 type GenerateRunPayload = {
   topic?: unknown;
@@ -34,6 +36,14 @@ function asCount(value: unknown): number {
   }
 
   return DEFAULT_COUNT;
+}
+
+function getContentLength(request: Request): number | null {
+  const rawValue = request.headers.get("content-length")?.trim();
+  if (!rawValue) return null;
+
+  const parsed = Number(rawValue);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
 function normalizeQuestions(value: unknown, desiredCount: number): NormalizedQuestion[] {
@@ -96,7 +106,45 @@ export async function POST(req: Request) {
       );
     }
 
-    const payload = (await req.json()) as GenerateRunPayload;
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return NextResponse.json(
+        { error: "Du skal være logget ind for at bruge AI-værktøjet." },
+        { status: 401 }
+      );
+    }
+
+    const contentLength = getContentLength(req);
+    if (contentLength !== null && contentLength > MAX_REQUEST_BODY_BYTES) {
+      return NextResponse.json(
+        { error: "Materialet er for stort. Brug et mindre tekstudsnit eller billede." },
+        { status: 413 }
+      );
+    }
+
+    const rawBody = await req.text();
+    if (new TextEncoder().encode(rawBody).length > MAX_REQUEST_BODY_BYTES) {
+      return NextResponse.json(
+        { error: "Materialet er for stort. Brug et mindre tekstudsnit eller billede." },
+        { status: 413 }
+      );
+    }
+
+    let payload: GenerateRunPayload;
+    try {
+      payload = JSON.parse(rawBody) as GenerateRunPayload;
+    } catch {
+      return NextResponse.json(
+        { error: "Request-body skal være gyldigt JSON." },
+        { status: 400 }
+      );
+    }
+
     const topic = asTrimmedString(payload.topic);
     const sourceText = asTrimmedString(payload.sourceText);
     const imageBase64 = asTrimmedString(payload.imageBase64);

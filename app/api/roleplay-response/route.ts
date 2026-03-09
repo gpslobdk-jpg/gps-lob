@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import { createClient } from "@/utils/supabase/server";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const OPENAI_TIMEOUT_MS = 45_000;
@@ -22,6 +23,19 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "OPENAI_API_KEY mangler i miljøet." },
         { status: 500 }
+      );
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return NextResponse.json(
+        { error: "Du skal være logget ind for at bruge AI-værktøjet." },
+        { status: 401 }
       );
     }
 
