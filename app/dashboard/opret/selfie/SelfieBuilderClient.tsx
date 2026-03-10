@@ -125,10 +125,13 @@ type SelfieBuilderDraftState = {
 };
 
 const textInputClass =
-  "w-full rounded-2xl border border-orange-400/20 bg-rose-950/55 px-4 py-3 text-orange-100 placeholder:text-orange-100/35 focus:border-rose-300 focus:outline-none focus:ring-2 focus:ring-orange-400";
+  "w-full rounded-2xl border border-orange-400/20 bg-rose-950/55 px-4 py-3 text-orange-100 placeholder:text-orange-100/35 focus:border-rose-300 focus:outline-none focus:ring-2 focus:ring-orange-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const textareaClass =
-  "w-full rounded-2xl border border-orange-400/20 bg-rose-950/55 px-4 py-3 text-orange-100 placeholder:text-orange-100/35 focus:border-rose-300 focus:outline-none focus:ring-2 focus:ring-orange-400";
+  "w-full rounded-2xl border border-orange-400/20 bg-rose-950/55 px-4 py-3 text-orange-100 placeholder:text-orange-100/35 focus:border-rose-300 focus:outline-none focus:ring-2 focus:ring-orange-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+
+const aiActionButtonClass =
+  "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-emerald-500/30 bg-emerald-500/10 px-5 py-3 text-sm font-semibold text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)] transition-all hover:bg-emerald-500 hover:text-slate-900 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const buildAnswers = (targetObject: string): [string, string, string, string] => [
   targetObject.trim(),
@@ -225,6 +228,8 @@ export default function SelfieBuilderClient() {
   const [questions, setQuestions] = useState<Question[]>([createQuestion()]);
   const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
+  const isAiBusy = isGenerating;
+  const editorLockClass = isAiBusy ? "pointer-events-none opacity-50" : "";
   const [mapCenter, setMapCenter] = useState<MapCenter>({
     lat: DEFAULT_MAP_CENTER.lat,
     lng: DEFAULT_MAP_CENTER.lng,
@@ -450,6 +455,26 @@ export default function SelfieBuilderClient() {
 
   const handleApproveAIPreview = () => {
     if (previewQuestions.length === 0) return;
+
+    const hasExistingQuestions =
+      questions.length > 1 ||
+      questions.some(
+        (question) =>
+          question.text.trim().length > 0 ||
+          question.aiPrompt.trim().length > 0 ||
+          question.lat !== null ||
+          question.lng !== null
+      );
+
+    if (hasExistingQuestions) {
+      const shouldReplace = window.confirm(
+        "Advarsel: Dette vil erstatte alle dine nuværende poster. Er du sikker på, at du vil fortsætte?"
+      );
+
+      if (!shouldReplace) {
+        return;
+      }
+    }
 
     const timestamp = Date.now();
     setQuestions(
@@ -727,7 +752,12 @@ export default function SelfieBuilderClient() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(251,146,60,0.28),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(244,114,182,0.16),_transparent_28%)]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
           <section className="w-full px-4 py-4 sm:px-6 sm:py-6 lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
-            <div className="mx-auto max-w-3xl space-y-6">
+            <div className="mx-auto max-w-3xl">
+              <fieldset
+                disabled={isAiBusy}
+                aria-busy={isAiBusy}
+                className={`min-w-0 space-y-6 border-0 p-0 ${editorLockClass}`}
+              >
               <div className="px-1 pt-1">
                 {isEditMode ? (
                   <div className="mb-4 inline-flex items-center rounded-full border border-orange-400/25 bg-orange-400/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-orange-50 uppercase">
@@ -752,7 +782,8 @@ export default function SelfieBuilderClient() {
                     setShowAIModal(true);
                     setPreviewQuestions([]);
                   }}
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-orange-400/20 bg-rose-950/50 px-4 py-2 text-xs font-semibold text-orange-100/90 backdrop-blur-xl transition hover:border-rose-300/35 hover:bg-rose-900/55"
+                  disabled={isAiBusy || isSaving || isLoadingExistingRun}
+                  className={`${aiActionButtonClass} rounded-full px-4 py-2 text-xs`}
                 >
                   <span aria-hidden>✨</span>
                   AI-udfyld
@@ -880,13 +911,14 @@ export default function SelfieBuilderClient() {
                   <button
                     type="button"
                     onClick={handleSaveRun}
-                    disabled={isSaving}
+                    disabled={isSaving || isAiBusy}
                     className="w-full rounded-[1.5rem] border border-orange-400/30 bg-[linear-gradient(145deg,rgba(251,146,60,0.22),rgba(244,114,182,0.18))] px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-orange-50 shadow-[0_14px_34px_rgba(251,146,60,0.18)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
                   </button>
                 </div>
               </div>
+              </fieldset>
             </div>
           </section>
 
@@ -937,6 +969,7 @@ export default function SelfieBuilderClient() {
                         onChange={(event) =>
                           updatePreviewQuestion(question.id, { aiPrompt: event.target.value })
                         }
+                        disabled={isGenerating}
                         className={textInputClass}
                       />
                       <textarea
@@ -945,7 +978,8 @@ export default function SelfieBuilderClient() {
                           updatePreviewQuestion(question.id, { text: event.target.value })
                         }
                         rows={3}
-                        className="mt-3 w-full rounded-2xl border border-orange-400/20 bg-rose-950/55 px-4 py-3 text-orange-100 placeholder:text-orange-100/35 focus:border-rose-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                        disabled={isGenerating}
+                        className={`mt-3 ${textareaClass}`}
                       />
                       <p className="mt-3 text-sm leading-relaxed text-orange-50">
                         {normalizeSelfieInstruction(question.text, question.aiPrompt)}
@@ -958,7 +992,8 @@ export default function SelfieBuilderClient() {
                   <button
                     type="button"
                     onClick={handleApproveAIPreview}
-                    className="w-full rounded-[1.4rem] border border-orange-400/30 bg-[linear-gradient(145deg,rgba(251,146,60,0.22),rgba(244,114,182,0.18))] py-3 font-bold text-orange-50 transition hover:brightness-110"
+                    disabled={isGenerating}
+                    className={`${aiActionButtonClass} w-full`}
                   >
                     Godkend og placer på kortet
                   </button>
@@ -981,16 +1016,18 @@ export default function SelfieBuilderClient() {
                     value={aiRunBrief}
                     onChange={(event) => setAiRunBrief(event.target.value)}
                     rows={6}
+                    disabled={isGenerating}
                     placeholder="F.eks. Lav 6 selfie-poster i en park med tydelige steder og naturdetaljer."
                     className="w-full rounded-[1.6rem] border border-orange-400/20 bg-rose-950/55 p-5 text-orange-100 placeholder:text-orange-100/35 focus:outline-none focus:ring-2 focus:ring-orange-400"
                   />
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setShowAIMetadataFields((current) => !current)}
-                  className="mt-4 inline-flex items-center gap-2 text-sm text-orange-100/70 transition hover:text-orange-100"
-                >
+                  <button
+                    type="button"
+                    onClick={() => setShowAIMetadataFields((current) => !current)}
+                    disabled={isGenerating}
+                    className="mt-4 inline-flex items-center gap-2 text-sm text-orange-100/70 transition hover:text-orange-100"
+                  >
                   {showAIMetadataFields ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   Tilpas fag og niveau (valgfrit)
                 </button>
@@ -1001,6 +1038,7 @@ export default function SelfieBuilderClient() {
                       <select
                         value={aiSubject}
                         onChange={(event) => setAiSubject(event.target.value)}
+                        disabled={isGenerating}
                         className="w-full rounded-2xl border border-orange-400/20 bg-rose-950/50 p-3 text-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-400"
                       >
                         <option value="" className="bg-slate-900 text-white">
@@ -1015,6 +1053,7 @@ export default function SelfieBuilderClient() {
                       <select
                         value={aiGrade}
                         onChange={(event) => setAiGrade(event.target.value)}
+                        disabled={isGenerating}
                         className="w-full rounded-2xl border border-orange-400/20 bg-rose-950/50 p-3 text-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-400"
                       >
                         {GRADE_OPTIONS.map((gradeOption) => (
@@ -1040,12 +1079,12 @@ export default function SelfieBuilderClient() {
                     type="button"
                     onClick={handleAIGenerate}
                     disabled={isGenerating}
-                    className="w-full rounded-[1.4rem] border border-orange-400/30 bg-[linear-gradient(145deg,rgba(251,146,60,0.22),rgba(244,114,182,0.18))] px-6 py-3 text-sm font-bold text-orange-50 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                    className={`${aiActionButtonClass} w-full`}
                   >
                     {isGenerating ? (
-                      <span className="inline-flex items-center gap-2">
+                      <span className="inline-flex animate-pulse items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Tænker...
+                        🪄 Arbejder...
                       </span>
                     ) : (
                       "Generer poster"

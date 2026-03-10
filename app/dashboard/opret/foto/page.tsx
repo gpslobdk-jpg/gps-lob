@@ -236,13 +236,16 @@ const createQuestion = (): Question => ({
 });
 
 const textInputClass =
-  "w-full rounded-2xl border border-sky-500/20 bg-sky-950/50 px-4 py-3 text-sky-100 placeholder:text-sky-100/35 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500";
+  "w-full rounded-2xl border border-sky-500/20 bg-sky-950/50 px-4 py-3 text-sky-100 placeholder:text-sky-100/35 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const textareaClass =
-  "w-full rounded-2xl border border-sky-500/20 bg-sky-950/50 px-4 py-3 text-sky-100 placeholder:text-sky-100/35 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500";
+  "w-full rounded-2xl border border-sky-500/20 bg-sky-950/50 px-4 py-3 text-sky-100 placeholder:text-sky-100/35 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const previewInputClass =
-  "w-full rounded-2xl border border-sky-500/20 bg-sky-950/50 px-4 py-3 text-sky-100 placeholder:text-sky-100/35 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500";
+  "w-full rounded-2xl border border-sky-500/20 bg-sky-950/50 px-4 py-3 text-sky-100 placeholder:text-sky-100/35 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+
+const aiActionButtonClass =
+  "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-emerald-500/30 bg-emerald-500/10 px-5 py-3 text-sm font-semibold text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)] transition-all hover:bg-emerald-500 hover:text-slate-900 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const BLANK_ANSWERS: [string, string, string, string] = ["", "", "", ""];
 
@@ -347,6 +350,8 @@ function FotoMissionBuilderPageContent() {
   const [questions, setQuestions] = useState<Question[]>([createQuestion()]);
   const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
+  const isAiBusy = isGenerating;
+  const editorLockClass = isAiBusy ? "pointer-events-none opacity-50" : "";
   const [mapCenter, setMapCenter] = useState<MapCenter>({
     lat: DEFAULT_MAP_CENTER.lat,
     lng: DEFAULT_MAP_CENTER.lng,
@@ -593,6 +598,27 @@ function FotoMissionBuilderPageContent() {
 
   const handleApproveAIPreview = () => {
     if (previewQuestions.length === 0) return;
+
+    const hasExistingQuestions =
+      questions.length > 1 ||
+      questions.some(
+        (question) =>
+          question.text.trim().length > 0 ||
+          question.aiPrompt.trim().length > 0 ||
+          question.mediaUrl.trim().length > 0 ||
+          question.lat !== null ||
+          question.lng !== null
+      );
+
+    if (hasExistingQuestions) {
+      const shouldReplace = window.confirm(
+        "Advarsel: Dette vil erstatte alle dine nuværende poster. Er du sikker på, at du vil fortsætte?"
+      );
+
+      if (!shouldReplace) {
+        return;
+      }
+    }
 
     setNotice(null);
     const timestamp = Date.now();
@@ -897,7 +923,12 @@ function FotoMissionBuilderPageContent() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.28),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(125,211,252,0.12),_transparent_28%)]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
           <section className="w-full px-4 py-4 sm:px-6 sm:py-6 lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
-            <div className="mx-auto max-w-3xl space-y-6">
+            <div className="mx-auto max-w-3xl">
+              <fieldset
+                disabled={isAiBusy}
+                aria-busy={isAiBusy}
+                className={`min-w-0 space-y-6 border-0 p-0 ${editorLockClass}`}
+              >
               <div className="px-1 pt-1">
                 {isEditMode ? (
                   <div className="mb-4 inline-flex items-center rounded-full border border-sky-400/25 bg-sky-400/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-sky-100 uppercase">
@@ -923,7 +954,8 @@ function FotoMissionBuilderPageContent() {
                     setShowAIModal(true);
                     setPreviewQuestions([]);
                   }}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-[1.4rem] border border-sky-500/20 bg-sky-950/50 px-5 py-3 text-sm font-semibold text-sky-100 shadow-[0_16px_36px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition hover:border-sky-300/35 hover:bg-sky-900/60 sm:w-auto"
+                  disabled={isAiBusy || isSaving || isLoadingExistingRun}
+                  className={`${aiActionButtonClass} w-full sm:w-auto`}
                 >
                   <span aria-hidden>✨</span>
                   Auto-udfyld med AI
@@ -1064,13 +1096,14 @@ function FotoMissionBuilderPageContent() {
                   <button
                     type="button"
                     onClick={handleSaveRun}
-                    disabled={isSaving}
+                    disabled={isSaving || isAiBusy}
                     className="w-full rounded-[1.6rem] border border-sky-400/30 bg-sky-500/22 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-sky-100 shadow-[0_14px_34px_rgba(14,165,233,0.18)] transition hover:bg-sky-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
                   </button>
                 </div>
               </div>
+              </fieldset>
             </div>
           </section>
 
@@ -1132,6 +1165,7 @@ function FotoMissionBuilderPageContent() {
                         onChange={(event) =>
                           updatePreviewQuestion(question.id, { aiPrompt: event.target.value })
                         }
+                        disabled={isGenerating}
                         className={previewInputClass}
                       />
 
@@ -1144,6 +1178,7 @@ function FotoMissionBuilderPageContent() {
                           updatePreviewQuestion(question.id, { text: event.target.value })
                         }
                         rows={3}
+                        disabled={isGenerating}
                         className={previewInputClass}
                       />
                     </div>
@@ -1154,7 +1189,8 @@ function FotoMissionBuilderPageContent() {
                   <button
                     type="button"
                     onClick={handleApproveAIPreview}
-                    className="w-full rounded-[1.4rem] border border-sky-400/30 bg-sky-500/22 py-3 font-bold text-sky-100 transition hover:bg-sky-500/30"
+                    disabled={isGenerating}
+                    className={`${aiActionButtonClass} w-full`}
                   >
                     Godkend og placer på kortet
                   </button>
@@ -1177,16 +1213,18 @@ function FotoMissionBuilderPageContent() {
                     value={aiRunBrief}
                     onChange={(event) => setAiRunBrief(event.target.value)}
                     rows={8}
+                    disabled={isGenerating}
                     placeholder="f.eks. Lav 6 opgaver om ting man finder i en skov"
                     className="w-full rounded-[1.6rem] border border-sky-500/20 bg-sky-950/50 p-5 text-sky-100 placeholder:text-sky-100/35 focus:outline-none focus:ring-2 focus:ring-sky-500"
                   />
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setShowAITeacherFields((current) => !current)}
-                  className="mt-4 inline-flex items-center gap-2 text-sm text-sky-100/70 transition hover:text-sky-100"
-                >
+                  <button
+                    type="button"
+                    onClick={() => setShowAITeacherFields((current) => !current)}
+                    disabled={isGenerating}
+                    className="mt-4 inline-flex items-center gap-2 text-sm text-sky-100/70 transition hover:text-sky-100"
+                  >
                   {showAITeacherFields ? (
                     <ChevronUp className="h-4 w-4" />
                   ) : (
@@ -1205,6 +1243,7 @@ function FotoMissionBuilderPageContent() {
                         <select
                           value={aiSubject}
                           onChange={(event) => setAiSubject(event.target.value)}
+                          disabled={isGenerating}
                           className="w-full rounded-2xl border border-sky-500/20 bg-sky-950/50 p-3 text-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
                         >
                           <option value="" className="bg-slate-900 text-white">
@@ -1229,6 +1268,7 @@ function FotoMissionBuilderPageContent() {
                         <select
                           value={aiGrade}
                           onChange={(event) => setAiGrade(event.target.value)}
+                          disabled={isGenerating}
                           className="w-full rounded-2xl border border-sky-500/20 bg-sky-950/50 p-3 text-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
                         >
                           {AI_AUDIENCE_OPTIONS.map((gradeOption) => (
@@ -1259,12 +1299,12 @@ function FotoMissionBuilderPageContent() {
                     type="button"
                     onClick={handleAIGenerate}
                     disabled={isGenerating}
-                    className="w-full rounded-[1.4rem] border border-sky-400/30 bg-sky-500/22 px-6 py-3 text-sm font-bold text-sky-100 transition hover:bg-sky-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                    className={`${aiActionButtonClass} w-full px-6`}
                   >
                     {isGenerating ? (
-                      <span className="inline-flex items-center gap-2">
+                      <span className="inline-flex animate-pulse items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Tænker...
+                        🪄 Arbejder...
                       </span>
                     ) : (
                       "Generer foto-missioner"
