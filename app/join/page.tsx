@@ -252,54 +252,65 @@ function JoinForm() {
 
   if (view === "scheduled") {
     return (
-      <div className="mx-auto flex h-full w-full max-w-3xl items-center justify-center px-6 py-10">
-        <div className="relative w-full overflow-hidden rounded-[2rem] border border-emerald-100/12 bg-[linear-gradient(160deg,rgba(10,30,22,0.88),rgba(6,18,14,0.78))] p-8 text-white shadow-[0_32px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:p-10">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(74,222,128,0.18),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(163,230,53,0.12),transparent_32%),linear-gradient(140deg,rgba(255,255,255,0.05),transparent_45%)]" />
+      <div className="mx-auto flex min-h-screen w-full max-w-4xl items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
+        <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(160deg,rgba(8,15,26,0.96),rgba(3,8,16,0.92))] p-5 text-white shadow-[0_36px_100px_rgba(0,0,0,0.55)] sm:p-8">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.12),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_42%)]" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/15" />
 
-          <div className="relative text-center">
-            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border border-emerald-200/20 bg-emerald-300/10 shadow-[0_0_36px_rgba(74,222,128,0.18)]">
-              <div className="absolute h-24 w-24 rounded-full bg-emerald-300/10 blur-2xl" />
-              <Timer className="relative h-10 w-10 text-emerald-100" />
+          <div className="relative">
+            <div className="mx-auto flex max-w-max items-center gap-3 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-[11px] font-bold tracking-[0.34em] text-emerald-300 uppercase shadow-[0_0_24px_rgba(16,185,129,0.16)]">
+              <Timer className="h-4 w-4" />
+              Mission Briefing
             </div>
 
-            <p className="mt-6 text-xs font-semibold tracking-[0.38em] text-emerald-100/60 uppercase">
-              Planlagt løb
-            </p>
-            <h1 className="mt-4 text-3xl font-black text-white sm:text-4xl">
-              Skoven gør sig klar
-            </h1>
-            <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-emerald-50/85 sm:text-lg">
-              Løbet er planlagt! Vi starter automatisk d. {scheduledDate ?? "ukendt dato"} kl.{" "}
-              {scheduledTime ?? "ukendt tid"}. Hold telefonen klar!
-            </p>
-
-            {runTitle ? (
-              <div className="mt-5 inline-flex rounded-full border border-emerald-100/12 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-emerald-50/90">
-                {runTitle}
+            <div className="mt-8 text-center">
+              <div className="relative mx-auto flex h-28 w-28 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.24)]">
+                <div className="absolute inset-4 rounded-full border border-emerald-400/20" />
+                <div className="absolute inset-0 rounded-full border border-emerald-300/20 animate-pulse" />
+                <div className="absolute h-px w-14 bg-emerald-300/35" />
+                <div className="absolute h-14 w-px bg-emerald-300/35" />
+                <Timer className="relative z-10 h-10 w-10 text-emerald-200" />
               </div>
-            ) : null}
 
-            <div className="mt-8 grid gap-3 text-left sm:grid-cols-2">
-              <div className="rounded-[1.5rem] border border-white/10 bg-black/[0.18] p-5 backdrop-blur-xl">
-                <p className="text-xs font-semibold tracking-[0.24em] text-emerald-100/50 uppercase">
-                  Starter
+              <p className="mt-6 text-xs font-semibold tracking-[0.42em] text-emerald-300 uppercase">
+                Planlagt Mission
+              </p>
+              <h1 className="mt-4 text-3xl font-black text-white sm:text-5xl">
+                Missionen er låst og klar
+              </h1>
+              <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
+                Missionen starter automatisk d. {scheduledDate ?? "ukendt dato"} kl.{" "}
+                {scheduledTime ?? "ukendt tid"}. Hold agentudstyret klar.
+              </p>
+
+              {runTitle ? (
+                <div className="mt-6 inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-emerald-50/90 backdrop-blur-md">
+                  {runTitle}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-[1.7rem] border border-white/10 bg-white/5 p-5 text-left shadow-[0_18px_45px_rgba(15,23,42,0.28)] backdrop-blur-md">
+                <p className="text-xs font-semibold tracking-[0.26em] text-emerald-200/60 uppercase">
+                  Startvindue
                 </p>
-                <p className="mt-3 text-lg font-semibold text-white">
+                <p className="mt-4 text-sm font-medium text-slate-300">
                   {scheduledDate ?? "Tid ikke sat"}
                 </p>
-                <p className="text-3xl font-black text-emerald-100">
+                <p className="mt-3 font-mono text-4xl font-black tracking-[0.18em] text-emerald-300 sm:text-5xl">
                   {scheduledTime ?? "--:--"}
                 </p>
               </div>
 
-              <div className="rounded-[1.5rem] border border-white/10 bg-black/[0.18] p-5 backdrop-blur-xl">
-                <p className="text-xs font-semibold tracking-[0.24em] text-emerald-100/50 uppercase">
-                  Slutter
+              <div className="rounded-[1.7rem] border border-white/10 bg-white/5 p-5 text-left shadow-[0_18px_45px_rgba(15,23,42,0.28)] backdrop-blur-md">
+                <p className="text-xs font-semibold tracking-[0.26em] text-emerald-200/60 uppercase">
+                  Mission slutter
                 </p>
-                <p className="mt-3 text-lg font-semibold text-white">
+                <p className="mt-4 text-sm font-medium text-slate-300">
                   {endDate ?? "Når arrangøren lukker"}
                 </p>
-                <p className="text-3xl font-black text-emerald-100">
+                <p className="mt-3 font-mono text-4xl font-black tracking-[0.18em] text-white sm:text-5xl">
                   {endTime ?? "--:--"}
                 </p>
               </div>
@@ -312,27 +323,41 @@ function JoinForm() {
 
   if (view === "waiting") {
     return (
-      <div className="mx-auto flex h-full w-full max-w-2xl items-center justify-center px-6 py-10">
-        <div className="relative w-full overflow-hidden rounded-[2rem] border border-emerald-100/12 bg-[linear-gradient(160deg,rgba(9,25,19,0.88),rgba(5,16,12,0.76))] p-8 text-center text-white shadow-[0_32px_90px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-10">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(74,222,128,0.16),transparent_32%),linear-gradient(140deg,rgba(255,255,255,0.05),transparent_42%)]" />
+      <div className="mx-auto flex min-h-screen w-full max-w-3xl items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
+        <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(160deg,rgba(8,15,26,0.96),rgba(3,8,16,0.92))] p-6 text-center text-white shadow-[0_36px_100px_rgba(0,0,0,0.55)] sm:p-8">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.12),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_42%)]" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/15" />
 
           <div className="relative">
-            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border border-emerald-200/18 bg-emerald-300/[0.08] shadow-[0_0_36px_rgba(74,222,128,0.16)]">
-              <Loader2 className="h-10 w-10 animate-spin text-emerald-100" />
+            <div className="mx-auto flex max-w-max items-center gap-3 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-[11px] font-bold tracking-[0.34em] text-emerald-300 uppercase shadow-[0_0_24px_rgba(16,185,129,0.16)]">
+              <Leaf className="h-4 w-4" />
+              Mission Briefing
             </div>
 
-            <p className="mt-6 text-xs font-semibold tracking-[0.38em] text-emerald-100/55 uppercase">
-              Lobby åben
-            </p>
-            <h1 className="mt-4 text-3xl font-black text-white sm:text-4xl">
-              Vi venter på startsignalet
-            </h1>
-            <p className="mx-auto mt-4 max-w-lg text-base leading-7 text-emerald-50/80 sm:text-lg">
-              Du er med i løbet. Arrangøren starter det snart, og så sender vi dig direkte videre.
-            </p>
+            <div className="mt-8">
+              <div className="relative mx-auto flex h-28 w-28 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 p-8 shadow-[0_0_30px_rgba(16,185,129,0.4)] animate-pulse">
+                <div className="absolute inset-3 rounded-full border border-emerald-300/20" />
+                <div className="absolute inset-0 rounded-full border border-emerald-300/20" />
+                <div className="absolute h-px w-14 bg-emerald-300/35" />
+                <div className="absolute h-14 w-px bg-emerald-300/35" />
+                <Loader2 className="relative z-10 h-10 w-10 animate-spin text-emerald-200" />
+              </div>
+
+              <p className="mt-6 text-xs font-semibold tracking-[0.42em] text-emerald-300 uppercase">
+                AGENT REGISTRERET
+              </p>
+              <h1 className="mt-4 text-3xl font-black text-white sm:text-5xl">
+                Mission Briefing aktiv
+              </h1>
+              <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-slate-300 sm:text-base">
+                Venter på at Løbslederen starter missionen...
+              </p>
+            </div>
 
             {runTitle ? (
-              <p className="mt-5 text-sm font-semibold text-emerald-100/70">{runTitle}</p>
+              <div className="mt-6 inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-emerald-50/90 backdrop-blur-md">
+                {runTitle}
+              </div>
             ) : null}
           </div>
         </div>
@@ -419,36 +444,37 @@ function JoinForm() {
   }
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-md flex-col items-center justify-center px-6 py-10">
-      <div className="relative w-full overflow-hidden rounded-[2rem] border border-emerald-100/12 bg-[linear-gradient(160deg,rgba(10,30,22,0.82),rgba(5,16,12,0.74))] p-8 text-white shadow-[0_32px_90px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(74,222,128,0.18),transparent_34%),linear-gradient(140deg,rgba(255,255,255,0.04),transparent_42%)]" />
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
+      <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(160deg,rgba(8,15,26,0.96),rgba(3,8,16,0.92))] p-5 text-white shadow-[0_36px_100px_rgba(0,0,0,0.55)] sm:p-8">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.12),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_42%)]" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/15" />
 
         <div className="relative">
           <div className="mb-8 flex justify-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-[1.75rem] border border-emerald-200/15 bg-emerald-300/10 shadow-[0_0_26px_rgba(74,222,128,0.16)]">
-              <Leaf className="h-9 w-9 text-emerald-100" />
+            <div className="flex h-20 w-20 items-center justify-center rounded-[1.75rem] border border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+              <Leaf className="h-9 w-9 text-emerald-200" />
             </div>
           </div>
 
-          <p className="text-center text-xs font-semibold tracking-[0.34em] text-emerald-100/55 uppercase">
-            gpslob.dk
+          <p className="text-center text-xs font-semibold tracking-[0.4em] text-emerald-300 uppercase">
+            Secret Agent Access
           </p>
-          <h1 className="mt-4 text-center text-3xl font-black text-white">
-            Deltag i løbet
+          <h1 className="mt-4 text-center text-3xl font-black text-white sm:text-4xl">
+            Tilslut missionen
           </h1>
-          <p className="mt-3 text-center text-sm leading-6 text-emerald-50/75">
-            Indtast pinkoden og dit navn. Vi checker automatisk, om løbet er klar til start.
+          <p className="mt-3 text-center text-sm leading-6 text-slate-300 sm:text-base">
+            Indtast pinkoden og dit agentnavn. Vi checker automatisk, om missionen er klar til start.
           </p>
 
           <form onSubmit={handleJoin} className="mt-8 space-y-5">
             {error ? (
-              <div className="rounded-2xl border border-rose-300/25 bg-rose-400/10 p-3 text-center text-sm text-rose-100">
+              <div className="rounded-2xl border border-rose-300/25 bg-rose-400/10 p-3 text-center text-sm text-rose-100 backdrop-blur-md">
                 {error}
               </div>
             ) : null}
 
             <div className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-emerald-100/60">
+              <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-emerald-300/70">
                 <KeyRound className="h-5 w-5" />
               </div>
               <input
@@ -456,7 +482,7 @@ function JoinForm() {
                 placeholder="Pinkode, f.eks. 4921"
                 value={pin}
                 onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                className="w-full rounded-2xl border border-white/10 bg-black/20 py-4 pr-4 pl-12 font-mono text-lg text-white outline-none transition placeholder:text-white/30 focus:border-emerald-300/60 focus:ring-2 focus:ring-emerald-300/20"
+                className="w-full rounded-[1.75rem] border border-emerald-500/30 bg-slate-900/90 py-5 pr-4 pl-12 text-center font-mono text-3xl font-black tracking-[0.5em] text-emerald-400 outline-none shadow-[0_0_24px_rgba(16,185,129,0.12)] transition placeholder:text-emerald-500/30 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={6}
@@ -465,7 +491,7 @@ function JoinForm() {
             </div>
 
             <div className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-emerald-100/60">
+              <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-emerald-300/70">
                 <User className="h-5 w-5" />
               </div>
               <input
@@ -473,16 +499,16 @@ function JoinForm() {
                 placeholder="Dit navn"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-black/20 py-4 pr-4 pl-12 text-lg text-white outline-none transition placeholder:text-white/30 focus:border-emerald-300/60 focus:ring-2 focus:ring-emerald-300/20"
+                className="w-full rounded-[1.6rem] border border-white/10 bg-white/5 py-4 pr-4 pl-12 text-lg font-semibold text-white outline-none backdrop-blur-md transition placeholder:text-slate-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
               />
             </div>
 
             <button
               type="submit"
               disabled={!canSubmit}
-              className="mt-2 w-full rounded-2xl bg-[linear-gradient(135deg,#7ee787,#22c55e)] py-4 text-base font-black tracking-[0.3em] text-emerald-950 uppercase shadow-[0_16px_40px_rgba(74,222,128,0.2)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45"
+              className="mt-2 w-full rounded-[1.6rem] border border-emerald-500/30 bg-emerald-500/10 py-4 text-base font-black tracking-[0.28em] text-emerald-300 uppercase shadow-[0_0_30px_rgba(16,185,129,0.22)] transition-all hover:bg-emerald-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-45"
             >
-              Gør klar
+              TILSLUT MISSION 🚀
             </button>
           </form>
         </div>
@@ -493,11 +519,11 @@ function JoinForm() {
 
 export default function JoinPage() {
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#03110d] text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#0d261b_0%,#07140f_48%,#020805_100%)]" />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#020617_0%,#020b16_42%,#01040a_100%)]" />
       <div className="pointer-events-none absolute left-[-7rem] top-[-5rem] h-72 w-72 rounded-full bg-emerald-400/14 blur-[120px]" />
-      <div className="pointer-events-none absolute bottom-[-8rem] right-[-5rem] h-80 w-80 rounded-full bg-lime-300/10 blur-[140px]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(74,222,128,0.12),transparent_28%),radial-gradient(circle_at_bottom,rgba(163,230,53,0.08),transparent_22%)]" />
+      <div className="pointer-events-none absolute bottom-[-8rem] right-[-5rem] h-80 w-80 rounded-full bg-cyan-400/10 blur-[140px]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_28%),radial-gradient(circle_at_bottom,rgba(34,211,238,0.08),transparent_22%)]" />
 
       <Suspense
         fallback={
