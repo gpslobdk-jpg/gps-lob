@@ -151,11 +151,6 @@ export default function DashboardPage() {
         >
           UDSIGTSPOSTEN
         </h1>
-        <div className="mt-4 flex justify-center">
-          <span className="inline-flex rounded-full border border-white/45 bg-white/12 px-4 py-1.5 text-xs font-medium text-white/90 shadow-[0_8px_20px_rgba(15,23,42,0.12)] backdrop-blur-sm">
-            100% menneskabt arkitektur â€“ med et strejf af AI-magi
-          </span>
-        </div>
         <p className="text-emerald-50">{"V\u00e6lg din n\u00e6ste handling og kom i gang"}</p>
       </section>
 
