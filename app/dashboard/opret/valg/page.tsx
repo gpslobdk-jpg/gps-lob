@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Camera, type LucideIcon } from "lucide-react";
+import { ArrowLeft, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
@@ -43,12 +43,13 @@ const cards: HubCard[] = [
     bodyClass: "text-emerald-900/80",
     badgeClass: "bg-green-800 hover:bg-green-900",
     shadowClass: "shadow-[0_18px_45px_rgba(16,185,129,0.18)]",
-    hoverShadowClass: "group-hover:shadow-[0_24px_58px_rgba(16,185,129,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(16,185,129,0.24)]",
+    hoverShadowClass:
+      "group-hover:shadow-[0_24px_58px_rgba(16,185,129,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(16,185,129,0.24)]",
   },
   {
     title: "AI Foto-mission",
     description:
-      "Deltagerne fotograferer motiver i virkeligheden. Vores AI analyserer og godkender billedet på sekunder - og den gennemskuer snyd (f.eks. billeder af en skærm!).",
+      "Deltagerne fotograferer motiver i virkeligheden. Vores AI analyserer og godkender billedet på sekunder - og den gennemskuer snyd.",
     href: "/dashboard/opret/foto",
     imageSrc: "/foto.png",
     iconShellClass: "border-sky-200 bg-sky-50",
@@ -57,7 +58,8 @@ const cards: HubCard[] = [
     bodyClass: "text-sky-900/80",
     badgeClass: "bg-slate-800 hover:bg-slate-900",
     shadowClass: "shadow-[0_18px_45px_rgba(14,165,233,0.18)]",
-    hoverShadowClass: "group-hover:shadow-[0_24px_58px_rgba(14,165,233,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(14,165,233,0.24)]",
+    hoverShadowClass:
+      "group-hover:shadow-[0_24px_58px_rgba(14,165,233,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(14,165,233,0.24)]",
   },
   {
     title: "Escape Room i Naturen",
@@ -70,50 +72,8 @@ const cards: HubCard[] = [
     bodyClass: "text-violet-900/80",
     badgeClass: "bg-amber-900 hover:bg-orange-950",
     shadowClass: "shadow-[0_18px_45px_rgba(139,92,246,0.18)]",
-    hoverShadowClass: "group-hover:shadow-[0_24px_58px_rgba(139,92,246,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(139,92,246,0.24)]",
-  },
-  {
-    title: "Tidsmaskinen",
-    description: "Lad en fiktiv eller historisk karakter styre løbet med beskeder og svar.",
-    href: "/dashboard/opret/rollespil",
-    imageSrc: "/rollespil.png",
-    iconShellClass: "border-amber-200 bg-amber-50",
-    iconAccentClass: "bg-amber-100 text-amber-700",
-    titleClass: "text-amber-950",
-    bodyClass: "text-amber-900/80",
-    badgeClass: "bg-purple-900 hover:bg-purple-950",
-    shadowClass: "shadow-[0_18px_45px_rgba(245,158,11,0.18)]",
-    hoverShadowClass: "group-hover:shadow-[0_24px_58px_rgba(245,158,11,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(245,158,11,0.24)]",
-  },
-  {
-    title: "Selfie-jagt",
-    description:
-      "Gør løbet personligt! Vores AI tjekker live både ansigt og baggrund - og blokerer snyd (f.eks. billeder af en skærm).",
-    href: "/dashboard/opret/selfie",
-    imageSrc: "/selfie.png",
-    iconShellClass: "border-rose-200 bg-rose-50",
-    iconAccentClass: "bg-orange-100 text-rose-700",
-    titleClass: "text-rose-950",
-    bodyClass: "text-rose-900/80",
-    badgeClass: "bg-rose-900 hover:bg-rose-950",
-    shadowClass: "shadow-[0_18px_45px_rgba(251,146,60,0.18)]",
-    hoverShadowClass: "group-hover:shadow-[0_24px_58px_rgba(251,146,60,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(251,146,60,0.24)]",
-  },
-  {
-    title: "Bog-Scanneren (AI)",
-    description:
-      "Upload et billede af en bogside eller tekst, og lad AI'en bygge et komplet løb med spørgsmål på 10 sekunder.",
-    href: "/dashboard/opret/scanner",
-    icon: Camera,
-    iconShellClass: "border-amber-200 bg-amber-50",
-    iconAccentClass: "bg-amber-100 text-amber-700",
-    titleClass: "text-amber-950",
-    bodyClass: "text-amber-950/80",
-    badgeClass: "bg-emerald-900 hover:bg-emerald-950",
-    shadowClass: "shadow-[0_18px_45px_rgba(245,158,11,0.2)]",
-    hoverShadowClass: "group-hover:shadow-[0_26px_60px_rgba(245,158,11,0.28)] group-focus-visible:shadow-[0_26px_60px_rgba(245,158,11,0.28)]",
-    cardClassName:
-      "border-amber-200/80 bg-[linear-gradient(180deg,rgba(255,251,235,0.96),rgba(255,247,237,0.96))] ring-1 ring-amber-200/70",
+    hoverShadowClass:
+      "group-hover:shadow-[0_24px_58px_rgba(139,92,246,0.24)] group-focus-visible:shadow-[0_24px_58px_rgba(139,92,246,0.24)]",
   },
 ];
 
@@ -164,9 +124,6 @@ function renderCard(card: HubCard, index: number) {
 }
 
 export default function ValgHubPage() {
-  const topRowCards = cards.slice(0, 3);
-  const bottomRowCards = cards.slice(3);
-
   return (
     <main
       className={`relative min-h-screen overflow-hidden bg-gradient-to-b from-sky-300 via-emerald-50 to-emerald-200 px-6 py-12 text-white md:px-10 lg:bg-none lg:bg-transparent ${poppins.className}`}
@@ -205,23 +162,13 @@ export default function ValgHubPage() {
             Hvilken type løb vil du bygge?
           </h1>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white drop-shadow-md md:text-base">
-            Vælg det format, der passer bedst til dit arrangement. Hvert kort er bygget som en
-            lille, tydelig indgang til den builder, du vil arbejde videre i.
+            Vælg det format, der passer bedst til dit arrangement. Her finder du de klassiske
+            builders til quiz, foto og escape.
           </p>
         </div>
 
-        <div className="mt-10 space-y-8">
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {topRowCards.map((card, index) => renderCard(card, index))}
-          </div>
-
-          <div className="flex flex-wrap justify-center gap-8">
-            {bottomRowCards.map((card, index) => (
-              <div key={`${card.title}-bottom-${index}`} className="w-full md:max-w-[calc(50%-1rem)] lg:w-[calc(33.333%-1.35rem)]">
-                {renderCard(card, index + topRowCards.length)}
-              </div>
-            ))}
-          </div>
+        <div className="mt-10 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+          {cards.map((card, index) => renderCard(card, index))}
         </div>
 
         <div className="mt-12 flex justify-center">

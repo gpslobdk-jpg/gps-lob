@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BrainCircuit, MapPin, PenTool, Sparkles } from "lucide-react";
+import { MapPin, PenTool } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
 
 const rubik = Rubik({
@@ -35,11 +35,11 @@ export default function OpretSporPage() {
           Hvordan vil du bygge dit løb? 🏁
         </h1>
         <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white drop-shadow-md md:text-base">
-          Vælg det spor, der passer til din stil. Du kan enten bygge manuelt med fuld kontrol
-          eller lade AI&apos;en skabe et komplet løb på få sekunder.
+          Vælg det spor, der passer til din stil. Herfra går du videre til builderne, hvor du selv
+          former løbet med fuld kontrol.
         </p>
 
-        <div className="mt-10 grid gap-6 md:grid-cols-2">
+        <div className="mt-10 max-w-3xl">
           <Link href="/dashboard/opret/valg" data-tour="opret-build-from-scratch" className="group block">
             <article className="relative h-full rounded-[2.5rem] border border-white/50 bg-white/80 p-7 shadow-xl backdrop-blur-md transition-all duration-300 group-hover:scale-105 group-hover:bg-white/95 group-hover:shadow-2xl">
               <div className="mb-6 flex h-16 w-16 items-center justify-center gap-1 rounded-full border border-emerald-200 bg-emerald-100 shadow-inner">
@@ -50,30 +50,11 @@ export default function OpretSporPage() {
                 Byg fra bunden
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-emerald-800">
-                Vælg først, om du vil bygge et klassisk quiz-løb eller en AI foto-mission, og
-                finpuds derefter poster og lokationer manuelt.
+                Vælg først, om du vil bygge et klassisk quiz-løb, en foto-mission eller et escape
+                forløb, og finpuds derefter poster og lokationer manuelt.
               </p>
               <p className="mt-6 text-xs font-bold tracking-[0.18em] text-emerald-700 uppercase">
                 Vælg løbstype
-              </p>
-            </article>
-          </Link>
-
-          <Link href="/dashboard/opret/magi" className="group block">
-            <article className="relative h-full rounded-[2.5rem] border border-white/50 bg-white/80 p-7 shadow-xl backdrop-blur-md transition-all duration-300 group-hover:scale-105 group-hover:bg-white/95 group-hover:shadow-2xl">
-              <div className="mb-6 flex h-16 w-16 items-center justify-center gap-1 rounded-full border border-emerald-200 bg-emerald-100 shadow-inner">
-                <BrainCircuit className="h-6 w-6 text-emerald-600" />
-                <Sparkles className="h-5 w-5 text-emerald-600" />
-              </div>
-              <h2 className={`text-2xl font-black tracking-wide text-emerald-950 ${rubik.className}`}>
-                Lyn-Oprettelse
-              </h2>
-              <p className="mt-4 text-sm leading-relaxed text-emerald-800">
-                Lad teknologien gøre arbejdet. Beskriv dit tema, og få et komplet klassisk
-                quiz-løb med spørgsmål på få sekunder.
-              </p>
-              <p className="mt-6 text-xs font-bold tracking-[0.18em] text-emerald-700 uppercase">
-                Generer med AI
               </p>
             </article>
           </Link>

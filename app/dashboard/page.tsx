@@ -54,13 +54,29 @@ export default function DashboardPage() {
           return;
         }
 
-        const { data, error } = await supabase
-          .from("live_sessions")
-          .select("id")
-          .eq("teacher_id", user.id)
-          .in("status", ["waiting", "running"])
-          .order("created_at", { ascending: false })
-          .limit(1);
+        const [
+          { data, error },
+          { count: runCount, error: runsError },
+        ] = await Promise.all([
+          supabase
+            .from("live_sessions")
+            .select("id")
+            .eq("teacher_id", user.id)
+            .in("status", ["waiting", "running"])
+            .order("created_at", { ascending: false })
+            .limit(1),
+          supabase
+            .from("gps_runs")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id),
+        ]);
+
+        if (runsError) {
+          console.error("Kunne ikke tjekke antal gemte løb:", runsError);
+        } else if (runCount === 0) {
+          router.replace("/dashboard/velkommen");
+          return;
+        }
 
         if (error) {
           console.error("Kunne ikke tjekke aktiv live-session:", error);
@@ -82,7 +98,7 @@ export default function DashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [router]);
 
   const hasActiveSession = Boolean(activeSessionId);
 
