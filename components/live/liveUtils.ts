@@ -38,6 +38,7 @@ export function toLocation(row: StudentRow): LiveStudentLocation | null {
     student_name: name,
     lat,
     lng,
+    updated_at: row.updated_at ?? null,
     finished_at: row.finished_at ?? null,
   };
 }

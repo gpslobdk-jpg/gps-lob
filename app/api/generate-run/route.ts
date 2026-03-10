@@ -1,8 +1,13 @@
+import { createOpenAI } from "@ai-sdk/openai";
+import { generateObject } from "ai";
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
+import { z } from "zod";
+
 import { createClient } from "@/utils/supabase/server";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 const DEFAULT_COUNT = 5;
 const OPENAI_TIMEOUT_MS = 45_000;
@@ -26,6 +31,31 @@ type NormalizedQuestion = {
   lng: null;
 };
 
+const generatedRunQuestionSchema = z
+  .object({
+    question: z.string().trim().min(1),
+    options: z.tuple([
+      z.string().trim().min(1),
+      z.string().trim().min(1),
+      z.string().trim().min(1),
+      z.string().trim().min(1),
+    ]),
+    correctIndex: z.number().int().min(0).max(3),
+    lat: z.null(),
+    lng: z.null(),
+  })
+  .strict();
+
+function createGeneratedRunSchema(desiredCount: number) {
+  return z
+    .object({
+      title: z.string().trim().min(1),
+      description: z.string().trim().min(1),
+      questions: z.array(generatedRunQuestionSchema).length(desiredCount),
+    })
+    .strict();
+}
+
 function asTrimmedString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -46,55 +76,29 @@ function getContentLength(request: Request): number | null {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
-function normalizeQuestions(value: unknown, desiredCount: number): NormalizedQuestion[] {
-  if (!Array.isArray(value)) return [];
+function normalizeQuestions(
+  questions: z.infer<typeof generatedRunQuestionSchema>[]
+): NormalizedQuestion[] {
+  return questions.map((question) => ({
+    question: question.question,
+    options: [
+      question.options[0],
+      question.options[1],
+      question.options[2],
+      question.options[3],
+    ],
+    correctIndex: question.correctIndex,
+    lat: null,
+    lng: null,
+  }));
+}
 
-  return value
-    .map((item) => {
-      if (!item || typeof item !== "object") return null;
-
-      const questionRecord = item as {
-        question?: unknown;
-        options?: unknown;
-        correctIndex?: unknown;
-      };
-
-      const question = asTrimmedString(questionRecord.question);
-      if (!question) return null;
-      if (!Array.isArray(questionRecord.options)) return null;
-
-      const options = questionRecord.options
-        .filter((option): option is string => typeof option === "string")
-        .map((option) => option.trim())
-        .filter(Boolean)
-        .slice(0, 4);
-
-      if (options.length !== 4) return null;
-
-      if (
-        typeof questionRecord.correctIndex !== "number" ||
-        !Number.isInteger(questionRecord.correctIndex) ||
-        questionRecord.correctIndex < 0 ||
-        questionRecord.correctIndex > 3
-      ) {
-        return null;
-      }
-
-      return {
-        question,
-        options: [
-          options[0] ?? "",
-          options[1] ?? "",
-          options[2] ?? "",
-          options[3] ?? "",
-        ] as [string, string, string, string],
-        correctIndex: questionRecord.correctIndex,
-        lat: null,
-        lng: null,
-      };
-    })
-    .filter((question): question is NormalizedQuestion => question !== null)
-    .slice(0, desiredCount);
+function isTimeoutError(error: unknown) {
+  return (
+    error instanceof Error &&
+    (error.name === "AbortError" ||
+      /timed out|timeout|aborted/i.test(error.message))
+  );
 }
 
 export async function POST(req: Request) {
@@ -190,179 +194,93 @@ export async function POST(req: Request) {
       ? `Du er en dansk AI-løbsbygger til GPSLØB.
 Du hjælper lærere med at forvandle konkret undervisningsmateriale til et GPS-løb.
 
-Læs følgende materiale grundigt. Generer et GPS-løb med 5 spørgsmål, hvor alle rigtige svar KAN FINDES DIREKTE I MATERIALET.
+Læs følgende materiale grundigt. Generer et GPS-løb med 5 spørgsmål, hvor alle rigtige svar kan findes direkte i materialet.
 
-VIGTIGE REGLER:
-- Du må KUN bruge oplysninger, der tydeligt findes i materialet.
-- Du må IKKE opfinde fakta, som ikke kan læses direkte i materialet.
-- Du må KUN returnere gyldigt JSON.
-- Du må IKKE skrive forklaringer, markdown, kodeblokke eller ekstra tekst.
+Vigtige regler:
+- Du må kun bruge oplysninger, der tydeligt findes i materialet.
+- Du må ikke opfinde fakta, som ikke kan læses direkte i materialet.
 - Alt indhold skal være på dansk.
 - Løbet skal passe til en udendørs quiz for skole eller undervisning.
-
-Returner ALTID præcis denne struktur:
-{
-  "title": "Kort og fængende titel",
-  "description": "Kort beskrivelse på 1-2 sætninger",
-  "questions": [
-    {
-      "question": "Selve spørgsmålet",
-      "options": ["Svar A", "Svar B", "Svar C", "Svar D"],
-      "correctIndex": 0
-    }
-  ]
-}
-
-KRAV TIL JSON:
-- "questions" skal indeholde præcis 5 objekter.
-- Hvert spørgsmål skal have præcis 4 svarmuligheder.
-- "correctIndex" skal være et heltal fra 0 til 3.
-- Titlen skal være kort, tydelig og brugbar som løbsnavn.
-- Beskrivelsen skal kort forklare, hvad læreren og eleverne møder.
-- Det korrekte svar i hvert spørgsmål skal kunne findes direkte i materialet.`
+- Returner kun struktureret output, der matcher schemaet.
+- Hver question skal have præcis 4 svarmuligheder.
+- correctIndex skal være et heltal fra 0 til 3.
+- lat og lng skal altid være null.`
       : `Du er en dansk AI-løbsbygger til GPSLØB.
 Du hjælper lærere med at auto-generere komplette quiz-løb.
 
-VIGTIGE REGLER:
-- Du må KUN returnere gyldigt JSON.
-- Du må IKKE skrive forklaringer, markdown, kodeblokke eller ekstra tekst.
+Vigtige regler:
 - Alt indhold skal være på dansk.
 - Løbet skal passe til en udendørs quiz for skole eller undervisning.
-
-Returner ALTID præcis denne struktur:
-{
-  "title": "Kort og fængende titel",
-  "description": "Kort beskrivelse på 1-2 sætninger",
-  "questions": [
-    {
-      "question": "Selve spørgsmålet",
-      "options": ["Svar A", "Svar B", "Svar C", "Svar D"],
-      "correctIndex": 0
-    }
-  ]
-}
-
-KRAV TIL JSON:
+- Returner kun struktureret output, der matcher schemaet.
 - "questions" skal indeholde præcis ${count} objekter.
 - Hvert spørgsmål skal have præcis 4 svarmuligheder.
-- "correctIndex" skal være et heltal fra 0 til 3.
-- Titlen skal være kort, tydelig og brugbar som løbsnavn.
-- Beskrivelsen skal kort forklare, hvad læreren og eleverne møder.
-- Svar og spørgsmål skal være konkrete, varierede og realistiske for et GPS-løb.`;
+- correctIndex skal være et heltal fra 0 til 3.
+- lat og lng skal altid være null.
+- Titel og beskrivelse skal være korte, tydelige og brugbare i builderen.`;
 
-    const timeoutController = new AbortController();
-    const timeoutId = setTimeout(() => {
-      timeoutController.abort();
-    }, OPENAI_TIMEOUT_MS);
+    const schema = createGeneratedRunSchema(count);
 
-    let response;
-    try {
-      response = await openai.chat.completions.create(
-        {
-          model: "gpt-4o-mini",
-          response_format: { type: "json_object" },
-          messages: hasMaterial
-            ? [
-                { role: "system", content: systemPrompt },
-                {
-                  role: "user",
-                  content: [
-                    {
-                      type: "text",
-                      text:
-                        `Læs materialet grundigt og lav nu et GPS-løb med 5 spørgsmål, hvor alle rigtige svar kan findes direkte i materialet.` +
-                        (sourceText
-                          ? `\n\nMaterialetekst:\n${sourceText}`
-                          : "\n\nBrug bogside-billedet som materiale.") +
-                        "\n\nReturner kun gyldigt JSON.",
-                    },
-                    ...(imageBase64
-                      ? [
-                          {
-                            type: "image_url" as const,
-                            image_url: {
-                              url: imageBase64,
-                            },
+    const { object } = await generateObject({
+      model: openai("gpt-4o-mini"),
+      schema,
+      schemaName: "ManualBuilderGeneratedRun",
+      schemaDescription:
+        "Et komplet løbsudkast til den manuelle GPS-bygger med titel, beskrivelse og quizspørgsmål.",
+      system: systemPrompt,
+      ...(hasMaterial
+        ? {
+            messages: [
+              {
+                role: "user" as const,
+                content: [
+                  {
+                    type: "text" as const,
+                    text:
+                      `Læs materialet grundigt og lav nu et GPS-løb med 5 spørgsmål, hvor alle rigtige svar kan findes direkte i materialet.` +
+                      (sourceText
+                        ? `\n\nMaterialetekst:\n${sourceText}`
+                        : "\n\nBrug bogside-billedet som materiale.") +
+                      "\n\nReturner kun det strukturerede output.",
+                  },
+                  ...(imageBase64
+                    ? [
+                        {
+                          type: "image" as const,
+                          image: imageBase64,
+                          providerOptions: {
+                            openai: { imageDetail: "low" },
                           },
-                        ]
-                      : []),
-                  ],
-                },
-              ]
-            : [
-                { role: "system", content: systemPrompt },
-                {
-                  role: "user",
-                  content: `Lav nu et komplet GPS-løb om dette emne: ${topic}
+                        },
+                      ]
+                    : []),
+                ],
+              },
+            ],
+            temperature: 0.3,
+          }
+        : {
+            prompt: `Lav nu et komplet GPS-løb om dette emne: ${topic}
 
-Husk at returnere præcis ${count} spørgsmål og kun gyldigt JSON.`,
-                },
-              ],
-          temperature: hasMaterial ? 0.3 : 0.7,
+Husk at returnere præcis ${count} spørgsmål og kun det strukturerede output.`,
+            temperature: 0.7,
+          }),
+      timeout: OPENAI_TIMEOUT_MS,
+      providerOptions: {
+        openai: {
+          strictJsonSchema: true,
         },
-        {
-          signal: timeoutController.signal,
-          timeout: OPENAI_TIMEOUT_MS,
-        }
-      );
-    } finally {
-      clearTimeout(timeoutId);
-    }
-
-    const rawContent = response.choices[0]?.message?.content;
-    if (!rawContent) {
-      return NextResponse.json(
-        { error: "AI returnerede et tomt svar." },
-        { status: 502 }
-      );
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(rawContent);
-    } catch {
-      return NextResponse.json(
-        { error: "AI returnerede ugyldigt JSON-format." },
-        { status: 502 }
-      );
-    }
-
-    if (!parsed || typeof parsed !== "object") {
-      return NextResponse.json(
-        { error: "AI returnerede et ugyldigt løbsformat." },
-        { status: 502 }
-      );
-    }
-
-    const record = parsed as {
-      title?: unknown;
-      description?: unknown;
-      questions?: unknown;
-    };
-
-    const title = asTrimmedString(record.title);
-    const description = asTrimmedString(record.description);
-    const questions = normalizeQuestions(record.questions, count);
-
-    if (!title || !description || questions.length !== count) {
-      return NextResponse.json(
-        { error: "AI leverede ikke et fuldt gyldigt løbsudkast." },
-        { status: 502 }
-      );
-    }
+      },
+    });
 
     return NextResponse.json({
-      title,
-      description,
-      questions,
+      title: object.title,
+      description: object.description,
+      questions: normalizeQuestions(object.questions),
     });
   } catch (error) {
     console.error("Fejl i generate-run:", error);
-    if (
-      error instanceof OpenAI.APIConnectionTimeoutError ||
-      error instanceof OpenAI.APIUserAbortError ||
-      (error instanceof Error && error.name === "AbortError")
-    ) {
+
+    if (isTimeoutError(error)) {
       return NextResponse.json(
         { error: "AI'en var for længe om at svare. Prøv igen." },
         { status: 504 }

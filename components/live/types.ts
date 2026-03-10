@@ -21,6 +21,7 @@ export type StudentRow = {
   lng?: number | string | null;
   latitude?: number | string | null;
   longitude?: number | string | null;
+  updated_at?: string | null;
   finished_at?: string | null;
 };
 
@@ -30,6 +31,7 @@ export type LiveStudentLocation = {
   student_name: string;
   lat: number | null;
   lng: number | null;
+  updated_at?: string | null;
   finished_at?: string | null;
 };
 

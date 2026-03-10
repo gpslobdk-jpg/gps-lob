@@ -3,8 +3,9 @@
 import "leaflet/dist/leaflet.css";
 
 import L from "leaflet";
-import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import { Poppins, Rubik } from "next/font/google";
+import { useEffect } from "react";
+import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
 import { toFiniteNumber } from "@/components/live/liveUtils";
 import type { LiveStudentLocation, RunQuestion } from "@/components/live/types";
@@ -29,6 +30,8 @@ type TeacherLiveMapProps = {
   onEndRun: () => Promise<void>;
 };
 
+const LIVE_STATUS_WINDOW_MS = 30_000;
+
 function createPostIcon(index: number) {
   return L.divIcon({
     className: "bg-transparent border-none",
@@ -38,13 +41,82 @@ function createPostIcon(index: number) {
   });
 }
 
-function createStudentIcon(name: string) {
+function isStudentRecentlyActive(student: LiveStudentLocation) {
+  if (!student.updated_at) return true;
+
+  const lastPing = new Date(student.updated_at).getTime();
+  if (!Number.isFinite(lastPing)) return true;
+
+  return Date.now() - lastPing < LIVE_STATUS_WINDOW_MS;
+}
+
+function getMapPoints(
+  runQuestions: RunQuestion[],
+  studentLocations: LiveStudentLocation[]
+): [number, number][] {
+  const questionPoints = runQuestions
+    .map((question) => {
+      const lat = toFiniteNumber(question.lat);
+      const lng = toFiniteNumber(question.lng);
+      return lat === null || lng === null ? null : ([lat, lng] as [number, number]);
+    })
+    .filter((point): point is [number, number] => point !== null);
+
+  const studentPoints = studentLocations
+    .map((student) =>
+      student.lat === null || student.lng === null ? null : ([student.lat, student.lng] as [number, number])
+    )
+    .filter((point): point is [number, number] => point !== null);
+
+  return [...questionPoints, ...studentPoints];
+}
+
+function createStudentIcon(name: string, isLive: boolean) {
+  const initial = name.trim().charAt(0).toUpperCase() || "?";
+  const statusMarkup = isLive
+    ? `<span class="absolute inline-flex h-3.5 w-3.5 animate-ping rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex h-3 w-3 rounded-full border border-emerald-100/80 bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.95)]"></span>`
+    : `<span class="relative inline-flex h-3 w-3 rounded-full border border-slate-300/60 bg-slate-500 shadow-[0_0_10px_rgba(100,116,139,0.75)]"></span>`;
+
   return L.divIcon({
     className: "bg-transparent border-none w-auto",
-    html: `<div class="px-3 py-1.5 rounded-full bg-purple-600 border-2 border-purple-400 text-white text-xs font-bold shadow-[0_0_15px_rgba(168,85,247,0.8)] whitespace-nowrap drop-shadow-lg">${name}</div>`,
+    html: `<div class="relative flex items-center gap-2 rounded-2xl border border-slate-500/70 bg-slate-900/92 px-3 py-2 text-white shadow-lg shadow-slate-950/70 ring-1 ring-white/10 backdrop-blur-md whitespace-nowrap">
+      <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-800 text-[11px] font-black uppercase text-white shadow-inner shadow-black/40">${initial}</span>
+      <span class="text-xs font-bold tracking-wide text-white">${name}</span>
+      <span class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center">
+        ${statusMarkup}
+      </span>
+    </div>`,
     iconSize: [0, 0],
-    iconAnchor: [-10, 10],
+    iconAnchor: [-8, 12],
   });
+}
+
+function MapController({
+  mapCenter,
+  runQuestions,
+  studentLocations,
+}: {
+  mapCenter: [number, number];
+  runQuestions: RunQuestion[];
+  studentLocations: LiveStudentLocation[];
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    const points = getMapPoints(runQuestions, studentLocations);
+
+    if (points.length <= 1) {
+      map.setView(mapCenter, 16, { animate: true });
+      return;
+    }
+
+    map.fitBounds(L.latLngBounds(points), {
+      padding: [50, 50],
+      animate: true,
+    });
+  }, [map, mapCenter, runQuestions, studentLocations]);
+
+  return null;
 }
 
 export default function TeacherLiveMap({
@@ -87,6 +159,11 @@ export default function TeacherLiveMap({
         className="z-0 h-full w-full"
         zoomControl={false}
       >
+        <MapController
+          mapCenter={mapCenter}
+          runQuestions={runQuestions}
+          studentLocations={studentLocations}
+        />
         <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
 
         {runQuestions.map((question, index) => {
@@ -116,7 +193,7 @@ export default function TeacherLiveMap({
               <Marker
                 key={student.id}
                 position={[student.lat, student.lng]}
-                icon={createStudentIcon(student.name)}
+                icon={createStudentIcon(student.name, isStudentRecentlyActive(student))}
               />
             )
         )}
