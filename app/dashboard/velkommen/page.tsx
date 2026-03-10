@@ -33,6 +33,7 @@ const INITIAL_AI_MESSAGE =
   "Hej og velkommen til GPSl\u00f8b.dk! \u{1F44B} Lad os bygge dit allerf\u00f8rste l\u00f8b sammen. Hvad skal emnet v\u00e6re?";
 const GENERATING_MESSAGE =
   "\u{1FA84} Fantastisk! Jeg designer l\u00f8bet og placerer posterne...";
+const MAGIC_DRAFT_STORAGE_KEY = "magicRunDraft";
 
 const STEP_TITLES: Record<WizardStep, string> = {
   1: "Emne",
@@ -92,6 +93,9 @@ export default function VelkommenPage() {
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const timeoutIdsRef = useRef<number[]>([]);
+  const statusRef = useRef<"idle" | "replying" | "generating">("idle");
+  const fetchAbortRef = useRef<AbortController | null>(null);
+  const isMountedRef = useRef(true);
 
   const activeStep = isWizardComplete ? 4 : currentStep;
   const isInputDisabled = isLoading || isAiResponding || isWizardComplete;
@@ -115,8 +119,11 @@ export default function VelkommenPage() {
 
   useEffect(() => {
     return () => {
+      isMountedRef.current = false;
       timeoutIdsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
       timeoutIdsRef.current = [];
+      fetchAbortRef.current?.abort();
+      fetchAbortRef.current = null;
     };
   }, []);
 
@@ -130,30 +137,48 @@ export default function VelkommenPage() {
   };
 
   const queueAiMessage = (text: string, onComplete?: () => void, delay = 700) => {
+    statusRef.current = "replying";
     setIsAiResponding(true);
     queueTimeout(() => {
+      if (!isMountedRef.current) return;
       setMessages((previous) => [...previous, { role: "ai", text }]);
       setIsAiResponding(false);
+      statusRef.current = "idle";
       onComplete?.();
     }, delay);
   };
 
   const handleGenerate = async (promptOverride?: string) => {
     const trimmedPrompt = (promptOverride ?? prompt).trim();
-    if (!trimmedPrompt || isLoading) return;
+    if (!trimmedPrompt || isLoading || statusRef.current === "generating") return;
 
+    statusRef.current = "generating";
     setPrompt(trimmedPrompt);
     setIsLoading(true);
     setErrorMessage(null);
 
     try {
+      if (typeof window !== "undefined") {
+        window.sessionStorage.removeItem(MAGIC_DRAFT_STORAGE_KEY);
+      }
+
+      const controller = new AbortController();
+      fetchAbortRef.current = controller;
+
       const res = await fetch("/api/magi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: trimmedPrompt }),
+        signal: controller.signal,
       });
 
-      const data = (await res.json()) as unknown;
+      let data: unknown = null;
+      try {
+        data = (await res.json()) as unknown;
+      } catch {
+        data = null;
+      }
+
       if (!res.ok) {
         const message =
           typeof data === "object" && data && "error" in data && typeof data.error === "string"
@@ -166,12 +191,22 @@ export default function VelkommenPage() {
         throw new Error("AI returnerede ingen poster.");
       }
 
-      window.sessionStorage.setItem("magicRunDraft", JSON.stringify(data));
+      window.sessionStorage.setItem(MAGIC_DRAFT_STORAGE_KEY, JSON.stringify(data));
       router.push("/dashboard/opret/manuel");
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+
       console.error("Velkommen-side fejl:", error);
       const message =
         error instanceof Error ? error.message : "Noget gik galt. Pr\u00f8v igen.";
+
+      if (typeof window !== "undefined") {
+        window.sessionStorage.removeItem(MAGIC_DRAFT_STORAGE_KEY);
+      }
+
+      if (!isMountedRef.current) return;
       setErrorMessage(message);
       setMessages((previous) => [
         ...previous,
@@ -183,13 +218,16 @@ export default function VelkommenPage() {
       setIsWizardComplete(false);
       setCurrentStep(4);
     } finally {
+      fetchAbortRef.current = null;
+      statusRef.current = "idle";
+      if (!isMountedRef.current) return;
       setIsLoading(false);
     }
   };
 
   const submitWizardAnswer = (rawValue: string) => {
     const trimmedValue = rawValue.trim();
-    if (!trimmedValue || isAiResponding || isLoading) return;
+    if (!trimmedValue || isAiResponding || isLoading || statusRef.current !== "idle") return;
 
     setInputValue("");
     setErrorMessage(null);
