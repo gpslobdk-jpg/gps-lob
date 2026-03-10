@@ -295,10 +295,13 @@ const createQuestion = (type: Question["type"] = "multiple_choice"): Question =>
 });
 
 const inputClass =
-  "w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 px-4 py-2.5 text-emerald-100 placeholder:text-emerald-100/35 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500";
+  "w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 px-4 py-2.5 text-emerald-100 placeholder:text-emerald-100/35 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const reviewInputClass =
-  "w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 px-4 py-3 text-emerald-100 placeholder:text-emerald-100/35 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500";
+  "w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 px-4 py-3 text-emerald-100 placeholder:text-emerald-100/35 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+
+const aiActionButtonClass =
+  "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-emerald-500/30 bg-emerald-500/10 px-5 py-3 text-sm font-semibold text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)] transition-all hover:bg-emerald-500 hover:text-slate-900 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const DEFAULT_ANSWERS: [string, string, string, string] = ["", "", "", ""];
 
@@ -540,6 +543,12 @@ function OpretLoebPageContent() {
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
   const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>(DEFAULT_MAP_CENTER);
+  const isGeneratingAnyImage = useMemo(
+    () => Object.values(generatingImages).some(Boolean),
+    [generatingImages]
+  );
+  const isAiBusy = isGenerating || isAutoGeneratingRun || isGeneratingAnyImage;
+  const editorLockClass = isAiBusy ? "pointer-events-none opacity-50" : "";
 
   const renderNotice = (className = "") =>
     notice ? (
@@ -894,6 +903,19 @@ function OpretLoebPageContent() {
 
   const handleApproveAIPreview = () => {
     if (previewQuestions.length === 0) return;
+
+    const hasExistingQuestions =
+      questions.length > 1 || questions.some((question) => !isQuestionEmpty(question));
+
+    if (hasExistingQuestions) {
+      const shouldReplace = window.confirm(
+        "Advarsel: Dette vil erstatte alle dine nuværende poster. Er du sikker på, at du vil fortsætte?"
+      );
+
+      if (!shouldReplace) {
+        return;
+      }
+    }
 
     setNotice(null);
     const timestamp = Date.now();
@@ -1440,7 +1462,12 @@ function OpretLoebPageContent() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.28),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(110,231,183,0.12),_transparent_28%)]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
           <section className="w-full px-4 py-4 sm:px-6 sm:py-6 lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
-            <div className="mx-auto max-w-3xl space-y-5">
+            <div className="mx-auto max-w-3xl">
+              <fieldset
+                disabled={isAiBusy}
+                aria-busy={isAiBusy}
+                className={`min-w-0 space-y-5 border-0 p-0 ${editorLockClass}`}
+              >
               <div className="px-1 pt-1">
                 {isEditMode ? (
                   <div className="mb-4 inline-flex items-center rounded-full border border-emerald-400/25 bg-emerald-400/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-emerald-100 uppercase">
@@ -1454,18 +1481,18 @@ function OpretLoebPageContent() {
                   <button
                     type="button"
                     onClick={openAutoGenerateModal}
-                    disabled={isAutoGeneratingRun || isSaving || isLoadingExistingRun}
-                    className="inline-flex items-center justify-center gap-2 rounded-[1.2rem] border border-emerald-400/30 bg-emerald-500/18 px-4 py-2.5 text-sm font-semibold text-emerald-100 shadow-[0_14px_30px_rgba(0,0,0,0.2)] transition hover:bg-emerald-500/28 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={isAiBusy || isSaving || isLoadingExistingRun}
+                    className={`${aiActionButtonClass} rounded-[1.2rem] px-4 py-2.5`}
                   >
                     {isAutoGeneratingRun ? (
-                      <>
+                      <span className="inline-flex animate-pulse items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        ⏳ Tryller...
-                      </>
+                        🪄 Arbejder...
+                      </span>
                     ) : (
                       <>
                         <Sparkles className="h-4 w-4" />
-                        ✨ Auto-generer løb med AI
+                        Auto-generer løb med AI
                       </>
                     )}
                   </button>
@@ -1473,8 +1500,9 @@ function OpretLoebPageContent() {
                 <input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
+                  disabled={isAiBusy}
                   placeholder="F.eks. Firmaets sommerfest"
-                  className="w-full rounded-[1.6rem] border border-emerald-500/20 bg-emerald-950/50 px-5 py-4 text-xl font-bold text-emerald-100 placeholder:text-emerald-100/35 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full rounded-[1.6rem] border border-emerald-500/20 bg-emerald-950/50 px-5 py-4 text-xl font-bold text-emerald-100 placeholder:text-emerald-100/35 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                 />
               </div>
 
@@ -1485,9 +1513,10 @@ function OpretLoebPageContent() {
                 <textarea
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
+                  disabled={isAiBusy}
                   rows={3}
                   placeholder="Kort intro eller beskrivelse af løbet (valgfrit)"
-                  className="w-full rounded-[1.6rem] border border-emerald-500/20 bg-emerald-950/50 px-5 py-4 text-sm leading-6 text-emerald-100 placeholder:text-emerald-100/35 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full rounded-[1.6rem] border border-emerald-500/20 bg-emerald-950/50 px-5 py-4 text-sm leading-6 text-emerald-100 placeholder:text-emerald-100/35 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                 />
               </div>
 
@@ -1499,9 +1528,9 @@ function OpretLoebPageContent() {
                     setShowAIModal(true);
                     setPreviewQuestions([]);
                   }}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-[1.4rem] border border-emerald-500/20 bg-emerald-950/50 px-5 py-3 text-sm font-semibold text-emerald-100 shadow-[0_16px_36px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition hover:border-emerald-300/35 hover:bg-emerald-900/60 sm:w-auto"
+                  disabled={isAiBusy}
+                  className={`${aiActionButtonClass} w-full sm:w-auto`}
                 >
-                  <span aria-hidden>✨</span>
                   Auto-udfyld med AI
                 </button>
 
@@ -1552,6 +1581,7 @@ function OpretLoebPageContent() {
                     <input
                       value={question.text}
                       onChange={(event) => updateQuestion(question.id, { text: event.target.value })}
+                      disabled={isAiBusy}
                       placeholder="Skriv spørgsmålet her..."
                       className={inputClass}
                     />
@@ -1565,9 +1595,10 @@ function OpretLoebPageContent() {
                       <textarea
                         value={question.aiPrompt}
                         onChange={(event) => updateQuestion(question.id, { aiPrompt: event.target.value })}
+                        disabled={isAiBusy}
                         rows={4}
                         placeholder="Hvad skal deltagerne tage billede af? F.eks. 'Find et egetræ' eller 'Tag et billede af noget rundt og blåt'."
-                        className="w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-100 placeholder:text-emerald-100/35 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        className="w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-100 placeholder:text-emerald-100/35 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                       />
                       <p className="mt-2 text-xs text-emerald-100/70">
                         Skriv en tydelig dommer-instruks, så AI&apos;en kan vurdere billedet præcist.
@@ -1604,8 +1635,9 @@ function OpretLoebPageContent() {
                             <input
                               value={answer}
                               onChange={(event) => updateAnswer(question.id, answerIndex, event.target.value)}
+                              disabled={isAiBusy}
                               placeholder={`Svar ${answerIndex + 1}`}
-                              className="min-w-0 flex-1 bg-transparent py-1 text-sm text-emerald-100 placeholder:text-emerald-100/35 focus:outline-none"
+                              className="min-w-0 flex-1 bg-transparent py-1 text-sm text-emerald-100 placeholder:text-emerald-100/35 focus:outline-none disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                             />
 
                             <button
@@ -1665,18 +1697,19 @@ function OpretLoebPageContent() {
                         placeholder="Indsæt link til billede eller YouTube-video..."
                         value={question.mediaUrl || ""}
                         onChange={(e) => updateQuestion(question.id, "mediaUrl", e.target.value)}
-                        className="min-w-0 flex-1 rounded-2xl border border-emerald-500/20 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-100 placeholder:text-emerald-100/35 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        disabled={isAiBusy}
+                        className="min-w-0 flex-1 rounded-2xl border border-emerald-500/20 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-100 placeholder:text-emerald-100/35 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                       />
                       <button
                         type="button"
                         onClick={() => handleGenerateAIImage(question.id, question.text)}
-                        disabled={generatingImages[question.id] || !question.text}
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-950/50 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100/85 backdrop-blur-xl transition hover:bg-emerald-900/60 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={isAiBusy || !question.text}
+                        className={`${aiActionButtonClass} rounded-2xl px-4 py-3 text-xs uppercase tracking-[0.18em]`}
                       >
                         {generatingImages[question.id] ? (
-                          <span className="inline-flex items-center gap-2">
+                          <span className="inline-flex animate-pulse items-center gap-2">
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            Tænker...
+                            🪄 Arbejder...
                           </span>
                         ) : (
                           <>
@@ -1691,7 +1724,8 @@ function OpretLoebPageContent() {
                   <button
                     type="button"
                     onClick={() => assignPinFromCenter(question.id)}
-                    className="mt-4 w-full rounded-[1.35rem] border border-emerald-400/30 bg-emerald-500/22 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-emerald-100 shadow-[0_12px_32px_rgba(16,185,129,0.18)] transition hover:bg-emerald-500/30"
+                    disabled={isAiBusy}
+                    className="mt-4 w-full rounded-[1.35rem] border border-emerald-400/30 bg-emerald-500/22 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-emerald-100 shadow-[0_12px_32px_rgba(16,185,129,0.18)] transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                   >
                     Hent pin fra kortet
                   </button>
@@ -1708,7 +1742,8 @@ function OpretLoebPageContent() {
                 <button
                   type="button"
                   onClick={addQuestion}
-                  className="inline-flex items-center gap-2 rounded-[1.4rem] border border-emerald-500/20 bg-emerald-950/50 px-4 py-3 text-sm font-semibold text-emerald-100 backdrop-blur-xl transition hover:bg-emerald-900/60"
+                  disabled={isAiBusy}
+                  className="inline-flex items-center gap-2 rounded-[1.4rem] border border-emerald-500/20 bg-emerald-950/50 px-4 py-3 text-sm font-semibold text-emerald-100 backdrop-blur-xl transition hover:bg-emerald-900/60 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                 >
                   <Plus className="h-4 w-4" />
                   {addQuestionLabel}
@@ -1731,9 +1766,10 @@ function OpretLoebPageContent() {
                     <input
                       value={subject}
                       onChange={(e) => setSubject(e.target.value)}
+                      disabled={isAiBusy}
                       list="quiz-topic-suggestions"
                       placeholder="f.eks. popkultur, firmahistorie eller matematik"
-                      className="w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 px-4 py-3 text-emerald-100 placeholder:text-emerald-100/35 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 px-4 py-3 text-emerald-100 placeholder:text-emerald-100/35 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                     />
                   </div>
                 ) : null}
@@ -1743,14 +1779,15 @@ function OpretLoebPageContent() {
                   <button
                     type="button"
                     onClick={handleSaveRun}
-                    disabled={isSaving}
-                    className="w-full rounded-[1.6rem] border border-emerald-400/30 bg-emerald-500/22 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-emerald-100 shadow-[0_14px_34px_rgba(16,185,129,0.18)] transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={isSaving || isAiBusy}
+                    className="w-full rounded-[1.6rem] border border-emerald-400/30 bg-emerald-500/22 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-emerald-100 shadow-[0_14px_34px_rgba(16,185,129,0.18)] transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                   >
                     {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
                   </button>
                 </div>
-              </div>
-          </div>
+                </div>
+              </fieldset>
+            </div>
         </section>
 
         <aside className="w-full p-4 pt-0 sm:px-6 lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
@@ -1903,15 +1940,15 @@ function OpretLoebPageContent() {
                 type="button"
                 onClick={handleSubmitAutoGenerateRun}
                 disabled={isAutoGeneratingRun}
-                className="w-full rounded-[1.4rem] border border-emerald-400/30 bg-emerald-500/22 px-6 py-3 text-sm font-bold text-emerald-100 transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                className={`${aiActionButtonClass} w-full sm:w-auto`}
               >
                 {isAutoGeneratingRun ? (
-                  <span className="inline-flex items-center gap-2">
+                  <span className="inline-flex animate-pulse items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    ⏳ Tryller...
+                    🪄 Arbejder...
                   </span>
                 ) : (
-                  "✨ Tryl løbet frem"
+                  "Tryl løbet frem"
                 )}
               </button>
             </div>
@@ -2020,16 +2057,18 @@ function OpretLoebPageContent() {
                   <textarea
                     value={aiRunBrief}
                     onChange={(e) => setAiRunBrief(e.target.value)}
+                    disabled={isGenerating}
                     rows={8}
                     placeholder="Hvad skal løbet handle om, og hvor mange poster vil du have? (F.eks: Lav 6 spørgsmål om solsystemet...)"
-                    className="w-full rounded-[1.6rem] border border-emerald-500/20 bg-emerald-950/50 p-5 text-emerald-100 placeholder:text-emerald-100/35 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full rounded-[1.6rem] border border-emerald-500/20 bg-emerald-950/50 p-5 text-emerald-100 placeholder:text-emerald-100/35 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                   />
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setShowAITeacherFields((prev) => !prev)}
-                  className="mt-4 inline-flex items-center gap-2 text-sm text-emerald-100/70 transition hover:text-emerald-100"
+                  disabled={isGenerating}
+                  className="mt-4 inline-flex items-center gap-2 text-sm text-emerald-100/70 transition hover:text-emerald-100 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                 >
                   {showAITeacherFields ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   Tilpas emne og sværhedsgrad (valgfrit)
@@ -2045,9 +2084,10 @@ function OpretLoebPageContent() {
                         <input
                           value={aiSubject}
                           onChange={(e) => setAiSubject(e.target.value)}
+                          disabled={isGenerating}
                           list="quiz-topic-suggestions"
                           placeholder="f.eks. popkultur, natur eller firmahistorie"
-                          className="w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 px-4 py-3 text-emerald-100 placeholder:text-emerald-100/35 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          className="w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 px-4 py-3 text-emerald-100 placeholder:text-emerald-100/35 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                         />
                       </div>
 
@@ -2058,7 +2098,8 @@ function OpretLoebPageContent() {
                         <select
                           value={aiGrade}
                           onChange={(e) => setAiGrade(e.target.value)}
-                          className="w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 p-3 text-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          disabled={isGenerating}
+                          className="w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/50 p-3 text-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                         >
                           {AI_AUDIENCE_OPTIONS.map((gradeOption) => (
                             <option
@@ -2088,12 +2129,12 @@ function OpretLoebPageContent() {
                     type="button"
                     onClick={handleAIGenerate}
                     disabled={isGenerating}
-                    className="w-full rounded-[1.4rem] border border-emerald-400/30 bg-emerald-500/22 px-6 py-3 text-sm font-bold text-emerald-100 transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                    className={`${aiActionButtonClass} w-full px-6`}
                   >
                     {isGenerating ? (
-                      <span className="inline-flex items-center gap-2">
+                      <span className="inline-flex animate-pulse items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Tænker...
+                        🪄 Arbejder...
                       </span>
                     ) : (
                       "Generer spørgsmål"
