@@ -86,11 +86,11 @@ export default function Home() {
     event.preventDefault();
     const cleanedCode = code.replace(/\D/g, "").slice(0, 5);
     if (cleanedCode.length === 0) {
-      setCodeError("Husk at skrive koden fÃ¸rst!");
+      setCodeError("Husk at skrive koden først!");
       return;
     }
     if (cleanedCode.length !== 5) {
-      setCodeError("Koden skal bestÃ¥ af 5 tal.");
+      setCodeError("Koden skal bestå af 5 tal.");
       return;
     }
     setCodeError("");
@@ -118,7 +118,7 @@ export default function Home() {
           <div className="w-full max-w-lg rounded-[2rem] border border-white/20 bg-slate-900/60 p-5 shadow-2xl shadow-slate-950/30 backdrop-blur-xl">
             <form onSubmit={handleSubmit} className="space-y-5">
               <p className="text-center text-sm font-semibold tracking-wide text-white/90">
-                Indtast lÃ¸bskode
+                Indtast løbskode
               </p>
               <input
                 value={code}
@@ -130,7 +130,7 @@ export default function Home() {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={5}
-                placeholder="Indtast lÃ¸bskode"
+                placeholder="Indtast løbskode"
                 className="w-full rounded-3xl border border-emerald-200/80 bg-white px-6 py-8 text-center text-3xl font-black tracking-[0.24em] text-emerald-950 outline-none placeholder:tracking-normal placeholder:text-emerald-900/45 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/25"
               />
               <button
@@ -262,7 +262,7 @@ export default function Home() {
               className="w-full max-w-md rounded-3xl border border-white/20 bg-slate-900/70 p-6 text-white shadow-2xl shadow-black/40 backdrop-blur-xl"
             >
               <p className="text-center text-lg font-semibold leading-relaxed text-white">
-                Velkommen til GPS LÃ¸b! Indtast koden fra din lÃ¦rer/arrangÃ¸r for at
+                Velkommen til GPS Løb! Indtast koden fra din lærer/arrangør for at
                 starte eventyret.
               </p>
               <button
@@ -298,7 +298,7 @@ export default function Home() {
                 aria-label="Luk introduktion"
               >
                 <span aria-hidden="true" className="text-4xl font-bold leading-none">
-                  Ã—
+                  ×
                 </span>
               </button>
 
@@ -338,7 +338,7 @@ export default function Home() {
                   type="button"
                   onClick={enableIntroSound}
                   className="absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 rounded-xl border border-white/20 bg-emerald-950/80 px-6 py-4 text-base font-bold text-white shadow-xl shadow-black/30 backdrop-blur-md transition hover:bg-emerald-900/85"
-                  aria-label="SlÃ¥ lyd til"
+                  aria-label="Slå lyd til"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -355,12 +355,12 @@ export default function Home() {
                     <path d="M15.5 8.5a5 5 0 0 1 0 7" />
                     <path d="M18.5 5.5a9 9 0 0 1 0 13" />
                   </svg>
-                  <span>SlÃ¥ lyd til</span>
+                  <span>Slå lyd til</span>
                 </button>
               ) : null}
 
               <p className="pointer-events-none absolute bottom-5 left-1/2 z-20 -translate-x-1/2 rounded-2xl bg-slate-950/55 px-6 py-3 text-center text-lg font-bold text-emerald-50/90 shadow-lg shadow-black/25 backdrop-blur-md sm:text-xl">
-                Tryk pÃ¥ X for at lukke introen
+                Tryk på X for at lukke introen
               </p>
             </motion.div>
           </motion.div>
