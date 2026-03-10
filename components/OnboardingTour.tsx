@@ -8,6 +8,7 @@ const LEGACY_TOUR_SEEN_KEY = "gpslob-tour-seen";
 const LEGACY_TOUR_STEP_KEY = "gpslob-tour-step";
 const TOUR_FINISHED_KEY = "gpslob_tour_finished";
 const TOUR_STEP_KEY = "gpslob_tour_step";
+const TOUR_ENABLED = false;
 
 type TourStep = {
   index: number;
@@ -162,6 +163,7 @@ export default function OnboardingTour() {
   const driverRef = useRef<ReturnType<typeof driver> | null>(null);
 
   useEffect(() => {
+    if (!TOUR_ENABLED) return;
     if (typeof window === "undefined") return;
     if (!pathname) return;
 
