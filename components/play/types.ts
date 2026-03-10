@@ -13,6 +13,18 @@ export type Question = {
   isSelfie?: boolean;
 };
 
+export type Post = {
+  id: number;
+  type: Extract<QuestionType, "multiple_choice" | "ai_image">;
+  lat: number;
+  lng: number;
+  question: string;
+  options: [string, string, string, string];
+  answer: string;
+  mission: string;
+  unlockRange: number;
+};
+
 export type ActivePostVariant = "quiz" | "photo" | "escape" | "roleplay" | "unknown";
 export type RaceMode = ActivePostVariant;
 export type GpsErrorState = "permission_denied" | "position_unavailable" | "timeout" | "unsupported";

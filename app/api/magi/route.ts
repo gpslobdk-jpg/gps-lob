@@ -1,86 +1,122 @@
+import { generateObject, jsonSchema } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
 
-type MagicPost = {
-  type: "multiple_choice" | "ai_image";
-  question: string;
-  options?: [string, string, string, string];
-  correctAnswer?: string;
-  aiPrompt?: string;
-};
+import type { Post } from "@/components/play/types";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
-function extractArrayFromText(content: string): unknown[] | null {
-  try {
-    const parsed = JSON.parse(content) as unknown;
-    if (Array.isArray(parsed)) return parsed;
-    if (parsed && typeof parsed === "object") {
-      const container = parsed as Record<string, unknown>;
-      if (Array.isArray(container.posts)) return container.posts;
-      if (Array.isArray(container.questions)) return container.questions;
-      if (Array.isArray(container.items)) return container.items;
-    }
-  } catch {
-    // Fald tilbage til substring-parse nedenfor.
-  }
+const DEFAULT_UNLOCK_RANGE = 15;
+const DEFAULT_POST_COUNT = 6;
+const MIN_POST_COUNT = 3;
+const MAX_POST_COUNT = 10;
 
-  const firstBracket = content.indexOf("[");
-  const lastBracket = content.lastIndexOf("]");
-  if (firstBracket === -1 || lastBracket === -1 || lastBracket <= firstBracket) {
-    return null;
-  }
+function getRequestedPostCount(prompt: string) {
+  const match = prompt.match(/\b([3-9]|10)\b/);
+  if (!match) return DEFAULT_POST_COUNT;
 
-  const candidate = content.slice(firstBracket, lastBracket + 1);
-  try {
-    const parsed = JSON.parse(candidate) as unknown;
-    return Array.isArray(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
+  const count = Number(match[1]);
+  if (!Number.isInteger(count)) return DEFAULT_POST_COUNT;
+
+  return Math.max(MIN_POST_COUNT, Math.min(MAX_POST_COUNT, count));
 }
 
-function normalizeMagicPosts(rawPosts: unknown[]): MagicPost[] {
-  const normalized = rawPosts
-    .map((raw) => {
-      if (!raw || typeof raw !== "object") return null;
-      const item = raw as Record<string, unknown>;
-      const type = item.type === "ai_image" ? "ai_image" : "multiple_choice";
-      const question = typeof item.question === "string" ? item.question.trim() : "";
+const magicPostSchema = jsonSchema<Post>({
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "id",
+    "type",
+    "lat",
+    "lng",
+    "question",
+    "options",
+    "answer",
+    "mission",
+    "unlockRange",
+  ],
+  properties: {
+    id: {
+      type: "integer",
+      minimum: 1,
+    },
+    type: {
+      type: "string",
+      enum: ["multiple_choice", "ai_image"],
+    },
+    lat: {
+      type: "number",
+    },
+    lng: {
+      type: "number",
+    },
+    question: {
+      type: "string",
+      minLength: 8,
+    },
+    options: {
+      type: "array",
+      minItems: 4,
+      maxItems: 4,
+      items: {
+        type: "string",
+      },
+    },
+    answer: {
+      type: "string",
+    },
+    mission: {
+      type: "string",
+    },
+    unlockRange: {
+      type: "integer",
+      minimum: 5,
+      maximum: 100,
+    },
+  },
+});
 
-      if (!question) return null;
+function normalizeMagicPosts(posts: Post[]): Post[] {
+  return posts.map((post, index) => {
+    const question = post.question.trim();
+    const mission = post.mission.trim();
+    const normalizedOptions = [...post.options]
+      .slice(0, 4)
+      .map((option) => option.trim()) as [string, string, string, string];
 
-      if (type === "ai_image") {
-        const aiPrompt = typeof item.aiPrompt === "string" ? item.aiPrompt.trim() : "";
-        if (!aiPrompt) return null;
-        return {
-          type,
-          question,
-          aiPrompt,
-        } satisfies MagicPost;
-      }
-
-      const options = Array.isArray(item.options)
-        ? item.options.slice(0, 4).map((option) => (typeof option === "string" ? option.trim() : ""))
-        : [];
-      while (options.length < 4) options.push("");
-      if (options.some((option) => !option)) return null;
-
-      const correctAnswer =
-        typeof item.correctAnswer === "string" && item.correctAnswer.trim().length > 0
-          ? item.correctAnswer.trim()
-          : options[0];
-
+    if (post.type === "ai_image") {
       return {
-        type,
+        id: index + 1,
+        type: "ai_image",
+        lat: 0,
+        lng: 0,
         question,
-        options: [options[0], options[1], options[2], options[3]],
-        correctAnswer,
-      } satisfies MagicPost;
-    })
-    .filter((post): post is NonNullable<typeof post> => post !== null);
+        options: ["", "", "", ""],
+        answer: "",
+        mission,
+        unlockRange: DEFAULT_UNLOCK_RANGE,
+      };
+    }
 
-  return normalized.slice(0, 6);
+    const validAnswer =
+      post.answer.trim() && normalizedOptions.includes(post.answer.trim())
+        ? post.answer.trim()
+        : normalizedOptions[0] ?? "";
+
+    return {
+      id: index + 1,
+      type: "multiple_choice",
+      lat: 0,
+      lng: 0,
+      question,
+      options: normalizedOptions,
+      answer: validAnswer,
+      mission: mission || "",
+      unlockRange: DEFAULT_UNLOCK_RANGE,
+    };
+  });
 }
 
 export async function POST(req: Request) {
@@ -93,49 +129,64 @@ export async function POST(req: Request) {
     }
 
     if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ error: "OPENAI_API_KEY mangler i milj\u00f8et." }, { status: 500 });
+      return NextResponse.json({ error: "OPENAI_API_KEY mangler i miljøet." }, { status: 500 });
     }
 
-    const systemPrompt = `Du er en ekspert i at designe sjove, udend\u00f8rs GPS-l\u00f8b og skattejagter.
-Brugeren giver dig et tema. Du SKAL returnere pr\u00e6cis 6 poster.
-Svar UDELUKKENDE i valid JSON-format, som et array af objekter.
-Strukturen for et objekt skal v\u00e6re:
-{
-  "type": "multiple_choice" eller "ai_image",
-  "question": "Overskrift/Sp\u00f8rgsm\u00e5let til deltageren",
-  "options": ["Svar 1", "Svar 2", "Svar 3", "Svar 4"] (KUN hvis typen er multiple_choice, ellers udelad),
-  "correctAnswer": "Det korrekte svar" (KUN hvis typen er multiple_choice, ellers udelad),
-  "aiPrompt": "Instruks til fotodommeren, f.eks. 'Find et egetr\u00e6'" (KUN hvis typen er ai_image, ellers udelad)
-}
-G\u00f8r 2 af posterne til 'ai_image' og 4 til 'multiple_choice'.`;
+    const requestedPostCount = getRequestedPostCount(trimmedPrompt);
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `Tema: ${trimmedPrompt}` },
-      ],
-      temperature: 0.7,
+    const { object } = await generateObject({
+      model: openai("gpt-4o-mini"),
+      output: "array",
+      schema: magicPostSchema,
+      schemaName: "GpsRunPost",
+      schemaDescription:
+        "En GPS-post til læreren med dummy-koordinater, unlock-radius og enten quizdata eller foto-mission.",
+      system: `Du er en Kreativ Pædagogisk Assistent, der designer sjove, lærerige og varierede GPS-poster til undervisning.
+
+Du SKAL returnere præcis ${requestedPostCount} poster.
+Svar kun med strukturerede objekter, der matcher schemaet.
+
+Regler:
+- Lav poster, der passer direkte til brugerens emne.
+- Gør dem aldersvenlige, konkrete og nemme at placere i et fysisk GPS-løb.
+- Brug både variation, energi og pædagogisk klarhed.
+- Sæt ALTID lat til 0 og lng til 0, fordi læreren selv placerer posterne bagefter.
+- Sæt ALTID unlockRange til ${DEFAULT_UNLOCK_RANGE}.
+- Brug ids som fortløbende heltal fra 1.
+- Lav som udgangspunkt cirka 2 foto-missioner, hvis emnet passer til det. Resten skal være quiz-poster.
+
+For "multiple_choice":
+- question er selve spørgsmålet, som eleven ser.
+- options skal være præcis 4 svarmuligheder.
+- answer skal være præcis én af de 4 svarmuligheder.
+- mission skal være en tom streng.
+
+For "ai_image":
+- question er den elevrettede instruktion.
+- mission er den korte, konkrete ting eller handling, billedanalysen skal lede efter.
+- options skal være ["", "", "", ""].
+- answer skal være en tom streng.
+
+Undgå meta-kommentarer, forklaringer og markdown.`,
+      prompt: `Emne til GPS-løb: ${trimmedPrompt}`,
+      temperature: 0.8,
+      providerOptions: {
+        openai: {
+          strictJsonSchema: true,
+        },
+      },
     });
 
-    const content = completion.choices[0]?.message?.content ?? "";
-    const rawArray = extractArrayFromText(content);
-
-    if (!rawArray) {
-      return NextResponse.json({ error: "AI returnerede ugyldigt JSON-format." }, { status: 502 });
-    }
-
-    const posts = normalizeMagicPosts(rawArray);
-    if (posts.length !== 6) {
+    if (!Array.isArray(object) || object.length !== requestedPostCount) {
       return NextResponse.json(
-        { error: "AI returnerede ikke pr\u00e6cis 6 gyldige poster. Pr\u00f8v igen." },
+        { error: `AI returnerede ikke præcis ${requestedPostCount} gyldige poster.` },
         { status: 502 }
       );
     }
 
-    return NextResponse.json(posts);
+    return NextResponse.json(normalizeMagicPosts(object));
   } catch (error) {
     console.error("Magi API-fejl:", error);
-    return NextResponse.json({ error: "Kunne ikke generere l\u00f8bet lige nu." }, { status: 500 });
+    return NextResponse.json({ error: "Kunne ikke generere løbet lige nu." }, { status: 500 });
   }
 }
