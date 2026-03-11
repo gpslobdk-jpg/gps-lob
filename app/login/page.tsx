@@ -35,6 +35,10 @@ function LoginPageContent() {
 
   const searchParamsString = searchParams.toString();
   const hasCodeParam = searchParams.has("code");
+  const hasOAuthHash =
+    typeof window !== "undefined" &&
+    (window.location.hash.includes("access_token") ||
+      window.location.hash.includes("refresh_token"));
   const safeNextPath = (() => {
     const requested = searchParams.get("next")?.trim() ?? "";
     return requested.startsWith("/dashboard") ? requested : "/dashboard";
@@ -82,7 +86,7 @@ function LoginPageContent() {
     }
   };
 
-  if (isAuthLoading || isRedirecting || hasCodeParam || !!user) {
+  if (isAuthLoading || isRedirecting || hasCodeParam || hasOAuthHash || !!user) {
     return (
       <AuthLoadingScreen
         title="Logger dig ind"

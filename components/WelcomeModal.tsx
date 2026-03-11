@@ -54,7 +54,7 @@ export default function WelcomeModal({ forceOpenToken = 0 }: WelcomeModalProps) 
     <AnimatePresence>
       {isOpen || isForcedOpen ? (
         <motion.div
-          className="fixed inset-0 z-50 bg-slate-950/45 p-3 backdrop-blur-[2px] sm:p-6"
+          className="fixed inset-0 z-50 bg-slate-950/75 p-3 backdrop-blur-xl sm:p-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -64,20 +64,20 @@ export default function WelcomeModal({ forceOpenToken = 0 }: WelcomeModalProps) 
             role="dialog"
             aria-modal="true"
             aria-labelledby="welcome-title"
-            className="mx-auto flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-emerald-100/80 bg-stone-50 text-slate-800 shadow-2xl"
+            className="mx-auto flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-emerald-500/30 bg-slate-950/95 text-slate-200 shadow-[0_0_50px_rgba(16,185,129,0.2)] backdrop-blur-2xl"
             initial={{ y: 28, opacity: 0, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 14, opacity: 0.6, scale: 0.99 }}
             transition={{ type: "spring", stiffness: 220, damping: 24 }}
           >
-            <div className="border-b border-emerald-100/80 bg-emerald-50/50 px-5 py-5 sm:px-7 sm:py-6">
-              <p className="text-xs font-bold tracking-[0.18em] text-emerald-600 uppercase">
+            <div className="border-b border-emerald-500/20 bg-slate-950/90 px-5 py-5 sm:px-7 sm:py-6">
+              <p className="text-xs font-bold tracking-[0.18em] text-emerald-400 uppercase">
                 Velkommen
               </p>
-              <h2 id="welcome-title" className="mt-1 text-2xl font-black text-emerald-700 sm:text-3xl">
+              <h2 id="welcome-title" className="mt-1 text-2xl font-black text-emerald-400 sm:text-3xl">
                 {"Hvad er GPSL\u00d8B.DK?"}
               </h2>
-              <p className="mt-2 text-sm leading-relaxed text-slate-700">
+              <p className="mt-2 text-sm leading-relaxed text-slate-300">
                 {"GPSL\u00d8B.DK er en platform, hvor du nemt kan forvandle en skovtur, skoleg\u00e5rd eller bypark til en interaktiv skattejagt. Du placerer usynlige poster p\u00e5 et digitalt kort, og deltagerne skal finde dem i virkeligheden ved hj\u00e6lp af deres telefoner."}
               </p>
             </div>
@@ -87,23 +87,23 @@ export default function WelcomeModal({ forceOpenToken = 0 }: WelcomeModalProps) 
                 {steps.map((step) => (
                   <article
                     key={step.title}
-                    className="min-w-[84%] snap-center rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4 shadow-sm shadow-emerald-100/80 md:min-w-0"
+                    className="min-w-[84%] snap-center rounded-2xl border border-emerald-500/20 bg-slate-900/70 p-4 shadow-[0_0_24px_rgba(16,185,129,0.08)] md:min-w-0"
                   >
-                    <div className="mb-3 rounded-xl bg-white p-2 shadow-inner shadow-emerald-100/70">
+                    <div className="mb-3 rounded-xl bg-slate-950/80 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                       <Lottie animationData={step.animationData} loop className="h-36 w-full sm:h-40" />
                     </div>
-                    <h3 className="text-base font-black text-amber-700">{step.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-slate-700">{step.text}</p>
+                    <h3 className="text-base font-black text-emerald-400">{step.title}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-300">{step.text}</p>
                   </article>
                 ))}
               </div>
             </div>
 
-            <div className="border-t border-emerald-100 bg-emerald-50/45 px-5 py-4 sm:px-7 sm:py-5">
+            <div className="border-t border-emerald-500/20 bg-slate-950/90 px-5 py-4 sm:px-7 sm:py-5">
               <button
                 type="button"
                 onClick={handleClose}
-                className="w-full rounded-2xl bg-emerald-600 px-5 py-3 text-base font-bold text-white transition hover:bg-emerald-700"
+                className="w-full rounded-2xl border border-emerald-500/30 bg-emerald-500 px-5 py-3 text-base font-bold tracking-wide text-slate-950 transition-all hover:bg-emerald-400"
               >
                 Jeg er klar!
               </button>

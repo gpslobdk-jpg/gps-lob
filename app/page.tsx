@@ -98,7 +98,7 @@ export default function Home() {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-gradient-to-b from-sky-100 via-green-50 to-emerald-100/50 text-slate-900">
+    <div className="relative flex min-h-screen flex-col bg-slate-950 text-slate-100">
       <video
         src="/promo.mp4"
         autoPlay
@@ -108,16 +108,16 @@ export default function Home() {
         preload="metadata"
         className="fixed top-0 left-0 hidden h-full w-full object-cover -z-20 lg:block"
       />
-      <div className="fixed inset-0 hidden bg-emerald-900/22 -z-10 lg:block" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(125,211,252,0.45),transparent_35%),radial-gradient(circle_at_85%_95%,rgba(16,185,129,0.22),transparent_40%),radial-gradient(rgba(15,23,42,0.04)_1px,transparent_1px)] [background-size:100%_100%,100%_100%,20px_20px] lg:hidden" />
+      <div className="fixed inset-0 hidden bg-slate-950/75 -z-10 lg:block" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(16,185,129,0.16),transparent_35%),radial-gradient(circle_at_85%_95%,rgba(14,165,233,0.1),transparent_40%),radial-gradient(rgba(148,163,184,0.08)_1px,transparent_1px)] [background-size:100%_100%,100%_100%,20px_20px] lg:hidden" />
 
       <WelcomeModal forceOpenToken={showIntroToken} />
 
       <main className="relative mx-auto flex w-full flex-1 flex-col justify-center px-4 py-8 md:hidden">
         <section className="flex flex-1 items-center justify-center">
-          <div className="w-full max-w-lg rounded-[2rem] border border-white/20 bg-slate-900/60 p-5 shadow-2xl shadow-slate-950/30 backdrop-blur-xl">
+          <div className="w-full max-w-lg rounded-3xl border border-emerald-500/30 bg-slate-950/80 p-5 shadow-[0_0_40px_rgba(16,185,129,0.15)] backdrop-blur-xl">
             <form onSubmit={handleSubmit} className="space-y-5">
-              <p className="text-center text-sm font-semibold tracking-wide text-white/90">
+              <p className="text-center text-sm font-semibold tracking-wide text-slate-200">
                 Indtast løbskode
               </p>
               <input
@@ -131,11 +131,11 @@ export default function Home() {
                 pattern="[0-9]*"
                 maxLength={5}
                 placeholder="Indtast løbskode"
-                className="w-full rounded-3xl border border-emerald-200/80 bg-white px-6 py-8 text-center text-3xl font-black tracking-[0.24em] text-emerald-950 outline-none placeholder:tracking-normal placeholder:text-emerald-900/45 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/25"
+                className="w-full rounded-3xl border border-slate-700 bg-slate-900 px-6 py-8 text-center font-mono text-3xl font-black tracking-[0.24em] text-emerald-400 outline-none placeholder:tracking-normal placeholder:text-slate-500 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/25"
               />
               <button
                 type="submit"
-                className="w-full rounded-3xl bg-emerald-600 px-6 py-8 text-3xl font-black text-white transition active:scale-[0.99]"
+                className="w-full rounded-3xl bg-emerald-500 px-6 py-8 text-3xl font-bold tracking-wide text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.99]"
               >
                 Deltag
               </button>
@@ -172,7 +172,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-white/50 bg-white/80 p-5 shadow-2xl shadow-emerald-900/20 backdrop-blur-md">
+          <div className="rounded-3xl border border-emerald-500/30 bg-slate-950/80 p-5 shadow-[0_0_40px_rgba(16,185,129,0.15)] backdrop-blur-xl">
             <form onSubmit={handleSubmit} className="space-y-3">
               <input
                 value={code}
@@ -185,16 +185,16 @@ export default function Home() {
                 pattern="[0-9]*"
                 maxLength={5}
                 placeholder={"Indtast l\u00f8bskode"}
-                className="w-full rounded-2xl border border-emerald-200 bg-white/85 px-4 py-4 text-center text-xl font-bold tracking-[0.18em] text-emerald-950 outline-none placeholder:tracking-normal placeholder:text-emerald-800/55 focus:border-emerald-500/75 focus:ring-2 focus:ring-emerald-500/25"
+                className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-4 text-center font-mono text-xl font-bold tracking-[0.18em] text-emerald-400 outline-none placeholder:tracking-normal placeholder:text-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25"
               />
               <button
                 type="submit"
-                className="w-full rounded-2xl bg-emerald-600 px-4 py-3 text-base font-black text-white transition hover:bg-emerald-700"
+                className="w-full rounded-2xl bg-emerald-500 px-4 py-3 text-base font-bold tracking-wide text-slate-950 transition-all hover:bg-emerald-400"
               >
                 Deltag
               </button>
               {codeError ? (
-                <p className="text-center text-xs font-medium text-rose-700">{codeError}</p>
+                <p className="text-center text-xs font-medium text-rose-300">{codeError}</p>
               ) : null}
             </form>
           </div>
@@ -202,7 +202,7 @@ export default function Home() {
           <Link
             href="/login"
             data-tour="home-organizer-login"
-            className="block w-full rounded-2xl border border-white/55 bg-white/55 px-4 py-3 text-center text-base font-semibold text-emerald-950 transition hover:bg-white/75"
+            className="block w-full rounded-2xl border border-emerald-500/30 bg-emerald-500 px-4 py-3 text-center text-base font-bold tracking-wide text-slate-950 shadow-[0_0_30px_rgba(16,185,129,0.18)] transition-all hover:bg-emerald-400"
           >
             {"Log ind for arrang\u00f8rer"}
           </Link>
@@ -212,7 +212,7 @@ export default function Home() {
           <button
             type="button"
             onClick={() => setShowIntroToken((prev) => prev + 1)}
-            className="text-sm font-medium text-emerald-900 underline decoration-emerald-600/60 underline-offset-4 transition hover:text-emerald-700"
+            className="text-sm font-medium text-emerald-400 underline decoration-emerald-500/50 underline-offset-4 transition hover:text-emerald-300"
           >
             {"Hvad er GPSL\u00d8B.DK? \u{1F914}"}
           </button>
@@ -220,14 +220,14 @@ export default function Home() {
       </main>
 
       <footer className="relative mx-auto w-full max-w-4xl px-6 pb-8 pt-3">
-        <div className="mt-8 flex flex-col items-center gap-2 text-center text-sm text-slate-500">
+        <div className="mt-8 flex flex-col items-center gap-2 text-center text-sm text-slate-400">
           <div className="flex flex-wrap items-center justify-center gap-4">
             <Link href="/privacy" className="transition hover:underline">
               Privatlivspolitik &amp; Vilkår
             </Link>
             <Link
               href="/teknologi"
-              className="font-medium text-slate-700 transition hover:underline"
+              className="font-medium text-slate-200 transition hover:underline"
             >
               Læs om teknikken bag
             </Link>
@@ -237,7 +237,7 @@ export default function Home() {
           </div>
           <a
             href="mailto:gpslobdk@gmail.com"
-            className="transition hover:text-emerald-700"
+            className="transition hover:text-emerald-300"
           >
             Support: gpslobdk@gmail.com
           </a>

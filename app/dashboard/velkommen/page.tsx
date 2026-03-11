@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Poppins } from "next/font/google";
@@ -283,7 +284,12 @@ export default function VelkommenPage() {
         </video>
         <div className="absolute inset-0 bg-slate-950/60 z-10" />
 
-        <section className="relative z-20 flex h-[844px] max-h-[90vh] w-full max-w-[390px] flex-col overflow-hidden rounded-[3rem] border-[6px] border-slate-800 bg-slate-950/80 shadow-[0_0_50px_rgba(16,185,129,0.3)] backdrop-blur-xl">
+        <motion.section
+          initial={{ y: 50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] as const }}
+          className="relative z-20 flex h-[844px] max-h-[90vh] w-full max-w-[390px] flex-col overflow-hidden rounded-[3rem] border-[6px] border-slate-800 bg-slate-950/80 shadow-[0_0_50px_rgba(16,185,129,0.3)] backdrop-blur-xl"
+        >
           <div className="pointer-events-none absolute left-1/2 top-3 z-30 h-6 w-36 -translate-x-1/2 rounded-full bg-black/70" />
 
           <header className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/90 px-5 pb-4 pt-9 backdrop-blur-xl">
@@ -413,7 +419,7 @@ export default function VelkommenPage() {
               Svar på næste spørgsmål eller brug forslagene ovenfor.
             </p>
           </div>
-        </section>
+        </motion.section>
       </main>
     </>
   );
