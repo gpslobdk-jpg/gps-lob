@@ -222,6 +222,7 @@ type BuilderNotice = {
   message: string;
 };
 
+const AI_REQUEST_TIMEOUT_MS = 20_000;
 const ROLLESPIL_DRAFT_STORAGE_KEY = "draft_run_rollespil";
 
 type RollespilBuilderDraftState = {
@@ -451,6 +452,8 @@ function RollespilBuilderPageContent() {
       setLoadedRunId(null);
       setNotice(null);
 
+      try {
+
       const supabase = createClient();
       const {
         data: { user },
@@ -461,7 +464,6 @@ function RollespilBuilderPageContent() {
 
       if (userError || !user) {
         setNotice({ tone: "error", message: "Du skal være logget ind for at redigere dette løb." });
-        setIsLoadingExistingRun(false);
         return;
       }
 
@@ -480,7 +482,6 @@ function RollespilBuilderPageContent() {
           tone: "error",
           message: "Vi kunne ikke åbne dette rollespilsløb til redigering. Tjek at du er ejer, og prøv igen fra arkivet.",
         });
-        setIsLoadingExistingRun(false);
         return;
       }
 
@@ -511,7 +512,18 @@ function RollespilBuilderPageContent() {
             }
       );
       setLoadedRunId(run.id);
-      setIsLoadingExistingRun(false);
+      } catch (error) {
+        console.error("Kunne ikke indlæse rollespilsløbet til redigering:", error);
+        if (!isActive) return;
+        setNotice({
+          tone: "error",
+          message: "Vi kunne ikke åbne dette rollespilsløb til redigering. Prøv igen fra arkivet om et øjeblik.",
+        });
+      } finally {
+        if (isActive) {
+          setIsLoadingExistingRun(false);
+        }
+      }
     };
 
     void loadRunForEditing();
@@ -762,12 +774,16 @@ function RollespilBuilderPageContent() {
       `Hver post skal returnere karakter, avatar og besked i text-feltet med markørerne "Karakter:", "Avatar:" og "Besked:".`;
 
     setIsGenerating(true);
-    setPreviewQuestions([]);
     setAiTopic(normalizedBrief);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      controller.abort();
+    }, AI_REQUEST_TIMEOUT_MS);
 
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           subject: normalizedSubject,
@@ -830,8 +846,15 @@ function RollespilBuilderPageContent() {
       setPreviewQuestions(formattedQuestions);
     } catch (error) {
       console.error("AI-generering af rolleposter fejlede:", error);
-      setNotice({ tone: "error", message: "Der skete en fejl. Prøv igen." });
+      setNotice({
+        tone: "error",
+        message:
+          error instanceof Error && error.name === "AbortError"
+            ? "AI'en var for længe om at svare. Prøv igen."
+            : "Der skete en fejl. Prøv igen.",
+      });
     } finally {
+      window.clearTimeout(timeoutId);
       setIsGenerating(false);
     }
   };
@@ -896,13 +919,13 @@ function RollespilBuilderPageContent() {
       return;
     }
 
-    const hasAtLeastOnePin = normalizedQuestions.some(
-      (question) => question.lat !== null && question.lng !== null
+    const hasMissingCoordinates = normalizedQuestions.some(
+      (question) => question.lat === null || question.lng === null
     );
-    if (!hasAtLeastOnePin) {
+    if (hasMissingCoordinates) {
       setNotice({
         tone: "error",
-        message: "Du mangler at sætte pins på kortet. Mindst én post skal have koordinater.",
+        message: "Du mangler at placere alle poster på kortet.",
       });
       scrollToSaveFeedback();
       return;

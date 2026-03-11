@@ -208,6 +208,7 @@ type BuilderNotice = {
   message: string;
 };
 
+const AI_REQUEST_TIMEOUT_MS = 20_000;
 const FOTO_DRAFT_STORAGE_KEY = "draft_run_foto";
 
 type FotoBuilderDraftState = {
@@ -397,6 +398,8 @@ function FotoMissionBuilderPageContent() {
       setLoadedRunId(null);
       setNotice(null);
 
+      try {
+
       const supabase = createClient();
       const {
         data: { user },
@@ -407,7 +410,6 @@ function FotoMissionBuilderPageContent() {
 
       if (userError || !user) {
         setNotice({ tone: "error", message: "Du skal være logget ind for at redigere dette løb." });
-        setIsLoadingExistingRun(false);
         return;
       }
 
@@ -426,7 +428,6 @@ function FotoMissionBuilderPageContent() {
           tone: "error",
           message: "Vi kunne ikke åbne dette foto-løb til redigering. Tjek at du er ejer, og prøv igen fra arkivet.",
         });
-        setIsLoadingExistingRun(false);
         return;
       }
 
@@ -457,7 +458,18 @@ function FotoMissionBuilderPageContent() {
             }
       );
       setLoadedRunId(run.id);
-      setIsLoadingExistingRun(false);
+      } catch (error) {
+        console.error("Kunne ikke indlæse foto-løbet til redigering:", error);
+        if (!isActive) return;
+        setNotice({
+          tone: "error",
+          message: "Vi kunne ikke åbne dette foto-løb til redigering. Prøv igen fra arkivet om et øjeblik.",
+        });
+      } finally {
+        if (isActive) {
+          setIsLoadingExistingRun(false);
+        }
+      }
     };
 
     void loadRunForEditing();
@@ -672,12 +684,16 @@ function FotoMissionBuilderPageContent() {
       `Hver mission skal bruge en kort instruktion til deltageren i text og et konkret målobjekt som korrekt svar.`;
 
     setIsGenerating(true);
-    setPreviewQuestions([]);
     setAiTopic(normalizedBrief);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      controller.abort();
+    }, AI_REQUEST_TIMEOUT_MS);
 
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           subject: normalizedSubject,
@@ -740,8 +756,15 @@ function FotoMissionBuilderPageContent() {
       setPreviewQuestions(formattedQuestions);
     } catch (error) {
       console.error("AI-fotogenerering fejlede:", error);
-      setNotice({ tone: "error", message: "Der skete en fejl. Prøv igen." });
+      setNotice({
+        tone: "error",
+        message:
+          error instanceof Error && error.name === "AbortError"
+            ? "AI'en var for længe om at svare. Prøv igen."
+            : "Der skete en fejl. Prøv igen.",
+      });
     } finally {
+      window.clearTimeout(timeoutId);
       setIsGenerating(false);
     }
   };
@@ -800,13 +823,13 @@ function FotoMissionBuilderPageContent() {
       return;
     }
 
-    const hasAtLeastOnePin = normalizedQuestions.some(
-      (question) => question.lat !== null && question.lng !== null
+    const hasMissingCoordinates = normalizedQuestions.some(
+      (question) => question.lat === null || question.lng === null
     );
-    if (!hasAtLeastOnePin) {
+    if (hasMissingCoordinates) {
       setNotice({
         tone: "error",
-        message: "Du mangler at sætte pins på kortet. Mindst én mission skal have koordinater.",
+        message: "Du mangler at placere alle poster på kortet.",
       });
       scrollToSaveFeedback();
       return;

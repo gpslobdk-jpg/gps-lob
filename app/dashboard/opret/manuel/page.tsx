@@ -259,7 +259,7 @@ const AUTO_GENERATED_RUN_CENTER: MapCenter = {
   lat: 55.0,
   lng: 11.9,
 };
-const AI_REQUEST_TIMEOUT_MS = 45_000;
+const AI_REQUEST_TIMEOUT_MS = 20_000;
 const MAX_AUTO_GENERATE_TOPIC_LENGTH = 150;
 const MAX_AUTO_GENERATE_SOURCE_TEXT_LENGTH = 18000;
 const MAX_AUTO_GENERATE_IMAGE_FILE_SIZE = 12 * 1024 * 1024;
@@ -660,6 +660,8 @@ function OpretLoebPageContent() {
       setLoadedRunId(null);
       setNotice(null);
 
+      try {
+
       const supabase = createClient();
       const {
         data: { user },
@@ -670,7 +672,6 @@ function OpretLoebPageContent() {
 
       if (userError || !user) {
         setNotice({ tone: "error", message: "Du skal være logget ind for at redigere dette løb." });
-        setIsLoadingExistingRun(false);
         return;
       }
 
@@ -689,7 +690,6 @@ function OpretLoebPageContent() {
           tone: "error",
           message: "Vi kunne ikke åbne dette løb til redigering. Tjek at du er ejer, og prøv igen fra arkivet.",
         });
-        setIsLoadingExistingRun(false);
         return;
       }
 
@@ -721,7 +721,18 @@ function OpretLoebPageContent() {
           : DEFAULT_MAP_CENTER
       );
       setLoadedRunId(run.id);
-      setIsLoadingExistingRun(false);
+      } catch (error) {
+        console.error("Kunne ikke indlæse løbet til redigering:", error);
+        if (!isActive) return;
+        setNotice({
+          tone: "error",
+          message: "Vi kunne ikke åbne dette løb til redigering. Prøv igen fra arkivet om et øjeblik.",
+        });
+      } finally {
+        if (isActive) {
+          setIsLoadingExistingRun(false);
+        }
+      }
     };
 
     void loadRunForEditing();
@@ -1069,7 +1080,6 @@ function OpretLoebPageContent() {
     setNotice(null);
     setAutoGenerateNotice(null);
     setIsAutoGeneratingRun(true);
-    setPreviewQuestions([]);
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => {
       controller.abort();
@@ -1110,6 +1120,7 @@ function OpretLoebPageContent() {
       setTitle(nextTitle);
       setDescription(nextDescription);
       setQuestions(nextQuestions);
+      setPreviewQuestions([]);
       setGeneratingImages({});
       setShowAIModal(false);
       setShowAITeacherFields(false);
@@ -1162,12 +1173,16 @@ function OpretLoebPageContent() {
       `Alle spørgsmål og svar skal være på dansk, lette at forstå og passe til et GPS-løb udendørs.`;
 
     setIsGenerating(true);
-    setPreviewQuestions([]);
     setAiTopic(normalizedBrief);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      controller.abort();
+    }, AI_REQUEST_TIMEOUT_MS);
 
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           subject: normalizedSubject,
@@ -1233,8 +1248,15 @@ function OpretLoebPageContent() {
       }
     } catch (error) {
       console.error(error);
-      setNotice({ tone: "error", message: "Der skete en fejl. Prøv igen." });
+      setNotice({
+        tone: "error",
+        message:
+          error instanceof Error && error.name === "AbortError"
+            ? "AI'en var for længe om at svare. Prøv igen."
+            : "Der skete en fejl. Prøv igen.",
+      });
     } finally {
+      window.clearTimeout(timeoutId);
       setIsGenerating(false);
     }
   };
@@ -1252,10 +1274,15 @@ function OpretLoebPageContent() {
     }
 
     setGeneratingImages((prev) => ({ ...prev, [questionId]: true }));
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      controller.abort();
+    }, AI_REQUEST_TIMEOUT_MS);
 
     try {
       const res = await fetch("/api/generate-image", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ questionText, subject: normalizedSubject, topic: normalizedTopic }),
       });
@@ -1270,8 +1297,15 @@ function OpretLoebPageContent() {
       }
     } catch (error) {
       console.error(error);
-      setNotice({ tone: "error", message: "Der skete en fejl. Prøv igen." });
+      setNotice({
+        tone: "error",
+        message:
+          error instanceof Error && error.name === "AbortError"
+            ? "AI-billedet var for længe om at blive genereret. Prøv igen."
+            : "Der skete en fejl. Prøv igen.",
+      });
     } finally {
+      window.clearTimeout(timeoutId);
       setGeneratingImages((prev) => ({ ...prev, [questionId]: false }));
     }
   };
@@ -1332,13 +1366,13 @@ function OpretLoebPageContent() {
       return;
     }
 
-    const hasAtLeastOnePin = normalizedQuestions.some(
-      (q) => q.lat !== null && q.lng !== null
+    const hasMissingCoordinates = normalizedQuestions.some(
+      (question) => question.lat === null || question.lng === null
     );
-    if (!hasAtLeastOnePin) {
+    if (hasMissingCoordinates) {
       setNotice({
         tone: "error",
-        message: "Du mangler at sætte pins på kortet. Mindst ét spørgsmål skal have koordinater.",
+        message: "Du mangler at placere alle poster på kortet.",
       });
       scrollToSaveFeedback();
       return;

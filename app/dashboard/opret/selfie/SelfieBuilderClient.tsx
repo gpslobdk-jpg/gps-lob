@@ -108,6 +108,7 @@ type BuilderNotice = {
   message: string;
 };
 
+const AI_REQUEST_TIMEOUT_MS = 20_000;
 const SELFIE_DRAFT_STORAGE_KEY = "draft_run_selfie";
 const SELFIE_REMINDER = "Husk at få dit ansigt med på selfien!";
 const BLANK_ANSWERS: [string, string, string, string] = ["", "", "", ""];
@@ -275,6 +276,8 @@ export default function SelfieBuilderClient() {
       setLoadedRunId(null);
       setNotice(null);
 
+      try {
+
       const supabase = createClient();
       const {
         data: { user },
@@ -285,7 +288,6 @@ export default function SelfieBuilderClient() {
 
       if (userError || !user) {
         setNotice({ tone: "error", message: "Du skal være logget ind for at redigere dette løb." });
-        setIsLoadingExistingRun(false);
         return;
       }
 
@@ -304,7 +306,6 @@ export default function SelfieBuilderClient() {
           tone: "error",
           message: "Vi kunne ikke åbne dette selfie-løb til redigering. Tjek at du er ejer, og prøv igen fra arkivet.",
         });
-        setIsLoadingExistingRun(false);
         return;
       }
 
@@ -334,7 +335,18 @@ export default function SelfieBuilderClient() {
             }
       );
       setLoadedRunId(run.id);
-      setIsLoadingExistingRun(false);
+      } catch (error) {
+        console.error("Kunne ikke indlæse selfie-løbet til redigering:", error);
+        if (!isActive) return;
+        setNotice({
+          tone: "error",
+          message: "Vi kunne ikke åbne dette selfie-løb til redigering. Prøv igen fra arkivet om et øjeblik.",
+        });
+      } finally {
+        if (isActive) {
+          setIsLoadingExistingRun(false);
+        }
+      }
     };
 
     void loadRunForEditing();
@@ -503,17 +515,26 @@ export default function SelfieBuilderClient() {
     const normalizedGrade = aiGrade.trim() || "Ikke angivet";
     const requestedCount = extractRequestedCount(normalizedBrief);
 
+    setNotice(null);
+
     if (!normalizedBrief) {
-      alert("Skriv først, hvilket sted eller tema AI'en skal bruge til selfie-jagten.");
+      setNotice({
+        tone: "error",
+        message: "Skriv først, hvilket sted eller tema AI'en skal bruge til selfie-jagten.",
+      });
       return;
     }
 
     setIsGenerating(true);
-    setPreviewQuestions([]);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      controller.abort();
+    }, AI_REQUEST_TIMEOUT_MS);
 
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           subject: normalizedSubject,
@@ -570,15 +591,25 @@ export default function SelfieBuilderClient() {
         : [];
 
       if (generated.length === 0) {
-        alert("AI returnerede ingen brugbare selfie-poster. Prøv igen.");
+        setNotice({
+          tone: "error",
+          message: "AI returnerede ingen brugbare selfie-poster. Prøv igen.",
+        });
         return;
       }
 
       setPreviewQuestions(generated);
     } catch (error) {
       console.error("AI-selfiefejl:", error);
-      alert("Der skete en fejl. Prøv igen.");
+      setNotice({
+        tone: "error",
+        message:
+          error instanceof Error && error.name === "AbortError"
+            ? "AI'en var for længe om at svare. Prøv igen."
+            : "Der skete en fejl. Prøv igen.",
+      });
     } finally {
+      window.clearTimeout(timeoutId);
       setIsGenerating(false);
     }
   };
@@ -638,10 +669,10 @@ export default function SelfieBuilderClient() {
       return;
     }
 
-    if (!normalizedQuestions.some((question) => question.lat !== null && question.lng !== null)) {
+    if (normalizedQuestions.some((question) => question.lat === null || question.lng === null)) {
       setNotice({
         tone: "error",
-        message: "Du mangler at sætte pins på kortet. Mindst én selfie-post skal have koordinater.",
+        message: "Du mangler at placere alle poster på kortet.",
       });
       scrollToSaveFeedback();
       return;

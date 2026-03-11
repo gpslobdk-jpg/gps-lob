@@ -211,6 +211,7 @@ type BuilderNotice = {
   message: string;
 };
 
+const AI_REQUEST_TIMEOUT_MS = 20_000;
 const ESCAPE_DRAFT_STORAGE_KEY = "draft_run_escape";
 
 type EscapeBuilderDraftState = {
@@ -419,6 +420,8 @@ function EscapeBuilderPageContent() {
       setLoadedRunId(null);
       setNotice(null);
 
+      try {
+
       const supabase = createClient();
       const {
         data: { user },
@@ -429,7 +432,6 @@ function EscapeBuilderPageContent() {
 
       if (userError || !user) {
         setNotice({ tone: "error", message: "Du skal være logget ind for at redigere dette løb." });
-        setIsLoadingExistingRun(false);
         return;
       }
 
@@ -448,7 +450,6 @@ function EscapeBuilderPageContent() {
           tone: "error",
           message: "Vi kunne ikke åbne dette escape-løb til redigering. Tjek at du er ejer, og prøv igen fra arkivet.",
         });
-        setIsLoadingExistingRun(false);
         return;
       }
 
@@ -480,7 +481,18 @@ function EscapeBuilderPageContent() {
             }
       );
       setLoadedRunId(run.id);
-      setIsLoadingExistingRun(false);
+      } catch (error) {
+        console.error("Kunne ikke indlæse escape-løbet til redigering:", error);
+        if (!isActive) return;
+        setNotice({
+          tone: "error",
+          message: "Vi kunne ikke åbne dette escape-løb til redigering. Prøv igen fra arkivet om et øjeblik.",
+        });
+      } finally {
+        if (isActive) {
+          setIsLoadingExistingRun(false);
+        }
+      }
     };
 
     void loadRunForEditing();
@@ -718,12 +730,16 @@ function EscapeBuilderPageContent() {
       `og en belønning eller ledetråd i text efter markøren " || KODEBRIK: ".`;
 
     setIsGenerating(true);
-    setPreviewQuestions([]);
     setAiTopic(normalizedBrief);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      controller.abort();
+    }, AI_REQUEST_TIMEOUT_MS);
 
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           subject: normalizedSubject,
@@ -787,8 +803,15 @@ function EscapeBuilderPageContent() {
       setPreviewQuestions(formattedQuestions);
     } catch (error) {
       console.error("AI-generering af escape-gåder fejlede:", error);
-      setNotice({ tone: "error", message: "Der skete en fejl. Prøv igen." });
+      setNotice({
+        tone: "error",
+        message:
+          error instanceof Error && error.name === "AbortError"
+            ? "AI'en var for længe om at svare. Prøv igen."
+            : "Der skete en fejl. Prøv igen.",
+      });
     } finally {
+      window.clearTimeout(timeoutId);
       setIsGenerating(false);
     }
   };
@@ -849,13 +872,13 @@ function EscapeBuilderPageContent() {
       return;
     }
 
-    const hasAtLeastOnePin = normalizedQuestions.some(
-      (question) => question.lat !== null && question.lng !== null
+    const hasMissingCoordinates = normalizedQuestions.some(
+      (question) => question.lat === null || question.lng === null
     );
-    if (!hasAtLeastOnePin) {
+    if (hasMissingCoordinates) {
       setNotice({
         tone: "error",
-        message: "Du mangler at sætte pins på kortet. Mindst én gåde skal have koordinater.",
+        message: "Du mangler at placere alle poster på kortet.",
       });
       scrollToSaveFeedback();
       return;
