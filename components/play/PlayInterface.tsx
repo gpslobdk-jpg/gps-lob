@@ -94,6 +94,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     hasActiveQuizSuccess,
     hasAllEscapeBricks,
     hasRoleplayInputErrorTone,
+    isProvisioningParticipant,
     isEscapeRace,
     isRoleplayImmersed,
     isSelfiePhotoTask,
@@ -258,9 +259,10 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
             ) : null}
             <button
               type="submit"
-              className="mt-6 w-full rounded-xl bg-gradient-to-r from-emerald-400 to-sky-400 px-4 py-3 text-base font-black tracking-wide text-[#03110d] uppercase transition-transform hover:scale-[1.01]"
+              disabled={isProvisioningParticipant}
+              className="mt-6 w-full rounded-xl bg-gradient-to-r from-emerald-400 to-sky-400 px-4 py-3 text-base font-black tracking-wide text-[#03110d] uppercase transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:scale-100"
             >
-              Start Løb
+              {isProvisioningParticipant ? "Klargør hold..." : "Start Løb"}
             </button>
           </form>
         </div>

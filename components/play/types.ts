@@ -243,6 +243,7 @@ export interface PlayUiFlags {
   hasAllEscapeBricks: boolean;
   hasRoleplayInputErrorTone: boolean;
   isBlockingGpsError: boolean;
+  isProvisioningParticipant: boolean;
   isEscapeRace: boolean;
   isRoleplayImmersed: boolean;
   isSelfiePhotoTask: boolean;

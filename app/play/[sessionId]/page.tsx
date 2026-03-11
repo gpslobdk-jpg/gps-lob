@@ -23,7 +23,8 @@ function PlayScreen() {
     game.progress.questions.length > 0 &&
     !game.progress.screen.isFinished &&
     !game.progress.screen.isKicked &&
-    game.player.hasConfirmedName;
+    game.player.hasConfirmedName &&
+    Boolean(game.player.participantId);
 
   return (
     <>

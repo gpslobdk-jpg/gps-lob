@@ -8,13 +8,10 @@ import {
   type RunScheduleGate,
   type RunSchedule,
 } from "@/utils/runSchedule";
+import { saveStoredActiveParticipant } from "@/components/play/playUtils";
 import { createClient } from "@/utils/supabase/client";
 
 type JoinView = "form" | "waiting" | "scheduled" | "expired" | "scheduleError";
-
-type InsertErrorLike = {
-  code?: string;
-};
 
 type JoinLookupResponse =
   | {
@@ -37,6 +34,12 @@ type JoinLookupResponse =
 
 type JoinLookupErrorResponse = {
   error?: string;
+};
+
+type JoinParticipantResponse = {
+  participantId: string;
+  sessionId: string;
+  studentName: string;
 };
 
 const formatLongDate = (value: string | null | undefined) => {
@@ -216,16 +219,36 @@ function JoinForm() {
         return;
       }
 
-      const { error: insertError } = await supabase.from("session_students").insert({
-        session_id: joinData.sessionId,
-        student_name: trimmedName,
+      const registerResponse = await fetch("/api/join", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify({
+          sessionId: joinData.sessionId,
+          studentName: trimmedName,
+        }),
       });
+      const registerData = (await registerResponse.json().catch(() => null)) as
+        | JoinParticipantResponse
+        | JoinLookupErrorResponse
+        | null;
 
-      if (insertError && (insertError as InsertErrorLike).code !== "23505") {
-        throw insertError;
+      if (!registerResponse.ok || !registerData || !("participantId" in registerData)) {
+        const errorMessage =
+          registerData && "error" in registerData ? registerData.error : "Kunne ikke klargÃ¸re deltageren.";
+        throw new Error(errorMessage);
       }
 
-      setName(trimmedName);
+      saveStoredActiveParticipant({
+        participantId: registerData.participantId,
+        sessionId: registerData.sessionId,
+        studentName: registerData.studentName,
+        savedAt: new Date().toISOString(),
+      });
+
+      setName(registerData.studentName);
       setSessionId(joinData.sessionId);
 
       if (joinData.scheduleGate === "scheduled") {

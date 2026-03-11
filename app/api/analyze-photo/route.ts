@@ -14,8 +14,8 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 type AnalyzePhotoPayload = {
   image?: unknown;
   sessionId?: unknown;
+  participantId?: unknown;
   postIndex?: unknown;
-  studentName?: unknown;
 };
 
 type AnalyzePhotoResult = {
@@ -33,6 +33,11 @@ type SupabaseLikeError = {
 
 type UploadedPhoto = {
   imageUrl: string | null;
+};
+
+type ParticipantIdentityRow = {
+  id?: string | null;
+  student_name?: string | null;
 };
 
 function asPostIndex(value: unknown) {
@@ -142,8 +147,31 @@ async function uploadPhotoToStorage(image: string, sessionId: string, postIndex:
   };
 }
 
+async function fetchParticipantIdentity(sessionId: string, participantId: string) {
+  const supabase = getSupabaseApiClient();
+  if (!supabase) {
+    console.error("Supabase-klienten til deltageropslag er ikke konfigureret.");
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("participants")
+    .select("id,student_name")
+    .eq("id", participantId)
+    .eq("session_id", sessionId)
+    .maybeSingle<ParticipantIdentityRow>();
+
+  if (error) {
+    console.error("Kunne ikke hente deltageridentitet til fotoanalyse:", error);
+    return null;
+  }
+
+  return data ?? null;
+}
+
 async function persistPhotoAnalysisResult({
   sessionId,
+  participantId,
   studentName,
   postIndex,
   questionText,
@@ -152,6 +180,7 @@ async function persistPhotoAnalysisResult({
   imageUrl,
 }: {
   sessionId: string;
+  participantId: string;
   studentName: string;
   postIndex: number;
   questionText: string;
@@ -173,6 +202,7 @@ async function persistPhotoAnalysisResult({
   const timestamp = new Date().toISOString();
   const basePayload = {
     session_id: sessionId,
+    participant_id: participantId,
     student_name: normalizedStudentName,
     post_index: postIndex + 1,
     question_index: postIndex,
@@ -239,10 +269,10 @@ export async function POST(req: Request) {
   try {
     const image = asTrimmedString(payload.image);
     const sessionId = asTrimmedString(payload.sessionId);
+    const participantId = asTrimmedString(payload.participantId);
     const postIndex = asPostIndex(payload.postIndex);
-    const studentName = asTrimmedString(payload.studentName);
 
-    if (!image || !sessionId || postIndex === null) {
+    if (!image || !sessionId || !participantId || postIndex === null) {
       return NextResponse.json({ error: "Billede eller postdata mangler." }, { status: 400 });
     }
 
@@ -253,6 +283,12 @@ export async function POST(req: Request) {
     const run = await fetchRunForSession(sessionId);
     if (!run || !Array.isArray(run.questions) || postIndex >= run.questions.length) {
       return NextResponse.json({ error: "Foto-posten kunne ikke findes." }, { status: 404 });
+    }
+
+    const participant = await fetchParticipantIdentity(sessionId, participantId);
+    const studentName = asTrimmedString(participant?.student_name);
+    if (!studentName) {
+      return NextResponse.json({ error: "Deltageren kunne ikke findes." }, { status: 404 });
     }
 
     const rawQuestion = run.questions[postIndex];
@@ -278,80 +314,61 @@ export async function POST(req: Request) {
         : `indeholder det anmodede motiv: ${targetObject}`
     }.
 Returner KUN et validt JSON-objekt med dette format:
-{
-  "isMatch": boolean,
-  "message": string
-}
-Regler:
-- "isMatch" skal være true hvis kravene er tydeligt opfyldt, ellers false.
-- Hvis dette er en selfie-opgave, må "isMatch" kun være true når både et ansigt og motivet ${targetObject} er tydeligt synlige.
-- Svar altid på dansk.
-- "message" skal være en kort, opmuntrende kommentar på højst 2 sætninger.
-- Svar kun med valid JSON. Ingen markdown, ingen forklaringer uden for JSON.`;
+{"isMatch": true/false, "message": "kort, varm feedback på dansk til deltagerne"}`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
+    const userPrompt = isSelfie
+      ? `Vurder om dette er en selfie ved ${targetObject}. Giv positiv, kort feedback på dansk.`
+      : `Vurder om dette billede viser ${targetObject}. Giv positiv, kort feedback på dansk.`;
+
+    const aiResponse = await openai.responses.create({
+      model: "gpt-4.1-mini",
+      temperature: 0.2,
+      max_output_tokens: 180,
+      input: [
+        {
+          role: "system",
+          content: [{ type: "input_text", text: systemPrompt }],
+        },
         {
           role: "user",
           content: [
+            { type: "input_text", text: userPrompt },
             {
-              type: "text",
-              text: isSelfie
-                ? `Vurder om billedet er en selfie, hvor mindst ét ansigt er tydeligt, og hvor dette motiv er synligt: ${targetObject}.`
-                : `Vurder om billedet matcher dette motiv: ${targetObject}.`,
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: image,
-              },
+              type: "input_image",
+              image_url: image,
+              detail: "high",
             },
           ],
         },
       ],
-      temperature: 0.2,
     });
 
-    const rawContent = response.choices[0]?.message?.content;
-    if (!rawContent) {
-      throw new Error("AI returnerede tomt svar.");
+    const normalizedResult = normalizeAnalysisResult(aiResponse.output_text ? JSON.parse(aiResponse.output_text) : null);
+    if (!normalizedResult) {
+      return NextResponse.json({ error: "AI-svaret kunne ikke forstås." }, { status: 502 });
     }
 
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(rawContent);
-    } catch {
-      throw new Error("AI returnerede ugyldigt JSON-format.");
-    }
-
-    const result = normalizeAnalysisResult(parsed);
-    if (!result) {
-      throw new Error("AI returnerede ugyldig billedanalyse.");
-    }
-
-    const storedAnswer = await persistPhotoAnalysisResult({
-      sessionId,
-      studentName,
-      postIndex,
-      questionText: getQuestionText(rawQuestion),
-      isMatch: result.isMatch,
-      message: result.message,
-      imageUrl: uploadedPhoto.imageUrl,
-    });
-
-    return NextResponse.json(
-      {
-        ...result,
+    let storedAnswer = false;
+    if (normalizedResult.isMatch) {
+      storedAnswer = await persistPhotoAnalysisResult({
+        sessionId,
+        participantId,
+        studentName,
+        postIndex,
+        questionText: getQuestionText(rawQuestion),
+        isMatch: normalizedResult.isMatch,
+        message: normalizedResult.message,
         imageUrl: uploadedPhoto.imageUrl,
-        storedAnswer,
-      },
-      { status: 200 }
-    );
+      });
+    }
+
+    return NextResponse.json({
+      ...normalizedResult,
+      imageUrl: uploadedPhoto.imageUrl,
+      storedAnswer,
+    });
   } catch (error) {
-    console.error("Analyze photo API-fejl:", error);
-    return NextResponse.json({ error: "Kunne ikke analysere billedet lige nu." }, { status: 500 });
+    console.error("Fotoanalyse fejlede:", error);
+    return NextResponse.json({ error: "Fotoanalysen fejlede." }, { status: 500 });
   }
 }

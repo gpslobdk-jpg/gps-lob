@@ -134,9 +134,9 @@ export function usePlayGameState({
   const [participantId, setParticipantId] = useState<string | null>(
     () => storedParticipantOnLoad?.participantId ?? null
   );
+  const [isProvisioningParticipant, setIsProvisioningParticipant] = useState(false);
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
 
-  const participantsTableMissingRef = useRef(false);
   const answersTableMissingRef = useRef(false);
   const hasRestoredRef = useRef(!Boolean(storedParticipantOnLoad));
   const resumeMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -187,6 +187,55 @@ export function usePlayGameState({
       });
     },
     [sessionId]
+  );
+
+  const registerParticipantIdentity = useCallback(
+    async (nextStudentName: string) => {
+      const normalizedName = nextStudentName.trim();
+      if (!sessionId || !normalizedName || isProvisioningParticipant) {
+        return false;
+      }
+
+      setIsProvisioningParticipant(true);
+
+      try {
+        const response = await fetch("/api/join", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+          body: JSON.stringify({
+            sessionId,
+            studentName: normalizedName,
+          }),
+        });
+
+        const payload = (await response.json().catch(() => null)) as
+          | { participantId?: string; studentName?: string; error?: string }
+          | null;
+
+        if (!response.ok || !payload?.participantId) {
+          throw new Error(payload?.error || "Kunne ikke klargøre deltageren.");
+        }
+
+        const resolvedName = (payload.studentName ?? normalizedName).trim() || normalizedName;
+        setPendingPlayerNameState(resolvedName);
+        setPlayerName(resolvedName);
+        setHasConfirmedName(true);
+        setNameError(null);
+        rememberActiveParticipant(payload.participantId, resolvedName);
+        return true;
+      } catch (error) {
+        console.error("Kunne ikke registrere deltageridentitet:", error);
+        setHasConfirmedName(false);
+        setNameError("Vi kunne ikke starte løbet lige nu. Prøv igen.");
+        return false;
+      } finally {
+        setIsProvisioningParticipant(false);
+      }
+    },
+    [isProvisioningParticipant, rememberActiveParticipant, sessionId]
   );
 
   const beginSubmission = useCallback(() => {
@@ -290,13 +339,13 @@ export function usePlayGameState({
                 helper: "Det hjÃ¦lper ofte at genindlÃ¦se siden og stÃ¥ et sted med bedre signal.",
               }
             : null;
-  const isBlockingGpsError = gpsError === "permission_denied";
+  const isBlockingGpsError = gpsError === "permission_denied" || gpsError === "unsupported";
   const gpsWarningContent =
     gpsError && !isBlockingGpsError ? getGpsErrorContent(gpsError) : null;
   const shouldKeepScreenAwake =
     !isLoading &&
     !loadError &&
-    gpsError !== "permission_denied" &&
+    !isBlockingGpsError &&
     !isFinished &&
     !isKicked &&
     hasConfirmedName &&
@@ -338,8 +387,7 @@ export function usePlayGameState({
 
   const syncParticipantLocation = useCallback(
     async (lat: number, lng: number) => {
-      const activeName = playerName.trim();
-      if (!sessionId || !activeName) return;
+      if (!sessionId || !participantId) return;
 
       try {
         const response = await fetch("/api/play/location", {
@@ -350,7 +398,6 @@ export function usePlayGameState({
           cache: "no-store",
           body: JSON.stringify({
             sessionId,
-            studentName: activeName,
             participantId,
             lat,
             lng,
@@ -368,13 +415,13 @@ export function usePlayGameState({
           | null;
 
         if (typeof payload?.participantId === "string" && payload.participantId) {
-          rememberActiveParticipant(payload.participantId, activeName);
+          rememberActiveParticipant(payload.participantId, playerName.trim() || pendingPlayerName.trim());
         }
       } catch (error) {
         console.error("Kunne ikke synkronisere deltagerposition:", error);
       }
     },
-    [participantId, playerName, rememberActiveParticipant, sessionId]
+    [participantId, pendingPlayerName, playerName, rememberActiveParticipant, sessionId]
   );
 
   useEffect(() => {
@@ -401,7 +448,19 @@ export function usePlayGameState({
     let isActive = true;
 
     const restoreFromStorage = async () => {
-      const { data: participantData, error: participantError } = await supabase
+      const storedName = storedParticipantOnLoad?.studentName?.trim() || playerName || initialStudentName;
+      if (storedName) {
+        setPlayerName(storedName);
+        setPendingPlayerNameState(storedName);
+        setHasConfirmedName(true);
+        setNameError(null);
+        rememberActiveParticipant(participantId, storedName);
+      }
+
+      let participantData: ParticipantRow | null = null;
+      let didResolveParticipant = false;
+
+      const { data, error: participantError } = await supabase
         .from("participants")
         .select("id,session_id,student_name,lat,lng,finished_at")
         .eq("id", participantId)
@@ -411,28 +470,27 @@ export function usePlayGameState({
       if (!isActive) return;
 
       if (participantError) {
-        if (participantError.code === "PGRST205") {
-          participantsTableMissingRef.current = true;
-        } else {
-          console.error("Kunne ikke genskabe deltagerdata fra participants:", participantError);
-        }
-        hasRestoredRef.current = true;
-        return;
+        console.error("Kunne ikke genskabe deltagerdata fra participants:", participantError);
+      } else {
+        didResolveParticipant = true;
+        participantData = data ?? null;
       }
 
-      if (!participantData) {
+      if (didResolveParticipant && !participantData) {
         clearStoredActiveParticipant();
         setParticipantId(null);
+        setShowQuestion(false);
+        setIsKicked(true);
         hasRestoredRef.current = true;
         return;
       }
 
       const restoredName =
-        typeof participantData.student_name === "string"
+        typeof participantData?.student_name === "string"
           ? participantData.student_name.trim()
           : "";
 
-      const resolvedName = restoredName || playerName || initialStudentName;
+      const resolvedName = restoredName || storedName;
       if (resolvedName) {
         setPlayerName(resolvedName);
         setPendingPlayerNameState(resolvedName);
@@ -440,17 +498,17 @@ export function usePlayGameState({
         setNameError(null);
       }
 
-      if (participantData.id && resolvedName) {
+      if (participantData?.id && resolvedName) {
         rememberActiveParticipant(String(participantData.id), resolvedName);
       }
 
-      const restoredLat = toFiniteNumber(participantData.lat);
-      const restoredLng = toFiniteNumber(participantData.lng);
+      const restoredLat = toFiniteNumber(participantData?.lat);
+      const restoredLng = toFiniteNumber(participantData?.lng);
       if (restoredLat !== null && restoredLng !== null) {
         setMyLoc({ lat: restoredLat, lng: restoredLng });
       }
 
-      if (participantData.finished_at) {
+      if (participantData?.finished_at) {
         clearStoredActiveParticipant();
         setParticipantId(null);
         setIsFinished(true);
@@ -462,8 +520,7 @@ export function usePlayGameState({
         const { data: answersData, error: answersError } = await supabase
           .from("answers")
           .select("post_index,question_index,is_correct")
-          .eq("session_id", sessionId)
-          .eq("student_name", resolvedName);
+          .eq("participant_id", participantId);
 
         if (!isActive) return;
 
@@ -541,48 +598,29 @@ export function usePlayGameState({
     supabase,
     playerName,
     initialStudentName,
+    storedParticipantOnLoad,
     rememberActiveParticipant,
     showResumeNotice,
   ]);
 
   const markParticipantFinished = useCallback(async () => {
-    const activeName = playerName.trim();
-    if (!sessionId || !activeName) return false;
+    if (!sessionId || !participantId) return false;
     const finishedAt = new Date().toISOString();
 
-    if (!participantsTableMissingRef.current) {
-      const { error } = await supabase
-        .from("participants")
-        .update({ finished_at: finishedAt })
-        .eq("session_id", sessionId)
-        .eq("student_name", activeName);
-
-      if (!error) {
-        clearStoredActiveParticipant();
-        setParticipantId(null);
-        return true;
-      }
-      if (error.code === "PGRST205") {
-        participantsTableMissingRef.current = true;
-      } else {
-        console.error("Kunne ikke gemme målgang i participants:", error);
-      }
-    }
-
-    const { error: fallbackError } = await supabase
-      .from("session_students")
+    const { error } = await supabase
+      .from("participants")
       .update({ finished_at: finishedAt })
-      .eq("session_id", sessionId)
-      .eq("student_name", activeName);
+      .eq("id", participantId)
+      .eq("session_id", sessionId);
 
-    if (fallbackError) {
-      console.error("Kunde ikke gemme målgangstid:", fallbackError);
+    if (error) {
+      console.error("Kunne ikke gemme målgang i participants:", error);
       return false;
     }
     clearStoredActiveParticipant();
     setParticipantId(null);
     return true;
-  }, [playerName, sessionId, supabase]);
+  }, [participantId, sessionId, supabase]);
 
   const insertAnswerRecord = useCallback(
     async (
@@ -594,12 +632,13 @@ export function usePlayGameState({
       lng: number | null
     ) => {
       const activeName = playerName.trim();
-      if (!sessionId || !activeName || answersTableMissingRef.current) return false;
+      if (!sessionId || !participantId || !activeName || answersTableMissingRef.current) return false;
 
       const timestamp = new Date().toISOString();
       const payloads: Record<string, unknown>[] = [
         {
           session_id: sessionId,
+          participant_id: participantId,
           student_name: activeName,
           post_index: postNumber,
           question_index: postNumber - 1,
@@ -613,6 +652,7 @@ export function usePlayGameState({
         },
         {
           session_id: sessionId,
+          participant_id: participantId,
           student_name: activeName,
           post_index: postNumber,
           selected_index: selectedIndex,
@@ -621,6 +661,7 @@ export function usePlayGameState({
         },
         {
           session_id: sessionId,
+          participant_id: participantId,
           student_name: activeName,
           question_index: postNumber - 1,
           answer_index: selectedIndex,
@@ -629,6 +670,7 @@ export function usePlayGameState({
         },
         {
           session_id: sessionId,
+          participant_id: participantId,
           student_name: activeName,
           selected_index: selectedIndex,
           is_correct: isCorrect,
@@ -649,7 +691,7 @@ export function usePlayGameState({
 
       return false;
     },
-    [playerName, sessionId, supabase]
+    [participantId, playerName, sessionId, supabase]
   );
 
   useEffect(() => {
@@ -1152,13 +1194,16 @@ export function usePlayGameState({
       setNameError(null);
       setPendingPlayerNameState(trimmedName);
       setPlayerName(trimmedName);
-      setHasConfirmedName(true);
 
       if (participantId) {
+        setHasConfirmedName(true);
         rememberActiveParticipant(participantId, trimmedName);
+        return;
       }
+
+      void registerParticipantIdentity(trimmedName);
     },
-    [participantId, rememberActiveParticipant]
+    [participantId, registerParticipantIdentity, rememberActiveParticipant]
   );
 
   const submitQuizAnswer = async (selectedIndex: number) => {
@@ -1364,7 +1409,16 @@ export function usePlayGameState({
   };
 
   const submitPhoto = async (file: File) => {
-    if (!file || !activeQuestion || activePostVariant !== "photo" || isAnalyzingPhoto || !sessionId) return;
+    if (
+      !file ||
+      !activeQuestion ||
+      activePostVariant !== "photo" ||
+      isAnalyzingPhoto ||
+      !sessionId ||
+      !participantId
+    ) {
+      return;
+    }
     if (isSubmitting || submissionLockRef.current) return;
     if (!beginSubmission()) return;
     const isSelfie = activeQuestion.isSelfie === true;
@@ -1375,7 +1429,6 @@ export function usePlayGameState({
 
     try {
       const image = await compressImageForUpload(file);
-      const activeStudentName = playerName.trim() || pendingPlayerName.trim();
       const response = await fetch("/api/analyze-photo", {
         method: "POST",
         headers: {
@@ -1384,8 +1437,8 @@ export function usePlayGameState({
         body: JSON.stringify({
           image,
           sessionId,
+          participantId,
           postIndex: currentPostIndex,
-          studentName: activeStudentName,
         }),
       });
 
@@ -1528,7 +1581,7 @@ export function usePlayGameState({
       ? "load_error"
       : isKicked
         ? "kicked"
-        : !hasConfirmedName && !isFinished
+        : (!hasConfirmedName || isProvisioningParticipant) && !isFinished
           ? "name_gate"
           : isBlockingGpsError && !isFinished
             ? "gps_blocked"
@@ -1578,6 +1631,7 @@ export function usePlayGameState({
     hasAllEscapeBricks,
     hasRoleplayInputErrorTone,
     isBlockingGpsError,
+    isProvisioningParticipant,
     isEscapeRace,
     isRoleplayImmersed,
     isSelfiePhotoTask,
