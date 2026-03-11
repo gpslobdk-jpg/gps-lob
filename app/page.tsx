@@ -214,7 +214,7 @@ export default function Home() {
           onClick={() => setShowIntroToken((prev) => prev + 1)}
           className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-slate-950/60 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-200 shadow-[0_0_24px_rgba(15,23,42,0.35)] backdrop-blur-xl transition-all hover:border-emerald-500/30 hover:bg-slate-900/80 hover:text-emerald-300"
         >
-          <span>{"MISSION BRIEFING \u{1F4C2}"}</span>
+          <span>{"Hvad er GPSL\u00d8B.DK? \u{1F914}"}</span>
         </button>
       </div>
 
