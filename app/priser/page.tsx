@@ -32,12 +32,15 @@ type PriceCard = {
 
 const WEEKEND_PASS_PRICE_ID = "price_1T9B9BFezSVmwrOXmJX9Qw1L";
 const EVENT_PASS_PRICE_ID = "price_1T9BJsFezSVmwrOXlaklvAzQ";
+const BETA_PRICE_COPY = "Gratis under Beta";
+const BETA_META_COPY = "Soft opening frem til 1. august 2026";
+const CHECKOUT_DISABLED = true;
 
 const priceCards: PriceCard[] = [
   {
     title: "Prøv det gratis",
-    price: "0 kr.",
-    priceMeta: "Til den nysgerrige lærer",
+    price: BETA_PRICE_COPY,
+    priceMeta: BETA_META_COPY,
     audience: "Perfekt til at teste konceptet med en enkelt klasse eller et hurtigt pilotløb.",
     features: ["1 aktivt løb", "Klassisk Quiz", "Max 15 deltagere"],
     ctaLabel: "Opret gratis konto",
@@ -49,8 +52,8 @@ const priceCards: PriceCard[] = [
   },
   {
     title: "Børnefødselsdagen",
-    price: "99 kr.",
-    priceMeta: "Engangsbetaling · 48 timer",
+    price: BETA_PRICE_COPY,
+    priceMeta: BETA_META_COPY,
     audience: "Til forældre, der vil lave et hurtigt, sjovt og fleksibelt løb hjemme eller i parken.",
     features: [
       "Adgang til alle løbstyper",
@@ -66,8 +69,8 @@ const priceCards: PriceCard[] = [
   },
   {
     title: "Skolelicensen",
-    price: "Kontakt os for pris",
-    priceMeta: "Til hele skolen",
+    price: BETA_PRICE_COPY,
+    priceMeta: BETA_META_COPY,
     audience: "Til skoler og institutioner, der vil gøre GPSLØB til et fast værktøj i undervisningen.",
     features: [
       "Ubegrænset for alle lærere",
@@ -87,8 +90,8 @@ const priceCards: PriceCard[] = [
   },
   {
     title: "Teambuilding",
-    price: "499 kr.",
-    priceMeta: "Engangsbetaling pr. løb",
+    price: BETA_PRICE_COPY,
+    priceMeta: BETA_META_COPY,
     audience: "Til firmaer, polterabends og events, hvor oplevelsen skal føles skræddersyet og skarp.",
     features: [
       "Adgang i 7 dage",
@@ -213,6 +216,9 @@ export default function PricingPage() {
             Uanset om du planlægger en skoleaktivitet, en privat fejring eller et firma-event,
             findes der en løsning med plads til både leg, læring og tempo.
           </p>
+          <div className="mt-6 inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/10 px-5 py-2 text-sm font-bold tracking-[0.18em] text-emerald-200 uppercase">
+            Alle pakker er gratis under beta frem til 1. august 2026
+          </div>
         </section>
 
         <section className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
@@ -262,10 +268,14 @@ export default function PricingPage() {
                   <button
                     type="button"
                     onClick={() => void handleCheckout(card.priceId!)}
-                    disabled={loadingPriceId !== null}
-                    className={`mt-8 inline-flex min-h-[56px] items-center justify-center rounded-2xl px-5 py-4 text-center text-base font-bold transition-colors disabled:cursor-wait disabled:opacity-80 ${card.buttonTone}`}
+                    disabled={CHECKOUT_DISABLED || loadingPriceId !== null}
+                    className={`mt-8 inline-flex min-h-[56px] items-center justify-center rounded-2xl px-5 py-4 text-center text-base font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${card.buttonTone}`}
                   >
-                    {loadingPriceId === card.priceId ? "⏳ Omdirigerer..." : card.ctaLabel}
+                    {CHECKOUT_DISABLED
+                      ? "Gratis under Beta"
+                      : loadingPriceId === card.priceId
+                        ? "⏳ Omdirigerer..."
+                        : card.ctaLabel}
                   </button>
                 ) : (
                   <PriceCardAction

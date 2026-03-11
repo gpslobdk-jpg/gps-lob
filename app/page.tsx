@@ -19,6 +19,7 @@ export default function Home() {
   const [codeError, setCodeError] = useState("");
   const [showIntroToken, setShowIntroToken] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
+  const [isJoining, setIsJoining] = useState(false);
   const backgroundVideoRef = useRef<HTMLVideoElement | null>(null);
   const router = useRouter();
 
@@ -57,6 +58,8 @@ export default function Home() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isJoining) return;
+
     const cleanedCode = code.replace(/\D/g, "").slice(0, 5);
     if (cleanedCode.length === 0) {
       setCodeError("Husk at skrive koden først!");
@@ -67,11 +70,12 @@ export default function Home() {
       return;
     }
     setCodeError("");
+    setIsJoining(true);
     router.push(`/join?pin=${cleanedCode}`);
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col text-slate-100">
+    <div className="relative flex min-h-screen flex-col overflow-x-hidden text-slate-100">
       <video
         ref={backgroundVideoRef}
         src="/introvideo.mp4"
@@ -110,9 +114,11 @@ export default function Home() {
               />
               <button
                 type="submit"
-                className="w-full rounded-3xl bg-emerald-500 px-6 py-8 text-3xl font-bold tracking-wide text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.99]"
+                disabled={isJoining}
+                aria-busy={isJoining}
+                className="w-full rounded-3xl bg-emerald-500 px-6 py-8 text-3xl font-bold tracking-wide text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.99] disabled:cursor-wait disabled:opacity-70"
               >
-                Deltag
+                {isJoining ? "Åbner løbet..." : "Deltag"}
               </button>
               {codeError ? (
                 <p className="text-center text-sm font-semibold text-rose-200">{codeError}</p>
@@ -164,9 +170,11 @@ export default function Home() {
               />
               <button
                 type="submit"
-                className="w-full rounded-2xl bg-emerald-500 px-4 py-3 text-base font-bold tracking-wide text-slate-950 transition-all hover:bg-emerald-400"
+                disabled={isJoining}
+                aria-busy={isJoining}
+                className="w-full rounded-2xl bg-emerald-500 px-4 py-3 text-base font-bold tracking-wide text-slate-950 transition-all hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-70"
               >
-                Deltag
+                {isJoining ? "Åbner løbet..." : "Deltag"}
               </button>
               {codeError ? (
                 <p className="text-center text-xs font-medium text-rose-300">{codeError}</p>

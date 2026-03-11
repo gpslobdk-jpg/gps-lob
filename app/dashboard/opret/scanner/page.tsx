@@ -637,7 +637,7 @@ export default function ScannerPortalPage() {
               </div>
 
               {error ? (
-                <div className="rounded-3xl border border-emerald-500/20 bg-slate-900/60 px-4 py-3 text-sm text-slate-200 backdrop-blur-xl">
+                <div className="rounded-3xl border border-red-300/30 bg-red-500/10 px-4 py-3 text-sm text-red-100 backdrop-blur-xl">
                   {error}
                 </div>
               ) : null}

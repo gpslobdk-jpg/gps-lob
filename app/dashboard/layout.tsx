@@ -1,5 +1,6 @@
 import AIChatButton from "@/components/AIChatButton";
 import AuthLoadingScreen from "@/components/AuthLoadingScreen";
+import BetaBanner from "@/components/BetaBanner";
 import DashboardAuthGate from "@/components/DashboardAuthGate";
 import { Suspense } from "react";
 
@@ -19,6 +20,7 @@ export default function DashboardLayout({
     >
       <DashboardAuthGate>
         <div className="relative pb-32 md:pb-0">
+          <BetaBanner />
           {children}
           <AIChatButton />
         </div>

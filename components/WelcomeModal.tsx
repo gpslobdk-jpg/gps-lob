@@ -12,6 +12,26 @@ const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
 const STORAGE_KEY = "hasSeenWelcomeModal";
 
+function readWelcomeState() {
+  if (typeof window === "undefined") return false;
+
+  try {
+    return window.localStorage.getItem(STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function persistWelcomeState() {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(STORAGE_KEY, "true");
+  } catch (error) {
+    console.error("Kunne ikke gemme welcome-state:", error);
+  }
+}
+
 type WelcomeModalProps = {
   forceOpenToken?: number;
 };
@@ -35,15 +55,12 @@ const steps = [
 ] as const;
 
 export default function WelcomeModal({ forceOpenToken = 0 }: WelcomeModalProps) {
-  const [isOpen, setIsOpen] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(STORAGE_KEY) !== "true";
-  });
+  const [isOpen, setIsOpen] = useState(() => !readWelcomeState());
   const [dismissedForcedToken, setDismissedForcedToken] = useState(0);
   const isForcedOpen = forceOpenToken > 0 && forceOpenToken !== dismissedForcedToken;
 
   const handleClose = () => {
-    window.localStorage.setItem(STORAGE_KEY, "true");
+    persistWelcomeState();
     if (isForcedOpen) {
       setDismissedForcedToken(forceOpenToken);
     }

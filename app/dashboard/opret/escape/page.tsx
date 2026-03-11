@@ -333,11 +333,11 @@ export default function EscapeBuilderPage() {
       fallback={
         <div className={`min-h-screen bg-slate-950 ${poppins.className}`}>
           <div className="flex min-h-screen items-center justify-center px-6 text-center">
-            <div className="rounded-[2rem] border border-emerald-500/20 bg-slate-900/60 px-8 py-10 text-amber-100 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
-              <p className="text-xs font-semibold tracking-[0.28em] text-amber-100/55 uppercase">
+            <div className="rounded-[2rem] border border-emerald-500/20 bg-slate-900/60 px-8 py-10 text-emerald-100 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+              <p className="text-xs font-semibold tracking-[0.28em] text-emerald-100/55 uppercase">
                 Indlæser
               </p>
-              <h1 className={`mt-3 text-3xl font-black tracking-tight text-amber-100 ${rubik.className}`}>
+              <h1 className={`mt-3 text-3xl font-black tracking-tight text-emerald-100 ${rubik.className}`}>
                 Escape-bygger
               </h1>
             </div>
@@ -954,18 +954,18 @@ function EscapeBuilderPageContent() {
 
   if (isEditMode && isLoadingExistingRun) {
     return (
-      <div className={`relative min-h-screen overflow-hidden bg-slate-950 text-amber-100 ${poppins.className}`}>
+      <div className={`relative min-h-screen overflow-hidden bg-slate-950 text-emerald-100 ${poppins.className}`}>
         <div className="fixed inset-0 -z-10 bg-slate-950/70 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
           <div className="w-full max-w-md rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-            <Loader2 className="mx-auto h-10 w-10 animate-spin text-amber-200" />
-            <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-amber-100/55 uppercase">
+            <Loader2 className="mx-auto h-10 w-10 animate-spin text-emerald-200" />
+            <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-emerald-100/55 uppercase">
               Rediger løb
             </p>
-            <h1 className={`mt-3 text-3xl font-black tracking-tight text-amber-100 ${rubik.className}`}>
+            <h1 className={`mt-3 text-3xl font-black tracking-tight text-emerald-100 ${rubik.className}`}>
               Indlæser dine escape-poster
             </h1>
-            <p className="mt-3 text-sm leading-6 text-amber-100/70">
+            <p className="mt-3 text-sm leading-6 text-emerald-100/70">
               Vi henter løbets data og klargør builderen til redigering.
             </p>
           </div>
@@ -976,7 +976,7 @@ function EscapeBuilderPageContent() {
 
   return (
     <>
-      <div className={`relative min-h-screen overflow-x-hidden bg-slate-950 text-amber-100 ${poppins.className}`}>
+      <div className={`relative min-h-screen overflow-x-hidden bg-slate-950 text-emerald-100 ${poppins.className}`}>
         <div className="fixed inset-0 -z-10 bg-slate-950/70 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
           <section className="w-full px-4 py-4 sm:px-6 sm:py-6 lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
@@ -988,11 +988,11 @@ function EscapeBuilderPageContent() {
               >
               <div className="px-1 pt-1">
                 {isEditMode ? (
-                  <div className="mb-4 inline-flex items-center rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-amber-100 uppercase">
+                  <div className="mb-4 inline-flex items-center rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-emerald-100 uppercase">
                     Edit-mode
                   </div>
                 ) : null}
-                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
+                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
                   Løbets titel
                 </label>
                 <input
@@ -1004,7 +1004,7 @@ function EscapeBuilderPageContent() {
               </div>
 
               <div className="rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-4 shadow-[0_20px_48px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:p-5">
-                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
+                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
                   Slut-kode (Master-kode)
                 </label>
                 <input
@@ -1032,10 +1032,10 @@ function EscapeBuilderPageContent() {
                 </button>
 
                 <div className="flex items-end justify-between gap-4">
-                  <p className="text-xs font-semibold tracking-[0.24em] text-amber-100/65 uppercase">
+                  <p className="text-xs font-semibold tracking-[0.24em] text-emerald-100/65 uppercase">
                     Dine gåder
                   </p>
-                  <span className="rounded-full border border-emerald-500/20 bg-slate-900/60 px-3 py-1.5 text-sm font-semibold text-amber-100/80 backdrop-blur-xl">
+                  <span className="rounded-full border border-emerald-500/20 bg-slate-900/60 px-3 py-1.5 text-sm font-semibold text-emerald-100/80 backdrop-blur-xl">
                     {questions.length}
                   </span>
                 </div>
@@ -1050,14 +1050,14 @@ function EscapeBuilderPageContent() {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-500/20 bg-slate-900/60 text-sm font-bold text-amber-100">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-500/20 bg-slate-900/60 text-sm font-bold text-emerald-100">
                         {index + 1}
                       </div>
                       <div>
-                        <h3 className={`text-lg font-bold text-amber-100 ${rubik.className}`}>
+                        <h3 className={`text-lg font-bold text-emerald-100 ${rubik.className}`}>
                           Gåde {index + 1}
                         </h3>
-                        <p className="text-xs text-amber-100/65">
+                        <p className="text-xs text-emerald-100/65">
                           {question.lat !== null && question.lng !== null ? "Pin valgt på kortet" : "Pin mangler"}
                         </p>
                       </div>
@@ -1065,7 +1065,7 @@ function EscapeBuilderPageContent() {
                   </div>
 
                   <div className="mt-4">
-                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
+                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
                       Gåden
                     </label>
                     <textarea
@@ -1078,7 +1078,7 @@ function EscapeBuilderPageContent() {
                   </div>
 
                   <div className="mt-4">
-                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
+                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
                       Svaret
                     </label>
                     <input
@@ -1090,7 +1090,7 @@ function EscapeBuilderPageContent() {
                   </div>
 
                   <div className="mt-4">
-                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
+                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
                       Hint til deltageren (valgfrit)
                     </label>
                     <input
@@ -1102,7 +1102,7 @@ function EscapeBuilderPageContent() {
                   </div>
 
                   <div className="mt-4">
-                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
+                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
                       Belønning
                     </label>
                     <input
@@ -1124,7 +1124,7 @@ function EscapeBuilderPageContent() {
                   </button>
 
                   {question.lat !== null && question.lng !== null ? (
-                    <p className="mt-3 text-xs text-amber-100/70">
+                    <p className="mt-3 text-xs text-emerald-100/70">
                       Pin gemt: {question.lat.toFixed(5)}, {question.lng.toFixed(5)}
                     </p>
                   ) : null}
@@ -1135,7 +1135,7 @@ function EscapeBuilderPageContent() {
                 <button
                   type="button"
                   onClick={addQuestion}
-                  className="inline-flex items-center gap-2 rounded-[1.2rem] border border-emerald-500/20 bg-slate-900/60 px-4 py-3 text-sm font-semibold text-amber-100 backdrop-blur-xl transition hover:bg-slate-800/80"
+                  className="inline-flex items-center gap-2 rounded-[1.2rem] border border-emerald-500/20 bg-slate-900/60 px-4 py-3 text-sm font-semibold text-emerald-100 backdrop-blur-xl transition hover:bg-slate-800/80"
                 >
                   <Plus className="h-4 w-4" />
                   Tilføj ny gåde
@@ -1144,7 +1144,7 @@ function EscapeBuilderPageContent() {
                 <button
                   type="button"
                   onClick={() => setShowSubjectField((current) => !current)}
-                  className="mt-4 inline-flex items-center gap-2 text-sm text-amber-100/70 transition hover:text-amber-100"
+                  className="mt-4 inline-flex items-center gap-2 text-sm text-emerald-100/70 transition hover:text-emerald-100"
                 >
                   {showSubjectField ? (
                     <ChevronUp className="h-4 w-4" />
@@ -1156,7 +1156,7 @@ function EscapeBuilderPageContent() {
 
                 {showSubjectField ? (
                   <div className="mt-4 rounded-[1.4rem] border border-emerald-500/20 bg-slate-900/60 p-4 backdrop-blur-xl">
-                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
+                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
                       Emne
                     </label>
                     <select
@@ -1198,7 +1198,7 @@ function EscapeBuilderPageContent() {
 
           <aside className="w-full p-4 pt-0 sm:px-6 lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
             <div className="lg:sticky lg:top-5">
-              <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-slate-900/60 shadow-[0_0_0_1px_rgba(245,158,11,0.08),0_0_36px_rgba(245,158,11,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
+              <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-slate-900/60 shadow-[0_0_0_1px_rgba(16,185,129,0.08),0_0_36px_rgba(16,185,129,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
                 <MapPicker center={mapCenter} pins={pins} onCenterChange={setMapCenter} />
               </div>
             </div>
@@ -1211,16 +1211,16 @@ function EscapeBuilderPageContent() {
           <div className="w-full max-w-3xl rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-6 shadow-[0_32px_100px_rgba(0,0,0,0.72)] backdrop-blur-xl sm:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold tracking-[0.28em] text-amber-100/55 uppercase">
+                <p className="text-xs font-semibold tracking-[0.28em] text-emerald-100/55 uppercase">
                   AI-modal
                 </p>
                 <h2
-                  className={`mt-3 flex items-center gap-2 text-3xl font-extrabold text-amber-100 ${rubik.className}`}
+                  className={`mt-3 flex items-center gap-2 text-3xl font-extrabold text-emerald-100 ${rubik.className}`}
                 >
                   <span aria-hidden>✨</span>
                   Intelligent gåde-assistent
                 </h2>
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-amber-100/75">
+                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-emerald-100/75">
                   Fortæl kort hvilket emne eller niveau gåderne skal have (f.eks. matematik), så laver AI&apos;en resten.
                 </p>
               </div>
@@ -1230,7 +1230,7 @@ function EscapeBuilderPageContent() {
 
             {previewQuestions.length > 0 ? (
               <div className="mt-8">
-                <p className="mb-4 text-sm text-amber-100/75">
+                <p className="mb-4 text-sm text-emerald-100/75">
                   Gennemgå gåderne og ret dem til, før de overføres til kortet.
                 </p>
 
@@ -1240,11 +1240,11 @@ function EscapeBuilderPageContent() {
                       key={question.id}
                       className="rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-4 backdrop-blur-xl"
                     >
-                      <p className="mb-3 text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
+                      <p className="mb-3 text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
                         Gåde {index + 1}
                       </p>
 
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-amber-100/65 uppercase">
+                      <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-emerald-100/65 uppercase">
                         Gåden
                       </label>
                       <textarea
@@ -1257,7 +1257,7 @@ function EscapeBuilderPageContent() {
                         className={previewInputClass}
                       />
 
-                      <label className="mt-4 mb-2 block text-xs font-semibold tracking-[0.2em] text-amber-100/65 uppercase">
+                      <label className="mt-4 mb-2 block text-xs font-semibold tracking-[0.2em] text-emerald-100/65 uppercase">
                         Svaret
                       </label>
                       <input
@@ -1268,7 +1268,7 @@ function EscapeBuilderPageContent() {
                         className={previewInputClass}
                       />
 
-                      <label className="mt-4 mb-2 block text-xs font-semibold tracking-[0.2em] text-amber-100/65 uppercase">
+                      <label className="mt-4 mb-2 block text-xs font-semibold tracking-[0.2em] text-emerald-100/65 uppercase">
                         Hint til deltageren (valgfrit)
                       </label>
                       <input
@@ -1281,7 +1281,7 @@ function EscapeBuilderPageContent() {
                         className={previewInputClass}
                       />
 
-                      <label className="mt-4 mb-2 block text-xs font-semibold tracking-[0.2em] text-amber-100/65 uppercase">
+                      <label className="mt-4 mb-2 block text-xs font-semibold tracking-[0.2em] text-emerald-100/65 uppercase">
                         Belønning
                       </label>
                       <input
@@ -1309,7 +1309,7 @@ function EscapeBuilderPageContent() {
                   <button
                     type="button"
                     onClick={handleDiscardAIPreview}
-                    className="w-full rounded-[1.4rem] border border-emerald-500/20 bg-slate-900/60 py-3 font-semibold text-amber-100/80 transition hover:bg-slate-800/80"
+                    className="w-full rounded-[1.4rem] border border-emerald-500/20 bg-slate-900/60 py-3 font-semibold text-emerald-100/80 transition hover:bg-slate-800/80"
                   >
                     Kassér og prøv igen
                   </button>
@@ -1335,7 +1335,7 @@ function EscapeBuilderPageContent() {
                     type="button"
                     onClick={() => setShowAIMetadataFields((current) => !current)}
                     disabled={isGenerating}
-                    className="mt-4 inline-flex items-center gap-2 text-sm text-amber-100/70 transition hover:text-amber-100"
+                    className="mt-4 inline-flex items-center gap-2 text-sm text-emerald-100/70 transition hover:text-emerald-100"
                   >
                   {showAIMetadataFields ? (
                     <ChevronUp className="h-4 w-4" />
@@ -1349,7 +1349,7 @@ function EscapeBuilderPageContent() {
                   <section className="mt-4 rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-4 backdrop-blur-xl">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
-                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-amber-100/65 uppercase">
+                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-emerald-100/65 uppercase">
                           Emne
                         </label>
                         <select
@@ -1374,7 +1374,7 @@ function EscapeBuilderPageContent() {
                       </div>
 
                       <div>
-                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-amber-100/65 uppercase">
+                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-emerald-100/65 uppercase">
                           Målgruppe/Sværhedsgrad
                         </label>
                         <select
@@ -1403,7 +1403,7 @@ function EscapeBuilderPageContent() {
                     type="button"
                     onClick={closeAIModal}
                     disabled={isGenerating}
-                    className="rounded-[1.4rem] border border-emerald-500/20 bg-slate-900/60 px-5 py-3 text-sm font-semibold text-amber-100/80 transition hover:bg-slate-800/80 disabled:opacity-60"
+                    className="rounded-[1.4rem] border border-emerald-500/20 bg-slate-900/60 px-5 py-3 text-sm font-semibold text-emerald-100/80 transition hover:bg-slate-800/80 disabled:opacity-60"
                   >
                     Luk
                   </button>
@@ -1425,8 +1425,8 @@ function EscapeBuilderPageContent() {
                 </div>
 
                 {isGenerating ? (
-                  <div className="mt-4 inline-flex items-center gap-2 text-sm text-amber-100/75">
-                    <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-amber-300" />
+                  <div className="mt-4 inline-flex items-center gap-2 text-sm text-emerald-100/75">
+                    <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-300" />
                     AI&apos;en skriver gåder...
                   </div>
                 ) : null}
