@@ -1,4 +1,5 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import type { PostgrestError } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -9,15 +10,21 @@ const BETA_ACCESS_EXPIRES_AT = "2026-08-01T00:00:00.000Z";
 const OAUTH_TIMEOUT_MS = 8_000;
 const BETA_SEED_TIMEOUT_MS = 2_500;
 
+type ProfileSeedRow = {
+  id: string;
+  plan_type: string | null;
+  access_expires_at: string | null;
+};
+
 function redirectToLogin(origin: string, error: string) {
   const loginUrl = new URL("/login", origin);
   loginUrl.searchParams.set("error", error);
   return NextResponse.redirect(loginUrl);
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+function withTimeout<T>(promise: PromiseLike<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
-    promise,
+    Promise.resolve(promise),
     new Promise<T>((_, reject) => {
       setTimeout(() => reject(new Error(`${label}_timeout`)), ms);
     }),
@@ -31,7 +38,10 @@ async function ensureBetaAccess(userId: string) {
   }
 
   try {
-    const { data: existingProfile, error: profileError } = await withTimeout(
+    const { data: existingProfile, error: profileError } = await withTimeout<{
+      data: ProfileSeedRow | null;
+      error: PostgrestError | null;
+    }>(
       adminSupabase
         .from("profiles")
         .select("id, plan_type, access_expires_at")
@@ -60,7 +70,9 @@ async function ensureBetaAccess(userId: string) {
       return;
     }
 
-    const { error: upsertError } = await withTimeout(
+    const { error: upsertError } = await withTimeout<{
+      error: PostgrestError | null;
+    }>(
       adminSupabase.from("profiles").upsert(
         {
           id: userId,
