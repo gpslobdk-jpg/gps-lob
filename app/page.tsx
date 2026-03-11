@@ -1,6 +1,5 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
@@ -19,11 +18,8 @@ export default function Home() {
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState("");
   const [showIntroToken, setShowIntroToken] = useState(0);
-  const [showIntroModal, setShowIntroModal] = useState(false);
-  const [showMobileIntroModal, setShowMobileIntroModal] = useState(false);
-  const [isIntroMuted, setIsIntroMuted] = useState(true);
-  const [isIntroVideoLoaded, setIsIntroVideoLoaded] = useState(false);
-  const introVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [isMuted, setIsMuted] = useState(true);
+  const backgroundVideoRef = useRef<HTMLVideoElement | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -39,47 +35,15 @@ export default function Home() {
     window.location.replace(callbackUrl.toString());
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const hasSeenIntro = window.localStorage.getItem("hasSeenIntro");
-    if (hasSeenIntro) return;
-    const isMobileViewport = window.matchMedia("(max-width: 767px)").matches;
-    let isCancelled = false;
+  const toggleBackgroundSound = () => {
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
 
-    queueMicrotask(() => {
-      if (isCancelled) return;
-      if (isMobileViewport) {
-        setShowMobileIntroModal(true);
-        return;
-      }
-      setShowIntroModal(true);
-    });
+    if (!backgroundVideoRef.current) return;
 
-    return () => {
-      isCancelled = true;
-    };
-  }, []);
-
-  const closeIntroModal = () => {
-    setShowIntroModal(false);
-    setShowMobileIntroModal(false);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("hasSeenIntro", "true");
-    }
-  };
-
-  const enableIntroSound = () => {
-    setIsIntroMuted(false);
-    if (introVideoRef.current) {
-      introVideoRef.current.muted = false;
-      introVideoRef.current.volume = 1;
-      void introVideoRef.current.play().catch(() => undefined);
-    }
-  };
-
-  const handleIntroVideoLoaded = () => {
-    setIsIntroVideoLoaded(true);
-    void introVideoRef.current?.play().catch(() => undefined);
+    backgroundVideoRef.current.muted = nextMuted;
+    backgroundVideoRef.current.volume = nextMuted ? 0 : 1;
+    void backgroundVideoRef.current.play().catch(() => undefined);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -100,10 +64,11 @@ export default function Home() {
   return (
     <div className="relative flex min-h-screen flex-col text-slate-100">
       <video
-        src="/promo.mp4"
+        ref={backgroundVideoRef}
+        src="/introvideo.mp4"
         autoPlay
         loop
-        muted
+        muted={isMuted}
         playsInline
         preload="metadata"
         className="fixed top-0 left-0 h-full w-full object-cover -z-20"
@@ -208,16 +173,50 @@ export default function Home() {
           </Link>
         </section>
 
-        <div className="mt-12 text-center">
-          <button
-            type="button"
-            onClick={() => setShowIntroToken((prev) => prev + 1)}
-            className="text-sm font-medium text-emerald-400 underline decoration-emerald-500/50 underline-offset-4 transition hover:text-emerald-300"
-          >
-            {"Hvad er GPSL\u00d8B.DK? \u{1F914}"}
-          </button>
-        </div>
       </main>
+
+      <div className="relative z-20 mx-auto mb-4 flex w-full max-w-4xl flex-wrap items-center justify-center gap-3 px-4">
+        <button
+          type="button"
+          onClick={toggleBackgroundSound}
+          aria-pressed={!isMuted}
+          className="inline-flex items-center gap-3 rounded-full border border-emerald-500/30 bg-slate-950/70 px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] text-emerald-300 shadow-[0_0_24px_rgba(16,185,129,0.15)] backdrop-blur-xl transition-all hover:border-emerald-400/60 hover:bg-emerald-500/10 hover:text-emerald-200"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-4 w-4"
+            aria-hidden="true"
+          >
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            {isMuted ? (
+              <>
+                <line x1="23" y1="9" x2="17" y2="15" />
+                <line x1="17" y1="9" x2="23" y2="15" />
+              </>
+            ) : (
+              <>
+                <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+                <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+              </>
+            )}
+          </svg>
+          <span>{isMuted ? "Slå lyd til" : "Slå lyd fra"}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setShowIntroToken((prev) => prev + 1)}
+          className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-slate-950/60 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-200 shadow-[0_0_24px_rgba(15,23,42,0.35)] backdrop-blur-xl transition-all hover:border-emerald-500/30 hover:bg-slate-900/80 hover:text-emerald-300"
+        >
+          <span>{"MISSION BRIEFING \u{1F4C2}"}</span>
+        </button>
+      </div>
 
       <footer className="relative mx-auto w-full max-w-4xl px-6 pb-8 pt-3">
         <div className="mt-8 flex flex-col items-center gap-2 text-center text-sm text-slate-400">
@@ -244,128 +243,6 @@ export default function Home() {
           <p>{"\u00a9 2026 gpsl\u00f8b.dk"}</p>
         </div>
       </footer>
-
-      <AnimatePresence>
-        {showMobileIntroModal ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
-            className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/70 px-6 backdrop-blur-xl md:hidden"
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 10, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.98 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-              className="w-full max-w-md rounded-3xl border border-white/20 bg-slate-900/70 p-6 text-white shadow-2xl shadow-black/40 backdrop-blur-xl"
-            >
-              <p className="text-center text-lg font-semibold leading-relaxed text-white">
-                Velkommen til GPS Løb! Indtast koden fra din lærer/arrangør for at
-                starte eventyret.
-              </p>
-              <button
-                type="button"
-                onClick={closeIntroModal}
-                className="mt-6 w-full rounded-2xl bg-emerald-500 px-5 py-4 text-xl font-black text-white transition active:scale-[0.99]"
-              >
-                OK
-              </button>
-            </motion.div>
-          </motion.div>
-        ) : null}
-
-        {showIntroModal ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="fixed inset-0 z-[120] hidden bg-slate-950/65 backdrop-blur-xl md:block"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 1.01 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.995 }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
-              className="relative h-screen w-screen overflow-hidden border border-white/10 bg-emerald-950/90 text-white"
-            >
-              <button
-                type="button"
-                onClick={closeIntroModal}
-                className="absolute right-4 top-4 z-20 flex h-16 w-16 items-center justify-center rounded-full bg-slate-950/45 p-4 text-white/80 shadow-lg shadow-black/25 backdrop-blur-md transition hover:bg-white/10 hover:text-white"
-                aria-label="Luk introduktion"
-              >
-                <span aria-hidden="true" className="text-4xl font-bold leading-none">
-                  ×
-                </span>
-              </button>
-
-              <div
-                className={`absolute inset-0 transition-opacity duration-500 ${
-                  isIntroVideoLoaded ? "opacity-0" : "opacity-100"
-                }`}
-              >
-                <Image
-                  src="/intro-poster.jpg"
-                  alt=""
-                  fill
-                  priority
-                  sizes="100vw"
-                  className="object-cover"
-                />
-              </div>
-
-              <video
-                ref={introVideoRef}
-                src="/introvideo.mp4"
-                poster="/intro-poster.jpg"
-                autoPlay
-                muted={isIntroMuted}
-                playsInline
-                preload="auto"
-                className={`h-full w-full object-cover transition-opacity duration-500 ${
-                  isIntroVideoLoaded ? "opacity-100" : "opacity-0"
-                }`}
-                onLoadedData={handleIntroVideoLoaded}
-              />
-
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-slate-950/55 via-transparent to-slate-950/45" />
-
-              {isIntroMuted ? (
-                <button
-                  type="button"
-                  onClick={enableIntroSound}
-                  className="absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 rounded-xl border border-white/20 bg-emerald-950/80 px-6 py-4 text-base font-bold text-white shadow-xl shadow-black/30 backdrop-blur-md transition hover:bg-emerald-900/85"
-                  aria-label="Slå lyd til"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-5 w-5"
-                    aria-hidden="true"
-                  >
-                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                    <path d="M15.5 8.5a5 5 0 0 1 0 7" />
-                    <path d="M18.5 5.5a9 9 0 0 1 0 13" />
-                  </svg>
-                  <span>Slå lyd til</span>
-                </button>
-              ) : null}
-
-              <p className="pointer-events-none absolute bottom-5 left-1/2 z-20 -translate-x-1/2 rounded-2xl bg-slate-950/55 px-6 py-3 text-center text-lg font-bold text-emerald-50/90 shadow-lg shadow-black/25 backdrop-blur-md sm:text-xl">
-                Tryk på X for at lukke introen
-              </p>
-            </motion.div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
 
       <AIChatButton />
     </div>
