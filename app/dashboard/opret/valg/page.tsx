@@ -126,7 +126,7 @@ function renderCard(card: HubCard, index: number) {
 export default function ValgHubPage() {
   return (
     <main
-      className={`relative min-h-screen overflow-hidden bg-gradient-to-b from-sky-300 via-emerald-50 to-emerald-200 px-6 py-12 text-white md:px-10 lg:bg-none lg:bg-transparent ${poppins.className}`}
+      className={`relative min-h-screen overflow-hidden bg-gradient-to-b from-sky-300 via-emerald-50 to-emerald-200 px-6 py-12 pb-32 text-white md:px-10 md:pb-16 lg:bg-none lg:bg-transparent ${poppins.className}`}
     >
       <video
         autoPlay
@@ -176,7 +176,7 @@ export default function ValgHubPage() {
             <Link href="/privacy" className="transition hover:text-slate-700">
               Privatlivspolitik
             </Link>
-            <Link href="/privacy" className="transition hover:text-slate-700">
+            <Link href="/teknologi" className="transition hover:text-slate-700">
               Udvikler Info
             </Link>
           </div>

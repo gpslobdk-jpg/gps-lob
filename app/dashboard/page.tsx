@@ -2,10 +2,10 @@
 
 import { motion } from "framer-motion";
 import { FolderOpen, MapPin, Radio } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { Poppins, Rubik } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
+import { Poppins, Rubik } from "next/font/google";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/utils/supabase/client";
@@ -32,13 +32,18 @@ export default function DashboardPage() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isCheckingLiveSession, setIsCheckingLiveSession] = useState(true);
   const [liveHint, setLiveHint] = useState("");
+  const [runCountError, setRunCountError] = useState(false);
+  const [dashboardRetryKey, setDashboardRetryKey] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
     const supabase = createClient();
 
     const fetchActiveSession = async () => {
-      setIsCheckingLiveSession(true);
+      if (isMounted) {
+        setIsCheckingLiveSession(true);
+        setRunCountError(false);
+      }
 
       try {
         const {
@@ -72,8 +77,15 @@ export default function DashboardPage() {
         ]);
 
         if (runsError) {
-          console.error("Kunne ikke tjekke antal gemte løb:", runsError);
-        } else if (runCount === 0) {
+          console.error("Kunne ikke tjekke antal gemte l\u00f8b:", runsError);
+          if (isMounted) {
+            setRunCountError(true);
+            setActiveSessionId(null);
+          }
+          return;
+        }
+
+        if (runCount === 0) {
           router.replace("/dashboard/velkommen");
           return;
         }
@@ -88,6 +100,12 @@ export default function DashboardPage() {
         if (isMounted) {
           setActiveSessionId(active?.id ?? null);
         }
+      } catch (error) {
+        console.error("Dashboardet kunne ikke indl\u00e6ses:", error);
+        if (isMounted) {
+          setRunCountError(true);
+          setActiveSessionId(null);
+        }
       } finally {
         if (isMounted) setIsCheckingLiveSession(false);
       }
@@ -98,7 +116,7 @@ export default function DashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, [router]);
+  }, [dashboardRetryKey, router]);
 
   const hasActiveSession = Boolean(activeSessionId);
 
@@ -125,6 +143,10 @@ export default function DashboardPage() {
     router.push("/");
   };
 
+  const handleRetryDashboardLoad = () => {
+    setDashboardRetryKey((current) => current + 1);
+  };
+
   const liveCardClass = useMemo(() => {
     if (isCheckingLiveSession) {
       return `${cardBaseClass} cursor-progress opacity-85 hover:scale-100`;
@@ -134,6 +156,94 @@ export default function DashboardPage() {
     }
     return `${cardBaseClass} cursor-not-allowed opacity-75 hover:scale-100`;
   }, [hasActiveSession, isCheckingLiveSession]);
+
+  if (isCheckingLiveSession) {
+    return (
+      <div
+        className={`relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-6 py-12 text-white ${poppins.className}`}
+      >
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="metadata"
+          className="fixed top-0 left-0 h-full w-full object-cover -z-20"
+          src="/promo.mp4"
+        />
+        <div className="fixed inset-0 -z-10 bg-slate-950/75 backdrop-blur-[3px]" />
+
+        <div className="relative w-full max-w-6xl">
+          <div className="rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-6 shadow-[0_32px_100px_rgba(0,0,0,0.45)] backdrop-blur-2xl animate-pulse sm:p-8">
+            <div className="flex flex-col gap-8">
+              <div className="space-y-4">
+                <div className="h-5 w-28 rounded-full border border-emerald-500/20 bg-slate-800/80" />
+                <div className="h-12 max-w-md rounded-2xl border border-emerald-500/20 bg-slate-800/80" />
+                <div className="h-4 max-w-xl rounded-full border border-emerald-500/20 bg-slate-800/70" />
+              </div>
+
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                <div className="h-[300px] rounded-3xl border border-emerald-500/20 bg-slate-800/70" />
+                <div className="h-[300px] rounded-3xl border border-emerald-500/20 bg-slate-800/70" />
+                <div className="h-[300px] rounded-3xl border border-emerald-500/20 bg-slate-800/70" />
+              </div>
+
+              <div className="flex justify-center gap-4">
+                <div className="h-4 w-28 rounded-full border border-emerald-500/20 bg-slate-800/70" />
+                <div className="h-4 w-32 rounded-full border border-emerald-500/20 bg-slate-800/70" />
+                <div className="h-4 w-28 rounded-full border border-emerald-500/20 bg-slate-800/70" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (runCountError) {
+    return (
+      <div
+        className={`relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-6 py-12 text-white ${poppins.className}`}
+      >
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="metadata"
+          className="fixed top-0 left-0 h-full w-full object-cover -z-20"
+          src="/promo.mp4"
+        />
+        <div className="fixed inset-0 -z-10 bg-slate-950/80 backdrop-blur-[3px]" />
+
+        <div className="relative w-full max-w-xl rounded-[2rem] border border-emerald-500/20 bg-slate-900/70 p-8 text-center shadow-[0_32px_100px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:p-10">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 text-lg font-black text-emerald-300">
+            MC
+          </div>
+          <p className="mt-6 text-xs font-semibold tracking-[0.32em] text-emerald-300 uppercase">
+            Mission Control
+          </p>
+          <h1 className={`mt-4 text-3xl font-black tracking-tight text-white ${rubik.className}`}>
+            {"Kontrollt\u00e5rnet mistede forbindelsen"}
+          </h1>
+          <p className="mt-4 text-sm leading-relaxed text-slate-300 sm:text-base">
+            {
+              "Vi kunne ikke hente dine gemte l\u00f8b fra databasen. Pr\u00f8v igen, s\u00e5 genopretter vi forbindelsen og sender dig videre."
+            }
+          </p>
+          <div className="mt-8 flex justify-center">
+            <button
+              type="button"
+              onClick={handleRetryDashboardLoad}
+              className="inline-flex items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-500/15 px-6 py-3 text-sm font-semibold text-emerald-100 transition hover:border-emerald-300/60 hover:bg-emerald-500/25"
+            >
+              {"Pr\u00f8v igen"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -256,7 +366,7 @@ export default function DashboardPage() {
           <Link href="/privacy" className="transition hover:text-slate-700">
             Privatlivspolitik
           </Link>
-          <Link href="/privacy" className="transition hover:text-slate-700">
+          <Link href="/teknologi" className="transition hover:text-slate-700">
             Udvikler Info
           </Link>
         </div>

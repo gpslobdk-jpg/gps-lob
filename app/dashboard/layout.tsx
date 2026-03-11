@@ -18,7 +18,7 @@ export default function DashboardLayout({
       }
     >
       <DashboardAuthGate>
-        <div className="relative">
+        <div className="relative pb-32 md:pb-0">
           {children}
           <AIChatButton />
         </div>
