@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { createAdminClient } from "@/utils/supabase/admin";
 import {
   getRunScheduleGate,
   inspectRunSchedule,
@@ -86,6 +87,13 @@ function isMissingColumnError(error: SupabaseRestError | null | undefined) {
   return /column/i.test(`${error.message ?? ""} ${error.details ?? ""}`);
 }
 
+function buildParticipantHeaders(participantId: string, sessionId: string) {
+  return {
+    "x-participant-id": participantId,
+    "x-session-id": sessionId,
+  };
+}
+
 async function supabaseRequest<T>(
   path: string,
   init: RequestInit,
@@ -150,12 +158,18 @@ async function fetchRun(runId: string) {
   return (rows[0] ?? null) as (RunRecord & { title?: unknown }) | null;
 }
 
-async function insertParticipant(sessionId: string, studentName: string) {
+async function insertParticipant(
+  sessionId: string,
+  studentName: string,
+  participantId: string,
+  adminSupabase: ReturnType<typeof createAdminClient>
+) {
   const normalizedStudentName = studentName.trim();
   const timestamp = new Date().toISOString();
+  const headers = buildParticipantHeaders(participantId, sessionId);
   const payloads = [
-    { session_id: sessionId, student_name: normalizedStudentName, last_updated: timestamp },
-    { session_id: sessionId, student_name: normalizedStudentName },
+    { id: participantId, session_id: sessionId, student_name: normalizedStudentName, last_updated: timestamp },
+    { id: participantId, session_id: sessionId, student_name: normalizedStudentName },
   ];
 
   for (const payload of payloads) {
@@ -163,6 +177,7 @@ async function insertParticipant(sessionId: string, studentName: string) {
       "participants?select=id,session_id,student_name",
       {
         method: "POST",
+        headers,
         body: JSON.stringify(payload),
       }
     );
@@ -172,12 +187,31 @@ async function insertParticipant(sessionId: string, studentName: string) {
     }
 
     if (result.error.code === "23505") {
-      return supabaseRequest<ParticipantRow[]>(
-        `participants?session_id=eq.${encodeURIComponent(sessionId)}&student_name=eq.${encodeURIComponent(
-          normalizedStudentName
-        )}&select=id,session_id,student_name&order=created_at.desc&limit=1`,
-        { method: "GET" }
-      );
+      if (!adminSupabase) {
+        return result;
+      }
+
+      const { data, error } = await adminSupabase
+        .from("participants")
+        .select("id,session_id,student_name")
+        .eq("session_id", sessionId)
+        .eq("student_name", normalizedStudentName)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (error) {
+        return {
+          ok: false,
+          status: 500,
+          error: { code: error.code, message: error.message, details: error.details ?? undefined },
+        } satisfies SupabaseResult<ParticipantRow[]>;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        data: (data ?? []) as ParticipantRow[],
+      } satisfies SupabaseResult<ParticipantRow[]>;
     }
 
     if (isMissingColumnError(result.error)) {
@@ -329,7 +363,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const participantResult = await insertParticipant(sessionId, studentName);
+    const participantResult = await insertParticipant(
+      sessionId,
+      studentName,
+      crypto.randomUUID(),
+      createAdminClient()
+    );
     if (!participantResult.ok) {
       console.error("Kunne ikke oprette deltager ved join:", participantResult.error);
       return NextResponse.json(

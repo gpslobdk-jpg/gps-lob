@@ -70,8 +70,6 @@ export function usePlayGameState({
   sessionId,
   initialStudentName = "",
 }: UsePlayGameStateParams): PlayGameState {
-  const [supabase] = useState(() => createClient());
-
   const initialNameCandidate = initialStudentName || "";
   const storedParticipantOnLoad = useMemo(() => {
     if (!sessionId) return null;
@@ -133,6 +131,10 @@ export function usePlayGameState({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [participantId, setParticipantId] = useState<string | null>(
     () => storedParticipantOnLoad?.participantId ?? null
+  );
+  const supabase = useMemo(
+    () => createClient({ participantId, sessionId }),
+    [participantId, sessionId]
   );
   const [isProvisioningParticipant, setIsProvisioningParticipant] = useState(false);
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
@@ -520,7 +522,8 @@ export function usePlayGameState({
         const { data: answersData, error: answersError } = await supabase
           .from("answers")
           .select("post_index,question_index,is_correct")
-          .eq("participant_id", participantId);
+          .eq("participant_id", participantId)
+          .eq("session_id", sessionId);
 
         if (!isActive) return;
 
@@ -755,7 +758,7 @@ export function usePlayGameState({
   }, [sessionId]);
 
   useEffect(() => {
-    if (!showEscapeResults || !isEscapeRace || !sessionId) return;
+    if (!showEscapeResults || !isEscapeRace || !sessionId || !participantId) return;
 
     let isActive = true;
 
@@ -763,30 +766,27 @@ export function usePlayGameState({
       setIsLoadingEscapeResults(true);
       setEscapeResultsError(null);
 
-      const loadPlacements = async (table: "participants" | "session_students") =>
-        supabase
-          .from(table)
-          .select("student_name,finished_at")
-          .eq("session_id", sessionId)
-          .not("finished_at", "is", null)
-          .order("finished_at", { ascending: true });
-
-      let result = await loadPlacements("participants");
-      if (result.error?.code === "PGRST205") {
-        result = await loadPlacements("session_students");
-      }
+      const response = await fetch(
+        `/api/play/placements?sessionId=${encodeURIComponent(sessionId)}&participantId=${encodeURIComponent(participantId)}`,
+        {
+          cache: "no-store",
+        }
+      );
+      const payload = (await response.json().catch(() => null)) as
+        | { placements?: ParticipantRow[]; error?: string }
+        | null;
 
       if (!isActive) return;
 
-      if (result.error) {
-        console.error("Kunne ikke hente escape-placeringer:", result.error);
+      if (!response.ok) {
+        console.error("Kunne ikke hente escape-placeringer:", payload?.error ?? "Ukendt fejl");
         setEscapeResults([]);
         setEscapeResultsError("Placeringen kunne ikke hentes endnu. Prøv igen om et øjeblik.");
         setIsLoadingEscapeResults(false);
         return;
       }
 
-      const rows = Array.isArray(result.data) ? (result.data as ParticipantRow[]) : [];
+      const rows = Array.isArray(payload?.placements) ? payload.placements : [];
       const nextResults = rows
         .filter((row) => typeof row.student_name === "string" && row.student_name.trim().length > 0)
         .map((row, index) => ({
@@ -804,7 +804,7 @@ export function usePlayGameState({
     return () => {
       isActive = false;
     };
-  }, [isEscapeRace, sessionId, showEscapeResults, supabase]);
+  }, [isEscapeRace, participantId, sessionId, showEscapeResults]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;

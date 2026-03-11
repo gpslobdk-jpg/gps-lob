@@ -40,6 +40,15 @@ type ParticipantIdentityRow = {
   student_name?: string | null;
 };
 
+type ActiveSessionRow = {
+  id?: string | null;
+};
+
+type SupabaseApiClientOptions = {
+  participantId?: string;
+  sessionId?: string;
+};
+
 function asPostIndex(value: unknown) {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null;
 }
@@ -58,7 +67,14 @@ function isMissingColumnError(error: SupabaseLikeError | null | undefined) {
   return message.includes("does not exist") || message.includes("column");
 }
 
-function getSupabaseApiClient() {
+function buildParticipantHeaders(options: SupabaseApiClientOptions = {}) {
+  return {
+    ...(options.participantId ? { "x-participant-id": options.participantId } : {}),
+    ...(options.sessionId ? { "x-session-id": options.sessionId } : {}),
+  };
+}
+
+function getSupabaseApiClient(options: SupabaseApiClientOptions = {}) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
@@ -70,6 +86,9 @@ function getSupabaseApiClient() {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
+    },
+    global: {
+      headers: buildParticipantHeaders(options),
     },
   });
 }
@@ -112,8 +131,13 @@ function getQuestionText(rawQuestion: unknown) {
   return asTrimmedString(rawQuestion.text);
 }
 
-async function uploadPhotoToStorage(image: string, sessionId: string, postIndex: number): Promise<UploadedPhoto> {
-  const supabase = getSupabaseApiClient();
+async function uploadPhotoToStorage(
+  image: string,
+  sessionId: string,
+  postIndex: number,
+  participantId: string
+): Promise<UploadedPhoto> {
+  const supabase = getSupabaseApiClient({ participantId, sessionId });
   if (!supabase) {
     console.error("Supabase Storage er ikke konfigureret. Springer upload over.");
     return { imageUrl: null };
@@ -148,7 +172,7 @@ async function uploadPhotoToStorage(image: string, sessionId: string, postIndex:
 }
 
 async function fetchParticipantIdentity(sessionId: string, participantId: string) {
-  const supabase = getSupabaseApiClient();
+  const supabase = getSupabaseApiClient({ participantId, sessionId });
   if (!supabase) {
     console.error("Supabase-klienten til deltageropslag er ikke konfigureret.");
     return null;
@@ -163,6 +187,28 @@ async function fetchParticipantIdentity(sessionId: string, participantId: string
 
   if (error) {
     console.error("Kunne ikke hente deltageridentitet til fotoanalyse:", error);
+    return null;
+  }
+
+  return data ?? null;
+}
+
+async function fetchActiveSession(sessionId: string) {
+  const supabase = getSupabaseApiClient({ sessionId });
+  if (!supabase) {
+    console.error("Supabase-klienten til sessionsvalidering er ikke konfigureret.");
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("live_sessions")
+    .select("id")
+    .eq("id", sessionId)
+    .in("status", ["waiting", "running"])
+    .maybeSingle<ActiveSessionRow>();
+
+  if (error) {
+    console.error("Kunne ikke validere aktiv live-session til fotoanalyse:", error);
     return null;
   }
 
@@ -193,7 +239,7 @@ async function persistPhotoAnalysisResult({
     return false;
   }
 
-  const supabase = getSupabaseApiClient();
+  const supabase = getSupabaseApiClient({ participantId, sessionId });
   if (!supabase) {
     console.error("Supabase-klienten til fotoresultater er ikke konfigureret.");
     return false;
@@ -285,6 +331,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Foto-posten kunne ikke findes." }, { status: 404 });
     }
 
+    const activeSession = await fetchActiveSession(sessionId);
+    if (!activeSession?.id) {
+      return NextResponse.json({ error: "Sessionen er ikke aktiv længere." }, { status: 404 });
+    }
+
     const participant = await fetchParticipantIdentity(sessionId, participantId);
     const studentName = asTrimmedString(participant?.student_name);
     if (!studentName) {
@@ -302,7 +353,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Foto-posten mangler et gyldigt motiv." }, { status: 400 });
     }
 
-    const uploadedPhoto = await uploadPhotoToStorage(image, sessionId, postIndex);
+    const uploadedPhoto = await uploadPhotoToStorage(image, sessionId, postIndex, participantId);
 
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json({ error: "OPENAI_API_KEY mangler i miljøet." }, { status: 500 });

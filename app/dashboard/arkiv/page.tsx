@@ -135,19 +135,6 @@ type SupabaseLikeError = {
   hint?: string;
 };
 
-const isMissingRelationOrColumnError = (error: SupabaseLikeError | null | undefined) => {
-  if (!error) return false;
-  if (error.code === "PGRST205" || error.code === "42P01" || error.code === "42703") {
-    return true;
-  }
-  const message = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
-  return (
-    message.includes("does not exist") ||
-    message.includes("relation") ||
-    message.includes("column")
-  );
-};
-
 const getDeleteErrorMessage = (error: unknown) => {
   const base = "Kunne ikke slette løbet.";
 
@@ -215,9 +202,24 @@ export default function ArkivPage() {
     const fetchRuns = async () => {
       setIsLoading(true);
       const supabase = createClient();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        if (userError) {
+          console.error("Fejl ved hentning af bruger til arkivet:", userError);
+        }
+        setRuns([]);
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("gps_runs")
         .select("*")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -249,54 +251,6 @@ export default function ArkivPage() {
         return;
       }
 
-      // Oprydning i evt. separate post-tabeller, hvis de findes i databasen.
-      for (const tableName of ["questions", "poster"] as const) {
-        const { error } = await supabase.from(tableName).delete().eq("run_id", runId);
-        if (error && !isMissingRelationOrColumnError(error)) {
-          throw error;
-        }
-      }
-
-      // Hent alle live-sessioner for løbet, så vi kan rydde relaterede records først.
-      const { data: sessionsData, error: sessionsError } = await supabase
-        .from("live_sessions")
-        .select("id")
-        .eq("run_id", runId);
-
-      if (sessionsError && !isMissingRelationOrColumnError(sessionsError)) {
-        throw sessionsError;
-      }
-
-      const sessionIds = (sessionsData ?? [])
-        .map((session) => String((session as { id?: string | number | null }).id ?? ""))
-        .filter((id) => id.length > 0);
-
-      if (sessionIds.length > 0) {
-        // Ryd op i både nye og ældre live-tabeller, før live_sessions slettes.
-        for (const tableName of [
-          "participants",
-          "answers",
-          "session_students",
-          "session_messages",
-          "messages",
-        ] as const) {
-          const { error } = await supabase.from(tableName).delete().in("session_id", sessionIds);
-          if (error && !isMissingRelationOrColumnError(error)) {
-            throw error;
-          }
-        }
-      }
-
-      const { error: deleteSessionsError } = await supabase
-        .from("live_sessions")
-        .delete()
-        .eq("run_id", runId);
-
-      if (deleteSessionsError && !isMissingRelationOrColumnError(deleteSessionsError)) {
-        throw deleteSessionsError;
-      }
-
-      // Slet selve løbet. Ejer-tjek via user_id gør fejlen tydeligere ved manglende adgang.
       const { data: deletedRunRows, error: deleteRunError } = await supabase
         .from("gps_runs")
         .delete()
@@ -373,6 +327,7 @@ export default function ArkivPage() {
       .from("live_sessions")
       .select("id,pin,status")
       .eq("run_id", runId)
+      .eq("teacher_id", teacherId)
       .in("status", ["waiting", "running"])
       .order("created_at", { ascending: false })
       .limit(1);
@@ -490,13 +445,20 @@ export default function ArkivPage() {
 
       const ensuredSession = await ensureLiveSessionForRun(activeRun.id, user.id);
 
-      const { error } = await supabase
+      const { data: updatedRuns, error } = await supabase
         .from("gps_runs")
         .update(update.updates)
-        .eq("id", activeRun.id);
+        .eq("id", activeRun.id)
+        .eq("user_id", user.id)
+        .select("id");
 
       if (error) {
         throw error;
+      }
+
+      if (!updatedRuns || updatedRuns.length === 0) {
+        alert("Kunne ikke gemme tidsstyringen. Du er muligvis ikke ejer af løbet.");
+        return;
       }
 
       setRuns((prev) =>

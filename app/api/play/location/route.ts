@@ -24,6 +24,10 @@ type ParticipantIdRow = {
   id?: string | null;
 };
 
+type ActiveSessionRow = {
+  id?: string | null;
+};
+
 function getSupabaseConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
@@ -47,6 +51,13 @@ function isMissingColumnError(error: SupabaseRestError | null | undefined) {
   if (!error) return false;
   if (error.code === "42703" || error.code === "PGRST204") return true;
   return /column/i.test(error.message ?? "");
+}
+
+function buildParticipantHeaders(participantId: string, sessionId: string) {
+  return {
+    "x-participant-id": participantId,
+    "x-session-id": sessionId,
+  };
 }
 
 async function supabaseRequest<T>(
@@ -94,12 +105,14 @@ async function updateParticipantById(
   lng: number,
   timestamp: string
 ) {
+  const headers = buildParticipantHeaders(participantId, sessionId);
   let result = await supabaseRequest<ParticipantIdRow[]>(
     `participants?id=eq.${encodeURIComponent(participantId)}&session_id=eq.${encodeURIComponent(
       sessionId
     )}&select=id`,
     {
       method: "PATCH",
+      headers,
       body: JSON.stringify({ lat, lng, last_updated: timestamp }),
     }
   );
@@ -111,12 +124,50 @@ async function updateParticipantById(
       )}&select=id`,
       {
         method: "PATCH",
+        headers,
         body: JSON.stringify({ lat, lng }),
       }
     );
   }
 
   return result;
+}
+
+async function fetchActiveParticipant(sessionId: string, participantId: string) {
+  const sessionResult = await supabaseRequest<ActiveSessionRow[]>(
+    `live_sessions?id=eq.${encodeURIComponent(sessionId)}&select=id&status=in.(waiting,running)&limit=1`,
+    { method: "GET" }
+  );
+
+  if (!sessionResult.ok) {
+    return sessionResult;
+  }
+
+  const participantResult = await supabaseRequest<ParticipantIdRow[]>(
+    `participants?id=eq.${encodeURIComponent(participantId)}&session_id=eq.${encodeURIComponent(
+      sessionId
+    )}&select=id&limit=1`,
+    {
+      method: "GET",
+      headers: buildParticipantHeaders(participantId, sessionId),
+    }
+  );
+
+  if (!participantResult.ok) {
+    return participantResult;
+  }
+
+  const activeSession = Array.isArray(sessionResult.data) ? sessionResult.data[0] : null;
+  const participantRow = Array.isArray(participantResult.data) ? participantResult.data[0] : null;
+
+  return {
+    ok: true as const,
+    status: 200,
+    data: {
+      sessionId: activeSession?.id ?? null,
+      participantId: participantRow?.id ?? null,
+    },
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -140,6 +191,16 @@ export async function POST(request: NextRequest) {
   const timestamp = new Date().toISOString();
 
   try {
+    const validationResult = await fetchActiveParticipant(sessionId, participantId);
+    if (!validationResult.ok) {
+      console.error("Kunne ikke validere deltageren før positionsopdatering:", validationResult.error);
+      return NextResponse.json({ error: "Kunne ikke validere deltageren." }, { status: 500 });
+    }
+
+    if (!validationResult.data.sessionId || !validationResult.data.participantId) {
+      return NextResponse.json({ error: "Deltageren findes ikke i den aktive session." }, { status: 404 });
+    }
+
     const updateResult = await updateParticipantById(sessionId, participantId, lat, lng, timestamp);
 
     if (!updateResult.ok) {
