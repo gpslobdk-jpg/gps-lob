@@ -92,7 +92,7 @@ function LoginPageContent() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-t from-emerald-100 via-sky-50 to-sky-300 p-4 lg:bg-none lg:bg-transparent">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 p-4">
       <video
         autoPlay
         loop
@@ -101,13 +101,13 @@ function LoginPageContent() {
         className="absolute inset-0 z-0 h-full w-full object-cover"
         src="/bg-loop.mp4"
       />
-      <div className="absolute inset-0 z-10 bg-black/60" />
+      <div className="absolute inset-0 z-10 bg-slate-950/70" />
 
       <motion.section
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 140, damping: 18 }}
-        className="relative z-20 w-full max-w-md overflow-hidden rounded-[2.5rem] border border-white/50 bg-white/80 p-10 text-center shadow-2xl backdrop-blur-md"
+        className="relative z-20 w-full max-w-md overflow-hidden rounded-[2.5rem] border border-emerald-500/30 bg-slate-950/80 p-10 text-center shadow-[0_0_50px_rgba(16,185,129,0.2)] backdrop-blur-xl"
       >
         <div className="relative z-10">
           <div className="flex justify-center">
@@ -121,25 +121,25 @@ function LoginPageContent() {
             />
           </div>
 
-          <h1 className="mt-4 text-center text-2xl font-bold text-emerald-950 sm:text-3xl">
+          <h1 className="mt-4 text-center text-2xl font-bold text-white sm:text-3xl">
             Velkommen til gpsløb.dk
           </h1>
 
           <div
             data-tour="login-organizer-entry"
-            className="mt-6 rounded-[1.75rem] border border-emerald-200/80 bg-emerald-50/80 p-4 text-left shadow-sm"
+            className="mt-6 rounded-[1.75rem] border border-emerald-500/20 bg-slate-950/70 p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
           >
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700/80">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-400">
               Log ind for arrangører
             </p>
-            <p className="mt-2 text-sm leading-relaxed text-emerald-900/80">
+            <p className="mt-2 text-sm leading-relaxed text-slate-300">
               Brug en af disse login-metoder for at åbne dashboardet og styre dine løb.
             </p>
 
             <button
               type="button"
               onClick={() => void handleOAuthLogin("google")}
-              className="mt-4 h-12 w-full rounded-full border border-emerald-200 bg-white/90 px-5 text-base font-semibold text-emerald-950 shadow-sm transition-all duration-300 hover:bg-white"
+              className="mt-4 h-12 w-full rounded-full border border-emerald-500/20 bg-slate-900 px-5 text-base font-semibold text-slate-200 shadow-inner transition-all duration-300 hover:border-emerald-500/60 hover:bg-slate-800"
             >
               <span className="flex items-center justify-center gap-3">
                 <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5">
@@ -167,7 +167,7 @@ function LoginPageContent() {
             <button
               type="button"
               onClick={() => void handleOAuthLogin("azure")}
-              className="mt-3 h-12 w-full rounded-full border border-emerald-200 bg-white/90 px-5 text-base font-semibold text-emerald-950 shadow-sm transition-all duration-300 hover:bg-white"
+              className="mt-3 h-12 w-full rounded-full border border-emerald-500/20 bg-slate-900 px-5 text-base font-semibold text-slate-200 shadow-inner transition-all duration-300 hover:border-emerald-500/60 hover:bg-slate-800"
             >
               <span className="flex items-center justify-center gap-3">
                 <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5">
@@ -182,34 +182,34 @@ function LoginPageContent() {
           </div>
 
           <div className="my-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-emerald-200" />
-            <span className="text-xs uppercase tracking-widest text-emerald-700/80">
+            <div className="h-px flex-1 bg-emerald-500/20" />
+            <span className="text-xs uppercase tracking-widest text-emerald-400">
               eller log ind med e-mail
             </span>
-            <div className="h-px flex-1 bg-emerald-200" />
+            <div className="h-px flex-1 bg-emerald-500/20" />
           </div>
 
           <form className="space-y-4">
             <div className="text-left">
-              <label className="mb-1 block text-sm font-medium text-emerald-900">Email</label>
+              <label className="mb-1 block text-sm font-medium text-emerald-400">Email</label>
               <input
                 type="email"
                 placeholder="Email"
-                className="w-full rounded-xl border border-emerald-100 bg-white/60 px-4 py-3 text-emerald-950 placeholder:text-emerald-700/50 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                className="w-full rounded-xl border border-emerald-500/30 bg-slate-900 px-4 py-3 text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               />
             </div>
             <div className="text-left">
-              <label className="mb-1 block text-sm font-medium text-emerald-900">Adgangskode</label>
+              <label className="mb-1 block text-sm font-medium text-emerald-400">Adgangskode</label>
               <input
                 type="password"
                 placeholder="Adgangskode"
-                className="w-full rounded-xl border border-emerald-100 bg-white/60 px-4 py-3 text-emerald-950 placeholder:text-emerald-700/50 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                className="w-full rounded-xl border border-emerald-500/30 bg-slate-900 px-4 py-3 text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               />
             </div>
 
             <motion.button
               type="button"
-              className="w-full rounded-full bg-emerald-600 px-5 py-3 text-base font-bold text-white shadow-md transition-all duration-300 hover:scale-[1.02] hover:bg-emerald-700"
+              className="w-full rounded-full border border-emerald-500/30 bg-emerald-500/10 px-5 py-3 text-base font-bold text-emerald-400 shadow-[0_0_28px_rgba(16,185,129,0.14)] transition-all duration-300 hover:scale-[1.02] hover:bg-emerald-500 hover:text-slate-950"
             >
               Log ind / Opret
             </motion.button>
@@ -218,7 +218,7 @@ function LoginPageContent() {
           <div className="mt-5 text-center">
             <Link
               href="/"
-              className="text-xs text-emerald-700 transition hover:text-emerald-800"
+              className="text-xs text-emerald-400 transition hover:text-emerald-300"
             >
               &larr; Tilbage til forsiden
             </Link>
