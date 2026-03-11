@@ -130,7 +130,7 @@ export default function DashboardPage() {
       return `${cardBaseClass} cursor-progress opacity-85 hover:scale-100`;
     }
     if (hasActiveSession) {
-      return `${cardBaseClass} cursor-pointer ring-1 ring-emerald-300/60`;
+      return `${cardBaseClass} cursor-pointer ring-1 ring-amber-300/60`;
     }
     return `${cardBaseClass} cursor-not-allowed opacity-75 hover:scale-100`;
   }, [hasActiveSession, isCheckingLiveSession]);
@@ -176,7 +176,7 @@ export default function DashboardPage() {
             <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-emerald-600">
               <MapPin className="h-7 w-7" />
             </div>
-            <h2 className={`mb-2 text-2xl font-bold tracking-wide text-emerald-950 uppercase ${rubik.className}`}>
+            <h2 className={`mb-2 text-2xl font-black tracking-wide text-emerald-950 uppercase ${rubik.className}`}>
               {"OPRET NYT L\u00d8B"}
             </h2>
             <p className="mb-4 text-sm font-semibold text-emerald-700 uppercase">
@@ -199,27 +199,27 @@ export default function DashboardPage() {
         >
           <article className={liveCardClass}>
             <div
-              className={`mb-6 flex h-14 w-14 items-center justify-center rounded-full border text-emerald-600 ${
+              className={`mb-6 flex h-14 w-14 items-center justify-center rounded-full border text-amber-600 ${
                 hasActiveSession && !isCheckingLiveSession
-                  ? "animate-pulse border-emerald-300 bg-emerald-200"
-                  : "border-emerald-200 bg-emerald-100"
+                  ? "animate-pulse border-amber-300 bg-amber-200"
+                  : "border-amber-200 bg-amber-100"
               }`}
             >
               <Radio className="h-7 w-7" />
             </div>
-            <h2 className={`mb-2 text-2xl font-bold tracking-wide text-emerald-950 uppercase ${rubik.className}`}>
+            <h2 className={`mb-2 text-2xl font-black tracking-wide text-amber-950 uppercase ${rubik.className}`}>
               {hasActiveSession && !isCheckingLiveSession
                 ? "GENOPTAG IGANGV\u00c6RENDE L\u00d8B"
                 : "LIVE OVERV\u00c5GNING"}
             </h2>
-            <p className="mb-4 text-sm font-semibold text-emerald-700 uppercase">
+            <p className="mb-4 text-sm font-semibold text-amber-700 uppercase">
               {isCheckingLiveSession
                 ? "TJEKKER AKTIV SESSION..."
                 : hasActiveSession
                   ? "FORTS\u00c6T DER, HVOR DU SLAP."
                   : "F\u00d8LG HOLDET I REALTID."}
             </p>
-            <p className="text-sm leading-relaxed text-emerald-800">
+            <p className="text-sm leading-relaxed text-amber-800">
               {isCheckingLiveSession
                 ? "Vi finder automatisk en aktiv session til dig."
                 : hasActiveSession
@@ -227,21 +227,21 @@ export default function DashboardPage() {
                   : "Se deltagernes positioner bev\u00e6ge sig p\u00e5 kortet og modtag deres svar live."}
             </p>
             {!isCheckingLiveSession && !hasActiveSession && liveHint ? (
-              <p className="mt-4 text-xs font-semibold text-emerald-700">{liveHint}</p>
+              <p className="mt-4 text-xs font-semibold text-amber-700">{liveHint}</p>
             ) : null}
           </article>
         </motion.button>
 
         <Link href="/dashboard/arkiv" className="block">
           <article className={`${cardBaseClass} cursor-pointer`}>
-            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-emerald-600">
+            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-blue-200 bg-blue-100 text-blue-600">
               <FolderOpen className="h-7 w-7" />
             </div>
-            <h2 className={`mb-2 text-2xl font-bold tracking-wide text-emerald-950 uppercase ${rubik.className}`}>
+            <h2 className={`mb-2 text-2xl font-black tracking-wide text-blue-950 uppercase ${rubik.className}`}>
               {"MIT L\u00d8BSARKIV"}
             </h2>
-            <p className="mb-4 text-sm font-semibold text-emerald-700 uppercase">GENBRUG OG DEL.</p>
-            <p className="text-sm leading-relaxed text-emerald-800">
+            <p className="mb-4 text-sm font-semibold text-blue-700 uppercase">GENBRUG OG DEL.</p>
+            <p className="text-sm leading-relaxed text-blue-800">
               {"Find alle dine tidligere l\u00f8b, rediger dem, eller del koden med en ny gruppe."}
             </p>
           </article>

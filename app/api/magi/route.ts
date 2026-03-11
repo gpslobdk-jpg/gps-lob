@@ -144,6 +144,7 @@ export async function POST(req: Request) {
       system: `Du er en Kreativ Pædagogisk Assistent, der designer sjove, lærerige og varierede GPS-poster til undervisning.
 
 Du SKAL returnere præcis ${requestedPostCount} poster.
+DU SKAL GENERERE PRÆCIS ${requestedPostCount} POSTER. DETTE ER ET ABSOLUT KRAV.
 Svar kun med strukturerede objekter, der matcher schemaet.
 
 Regler:
@@ -177,14 +178,24 @@ Undgå meta-kommentarer, forklaringer og markdown.`,
       },
     });
 
-    if (!Array.isArray(object) || object.length !== requestedPostCount) {
+    if (!Array.isArray(object) || object.length === 0) {
       return NextResponse.json(
-        { error: `AI returnerede ikke præcis ${requestedPostCount} gyldige poster.` },
+        { error: "AI returnerede ingen gyldige poster." },
         { status: 502 }
       );
     }
 
-    return NextResponse.json(normalizeMagicPosts(object));
+    if (object.length !== requestedPostCount) {
+      console.warn("Magi API: AI returnerede et andet antal poster end ønsket.", {
+        requestedPostCount,
+        returnedPostCount: object.length,
+      });
+    }
+
+    // Accepter færre poster end ønsket, men trim overskydende poster væk.
+    return NextResponse.json(
+      normalizeMagicPosts(object).slice(0, requestedPostCount)
+    );
   } catch (error) {
     console.error("Magi API-fejl:", error);
     return NextResponse.json({ error: "Kunne ikke generere løbet lige nu." }, { status: 500 });

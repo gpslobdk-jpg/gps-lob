@@ -104,6 +104,24 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   } = flags;
   const normalizedActiveDisplayName = activeDisplayName.trim().toLocaleLowerCase("da-DK");
   const blockingGpsErrorContent = gpsErrorContent ?? { title: "", message: "", helper: "" };
+  const tacticalHudShellClass =
+    "overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-slate-950/80 p-4 shadow-[0_24px_80px_rgba(2,6,23,0.5)] backdrop-blur-xl md:p-5";
+  const tacticalHudCardClass =
+    "overflow-hidden rounded-[1.6rem] border border-emerald-500/20 bg-slate-950/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
+  const tacticalMetaLabelClass =
+    "font-mono text-[11px] uppercase tracking-[0.32em] text-emerald-400/70";
+  const tacticalPillClass =
+    "rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 font-mono text-xs uppercase tracking-widest text-emerald-400";
+  const tacticalOverlayCardClass =
+    "w-full max-w-md overflow-hidden rounded-[2rem] border-[3px] border-emerald-500/30 bg-slate-900/95 p-5 shadow-[0_0_50px_rgba(16,185,129,0.2)] backdrop-blur-2xl sm:p-8";
+  const tacticalPrimaryButtonClass =
+    "inline-flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[1.35rem] border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-sm font-black uppercase tracking-[0.2em] text-emerald-400 shadow-[0_0_24px_rgba(16,185,129,0.14)] transition-all hover:bg-emerald-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-60";
+  const tacticalSecondaryButtonClass =
+    "inline-flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[1.35rem] border border-emerald-500/20 bg-slate-950 px-5 py-4 text-sm font-black uppercase tracking-[0.2em] text-emerald-300 transition-all hover:border-emerald-400/40 hover:bg-emerald-500/12 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-60";
+  const tacticalInputClass =
+    "w-full rounded-[1.35rem] border border-emerald-500/50 bg-slate-950 px-4 py-4 text-base text-emerald-50 outline-none transition placeholder:text-emerald-400/35 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-70";
+  const tacticalSuccessPanelClass =
+    "overflow-hidden rounded-[1.9rem] border border-emerald-300/35 bg-emerald-500 p-6 text-center text-slate-950 shadow-[0_0_36px_rgba(16,185,129,0.22)] animate-pulse";
 
   const handleNameSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -649,55 +667,57 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
               gpsWarningContent ? "top-28" : "top-4"
             } ${isRoleplayImmersed ? "pointer-events-none opacity-0 blur-md" : "opacity-100"}`}
           >
-            <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900/80 p-4 shadow-[0_24px_80px_rgba(2,6,23,0.5)] backdrop-blur-xl md:p-5">
+            <div className={tacticalHudShellClass}>
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.08),transparent_30%)]" />
               <div className="relative flex flex-col gap-5">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0 flex-1 space-y-4">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold tracking-[0.28em] text-emerald-200/85 uppercase">
+                      <span className={tacticalPillClass}>
                         Deltager
                       </span>
-                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-white/60 uppercase">
+                      <span className={`${tacticalPillClass} border-emerald-500/15 bg-slate-950/70 text-emerald-300/75`}>
                         Nature-Glass
                       </span>
                     </div>
 
                     {isEscapeRace ? (
-                      <div className="overflow-hidden rounded-[1.6rem] border border-amber-300/20 bg-amber-500/10 p-4 shadow-[0_0_24px_rgba(245,158,11,0.14)]">
+                      <div className="overflow-hidden rounded-[1.6rem] border border-emerald-500/20 bg-slate-950/80 p-4 shadow-[0_0_24px_rgba(16,185,129,0.14)]">
                         <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2 text-amber-100">
+                          <div className="flex items-center gap-2 text-emerald-300">
                             <KeyRound className="h-4 w-4" />
-                            <p className="text-[11px] font-semibold tracking-[0.28em] text-amber-200/70 uppercase">
+                            <p className={tacticalMetaLabelClass}>
                               Kode-oversigt
                             </p>
                           </div>
-                          <span className="rounded-full border border-amber-300/20 bg-amber-950/60 px-3 py-1 text-xs font-bold text-amber-100">
+                          <span className={`${tacticalPillClass} px-3 py-1`}>
                             {collectedEscapeRewardsCount}/{questions.length}
                           </span>
                         </div>
-                        <p className="mt-3 text-sm text-amber-50/80">Dine brikker</p>
-                        <p className={`mt-2 text-xl font-black tracking-[0.3em] text-amber-200 ${wrapTextClass}`}>
+                        <p className="mt-3 font-mono text-xs uppercase tracking-widest text-emerald-300/70">
+                          Dine brikker
+                        </p>
+                        <p className={`mt-2 text-xl font-black tracking-[0.3em] text-emerald-200 ${wrapTextClass}`}>
                           {escapeCodeOverviewText}
                         </p>
                       </div>
                     ) : null}
 
                     <div className="grid gap-3 sm:grid-cols-[1.35fr,1fr]">
-                      <div className="overflow-hidden rounded-[1.6rem] border border-white/10 bg-black/20 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                        <p className="text-[11px] font-semibold tracking-[0.28em] text-white/45 uppercase">
+                      <div className={tacticalHudCardClass}>
+                        <p className={tacticalMetaLabelClass}>
                           Deltagernavn
                         </p>
                         <p className={`mt-2 text-2xl font-black text-white ${wrapTextClass}`}>
                           {activeDisplayName}
                         </p>
-                        <p className="mt-2 text-sm text-emerald-100/70">
+                        <p className="mt-2 font-mono text-xs uppercase tracking-widest text-emerald-300/70">
                           Find post {currentPostIndex + 1} af {questions.length}
                         </p>
                       </div>
 
-                      <div className="overflow-hidden rounded-[1.6rem] border border-white/10 bg-black/20 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                        <p className="text-[11px] font-semibold tracking-[0.28em] text-white/45 uppercase">
+                      <div className={tacticalHudCardClass}>
+                        <p className={tacticalMetaLabelClass}>
                           Afstand
                         </p>
                         <p
@@ -709,27 +729,27 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                         >
                           {distance !== null ? `${distance}m` : "Søger GPS..."}
                         </p>
-                        <p className="mt-2 text-sm text-white/60">
+                        <p className="mt-2 font-mono text-xs uppercase tracking-widest text-emerald-300/55">
                           GPS låser automatisk op tæt på posten.
                         </p>
                       </div>
                     </div>
 
-                    <div className="overflow-hidden rounded-[1.6rem] border border-white/10 bg-black/20 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                    <div className={tacticalHudCardClass}>
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-[11px] font-semibold tracking-[0.28em] text-white/45 uppercase">
+                          <p className={tacticalMetaLabelClass}>
                             Fremskridt
                           </p>
-                          <p className="mt-1 text-sm text-white/75">
+                          <p className="mt-1 font-mono text-xs uppercase tracking-widest text-emerald-300/70">
                             Du er {progressPercent}% gennem ruten.
                           </p>
                         </div>
-                        <p className="text-sm font-bold text-emerald-200">
+                        <p className="font-mono text-xs font-black uppercase tracking-widest text-emerald-300">
                           {correctAnswersCount}/{questions.length}
                         </p>
                       </div>
-                      <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/10">
+                      <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-800">
                         <div
                           className="h-full rounded-full bg-emerald-500 shadow-[0_0_18px_rgba(16,185,129,0.35)] transition-all duration-500"
                           style={{ width: `${progressPercent}%` }}
@@ -740,17 +760,17 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
                   <div className="flex flex-col gap-3 md:items-end">
                     {!isEscapeRace ? (
-                      <div className="inline-flex items-center gap-3 self-start rounded-[1.75rem] border border-emerald-300/20 bg-emerald-500/10 px-3 py-3 shadow-[0_0_24px_rgba(16,185,129,0.16)] md:self-auto">
-                        <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full border border-white/10 bg-slate-950/75 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                      <div className="inline-flex items-center gap-3 self-start rounded-[1.75rem] border border-emerald-500/20 bg-slate-950/80 px-3 py-3 shadow-[0_0_24px_rgba(16,185,129,0.16)] md:self-auto">
+                        <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full border border-emerald-500/20 bg-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                           <div className="text-center">
-                            <p className="text-[10px] font-semibold tracking-[0.24em] text-emerald-200/65 uppercase">
+                            <p className="font-mono text-[10px] uppercase tracking-widest text-emerald-300/70">
                               Point
                             </p>
                             <p className="text-3xl font-black text-emerald-400">{correctAnswersCount}</p>
                           </div>
                         </div>
                         <div>
-                          <p className="text-[11px] font-semibold tracking-[0.24em] text-emerald-100/55 uppercase">
+                          <p className={tacticalMetaLabelClass}>
                             Medalje
                           </p>
                           <p className="mt-1 text-sm font-semibold text-white/85">
@@ -764,7 +784,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       <button
                         type="button"
                         onClick={actions.unlockCurrentPost}
-                        className="rounded-2xl border border-amber-300/40 bg-amber-400/10 px-4 py-3 text-xs font-bold tracking-[0.2em] text-amber-100 uppercase transition-colors hover:bg-amber-400/20"
+                        className={tacticalPrimaryButtonClass}
                       >
                         {dismissedPostIndex === currentPostIndex
                           ? "Åbn gåden igen"
@@ -778,12 +798,12 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
             {latestMessage ? (
               <div className="animate-in slide-in-from-top fade-in duration-500">
-                <div className="flex items-start gap-3 rounded-[1.5rem] border border-white/10 bg-slate-900/78 p-4 shadow-[0_18px_40px_rgba(14,165,233,0.14)] backdrop-blur-xl">
-                  <div className="mt-0.5 rounded-full border border-sky-400/20 bg-sky-400/10 p-2 text-sky-300">
+                <div className="flex items-start gap-3 rounded-[1.5rem] border border-emerald-500/20 bg-slate-950/80 p-4 shadow-[0_18px_40px_rgba(16,185,129,0.12)] backdrop-blur-xl">
+                  <div className="mt-0.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 p-2 text-emerald-300">
                     <AlertCircle className="h-4 w-4" />
                   </div>
                   <div>
-                    <div className="mb-1 text-xs font-bold tracking-[0.24em] text-sky-300/80 uppercase">
+                    <div className={tacticalMetaLabelClass}>
                       Besked fra arrangøren
                     </div>
                     <div className={`text-sm font-medium text-white ${wrapTextClass}`}>{latestMessage}</div>
@@ -794,7 +814,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
             {resumeMessage ? (
               <div className="animate-in slide-in-from-top fade-in duration-500">
-                <div className="flex items-start gap-3 rounded-[1.5rem] border border-white/10 bg-slate-900/78 p-4 shadow-[0_18px_40px_rgba(16,185,129,0.14)] backdrop-blur-xl">
+                <div className="flex items-start gap-3 rounded-[1.5rem] border border-emerald-500/20 bg-slate-950/80 p-4 shadow-[0_18px_40px_rgba(16,185,129,0.14)] backdrop-blur-xl">
                   <div className="mt-0.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 p-2 text-emerald-300">
                     <CheckCircle2 className="h-4 w-4" />
                   </div>
@@ -809,16 +829,21 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
               isRoleplayImmersed ? "opacity-0 blur-md" : "opacity-100"
             }`}
           >
-            <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-slate-900/78 px-4 py-3 text-center text-xs font-semibold text-amber-50 shadow-[0_18px_40px_rgba(245,158,11,0.12)] backdrop-blur-xl">
-              <span className="text-amber-300">Tip:</span> Hold skærmen tændt mens du går, så arrangøren kan se dig på kortet!
+            <div className="w-full max-w-xl rounded-2xl border border-emerald-500/20 bg-slate-950/80 px-4 py-3 text-center font-mono text-xs font-semibold uppercase tracking-widest text-emerald-400 shadow-[0_18px_40px_rgba(16,185,129,0.12)] backdrop-blur-xl">
+              <span className="text-emerald-300">Tip:</span> Hold skærmen tændt mens du går, så arrangøren kan se dig på kortet!
             </div>
           </div>
 
           {children}
 
           {showQuestion && activeQuestion ? (
-            <div className="animate-in fade-in zoom-in absolute inset-0 z-[2000] flex flex-col items-center justify-center overflow-y-auto bg-slate-950/90 p-6 backdrop-blur-xl duration-300">
-              <div className="w-full max-w-md overflow-hidden rounded-3xl border border-white/20 bg-slate-950/80 p-5 shadow-2xl shadow-emerald-950/30 backdrop-blur-xl sm:p-8">
+            <div className="animate-in fade-in zoom-in absolute inset-0 z-[2000] overflow-y-auto bg-slate-950/92 p-6 backdrop-blur-2xl duration-300">
+              <div className="flex min-h-full items-center justify-center">
+                <div className={tacticalOverlayCardClass}>
+                  <div className="mb-6 flex items-center justify-between gap-3">
+                    <span className={tacticalPillClass}>Mission Device</span>
+                    <span className={tacticalMetaLabelClass}>Post {currentPostIndex + 1}</span>
+                  </div>
                 {activePostVariant === "escape" ? (
                   <div className="mb-6">
                     <h2 className={`text-2xl font-black text-white ${wrapTextClass}`}>
@@ -830,7 +855,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                 {activeQuestion.mediaUrl &&
                 activePostVariant !== "escape" &&
                 activePostVariant !== "photo" ? (
-                  <div className="mb-5 overflow-hidden rounded-xl border border-white/15">
+                  <div className="mb-5 overflow-hidden rounded-xl border border-emerald-500/20">
                     <Image
                       src={activeQuestion.mediaUrl}
                       alt="Spørgsmålsmedie"
@@ -863,13 +888,13 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                             type="button"
                             disabled={Boolean(hasActiveQuizSuccess) || isSubmittingAnswer || isSubmitting}
                             onClick={() => void actions.submitQuizAnswer(idx)}
-                            className={`min-h-[56px] w-full overflow-hidden rounded-2xl border p-4 text-left text-base font-semibold transition-all sm:text-lg ${wrapTextClass} ${
+                            className={`min-h-[56px] w-full overflow-hidden rounded-[1.35rem] border p-4 text-left text-base font-black uppercase tracking-[0.2em] transition-all sm:text-lg ${wrapTextClass} ${
                               isSuccessAnswer
-                                ? "border-emerald-600 bg-emerald-500 text-white shadow-[0_18px_38px_rgba(16,185,129,0.3)]"
+                                ? "animate-pulse border-emerald-300 bg-emerald-500 text-slate-950 shadow-[0_18px_38px_rgba(16,185,129,0.3)]"
                                 : isErrorAnswer
                                   ? "border-rose-400/60 bg-rose-500/18 text-rose-50 shadow-[0_14px_30px_rgba(244,63,94,0.18)]"
-                                  : "border-white/10 bg-white/5 text-white hover:border-emerald-400/50 hover:bg-emerald-500/18"
-                            } disabled:cursor-default disabled:hover:border-emerald-600 disabled:hover:bg-emerald-500`}
+                                  : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500 hover:text-slate-950"
+                            } disabled:cursor-default disabled:hover:border-emerald-300 disabled:hover:bg-emerald-500`}
                           >
                             {answer}
                           </button>
@@ -879,19 +904,19 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
                     {hasActiveQuizSuccess ? (
                       <div className="mt-4 space-y-4">
-                        <div className="overflow-hidden rounded-[1.9rem] border border-emerald-300/35 bg-[linear-gradient(145deg,rgba(6,95,70,0.78),rgba(16,185,129,0.2))] p-6 text-center text-emerald-50 shadow-[0_26px_55px_rgba(16,185,129,0.2)] backdrop-blur-md">
-                          <p className="text-xs font-semibold tracking-[0.24em] text-emerald-100/75 uppercase">
-                            Godkendt
+                        <div className={tacticalSuccessPanelClass}>
+                          <p className="font-mono text-xs font-black uppercase tracking-[0.32em] text-slate-950/70">
+                            Kode accepteret
                           </p>
-                          <p className={`mt-3 text-xl font-bold text-white ${wrapTextClass}`}>
-                            Korrekt! Godt gået 🎉
+                          <p className={`mt-3 text-xl font-black text-slate-950 ${wrapTextClass}`}>
+                            Missionen er godkendt. Fortsæt.
                           </p>
                         </div>
 
                         <button
                           type="button"
                           onClick={() => void actions.continueFromSolvedPost()}
-                          className="min-h-[56px] w-full rounded-2xl border border-emerald-300/40 bg-emerald-400 px-5 py-4 text-base font-black tracking-[0.2em] text-slate-950 uppercase transition hover:bg-emerald-300"
+                          className={tacticalPrimaryButtonClass}
                         >
                           {currentPostIndex + 1 < questions.length ? "Gå til næste post" : "Se resultat"}
                         </button>
@@ -935,7 +960,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                         type="button"
                         onClick={() => photoInputRef.current?.click()}
                         disabled={isAnalyzingPhoto || isSubmitting}
-                        className="inline-flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-sky-500 px-6 py-4 text-lg font-black text-slate-950 break-words hyphens-auto shadow-[0_24px_45px_rgba(14,165,233,0.22)] transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-sky-400/60"
+                        className={`${tacticalPrimaryButtonClass} break-words hyphens-auto text-base`}
                       >
                         {isAnalyzingPhoto ? (
                           <>
@@ -954,11 +979,11 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                     {activePhotoFeedback ? (
                       activePhotoFeedback.tone === "success" ? (
                         <div className="space-y-4">
-                          <div className="overflow-hidden rounded-[1.9rem] border border-sky-300/35 bg-[linear-gradient(145deg,rgba(12,74,110,0.72),rgba(14,165,233,0.18))] p-6 text-center text-sky-50 shadow-[0_26px_55px_rgba(14,165,233,0.2)] backdrop-blur-md">
-                            <p className="text-xs font-semibold tracking-[0.24em] text-sky-100/75 uppercase">
-                              Godkendt
+                          <div className={tacticalSuccessPanelClass}>
+                            <p className="font-mono text-xs font-black uppercase tracking-[0.32em] text-slate-950/70">
+                              Mission godkendt
                             </p>
-                            <p className={`mt-3 text-xl font-bold text-white ${wrapTextClass}`}>
+                            <p className={`mt-3 text-xl font-black text-slate-950 ${wrapTextClass}`}>
                               {activePhotoFeedback.message}
                             </p>
                           </div>
@@ -966,7 +991,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                           <button
                             type="button"
                             onClick={() => void actions.continueFromSolvedPost()}
-                            className="w-full rounded-2xl border border-sky-300/40 bg-sky-400 px-5 py-3 text-sm font-black tracking-[0.2em] text-slate-950 uppercase transition hover:bg-sky-300"
+                            className={tacticalPrimaryButtonClass}
                           >
                             Gå videre
                           </button>
@@ -990,29 +1015,29 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
                 {activePostVariant === "escape" ? (
                   <div className="space-y-6 overflow-hidden">
-                    <p className={`text-xl font-bold text-amber-50 ${wrapTextClass}`}>{activeQuestion.text}</p>
+                    <p className={`text-xl font-bold text-white ${wrapTextClass}`}>{activeQuestion.text}</p>
 
                     {activeEscapeReward ? (
                       <div className="space-y-4">
-                        <div className="overflow-hidden rounded-[1.9rem] border border-amber-300/40 bg-[linear-gradient(145deg,rgba(120,53,15,0.58),rgba(245,158,11,0.2))] p-6 text-center text-amber-100 shadow-[0_26px_55px_rgba(245,158,11,0.2)] backdrop-blur-md">
-                          <p className="text-xs font-semibold tracking-[0.24em] text-amber-100/75 uppercase">
-                            Belønning
+                        <div className={tacticalSuccessPanelClass}>
+                          <p className="font-mono text-xs font-black uppercase tracking-[0.32em] text-slate-950/70">
+                            Kode accepteret
                           </p>
-                          <p className={`mt-3 text-lg font-bold text-amber-50 ${wrapTextClass}`}>
+                          <p className={`mt-3 text-lg font-black text-slate-950 ${wrapTextClass}`}>
                             Flot! Din kode-brik er:
                           </p>
-                          <div className="mt-5 rounded-[1.6rem] border border-amber-200/30 bg-amber-200/10 px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                          <div className="mt-5 rounded-[1.6rem] border border-slate-950/10 bg-slate-950/85 px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                             <p
-                              className={`text-5xl font-black tracking-[0.36em] text-amber-200 sm:text-6xl ${wrapTextClass}`}
+                              className={`text-5xl font-black tracking-[0.36em] text-emerald-300 sm:text-6xl ${wrapTextClass}`}
                             >
                               {activeEscapeReward}
                             </p>
                           </div>
-                          <p className="mt-4 text-sm text-amber-50/80">
+                          <p className="mt-4 text-sm text-slate-950/75">
                             Brikken er gemt i din kode-oversigt.
                           </p>
                           {hasAllEscapeBricks ? (
-                            <p className="mt-3 text-sm font-semibold text-emerald-100">
+                            <p className="mt-3 text-sm font-semibold text-slate-950/80">
                               Du har alle kode-brikker. Master-låsen er klar.
                             </p>
                           ) : null}
@@ -1021,7 +1046,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                         <button
                           type="button"
                           onClick={() => void actions.continueFromSolvedPost()}
-                          className="w-full rounded-2xl border border-amber-400/40 bg-amber-400 px-5 py-3 text-sm font-black tracking-[0.2em] text-slate-950 uppercase transition hover:bg-amber-300"
+                          className={tacticalPrimaryButtonClass}
                         >
                           {hasAllEscapeBricks ? "Åbn Master-lås" : "Videre til næste post"}
                         </button>
@@ -1037,7 +1062,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                     ) : (
                       <form onSubmit={handleTypedAnswerSubmit} className="space-y-5">
                         <div className="space-y-3">
-                          <label className="text-xs font-semibold tracking-[0.24em] text-amber-200/70 uppercase">
+                          <label className={tacticalMetaLabelClass}>
                             Svaret
                           </label>
                           <input
@@ -1052,7 +1077,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                               actions.clearPostActionError();
                             }}
                             placeholder="Skriv tallet eller ordet her"
-                            className="w-full rounded-2xl border border-amber-300/20 bg-slate-900/80 px-4 py-4 text-lg text-white outline-none transition placeholder:text-amber-100/35 focus:border-amber-300/50 focus:ring-2 focus:ring-amber-300/20 disabled:cursor-not-allowed disabled:opacity-70"
+                            className={`${tacticalInputClass} text-lg`}
                           />
                         </div>
 
@@ -1069,14 +1094,14 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                             type="button"
                             onClick={actions.dismissCurrentPost}
                             disabled={isCheckingEscapeAnswer || isSubmitting}
-                            className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                            className={tacticalSecondaryButtonClass}
                           >
                             Annuller
                           </button>
                           <button
                             type="submit"
                             disabled={isCheckingEscapeAnswer || isSubmitting}
-                            className="inline-flex min-h-[56px] w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 px-5 py-4 text-base font-semibold text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-amber-400/60"
+                            className={tacticalPrimaryButtonClass}
                           >
                             {isCheckingEscapeAnswer ? (
                               <>
@@ -1101,9 +1126,9 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
                 {activePostVariant === "roleplay" ? (
                   <div className="space-y-5 overflow-hidden">
-                    <div className="overflow-hidden rounded-[1.75rem] border border-violet-300/20 bg-slate-900/80 p-4 shadow-[0_18px_40px_rgba(76,29,149,0.18)] backdrop-blur-xl">
+                    <div className="overflow-hidden rounded-[1.75rem] border border-emerald-500/20 bg-slate-950/80 p-4 shadow-[0_18px_40px_rgba(16,185,129,0.12)] backdrop-blur-xl">
                       <div className="flex items-center gap-4">
-                        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-violet-200/20 bg-violet-500/10 text-2xl shadow-inner shadow-black/20">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-500/20 bg-slate-950 text-2xl shadow-inner shadow-black/20">
                           {roleplayAvatar && looksLikeImageSource(roleplayAvatar) ? (
                             <Image
                               src={roleplayAvatar}
@@ -1121,7 +1146,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
                         <div className="min-w-0">
                           <p
-                            className={`text-xs font-semibold tracking-[0.24em] text-violet-200/75 uppercase ${wrapTextClass}`}
+                            className={`${tacticalMetaLabelClass} ${wrapTextClass}`}
                           >
                             Tidsmaskinen
                           </p>
@@ -1132,8 +1157,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       </div>
                     </div>
 
-                    <div className="relative ml-2 overflow-hidden rounded-[1.75rem] border border-violet-300/20 bg-slate-800/60 p-5 shadow-[0_18px_40px_rgba(59,130,246,0.16)] backdrop-blur-xl">
-                      <span className="absolute -left-2 top-6 h-4 w-4 rotate-45 rounded-[0.45rem] border-l border-t border-violet-300/20 bg-slate-800/60" />
+                    <div className="relative ml-2 overflow-hidden rounded-[1.75rem] border border-emerald-500/20 bg-slate-950/80 p-5 shadow-[0_18px_40px_rgba(16,185,129,0.12)] backdrop-blur-xl">
+                      <span className="absolute -left-2 top-6 h-4 w-4 rotate-45 rounded-[0.45rem] border-l border-t border-emerald-500/20 bg-slate-950/80" />
                       <p className={`pr-1 text-lg leading-relaxed text-white sm:text-xl ${wrapTextClass}`}>
                         {getRoleplayMessage(activeQuestion)}
                       </p>
@@ -1143,15 +1168,15 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       <div
                         className={`animate-in fade-in zoom-in-95 duration-300 space-y-4 overflow-hidden rounded-[1.85rem] border p-5 backdrop-blur-xl ${
                           activeRoleplayReply.tone === "success"
-                            ? "border-emerald-300/30 bg-[linear-gradient(145deg,rgba(6,78,59,0.68),rgba(91,33,182,0.2))] shadow-[0_24px_55px_rgba(16,185,129,0.18)]"
-                            : "border-violet-300/30 bg-[linear-gradient(145deg,rgba(76,29,149,0.55),rgba(30,41,59,0.82))] shadow-[0_24px_55px_rgba(76,29,149,0.18)]"
+                            ? "border-emerald-300/30 bg-[linear-gradient(145deg,rgba(5,46,22,0.88),rgba(16,185,129,0.18))] shadow-[0_24px_55px_rgba(16,185,129,0.18)]"
+                            : "border-emerald-500/20 bg-slate-950/80 shadow-[0_24px_55px_rgba(16,185,129,0.12)]"
                         }`}
                       >
                         <p
                           className={`text-xs font-semibold tracking-[0.24em] uppercase ${wrapTextClass} ${
                             activeRoleplayReply.tone === "success"
                               ? "text-emerald-100/75"
-                              : "text-violet-100/80"
+                              : "text-emerald-300/80"
                           }`}
                         >
                           {activeRoleplayReply.isLoading
@@ -1162,14 +1187,14 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                           className={`rounded-[1.35rem] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${
                             activeRoleplayReply.tone === "success"
                               ? "border-emerald-200/15 bg-white/8"
-                              : "border-violet-200/15 bg-white/6"
+                              : "border-emerald-500/20 bg-slate-950"
                           }`}
                         >
                           <p
                             className={`text-sm leading-relaxed ${wrapTextClass} ${
                               activeRoleplayReply.tone === "success"
                                 ? "text-emerald-50"
-                                : "text-violet-50"
+                                : "text-emerald-50"
                             }`}
                           >
                             {activeRoleplayReply.isLoading ? (
@@ -1186,7 +1211,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                           <button
                             type="button"
                             onClick={() => void actions.continueFromSolvedPost()}
-                            className="w-full rounded-2xl border border-emerald-300/35 bg-emerald-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-emerald-300"
+                            className={tacticalPrimaryButtonClass}
                           >
                             Fortsæt rejsen -&gt;
                           </button>
@@ -1205,10 +1230,10 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                     {!activeRoleplayReply?.canContinue ? (
                       <form
                         onSubmit={handleTypedAnswerSubmit}
-                        className={`overflow-hidden rounded-[1.75rem] border bg-slate-900/70 p-4 shadow-[0_18px_38px_rgba(67,56,202,0.16)] backdrop-blur-xl transition-all ${
+                        className={`overflow-hidden rounded-[1.75rem] border bg-slate-950/80 p-4 shadow-[0_18px_38px_rgba(16,185,129,0.14)] backdrop-blur-xl transition-all ${
                           hasRoleplayInputErrorTone
                             ? "border-rose-300/45 shadow-[0_20px_45px_rgba(244,63,94,0.18)]"
-                            : "border-violet-300/15"
+                            : "border-emerald-500/20"
                         }`}
                       >
                         <div className="flex items-end gap-3">
@@ -1223,29 +1248,29 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                               actions.clearPostActionError();
                             }}
                             onFocus={(event) => {
-                              event.currentTarget.scrollIntoView({
+                             event.currentTarget.scrollIntoView({
                                 behavior: "smooth",
                                 block: "center",
                               });
                             }}
                             placeholder={`Skriv dit svar til ${roleplayCharacterName}...`}
-                            className={`min-w-0 flex-1 rounded-2xl border bg-slate-950/80 px-4 py-3 text-base text-white outline-none transition placeholder:text-violet-100/35 focus:ring-2 ${
+                            className={`min-w-0 flex-1 rounded-[1.35rem] border bg-slate-950 px-4 py-3 text-base text-emerald-50 outline-none transition placeholder:text-emerald-400/35 focus:ring-2 ${
                               hasRoleplayInputErrorTone
                                 ? "border-rose-300/45 focus:border-rose-300/55 focus:ring-rose-300/20"
-                                : "border-violet-200/15 focus:border-violet-300/50 focus:ring-violet-300/20"
+                                : "border-emerald-500/50 focus:border-emerald-400 focus:ring-emerald-400/20"
                             } disabled:cursor-not-allowed disabled:opacity-70`}
                           />
                           <button
                             type="submit"
                             disabled={isSubmittingAnswer || isSubmitting}
-                            className="min-h-[56px] shrink-0 rounded-2xl bg-violet-400 px-5 py-4 text-base font-semibold text-slate-950 transition hover:bg-violet-300 disabled:cursor-not-allowed disabled:opacity-60"
+                            className={`${tacticalPrimaryButtonClass} min-w-[11rem] shrink-0`}
                           >
                             Send besked
                           </button>
                         </div>
 
                         {activeTypedAnswerError ? (
-                          <p className={`mt-3 text-sm text-violet-200/85 ${wrapTextClass}`}>
+                          <p className={`mt-3 text-sm text-emerald-200/85 ${wrapTextClass}`}>
                             {activeTypedAnswerError}
                           </p>
                         ) : null}
@@ -1255,9 +1280,9 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                 ) : null}
 
                 {activePostVariant === "unknown" ? (
-                  <div className="space-y-4 overflow-hidden rounded-3xl border border-amber-300/20 bg-amber-950/20 p-5">
+                  <div className="space-y-4 overflow-hidden rounded-3xl border border-emerald-500/20 bg-slate-950 p-5">
                     <p
-                      className={`text-xs font-semibold tracking-[0.24em] text-amber-200/70 uppercase ${wrapTextClass}`}
+                      className={`${tacticalMetaLabelClass} ${wrapTextClass}`}
                     >
                       Ukendt post
                     </p>
@@ -1267,6 +1292,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                     </p>
                   </div>
                 ) : null}
+              </div>
               </div>
             </div>
           ) : null}
