@@ -2,13 +2,8 @@
 
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Poppins, Rubik } from "next/font/google";
-import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
+import { Poppins } from "next/font/google";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -30,36 +25,29 @@ type WizardAnswers = {
 type WizardStep = 1 | 2 | 3 | 4;
 
 const INITIAL_AI_MESSAGE =
-  "Hej og velkommen til GPSl\u00f8b.dk! \u{1F44B} Lad os bygge dit allerf\u00f8rste l\u00f8b sammen. Hvad skal emnet v\u00e6re?";
+  "Hej og velkommen til GPSløb.dk! 👋 Lad os bygge dit allerførste løb sammen. Hvad skal emnet være?";
 const GENERATING_MESSAGE =
-  "\u{1FA84} Fantastisk! Jeg designer l\u00f8bet og placerer posterne...";
+  "🪄 Fantastisk! Jeg designer løbet og placerer posterne...";
 const MAGIC_DRAFT_STORAGE_KEY = "magicRunDraft";
 
-const STEP_TITLES: Record<WizardStep, string> = {
-  1: "Emne",
-  2: "Klassetrin",
-  3: "Antal poster",
-  4: "S\u00e6rlige \u00f8nsker",
-};
-
 const STEP_PLACEHOLDERS: Record<WizardStep, string> = {
-  1: "Skriv emnet til l\u00f8bet...",
+  1: "Skriv emnet til løbet...",
   2: "Skriv klassetrin eller niveau...",
   3: "Skriv et tal mellem 3 og 10...",
-  4: "Skriv eventuelle s\u00e6rlige \u00f8nsker...",
+  4: "Skriv eventuelle særlige ønsker...",
 };
 
 const STEP_QUESTIONS: Record<Exclude<WizardStep, 4>, string> = {
-  1: "Fedt. Hvilket klassetrin skal l\u00f8bet passe til?",
+  1: "Fedt. Hvilket klassetrin skal løbet passe til?",
   2: "Perfekt. Hvor mange poster vil du have med? Skriv et tal mellem 3 og 10.",
-  3: "Super. Har du s\u00e6rlige \u00f8nsker? (f.eks. mange foto-missioner eller korte quizzer)",
+  3: "Super. Har du særlige ønsker? (f.eks. mange foto-missioner eller korte quizzer)",
 };
 
 const QUICK_REPLIES: Record<WizardStep, readonly string[]> = {
-  1: ["Romerriget", "Br\u00f8ker", "Fotosyntese"],
+  1: ["Romerriget", "Brøker", "Fotosyntese"],
   2: ["3. klasse", "5. klasse", "Udskoling"],
   3: ["4", "6", "8"],
-  4: ["Mange foto-missioner", "Korte quizzer", "Ingen s\u00e6rlige \u00f8nsker"],
+  4: ["Mange foto-missioner", "Korte quizzer", "Ingen særlige ønsker"],
 };
 
 function buildCombinedPrompt(answers: WizardAnswers) {
@@ -67,8 +55,8 @@ function buildCombinedPrompt(answers: WizardAnswers) {
     `Emne: ${answers.topic}.`,
     `Klassetrin: ${answers.grade}.`,
     `Antal poster: ${answers.postCount}.`,
-    `S\u00e6rlige \u00f8nsker: ${answers.specialWishes}.`,
-    "Lav et varieret GPS-l\u00f8b med quiz-sp\u00f8rgsm\u00e5l og foto-missioner, hvor l\u00e6reren selv placerer posterne p\u00e5 kortet bagefter.",
+    `Særlige ønsker: ${answers.specialWishes}.`,
+    "Lav et varieret GPS-løb med quiz-spørgsmål og foto-missioner, hvor læreren selv placerer posterne på kortet bagefter.",
   ].join(" ");
 }
 
@@ -99,19 +87,6 @@ export default function VelkommenPage() {
 
   const activeStep = isWizardComplete ? 4 : currentStep;
   const isInputDisabled = isLoading || isAiResponding || isWizardComplete;
-
-  const briefPreview = useMemo(
-    () => [
-      { label: "Emne", value: answers.topic || "Afventer svar" },
-      { label: "Klassetrin", value: answers.grade || "Afventer svar" },
-      { label: "Poster", value: answers.postCount || "Afventer svar" },
-      {
-        label: "S\u00e6rlige \u00f8nsker",
-        value: answers.specialWishes || "Afventer svar",
-      },
-    ],
-    [answers]
-  );
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -183,7 +158,7 @@ export default function VelkommenPage() {
         const message =
           typeof data === "object" && data && "error" in data && typeof data.error === "string"
             ? data.error
-            : "Kunne ikke generere l\u00f8bet lige nu.";
+            : "Kunne ikke generere løbet lige nu.";
         throw new Error(message);
       }
 
@@ -200,7 +175,7 @@ export default function VelkommenPage() {
 
       console.error("Velkommen-side fejl:", error);
       const message =
-        error instanceof Error ? error.message : "Noget gik galt. Pr\u00f8v igen.";
+        error instanceof Error ? error.message : "Noget gik galt. Prøv igen.";
 
       if (typeof window !== "undefined") {
         window.sessionStorage.removeItem(MAGIC_DRAFT_STORAGE_KEY);
@@ -251,7 +226,7 @@ export default function VelkommenPage() {
       const parsedCount = Number.parseInt(trimmedValue, 10);
       if (!Number.isInteger(parsedCount) || parsedCount < 3 || parsedCount > 10) {
         queueAiMessage(
-          "Skriv gerne et tal mellem 3 og 10, s\u00e5 jeg ved hvor mange poster jeg skal bygge.",
+          "Skriv gerne et tal mellem 3 og 10, så jeg ved hvor mange poster jeg skal bygge.",
           undefined,
           350
         );
@@ -292,231 +267,154 @@ export default function VelkommenPage() {
   };
 
   return (
-    <main
-      className={`relative min-h-screen overflow-hidden bg-slate-950 px-6 py-10 text-white md:px-10 ${poppins.className}`}
-    >
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="fixed inset-0 z-0 h-full w-full object-cover"
-        src="/magibg.mp4"
-      />
-      <div className="fixed inset-0 z-[1] bg-slate-950/72 backdrop-blur-md" />
-      <div className="pointer-events-none fixed inset-0 z-[2] bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.14),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(255,255,255,0.08),_transparent_24%),linear-gradient(180deg,rgba(15,23,42,0.08),rgba(2,6,23,0.7))]" />
+    <>
+      <style>{".global-ai-chat-button { display: none !important; }"}</style>
+      <main
+        className={`relative flex min-h-screen w-full items-center justify-center overflow-hidden px-4 py-6 text-white ${poppins.className}`}
+      >
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 h-full w-full object-cover z-0"
+        >
+          <source src="/magibg.mp4" type="video/mp4" />
+        </video>
+        <div className="absolute inset-0 bg-slate-950/60 z-10" />
 
-      <div className="relative z-10 mx-auto grid w-full max-w-6xl gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
-        <section className="flex min-h-[760px] flex-col rounded-[2.5rem] border border-emerald-500/15 bg-slate-900/80 p-8 shadow-[0_32px_90px_rgba(0,0,0,0.48)] backdrop-blur-2xl md:p-10">
-          <div className="inline-flex items-center rounded-full border border-emerald-400/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.28em] text-emerald-100/80">
-            Velkomstflow
-          </div>
+        <section className="relative z-20 flex h-[844px] max-h-[90vh] w-full max-w-[390px] flex-col overflow-hidden rounded-[3rem] border-[6px] border-slate-800 bg-slate-950/80 shadow-[0_0_50px_rgba(16,185,129,0.3)] backdrop-blur-xl">
+          <div className="pointer-events-none absolute left-1/2 top-3 z-30 h-6 w-36 -translate-x-1/2 rounded-full bg-black/70" />
 
-          <div className="mt-6 max-w-3xl">
-            <h1
-              className={`text-4xl font-black tracking-tight text-white sm:text-5xl ${rubik.className}`}
-            >
-              Byg dit f\u00f8rste l\u00f8b
-            </h1>
-            <p className="mt-4 text-base leading-8 text-slate-300 sm:text-lg">
-              Svar p\u00e5 fire hurtige sp\u00f8rgsm\u00e5l. S\u00e5 samler vi et skarpt brief og
-              bygger dit f\u00f8rste l\u00f8bsudkast sammen.
-            </p>
-          </div>
-
-          <div className="mt-8 flex-1 overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-            <div className="flex items-center justify-between border-b border-white/8 px-5 py-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.26em] text-emerald-100/60">
-                  Samtale
-                </p>
-                <p className="mt-1 text-sm text-slate-400">
-                  Step {activeStep} af 4
-                </p>
+          <header className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/90 px-5 pb-4 pt-9 backdrop-blur-xl">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-sm text-emerald-300">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.9)]" />
+                  <span className="font-medium">Online</span>
+                </div>
+                <h1 className="mt-2 text-lg font-semibold tracking-tight text-white">
+                  GPSløb AI Assistent
+                </h1>
               </div>
-              <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100/80">
-                {isLoading ? "Designer" : isAiResponding ? "Svarer" : "Klar"}
+
+              <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-100/90">
+                Trin {activeStep}/4
               </div>
             </div>
+          </header>
 
-            <div className="h-[460px] overflow-y-auto px-5 py-6 md:h-[520px]">
-              <div className="space-y-4">
-                {messages.map((message, index) => {
-                  const isGeneratingBubble =
-                    message.role === "ai" && message.text === GENERATING_MESSAGE && isLoading;
+          <div className="flex-1 overflow-y-auto px-4 py-5">
+            <div className="space-y-3">
+              {messages.map((message, index) => {
+                const isGeneratingBubble =
+                  message.role === "ai" && message.text === GENERATING_MESSAGE && isLoading;
+                const isUser = message.role === "user";
 
-                  return (
-                    <div
-                      key={`${message.role}-${index}-${message.text}`}
-                      className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-                    >
+                return (
+                  <div
+                    key={`${message.role}-${index}-${message.text}`}
+                    className={`flex ${isUser ? "justify-end" : "justify-start"}`}
+                  >
+                    <div className="max-w-[82%]">
+                      <p
+                        className={`mb-1 px-2 text-[11px] font-medium uppercase tracking-[0.2em] ${
+                          isUser ? "text-right text-emerald-300/80" : "text-slate-500"
+                        }`}
+                      >
+                        {isUser ? "Dig" : "GPSløb AI"}
+                      </p>
                       <div
-                        className={`max-w-[84%] rounded-[1.7rem] px-5 py-4 text-sm leading-7 shadow-[0_16px_40px_rgba(2,6,23,0.18)] ${
-                          message.role === "ai"
-                            ? "border border-emerald-500/18 bg-emerald-500/10 text-emerald-50"
-                            : "border border-white/10 bg-slate-900 text-slate-100"
+                        className={`rounded-[1.6rem] px-4 py-3 text-[15px] leading-6 shadow-[0_16px_40px_rgba(2,6,23,0.24)] ${
+                          isUser
+                            ? "rounded-br-md bg-emerald-500 text-slate-950"
+                            : "rounded-bl-md bg-slate-800 text-slate-200"
                         } ${isGeneratingBubble ? "animate-pulse" : ""}`}
                       >
-                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">
-                          {message.role === "ai" ? "GPSl\u00f8b AI" : "Dig"}
-                        </p>
                         <p>{message.text}</p>
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                );
+              })}
 
-                {isAiResponding ? (
-                  <div className="flex justify-start">
-                    <div className="rounded-[1.7rem] border border-emerald-500/18 bg-emerald-500/10 px-5 py-4 text-emerald-50 shadow-[0_16px_40px_rgba(2,6,23,0.18)]">
-                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">
-                        GPSl\u00f8b AI
-                      </p>
+              {isAiResponding ? (
+                <div className="flex justify-start">
+                  <div className="max-w-[82%]">
+                    <p className="mb-1 px-2 text-[11px] font-medium uppercase tracking-[0.2em] text-slate-500">
+                      GPSløb AI
+                    </p>
+                    <div className="rounded-[1.6rem] rounded-bl-md bg-slate-800 px-4 py-3 text-slate-200 shadow-[0_16px_40px_rgba(2,6,23,0.24)]">
                       <div className="flex items-center gap-2">
-                        <span className="size-2 animate-bounce rounded-full bg-emerald-200 [animation-delay:-0.2s]" />
-                        <span className="size-2 animate-bounce rounded-full bg-emerald-200 [animation-delay:-0.1s]" />
-                        <span className="size-2 animate-bounce rounded-full bg-emerald-200" />
+                        <span className="size-2 animate-bounce rounded-full bg-emerald-300 [animation-delay:-0.2s]" />
+                        <span className="size-2 animate-bounce rounded-full bg-emerald-300 [animation-delay:-0.1s]" />
+                        <span className="size-2 animate-bounce rounded-full bg-emerald-300" />
                       </div>
                     </div>
                   </div>
-                ) : null}
+                </div>
+              ) : null}
 
-                <div ref={messagesEndRef} />
-              </div>
+              <div ref={messagesEndRef} />
             </div>
           </div>
 
-          {errorMessage ? (
-            <div className="mt-5 rounded-[1.5rem] border border-red-400/35 bg-red-500/12 px-4 py-4 text-sm font-semibold text-red-100">
-              {errorMessage}
-            </div>
-          ) : null}
-
-          <div className="mt-6 rounded-[2rem] border border-emerald-500/18 bg-slate-950/68 p-4 shadow-[0_26px_70px_rgba(16,185,129,0.14)]">
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-x-10 -bottom-6 h-16 rounded-full bg-emerald-500/14 blur-3xl" />
-                <input
-                  value={inputValue}
-                  onChange={(event) => setInputValue(event.target.value)}
-                  disabled={isInputDisabled}
-                  placeholder={
-                    isWizardComplete
-                      ? "AI bygger l\u00f8bet..."
-                      : STEP_PLACEHOLDERS[currentStep]
-                  }
-                  className="relative h-16 w-full rounded-[1.4rem] border border-emerald-500/22 bg-slate-900/80 px-5 text-base text-emerald-50 outline-none transition placeholder:text-emerald-100/35 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-slate-900/55 disabled:text-slate-400"
-                />
+          <div className="border-t border-white/10 bg-slate-950/95 px-4 pb-4 pt-3">
+            {errorMessage ? (
+              <div className="mb-3 rounded-[1.4rem] border border-red-400/35 bg-red-500/12 px-4 py-3 text-sm font-medium text-red-100">
+                {errorMessage}
               </div>
+            ) : null}
 
-              <div className="flex flex-wrap gap-3">
+            {!isWizardComplete ? (
+              <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
                 {QUICK_REPLIES[currentStep].map((reply) => (
                   <button
                     key={reply}
                     type="button"
                     onClick={() => handleQuickReply(reply)}
                     disabled={isInputDisabled}
-                    className="rounded-full border border-emerald-500/18 bg-emerald-500/8 px-4 py-2 text-sm font-medium text-emerald-100/85 transition hover:border-emerald-400/35 hover:bg-emerald-500/14 disabled:cursor-not-allowed disabled:opacity-45"
+                    className="shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:border-emerald-400/40 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     {reply}
                   </button>
                 ))}
               </div>
+            ) : null}
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <form onSubmit={handleSubmit}>
+              <div className="flex items-end gap-3">
+                <div className="flex-1 rounded-[1.9rem] border border-white/10 bg-slate-900/90 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                  <input
+                    value={inputValue}
+                    onChange={(event) => setInputValue(event.target.value)}
+                    disabled={isInputDisabled}
+                    placeholder={
+                      isWizardComplete
+                        ? "AI bygger løbet..."
+                        : STEP_PLACEHOLDERS[currentStep]
+                    }
+                    className="h-6 w-full bg-transparent text-[15px] text-white outline-none placeholder:text-slate-500 disabled:cursor-not-allowed disabled:text-slate-500"
+                  />
+                </div>
+
                 <button
                   type="submit"
                   disabled={isInputDisabled || !inputValue.trim()}
-                  className="inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-emerald-600 px-8 py-4 text-sm font-extrabold uppercase tracking-[0.24em] text-white shadow-[0_18px_45px_rgba(16,185,129,0.38)] transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-900/60 disabled:text-white/60"
+                  className="inline-flex h-12 min-w-12 shrink-0 items-center justify-center rounded-full bg-emerald-500 px-4 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-emerald-900 disabled:text-slate-400"
+                  aria-label="Send svar"
                 >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="size-5 animate-spin" />
-                      Designer l\u00f8bet
-                    </>
-                  ) : (
-                    "Send svar"
-                  )}
+                  {isLoading ? <Loader2 className="size-4 animate-spin" /> : "Send"}
                 </button>
-
-                <p className="text-sm text-slate-400">
-                  Tryk Enter for at sende dit svar og f\u00e5 n\u00e6ste sp\u00f8rgsm\u00e5l.
-                </p>
               </div>
             </form>
+
+            <p className="mt-3 text-center text-xs text-slate-500">
+              Svar på næste spørgsmål eller brug forslagene ovenfor.
+            </p>
           </div>
         </section>
-
-        <aside className="rounded-[2.5rem] border border-white/10 bg-slate-900/72 p-8 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
-          <div className="rounded-[1.9rem] border border-emerald-500/15 bg-slate-950/60 p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-100/65">
-              Velkomststatus
-            </p>
-            <h2 className={`mt-3 text-2xl font-black text-white ${rubik.className}`}>
-              Fire trin til dit f\u00f8rste l\u00f8b
-            </h2>
-            <div className="mt-6 space-y-3">
-              {(Object.entries(STEP_TITLES) as Array<[`${WizardStep}`, string]>).map(
-                ([stepKey, title]) => {
-                  const stepNumber = Number(stepKey) as WizardStep;
-                  const isCurrent = stepNumber === activeStep;
-                  const isCompleted = Boolean(
-                    (stepNumber === 1 && answers.topic) ||
-                      (stepNumber === 2 && answers.grade) ||
-                      (stepNumber === 3 && answers.postCount) ||
-                      (stepNumber === 4 && answers.specialWishes)
-                  );
-
-                  return (
-                    <div
-                      key={stepKey}
-                      className={`rounded-[1.4rem] border px-4 py-4 text-sm transition ${
-                        isCurrent
-                          ? "border-emerald-400/28 bg-emerald-500/10 text-emerald-50"
-                          : isCompleted
-                            ? "border-white/10 bg-white/6 text-slate-200"
-                            : "border-white/8 bg-slate-900/55 text-slate-400"
-                      }`}
-                    >
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">
-                        Step {stepKey}
-                      </p>
-                      <p className="mt-1 font-semibold">{title}</p>
-                    </div>
-                  );
-                }
-              )}
-            </div>
-          </div>
-
-          <div className="mt-6 rounded-[1.9rem] border border-white/10 bg-white/5 p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">
-              Brief indtil nu
-            </p>
-            <div className="mt-4 space-y-4">
-              {briefPreview.map((item) => (
-                <div key={item.label} className="rounded-[1.2rem] border border-white/10 bg-slate-950/55 p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-                    {item.label}
-                  </p>
-                  <p className="mt-2 text-sm leading-7 text-slate-200">{item.value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-6 rounded-[1.9rem] border border-white/10 bg-white/5 p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">
-              Output
-            </p>
-            <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-300">
-              <li>Quiz-poster og foto-missioner med dummy-koordinater.</li>
-              <li>Briefet sendes direkte videre til manuel redigering.</li>
-              <li>Laereren placerer selv posterne paa kortet bagefter.</li>
-            </ul>
-          </div>
-        </aside>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }
