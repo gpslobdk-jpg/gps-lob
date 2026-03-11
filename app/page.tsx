@@ -35,6 +35,15 @@ export default function Home() {
     window.location.replace(callbackUrl.toString());
   }, []);
 
+  useEffect(() => {
+    const video = backgroundVideoRef.current;
+    if (!video) return;
+
+    video.muted = isMuted;
+    video.volume = isMuted ? 0 : 1;
+    void video.play().catch(() => undefined);
+  }, [isMuted]);
+
   const toggleBackgroundSound = () => {
     const nextMuted = !isMuted;
     setIsMuted(nextMuted);
@@ -70,7 +79,8 @@ export default function Home() {
         loop
         muted={isMuted}
         playsInline
-        preload="metadata"
+        controls={false}
+        preload="auto"
         className="fixed top-0 left-0 h-full w-full object-cover -z-20"
       />
       <div className="fixed inset-0 -z-10 bg-slate-950/70 backdrop-blur-[2px]" />
