@@ -92,25 +92,16 @@ function renderCard(card: HubCard, index: number) {
       data-tour={index === 0 ? "valg-classic-quiz" : undefined}
       className="group block h-full w-full focus:outline-none"
     >
-      <article className="relative flex h-full min-h-[300px] flex-col overflow-hidden rounded-[2.5rem] border border-white/50 bg-white/80 p-8 shadow-xl backdrop-blur-md transition-all duration-300 hover:scale-105 hover:bg-white/95 hover:shadow-2xl">
+      <article className="relative flex h-full min-h-[220px] flex-col overflow-hidden rounded-[2.5rem] border border-white/50 bg-white/80 p-6 shadow-xl backdrop-blur-md transition-all duration-300 hover:scale-105 hover:bg-white/95 hover:shadow-2xl">
         <div
-          className={`flex h-16 w-16 items-center justify-center rounded-2xl border ${card.iconShellClass}`}
+          className={`mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border ${card.iconShellClass}`}
         >
           <card.icon className={`h-8 w-8 ${card.iconClass}`} />
         </div>
-
-        <div className="mt-6">
-          <h2 className={`text-2xl font-black tracking-wide text-gray-900 ${rubik.className}`}>
-            {card.title}
-          </h2>
-          <p className="mt-4 text-sm leading-relaxed text-gray-700">{card.description}</p>
-        </div>
-
-        <div className="mt-auto pt-8">
-          <span className="inline-flex rounded-full border border-emerald-300 bg-emerald-100 px-4 py-2 text-xs font-bold tracking-[0.18em] text-emerald-800 uppercase transition-colors group-hover:bg-emerald-200 group-focus-visible:bg-emerald-200">
-            Vælg løbstype
-          </span>
-        </div>
+        <h2 className={`text-xl font-black tracking-wide text-gray-900 ${rubik.className}`}>
+          {card.title}
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-gray-700">{card.description}</p>
       </article>
     </Link>
   );
@@ -151,11 +142,11 @@ export default function ValgHubPage() {
             Vælg format
           </p>
           <h1
-            className={`mt-4 text-4xl font-black tracking-tight text-emerald-950 drop-shadow-md md:text-5xl ${rubik.className}`}
+            className={`mt-4 text-4xl font-black tracking-tight text-emerald-950 lg:text-white drop-shadow-md lg:drop-shadow-lg md:text-5xl ${rubik.className}`}
           >
             Hvilken type løb vil du bygge?
           </h1>
-          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-emerald-900 drop-shadow-sm md:text-base">
+          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-emerald-900 lg:text-emerald-50 drop-shadow-sm md:text-base">
             Vælg det format, der passer bedst til dit arrangement. Her finder du quiz, foto,
             escape, rollespil, bog-scanner og selfie-missioner samlet ét sted.
           </p>
