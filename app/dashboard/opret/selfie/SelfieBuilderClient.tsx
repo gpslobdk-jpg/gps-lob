@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ChevronDown, ChevronUp, Loader2, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -30,7 +30,7 @@ import { createClient } from "@/utils/supabase/client";
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ssr: false,
   loading: () => (
-    <div className="h-full w-full animate-pulse rounded-3xl border border-emerald-500/20 bg-slate-900/60" />
+    <div className="h-full w-full animate-pulse rounded-3xl border border-rose-500/20 bg-slate-900/60" />
   ),
 });
 
@@ -126,13 +126,13 @@ type SelfieBuilderDraftState = {
 };
 
 const textInputClass =
-  "w-full rounded-2xl border border-slate-700 bg-slate-900/50 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+  "w-full rounded-2xl border border-rose-500/30 bg-rose-950/20 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const textareaClass =
-  "w-full rounded-2xl border border-slate-700 bg-slate-900/50 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+  "w-full rounded-2xl border border-rose-500/30 bg-rose-950/20 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const aiActionButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-emerald-500/30 bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 px-5 py-3 text-sm font-semibold transition-all";
 
 const buildAnswers = (targetObject: string): [string, string, string, string] => [
   targetObject.trim(),
@@ -243,7 +243,7 @@ export default function SelfieBuilderClient() {
       <div
         className={`rounded-[1.4rem] border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
           notice.tone === "success"
-            ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-50"
+            ? "border-rose-300/30 bg-rose-500/10 text-rose-50"
             : "border-red-300/30 bg-red-500/10 text-red-100"
         } ${className}`}
       >
@@ -757,18 +757,18 @@ export default function SelfieBuilderClient() {
 
   if (isEditMode && isLoadingExistingRun) {
     return (
-      <div className={`relative min-h-screen overflow-hidden bg-slate-950 text-emerald-100 ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-slate-950/70 backdrop-blur-[2px]" />
+      <div className={`relative min-h-screen overflow-hidden bg-rose-950 text-rose-100 ${poppins.className}`}>
+        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-rose-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
-          <div className="w-full max-w-md rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-            <Loader2 className="mx-auto h-10 w-10 animate-spin text-emerald-200" />
-            <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-emerald-100/55 uppercase">
+          <div className="w-full max-w-md rounded-3xl border border-rose-500/30 bg-rose-950/20 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+            <Loader2 className="mx-auto h-10 w-10 animate-spin text-rose-200" />
+            <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-rose-100/55 uppercase">
               Rediger løb
             </p>
-            <h1 className={`mt-3 text-3xl font-black tracking-tight text-emerald-50 ${rubik.className}`}>
+            <h1 className={`mt-3 text-3xl font-black tracking-tight text-rose-50 ${rubik.className}`}>
               Indlæser dine selfie-poster
             </h1>
-            <p className="mt-3 text-sm leading-6 text-emerald-100/70">
+            <p className="mt-3 text-sm leading-6 text-rose-100/70">
               Vi henter løbets data og klargør builderen til redigering.
             </p>
           </div>
@@ -779,8 +779,8 @@ export default function SelfieBuilderClient() {
 
   return (
     <>
-      <div className={`relative min-h-screen overflow-x-hidden bg-slate-950 text-emerald-100 ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-slate-950/70 backdrop-blur-[2px]" />
+      <div className={`relative min-h-screen overflow-x-hidden bg-rose-950 text-rose-100 ${poppins.className}`}>
+        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-rose-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
           <section className="w-full px-4 py-4 sm:px-6 sm:py-6 lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
             <div className="mx-auto max-w-3xl">
@@ -791,19 +791,41 @@ export default function SelfieBuilderClient() {
               >
               <div className="px-1 pt-1">
                 {isEditMode ? (
-                  <div className="mb-4 inline-flex items-center rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-emerald-50 uppercase">
+                  <div className="mb-4 inline-flex items-center rounded-full border border-rose-500/25 bg-rose-500/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-rose-50 uppercase">
                     Edit-mode
                   </div>
                 ) : null}
-                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
                   Løbets titel
                 </label>
                 <input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
-                  placeholder="F.eks. Selfie-jagt i slotsparken"
+                  placeholder="F.eks. 4.A's kreative selfie-jagt"
                   className={textInputClass}
                 />
+              </div>
+
+              <div className="px-1">
+                <div className="rounded-[1.4rem] border border-rose-500/30 bg-rose-950/20 p-4 backdrop-blur-xl">
+                  <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
+                    Fag
+                  </label>
+                  <select
+                    value={subject}
+                    onChange={(event) => setSubject(event.target.value)}
+                    className="w-full appearance-none rounded-2xl border border-rose-500/30 bg-rose-950/20 p-3 text-slate-100 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  >
+                    <option value="" className="bg-slate-900 text-white">
+                      Vælg et fag til arkivet...
+                    </option>
+                    {SUBJECT_OPTIONS.map((subjectOption) => (
+                      <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
+                        {subjectOption}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="space-y-3 px-1">
@@ -821,10 +843,10 @@ export default function SelfieBuilderClient() {
                 </button>
 
                 <div className="flex items-end justify-between gap-4">
-                  <p className="text-xs font-semibold tracking-[0.24em] text-emerald-100/65 uppercase">
+                  <p className="text-xs font-semibold tracking-[0.24em] text-rose-100/65 uppercase">
                     Dine poster
                   </p>
-                  <span className="rounded-full border border-emerald-500/20 bg-slate-900/60 px-3 py-1.5 text-sm font-semibold text-emerald-100/80 backdrop-blur-xl">
+                  <span className="rounded-full border border-rose-500/30 bg-rose-950/20 px-3 py-1.5 text-sm font-semibold text-rose-100/80 backdrop-blur-xl">
                     {questions.length}
                   </span>
                 </div>
@@ -836,18 +858,18 @@ export default function SelfieBuilderClient() {
                 return (
                   <article
                     key={question.id}
-                    className="rounded-[1.7rem] border border-emerald-500/20 bg-slate-900/60 p-4 shadow-[0_20px_48px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-5"
+                    className="rounded-[1.7rem] border border-rose-500/30 bg-rose-950/20 p-4 shadow-[0_20px_48px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-5"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-500/20 bg-slate-900/60 text-sm font-bold text-emerald-100">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-rose-500/30 bg-rose-950/20 text-sm font-bold text-rose-100">
                           {index + 1}
                         </div>
                         <div>
-                          <h3 className={`text-lg font-bold text-emerald-100 ${rubik.className}`}>
+                          <h3 className={`text-lg font-bold text-rose-100 ${rubik.className}`}>
                             Selfie-post {index + 1}
                           </h3>
-                          <p className="text-xs text-emerald-100/65">
+                          <p className="text-xs text-rose-100/65">
                             {question.lat !== null && question.lng !== null ? "Pin valgt på kortet" : "Pin mangler"}
                           </p>
                         </div>
@@ -855,7 +877,7 @@ export default function SelfieBuilderClient() {
                     </div>
 
                     <div className="mt-4">
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
                         Hvad skal være i baggrunden?
                       </label>
                       <input
@@ -867,7 +889,7 @@ export default function SelfieBuilderClient() {
                     </div>
 
                     <div className="mt-4">
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
                         Instruktion til deltagerne
                       </label>
                       <textarea
@@ -882,13 +904,13 @@ export default function SelfieBuilderClient() {
                     <button
                       type="button"
                       onClick={() => assignPinFromCenter(question.id)}
-                      className="mt-4 inline-flex w-full items-center justify-center rounded-[1.2rem] border border-emerald-500/30 bg-emerald-500 px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400"
+                      className="mt-4 inline-flex w-full items-center justify-center rounded-[1.2rem] border border-rose-500/30 bg-rose-500 px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-rose-500/20 transition-all hover:bg-rose-400"
                     >
                       Hent pin fra kortet
                     </button>
 
                     {question.lat !== null && question.lng !== null ? (
-                      <p className="mt-3 text-xs text-emerald-100/70">
+                      <p className="mt-3 text-xs text-rose-100/70">
                         Pin gemt: {question.lat.toFixed(5)}, {question.lng.toFixed(5)}
                       </p>
                     ) : null}
@@ -896,46 +918,15 @@ export default function SelfieBuilderClient() {
                 );
               })}
 
-              <div className="rounded-[1.7rem] border border-emerald-500/20 bg-slate-900/60 p-4 shadow-[0_20px_48px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-5">
+              <div className="rounded-[1.7rem] border border-rose-500/30 bg-rose-950/20 p-4 shadow-[0_20px_48px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-5">
                 <button
                   type="button"
                   onClick={addQuestion}
-                  className="inline-flex items-center gap-2 rounded-[1.2rem] border border-emerald-500/20 bg-slate-900/60 px-4 py-3 text-sm font-semibold text-emerald-100 backdrop-blur-xl transition hover:bg-slate-800/80"
+                  className="inline-flex items-center gap-2 rounded-[1.2rem] border border-rose-500/30 bg-rose-950/20 px-4 py-3 text-sm font-semibold text-rose-100 backdrop-blur-xl transition hover:bg-rose-500/10"
                 >
                   <Plus className="h-4 w-4" />
                   Tilføj ny selfie-post
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowSubjectField((current) => !current)}
-                  className="mt-4 inline-flex items-center gap-2 text-sm text-emerald-100/70 transition hover:text-emerald-100"
-                >
-                  {showSubjectField ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  {showSubjectField ? "Skjul fag (valgfrit)" : "Tilføj fag (valgfrit)"}
-                </button>
-
-                {showSubjectField ? (
-                  <div className="mt-4 rounded-[1.4rem] border border-emerald-500/20 bg-slate-900/60 p-4 backdrop-blur-xl">
-                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
-                      Fag
-                    </label>
-                    <select
-                      value={subject}
-                      onChange={(event) => setSubject(event.target.value)}
-                      className="w-full appearance-none rounded-2xl border border-slate-700 bg-slate-900/50 p-3 text-slate-100 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    >
-                      <option value="" className="bg-slate-900 text-white">
-                        Vælg et fag...
-                      </option>
-                      {SUBJECT_OPTIONS.map((subjectOption) => (
-                        <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
-                          {subjectOption}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : null}
 
                 <div ref={saveFeedbackRef} className="mt-5 space-y-4">
                   {notice?.tone === "error" ? renderNotice() : null}
@@ -943,7 +934,7 @@ export default function SelfieBuilderClient() {
                     type="button"
                     onClick={handleSaveRun}
                     disabled={isSaving || isAiBusy}
-                    className="w-full rounded-[1.5rem] border border-emerald-500/30 bg-emerald-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-[1.5rem] border border-rose-500/30 bg-rose-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-rose-500/20 transition-all hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
                   </button>
@@ -955,7 +946,7 @@ export default function SelfieBuilderClient() {
 
           <aside className="w-full p-4 pt-0 sm:px-6 lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
             <div className="lg:sticky lg:top-5">
-              <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-slate-900/60 shadow-[0_0_0_1px_rgba(16,185,129,0.08),0_0_36px_rgba(16,185,129,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
+              <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-rose-500/20 bg-slate-900/60 shadow-[0_0_0_1px_rgba(244,63,94,0.08),0_0_36px_rgba(244,63,94,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
                 <MapPicker center={mapCenter} pins={pins} onCenterChange={setMapCenter} />
               </div>
             </div>
@@ -965,16 +956,16 @@ export default function SelfieBuilderClient() {
 
       {showAIModal && (
         <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xl">
-          <div className="w-full max-w-3xl rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-6 shadow-[0_32px_100px_rgba(0,0,0,0.72)] backdrop-blur-xl sm:p-8">
+          <div className="w-full max-w-3xl rounded-3xl border border-rose-500/20 bg-slate-900/60 p-6 shadow-[0_32px_100px_rgba(0,0,0,0.72)] backdrop-blur-xl sm:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold tracking-[0.28em] text-emerald-100/55 uppercase">
+                <p className="text-xs font-semibold tracking-[0.28em] text-rose-100/55 uppercase">
                   AI-modal
                 </p>
-                <h2 className={`mt-3 text-3xl font-extrabold text-emerald-50 ${rubik.className}`}>
+                <h2 className={`mt-3 text-3xl font-extrabold text-rose-50 ${rubik.className}`}>
                   Intelligent selfie-assistent
                 </h2>
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-emerald-100/75">
+                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-rose-100/75">
                   Beskriv stedet, så foreslår AI&apos;en korte selfie-poster med tydelige baggrunde.
                 </p>
               </div>
@@ -982,7 +973,7 @@ export default function SelfieBuilderClient() {
 
             {previewQuestions.length > 0 ? (
               <div className="mt-8">
-                <p className="mb-4 text-sm text-emerald-100/75">
+                <p className="mb-4 text-sm text-rose-100/75">
                   Gennemgå posterne og ret dem til, før de overføres til kortet.
                 </p>
 
@@ -990,9 +981,9 @@ export default function SelfieBuilderClient() {
                   {previewQuestions.map((question, index) => (
                     <div
                       key={question.id}
-                      className="rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-4 backdrop-blur-xl"
+                      className="rounded-3xl border border-rose-500/20 bg-slate-900/60 p-4 backdrop-blur-xl"
                     >
-                      <p className="mb-3 text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                      <p className="mb-3 text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
                         Selfie-post {index + 1}
                       </p>
                       <input
@@ -1012,7 +1003,7 @@ export default function SelfieBuilderClient() {
                         disabled={isGenerating}
                         className={`mt-3 ${textareaClass}`}
                       />
-                      <p className="mt-3 text-sm leading-relaxed text-emerald-50">
+                      <p className="mt-3 text-sm leading-relaxed text-rose-50">
                         {normalizeSelfieInstruction(question.text, question.aiPrompt)}
                       </p>
                     </div>
@@ -1031,7 +1022,7 @@ export default function SelfieBuilderClient() {
                   <button
                     type="button"
                     onClick={() => setPreviewQuestions([])}
-                    className="w-full rounded-[1.4rem] border border-emerald-500/20 bg-slate-900/60 py-3 font-semibold text-emerald-100/80 transition hover:bg-slate-800/80"
+                    className="w-full rounded-[1.4rem] border border-rose-500/20 bg-slate-900/60 py-3 font-semibold text-rose-100/80 transition hover:bg-slate-800/80"
                   >
                     Kassér og prøv igen
                   </button>
@@ -1040,7 +1031,7 @@ export default function SelfieBuilderClient() {
             ) : (
               <>
                 <div className="mt-8">
-                  <label className="mb-3 block text-sm font-semibold text-emerald-50">
+                  <label className="mb-3 block text-sm font-semibold text-rose-50">
                     Hvad skal AI&apos;en bygge ud fra?
                   </label>
                   <textarea
@@ -1049,7 +1040,7 @@ export default function SelfieBuilderClient() {
                     rows={6}
                     disabled={isGenerating}
                     placeholder="F.eks. Lav 6 selfie-poster i en park med tydelige steder og naturdetaljer."
-                    className="w-full rounded-3xl border border-slate-700 bg-slate-900/50 p-5 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full rounded-3xl border border-slate-700 bg-slate-900/50 p-5 text-slate-100 placeholder:text-slate-500 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500"
                   />
                 </div>
 
@@ -1057,20 +1048,20 @@ export default function SelfieBuilderClient() {
                     type="button"
                     onClick={() => setShowAIMetadataFields((current) => !current)}
                     disabled={isGenerating}
-                    className="mt-4 inline-flex items-center gap-2 text-sm text-emerald-100/70 transition hover:text-emerald-100"
+                    className="mt-4 inline-flex items-center gap-2 text-sm text-rose-100/70 transition hover:text-rose-100"
                   >
                   {showAIMetadataFields ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   Tilpas fag og niveau (valgfrit)
                 </button>
 
                 {showAIMetadataFields ? (
-                  <section className="mt-4 rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-4 backdrop-blur-xl">
+                  <section className="mt-4 rounded-3xl border border-rose-500/20 bg-slate-900/60 p-4 backdrop-blur-xl">
                     <div className="grid gap-4 md:grid-cols-2">
                       <select
                         value={aiSubject}
                         onChange={(event) => setAiSubject(event.target.value)}
                         disabled={isGenerating}
-                        className="w-full rounded-2xl border border-slate-700 bg-slate-900/50 p-3 text-slate-100 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        className="w-full rounded-2xl border border-slate-700 bg-slate-900/50 p-3 text-slate-100 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500"
                       >
                         <option value="" className="bg-slate-900 text-white">
                           Vælg fag...
@@ -1085,7 +1076,7 @@ export default function SelfieBuilderClient() {
                         value={aiGrade}
                         onChange={(event) => setAiGrade(event.target.value)}
                         disabled={isGenerating}
-                        className="w-full rounded-2xl border border-slate-700 bg-slate-900/50 p-3 text-slate-100 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        className="w-full rounded-2xl border border-slate-700 bg-slate-900/50 p-3 text-slate-100 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500"
                       >
                         {GRADE_OPTIONS.map((gradeOption) => (
                           <option key={gradeOption} value={gradeOption} className="bg-slate-900 text-white">
@@ -1102,7 +1093,7 @@ export default function SelfieBuilderClient() {
                     type="button"
                     onClick={closeAIModal}
                     disabled={isGenerating}
-                    className="rounded-[1.4rem] border border-emerald-500/20 bg-slate-900/60 px-5 py-3 text-sm font-semibold text-emerald-100/80 transition hover:bg-slate-800/80 disabled:opacity-60"
+                    className="rounded-[1.4rem] border border-rose-500/20 bg-slate-900/60 px-5 py-3 text-sm font-semibold text-rose-100/80 transition hover:bg-slate-800/80 disabled:opacity-60"
                   >
                     Luk
                   </button>
@@ -1130,3 +1121,4 @@ export default function SelfieBuilderClient() {
     </>
   );
 }
+
