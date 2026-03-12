@@ -295,13 +295,13 @@ const createQuestion = (type: Question["type"] = "multiple_choice"): Question =>
 });
 
 const inputClass =
-  "w-full rounded-2xl border border-slate-700 bg-slate-900/50 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+  "w-full rounded-2xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const reviewInputClass =
   "w-full rounded-2xl border border-slate-700 bg-slate-900/50 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const aiActionButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-emerald-500/30 bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 px-5 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const DEFAULT_ANSWERS: [string, string, string, string] = ["", "", "", ""];
 
@@ -1511,7 +1511,7 @@ function OpretLoebPageContent() {
                   onChange={(event) => setTitle(event.target.value)}
                   disabled={isAiBusy}
                   placeholder="F.eks. 4.B's store natur-løb"
-                  className="w-full rounded-[1.6rem] border border-emerald-500/20 bg-slate-900/50 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                  className="w-full rounded-[1.6rem] border border-emerald-500/30 bg-emerald-950/20 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                 />
               </div>
 
@@ -1525,8 +1525,31 @@ function OpretLoebPageContent() {
                   disabled={isAiBusy}
                   rows={3}
                   placeholder="Kort intro eller beskrivelse af løbet (valgfrit)"
-                  className="w-full rounded-[1.6rem] border border-emerald-500/20 bg-slate-900/50 px-5 py-4 text-sm leading-6 text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                  className="w-full rounded-[1.6rem] border border-emerald-500/30 bg-emerald-950/20 px-5 py-4 text-sm leading-6 text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                 />
+              </div>
+
+              <div className="px-1">
+                <div className="rounded-[1.5rem] border border-emerald-500/30 bg-emerald-950/20 p-4 backdrop-blur-xl">
+                  <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                    Emne
+                  </label>
+                  <select
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    disabled={isAiBusy}
+                    className="w-full rounded-2xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    <option value="" className="bg-slate-900 text-white">
+                      Vælg et fag til arkivet...
+                    </option>
+                    {Object.keys(SUBJECT_TOPICS).map((subjectOption) => (
+                      <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
+                        {subjectOption}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="space-y-4 px-1">
@@ -1549,7 +1572,7 @@ function OpretLoebPageContent() {
                       Dine poster
                     </p>
                   </div>
-                  <span className="rounded-full border border-emerald-500/20 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-emerald-100/80 backdrop-blur-xl">
+                  <span className="rounded-full border border-emerald-500/30 bg-emerald-950/20 px-4 py-2 text-sm font-semibold text-emerald-100/80 backdrop-blur-xl">
                     {questions.length}
                   </span>
                 </div>
@@ -1560,11 +1583,11 @@ function OpretLoebPageContent() {
               {questions.map((question, questionIndex) => (
                 <article
                   key={question.id}
-                  className="rounded-[1.8rem] border border-emerald-500/20 bg-slate-900/50 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
+                  className="rounded-[1.8rem] border border-emerald-500/30 bg-emerald-950/20 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2.5">
                     <div className="flex items-center gap-2.5">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/20 bg-slate-900/50 text-sm font-bold text-emerald-100">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-950/20 text-sm font-bold text-emerald-100">
                         {questionIndex + 1}
                       </div>
                       <div>
@@ -1578,7 +1601,7 @@ function OpretLoebPageContent() {
                         </p>
                       </div>
                     </div>
-                    <span className="rounded-full border border-emerald-500/20 bg-slate-900/60 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-emerald-100/75 uppercase backdrop-blur-xl">
+                    <span className="rounded-full border border-emerald-500/30 bg-emerald-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-emerald-100/75 uppercase backdrop-blur-xl">
                       {question.type === "ai_image" ? "AI foto" : "4 svar"}
                       </span>
                   </div>
@@ -1597,7 +1620,7 @@ function OpretLoebPageContent() {
                   </div>
 
                   {question.type === "ai_image" ? (
-                    <div className="mt-4 rounded-[1.4rem] border border-emerald-500/20 bg-slate-900/50 p-3 backdrop-blur-xl">
+                    <div className="mt-4 rounded-[1.4rem] border border-emerald-500/30 bg-emerald-950/20 p-3 backdrop-blur-xl">
                       <label className="mb-2 block text-sm font-semibold text-emerald-100">
                         Instruks til AI-dommeren
                       </label>
@@ -1607,7 +1630,7 @@ function OpretLoebPageContent() {
                         disabled={isAiBusy}
                         rows={4}
                         placeholder="Hvad skal deltagerne tage billede af? F.eks. 'Find et egetræ' eller 'Tag et billede af noget rundt og blåt'."
-                        className="w-full rounded-2xl border border-emerald-500/20 bg-slate-900/50 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                        className="w-full rounded-2xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                       />
                       <p className="mt-2 text-xs text-emerald-100/70">
                         Skriv en tydelig dommer-instruks, så AI&apos;en kan vurdere billedet præcist.
@@ -1624,7 +1647,7 @@ function OpretLoebPageContent() {
                             className={`flex items-center gap-2.5 rounded-[1.25rem] border px-3 py-2.5 transition ${
                               isCorrectAnswer
                                 ? "border-emerald-300/40 bg-emerald-500/12 shadow-[0_14px_28px_rgba(16,185,129,0.12)]"
-                                : "border-emerald-500/20 bg-slate-900/60 hover:border-emerald-400/25"
+                                : "border-emerald-500/30 bg-emerald-950/20 hover:border-emerald-400/25"
                             }`}
                           >
                             <button
@@ -1635,7 +1658,7 @@ function OpretLoebPageContent() {
                               className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-black transition ${
                                 isCorrectAnswer
                                   ? "border-emerald-200 bg-emerald-300 text-[#062515] shadow-[0_0_18px_rgba(110,231,183,0.24)]"
-                                  : "border-emerald-500/20 bg-slate-900/60 text-emerald-100/78 hover:border-emerald-300/30"
+                                  : "border-emerald-500/30 bg-emerald-950/20 text-emerald-100/78 hover:border-emerald-300/30"
                               }`}
                             >
                               {String.fromCharCode(65 + answerIndex)}
@@ -1655,7 +1678,7 @@ function OpretLoebPageContent() {
                               className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] transition ${
                                 isCorrectAnswer
                                   ? "border-emerald-200/60 bg-emerald-300 text-[#062515]"
-                                  : "border-emerald-500/20 bg-slate-900/60 text-emerald-100/72 hover:border-emerald-300/30 hover:text-emerald-100"
+                                  : "border-emerald-500/30 bg-emerald-950/20 text-emerald-100/72 hover:border-emerald-300/30 hover:text-emerald-100"
                               }`}
                             >
                               {isCorrectAnswer ? <Check className="h-3.5 w-3.5" /> : null}
@@ -1667,7 +1690,7 @@ function OpretLoebPageContent() {
                     </div>
                   )}
 
-                  <div className="mt-4 rounded-[1.4rem] border border-emerald-500/20 bg-slate-900/50 p-3 backdrop-blur-xl">
+                  <div className="mt-4 rounded-[1.4rem] border border-emerald-500/30 bg-emerald-950/20 p-3 backdrop-blur-xl">
                     <div className="flex flex-wrap items-center gap-2 text-sm text-emerald-100/75">
                       <ImageIcon className="h-4 w-4 text-emerald-200" />
                       <Youtube className="h-4 w-4 text-emerald-200" />
@@ -1678,7 +1701,7 @@ function OpretLoebPageContent() {
                       <motion.div
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="relative mx-auto mt-4 aspect-video w-full max-w-[300px] overflow-hidden rounded-2xl border border-emerald-500/20 bg-slate-900/50 shadow-2xl backdrop-blur-xl"
+                        className="relative mx-auto mt-4 aspect-video w-full max-w-[300px] overflow-hidden rounded-2xl border border-emerald-500/30 bg-emerald-950/20 shadow-2xl backdrop-blur-xl"
                       >
                         <Image
                           src={question.mediaUrl}
@@ -1707,7 +1730,7 @@ function OpretLoebPageContent() {
                         value={question.mediaUrl || ""}
                         onChange={(e) => updateQuestion(question.id, "mediaUrl", e.target.value)}
                         disabled={isAiBusy}
-                        className="min-w-0 flex-1 rounded-2xl border border-emerald-500/20 bg-slate-900/50 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                        className="min-w-0 flex-1 rounded-2xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                       />
                       <button
                         type="button"
@@ -1747,48 +1770,16 @@ function OpretLoebPageContent() {
                 </article>
               ))}
 
-              <div className="rounded-[2rem] border border-emerald-500/20 bg-slate-900/50 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+              <div className="rounded-[2rem] border border-emerald-500/30 bg-emerald-950/20 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
                 <button
                   type="button"
                   onClick={addQuestion}
                   disabled={isAiBusy}
-                  className="inline-flex items-center gap-2 rounded-[1.4rem] border border-emerald-500/20 bg-slate-900/50 px-4 py-3 text-sm font-semibold text-emerald-100 backdrop-blur-xl transition hover:bg-emerald-900/60 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-[1.4rem] border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-sm font-semibold text-emerald-100 backdrop-blur-xl transition hover:bg-emerald-900/30 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                 >
                   <Plus className="h-4 w-4" />
                   {addQuestionLabel}
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowTeacherField((prev) => !prev)}
-                  className="mt-5 inline-flex items-center gap-2 text-sm text-emerald-100/70 transition hover:text-emerald-100"
-                >
-                  {showTeacherField ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  {showTeacherField ? "Skjul emne (valgfrit)" : "Tilføj emne (valgfrit)"}
-                </button>
-
-                {showTeacherField ? (
-                  <div className="mt-4 rounded-[1.5rem] border border-emerald-500/20 bg-slate-900/50 p-4 backdrop-blur-xl">
-                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
-                      Emne
-                    </label>
-                    <select
-                      value={subject}
-                      onChange={(e) => setSubject(e.target.value)}
-                      disabled={isAiBusy}
-                      className="w-full rounded-2xl border border-emerald-500/20 bg-slate-900/50 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                    >
-                      <option value="" className="bg-slate-900 text-white">
-                        Vælg et fag til arkivet...
-                      </option>
-                      {AI_SUBJECT_OPTIONS.map((subjectOption) => (
-                        <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
-                          {subjectOption}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : null}
 
                 <div ref={saveFeedbackRef} className="mt-6 space-y-4">
                   {notice?.tone === "error" ? renderNotice() : null}
