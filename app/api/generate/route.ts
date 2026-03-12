@@ -30,12 +30,7 @@ type GeneratedQuestion = {
 const generatedQuestionSchema = z
   .object({
     text: z.string().trim().min(1),
-    answers: z.tuple([
-      z.string().trim().min(1),
-      z.string().trim().min(1),
-      z.string().trim().min(1),
-      z.string().trim().min(1),
-    ]),
+    answers: z.array(z.string().trim().min(1)),
     correctIndex: z.number().int().min(0).max(3),
   })
   .strict();
