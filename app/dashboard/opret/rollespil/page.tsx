@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ChevronDown, ChevronUp, Loader2, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -30,7 +30,7 @@ import { createClient } from "@/utils/supabase/client";
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ssr: false,
   loading: () => (
-    <div className="h-full w-full animate-pulse rounded-3xl border border-emerald-500/20 bg-slate-900/60" />
+    <div className="h-full w-full animate-pulse rounded-3xl border border-violet-500/20 bg-slate-900/60" />
   ),
 });
 
@@ -239,13 +239,16 @@ type RollespilBuilderDraftState = {
 };
 
 const textInputClass =
-  "w-full rounded-2xl border border-slate-700 bg-slate-900/50 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500";
+  "w-full rounded-2xl border border-violet-500/30 bg-violet-950/20 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500";
 
 const textareaClass =
-  "w-full rounded-2xl border border-slate-700 bg-slate-900/50 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500";
+  "w-full rounded-2xl border border-violet-500/30 bg-violet-950/20 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500";
 
 const previewInputClass =
-  "w-full rounded-2xl border border-slate-700 bg-slate-900/50 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500";
+  "w-full rounded-2xl border border-slate-700 bg-slate-900/50 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500";
+
+const aiActionButtonClass =
+  "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 px-5 py-3 text-sm font-semibold transition-all";
 
 const BLANK_ANSWERS: [string, string, string, string] = ["", "", "", ""];
 
@@ -367,13 +370,13 @@ export default function RollespilBuilderPage() {
   return (
     <Suspense
       fallback={
-        <div className={`min-h-screen bg-slate-950 ${poppins.className}`}>
+        <div className={`min-h-screen bg-violet-950 ${poppins.className}`}>
           <div className="flex min-h-screen items-center justify-center px-6 text-center">
-            <div className="rounded-[2rem] border border-emerald-500/20 bg-slate-900/60 px-8 py-10 text-emerald-100 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
-              <p className="text-xs font-semibold tracking-[0.28em] text-emerald-100/55 uppercase">
+            <div className="rounded-[2rem] border border-violet-500/30 bg-violet-950/20 px-8 py-10 text-violet-100 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+              <p className="text-xs font-semibold tracking-[0.28em] text-violet-100/55 uppercase">
                 Indlæser
               </p>
-              <h1 className={`mt-3 text-3xl font-black tracking-tight text-emerald-100 ${rubik.className}`}>
+              <h1 className={`mt-3 text-3xl font-black tracking-tight text-violet-100 ${rubik.className}`}>
                 Rollespil-bygger
               </h1>
             </div>
@@ -417,7 +420,7 @@ function RollespilBuilderPageContent() {
       <div
         className={`rounded-[1.5rem] border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
           notice.tone === "success"
-            ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-50"
+            ? "border-violet-300/30 bg-violet-500/10 text-violet-50"
             : "border-red-300/30 bg-red-500/10 text-red-100"
         } ${className}`}
       >
@@ -1016,18 +1019,18 @@ function RollespilBuilderPageContent() {
 
   if (isEditMode && isLoadingExistingRun) {
     return (
-      <div className={`relative min-h-screen overflow-hidden bg-slate-950 text-emerald-100 ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-slate-950/70 backdrop-blur-[2px]" />
+      <div className={`relative min-h-screen overflow-hidden bg-violet-950 text-violet-100 ${poppins.className}`}>
+        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-violet-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
-          <div className="w-full max-w-md rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-            <Loader2 className="mx-auto h-10 w-10 animate-spin text-emerald-200" />
-            <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-emerald-100/55 uppercase">
+          <div className="w-full max-w-md rounded-3xl border border-violet-500/30 bg-violet-950/20 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+            <Loader2 className="mx-auto h-10 w-10 animate-spin text-violet-200" />
+            <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-violet-100/55 uppercase">
               Rediger løb
             </p>
-            <h1 className={`mt-3 text-3xl font-black tracking-tight text-emerald-100 ${rubik.className}`}>
+            <h1 className={`mt-3 text-3xl font-black tracking-tight text-violet-100 ${rubik.className}`}>
               Indlæser dine rolleposter
             </h1>
-            <p className="mt-3 text-sm leading-6 text-emerald-100/70">
+            <p className="mt-3 text-sm leading-6 text-violet-100/70">
               Vi henter løbets data og klargør builderen til redigering.
             </p>
           </div>
@@ -1038,26 +1041,48 @@ function RollespilBuilderPageContent() {
 
   return (
     <>
-      <div className={`relative min-h-screen overflow-x-hidden bg-slate-950 text-emerald-100 ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-slate-950/70 backdrop-blur-[2px]" />
+      <div className={`relative min-h-screen overflow-x-hidden bg-violet-950 text-violet-100 ${poppins.className}`}>
+        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-violet-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
           <section className="w-full px-4 py-4 sm:px-6 sm:py-6 lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
             <div className="mx-auto max-w-3xl space-y-5">
               <div className="px-1 pt-1">
                 {isEditMode ? (
-                  <div className="mb-4 inline-flex items-center rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-emerald-100 uppercase">
+                  <div className="mb-4 inline-flex items-center rounded-full border border-violet-500/25 bg-violet-500/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-violet-100 uppercase">
                     Edit-mode
                   </div>
                 ) : null}
-                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                   Løbets titel
                 </label>
                 <input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
-                  placeholder="F.eks. Kongens hemmelige rejse"
+                  placeholder="F.eks. 5.A's rejse til Vikingetiden"
                   className={textInputClass}
                 />
+              </div>
+
+              <div className="px-1">
+                <div className="rounded-[1.5rem] border border-violet-500/30 bg-violet-950/20 p-4 backdrop-blur-xl">
+                  <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
+                    Emne
+                  </label>
+                  <select
+                    value={subject}
+                    onChange={(event) => setSubject(event.target.value)}
+                    className="w-full appearance-none rounded-2xl border border-violet-500/30 bg-violet-950/20 p-3 text-slate-100 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  >
+                    <option value="" className="bg-slate-900 text-white">
+                      Vælg et fag til arkivet...
+                    </option>
+                    {Object.keys(SUBJECT_TOPICS).map((subjectOption) => (
+                      <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
+                        {subjectOption}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="space-y-4 px-1">
@@ -1068,17 +1093,17 @@ function RollespilBuilderPageContent() {
                     setShowAIModal(true);
                     setPreviewQuestions([]);
                   }}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-[1.4rem] border border-emerald-500/30 bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/20 backdrop-blur-2xl transition-all hover:bg-emerald-400 sm:w-auto"
+                  className={`${aiActionButtonClass} w-full sm:w-auto`}
                 >
                   <span aria-hidden>✨</span>
                   Auto-udfyld historie med AI
                 </button>
 
                 <div className="flex items-end justify-between gap-4">
-                  <p className="text-xs font-semibold tracking-[0.24em] text-emerald-100/65 uppercase">
+                  <p className="text-xs font-semibold tracking-[0.24em] text-violet-100/65 uppercase">
                     Dine poster
                   </p>
-                  <span className="rounded-full border border-emerald-500/20 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-emerald-100/80 backdrop-blur-xl">
+                  <span className="rounded-full border border-violet-500/30 bg-violet-950/20 px-4 py-2 text-sm font-semibold text-violet-100/80 backdrop-blur-xl">
                     {questions.length}
                   </span>
                 </div>
@@ -1089,32 +1114,32 @@ function RollespilBuilderPageContent() {
               {questions.map((question, index) => (
                 <article
                   key={question.id}
-                  className="rounded-[1.8rem] border border-emerald-500/20 bg-slate-900/60 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
+                  className="rounded-[1.8rem] border border-violet-500/30 bg-violet-950/20 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2.5">
                     <div className="flex items-center gap-2.5">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/20 bg-slate-900/60 text-sm font-bold text-emerald-100">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full border border-violet-500/30 bg-violet-950/20 text-sm font-bold text-violet-100">
                         {index + 1}
                       </div>
                       <div>
-                        <h3 className={`text-lg font-bold text-emerald-100 ${rubik.className}`}>
+                        <h3 className={`text-lg font-bold text-violet-100 ${rubik.className}`}>
                           Post {index + 1}
                         </h3>
-                        <p className="text-xs text-emerald-100/65">
+                        <p className="text-xs text-violet-100/65">
                           {question.lat !== null && question.lng !== null
                             ? "Pin er valgt på kortet"
                             : "Ingen pin valgt endnu"}
                         </p>
                       </div>
                     </div>
-                    <span className="rounded-full border border-emerald-500/20 bg-slate-900/60 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-emerald-100/75 uppercase backdrop-blur-xl">
+                    <span className="rounded-full border border-violet-500/30 bg-violet-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-violet-100/75 uppercase backdrop-blur-xl">
                       Rollespil
                     </span>
                   </div>
 
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     <div>
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                         Karakterens Navn
                       </label>
                       <input
@@ -1128,7 +1153,7 @@ function RollespilBuilderPageContent() {
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                         Avatar (Emoji eller Billed-URL)
                       </label>
                       <input
@@ -1142,7 +1167,7 @@ function RollespilBuilderPageContent() {
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                         Karakterens besked / Gåde
                       </label>
                       <textarea
@@ -1157,7 +1182,7 @@ function RollespilBuilderPageContent() {
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                         Det rigtige svar fra deltageren
                       </label>
                       <input
@@ -1174,56 +1199,28 @@ function RollespilBuilderPageContent() {
                   <button
                     type="button"
                     onClick={() => assignPinFromCenter(question.id)}
-                    className="mt-4 w-full rounded-[1.35rem] border border-emerald-500/30 bg-emerald-500 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400"
+                    className="mt-4 w-full rounded-[1.35rem] border border-violet-500/30 bg-violet-500 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-violet-500/20 transition-all hover:bg-violet-400"
                   >
                     Hent pin fra kortet
                   </button>
 
                   {question.lat !== null && question.lng !== null ? (
-                    <p className="mt-2.5 text-xs text-emerald-100/70">
+                    <p className="mt-2.5 text-xs text-violet-100/70">
                       Pin gemt: {question.lat.toFixed(5)}, {question.lng.toFixed(5)}
                     </p>
                   ) : null}
                 </article>
               ))}
 
-              <div className="rounded-[1.8rem] border border-emerald-500/20 bg-slate-900/60 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl">
+              <div className="rounded-[1.8rem] border border-violet-500/30 bg-violet-950/20 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl">
                 <button
                   type="button"
                   onClick={addQuestion}
-                  className="inline-flex items-center gap-2 rounded-[1.4rem] border border-emerald-500/20 bg-slate-900/60 px-4 py-3 text-sm font-semibold text-emerald-100 backdrop-blur-xl transition hover:bg-slate-800/80"
+                  className="inline-flex items-center gap-2 rounded-[1.4rem] border border-violet-500/30 bg-violet-950/20 px-4 py-3 text-sm font-semibold text-violet-100 backdrop-blur-xl transition hover:bg-violet-500/15"
                 >
                   <Plus className="h-4 w-4" />
                   Tilføj ny post
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowTeacherField((current) => !current)}
-                  className="mt-5 inline-flex items-center gap-2 text-sm text-emerald-100/70 transition hover:text-emerald-100"
-                >
-                  {showTeacherField ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                  {showTeacherField ? "Skjul emne/tidsalder (valgfrit)" : "Tilføj emne/tidsalder (valgfrit)"}
-                </button>
-
-                {showTeacherField ? (
-                  <div className="mt-4 rounded-[1.5rem] border border-emerald-500/20 bg-slate-900/60 p-4 backdrop-blur-xl">
-                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
-                      Emne/Tidsalder
-                    </label>
-                    <input
-                      value={subject}
-                      onChange={(event) => setSubject(event.target.value)}
-                      list="roleplay-topic-suggestions"
-                      placeholder="f.eks. Tordenskjold i 1700-tallet eller H.C. Andersen"
-                      className="w-full rounded-2xl border border-slate-700 bg-slate-900/50 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-                ) : null}
 
                 <div ref={saveFeedbackRef} className="mt-6 space-y-4">
                   {notice?.tone === "error" ? renderNotice() : null}
@@ -1231,7 +1228,7 @@ function RollespilBuilderPageContent() {
                     type="button"
                     onClick={handleSaveRun}
                     disabled={isSaving}
-                    className="w-full rounded-[1.6rem] border border-emerald-500/30 bg-emerald-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-[1.6rem] border border-violet-500/30 bg-violet-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-violet-500/20 transition-all hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
                   </button>
@@ -1242,7 +1239,7 @@ function RollespilBuilderPageContent() {
 
           <aside className="w-full p-4 pt-0 sm:px-6 lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
             <div className="lg:sticky lg:top-5">
-              <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-slate-900/60 shadow-[0_0_0_1px_rgba(16,185,129,0.08),0_0_36px_rgba(16,185,129,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
+              <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-violet-500/20 bg-slate-900/60 shadow-[0_0_0_1px_rgba(139,92,246,0.08),0_0_36px_rgba(139,92,246,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
                 <MapPicker center={mapCenter} pins={pins} onCenterChange={setMapCenter} />
               </div>
             </div>
@@ -1258,19 +1255,19 @@ function RollespilBuilderPageContent() {
 
       {showAIModal && (
         <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xl">
-          <div className="w-full max-w-3xl rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-6 shadow-[0_32px_100px_rgba(0,0,0,0.72)] backdrop-blur-xl sm:p-8">
+          <div className="w-full max-w-3xl rounded-3xl border border-violet-500/20 bg-slate-900/60 p-6 shadow-[0_32px_100px_rgba(0,0,0,0.72)] backdrop-blur-xl sm:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold tracking-[0.28em] text-emerald-100/55 uppercase">
+                <p className="text-xs font-semibold tracking-[0.28em] text-violet-100/55 uppercase">
                   AI-modal
                 </p>
                 <h2
-                  className={`mt-3 flex items-center gap-2 text-3xl font-extrabold text-emerald-100 ${rubik.className}`}
+                  className={`mt-3 flex items-center gap-2 text-3xl font-extrabold text-violet-100 ${rubik.className}`}
                 >
                   <span aria-hidden>✨</span>
                   Intelligent historie-assistent
                 </h2>
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-emerald-100/75">
+                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-violet-100/75">
                   Beskriv en karakter, person eller tidsalder kort, så kan AI&apos;en foreslå
                   karakterer, beskeder og svar til hver post.
                 </p>
@@ -1281,7 +1278,7 @@ function RollespilBuilderPageContent() {
 
             {previewQuestions.length > 0 ? (
               <div className="mt-8">
-                <p className="mb-4 text-sm text-emerald-100/75">
+                <p className="mb-4 text-sm text-violet-100/75">
                   Gennemgå posterne og ret dem til, før de overføres til kortet.
                 </p>
 
@@ -1289,15 +1286,15 @@ function RollespilBuilderPageContent() {
                   {previewQuestions.map((question, index) => (
                     <div
                       key={question.id}
-                      className="rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-4 backdrop-blur-xl"
+                      className="rounded-3xl border border-violet-500/20 bg-slate-900/60 p-4 backdrop-blur-xl"
                     >
-                      <p className="mb-3 text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                      <p className="mb-3 text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                         Post {index + 1}
                       </p>
 
                       <div className="grid gap-4 md:grid-cols-2">
                         <div>
-                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-emerald-100/65 uppercase">
+                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
                             Karakterens Navn
                           </label>
                           <input
@@ -1313,7 +1310,7 @@ function RollespilBuilderPageContent() {
                         </div>
 
                         <div>
-                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-emerald-100/65 uppercase">
+                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
                             Avatar (Emoji eller Billed-URL)
                           </label>
                           <input
@@ -1329,7 +1326,7 @@ function RollespilBuilderPageContent() {
                         </div>
 
                         <div className="md:col-span-2">
-                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-emerald-100/65 uppercase">
+                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
                             Karakterens besked / Gåde
                           </label>
                           <textarea
@@ -1343,7 +1340,7 @@ function RollespilBuilderPageContent() {
                         </div>
 
                         <div className="md:col-span-2">
-                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-emerald-100/65 uppercase">
+                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
                             Det rigtige svar fra deltageren
                           </label>
                           <input
@@ -1366,14 +1363,14 @@ function RollespilBuilderPageContent() {
                   <button
                     type="button"
                     onClick={handleApproveAIPreview}
-                    className="w-full rounded-[1.4rem] border border-emerald-500/30 bg-emerald-500 py-3 font-bold text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400"
+                    className="w-full rounded-[1.4rem] border border-violet-500/30 bg-violet-500 py-3 font-bold text-slate-950 shadow-lg shadow-violet-500/20 transition-all hover:bg-violet-400"
                   >
                     Godkend og placer på kortet
                   </button>
                   <button
                     type="button"
                     onClick={handleDiscardAIPreview}
-                    className="w-full rounded-[1.4rem] border border-emerald-500/20 bg-slate-900/60 py-3 font-semibold text-emerald-100/80 transition hover:bg-slate-800/80"
+                    className="w-full rounded-[1.4rem] border border-violet-500/20 bg-slate-900/60 py-3 font-semibold text-violet-100/80 transition hover:bg-slate-800/80"
                   >
                     Kassér og prøv igen
                   </button>
@@ -1391,14 +1388,14 @@ function RollespilBuilderPageContent() {
                     onChange={(event) => setAiRunBrief(event.target.value)}
                     rows={8}
                     placeholder="f.eks. Lav 5 poster med Tordenskjold i 1700-tallet, H.C. Andersen eller firmaets grundlægger i 1980'erne"
-                    className="w-full rounded-3xl border border-slate-700 bg-slate-900/50 p-5 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full rounded-3xl border border-slate-700 bg-slate-900/50 p-5 text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
                   />
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setShowAITeacherFields((current) => !current)}
-                  className="mt-4 inline-flex items-center gap-2 text-sm text-emerald-100/70 transition hover:text-emerald-100"
+                  className="mt-4 inline-flex items-center gap-2 text-sm text-violet-100/70 transition hover:text-violet-100"
                 >
                   {showAITeacherFields ? (
                     <ChevronUp className="h-4 w-4" />
@@ -1409,10 +1406,10 @@ function RollespilBuilderPageContent() {
                 </button>
 
                 {showAITeacherFields ? (
-                  <section className="mt-4 rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-4 backdrop-blur-xl">
+                  <section className="mt-4 rounded-3xl border border-violet-500/20 bg-slate-900/60 p-4 backdrop-blur-xl">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
-                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-emerald-100/65 uppercase">
+                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
                           Emne/Tidsalder
                         </label>
                         <input
@@ -1420,18 +1417,18 @@ function RollespilBuilderPageContent() {
                           onChange={(event) => setAiSubject(event.target.value)}
                           list="roleplay-topic-suggestions"
                           placeholder="f.eks. Tordenskjold i 1700-tallet, H.C. Andersen eller 1980'erne"
-                          className="w-full rounded-2xl border border-slate-700 bg-slate-900/50 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          className="w-full rounded-2xl border border-slate-700 bg-slate-900/50 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
                         />
                       </div>
 
                       <div>
-                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-emerald-100/65 uppercase">
+                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
                           Målgruppe/Sværhedsgrad
                         </label>
                         <select
                           value={aiGrade}
                           onChange={(event) => setAiGrade(event.target.value)}
-                          className="w-full rounded-2xl border border-slate-700 bg-slate-900/50 p-3 text-slate-100 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          className="w-full rounded-2xl border border-slate-700 bg-slate-900/50 p-3 text-slate-100 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
                         >
                           {AI_AUDIENCE_OPTIONS.map((gradeOption) => (
                             <option
@@ -1453,7 +1450,7 @@ function RollespilBuilderPageContent() {
                     type="button"
                     onClick={closeAIModal}
                     disabled={isGenerating}
-                    className="rounded-[1.4rem] border border-emerald-500/20 bg-slate-900/60 px-5 py-3 text-sm font-semibold text-emerald-100/80 transition hover:bg-slate-800/80 disabled:opacity-60"
+                    className="rounded-[1.4rem] border border-violet-500/20 bg-slate-900/60 px-5 py-3 text-sm font-semibold text-violet-100/80 transition hover:bg-slate-800/80 disabled:opacity-60"
                   >
                     Luk
                   </button>
@@ -1461,7 +1458,7 @@ function RollespilBuilderPageContent() {
                     type="button"
                     onClick={handleAIGenerate}
                     disabled={isGenerating}
-                    className="w-full rounded-[1.4rem] border border-emerald-500/30 bg-emerald-500 px-6 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-[1.4rem] border border-violet-500/30 bg-violet-500 px-6 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-violet-500/20 transition-all hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isGenerating ? (
                       <span className="inline-flex items-center gap-2">
@@ -1475,8 +1472,8 @@ function RollespilBuilderPageContent() {
                 </div>
 
                 {isGenerating ? (
-                  <div className="mt-4 inline-flex items-center gap-2 text-sm text-emerald-100/75">
-                    <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-300" />
+                  <div className="mt-4 inline-flex items-center gap-2 text-sm text-violet-100/75">
+                    <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-violet-300" />
                     AI&apos;en skriver karakterernes beskeder...
                   </div>
                 ) : null}
@@ -1488,3 +1485,4 @@ function RollespilBuilderPageContent() {
     </>
   );
 }
+
