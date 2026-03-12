@@ -38,9 +38,8 @@ const cards: HubCard[] = [
     description: "Skab en klassisk rute med spørgsmål og fire svarmuligheder.",
     href: "/dashboard/opret/manuel",
     icon: MapPin,
-    iconShellClass:
-      "border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.18)]",
-    iconClass: "text-emerald-300",
+    iconShellClass: "border-emerald-200 bg-emerald-100",
+    iconClass: "text-emerald-600",
   },
   {
     title: "AI Foto-mission",
@@ -48,45 +47,40 @@ const cards: HubCard[] = [
       "Deltagerne fotograferer motiver i virkeligheden, og AI'en vurderer billedet på sekunder.",
     href: "/dashboard/opret/foto",
     icon: Camera,
-    iconShellClass:
-      "border-sky-500/30 bg-sky-500/10 shadow-[0_0_30px_rgba(14,165,233,0.18)]",
-    iconClass: "text-sky-300",
+    iconShellClass: "border-sky-200 bg-sky-100",
+    iconClass: "text-sky-600",
   },
   {
     title: "Escape Room",
     description: "Løs gåder ved hver post og saml kode-brikker til en endelig master-kode.",
     href: "/dashboard/opret/escape",
     icon: Lock,
-    iconShellClass:
-      "border-amber-500/30 bg-amber-500/10 shadow-[0_0_30px_rgba(245,158,11,0.18)]",
-    iconClass: "text-amber-300",
+    iconShellClass: "border-amber-200 bg-amber-100",
+    iconClass: "text-amber-600",
   },
   {
     title: "Rollespil",
     description: "Lad eleverne møde karakterer, tale med AI og spille sig gennem historien.",
     href: "/dashboard/opret/rollespil",
     icon: MessageSquare,
-    iconShellClass:
-      "border-violet-500/30 bg-violet-500/10 shadow-[0_0_30px_rgba(139,92,246,0.18)]",
-    iconClass: "text-violet-300",
+    iconShellClass: "border-violet-200 bg-violet-100",
+    iconClass: "text-violet-600",
   },
   {
     title: "Scan bogen",
     description: "Upload en bogside eller indsæt tekst, og lad AI bygge et komplet quiz-løb.",
     href: "/dashboard/opret/scanner",
     icon: BookOpen,
-    iconShellClass:
-      "border-cyan-500/30 bg-cyan-500/10 shadow-[0_0_30px_rgba(6,182,212,0.18)]",
-    iconClass: "text-cyan-300",
+    iconShellClass: "border-cyan-200 bg-cyan-100",
+    iconClass: "text-cyan-600",
   },
   {
     title: "Selfie-mission",
     description: "Byg en jagt med selfie-poster, hvor deltagerne skal finde og dokumentere steder.",
     href: "/dashboard/opret/selfie",
     icon: Sparkles,
-    iconShellClass:
-      "border-rose-500/30 bg-rose-500/10 shadow-[0_0_30px_rgba(244,63,94,0.18)]",
-    iconClass: "text-rose-300",
+    iconShellClass: "border-rose-200 bg-rose-100",
+    iconClass: "text-rose-600",
   },
 ];
 
@@ -106,14 +100,14 @@ function renderCard(card: HubCard, index: number) {
         </div>
 
         <div className="mt-6">
-          <h2 className={`text-2xl font-black tracking-wide text-emerald-400 ${rubik.className}`}>
+          <h2 className={`text-2xl font-black tracking-wide text-gray-900 ${rubik.className}`}>
             {card.title}
           </h2>
-          <p className="mt-4 text-sm leading-relaxed text-slate-300">{card.description}</p>
+          <p className="mt-4 text-sm leading-relaxed text-gray-700">{card.description}</p>
         </div>
 
         <div className="mt-auto pt-8">
-          <span className="inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-xs font-bold tracking-[0.18em] text-emerald-300 uppercase transition-colors group-hover:bg-emerald-500/15 group-focus-visible:bg-emerald-500/15">
+          <span className="inline-flex rounded-full border border-emerald-300 bg-emerald-100 px-4 py-2 text-xs font-bold tracking-[0.18em] text-emerald-800 uppercase transition-colors group-hover:bg-emerald-200 group-focus-visible:bg-emerald-200">
             Vælg løbstype
           </span>
         </div>
@@ -153,15 +147,15 @@ export default function ValgHubPage() {
         </div>
 
         <div className="mt-12 max-w-3xl">
-          <p className="text-sm font-semibold tracking-[0.32em] text-emerald-300 uppercase">
+          <p className="text-sm font-semibold tracking-[0.32em] text-emerald-800 uppercase drop-shadow-sm">
             Vælg format
           </p>
           <h1
-            className={`mt-4 text-4xl font-black tracking-tight text-white md:text-5xl ${rubik.className}`}
+            className={`mt-4 text-4xl font-black tracking-tight text-emerald-950 drop-shadow-md md:text-5xl ${rubik.className}`}
           >
             Hvilken type løb vil du bygge?
           </h1>
-          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-300 md:text-base">
+          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-emerald-900 drop-shadow-sm md:text-base">
             Vælg det format, der passer bedst til dit arrangement. Her finder du quiz, foto,
             escape, rollespil, bog-scanner og selfie-missioner samlet ét sted.
           </p>
