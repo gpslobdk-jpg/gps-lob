@@ -554,7 +554,9 @@ function SessionSection({
                     {session.participantRows.map((participant) => (
                       <tr key={`${session.id}-${participant.name}`}>
                         <td className="px-6 py-5 align-top">
-                          <div className="font-semibold text-white">{participant.name}</div>
+                          <div className="max-w-[150px] truncate font-semibold text-white sm:max-w-[200px]">
+                            {participant.name}
+                          </div>
                           <div className="mt-1 text-xs text-white/60">
                             {participant.answers.length} registrerede besvarelser
                           </div>
@@ -589,7 +591,7 @@ function SessionSection({
                                   </div>
                                   <StoredAnswerImage imageUrl={answer.image_url} />
                                   {answer.analysis_message ? (
-                                    <p className="mt-2 text-xs leading-5 text-white/70">
+                                    <p className="mt-2 break-words text-xs leading-5 text-white/70">
                                       AI-note: {answer.analysis_message}
                                     </p>
                                   ) : null}
@@ -882,7 +884,7 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
             <p className="text-sm font-semibold tracking-[0.28em] text-white/85 uppercase drop-shadow-md">
               Resultater
             </p>
-            <h1 className={`mt-3 text-4xl font-black text-white drop-shadow-xl sm:text-5xl ${rubik.className}`}>
+            <h1 className={`mt-3 text-4xl font-black text-white drop-shadow-xl break-words line-clamp-2 sm:text-5xl ${rubik.className}`}>
               {run.title?.trim() || "Ukendt loeb"}
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-white/90 drop-shadow-md md:text-base">

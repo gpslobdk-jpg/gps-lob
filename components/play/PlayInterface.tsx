@@ -131,7 +131,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const tacticalSecondaryButtonClass =
     `inline-flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[1.35rem] border border-slate-600 bg-slate-800 px-5 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition-all hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 ${rubik.className}`;
   const tacticalInputClass =
-    "w-full rounded-[1.35rem] border border-emerald-500/50 bg-slate-950 px-4 py-4 text-base text-emerald-50 outline-none transition placeholder:text-emerald-400/35 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-70";
+    "w-full rounded-[1.35rem] border border-emerald-500/50 bg-slate-950 px-4 py-4 text-base text-emerald-50 outline-none transition placeholder:text-white/40 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-70";
   const tacticalSuccessPanelClass =
     "overflow-hidden rounded-[1.9rem] border border-emerald-300/35 bg-emerald-500 p-6 text-center text-slate-950 shadow-[0_0_36px_rgba(16,185,129,0.22)] animate-pulse";
 
@@ -380,7 +380,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       <CheckCircle2 className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="text-[11px] font-semibold tracking-[0.28em] text-emerald-200/70 uppercase">
+                      <p className="text-[11px] font-semibold tracking-[0.28em] text-white/80 uppercase">
                         Klar til at vinde
                       </p>
                       <p className={`mt-2 text-base font-bold text-emerald-50 ${wrapTextClass}`}>
@@ -504,7 +504,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
               <div className="mt-8 grid gap-4 lg:grid-cols-[1.1fr,1.3fr]">
                 <div className="rounded-[1.8rem] border border-emerald-300/18 bg-emerald-950/35 p-6 shadow-[0_20px_45px_rgba(16,185,129,0.12)] backdrop-blur-xl">
-                  <p className="text-xs font-semibold tracking-[0.26em] text-emerald-200/70 uppercase">
+                  <p className="text-xs font-semibold tracking-[0.26em] text-white/80 uppercase">
                     Jeres placering
                   </p>
 
@@ -1189,7 +1189,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                           className={`text-xs font-semibold tracking-[0.24em] uppercase ${wrapTextClass} ${
                             activeRoleplayReply.tone === "success"
                               ? "text-emerald-100/75"
-                              : "text-emerald-300/80"
+                              : "text-emerald-200"
                           }`}
                         >
                           {activeRoleplayReply.isLoading
@@ -1267,7 +1267,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                               });
                             }}
                             placeholder={`Skriv dit svar til ${roleplayCharacterName}...`}
-                            className={`min-w-0 flex-1 rounded-[1.35rem] border bg-slate-950 px-4 py-3 text-base text-emerald-50 outline-none transition placeholder:text-emerald-400/35 focus:ring-2 ${
+                            className={`min-w-0 flex-1 rounded-[1.35rem] border bg-slate-950 px-4 py-3 text-base text-emerald-50 outline-none transition placeholder:text-white/40 focus:ring-2 ${
                               hasRoleplayInputErrorTone
                                 ? "border-rose-300/45 focus:border-rose-300/55 focus:ring-rose-300/20"
                                 : "border-emerald-500/50 focus:border-emerald-400 focus:ring-emerald-400/20"
