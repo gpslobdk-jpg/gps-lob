@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState, type FormEvent } from "react";
+import { Poppins, Rubik } from "next/font/google";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, ArrowLeft, KeyRound, Leaf, Loader2, Timer, User } from "lucide-react";
 
@@ -10,6 +11,16 @@ import {
 } from "@/utils/runSchedule";
 import { saveStoredActiveParticipant } from "@/components/play/playUtils";
 import { createClient } from "@/utils/supabase/client";
+
+const rubik = Rubik({
+  subsets: ["latin"],
+  weight: ["700", "800", "900"],
+});
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
 
 type JoinView = "form" | "waiting" | "scheduled" | "expired" | "scheduleError";
 
@@ -276,7 +287,7 @@ function JoinForm() {
   if (view === "scheduled") {
     return (
       <div className="mx-auto flex min-h-screen w-full max-w-4xl items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
-        <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(160deg,rgba(8,15,26,0.96),rgba(3,8,16,0.92))] p-5 text-white shadow-[0_36px_100px_rgba(0,0,0,0.55)] sm:p-8">
+        <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/20 bg-slate-900/60 p-5 text-white shadow-[0_36px_100px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:p-8">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.12),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_42%)]" />
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/15" />
 
@@ -298,7 +309,7 @@ function JoinForm() {
               <p className="mt-6 text-xs font-semibold tracking-[0.42em] text-emerald-300 uppercase">
                 Planlagt Mission
               </p>
-              <h1 className="mt-4 text-3xl font-black text-white sm:text-5xl">
+              <h1 className={`mt-4 text-3xl font-black text-white sm:text-5xl ${rubik.className}`}>
                 Missionen er låst og klar
               </h1>
               <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
@@ -347,7 +358,7 @@ function JoinForm() {
   if (view === "waiting") {
     return (
       <div className="mx-auto flex min-h-screen w-full max-w-3xl items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
-        <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(160deg,rgba(8,15,26,0.96),rgba(3,8,16,0.92))] p-6 text-center text-white shadow-[0_36px_100px_rgba(0,0,0,0.55)] sm:p-8">
+        <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/20 bg-slate-900/60 p-6 text-center text-white shadow-[0_36px_100px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:p-8">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.12),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_42%)]" />
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/15" />
 
@@ -369,7 +380,7 @@ function JoinForm() {
               <p className="mt-6 text-xs font-semibold tracking-[0.42em] text-emerald-300 uppercase">
                 AGENT REGISTRERET
               </p>
-              <h1 className="mt-4 text-3xl font-black text-white sm:text-5xl">
+              <h1 className={`mt-4 text-3xl font-black text-white sm:text-5xl ${rubik.className}`}>
                 Mission Briefing aktiv
               </h1>
               <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-slate-300 sm:text-base">
@@ -391,7 +402,7 @@ function JoinForm() {
   if (view === "scheduleError") {
     return (
       <div className="mx-auto flex h-full w-full max-w-2xl items-center justify-center px-6 py-10">
-        <div className="relative w-full overflow-hidden rounded-[2rem] border border-rose-100/12 bg-[linear-gradient(160deg,rgba(34,16,14,0.88),rgba(20,8,8,0.8))] p-8 text-center text-white shadow-[0_32px_90px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-10">
+        <div className="relative w-full overflow-hidden rounded-[2rem] border border-rose-500/30 bg-rose-950/60 p-8 text-center text-white shadow-[0_32px_90px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-10">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(251,113,133,0.16),transparent_30%),linear-gradient(140deg,rgba(255,255,255,0.04),transparent_42%)]" />
 
           <div className="relative">
@@ -402,7 +413,7 @@ function JoinForm() {
             <p className="mt-6 text-xs font-semibold tracking-[0.38em] text-rose-100/55 uppercase">
               Tidsplan utilgængelig
             </p>
-            <h1 className="mt-4 text-3xl font-black text-white sm:text-4xl">
+            <h1 className={`mt-4 text-3xl font-black text-white sm:text-4xl ${rubik.className}`}>
               Kunne ikke læse tidsplanen
             </h1>
             <p className="mx-auto mt-4 max-w-lg text-base leading-7 text-rose-50/80 sm:text-lg">
@@ -430,7 +441,7 @@ function JoinForm() {
   if (view === "expired") {
     return (
       <div className="mx-auto flex h-full w-full max-w-2xl items-center justify-center px-6 py-10">
-        <div className="relative w-full overflow-hidden rounded-[2rem] border border-amber-100/12 bg-[linear-gradient(160deg,rgba(34,22,12,0.88),rgba(18,10,6,0.8))] p-8 text-center text-white shadow-[0_32px_90px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-10">
+        <div className="relative w-full overflow-hidden rounded-[2rem] border border-amber-500/30 bg-amber-950/60 p-8 text-center text-white shadow-[0_32px_90px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-10">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.14),transparent_30%),linear-gradient(140deg,rgba(255,255,255,0.04),transparent_42%)]" />
 
           <div className="relative">
@@ -441,7 +452,7 @@ function JoinForm() {
             <p className="mt-6 text-xs font-semibold tracking-[0.38em] text-amber-100/55 uppercase">
               Løbet er lukket
             </p>
-            <h1 className="mt-4 text-3xl font-black text-white sm:text-4xl">
+            <h1 className={`mt-4 text-3xl font-black text-white sm:text-4xl ${rubik.className}`}>
               Dette løb er desværre slut
             </h1>
             <p className="mx-auto mt-4 max-w-lg text-base leading-7 text-amber-50/80 sm:text-lg">
@@ -468,7 +479,7 @@ function JoinForm() {
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
-      <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(160deg,rgba(8,15,26,0.96),rgba(3,8,16,0.92))] p-5 text-white shadow-[0_36px_100px_rgba(0,0,0,0.55)] sm:p-8">
+      <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/20 bg-slate-900/60 p-5 text-white shadow-[0_36px_100px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:p-8">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.12),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_42%)]" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/15" />
 
@@ -482,7 +493,7 @@ function JoinForm() {
           <p className="text-center text-xs font-semibold tracking-[0.4em] text-emerald-300 uppercase">
             Secret Agent Access
           </p>
-          <h1 className="mt-4 text-center text-3xl font-black text-white sm:text-4xl">
+          <h1 className={`mt-4 text-center text-3xl font-black text-white sm:text-4xl ${rubik.className}`}>
             Tilslut missionen
           </h1>
           <p className="mt-3 text-center text-sm leading-6 text-slate-300 sm:text-base">
@@ -505,7 +516,7 @@ function JoinForm() {
                 placeholder="Pinkode, f.eks. 4921"
                 value={pin}
                 onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                className="w-full rounded-[1.75rem] border border-emerald-500/30 bg-slate-900/90 py-5 pr-4 pl-12 text-center font-mono text-3xl font-black tracking-[0.5em] text-emerald-400 outline-none shadow-[0_0_24px_rgba(16,185,129,0.12)] transition placeholder:text-emerald-500/30 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
+                className="w-full rounded-[1.75rem] border border-emerald-500/50 bg-slate-950 py-5 pr-4 pl-12 text-center font-mono text-3xl font-black tracking-[0.5em] text-white shadow-[0_0_24px_rgba(16,185,129,0.12)] shadow-inner outline-none transition placeholder:text-emerald-500/30 focus:border-emerald-400 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-400/20"
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={6}
@@ -522,7 +533,7 @@ function JoinForm() {
                 placeholder="Dit navn"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                className="w-full rounded-[1.6rem] border border-white/10 bg-white/5 py-4 pr-4 pl-12 text-lg font-semibold text-white outline-none backdrop-blur-md transition placeholder:text-slate-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
+                className="w-full rounded-[1.6rem] border border-white/20 bg-slate-950 py-4 pr-4 pl-12 text-lg font-semibold text-white shadow-inner outline-none backdrop-blur-md transition placeholder:text-slate-500 focus:border-emerald-400 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-400/20"
               />
             </div>
 
@@ -542,7 +553,7 @@ function JoinForm() {
 
 export default function JoinPage() {
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 text-white">
+    <div className={`relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 text-white ${poppins.className}`}>
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#020617_0%,#020b16_42%,#01040a_100%)]" />
       <div className="pointer-events-none absolute left-[-7rem] top-[-5rem] h-72 w-72 rounded-full bg-emerald-400/14 blur-[120px]" />
       <div className="pointer-events-none absolute bottom-[-8rem] right-[-5rem] h-80 w-80 rounded-full bg-cyan-400/10 blur-[140px]" />

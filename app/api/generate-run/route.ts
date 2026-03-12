@@ -34,12 +34,7 @@ type NormalizedQuestion = {
 const generatedRunQuestionSchema = z
   .object({
     question: z.string().trim().min(1),
-    options: z.tuple([
-      z.string().trim().min(1),
-      z.string().trim().min(1),
-      z.string().trim().min(1),
-      z.string().trim().min(1),
-    ]),
+    options: z.array(z.string().trim().min(1)),
     correctIndex: z.number().int().min(0).max(3),
     lat: z.null(),
     lng: z.null(),
