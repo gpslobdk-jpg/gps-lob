@@ -180,13 +180,13 @@ const getStatusLabel = (status: string | null | undefined) => {
 const getStatusClassName = (status: string | null | undefined) => {
   switch (status) {
     case "waiting":
-      return "border-amber-200 bg-amber-50 text-amber-800";
+      return "border-amber-500/30 bg-amber-500/20 text-amber-300";
     case "running":
-      return "border-sky-200 bg-sky-50 text-sky-800";
+      return "border-sky-500/30 bg-sky-500/20 text-sky-300";
     case "finished":
-      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+      return "border-emerald-500/30 bg-emerald-500/20 text-emerald-300";
     default:
-      return "border-slate-200 bg-slate-50 text-slate-700";
+      return "border-white/20 bg-white/10 text-white";
   }
 };
 
@@ -206,20 +206,20 @@ const getSessionHighlightLabel = (status: string | null | undefined) => {
 const getSessionHighlightClassName = (status: string | null | undefined) => {
   switch (status) {
     case "waiting":
-      return "border-amber-300 bg-amber-100 text-amber-900";
+      return "border-amber-500/30 bg-amber-500/20 text-amber-300";
     case "running":
-      return "border-sky-300 bg-sky-100 text-sky-900";
+      return "border-sky-500/30 bg-sky-500/20 text-sky-300";
     case "finished":
-      return "border-emerald-300 bg-emerald-100 text-emerald-900";
+      return "border-emerald-500/30 bg-emerald-500/20 text-emerald-300";
     default:
-      return "border-slate-300 bg-slate-100 text-slate-800";
+      return "border-white/20 bg-white/10 text-white";
   }
 };
 
 const getSessionCardClassName = (status: string | null | undefined) =>
   isSessionLive(status)
-    ? "overflow-hidden rounded-[2rem] border border-sky-200/70 bg-white/95 shadow-[0_20px_60px_rgba(14,165,233,0.12)] backdrop-blur-md"
-    : "overflow-hidden rounded-[2rem] border border-white/50 bg-white/90 shadow-xl backdrop-blur-md";
+    ? "overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-2xl backdrop-blur-2xl"
+    : "overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-2xl backdrop-blur-2xl";
 
 const getParticipantStateLabel = (finishedAt: string | null) => (finishedAt ? "I maal" : "Aktiv");
 
@@ -314,26 +314,26 @@ const getLeaderboardMedal = (index: number) => {
 const getLeaderboardCardClassName = (index: number) => {
   switch (index) {
     case 0:
-      return "overflow-hidden rounded-[1.9rem] border border-amber-300/70 bg-[linear-gradient(145deg,rgba(255,251,235,0.96),rgba(254,243,199,0.88))] p-5 shadow-[0_24px_60px_rgba(245,158,11,0.18)] backdrop-blur-md";
+      return "overflow-hidden rounded-[1.9rem] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-2xl";
     case 1:
-      return "overflow-hidden rounded-[1.9rem] border border-slate-300/80 bg-[linear-gradient(145deg,rgba(248,250,252,0.96),rgba(226,232,240,0.88))] p-5 shadow-[0_22px_55px_rgba(100,116,139,0.16)] backdrop-blur-md";
+      return "overflow-hidden rounded-[1.9rem] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-2xl";
     case 2:
-      return "overflow-hidden rounded-[1.9rem] border border-orange-300/75 bg-[linear-gradient(145deg,rgba(255,247,237,0.96),rgba(254,215,170,0.88))] p-5 shadow-[0_22px_55px_rgba(234,88,12,0.16)] backdrop-blur-md";
+      return "overflow-hidden rounded-[1.9rem] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-2xl";
     default:
-      return "overflow-hidden rounded-[1.9rem] border border-white/60 bg-white/90 p-5 shadow-lg backdrop-blur-md";
+      return "overflow-hidden rounded-[1.9rem] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-2xl";
   }
 };
 
 const getLeaderboardBadgeClassName = (index: number) => {
   switch (index) {
     case 0:
-      return "border-amber-300 bg-amber-100 text-amber-900";
+      return "border-amber-500/30 bg-amber-500/20 text-amber-300";
     case 1:
-      return "border-slate-300 bg-slate-100 text-slate-800";
+      return "border-white/20 bg-white/10 text-white";
     case 2:
-      return "border-orange-300 bg-orange-100 text-orange-900";
+      return "border-orange-500/30 bg-orange-500/20 text-orange-300";
     default:
-      return "border-emerald-200 bg-emerald-50 text-emerald-900";
+      return "border-emerald-500/30 bg-emerald-500/20 text-emerald-300";
   }
 };
 
@@ -490,18 +490,18 @@ function SessionSection({
 
   return (
     <section className="space-y-5">
-      <div className="rounded-[2rem] border border-white/50 bg-white/85 px-6 py-5 shadow-lg backdrop-blur-md">
-        <h2 className={`text-2xl font-black text-emerald-950 ${rubik.className}`}>{title}</h2>
-        <p className="mt-2 text-sm leading-6 text-emerald-900/75">{description}</p>
+      <div className="rounded-[2rem] border border-white/10 bg-white/5 px-6 py-5 shadow-2xl backdrop-blur-2xl">
+        <h2 className={`text-2xl font-black text-white ${rubik.className}`}>{title}</h2>
+        <p className="mt-2 text-sm leading-6 text-white/70">{description}</p>
       </div>
 
       <div className="space-y-6">
         {sessions.map((session, index) => (
           <section key={session.id} className={getSessionCardClassName(session.status)}>
-            <div className="flex flex-col gap-4 border-b border-emerald-100 px-6 py-6 md:flex-row md:items-start md:justify-between">
+            <div className="flex flex-col gap-4 border-b border-white/10 px-6 py-6 md:flex-row md:items-start md:justify-between">
               <div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <p className="text-xs font-semibold tracking-[0.26em] text-emerald-700 uppercase">
+                  <p className="text-xs font-semibold tracking-[0.26em] text-white/60 uppercase">
                     Session {sessions.length - index}
                   </p>
                   <span
@@ -511,77 +511,77 @@ function SessionSection({
                   </span>
                 </div>
 
-                <h3 className={`mt-3 text-2xl font-black text-emerald-950 ${rubik.className}`}>
+                <h3 className={`mt-3 text-2xl font-black text-white ${rubik.className}`}>
                   PIN {session.pin || "----"}
                 </h3>
-                <p className="mt-2 text-sm text-emerald-900/75">Oprettet {formatDateTime(session.created_at)}</p>
+                <p className="mt-2 text-sm text-white/70">Oprettet {formatDateTime(session.created_at)}</p>
               </div>
 
               <div className="flex flex-wrap gap-3">
                 <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${getStatusClassName(session.status)}`}>
                   {getStatusLabel(session.status)}
                 </span>
-                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-300">
                   {session.participantRows.length} deltagere
                 </span>
-                <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-800">
+                <span className="rounded-full border border-sky-500/30 bg-sky-500/20 px-3 py-1 text-xs font-semibold text-sky-300">
                   {session.answerCount} besvarelser
                 </span>
               </div>
             </div>
 
             {session.participantRows.length === 0 ? (
-              <div className="px-6 py-8 text-sm text-emerald-900/75">
+              <div className="px-6 py-8 text-sm text-white/70">
                 Ingen deltagere eller besvarelser er registreret for denne session endnu.
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-emerald-100">
-                  <thead className="bg-emerald-50/70">
+                <table className="min-w-full divide-y divide-white/10">
+                  <thead className="border-b border-white/20 bg-white/10">
                     <tr>
-                      <th className="px-6 py-4 text-left text-xs font-bold tracking-[0.18em] text-emerald-800 uppercase">
+                      <th className="px-6 py-4 text-left text-xs font-bold tracking-[0.18em] text-white uppercase">
                         Deltager
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-bold tracking-[0.18em] text-emerald-800 uppercase">
+                      <th className="px-6 py-4 text-left text-xs font-bold tracking-[0.18em] text-white uppercase">
                         Status
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-bold tracking-[0.18em] text-emerald-800 uppercase">
+                      <th className="px-6 py-4 text-left text-xs font-bold tracking-[0.18em] text-white uppercase">
                         Besvarelser
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-emerald-100 bg-white/80">
+                  <tbody className="divide-y divide-white/10 bg-transparent">
                     {session.participantRows.map((participant) => (
                       <tr key={`${session.id}-${participant.name}`}>
                         <td className="px-6 py-5 align-top">
-                          <div className="font-semibold text-emerald-950">{participant.name}</div>
-                          <div className="mt-1 text-xs text-emerald-900/65">
+                          <div className="font-semibold text-white">{participant.name}</div>
+                          <div className="mt-1 text-xs text-white/60">
                             {participant.answers.length} registrerede besvarelser
                           </div>
                         </td>
                         <td className="px-6 py-5 align-top">
-                          <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+                          <span className="inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-300">
                             {getParticipantStateLabel(participant.finishedAt)}
                           </span>
                           {participant.finishedAt ? (
-                            <div className="mt-2 text-xs text-emerald-900/65">
+                            <div className="mt-2 text-xs text-white/60">
                               Faerdig {formatDateTime(participant.finishedAt)}
                             </div>
                           ) : null}
                         </td>
                         <td className="px-6 py-5 align-top">
                           {participant.answers.length === 0 ? (
-                            <span className="text-sm text-emerald-900/65">Ingen registrerede besvarelser endnu.</span>
+                            <span className="text-sm text-white/60">Ingen registrerede besvarelser endnu.</span>
                           ) : (
                             <div className="space-y-3">
                               {participant.answers.map((answer) => (
-                                <div key={answer.id} className="rounded-2xl border border-emerald-100 bg-emerald-50/50 px-4 py-3">
+                                <div key={answer.id} className="rounded-2xl border border-white/10 bg-slate-900/50 px-4 py-3">
                                   <div className="flex flex-wrap items-center gap-2">
                                     <span
                                       className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
                                         answer.is_correct === false
-                                          ? "border-rose-200 bg-rose-50 text-rose-800"
-                                          : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                                          ? "border border-rose-500/30 bg-rose-500/20 text-rose-300"
+                                          : "border border-emerald-500/30 bg-emerald-500/20 text-emerald-300"
                                       }`}
                                     >
                                       {getPostLabel(answer)} - {answer.is_correct === false ? "Forkert" : "Rigtig"}
@@ -589,7 +589,7 @@ function SessionSection({
                                   </div>
                                   <StoredAnswerImage imageUrl={answer.image_url} />
                                   {answer.analysis_message ? (
-                                    <p className="mt-2 text-xs leading-5 text-emerald-900/75">
+                                    <p className="mt-2 text-xs leading-5 text-white/70">
                                       AI-note: {answer.analysis_message}
                                     </p>
                                   ) : null}
@@ -613,20 +613,20 @@ function SessionSection({
 
 function LeaderboardSection({ entries }: { entries: LeaderboardEntry[] }) {
   return (
-    <section className="rounded-[2rem] border border-white/50 bg-white/88 p-5 shadow-xl backdrop-blur-md sm:p-7">
+    <section className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-2xl sm:p-7">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-semibold tracking-[0.28em] text-amber-700 uppercase">Rangliste</p>
-          <h2 className={`mt-2 text-3xl font-black text-emerald-950 sm:text-4xl ${rubik.className}`}>
+          <p className="text-xs font-semibold tracking-[0.28em] text-emerald-300 uppercase">Rangliste</p>
+          <h2 className={`mt-2 text-3xl font-black text-white sm:text-4xl ${rubik.className}`}>
             Holdenes placering
           </h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-900/75">
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-white/70">
             Sessionerne er sorteret efter flest rigtige svar og derefter laengste tid fra foerste til sidste
             registrerede svar.
           </p>
         </div>
 
-        <div className="inline-flex w-fit rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold tracking-[0.2em] text-emerald-800 uppercase">
+        <div className="inline-flex w-fit rounded-full border border-emerald-500/30 bg-emerald-500/20 px-4 py-2 text-xs font-semibold tracking-[0.2em] text-emerald-300 uppercase">
           {entries.length} sessioner
         </div>
       </div>
@@ -644,10 +644,10 @@ function LeaderboardSection({ entries }: { entries: LeaderboardEntry[] }) {
 
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full border border-emerald-200 bg-white/70 px-3 py-1 text-[11px] font-bold tracking-[0.18em] text-emerald-800 uppercase">
+                    <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-bold tracking-[0.18em] text-white uppercase">
                       Plads {index + 1}
                     </span>
-                    <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-bold tracking-[0.18em] text-sky-800 uppercase">
+                    <span className="rounded-full border border-sky-500/30 bg-sky-500/20 px-3 py-1 text-[11px] font-bold tracking-[0.18em] text-sky-300 uppercase">
                       {entry.pin ? `PIN ${entry.pin}` : "PIN ukendt"}
                     </span>
                     <span className={`rounded-full border px-3 py-1 text-[11px] font-bold uppercase ${getStatusClassName(entry.status)}`}>
@@ -655,10 +655,10 @@ function LeaderboardSection({ entries }: { entries: LeaderboardEntry[] }) {
                     </span>
                   </div>
 
-                  <h3 className={`mt-3 break-words text-xl font-black text-emerald-950 sm:text-2xl ${rubik.className}`}>
+                  <h3 className={`mt-3 break-words text-xl font-black text-white sm:text-2xl ${rubik.className}`}>
                     {entry.teamName}
                   </h3>
-                  <p className="mt-2 text-sm leading-6 text-emerald-900/75">
+                  <p className="mt-2 text-sm leading-6 text-white/70">
                     {entry.participantCount > 0
                       ? `${entry.participantCount} deltagere i sessionen`
                       : "Ingen deltagernavne er registreret endnu."}
@@ -667,24 +667,24 @@ function LeaderboardSection({ entries }: { entries: LeaderboardEntry[] }) {
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[24rem]">
-                <div className="rounded-[1.5rem] border border-emerald-200/80 bg-white/75 px-4 py-4">
-                  <p className="text-xs font-semibold tracking-[0.18em] text-emerald-700 uppercase">Point</p>
-                  <p className={`mt-2 text-3xl font-black text-emerald-950 ${rubik.className}`}>
+                <div className="rounded-[1.5rem] border border-emerald-500/30 bg-emerald-500/10 px-4 py-4 text-white">
+                  <p className="text-xs font-semibold tracking-[0.18em] text-white/70 uppercase">Point</p>
+                  <p className={`mt-2 text-3xl font-black text-white ${rubik.className}`}>
                     {entry.correctAnswerCount}
                   </p>
-                  <p className="mt-1 text-sm text-emerald-900/70">
+                  <p className="mt-1 text-sm text-white/70">
                     {entry.answerCount > 0
                       ? `af ${entry.answerCount} registrerede svar var rigtige`
                       : "Ingen svar er registreret endnu"}
                   </p>
                 </div>
 
-                <div className="rounded-[1.5rem] border border-sky-200/80 bg-sky-50/85 px-4 py-4">
-                  <p className="text-xs font-semibold tracking-[0.18em] text-sky-700 uppercase">Tid</p>
-                  <p className={`mt-2 text-2xl font-black text-sky-950 ${rubik.className}`}>
+                <div className="rounded-[1.5rem] border border-emerald-500/30 bg-emerald-500/10 px-4 py-4 text-white">
+                  <p className="text-xs font-semibold tracking-[0.18em] text-white/70 uppercase">Tid</p>
+                  <p className={`mt-2 text-2xl font-black text-white ${rubik.className}`}>
                     {formatDuration(entry.durationMs)}
                   </p>
-                  <p className="mt-1 text-sm text-sky-900/70">
+                  <p className="mt-1 text-sm text-white/70">
                     {entry.answerCount > 0 ? "Fra foerste til sidste svar" : "0 min fordi sessionen endnu er tom"}
                   </p>
                 </div>
@@ -863,7 +863,7 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
 
   return (
     <main
-      className={`relative min-h-screen bg-gradient-to-t from-emerald-100 via-sky-50 to-sky-300 p-6 text-slate-900 lg:bg-none lg:bg-transparent lg:p-12 ${poppins.className}`}
+      className={`relative min-h-screen bg-slate-950 text-white ${poppins.className} p-6 lg:p-12`}
     >
       <AutoRefresh />
       <video
@@ -874,7 +874,7 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
         className="fixed top-0 left-0 -z-20 hidden h-full w-full object-cover lg:block"
         src="/arkiv-bg.mp4"
       />
-      <div className="fixed inset-0 -z-10 hidden bg-gradient-to-b from-sky-900/20 to-emerald-900/60 backdrop-blur-[3px] lg:block" />
+      <div className="fixed inset-0 -z-10 hidden bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.15),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.1),transparent_40%)] lg:block" />
 
       <div className="mx-auto max-w-7xl">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -893,7 +893,7 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
           <div className="flex flex-col gap-3 sm:flex-row">
             <Link
               href="/dashboard/arkiv"
-              className="inline-flex items-center justify-center rounded-2xl border border-white/50 bg-white/85 px-5 py-3 text-sm font-bold text-emerald-950 shadow-lg backdrop-blur-md transition hover:bg-white"
+              className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-white shadow-2xl backdrop-blur-2xl transition hover:bg-white/10"
             >
               Tilbage til Arkiv
             </Link>
@@ -906,19 +906,19 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
           <section
             className={`mt-8 rounded-[1.75rem] border px-5 py-4 shadow-lg backdrop-blur-md ${
               feedback.tone === "success"
-                ? "border-emerald-200 bg-emerald-50/95 text-emerald-950"
-                : "border-rose-200 bg-rose-50/95 text-rose-950"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-white shadow-2xl backdrop-blur-2xl"
+                : "border-rose-500/30 bg-rose-500/10 text-white shadow-2xl backdrop-blur-2xl"
             }`}
           >
-            <h2 className={`text-lg font-black ${rubik.className}`}>{feedback.title}</h2>
+            <h2 className={`text-lg font-black text-white ${rubik.className}`}>{feedback.title}</h2>
             <p className="mt-1 text-sm leading-6">{feedback.message}</p>
           </section>
         ) : null}
 
         {!hasStoredData ? (
-          <section className="mt-10 rounded-[2rem] border border-white/50 bg-white/85 p-8 shadow-xl backdrop-blur-md">
-            <h2 className={`text-2xl font-black text-emerald-950 ${rubik.className}`}>Ingen resultater endnu</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-emerald-900/80">
+          <section className="mt-10 rounded-[2rem] border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-2xl">
+            <h2 className={`text-2xl font-black text-white ${rubik.className}`}>Ingen resultater endnu</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70">
               Der er endnu ikke oprettet nogen live-sessioner for dette loeb, saa der findes ingen resultater at vise.
             </p>
           </section>
@@ -940,9 +940,9 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
           </div>
         )}
 
-        <section className="mt-10 rounded-[2rem] border border-white/50 bg-white/85 px-6 py-5 shadow-lg backdrop-blur-md">
-          <h2 className={`text-xl font-black text-emerald-950 ${rubik.className}`}>Privatliv</h2>
-          <p className="mt-2 text-sm leading-6 text-emerald-900/80">
+        <section className="mt-10 rounded-[2rem] border border-white/10 bg-white/5 px-6 py-5 shadow-2xl backdrop-blur-2xl">
+          <h2 className={`text-xl font-black text-white ${rubik.className}`}>Privatliv</h2>
+          <p className="mt-2 text-sm leading-6 text-white/70">
             Privatlivs-indstilling: Besvarelser og billeder slettes automatisk efter 30 dage for at beskytte
             deltagernes data.
           </p>
