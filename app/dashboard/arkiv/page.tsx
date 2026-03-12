@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Copy, Edit2, MapPin, Search, Timer, Trash2, X } from "lucide-react";
+import { BarChart, Calendar, Copy, Edit2, MapPin, Play, Search, Timer, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useState, type FormEvent } from "react";
@@ -606,6 +606,16 @@ export default function ArkivPage() {
               </motion.div>
             ) : (
               filteredRuns.map((run) => {
+                const themeMap: Record<string, string> = {
+                  manuel: "border-emerald-300/60 shadow-emerald-500/10 hover:shadow-emerald-500/20",
+                  foto: "border-sky-300/60 shadow-sky-500/10 hover:shadow-sky-500/20",
+                  escape: "border-amber-300/60 shadow-amber-500/10 hover:shadow-amber-500/20",
+                  rollespil: "border-violet-300/60 shadow-violet-500/10 hover:shadow-violet-500/20",
+                  scanner: "border-cyan-300/60 shadow-cyan-500/10 hover:shadow-cyan-500/20",
+                  selfie: "border-rose-300/60 shadow-rose-500/10 hover:shadow-rose-500/20",
+                };
+                const raceTypeKey = (run.race_type ?? run.raceType ?? "manuel").toLowerCase();
+                const cardTheme = themeMap[raceTypeKey] || themeMap.manuel;
                 const runSchedule = getRunSchedule(run);
                 const formattedStart = formatDanishDateTime(runSchedule?.startAt);
                 const formattedEnd = formatDanishDateTime(runSchedule?.endAt);
@@ -618,7 +628,7 @@ export default function ArkivPage() {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
                     transition={{ duration: 0.2 }}
-                    className="group relative overflow-hidden rounded-[2rem] border border-white/50 bg-white/85 p-6 shadow-xl backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl"
+                    className={`group relative overflow-hidden rounded-[2rem] border bg-white/85 p-5 shadow-lg backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:shadow-xl ${cardTheme}`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
@@ -630,7 +640,7 @@ export default function ArkivPage() {
                     </div>
 
                     <h2
-                      className={`mt-5 text-2xl font-bold leading-tight text-emerald-950 ${rubik.className}`}
+                      className={`mt-3 text-xl font-bold leading-tight text-emerald-950 ${rubik.className}`}
                     >
                       {run.title}
                     </h2>
@@ -651,35 +661,44 @@ export default function ArkivPage() {
                       </p>
                     ) : null}
 
-                    <div className="mt-7 space-y-3">
+                    <div className="mt-5 space-y-3">
                       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                         <button
                           type="button"
                           onClick={() => void handleStartRun(run.id)}
                           disabled={startingRunId === run.id}
-                          className="inline-flex min-h-12 flex-1 items-center justify-center rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white shadow-[0_16px_32px_rgba(5,150,105,0.24)] transition hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-70"
+                          className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white shadow-[0_16px_32px_rgba(5,150,105,0.24)] transition hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-70"
                         >
-                          {startingRunId === run.id ? "STARTER..." : "🚀 Sæt i gang nu (Live)"}
+                          {startingRunId === run.id ? (
+                            "STARTER..."
+                          ) : (
+                            <>
+                              <Play className="h-3.5 w-3.5" />
+                              Sæt i gang
+                            </>
+                          )}
                         </button>
 
                         <button
                           type="button"
                           onClick={() => openScheduleModal(run)}
-                          className={`inline-flex min-h-12 flex-1 items-center justify-center rounded-2xl border px-4 py-3 text-sm font-bold transition ${
+                          className={`inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition ${
                             hasRunSchedule(runSchedule)
                               ? "border-emerald-300 bg-emerald-100 text-emerald-900 shadow-[0_14px_28px_rgba(16,185,129,0.16)] hover:bg-emerald-50"
                               : "border-emerald-200 bg-white/70 text-emerald-800 shadow-[0_14px_28px_rgba(16,185,129,0.1)] hover:bg-white"
                           }`}
                         >
-                          📅 Planlæg (Åben adgang)
+                          <Calendar className="h-3.5 w-3.5" />
+                          Planlæg (Åben adgang)
                         </button>
 
                         <button
                           type="button"
                           onClick={() => router.push(`/dashboard/resultater/${run.id}`)}
-                          className="inline-flex min-h-12 flex-1 items-center justify-center rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-bold text-sky-900 shadow-[0_14px_28px_rgba(14,165,233,0.14)] transition hover:bg-sky-100"
+                          className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-900 shadow-[0_14px_28px_rgba(14,165,233,0.14)] transition hover:bg-sky-100"
                         >
-                          📊 Se Resultater
+                          <BarChart className="h-3.5 w-3.5" />
+                          Se Resultater
                         </button>
                       </div>
 
@@ -688,7 +707,7 @@ export default function ArkivPage() {
                           type="button"
                           aria-label="Rediger løb"
                           onClick={() => handleEditRun(run)}
-                          className="grid h-11 w-11 place-items-center rounded-xl border border-emerald-200 bg-white/50 text-emerald-700 transition hover:bg-white"
+                          className="grid h-9 w-9 place-items-center rounded-lg border border-emerald-200 bg-white/50 text-emerald-700 transition hover:bg-white"
                         >
                           <Edit2 className="h-4 w-4" />
                         </button>
@@ -697,7 +716,7 @@ export default function ArkivPage() {
                           type="button"
                           aria-label="Slet løb"
                           onClick={() => void handleDeleteRun(run.id)}
-                          className="grid h-11 w-11 place-items-center rounded-xl border border-emerald-200 bg-white/50 text-emerald-700 transition hover:bg-white"
+                          className="grid h-9 w-9 place-items-center rounded-lg border border-emerald-200 bg-white/50 text-emerald-700 transition hover:bg-white"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
