@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { AlertCircle, Camera, CheckCircle2, KeyRound, Loader2 } from "lucide-react";
 import Image from "next/image";
+import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useRef, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 
 import type { PlayActions, PlayUiState } from "./types";
@@ -22,6 +23,16 @@ const LottiePlayer = dynamic(
   () => import("@lottiefiles/react-lottie-player").then((mod) => mod.Player),
   { ssr: false }
 );
+
+const rubik = Rubik({
+  subsets: ["latin"],
+  weight: ["700", "800", "900"],
+});
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
 
 type PlayInterfaceProps = {
   ui: PlayUiState;
@@ -106,19 +117,19 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const normalizedActiveDisplayName = activeDisplayName.trim().toLocaleLowerCase("da-DK");
   const blockingGpsErrorContent = gpsErrorContent ?? { title: "", message: "", helper: "" };
   const tacticalHudShellClass =
-    "overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-slate-950/80 p-4 shadow-[0_24px_80px_rgba(2,6,23,0.5)] backdrop-blur-xl md:p-5";
+    "overflow-hidden rounded-[2rem] border border-white/20 bg-white/10 p-4 shadow-lg backdrop-blur-2xl md:p-5";
   const tacticalHudCardClass =
-    "overflow-hidden rounded-[1.6rem] border border-emerald-500/20 bg-slate-950/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
+    "overflow-hidden rounded-[1.6rem] border border-white/20 bg-white/10 p-4 shadow-lg backdrop-blur-2xl";
   const tacticalMetaLabelClass =
-    "font-mono text-[11px] uppercase tracking-[0.32em] text-emerald-400/70";
+    "font-mono text-[11px] uppercase tracking-[0.32em] text-white/70";
   const tacticalPillClass =
-    "rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 font-mono text-xs uppercase tracking-widest text-emerald-400";
+    "rounded-full border border-white/20 bg-white/10 px-3 py-1 font-mono text-xs uppercase tracking-widest text-white/90";
   const tacticalOverlayCardClass =
-    "w-full max-w-md overflow-hidden rounded-[2rem] border-[3px] border-emerald-500/30 bg-slate-900/95 p-5 shadow-[0_0_50px_rgba(16,185,129,0.2)] backdrop-blur-2xl sm:p-8";
+    "w-full max-w-md overflow-hidden rounded-[2rem] border border-emerald-500/50 bg-slate-950 p-5 shadow-2xl backdrop-blur-2xl sm:p-8";
   const tacticalPrimaryButtonClass =
-    "inline-flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[1.35rem] border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-sm font-black uppercase tracking-[0.2em] text-emerald-400 shadow-[0_0_24px_rgba(16,185,129,0.14)] transition-all hover:bg-emerald-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-60";
+    `inline-flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[1.35rem] border border-emerald-500 bg-emerald-600 px-5 py-4 text-sm font-black uppercase tracking-[0.2em] text-white shadow-md transition-all hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60 ${rubik.className}`;
   const tacticalSecondaryButtonClass =
-    "inline-flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[1.35rem] border border-emerald-500/20 bg-slate-950 px-5 py-4 text-sm font-black uppercase tracking-[0.2em] text-emerald-300 transition-all hover:border-emerald-400/40 hover:bg-emerald-500/12 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-60";
+    `inline-flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[1.35rem] border border-slate-600 bg-slate-800 px-5 py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition-all hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 ${rubik.className}`;
   const tacticalInputClass =
     "w-full rounded-[1.35rem] border border-emerald-500/50 bg-slate-950 px-4 py-4 text-base text-emerald-50 outline-none transition placeholder:text-emerald-400/35 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-70";
   const tacticalSuccessPanelClass =
@@ -637,7 +648,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
     case "active":
       content = (
-        <div className="relative flex h-screen w-full flex-col overflow-hidden bg-slate-950 text-white">
+        <div className={`relative flex h-screen w-full flex-col overflow-hidden bg-slate-950 text-white ${poppins.className}`}>
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_28%),radial-gradient(circle_at_20%_18%,rgba(56,189,248,0.12),transparent_24%),radial-gradient(circle_at_80%_8%,rgba(34,197,94,0.1),transparent_22%),linear-gradient(180deg,rgba(2,6,23,0.78)_0%,rgba(2,6,23,0.92)_52%,rgba(2,6,23,1)_100%)]" />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_60%)]" />
 
@@ -678,15 +689,15 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       <span className={tacticalPillClass}>
                         Deltager
                       </span>
-                      <span className={`${tacticalPillClass} border-emerald-500/15 bg-slate-950/70 text-emerald-300/75`}>
+                      <span className={`${tacticalPillClass} border-white/20 bg-white/10 text-white/80`}>
                         Nature-Glass
                       </span>
                     </div>
 
                     {isEscapeRace ? (
-                      <div className="overflow-hidden rounded-[1.6rem] border border-emerald-500/20 bg-slate-950/80 p-4 shadow-[0_0_24px_rgba(16,185,129,0.14)]">
+                      <div className="overflow-hidden rounded-[1.6rem] border border-white/20 bg-white/10 p-4 shadow-lg backdrop-blur-2xl">
                         <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2 text-emerald-300">
+                          <div className="flex items-center gap-2 text-white">
                             <KeyRound className="h-4 w-4" />
                             <p className={tacticalMetaLabelClass}>
                               Kode-oversigt
@@ -696,10 +707,10 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                             {collectedEscapeRewardsCount}/{questions.length}
                           </span>
                         </div>
-                        <p className="mt-3 font-mono text-xs uppercase tracking-widest text-emerald-300/70">
+                        <p className="mt-3 font-mono text-xs uppercase tracking-widest text-white/70">
                           Dine brikker
                         </p>
-                        <p className={`mt-2 text-xl font-black tracking-[0.3em] text-emerald-200 ${wrapTextClass}`}>
+                        <p className={`mt-2 text-xl font-black tracking-[0.3em] text-white/90 ${wrapTextClass}`}>
                           {escapeCodeOverviewText}
                         </p>
                       </div>
@@ -713,7 +724,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                         <p className={`mt-2 text-2xl font-black text-white ${wrapTextClass}`}>
                           {activeDisplayName}
                         </p>
-                        <p className="mt-2 font-mono text-xs uppercase tracking-widest text-emerald-300/70">
+                        <p className="mt-2 font-mono text-xs uppercase tracking-widest text-white/70">
                           Find post {currentPostIndex + 1} af {questions.length}
                         </p>
                       </div>
@@ -725,13 +736,13 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                         <p
                           className={`mt-2 text-3xl font-black ${
                             distance !== null && distance <= AUTO_UNLOCK_RADIUS
-                              ? "text-emerald-400"
-                              : "text-white"
+                              ? "text-white"
+                              : "text-white/90"
                           }`}
                         >
                           {distance !== null ? `${distance}m` : "Søger GPS..."}
                         </p>
-                        <p className="mt-2 font-mono text-xs uppercase tracking-widest text-emerald-300/55">
+                        <p className="mt-2 font-mono text-xs uppercase tracking-widest text-white/70">
                           GPS låser automatisk op tæt på posten.
                         </p>
                       </div>
@@ -743,11 +754,11 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                           <p className={tacticalMetaLabelClass}>
                             Fremskridt
                           </p>
-                          <p className="mt-1 font-mono text-xs uppercase tracking-widest text-emerald-300/70">
+                          <p className="mt-1 font-mono text-xs uppercase tracking-widest text-white/70">
                             Du er {progressPercent}% gennem ruten.
                           </p>
                         </div>
-                        <p className="font-mono text-xs font-black uppercase tracking-widest text-emerald-300">
+                        <p className="font-mono text-xs font-black uppercase tracking-widest text-white/90">
                           {correctAnswersCount}/{questions.length}
                         </p>
                       </div>
@@ -762,13 +773,13 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
                   <div className="flex flex-col gap-3 md:items-end">
                     {!isEscapeRace ? (
-                      <div className="inline-flex items-center gap-3 self-start rounded-[1.75rem] border border-emerald-500/20 bg-slate-950/80 px-3 py-3 shadow-[0_0_24px_rgba(16,185,129,0.16)] md:self-auto">
-                        <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full border border-emerald-500/20 bg-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                      <div className="inline-flex items-center gap-3 self-start rounded-[1.75rem] border border-white/20 bg-white/10 px-3 py-3 shadow-lg backdrop-blur-2xl md:self-auto">
+                        <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
                           <div className="text-center">
-                            <p className="font-mono text-[10px] uppercase tracking-widest text-emerald-300/70">
+                            <p className="font-mono text-[10px] uppercase tracking-widest text-white/70">
                               Point
                             </p>
-                            <p className="text-3xl font-black text-emerald-400">{correctAnswersCount}</p>
+                            <p className="text-3xl font-black text-white">{correctAnswersCount}</p>
                           </div>
                         </div>
                         <div>
@@ -800,8 +811,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
             {latestMessage ? (
               <div className="animate-in slide-in-from-top fade-in duration-500">
-                <div className="flex items-start gap-3 rounded-[1.5rem] border border-emerald-500/20 bg-slate-950/80 p-4 shadow-[0_18px_40px_rgba(16,185,129,0.12)] backdrop-blur-xl">
-                  <div className="mt-0.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 p-2 text-emerald-300">
+                <div className="flex items-start gap-3 rounded-[1.5rem] border border-white/20 bg-white/10 p-4 shadow-lg backdrop-blur-2xl">
+                  <div className="mt-0.5 rounded-full border border-white/20 bg-white/10 p-2 text-white/80">
                     <AlertCircle className="h-4 w-4" />
                   </div>
                   <div>
@@ -816,8 +827,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
             {resumeMessage ? (
               <div className="animate-in slide-in-from-top fade-in duration-500">
-                <div className="flex items-start gap-3 rounded-[1.5rem] border border-emerald-500/20 bg-slate-950/80 p-4 shadow-[0_18px_40px_rgba(16,185,129,0.14)] backdrop-blur-xl">
-                  <div className="mt-0.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 p-2 text-emerald-300">
+                <div className="flex items-start gap-3 rounded-[1.5rem] border border-white/20 bg-white/10 p-4 shadow-lg backdrop-blur-2xl">
+                  <div className="mt-0.5 rounded-full border border-white/20 bg-white/10 p-2 text-white/80">
                     <CheckCircle2 className="h-4 w-4" />
                   </div>
                   <div className={`text-sm font-medium text-white ${wrapTextClass}`}>{resumeMessage}</div>
@@ -831,15 +842,15 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
               isRoleplayImmersed ? "opacity-0 blur-md" : "opacity-100"
             }`}
           >
-            <div className="w-full max-w-xl rounded-2xl border border-emerald-500/20 bg-slate-950/80 px-4 py-3 text-center font-mono text-xs font-semibold uppercase tracking-widest text-emerald-400 shadow-[0_18px_40px_rgba(16,185,129,0.12)] backdrop-blur-xl">
-              <span className="text-emerald-300">Tip:</span> Hold skærmen tændt mens du går, så arrangøren kan se dig på kortet!
+            <div className="w-full max-w-xl rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-center font-mono text-xs font-semibold uppercase tracking-widest text-white shadow-lg backdrop-blur-2xl">
+              <span className="text-white/90">Tip:</span> Hold skærmen tændt mens du går, så arrangøren kan se dig på kortet!
             </div>
           </div>
 
           {children}
 
           {showQuestion && activeQuestion ? (
-            <div className="animate-in fade-in zoom-in absolute inset-0 z-[2000] overflow-y-auto bg-slate-950/92 p-6 backdrop-blur-2xl duration-300">
+            <div className="animate-in fade-in zoom-in absolute inset-0 z-[2000] overflow-y-auto bg-slate-900/80 p-6 backdrop-blur-md duration-300">
               <div className="flex min-h-full items-center justify-center">
                 <div className={tacticalOverlayCardClass}>
                   <div className="mb-6 flex items-center justify-between gap-3">
@@ -848,7 +859,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                   </div>
                 {activePostVariant === "escape" ? (
                   <div className="mb-6">
-                    <h2 className={`text-2xl font-black text-white ${wrapTextClass}`}>
+                    <h2 className={`text-2xl font-black text-white ${wrapTextClass} ${rubik.className}`}>
                       Løs gåden for at få en kode-brik
                     </h2>
                   </div>
@@ -872,7 +883,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
                 {activePostVariant === "quiz" ? (
                   <>
-                    <p className={`mb-6 text-2xl font-black text-white ${wrapTextClass}`}>
+                    <p className={`mb-6 text-2xl font-black text-white ${wrapTextClass} ${rubik.className}`}>
                       {activeQuestion.text}
                     </p>
 
@@ -890,13 +901,13 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                             type="button"
                             disabled={Boolean(hasActiveQuizSuccess) || isSubmittingAnswer || isSubmitting}
                             onClick={() => void actions.submitQuizAnswer(idx)}
-                            className={`min-h-[56px] w-full overflow-hidden rounded-[1.35rem] border p-4 text-left text-base font-black uppercase tracking-[0.2em] transition-all sm:text-lg ${wrapTextClass} ${
+                            className={`min-h-[56px] w-full overflow-hidden rounded-[1.35rem] border p-4 text-left text-base font-black uppercase tracking-[0.2em] transition-all sm:text-lg ${wrapTextClass} ${rubik.className} ${
                               isSuccessAnswer
                                 ? "animate-pulse border-emerald-300 bg-emerald-500 text-slate-950 shadow-[0_18px_38px_rgba(16,185,129,0.3)]"
-                                : isErrorAnswer
+                              : isErrorAnswer
                                   ? "border-rose-400/60 bg-rose-500/18 text-rose-50 shadow-[0_14px_30px_rgba(244,63,94,0.18)]"
-                                  : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500 hover:text-slate-950"
-                            } disabled:cursor-default disabled:hover:border-emerald-300 disabled:hover:bg-emerald-500`}
+                                  : "border-emerald-500 bg-emerald-600 text-white shadow-md hover:scale-[1.02] hover:bg-emerald-500"
+                            } disabled:cursor-default disabled:hover:border-emerald-300 disabled:hover:bg-emerald-500 disabled:hover:scale-100`}
                           >
                             {answer}
                           </button>
@@ -945,7 +956,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
                 {activePostVariant === "photo" ? (
                   <div className="space-y-5 overflow-hidden">
-                    <p className={`text-2xl font-black text-white sm:text-3xl ${wrapTextClass}`}>
+                    <p className={`text-2xl font-black text-white sm:text-3xl ${wrapTextClass} ${rubik.className}`}>
                       {activeQuestion.text}
                     </p>
                     <input
@@ -1017,7 +1028,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
                 {activePostVariant === "escape" ? (
                   <div className="space-y-6 overflow-hidden">
-                    <p className={`text-xl font-bold text-white ${wrapTextClass}`}>{activeQuestion.text}</p>
+                    <p className={`text-xl font-bold text-white ${wrapTextClass} ${rubik.className}`}>{activeQuestion.text}</p>
 
                     {activeEscapeReward ? (
                       <div className="space-y-4">
@@ -1152,7 +1163,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                           >
                             Tidsmaskinen
                           </p>
-                          <p className={`mt-1 text-lg font-black text-white ${wrapTextClass}`}>
+                          <p className={`mt-1 text-lg font-black text-white ${wrapTextClass} ${rubik.className}`}>
                             {roleplayCharacterName}
                           </p>
                         </div>
@@ -1288,7 +1299,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                     >
                       Ukendt post
                     </p>
-                    <h3 className={`text-xl font-black text-white ${wrapTextClass}`}>⚠️ Ukendt post-type</h3>
+                    <h3 className={`text-xl font-black text-white ${wrapTextClass} ${rubik.className}`}>⚠️ Ukendt post-type</h3>
                     <p className={`text-sm leading-relaxed text-white/80 ${wrapTextClass}`}>
                       Noget gik galt med dataen for denne post. Kontakt din arrangør.
                     </p>
