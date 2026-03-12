@@ -31,6 +31,26 @@ const MAX_SOURCE_TEXT_LENGTH = 18_000;
 const MAX_IMAGE_FILE_SIZE = 12 * 1024 * 1024;
 const MAX_IMAGE_DATA_LENGTH = 6_000_000;
 
+const SUBJECT_TOPICS: Record<string, string[]> = {
+  Dansk: [],
+  Matematik: [],
+  Engelsk: [],
+  "Natur/Teknologi": [],
+  Historie: [],
+  Idræt: [],
+  Kristendomskundskab: [],
+  Tysk: [],
+  Fransk: [],
+  Geografi: [],
+  Biologi: [],
+  "Fysik/Kemi": [],
+  Samfundsfag: [],
+  "Håndværk/Design": [],
+  Billedkunst: [],
+  Madkundskab: [],
+  Musik: [],
+};
+
 type GeneratedQuestion = {
   question: string;
   options: [string, string, string, string];
@@ -141,15 +161,22 @@ function toQuestions(questions: GeneratedQuestion[]): ManualDraftQuestion[] {
   }));
 }
 
-function toManualDraft(run: GeneratedRunPayload, sourceText: string): ManualBuilderDraftState {
+function toManualDraft(
+  run: GeneratedRunPayload,
+  sourceText: string,
+  title: string,
+  subject: string
+): ManualBuilderDraftState {
   const questions = toQuestions(run.questions);
   const safeSummary = sourceText.trim().slice(0, 180);
+  const normalizedTitle = title.trim();
+  const normalizedSubject = subject.trim();
 
   return {
-    title: run.title,
+    title: normalizedTitle || run.title,
     description: run.description,
-    subject: "",
-    showTeacherField: false,
+    subject: normalizedSubject,
+    showTeacherField: Boolean(normalizedSubject),
     showAITeacherFields: false,
     questions,
     aiRunBrief: safeSummary,
@@ -182,6 +209,8 @@ export default function ScannerPortalPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const countdownTimersRef = useRef<number[]>([]);
 
+  const [title, setTitle] = useState("");
+  const [subject, setSubject] = useState("");
   const [sourceText, setSourceText] = useState("");
   const [selectedImageLabel, setSelectedImageLabel] = useState("");
   const [compressedImage, setCompressedImage] = useState("");
@@ -465,7 +494,7 @@ export default function ScannerPortalPage() {
         throw new Error("AI'en returnerede et ugyldigt løbsformat.");
       }
 
-      const draft = toManualDraft(payload, trimmedSourceText);
+      const draft = toManualDraft(payload, trimmedSourceText, title, subject);
       stopCameraStream();
       writeRunDraft(MANUEL_DRAFT_STORAGE_KEY, null, draft);
       window.sessionStorage.setItem("autoLoadDraft", "true");
@@ -487,47 +516,89 @@ export default function ScannerPortalPage() {
 
   return (
     <main
-      className={`relative min-h-screen overflow-hidden bg-slate-950 px-6 py-10 text-slate-100 ${poppins.className}`}
+      className={`relative min-h-screen overflow-hidden bg-cyan-950 px-6 py-10 text-slate-100 ${poppins.className}`}
     >
-      <div className="fixed inset-0 -z-10 bg-slate-950/70 backdrop-blur-[2px]" />
+      <div className="fixed inset-0 -z-10 bg-gradient-to-br from-cyan-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
       <section className="mx-auto flex w-full max-w-4xl flex-col gap-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <Link
             href="/dashboard/opret/valg"
-            className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/60 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:border-emerald-300/40 hover:bg-emerald-900/70"
+            className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-950/20 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:border-cyan-300/40 hover:bg-cyan-500/10"
           >
             <ArrowLeft className="h-4 w-4" />
             Tilbage til løbstyper
           </Link>
-          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-xs font-semibold tracking-[0.22em] text-slate-100 uppercase">
+          <span className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs font-semibold tracking-[0.22em] text-cyan-100 uppercase">
             <Sparkles className="h-4 w-4" />
             AI-portal
           </span>
         </div>
 
         <div className="mx-auto flex min-h-[calc(100vh-10rem)] w-full items-center justify-center">
-          <div className="w-full max-w-3xl rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-10">
+          <div className="w-full max-w-3xl rounded-3xl border border-cyan-500/30 bg-cyan-950/20 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-10">
             <div className="mx-auto max-w-2xl text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 text-slate-100">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-100">
                 <Camera className="h-8 w-8" />
               </div>
-              <p className="mt-6 text-xs font-semibold tracking-[0.32em] text-emerald-100/55 uppercase">
+              <p className="mt-6 text-xs font-semibold tracking-[0.32em] text-cyan-100/55 uppercase">
                 Bog-Scanneren
               </p>
               <h1 className={`mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl ${rubik.className}`}>
                 Hvad skal eleverne lære i dag?
               </h1>
-              <p className="mt-4 text-base leading-relaxed text-emerald-100/75 sm:text-lg">
+              <p className="mt-4 text-base leading-relaxed text-cyan-100/75 sm:text-lg">
                 Indsæt dagens tekst eller upload et billede af en bogside. AI&apos;en bygger et
                 komplet quiz-løb, som lægges klar i Manuel-byggeren.
               </p>
             </div>
 
             <div className="mx-auto mt-10 max-w-2xl space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-3">
+                  <label
+                    htmlFor="scanner-title"
+                    className="block text-sm font-semibold tracking-[0.16em] text-cyan-100/70 uppercase"
+                  >
+                    Løbets titel
+                  </label>
+                  <input
+                    id="scanner-title"
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                    placeholder="F.eks. Læsning om Solsystemet"
+                    className="w-full rounded-3xl border border-cyan-500/30 bg-cyan-950/20 px-5 py-4 text-base font-semibold text-cyan-100 placeholder:text-cyan-100/35 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label
+                    htmlFor="scanner-subject"
+                    className="block text-sm font-semibold tracking-[0.16em] text-cyan-100/70 uppercase"
+                  >
+                    Fag
+                  </label>
+                  <select
+                    id="scanner-subject"
+                    value={subject}
+                    onChange={(event) => setSubject(event.target.value)}
+                    className="w-full appearance-none rounded-3xl border border-cyan-500/30 bg-cyan-950/20 px-5 py-4 text-base text-cyan-100 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  >
+                    <option value="" className="bg-slate-900 text-white">
+                      Vælg et fag til arkivet...
+                    </option>
+                    {Object.keys(SUBJECT_TOPICS).map((subjectOption) => (
+                      <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
+                        {subjectOption}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div className="space-y-3">
                 <label
                   htmlFor="scanner-source-text"
-                  className="block text-sm font-semibold tracking-[0.16em] text-emerald-100/70 uppercase"
+                  className="block text-sm font-semibold tracking-[0.16em] text-cyan-100/70 uppercase"
                 >
                   Materiale som tekst
                 </label>
@@ -536,9 +607,9 @@ export default function ScannerPortalPage() {
                   value={sourceText}
                   onChange={(event) => setSourceText(event.target.value)}
                   placeholder="Indsæt tekst fra dagens lektie, bogside eller andet undervisningsmateriale..."
-                  className="min-h-[220px] w-full rounded-3xl border border-slate-700 bg-slate-900/50 px-5 py-4 text-base leading-relaxed text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="min-h-[220px] w-full rounded-3xl border border-cyan-500/30 bg-cyan-950/20 px-5 py-4 text-base leading-relaxed text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
-                <p className="text-sm text-emerald-100/55">
+                <p className="text-sm text-cyan-100/55">
                   {sourceText.length}/{MAX_SOURCE_TEXT_LENGTH} tegn
                 </p>
               </div>
@@ -546,20 +617,20 @@ export default function ScannerPortalPage() {
               <div className="space-y-3">
                 <label
                   htmlFor="scanner-image-upload"
-                  className="block text-sm font-semibold tracking-[0.16em] text-emerald-100/70 uppercase"
+                  className="block text-sm font-semibold tracking-[0.16em] text-cyan-100/70 uppercase"
                 >
                   Bogside som billede
                 </label>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label
                     htmlFor="scanner-image-upload"
-                    className="flex cursor-pointer items-center justify-center gap-3 rounded-3xl border border-emerald-500/20 bg-slate-900/60 px-5 py-6 text-center text-base text-slate-200 transition hover:border-emerald-500/50 hover:bg-slate-800/80 backdrop-blur-xl"
+                    className="flex cursor-pointer items-center justify-center gap-3 rounded-3xl border border-cyan-500/30 bg-cyan-950/20 px-5 py-6 text-center text-base text-cyan-100 transition hover:border-cyan-500/50 hover:bg-cyan-500/10 hover:shadow-lg hover:shadow-cyan-500/20 backdrop-blur-xl"
                   >
                     <Camera className="h-5 w-5" />
                     Upload et billede
                   </label>
                   {isCameraActive ? (
-                    <div className="flex min-h-[72px] items-center justify-center rounded-3xl border border-emerald-500/20 bg-slate-900/60 px-5 py-6 text-center text-base font-semibold text-slate-100 backdrop-blur-xl">
+                    <div className="flex min-h-[72px] items-center justify-center rounded-3xl border border-cyan-500/30 bg-cyan-950/20 px-5 py-6 text-center text-base font-semibold text-cyan-100 backdrop-blur-xl">
                       Kamera aktivt
                     </div>
                   ) : (
@@ -567,7 +638,7 @@ export default function ScannerPortalPage() {
                       type="button"
                       onClick={startCamera}
                       disabled={isStartingCamera || isPreparingImage || isGenerating || isCapturingPhoto}
-                      className="inline-flex min-h-[72px] items-center justify-center gap-3 rounded-[1.75rem] border border-emerald-500/30 bg-emerald-500 px-5 py-6 text-base font-semibold text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-70"
+                      className="inline-flex min-h-[72px] items-center justify-center gap-3 rounded-[1.75rem] border border-cyan-500/30 bg-cyan-500 px-5 py-6 text-base font-semibold text-slate-950 shadow-lg shadow-cyan-500/20 transition-all hover:bg-cyan-400 hover:shadow-cyan-500/20 disabled:cursor-wait disabled:opacity-70"
                     >
                       {isStartingCamera ? (
                         <>
@@ -592,7 +663,7 @@ export default function ScannerPortalPage() {
                 />
 
                 {isCameraActive ? (
-                  <div className="relative overflow-hidden rounded-3xl border border-emerald-500/20 bg-slate-900/60 backdrop-blur-xl">
+                  <div className="relative overflow-hidden rounded-3xl border border-cyan-500/30 bg-cyan-950/20 backdrop-blur-xl">
                     <video
                       ref={videoRef}
                       autoPlay
@@ -614,7 +685,7 @@ export default function ScannerPortalPage() {
                         type="button"
                         onClick={handleTakePhoto}
                         disabled={isCapturingPhoto || isGenerating || isPreparingImage}
-                        className="inline-flex min-h-[60px] items-center justify-center gap-3 rounded-full bg-emerald-500 px-8 py-4 text-base font-black tracking-wide text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 disabled:cursor-wait disabled:bg-emerald-400/70"
+                        className="inline-flex min-h-[60px] items-center justify-center gap-3 rounded-full bg-cyan-500 px-8 py-4 text-base font-black tracking-wide text-slate-950 shadow-lg shadow-cyan-500/20 transition-all hover:bg-cyan-400 hover:shadow-cyan-500/20 disabled:cursor-wait disabled:bg-cyan-400/70"
                       >
                         {isCapturingPhoto ? (
                           <>
@@ -633,7 +704,7 @@ export default function ScannerPortalPage() {
                 ) : null}
 
                 <canvas ref={captureCanvasRef} className="hidden" />
-                <p className="text-sm text-emerald-100/55">{helperText}</p>
+                <p className="text-sm text-cyan-100/55">{helperText}</p>
               </div>
 
               {error ? (
@@ -646,7 +717,7 @@ export default function ScannerPortalPage() {
                 type="button"
                 onClick={handleGenerateRun}
                 disabled={isGenerating || isPreparingImage || isStartingCamera || isCapturingPhoto}
-                className="inline-flex min-h-[60px] w-full items-center justify-center gap-3 rounded-full bg-emerald-500 px-6 py-4 text-base font-black tracking-wide text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 disabled:cursor-wait disabled:bg-emerald-400/70"
+                className="inline-flex min-h-[60px] w-full items-center justify-center gap-3 rounded-full bg-cyan-500 px-6 py-4 text-base font-black uppercase tracking-widest text-slate-950 shadow-lg shadow-cyan-500/20 transition-all hover:bg-cyan-400 hover:shadow-cyan-500/20 disabled:cursor-wait disabled:bg-cyan-400/70"
               >
                 {isGenerating ? (
                   <>
