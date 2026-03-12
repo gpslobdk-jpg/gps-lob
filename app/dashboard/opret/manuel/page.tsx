@@ -956,13 +956,6 @@ function OpretLoebPageContent() {
     setPreviewQuestions([]);
   };
 
-  const openAutoGenerateModal = () => {
-    setNotice(null);
-    setAutoGenerateNotice(null);
-    setAutoGenerateTopic((current) => current || title.trim() || description.trim() || aiRunBrief.trim());
-    setShowAutoGenerateModal(true);
-  };
-
   const closeAutoGenerateModal = () => {
     if (isAutoGeneratingRun) return;
     setAutoGenerateNotice(null);
@@ -1508,34 +1501,16 @@ function OpretLoebPageContent() {
                     Edit-mode
                   </div>
                 ) : null}
-                <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="mb-2">
                   <label className="block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
                     Løbets titel
                   </label>
-                  <button
-                    type="button"
-                    onClick={openAutoGenerateModal}
-                    disabled={isAiBusy || isSaving || isLoadingExistingRun}
-                    className={`${aiActionButtonClass} rounded-[1.2rem] px-4 py-2.5`}
-                  >
-                    {isAutoGeneratingRun ? (
-                      <span className="inline-flex animate-pulse items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        🪄 Arbejder...
-                      </span>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4" />
-                        Auto-generer løb med AI
-                      </>
-                    )}
-                  </button>
                 </div>
                 <input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   disabled={isAiBusy}
-                  placeholder="F.eks. Firmaets sommerfest"
+                  placeholder="F.eks. 4.B's store natur-løb"
                   className="w-full rounded-[1.6rem] border border-emerald-500/20 bg-slate-900/50 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                 />
               </div>
@@ -1797,14 +1772,21 @@ function OpretLoebPageContent() {
                     <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
                       Emne
                     </label>
-                    <input
+                    <select
                       value={subject}
                       onChange={(e) => setSubject(e.target.value)}
                       disabled={isAiBusy}
-                      list="quiz-topic-suggestions"
-                      placeholder="f.eks. popkultur, firmahistorie eller matematik"
                       className="w-full rounded-2xl border border-emerald-500/20 bg-slate-900/50 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                    />
+                    >
+                      <option value="" className="bg-slate-900 text-white">
+                        Vælg et fag til arkivet...
+                      </option>
+                      {AI_SUBJECT_OPTIONS.map((subjectOption) => (
+                        <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
+                          {subjectOption}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 ) : null}
 
