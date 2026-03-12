@@ -1,10 +1,19 @@
+import { Rubik } from "next/font/google";
+
+const rubik = Rubik({ subsets: ["latin"], weight: ["700", "800", "900"] });
+
 export default function BetaBanner() {
   return (
-    <div className="sticky top-0 z-40 border-b border-emerald-500/20 bg-slate-950/80 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-7xl items-center justify-center gap-3 px-4 py-3 text-center">
-        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-400" />
-        <p className="text-xs font-bold tracking-[0.22em] text-emerald-300 uppercase">
-          Gratis beta er åben frem til 1. august 2026
+    <div className="sticky top-0 z-50 border-b border-white/20 bg-emerald-600/90 py-3 shadow-lg backdrop-blur-md">
+      <div className="mx-auto flex max-w-7xl items-center justify-center gap-3 px-4 text-center">
+        {/* En mere markant hvid puls-indikator */}
+        <span className="relative flex h-3 w-3">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+          <span className="relative inline-flex h-3 w-3 rounded-full bg-white"></span>
+        </span>
+
+        <p className={`${rubik.className} text-[11px] sm:text-xs font-black tracking-[0.18em] text-white uppercase`}>
+          Beta-perioden udløber d. 12/04 – Få fuld adgang gratis nu!
         </p>
       </div>
     </div>
