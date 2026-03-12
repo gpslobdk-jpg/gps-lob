@@ -30,6 +30,7 @@ type HubCard = {
   icon: LucideIcon;
   iconShellClass: string;
   iconClass: string;
+  glowClass: string;
 };
 
 const cards: HubCard[] = [
@@ -40,6 +41,8 @@ const cards: HubCard[] = [
     icon: MapPin,
     iconShellClass: "border-emerald-200 bg-emerald-100",
     iconClass: "text-emerald-600",
+    glowClass:
+      "border-emerald-200/60 shadow-xl shadow-emerald-500/10 hover:shadow-2xl hover:shadow-emerald-500/30 hover:border-emerald-300/80",
   },
   {
     title: "AI Foto-mission",
@@ -49,6 +52,8 @@ const cards: HubCard[] = [
     icon: Camera,
     iconShellClass: "border-sky-200 bg-sky-100",
     iconClass: "text-sky-600",
+    glowClass:
+      "border-sky-200/60 shadow-xl shadow-sky-500/10 hover:shadow-2xl hover:shadow-sky-500/30 hover:border-sky-300/80",
   },
   {
     title: "Escape Room",
@@ -57,6 +62,8 @@ const cards: HubCard[] = [
     icon: Lock,
     iconShellClass: "border-amber-200 bg-amber-100",
     iconClass: "text-amber-600",
+    glowClass:
+      "border-amber-200/60 shadow-xl shadow-amber-500/10 hover:shadow-2xl hover:shadow-amber-500/30 hover:border-amber-300/80",
   },
   {
     title: "Rollespil",
@@ -65,6 +72,8 @@ const cards: HubCard[] = [
     icon: MessageSquare,
     iconShellClass: "border-violet-200 bg-violet-100",
     iconClass: "text-violet-600",
+    glowClass:
+      "border-violet-200/60 shadow-xl shadow-violet-500/10 hover:shadow-2xl hover:shadow-violet-500/30 hover:border-violet-300/80",
   },
   {
     title: "Scan bogen",
@@ -73,6 +82,8 @@ const cards: HubCard[] = [
     icon: BookOpen,
     iconShellClass: "border-cyan-200 bg-cyan-100",
     iconClass: "text-cyan-600",
+    glowClass:
+      "border-cyan-200/60 shadow-xl shadow-cyan-500/10 hover:shadow-2xl hover:shadow-cyan-500/30 hover:border-cyan-300/80",
   },
   {
     title: "Selfie-mission",
@@ -81,6 +92,8 @@ const cards: HubCard[] = [
     icon: Sparkles,
     iconShellClass: "border-rose-200 bg-rose-100",
     iconClass: "text-rose-600",
+    glowClass:
+      "border-rose-200/60 shadow-xl shadow-rose-500/10 hover:shadow-2xl hover:shadow-rose-500/30 hover:border-rose-300/80",
   },
 ];
 
@@ -92,7 +105,9 @@ function renderCard(card: HubCard, index: number) {
       data-tour={index === 0 ? "valg-classic-quiz" : undefined}
       className="group block h-full w-full focus:outline-none"
     >
-      <article className="relative flex h-full min-h-[220px] flex-col overflow-hidden rounded-[2.5rem] border border-white/50 bg-white/80 p-6 shadow-xl backdrop-blur-md transition-all duration-300 hover:scale-105 hover:bg-white/95 hover:shadow-2xl">
+      <article
+        className={`relative flex h-full min-h-[220px] flex-col overflow-hidden rounded-[2.5rem] border bg-white/80 p-6 backdrop-blur-md transition-all duration-300 hover:scale-105 hover:bg-white/95 ${card.glowClass}`}
+      >
         <div
           className={`mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border ${card.iconShellClass}`}
         >
