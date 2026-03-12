@@ -98,7 +98,7 @@ function renderCard(card: HubCard, index: number) {
       data-tour={index === 0 ? "valg-classic-quiz" : undefined}
       className="group block h-full w-full focus:outline-none"
     >
-      <article className="flex h-full min-h-[320px] flex-col rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-6 shadow-lg backdrop-blur-xl transition-all duration-300 group-hover:-translate-y-1.5 group-hover:border-emerald-500/50 group-hover:shadow-[0_28px_80px_rgba(16,185,129,0.16)] group-focus-visible:-translate-y-1.5 group-focus-visible:border-emerald-500/50 group-focus-visible:shadow-[0_28px_80px_rgba(16,185,129,0.16)]">
+      <article className="relative flex h-full min-h-[300px] flex-col overflow-hidden rounded-[2.5rem] border border-white/50 bg-white/80 p-8 shadow-xl backdrop-blur-md transition-all duration-300 hover:scale-105 hover:bg-white/95 hover:shadow-2xl">
         <div
           className={`flex h-16 w-16 items-center justify-center rounded-2xl border ${card.iconShellClass}`}
         >
@@ -125,18 +125,18 @@ function renderCard(card: HubCard, index: number) {
 export default function ValgHubPage() {
   return (
     <main
-      className={`relative min-h-screen overflow-hidden bg-slate-950 px-6 py-12 pb-32 text-slate-100 md:px-10 md:pb-16 ${poppins.className}`}
+      className={`relative min-h-screen overflow-hidden bg-gradient-to-b from-sky-300 via-emerald-50 to-emerald-200 px-6 py-12 pb-32 text-slate-100 md:px-10 md:pb-16 lg:bg-none lg:bg-transparent ${poppins.className}`}
     >
       <video
         autoPlay
         loop
         muted
         playsInline
-        className="fixed inset-0 h-full w-full object-cover -z-20"
+        preload="metadata"
+        className="fixed top-0 left-0 hidden h-full w-full object-cover -z-20 lg:block"
         src="/promo.mp4"
       />
-      <div className="fixed inset-0 -z-10 bg-slate-950/70 backdrop-blur-[2px]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(16,185,129,0.12),transparent_35%),radial-gradient(circle_at_80%_100%,rgba(14,165,233,0.1),transparent_40%)]" />
+      <div className="fixed inset-0 hidden bg-gradient-to-b from-sky-900/20 to-emerald-900/40 backdrop-blur-[2px] -z-10 lg:block" />
 
       <section className="relative z-10 mx-auto w-full max-w-6xl">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -167,7 +167,7 @@ export default function ValgHubPage() {
           </p>
         </div>
 
-        <div className="mt-10 grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mx-auto mt-12 grid max-w-6xl grid-cols-1 gap-8 md:grid-cols-3">
           {cards.map((card, index) => renderCard(card, index))}
         </div>
 
