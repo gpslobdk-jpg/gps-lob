@@ -31,6 +31,7 @@ type HubCard = {
   iconShellClass: string;
   iconClass: string;
   glowClass: string;
+  colorClass: string;
 };
 
 const cards: HubCard[] = [
@@ -43,6 +44,7 @@ const cards: HubCard[] = [
     iconClass: "text-emerald-600",
     glowClass:
       "border-emerald-200/60 shadow-xl shadow-emerald-500/10 hover:shadow-2xl hover:shadow-emerald-500/30 hover:border-emerald-300/80",
+    colorClass: "bg-emerald-600/85 hover:bg-emerald-600/95 border-emerald-400/40",
   },
   {
     title: "AI Foto-mission",
@@ -54,6 +56,7 @@ const cards: HubCard[] = [
     iconClass: "text-sky-600",
     glowClass:
       "border-sky-200/60 shadow-xl shadow-sky-500/10 hover:shadow-2xl hover:shadow-sky-500/30 hover:border-sky-300/80",
+    colorClass: "bg-sky-600/85 hover:bg-sky-600/95 border-sky-400/40",
   },
   {
     title: "Escape Room",
@@ -64,6 +67,7 @@ const cards: HubCard[] = [
     iconClass: "text-amber-600",
     glowClass:
       "border-amber-200/60 shadow-xl shadow-amber-500/10 hover:shadow-2xl hover:shadow-amber-500/30 hover:border-amber-300/80",
+    colorClass: "bg-amber-600/85 hover:bg-amber-600/95 border-amber-400/40",
   },
   {
     title: "Rollespil",
@@ -74,6 +78,7 @@ const cards: HubCard[] = [
     iconClass: "text-violet-600",
     glowClass:
       "border-violet-200/60 shadow-xl shadow-violet-500/10 hover:shadow-2xl hover:shadow-violet-500/30 hover:border-violet-300/80",
+    colorClass: "bg-violet-600/85 hover:bg-violet-600/95 border-violet-400/40",
   },
   {
     title: "Scan bogen",
@@ -84,6 +89,7 @@ const cards: HubCard[] = [
     iconClass: "text-cyan-600",
     glowClass:
       "border-cyan-200/60 shadow-xl shadow-cyan-500/10 hover:shadow-2xl hover:shadow-cyan-500/30 hover:border-cyan-300/80",
+    colorClass: "bg-cyan-600/85 hover:bg-cyan-600/95 border-cyan-400/40",
   },
   {
     title: "Selfie-mission",
@@ -94,6 +100,7 @@ const cards: HubCard[] = [
     iconClass: "text-rose-600",
     glowClass:
       "border-rose-200/60 shadow-xl shadow-rose-500/10 hover:shadow-2xl hover:shadow-rose-500/30 hover:border-rose-300/80",
+    colorClass: "bg-rose-600/85 hover:bg-rose-600/95 border-rose-400/40",
   },
 ];
 
@@ -106,17 +113,15 @@ function renderCard(card: HubCard, index: number) {
       className="group block h-full w-full focus:outline-none"
     >
       <article
-        className={`relative flex h-full min-h-[220px] flex-col overflow-hidden rounded-[2.5rem] border bg-white/80 p-6 backdrop-blur-md transition-all duration-300 hover:scale-105 hover:bg-white/95 ${card.glowClass}`}
+        className={`relative flex h-full min-h-[220px] flex-col overflow-hidden rounded-[2.5rem] border p-6 backdrop-blur-md transition-all duration-300 hover:scale-105 ${card.glowClass} ${card.colorClass}`}
       >
-        <div
-          className={`mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border ${card.iconShellClass}`}
-        >
-          <card.icon className={`h-8 w-8 ${card.iconClass}`} />
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/40 bg-white/20">
+          <card.icon className="h-8 w-8 text-white" />
         </div>
-        <h2 className={`text-xl font-black tracking-wide text-gray-900 ${rubik.className}`}>
+        <h2 className={`text-xl font-black tracking-wide text-white ${rubik.className}`}>
           {card.title}
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-gray-700">{card.description}</p>
+        <p className="mt-2 text-sm leading-relaxed text-white/90">{card.description}</p>
       </article>
     </Link>
   );
