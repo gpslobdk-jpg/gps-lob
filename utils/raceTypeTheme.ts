@@ -14,10 +14,17 @@ export type RaceTypeTheme = {
   archiveHeaderClass: string;
   archiveAccentIconClass: string;
   archivePrimaryButtonClass: string;
-  archiveSecondaryButtonClass: string;
-  archiveMutedButtonClass: string;
-  archiveIconButtonClass: string;
+  archiveGhostButtonClass: string;
+  archiveGhostIconButtonClass: string;
+  archiveDangerIconButtonClass: string;
+  archiveStatusBadgeClass: string;
 };
+
+const ARCHIVE_DANGER_ICON_BUTTON_CLASS =
+  "border border-rose-200 bg-white text-rose-700 shadow-sm hover:border-rose-300 hover:bg-rose-50";
+
+const ARCHIVE_STATUS_BADGE_CLASS =
+  "border border-white/15 bg-white/12 text-white shadow-[0_10px_24px_rgba(15,23,42,0.12)]";
 
 const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
   manuel: {
@@ -30,13 +37,13 @@ const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
     archiveHeaderClass: "bg-emerald-700 text-white",
     archiveAccentIconClass: "text-emerald-700",
     archivePrimaryButtonClass:
-      "border border-emerald-400/40 bg-emerald-700 text-white shadow-[0_16px_32px_rgba(4,120,87,0.26)] hover:bg-emerald-600",
-    archiveSecondaryButtonClass:
-      "border border-emerald-400/30 bg-emerald-800 text-white shadow-[0_14px_28px_rgba(6,78,59,0.22)] hover:bg-emerald-700",
-    archiveMutedButtonClass:
-      "border border-emerald-400/25 bg-slate-950 text-white shadow-[0_14px_28px_rgba(15,23,42,0.2)] hover:bg-slate-900",
-    archiveIconButtonClass:
-      "border border-emerald-400/25 bg-emerald-800 text-white hover:bg-emerald-700",
+      "border border-emerald-700 bg-emerald-700 text-white shadow-[0_12px_24px_rgba(4,120,87,0.18)] hover:bg-emerald-600",
+    archiveGhostButtonClass:
+      "border border-emerald-200 bg-white text-emerald-900 shadow-sm hover:border-emerald-300 hover:bg-emerald-50",
+    archiveGhostIconButtonClass:
+      "border border-emerald-200 bg-white text-emerald-800 shadow-sm hover:border-emerald-300 hover:bg-emerald-50",
+    archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
+    archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
   },
   foto: {
     key: "foto",
@@ -47,12 +54,13 @@ const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
     archiveHeaderClass: "bg-sky-700 text-white",
     archiveAccentIconClass: "text-sky-700",
     archivePrimaryButtonClass:
-      "border border-sky-400/40 bg-sky-700 text-white shadow-[0_16px_32px_rgba(3,105,161,0.26)] hover:bg-sky-600",
-    archiveSecondaryButtonClass:
-      "border border-sky-400/30 bg-sky-800 text-white shadow-[0_14px_28px_rgba(7,89,133,0.22)] hover:bg-sky-700",
-    archiveMutedButtonClass:
-      "border border-sky-400/25 bg-slate-950 text-white shadow-[0_14px_28px_rgba(15,23,42,0.2)] hover:bg-slate-900",
-    archiveIconButtonClass: "border border-sky-400/25 bg-sky-800 text-white hover:bg-sky-700",
+      "border border-sky-700 bg-sky-700 text-white shadow-[0_12px_24px_rgba(3,105,161,0.18)] hover:bg-sky-600",
+    archiveGhostButtonClass:
+      "border border-sky-200 bg-white text-sky-900 shadow-sm hover:border-sky-300 hover:bg-sky-50",
+    archiveGhostIconButtonClass:
+      "border border-sky-200 bg-white text-sky-800 shadow-sm hover:border-sky-300 hover:bg-sky-50",
+    archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
+    archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
   },
   escape: {
     key: "escape",
@@ -64,13 +72,13 @@ const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
     archiveHeaderClass: "bg-amber-700 text-white",
     archiveAccentIconClass: "text-amber-700",
     archivePrimaryButtonClass:
-      "border border-amber-400/40 bg-amber-700 text-white shadow-[0_16px_32px_rgba(180,83,9,0.28)] hover:bg-amber-600",
-    archiveSecondaryButtonClass:
-      "border border-amber-400/30 bg-amber-800 text-white shadow-[0_14px_28px_rgba(146,64,14,0.24)] hover:bg-amber-700",
-    archiveMutedButtonClass:
-      "border border-amber-400/25 bg-slate-950 text-white shadow-[0_14px_28px_rgba(15,23,42,0.2)] hover:bg-slate-900",
-    archiveIconButtonClass:
-      "border border-amber-400/25 bg-amber-800 text-white hover:bg-amber-700",
+      "border border-amber-700 bg-amber-700 text-white shadow-[0_12px_24px_rgba(180,83,9,0.18)] hover:bg-amber-600",
+    archiveGhostButtonClass:
+      "border border-amber-200 bg-white text-amber-900 shadow-sm hover:border-amber-300 hover:bg-amber-50",
+    archiveGhostIconButtonClass:
+      "border border-amber-200 bg-white text-amber-800 shadow-sm hover:border-amber-300 hover:bg-amber-50",
+    archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
+    archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
   },
   rollespil: {
     key: "rollespil",
@@ -82,13 +90,13 @@ const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
     archiveHeaderClass: "bg-violet-700 text-white",
     archiveAccentIconClass: "text-violet-700",
     archivePrimaryButtonClass:
-      "border border-violet-400/40 bg-violet-700 text-white shadow-[0_16px_32px_rgba(109,40,217,0.26)] hover:bg-violet-600",
-    archiveSecondaryButtonClass:
-      "border border-violet-400/30 bg-violet-800 text-white shadow-[0_14px_28px_rgba(91,33,182,0.22)] hover:bg-violet-700",
-    archiveMutedButtonClass:
-      "border border-violet-400/25 bg-slate-950 text-white shadow-[0_14px_28px_rgba(15,23,42,0.2)] hover:bg-slate-900",
-    archiveIconButtonClass:
-      "border border-violet-400/25 bg-violet-800 text-white hover:bg-violet-700",
+      "border border-violet-700 bg-violet-700 text-white shadow-[0_12px_24px_rgba(109,40,217,0.18)] hover:bg-violet-600",
+    archiveGhostButtonClass:
+      "border border-violet-200 bg-white text-violet-900 shadow-sm hover:border-violet-300 hover:bg-violet-50",
+    archiveGhostIconButtonClass:
+      "border border-violet-200 bg-white text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50",
+    archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
+    archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
   },
   scanner: {
     key: "scanner",
@@ -99,12 +107,13 @@ const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
     archiveHeaderClass: "bg-cyan-700 text-white",
     archiveAccentIconClass: "text-cyan-700",
     archivePrimaryButtonClass:
-      "border border-cyan-400/40 bg-cyan-700 text-white shadow-[0_16px_32px_rgba(14,116,144,0.26)] hover:bg-cyan-600",
-    archiveSecondaryButtonClass:
-      "border border-cyan-400/30 bg-cyan-800 text-white shadow-[0_14px_28px_rgba(21,94,117,0.22)] hover:bg-cyan-700",
-    archiveMutedButtonClass:
-      "border border-cyan-400/25 bg-slate-950 text-white shadow-[0_14px_28px_rgba(15,23,42,0.2)] hover:bg-slate-900",
-    archiveIconButtonClass: "border border-cyan-400/25 bg-cyan-800 text-white hover:bg-cyan-700",
+      "border border-cyan-700 bg-cyan-700 text-white shadow-[0_12px_24px_rgba(14,116,144,0.18)] hover:bg-cyan-600",
+    archiveGhostButtonClass:
+      "border border-cyan-200 bg-white text-cyan-900 shadow-sm hover:border-cyan-300 hover:bg-cyan-50",
+    archiveGhostIconButtonClass:
+      "border border-cyan-200 bg-white text-cyan-800 shadow-sm hover:border-cyan-300 hover:bg-cyan-50",
+    archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
+    archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
   },
   selfie: {
     key: "selfie",
@@ -115,12 +124,13 @@ const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
     archiveHeaderClass: "bg-rose-700 text-white",
     archiveAccentIconClass: "text-rose-700",
     archivePrimaryButtonClass:
-      "border border-rose-400/40 bg-rose-700 text-white shadow-[0_16px_32px_rgba(190,24,93,0.26)] hover:bg-rose-600",
-    archiveSecondaryButtonClass:
-      "border border-rose-400/30 bg-rose-800 text-white shadow-[0_14px_28px_rgba(159,18,57,0.22)] hover:bg-rose-700",
-    archiveMutedButtonClass:
-      "border border-rose-400/25 bg-slate-950 text-white shadow-[0_14px_28px_rgba(15,23,42,0.2)] hover:bg-slate-900",
-    archiveIconButtonClass: "border border-rose-400/25 bg-rose-800 text-white hover:bg-rose-700",
+      "border border-rose-700 bg-rose-700 text-white shadow-[0_12px_24px_rgba(190,24,93,0.18)] hover:bg-rose-600",
+    archiveGhostButtonClass:
+      "border border-rose-200 bg-white text-rose-900 shadow-sm hover:border-rose-300 hover:bg-rose-50",
+    archiveGhostIconButtonClass:
+      "border border-rose-200 bg-white text-rose-800 shadow-sm hover:border-rose-300 hover:bg-rose-50",
+    archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
+    archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
   },
 };
 

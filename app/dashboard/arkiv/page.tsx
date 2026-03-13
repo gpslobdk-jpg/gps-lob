@@ -612,6 +612,8 @@ export default function ArkivPage() {
                 const runSchedule = getRunSchedule(run);
                 const formattedStart = formatDanishDateTime(runSchedule?.startAt);
                 const formattedEnd = formatDanishDateTime(runSchedule?.endAt);
+                const isScheduled = hasRunSchedule(runSchedule);
+                const scheduleStatusLabel = isScheduled ? "Planlagt" : "Åben adgang";
 
                 return (
                   <motion.div
@@ -643,6 +645,15 @@ export default function ArkivPage() {
                           {theme.label}
                         </span>
                       </div>
+
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold ${theme.archiveStatusBadgeClass}`}
+                        >
+                          {isScheduled ? <Timer className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                          {scheduleStatusLabel}
+                        </span>
+                      </div>
                     </div>
 
                     <p className="flex items-center gap-2 text-sm font-medium text-slate-800">
@@ -650,7 +661,7 @@ export default function ArkivPage() {
                       {getQuestionCount(run.questions)} poster
                     </p>
 
-                    {hasRunSchedule(runSchedule) ? (
+                    {isScheduled ? (
                       <p className="mt-3 flex items-center gap-2 text-xs font-medium text-slate-700">
                         <Timer className={`h-4 w-4 ${theme.archiveAccentIconClass}`} />
                         {runSchedule?.startAt && runSchedule?.endAt
@@ -661,13 +672,13 @@ export default function ArkivPage() {
                       </p>
                     ) : null}
 
-                    <div className="mt-5 space-y-3">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                    <div className="mt-5 border-t border-slate-200/80 pt-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <button
                           type="button"
                           onClick={() => void handleStartRun(run.id)}
                           disabled={startingRunId === run.id}
-                          className={`inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-black transition disabled:cursor-wait disabled:opacity-70 ${theme.archivePrimaryButtonClass}`}
+                          className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black tracking-[0.16em] uppercase transition disabled:cursor-wait disabled:opacity-70 sm:w-auto sm:min-w-[11rem] ${theme.archivePrimaryButtonClass}`}
                         >
                           {startingRunId === run.id ? (
                             "STARTER..."
@@ -679,47 +690,45 @@ export default function ArkivPage() {
                           )}
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() => openScheduleModal(run)}
-                          className={`inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition ${
-                            hasRunSchedule(runSchedule)
-                              ? theme.archiveSecondaryButtonClass
-                              : theme.archiveMutedButtonClass
-                          }`}
-                        >
-                          <Calendar className="h-3.5 w-3.5" />
-                          Planlæg (Åben adgang)
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2 sm:flex-1 sm:justify-end">
+                          <button
+                            type="button"
+                            onClick={() => openScheduleModal(run)}
+                            className={`inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-full px-3.5 text-xs font-semibold transition ${theme.archiveGhostButtonClass}`}
+                          >
+                            <Calendar className="h-3.5 w-3.5" />
+                            Planlæg
+                          </button>
 
-                        <button
-                          type="button"
-                          onClick={() => router.push(`/dashboard/resultater/${run.id}`)}
-                          className={`inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition ${theme.archiveSecondaryButtonClass}`}
-                        >
-                          <BarChart className="h-3.5 w-3.5" />
-                          Se Resultater
-                        </button>
-                      </div>
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/dashboard/resultater/${run.id}`)}
+                            className={`inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-full px-3.5 text-xs font-semibold transition ${theme.archiveGhostButtonClass}`}
+                          >
+                            <BarChart className="h-3.5 w-3.5" />
+                            Resultater
+                          </button>
 
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          aria-label="Rediger løb"
-                          onClick={() => handleEditRun(run)}
-                          className={`grid h-9 w-9 place-items-center rounded-lg transition ${theme.archiveIconButtonClass}`}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
+                          <button
+                            type="button"
+                            aria-label="Rediger løb"
+                            title="Rediger løb"
+                            onClick={() => handleEditRun(run)}
+                            className={`grid h-9 w-9 place-items-center rounded-full transition ${theme.archiveGhostIconButtonClass}`}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
 
-                        <button
-                          type="button"
-                          aria-label="Slet løb"
-                          onClick={() => void handleDeleteRun(run.id)}
-                          className={`grid h-9 w-9 place-items-center rounded-lg transition ${theme.archiveIconButtonClass}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                          <button
+                            type="button"
+                            aria-label="Slet løb"
+                            title="Slet løb"
+                            onClick={() => void handleDeleteRun(run.id)}
+                            className={`grid h-9 w-9 place-items-center rounded-full transition ${theme.archiveDangerIconButtonClass}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </motion.div>
@@ -868,7 +877,7 @@ export default function ArkivPage() {
                         setScheduleStart("");
                         setScheduleEnd("");
                       }}
-                        className={`rounded-2xl px-5 py-3 text-sm font-semibold transition ${scheduleTheme.archiveMutedButtonClass}`}
+                      className={`rounded-2xl px-5 py-3 text-sm font-semibold transition ${scheduleTheme.archiveGhostButtonClass}`}
                     >
                       Ryd tider
                     </button>
@@ -876,7 +885,7 @@ export default function ArkivPage() {
                     <button
                       type="submit"
                       disabled={isSavingSchedule}
-                        className={`rounded-2xl px-5 py-3 text-sm font-black tracking-[0.2em] uppercase transition disabled:cursor-wait disabled:opacity-70 ${scheduleTheme.archivePrimaryButtonClass}`}
+                      className={`rounded-2xl px-5 py-3 text-sm font-black tracking-[0.2em] uppercase transition disabled:cursor-wait disabled:opacity-70 ${scheduleTheme.archivePrimaryButtonClass}`}
                     >
                       {isSavingSchedule ? "GEMMER..." : "GEM TIDER"}
                     </button>
