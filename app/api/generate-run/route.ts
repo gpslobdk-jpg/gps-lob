@@ -5,6 +5,8 @@ import { z } from "zod";
 
 import { createClient } from "@/utils/supabase/server";
 
+export const maxDuration = 300;
+
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });

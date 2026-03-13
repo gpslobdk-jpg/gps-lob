@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 
 import type { Post } from "@/components/play/types";
 
+export const maxDuration = 300;
+
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });

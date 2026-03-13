@@ -9,6 +9,8 @@ import {
   resolveQuestionVariant,
 } from "@/app/api/play/_shared";
 
+export const maxDuration = 300;
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 type AnalyzePhotoPayload = {

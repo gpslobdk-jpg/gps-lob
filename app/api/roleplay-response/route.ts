@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@/utils/supabase/server";
 
+export const maxDuration = 300;
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const OPENAI_TIMEOUT_MS = 45_000;
 
