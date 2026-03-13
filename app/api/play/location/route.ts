@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { createAdminClient } from "@/utils/supabase/admin";
+
 export const runtime = "edge";
+
+type AdminSupabaseClient = NonNullable<ReturnType<typeof createAdminClient>>;
 
 type LocationPayload = {
   sessionId?: unknown;
@@ -133,14 +137,29 @@ async function updateParticipantById(
   return result;
 }
 
-async function fetchActiveParticipant(sessionId: string, participantId: string) {
-  const sessionResult = await supabaseRequest<ActiveSessionRow[]>(
-    `live_sessions?id=eq.${encodeURIComponent(sessionId)}&select=id&status=in.(waiting,running)&limit=1`,
-    { method: "GET" }
-  );
+async function fetchActiveParticipant(
+  sessionId: string,
+  participantId: string,
+  adminSupabase: AdminSupabaseClient
+) {
+  const { data: sessionData, error: sessionError } = await adminSupabase
+    .from("live_sessions")
+    .select("id")
+    .eq("id", sessionId)
+    .in("status", ["waiting", "running"])
+    .maybeSingle<ActiveSessionRow>();
 
-  if (!sessionResult.ok) {
-    return sessionResult;
+  if (sessionError) {
+    return {
+      ok: false as const,
+      status: 500,
+      error: {
+        code: sessionError.code,
+        message: sessionError.message,
+        details: sessionError.details ?? undefined,
+        hint: sessionError.hint ?? undefined,
+      },
+    };
   }
 
   const participantResult = await supabaseRequest<ParticipantIdRow[]>(
@@ -157,8 +176,10 @@ async function fetchActiveParticipant(sessionId: string, participantId: string) 
     return participantResult;
   }
 
-  const activeSession = Array.isArray(sessionResult.data) ? sessionResult.data[0] : null;
-  const participantRow = Array.isArray(participantResult.data) ? participantResult.data[0] : null;
+  const activeSession = sessionData ?? null;
+  const participantRow = Array.isArray(participantResult.data)
+    ? participantResult.data[0]
+    : null;
 
   return {
     ok: true as const,
@@ -176,7 +197,7 @@ export async function POST(request: NextRequest) {
   try {
     payload = (await request.json()) as LocationPayload;
   } catch {
-    return NextResponse.json({ error: "Ugyldig forespørgsel." }, { status: 400 });
+    return NextResponse.json({ error: "Ugyldig foresporgsel." }, { status: 400 });
   }
 
   const sessionId = asTrimmedString(payload.sessionId);
@@ -188,20 +209,47 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Manglende positionsdata." }, { status: 400 });
   }
 
+  const adminSupabase = createAdminClient();
+  if (!adminSupabase) {
+    return NextResponse.json(
+      { error: "Supabase admin er ikke konfigureret." },
+      { status: 503 }
+    );
+  }
+
   const timestamp = new Date().toISOString();
 
   try {
-    const validationResult = await fetchActiveParticipant(sessionId, participantId);
+    const validationResult = await fetchActiveParticipant(
+      sessionId,
+      participantId,
+      adminSupabase
+    );
     if (!validationResult.ok) {
-      console.error("Kunne ikke validere deltageren før positionsopdatering:", validationResult.error);
-      return NextResponse.json({ error: "Kunne ikke validere deltageren." }, { status: 500 });
+      console.error(
+        "Kunne ikke validere deltageren for positionsopdatering:",
+        validationResult.error
+      );
+      return NextResponse.json(
+        { error: "Kunne ikke validere deltageren." },
+        { status: 500 }
+      );
     }
 
     if (!validationResult.data.sessionId || !validationResult.data.participantId) {
-      return NextResponse.json({ error: "Deltageren findes ikke i den aktive session." }, { status: 404 });
+      return NextResponse.json(
+        { error: "Deltageren findes ikke i den aktive session." },
+        { status: 404 }
+      );
     }
 
-    const updateResult = await updateParticipantById(sessionId, participantId, lat, lng, timestamp);
+    const updateResult = await updateParticipantById(
+      sessionId,
+      participantId,
+      lat,
+      lng,
+      timestamp
+    );
 
     if (!updateResult.ok) {
       console.error("Kunne ikke opdatere participant via id:", updateResult.error);
@@ -210,7 +258,10 @@ export async function POST(request: NextRequest) {
 
     const updatedRows = Array.isArray(updateResult.data) ? updateResult.data : [];
     if (updatedRows.length === 0) {
-      return NextResponse.json({ error: "Deltageren findes ikke længere." }, { status: 404 });
+      return NextResponse.json(
+        { error: "Deltageren findes ikke laengere." },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json({ ok: true, participantId });

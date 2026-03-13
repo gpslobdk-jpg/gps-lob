@@ -8,10 +8,13 @@ import {
   getPhotoMissionConfig,
   resolveQuestionVariant,
 } from "@/app/api/play/_shared";
+import { createAdminClient } from "@/utils/supabase/admin";
 
 export const maxDuration = 300;
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+type AdminSupabaseClient = NonNullable<ReturnType<typeof createAdminClient>>;
 
 type AnalyzePhotoPayload = {
   image?: unknown;
@@ -137,14 +140,8 @@ async function uploadPhotoToStorage(
   image: string,
   sessionId: string,
   postIndex: number,
-  participantId: string
+  adminSupabase: AdminSupabaseClient
 ): Promise<UploadedPhoto> {
-  const supabase = getSupabaseApiClient({ participantId, sessionId });
-  if (!supabase) {
-    console.error("Supabase Storage er ikke konfigureret. Springer upload over.");
-    return { imageUrl: null };
-  }
-
   const parsedImage = parseImageDataUri(image);
   if (!parsedImage) {
     console.error("Kunne ikke parse data-URI til billedeupload.");
@@ -152,7 +149,7 @@ async function uploadPhotoToStorage(
   }
 
   const storagePath = buildStoragePath(sessionId, postIndex, parsedImage.mimeType);
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError } = await adminSupabase.storage
     .from("participant-uploads")
     .upload(storagePath, parsedImage.buffer, {
       contentType: parsedImage.mimeType,
@@ -166,7 +163,7 @@ async function uploadPhotoToStorage(
 
   const {
     data: { publicUrl },
-  } = supabase.storage.from("participant-uploads").getPublicUrl(storagePath);
+  } = adminSupabase.storage.from("participant-uploads").getPublicUrl(storagePath);
 
   return {
     imageUrl: publicUrl || null,
@@ -195,14 +192,11 @@ async function fetchParticipantIdentity(sessionId: string, participantId: string
   return data ?? null;
 }
 
-async function fetchActiveSession(sessionId: string) {
-  const supabase = getSupabaseApiClient({ sessionId });
-  if (!supabase) {
-    console.error("Supabase-klienten til sessionsvalidering er ikke konfigureret.");
-    return null;
-  }
-
-  const { data, error } = await supabase
+async function fetchActiveSession(
+  sessionId: string,
+  adminSupabase: AdminSupabaseClient
+) {
+  const { data, error } = await adminSupabase
     .from("live_sessions")
     .select("id")
     .eq("id", sessionId)
@@ -311,7 +305,7 @@ export async function POST(req: Request) {
   try {
     payload = (await req.json()) as AnalyzePhotoPayload;
   } catch {
-    return NextResponse.json({ error: "Ugyldig forespørgsel." }, { status: 400 });
+    return NextResponse.json({ error: "Ugyldig foresporgsel." }, { status: 400 });
   }
 
   try {
@@ -325,7 +319,18 @@ export async function POST(req: Request) {
     }
 
     if (!image.startsWith("data:image/")) {
-      return NextResponse.json({ error: "Billedet skal være et base64 data-URI." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Billedet skal vaere et base64 data-URI." },
+        { status: 400 }
+      );
+    }
+
+    const adminSupabase = createAdminClient();
+    if (!adminSupabase) {
+      return NextResponse.json(
+        { error: "Supabase admin er ikke konfigureret." },
+        { status: 503 }
+      );
     }
 
     const run = await fetchRunForSession(sessionId);
@@ -333,9 +338,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Foto-posten kunne ikke findes." }, { status: 404 });
     }
 
-    const activeSession = await fetchActiveSession(sessionId);
+    const activeSession = await fetchActiveSession(sessionId, adminSupabase);
     if (!activeSession?.id) {
-      return NextResponse.json({ error: "Sessionen er ikke aktiv længere." }, { status: 404 });
+      return NextResponse.json({ error: "Sessionen er ikke aktiv laengere." }, { status: 404 });
     }
 
     const participant = await fetchParticipantIdentity(sessionId, participantId);
@@ -347,31 +352,42 @@ export async function POST(req: Request) {
     const rawQuestion = run.questions[postIndex];
     const variant = resolveQuestionVariant(run.raceType ?? run.race_type, rawQuestion);
     if (variant !== "photo") {
-      return NextResponse.json({ error: "Denne post bruger ikke foto-dommeren." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Denne post bruger ikke foto-dommeren." },
+        { status: 400 }
+      );
     }
 
     const { targetObject, isSelfie } = getPhotoMissionConfig(rawQuestion);
     if (!targetObject) {
-      return NextResponse.json({ error: "Foto-posten mangler et gyldigt motiv." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Foto-posten mangler et gyldigt motiv." },
+        { status: 400 }
+      );
     }
 
-    const uploadedPhoto = await uploadPhotoToStorage(image, sessionId, postIndex, participantId);
+    const uploadedPhoto = await uploadPhotoToStorage(
+      image,
+      sessionId,
+      postIndex,
+      adminSupabase
+    );
 
     if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ error: "OPENAI_API_KEY mangler i miljøet." }, { status: 500 });
+      return NextResponse.json({ error: "OPENAI_API_KEY mangler i miljoet." }, { status: 500 });
     }
 
-    const systemPrompt = `Du er en sjov og opmuntrende dommer i et udendørs GPS-løb for børn og voksne. Din opgave er at vurdere, om det uploadede billede ${
+    const systemPrompt = `Du er en sjov og opmuntrende dommer i et udendoers GPS-loeb for boern og voksne. Din opgave er at vurdere, om det uploadede billede ${
       isSelfie
-        ? `er en selfie, hvor mindst ét ansigt er tydeligt, og om motivet ${targetObject} også er synligt i baggrunden eller samme billede`
+        ? `er en selfie, hvor mindst et ansigt er tydeligt, og om motivet ${targetObject} ogsaa er synligt i baggrunden eller samme billede`
         : `indeholder det anmodede motiv: ${targetObject}`
     }.
 Returner KUN et validt JSON-objekt med dette format:
-{"isMatch": true/false, "message": "kort, varm feedback på dansk til deltagerne"}`;
+{"isMatch": true/false, "message": "kort, varm feedback paa dansk til deltagerne"}`;
 
     const userPrompt = isSelfie
-      ? `Vurder om dette er en selfie ved ${targetObject}. Giv positiv, kort feedback på dansk.`
-      : `Vurder om dette billede viser ${targetObject}. Giv positiv, kort feedback på dansk.`;
+      ? `Vurder om dette er en selfie ved ${targetObject}. Giv positiv, kort feedback paa dansk.`
+      : `Vurder om dette billede viser ${targetObject}. Giv positiv, kort feedback paa dansk.`;
 
     const aiResponse = await openai.responses.create({
       model: "gpt-4.1-mini",
@@ -396,9 +412,11 @@ Returner KUN et validt JSON-objekt med dette format:
       ],
     });
 
-    const normalizedResult = normalizeAnalysisResult(aiResponse.output_text ? JSON.parse(aiResponse.output_text) : null);
+    const normalizedResult = normalizeAnalysisResult(
+      aiResponse.output_text ? JSON.parse(aiResponse.output_text) : null
+    );
     if (!normalizedResult) {
-      return NextResponse.json({ error: "AI-svaret kunne ikke forstås." }, { status: 502 });
+      return NextResponse.json({ error: "AI-svaret kunne ikke forstaas." }, { status: 502 });
     }
 
     let storedAnswer = false;
