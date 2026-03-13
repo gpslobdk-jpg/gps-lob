@@ -90,7 +90,9 @@ export default function Home() {
       <div className="fixed inset-0 -z-10 bg-slate-950/70 backdrop-blur-[2px]" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(16,185,129,0.16),transparent_35%),radial-gradient(circle_at_85%_95%,rgba(14,165,233,0.1),transparent_40%),radial-gradient(rgba(148,163,184,0.08)_1px,transparent_1px)] [background-size:100%_100%,100%_100%,20px_20px] lg:hidden" />
 
-      <WelcomeModal forceOpenToken={showIntroToken} />
+      <div className="hidden md:block">
+        <WelcomeModal forceOpenToken={showIntroToken} />
+      </div>
 
       <main className="relative mx-auto flex w-full flex-1 flex-col justify-center px-4 py-8 md:hidden">
         <section className="flex flex-1 items-center justify-center">
@@ -193,7 +195,7 @@ export default function Home() {
 
       </main>
 
-      <div className="relative z-20 mx-auto mb-4 flex w-full max-w-4xl flex-wrap items-center justify-center gap-3 px-4">
+      <div className="relative z-20 mx-auto mb-4 hidden w-full max-w-4xl flex-wrap items-center justify-center gap-3 px-4 md:flex">
         <button
           type="button"
           onClick={toggleBackgroundSound}
@@ -236,7 +238,7 @@ export default function Home() {
         </button>
       </div>
 
-      <footer className="relative mx-auto w-full max-w-4xl px-6 pb-8 pt-3">
+      <footer className="relative mx-auto hidden w-full max-w-4xl px-6 pb-8 pt-3 md:block">
         <div className="mt-8 flex flex-col items-center gap-2 text-center text-sm text-slate-400">
           <div className="flex flex-wrap items-center justify-center gap-4">
             <Link href="/privacy" className="transition hover:underline">
@@ -262,7 +264,9 @@ export default function Home() {
         </div>
       </footer>
 
-      <AIChatButton />
+      <div className="hidden md:block">
+        <AIChatButton />
+      </div>
     </div>
   );
 }
