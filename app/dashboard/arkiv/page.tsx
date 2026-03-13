@@ -7,7 +7,7 @@ import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { getBuilderHrefForRaceType } from "@/utils/gpsRuns";
-import { getRaceTypeTheme } from "@/utils/raceTypeTheme";
+import { getRaceTypeTheme, normalizeRaceTypeThemeKey } from "@/utils/raceTypeTheme";
 import { buildRunScheduleUpdate, getRunSchedule, hasRunSchedule } from "@/utils/runSchedule";
 import { createClient } from "@/utils/supabase/client";
 
@@ -75,6 +75,16 @@ const ALL_SUBJECTS = [
   "Madkundskab",
   "Musik",
 ];
+
+const RACE_TYPE_FILTER_OPTIONS = [
+  { value: "Alle", label: "Alle" },
+  { value: "manuel", label: "Manuel / GPS" },
+  { value: "foto", label: "Foto" },
+  { value: "escape", label: "Escape Room" },
+  { value: "rollespil", label: "Rollespil" },
+  { value: "scanner", label: "Scanner" },
+  { value: "selfie", label: "Selfie" },
+] as const;
 
 const formatDanishDate = (value: string) => {
   const date = new Date(value);
@@ -176,6 +186,7 @@ export default function ArkivPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("Alle");
+  const [selectedRaceType, setSelectedRaceType] = useState("Alle");
   const [runs, setRuns] = useState<Run[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [startingRunId, setStartingRunId] = useState<string | null>(null);
@@ -497,7 +508,9 @@ export default function ArkivPage() {
   const filteredRuns = runs.filter((run) => {
     const matchesSearch = run.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSubject = selectedSubject === "Alle" || run.subject === selectedSubject;
-    return matchesSearch && matchesSubject;
+    const normalizedRaceType = normalizeRaceTypeThemeKey(run.race_type ?? run.raceType);
+    const matchesRaceType = selectedRaceType === "Alle" || normalizedRaceType === selectedRaceType;
+    return matchesSearch && matchesSubject && matchesRaceType;
   });
   const scheduleTheme = getRaceTypeTheme(scheduleRun?.race_type ?? scheduleRun?.raceType);
 
@@ -523,7 +536,7 @@ export default function ArkivPage() {
         </h1>
 
         {/* TOP PANEL: SØGNING OG FILTER */}
-        <div className="mt-8 mb-10 grid max-w-5xl grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_17rem] md:items-end">
+        <div className="mt-8 mb-10 grid max-w-6xl grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] xl:items-end">
           {/* SØGEFELT */}
           <div className="relative flex-1">
             <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-emerald-700/70">
@@ -538,47 +551,93 @@ export default function ArkivPage() {
             />
           </div>
 
-          {/* KATEGORIER / FAG DROPDOWN */}
-          <div className="w-full">
-            <p className="mb-1 px-1 text-[11px] text-white/85 drop-shadow-md">
-              Er du underviser? Filtrér efter fag
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <p className="sm:col-span-2 mb-1 px-1 text-[11px] text-white/85 drop-shadow-md">
+              Er du underviser? Filtrér efter fag og løbstype
             </p>
-            <label
-              htmlFor="subject-filter"
-              className="mb-2 block px-1 text-xs font-semibold tracking-wide text-white drop-shadow-md"
-            >
-              Kategorier / Fag
-            </label>
-            <div className="relative">
-              <select
-                id="subject-filter"
-                value={selectedSubject}
-                onChange={(e) => setSelectedSubject(e.target.value)}
-                className="w-full cursor-pointer appearance-none rounded-2xl border border-white/50 bg-white/80 py-4 pr-12 pl-6 font-medium text-emerald-950 shadow-lg backdrop-blur-md transition-colors hover:bg-white/95 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+
+            {/* KATEGORIER / FAG DROPDOWN */}
+            <div className="w-full">
+              <label
+                htmlFor="subject-filter"
+                className="mb-2 block px-1 text-xs font-semibold tracking-wide text-white drop-shadow-md"
               >
-                {ALL_SUBJECTS.map((subj) => (
-                  <option key={subj} value={subj} className="bg-white py-2 text-emerald-950">
-                    {subj}
-                  </option>
-                ))}
-              </select>
-              {/* Custom pil for at fjerne browserens standard-pil */}
-              <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-emerald-700">
-                <svg
-                  width="14"
-                  height="8"
-                  viewBox="0 0 14 8"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
+                Kategorier / Fag
+              </label>
+              <div className="relative">
+                <select
+                  id="subject-filter"
+                  value={selectedSubject}
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                  className="w-full cursor-pointer appearance-none rounded-2xl border border-white/50 bg-white/80 py-4 pr-12 pl-6 font-medium text-emerald-950 shadow-lg backdrop-blur-md transition-colors hover:bg-white/95 focus:outline-none focus:ring-2 focus:ring-emerald-300"
                 >
-                  <path
-                    d="M1 1L7 7L13 1"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+                  {ALL_SUBJECTS.map((subj) => (
+                    <option key={subj} value={subj} className="bg-white py-2 text-emerald-950">
+                      {subj}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-emerald-700">
+                  <svg
+                    width="14"
+                    height="8"
+                    viewBox="0 0 14 8"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M1 1L7 7L13 1"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="w-full">
+              <label
+                htmlFor="race-type-filter"
+                className="mb-2 block px-1 text-xs font-semibold tracking-wide text-white drop-shadow-md"
+              >
+                Løbstype
+              </label>
+              <div className="relative">
+                <select
+                  id="race-type-filter"
+                  value={selectedRaceType}
+                  onChange={(e) => setSelectedRaceType(e.target.value)}
+                  className="w-full cursor-pointer appearance-none rounded-2xl border border-white/50 bg-white/80 py-4 pr-12 pl-6 font-medium text-emerald-950 shadow-lg backdrop-blur-md transition-colors hover:bg-white/95 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                >
+                  {RACE_TYPE_FILTER_OPTIONS.map((option) => (
+                    <option
+                      key={option.value}
+                      value={option.value}
+                      className="bg-white py-2 text-emerald-950"
+                    >
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-emerald-700">
+                  <svg
+                    width="14"
+                    height="8"
+                    viewBox="0 0 14 8"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M1 1L7 7L13 1"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
               </div>
             </div>
           </div>
