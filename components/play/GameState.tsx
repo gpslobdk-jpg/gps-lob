@@ -312,36 +312,8 @@ export function usePlayGameState({
     ? questions.map((_, index) => escapeCodeByPostIndex.get(index) ?? "_")
     : [];
   const escapeCodeOverviewText = escapeCodeOverview.join(" ");
-  const gpsErrorContent =
-    gpsError === "permission_denied"
-      ? {
-          title: "Hov! GPS-adgang mangler ðŸ›‘",
-          message:
-            "Du har afvist GPS-adgang. PÃ¥ iPhone: Tryk pÃ¥ 'Aa' i adressebaren for at tillade. PÃ¥ Android/Chrome: Tryk pÃ¥ hÃ¦ngelÃ¥sen ved siden af webadressen.",
-          helper: "NÃ¥r GPS-adgangen er tilladt, kan lÃ¸bet finde dine poster igen.",
-        }
-      : gpsError === "position_unavailable"
-        ? {
-            title: "Vi kan ikke finde dig prÃ¦cist endnu ðŸ“",
-            message:
-              "Vi kan ikke finde din prÃ¦cise placering lige nu. SÃ¸rg for at du er udenfor og har frit udsyn til himlen.",
-            helper: "PrÃ¸v at bevÃ¦ge dig et Ã¸jeblik og vent et par sekunder, sÃ¥ finder GPS'en ofte signal igen.",
-          }
-        : gpsError === "unsupported"
-          ? {
-              title: "GPS er ikke tilgÃ¦ngelig pÃ¥ denne enhed",
-              message:
-                "Din browser eller enhed giver ikke adgang til GPS her. PrÃ¸v i en nyere mobilbrowser med lokalitet slÃ¥et til.",
-              helper: "Ã…bn siden i Safari pÃ¥ iPhone eller Chrome pÃ¥ Android og prÃ¸v igen.",
-            }
-          : gpsError === "timeout"
-            ? {
-                title: "GPS'en svarer for langsomt â³",
-                message: "GPS-sÃ¸gningen tog for lang tid. Tjek din internetforbindelse og prÃ¸v igen.",
-                helper: "Det hjÃ¦lper ofte at genindlÃ¦se siden og stÃ¥ et sted med bedre signal.",
-              }
-            : null;
   const isBlockingGpsError = gpsError === "permission_denied" || gpsError === "unsupported";
+  const gpsErrorContent = isBlockingGpsError ? getGpsErrorContent(gpsError) : null;
   const gpsWarningContent =
     gpsError && !isBlockingGpsError ? getGpsErrorContent(gpsError) : null;
   const shouldKeepScreenAwake =

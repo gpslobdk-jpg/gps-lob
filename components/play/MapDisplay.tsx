@@ -2,25 +2,12 @@
 
 import "leaflet/dist/leaflet.css";
 
-import dynamic from "next/dynamic";
 import { MapPin } from "lucide-react";
 import type { DivIcon } from "leaflet";
 import { useEffect, useMemo, useState } from "react";
+import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
 import type { Location } from "./types";
-
-const MapContainer = dynamic(() => import("react-leaflet").then((m) => m.MapContainer), {
-  ssr: false,
-});
-const TileLayer = dynamic(() => import("react-leaflet").then((m) => m.TileLayer), {
-  ssr: false,
-});
-const Marker = dynamic(() => import("react-leaflet").then((m) => m.Marker), {
-  ssr: false,
-});
-const Popup = dynamic(() => import("react-leaflet").then((m) => m.Popup), {
-  ssr: false,
-});
 
 type MapDisplayProps = {
   playerLocation: Location | null;
@@ -30,7 +17,43 @@ type MapDisplayProps = {
   dimmed: boolean;
 };
 
+type MapViewportSyncProps = {
+  center: [number, number];
+  dimmed: boolean;
+};
+
 const DEFAULT_MAP_CENTER: [number, number] = [55.6761, 12.5683];
+
+function MapViewportSync({ center, dimmed }: MapViewportSyncProps) {
+  const map = useMap();
+
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => {
+      map.invalidateSize();
+      map.setView(center, map.getZoom(), { animate: false });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [center, dimmed, map]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      map.invalidateSize();
+    };
+
+    const timeoutId = window.setTimeout(handleResize, 180);
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [map]);
+
+  return null;
+}
 
 export default function MapDisplay({
   playerLocation,
@@ -54,7 +77,7 @@ export default function MapDisplay({
         setPlayerIcon(
           leaflet.divIcon({
             className: "bg-transparent border-none",
-            html: '<div class="w-5 h-5 rounded-full bg-emerald-400 border-2 border-emerald-100 shadow-[0_0_18px_rgba(52,211,153,0.9)]"></div>',
+            html: '<div class="h-5 w-5 rounded-full border-2 border-emerald-100 bg-emerald-400 shadow-[0_0_18px_rgba(52,211,153,0.9)]"></div>',
             iconSize: [20, 20],
             iconAnchor: [10, 10],
           })
@@ -63,7 +86,7 @@ export default function MapDisplay({
         setTargetIcon(
           leaflet.divIcon({
             className: "bg-transparent border-none",
-            html: '<div class="relative w-8 h-8"><div class="absolute inset-0 rounded-full bg-amber-300/20 animate-ping"></div><div class="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-amber-200 bg-amber-950 text-amber-100 font-black shadow-[0_0_18px_rgba(251,191,36,0.8)]">◎</div></div>',
+            html: '<div class="relative h-8 w-8"><div class="absolute inset-0 rounded-full bg-amber-300/20 animate-ping"></div><div class="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-amber-200 bg-amber-950 text-amber-100 font-black shadow-[0_0_18px_rgba(251,191,36,0.8)]">&#9678;</div></div>',
             iconSize: [32, 32],
             iconAnchor: [16, 16],
           })
@@ -92,20 +115,20 @@ export default function MapDisplay({
     return DEFAULT_MAP_CENTER;
   }, [playerLocation, targetLocation]);
 
-  const mapKey = useMemo(() => {
-    const [lat, lng] = mapCenter;
-    const targetLat = targetLocation?.lat ?? 0;
-    const targetLng = targetLocation?.lng ?? 0;
-    return `${lat.toFixed(4)}-${lng.toFixed(4)}-${targetLat.toFixed(4)}-${targetLng.toFixed(4)}`;
-  }, [mapCenter, targetLocation]);
-
   return (
     <div
-      className={`relative z-0 flex-1 transition-all duration-300 ${
+      className={`relative h-full min-h-[100svh] w-full transition-all duration-300 ${
         dimmed ? "pointer-events-none opacity-0 blur-xl" : "opacity-100"
       }`}
     >
-      <MapContainer key={mapKey} center={mapCenter} zoom={17} className="h-full w-full" zoomControl={false}>
+      <MapContainer
+        center={mapCenter}
+        zoom={17}
+        zoomControl={false}
+        className="h-full w-full"
+        style={{ height: "100%", width: "100%" }}
+      >
+        <MapViewportSync center={mapCenter} dimmed={dimmed} />
         <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
 
         {targetLocation && targetIcon ? (

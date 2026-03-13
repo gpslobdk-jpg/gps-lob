@@ -105,34 +105,34 @@ export function reloadPage() {
 export function getGpsErrorContent(gpsError: GpsErrorState | null): GpsErrorContent | null {
   if (gpsError === "permission_denied") {
     return {
-      title: "Hov! GPS-adgang mangler ðŸ›‘",
+      title: "Hov! GPS-adgang mangler",
       message:
-        "Du har afvist GPS-adgang. PÃ¥ iPhone: Tryk pÃ¥ 'Aa' i adressebaren for at tillade. PÃ¥ Android/Chrome: Tryk pÃ¥ hÃ¦ngelÃ¥sen ved siden af webadressen.",
-      helper: "NÃ¥r GPS-adgangen er tilladt, kan lÃ¸bet finde dine poster igen.",
+        "Du har afvist GPS-adgang. På iPhone: Tryk på 'Aa' i adressebaren for at tillade. På Android/Chrome: Tryk på hængelåsen ved siden af webadressen.",
+      helper: "Når GPS-adgangen er tilladt, kan løbet finde dine poster igen.",
     };
   }
 
   if (gpsError === "position_unavailable") {
     return {
-      title: "DÃ¥rligt GPS-signal lige nu",
-      message: "Vi kan ikke finde din prÃ¦cise placering endnu. Bliv pÃ¥ siden, sÃ¥ prÃ¸ver GPS'en igen.",
-      helper: "Det hjÃ¦lper ofte at gÃ¥ lidt vÃ¦k fra hÃ¸je bygninger og vente et Ã¸jeblik.",
+      title: "Dårligt GPS-signal lige nu",
+      message: "Vi kan ikke finde din præcise placering endnu. Bliv på siden, så prøver GPS'en igen.",
+      helper: "Det hjælper ofte at gå lidt væk fra høje bygninger og vente et øjeblik.",
     };
   }
 
   if (gpsError === "unsupported") {
     return {
-      title: "GPS er ikke tilgÃ¦ngelig pÃ¥ denne enhed",
+      title: "GPS er ikke tilgængelig på denne enhed",
       message: "Din browser eller enhed giver ikke adgang til GPS her.",
-      helper: "PrÃ¸v i Safari pÃ¥ iPhone eller Chrome pÃ¥ Android, hvis I kan.",
+      helper: "Prøv i Safari på iPhone eller Chrome på Android, hvis I kan.",
     };
   }
 
   if (gpsError === "timeout") {
     return {
-      title: "DÃ¥rligt GPS-signal lige nu",
-      message: "GPS-sÃ¸gningen tog for lang tid. Bliv pÃ¥ siden, sÃ¥ prÃ¸ver vi igen automatisk.",
-      helper: "Det hjÃ¦lper ofte at stÃ¥ et sted med bedre udsyn til himlen.",
+      title: "Dårligt GPS-signal lige nu",
+      message: "GPS-søgningen tog for lang tid. Bliv på siden, så prøver vi igen automatisk.",
+      helper: "Det hjælper ofte at stå et sted med bedre udsyn til himlen.",
     };
   }
 

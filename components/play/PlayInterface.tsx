@@ -648,7 +648,9 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
     case "active":
       content = (
-        <div className={`relative flex h-screen w-full flex-col overflow-hidden bg-slate-950 text-white ${poppins.className}`}>
+        <div
+          className={`relative flex h-[100svh] min-h-[100svh] w-full flex-col overflow-hidden bg-slate-950 text-white ${poppins.className}`}
+        >
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_28%),radial-gradient(circle_at_20%_18%,rgba(56,189,248,0.12),transparent_24%),radial-gradient(circle_at_80%_8%,rgba(34,197,94,0.1),transparent_22%),linear-gradient(180deg,rgba(2,6,23,0.78)_0%,rgba(2,6,23,0.92)_52%,rgba(2,6,23,1)_100%)]" />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_60%)]" />
 
@@ -660,6 +662,9 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                     <AlertCircle className="h-4 w-4" />
                   </div>
                   <div className="min-w-0">
+                    <p className="sr-only">
+                      Dårligt GPS-signal
+                    </p>
                     <p className="text-[11px] font-semibold tracking-[0.24em] text-amber-100/80 uppercase">
                       Dårligt GPS-signal
                     </p>
@@ -847,7 +852,9 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
             </div>
           </div>
 
-          {children}
+          <div className="absolute inset-0 z-[1] h-full w-full">
+            {children}
+          </div>
 
           {showQuestion && activeQuestion ? (
             <div className="animate-in fade-in zoom-in absolute inset-0 z-[2000] overflow-y-auto bg-slate-900/80 p-6 backdrop-blur-md duration-300">
