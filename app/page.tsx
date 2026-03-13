@@ -112,7 +112,7 @@ export default function Home() {
                 pattern="[0-9]*"
                 maxLength={5}
                 placeholder="Indtast løbskode"
-                className="w-full rounded-3xl border border-slate-700 bg-slate-900 px-6 py-8 text-center font-mono text-3xl font-black tracking-[0.24em] text-emerald-400 outline-none placeholder:tracking-normal placeholder:text-slate-500 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/25"
+                className="w-full rounded-3xl border border-slate-700 bg-slate-900 px-4 py-5 text-center font-mono text-base font-black tracking-[0.16em] text-emerald-400 outline-none placeholder:font-sans placeholder:text-sm placeholder:font-semibold placeholder:tracking-normal placeholder:text-slate-500 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/25 sm:px-5 sm:py-6 sm:text-lg sm:placeholder:text-base"
               />
               <button
                 type="submit"
