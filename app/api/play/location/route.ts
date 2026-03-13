@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { createAdminClient } from "@/utils/supabase/admin";
+import {
+  ADMIN_ACCESS_MISSING_MESSAGE,
+  createAdminClient,
+} from "@/utils/supabase/admin";
 
 export const runtime = "edge";
 
@@ -211,10 +214,7 @@ export async function POST(request: NextRequest) {
 
   const adminSupabase = createAdminClient();
   if (!adminSupabase) {
-    return NextResponse.json(
-      { error: "Supabase admin er ikke konfigureret." },
-      { status: 503 }
-    );
+    return NextResponse.json({ error: ADMIN_ACCESS_MISSING_MESSAGE }, { status: 503 });
   }
 
   const timestamp = new Date().toISOString();

@@ -7,6 +7,7 @@ import {
   resolveQuestionVariant,
   sanitizeQuestionForPlay,
 } from "@/app/api/play/_shared";
+import { ADMIN_ACCESS_MISSING_MESSAGE } from "@/utils/supabase/admin";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -52,6 +53,10 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error) {
+    if (error instanceof Error && error.message === ADMIN_ACCESS_MISSING_MESSAGE) {
+      return NextResponse.json({ error: ADMIN_ACCESS_MISSING_MESSAGE }, { status: 503 });
+    }
+
     console.error("Kunne ikke hente play-data:", error);
     return NextResponse.json({ error: "Kunne ikke hente løbet." }, { status: 500 });
   }

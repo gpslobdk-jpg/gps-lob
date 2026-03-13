@@ -8,7 +8,10 @@ import {
   getPhotoMissionConfig,
   resolveQuestionVariant,
 } from "@/app/api/play/_shared";
-import { createAdminClient } from "@/utils/supabase/admin";
+import {
+  ADMIN_ACCESS_MISSING_MESSAGE,
+  createAdminClient,
+} from "@/utils/supabase/admin";
 
 export const maxDuration = 300;
 
@@ -327,10 +330,7 @@ export async function POST(req: Request) {
 
     const adminSupabase = createAdminClient();
     if (!adminSupabase) {
-      return NextResponse.json(
-        { error: "Supabase admin er ikke konfigureret." },
-        { status: 503 }
-      );
+      return NextResponse.json({ error: ADMIN_ACCESS_MISSING_MESSAGE }, { status: 503 });
     }
 
     const run = await fetchRunForSession(sessionId);
@@ -439,6 +439,10 @@ Returner KUN et validt JSON-objekt med dette format:
       storedAnswer,
     });
   } catch (error) {
+    if (error instanceof Error && error.message === ADMIN_ACCESS_MISSING_MESSAGE) {
+      return NextResponse.json({ error: ADMIN_ACCESS_MISSING_MESSAGE }, { status: 503 });
+    }
+
     console.error("Fotoanalyse fejlede:", error);
     return NextResponse.json({ error: "Fotoanalysen fejlede." }, { status: 500 });
   }

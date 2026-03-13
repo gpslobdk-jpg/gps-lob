@@ -9,6 +9,7 @@ import {
   normalizeEscapeAnswer,
   resolveQuestionVariant,
 } from "@/app/api/play/_shared";
+import { ADMIN_ACCESS_MISSING_MESSAGE } from "@/utils/supabase/admin";
 
 export const runtime = "edge";
 
@@ -81,6 +82,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ error: "Denne post-type bruger en anden validator." }, { status: 400 });
   } catch (error) {
+    if (error instanceof Error && error.message === ADMIN_ACCESS_MISSING_MESSAGE) {
+      return NextResponse.json({ error: ADMIN_ACCESS_MISSING_MESSAGE }, { status: 503 });
+    }
+
     console.error("Kunne ikke validere gådesvar:", error);
     return NextResponse.json({ error: "Kunne ikke tjekke svaret." }, { status: 500 });
   }

@@ -6,6 +6,7 @@ import {
   fetchRunForSession,
   normalizeMasterCode,
 } from "@/app/api/play/_shared";
+import { ADMIN_ACCESS_MISSING_MESSAGE } from "@/utils/supabase/admin";
 
 export const runtime = "edge";
 
@@ -45,6 +46,10 @@ export async function POST(request: NextRequest) {
       isCorrect: submittedCode === expectedCode,
     });
   } catch (error) {
+    if (error instanceof Error && error.message === ADMIN_ACCESS_MISSING_MESSAGE) {
+      return NextResponse.json({ error: ADMIN_ACCESS_MISSING_MESSAGE }, { status: 503 });
+    }
+
     console.error("Kunne ikke validere master-kode:", error);
     return NextResponse.json({ error: "Kunne ikke tjekke master-koden." }, { status: 500 });
   }

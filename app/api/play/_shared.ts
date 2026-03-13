@@ -1,4 +1,7 @@
-import { createAdminClient } from "@/utils/supabase/admin";
+import {
+  ADMIN_ACCESS_MISSING_MESSAGE,
+  createAdminClient,
+} from "@/utils/supabase/admin";
 
 type LiveSessionRow = {
   run_id?: string | null;
@@ -13,6 +16,8 @@ type RunRow = {
 
 export type QuestionVariant = "quiz" | "photo" | "escape" | "roleplay" | "unknown";
 
+type AdminSupabaseClient = NonNullable<ReturnType<typeof createAdminClient>>;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -21,86 +26,40 @@ export function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function getSupabaseConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+async function fetchSessionRow(sessionId: string, adminSupabase: AdminSupabaseClient) {
+  const { data, error } = await adminSupabase
+    .from("live_sessions")
+    .select("run_id")
+    .eq("id", sessionId)
+    .limit(1);
 
-  if (!url || !anonKey) {
-    throw new Error("Supabase er ikke konfigureret.");
+  if (error) {
+    throw new Error(error.message);
   }
 
-  return { url: url.replace(/\/$/, ""), anonKey };
+  return (data?.[0] ?? null) as LiveSessionRow | null;
 }
 
-export async function fetchSupabaseRows<T>(path: string) {
-  const { url, anonKey } = getSupabaseConfig();
-  const response = await fetch(`${url}/rest/v1/${path}`, {
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
-      "Content-Type": "application/json",
-    },
-    cache: "no-store",
-  });
+async function fetchRunRow(runId: string, adminSupabase: AdminSupabaseClient) {
+  const { data, error } = await adminSupabase
+    .from("gps_runs")
+    .select("*")
+    .eq("id", runId)
+    .limit(1);
 
-  if (!response.ok) {
-    const details = await response.text();
-    throw new Error(details || "Supabase-opslag fejlede.");
+  if (error) {
+    throw new Error(error.message);
   }
 
-  return (await response.json()) as T[];
-}
-
-async function fetchSessionRow(
-  sessionId: string,
-  adminSupabase: ReturnType<typeof createAdminClient> | null = null
-) {
-  if (adminSupabase) {
-    const { data, error } = await adminSupabase
-      .from("live_sessions")
-      .select("run_id")
-      .eq("id", sessionId)
-      .limit(1);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return (data?.[0] ?? null) as LiveSessionRow | null;
-  }
-
-  const rows = await fetchSupabaseRows<LiveSessionRow>(
-    `live_sessions?id=eq.${encodeURIComponent(sessionId)}&select=run_id&limit=1`
-  );
-  return rows[0] ?? null;
-}
-
-async function fetchRunRow(
-  runId: string,
-  adminSupabase: ReturnType<typeof createAdminClient> | null = null
-) {
-  if (adminSupabase) {
-    const { data, error } = await adminSupabase
-      .from("gps_runs")
-      .select("*")
-      .eq("id", runId)
-      .limit(1);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return (data?.[0] ?? null) as RunRow | null;
-  }
-
-  const rows = await fetchSupabaseRows<RunRow>(
-    `gps_runs?id=eq.${encodeURIComponent(runId)}&select=*&limit=1`
-  );
-  return rows[0] ?? null;
+  return (data?.[0] ?? null) as RunRow | null;
 }
 
 export async function fetchRunForSession(sessionId: string) {
   const adminSupabase = createAdminClient();
+  if (!adminSupabase) {
+    throw new Error(ADMIN_ACCESS_MISSING_MESSAGE);
+  }
+
   const sessionRow = await fetchSessionRow(sessionId, adminSupabase);
   const runId = asTrimmedString(sessionRow?.run_id);
   if (!runId) return null;

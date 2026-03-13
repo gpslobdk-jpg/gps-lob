@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { createAdminClient } from "@/utils/supabase/admin";
+import {
+  ADMIN_ACCESS_MISSING_MESSAGE,
+  createAdminClient,
+} from "@/utils/supabase/admin";
 
 export const runtime = "edge";
 
@@ -27,7 +30,7 @@ export async function GET(request: NextRequest) {
 
   const adminSupabase = createAdminClient();
   if (!adminSupabase) {
-    return NextResponse.json({ error: "Placeringer er ikke konfigureret endnu." }, { status: 503 });
+    return NextResponse.json({ error: ADMIN_ACCESS_MISSING_MESSAGE }, { status: 503 });
   }
 
   const { data: participantRows, error: participantError } = await adminSupabase

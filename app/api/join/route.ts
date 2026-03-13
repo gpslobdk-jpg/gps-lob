@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { createAdminClient } from "@/utils/supabase/admin";
+import {
+  ADMIN_ACCESS_MISSING_MESSAGE,
+  createAdminClient,
+} from "@/utils/supabase/admin";
 import {
   getRunScheduleGate,
   inspectRunSchedule,
@@ -11,6 +14,8 @@ import {
 
 export const runtime = "edge";
 const CACHE_CONTROL = "no-store";
+
+type AdminSupabaseClient = NonNullable<ReturnType<typeof createAdminClient>>;
 
 type LiveSessionRow = {
   id?: string | number | null;
@@ -130,107 +135,64 @@ async function supabaseRequest<T>(
   };
 }
 
-async function fetchSupabaseRows<T>(path: string) {
-  const { url, anonKey } = getSupabaseConfig();
-  const response = await fetch(`${url}/rest/v1/${path}`, {
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
-      "Content-Type": "application/json",
-    },
-    cache: "no-store",
-  });
+async function fetchRun(runId: string, adminSupabase: AdminSupabaseClient) {
+  const { data, error } = await adminSupabase
+    .from("gps_runs")
+    .select("*")
+    .eq("id", runId)
+    .limit(1);
 
-  if (!response.ok) {
-    const details = await response.text();
-    throw new Error(details || "Supabase-opslag fejlede.");
+  if (error) {
+    throw new Error(error.message);
   }
 
-  return (await response.json()) as T[];
-}
-
-async function fetchRun(
-  runId: string,
-  adminSupabase: ReturnType<typeof createAdminClient> | null = null
-) {
-  if (adminSupabase) {
-    const { data, error } = await adminSupabase
-      .from("gps_runs")
-      .select("*")
-      .eq("id", runId)
-      .limit(1);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return (data?.[0] ?? null) as (RunRecord & { title?: unknown }) | null;
-  }
-
-  const rows = await fetchSupabaseRows<RunRecord & { title?: unknown }>(
-    `gps_runs?id=eq.${encodeURIComponent(runId)}&select=*`
-  );
-  return (rows[0] ?? null) as (RunRecord & { title?: unknown }) | null;
+  return (data?.[0] ?? null) as (RunRecord & { title?: unknown }) | null;
 }
 
 async function fetchLiveSessionByPin(
   pin: string,
   statuses: string[],
-  adminSupabase: ReturnType<typeof createAdminClient> | null = null
+  adminSupabase: AdminSupabaseClient
 ) {
-  if (adminSupabase) {
-    const { data, error } = await adminSupabase
-      .from("live_sessions")
-      .select("id,status,run_id")
-      .eq("pin", pin)
-      .in("status", statuses)
-      .order("created_at", { ascending: false })
-      .limit(1);
+  const { data, error } = await adminSupabase
+    .from("live_sessions")
+    .select("id,status,run_id")
+    .eq("pin", pin)
+    .in("status", statuses)
+    .order("created_at", { ascending: false })
+    .limit(1);
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return (data?.[0] ?? null) as LiveSessionRow | null;
+  if (error) {
+    throw new Error(error.message);
   }
 
-  const rows = await fetchSupabaseRows<LiveSessionRow>(
-    `live_sessions?select=id,status,run_id&pin=eq.${encodeURIComponent(pin)}&status=in.(${statuses.join(",")})&order=created_at.desc&limit=1`
-  );
-  return rows[0] ?? null;
+  return (data?.[0] ?? null) as LiveSessionRow | null;
 }
 
 async function fetchLiveSessionById(
   sessionId: string,
   statuses: string[],
-  adminSupabase: ReturnType<typeof createAdminClient> | null = null
+  adminSupabase: AdminSupabaseClient
 ) {
-  if (adminSupabase) {
-    const { data, error } = await adminSupabase
-      .from("live_sessions")
-      .select("id,status")
-      .eq("id", sessionId)
-      .in("status", statuses)
-      .limit(1);
+  const { data, error } = await adminSupabase
+    .from("live_sessions")
+    .select("id,status")
+    .eq("id", sessionId)
+    .in("status", statuses)
+    .limit(1);
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return (data?.[0] ?? null) as LiveSessionRow | null;
+  if (error) {
+    throw new Error(error.message);
   }
 
-  const rows = await fetchSupabaseRows<LiveSessionRow>(
-    `live_sessions?id=eq.${encodeURIComponent(sessionId)}&select=id,status&status=in.(${statuses.join(",")})&limit=1`
-  );
-  return rows[0] ?? null;
+  return (data?.[0] ?? null) as LiveSessionRow | null;
 }
 
 async function insertParticipant(
   sessionId: string,
   studentName: string,
   participantId: string,
-  adminSupabase: ReturnType<typeof createAdminClient>
+  adminSupabase: AdminSupabaseClient
 ) {
   const normalizedStudentName = studentName.trim();
   const timestamp = new Date().toISOString();
@@ -255,10 +217,6 @@ async function insertParticipant(
     }
 
     if (result.error.code === "23505") {
-      if (!adminSupabase) {
-        return result;
-      }
-
       const { data, error } = await adminSupabase
         .from("participants")
         .select("id,session_id,student_name")
@@ -338,6 +296,15 @@ function respond(data: JoinApiResponse, status = 200) {
   });
 }
 
+function getRequiredAdminClient() {
+  const adminSupabase = createAdminClient();
+  if (!adminSupabase) {
+    throw new Error(ADMIN_ACCESS_MISSING_MESSAGE);
+  }
+
+  return adminSupabase;
+}
+
 export async function GET(request: NextRequest) {
   const rawPin = request.nextUrl.searchParams.get("pin") ?? "";
   const pin = rawPin.replace(/\D/g, "").slice(0, 6);
@@ -350,7 +317,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const adminSupabase = createAdminClient();
+    const adminSupabase = getRequiredAdminClient();
     const activeSession = await fetchLiveSessionByPin(pin, ["waiting", "running"], adminSupabase);
 
     if (activeSession?.id && activeSession.run_id) {
@@ -383,6 +350,13 @@ export async function GET(request: NextRequest) {
 
     return respond({ kind: "invalid" }, 404);
   } catch (error) {
+    if (error instanceof Error && error.message === ADMIN_ACCESS_MISSING_MESSAGE) {
+      return NextResponse.json(
+        { error: ADMIN_ACCESS_MISSING_MESSAGE },
+        { status: 503, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     console.error("Kunne ikke hente join-data:", error);
     return NextResponse.json(
       { error: "Kunne ikke hente sessionen." },
@@ -414,7 +388,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const adminSupabase = createAdminClient();
+    const adminSupabase = getRequiredAdminClient();
     const activeSession = await fetchLiveSessionById(sessionId, ["waiting", "running"], adminSupabase);
 
     if (!activeSession?.id) {
@@ -464,6 +438,13 @@ export async function POST(request: NextRequest) {
       }
     );
   } catch (error) {
+    if (error instanceof Error && error.message === ADMIN_ACCESS_MISSING_MESSAGE) {
+      return NextResponse.json(
+        { error: ADMIN_ACCESS_MISSING_MESSAGE },
+        { status: 503, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     console.error("Kunne ikke registrere deltageren:", error);
     return NextResponse.json(
       { error: "Kunne ikke registrere deltageren." },
