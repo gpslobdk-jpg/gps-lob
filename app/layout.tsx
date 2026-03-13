@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
@@ -44,6 +45,7 @@ export default function RootLayout({
         <AuthProvider>
           {children}
           <OnboardingTour />
+          <Analytics />
         </AuthProvider>
       </body>
     </html>
