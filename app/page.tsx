@@ -14,6 +14,23 @@ const WelcomeModal = dynamic(() => import("@/components/WelcomeModal"), {
   ssr: false,
 });
 
+function OrganizerHint() {
+  return (
+    <div className="lg:hidden">
+      <div className="rounded-2xl border border-white/10 bg-slate-900/55 px-4 py-3 text-left shadow-[0_0_24px_rgba(15,23,42,0.22)] backdrop-blur-xl">
+        <p className="flex items-start gap-2 text-xs leading-5 text-slate-200/80 sm:text-sm">
+          <span className="mt-0.5 shrink-0 text-sm text-sky-200" aria-hidden>
+            {"\u2139\uFE0F"}
+          </span>
+          <span>
+            {"Er du arrang\u00f8r eller l\u00e6rer, der skal oprette et l\u00f8b? \u{1F6E0}\uFE0F S\u00e5 skal du hoppe over p\u00e5 en computer p\u00e5 gpslob.dk. Her p\u00e5 mobilen kan du kun deltage i l\u00f8b."}
+          </span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState("");
@@ -96,8 +113,9 @@ export default function Home() {
 
       <main className="relative mx-auto flex w-full flex-1 flex-col justify-center px-4 py-8 md:hidden">
         <section className="flex flex-1 items-center justify-center">
-          <div className="w-full max-w-lg rounded-3xl border border-emerald-500/30 bg-slate-950/80 p-5 shadow-[0_0_40px_rgba(16,185,129,0.15)] backdrop-blur-xl">
-            <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="w-full max-w-lg space-y-3">
+            <div className="rounded-3xl border border-emerald-500/30 bg-slate-950/80 p-5 shadow-[0_0_40px_rgba(16,185,129,0.15)] backdrop-blur-xl">
+              <form onSubmit={handleSubmit} className="space-y-5">
               <p className="text-center text-sm font-semibold tracking-wide text-slate-200">
                 Indtast løbskode
               </p>
@@ -125,7 +143,9 @@ export default function Home() {
               {codeError ? (
                 <p className="text-center text-sm font-semibold text-rose-200">{codeError}</p>
               ) : null}
-            </form>
+              </form>
+            </div>
+            <OrganizerHint />
           </div>
         </section>
       </main>
@@ -183,6 +203,8 @@ export default function Home() {
               ) : null}
             </form>
           </div>
+
+          <OrganizerHint />
 
           <Link
             href="/login"
