@@ -10,9 +10,7 @@ import {
 } from "@/utils/runSchedule";
 
 export const runtime = "edge";
-export const revalidate = 5;
-
-const CACHE_CONTROL = "public, s-maxage=5, stale-while-revalidate=25";
+const CACHE_CONTROL = "no-store";
 
 type LiveSessionRow = {
   id?: string | number | null;
@@ -140,7 +138,7 @@ async function fetchSupabaseRows<T>(path: string) {
       Authorization: `Bearer ${anonKey}`,
       "Content-Type": "application/json",
     },
-    next: { revalidate: 5 },
+    cache: "no-store",
   });
 
   if (!response.ok) {
@@ -151,11 +149,81 @@ async function fetchSupabaseRows<T>(path: string) {
   return (await response.json()) as T[];
 }
 
-async function fetchRun(runId: string) {
+async function fetchRun(
+  runId: string,
+  adminSupabase: ReturnType<typeof createAdminClient> | null = null
+) {
+  if (adminSupabase) {
+    const { data, error } = await adminSupabase
+      .from("gps_runs")
+      .select("*")
+      .eq("id", runId)
+      .limit(1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (data?.[0] ?? null) as (RunRecord & { title?: unknown }) | null;
+  }
+
   const rows = await fetchSupabaseRows<RunRecord & { title?: unknown }>(
     `gps_runs?id=eq.${encodeURIComponent(runId)}&select=*`
   );
   return (rows[0] ?? null) as (RunRecord & { title?: unknown }) | null;
+}
+
+async function fetchLiveSessionByPin(
+  pin: string,
+  statuses: string[],
+  adminSupabase: ReturnType<typeof createAdminClient> | null = null
+) {
+  if (adminSupabase) {
+    const { data, error } = await adminSupabase
+      .from("live_sessions")
+      .select("id,status,run_id")
+      .eq("pin", pin)
+      .in("status", statuses)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (data?.[0] ?? null) as LiveSessionRow | null;
+  }
+
+  const rows = await fetchSupabaseRows<LiveSessionRow>(
+    `live_sessions?select=id,status,run_id&pin=eq.${encodeURIComponent(pin)}&status=in.(${statuses.join(",")})&order=created_at.desc&limit=1`
+  );
+  return rows[0] ?? null;
+}
+
+async function fetchLiveSessionById(
+  sessionId: string,
+  statuses: string[],
+  adminSupabase: ReturnType<typeof createAdminClient> | null = null
+) {
+  if (adminSupabase) {
+    const { data, error } = await adminSupabase
+      .from("live_sessions")
+      .select("id,status")
+      .eq("id", sessionId)
+      .in("status", statuses)
+      .limit(1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (data?.[0] ?? null) as LiveSessionRow | null;
+  }
+
+  const rows = await fetchSupabaseRows<LiveSessionRow>(
+    `live_sessions?id=eq.${encodeURIComponent(sessionId)}&select=id,status&status=in.(${statuses.join(",")})&limit=1`
+  );
+  return rows[0] ?? null;
 }
 
 async function insertParticipant(
@@ -282,13 +350,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const activeRows = await fetchSupabaseRows<LiveSessionRow>(
-      `live_sessions?select=id,status,run_id&pin=eq.${encodeURIComponent(pin)}&status=in.(waiting,running)&order=created_at.desc&limit=1`
-    );
-    const activeSession = activeRows[0] ?? null;
+    const adminSupabase = createAdminClient();
+    const activeSession = await fetchLiveSessionByPin(pin, ["waiting", "running"], adminSupabase);
 
     if (activeSession?.id && activeSession.run_id) {
-      const run = await fetchRun(String(activeSession.run_id));
+      const run = await fetchRun(String(activeSession.run_id), adminSupabase);
       const scheduleResult = run ? inspectRunSchedule(run) : null;
 
       return respond({
@@ -301,13 +367,10 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const finishedRows = await fetchSupabaseRows<LiveSessionRow>(
-      `live_sessions?select=run_id&pin=eq.${encodeURIComponent(pin)}&status=eq.finished&order=created_at.desc&limit=1`
-    );
-    const finishedSession = finishedRows[0] ?? null;
+    const finishedSession = await fetchLiveSessionByPin(pin, ["finished"], adminSupabase);
 
     if (finishedSession?.run_id) {
-      const run = await fetchRun(String(finishedSession.run_id));
+      const run = await fetchRun(String(finishedSession.run_id), adminSupabase);
       const scheduleResult = run ? inspectRunSchedule(run) : null;
 
       return respond({
@@ -351,10 +414,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const activeRows = await fetchSupabaseRows<LiveSessionRow>(
-      `live_sessions?id=eq.${encodeURIComponent(sessionId)}&select=id,status&status=in.(waiting,running)&limit=1`
-    );
-    const activeSession = activeRows[0] ?? null;
+    const adminSupabase = createAdminClient();
+    const activeSession = await fetchLiveSessionById(sessionId, ["waiting", "running"], adminSupabase);
 
     if (!activeSession?.id) {
       return NextResponse.json(
@@ -367,7 +428,7 @@ export async function POST(request: NextRequest) {
       sessionId,
       studentName,
       crypto.randomUUID(),
-      createAdminClient()
+      adminSupabase
     );
     if (!participantResult.ok) {
       console.error("Kunne ikke oprette deltager ved join:", participantResult.error);
