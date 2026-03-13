@@ -7,6 +7,7 @@ import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { getBuilderHrefForRaceType } from "@/utils/gpsRuns";
+import { getRaceTypeTheme } from "@/utils/raceTypeTheme";
 import { buildRunScheduleUpdate, getRunSchedule, hasRunSchedule } from "@/utils/runSchedule";
 import { createClient } from "@/utils/supabase/client";
 
@@ -498,6 +499,7 @@ export default function ArkivPage() {
     const matchesSubject = selectedSubject === "Alle" || run.subject === selectedSubject;
     return matchesSearch && matchesSubject;
   });
+  const scheduleTheme = getRaceTypeTheme(scheduleRun?.race_type ?? scheduleRun?.raceType);
 
   return (
     <main
@@ -606,16 +608,7 @@ export default function ArkivPage() {
               </motion.div>
             ) : (
               filteredRuns.map((run) => {
-                const themeMap: Record<string, string> = {
-                  manuel: "border-emerald-300/60 shadow-emerald-500/10 hover:shadow-emerald-500/20",
-                  foto: "border-sky-300/60 shadow-sky-500/10 hover:shadow-sky-500/20",
-                  escape: "border-amber-300/60 shadow-amber-500/10 hover:shadow-amber-500/20",
-                  rollespil: "border-violet-300/60 shadow-violet-500/10 hover:shadow-violet-500/20",
-                  scanner: "border-cyan-300/60 shadow-cyan-500/10 hover:shadow-cyan-500/20",
-                  selfie: "border-rose-300/60 shadow-rose-500/10 hover:shadow-rose-500/20",
-                };
-                const raceTypeKey = (run.race_type ?? run.raceType ?? "manuel").toLowerCase();
-                const cardTheme = themeMap[raceTypeKey] || themeMap.manuel;
+                const theme = getRaceTypeTheme(run.race_type ?? run.raceType);
                 const runSchedule = getRunSchedule(run);
                 const formattedStart = formatDanishDateTime(runSchedule?.startAt);
                 const formattedEnd = formatDanishDateTime(runSchedule?.endAt);
@@ -628,31 +621,38 @@ export default function ArkivPage() {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
                     transition={{ duration: 0.2 }}
-                    className={`group relative overflow-hidden rounded-[2rem] border bg-white/85 p-5 shadow-lg backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:shadow-xl ${cardTheme}`}
+                    className={`group relative overflow-hidden rounded-[2rem] border bg-white/92 p-5 shadow-lg backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:shadow-xl ${theme.archiveCardClass}`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
-                        {run.subject}
-                      </span>
-                      <span className="text-xs text-emerald-700">
-                        {formatDanishDate(run.created_at)}
-                      </span>
+                    <div className={`-mx-5 -mt-5 mb-5 border-b border-white/10 px-5 py-5 ${theme.archiveHeaderClass}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
+                          {run.subject}
+                        </span>
+                        <span className="text-xs font-medium text-white/80">
+                          {formatDanishDate(run.created_at)}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 flex items-start justify-between gap-3">
+                        <h2
+                          className={`max-w-[18rem] text-xl font-bold leading-tight text-white ${rubik.className}`}
+                        >
+                          {run.title}
+                        </h2>
+                        <span className="shrink-0 rounded-full border border-white/15 bg-black/10 px-3 py-1 text-[11px] font-black tracking-[0.22em] text-white uppercase">
+                          {theme.label}
+                        </span>
+                      </div>
                     </div>
 
-                    <h2
-                      className={`mt-3 text-xl font-bold leading-tight text-emerald-950 ${rubik.className}`}
-                    >
-                      {run.title}
-                    </h2>
-
-                    <p className="mt-3 flex items-center gap-2 text-sm text-emerald-800">
-                      <MapPin className="h-4 w-4 text-emerald-600" />
+                    <p className="flex items-center gap-2 text-sm font-medium text-slate-800">
+                      <MapPin className={`h-4 w-4 ${theme.archiveAccentIconClass}`} />
                       {getQuestionCount(run.questions)} poster
                     </p>
 
                     {hasRunSchedule(runSchedule) ? (
-                      <p className="mt-3 flex items-center gap-2 text-xs font-medium text-emerald-700">
-                        <Timer className="h-4 w-4 text-emerald-600" />
+                      <p className="mt-3 flex items-center gap-2 text-xs font-medium text-slate-700">
+                        <Timer className={`h-4 w-4 ${theme.archiveAccentIconClass}`} />
                         {runSchedule?.startAt && runSchedule?.endAt
                           ? `Planlagt fra ${formattedStart ?? "ukendt tidspunkt"} til ${formattedEnd ?? "ukendt tidspunkt"}`
                           : runSchedule?.startAt
@@ -667,7 +667,7 @@ export default function ArkivPage() {
                           type="button"
                           onClick={() => void handleStartRun(run.id)}
                           disabled={startingRunId === run.id}
-                          className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white shadow-[0_16px_32px_rgba(5,150,105,0.24)] transition hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-70"
+                          className={`inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-black transition disabled:cursor-wait disabled:opacity-70 ${theme.archivePrimaryButtonClass}`}
                         >
                           {startingRunId === run.id ? (
                             "STARTER..."
@@ -684,8 +684,8 @@ export default function ArkivPage() {
                           onClick={() => openScheduleModal(run)}
                           className={`inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition ${
                             hasRunSchedule(runSchedule)
-                              ? "border-emerald-300 bg-emerald-100 text-emerald-900 shadow-[0_14px_28px_rgba(16,185,129,0.16)] hover:bg-emerald-50"
-                              : "border-emerald-200 bg-white/70 text-emerald-800 shadow-[0_14px_28px_rgba(16,185,129,0.1)] hover:bg-white"
+                              ? theme.archiveSecondaryButtonClass
+                              : theme.archiveMutedButtonClass
                           }`}
                         >
                           <Calendar className="h-3.5 w-3.5" />
@@ -695,7 +695,7 @@ export default function ArkivPage() {
                         <button
                           type="button"
                           onClick={() => router.push(`/dashboard/resultater/${run.id}`)}
-                          className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-900 shadow-[0_14px_28px_rgba(14,165,233,0.14)] transition hover:bg-sky-100"
+                          className={`inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition ${theme.archiveSecondaryButtonClass}`}
                         >
                           <BarChart className="h-3.5 w-3.5" />
                           Se Resultater
@@ -707,7 +707,7 @@ export default function ArkivPage() {
                           type="button"
                           aria-label="Rediger løb"
                           onClick={() => handleEditRun(run)}
-                          className="grid h-9 w-9 place-items-center rounded-lg border border-emerald-200 bg-white/50 text-emerald-700 transition hover:bg-white"
+                          className={`grid h-9 w-9 place-items-center rounded-lg transition ${theme.archiveIconButtonClass}`}
                         >
                           <Edit2 className="h-4 w-4" />
                         </button>
@@ -716,7 +716,7 @@ export default function ArkivPage() {
                           type="button"
                           aria-label="Slet løb"
                           onClick={() => void handleDeleteRun(run.id)}
-                          className="grid h-9 w-9 place-items-center rounded-lg border border-emerald-200 bg-white/50 text-emerald-700 transition hover:bg-white"
+                          className={`grid h-9 w-9 place-items-center rounded-lg transition ${theme.archiveIconButtonClass}`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -743,7 +743,7 @@ export default function ArkivPage() {
               type="button"
               aria-label="Luk tidsstyring"
               onClick={closeScheduleModal}
-              className="absolute inset-0 bg-emerald-950/45 backdrop-blur-sm"
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
             />
 
             <motion.div
@@ -751,20 +751,20 @@ export default function ArkivPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.98, y: 8 }}
               transition={{ duration: 0.2 }}
-              className="relative w-full max-w-lg overflow-hidden rounded-[2rem] border border-white/15 bg-[linear-gradient(160deg,rgba(6,33,24,0.96),rgba(12,74,60,0.9))] p-6 text-white shadow-[0_32px_80px_rgba(2,24,19,0.42)]"
+              className="relative w-full max-w-lg overflow-hidden rounded-[2rem] border border-white/15 bg-slate-950/95 p-6 text-white shadow-[0_32px_80px_rgba(2,24,19,0.42)]"
             >
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(110,231,183,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.18),transparent_38%)]" />
 
               <div className="relative">
-                <div className="flex items-start justify-between gap-4">
+                <div className={`-mx-6 -mt-6 mb-6 flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5 ${scheduleTheme.archiveHeaderClass}`}>
                   <div>
-                    <p className="text-xs font-semibold tracking-[0.32em] text-emerald-100/70 uppercase">
+                    <p className="text-xs font-semibold tracking-[0.32em] text-white/70 uppercase">
                       Tidsstyring
                     </p>
                     <h2 className={`mt-3 text-2xl font-black text-white ${rubik.className}`}>
                       {scheduleRun.title}
                     </h2>
-                    <p className="mt-3 max-w-md text-sm leading-6 text-emerald-50/80">
+                    <p className="mt-3 max-w-md text-sm leading-6 text-white/80">
                       Vælg hvornår løbet automatisk skal åbne og lukke for deltagere på
                       join-siden.
                     </p>
@@ -774,7 +774,7 @@ export default function ArkivPage() {
                     type="button"
                     aria-label="Luk"
                     onClick={closeScheduleModal}
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/15 bg-white/10 text-emerald-50 transition hover:bg-white/15"
+                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/15 bg-white/10 text-white transition hover:bg-white/15"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -784,7 +784,7 @@ export default function ArkivPage() {
                   <div className="space-y-2">
                     <label
                       htmlFor="schedule-start"
-                      className="text-sm font-semibold text-emerald-50"
+                      className="text-sm font-semibold text-white"
                     >
                       Start-tidspunkt
                     </label>
@@ -793,14 +793,14 @@ export default function ArkivPage() {
                       type="datetime-local"
                       value={scheduleStart}
                       onChange={(event) => setScheduleStart(event.target.value)}
-                      className="w-full rounded-2xl border border-white/15 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-emerald-300/70 focus:ring-2 focus:ring-emerald-300/20"
+                      className="w-full rounded-2xl border border-white/15 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-white/30 focus:ring-2 focus:ring-white/10"
                     />
                   </div>
 
                   <div className="space-y-2">
                     <label
                       htmlFor="schedule-end"
-                      className="text-sm font-semibold text-emerald-50"
+                      className="text-sm font-semibold text-white"
                     >
                       Slut-tidspunkt
                     </label>
@@ -809,19 +809,19 @@ export default function ArkivPage() {
                       type="datetime-local"
                       value={scheduleEnd}
                       onChange={(event) => setScheduleEnd(event.target.value)}
-                      className="w-full rounded-2xl border border-white/15 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-emerald-300/70 focus:ring-2 focus:ring-emerald-300/20"
+                      className="w-full rounded-2xl border border-white/15 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-white/30 focus:ring-2 focus:ring-white/10"
                     />
                   </div>
 
-                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-emerald-50/80">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-white/80">
                     Lad et felt stå tomt, hvis løbet kun skal have et automatisk start- eller
                     sluttidspunkt.
                   </div>
 
                   {scheduleSharePin ? (
-                    <div className="space-y-4 rounded-[1.75rem] border border-emerald-200/20 bg-emerald-400/10 p-4 shadow-[0_18px_36px_rgba(16,185,129,0.12)]">
+                    <div className="space-y-4 rounded-[1.75rem] border border-white/10 bg-white/5 p-4 shadow-[0_18px_36px_rgba(15,23,42,0.22)]">
                       <div>
-                        <p className="text-[11px] font-semibold tracking-[0.28em] text-emerald-100/70 uppercase">
+                        <p className="text-[11px] font-semibold tracking-[0.28em] text-white/70 uppercase">
                           {scheduleSessionSource === "reused" ? "Eksisterende adgang genbrugt" : "Ny adgang klar"}
                         </p>
                         <h3 className={`mt-2 text-lg font-black text-white ${rubik.className}`}>
@@ -830,23 +830,23 @@ export default function ArkivPage() {
                       </div>
 
                       <div className="grid gap-3 sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-start">
-                        <span className="text-xs font-semibold tracking-wide text-emerald-50/75 uppercase">
+                        <span className="text-xs font-semibold tracking-wide text-white/75 uppercase">
                           PIN-kode
                         </span>
-                        <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-2xl font-black tracking-[0.35em] text-emerald-100">
+                        <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-2xl font-black tracking-[0.35em] text-white">
                           {scheduleSharePin}
                         </div>
 
-                        <span className="text-xs font-semibold tracking-wide text-emerald-50/75 uppercase">
+                        <span className="text-xs font-semibold tracking-wide text-white/75 uppercase">
                           Delbart link
                         </span>
-                        <div className="break-all rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm leading-6 text-emerald-50/90">
+                        <div className="break-all rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm leading-6 text-white/90">
                           {scheduleShareLink}
                         </div>
                       </div>
 
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-xs leading-5 text-emerald-50/75">
+                        <p className="text-xs leading-5 text-white/75">
                           Deltagerne kan bruge PIN-koden på join-siden eller åbne linket direkte.
                         </p>
                         <button
@@ -868,7 +868,7 @@ export default function ArkivPage() {
                         setScheduleStart("");
                         setScheduleEnd("");
                       }}
-                      className="rounded-2xl border border-white/15 bg-white/[0.08] px-5 py-3 text-sm font-semibold text-emerald-50 transition hover:bg-white/[0.14]"
+                        className={`rounded-2xl px-5 py-3 text-sm font-semibold transition ${scheduleTheme.archiveMutedButtonClass}`}
                     >
                       Ryd tider
                     </button>
@@ -876,7 +876,7 @@ export default function ArkivPage() {
                     <button
                       type="submit"
                       disabled={isSavingSchedule}
-                      className="rounded-2xl bg-emerald-400 px-5 py-3 text-sm font-black tracking-[0.2em] text-emerald-950 uppercase transition hover:bg-emerald-300 disabled:cursor-wait disabled:opacity-70"
+                        className={`rounded-2xl px-5 py-3 text-sm font-black tracking-[0.2em] uppercase transition disabled:cursor-wait disabled:opacity-70 ${scheduleTheme.archivePrimaryButtonClass}`}
                     >
                       {isSavingSchedule ? "GEMMER..." : "GEM TIDER"}
                     </button>

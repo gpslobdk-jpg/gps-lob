@@ -13,6 +13,8 @@ import {
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
 
+import { getRaceTypeTheme, type RaceTypeThemeKey } from "@/utils/raceTypeTheme";
+
 const rubik = Rubik({
   subsets: ["latin"],
   weight: ["700", "800", "900"],
@@ -24,87 +26,62 @@ const poppins = Poppins({
 });
 
 type HubCard = {
+  raceType: RaceTypeThemeKey;
   title: string;
   description: string;
   href: string;
   icon: LucideIcon;
-  iconShellClass: string;
-  iconClass: string;
-  glowClass: string;
-  colorClass: string;
 };
 
 const cards: HubCard[] = [
   {
-    title: "Klassisk Quiz-løb",
-    description: "Skab en klassisk rute med spørgsmål og fire svarmuligheder.",
+    raceType: "manuel",
+    title: "Klassisk Quiz-l\u00f8b",
+    description: "Skab en klassisk rute med sp\u00f8rgsm\u00e5l og fire svarmuligheder.",
     href: "/dashboard/opret/manuel",
     icon: MapPin,
-    iconShellClass: "border-emerald-200 bg-emerald-100",
-    iconClass: "text-emerald-600",
-    glowClass:
-      "border-emerald-200/60 shadow-xl shadow-emerald-500/10 hover:shadow-2xl hover:shadow-emerald-500/30 hover:border-emerald-300/80",
-    colorClass: "bg-emerald-600/85 hover:bg-emerald-600/95 border-emerald-400/40",
   },
   {
+    raceType: "foto",
     title: "AI Foto-mission",
     description:
-      "Deltagerne fotograferer motiver i virkeligheden, og AI'en vurderer billedet på sekunder.",
+      "Deltagerne fotograferer motiver i virkeligheden, og AI'en vurderer billedet p\u00e5 sekunder.",
     href: "/dashboard/opret/foto",
     icon: Camera,
-    iconShellClass: "border-sky-200 bg-sky-100",
-    iconClass: "text-sky-600",
-    glowClass:
-      "border-sky-200/60 shadow-xl shadow-sky-500/10 hover:shadow-2xl hover:shadow-sky-500/30 hover:border-sky-300/80",
-    colorClass: "bg-sky-600/85 hover:bg-sky-600/95 border-sky-400/40",
   },
   {
+    raceType: "escape",
     title: "Escape Room",
-    description: "Løs gåder ved hver post og saml kode-brikker til en endelig master-kode.",
+    description: "L\u00f8s g\u00e5der ved hver post og saml kode-brikker til en endelig master-kode.",
     href: "/dashboard/opret/escape",
     icon: Lock,
-    iconShellClass: "border-amber-200 bg-amber-100",
-    iconClass: "text-amber-600",
-    glowClass:
-      "border-amber-200/60 shadow-xl shadow-amber-500/10 hover:shadow-2xl hover:shadow-amber-500/30 hover:border-amber-300/80",
-    colorClass: "bg-amber-600/85 hover:bg-amber-600/95 border-amber-400/40",
   },
   {
+    raceType: "rollespil",
     title: "Rollespil",
-    description: "Lad eleverne møde karakterer, tale med AI og spille sig gennem historien.",
+    description: "Lad eleverne m\u00f8de karakterer, tale med AI og spille sig gennem historien.",
     href: "/dashboard/opret/rollespil",
     icon: MessageSquare,
-    iconShellClass: "border-violet-200 bg-violet-100",
-    iconClass: "text-violet-600",
-    glowClass:
-      "border-violet-200/60 shadow-xl shadow-violet-500/10 hover:shadow-2xl hover:shadow-violet-500/30 hover:border-violet-300/80",
-    colorClass: "bg-violet-600/85 hover:bg-violet-600/95 border-violet-400/40",
   },
   {
+    raceType: "scanner",
     title: "Scan bogen",
-    description: "Upload en bogside eller indsæt tekst, og lad AI bygge et komplet quiz-løb.",
+    description: "Upload en bogside eller inds\u00e6t tekst, og lad AI bygge et komplet quiz-l\u00f8b.",
     href: "/dashboard/opret/scanner",
     icon: BookOpen,
-    iconShellClass: "border-cyan-200 bg-cyan-100",
-    iconClass: "text-cyan-600",
-    glowClass:
-      "border-cyan-200/60 shadow-xl shadow-cyan-500/10 hover:shadow-2xl hover:shadow-cyan-500/30 hover:border-cyan-300/80",
-    colorClass: "bg-cyan-600/85 hover:bg-cyan-600/95 border-cyan-400/40",
   },
   {
+    raceType: "selfie",
     title: "Selfie-mission",
     description: "Byg en jagt med selfie-poster, hvor deltagerne skal finde og dokumentere steder.",
     href: "/dashboard/opret/selfie",
     icon: Sparkles,
-    iconShellClass: "border-rose-200 bg-rose-100",
-    iconClass: "text-rose-600",
-    glowClass:
-      "border-rose-200/60 shadow-xl shadow-rose-500/10 hover:shadow-2xl hover:shadow-rose-500/30 hover:border-rose-300/80",
-    colorClass: "bg-rose-600/85 hover:bg-rose-600/95 border-rose-400/40",
   },
 ];
 
 function renderCard(card: HubCard, index: number) {
+  const theme = getRaceTypeTheme(card.raceType);
+
   return (
     <Link
       key={`${card.title}-${index}`}
@@ -113,7 +90,7 @@ function renderCard(card: HubCard, index: number) {
       className="group block h-full w-full focus:outline-none"
     >
       <article
-        className={`relative flex h-full min-h-[220px] flex-col overflow-hidden rounded-[2.5rem] border p-6 backdrop-blur-md transition-all duration-300 hover:scale-105 ${card.glowClass} ${card.colorClass}`}
+        className={`relative flex h-full min-h-[220px] flex-col overflow-hidden rounded-[2.5rem] border p-6 backdrop-blur-md transition-all duration-300 hover:scale-105 ${theme.selectionCardClass}`}
       >
         <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/40 bg-white/20">
           <card.icon className="h-8 w-8 text-white" />
@@ -153,22 +130,22 @@ export default function ValgHubPage() {
             Tilbage til dashboard
           </Link>
           <p className="rounded-full border border-emerald-500/20 bg-slate-950/70 px-4 py-2 text-xs font-semibold tracking-[0.24em] text-emerald-300 uppercase shadow-sm backdrop-blur-xl">
-            Løbstyper
+            L\u00f8bstyper
           </p>
         </div>
 
         <div className="mt-12 max-w-3xl">
           <p className="text-sm font-semibold tracking-[0.32em] text-emerald-800 uppercase drop-shadow-sm">
-            Vælg format
+            V\u00e6lg format
           </p>
           <h1
-            className={`mt-4 text-4xl font-black tracking-tight text-emerald-950 lg:text-white drop-shadow-md lg:drop-shadow-lg md:text-5xl ${rubik.className}`}
+            className={`mt-4 text-4xl font-black tracking-tight text-emerald-950 drop-shadow-md md:text-5xl lg:text-white lg:drop-shadow-lg ${rubik.className}`}
           >
-            Hvilken type løb vil du bygge?
+            Hvilken type l\u00f8b vil du bygge?
           </h1>
-          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-emerald-900 lg:text-emerald-50 drop-shadow-sm md:text-base">
-            Vælg det format, der passer bedst til dit arrangement. Her finder du quiz, foto,
-            escape, rollespil, bog-scanner og selfie-missioner samlet ét sted.
+          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-emerald-900 drop-shadow-sm md:text-base lg:text-emerald-50">
+            V\u00e6lg det format, der passer bedst til dit arrangement. Her finder du quiz, foto,
+            escape, rollespil, bog-scanner og selfie-missioner samlet et sted.
           </p>
         </div>
 
