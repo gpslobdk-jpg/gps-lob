@@ -9,6 +9,7 @@ import {
 } from "@/app/api/play/_shared";
 
 export const runtime = "edge";
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const sessionId = asTrimmedString(request.nextUrl.searchParams.get("sessionId"));

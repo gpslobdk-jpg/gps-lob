@@ -1,3 +1,5 @@
+import { createAdminClient } from "@/utils/supabase/admin";
+
 type LiveSessionRow = {
   run_id?: string | null;
 };
@@ -49,18 +51,61 @@ export async function fetchSupabaseRows<T>(path: string) {
   return (await response.json()) as T[];
 }
 
-export async function fetchRunForSession(sessionId: string) {
-  const sessionRows = await fetchSupabaseRows<LiveSessionRow>(
+async function fetchSessionRow(
+  sessionId: string,
+  adminSupabase: ReturnType<typeof createAdminClient> | null = null
+) {
+  if (adminSupabase) {
+    const { data, error } = await adminSupabase
+      .from("live_sessions")
+      .select("run_id")
+      .eq("id", sessionId)
+      .limit(1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (data?.[0] ?? null) as LiveSessionRow | null;
+  }
+
+  const rows = await fetchSupabaseRows<LiveSessionRow>(
     `live_sessions?id=eq.${encodeURIComponent(sessionId)}&select=run_id&limit=1`
   );
-  const runId = asTrimmedString(sessionRows[0]?.run_id);
+  return rows[0] ?? null;
+}
+
+async function fetchRunRow(
+  runId: string,
+  adminSupabase: ReturnType<typeof createAdminClient> | null = null
+) {
+  if (adminSupabase) {
+    const { data, error } = await adminSupabase
+      .from("gps_runs")
+      .select("*")
+      .eq("id", runId)
+      .limit(1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (data?.[0] ?? null) as RunRow | null;
+  }
+
+  const rows = await fetchSupabaseRows<RunRow>(
+    `gps_runs?id=eq.${encodeURIComponent(runId)}&select=*&limit=1`
+  );
+  return rows[0] ?? null;
+}
+
+export async function fetchRunForSession(sessionId: string) {
+  const adminSupabase = createAdminClient();
+  const sessionRow = await fetchSessionRow(sessionId, adminSupabase);
+  const runId = asTrimmedString(sessionRow?.run_id);
   if (!runId) return null;
 
-  const runRows = await fetchSupabaseRows<RunRow>(
-    `gps_runs?id=eq.${encodeURIComponent(runId)}&select=questions,description,raceType,race_type&limit=1`
-  );
-
-  return runRows[0] ?? null;
+  return await fetchRunRow(runId, adminSupabase);
 }
 
 export function normalizeRaceMode(value: unknown) {
