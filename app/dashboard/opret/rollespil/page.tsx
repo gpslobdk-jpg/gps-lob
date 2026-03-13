@@ -6,6 +6,7 @@ import { Poppins, Rubik } from "next/font/google";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
+import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import type { SavedPin } from "@/components/MapPicker";
 import { SYSTEM_ARKITEKT, TIDSMASKINE_PROMPT } from "@/constants/aiPrompts";
 import {
@@ -1044,7 +1045,8 @@ function RollespilBuilderPageContent() {
       <div className={`relative min-h-screen overflow-x-hidden bg-violet-950 text-violet-100 ${poppins.className}`}>
         <div className="fixed inset-0 -z-10 bg-gradient-to-br from-violet-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
-          <section className="w-full px-4 py-4 sm:px-6 sm:py-6 lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
+          <MobileBuilderWarning />
+          <section className="hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
             <div className="mx-auto max-w-3xl space-y-5">
               <div className="px-1 pt-1">
                 {isEditMode ? (
@@ -1237,7 +1239,7 @@ function RollespilBuilderPageContent() {
             </div>
           </section>
 
-          <aside className="w-full p-4 pt-0 sm:px-6 lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
+          <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
             <div className="lg:sticky lg:top-5">
               <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-violet-500/20 bg-slate-900/60 shadow-[0_0_0_1px_rgba(139,92,246,0.08),0_0_36px_rgba(139,92,246,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
                 <MapPicker center={mapCenter} pins={pins} onCenterChange={setMapCenter} />

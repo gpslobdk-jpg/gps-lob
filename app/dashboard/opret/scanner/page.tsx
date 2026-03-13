@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 
+import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import { writeRunDraft } from "@/utils/runDrafts";
 
 const rubik = Rubik({
@@ -534,7 +535,9 @@ export default function ScannerPortalPage() {
           </span>
         </div>
 
-        <div className="mx-auto flex min-h-[calc(100vh-10rem)] w-full items-center justify-center">
+        <MobileBuilderWarning className="mx-auto w-full max-w-3xl" />
+
+        <div className="mx-auto hidden min-h-[calc(100vh-10rem)] w-full items-center justify-center lg:flex">
           <div className="w-full max-w-3xl rounded-3xl border border-cyan-500/30 bg-cyan-950/20 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-10">
             <div className="mx-auto max-w-2xl text-center">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-100">
