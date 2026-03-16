@@ -108,11 +108,20 @@ export async function GET(request: Request) {
     requestedNext && requestedNext.startsWith("/dashboard") ? requestedNext : "/dashboard";
 
   if (!code) {
+    console.log("Auth callback: missing code in query", requestUrl.href);
     return redirectToLogin(safeOrigin, "missing_oauth_code");
   }
 
   try {
+    console.log("Auth callback: Hit callback", { url: requestUrl.href });
+    const providerError = requestUrl.searchParams.get("error");
+    const providerErrorDescription = requestUrl.searchParams.get("error_description");
+    if (providerError) {
+      console.warn("Auth callback: provider returned error", { providerError, providerErrorDescription });
+      return redirectToLogin(safeOrigin, `${providerError}${providerErrorDescription ? ": " + providerErrorDescription : ""}`);
+    }
     const cookieStore = await cookies();
+    console.log("Auth callback: cookies acquired");
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -131,24 +140,48 @@ export async function GET(request: Request) {
       }
     );
 
-    const { error } = await withTimeout(
+    console.log("Auth callback: exchanging code for session");
+    const exchangeResult = await withTimeout(
       supabase.auth.exchangeCodeForSession(code),
       OAUTH_TIMEOUT_MS,
       "oauth_exchange"
-    );
+    ).catch((err) => {
+      console.error("Auth callback: exchangeCodeForSession failed/timeout", err);
+      return null;
+    });
 
-    if (error) {
+    if (!exchangeResult) {
+      console.error("Auth callback: exchange result null — treating as failure");
       return redirectToLogin(safeOrigin, "oauth_exchange_failed");
     }
 
-    const {
-      data: { user },
-      error: userError,
-    } = await withTimeout(supabase.auth.getUser(), OAUTH_TIMEOUT_MS, "oauth_user");
+    const { error: exchangeError, data: exchangeData } = exchangeResult as any;
+    if (exchangeError) {
+      console.error("Auth callback: exchange returned error", exchangeError);
+      return redirectToLogin(safeOrigin, "oauth_exchange_failed");
+    }
 
-    if (userError || !user) {
+    console.log("Auth callback: Session exchanged", { sessionId: exchangeData?.session?.access_token ? true : false });
+
+    console.log("Auth callback: fetching user from supabase");
+    const userResult = await withTimeout(supabase.auth.getUser(), OAUTH_TIMEOUT_MS, "oauth_user").catch((err) => {
+      console.error("Auth callback: getUser failed/timeout", err);
+      return null;
+    });
+
+    if (!userResult) {
+      console.error("Auth callback: getUser returned null — treating as missing user");
       return redirectToLogin(safeOrigin, "oauth_user_missing");
     }
+
+    const { data: userData, error: userError } = userResult as any;
+    const user = userData?.user ?? null;
+    if (userError || !user) {
+      console.error("Auth callback: getUser returned error or no user", { userError, user });
+      return redirectToLogin(safeOrigin, "oauth_user_missing");
+    }
+
+    console.log("Auth callback: user fetched", { userId: user.id });
 
       // QUICK onboard check: if the user has no saved runs, redirect them directly
       // to the welcome/onboarding flow. This is a fast, best-effort check with a
