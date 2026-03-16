@@ -69,7 +69,11 @@ function LoginPageContent() {
     }
 
     const supabase = createClient();
-    const serverCallbackBase = `${window.location.origin}/api/auth/callback`;
+    const serverCallbackBase =
+      process.env.NODE_ENV === "production"
+        ? "https://gpslob.dk/api/auth/callback"
+        : "http://localhost:3000/api/auth/callback";
+
     const callbackUrl = new URL(serverCallbackBase);
     callbackUrl.searchParams.set("next", safeNextPath);
 
