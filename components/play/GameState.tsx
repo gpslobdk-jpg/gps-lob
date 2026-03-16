@@ -82,6 +82,18 @@ export function usePlayGameState({
     return stored;
   }, [sessionId]);
 
+  const isStoredParticipantFreshJoin = useMemo(() => {
+    if (!storedParticipantOnLoad?.savedAt) return false;
+    try {
+      const savedTime = new Date(storedParticipantOnLoad.savedAt).getTime();
+      const now = Date.now();
+      const ageMs = now - savedTime;
+      return ageMs < 30000;
+    } catch {
+      return false;
+    }
+  }, [storedParticipantOnLoad?.savedAt]);
+
   const [pendingPlayerName, setPendingPlayerNameState] = useState(
     () => storedParticipantOnLoad?.studentName || initialNameCandidate
   );
@@ -140,7 +152,7 @@ export function usePlayGameState({
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
 
   const answersTableMissingRef = useRef(false);
-  const hasRestoredRef = useRef(!Boolean(storedParticipantOnLoad));
+  const hasRestoredRef = useRef(!Boolean(storedParticipantOnLoad) || isStoredParticipantFreshJoin);
   const resumeMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const quizAnswerFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roleplayInputErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -451,12 +463,63 @@ export function usePlayGameState({
       }
 
       if (didResolveParticipant && !participantData) {
-        clearStoredActiveParticipant();
-        setParticipantId(null);
-        setShowQuestion(false);
-        setIsKicked(true);
-        hasRestoredRef.current = true;
-        return;
+        // Defensive restoration: DB reported "not found" — don't kick immediately.
+        // Show a transient notice and retry a few times before concluding the participant
+        // has been removed. This avoids false negatives caused by transient visibility delays.
+        const maxAttempts = 3;
+        const retryDelayMs = 800;
+        const timers: ReturnType<typeof setTimeout>[] = [];
+
+        showResumeNotice("Henter dine data...");
+
+        let resolved = false;
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          if (!isActive) break;
+
+          // wait before retrying (small backoff)
+          await new Promise<void>((resolve) => {
+            const t = setTimeout(() => resolve(), retryDelayMs * (attempt + 1));
+            timers.push(t);
+          });
+
+          if (!isActive) break;
+
+          const { data: retryData, error: retryError } = await supabase
+            .from("participants")
+            .select("id,session_id,student_name,lat,lng,finished_at")
+            .eq("id", participantId)
+            .eq("session_id", sessionId)
+            .maybeSingle<ParticipantRow>();
+
+          if (!isActive) break;
+
+          if (retryError) {
+            console.error("Fejl ved retry af participants-forespørgsel:", retryError);
+            // continue retrying on transient errors
+            continue;
+          }
+
+          if (retryData) {
+            // Found participant on a retry — proceed with normal restore flow
+            participantData = retryData ?? null;
+            resolved = true;
+            break;
+          }
+        }
+
+        // clear any pending timers to avoid leaks
+        for (const t of timers) clearTimeout(t);
+
+        if (!resolved) {
+          // Still not found after retries — treat as kicked
+          clearStoredActiveParticipant();
+          setParticipantId(null);
+          setShowQuestion(false);
+          setIsKicked(true);
+          hasRestoredRef.current = true;
+          return;
+        }
       }
 
       const restoredName =
