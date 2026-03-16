@@ -69,12 +69,14 @@ function LoginPageContent() {
     }
 
     const supabase = createClient();
-    const callbackUrl = new URL("/api/auth/callback", window.location.origin);
+    const serverCallbackBase = `${window.location.origin}/api/auth/callback`;
+    const callbackUrl = new URL(serverCallbackBase);
     callbackUrl.searchParams.set("next", safeNextPath);
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
+        // Ensure the provider redirects back to our server-side callback
         redirectTo: callbackUrl.toString(),
         ...(provider === "azure" ? { scopes: "email" } : {}),
       },
