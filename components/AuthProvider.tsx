@@ -28,6 +28,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
+    let graceTimer: ReturnType<typeof setTimeout> | null = null;
+    const LOADING_GRACE_MS = 700;
 
     const hydrateAuth = async () => {
       try {
@@ -42,8 +44,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error("Kunne ikke indlæse session:", error);
       } finally {
+        // Defer clearing isLoading for a short grace period so that any
+        // onAuthStateChange subscription has a chance to run and update
+        // the session. This prevents a brief auth-flash where the client
+        // believes there is no session before the subscription fires.
         if (isMounted) {
-          setIsLoading(false);
+          graceTimer = setTimeout(() => {
+            graceTimer = null;
+            if (isMounted) setIsLoading(false);
+          }, LOADING_GRACE_MS);
         }
       }
     };
@@ -57,11 +66,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setSession(nextSession ?? null);
       setUser(nextSession?.user ?? null);
+      // Clear any pending grace timer and mark loading finished immediately
+      if (graceTimer) {
+        clearTimeout(graceTimer);
+        graceTimer = null;
+      }
       setIsLoading(false);
     });
 
     return () => {
       isMounted = false;
+      if (graceTimer) {
+        clearTimeout(graceTimer);
+        graceTimer = null;
+      }
       subscription.unsubscribe();
     };
   }, [supabase]);
