@@ -103,7 +103,7 @@ const getQuestionCount = (questions: Run["questions"]) => {
   return Array.isArray(questions) ? questions.length : 0;
 };
 
-const generateJoinPin = () => Math.floor(1000 + Math.random() * 9000).toString();
+const generateJoinPin = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const padNumber = (value: number) => value.toString().padStart(2, "0");
 
@@ -300,23 +300,10 @@ export default function ArkivPage() {
         return;
       }
 
-      const generatedPin = generateJoinPin();
+      const ensuredSession = await ensureLiveSessionForRun(runId, user.id);
 
-      const { data, error } = await supabase
-        .from("live_sessions")
-        .insert({
-          run_id: runId,
-          teacher_id: user.id,
-          pin: generatedPin,
-          status: "waiting",
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      if (data) {
-        router.push(`/dashboard/live/${data.id}`);
+      if (ensuredSession && ensuredSession.id) {
+        router.push(`/dashboard/live/${ensuredSession.id}`);
       }
     } catch (err) {
       console.error("Kunne ikke oprette live session:", err);
@@ -353,33 +340,71 @@ export default function ArkivPage() {
 
     if (existingSession?.id && existingPin) {
       return {
+        id: existingSession.id,
         pin: existingPin,
         source: "reused" as const,
       };
     }
 
-    const generatedPin = generateJoinPin();
-    const { data: createdSession, error: createdSessionError } = await supabase
-      .from("live_sessions")
-      .insert({
-        run_id: runId,
-        teacher_id: teacherId,
-        pin: generatedPin,
-        status: "waiting",
-      })
-      .select("id,pin,status")
-      .single();
+    // Try to generate a unique PIN up to N attempts before failing
+    const maxAttempts = 5;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const generatedPin = generateJoinPin();
 
-    if (createdSessionError) {
-      throw createdSessionError;
+      // Check quickly if this PIN is already used for an active session
+      const { data: pinMatches, error: pinCheckError } = await supabase
+        .from("live_sessions")
+        .select("id")
+        .eq("pin", generatedPin)
+        .in("status", ["waiting", "running"])
+        .limit(1);
+
+      if (pinCheckError) {
+        console.error("Fejl ved PIN-tjek:", pinCheckError);
+        // on error, fall through to try insert (it may still succeed)
+      }
+
+      if (Array.isArray(pinMatches) && pinMatches.length > 0) {
+        // Collision — try again
+        if (attempt === maxAttempts) break;
+        continue;
+      }
+
+      // Attempt to create the session with this PIN
+      try {
+        const { data: createdSession, error: createdSessionError } = await supabase
+          .from("live_sessions")
+          .insert({
+            run_id: runId,
+            teacher_id: teacherId,
+            pin: generatedPin,
+            status: "waiting",
+          })
+          .select("id,pin,status")
+          .single();
+
+        if (createdSessionError) {
+          // If insert failed due to a constraint, loop to retry
+          console.warn("Fejl ved oprettelse af session (forsøg", attempt, "):", createdSessionError);
+          if (attempt === maxAttempts) throw createdSessionError;
+          continue;
+        }
+
+        const createdPin = typeof createdSession?.pin === "string" ? createdSession.pin.trim() : generatedPin;
+
+        return {
+          id: createdSession.id,
+          pin: createdPin,
+          source: "created" as const,
+        };
+      } catch (err) {
+        console.error("Uventet fejl ved oprettelse af session:", err);
+        if (attempt === maxAttempts) throw err;
+        // otherwise retry
+      }
     }
 
-    const createdPin = typeof createdSession?.pin === "string" ? createdSession.pin.trim() : generatedPin;
-
-    return {
-      pin: createdPin,
-      source: "created" as const,
-    };
+    throw new Error("Kunne ikke generere en unik PIN efter flere forsøg. Prøv igen.");
   };
 
   const openScheduleModal = (run: Run) => {
