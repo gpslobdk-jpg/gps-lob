@@ -9,6 +9,7 @@ const BETA_PLAN = "beta";
 const BETA_ACCESS_EXPIRES_AT = "2026-08-01T00:00:00.000Z";
 const OAUTH_TIMEOUT_MS = 8_000;
 const BETA_SEED_TIMEOUT_MS = 2_500;
+const ONBOARD_CHECK_TIMEOUT_MS = 1_200;
 
 type ProfileSeedRow = {
   id: string;
@@ -148,6 +149,35 @@ export async function GET(request: Request) {
     if (userError || !user) {
       return redirectToLogin(safeOrigin, "oauth_user_missing");
     }
+
+      // QUICK onboard check: if the user has no saved runs, redirect them directly
+      // to the welcome/onboarding flow. This is a fast, best-effort check with a
+      // short timeout — if it fails we fall back to the normal redirect.
+      try {
+        const adminSupabase = createAdminClient();
+        if (adminSupabase) {
+          const { data: runsData, error: runsError } = await withTimeout(
+            adminSupabase
+              .from("gps_runs")
+              .select("id")
+              .eq("user_id", user.id)
+              .limit(1),
+            ONBOARD_CHECK_TIMEOUT_MS,
+            "onboard_lookup"
+          );
+
+          if (!runsError) {
+            const hasRuns = Array.isArray(runsData) && runsData.length > 0;
+            if (!hasRuns) {
+              return NextResponse.redirect(`${safeOrigin}/dashboard/velkommen`);
+            }
+          }
+        }
+      } catch (err) {
+        // best-effort: if anything fails here (timeout, admin client missing),
+        // continue with the normal flow so login doesn't block.
+        console.warn("Onboard check failed or timed out, continuing with regular redirect:", err);
+      }
 
     await ensureBetaAccess(user.id);
 
