@@ -63,11 +63,8 @@ function FitBoundsSync({
   targetLocation: Location | null;
 }) {
   const map = useMap();
-  const fittedRef = useRef(false);
-
   useEffect(() => {
     if (!playerLocation || !targetLocation) return;
-    if (fittedRef.current) return;
 
     const bounds: [number, number][] = [
       [playerLocation.lat, playerLocation.lng],
@@ -76,7 +73,6 @@ function FitBoundsSync({
 
     try {
       map.fitBounds(bounds as any, { padding: [80, 80], maxZoom: 17, animate: true });
-      fittedRef.current = true;
     } catch (e) {
       // ignore fitBounds errors (map may not be ready)
     }
