@@ -58,88 +58,131 @@ export default function GPSManager({
       return;
     }
 
-    const watchId = navigator.geolocation.watchPosition(
-      async (position) => {
-        onGpsError(null);
+    const watchIdRef = { current: null as number | null };
 
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-        onLocationChange({ lat, lng });
+    const successHandler = async (position: GeolocationPosition) => {
+      onGpsError(null);
 
-        if (target && Number.isFinite(target.lat) && Number.isFinite(target.lng)) {
-          const nextDistance = getDistance(lat, lng, target.lat, target.lng);
-          onDistanceChange(nextDistance);
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      onLocationChange({ lat, lng });
 
-          if (
-            nextDistance <= AUTO_UNLOCK_RADIUS &&
-            !showQuestion &&
-            dismissedPostIndex !== currentPostIndex
-          ) {
-            autoUnlockConfirmationRef.current += 1;
-            if (autoUnlockConfirmationRef.current >= AUTO_UNLOCK_CONFIRMATION_HITS) {
-              autoUnlockConfirmationRef.current = 0;
-              onAutoUnlock();
-            }
-          } else {
+      if (target && Number.isFinite(target.lat) && Number.isFinite(target.lng)) {
+        const nextDistance = getDistance(lat, lng, target.lat, target.lng);
+        onDistanceChange(nextDistance);
+
+        if (
+          nextDistance <= AUTO_UNLOCK_RADIUS &&
+          !showQuestion &&
+          dismissedPostIndex !== currentPostIndex
+        ) {
+          autoUnlockConfirmationRef.current += 1;
+          if (autoUnlockConfirmationRef.current >= AUTO_UNLOCK_CONFIRMATION_HITS) {
             autoUnlockConfirmationRef.current = 0;
-          }
-
-          if (nextDistance > AUTO_UNLOCK_RADIUS && dismissedPostIndex === currentPostIndex) {
-            onDismissedReset();
+            onAutoUnlock();
           }
         } else {
           autoUnlockConfirmationRef.current = 0;
         }
 
-        const lastLocationSync = lastLocationSyncRef.current;
-        const hasMovedEnough =
-          !lastLocationSync ||
-          getDistance(lat, lng, lastLocationSync.lat, lastLocationSync.lng) >=
-            LOCATION_SYNC_DISTANCE_METERS;
-        const waitedLongEnough =
-          !lastLocationSync || Date.now() - lastLocationSync.at >= LOCATION_SYNC_INTERVAL_MS;
-
-        if ((hasMovedEnough || waitedLongEnough) && !isLocationSyncInFlightRef.current) {
-          isLocationSyncInFlightRef.current = true;
-          lastLocationSyncRef.current = {
-            lat,
-            lng,
-            at: Date.now(),
-          };
-
-          try {
-            await onSyncLocation(lat, lng);
-          } finally {
-            isLocationSyncInFlightRef.current = false;
-          }
+        if (nextDistance > AUTO_UNLOCK_RADIUS && dismissedPostIndex === currentPostIndex) {
+          onDismissedReset();
         }
-      },
-      (error) => {
-        console.error("GPS Error:", error);
+      } else {
         autoUnlockConfirmationRef.current = 0;
+      }
 
-        if (error.code === error.PERMISSION_DENIED || error.code === 1) {
-          onGpsError("permission_denied");
-          return;
+      const lastLocationSync = lastLocationSyncRef.current;
+      const hasMovedEnough =
+        !lastLocationSync ||
+        getDistance(lat, lng, lastLocationSync.lat, lastLocationSync.lng) >=
+          LOCATION_SYNC_DISTANCE_METERS;
+      const waitedLongEnough =
+        !lastLocationSync || Date.now() - lastLocationSync.at >= LOCATION_SYNC_INTERVAL_MS;
+
+      if ((hasMovedEnough || waitedLongEnough) && !isLocationSyncInFlightRef.current) {
+        isLocationSyncInFlightRef.current = true;
+        lastLocationSyncRef.current = {
+          lat,
+          lng,
+          at: Date.now(),
+        };
+
+        try {
+          await onSyncLocation(lat, lng);
+        } finally {
+          isLocationSyncInFlightRef.current = false;
         }
+      }
+    };
 
-        if (error.code === error.POSITION_UNAVAILABLE || error.code === 2) {
-          onGpsError("position_unavailable");
-          return;
-        }
+    const errorHandler = (error: GeolocationPositionError) => {
+      console.error("GPS Error:", error);
+      autoUnlockConfirmationRef.current = 0;
 
-        if (error.code === error.TIMEOUT || error.code === 3) {
-          onGpsError("timeout");
-          return;
-        }
+      if (error.code === error.PERMISSION_DENIED || error.code === 1) {
+        onGpsError("permission_denied");
+        return;
+      }
 
+      if (error.code === error.POSITION_UNAVAILABLE || error.code === 2) {
+        onGpsError("position_unavailable");
+        return;
+      }
+
+      if (error.code === error.TIMEOUT || error.code === 3) {
         onGpsError("timeout");
-      },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
-    );
+        return;
+      }
+
+      onGpsError("timeout");
+    };
+
+    const startWatch = () => {
+      try {
+        if (watchIdRef.current !== null) {
+          navigator.geolocation.clearWatch(watchIdRef.current);
+          watchIdRef.current = null;
+        }
+        watchIdRef.current = navigator.geolocation.watchPosition(
+          successHandler,
+          errorHandler,
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+        );
+      } catch (e) {
+        console.warn("Failed to start geolocation watch:", e);
+      }
+    };
+
+    startWatch();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        try {
+          // Try an immediate position read to wake GPS
+          if (navigator.geolocation.getCurrentPosition) {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => void successHandler(pos),
+              () => undefined,
+              { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+            );
+          }
+        } catch (e) {
+          // ignore
+        }
+
+        // Restart watch to ensure watcher isn't stale
+        startWatch();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
-      navigator.geolocation.clearWatch(watchId);
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [
     currentPostIndex,

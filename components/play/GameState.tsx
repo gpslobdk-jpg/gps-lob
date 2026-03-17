@@ -157,6 +157,7 @@ export function usePlayGameState({
   const quizAnswerFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roleplayInputErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wakeLockSentinelRef = useRef<WakeLockSentinelLike | null>(null);
+  const messageChannelRef = useRef<any | null>(null);
   const masterVictoryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const submissionLockRef = useRef(false);
   const isMountedRef = useRef(true);
@@ -897,67 +898,92 @@ export function usePlayGameState({
 
     let hideTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const messageChannel = supabase
-      .channel(`student-messages-${sessionId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "session_messages",
-          filter: `session_id=eq.${sessionId}`,
-        },
-        (payload) => {
-          const messageRow = payload.new as { is_teacher?: boolean; message?: string | null };
-          if (messageRow.is_teacher && messageRow.message) {
-            setLatestMessage(messageRow.message);
-            if (hideTimer) clearTimeout(hideTimer);
-            hideTimer = setTimeout(() => setLatestMessage(null), 8000);
+    const createSubscription = () => {
+      // remove existing channel if present
+      if (messageChannelRef.current) {
+        void supabase.removeChannel(messageChannelRef.current);
+        messageChannelRef.current = null;
+      }
+
+      const ch = supabase
+        .channel(`student-messages-${sessionId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "session_messages",
+            filter: `session_id=eq.${sessionId}`,
+          },
+          (payload) => {
+            const messageRow = payload.new as { is_teacher?: boolean; message?: string | null };
+            if (messageRow.is_teacher && messageRow.message) {
+              setLatestMessage(messageRow.message);
+              if (hideTimer) clearTimeout(hideTimer);
+              hideTimer = setTimeout(() => setLatestMessage(null), 8000);
+            }
           }
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "live_sessions",
-          filter: `id=eq.${sessionId}`,
-        },
-        (payload) => {
-          const nextStatus = (payload.new as { status?: string | null })?.status;
-          if (nextStatus !== "finished") return;
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "live_sessions",
+            filter: `id=eq.${sessionId}`,
+          },
+          (payload) => {
+            const nextStatus = (payload.new as { status?: string | null })?.status;
+            if (nextStatus !== "finished") return;
 
-          clearStoredActiveParticipant();
-          setParticipantId(null);
-          setShowQuestion(false);
-          setIsFinished(true);
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "DELETE",
-          schema: "public",
-          table: "participants",
-          filter: `session_id=eq.${sessionId}`,
-        },
-        (payload) => {
-          const deletedId = (payload.old as { id?: string | number | null })?.id;
-          if (!deletedId || !participantId) return;
-          if (String(deletedId) !== participantId) return;
+            clearStoredActiveParticipant();
+            setParticipantId(null);
+            setShowQuestion(false);
+            setIsFinished(true);
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "DELETE",
+            schema: "public",
+            table: "participants",
+            filter: `session_id=eq.${sessionId}`,
+          },
+          (payload) => {
+            const deletedId = (payload.old as { id?: string | number | null })?.id;
+            if (!deletedId || !participantId) return;
+            if (String(deletedId) !== participantId) return;
 
-          clearStoredActiveParticipant();
-          setParticipantId(null);
-          setShowQuestion(false);
-          setIsKicked(true);
-        }
-      )
-      .subscribe();
+            clearStoredActiveParticipant();
+            setParticipantId(null);
+            setShowQuestion(false);
+            setIsKicked(true);
+          }
+        )
+        .subscribe();
+
+      messageChannelRef.current = ch;
+    };
+
+    createSubscription();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        // re-subscribe to ensure channel is active after sleep
+        createSubscription();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       if (hideTimer) clearTimeout(hideTimer);
-      void supabase.removeChannel(messageChannel);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      if (messageChannelRef.current) {
+        void supabase.removeChannel(messageChannelRef.current);
+        messageChannelRef.current = null;
+      }
     };
   }, [participantId, sessionId, supabase]);
 
