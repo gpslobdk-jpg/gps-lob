@@ -79,7 +79,7 @@ function createStudentIcon(name: string, isLive: boolean) {
 
   return L.divIcon({
     className: "bg-transparent border-none w-auto",
-    html: `<div class="relative flex items-center gap-2 rounded-2xl border border-slate-500/70 bg-slate-900/92 px-3 py-2 text-white shadow-lg shadow-slate-950/70 ring-1 ring-white/10 backdrop-blur-md whitespace-nowrap">
+    html: `<div class="relative flex items-center gap-2 rounded-2xl border border-slate-500/70 bg-slate-900/92 px-3 py-2 text-white shadow-lg shadow-slate-950/70 ring-1 ring-white/10 backdrop-blur-md whitespace-nowrap ${isLive ? "" : "opacity-50"}">
       <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-800 text-[11px] font-black uppercase text-white shadow-inner shadow-black/40">${initial}</span>
       <span class="text-xs font-bold tracking-wide text-white">${name}</span>
       <span class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center">
