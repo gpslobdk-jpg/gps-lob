@@ -83,6 +83,14 @@ function FitBoundsSync({
         map.fitBounds(bounds as any, { padding: [80, 80], maxZoom: 17, animate: true });
         hasFittedInitialRef.current = true;
         prevTargetKeyRef.current = targetKey;
+        try {
+          console.debug("Map auto-zoomed (fitBounds) triggered by: initial", {
+            playerLocation,
+            targetLocation,
+          });
+        } catch (e) {
+          /* no-op */
+        }
       } catch (e) {
         // ignore
       }
@@ -98,6 +106,14 @@ function FitBoundsSync({
       try {
         map.fitBounds(bounds as any, { padding: [80, 80], maxZoom: 17, animate: true });
         prevTargetKeyRef.current = targetKey;
+        try {
+          console.debug("Map auto-zoomed (fitBounds) triggered by: target_change", {
+            playerLocation,
+            targetLocation,
+          });
+        } catch (e) {
+          /* no-op */
+        }
       } catch (e) {
         // ignore
       }
