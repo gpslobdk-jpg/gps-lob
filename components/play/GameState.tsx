@@ -970,6 +970,12 @@ export function usePlayGameState({
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
+        try {
+          console.debug("Wake-up: Re-subscriber til Supabase");
+        } catch (e) {
+          /* no-op */
+        }
+
         // re-subscribe to ensure channel is active after sleep
         createSubscription();
       }

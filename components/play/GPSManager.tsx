@@ -159,6 +159,11 @@ export default function GPSManager({
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
         try {
+          console.debug("Wake-up: Genstarter GPS");
+        } catch (e) {
+          /* no-op */
+        }
+        try {
           // Try an immediate position read to wake GPS
           if (navigator.geolocation.getCurrentPosition) {
             navigator.geolocation.getCurrentPosition(
