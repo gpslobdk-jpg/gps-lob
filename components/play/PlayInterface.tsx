@@ -654,6 +654,12 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_28%),radial-gradient(circle_at_20%_18%,rgba(56,189,248,0.12),transparent_24%),radial-gradient(circle_at_80%_8%,rgba(34,197,94,0.1),transparent_22%),linear-gradient(180deg,rgba(2,6,23,0.78)_0%,rgba(2,6,23,0.92)_52%,rgba(2,6,23,1)_100%)]" />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_60%)]" />
 
+          <div className="pointer-events-none absolute inset-x-4 top-4 z-[1200] flex justify-center">
+            <div className="w-full max-w-3xl rounded-2xl bg-amber-400/95 px-4 py-3 text-center font-black uppercase tracking-wide text-slate-900 drop-shadow-lg">
+              Find den ravgule markør på kortet og gå hen til den!
+            </div>
+          </div>
+
           {gpsWarningContent ? (
             <div className="pointer-events-none absolute inset-x-4 top-4 z-[1100] flex justify-center">
               <div className="w-full max-w-xl rounded-[1.5rem] border border-amber-300/30 bg-amber-500/14 px-4 py-3 text-amber-50 shadow-[0_18px_40px_rgba(245,158,11,0.16)] backdrop-blur-xl">

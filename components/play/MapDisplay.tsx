@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 
 import { MapPin } from "lucide-react";
 import type { DivIcon } from "leaflet";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
 import type { Location } from "./types";
@@ -51,6 +51,36 @@ function MapViewportSync({ center, dimmed }: MapViewportSyncProps) {
       window.removeEventListener("resize", handleResize);
     };
   }, [map]);
+
+  return null;
+}
+
+function FitBoundsSync({
+  playerLocation,
+  targetLocation,
+}: {
+  playerLocation: Location | null;
+  targetLocation: Location | null;
+}) {
+  const map = useMap();
+  const fittedRef = useRef(false);
+
+  useEffect(() => {
+    if (!playerLocation || !targetLocation) return;
+    if (fittedRef.current) return;
+
+    const bounds: [number, number][] = [
+      [playerLocation.lat, playerLocation.lng],
+      [targetLocation.lat, targetLocation.lng],
+    ];
+
+    try {
+      map.fitBounds(bounds as any, { padding: [80, 80], maxZoom: 17, animate: true });
+      fittedRef.current = true;
+    } catch (e) {
+      // ignore fitBounds errors (map may not be ready)
+    }
+  }, [playerLocation, targetLocation, map]);
 
   return null;
 }
@@ -118,7 +148,7 @@ export default function MapDisplay({
   return (
     <div
       className={`relative h-full min-h-[100svh] w-full transition-all duration-300 ${
-        dimmed ? "pointer-events-none opacity-0 blur-xl" : "opacity-100"
+        dimmed ? "pointer-events-none opacity-60 blur-sm" : "opacity-100"
       }`}
     >
       <MapContainer
@@ -129,6 +159,7 @@ export default function MapDisplay({
         style={{ height: "100%", width: "100%" }}
       >
         <MapViewportSync center={mapCenter} dimmed={dimmed} />
+        <FitBoundsSync playerLocation={playerLocation} targetLocation={targetLocation} />
         <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
 
         {targetLocation && targetIcon ? (
