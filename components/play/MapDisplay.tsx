@@ -63,20 +63,46 @@ function FitBoundsSync({
   targetLocation: Location | null;
 }) {
   const map = useMap();
+  const hasFittedInitialRef = useRef(false);
+  const prevTargetKeyRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!playerLocation || !targetLocation) return;
+    if (!targetLocation) return;
 
-    const bounds: [number, number][] = [
-      [playerLocation.lat, playerLocation.lng],
-      [targetLocation.lat, targetLocation.lng],
-    ];
+    const targetKey = `${targetLocation.lat},${targetLocation.lng}`;
+    const hasPlayer =
+      !!playerLocation && Number.isFinite(playerLocation.lat) && Number.isFinite(playerLocation.lng);
 
-    try {
-      map.fitBounds(bounds as any, { padding: [80, 80], maxZoom: 17, animate: true });
-    } catch (e) {
-      // ignore fitBounds errors (map may not be ready)
+    // Initial fit: first time we have both player & target
+    if (!hasFittedInitialRef.current && hasPlayer) {
+      const bounds: [number, number][] = [
+        [playerLocation!.lat, playerLocation!.lng],
+        [targetLocation.lat, targetLocation.lng],
+      ];
+      try {
+        map.fitBounds(bounds as any, { padding: [80, 80], maxZoom: 17, animate: true });
+        hasFittedInitialRef.current = true;
+        prevTargetKeyRef.current = targetKey;
+      } catch (e) {
+        // ignore
+      }
+      return;
     }
-  }, [playerLocation, targetLocation, map]);
+
+    // Re-fit when the target changes (e.g., unlocked a new post)
+    if (prevTargetKeyRef.current !== targetKey && hasPlayer) {
+      const bounds: [number, number][] = [
+        [playerLocation!.lat, playerLocation!.lng],
+        [targetLocation.lat, targetLocation.lng],
+      ];
+      try {
+        map.fitBounds(bounds as any, { padding: [80, 80], maxZoom: 17, animate: true });
+        prevTargetKeyRef.current = targetKey;
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, [targetLocation, playerLocation, map]);
 
   return null;
 }
