@@ -59,6 +59,7 @@ export default function LiveLobbyPage() {
           />
           <TeacherLiveSidebar
             activeStudents={live.activeStudents}
+            allParticipants={live.studentLocations}
             hasParticipantsTable={live.hasParticipantsTable}
             liveAnswers={live.liveAnswers}
             hasAnswersTable={live.hasAnswersTable}

@@ -100,7 +100,7 @@ export default function TeacherLiveResults({
                   {finishers[0].name || finishers[0].student_name}
                 </div>
                 <div className="flex w-40 flex-1 flex-col items-center rounded-t-xl border-x border-t border-yellow-200/50 bg-gradient-to-t from-amber-500 to-yellow-300 pt-8 shadow-[0_0_50px_rgba(251,191,36,0.55)]">
-                  <Trophy size={64} className="text-amber-800 drop-shadow-lg" />
+                  <Trophy className="w-48 h-48 object-contain mx-auto text-amber-800 drop-shadow-lg" />
                   <span className="mt-2 text-6xl font-black text-amber-700/70">1</span>
                 </div>
               </div>

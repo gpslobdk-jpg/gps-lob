@@ -21,6 +21,7 @@ const poppins = Poppins({
 
 type TeacherLiveSidebarProps = {
   activeStudents: LiveStudentLocation[];
+  allParticipants?: LiveStudentLocation[];
   hasParticipantsTable: boolean;
   liveAnswers: LiveAnswer[];
   hasAnswersTable: boolean;
@@ -92,6 +93,7 @@ export default function TeacherLiveSidebar({
   const [activeTab, setActiveTab] = useState<SidebarTab>("leaderboard");
 
   const leaderboard = useMemo<LeaderboardEntry[]>(() => {
+    const participants = allParticipants ?? activeStudents;
     const scores = new Map<string, number>();
 
     for (const answer of liveAnswers) {
@@ -99,12 +101,9 @@ export default function TeacherLiveSidebar({
       scores.set(answer.studentName, (scores.get(answer.studentName) ?? 0) + 1);
     }
 
-    const highestScore = Math.max(
-      1,
-      ...activeStudents.map((student) => scores.get(student.name) ?? 0)
-    );
+    const highestScore = Math.max(1, ...participants.map((student) => scores.get(student.name) ?? 0));
 
-    return [...activeStudents]
+    return [...participants]
       .map((student) => {
         const score = scores.get(student.name) ?? 0;
 
@@ -118,7 +117,7 @@ export default function TeacherLiveSidebar({
         if (b.score !== a.score) return b.score - a.score;
         return a.student.name.localeCompare(b.student.name, "da");
       });
-  }, [activeStudents, liveAnswers]);
+  }, [activeStudents, allParticipants, liveAnswers]);
 
   const liveFeed = useMemo<FeedItem[]>(() => {
     const answerItems: FeedItem[] = hasAnswersTable

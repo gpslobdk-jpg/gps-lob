@@ -450,6 +450,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     hasAnswersTable,
     isEndingRun,
     activeStudents,
+    studentLocations,
     finishers,
     winnerCelebrationName,
     mapCenter,
