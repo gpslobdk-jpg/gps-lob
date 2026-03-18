@@ -60,6 +60,12 @@ export default function GPSManager({
 
     const watchIdRef = { current: null as number | null };
 
+    const gpsOptions: PositionOptions = {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 10000,
+    };
+
     const successHandler = async (position: GeolocationPosition) => {
       onGpsError(null);
 
@@ -147,7 +153,7 @@ export default function GPSManager({
         watchIdRef.current = navigator.geolocation.watchPosition(
           successHandler,
           errorHandler,
-          { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+          gpsOptions
         );
       } catch (e) {
         console.warn("Failed to start geolocation watch:", e);
@@ -169,7 +175,7 @@ export default function GPSManager({
             navigator.geolocation.getCurrentPosition(
               (pos) => void successHandler(pos),
               () => undefined,
-              { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+              gpsOptions
             );
           }
         } catch (e) {

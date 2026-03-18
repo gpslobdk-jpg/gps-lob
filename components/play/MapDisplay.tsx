@@ -67,42 +67,43 @@ function FitBoundsSync({
   const prevTargetKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!targetLocation) return;
+    if (hasFittedInitialRef.current) return;
+    if (!targetLocation || !playerLocation) return;
 
-    const targetKey = `${targetLocation.lat},${targetLocation.lng}`;
-    const hasPlayer =
-      !!playerLocation && Number.isFinite(playerLocation.lat) && Number.isFinite(playerLocation.lng);
+    const bounds: [number, number][] = [
+      [playerLocation.lat, playerLocation.lng],
+      [targetLocation.lat, targetLocation.lng],
+    ];
 
-    // Initial fit: first time we have both player & target
-    if (!hasFittedInitialRef.current && hasPlayer) {
-      const bounds: [number, number][] = [
-        [playerLocation!.lat, playerLocation!.lng],
-        [targetLocation.lat, targetLocation.lng],
-      ];
+    try {
+      map.fitBounds(bounds as any, { padding: [80, 80], maxZoom: 17, animate: true });
+      hasFittedInitialRef.current = true;
+      prevTargetKeyRef.current = `${targetLocation.lat},${targetLocation.lng}`;
       try {
-        map.fitBounds(bounds as any, { padding: [80, 80], maxZoom: 17, animate: true });
-        hasFittedInitialRef.current = true;
-        prevTargetKeyRef.current = targetKey;
-        try {
-          console.debug("Map auto-zoomed (fitBounds) triggered by: initial", {
-            playerLocation,
-            targetLocation,
-          });
-        } catch (e) {
-          /* no-op */
-        }
+        console.debug("Map auto-zoomed (fitBounds) triggered by: initial", {
+          playerLocation,
+          targetLocation,
+        });
       } catch (e) {
-        // ignore
+        /* no-op */
       }
-      return;
+    } catch (e) {
+      // ignore
     }
+  }, [playerLocation?.lat, playerLocation?.lng, targetLocation?.lat, targetLocation?.lng, map]);
 
-    // Re-fit when the target changes (e.g., unlocked a new post)
-    if (prevTargetKeyRef.current !== targetKey && hasPlayer) {
+  useEffect(() => {
+    if (!targetLocation) return;
+    const targetKey = `${targetLocation.lat},${targetLocation.lng}`;
+    const hasPlayer = !!playerLocation && Number.isFinite(playerLocation.lat) && Number.isFinite(playerLocation.lng);
+    if (!hasPlayer) return;
+
+    if (prevTargetKeyRef.current !== targetKey) {
       const bounds: [number, number][] = [
         [playerLocation!.lat, playerLocation!.lng],
         [targetLocation.lat, targetLocation.lng],
       ];
+
       try {
         map.fitBounds(bounds as any, { padding: [80, 80], maxZoom: 17, animate: true });
         prevTargetKeyRef.current = targetKey;
@@ -118,7 +119,7 @@ function FitBoundsSync({
         // ignore
       }
     }
-  }, [targetLocation, playerLocation, map]);
+  }, [targetLocation?.lat, targetLocation?.lng, playerLocation?.lat, playerLocation?.lng, map]);
 
   return null;
 }
@@ -192,13 +193,20 @@ export default function MapDisplay({
       <MapContainer
         center={mapCenter}
         zoom={17}
-        zoomControl={false}
+        zoomControl={true}
+        scrollWheelZoom={true}
+        dragging={true}
+        doubleClickZoom={true}
+        touchZoom={true}
         className="h-full w-full"
-        style={{ height: "100%", width: "100%" }}
+        style={{ height: "100%", width: "100%", filter: "none", backgroundColor: "#ffffff" }}
       >
         <MapViewportSync center={mapCenter} dimmed={dimmed} />
         <FitBoundsSync playerLocation={playerLocation} targetLocation={targetLocation} />
-        <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        />
 
         {targetLocation && targetIcon ? (
           <Marker position={[targetLocation.lat, targetLocation.lng]} icon={targetIcon}>
