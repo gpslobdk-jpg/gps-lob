@@ -907,9 +907,11 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
           </div>
 
           {/* Mobile compact HUD: visible only on small screens and keeps map visible */}
-          <div className="sm:hidden absolute inset-x-4 bottom-4 z-[1100] flex items-end justify-center">
-            <MobileHud />
-          </div>
+          {!isRoleplayImmersed ? (
+            <div className="sm:hidden absolute inset-x-4 bottom-4 z-[1100] flex items-end justify-center">
+              <MobileHud />
+            </div>
+          ) : null}
 
           <div className="absolute inset-0 z-[1] h-full w-full">
             {children}

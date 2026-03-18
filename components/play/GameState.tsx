@@ -1699,7 +1699,7 @@ export function usePlayGameState({
       ? "load_error"
       : isKicked
         ? "kicked"
-        : sessionStatus === "waiting"
+        : (sessionStatus === "waiting" || sessionStatus === "scheduled")
           ? "waiting"
           : (!hasConfirmedName || isProvisioningParticipant) && !isFinished
           ? "name_gate"
