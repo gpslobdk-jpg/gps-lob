@@ -150,6 +150,7 @@ export function usePlayGameState({
   );
   const [isProvisioningParticipant, setIsProvisioningParticipant] = useState(false);
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
+  const [sessionStatus, setSessionStatus] = useState<string | null>(null);
 
   const answersTableMissingRef = useRef(false);
   const hasRestoredRef = useRef(!Boolean(storedParticipantOnLoad) || isStoredParticipantFreshJoin);
@@ -318,6 +319,56 @@ export function usePlayGameState({
   const collectedEscapeRewardsCount = collectedEscapeRewards.length;
   const hasAllEscapeBricks =
     isEscapeRace && questions.length > 0 && collectedEscapeRewardsCount >= questions.length;
+
+  useEffect(() => {
+    if (!sessionId) return;
+    let mounted = true;
+
+    // Fetch initial session status
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("live_sessions")
+          .select("status")
+          .eq("id", sessionId)
+          .limit(1)
+          .single();
+
+        if (!mounted) return;
+        if (!error && data) {
+          setSessionStatus((data as any).status ?? null);
+        }
+      } catch (err) {
+        console.error("Kunne ikke hente session-status:", err);
+      }
+    })();
+
+    // Realtime subscription to status updates
+    const channel = supabase
+      .channel(`session-status-${sessionId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "live_sessions", filter: `id=eq.${sessionId}` },
+        (payload) => {
+          try {
+            const next = (payload.new as any)?.status ?? null;
+            setSessionStatus(next);
+          } catch (e) {
+            console.error("Fejl ved behandling af live_sessions-opdatering:", e);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      try {
+        supabase.removeChannel(channel);
+      } catch (e) {
+        // ignore
+      }
+    };
+  }, [sessionId, supabase]);
   const escapeCodeByPostIndex = new Map(
     collectedEscapeRewards.map((entry) => [entry.postIndex, entry.brick] as const)
   );
@@ -1648,7 +1699,9 @@ export function usePlayGameState({
       ? "load_error"
       : isKicked
         ? "kicked"
-        : (!hasConfirmedName || isProvisioningParticipant) && !isFinished
+        : sessionStatus === "waiting"
+          ? "waiting"
+          : (!hasConfirmedName || isProvisioningParticipant) && !isFinished
           ? "name_gate"
           : isBlockingGpsError && !isFinished
             ? "gps_blocked"

@@ -678,6 +678,22 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
       );
       break;
 
+    case "waiting":
+      content = (
+        <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-950 px-6 py-10 text-white">
+          <div className="absolute inset-0 z-[2200] flex items-center justify-center bg-black/70 p-6">
+            <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-400/90">
+                <div className="h-3 w-3 animate-pulse rounded-full bg-white/90" />
+              </div>
+              <h1 className="text-2xl font-black">Gør jer klar!</h1>
+              <p className="mt-3 text-sm text-white/80">Venter på at læreren starter løbet...</p>
+            </div>
+          </div>
+        </div>
+      );
+      break;
+
     case "active":
       content = (
         <div
