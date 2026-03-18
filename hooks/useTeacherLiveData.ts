@@ -443,7 +443,6 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     status: status ?? "waiting",
     messages,
     newMessage,
-    studentLocations,
     runQuestions,
     liveAnswers,
     hasParticipantsTable,
