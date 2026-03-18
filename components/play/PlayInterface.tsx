@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { AlertCircle, Camera, CheckCircle2, KeyRound, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { Poppins, Rubik } from "next/font/google";
-import { useEffect, useRef, type ChangeEvent, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 
 import type { PlayActions, PlayUiState } from "./types";
 import {
@@ -43,6 +43,7 @@ type PlayInterfaceProps = {
 export default function PlayInterface({ ui, actions, children }: PlayInterfaceProps) {
   const typedAnswerInputRef = useRef<HTMLInputElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const [mobileHudOpen, setMobileHudOpen] = useState(false);
 
   const { player, gps, progress, flags } = ui;
   const {
@@ -134,6 +135,37 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     "w-full rounded-[1.35rem] border border-emerald-500/50 bg-slate-950 px-4 py-4 text-base text-emerald-50 outline-none transition placeholder:text-white/40 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-70";
   const tacticalSuccessPanelClass =
     "overflow-hidden rounded-[1.9rem] border border-emerald-300/35 bg-emerald-500 p-6 text-center text-slate-950 shadow-[0_0_36px_rgba(16,185,129,0.22)] animate-pulse";
+
+  function MobileHud() {
+    return (
+      <div className="w-full max-w-xl">
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setMobileHudOpen((s) => !s)}
+            className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/8 px-3 py-2 text-sm font-semibold text-white backdrop-blur-md"
+          >
+            {mobileHudOpen ? "Skjul info" : "Vis info"}
+          </button>
+        </div>
+
+        {mobileHudOpen ? (
+          <div className="mt-3 rounded-2xl border border-white/10 bg-black/40 p-3 text-white">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold">{activeDisplayName}</div>
+              <div className="text-sm font-mono">{distance !== null ? `${distance}m` : "GPS..."}</div>
+            </div>
+            <div className="mt-2 flex items-center justify-between text-xs text-white/80">
+              <div>Progress: {progressPercent}%</div>
+              <div>
+                {correctAnswersCount}/{questions.length}
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   const handleNameSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -655,7 +687,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_60%)]" />
 
           <div className="pointer-events-none absolute inset-x-4 top-4 z-[1200] flex justify-center">
-            <div className="w-full max-w-3xl rounded-2xl bg-amber-400/95 px-4 py-3 text-center font-black uppercase tracking-wide text-slate-900 drop-shadow-lg">
+            <div className="w-full max-w-3xl rounded-2xl bg-amber-400/95 px-3 py-2 text-center text-sm sm:px-4 sm:py-3 font-black uppercase tracking-wide text-slate-900 drop-shadow-lg">
               Find den ravgule markør på kortet og gå hen til den!
             </div>
           </div>
@@ -687,7 +719,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
           ) : null}
 
           <div
-            className={`absolute inset-x-4 z-[1000] space-y-4 transition-all duration-300 ${
+            className={`hidden sm:block absolute inset-x-4 z-[1000] space-y-4 transition-all duration-300 ${
               gpsWarningContent ? "top-28" : "top-4"
             } ${isRoleplayImmersed ? "pointer-events-none opacity-0 blur-md" : "opacity-100"}`}
           >
@@ -856,6 +888,11 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
             <div className="w-full max-w-xl rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-center font-mono text-xs font-semibold uppercase tracking-widest text-white shadow-lg backdrop-blur-2xl">
               <span className="text-white/90">Tip:</span> Hold skærmen tændt mens du går, så arrangøren kan se dig på kortet!
             </div>
+          </div>
+
+          {/* Mobile compact HUD: visible only on small screens and keeps map visible */}
+          <div className="sm:hidden absolute inset-x-4 bottom-4 z-[1100] flex items-end justify-center">
+            <MobileHud />
           </div>
 
           <div className="absolute inset-0 z-[1] h-full w-full">
