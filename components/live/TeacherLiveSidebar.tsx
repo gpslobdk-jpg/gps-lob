@@ -81,6 +81,7 @@ function getStudentInitials(name: string) {
 
 export default function TeacherLiveSidebar({
   activeStudents,
+  allParticipants,
   hasParticipantsTable,
   liveAnswers,
   hasAnswersTable,
