@@ -139,14 +139,28 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   function MobileHud() {
     return (
       <div className="w-full max-w-xl">
-        <div className="flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => setMobileHudOpen((s) => !s)}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/8 px-3 py-2 text-sm font-semibold text-white backdrop-blur-md"
-          >
-            {mobileHudOpen ? "Skjul info" : "Vis info"}
-          </button>
+        <div className="flex items-center justify-between gap-3 rounded-full bg-slate-900/85 px-3 py-2 shadow-lg backdrop-blur-md">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-400/90 text-sm font-black text-slate-900">
+                <div className="h-2.5 w-2.5 rounded-full bg-white/90" />
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold">{activeDisplayName}</div>
+                <div className="text-[11px] text-white/70">{progressPercent}% · {correctAnswersCount}/{questions.length}</div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <button
+              type="button"
+              onClick={() => setMobileHudOpen((s) => !s)}
+              className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/8 px-3 py-2 text-sm font-semibold text-white"
+            >
+              {mobileHudOpen ? "Skjul" : "Info"}
+            </button>
+          </div>
         </div>
 
         {mobileHudOpen ? (
@@ -657,16 +671,16 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
             <div className="mx-auto mb-6 h-36 w-36 drop-shadow-2xl">
               <Lottie animationData={trophyAnimation} loop={true} />
             </div>
-            <h1 className="mb-2 bg-gradient-to-r from-yellow-200 via-amber-300 to-yellow-100 bg-clip-text text-4xl font-black tracking-widest text-transparent uppercase">
+            <h1 className="mb-2 bg-gradient-to-r from-yellow-200 via-amber-300 to-yellow-100 bg-clip-text text-2xl md:text-4xl font-black tracking-widest text-transparent uppercase">
               Mission
               <br />
               Fuldført!
             </h1>
-            <p className={`mb-3 text-lg font-bold text-emerald-100 ${wrapTextClass}`}>
+            <p className={`mb-3 text-base md:text-lg font-bold text-emerald-100 ${wrapTextClass}`}>
               Fantastisk gået, {playerName || "mester"}!
             </p>
             <p
-              className={`mb-6 text-sm font-semibold tracking-wide text-amber-100 uppercase ${wrapTextClass}`}
+              className={`mb-6 text-xs md:text-sm font-semibold tracking-wide text-amber-100 uppercase ${wrapTextClass}`}
             >
               KÆMPE TILLYKKE, {celebrationName}! Du er i mål!
             </p>
@@ -702,7 +716,15 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_28%),radial-gradient(circle_at_20%_18%,rgba(56,189,248,0.12),transparent_24%),radial-gradient(circle_at_80%_8%,rgba(34,197,94,0.1),transparent_22%),linear-gradient(180deg,rgba(2,6,23,0.78)_0%,rgba(2,6,23,0.92)_52%,rgba(2,6,23,1)_100%)]" />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_60%)]" />
 
-          <div className="pointer-events-none absolute inset-x-4 top-4 z-[1200] flex justify-center">
+          {/* Compact mobile indicator (icon only) */}
+          <div className="pointer-events-none absolute inset-x-4 top-4 z-[1200] flex sm:hidden justify-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-400/95 shadow-lg">
+              <div className="h-2.5 w-2.5 rounded-full bg-white/90" />
+            </div>
+          </div>
+
+          {/* Full banner visible on tablet+ */}
+          <div className="pointer-events-none absolute inset-x-4 top-4 z-[1200] hidden sm:flex justify-center">
             <div className="w-full max-w-3xl rounded-2xl bg-amber-400/95 px-3 py-2 text-center text-sm sm:px-4 sm:py-3 font-black uppercase tracking-wide text-slate-900 drop-shadow-lg">
               Find den ravgule markør på kortet og gå hen til den!
             </div>
@@ -780,7 +802,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                         <p className={tacticalMetaLabelClass}>
                           Deltagernavn
                         </p>
-                        <p className={`mt-2 text-2xl font-black text-white ${wrapTextClass}`}>
+                        <p className={`mt-2 text-xl md:text-2xl font-black text-white ${wrapTextClass}`}>
                           {activeDisplayName}
                         </p>
                         <p className="mt-2 font-mono text-xs uppercase tracking-widest text-white/70">
@@ -793,7 +815,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                           Afstand
                         </p>
                         <p
-                          className={`mt-2 text-3xl font-black ${
+                          className={`mt-2 text-2xl md:text-3xl font-black ${
                             distance !== null && distance <= AUTO_UNLOCK_RADIUS
                               ? "text-white"
                               : "text-white/90"
@@ -833,12 +855,12 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                   <div className="flex flex-col gap-3 md:items-end">
                     {!isEscapeRace ? (
                       <div className="inline-flex items-center gap-3 self-start rounded-[1.75rem] border border-white/20 bg-white/10 px-3 py-3 shadow-lg backdrop-blur-2xl md:self-auto">
-                        <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
+                          <div className="flex h-[3.5rem] w-[3.5rem] items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
                           <div className="text-center">
                             <p className="font-mono text-[10px] uppercase tracking-widest text-white/70">
                               Point
                             </p>
-                            <p className="text-3xl font-black text-white">{correctAnswersCount}</p>
+                            <p className="text-2xl md:text-3xl font-black text-white">{correctAnswersCount}</p>
                           </div>
                         </div>
                         <div>
@@ -908,7 +930,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
           {/* Mobile compact HUD: visible only on small screens and keeps map visible */}
           {!isRoleplayImmersed ? (
-            <div className="sm:hidden absolute inset-x-4 bottom-4 z-[1100] flex items-end justify-center">
+            <div className="sm:hidden fixed inset-x-4 bottom-4 z-[1100] flex items-end justify-center">
               <MobileHud />
             </div>
           ) : null}
@@ -1109,7 +1131,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                           </p>
                           <div className="mt-5 rounded-[1.6rem] border border-slate-950/10 bg-slate-950/85 px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                             <p
-                              className={`text-5xl font-black tracking-[0.36em] text-emerald-300 sm:text-6xl ${wrapTextClass}`}
+                              className={`text-3xl md:text-5xl font-black tracking-[0.36em] text-emerald-300 ${wrapTextClass}`}
                             >
                               {activeEscapeReward}
                             </p>

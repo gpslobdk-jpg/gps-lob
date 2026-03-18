@@ -229,7 +229,15 @@ export default function MapDisplay({
         ) : null}
       </MapContainer>
 
-      <div className="pointer-events-none absolute right-4 bottom-6 left-4 z-[900] flex justify-center">
+      {/* compact indicator for mobile */}
+      <div className="pointer-events-none absolute right-4 bottom-6 left-4 z-[900] sm:hidden flex justify-center">
+        <div className="h-10 w-10 flex items-center justify-center rounded-full bg-amber-400/95 shadow-md">
+          <div className="h-2 w-2 rounded-full bg-white/90" />
+        </div>
+      </div>
+
+      {/* full hint visible on tablet+ */}
+      <div className="pointer-events-none absolute right-4 bottom-6 left-4 z-[900] hidden sm:flex justify-center">
         <div className="rounded-full border border-white/10 bg-slate-900/78 px-3 py-2 text-xs text-emerald-100/80 shadow-[0_18px_30px_rgba(15,23,42,0.4)] backdrop-blur-md">
           Hold kursen mod den ravgule markør
         </div>
