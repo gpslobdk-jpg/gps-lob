@@ -1166,7 +1166,11 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                         ) : null}
                       </div>
                     ) : (
-                      <form onSubmit={handleTypedAnswerSubmit} className="space-y-5">
+                      <form
+                        onSubmit={handleTypedAnswerSubmit}
+                        className="space-y-5"
+                        style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}
+                      >
                         <div className="space-y-3">
                           <label className={tacticalMetaLabelClass}>
                             Svaret
@@ -1231,8 +1235,36 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                 ) : null}
 
                 {activePostVariant === "roleplay" ? (
-                  <div className="space-y-5 overflow-hidden">
-                    <div className="overflow-hidden rounded-[1.75rem] border border-emerald-500/20 bg-slate-950/80 p-4 shadow-[0_18px_40px_rgba(16,185,129,0.12)] backdrop-blur-xl">
+                  (() => {
+                    const isIntro =
+                      (activeQuestion as any)?.post_type === "intro" ||
+                      (activeQuestion as any)?.postType === "intro";
+
+                    if (isIntro) {
+                      return (
+                        <div className="space-y-5 overflow-hidden">
+                          <div className="animate-in fade-in duration-300">
+                            <div className="mx-auto w-full max-w-2xl rounded-2xl bg-black/90 p-6 text-center text-amber-50 font-serif shadow-2xl">
+                              <h2 className={`mb-4 text-2xl font-black ${wrapTextClass}`}>Tidsmaskinen</h2>
+                              <p className={`mb-6 text-lg leading-relaxed ${wrapTextClass}`}>{getRoleplayMessage(activeQuestion)}</p>
+                              <div className="mt-2">
+                                <button
+                                  type="button"
+                                  onClick={() => void actions.submitTypedAnswer("[LÆST]")}
+                                  className={`${tacticalPrimaryButtonClass} max-w-xs mx-auto`}
+                                >
+                                  Gå videre
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-5 overflow-hidden">
+                        <div className="overflow-hidden rounded-[1.75rem] border border-emerald-500/20 bg-slate-950/80 p-4 shadow-[0_18px_40px_rgba(16,185,129,0.12)] backdrop-blur-xl">
                       <div className="flex items-center gap-4">
                         <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-500/20 bg-slate-950 text-2xl shadow-inner shadow-black/20">
                           {roleplayAvatar && looksLikeImageSource(roleplayAvatar) ? (
@@ -1341,6 +1373,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                             ? "border-rose-300/45 shadow-[0_20px_45px_rgba(244,63,94,0.18)]"
                             : "border-emerald-500/20"
                         }`}
+                        style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}
                       >
                         <div className="flex items-end gap-3">
                           <input

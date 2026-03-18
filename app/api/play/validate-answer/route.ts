@@ -53,6 +53,14 @@ export async function POST(request: NextRequest) {
     }
 
     const rawQuestion = run.questions[postIndex];
+    // Allow explicit post_type to short-circuit validation (e.g. intro posts)
+    const postType =
+      (rawQuestion && (rawQuestion.post_type ?? (rawQuestion as any).postType)) || null;
+
+    if (typeof postType === "string" && postType.trim().toLowerCase() === "intro") {
+      return NextResponse.json({ isCorrect: true, isIntro: true });
+    }
+
     const variant = resolveQuestionVariant(run.raceType ?? run.race_type, rawQuestion);
 
     if (variant === "quiz") {

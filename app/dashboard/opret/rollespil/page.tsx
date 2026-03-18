@@ -186,6 +186,7 @@ const ROLEPLAY_TOPIC_SUGGESTIONS = Array.from(
 type Question = {
   id: number;
   type: "multiple_choice";
+  postType?: "quiz" | "intro";
   text: string;
   aiPrompt: string;
   mediaUrl: string;
@@ -256,6 +257,7 @@ const BLANK_ANSWERS: [string, string, string, string] = ["", "", "", ""];
 const createQuestion = (): Question => ({
   id: Date.now() + Math.floor(Math.random() * 100000),
   type: "multiple_choice",
+  postType: "quiz",
   text: "",
   aiPrompt: "",
   mediaUrl: "",
@@ -355,6 +357,10 @@ function toRoleplayQuestions(value: unknown): Question[] {
       return {
         id: toQuestionId(candidate.id, timestamp + index),
         type: "multiple_choice",
+        postType:
+          (isRecord(candidate) &&
+            (asTrimmedString((candidate as any).post_type) || asTrimmedString((candidate as any).postType))) ||
+          "quiz",
         text: characterName,
         aiPrompt: message,
         mediaUrl: asTrimmedString(candidate.mediaUrl ?? candidate.media_url),
@@ -727,6 +733,7 @@ function RollespilBuilderPageContent() {
       ...question,
       id: timestamp + index,
       type: "multiple_choice" as const,
+      postType: question.postType ?? "quiz",
       text: question.text.trim(),
       aiPrompt: question.aiPrompt.trim(),
       answers: toRoleplayAnswers(
@@ -827,6 +834,7 @@ function RollespilBuilderPageContent() {
               return {
                 id: Date.now() + index,
                 type: "multiple_choice",
+                postType: "quiz",
                 text: characterName,
                 aiPrompt: message,
                 answers: toRoleplayAnswers(correctAnswer, characterName, avatar),
@@ -885,6 +893,7 @@ function RollespilBuilderPageContent() {
       .map((question) => ({
         ...question,
         type: "multiple_choice" as const,
+        post_type: question.postType ?? "quiz",
         text: question.text.trim(),
         aiPrompt: question.aiPrompt.trim(),
         answers: toRoleplayAnswers(
@@ -1118,7 +1127,7 @@ function RollespilBuilderPageContent() {
                   key={question.id}
                   className="rounded-[1.8rem] border border-violet-500/30 bg-violet-950/20 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2.5">
                     <div className="flex items-center gap-2.5">
                       <div className="flex h-9 w-9 items-center justify-center rounded-full border border-violet-500/30 bg-violet-950/20 text-sm font-bold text-violet-100">
                         {index + 1}
@@ -1134,9 +1143,28 @@ function RollespilBuilderPageContent() {
                         </p>
                       </div>
                     </div>
-                    <span className="rounded-full border border-violet-500/30 bg-violet-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-violet-100/75 uppercase backdrop-blur-xl">
-                      Rollespil
-                    </span>
+
+                    <div className="mt-3 flex items-center justify-between gap-4">
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
+                          Post Type
+                        </label>
+                        <select
+                          value={question.postType ?? "quiz"}
+                          onChange={(e) =>
+                            updateQuestion(question.id, { postType: e.target.value as "quiz" | "intro" })
+                          }
+                          className={textInputClass}
+                        >
+                          <option value="quiz">Quiz</option>
+                          <option value="intro">Intro (ventepost)</option>
+                        </select>
+                      </div>
+
+                      <span className="rounded-full border border-violet-500/30 bg-violet-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-violet-100/75 uppercase backdrop-blur-xl">
+                        Rollespil
+                      </span>
+                    </div>
                   </div>
 
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -1183,19 +1211,21 @@ function RollespilBuilderPageContent() {
                       />
                     </div>
 
-                    <div className="md:col-span-2">
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
-                        Det rigtige svar fra deltageren
-                      </label>
-                      <input
-                        value={question.answers[0]}
-                        onChange={(event) =>
-                          updateRoleplayQuestion(question.id, { correctAnswer: event.target.value })
-                        }
-                        placeholder="F.eks. Fred"
-                        className={textInputClass}
-                      />
-                    </div>
+                    {question.postType !== "intro" && (
+                      <div className="md:col-span-2">
+                        <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
+                          Det rigtige svar fra deltageren
+                        </label>
+                        <input
+                          value={question.answers[0]}
+                          onChange={(event) =>
+                            updateRoleplayQuestion(question.id, { correctAnswer: event.target.value })
+                          }
+                          placeholder="F.eks. Fred"
+                          className={textInputClass}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <button

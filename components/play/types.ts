@@ -27,6 +27,7 @@ export type Post = {
 
 export type ActivePostVariant = "quiz" | "photo" | "escape" | "roleplay" | "unknown";
 export type RaceMode = ActivePostVariant;
+export type PostType = "quiz" | "intro";
 export type GpsErrorState = "permission_denied" | "position_unavailable" | "timeout" | "unsupported";
 export type FeedbackTone = "success" | "error";
 export type RoleplayReplyTone = "success" | "hint";
