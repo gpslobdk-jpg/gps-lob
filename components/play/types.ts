@@ -34,6 +34,7 @@ export type MasterLockStatus = "locked" | "unlocked";
 export type PlayScreenMode =
   | "loading"
   | "load_error"
+  | "waiting"
   | "kicked"
   | "name_gate"
   | "gps_blocked"
