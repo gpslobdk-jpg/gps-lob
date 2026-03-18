@@ -156,6 +156,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
             <button
               type="button"
               onClick={() => setMobileHudOpen((s) => !s)}
+              aria-label={mobileHudOpen ? "Skjul info" : "Vis info"}
+              aria-expanded={mobileHudOpen}
               className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/8 px-3 py-2 text-sm font-semibold text-white"
             >
               {mobileHudOpen ? "Skjul" : "Info"}
@@ -718,9 +720,10 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
           {/* Compact mobile indicator (icon only) */}
           <div className="pointer-events-none absolute inset-x-4 top-4 z-[1200] flex sm:hidden justify-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-400/95 shadow-lg">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-400/95 shadow-lg" aria-hidden="true">
               <div className="h-2.5 w-2.5 rounded-full bg-white/90" />
             </div>
+            <span className="sr-only">Instruktion: Find den ravgule markør på kortet</span>
           </div>
 
           {/* Full banner visible on tablet+ */}

@@ -231,9 +231,10 @@ export default function MapDisplay({
 
       {/* compact indicator for mobile */}
       <div className="pointer-events-none absolute right-4 bottom-6 left-4 z-[900] sm:hidden flex justify-center">
-        <div className="h-10 w-10 flex items-center justify-center rounded-full bg-amber-400/95 shadow-md">
+        <div className="h-10 w-10 flex items-center justify-center rounded-full bg-amber-400/95 shadow-md" aria-hidden="true">
           <div className="h-2 w-2 rounded-full bg-white/90" />
         </div>
+        <span className="sr-only">Hold kursen mod den ravgule markør</span>
       </div>
 
       {/* full hint visible on tablet+ */}
