@@ -767,19 +767,33 @@ export function usePlayGameState({
         },
       ];
 
-      for (const payload of payloads) {
-        const { error } = await supabase.from("answers").insert(payload);
-        if (!error) return true;
-        if (error.code === "PGRST205") {
-          answersTableMissingRef.current = true;
+      try {
+        const response = await fetch("/api/play/submit-answer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ payloads }),
+        });
+
+        const body = (await response.json().catch(() => null)) as {
+          inserted?: boolean;
+          error?: string;
+        } | null;
+
+        if (!response.ok) {
+          console.error("Kunne ikke gemme svar via API:", body?.error ?? response.statusText);
+          // If admin access is missing, mark answers table missing to avoid repeated attempts
+          if (body?.error === "Admin access missing") answersTableMissingRef.current = true;
           return false;
         }
-        if (isMissingColumnError(error)) continue;
-        console.error("Kunne ikke gemme svar i answers:", error);
+
+        if (body?.inserted === true) return true;
+
+        console.error("API returnerede ikke indsættelse:", body ?? "ukendt svar");
+        return false;
+      } catch (error) {
+        console.error("Kunne ikke kontakte submit-answer API:", error);
         return false;
       }
-
-      return false;
     },
     [participantId, playerName, sessionId, supabase]
   );
@@ -1344,9 +1358,10 @@ export function usePlayGameState({
       }
     } catch (error) {
       console.error("Kunne ikke validere quiz-svar:", error);
+      const msg = error instanceof Error ? error.message : "Netværksfejl - prøv igen";
       setTypedAnswerError({
         key: feedbackKey,
-        message: "Netværksfejl - prøv igen",
+        message: msg,
       });
     } finally {
       setIsSubmittingAnswer(false);
@@ -1512,9 +1527,10 @@ export function usePlayGameState({
       await handleAnswer(0, payload?.brick ?? null);
     } catch (error) {
       console.error("Kunne ikke validere svar:", error);
+      const msg = error instanceof Error ? error.message : "Netværksfejl - prøv igen";
       setTypedAnswerError({
         key: activeTypedAnswerKey,
-        message: "Netværksfejl - prøv igen",
+        message: msg,
       });
     } finally {
       if (activePostVariant === "escape") {
