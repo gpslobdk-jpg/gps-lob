@@ -267,9 +267,17 @@ export default function TeacherLiveSidebar({
                     </div>
 
                     <div className="mt-4 flex items-center justify-between gap-3">
-                      <span className="rounded-full border border-slate-500/30 bg-slate-900/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
-                        Aktiv deltager
-                      </span>
+                      {entry.student.finished_at ? (
+                        <span className="inline-flex items-center gap-2 rounded-full bg-emerald-600/95 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white">
+                          <span className="h-2 w-2 rounded-full bg-white/90" />
+                          Færdig
+                        </span>
+                      ) : (
+                        <span className="rounded-full border border-slate-500/30 bg-slate-900/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
+                          Aktiv deltager
+                        </span>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => void onKickParticipant(entry.student)}
