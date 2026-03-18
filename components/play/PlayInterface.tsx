@@ -40,6 +40,71 @@ type PlayInterfaceProps = {
   children?: ReactNode;
 };
 
+type MobileHudProps = {
+  mobileHudOpen: boolean;
+  setMobileHudOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  activeDisplayName: string;
+  progressPercent: number;
+  correctAnswersCount: number;
+  questionsLength: number;
+  distance: number | null;
+};
+
+function MobileHudComponent({
+  mobileHudOpen,
+  setMobileHudOpen,
+  activeDisplayName,
+  progressPercent,
+  correctAnswersCount,
+  questionsLength,
+  distance,
+}: MobileHudProps) {
+  return (
+    <div className="w-full max-w-xl">
+      <div className="flex items-center justify-between gap-3 rounded-full bg-slate-900/85 px-3 py-2 shadow-lg backdrop-blur-md">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-400/90 text-sm font-black text-slate-900">
+              <div className="h-2.5 w-2.5 rounded-full bg-white/90" />
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold">{activeDisplayName}</div>
+              <div className="text-[11px] text-white/70">{progressPercent}% · {correctAnswersCount}/{questionsLength}</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <button
+            type="button"
+            onClick={() => setMobileHudOpen((s) => !s)}
+            aria-label={mobileHudOpen ? "Skjul info" : "Vis info"}
+            aria-expanded={mobileHudOpen}
+            className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/8 px-3 py-2 text-sm font-semibold text-white"
+          >
+            {mobileHudOpen ? "Skjul" : "Info"}
+          </button>
+        </div>
+      </div>
+
+      {mobileHudOpen ? (
+        <div className="mt-3 rounded-2xl border border-white/10 bg-black/40 p-3 text-white">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold">{activeDisplayName}</div>
+            <div className="text-sm font-mono">{distance !== null ? `${distance}m` : "GPS..."}</div>
+          </div>
+          <div className="mt-2 flex items-center justify-between text-xs text-white/80">
+            <div>Progress: {progressPercent}%</div>
+            <div>
+              {correctAnswersCount}/{questionsLength}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function PlayInterface({ ui, actions, children }: PlayInterfaceProps) {
   const typedAnswerInputRef = useRef<HTMLInputElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
@@ -136,52 +201,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const tacticalSuccessPanelClass =
     "overflow-hidden rounded-[1.9rem] border border-emerald-300/35 bg-emerald-500 p-6 text-center text-slate-950 shadow-[0_0_36px_rgba(16,185,129,0.22)] animate-pulse";
 
-  function MobileHud() {
-    return (
-      <div className="w-full max-w-xl">
-        <div className="flex items-center justify-between gap-3 rounded-full bg-slate-900/85 px-3 py-2 shadow-lg backdrop-blur-md">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-400/90 text-sm font-black text-slate-900">
-                <div className="h-2.5 w-2.5 rounded-full bg-white/90" />
-              </div>
-              <div className="min-w-0">
-                <div className="truncate text-sm font-semibold">{activeDisplayName}</div>
-                <div className="text-[11px] text-white/70">{progressPercent}% · {correctAnswersCount}/{questions.length}</div>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <button
-              type="button"
-              onClick={() => setMobileHudOpen((s) => !s)}
-              aria-label={mobileHudOpen ? "Skjul info" : "Vis info"}
-              aria-expanded={mobileHudOpen}
-              className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/8 px-3 py-2 text-sm font-semibold text-white"
-            >
-              {mobileHudOpen ? "Skjul" : "Info"}
-            </button>
-          </div>
-        </div>
-
-        {mobileHudOpen ? (
-          <div className="mt-3 rounded-2xl border border-white/10 bg-black/40 p-3 text-white">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold">{activeDisplayName}</div>
-              <div className="text-sm font-mono">{distance !== null ? `${distance}m` : "GPS..."}</div>
-            </div>
-            <div className="mt-2 flex items-center justify-between text-xs text-white/80">
-              <div>Progress: {progressPercent}%</div>
-              <div>
-                {correctAnswersCount}/{questions.length}
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </div>
-    );
-  }
+  
 
   const handleNameSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -934,7 +954,15 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
           {/* Mobile compact HUD: visible only on small screens and keeps map visible */}
           {!isRoleplayImmersed ? (
             <div className="sm:hidden fixed inset-x-4 bottom-4 z-[1100] flex items-end justify-center">
-              <MobileHud />
+              <MobileHudComponent
+                mobileHudOpen={mobileHudOpen}
+                setMobileHudOpen={setMobileHudOpen}
+                activeDisplayName={activeDisplayName}
+                progressPercent={progressPercent}
+                correctAnswersCount={correctAnswersCount}
+                questionsLength={questions.length}
+                distance={distance}
+              />
             </div>
           ) : null}
 
@@ -1235,187 +1263,144 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                 ) : null}
 
                 {activePostVariant === "roleplay" ? (
-                  (() => {
-                    const isIntro =
-                      (activeQuestion as any)?.post_type === "intro" ||
-                      (activeQuestion as any)?.postType === "intro";
-
-                    if (isIntro) {
-                      return (
-                        <div className="space-y-5 overflow-hidden">
-                          <div className="animate-in fade-in duration-300">
-                            <div className="mx-auto w-full max-w-2xl rounded-2xl bg-black/90 p-6 text-center text-amber-50 font-serif shadow-2xl">
-                              <h2 className={`mb-4 text-2xl font-black ${wrapTextClass}`}>Tidsmaskinen</h2>
-                              <p className={`mb-6 text-lg leading-relaxed ${wrapTextClass}`}>{getRoleplayMessage(activeQuestion)}</p>
-                              <div className="mt-2">
-                                <button
-                                  type="button"
-                                  onClick={() => void actions.submitTypedAnswer("[LÆST]")}
-                                  className={`${tacticalPrimaryButtonClass} max-w-xs mx-auto`}
-                                >
-                                  Gå videre
-                                </button>
-                              </div>
-                            </div>
+                  ( (activeQuestion as any)?.post_type === "intro" || (activeQuestion as any)?.postType === "intro") ? (
+                    <div className="space-y-5 overflow-hidden">
+                      <div className="animate-in fade-in duration-300">
+                        <div className="mx-auto w-full max-w-2xl rounded-2xl bg-black/90 p-6 text-center text-amber-50 font-serif shadow-2xl">
+                          <h2 className={`mb-4 text-2xl font-black ${wrapTextClass}`}>Tidsmaskinen</h2>
+                          <p className={`mb-6 text-lg leading-relaxed ${wrapTextClass}`}>{getRoleplayMessage(activeQuestion)}</p>
+                          <div className="mt-2">
+                            <button
+                              type="button"
+                              onClick={() => void actions.submitTypedAnswer("[LÆST]")}
+                              className={`${tacticalPrimaryButtonClass} max-w-xs mx-auto`}
+                            >
+                              Gå videre
+                            </button>
                           </div>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div className="space-y-5 overflow-hidden">
-                        <div className="overflow-hidden rounded-[1.75rem] border border-emerald-500/20 bg-slate-950/80 p-4 shadow-[0_18px_40px_rgba(16,185,129,0.12)] backdrop-blur-xl">
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-500/20 bg-slate-950 text-2xl shadow-inner shadow-black/20">
-                          {roleplayAvatar && looksLikeImageSource(roleplayAvatar) ? (
-                            <Image
-                              src={roleplayAvatar}
-                              alt={roleplayCharacterName}
-                              width={56}
-                              height={56}
-                              className="h-full w-full object-cover"
-                              unoptimized
-                              loader={({ src }) => src}
-                            />
-                          ) : (
-                            <span>{roleplayAvatar || "🕰️"}</span>
-                          )}
-                        </div>
-
-                        <div className="min-w-0">
-                          <p
-                            className={`${tacticalMetaLabelClass} ${wrapTextClass}`}
-                          >
-                            Tidsmaskinen
-                          </p>
-                          <p className={`mt-1 text-lg font-black text-white ${wrapTextClass} ${rubik.className}`}>
-                            {roleplayCharacterName}
-                          </p>
                         </div>
                       </div>
                     </div>
-
-                    <div className="relative ml-2 overflow-hidden rounded-[1.75rem] border border-emerald-500/20 bg-slate-950/80 p-5 shadow-[0_18px_40px_rgba(16,185,129,0.12)] backdrop-blur-xl">
-                      <span className="absolute -left-2 top-6 h-4 w-4 rotate-45 rounded-[0.45rem] border-l border-t border-emerald-500/20 bg-slate-950/80" />
-                      <p className={`pr-1 text-lg leading-relaxed text-white sm:text-xl ${wrapTextClass}`}>
-                        {getRoleplayMessage(activeQuestion)}
-                      </p>
-                    </div>
-
-                    {activeRoleplayReply ? (
-                      <div
-                        className={`animate-in fade-in zoom-in-95 duration-300 space-y-4 overflow-hidden rounded-[1.85rem] border p-5 backdrop-blur-xl ${
-                          activeRoleplayReply.tone === "success"
-                            ? "border-emerald-300/30 bg-[linear-gradient(145deg,rgba(5,46,22,0.88),rgba(16,185,129,0.18))] shadow-[0_24px_55px_rgba(16,185,129,0.18)]"
-                            : "border-emerald-500/20 bg-slate-950/80 shadow-[0_24px_55px_rgba(16,185,129,0.12)]"
-                        }`}
-                      >
-                        <p
-                          className={`text-xs font-semibold tracking-[0.24em] uppercase ${wrapTextClass} ${
-                            activeRoleplayReply.tone === "success"
-                              ? "text-emerald-100/75"
-                              : "text-emerald-200"
-                          }`}
-                        >
-                          {activeRoleplayReply.isLoading
-                            ? `${roleplayCharacterName} tænker...`
-                            : `Svar fra ${roleplayCharacterName}`}
-                        </p>
-                        <div
-                          className={`rounded-[1.35rem] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${
-                            activeRoleplayReply.tone === "success"
-                              ? "border-emerald-200/15 bg-white/8"
-                              : "border-emerald-500/20 bg-slate-950"
-                          }`}
-                        >
-                          <p
-                            className={`text-sm leading-relaxed ${wrapTextClass} ${
-                              activeRoleplayReply.tone === "success"
-                                ? "text-emerald-50"
-                                : "text-emerald-50"
-                            }`}
-                          >
-                            {activeRoleplayReply.isLoading ? (
-                              <span className="inline-flex items-center gap-2">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Tænker...
-                              </span>
+                  ) : (
+                    <div className="space-y-5 overflow-hidden">
+                      <div className="overflow-hidden rounded-[1.75rem] border border-emerald-500/20 bg-slate-950/80 p-4 shadow-[0_18px_40px_rgba(16,185,129,0.12)] backdrop-blur-xl">
+                        <div className="flex items-center gap-4">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-500/20 bg-slate-950 text-2xl shadow-inner shadow-black/20">
+                            {roleplayAvatar && looksLikeImageSource(roleplayAvatar) ? (
+                              <Image
+                                src={roleplayAvatar}
+                                alt={roleplayCharacterName}
+                                width={56}
+                                height={56}
+                                className="h-full w-full object-cover"
+                                unoptimized
+                                loader={({ src }) => src}
+                              />
                             ) : (
-                              activeRoleplayReplyMessage
+                              <span>{roleplayAvatar || "🕰️"}</span>
                             )}
-                          </p>
-                        </div>
-                        {activeRoleplayReply.canContinue ? (
-                          <button
-                            type="button"
-                            onClick={() => void actions.continueFromSolvedPost()}
-                            className={tacticalPrimaryButtonClass}
-                          >
-                            Fortsæt rejsen -&gt;
-                          </button>
-                        ) : null}
-
-                        {activePostActionError ? (
-                          <div
-                            className={`rounded-2xl border border-red-300/30 bg-red-500/12 px-4 py-3 text-sm font-semibold text-red-50 ${wrapTextClass}`}
-                          >
-                            {activePostActionError}
                           </div>
-                        ) : null}
-                      </div>
-                    ) : null}
 
-                    {!activeRoleplayReply?.canContinue ? (
-                      <form
-                        onSubmit={handleTypedAnswerSubmit}
-                        className={`overflow-hidden rounded-[1.75rem] border bg-slate-950/80 p-4 shadow-[0_18px_38px_rgba(16,185,129,0.14)] backdrop-blur-xl transition-all ${
-                          hasRoleplayInputErrorTone
-                            ? "border-rose-300/45 shadow-[0_20px_45px_rgba(244,63,94,0.18)]"
-                            : "border-emerald-500/20"
-                        }`}
-                        style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}
-                      >
-                        <div className="flex items-end gap-3">
-                          <input
-                            key={`roleplay-input-${activeTypedAnswerKey}`}
-                            ref={typedAnswerInputRef}
-                            type="text"
-                            disabled={isSubmittingAnswer || isSubmitting}
-                            onChange={() => {
-                              actions.clearRoleplayInputErrorTone();
-                              actions.clearTypedAnswerError();
-                              actions.clearPostActionError();
-                            }}
-                            onFocus={(event) => {
-                             event.currentTarget.scrollIntoView({
-                                behavior: "smooth",
-                                block: "center",
-                              });
-                            }}
-                            placeholder={`Skriv dit svar til ${roleplayCharacterName}...`}
-                            className={`min-w-0 flex-1 rounded-[1.35rem] border bg-slate-950 px-4 py-3 text-base text-emerald-50 outline-none transition placeholder:text-white/40 focus:ring-2 ${
-                              hasRoleplayInputErrorTone
-                                ? "border-rose-300/45 focus:border-rose-300/55 focus:ring-rose-300/20"
-                                : "border-emerald-500/50 focus:border-emerald-400 focus:ring-emerald-400/20"
-                            } disabled:cursor-not-allowed disabled:opacity-70`}
-                          />
-                          <button
-                            type="submit"
-                            disabled={isSubmittingAnswer || isSubmitting}
-                            className={`${tacticalPrimaryButtonClass} min-w-[11rem] shrink-0`}
-                          >
-                            Send besked
-                          </button>
+                          <div className="min-w-0">
+                            <p className={`${tacticalMetaLabelClass} ${wrapTextClass}`}>Tidsmaskinen</p>
+                            <p className={`mt-1 text-lg font-black text-white ${wrapTextClass} ${rubik.className}`}>
+                              {roleplayCharacterName}
+                            </p>
+                          </div>
                         </div>
+                      </div>
 
-                        {activeTypedAnswerError ? (
-                          <p className={`mt-3 text-sm text-emerald-200/85 ${wrapTextClass}`}>
-                            {activeTypedAnswerError}
+                      <div className="relative ml-2 overflow-hidden rounded-[1.75rem] border border-emerald-500/20 bg-slate-950/80 p-5 shadow-[0_18px_40px_rgba(16,185,129,0.12)] backdrop-blur-xl">
+                        <span className="absolute -left-2 top-6 h-4 w-4 rotate-45 rounded-[0.45rem] border-l border-t border-emerald-500/20 bg-slate-950/80" />
+                        <p className={`pr-1 text-lg leading-relaxed text-white sm:text-xl ${wrapTextClass}`}>
+                          {getRoleplayMessage(activeQuestion)}
+                        </p>
+                      </div>
+
+                      {activeRoleplayReply ? (
+                        <div
+                          className={`animate-in fade-in zoom-in-95 duration-300 space-y-4 overflow-hidden rounded-[1.85rem] border p-5 backdrop-blur-xl ${
+                            activeRoleplayReply.tone === "success"
+                              ? "border-emerald-300/30 bg-[linear-gradient(145deg,rgba(5,46,22,0.88),rgba(16,185,129,0.18))] shadow-[0_24px_55px_rgba(16,185,129,0.18)]"
+                              : "border-emerald-500/20 bg-slate-950/80 shadow-[0_24px_55px_rgba(16,185,129,0.12)]"
+                          }`}
+                        >
+                          <p className={`text-xs font-semibold tracking-[0.24em] uppercase ${wrapTextClass} ${
+                            activeRoleplayReply.tone === "success" ? "text-emerald-100/75" : "text-emerald-200"
+                          }`}>
+                            {activeRoleplayReply.isLoading ? `${roleplayCharacterName} tænker...` : `Svar fra ${roleplayCharacterName}`}
                           </p>
-                        ) : null}
-                      </form>
-                    ) : null}
-                  </div>
+                          <div className={`rounded-[1.35rem] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${
+                            activeRoleplayReply.tone === "success" ? "border-emerald-200/15 bg-white/8" : "border-emerald-500/20 bg-slate-950"
+                          }`}>
+                            <p className={`text-sm leading-relaxed ${wrapTextClass} text-emerald-50`}>
+                              {activeRoleplayReply.isLoading ? (
+                                <span className="inline-flex items-center gap-2">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Tænker...
+                                </span>
+                              ) : (
+                                activeRoleplayReplyMessage
+                              )}
+                            </p>
+                          </div>
+                          {activeRoleplayReply.canContinue ? (
+                            <button
+                              type="button"
+                              onClick={() => void actions.continueFromSolvedPost()}
+                              className={tacticalPrimaryButtonClass}
+                            >
+                              Fortsæt rejsen -&gt;
+                            </button>
+                          ) : null}
+
+                          {activePostActionError ? (
+                            <div className={`rounded-2xl border border-red-300/30 bg-red-500/12 px-4 py-3 text-sm font-semibold text-red-50 ${wrapTextClass}`}>
+                              {activePostActionError}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      {!activeRoleplayReply?.canContinue ? (
+                        <form
+                          onSubmit={handleTypedAnswerSubmit}
+                          className={`overflow-hidden rounded-[1.75rem] border bg-slate-950/80 p-4 shadow-[0_18px_38px_rgba(16,185,129,0.14)] backdrop-blur-xl transition-all ${
+                            hasRoleplayInputErrorTone ? "border-rose-300/45 shadow-[0_20px_45px_rgba(244,63,94,0.18)]" : "border-emerald-500/20"
+                          }`}
+                          style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}
+                        >
+                          <div className="flex items-end gap-3">
+                            <input
+                              key={`roleplay-input-${activeTypedAnswerKey}`}
+                              ref={typedAnswerInputRef}
+                              type="text"
+                              disabled={isSubmittingAnswer || isSubmitting}
+                              onChange={() => {
+                                actions.clearRoleplayInputErrorTone();
+                                actions.clearTypedAnswerError();
+                                actions.clearPostActionError();
+                              }}
+                              onFocus={(event) => {
+                                event.currentTarget.scrollIntoView({ behavior: "smooth", block: "center" });
+                              }}
+                              placeholder={`Skriv dit svar til ${roleplayCharacterName}...`}
+                              className={`min-w-0 flex-1 rounded-[1.35rem] border bg-slate-950 px-4 py-3 text-base text-emerald-50 outline-none transition placeholder:text-white/40 focus:ring-2 ${
+                                hasRoleplayInputErrorTone ? "border-rose-300/45 focus:border-rose-300/55 focus:ring-rose-300/20" : "border-emerald-500/50 focus:border-emerald-400 focus:ring-emerald-400/20"
+                              } disabled:cursor-not-allowed disabled:opacity-70`}
+                            />
+                            <button type="submit" disabled={isSubmittingAnswer || isSubmitting} className={`${tacticalPrimaryButtonClass} min-w-[11rem] shrink-0`}>
+                              Send besked
+                            </button>
+                          </div>
+
+                          {activeTypedAnswerError ? (
+                            <p className={`mt-3 text-sm text-emerald-200/85 ${wrapTextClass}`}>{activeTypedAnswerError}</p>
+                          ) : null}
+                        </form>
+                      ) : null}
+                    </div>
+                  )
                 ) : null}
 
                 {activePostVariant === "unknown" ? (

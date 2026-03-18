@@ -354,13 +354,15 @@ function toRoleplayQuestions(value: unknown): Question[] {
         asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt) ||
         (hasLegacyMarkers ? parsedLegacyText.message : "");
 
+      const rawPostType = isRecord(candidate)
+        ? (asTrimmedString((candidate as any).post_type) || asTrimmedString((candidate as any).postType))
+        : "";
+      const postType: "quiz" | "intro" = rawPostType === "intro" ? "intro" : "quiz";
+
       return {
         id: toQuestionId(candidate.id, timestamp + index),
         type: "multiple_choice",
-        postType:
-          (isRecord(candidate) &&
-            (asTrimmedString((candidate as any).post_type) || asTrimmedString((candidate as any).postType))) ||
-          "quiz",
+        postType,
         text: characterName,
         aiPrompt: message,
         mediaUrl: asTrimmedString(candidate.mediaUrl ?? candidate.media_url),
