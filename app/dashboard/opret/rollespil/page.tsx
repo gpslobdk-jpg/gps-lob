@@ -1,14 +1,16 @@
 ﻿"use client";
 
-import { ChevronDown, ChevronUp, Loader2, Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
+import RollespilAiInterviewModal, {
+  type RollespilAiInterviewDraft,
+} from "@/components/builders/rollespil/RollespilAiInterviewModal";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import type { SavedPin } from "@/components/MapPicker";
-import { SYSTEM_ARKITEKT, TIDSMASKINE_PROMPT } from "@/constants/aiPrompts";
 import {
   DEFAULT_MAP_CENTER,
   RACE_TYPES,
@@ -16,6 +18,7 @@ import {
   asNumberOrNull,
   asTrimmedString,
   isRecord,
+  readDescriptionText,
   toQuestionId,
 } from "@/utils/gpsRuns";
 import {
@@ -145,44 +148,6 @@ const SUBJECT_TOPICS: Record<string, string[]> = {
   Musik: ["Nodelære & Rytmik", "Instrumentkendskab", "Musikhistorie & Genrer"],
 };
 
-const AI_AUDIENCE_OPTIONS = [
-  { value: "Indskoling", label: "Let og legende" },
-  { value: "Mellemtrin", label: "Bred og tilgængelig" },
-  { value: "Udskoling", label: "Mere udfordrende" },
-  { value: "Ungdomsuddannelse", label: "Avanceret" },
-] as const;
-
-const AI_SUBJECT_OPTIONS = [
-  "Dansk",
-  "Matematik",
-  "Natur/Teknik",
-  "Historie",
-  "Engelsk",
-  "Biologi",
-  "Geografi",
-  "Samfundsfag",
-  "Fysik/Kemi",
-  "Idræt",
-  "Kristendomskundskab",
-  "Musik",
-  "Billedkunst",
-  "Madkundskab",
-] as const;
-
-const ROLEPLAY_TOPIC_SUGGESTIONS = Array.from(
-  new Set([
-    "Tordenskjold i 1700-tallet",
-    "H.C. Andersen",
-    "Firmaets grundlægger i 1980'erne",
-    "Middelalderen",
-    "Vikingetiden",
-    "Opdagelsesrejser",
-    "En excentrisk opfinder",
-    ...Object.keys(SUBJECT_TOPICS),
-    ...AI_SUBJECT_OPTIONS,
-  ])
-).sort((a, b) => a.localeCompare(b, "da-DK"));
-
 type Question = {
   id: number;
   type: "multiple_choice";
@@ -199,12 +164,6 @@ type Question = {
 type MapCenter = {
   lat: number;
   lng: number;
-};
-
-type GeneratedRoleplayQuestion = {
-  text?: string;
-  answers?: string[];
-  correctIndex?: number;
 };
 
 type StoredRoleplayQuestionRecord = {
@@ -224,19 +183,14 @@ type BuilderNotice = {
   message: string;
 };
 
-const AI_REQUEST_TIMEOUT_MS = 20_000;
 const ROLLESPIL_DRAFT_STORAGE_KEY = "draft_run_rollespil";
 
 type RollespilBuilderDraftState = {
   title?: unknown;
+  description?: unknown;
   subject?: unknown;
   showTeacherField?: unknown;
-  showAITeacherFields?: unknown;
   questions?: unknown;
-  aiRunBrief?: unknown;
-  aiSubject?: unknown;
-  aiTopic?: unknown;
-  aiGrade?: unknown;
   mapCenter?: unknown;
 };
 
@@ -245,9 +199,6 @@ const textInputClass =
 
 const textareaClass =
   "w-full rounded-2xl border border-violet-500/30 bg-violet-950/20 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500";
-
-const previewInputClass =
-  "w-full rounded-2xl border border-slate-700 bg-slate-900/50 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500";
 
 const aiActionButtonClass =
   "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 px-5 py-3 text-sm font-semibold transition-all";
@@ -273,11 +224,6 @@ function toRoleplayAnswers(
   avatar: string
 ): [string, string, string, string] {
   return [correctAnswer, characterName, avatar, ""];
-}
-
-function extractRequestedCount(text: string) {
-  const match = text.match(/\b([1-9]|1\d|20)\b/);
-  return match ? Number(match[1]) : 5;
 }
 
 function fallbackCharacterName(index: number) {
@@ -375,6 +321,41 @@ function toRoleplayQuestions(value: unknown): Question[] {
     .filter((question): question is Question => question !== null);
 }
 
+function isQuestionEmpty(question: Question) {
+  return (
+    !question.text.trim() &&
+    !question.aiPrompt.trim() &&
+    !question.answers[0]?.trim() &&
+    !question.answers[2]?.trim() &&
+    question.lat === null &&
+    question.lng === null
+  );
+}
+
+function toInterviewRoleplayQuestions(posts: RollespilAiInterviewDraft["posts"]): Question[] {
+  const timestamp = Date.now();
+
+  return posts.map((post, index) => {
+    const characterName = post.characterName.trim() || fallbackCharacterName(index);
+    const avatar = post.avatar.trim() || fallbackAvatar();
+    const message = post.message.trim();
+    const answer = index === 0 ? "" : post.answer?.trim() ?? "";
+
+    return {
+      id: timestamp + index,
+      type: "multiple_choice",
+      postType: index === 0 ? "intro" : "quiz",
+      text: characterName,
+      aiPrompt: message,
+      mediaUrl: "",
+      answers: toRoleplayAnswers(answer, characterName, avatar),
+      correctIndex: 0,
+      lat: null,
+      lng: null,
+    };
+  });
+}
+
 export default function RollespilBuilderPage() {
   return (
     <Suspense
@@ -404,20 +385,14 @@ function RollespilBuilderPageContent() {
   const editRunId = searchParams.get("id")?.trim() ?? "";
   const isEditMode = editRunId.length > 0;
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [subject, setSubject] = useState("");
   const [showTeacherField, setShowTeacherField] = useState(false);
-  const [showAIModal, setShowAIModal] = useState(false);
-  const [showAITeacherFields, setShowAITeacherFields] = useState(false);
-  const [aiRunBrief, setAiRunBrief] = useState("");
-  const [aiSubject, setAiSubject] = useState("");
-  const [aiTopic, setAiTopic] = useState("");
-  const [aiGrade, setAiGrade] = useState("Mellemtrin");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingExistingRun, setIsLoadingExistingRun] = useState(isEditMode);
   const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([createQuestion()]);
-  const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>({
     lat: DEFAULT_MAP_CENTER.lat,
@@ -498,20 +473,18 @@ function RollespilBuilderPageContent() {
       }
 
       const loadedQuestions = toRoleplayQuestions(run.questions);
+      const loadedDescription = readDescriptionText(run.description);
       const loadedTopic = asTrimmedString(run.topic);
+      const nextDescription = loadedDescription || loadedTopic;
       const firstPinnedQuestion =
         loadedQuestions.find((question) => question.lat !== null && question.lng !== null) ?? null;
 
       setTitle(asTrimmedString(run.title));
+      setDescription(nextDescription);
       setSubject(asTrimmedString(run.subject));
       setShowTeacherField(Boolean(asTrimmedString(run.subject)));
       setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
-      setPreviewQuestions([]);
-      setShowAIModal(false);
-      setShowAITeacherFields(false);
-      setAiSubject("");
-      setAiRunBrief(loadedTopic);
-      setAiTopic(loadedTopic);
+      setShowAiInterviewModal(false);
       setMapCenter(
         firstPinnedQuestion
           ? {
@@ -570,18 +543,13 @@ function RollespilBuilderPageContent() {
       const restoredQuestions = toRoleplayQuestions(restoredDraft.questions);
 
       setTitle(restoreDraftString(restoredDraft.title));
+      setDescription(restoreDraftString(restoredDraft.description));
       setSubject(restoredSubject);
       setShowTeacherField(
         restoreDraftBoolean(restoredDraft.showTeacherField, Boolean(restoredSubject.trim()))
       );
-      setShowAITeacherFields(restoreDraftBoolean(restoredDraft.showAITeacherFields));
       setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
-      setPreviewQuestions([]);
-      setShowAIModal(false);
-      setAiRunBrief(restoreDraftString(restoredDraft.aiRunBrief));
-      setAiSubject(restoreDraftString(restoredDraft.aiSubject));
-      setAiTopic(restoreDraftString(restoredDraft.aiTopic));
-      setAiGrade(restoreDraftString(restoredDraft.aiGrade) || "Mellemtrin");
+      setShowAiInterviewModal(false);
       setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
       setNotice(null);
     }
@@ -594,25 +562,17 @@ function RollespilBuilderPageContent() {
 
     writeRunDraft(ROLLESPIL_DRAFT_STORAGE_KEY, editRunId, {
       title,
+      description,
       subject,
       showTeacherField,
-      showAITeacherFields,
       questions,
-      aiRunBrief,
-      aiSubject,
-      aiTopic,
-      aiGrade,
       mapCenter,
     } satisfies RollespilBuilderDraftState);
   }, [
-    aiGrade,
-    aiRunBrief,
-    aiSubject,
-    aiTopic,
+    description,
     editRunId,
     mapCenter,
     questions,
-    showAITeacherFields,
     showTeacherField,
     subject,
     title,
@@ -681,35 +641,6 @@ function RollespilBuilderPageContent() {
     );
   };
 
-  const updatePreviewRoleplayQuestion = (
-    id: number,
-    updates: {
-      correctAnswer?: string;
-      characterName?: string;
-      avatar?: string;
-      message?: string;
-    }
-  ) => {
-    setPreviewQuestions((current) =>
-      current.map((question) => {
-        if (question.id !== id) return question;
-        const nextCorrectAnswer = updates.correctAnswer ?? question.answers[0];
-        const nextCharacterName =
-          updates.characterName ?? (question.text || question.answers[1] || "");
-        const nextAvatar = updates.avatar ?? question.answers[2];
-        const nextMessage = updates.message ?? question.aiPrompt;
-
-        return {
-          ...question,
-          text: nextCharacterName,
-          aiPrompt: nextMessage,
-          answers: toRoleplayAnswers(nextCorrectAnswer, nextCharacterName, nextAvatar),
-          correctIndex: 0,
-        };
-      })
-    );
-  };
-
   const assignPinFromCenter = (id: number) => {
     updateQuestion(id, { lat: mapCenter.lat, lng: mapCenter.lng });
   };
@@ -718,159 +649,58 @@ function RollespilBuilderPageContent() {
     setQuestions((current) => [...current, createQuestion()]);
   };
 
-  const closeAIModal = () => {
-    if (isGenerating) return;
+  const closeAiInterviewModal = () => {
     setNotice(null);
-    setShowAIModal(false);
-    setPreviewQuestions([]);
-    setShowAITeacherFields(false);
+    setShowAiInterviewModal(false);
   };
 
-  const handleApproveAIPreview = () => {
-    if (previewQuestions.length === 0) return;
+  const handleAiInterviewComplete = (draft: RollespilAiInterviewDraft) => {
+    const nextTitle = draft.title.trim();
+    const nextDescription = draft.description.trim();
+    const nextQuestions = toInterviewRoleplayQuestions(draft.posts);
 
-    setNotice(null);
-    const timestamp = Date.now();
-    const approvedQuestions = previewQuestions.map((question, index) => ({
-      ...question,
-      id: timestamp + index,
-      type: "multiple_choice" as const,
-      postType: question.postType ?? "quiz",
-      text: question.text.trim(),
-      aiPrompt: question.aiPrompt.trim(),
-      answers: toRoleplayAnswers(
-        question.answers[0]?.trim() ?? "",
-        question.text.trim() || question.answers[1]?.trim() || "",
-        question.answers[2]?.trim() ?? ""
-      ),
-      correctIndex: 0,
-      lat: null,
-      lng: null,
-      mediaUrl: "",
-    }));
-
-    setQuestions(approvedQuestions);
-    setPreviewQuestions([]);
-    setShowAIModal(false);
-    setShowAITeacherFields(false);
-  };
-
-  const handleDiscardAIPreview = () => {
-    setNotice(null);
-    setPreviewQuestions([]);
-  };
-
-  const handleAIGenerate = async () => {
-    const normalizedBrief = aiRunBrief.trim();
-    const normalizedSubject = aiSubject.trim() || subject.trim() || "Generelt tema";
-    const normalizedGrade = aiGrade.trim() || "Ikke angivet";
-    const requestedCount = extractRequestedCount(normalizedBrief);
-
-    setNotice(null);
-
-    if (!normalizedBrief) {
+    if (!nextTitle || !nextDescription || nextQuestions.length === 0) {
       setNotice({
         tone: "error",
-        message: "Skriv først, hvilken person eller tidsalder AI'en skal spille.",
+        message: "AI'en returnerede ingen brugbare rolleposter. Prøv igen.",
       });
       return;
     }
 
-    const preparedBuilderPrompt = TIDSMASKINE_PROMPT.replace("[EMNE]", normalizedBrief).replace(
-      "[MÅLGRUPPE]",
-      normalizedGrade
-    );
-    const userRequest =
-      `Lav præcis ${requestedCount} rolleposter om ${normalizedBrief}. ` +
-      `Emne/tidsalder: ${normalizedSubject}. Målgruppe/sværhedsgrad: ${normalizedGrade}. ` +
-      `Karakteren skal påtage sig rollen fuldt ud og lyde tro mod personen eller perioden. ` +
-      `Hver post skal returnere karakter, avatar og besked i text-feltet med markørerne "Karakter:", "Avatar:" og "Besked:".`;
-
-    setIsGenerating(true);
-    setAiTopic(normalizedBrief);
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => {
-      controller.abort();
-    }, AI_REQUEST_TIMEOUT_MS);
-
-    try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        signal: controller.signal,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subject: normalizedSubject,
-          topic: normalizedBrief,
-          grade: normalizedGrade,
-          count: requestedCount,
-          prompt: userRequest,
-          systemContext: SYSTEM_ARKITEKT,
-          builderContext: preparedBuilderPrompt,
-        }),
+    if ((nextQuestions[0]?.postType ?? "quiz") !== "intro") {
+      setNotice({
+        tone: "error",
+        message: "AI'en returnerede ikke en gyldig intro-post. Prøv igen.",
       });
+      return;
+    }
 
-      const data = (await res.json()) as { questions?: GeneratedRoleplayQuestion[]; error?: string };
+    const hasExistingContent =
+      title.trim().length > 0 ||
+      description.trim().length > 0 ||
+      questions.some((question) => !isQuestionEmpty(question));
 
-      if (!res.ok) {
-        throw new Error(data.error || "AI-generering fejlede");
-      }
+    if (hasExistingContent) {
+      const shouldReplace = window.confirm(
+        "AI-udkastet erstatter de nuværende rolleposter i builderen. Vil du fortsætte?"
+      );
 
-      const formattedQuestions = Array.isArray(data.questions)
-        ? data.questions
-            .map((question, index): Question | null => {
-              const answers = Array.isArray(question.answers)
-                ? question.answers.filter((item): item is string => typeof item === "string")
-                : [];
-              const safeCorrectIndex =
-                typeof question.correctIndex === "number" &&
-                Number.isInteger(question.correctIndex) &&
-                question.correctIndex >= 0 &&
-                question.correctIndex < answers.length
-                  ? question.correctIndex
-                  : 0;
-              const correctAnswer = answers[safeCorrectIndex]?.trim() || "";
-              const { message, characterName, avatar } = parseRoleplayText(question.text ?? "", index);
-
-              if (!message || !correctAnswer) return null;
-
-              return {
-                id: Date.now() + index,
-                type: "multiple_choice",
-                postType: "quiz",
-                text: characterName,
-                aiPrompt: message,
-                answers: toRoleplayAnswers(correctAnswer, characterName, avatar),
-                correctIndex: 0,
-                lat: null,
-                lng: null,
-                mediaUrl: "",
-              };
-            })
-            .filter((question): question is Question => question !== null)
-        : [];
-
-      if (formattedQuestions.length === 0) {
+      if (!shouldReplace) {
         setNotice({
-          tone: "error",
-          message: "AI returnerede ingen brugbare rolleposter. Prøv igen.",
+          tone: "success",
+          message: "Dit nuværende arbejde blev beholdt uændret.",
         });
         return;
       }
-
-      setPreviewQuestions(formattedQuestions);
-    } catch (error) {
-      console.error("AI-generering af rolleposter fejlede:", error);
-      setNotice({
-        tone: "error",
-        message:
-          error instanceof Error && error.name === "AbortError"
-            ? "AI'en var for længe om at svare. Prøv igen."
-            : "Der skete en fejl. Prøv igen.",
-      });
-    } finally {
-      window.clearTimeout(timeoutId);
-      setIsGenerating(false);
     }
+
+    setTitle(nextTitle);
+    setDescription(nextDescription);
+    setQuestions(nextQuestions);
+    setNotice({
+      tone: "success",
+      message: "AI har klargjort et komplet rollespil. Gennemgå felterne og placer posterne på kortet.",
+    });
   };
 
   const handleSaveRun = async () => {
@@ -891,6 +721,8 @@ function RollespilBuilderPageContent() {
       return;
     }
 
+    const normalizedDescription = description.trim();
+
     const normalizedQuestions = questions
       .map((question) => ({
         ...question,
@@ -899,7 +731,7 @@ function RollespilBuilderPageContent() {
         text: question.text.trim(),
         aiPrompt: question.aiPrompt.trim(),
         answers: toRoleplayAnswers(
-          question.answers[0]?.trim() ?? "",
+          (question.postType ?? "quiz") === "intro" ? "" : question.answers[0]?.trim() ?? "",
           question.text.trim() || question.answers[1]?.trim() || "",
           question.answers[2]?.trim() ?? ""
         ),
@@ -923,12 +755,17 @@ function RollespilBuilderPageContent() {
     }
 
     const hasIncompleteQuestions = normalizedQuestions.some(
-      (question) => !question.text || !question.aiPrompt || !question.answers[0] || !question.answers[2]
+      (question) =>
+        !question.text ||
+        !question.aiPrompt ||
+        !question.answers[2] ||
+        ((question.post_type ?? question.postType ?? "quiz") !== "intro" && !question.answers[0])
     );
     if (hasIncompleteQuestions) {
       setNotice({
         tone: "error",
-        message: "Udfyld karakterens navn, avatar, besked og det rigtige svar på hver post.",
+        message:
+          "Udfyld karakterens navn, avatar og besked på hver post. Quiz-poster skal også have et facitsvar.",
       });
       scrollToSaveFeedback();
       return;
@@ -949,6 +786,7 @@ function RollespilBuilderPageContent() {
     setIsSaving(true);
 
     try {
+      const normalizedTopic = normalizedDescription || title.trim();
       const supabase = createClient();
       const {
         data: { user },
@@ -967,8 +805,8 @@ function RollespilBuilderPageContent() {
       const payload = {
         title: title.trim(),
         subject: subject.trim() || "Generelt",
-        description: "",
-        topic: aiRunBrief.trim() || aiTopic || "",
+        description: normalizedDescription,
+        topic: normalizedTopic,
         questions: normalizedQuestions,
         race_type: RACE_TYPES.ROLLESPIL,
       };
@@ -1012,11 +850,10 @@ function RollespilBuilderPageContent() {
 
       if (!isEditMode) {
         setTitle("");
+        setDescription("");
         setSubject("");
         setShowTeacherField(false);
         setQuestions([createQuestion()]);
-        setAiRunBrief("");
-        setAiTopic("");
       }
 
       await new Promise((resolve) => window.setTimeout(resolve, 450));
@@ -1077,9 +914,22 @@ function RollespilBuilderPageContent() {
               </div>
 
               <div className="px-1">
+                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
+                  Beskrivelse
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  rows={3}
+                  placeholder="Kort intro eller beskrivelse af rollespillet"
+                  className={textareaClass}
+                />
+              </div>
+
+              <div className="px-1">
                 <div className="rounded-[1.5rem] border border-violet-500/30 bg-violet-950/20 p-4 backdrop-blur-xl">
                   <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
-                    Emne
+                    Fag
                   </label>
                   <select
                     value={subject}
@@ -1103,8 +953,7 @@ function RollespilBuilderPageContent() {
                   type="button"
                   onClick={() => {
                     setNotice(null);
-                    setShowAIModal(true);
-                    setPreviewQuestions([]);
+                    setShowAiInterviewModal(true);
                   }}
                   className={`${aiActionButtonClass} w-full sm:w-auto`}
                 >
@@ -1281,242 +1130,12 @@ function RollespilBuilderPageContent() {
         </div>
       </div>
 
-      <datalist id="roleplay-topic-suggestions">
-        {ROLEPLAY_TOPIC_SUGGESTIONS.map((topicOption) => (
-          <option key={topicOption} value={topicOption} />
-        ))}
-      </datalist>
-
-      {showAIModal && (
-        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xl">
-          <div className="w-full max-w-3xl rounded-3xl border border-violet-500/20 bg-slate-900/60 p-6 shadow-[0_32px_100px_rgba(0,0,0,0.72)] backdrop-blur-xl sm:p-8">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold tracking-[0.28em] text-violet-100/55 uppercase">
-                  AI-modal
-                </p>
-                <h2
-                  className={`mt-3 flex items-center gap-2 text-3xl font-extrabold text-violet-100 ${rubik.className}`}
-                >
-                  <span aria-hidden>✨</span>
-                  Intelligent historie-assistent
-                </h2>
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-violet-100/75">
-                  Beskriv en karakter, person eller tidsalder kort, så kan AI&apos;en foreslå
-                  karakterer, beskeder og svar til hver post.
-                </p>
-              </div>
-            </div>
-
-            {renderNotice("mt-6")}
-
-            {previewQuestions.length > 0 ? (
-              <div className="mt-8">
-                <p className="mb-4 text-sm text-violet-100/75">
-                  Gennemgå posterne og ret dem til, før de overføres til kortet.
-                </p>
-
-                <div className="max-h-[58vh] space-y-4 overflow-y-auto pr-1">
-                  {previewQuestions.map((question, index) => (
-                    <div
-                      key={question.id}
-                      className="rounded-3xl border border-violet-500/20 bg-slate-900/60 p-4 backdrop-blur-xl"
-                    >
-                      <p className="mb-3 text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
-                        Post {index + 1}
-                      </p>
-
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div>
-                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
-                            Karakterens Navn
-                          </label>
-                          <input
-                            type="text"
-                            value={question.text}
-                            onChange={(event) =>
-                              updatePreviewRoleplayQuestion(question.id, {
-                                characterName: event.target.value,
-                              })
-                            }
-                            className={previewInputClass}
-                          />
-                        </div>
-
-                        <div>
-                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
-                            Avatar (Emoji eller Billed-URL)
-                          </label>
-                          <input
-                            type="text"
-                            value={question.answers[2]}
-                            onChange={(event) =>
-                              updatePreviewRoleplayQuestion(question.id, {
-                                avatar: event.target.value,
-                              })
-                            }
-                            className={previewInputClass}
-                          />
-                        </div>
-
-                        <div className="md:col-span-2">
-                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
-                            Karakterens besked / Gåde
-                          </label>
-                          <textarea
-                            value={question.aiPrompt}
-                            onChange={(event) =>
-                              updatePreviewRoleplayQuestion(question.id, { message: event.target.value })
-                            }
-                            rows={3}
-                            className={previewInputClass}
-                          />
-                        </div>
-
-                        <div className="md:col-span-2">
-                          <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
-                            Det rigtige svar fra deltageren
-                          </label>
-                          <input
-                            type="text"
-                            value={question.answers[0]}
-                            onChange={(event) =>
-                              updatePreviewRoleplayQuestion(question.id, {
-                                correctAnswer: event.target.value,
-                              })
-                            }
-                            className={previewInputClass}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={handleApproveAIPreview}
-                    className="w-full rounded-[1.4rem] border border-violet-500/30 bg-violet-500 py-3 font-bold text-slate-950 shadow-lg shadow-violet-500/20 transition-all hover:bg-violet-400"
-                  >
-                    Godkend og placer på kortet
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDiscardAIPreview}
-                    className="w-full rounded-[1.4rem] border border-violet-500/20 bg-slate-900/60 py-3 font-semibold text-violet-100/80 transition hover:bg-slate-800/80"
-                  >
-                    Kassér og prøv igen
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="mt-8">
-                  <label className="mb-3 block text-sm font-semibold text-white">
-                    Hvem eller hvilken tidsalder skal AI&apos;en spille? (F.eks. Tordenskjold i
-                    1700-tallet, H.C. Andersen eller firmaets grundlægger i 1980&apos;erne)
-                  </label>
-                  <textarea
-                    value={aiRunBrief}
-                    onChange={(event) => setAiRunBrief(event.target.value)}
-                    rows={8}
-                    placeholder="f.eks. Lav 5 poster med Tordenskjold i 1700-tallet, H.C. Andersen eller firmaets grundlægger i 1980'erne"
-                    className="w-full rounded-3xl border border-slate-700 bg-slate-900/50 p-5 text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowAITeacherFields((current) => !current)}
-                  className="mt-4 inline-flex items-center gap-2 text-sm text-violet-100/70 transition hover:text-violet-100"
-                >
-                  {showAITeacherFields ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                  Tilpas tidsalder og målgruppe (valgfrit)
-                </button>
-
-                {showAITeacherFields ? (
-                  <section className="mt-4 rounded-3xl border border-violet-500/20 bg-slate-900/60 p-4 backdrop-blur-xl">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
-                          Emne/Tidsalder
-                        </label>
-                        <input
-                          value={aiSubject}
-                          onChange={(event) => setAiSubject(event.target.value)}
-                          list="roleplay-topic-suggestions"
-                          placeholder="f.eks. Tordenskjold i 1700-tallet, H.C. Andersen eller 1980'erne"
-                          className="w-full rounded-2xl border border-slate-700 bg-slate-900/50 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-violet-100/65 uppercase">
-                          Målgruppe/Sværhedsgrad
-                        </label>
-                        <select
-                          value={aiGrade}
-                          onChange={(event) => setAiGrade(event.target.value)}
-                          className="w-full rounded-2xl border border-slate-700 bg-slate-900/50 p-3 text-slate-100 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                        >
-                          {AI_AUDIENCE_OPTIONS.map((gradeOption) => (
-                            <option
-                              key={gradeOption.value}
-                              value={gradeOption.value}
-                              className="bg-slate-900 text-white"
-                            >
-                              {gradeOption.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </section>
-                ) : null}
-
-                <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
-                  <button
-                    type="button"
-                    onClick={closeAIModal}
-                    disabled={isGenerating}
-                    className="rounded-[1.4rem] border border-violet-500/20 bg-slate-900/60 px-5 py-3 text-sm font-semibold text-violet-100/80 transition hover:bg-slate-800/80 disabled:opacity-60"
-                  >
-                    Luk
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAIGenerate}
-                    disabled={isGenerating}
-                    className="w-full rounded-[1.4rem] border border-violet-500/30 bg-violet-500 px-6 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-violet-500/20 transition-all hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isGenerating ? (
-                      <span className="inline-flex items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Tænker...
-                      </span>
-                    ) : (
-                      "Generer historie"
-                    )}
-                  </button>
-                </div>
-
-                {isGenerating ? (
-                  <div className="mt-4 inline-flex items-center gap-2 text-sm text-violet-100/75">
-                    <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-violet-300" />
-                    AI&apos;en skriver karakterernes beskeder...
-                  </div>
-                ) : null}
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <RollespilAiInterviewModal
+        open={showAiInterviewModal}
+        initialSubject={subject}
+        onClose={closeAiInterviewModal}
+        onComplete={handleAiInterviewComplete}
+      />
     </>
   );
 }
-
