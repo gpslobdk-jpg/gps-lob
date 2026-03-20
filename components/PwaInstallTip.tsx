@@ -39,17 +39,31 @@ export default function PwaInstallTip({
           {isHighlight ? <Smartphone className="h-5 w-5" /> : <Lightbulb className="h-5 w-5" />}
         </div>
 
-        <div className="space-y-1.5">
-          <p className="text-[11px] font-black tracking-[0.28em] text-emerald-300 uppercase">
-            Pro-tip
-          </p>
+        <div className="min-w-0 space-y-3">
+          <h3 className="text-sm font-black tracking-[0.16em] text-white uppercase md:text-base">
+            PRO-TIP: FÅ DEN ÆGTE APP-OPLEVELSE
+          </h3>
           <p className="text-sm leading-relaxed text-slate-200 md:text-[15px]">
-            Bed eleverne vælge{" "}
-            <span className="rounded-full bg-white/10 px-2 py-1 font-semibold text-white ring-1 ring-white/10">
-              Føj til hjemmeskærm
-            </span>{" "}
-            i browserens menu. Så åbner løbet i fuldskærm som en rigtig app!
+            Bed eleverne gemme siden som en app, så browser-kanterne forsvinder:
           </p>
+          <ul className="space-y-2.5 text-sm leading-relaxed text-slate-200 md:text-[15px]">
+            <li className="flex items-start gap-3">
+              <span className="mt-0.5 text-base leading-none">🍎</span>
+              <span>
+                <span className="font-semibold text-white">iPhone (Safari):</span> Tryk på Del-ikonet
+                (firkant med pil op) i bunden og vælg{" "}
+                <span className="font-semibold text-emerald-200">'Føj til hjemmeskærm'</span>.
+              </span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="mt-0.5 text-base leading-none">🤖</span>
+              <span>
+                <span className="font-semibold text-white">Android (Chrome):</span> Tryk på Menu-ikonet
+                (tre prikker) i toppen og vælg{" "}
+                <span className="font-semibold text-emerald-200">'Føj til startskærm'</span>.
+              </span>
+            </li>
+          </ul>
         </div>
       </div>
     </aside>
