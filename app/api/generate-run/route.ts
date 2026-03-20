@@ -11,9 +11,13 @@ const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const DEFAULT_COUNT = 5;
+const ALLOWED_COUNTS = [5, 10, 15, 20] as const;
+const DEFAULT_COUNT = 10;
+const ALLOWED_AUDIENCES = ["Indskoling", "Mellemtrin", "Udskoling", "Voksne"] as const;
+const DEFAULT_AUDIENCE = "Mellemtrin";
 const OPENAI_TIMEOUT_MS = 45_000;
 const MAX_TOPIC_LENGTH = 150;
+const MAX_SUBJECT_LENGTH = 80;
 const MAX_SOURCE_TEXT_LENGTH = 18000;
 const MAX_IMAGE_DATA_LENGTH = 6_000_000;
 const MAX_REQUEST_BODY_BYTES = 5_000_000;
@@ -22,8 +26,12 @@ type GenerateRunPayload = {
   topic?: unknown;
   sourceText?: unknown;
   imageBase64?: unknown;
+  subject?: unknown;
+  audience?: unknown;
   count?: unknown;
 };
+
+type Audience = (typeof ALLOWED_AUDIENCES)[number];
 
 type NormalizedQuestion = {
   question: string;
@@ -59,10 +67,34 @@ function asTrimmedString(value: unknown): string {
 
 function asCount(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value)) {
-    return Math.min(20, Math.max(3, Math.floor(value)));
+    const normalized = Math.floor(value) as (typeof ALLOWED_COUNTS)[number];
+    if (ALLOWED_COUNTS.includes(normalized)) {
+      return normalized;
+    }
   }
 
   return DEFAULT_COUNT;
+}
+
+function asAudience(value: unknown): Audience {
+  if (typeof value === "string" && ALLOWED_AUDIENCES.includes(value as Audience)) {
+    return value as Audience;
+  }
+
+  return DEFAULT_AUDIENCE;
+}
+
+function getAudienceGuidance(audience: Audience) {
+  switch (audience) {
+    case "Indskoling":
+      return "Brug meget enkelt, tydeligt og konkret sprog, men gør stadig spørgsmålene meningsfulde og lærerige.";
+    case "Mellemtrin":
+      return "Brug klart og alderssvarende sprog med lidt mere variation og faglig dybde.";
+    case "Udskoling":
+      return "Brug mere præcist og udfordrende sprog, som kræver opmærksom læsning og sikker forståelse.";
+    case "Voksne":
+      return "Brug et modent, præcist og fagligt skarpt sprog med højere krav til forståelse og refleksion.";
+  }
 }
 
 function getContentLength(request: Request): number | null {
@@ -149,8 +181,10 @@ export async function POST(req: Request) {
     const topic = asTrimmedString(payload.topic);
     const sourceText = asTrimmedString(payload.sourceText);
     const imageBase64 = asTrimmedString(payload.imageBase64);
+    const subject = asTrimmedString(payload.subject);
+    const audience = asAudience(payload.audience);
     const hasMaterial = sourceText.length > 0 || imageBase64.length > 0;
-    const count = hasMaterial ? 5 : asCount(payload.count);
+    const count = asCount(payload.count);
 
     if (!topic && !hasMaterial) {
       return NextResponse.json(
@@ -162,6 +196,13 @@ export async function POST(req: Request) {
     if (topic.length > MAX_TOPIC_LENGTH) {
       return NextResponse.json(
         { error: "Emnet er for langt. Hold det under 150 tegn." },
+        { status: 400 }
+      );
+    }
+
+    if (subject.length > MAX_SUBJECT_LENGTH) {
+      return NextResponse.json(
+        { error: "Faget er for langt. Hold det under 80 tegn." },
         { status: 400 }
       );
     }
@@ -187,21 +228,34 @@ export async function POST(req: Request) {
       );
     }
 
+    const audienceGuidance = getAudienceGuidance(audience);
+    const subjectLine = subject
+      ? `- Brug faget "${subject}" som tydelig faglig ramme for spørgsmålene.`
+      : "- Hold spørgsmålene fagligt relevante for undervisning.";
+
     const systemPrompt = hasMaterial
       ? `Du er en dansk AI-løbsbygger til GPSLØB.
 Du hjælper lærere med at forvandle konkret undervisningsmateriale til et GPS-løb.
 
-Læs følgende materiale grundigt. Generer et GPS-løb med 5 spørgsmål, hvor alle rigtige svar kan findes direkte i materialet.
+Læs materialet grundigt og generer et GPS-løb med præcis ${count} spørgsmål.
 
 Vigtige regler:
-- Du må kun bruge oplysninger, der tydeligt findes i materialet.
-- Du må ikke opfinde fakta, som ikke kan læses direkte i materialet.
 - Alt indhold skal være på dansk.
 - Løbet skal passe til en udendørs quiz for skole eller undervisning.
 - Returner kun struktureret output, der matcher schemaet.
+- "questions" skal indeholde præcis ${count} objekter.
 - Hver question skal have præcis 4 svarmuligheder.
 - correctIndex skal være et heltal fra 0 til 3.
-- lat og lng skal altid være null.`
+- lat og lng skal altid være null.
+- Titel og beskrivelse skal være korte, tydelige og brugbare i builderen.
+- Alle spørgsmål og alle rigtige svar skal kunne udledes direkte af det medsendte materiale.
+- Du må kun bruge oplysninger, der tydeligt står i teksten eller tydeligt kan ses på billedet.
+- Du må ikke gætte, udfylde huller, tilføje baggrundsviden eller opfinde fakta.
+- Hvis materialet ikke dokumenterer noget tydeligt, må det ikke bruges i et spørgsmål.
+- Spørgsmålene må gerne omformulere materialet, men facit skal være direkte forankret i materialet.
+- Sprog og sværhedsgrad skal passe præcist til målgruppen "${audience}".
+- ${audienceGuidance}
+${subjectLine}`
       : `Du er en dansk AI-løbsbygger til GPSLØB.
 Du hjælper lærere med at auto-generere komplette quiz-løb.
 
@@ -213,7 +267,10 @@ Vigtige regler:
 - Hvert spørgsmål skal have præcis 4 svarmuligheder.
 - correctIndex skal være et heltal fra 0 til 3.
 - lat og lng skal altid være null.
-- Titel og beskrivelse skal være korte, tydelige og brugbare i builderen.`;
+- Titel og beskrivelse skal være korte, tydelige og brugbare i builderen.
+- Sprog og sværhedsgrad skal passe præcist til målgruppen "${audience}".
+- ${audienceGuidance}
+${subjectLine}`;
 
     const schema = createGeneratedRunSchema(count);
 
@@ -233,7 +290,11 @@ Vigtige regler:
                   {
                     type: "text" as const,
                     text:
-                      `Læs materialet grundigt og lav nu et GPS-løb med 5 spørgsmål, hvor alle rigtige svar kan findes direkte i materialet.` +
+                      `Læs materialet grundigt og lav nu et GPS-løb med præcis ${count} spørgsmål.` +
+                      `\n\nMålgruppe: ${audience}` +
+                      (subject ? `\nFag: ${subject}` : "") +
+                      "\nAlle spørgsmål og rigtige svar skal kunne udledes direkte af materialet." +
+                      "\nDu må ikke bruge oplysninger, som ikke tydeligt står eller kan ses i materialet." +
                       (sourceText
                         ? `\n\nMaterialetekst:\n${sourceText}`
                         : "\n\nBrug bogside-billedet som materiale.") +
@@ -258,7 +319,8 @@ Vigtige regler:
         : {
             prompt: `Lav nu et komplet GPS-løb om dette emne: ${topic}
 
-Husk at returnere præcis ${count} spørgsmål og kun det strukturerede output.`,
+Målgruppe: ${audience}
+${subject ? `Fag: ${subject}\n` : ""}Husk at returnere præcis ${count} spørgsmål og kun det strukturerede output.`,
             temperature: 0.7,
           }),
       timeout: OPENAI_TIMEOUT_MS,

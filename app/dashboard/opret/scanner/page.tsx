@@ -52,6 +52,20 @@ const SUBJECT_TOPICS: Record<string, string[]> = {
   Musik: [],
 };
 
+const AUDIENCE_OPTIONS = [
+  { value: "Indskoling", label: "Indskoling" },
+  { value: "Mellemtrin", label: "Mellemtrin" },
+  { value: "Udskoling", label: "Udskoling" },
+  { value: "Voksne", label: "Voksen" },
+] as const;
+
+const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
+
+type Step = 1 | 2 | 3 | 4;
+type SourceMode = "camera" | "upload" | "text";
+type Audience = (typeof AUDIENCE_OPTIONS)[number]["value"];
+type QuestionCount = (typeof QUESTION_COUNT_OPTIONS)[number];
+
 type GeneratedQuestion = {
   question: string;
   options: [string, string, string, string];
@@ -96,7 +110,8 @@ type ManualBuilderDraftState = {
 function readFileAsDataUri(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.onload = () =>
+      resolve(typeof reader.result === "string" ? reader.result : "");
     reader.onerror = () => reject(new Error("Kunne ikke læse billedet."));
     reader.readAsDataURL(file);
   });
@@ -164,26 +179,26 @@ function toQuestions(questions: GeneratedQuestion[]): ManualDraftQuestion[] {
 
 function toManualDraft(
   run: GeneratedRunPayload,
-  sourceText: string,
-  title: string,
-  subject: string
+  sourceSummary: string,
+  subject: string,
+  audience: Audience
 ): ManualBuilderDraftState {
   const questions = toQuestions(run.questions);
-  const safeSummary = sourceText.trim().slice(0, 180);
-  const normalizedTitle = title.trim();
   const normalizedSubject = subject.trim();
+  const safeSummary =
+    sourceSummary.trim().slice(0, 180) || "Scannet undervisningsmateriale";
 
   return {
-    title: normalizedTitle || run.title,
-    description: run.description,
+    title: run.title.trim(),
+    description: run.description.trim(),
     subject: normalizedSubject,
     showTeacherField: Boolean(normalizedSubject),
     showAITeacherFields: false,
     questions,
     aiRunBrief: safeSummary,
-    aiSubject: "",
+    aiSubject: normalizedSubject,
     aiTopic: safeSummary,
-    aiGrade: "Mellemtrin",
+    aiGrade: audience,
     mapCenter: {
       lat: DEFAULT_LAT,
       lng: DEFAULT_LNG,
@@ -209,9 +224,13 @@ export default function ScannerPortalPage() {
   const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const countdownTimersRef = useRef<number[]>([]);
+  const textInputRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const [title, setTitle] = useState("");
+  const [step, setStep] = useState<Step>(1);
+  const [sourceMode, setSourceMode] = useState<SourceMode | null>(null);
   const [subject, setSubject] = useState("");
+  const [audience, setAudience] = useState<Audience>("Mellemtrin");
+  const [questionCount, setQuestionCount] = useState<QuestionCount>(10);
   const [sourceText, setSourceText] = useState("");
   const [selectedImageLabel, setSelectedImageLabel] = useState("");
   const [compressedImage, setCompressedImage] = useState("");
@@ -223,13 +242,31 @@ export default function ScannerPortalPage() {
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const progress = (step / 4) * 100;
+  const trimmedSourceText = sourceText.trim();
+  const canContinueFromStep2 =
+    sourceMode === "text" ? trimmedSourceText.length > 0 : compressedImage.length > 0;
+  const canContinueFromStep3 = subject.trim().length > 0;
+
   const helperText = isCapturingPhoto
     ? "Kameraet tager billede..."
     : isStartingCamera
       ? "Starter kamera..."
       : isPreparingImage
         ? "Klargør billede..."
-        : selectedImageLabel || "Du kan indsætte tekst, uploade et billede eller bruge begge dele.";
+        : selectedImageLabel ||
+          (sourceMode === "camera"
+            ? "Tag et tydeligt billede af bogsiden."
+            : "Upload et tydeligt billede af bogsiden.");
+
+  const selectedSourceLabel =
+    sourceMode === "camera"
+      ? "Kamera"
+      : sourceMode === "upload"
+        ? "Upload"
+        : sourceMode === "text"
+          ? "Tekst"
+          : "";
 
   function stopCameraStream(options?: { skipStateReset?: boolean }) {
     const skipStateReset = options?.skipStateReset ?? false;
@@ -263,6 +300,22 @@ export default function ScannerPortalPage() {
     }
   }
 
+  function resetSourceState(nextMode: SourceMode) {
+    setSourceMode(nextMode);
+    setError(null);
+    stopCameraStream();
+    setSelectedImageLabel("");
+    setCompressedImage("");
+    setSourceText("");
+  }
+
+  function handleSourceSelect(nextMode: SourceMode) {
+    if (isGenerating) return;
+
+    resetSourceState(nextMode);
+    setStep(2);
+  }
+
   useEffect(() => {
     isMountedRef.current = true;
 
@@ -271,6 +324,16 @@ export default function ScannerPortalPage() {
       stopCameraStream({ skipStateReset: true });
     };
   }, []);
+
+  useEffect(() => {
+    if (step !== 2 || sourceMode !== "text") return;
+
+    const timeoutId = window.setTimeout(() => {
+      textInputRef.current?.focus();
+    }, 30);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [sourceMode, step]);
 
   async function startCamera() {
     if (isStartingCamera || isPreparingImage || isGenerating || isCapturingPhoto) return;
@@ -442,14 +505,70 @@ export default function ScannerPortalPage() {
     }
   }
 
-  async function handleGenerateRun() {
-    if (isGenerating || isPreparingImage || isStartingCamera || isCapturingPhoto) return;
+  function handleStepTwoNext() {
+    if (sourceMode === "text") {
+      if (!trimmedSourceText) {
+        setError("Indsæt først teksten, du vil bygge løbet ud fra.");
+        return;
+      }
 
-    const trimmedSourceText = sourceText.trim();
+      if (trimmedSourceText.length > MAX_SOURCE_TEXT_LENGTH) {
+        setError("Teksten er for lang. Kort materialet lidt ned og prøv igen.");
+        return;
+      }
+    } else if (!compressedImage) {
+      setError("Tilføj først et billede af bogsiden, før du går videre.");
+      return;
+    }
+
+    setError(null);
+    setStep(3);
+  }
+
+  function handleStepThreeNext() {
+    if (!canContinueFromStep3) {
+      setError("Vælg et fag, så AI'en kan ramme den rigtige vinkel.");
+      return;
+    }
+
+    setError(null);
+    setStep(4);
+  }
+
+  function handleBack() {
+    if (isGenerating || step === 1) return;
+
+    setError(null);
+    if (step === 2) {
+      stopCameraStream();
+      setStep(1);
+      return;
+    }
+
+    setStep((current) => (current > 1 ? ((current - 1) as Step) : current));
+  }
+
+  async function handleGenerateRun() {
+    if (
+      isGenerating ||
+      isPreparingImage ||
+      isStartingCamera ||
+      isCapturingPhoto ||
+      !sourceMode
+    ) {
+      return;
+    }
+
     const hasImage = compressedImage.length > 0;
+    const trimmedSubject = subject.trim();
 
     if (!trimmedSourceText && !hasImage) {
-      setError("Indsæt tekst eller upload et billede, før du genererer løbet.");
+      setError("Tilføj først tekst eller billede, før du genererer løbet.");
+      return;
+    }
+
+    if (!trimmedSubject) {
+      setError("Vælg et fag, før du genererer løbet.");
       return;
     }
 
@@ -473,8 +592,11 @@ export default function ScannerPortalPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          sourceText: trimmedSourceText,
+          sourceText: trimmedSourceText || undefined,
           imageBase64: compressedImage || undefined,
+          subject: trimmedSubject,
+          audience,
+          count: questionCount,
         }),
       });
 
@@ -485,7 +607,10 @@ export default function ScannerPortalPage() {
 
       if (!response.ok) {
         throw new Error(
-          payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
+          payload &&
+            typeof payload === "object" &&
+            "error" in payload &&
+            typeof payload.error === "string"
             ? payload.error
             : "AI'en kunne ikke bygge løbet lige nu."
         );
@@ -495,7 +620,14 @@ export default function ScannerPortalPage() {
         throw new Error("AI'en returnerede et ugyldigt løbsformat.");
       }
 
-      const draft = toManualDraft(payload, trimmedSourceText, title, subject);
+      const sourceSummary =
+        sourceMode === "text"
+          ? trimmedSourceText
+          : sourceMode === "camera"
+            ? "Billede af bogside taget med kameraet"
+            : "Uploadet billede af bogside";
+
+      const draft = toManualDraft(payload, sourceSummary, trimmedSubject, audience);
       stopCameraStream();
       writeRunDraft(MANUEL_DRAFT_STORAGE_KEY, null, draft);
       window.sessionStorage.setItem("autoLoadDraft", "true");
@@ -504,10 +636,10 @@ export default function ScannerPortalPage() {
       console.error("Fejl ved scanner-generering:", requestError);
       setError(
         requestError instanceof Error && requestError.name === "AbortError"
-          ? "AI'en var for længe om at svare, prøv igen."
+          ? "AI'en var for længe om at svare. Prøv igen."
           : requestError instanceof Error
-          ? requestError.message
-          : "Noget gik galt. Prøv igen om et øjeblik."
+            ? requestError.message
+            : "Noget gik galt. Prøv igen om et øjeblik."
       );
     } finally {
       window.clearTimeout(timeoutId);
@@ -520,7 +652,7 @@ export default function ScannerPortalPage() {
       className={`relative min-h-screen overflow-hidden bg-cyan-950 px-6 py-10 text-slate-100 ${poppins.className}`}
     >
       <div className="fixed inset-0 -z-10 bg-gradient-to-br from-cyan-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
-      <section className="mx-auto flex w-full max-w-4xl flex-col gap-8">
+      <section className="mx-auto flex w-full max-w-5xl flex-col gap-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <Link
             href="/dashboard/opret/valg"
@@ -538,207 +670,437 @@ export default function ScannerPortalPage() {
         <MobileBuilderWarning className="mx-auto w-full max-w-3xl" />
 
         <div className="mx-auto hidden min-h-[calc(100vh-10rem)] w-full items-center justify-center lg:flex">
-          <div className="w-full max-w-3xl rounded-3xl border border-cyan-500/30 bg-cyan-950/20 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-10">
-            <div className="mx-auto max-w-2xl text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-100">
-                <Camera className="h-8 w-8" />
-              </div>
-              <p className="mt-6 text-xs font-semibold tracking-[0.32em] text-cyan-100/55 uppercase">
-                Bog-Scanneren
-              </p>
-              <h1 className={`mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl ${rubik.className}`}>
-                Hvad skal eleverne lære i dag?
-              </h1>
-              <p className="mt-4 text-base leading-relaxed text-cyan-100/75 sm:text-lg">
-                Indsæt dagens tekst eller upload et billede af en bogside. AI&apos;en bygger et
-                komplet quiz-løb, som lægges klar i Manuel-byggeren.
-              </p>
+          <div className="w-full max-w-2xl text-center">
+            <div className="flex items-center justify-between gap-4 text-xs font-semibold tracking-[0.24em] text-cyan-100/55 uppercase">
+              <button
+                type="button"
+                onClick={handleBack}
+                disabled={step === 1 || isGenerating}
+                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Tilbage
+              </button>
+              <span>Bog-Scanneren</span>
+              <span>Trin {step}/4</span>
             </div>
 
-            <div className="mx-auto mt-10 max-w-2xl space-y-6">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-3">
-                  <label
-                    htmlFor="scanner-title"
-                    className="block text-sm font-semibold tracking-[0.16em] text-cyan-100/70 uppercase"
-                  >
-                    Løbets titel
-                  </label>
-                  <input
-                    id="scanner-title"
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    placeholder="F.eks. Læsning om Solsystemet"
-                    className="w-full rounded-3xl border border-cyan-500/30 bg-cyan-950/20 px-5 py-4 text-base font-semibold text-cyan-100 placeholder:text-cyan-100/35 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                  />
-                </div>
+            <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-white/8">
+              <div
+                className="h-full rounded-full bg-cyan-400 transition-all duration-500"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
 
-                <div className="space-y-3">
-                  <label
-                    htmlFor="scanner-subject"
-                    className="block text-sm font-semibold tracking-[0.16em] text-cyan-100/70 uppercase"
+            <div className="mt-10 rounded-[2rem] border border-cyan-500/20 bg-white/[0.03] px-6 py-10 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:px-10 sm:py-14">
+              {step === 1 ? (
+                <>
+                  <p className="text-sm font-semibold tracking-[0.28em] text-cyan-300 uppercase">
+                    Trin 1
+                  </p>
+                  <h1
+                    className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                   >
-                    Fag
-                  </label>
-                  <select
-                    id="scanner-subject"
-                    value={subject}
-                    onChange={(event) => setSubject(event.target.value)}
-                    className="w-full appearance-none rounded-3xl border border-cyan-500/30 bg-cyan-950/20 px-5 py-4 text-base text-cyan-100 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                  >
-                    <option value="" className="bg-slate-900 text-white">
-                      Vælg et fag til arkivet...
-                    </option>
-                    {Object.keys(SUBJECT_TOPICS).map((subjectOption) => (
-                      <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
-                        {subjectOption}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+                    Hvad vil du bygge løbet ud fra?
+                  </h1>
+                  <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-cyan-100/75 sm:text-lg">
+                    Vælg én enkel kilde. Så guider vi dig resten af vejen og lader AI&apos;en
+                    finde titel, beskrivelse og spørgsmål for dig.
+                  </p>
 
-              <div className="space-y-3">
-                <label
-                  htmlFor="scanner-source-text"
-                  className="block text-sm font-semibold tracking-[0.16em] text-cyan-100/70 uppercase"
-                >
-                  Materiale som tekst
-                </label>
-                <textarea
-                  id="scanner-source-text"
-                  value={sourceText}
-                  onChange={(event) => setSourceText(event.target.value)}
-                  placeholder="Indsæt tekst fra dagens lektie, bogside eller andet undervisningsmateriale..."
-                  className="min-h-[220px] w-full rounded-3xl border border-cyan-500/30 bg-cyan-950/20 px-5 py-4 text-base leading-relaxed text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                />
-                <p className="text-sm text-cyan-100/55">
-                  {sourceText.length}/{MAX_SOURCE_TEXT_LENGTH} tegn
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <label
-                  htmlFor="scanner-image-upload"
-                  className="block text-sm font-semibold tracking-[0.16em] text-cyan-100/70 uppercase"
-                >
-                  Bogside som billede
-                </label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label
-                    htmlFor="scanner-image-upload"
-                    className="flex cursor-pointer items-center justify-center gap-3 rounded-3xl border border-cyan-500/30 bg-cyan-950/20 px-5 py-6 text-center text-base text-cyan-100 transition hover:border-cyan-500/50 hover:bg-cyan-500/10 hover:shadow-lg hover:shadow-cyan-500/20 backdrop-blur-xl"
-                  >
-                    <Camera className="h-5 w-5" />
-                    Upload et billede
-                  </label>
-                  {isCameraActive ? (
-                    <div className="flex min-h-[72px] items-center justify-center rounded-3xl border border-cyan-500/30 bg-cyan-950/20 px-5 py-6 text-center text-base font-semibold text-cyan-100 backdrop-blur-xl">
-                      Kamera aktivt
-                    </div>
-                  ) : (
+                  <div className="mt-12 grid gap-4">
                     <button
                       type="button"
-                      onClick={startCamera}
-                      disabled={isStartingCamera || isPreparingImage || isGenerating || isCapturingPhoto}
-                      className="inline-flex min-h-[72px] items-center justify-center gap-3 rounded-[1.75rem] border border-cyan-500/30 bg-cyan-500 px-5 py-6 text-base font-semibold text-slate-950 shadow-lg shadow-cyan-500/20 transition-all hover:bg-cyan-400 hover:shadow-cyan-500/20 disabled:cursor-wait disabled:opacity-70"
+                      onClick={() => handleSourceSelect("camera")}
+                      className="flex min-h-[110px] w-full flex-col items-center justify-center rounded-[1.75rem] border border-cyan-400/25 bg-cyan-500/10 px-6 py-7 text-center transition hover:border-cyan-300/50 hover:bg-cyan-400/15"
                     >
-                      {isStartingCamera ? (
-                        <>
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                          Starter kamera...
-                        </>
-                      ) : (
-                        <>
-                          <Camera className="h-5 w-5" />
-                          📸 Start Kamera
-                        </>
-                      )}
+                      <span className="text-3xl" aria-hidden="true">
+                        📸
+                      </span>
+                      <span className="mt-3 text-xl font-bold text-white">
+                        Tag et billede af bogen
+                      </span>
+                      <span className="mt-2 text-sm text-cyan-100/65">
+                        Brug kameraet og scan bogsiden direkte.
+                      </span>
                     </button>
-                  )}
-                </div>
-                <input
-                  id="scanner-image-upload"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="sr-only"
-                />
 
-                {isCameraActive ? (
-                  <div className="relative overflow-hidden rounded-3xl border border-cyan-500/30 bg-cyan-950/20 backdrop-blur-xl">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      muted
-                      playsInline
-                      className="h-[320px] w-full object-cover sm:h-[380px]"
-                    />
-                    {countdownValue !== null ? (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/35">
-                        <span
-                          className={`text-7xl font-black text-white drop-shadow-[0_10px_25px_rgba(0,0,0,0.55)] ${rubik.className}`}
+                    <button
+                      type="button"
+                      onClick={() => handleSourceSelect("upload")}
+                      className="flex min-h-[110px] w-full flex-col items-center justify-center rounded-[1.75rem] border border-cyan-400/25 bg-cyan-500/10 px-6 py-7 text-center transition hover:border-cyan-300/50 hover:bg-cyan-400/15"
+                    >
+                      <span className="text-3xl" aria-hidden="true">
+                        🖼️
+                      </span>
+                      <span className="mt-3 text-xl font-bold text-white">
+                        Upload et billede
+                      </span>
+                      <span className="mt-2 text-sm text-cyan-100/65">
+                        Vælg et billede af bogsiden fra computeren.
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSourceSelect("text")}
+                      className="flex min-h-[110px] w-full flex-col items-center justify-center rounded-[1.75rem] border border-cyan-400/25 bg-cyan-500/10 px-6 py-7 text-center transition hover:border-cyan-300/50 hover:bg-cyan-400/15"
+                    >
+                      <span className="text-3xl" aria-hidden="true">
+                        ✍️
+                      </span>
+                      <span className="mt-3 text-xl font-bold text-white">
+                        Indsæt tekst
+                      </span>
+                      <span className="mt-2 text-sm text-cyan-100/65">
+                        Kopiér teksten direkte ind og byg løbet ud fra den.
+                      </span>
+                    </button>
+                  </div>
+                </>
+              ) : null}
+
+              {step === 2 ? (
+                <>
+                  <p className="text-sm font-semibold tracking-[0.28em] text-cyan-300 uppercase">
+                    Trin 2
+                  </p>
+                  <h2
+                    className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
+                  >
+                    {sourceMode === "camera"
+                      ? "Tag et tydeligt billede"
+                      : sourceMode === "upload"
+                        ? "Upload bogsiden"
+                        : "Indsæt teksten"}
+                  </h2>
+                  <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-cyan-100/75 sm:text-lg">
+                    {sourceMode === "text"
+                      ? "Indsæt den tekst, som AI'en skal bygge quiz-løbet ud fra."
+                      : "Brug et klart billede, så AI'en kan læse og forstå materialet præcist."}
+                  </p>
+
+                  <div className="mt-10 space-y-5 text-left">
+                    {sourceMode === "text" ? (
+                      <>
+                        <textarea
+                          ref={textInputRef}
+                          value={sourceText}
+                          onChange={(event) => setSourceText(event.target.value)}
+                          placeholder="Indsæt tekst fra dagens lektie, bogside eller andet undervisningsmateriale..."
+                          className="min-h-[260px] w-full rounded-[1.75rem] border border-cyan-500/30 bg-cyan-950/20 px-5 py-4 text-base leading-relaxed text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        />
+                        <p className="text-center text-sm text-cyan-100/55">
+                          {sourceText.length}/{MAX_SOURCE_TEXT_LENGTH} tegn
+                        </p>
+                      </>
+                    ) : null}
+
+                    {sourceMode === "upload" ? (
+                      <>
+                        <label
+                          htmlFor="scanner-image-upload"
+                          className="flex min-h-[180px] cursor-pointer flex-col items-center justify-center rounded-[1.75rem] border border-dashed border-cyan-400/35 bg-cyan-500/10 px-6 py-8 text-center transition hover:border-cyan-300/50 hover:bg-cyan-400/15"
                         >
-                          {countdownValue}
-                        </span>
+                          <span className="text-4xl" aria-hidden="true">
+                            🖼️
+                          </span>
+                          <span className="mt-4 text-xl font-bold text-white">
+                            Klik for at vælge et billede
+                          </span>
+                          <span className="mt-2 text-sm text-cyan-100/65">
+                            JPG, PNG eller andet tydeligt foto af en bogside.
+                          </span>
+                        </label>
+                        <input
+                          id="scanner-image-upload"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="sr-only"
+                        />
+                      </>
+                    ) : null}
+
+                    {sourceMode === "camera" ? (
+                      <>
+                        {!isCameraActive && !compressedImage ? (
+                          <button
+                            type="button"
+                            onClick={startCamera}
+                            disabled={isStartingCamera || isPreparingImage || isGenerating}
+                            className="inline-flex min-h-[88px] w-full items-center justify-center gap-3 rounded-[1.75rem] border border-cyan-400/25 bg-cyan-500 px-6 py-5 text-lg font-bold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-wait disabled:opacity-70"
+                          >
+                            {isStartingCamera ? (
+                              <>
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                                Starter kamera...
+                              </>
+                            ) : (
+                              <>
+                                <Camera className="h-5 w-5" />
+                                Start kamera
+                              </>
+                            )}
+                          </button>
+                        ) : null}
+
+                        {isCameraActive ? (
+                          <div className="relative overflow-hidden rounded-[1.75rem] border border-cyan-500/30 bg-cyan-950/20">
+                            <video
+                              ref={videoRef}
+                              autoPlay
+                              muted
+                              playsInline
+                              className="h-[340px] w-full object-cover"
+                            />
+                            {countdownValue !== null ? (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/35">
+                                <span
+                                  className={`text-7xl font-black text-white drop-shadow-[0_10px_25px_rgba(0,0,0,0.55)] ${rubik.className}`}
+                                >
+                                  {countdownValue}
+                                </span>
+                              </div>
+                            ) : null}
+                            <div className="absolute inset-x-0 bottom-0 flex justify-center p-5">
+                              <button
+                                type="button"
+                                onClick={handleTakePhoto}
+                                disabled={isCapturingPhoto || isGenerating || isPreparingImage}
+                                className="inline-flex min-h-[60px] items-center justify-center gap-3 rounded-full bg-cyan-500 px-8 py-4 text-base font-black tracking-wide text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400 disabled:cursor-wait disabled:bg-cyan-400/70"
+                              >
+                                {isCapturingPhoto ? (
+                                  <>
+                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                    Tager billede...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Camera className="h-5 w-5" />
+                                    Tag billede
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </>
+                    ) : null}
+
+                    {compressedImage ? (
+                      <div className="overflow-hidden rounded-[1.75rem] border border-cyan-500/20 bg-cyan-950/20">
+                        <img
+                          src={compressedImage}
+                          alt="Valgt bogside"
+                          className="h-[260px] w-full object-cover"
+                        />
                       </div>
                     ) : null}
-                    <div className="absolute inset-x-0 bottom-0 flex justify-center p-5">
+
+                    {sourceMode === "camera" && compressedImage ? (
                       <button
                         type="button"
-                        onClick={handleTakePhoto}
-                        disabled={isCapturingPhoto || isGenerating || isPreparingImage}
-                        className="inline-flex min-h-[60px] items-center justify-center gap-3 rounded-full bg-cyan-500 px-8 py-4 text-base font-black tracking-wide text-slate-950 shadow-lg shadow-cyan-500/20 transition-all hover:bg-cyan-400 hover:shadow-cyan-500/20 disabled:cursor-wait disabled:bg-cyan-400/70"
+                        onClick={startCamera}
+                        disabled={isStartingCamera || isPreparingImage || isGenerating}
+                        className="inline-flex min-h-[60px] w-full items-center justify-center gap-3 rounded-full border border-cyan-500/30 bg-white/5 px-6 py-4 text-base font-semibold text-cyan-100 transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-70"
                       >
-                        {isCapturingPhoto ? (
+                        {isStartingCamera ? (
                           <>
                             <Loader2 className="h-5 w-5 animate-spin" />
-                            Tager billede...
+                            Starter kamera...
                           </>
                         ) : (
-                          <>
-                            <Camera className="h-5 w-5" />
-                            Tag billede
-                          </>
+                          "Tag et nyt billede"
                         )}
                       </button>
+                    ) : null}
+
+                    <canvas ref={captureCanvasRef} className="hidden" />
+
+                    {sourceMode !== "text" ? (
+                      <p className="text-center text-sm text-cyan-100/55">{helperText}</p>
+                    ) : null}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleStepTwoNext}
+                    disabled={!canContinueFromStep2 || isPreparingImage || isStartingCamera || isCapturingPhoto}
+                    className="mt-10 inline-flex min-h-[60px] w-full items-center justify-center rounded-full bg-cyan-500 px-6 py-4 text-base font-black uppercase tracking-widest text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-cyan-400/50"
+                  >
+                    Næste
+                  </button>
+                </>
+              ) : null}
+
+              {step === 3 ? (
+                <>
+                  <p className="text-sm font-semibold tracking-[0.28em] text-cyan-300 uppercase">
+                    Trin 3
+                  </p>
+                  <h2
+                    className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
+                  >
+                    Lidt detaljer om løbet
+                  </h2>
+                  <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-cyan-100/75 sm:text-lg">
+                    Nu finjusterer du fag, niveau og længde, så AI&apos;en rammer rigtigt første
+                    gang.
+                  </p>
+
+                  <div className="mt-10 space-y-8 text-left">
+                    <div className="space-y-3">
+                      <label
+                        htmlFor="scanner-subject"
+                        className="block text-sm font-semibold tracking-[0.16em] text-cyan-100/70 uppercase"
+                      >
+                        Fag
+                      </label>
+                      <select
+                        id="scanner-subject"
+                        value={subject}
+                        onChange={(event) => setSubject(event.target.value)}
+                        className="w-full appearance-none rounded-[1.5rem] border border-cyan-500/30 bg-cyan-950/20 px-5 py-4 text-base text-cyan-100 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      >
+                        <option value="" className="bg-slate-900 text-white">
+                          Vælg et fag...
+                        </option>
+                        {Object.keys(SUBJECT_TOPICS).map((subjectOption) => (
+                          <option
+                            key={subjectOption}
+                            value={subjectOption}
+                            className="bg-slate-900 text-white"
+                          >
+                            {subjectOption}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-3">
+                      <p className="text-sm font-semibold tracking-[0.16em] text-cyan-100/70 uppercase">
+                        Målgruppe
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {AUDIENCE_OPTIONS.map((option) => {
+                          const isSelected = audience === option.value;
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => setAudience(option.value)}
+                              className={`min-h-[76px] rounded-[1.5rem] border px-5 py-4 text-base font-semibold transition ${
+                                isSelected
+                                  ? "border-cyan-300 bg-cyan-400/20 text-white"
+                                  : "border-cyan-500/20 bg-white/5 text-cyan-100 hover:bg-white/10"
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <p className="text-sm font-semibold tracking-[0.16em] text-cyan-100/70 uppercase">
+                        Antal poster
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {QUESTION_COUNT_OPTIONS.map((countOption) => {
+                          const isSelected = questionCount === countOption;
+                          return (
+                            <button
+                              key={countOption}
+                              type="button"
+                              onClick={() => setQuestionCount(countOption)}
+                              className={`min-h-[76px] rounded-[1.5rem] border px-5 py-4 text-base font-semibold transition ${
+                                isSelected
+                                  ? "border-cyan-300 bg-cyan-400/20 text-white"
+                                  : "border-cyan-500/20 bg-white/5 text-cyan-100 hover:bg-white/10"
+                              }`}
+                            >
+                              {countOption} poster
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
-                ) : null}
 
-                <canvas ref={captureCanvasRef} className="hidden" />
-                <p className="text-sm text-cyan-100/55">{helperText}</p>
-              </div>
+                  <button
+                    type="button"
+                    onClick={handleStepThreeNext}
+                    disabled={!canContinueFromStep3}
+                    className="mt-10 inline-flex min-h-[60px] w-full items-center justify-center rounded-full bg-cyan-500 px-6 py-4 text-base font-black uppercase tracking-widest text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-cyan-400/50"
+                  >
+                    Næste
+                  </button>
+                </>
+              ) : null}
+
+              {step === 4 ? (
+                <>
+                  <p className="text-sm font-semibold tracking-[0.28em] text-cyan-300 uppercase">
+                    Trin 4
+                  </p>
+                  <h2
+                    className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
+                  >
+                    Generér løbet
+                  </h2>
+                  <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-cyan-100/75 sm:text-lg">
+                    AI&apos;en bygger nu et komplet quiz-løb ud fra dit materiale og sender det
+                    direkte videre til Manuel-byggeren.
+                  </p>
+
+                  <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+                    {selectedSourceLabel ? (
+                      <span className="rounded-full border border-cyan-500/20 bg-white/5 px-4 py-2 text-sm text-cyan-100">
+                        Kilde: {selectedSourceLabel}
+                      </span>
+                    ) : null}
+                    <span className="rounded-full border border-cyan-500/20 bg-white/5 px-4 py-2 text-sm text-cyan-100">
+                      Fag: {subject}
+                    </span>
+                    <span className="rounded-full border border-cyan-500/20 bg-white/5 px-4 py-2 text-sm text-cyan-100">
+                      Målgruppe: {AUDIENCE_OPTIONS.find((option) => option.value === audience)?.label}
+                    </span>
+                    <span className="rounded-full border border-cyan-500/20 bg-white/5 px-4 py-2 text-sm text-cyan-100">
+                      Antal poster: {questionCount}
+                    </span>
+                  </div>
+
+                  <div className="mt-10">
+                    {isGenerating ? (
+                      <div className="rounded-[1.75rem] border border-cyan-500/20 bg-cyan-500/10 px-6 py-12 text-center">
+                        <Loader2 className="mx-auto h-10 w-10 animate-spin text-cyan-200" />
+                        <p className="mt-6 text-2xl font-bold text-white">
+                          AI&apos;en læser materialet...
+                        </p>
+                        <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-cyan-100/70">
+                          Vi bygger titel, beskrivelse og præcis det antal poster, du har valgt.
+                        </p>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleGenerateRun}
+                        className="inline-flex min-h-[64px] w-full items-center justify-center gap-3 rounded-full bg-cyan-500 px-6 py-4 text-base font-black uppercase tracking-widest text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400"
+                      >
+                        <Sparkles className="h-5 w-5" />
+                        Generér løb
+                      </button>
+                    )}
+                  </div>
+                </>
+              ) : null}
 
               {error ? (
-                <div className="rounded-3xl border border-red-300/30 bg-red-500/10 px-4 py-3 text-sm text-red-100 backdrop-blur-xl">
+                <div className="mt-8 rounded-[1.5rem] border border-red-300/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
                   {error}
                 </div>
               ) : null}
-
-              <button
-                type="button"
-                onClick={handleGenerateRun}
-                disabled={isGenerating || isPreparingImage || isStartingCamera || isCapturingPhoto}
-                className="inline-flex min-h-[60px] w-full items-center justify-center gap-3 rounded-full bg-cyan-500 px-6 py-4 text-base font-black uppercase tracking-widest text-slate-950 shadow-lg shadow-cyan-500/20 transition-all hover:bg-cyan-400 hover:shadow-cyan-500/20 disabled:cursor-wait disabled:bg-cyan-400/70"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    ⏳ Læser materialet og bygger spørgsmål...
-                  </>
-                ) : isPreparingImage ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    Klargør billede...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-5 w-5" />
-                    Generér Løb
-                  </>
-                )}
-              </button>
             </div>
           </div>
         </div>
