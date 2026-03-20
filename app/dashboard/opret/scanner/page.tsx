@@ -14,10 +14,13 @@ import {
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import {
   clearRunDraft,
+  clearSessionDraft,
   markDraftForAutoload,
   readRunDraft,
+  readSessionDraft,
   restoreDraftString,
   shouldRestoreRunDraftOnLoad,
+  writeSessionDraft,
   writeRunDraft,
 } from "@/utils/runDrafts";
 
@@ -33,6 +36,7 @@ const poppins = Poppins({
 
 const MANUEL_DRAFT_STORAGE_KEY = "draft_run_manuel";
 const SCANNER_DRAFT_STORAGE_KEY = "draft_run_scanner";
+const SCANNER_IMAGE_SESSION_KEY = "scanner_image_draft";
 const DEFAULT_LAT = 55.0;
 const DEFAULT_LNG = 11.9;
 const AI_REQUEST_TIMEOUT_MS = 20_000;
@@ -123,7 +127,10 @@ type ScannerDraftState = {
   questionCount: QuestionCount;
   sourceText: string;
   selectedImageLabel: string;
-  compressedImage: string;
+};
+
+type ScannerImageSessionState = {
+  compressedImage?: unknown;
 };
 
 function restoreSourceMode(value: unknown): SourceMode | null {
@@ -369,10 +376,11 @@ export default function ScannerPortalPage() {
       : null;
 
     if (restoredDraft) {
+      const restoredImageDraft = readSessionDraft<ScannerImageSessionState>(SCANNER_IMAGE_SESSION_KEY);
       const restoredMode = restoreSourceMode(restoredDraft.sourceMode);
       const restoredSubject = restoreDraftString(restoredDraft.subject);
       const restoredSourceText = restoreDraftString(restoredDraft.sourceText);
-      const restoredCompressedImage = restoreDraftString(restoredDraft.compressedImage);
+      const restoredCompressedImage = restoreDraftString(restoredImageDraft?.compressedImage);
       const restoredStep = restoreStep(restoredDraft.step);
       const hasRestoredSourceInput =
         restoredMode === "text"
@@ -415,9 +423,21 @@ export default function ScannerPortalPage() {
       questionCount,
       sourceText,
       selectedImageLabel,
-      compressedImage,
     } satisfies ScannerDraftState);
   }, [audience, compressedImage, questionCount, selectedImageLabel, sourceMode, sourceText, step, subject]);
+
+  useEffect(() => {
+    if (!hasInitializedDraftRef.current) return;
+
+    if (compressedImage.trim().length > 0) {
+      writeSessionDraft(SCANNER_IMAGE_SESSION_KEY, {
+        compressedImage,
+      } satisfies ScannerImageSessionState);
+      return;
+    }
+
+    clearSessionDraft(SCANNER_IMAGE_SESSION_KEY);
+  }, [compressedImage]);
 
   useEffect(() => {
     if (step !== 2 || sourceMode !== "text") return;
@@ -724,6 +744,7 @@ export default function ScannerPortalPage() {
       const draft = toManualDraft(payload, sourceSummary, trimmedSubject, audience);
       stopCameraStream();
       clearRunDraft(SCANNER_DRAFT_STORAGE_KEY);
+      clearSessionDraft(SCANNER_IMAGE_SESSION_KEY);
       writeRunDraft(MANUEL_DRAFT_STORAGE_KEY, null, draft);
       markDraftForAutoload(MANUEL_DRAFT_STORAGE_KEY);
       router.push("/dashboard/opret/manuel");
