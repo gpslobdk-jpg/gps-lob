@@ -36,8 +36,8 @@ type HubCard = {
 const cards: HubCard[] = [
   {
     raceType: "manuel",
-    title: "Klassisk Quiz-l\u00f8b",
-    description: "Skab en klassisk rute med sp\u00f8rgsm\u00e5l og fire svarmuligheder.",
+    title: "Klassisk Quiz-løb",
+    description: "Skab en klassisk rute med spørgsmål og fire svarmuligheder.",
     href: "/dashboard/opret/manuel",
     icon: MapPin,
   },
@@ -45,28 +45,28 @@ const cards: HubCard[] = [
     raceType: "foto",
     title: "AI Foto-mission",
     description:
-      "Deltagerne fotograferer motiver i virkeligheden, og AI'en vurderer billedet p\u00e5 sekunder.",
+      "Deltagerne fotograferer motiver i virkeligheden, og AI'en vurderer billedet på sekunder.",
     href: "/dashboard/opret/foto",
     icon: Camera,
   },
   {
     raceType: "escape",
     title: "Escape Room",
-    description: "L\u00f8s g\u00e5der ved hver post og saml kode-brikker til en endelig master-kode.",
+    description: "Løs gåder ved hver post og saml kode-brikker til en endelig master-kode.",
     href: "/dashboard/opret/escape",
     icon: Lock,
   },
   {
     raceType: "rollespil",
     title: "Rollespil",
-    description: "Lad eleverne m\u00f8de karakterer, tale med AI og spille sig gennem historien.",
+    description: "Lad eleverne møde karakterer, tale med AI og spille sig gennem historien.",
     href: "/dashboard/opret/rollespil",
     icon: MessageSquare,
   },
   {
     raceType: "scanner",
     title: "Scan bogen",
-    description: "Upload en bogside eller inds\u00e6t tekst, og lad AI bygge et komplet quiz-l\u00f8b.",
+    description: "Upload en bogside eller indsæt tekst, og lad AI bygge et komplet quiz-løb.",
     href: "/dashboard/opret/scanner",
     icon: BookOpen,
   },
@@ -130,21 +130,21 @@ export default function ValgHubPage() {
             Tilbage til dashboard
           </Link>
           <p className="rounded-full border border-emerald-500/20 bg-slate-950/70 px-4 py-2 text-xs font-semibold tracking-[0.24em] text-emerald-300 uppercase shadow-sm backdrop-blur-xl">
-            L\u00f8bstyper
+            LØBSTYPER
           </p>
         </div>
 
         <div className="mt-12 max-w-3xl">
           <p className="text-sm font-semibold tracking-[0.32em] text-emerald-800 uppercase drop-shadow-sm">
-            V\u00e6lg format
+            VÆLG FORMAT
           </p>
           <h1
             className={`mt-4 text-4xl font-black tracking-tight text-emerald-950 drop-shadow-md md:text-5xl lg:text-white lg:drop-shadow-lg ${rubik.className}`}
           >
-            Hvilken type l\u00f8b vil du bygge?
+            Hvilken type løb vil du bygge?
           </h1>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-emerald-900 drop-shadow-sm md:text-base lg:text-emerald-50">
-            V\u00e6lg det format, der passer bedst til dit arrangement. Her finder du quiz, foto,
+            Vælg det format, der passer bedst til dit arrangement. Her finder du quiz, foto,
             escape, rollespil, bog-scanner og selfie-missioner samlet et sted.
           </p>
         </div>
