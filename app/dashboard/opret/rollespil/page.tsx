@@ -27,6 +27,7 @@ import {
   restoreDraftBoolean,
   restoreDraftMapCenter,
   restoreDraftString,
+  shouldRestoreRunDraftOnLoad,
   writeRunDraft,
 } from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
@@ -190,6 +191,7 @@ type RollespilBuilderDraftState = {
   description?: unknown;
   subject?: unknown;
   showTeacherField?: unknown;
+  showAiInterviewModal?: unknown;
   questions?: unknown;
   mapCenter?: unknown;
 };
@@ -547,12 +549,7 @@ function RollespilBuilderPageContent() {
       }
     }
 
-    const shouldAutoLoad = window.sessionStorage.getItem("autoLoadDraft") === "true";
-    if (shouldAutoLoad) {
-      window.sessionStorage.removeItem("autoLoadDraft");
-    }
-
-    const restoredDraft = shouldAutoLoad
+    const restoredDraft = shouldRestoreRunDraftOnLoad(ROLLESPIL_DRAFT_STORAGE_KEY)
       ? readRunDraft<RollespilBuilderDraftState>(ROLLESPIL_DRAFT_STORAGE_KEY, editRunId)
       : null;
 
@@ -567,7 +564,7 @@ function RollespilBuilderPageContent() {
         restoreDraftBoolean(restoredDraft.showTeacherField, Boolean(restoredSubject.trim()))
       );
       setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
-      setShowAiInterviewModal(false);
+      setShowAiInterviewModal(restoreDraftBoolean(restoredDraft.showAiInterviewModal));
       setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
       setNotice(null);
     }
@@ -583,6 +580,7 @@ function RollespilBuilderPageContent() {
       description,
       subject,
       showTeacherField,
+      showAiInterviewModal,
       questions,
       mapCenter,
     } satisfies RollespilBuilderDraftState);
@@ -591,6 +589,7 @@ function RollespilBuilderPageContent() {
     editRunId,
     mapCenter,
     questions,
+    showAiInterviewModal,
     showTeacherField,
     subject,
     title,

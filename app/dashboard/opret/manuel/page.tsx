@@ -13,11 +13,13 @@ import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning
 import type { SavedPin } from "@/components/MapPicker";
 import { RACE_TYPES } from "@/utils/gpsRuns";
 import {
+  consumeDraftAutoload,
   clearRunDraft,
   readRunDraft,
   restoreDraftBoolean,
   restoreDraftMapCenter,
   restoreDraftString,
+  shouldRestoreRunDraftOnLoad,
   writeRunDraft,
 } from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
@@ -212,6 +214,7 @@ type ManualBuilderDraftState = {
   description?: unknown;
   subject?: unknown;
   showTeacherField?: unknown;
+  showAiInterviewModal?: unknown;
   questions?: unknown;
   mapCenter?: unknown;
 };
@@ -416,6 +419,7 @@ function OpretLoebPageContent() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (editRunId) return;
+    if (!consumeDraftAutoload(MAGIC_DRAFT_STORAGE_KEY)) return;
 
     const rawDraft = window.sessionStorage.getItem(MAGIC_DRAFT_STORAGE_KEY);
     if (!rawDraft) return;
@@ -571,12 +575,7 @@ function OpretLoebPageContent() {
       }
     }
 
-    const shouldAutoLoad = window.sessionStorage.getItem("autoLoadDraft") === "true";
-    if (shouldAutoLoad) {
-      window.sessionStorage.removeItem("autoLoadDraft");
-    }
-
-    const restoredDraft = shouldAutoLoad
+    const restoredDraft = shouldRestoreRunDraftOnLoad(MANUEL_DRAFT_STORAGE_KEY)
       ? readRunDraft<ManualBuilderDraftState>(MANUEL_DRAFT_STORAGE_KEY, editRunId)
       : null;
 
@@ -590,10 +589,10 @@ function OpretLoebPageContent() {
       setShowTeacherField(
         restoreDraftBoolean(restoredDraft.showTeacherField, Boolean(restoredSubject.trim()))
       );
+      setShowAiInterviewModal(restoreDraftBoolean(restoredDraft.showAiInterviewModal));
       setQuestions(
         restoredQuestions.length > 0 ? restoredQuestions : [createQuestion(defaultQuestionType)]
       );
-      setShowAiInterviewModal(false);
       setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
       setNotice(null);
     }
@@ -609,6 +608,7 @@ function OpretLoebPageContent() {
       description,
       subject,
       showTeacherField,
+      showAiInterviewModal,
       questions,
       mapCenter,
     } satisfies ManualBuilderDraftState);
@@ -617,6 +617,7 @@ function OpretLoebPageContent() {
     editRunId,
     mapCenter,
     questions,
+    showAiInterviewModal,
     showTeacherField,
     subject,
     title,

@@ -5,6 +5,9 @@ type BuilderDraftEnvelope<T> = {
   data: T;
 };
 
+const AUTOLOAD_DRAFT_FLAG_KEY = "autoLoadDraft";
+const AUTOLOAD_DRAFT_TARGET_KEY = "autoLoadDraftTarget";
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -45,6 +48,89 @@ export function clearRunDraft(key: string) {
   } catch {
     // Ignorer browserfejl ved localStorage.
   }
+}
+
+export function writeSessionDraft<T>(key: string, data: T) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify(data));
+  } catch {
+    // Ignorer browserfejl ved sessionStorage.
+  }
+}
+
+export function readSessionDraft<T>(key: string) {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const rawDraft = window.sessionStorage.getItem(key);
+    if (!rawDraft) return null;
+    return JSON.parse(rawDraft) as T;
+  } catch {
+    clearSessionDraft(key);
+    return null;
+  }
+}
+
+export function clearSessionDraft(key: string) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {
+    // Ignorer browserfejl ved sessionStorage.
+  }
+}
+
+function getNavigationType() {
+  if (typeof window === "undefined" || typeof window.performance === "undefined") {
+    return "navigate";
+  }
+
+  const navigationEntries = window.performance.getEntriesByType("navigation");
+  const navigationEntry = navigationEntries[0] as PerformanceNavigationTiming | undefined;
+  return navigationEntry?.type ?? "navigate";
+}
+
+export function markDraftForAutoload(targetKey: string) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.setItem(AUTOLOAD_DRAFT_FLAG_KEY, "true");
+    window.sessionStorage.setItem(AUTOLOAD_DRAFT_TARGET_KEY, targetKey);
+  } catch {
+    // Ignorer browserfejl ved sessionStorage.
+  }
+}
+
+export function consumeDraftAutoload(targetKey: string) {
+  if (typeof window === "undefined") return false;
+
+  try {
+    const shouldAutoLoad = window.sessionStorage.getItem(AUTOLOAD_DRAFT_FLAG_KEY) === "true";
+    if (!shouldAutoLoad) return false;
+
+    const storedTarget = window.sessionStorage.getItem(AUTOLOAD_DRAFT_TARGET_KEY);
+    if (storedTarget && storedTarget !== targetKey) {
+      return false;
+    }
+
+    window.sessionStorage.removeItem(AUTOLOAD_DRAFT_FLAG_KEY);
+    window.sessionStorage.removeItem(AUTOLOAD_DRAFT_TARGET_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function shouldRestoreRunDraftOnLoad(targetKey: string) {
+  if (consumeDraftAutoload(targetKey)) {
+    return true;
+  }
+
+  const navigationType = getNavigationType();
+  return navigationType === "reload" || navigationType === "back_forward";
 }
 
 export function writeRunDraft<T>(key: string, editRunId: string | null | undefined, data: T) {

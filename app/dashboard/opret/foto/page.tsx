@@ -26,6 +26,7 @@ import {
   restoreDraftBoolean,
   restoreDraftMapCenter,
   restoreDraftString,
+  shouldRestoreRunDraftOnLoad,
   writeRunDraft,
 } from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
@@ -189,6 +190,7 @@ type FotoBuilderDraftState = {
   description?: unknown;
   subject?: unknown;
   showTeacherField?: unknown;
+  showAiInterviewModal?: unknown;
   questions?: unknown;
   mapCenter?: unknown;
 };
@@ -527,12 +529,7 @@ function FotoMissionBuilderPageContent() {
       }
     }
 
-    const shouldAutoLoad = window.sessionStorage.getItem("autoLoadDraft") === "true";
-    if (shouldAutoLoad) {
-      window.sessionStorage.removeItem("autoLoadDraft");
-    }
-
-    const restoredDraft = shouldAutoLoad
+    const restoredDraft = shouldRestoreRunDraftOnLoad(FOTO_DRAFT_STORAGE_KEY)
       ? readRunDraft<FotoBuilderDraftState>(FOTO_DRAFT_STORAGE_KEY, editRunId)
       : null;
 
@@ -547,7 +544,7 @@ function FotoMissionBuilderPageContent() {
         restoreDraftBoolean(restoredDraft.showTeacherField, Boolean(restoredSubject.trim()))
       );
       setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
-      setShowAiInterviewModal(false);
+      setShowAiInterviewModal(restoreDraftBoolean(restoredDraft.showAiInterviewModal));
       setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
       setNotice(null);
     }
@@ -563,6 +560,7 @@ function FotoMissionBuilderPageContent() {
       description,
       subject,
       showTeacherField,
+      showAiInterviewModal,
       questions,
       mapCenter,
     } satisfies FotoBuilderDraftState);
@@ -571,6 +569,7 @@ function FotoMissionBuilderPageContent() {
     editRunId,
     mapCenter,
     questions,
+    showAiInterviewModal,
     showTeacherField,
     subject,
     title,

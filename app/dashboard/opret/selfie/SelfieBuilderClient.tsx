@@ -24,8 +24,10 @@ import {
 import {
   clearRunDraft,
   readRunDraft,
+  restoreDraftBoolean,
   restoreDraftMapCenter,
   restoreDraftString,
+  shouldRestoreRunDraftOnLoad,
   writeRunDraft,
 } from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
@@ -107,6 +109,7 @@ type SelfieBuilderDraftState = {
   title?: unknown;
   description?: unknown;
   subject?: unknown;
+  showAiInterviewModal?: unknown;
   questions?: unknown;
   mapCenter?: unknown;
 };
@@ -389,12 +392,7 @@ export default function SelfieBuilderClient() {
       }
     }
 
-    const shouldAutoLoad = window.sessionStorage.getItem("autoLoadDraft") === "true";
-    if (shouldAutoLoad) {
-      window.sessionStorage.removeItem("autoLoadDraft");
-    }
-
-    const restoredDraft = shouldAutoLoad
+    const restoredDraft = shouldRestoreRunDraftOnLoad(SELFIE_DRAFT_STORAGE_KEY)
       ? readRunDraft<SelfieBuilderDraftState>(SELFIE_DRAFT_STORAGE_KEY, editRunId)
       : null;
 
@@ -405,7 +403,7 @@ export default function SelfieBuilderClient() {
       setDescription(restoreDraftString(restoredDraft.description));
       setSubject(restoreDraftString(restoredDraft.subject));
       setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
-      setShowAiInterviewModal(false);
+      setShowAiInterviewModal(restoreDraftBoolean(restoredDraft.showAiInterviewModal));
       setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
       setNotice(null);
     }
@@ -420,10 +418,11 @@ export default function SelfieBuilderClient() {
       title,
       description,
       subject,
+      showAiInterviewModal,
       questions,
       mapCenter,
     } satisfies SelfieBuilderDraftState);
-  }, [description, editRunId, mapCenter, questions, subject, title]);
+  }, [description, editRunId, mapCenter, questions, showAiInterviewModal, subject, title]);
 
   const pins = useMemo<SavedPin[]>(
     () =>

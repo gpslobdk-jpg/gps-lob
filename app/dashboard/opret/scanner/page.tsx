@@ -12,7 +12,14 @@ import {
 } from "react";
 
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
-import { writeRunDraft } from "@/utils/runDrafts";
+import {
+  clearRunDraft,
+  markDraftForAutoload,
+  readRunDraft,
+  restoreDraftString,
+  shouldRestoreRunDraftOnLoad,
+  writeRunDraft,
+} from "@/utils/runDrafts";
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -25,6 +32,7 @@ const poppins = Poppins({
 });
 
 const MANUEL_DRAFT_STORAGE_KEY = "draft_run_manuel";
+const SCANNER_DRAFT_STORAGE_KEY = "draft_run_scanner";
 const DEFAULT_LAT = 55.0;
 const DEFAULT_LNG = 11.9;
 const AI_REQUEST_TIMEOUT_MS = 20_000;
@@ -106,6 +114,33 @@ type ManualBuilderDraftState = {
     lng: number;
   };
 };
+
+type ScannerDraftState = {
+  step: Step;
+  sourceMode: SourceMode | null;
+  subject: string;
+  audience: Audience;
+  questionCount: QuestionCount;
+  sourceText: string;
+  selectedImageLabel: string;
+  compressedImage: string;
+};
+
+function restoreSourceMode(value: unknown): SourceMode | null {
+  return value === "camera" || value === "upload" || value === "text" ? value : null;
+}
+
+function restoreAudience(value: unknown): Audience {
+  return AUDIENCE_OPTIONS.some((option) => option.value === value) ? (value as Audience) : "Mellemtrin";
+}
+
+function restoreQuestionCount(value: unknown): QuestionCount {
+  return QUESTION_COUNT_OPTIONS.includes(value as QuestionCount) ? (value as QuestionCount) : 10;
+}
+
+function restoreStep(value: unknown): Step {
+  return value === 1 || value === 2 || value === 3 || value === 4 ? value : 1;
+}
 
 function readFileAsDataUri(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -219,6 +254,7 @@ function isGeneratedRunPayload(value: unknown): value is GeneratedRunPayload {
 
 export default function ScannerPortalPage() {
   const router = useRouter();
+  const hasInitializedDraftRef = useRef(false);
   const isMountedRef = useRef(true);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -324,6 +360,64 @@ export default function ScannerPortalPage() {
       stopCameraStream({ skipStateReset: true });
     };
   }, []);
+
+  useEffect(() => {
+    if (hasInitializedDraftRef.current) return;
+
+    const restoredDraft = shouldRestoreRunDraftOnLoad(SCANNER_DRAFT_STORAGE_KEY)
+      ? readRunDraft<ScannerDraftState>(SCANNER_DRAFT_STORAGE_KEY, null)
+      : null;
+
+    if (restoredDraft) {
+      const restoredMode = restoreSourceMode(restoredDraft.sourceMode);
+      const restoredSubject = restoreDraftString(restoredDraft.subject);
+      const restoredSourceText = restoreDraftString(restoredDraft.sourceText);
+      const restoredCompressedImage = restoreDraftString(restoredDraft.compressedImage);
+      const restoredStep = restoreStep(restoredDraft.step);
+      const hasRestoredSourceInput =
+        restoredMode === "text"
+          ? restoredSourceText.trim().length > 0
+          : restoredCompressedImage.trim().length > 0;
+
+      let allowedStep: Step = 1;
+      if (restoredMode) {
+        allowedStep = 2;
+      }
+      if (restoredMode && hasRestoredSourceInput) {
+        allowedStep = 3;
+      }
+      if (restoredMode && hasRestoredSourceInput && restoredSubject.trim().length > 0) {
+        allowedStep = 4;
+      }
+
+      setSourceMode(restoredMode);
+      setSubject(restoredSubject);
+      setAudience(restoreAudience(restoredDraft.audience));
+      setQuestionCount(restoreQuestionCount(restoredDraft.questionCount));
+      setSourceText(restoredSourceText);
+      setSelectedImageLabel(restoreDraftString(restoredDraft.selectedImageLabel));
+      setCompressedImage(restoredCompressedImage);
+      setStep(Math.min(restoredStep, allowedStep) as Step);
+      setError(null);
+    }
+
+    hasInitializedDraftRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!hasInitializedDraftRef.current) return;
+
+    writeRunDraft(SCANNER_DRAFT_STORAGE_KEY, null, {
+      step,
+      sourceMode,
+      subject,
+      audience,
+      questionCount,
+      sourceText,
+      selectedImageLabel,
+      compressedImage,
+    } satisfies ScannerDraftState);
+  }, [audience, compressedImage, questionCount, selectedImageLabel, sourceMode, sourceText, step, subject]);
 
   useEffect(() => {
     if (step !== 2 || sourceMode !== "text") return;
@@ -629,8 +723,9 @@ export default function ScannerPortalPage() {
 
       const draft = toManualDraft(payload, sourceSummary, trimmedSubject, audience);
       stopCameraStream();
+      clearRunDraft(SCANNER_DRAFT_STORAGE_KEY);
       writeRunDraft(MANUEL_DRAFT_STORAGE_KEY, null, draft);
-      window.sessionStorage.setItem("autoLoadDraft", "true");
+      markDraftForAutoload(MANUEL_DRAFT_STORAGE_KEY);
       router.push("/dashboard/opret/manuel");
     } catch (requestError) {
       console.error("Fejl ved scanner-generering:", requestError);

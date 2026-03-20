@@ -4,6 +4,12 @@ import { Loader2 } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useRef, useState } from "react";
 
+import {
+  clearSessionDraft,
+  readSessionDraft,
+  writeSessionDraft,
+} from "@/utils/runDrafts";
+
 const rubik = Rubik({
   subsets: ["latin"],
   weight: ["700", "800", "900"],
@@ -30,8 +36,17 @@ const TONE_OPTIONS = [
 
 const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
 const DEFAULT_QUESTION_COUNT: (typeof QUESTION_COUNT_OPTIONS)[number] = 10;
+const ROLLESPIL_AI_INTERVIEW_SESSION_KEY = "rollespil_ai_interview_state";
 
 type Step = 1 | 2 | 3 | 4 | 5;
+type RestorableStep = 1 | 2 | 3 | 4;
+type SessionDraftState = {
+  step?: unknown;
+  topic?: unknown;
+  audience?: unknown;
+  tone?: unknown;
+  postCount?: unknown;
+};
 
 export type RollespilAiInterviewPost = {
   characterName: string;
@@ -61,6 +76,28 @@ type Props = {
 
 function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeAudience(value: unknown): (typeof AUDIENCE_OPTIONS)[number]["value"] {
+  return AUDIENCE_OPTIONS.some((option) => option.value === value)
+    ? (value as (typeof AUDIENCE_OPTIONS)[number]["value"])
+    : "Mellemtrin";
+}
+
+function normalizeTone(value: unknown): (typeof TONE_OPTIONS)[number]["value"] {
+  return TONE_OPTIONS.some((option) => option.value === value)
+    ? (value as (typeof TONE_OPTIONS)[number]["value"])
+    : "sjov";
+}
+
+function normalizePostCount(value: unknown): (typeof QUESTION_COUNT_OPTIONS)[number] {
+  return QUESTION_COUNT_OPTIONS.includes(value as (typeof QUESTION_COUNT_OPTIONS)[number])
+    ? (value as (typeof QUESTION_COUNT_OPTIONS)[number])
+    : DEFAULT_QUESTION_COUNT;
+}
+
+function normalizeStep(value: unknown): RestorableStep {
+  return value === 2 || value === 3 || value === 4 ? value : 1;
 }
 
 function isInterviewDraftResponse(value: unknown): value is RollespilAiInterviewDraft {
@@ -116,14 +153,28 @@ export default function RollespilAiInterviewModal({
   useEffect(() => {
     if (!open) return;
 
-    setStep(1);
-    setTopic("");
-    setAudience("Mellemtrin");
-    setTone("sjov");
-    setPostCount(DEFAULT_QUESTION_COUNT);
+    const restoredDraft = readSessionDraft<SessionDraftState>(ROLLESPIL_AI_INTERVIEW_SESSION_KEY);
+
+    setStep(normalizeStep(restoredDraft?.step));
+    setTopic(asTrimmedString(restoredDraft?.topic));
+    setAudience(normalizeAudience(restoredDraft?.audience));
+    setTone(normalizeTone(restoredDraft?.tone));
+    setPostCount(normalizePostCount(restoredDraft?.postCount));
     setError(null);
     setIsGenerating(false);
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    writeSessionDraft(ROLLESPIL_AI_INTERVIEW_SESSION_KEY, {
+      step: step === 5 ? 4 : step,
+      topic,
+      audience,
+      tone,
+      postCount,
+    } satisfies SessionDraftState);
+  }, [audience, open, postCount, step, tone, topic]);
 
   useEffect(() => {
     if (!open || step !== 1) return;
@@ -152,6 +203,7 @@ export default function RollespilAiInterviewModal({
   const handleClose = () => {
     if (isGenerating) return;
     setError(null);
+    clearSessionDraft(ROLLESPIL_AI_INTERVIEW_SESSION_KEY);
     onClose();
   };
 
@@ -255,6 +307,7 @@ export default function RollespilAiInterviewModal({
           };
         }),
       });
+      clearSessionDraft(ROLLESPIL_AI_INTERVIEW_SESSION_KEY);
       onClose();
     } catch (requestError) {
       if (requestError instanceof DOMException && requestError.name === "AbortError") {

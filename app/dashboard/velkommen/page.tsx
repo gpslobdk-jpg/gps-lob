@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { Poppins } from "next/font/google";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
+import { markDraftForAutoload } from "@/utils/runDrafts";
+
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -168,6 +170,7 @@ export default function VelkommenPage() {
       }
 
       window.sessionStorage.setItem(MAGIC_DRAFT_STORAGE_KEY, JSON.stringify(data));
+      markDraftForAutoload(MAGIC_DRAFT_STORAGE_KEY);
       router.push("/dashboard/opret/manuel");
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {

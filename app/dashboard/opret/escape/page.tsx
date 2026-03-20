@@ -28,6 +28,8 @@ import {
   readRunDraft,
   restoreDraftMapCenter,
   restoreDraftString,
+  restoreDraftBoolean,
+  shouldRestoreRunDraftOnLoad,
   writeRunDraft,
 } from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
@@ -193,6 +195,7 @@ type EscapeBuilderDraftState = {
   description?: unknown;
   masterCode?: unknown;
   subject?: unknown;
+  showAiInterviewModal?: unknown;
   questions?: unknown;
   mapCenter?: unknown;
 };
@@ -509,12 +512,7 @@ function EscapeBuilderPageContent() {
       }
     }
 
-    const shouldAutoLoad = window.sessionStorage.getItem("autoLoadDraft") === "true";
-    if (shouldAutoLoad) {
-      window.sessionStorage.removeItem("autoLoadDraft");
-    }
-
-    const restoredDraft = shouldAutoLoad
+    const restoredDraft = shouldRestoreRunDraftOnLoad(ESCAPE_DRAFT_STORAGE_KEY)
       ? readRunDraft<EscapeBuilderDraftState>(ESCAPE_DRAFT_STORAGE_KEY, editRunId)
       : null;
 
@@ -527,7 +525,7 @@ function EscapeBuilderPageContent() {
       setMasterCode(restoreDraftString(restoredDraft.masterCode));
       setSubject(restoredSubject);
       setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
-      setShowAiInterviewModal(false);
+      setShowAiInterviewModal(restoreDraftBoolean(restoredDraft.showAiInterviewModal));
       setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
       setNotice(null);
     }
@@ -543,6 +541,7 @@ function EscapeBuilderPageContent() {
       description,
       masterCode,
       subject,
+      showAiInterviewModal,
       questions,
       mapCenter,
     } satisfies EscapeBuilderDraftState);
@@ -552,6 +551,7 @@ function EscapeBuilderPageContent() {
     mapCenter,
     masterCode,
     questions,
+    showAiInterviewModal,
     subject,
     title,
   ]);
