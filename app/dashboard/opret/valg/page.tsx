@@ -150,12 +150,12 @@ export default function ValgHubPage() {
           </p>
         </div>
 
-        <div className="mt-8 max-w-3xl">
-          <PwaInstallTip />
-        </div>
-
         <div className="mx-auto mt-12 grid max-w-6xl grid-cols-1 gap-8 md:grid-cols-3">
           {cards.map((card, index) => renderCard(card, index))}
+        </div>
+
+        <div className="mx-auto mt-8 max-w-4xl">
+          <PwaInstallTip />
         </div>
 
         <div className="mt-12 flex justify-center">
