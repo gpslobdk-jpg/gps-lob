@@ -208,6 +208,7 @@ export function normalizeRaceMode(value: unknown): RaceMode {
       return "quiz";
     case "foto":
     case "photo":
+    case "selfie":
       return "photo";
     case "escape":
     case "escape_room":
