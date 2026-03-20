@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
 
+import PwaInstallTip from "@/components/PwaInstallTip";
 import { getRaceTypeTheme, type RaceTypeThemeKey } from "@/utils/raceTypeTheme";
 
 const rubik = Rubik({
@@ -147,6 +148,10 @@ export default function ValgHubPage() {
             Vælg det format, der passer bedst til dit arrangement. Her finder du quiz, foto,
             escape, rollespil, bog-scanner og selfie-missioner samlet et sted.
           </p>
+        </div>
+
+        <div className="mt-8 max-w-3xl">
+          <PwaInstallTip />
         </div>
 
         <div className="mx-auto mt-12 grid max-w-6xl grid-cols-1 gap-8 md:grid-cols-3">

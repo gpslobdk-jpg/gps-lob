@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
 import { QRCode } from "react-qrcode-logo";
 
+import PwaInstallTip from "@/components/PwaInstallTip";
 import phoneAnimation from "@/public/phone.json";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
@@ -78,6 +79,10 @@ export default function TeacherLiveLobby({
             />
           </div>
         </section>
+
+        <div className="mx-auto mt-8 w-full max-w-2xl">
+          <PwaInstallTip variant="highlight" />
+        </div>
 
         <section className="mt-8 w-full">
           <h2 className={`text-xl font-black tracking-wide text-emerald-800 uppercase md:text-2xl ${rubik.className}`}>

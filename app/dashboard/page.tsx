@@ -8,6 +8,7 @@ import { Poppins, Rubik } from "next/font/google";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import PwaInstallTip from "@/components/PwaInstallTip";
 import { createClient } from "@/utils/supabase/client";
 
 const rubik = Rubik({
@@ -356,6 +357,10 @@ export default function DashboardPage() {
             </p>
           </article>
         </Link>
+      </section>
+
+      <section className="mx-auto mt-8 w-full max-w-4xl">
+        <PwaInstallTip />
       </section>
 
       <footer className="mx-auto mt-auto w-full max-w-5xl pt-14 text-center">
