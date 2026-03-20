@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  ArrowLeft,
-  ArrowRight,
-  BookText,
-  GraduationCap,
-  Loader2,
-  Sparkles,
-  Target,
-  WandSparkles,
-} from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useRef, useState } from "react";
 
@@ -24,57 +15,20 @@ const poppins = Poppins({
 });
 
 const AUDIENCE_OPTIONS = [
-  {
-    value: "Indskoling",
-    label: "Indskoling",
-    helper: "Meget enkelt sprog, korte spørgsmål og legende tempo.",
-  },
-  {
-    value: "Mellemtrin",
-    label: "Mellemtrin",
-    helper: "Bredt niveau med tydelig faglighed og energi.",
-  },
-  {
-    value: "Udskoling",
-    label: "Udskoling",
-    helper: "Mere nuancerede spørgsmål og lidt skarpere svarmuligheder.",
-  },
-  {
-    value: "Ungdomsuddannelse",
-    label: "Ungdomsuddannelse",
-    helper: "Avanceret tone med mere analytisk tyngde.",
-  },
+  { value: "Indskoling", label: "Indskoling" },
+  { value: "Mellemtrin", label: "Mellemtrin" },
+  { value: "Udskoling", label: "Udskoling" },
+  { value: "Voksne", label: "Voksne" },
 ] as const;
 
 const TONE_OPTIONS = [
-  {
-    value: "sjov",
-    label: "Sjov",
-    helper: "Let, energisk og motiverende.",
-  },
-  {
-    value: "faglig",
-    label: "Faglig",
-    helper: "Klar, skarp og undervisningsnær.",
-  },
-  {
-    value: "uhyggelig",
-    label: "Uhyggelig",
-    helper: "Spænding, mystik og dramatisk stemning.",
-  },
-  {
-    value: "historisk",
-    label: "Historisk",
-    helper: "Fortællende, stemningsfuld og tidsforankret.",
-  },
-  {
-    value: "eventyrlig",
-    label: "Eventyrlig",
-    helper: "Fantasi, opdagelse og små overraskelser.",
-  },
+  { value: "sjov", label: "Sjov" },
+  { value: "faglig", label: "Faglig" },
+  { value: "uhyggelig", label: "Uhyggelig" },
+  { value: "action", label: "Action" },
 ] as const;
 
-const QUESTION_COUNT_OPTIONS = [4, 6, 8, 10] as const;
+const DEFAULT_QUESTION_COUNT = 6;
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -121,7 +75,7 @@ function toOptionsTuple(value: unknown): [string, string, string, string] | null
 function isInterviewDraftResponse(value: unknown): value is ManualAiInterviewDraft {
   if (!value || typeof value !== "object") return false;
 
-  const candidate = value as ApiSuccessResponse & { subject?: unknown };
+  const candidate = value as ApiSuccessResponse;
   if (!asTrimmedString(candidate.title) || !asTrimmedString(candidate.description)) {
     return false;
   }
@@ -151,32 +105,38 @@ function isInterviewDraftResponse(value: unknown): value is ManualAiInterviewDra
 export default function ManualAiInterviewModal({
   open,
   initialSubject = "",
-  subjectSuggestions,
   onClose,
   onComplete,
 }: Props) {
   const [step, setStep] = useState<Step>(1);
   const [topic, setTopic] = useState("");
-  const [subject, setSubject] = useState(initialSubject);
   const [audience, setAudience] = useState<(typeof AUDIENCE_OPTIONS)[number]["value"]>("Mellemtrin");
   const [tone, setTone] = useState<(typeof TONE_OPTIONS)[number]["value"]>("sjov");
-  const [questionCount, setQuestionCount] = useState<(typeof QUESTION_COUNT_OPTIONS)[number]>(6);
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const topicInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
 
     setStep(1);
     setTopic("");
-    setSubject(initialSubject);
     setAudience("Mellemtrin");
     setTone("sjov");
-    setQuestionCount(6);
     setError(null);
     setIsGenerating(false);
-  }, [initialSubject, open]);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || step !== 1) return;
+
+    const timeoutId = window.setTimeout(() => {
+      topicInputRef.current?.focus();
+    }, 30);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [open, step]);
 
   useEffect(() => {
     return () => {
@@ -187,10 +147,16 @@ export default function ManualAiInterviewModal({
 
   if (!open) return null;
 
-  const selectedAudience = AUDIENCE_OPTIONS.find((option) => option.value === audience) ?? AUDIENCE_OPTIONS[1];
-  const selectedTone = TONE_OPTIONS.find((option) => option.value === tone) ?? TONE_OPTIONS[0];
   const trimmedTopic = topic.trim();
-  const trimmedSubject = subject.trim();
+  const trimmedSubject = initialSubject.trim();
+  const canContinue = trimmedTopic.length > 0;
+  const progress = (step / 4) * 100;
+
+  const handleClose = () => {
+    if (isGenerating) return;
+    setError(null);
+    onClose();
+  };
 
   const goBack = () => {
     if (isGenerating || step === 1) return;
@@ -199,26 +165,27 @@ export default function ManualAiInterviewModal({
   };
 
   const goNext = () => {
-    if (step !== 1 && step !== 2) return;
-
-    if (step === 1 && !trimmedTopic) {
+    if (!canContinue) {
       setError("Skriv først, hvad løbet skal handle om.");
       return;
     }
 
     setError(null);
-    setStep((current) => (current < 3 ? ((current + 1) as Step) : current));
+    setStep(2);
   };
 
-  const handleClose = () => {
+  const handleAudienceSelect = (selectedAudience: (typeof AUDIENCE_OPTIONS)[number]["value"]) => {
     if (isGenerating) return;
+
+    setAudience(selectedAudience);
     setError(null);
-    onClose();
+    setStep(3);
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (selectedTone: (typeof TONE_OPTIONS)[number]["value"]) => {
     if (!trimmedTopic || isGenerating) return;
 
+    setTone(selectedTone);
     setError(null);
     setStep(4);
     setIsGenerating(true);
@@ -237,8 +204,8 @@ export default function ManualAiInterviewModal({
           topic: trimmedTopic,
           subject: trimmedSubject || undefined,
           audience,
-          tone,
-          count: questionCount,
+          tone: selectedTone,
+          count: DEFAULT_QUESTION_COUNT,
         }),
       });
 
@@ -290,367 +257,177 @@ export default function ManualAiInterviewModal({
     }
   };
 
-  const progress = ((step - 1) / 3) * 100;
-  const featuredSubjects = subjectSuggestions.slice(0, 8);
-
   return (
     <div
-      className={`fixed inset-0 z-[1300] flex items-center justify-center bg-slate-950/82 p-4 backdrop-blur-2xl ${poppins.className}`}
+      className={`fixed inset-0 z-[1300] overflow-y-auto bg-slate-950/94 ${poppins.className}`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="manual-ai-interview-title"
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.14),transparent_24%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.14),transparent_30%),radial-gradient(circle_at_bottom,rgba(16,185,129,0.08),transparent_32%)]" />
 
-      <div className="relative grid w-full max-w-6xl overflow-hidden rounded-[2rem] border border-emerald-400/20 bg-slate-950/92 shadow-[0_32px_120px_rgba(0,0,0,0.65)] lg:grid-cols-[1.15fr_0.85fr]">
-        <section className="relative border-b border-emerald-400/10 p-6 sm:p-8 lg:border-b-0 lg:border-r">
-          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(16,185,129,0.08),transparent_40%,rgba(15,23,42,0.4))]" />
+      <div className="relative flex min-h-screen items-center justify-center px-6 py-10">
+        <div className="mx-auto w-full max-w-2xl text-center">
+          <div className="flex items-center justify-between gap-4 text-xs font-semibold tracking-[0.24em] text-slate-400 uppercase">
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={isGenerating}
+              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Luk
+            </button>
+            <span>Interview-AI</span>
+            <span>Trin {step}/4</span>
+          </div>
 
-          <div className="relative">
-            <div className="flex items-start justify-between gap-4">
-              <div className="max-w-2xl">
-                <p className="text-xs font-semibold tracking-[0.32em] text-emerald-300/70 uppercase">
-                  Interview-AI
-                </p>
+          <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-white/8">
+            <div
+              className="h-full rounded-full bg-emerald-400 transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+
+          <div className="mt-10 rounded-[2rem] border border-white/10 bg-white/[0.03] px-6 py-10 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:px-10 sm:py-14">
+            {step === 1 ? (
+              <>
+                <p className="text-sm font-semibold tracking-[0.28em] text-emerald-300 uppercase">Trin 1</p>
                 <h2
                   id="manual-ai-interview-title"
-                  className={`mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl ${rubik.className}`}
+                  className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                 >
-                  Lad os bygge et helt løb sammen
+                  Hvad skal løbet handle om?
                 </h2>
-                <p className="mt-4 max-w-2xl text-sm leading-7 text-emerald-50/78 sm:text-base">
-                  Du svarer på tre hurtige spørgsmål. Derefter bygger AI&apos;en titel, beskrivelse og et
-                  komplet sæt quiz-poster klar til kortet.
+                <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
+                  Beskriv kort temaet eller ideen, så bygger AI&apos;en resten.
                 </p>
-              </div>
 
-              <button
-                type="button"
-                onClick={handleClose}
-                disabled={isGenerating}
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Luk
-              </button>
-            </div>
-
-            <div className="mt-8">
-              <div className="flex items-center justify-between gap-3 text-xs font-semibold tracking-[0.24em] text-emerald-100/60 uppercase">
-                <span>Trin {step} af 4</span>
-                <span>{step === 4 ? "Genererer løbet" : "Interview i gang"}</span>
-              </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/8">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-lime-300 to-cyan-300 transition-all duration-500"
-                  style={{ width: `${progress}%` }}
+                <textarea
+                  ref={topicInputRef}
+                  value={topic}
+                  onChange={(event) => setTopic(event.target.value)}
+                  rows={5}
+                  placeholder="F.eks. en sjov quiz om nordisk mytologi eller et fagligt løb om brøker."
+                  className="mt-10 w-full rounded-[1.8rem] border border-white/10 bg-slate-950/90 px-6 py-5 text-left text-lg text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/50"
                 />
-              </div>
-            </div>
 
-            <div className="mt-8 min-h-[27rem]">
-              {step === 1 ? (
-                <div className="space-y-6">
-                  <div className="rounded-[1.75rem] border border-emerald-400/15 bg-white/5 p-5">
-                    <div className="flex items-center gap-3 text-emerald-200">
-                      <BookText className="h-5 w-5" />
-                      <p className="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-100/70">
-                        Trin 1 · Tema og fag
-                      </p>
-                    </div>
-
-                    <label className="mt-5 block text-sm font-semibold text-white">
-                      Hvad skal løbet handle om?
-                    </label>
-                    <textarea
-                      value={topic}
-                      onChange={(event) => setTopic(event.target.value)}
-                      rows={5}
-                      placeholder="F.eks. nordisk mytologi, brøker i 5. klasse eller en historisk tur gennem vikingetiden."
-                      className="mt-3 w-full rounded-[1.4rem] border border-emerald-400/15 bg-slate-950/65 px-4 py-4 text-base text-white placeholder:text-slate-500 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
-                    />
-
-                    <label className="mt-5 block text-sm font-semibold text-white">
-                      Fag eller kategori
-                    </label>
-                    <input
-                      value={subject}
-                      onChange={(event) => setSubject(event.target.value)}
-                      list="manual-ai-subject-suggestions"
-                      placeholder="F.eks. Dansk, Historie eller Natur/Teknologi"
-                      className="mt-3 w-full rounded-[1.4rem] border border-emerald-400/15 bg-slate-950/65 px-4 py-3 text-base text-white placeholder:text-slate-500 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
-                    />
-                    <datalist id="manual-ai-subject-suggestions">
-                      {subjectSuggestions.map((option) => (
-                        <option key={option} value={option} />
-                      ))}
-                    </datalist>
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-semibold tracking-[0.22em] text-emerald-100/60 uppercase">
-                      Hurtige forslag
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {featuredSubjects.map((option) => (
-                        <button
-                          key={option}
-                          type="button"
-                          onClick={() => setSubject(option)}
-                          className="rounded-full border border-emerald-300/15 bg-emerald-400/8 px-4 py-2 text-sm font-semibold text-emerald-50 transition hover:border-emerald-300/35 hover:bg-emerald-400/16"
-                        >
-                          {option}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                <div className="mt-10">
+                  <button
+                    type="button"
+                    onClick={goNext}
+                    disabled={!canContinue}
+                    className="inline-flex min-w-[220px] items-center justify-center rounded-[1.4rem] border border-emerald-300/30 bg-emerald-400 px-8 py-4 text-lg font-bold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Næste
+                  </button>
                 </div>
-              ) : null}
+              </>
+            ) : null}
 
-              {step === 2 ? (
-                <div className="space-y-6">
-                  <div className="rounded-[1.75rem] border border-emerald-400/15 bg-white/5 p-5">
-                    <div className="flex items-center gap-3 text-emerald-200">
-                      <GraduationCap className="h-5 w-5" />
-                      <p className="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-100/70">
-                        Trin 2 · Målgruppe
-                      </p>
-                    </div>
-                    <p className="mt-4 text-sm leading-7 text-emerald-50/78">
-                      Vælg det niveau, som spørgsmålene skal ramme. AI&apos;en tilpasser sprog, sværhedsgrad
-                      og tempo derefter.
-                    </p>
-                  </div>
+            {step === 2 ? (
+              <>
+                <p className="text-sm font-semibold tracking-[0.28em] text-emerald-300 uppercase">Trin 2</p>
+                <h2
+                  id="manual-ai-interview-title"
+                  className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
+                >
+                  Hvem er målgruppen?
+                </h2>
+                <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
+                  Vælg den gruppe, som spørgsmålene skal passe til. Klik på en mulighed for at fortsætte.
+                </p>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {AUDIENCE_OPTIONS.map((option) => {
-                      const isActive = option.value === audience;
-
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setAudience(option.value)}
-                          className={`rounded-[1.5rem] border p-4 text-left transition ${
-                            isActive
-                              ? "border-emerald-300/50 bg-emerald-400/15 shadow-[0_18px_40px_rgba(16,185,129,0.12)]"
-                              : "border-white/10 bg-white/5 hover:border-emerald-300/25 hover:bg-white/8"
-                          }`}
-                        >
-                          <p className="text-base font-bold text-white">{option.label}</p>
-                          <p className="mt-2 text-sm leading-6 text-emerald-50/72">{option.helper}</p>
-                        </button>
-                      );
-                    })}
-                  </div>
+                <div className="mx-auto mt-10 flex max-w-xl flex-col gap-4">
+                  {AUDIENCE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleAudienceSelect(option.value)}
+                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/[0.04] px-6 py-5 text-lg font-semibold text-white transition hover:border-emerald-300/40 hover:bg-emerald-400/10"
+                    >
+                      {option.label}
+                    </button>
+                  ))}
                 </div>
-              ) : null}
 
-              {step === 3 ? (
-                <div className="space-y-6">
-                  <div className="rounded-[1.75rem] border border-emerald-400/15 bg-white/5 p-5">
-                    <div className="flex items-center gap-3 text-emerald-200">
-                      <Sparkles className="h-5 w-5" />
-                      <p className="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-100/70">
-                        Trin 3 · Tone og længde
-                      </p>
-                    </div>
-                    <p className="mt-4 text-sm leading-7 text-emerald-50/78">
-                      Giv løbet en tydelig stemning. Du kan også vælge, hvor mange spørgsmål AI&apos;en skal
-                      bygge.
-                    </p>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {TONE_OPTIONS.map((option) => {
-                      const isActive = option.value === tone;
-
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setTone(option.value)}
-                          className={`rounded-[1.5rem] border p-4 text-left transition ${
-                            isActive
-                              ? "border-emerald-300/50 bg-emerald-400/15 shadow-[0_18px_40px_rgba(16,185,129,0.12)]"
-                              : "border-white/10 bg-white/5 hover:border-emerald-300/25 hover:bg-white/8"
-                          }`}
-                        >
-                          <p className="text-base font-bold text-white">{option.label}</p>
-                          <p className="mt-2 text-sm leading-6 text-emerald-50/72">{option.helper}</p>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
-                    <div className="flex items-center gap-3 text-emerald-200">
-                      <Target className="h-5 w-5" />
-                      <p className="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-100/70">
-                        Antal spørgsmål
-                      </p>
-                    </div>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {QUESTION_COUNT_OPTIONS.map((value) => {
-                        const isActive = value === questionCount;
-
-                        return (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => setQuestionCount(value)}
-                            className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                              isActive
-                                ? "border-emerald-300/50 bg-emerald-300 text-slate-950"
-                                : "border-white/10 bg-white/5 text-emerald-50 hover:border-emerald-300/25 hover:bg-white/8"
-                            }`}
-                          >
-                            {value} spørgsmål
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                <div className="mt-10">
+                  <button
+                    type="button"
+                    onClick={goBack}
+                    className="text-sm font-semibold text-slate-300 transition hover:text-white"
+                  >
+                    Tilbage
+                  </button>
                 </div>
-              ) : null}
+              </>
+            ) : null}
 
-              {step === 4 ? (
-                <div className="flex h-full min-h-[27rem] flex-col items-center justify-center rounded-[1.75rem] border border-emerald-400/15 bg-white/5 px-6 py-10 text-center">
-                  <div className="rounded-full border border-emerald-300/25 bg-emerald-400/10 p-5 text-emerald-200 shadow-[0_0_60px_rgba(16,185,129,0.18)]">
-                    <Loader2 className="h-10 w-10 animate-spin" />
-                  </div>
-                  <p className="mt-6 text-xs font-semibold tracking-[0.32em] text-emerald-100/55 uppercase">
-                    Trin 4 · Genererer
-                  </p>
-                  <h3 className={`mt-3 text-3xl font-black text-white ${rubik.className}`}>
-                    AI&apos;en bygger dit løb
-                  </h3>
-                  <p className="mt-4 max-w-xl text-sm leading-7 text-emerald-50/78 sm:text-base">
-                    Vi samler nu en fængende titel, en god beskrivelse og {questionCount} gennemarbejdede
-                    multiple-choice spørgsmål i en {selectedTone.label.toLowerCase()} tone til {audience.toLowerCase()}.
-                  </p>
+            {step === 3 ? (
+              <>
+                <p className="text-sm font-semibold tracking-[0.28em] text-emerald-300 uppercase">Trin 3</p>
+                <h2
+                  id="manual-ai-interview-title"
+                  className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
+                >
+                  Hvilken stemning skal løbet have?
+                </h2>
+                <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
+                  Vælg en retning, så genererer vi dit løb med det samme.
+                </p>
 
-                  <div className="mt-8 grid w-full max-w-2xl gap-3 sm:grid-cols-3">
-                    <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/55 p-4">
-                      <p className="text-xs font-semibold tracking-[0.22em] text-emerald-100/55 uppercase">
-                        Tema
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-white">{trimmedTopic}</p>
-                    </div>
-                    <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/55 p-4">
-                      <p className="text-xs font-semibold tracking-[0.22em] text-emerald-100/55 uppercase">
-                        Målgruppe
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-white">{selectedAudience.label}</p>
-                    </div>
-                    <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/55 p-4">
-                      <p className="text-xs font-semibold tracking-[0.22em] text-emerald-100/55 uppercase">
-                        Tone
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-white">{selectedTone.label}</p>
-                    </div>
-                  </div>
+                <div className="mx-auto mt-10 flex max-w-xl flex-col gap-4">
+                  {TONE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        void handleGenerate(option.value);
+                      }}
+                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/[0.04] px-6 py-5 text-lg font-semibold text-white transition hover:border-emerald-300/40 hover:bg-emerald-400/10"
+                    >
+                      {option.label}
+                    </button>
+                  ))}
                 </div>
-              ) : null}
-            </div>
 
-            {error ? (
-              <div className="mt-6 rounded-[1.4rem] border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-100">
-                {error}
+                <div className="mt-10">
+                  <button
+                    type="button"
+                    onClick={goBack}
+                    disabled={isGenerating}
+                    className="text-sm font-semibold text-slate-300 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Tilbage
+                  </button>
+                </div>
+              </>
+            ) : null}
+
+            {step === 4 ? (
+              <div className="flex min-h-[24rem] flex-col items-center justify-center">
+                <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 p-6 text-emerald-300">
+                  <Loader2 className="h-10 w-10 animate-spin" />
+                </div>
+                <p className="mt-8 text-sm font-semibold tracking-[0.28em] text-emerald-300 uppercase">Trin 4</p>
+                <h2
+                  id="manual-ai-interview-title"
+                  className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
+                >
+                  Genererer dit løb...
+                </h2>
+                <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
+                  Vi samler nu titel, beskrivelse og {DEFAULT_QUESTION_COUNT} multiple-choice spørgsmål.
+                </p>
               </div>
             ) : null}
 
-            <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <button
-                type="button"
-                onClick={step === 1 ? handleClose : goBack}
-                disabled={isGenerating}
-                className="inline-flex items-center justify-center gap-2 rounded-[1.3rem] border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {step === 1 ? null : <ArrowLeft className="h-4 w-4" />}
-                {step === 1 ? "Luk" : "Tilbage"}
-              </button>
-
-              <button
-                type="button"
-                onClick={step === 3 ? handleGenerate : goNext}
-                disabled={isGenerating}
-                className="inline-flex items-center justify-center gap-2 rounded-[1.3rem] border border-emerald-300/30 bg-emerald-300 px-6 py-3 text-sm font-bold text-slate-950 shadow-[0_18px_40px_rgba(110,231,183,0.16)] transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {step === 3 ? (
-                  <>
-                    <WandSparkles className="h-4 w-4" />
-                    Byg løbet
-                  </>
-                ) : (
-                  <>
-                    Næste
-                    <ArrowRight className="h-4 w-4" />
-                  </>
-                )}
-              </button>
-            </div>
+            {error ? (
+              <div className="mx-auto mt-8 max-w-xl rounded-[1.4rem] border border-red-400/20 bg-red-500/10 px-5 py-4 text-sm font-semibold text-red-100">
+                {error}
+              </div>
+            ) : null}
           </div>
-        </section>
-
-        <aside className="relative hidden p-8 lg:block">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(110,231,183,0.12),transparent_32%),linear-gradient(180deg,rgba(15,23,42,0.6),rgba(2,6,23,0.95))]" />
-
-          <div className="relative flex h-full flex-col justify-between">
-            <div>
-              <p className="text-xs font-semibold tracking-[0.28em] text-emerald-100/55 uppercase">
-                Live brief
-              </p>
-              <h3 className={`mt-4 text-2xl font-black text-white ${rubik.className}`}>
-                AI&apos;en bygger efter dine svar
-              </h3>
-              <p className="mt-4 text-sm leading-7 text-emerald-50/75">
-                Resultatet lander direkte i builderen, så du kan finpudse titel, beskrivelse og svarmuligheder
-                med det samme.
-              </p>
-            </div>
-
-            <div className="mt-8 space-y-4">
-              <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
-                <p className="text-xs font-semibold tracking-[0.22em] text-emerald-100/55 uppercase">
-                  Tema
-                </p>
-                <p className="mt-2 text-lg font-bold text-white">
-                  {trimmedTopic || "Venter på dit emne..."}
-                </p>
-              </div>
-
-              <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
-                <p className="text-xs font-semibold tracking-[0.22em] text-emerald-100/55 uppercase">
-                  Fag
-                </p>
-                <p className="mt-2 text-base font-semibold text-white">
-                  {trimmedSubject || "Valgfrit"}
-                </p>
-              </div>
-
-              <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
-                <p className="text-xs font-semibold tracking-[0.22em] text-emerald-100/55 uppercase">
-                  Målgruppe og tone
-                </p>
-                <p className="mt-2 text-base font-semibold text-white">
-                  {selectedAudience.label} · {selectedTone.label}
-                </p>
-                <p className="mt-2 text-sm leading-6 text-emerald-50/72">
-                  {selectedTone.helper}
-                </p>
-              </div>
-
-              <div className="rounded-[1.5rem] border border-emerald-300/15 bg-emerald-400/10 p-5">
-                <p className="text-xs font-semibold tracking-[0.22em] text-emerald-100/55 uppercase">
-                  Output
-                </p>
-                <p className="mt-2 text-base font-semibold text-white">
-                  Titel, beskrivelse og {questionCount} quiz-spørgsmål
-                </p>
-              </div>
-            </div>
-          </div>
-        </aside>
+        </div>
       </div>
     </div>
   );
