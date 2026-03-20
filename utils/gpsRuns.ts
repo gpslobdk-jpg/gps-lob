@@ -14,6 +14,7 @@ export const DEFAULT_MAP_CENTER = {
 } as const;
 
 type StoredDescriptionRecord = {
+  text?: unknown;
   masterCode?: unknown;
 };
 
@@ -104,7 +105,27 @@ export function readDescriptionObject(value: unknown) {
   }
 }
 
+export function readDescriptionText(value: unknown) {
+  const description = readDescriptionObject(value);
+  if (description) {
+    const text = asTrimmedString(description.text);
+    if (text) return text;
+  }
+
+  if (typeof value !== "string") return "";
+
+  const trimmed = value.trim();
+  return trimmed.startsWith("{") ? "" : trimmed;
+}
+
 export function readMasterCodeFromDescription(value: unknown) {
   const description = readDescriptionObject(value);
   return asTrimmedString(description?.masterCode);
+}
+
+export function serializeEscapeDescription(descriptionText: string, masterCode: string) {
+  return JSON.stringify({
+    text: descriptionText.trim(),
+    masterCode: asTrimmedString(masterCode),
+  });
 }

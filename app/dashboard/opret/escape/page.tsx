@@ -1,14 +1,16 @@
 ﻿"use client";
 
-import { ChevronDown, ChevronUp, Loader2, Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
+import EscapeAiInterviewModal, {
+  type EscapeAiInterviewDraft,
+} from "@/components/builders/escape/EscapeAiInterviewModal";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import type { SavedPin } from "@/components/MapPicker";
-import { ESCAPE_PROMPT, SYSTEM_ARKITEKT } from "@/constants/aiPrompts";
 import {
   DEFAULT_MAP_CENTER,
   RACE_TYPES,
@@ -16,13 +18,14 @@ import {
   asNumberOrNull,
   asTrimmedString,
   isRecord,
+  readDescriptionText,
   readMasterCodeFromDescription,
+  serializeEscapeDescription,
   toQuestionId,
 } from "@/utils/gpsRuns";
 import {
   clearRunDraft,
   readRunDraft,
-  restoreDraftBoolean,
   restoreDraftMapCenter,
   restoreDraftString,
   writeRunDraft,
@@ -146,30 +149,6 @@ const SUBJECT_TOPICS: Record<string, string[]> = {
   Musik: ["Nodelære & Rytmik", "Instrumentkendskab", "Musikhistorie & Genrer"],
 };
 
-const AI_AUDIENCE_OPTIONS = [
-  { value: "Indskoling", label: "Let og legende" },
-  { value: "Mellemtrin", label: "Bred og tilgængelig" },
-  { value: "Udskoling", label: "Mere udfordrende" },
-  { value: "Ungdomsuddannelse", label: "Avanceret" },
-] as const;
-
-const AI_SUBJECT_OPTIONS = [
-  "Dansk",
-  "Matematik",
-  "Natur/Teknik",
-  "Historie",
-  "Engelsk",
-  "Biologi",
-  "Geografi",
-  "Samfundsfag",
-  "Fysik/Kemi",
-  "Idræt",
-  "Kristendomskundskab",
-  "Musik",
-  "Billedkunst",
-  "Madkundskab",
-] as const;
-
 type Question = {
   id: number;
   type: "multiple_choice";
@@ -186,12 +165,6 @@ type Question = {
 type MapCenter = {
   lat: number;
   lng: number;
-};
-
-type GeneratedEscapeQuestion = {
-  text?: string;
-  answers?: string[];
-  correctIndex?: number;
 };
 
 type StoredEscapeQuestionRecord = {
@@ -212,20 +185,15 @@ type BuilderNotice = {
   message: string;
 };
 
-const AI_REQUEST_TIMEOUT_MS = 20_000;
 const ESCAPE_DRAFT_STORAGE_KEY = "draft_run_escape";
+const MAX_MASTER_CODE_LENGTH = 20;
 
 type EscapeBuilderDraftState = {
   title?: unknown;
+  description?: unknown;
   masterCode?: unknown;
   subject?: unknown;
-  showSubjectField?: unknown;
-  showAIMetadataFields?: unknown;
   questions?: unknown;
-  aiRunBrief?: unknown;
-  aiSubject?: unknown;
-  aiTopic?: unknown;
-  aiGrade?: unknown;
   mapCenter?: unknown;
 };
 
@@ -234,9 +202,6 @@ const textInputClass =
 
 const textareaClass =
   "w-full rounded-2xl border border-amber-500/30 bg-amber-950/20 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
-
-const previewInputClass =
-  "w-full rounded-2xl border border-slate-700 bg-slate-900/50 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const aiActionButtonClass =
   "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 px-5 py-3 text-sm font-semibold transition-all";
@@ -292,11 +257,6 @@ function toEscapeAnswers(solution: string): [string, string, string, string] {
   return [solution, "", "", ""];
 }
 
-function extractRequestedCount(text: string) {
-  const match = text.match(/\b([1-9]|1\d|20)\b/);
-  return match ? Number(match[1]) : 5;
-}
-
 function fallbackCodeBrick(index: number) {
   return `Du har fundet kode-brik ${index + 1}!`;
 }
@@ -329,6 +289,52 @@ function parseEscapeText(rawText: string, index: number) {
   };
 }
 
+function isQuestionEmpty(question: Question) {
+  return (
+    !question.text.trim() &&
+    !question.aiPrompt.trim() &&
+    !question.hint.trim() &&
+    !question.answers[0]?.trim() &&
+    !question.mediaUrl.trim() &&
+    question.lat === null &&
+    question.lng === null
+  );
+}
+
+function toInterviewEscapeQuestions(
+  puzzles: EscapeAiInterviewDraft["puzzles"],
+  masterCode: string
+): Question[] {
+  const normalizedMasterCode = normalizeMasterCode(masterCode);
+  const bricks = normalizedMasterCode.split("");
+  const timestamp = Date.now();
+
+  return puzzles
+    .map((puzzle, index): Question | null => {
+      const riddle = puzzle.riddle.trim();
+      const answer = puzzle.answer.trim();
+      const codeBrick = bricks[index]?.trim() ?? "";
+
+      if (!riddle || !answer || !codeBrick) {
+        return null;
+      }
+
+      return {
+        id: timestamp + index,
+        type: "multiple_choice",
+        text: riddle,
+        aiPrompt: codeBrick,
+        hint: "",
+        mediaUrl: "",
+        answers: toEscapeAnswers(answer),
+        correctIndex: 0,
+        lat: null,
+        lng: null,
+      };
+    })
+    .filter((question): question is Question => question !== null);
+}
+
 export default function EscapeBuilderPage() {
   return (
     <Suspense
@@ -358,24 +364,17 @@ function EscapeBuilderPageContent() {
   const editRunId = searchParams.get("id")?.trim() ?? "";
   const isEditMode = editRunId.length > 0;
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [masterCode, setMasterCode] = useState("");
   const [subject, setSubject] = useState("");
-  const [showSubjectField, setShowSubjectField] = useState(false);
-  const [showAIModal, setShowAIModal] = useState(false);
-  const [showAIMetadataFields, setShowAIMetadataFields] = useState(false);
-  const [aiRunBrief, setAiRunBrief] = useState("");
-  const [aiSubject, setAiSubject] = useState("");
-  const [aiTopic, setAiTopic] = useState("");
-  const [aiGrade, setAiGrade] = useState("Mellemtrin");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingExistingRun, setIsLoadingExistingRun] = useState(isEditMode);
   const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([createQuestion()]);
-  const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
-  const isAiBusy = isGenerating;
-  const editorLockClass = isAiBusy ? "pointer-events-none opacity-50" : "";
+  const isEditorBusy = isSaving;
+  const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
   const [mapCenter, setMapCenter] = useState<MapCenter>({
     lat: DEFAULT_MAP_CENTER.lat,
     lng: DEFAULT_MAP_CENTER.lng,
@@ -422,66 +421,62 @@ function EscapeBuilderPageContent() {
       setNotice(null);
 
       try {
+        const supabase = createClient();
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-      const supabase = createClient();
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+        if (!isActive) return;
 
-      if (!isActive) return;
+        if (userError || !user) {
+          setNotice({ tone: "error", message: "Du skal være logget ind for at redigere dette løb." });
+          return;
+        }
 
-      if (userError || !user) {
-        setNotice({ tone: "error", message: "Du skal være logget ind for at redigere dette løb." });
-        return;
-      }
+        const { data: run, error } = await supabase
+          .from("gps_runs")
+          .select("id,user_id,title,subject,description,topic,questions,race_type")
+          .eq("id", editRunId)
+          .eq("user_id", user.id)
+          .single<StoredRunRecord>();
 
-      const { data: run, error } = await supabase
-        .from("gps_runs")
-        .select("id,user_id,title,subject,description,topic,questions,race_type")
-        .eq("id", editRunId)
-        .eq("user_id", user.id)
-        .single<StoredRunRecord>();
+        if (!isActive) return;
 
-      if (!isActive) return;
+        if (error || !run) {
+          console.error("Kunne ikke hente escape-løbet til redigering:", error);
+          setNotice({
+            tone: "error",
+            message: "Vi kunne ikke åbne dette escape-løb til redigering. Tjek at du er ejer, og prøv igen fra arkivet.",
+          });
+          return;
+        }
 
-      if (error || !run) {
-        console.error("Kunne ikke hente escape-løbet til redigering:", error);
-        setNotice({
-          tone: "error",
-          message: "Vi kunne ikke åbne dette escape-løb til redigering. Tjek at du er ejer, og prøv igen fra arkivet.",
-        });
-        return;
-      }
+        const loadedQuestions = toEscapeQuestions(run.questions);
+        const loadedTopic = asTrimmedString(run.topic);
+        const loadedDescription = readDescriptionText(run.description);
+        const nextDescription = loadedDescription || loadedTopic;
+        const firstPinnedQuestion =
+          loadedQuestions.find((question) => question.lat !== null && question.lng !== null) ?? null;
 
-      const loadedQuestions = toEscapeQuestions(run.questions);
-      const loadedTopic = asTrimmedString(run.topic);
-      const firstPinnedQuestion =
-        loadedQuestions.find((question) => question.lat !== null && question.lng !== null) ?? null;
-
-      setTitle(asTrimmedString(run.title));
-      setMasterCode(readMasterCodeFromDescription(run.description));
-      setSubject(asTrimmedString(run.subject));
-      setShowSubjectField(Boolean(asTrimmedString(run.subject)));
-      setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
-      setPreviewQuestions([]);
-      setShowAIModal(false);
-      setShowAIMetadataFields(false);
-      setAiSubject("");
-      setAiRunBrief(loadedTopic);
-      setAiTopic(loadedTopic);
-      setMapCenter(
-        firstPinnedQuestion
-          ? {
-              lat: firstPinnedQuestion.lat ?? DEFAULT_MAP_CENTER.lat,
-              lng: firstPinnedQuestion.lng ?? DEFAULT_MAP_CENTER.lng,
-            }
-          : {
-              lat: DEFAULT_MAP_CENTER.lat,
-              lng: DEFAULT_MAP_CENTER.lng,
-            }
-      );
-      setLoadedRunId(run.id);
+        setTitle(asTrimmedString(run.title));
+        setDescription(nextDescription);
+        setMasterCode(readMasterCodeFromDescription(run.description));
+        setSubject(asTrimmedString(run.subject));
+        setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
+        setShowAiInterviewModal(false);
+        setMapCenter(
+          firstPinnedQuestion
+            ? {
+                lat: firstPinnedQuestion.lat ?? DEFAULT_MAP_CENTER.lat,
+                lng: firstPinnedQuestion.lng ?? DEFAULT_MAP_CENTER.lng,
+              }
+            : {
+                lat: DEFAULT_MAP_CENTER.lat,
+                lng: DEFAULT_MAP_CENTER.lng,
+              }
+        );
+        setLoadedRunId(run.id);
       } catch (error) {
         console.error("Kunne ikke indlæse escape-løbet til redigering:", error);
         if (!isActive) return;
@@ -528,19 +523,11 @@ function EscapeBuilderPageContent() {
       const restoredQuestions = toEscapeQuestions(restoredDraft.questions);
 
       setTitle(restoreDraftString(restoredDraft.title));
+      setDescription(restoreDraftString(restoredDraft.description));
       setMasterCode(restoreDraftString(restoredDraft.masterCode));
       setSubject(restoredSubject);
-      setShowSubjectField(
-        restoreDraftBoolean(restoredDraft.showSubjectField, Boolean(restoredSubject.trim()))
-      );
-      setShowAIMetadataFields(restoreDraftBoolean(restoredDraft.showAIMetadataFields));
       setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
-      setPreviewQuestions([]);
-      setShowAIModal(false);
-      setAiRunBrief(restoreDraftString(restoredDraft.aiRunBrief));
-      setAiSubject(restoreDraftString(restoredDraft.aiSubject));
-      setAiTopic(restoreDraftString(restoredDraft.aiTopic));
-      setAiGrade(restoreDraftString(restoredDraft.aiGrade) || "Mellemtrin");
+      setShowAiInterviewModal(false);
       setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
       setNotice(null);
     }
@@ -553,28 +540,18 @@ function EscapeBuilderPageContent() {
 
     writeRunDraft(ESCAPE_DRAFT_STORAGE_KEY, editRunId, {
       title,
+      description,
       masterCode,
       subject,
-      showSubjectField,
-      showAIMetadataFields,
       questions,
-      aiRunBrief,
-      aiSubject,
-      aiTopic,
-      aiGrade,
       mapCenter,
     } satisfies EscapeBuilderDraftState);
   }, [
-    aiGrade,
-    aiRunBrief,
-    aiSubject,
-    aiTopic,
+    description,
     editRunId,
     mapCenter,
     masterCode,
     questions,
-    showAIMetadataFields,
-    showSubjectField,
     subject,
     title,
   ]);
@@ -617,22 +594,6 @@ function EscapeBuilderPageContent() {
     updateQuestion(id, { answers: toEscapeAnswers(value), correctIndex: 0 });
   };
 
-  const updatePreviewQuestion = (id: number, updates: Partial<Question>) => {
-    setPreviewQuestions((current) =>
-      current.map((question) => (question.id === id ? { ...question, ...updates } : question))
-    );
-  };
-
-  const updatePreviewSolution = (id: number, value: string) => {
-    setPreviewQuestions((current) =>
-      current.map((question) =>
-        question.id === id
-          ? { ...question, answers: toEscapeAnswers(value), correctIndex: 0 }
-          : question
-      )
-    );
-  };
-
   const assignPinFromCenter = (id: number) => {
     updateQuestion(id, { lat: mapCenter.lat, lng: mapCenter.lng });
   };
@@ -641,180 +602,61 @@ function EscapeBuilderPageContent() {
     setQuestions((current) => [...current, createQuestion()]);
   };
 
-  const closeAIModal = () => {
-    if (isGenerating) return;
+  const closeAiInterviewModal = () => {
     setNotice(null);
-    setShowAIModal(false);
-    setPreviewQuestions([]);
-    setShowAIMetadataFields(false);
+    setShowAiInterviewModal(false);
   };
 
-  const handleApproveAIPreview = () => {
-    if (previewQuestions.length === 0) return;
+  const handleAiInterviewComplete = (draft: EscapeAiInterviewDraft) => {
+    const nextTitle = draft.title.trim();
+    const nextDescription = draft.description.trim();
+    const nextMasterCode = normalizeMasterCode(draft.masterCode).slice(0, MAX_MASTER_CODE_LENGTH);
+    const nextQuestions = toInterviewEscapeQuestions(draft.puzzles, nextMasterCode);
 
-    const hasExistingQuestions =
-      questions.length > 1 ||
-      questions.some(
-        (question) =>
-          question.text.trim().length > 0 ||
-          question.aiPrompt.trim().length > 0 ||
-          question.hint.trim().length > 0 ||
-          question.answers[0].trim().length > 0 ||
-          question.mediaUrl.trim().length > 0 ||
-          question.lat !== null ||
-          question.lng !== null
-      );
-
-    if (hasExistingQuestions) {
-      const shouldReplace = window.confirm(
-        "Advarsel: Dette vil erstatte alle dine nuværende poster. Er du sikker på, at du vil fortsætte?"
-      );
-
-      if (!shouldReplace) {
-        return;
-      }
-    }
-
-    setNotice(null);
-    const timestamp = Date.now();
-    const approvedQuestions = previewQuestions.map((question, index) => ({
-      ...question,
-      id: timestamp + index,
-      type: "multiple_choice" as const,
-      text: question.text.trim(),
-      aiPrompt: question.aiPrompt.trim(),
-      hint: question.hint.trim(),
-      answers: toEscapeAnswers(question.answers[0]?.trim() ?? ""),
-      correctIndex: 0,
-      lat: null,
-      lng: null,
-      mediaUrl: "",
-    }));
-
-    setQuestions(approvedQuestions);
-    setPreviewQuestions([]);
-    setShowAIModal(false);
-    setShowAIMetadataFields(false);
-  };
-
-  const handleDiscardAIPreview = () => {
-    setNotice(null);
-    setPreviewQuestions([]);
-  };
-
-  const handleAIGenerate = async () => {
-    const normalizedBrief = aiRunBrief.trim();
-    const normalizedSubject = aiSubject.trim() || subject.trim() || "Generelt";
-    const normalizedGrade = aiGrade.trim() || "Ikke angivet";
-    const requestedCount = extractRequestedCount(normalizedBrief);
-
-    setNotice(null);
-
-    if (!normalizedBrief) {
+    if (!nextTitle || !nextDescription || !nextMasterCode || nextQuestions.length === 0) {
       setNotice({
         tone: "error",
-        message: "Skriv først, hvilket emne eller niveau AI'en skal lave gåder om.",
+        message: "AI'en returnerede ingen brugbare escape-gåder. Prøv igen.",
       });
       return;
     }
 
-    const preparedBuilderPrompt = ESCAPE_PROMPT.replace("[EMNE]", normalizedBrief).replace(
-      "[MÅLGRUPPE]",
-      normalizedGrade
-    );
-    const userRequest =
-      `Lav præcis ${requestedCount} escape-poster om ${normalizedBrief}. ` +
-      `Kontekst: ${normalizedSubject}. Niveau: ${normalizedGrade}. ` +
-      `Bland sproglige gåder og ordspil, logiske mønstre og sjove matematiske gåder. ` +
-      `Hver post skal returnere en gåde i text, ét præcist svar som kode eller ord i answers[0], correctIndex: 0, ` +
-      `et kort hjælpsomt hint i text efter markøren " || HINT: ", ` +
-      `og en belønning eller ledetråd i text efter markøren " || KODEBRIK: ".`;
-
-    setIsGenerating(true);
-    setAiTopic(normalizedBrief);
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => {
-      controller.abort();
-    }, AI_REQUEST_TIMEOUT_MS);
-
-    try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        signal: controller.signal,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subject: normalizedSubject,
-          topic: normalizedBrief,
-          grade: normalizedGrade,
-          count: requestedCount,
-          prompt: userRequest,
-          systemContext: SYSTEM_ARKITEKT,
-          builderContext: preparedBuilderPrompt,
-        }),
+    if (nextMasterCode.length !== draft.puzzles.length || nextMasterCode.length !== nextQuestions.length) {
+      setNotice({
+        tone: "error",
+        message: "AI'ens master-kode passer ikke til antallet af poster. Prøv igen.",
       });
+      return;
+    }
 
-      const data = (await res.json()) as { questions?: GeneratedEscapeQuestion[]; error?: string };
+    const hasExistingContent =
+      title.trim().length > 0 ||
+      description.trim().length > 0 ||
+      masterCode.trim().length > 0 ||
+      questions.some((question) => !isQuestionEmpty(question));
 
-      if (!res.ok) {
-        throw new Error(data.error || "AI-generering fejlede");
-      }
+    if (hasExistingContent) {
+      const shouldReplace = window.confirm(
+        "AI-udkastet erstatter de nuværende escape-poster i builderen. Vil du fortsætte?"
+      );
 
-      const formattedQuestions = Array.isArray(data.questions)
-        ? data.questions
-            .map((question, index): Question | null => {
-              const answers = Array.isArray(question.answers)
-                ? question.answers.filter((item): item is string => typeof item === "string")
-                : [];
-              const safeCorrectIndex =
-                typeof question.correctIndex === "number" &&
-                Number.isInteger(question.correctIndex) &&
-                question.correctIndex >= 0 &&
-                question.correctIndex < answers.length
-                  ? question.correctIndex
-                  : 0;
-              const solution = answers[safeCorrectIndex]?.trim() || "";
-              const { riddle, hint, codeBrick } = parseEscapeText(question.text ?? "", index);
-
-              if (!riddle || !solution) return null;
-
-              return {
-                id: Date.now() + index,
-                type: "multiple_choice",
-                text: riddle,
-                aiPrompt: codeBrick,
-                hint,
-                answers: toEscapeAnswers(solution),
-                correctIndex: 0,
-                lat: null,
-                lng: null,
-                mediaUrl: "",
-              };
-            })
-            .filter((question): question is Question => question !== null)
-        : [];
-
-      if (formattedQuestions.length === 0) {
+      if (!shouldReplace) {
         setNotice({
-          tone: "error",
-          message: "AI returnerede ingen brugbare gåder. Prøv igen.",
+          tone: "success",
+          message: "Dit nuværende arbejde blev beholdt uændret.",
         });
         return;
       }
-
-      setPreviewQuestions(formattedQuestions);
-    } catch (error) {
-      console.error("AI-generering af escape-gåder fejlede:", error);
-      setNotice({
-        tone: "error",
-        message:
-          error instanceof Error && error.name === "AbortError"
-            ? "AI'en var for længe om at svare. Prøv igen."
-            : "Der skete en fejl. Prøv igen.",
-      });
-    } finally {
-      window.clearTimeout(timeoutId);
-      setIsGenerating(false);
     }
+
+    setTitle(nextTitle);
+    setDescription(nextDescription);
+    setMasterCode(nextMasterCode);
+    setQuestions(nextQuestions);
+    setNotice({
+      tone: "success",
+      message: "AI har klargjort et komplet escape room. Gennemgå felterne og placer posterne på kortet.",
+    });
   };
 
   const handleSaveRun = async () => {
@@ -834,6 +676,8 @@ function EscapeBuilderPageContent() {
       scrollToSaveFeedback();
       return;
     }
+
+    const normalizedDescription = description.trim();
 
     const normalizedQuestions = questions
       .map((question) => ({
@@ -892,9 +736,19 @@ function EscapeBuilderPageContent() {
       return;
     }
 
+    if (normalizedMasterCode.length !== normalizedQuestions.length) {
+      setNotice({
+        tone: "error",
+        message: `Master-koden skal have præcis ${normalizedQuestions.length} tegn, så hver post giver ét bogstav eller tal.`,
+      });
+      scrollToSaveFeedback();
+      return;
+    }
+
     setIsSaving(true);
 
     try {
+      const normalizedTopic = normalizedDescription || title.trim();
       const supabase = createClient();
       const {
         data: { user },
@@ -913,8 +767,8 @@ function EscapeBuilderPageContent() {
       const payload = {
         title: title.trim(),
         subject: subject.trim() || "Generelt",
-        description: JSON.stringify({ masterCode: normalizedMasterCode }),
-        topic: aiRunBrief.trim() || aiTopic || "",
+        description: serializeEscapeDescription(normalizedDescription, normalizedMasterCode),
+        topic: normalizedTopic,
         questions: normalizedQuestions,
         race_type: RACE_TYPES.ESCAPE,
       };
@@ -958,12 +812,10 @@ function EscapeBuilderPageContent() {
 
       if (!isEditMode) {
         setTitle("");
+        setDescription("");
         setMasterCode("");
         setSubject("");
-        setShowSubjectField(false);
         setQuestions([createQuestion()]);
-        setAiRunBrief("");
-        setAiTopic("");
       }
 
       await new Promise((resolve) => window.setTimeout(resolve, 450));
@@ -1007,8 +859,8 @@ function EscapeBuilderPageContent() {
           <section className="hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
             <div className="mx-auto max-w-3xl">
               <fieldset
-                disabled={isAiBusy}
-                aria-busy={isAiBusy}
+                disabled={isEditorBusy}
+                aria-busy={isEditorBusy}
                 className={`min-w-0 space-y-6 border-0 p-0 ${editorLockClass}`}
               >
               <div className="px-1 pt-1">
@@ -1025,6 +877,19 @@ function EscapeBuilderPageContent() {
                   onChange={(event) => setTitle(event.target.value)}
                   placeholder="F.eks. 6.B's store matematik-flugt"
                   className={textInputClass}
+                />
+              </div>
+
+              <div className="px-1">
+                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
+                  Beskrivelse
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  rows={4}
+                  placeholder="Skriv en kort og spændende beskrivelse af escape roomet, så det også giver mening i arkivet."
+                  className={textareaClass}
                 />
               </div>
 
@@ -1061,7 +926,7 @@ function EscapeBuilderPageContent() {
                   onChange={(event) => setMasterCode(normalizeMasterCode(event.target.value))}
                   placeholder="f.eks. GULD77"
                   className={textInputClass}
-                  maxLength={12}
+                  maxLength={MAX_MASTER_CODE_LENGTH}
                 />
               </div>
 
@@ -1070,10 +935,9 @@ function EscapeBuilderPageContent() {
                   type="button"
                   onClick={() => {
                     setNotice(null);
-                    setShowAIModal(true);
-                    setPreviewQuestions([]);
+                    setShowAiInterviewModal(true);
                   }}
-                  disabled={isAiBusy || isSaving || isLoadingExistingRun}
+                  disabled={isEditorBusy || isLoadingExistingRun}
                   className={`${aiActionButtonClass} rounded-full px-4 py-2 text-xs`}
                 >
                   <span aria-hidden>✨</span>
@@ -1195,7 +1059,7 @@ function EscapeBuilderPageContent() {
                   <button
                     type="button"
                     onClick={handleSaveRun}
-                    disabled={isSaving || isAiBusy}
+                    disabled={isSaving}
                     className="w-full rounded-[1.5rem] border border-amber-500/30 bg-amber-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-amber-500/20 transition-all hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
@@ -1216,235 +1080,12 @@ function EscapeBuilderPageContent() {
         </div>
       </div>
 
-      {showAIModal && (
-        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xl">
-          <div className="w-full max-w-3xl rounded-3xl border border-amber-500/20 bg-slate-900/60 p-6 shadow-[0_32px_100px_rgba(0,0,0,0.72)] backdrop-blur-xl sm:p-8">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold tracking-[0.28em] text-amber-100/55 uppercase">
-                  AI-modal
-                </p>
-                <h2
-                  className={`mt-3 flex items-center gap-2 text-3xl font-extrabold text-amber-100 ${rubik.className}`}
-                >
-                  <span aria-hidden>✨</span>
-                  Intelligent gåde-assistent
-                </h2>
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-amber-100/75">
-                  Fortæl kort hvilket emne eller niveau gåderne skal have (f.eks. matematik), så laver AI&apos;en resten.
-                </p>
-              </div>
-            </div>
-
-            {renderNotice("mt-6")}
-
-            {previewQuestions.length > 0 ? (
-              <div className="mt-8">
-                <p className="mb-4 text-sm text-amber-100/75">
-                  Gennemgå gåderne og ret dem til, før de overføres til kortet.
-                </p>
-
-                <div className="max-h-[58vh] space-y-4 overflow-y-auto pr-1">
-                  {previewQuestions.map((question, index) => (
-                    <div
-                      key={question.id}
-                      className="rounded-3xl border border-amber-500/20 bg-slate-900/60 p-4 backdrop-blur-xl"
-                    >
-                      <p className="mb-3 text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
-                        Gåde {index + 1}
-                      </p>
-
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-amber-100/65 uppercase">
-                        Gåden
-                      </label>
-                      <textarea
-                        value={question.text}
-                        onChange={(event) =>
-                          updatePreviewQuestion(question.id, { text: event.target.value })
-                        }
-                        rows={3}
-                        disabled={isGenerating}
-                        className={previewInputClass}
-                      />
-
-                      <label className="mt-4 mb-2 block text-xs font-semibold tracking-[0.2em] text-amber-100/65 uppercase">
-                        Svaret
-                      </label>
-                      <input
-                        type="text"
-                        value={question.answers[0]}
-                        onChange={(event) => updatePreviewSolution(question.id, event.target.value)}
-                        disabled={isGenerating}
-                        className={previewInputClass}
-                      />
-
-                      <label className="mt-4 mb-2 block text-xs font-semibold tracking-[0.2em] text-amber-100/65 uppercase">
-                        Hint til deltageren (valgfrit)
-                      </label>
-                      <input
-                        type="text"
-                        value={question.hint}
-                        onChange={(event) =>
-                          updatePreviewQuestion(question.id, { hint: event.target.value })
-                        }
-                        disabled={isGenerating}
-                        className={previewInputClass}
-                      />
-
-                      <label className="mt-4 mb-2 block text-xs font-semibold tracking-[0.2em] text-amber-100/65 uppercase">
-                        Belønning
-                      </label>
-                      <input
-                        type="text"
-                        value={question.aiPrompt}
-                        onChange={(event) =>
-                          updatePreviewQuestion(question.id, { aiPrompt: event.target.value })
-                        }
-                        disabled={isGenerating}
-                        className={previewInputClass}
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={handleApproveAIPreview}
-                    disabled={isGenerating}
-                    className={`${aiActionButtonClass} w-full`}
-                  >
-                    Godkend og placer på kortet
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDiscardAIPreview}
-                    className="w-full rounded-[1.4rem] border border-amber-500/20 bg-slate-900/60 py-3 font-semibold text-amber-100/80 transition hover:bg-slate-800/80"
-                  >
-                    Kassér og prøv igen
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="mt-8">
-                  <label className="mb-3 block text-sm font-semibold text-white">
-                    Hvad skal AI&apos;en bygge ud fra?
-                  </label>
-                  <textarea
-                    value={aiRunBrief}
-                    onChange={(event) => setAiRunBrief(event.target.value)}
-                    rows={6}
-                    disabled={isGenerating}
-                    placeholder="f.eks. Lav 5 varierede spion-gåder (både ordspil og tal), hvor svarene er koderne til at bryde ind i banken."
-                    className="w-full rounded-3xl border border-slate-700 bg-slate-900/50 p-5 text-slate-100 placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowAIMetadataFields((current) => !current)}
-                    disabled={isGenerating}
-                    className="mt-4 inline-flex items-center gap-2 text-sm text-amber-100/70 transition hover:text-amber-100"
-                  >
-                  {showAIMetadataFields ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                  Tilpas emne og sværhedsgrad (valgfrit)
-                </button>
-
-                {showAIMetadataFields ? (
-                  <section className="mt-4 rounded-3xl border border-amber-500/20 bg-slate-900/60 p-4 backdrop-blur-xl">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-amber-100/65 uppercase">
-                          Emne
-                        </label>
-                        <select
-                          value={aiSubject}
-                          onChange={(event) => setAiSubject(event.target.value)}
-                          disabled={isGenerating}
-                          className="w-full rounded-2xl border border-slate-700 bg-slate-900/50 p-3 text-slate-100 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                        >
-                          <option value="" className="bg-slate-900 text-white">
-                            Vælg et emne...
-                          </option>
-                          {AI_SUBJECT_OPTIONS.map((subjectOption) => (
-                            <option
-                              key={subjectOption}
-                              value={subjectOption}
-                              className="bg-slate-900 text-white"
-                            >
-                              {subjectOption}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-amber-100/65 uppercase">
-                          Målgruppe/Sværhedsgrad
-                        </label>
-                        <select
-                          value={aiGrade}
-                          onChange={(event) => setAiGrade(event.target.value)}
-                          disabled={isGenerating}
-                          className="w-full rounded-2xl border border-slate-700 bg-slate-900/50 p-3 text-slate-100 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                        >
-                          {AI_AUDIENCE_OPTIONS.map((gradeOption) => (
-                            <option
-                              key={gradeOption.value}
-                              value={gradeOption.value}
-                              className="bg-slate-900 text-white"
-                            >
-                              {gradeOption.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </section>
-                ) : null}
-
-                <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
-                  <button
-                    type="button"
-                    onClick={closeAIModal}
-                    disabled={isGenerating}
-                    className="rounded-[1.4rem] border border-amber-500/20 bg-slate-900/60 px-5 py-3 text-sm font-semibold text-amber-100/80 transition hover:bg-slate-800/80 disabled:opacity-60"
-                  >
-                    Luk
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAIGenerate}
-                    disabled={isGenerating}
-                    className={`${aiActionButtonClass} w-full`}
-                  >
-                    {isGenerating ? (
-                      <span className="inline-flex animate-pulse items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        🪄 Arbejder...
-                      </span>
-                    ) : (
-                      "Generer poster"
-                    )}
-                  </button>
-                </div>
-
-                {isGenerating ? (
-                  <div className="mt-4 inline-flex items-center gap-2 text-sm text-amber-100/75">
-                    <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-amber-300" />
-                    AI&apos;en skriver gåder...
-                  </div>
-                ) : null}
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <EscapeAiInterviewModal
+        open={showAiInterviewModal}
+        initialSubject={subject}
+        onClose={closeAiInterviewModal}
+        onComplete={handleAiInterviewComplete}
+      />
     </>
   );
 }
