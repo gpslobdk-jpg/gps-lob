@@ -1,14 +1,16 @@
 ﻿"use client";
 
-import { ChevronDown, ChevronUp, Loader2, Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
+import FotoAiInterviewModal, {
+  type FotoAiInterviewDraft,
+} from "@/components/builders/foto/FotoAiInterviewModal";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import type { SavedPin } from "@/components/MapPicker";
-import { FOTO_PROMPT, SYSTEM_ARKITEKT } from "@/constants/aiPrompts";
 import {
   DEFAULT_MAP_CENTER,
   RACE_TYPES,
@@ -145,30 +147,6 @@ const SUBJECT_TOPICS: Record<string, string[]> = {
   Musik: ["Nodelære & Rytmik", "Instrumentkendskab", "Musikhistorie & Genrer"],
 };
 
-const AI_AUDIENCE_OPTIONS = [
-  { value: "Indskoling", label: "Let og legende" },
-  { value: "Mellemtrin", label: "Bred og tilgængelig" },
-  { value: "Udskoling", label: "Mere udfordrende" },
-  { value: "Ungdomsuddannelse", label: "Avanceret" },
-] as const;
-
-const AI_SUBJECT_OPTIONS = [
-  "Dansk",
-  "Matematik",
-  "Natur/Teknik",
-  "Historie",
-  "Engelsk",
-  "Biologi",
-  "Geografi",
-  "Samfundsfag",
-  "Fysik/Kemi",
-  "Idræt",
-  "Kristendomskundskab",
-  "Musik",
-  "Billedkunst",
-  "Madkundskab",
-] as const;
-
 type Question = {
   id: number;
   type: "multiple_choice" | "ai_image";
@@ -184,12 +162,6 @@ type Question = {
 type MapCenter = {
   lat: number;
   lng: number;
-};
-
-type GeneratedPhotoQuestion = {
-  text?: string;
-  answers?: string[];
-  correctIndex?: number;
 };
 
 type StoredPhotoQuestionRecord = {
@@ -209,19 +181,14 @@ type BuilderNotice = {
   message: string;
 };
 
-const AI_REQUEST_TIMEOUT_MS = 20_000;
 const FOTO_DRAFT_STORAGE_KEY = "draft_run_foto";
 
 type FotoBuilderDraftState = {
   title?: unknown;
+  description?: unknown;
   subject?: unknown;
   showTeacherField?: unknown;
-  showAITeacherFields?: unknown;
   questions?: unknown;
-  aiRunBrief?: unknown;
-  aiSubject?: unknown;
-  aiTopic?: unknown;
-  aiGrade?: unknown;
   mapCenter?: unknown;
 };
 
@@ -242,9 +209,6 @@ const textInputClass =
 
 const textareaClass =
   "w-full rounded-2xl border border-sky-500/30 bg-sky-950/20 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
-
-const previewInputClass =
-  "w-full rounded-2xl border border-slate-700 bg-slate-900/50 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const aiActionButtonClass =
   "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 px-5 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
@@ -277,11 +241,6 @@ function toPhotoQuestions(value: unknown): Question[] {
     .filter((question): question is Question => question !== null);
 }
 
-function extractRequestedCount(text: string) {
-  const match = text.match(/\b([1-9]|1\d|20)\b/);
-  return match ? Number(match[1]) : 5;
-}
-
 function normalizePhotoInstruction(text: string, targetObject: string) {
   const trimmedText = text.trim();
   const trimmedTarget = targetObject.trim();
@@ -307,6 +266,72 @@ function normalizePhotoInstruction(text: string, targetObject: string) {
 
   return trimmedText;
 }
+
+function extractPhotoTargetFromMission(mission: string) {
+  const trimmedMission = mission.trim();
+  if (!trimmedMission) return "";
+
+  const patterns = [
+    /^find\s+(.+?)\s+og\s+tag\b/i,
+    /^find\s+(.+?)\s+og\s+fotograf/i,
+    /^tag et (?:tydeligt\s+)?billede af\s+(.+?)(?:[.!?]|$)/i,
+    /^fotograf(?:er|ér)\s+(.+?)(?:[.!?]|$)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = trimmedMission.match(pattern);
+    if (!match?.[1]) continue;
+
+    const candidate = match[1]
+      .replace(
+        /\s+(?:i|på|ved|hos|fra|omkring)\s+(?:jeres|dit|din|skolen|skolegården|området|nærheden|lokalområdet|omgivelser(?:ne)?|hverdagen|byen|parken|naturen)\b.*$/i,
+        ""
+      )
+      .replace(/[.,!?]+$/g, "")
+      .trim();
+
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  return trimmedMission.replace(/[.!?]+$/g, "").trim();
+}
+
+function toInterviewMissionQuestions(missions: FotoAiInterviewDraft["missions"]): Question[] {
+  const timestamp = Date.now();
+
+  return missions
+    .map((mission, index): Question | null => {
+      const text = mission.trim();
+      const targetObject = extractPhotoTargetFromMission(text);
+      const instruction = normalizePhotoInstruction(text, targetObject);
+
+      if (!instruction || !targetObject) {
+        return null;
+      }
+
+      return {
+        id: timestamp + index,
+        type: "ai_image",
+        text: instruction,
+        aiPrompt: targetObject,
+        mediaUrl: "",
+        answers: BLANK_ANSWERS,
+        correctIndex: 0,
+        lat: null,
+        lng: null,
+      };
+    })
+    .filter((question): question is Question => question !== null);
+}
+
+const isQuestionEmpty = (question: Question) =>
+  !question.text &&
+  !question.aiPrompt &&
+  !question.mediaUrl &&
+  question.lat === null &&
+  question.lng === null;
 
 export default function FotoMissionBuilderPage() {
   return (
@@ -337,23 +362,17 @@ function FotoMissionBuilderPageContent() {
   const editRunId = searchParams.get("id")?.trim() ?? "";
   const isEditMode = editRunId.length > 0;
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [subject, setSubject] = useState("");
   const [showTeacherField, setShowTeacherField] = useState(false);
-  const [showAIModal, setShowAIModal] = useState(false);
-  const [showAITeacherFields, setShowAITeacherFields] = useState(false);
-  const [aiRunBrief, setAiRunBrief] = useState("");
-  const [aiSubject, setAiSubject] = useState("");
-  const [aiTopic, setAiTopic] = useState("");
-  const [aiGrade, setAiGrade] = useState("Mellemtrin");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingExistingRun, setIsLoadingExistingRun] = useState(isEditMode);
   const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([createQuestion()]);
-  const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
-  const isAiBusy = isGenerating;
-  const editorLockClass = isAiBusy ? "pointer-events-none opacity-50" : "";
+  const isEditorBusy = isSaving;
+  const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
   const [mapCenter, setMapCenter] = useState<MapCenter>({
     lat: DEFAULT_MAP_CENTER.lat,
     lng: DEFAULT_MAP_CENTER.lng,
@@ -400,65 +419,62 @@ function FotoMissionBuilderPageContent() {
       setNotice(null);
 
       try {
+        const supabase = createClient();
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-      const supabase = createClient();
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+        if (!isActive) return;
 
-      if (!isActive) return;
+        if (userError || !user) {
+          setNotice({ tone: "error", message: "Du skal være logget ind for at redigere dette løb." });
+          return;
+        }
 
-      if (userError || !user) {
-        setNotice({ tone: "error", message: "Du skal være logget ind for at redigere dette løb." });
-        return;
-      }
+        const { data: run, error } = await supabase
+          .from("gps_runs")
+          .select("id,user_id,title,subject,description,topic,questions,race_type")
+          .eq("id", editRunId)
+          .eq("user_id", user.id)
+          .single<StoredRunRecord>();
 
-      const { data: run, error } = await supabase
-        .from("gps_runs")
-        .select("id,user_id,title,subject,description,topic,questions,race_type")
-        .eq("id", editRunId)
-        .eq("user_id", user.id)
-        .single<StoredRunRecord>();
+        if (!isActive) return;
 
-      if (!isActive) return;
+        if (error || !run) {
+          console.error("Kunne ikke hente foto-løbet til redigering:", error);
+          setNotice({
+            tone: "error",
+            message: "Vi kunne ikke åbne dette foto-løb til redigering. Tjek at du er ejer, og prøv igen fra arkivet.",
+          });
+          return;
+        }
 
-      if (error || !run) {
-        console.error("Kunne ikke hente foto-løbet til redigering:", error);
-        setNotice({
-          tone: "error",
-          message: "Vi kunne ikke åbne dette foto-løb til redigering. Tjek at du er ejer, og prøv igen fra arkivet.",
-        });
-        return;
-      }
+        const loadedQuestions = toPhotoQuestions(run.questions);
+        const loadedDescription = asTrimmedString(run.description);
+        const loadedTopic = asTrimmedString(run.topic);
+        const nextDescription = loadedDescription || loadedTopic;
+        const firstPinnedQuestion =
+          loadedQuestions.find((question) => question.lat !== null && question.lng !== null) ?? null;
 
-      const loadedQuestions = toPhotoQuestions(run.questions);
-      const loadedTopic = asTrimmedString(run.topic);
-      const firstPinnedQuestion =
-        loadedQuestions.find((question) => question.lat !== null && question.lng !== null) ?? null;
-
-      setTitle(asTrimmedString(run.title));
-      setSubject(asTrimmedString(run.subject));
-      setShowTeacherField(Boolean(asTrimmedString(run.subject)));
-      setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
-      setPreviewQuestions([]);
-      setShowAIModal(false);
-      setShowAITeacherFields(false);
-      setAiSubject("");
-      setAiRunBrief(loadedTopic);
-      setAiTopic(loadedTopic);
-      setMapCenter(
-        firstPinnedQuestion
-          ? {
-              lat: firstPinnedQuestion.lat ?? DEFAULT_MAP_CENTER.lat,
-              lng: firstPinnedQuestion.lng ?? DEFAULT_MAP_CENTER.lng,
-            }
-          : {
-              lat: DEFAULT_MAP_CENTER.lat,
-              lng: DEFAULT_MAP_CENTER.lng,
-            }
-      );
-      setLoadedRunId(run.id);
+        setTitle(asTrimmedString(run.title));
+        setDescription(nextDescription);
+        setSubject(asTrimmedString(run.subject));
+        setShowTeacherField(Boolean(asTrimmedString(run.subject)));
+        setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
+        setShowAiInterviewModal(false);
+        setMapCenter(
+          firstPinnedQuestion
+            ? {
+                lat: firstPinnedQuestion.lat ?? DEFAULT_MAP_CENTER.lat,
+                lng: firstPinnedQuestion.lng ?? DEFAULT_MAP_CENTER.lng,
+              }
+            : {
+                lat: DEFAULT_MAP_CENTER.lat,
+                lng: DEFAULT_MAP_CENTER.lng,
+              }
+        );
+        setLoadedRunId(run.id);
       } catch (error) {
         console.error("Kunne ikke indlæse foto-løbet til redigering:", error);
         if (!isActive) return;
@@ -505,18 +521,13 @@ function FotoMissionBuilderPageContent() {
       const restoredQuestions = toPhotoQuestions(restoredDraft.questions);
 
       setTitle(restoreDraftString(restoredDraft.title));
+      setDescription(restoreDraftString(restoredDraft.description));
       setSubject(restoredSubject);
       setShowTeacherField(
         restoreDraftBoolean(restoredDraft.showTeacherField, Boolean(restoredSubject.trim()))
       );
-      setShowAITeacherFields(restoreDraftBoolean(restoredDraft.showAITeacherFields));
       setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
-      setPreviewQuestions([]);
-      setShowAIModal(false);
-      setAiRunBrief(restoreDraftString(restoredDraft.aiRunBrief));
-      setAiSubject(restoreDraftString(restoredDraft.aiSubject));
-      setAiTopic(restoreDraftString(restoredDraft.aiTopic));
-      setAiGrade(restoreDraftString(restoredDraft.aiGrade) || "Mellemtrin");
+      setShowAiInterviewModal(false);
       setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
       setNotice(null);
     }
@@ -529,25 +540,17 @@ function FotoMissionBuilderPageContent() {
 
     writeRunDraft(FOTO_DRAFT_STORAGE_KEY, editRunId, {
       title,
+      description,
       subject,
       showTeacherField,
-      showAITeacherFields,
       questions,
-      aiRunBrief,
-      aiSubject,
-      aiTopic,
-      aiGrade,
       mapCenter,
     } satisfies FotoBuilderDraftState);
   }, [
-    aiGrade,
-    aiRunBrief,
-    aiSubject,
-    aiTopic,
+    description,
     editRunId,
     mapCenter,
     questions,
-    showAITeacherFields,
     showTeacherField,
     subject,
     title,
@@ -587,12 +590,6 @@ function FotoMissionBuilderPageContent() {
     );
   }
 
-  const updatePreviewQuestion = (id: number, updates: Partial<Question>) => {
-    setPreviewQuestions((current) =>
-      current.map((question) => (question.id === id ? { ...question, ...updates } : question))
-    );
-  };
-
   const assignPinFromCenter = (id: number) => {
     updateQuestion(id, { lat: mapCenter.lat, lng: mapCenter.lng });
   };
@@ -601,173 +598,50 @@ function FotoMissionBuilderPageContent() {
     setQuestions((current) => [...current, createQuestion()]);
   };
 
-  const closeAIModal = () => {
-    if (isGenerating) return;
+  const closeAiInterviewModal = () => {
     setNotice(null);
-    setShowAIModal(false);
-    setPreviewQuestions([]);
-    setShowAITeacherFields(false);
+    setShowAiInterviewModal(false);
   };
 
-  const handleApproveAIPreview = () => {
-    if (previewQuestions.length === 0) return;
+  const handleAiInterviewComplete = (draft: FotoAiInterviewDraft) => {
+    const nextTitle = draft.title.trim();
+    const nextDescription = draft.description.trim();
+    const nextQuestions = toInterviewMissionQuestions(draft.missions);
 
-    const hasExistingQuestions =
-      questions.length > 1 ||
-      questions.some(
-        (question) =>
-          question.text.trim().length > 0 ||
-          question.aiPrompt.trim().length > 0 ||
-          question.mediaUrl.trim().length > 0 ||
-          question.lat !== null ||
-          question.lng !== null
-      );
-
-    if (hasExistingQuestions) {
-      const shouldReplace = window.confirm(
-        "Advarsel: Dette vil erstatte alle dine nuværende poster. Er du sikker på, at du vil fortsætte?"
-      );
-
-      if (!shouldReplace) {
-        return;
-      }
-    }
-
-    setNotice(null);
-    const timestamp = Date.now();
-    const approvedQuestions = previewQuestions.map((question, index) => ({
-      ...question,
-      id: timestamp + index,
-      type: "ai_image" as const,
-      text: question.text.trim(),
-      aiPrompt: question.aiPrompt.trim(),
-      answers: BLANK_ANSWERS,
-      correctIndex: 0,
-      lat: null,
-      lng: null,
-      mediaUrl: "",
-    }));
-
-    setQuestions(approvedQuestions);
-    setPreviewQuestions([]);
-    setShowAIModal(false);
-    setShowAITeacherFields(false);
-  };
-
-  const handleDiscardAIPreview = () => {
-    setNotice(null);
-    setPreviewQuestions([]);
-  };
-
-  const handleAIGenerate = async () => {
-    const normalizedBrief = aiRunBrief.trim();
-    const normalizedSubject = aiSubject.trim() || subject.trim() || "Generelt";
-    const normalizedGrade = aiGrade.trim() || "Ikke angivet";
-    const requestedCount = extractRequestedCount(normalizedBrief);
-
-    setNotice(null);
-
-    if (!normalizedBrief) {
+    if (!nextTitle || !nextDescription || nextQuestions.length === 0) {
       setNotice({
         tone: "error",
-        message: "Skriv først, hvilket emne eller motiv AI'en skal tage udgangspunkt i.",
+        message: "AI'en returnerede ingen brugbare foto-missioner. Prøv igen.",
       });
       return;
     }
 
-    const preparedBuilderPrompt = FOTO_PROMPT.replace("[EMNE]", normalizedBrief).replace(
-      "[MÅLGRUPPE]",
-      normalizedGrade
-    );
-    const userRequest =
-      `Lav præcis ${requestedCount} foto-missioner om ${normalizedBrief}. ` +
-      `Kontekst: ${normalizedSubject}. Niveau: ${normalizedGrade}. ` +
-      `Hver mission skal bruge en kort instruktion til deltageren i text og et konkret målobjekt som korrekt svar.`;
+    const hasExistingContent =
+      title.trim().length > 0 ||
+      description.trim().length > 0 ||
+      questions.some((question) => !isQuestionEmpty(question));
 
-    setIsGenerating(true);
-    setAiTopic(normalizedBrief);
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => {
-      controller.abort();
-    }, AI_REQUEST_TIMEOUT_MS);
+    if (hasExistingContent) {
+      const shouldReplace = window.confirm(
+        "AI-udkastet erstatter de nuværende missioner i builderen. Vil du fortsætte?"
+      );
 
-    try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        signal: controller.signal,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subject: normalizedSubject,
-          topic: normalizedBrief,
-          grade: normalizedGrade,
-          count: requestedCount,
-          prompt: userRequest,
-          systemContext: SYSTEM_ARKITEKT,
-          builderContext: preparedBuilderPrompt,
-        }),
-      });
-
-      const data = (await res.json()) as { questions?: GeneratedPhotoQuestion[]; error?: string };
-
-      if (!res.ok) {
-        throw new Error(data.error || "AI-generering fejlede");
-      }
-
-      const formattedQuestions = Array.isArray(data.questions)
-        ? data.questions
-            .map((question, index): Question | null => {
-              const answers = Array.isArray(question.answers)
-                ? question.answers.filter((item): item is string => typeof item === "string")
-                : [];
-              const safeCorrectIndex =
-                typeof question.correctIndex === "number" &&
-                Number.isInteger(question.correctIndex) &&
-                question.correctIndex >= 0 &&
-                question.correctIndex < answers.length
-                  ? question.correctIndex
-                  : 0;
-              const targetObject = answers[safeCorrectIndex]?.trim() || answers[0]?.trim() || "";
-              const instruction = normalizePhotoInstruction(question.text ?? "", targetObject);
-
-              if (!targetObject || !instruction) return null;
-
-              return {
-                id: Date.now() + index,
-                type: "ai_image",
-                text: instruction,
-                aiPrompt: targetObject,
-                answers: BLANK_ANSWERS,
-                correctIndex: 0,
-                lat: null,
-                lng: null,
-                mediaUrl: "",
-              };
-            })
-            .filter((question): question is Question => question !== null)
-        : [];
-
-      if (formattedQuestions.length === 0) {
+      if (!shouldReplace) {
         setNotice({
-          tone: "error",
-          message: "AI returnerede ingen brugbare foto-missioner. Prøv igen.",
+          tone: "success",
+          message: "Dit nuværende arbejde blev beholdt uændret.",
         });
         return;
       }
-
-      setPreviewQuestions(formattedQuestions);
-    } catch (error) {
-      console.error("AI-fotogenerering fejlede:", error);
-      setNotice({
-        tone: "error",
-        message:
-          error instanceof Error && error.name === "AbortError"
-            ? "AI'en var for længe om at svare. Prøv igen."
-            : "Der skete en fejl. Prøv igen.",
-      });
-    } finally {
-      window.clearTimeout(timeoutId);
-      setIsGenerating(false);
     }
+
+    setTitle(nextTitle);
+    setDescription(nextDescription);
+    setQuestions(nextQuestions);
+    setNotice({
+      tone: "success",
+      message: "AI har klargjort et komplet foto-løb. Gennemgå felterne og placer missionerne på kortet.",
+    });
   };
 
   const handleSaveRun = async () => {
@@ -787,6 +661,8 @@ function FotoMissionBuilderPageContent() {
       scrollToSaveFeedback();
       return;
     }
+
+    const normalizedDescription = description.trim();
 
     const normalizedQuestions = questions
       .map((question) => ({
@@ -839,6 +715,7 @@ function FotoMissionBuilderPageContent() {
     setIsSaving(true);
 
     try {
+      const normalizedTopic = normalizedDescription || title.trim();
       const supabase = createClient();
       const {
         data: { user },
@@ -857,8 +734,8 @@ function FotoMissionBuilderPageContent() {
       const payload = {
         title: title.trim(),
         subject: subject.trim() || "Generelt",
-        description: "",
-        topic: aiRunBrief.trim() || aiTopic || "",
+        description: normalizedDescription,
+        topic: normalizedTopic,
         questions: normalizedQuestions,
         race_type: RACE_TYPES.FOTO,
       };
@@ -902,11 +779,10 @@ function FotoMissionBuilderPageContent() {
 
       if (!isEditMode) {
         setTitle("");
+        setDescription("");
         setSubject("");
         setShowTeacherField(false);
         setQuestions([createQuestion()]);
-        setAiRunBrief("");
-        setAiTopic("");
       }
 
       await new Promise((resolve) => window.setTimeout(resolve, 450));
@@ -950,24 +826,39 @@ function FotoMissionBuilderPageContent() {
           <section className="hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
             <div className="mx-auto max-w-3xl">
               <fieldset
-                disabled={isAiBusy}
-                aria-busy={isAiBusy}
+                disabled={isEditorBusy}
+                aria-busy={isEditorBusy}
                 className={`min-w-0 space-y-6 border-0 p-0 ${editorLockClass}`}
               >
-              <div className="px-1 pt-1">
-                {isEditMode ? (
-                  <div className="mb-4 inline-flex items-center rounded-full border border-sky-500/25 bg-sky-500/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-sky-100 uppercase">
-                    Edit-mode
-                  </div>
-                ) : null}
+                <div className="px-1 pt-1">
+                  {isEditMode ? (
+                    <div className="mb-4 inline-flex items-center rounded-full border border-sky-500/25 bg-sky-500/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-sky-100 uppercase">
+                      Edit-mode
+                    </div>
+                  ) : null}
+                  <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
+                    Løbets titel
+                  </label>
+                  <input
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                    disabled={isEditorBusy}
+                    placeholder="F.eks. 6.A's forårstur"
+                    className={textInputClass}
+                  />
+                </div>
+
+              <div className="px-1">
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
-                  Løbets titel
+                  Beskrivelse
                 </label>
-                <input
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  placeholder="F.eks. 6.A's forårstur"
-                  className={textInputClass}
+                <textarea
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  disabled={isEditorBusy}
+                  rows={3}
+                  placeholder="Kort pitch eller introduktion til foto-løbet"
+                  className={textareaClass}
                 />
               </div>
 
@@ -979,6 +870,7 @@ function FotoMissionBuilderPageContent() {
                   <select
                     value={subject}
                     onChange={(event) => setSubject(event.target.value)}
+                    disabled={isEditorBusy}
                     className="w-full appearance-none rounded-2xl border border-sky-500/30 bg-sky-950/20 p-3 text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
                   >
                     <option value="" className="bg-slate-900 text-white">
@@ -998,10 +890,9 @@ function FotoMissionBuilderPageContent() {
                   type="button"
                   onClick={() => {
                     setNotice(null);
-                    setShowAIModal(true);
-                    setPreviewQuestions([]);
+                    setShowAiInterviewModal(true);
                   }}
-                  disabled={isAiBusy || isSaving || isLoadingExistingRun}
+                  disabled={isEditorBusy || isLoadingExistingRun}
                   className={`${aiActionButtonClass} w-full sm:w-auto`}
                 >
                   <span aria-hidden>✨</span>
@@ -1089,28 +980,28 @@ function FotoMissionBuilderPageContent() {
                 </article>
               ))}
 
-              <div className="rounded-[2rem] border border-sky-500/30 bg-sky-950/20 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
-                <button
-                  type="button"
-                  onClick={addQuestion}
-                  className="inline-flex items-center gap-2 rounded-[1.4rem] border border-sky-500/30 bg-sky-950/20 px-4 py-3 text-sm font-semibold text-sky-100 backdrop-blur-xl transition hover:bg-sky-900/30"
-                >
-                  <Plus className="h-4 w-4" />
-                  Tilføj ny mission
-                </button>
-
-                <div ref={saveFeedbackRef} className="mt-6 space-y-4">
-                  {notice?.tone === "error" ? renderNotice() : null}
+                <div className="rounded-[2rem] border border-sky-500/30 bg-sky-950/20 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
                   <button
                     type="button"
-                    onClick={handleSaveRun}
-                    disabled={isSaving || isAiBusy}
-                    className="w-full rounded-[1.6rem] border border-sky-500/30 bg-sky-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-sky-500/20 transition-all hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={addQuestion}
+                    className="inline-flex items-center gap-2 rounded-[1.4rem] border border-sky-500/30 bg-sky-950/20 px-4 py-3 text-sm font-semibold text-sky-100 backdrop-blur-xl transition hover:bg-sky-900/30"
                   >
-                    {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
+                    <Plus className="h-4 w-4" />
+                    Tilføj ny mission
                   </button>
+
+                  <div ref={saveFeedbackRef} className="mt-6 space-y-4">
+                    {notice?.tone === "error" ? renderNotice() : null}
+                    <button
+                      type="button"
+                      onClick={handleSaveRun}
+                      disabled={isSaving}
+                      className="w-full rounded-[1.6rem] border border-sky-500/30 bg-sky-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-sky-500/20 transition-all hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
+                    </button>
+                  </div>
                 </div>
-              </div>
               </fieldset>
             </div>
           </section>
@@ -1125,212 +1016,12 @@ function FotoMissionBuilderPageContent() {
         </div>
       </div>
 
-      {showAIModal && (
-        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xl">
-          <div className="w-full max-w-3xl rounded-3xl border border-sky-500/20 bg-slate-900/60 p-6 shadow-[0_32px_100px_rgba(0,0,0,0.72)] backdrop-blur-xl sm:p-8">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold tracking-[0.28em] text-sky-100/55 uppercase">
-                  AI-modal
-                </p>
-                <h2
-                  className={`mt-3 flex items-center gap-2 text-3xl font-extrabold text-sky-100 ${rubik.className}`}
-                >
-                  <span aria-hidden>✨</span>
-                  Intelligent foto-assistent
-                </h2>
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-sky-100/75">
-                  Beskriv emne eller motivtype, så foreslår AI&apos;en motiver, som er lette at finde
-                  og lette at genkende.
-                </p>
-              </div>
-            </div>
-
-            {renderNotice("mt-6")}
-
-            {previewQuestions.length > 0 ? (
-              <div className="mt-8">
-                <p className="mb-4 text-sm text-sky-100/75">
-                  Gennemgå missionerne og ret dem til, før de overføres til kortet.
-                </p>
-
-                <div className="max-h-[58vh] space-y-4 overflow-y-auto pr-1">
-                  {previewQuestions.map((question, index) => (
-                    <div
-                      key={question.id}
-                      className="rounded-3xl border border-sky-500/20 bg-slate-900/60 p-4 backdrop-blur-xl"
-                    >
-                      <p className="mb-3 text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
-                        Mission {index + 1}
-                      </p>
-
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.12em] text-sky-100/65">
-                        Hvad skal de finde?
-                      </label>
-                      <input
-                        type="text"
-                        value={question.aiPrompt}
-                        onChange={(event) =>
-                          updatePreviewQuestion(question.id, { aiPrompt: event.target.value })
-                        }
-                        disabled={isGenerating}
-                        className={previewInputClass}
-                      />
-
-                      <label className="mt-4 mb-2 block text-xs font-semibold tracking-[0.2em] text-sky-100/65 uppercase">
-                        Instruktion
-                      </label>
-                      <textarea
-                        value={question.text}
-                        onChange={(event) =>
-                          updatePreviewQuestion(question.id, { text: event.target.value })
-                        }
-                        rows={3}
-                        disabled={isGenerating}
-                        className={previewInputClass}
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={handleApproveAIPreview}
-                    disabled={isGenerating}
-                    className={`${aiActionButtonClass} w-full`}
-                  >
-                    Godkend og placer på kortet
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDiscardAIPreview}
-                    className="w-full rounded-[1.4rem] border border-sky-500/20 bg-slate-900/60 py-3 font-semibold text-sky-100/80 transition hover:bg-slate-800/80"
-                  >
-                    Kassér og prøv igen
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="mt-8">
-                  <label className="mb-3 block text-sm font-semibold text-white">
-                    Hvad skal AI&apos;en skrive om?
-                  </label>
-                  <textarea
-                    value={aiRunBrief}
-                    onChange={(event) => setAiRunBrief(event.target.value)}
-                    rows={8}
-                    disabled={isGenerating}
-                    placeholder="f.eks. Lav 6 opgaver om ting man finder i en skov"
-                    className="w-full rounded-3xl border border-slate-700 bg-slate-900/50 p-5 text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                  />
-                </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowAITeacherFields((current) => !current)}
-                    disabled={isGenerating}
-                    className="mt-4 inline-flex items-center gap-2 text-sm text-sky-100/70 transition hover:text-sky-100"
-                  >
-                  {showAITeacherFields ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                  Tilpas emne og sværhedsgrad (valgfrit)
-                </button>
-
-                {showAITeacherFields ? (
-                  <section className="mt-4 rounded-3xl border border-sky-500/20 bg-slate-900/60 p-4 backdrop-blur-xl">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-sky-100/65 uppercase">
-                          Emne
-                        </label>
-                        <select
-                          value={aiSubject}
-                          onChange={(event) => setAiSubject(event.target.value)}
-                          disabled={isGenerating}
-                          className="w-full rounded-2xl border border-slate-700 bg-slate-900/50 p-3 text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                        >
-                          <option value="" className="bg-slate-900 text-white">
-                            Vælg et emne...
-                          </option>
-                          {AI_SUBJECT_OPTIONS.map((subjectOption) => (
-                            <option
-                              key={subjectOption}
-                              value={subjectOption}
-                              className="bg-slate-900 text-white"
-                            >
-                              {subjectOption}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-xs font-semibold tracking-[0.2em] text-sky-100/65 uppercase">
-                          Målgruppe/Sværhedsgrad
-                        </label>
-                        <select
-                          value={aiGrade}
-                          onChange={(event) => setAiGrade(event.target.value)}
-                          disabled={isGenerating}
-                          className="w-full rounded-2xl border border-slate-700 bg-slate-900/50 p-3 text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                        >
-                          {AI_AUDIENCE_OPTIONS.map((gradeOption) => (
-                            <option
-                              key={gradeOption.value}
-                              value={gradeOption.value}
-                              className="bg-slate-900 text-white"
-                            >
-                              {gradeOption.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </section>
-                ) : null}
-
-                <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
-                  <button
-                    type="button"
-                    onClick={closeAIModal}
-                    disabled={isGenerating}
-                    className="rounded-[1.4rem] border border-sky-500/20 bg-slate-900/60 px-5 py-3 text-sm font-semibold text-sky-100/80 transition hover:bg-slate-800/80 disabled:opacity-60"
-                  >
-                    Luk
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAIGenerate}
-                    disabled={isGenerating}
-                    className={`${aiActionButtonClass} w-full px-6`}
-                  >
-                    {isGenerating ? (
-                      <span className="inline-flex animate-pulse items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        🪄 Arbejder...
-                      </span>
-                    ) : (
-                      "Generer foto-missioner"
-                    )}
-                  </button>
-                </div>
-
-                {isGenerating ? (
-                  <div className="mt-4 inline-flex items-center gap-2 text-sm text-sky-100/75">
-                    <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-sky-300" />
-                    AI&apos;en leder efter gode motiver...
-                  </div>
-                ) : null}
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <FotoAiInterviewModal
+        open={showAiInterviewModal}
+        initialSubject={subject}
+        onClose={closeAiInterviewModal}
+        onComplete={handleAiInterviewComplete}
+      />
     </>
   );
 }
