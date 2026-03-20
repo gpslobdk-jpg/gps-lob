@@ -96,8 +96,15 @@ Du SKAL altid følge disse regler:
 - Hvert spørgsmål skal have præcis 4 svarmuligheder i "options".
 - "correctAnswer" skal matche én af de 4 svarmuligheder ordret.
 - Generér kun klassiske quiz-poster. Ingen foto-opgaver, ingen rollespil, ingen gåder, ingen medieelementer.
-- Titel skal være kort, fængende og brugbar i arkivet.
-- Beskrivelse skal være klar, indbydende og forklare løbets stemning og fokus i 1-2 sætninger.
+- Spørgsmålene skal have høj faglig kvalitet: de skal være lærerige, indholdsrige og faktuelt korrekte.
+- Undgå overfladiske banaliteter, trivielle standardspørgsmål og tom fyldtekst.
+- Tag målgruppen seriøst: tilpas sproget til alderen, men bevar et meningsfuldt fagligt niveau.
+- Hvis målgruppen er yngre børn, skal sproget være simpelt uden at gøre spørgsmålene fordummende lette.
+- Hvis målgruppen er ældre elever eller voksne, skal spørgsmålene være markant mere udfordrende og gerne kræve refleksion, præcis viden eller faglig forståelse.
+- De forkerte svarmuligheder skal være intelligente og plausible distractors, så de virker realistiske i konteksten.
+- Undgå joke-svar, fjollede svar og åbenlyst forkerte svarmuligheder, medmindre tonen tydeligt kræver noget mere legende. Selv ved en sjov tone skal svarene stadig være brugbare som reel quiz.
+- Titel skal være fængende, motiverende og brugbar i arkivet.
+- Beskrivelse skal være engagerende, indbydende og forklare løbets stemning og fokus i 1-2 sætninger, så eleverne får lyst til at løbe turen.
 - Spørgsmålene skal passe til en udendørs GPS-quiz og være lette at placere på et kort bagefter.
 - Svarmulighederne skal være troværdige, men tydeligt adskilte, så der kun er ét korrekt svar.
 - Tonen skal afspejle brugerens valg uden at gøre spørgsmålene useriøse eller uklare.`;
@@ -109,6 +116,9 @@ Du SKAL altid følge disse regler:
       `Tone: ${tone}.`,
       `Antal spørgsmål: ${count}.`,
       `KRITISK: Returner præcis ${count} spørgsmål. Ikke 4, ikke 6, ikke 8, ikke flere og ikke færre.`,
+      "Faglig kvalitet er afgørende: spørgsmålene skal undervise, udfordre og være faktuelt solide.",
+      "Svarmulighederne skal være realistiske distractors, så det korrekte svar ikke bliver åbenlyst.",
+      "Titel og beskrivelse skal gøre løbet indbydende og motivere deltagerne til at komme i gang.",
       "Byg nu et komplet quiz-løb med titel, beskrivelse og spørgsmål.",
       "Spørgsmålene må gerne variere i vinkel, men de skal alle tydeligt høre til samme løb.",
     ].join("\n");
