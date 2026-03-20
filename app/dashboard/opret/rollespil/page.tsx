@@ -356,6 +356,24 @@ function toInterviewRoleplayQuestions(posts: RollespilAiInterviewDraft["posts"])
   });
 }
 
+function enforceFirstRoleplayIntro(questions: Question[]) {
+  if (questions.length === 0) return questions;
+
+  return questions.map((question, index) => {
+    if (index !== 0) return question;
+
+    const characterName = question.text.trim() || question.answers[1]?.trim() || fallbackCharacterName(0);
+    const avatar = question.answers[2]?.trim() || fallbackAvatar();
+
+    return {
+      ...question,
+      postType: "intro" as const,
+      text: characterName,
+      answers: toRoleplayAnswers("", characterName, avatar),
+    };
+  });
+}
+
 export default function RollespilBuilderPage() {
   return (
     <Suspense
@@ -472,7 +490,7 @@ function RollespilBuilderPageContent() {
         return;
       }
 
-      const loadedQuestions = toRoleplayQuestions(run.questions);
+      const loadedQuestions = enforceFirstRoleplayIntro(toRoleplayQuestions(run.questions));
       const loadedDescription = readDescriptionText(run.description);
       const loadedTopic = asTrimmedString(run.topic);
       const nextDescription = loadedDescription || loadedTopic;
@@ -540,7 +558,7 @@ function RollespilBuilderPageContent() {
 
     if (restoredDraft) {
       const restoredSubject = restoreDraftString(restoredDraft.subject);
-      const restoredQuestions = toRoleplayQuestions(restoredDraft.questions);
+      const restoredQuestions = enforceFirstRoleplayIntro(toRoleplayQuestions(restoredDraft.questions));
 
       setTitle(restoreDraftString(restoredDraft.title));
       setDescription(restoreDraftString(restoredDraft.description));
@@ -657,7 +675,7 @@ function RollespilBuilderPageContent() {
   const handleAiInterviewComplete = (draft: RollespilAiInterviewDraft) => {
     const nextTitle = draft.title.trim();
     const nextDescription = draft.description.trim();
-    const nextQuestions = toInterviewRoleplayQuestions(draft.posts);
+    const nextQuestions = enforceFirstRoleplayIntro(toInterviewRoleplayQuestions(draft.posts));
 
     if (!nextTitle || !nextDescription || nextQuestions.length === 0) {
       setNotice({
@@ -724,20 +742,27 @@ function RollespilBuilderPageContent() {
     const normalizedDescription = description.trim();
 
     const normalizedQuestions = questions
-      .map((question) => ({
-        ...question,
-        type: "multiple_choice" as const,
-        post_type: question.postType ?? "quiz",
-        text: question.text.trim(),
-        aiPrompt: question.aiPrompt.trim(),
-        answers: toRoleplayAnswers(
-          (question.postType ?? "quiz") === "intro" ? "" : question.answers[0]?.trim() ?? "",
-          question.text.trim() || question.answers[1]?.trim() || "",
-          question.answers[2]?.trim() ?? ""
-        ),
-        correctIndex: 0,
-        mediaUrl: question.mediaUrl.trim(),
-      }))
+      .map((question, index) => {
+        const normalizedPostType = index === 0 ? "intro" : (question.postType ?? "quiz");
+        const normalizedCharacterName =
+          question.text.trim() || question.answers[1]?.trim() || fallbackCharacterName(index);
+        const normalizedAvatar = question.answers[2]?.trim() || fallbackAvatar();
+
+        return {
+          ...question,
+          type: "multiple_choice" as const,
+          post_type: normalizedPostType,
+          text: normalizedCharacterName,
+          aiPrompt: question.aiPrompt.trim(),
+          answers: toRoleplayAnswers(
+            normalizedPostType === "intro" ? "" : question.answers[0]?.trim() ?? "",
+            normalizedCharacterName,
+            normalizedAvatar
+          ),
+          correctIndex: 0,
+          mediaUrl: question.mediaUrl.trim(),
+        };
+      })
       .filter(
         (question) =>
           question.text.length > 0 ||

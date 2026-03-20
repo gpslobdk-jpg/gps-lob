@@ -170,6 +170,7 @@ type StoredPhotoQuestionRecord = {
   text?: unknown;
   aiPrompt?: unknown;
   ai_prompt?: unknown;
+  answers?: unknown;
   mediaUrl?: unknown;
   media_url?: unknown;
   lat?: unknown;
@@ -204,6 +205,25 @@ const createQuestion = (): Question => ({
   lng: null,
 });
 
+const buildPhotoAnswers = (targetObject: string): [string, string, string, string] => [
+  targetObject.trim(),
+  "",
+  "",
+  "",
+];
+
+function getStoredPhotoTarget(candidate: StoredPhotoQuestionRecord) {
+  const normalizedPrompt = asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt);
+  if (normalizedPrompt) return normalizedPrompt;
+
+  if (Array.isArray(candidate.answers)) {
+    const firstAnswer = candidate.answers.find((answer): answer is string => typeof answer === "string");
+    return asTrimmedString(firstAnswer);
+  }
+
+  return "";
+}
+
 const textInputClass =
   "w-full rounded-2xl border border-sky-500/30 bg-sky-950/20 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
@@ -230,9 +250,9 @@ function toPhotoQuestions(value: unknown): Question[] {
         id: toQuestionId(candidate.id, timestamp + index),
         type: "ai_image",
         text: asTrimmedString(candidate.text),
-        aiPrompt: asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt),
+        aiPrompt: getStoredPhotoTarget(candidate),
         mediaUrl: asTrimmedString(candidate.mediaUrl ?? candidate.media_url),
-        answers: BLANK_ANSWERS,
+        answers: buildPhotoAnswers(getStoredPhotoTarget(candidate)),
         correctIndex: 0,
         lat: asNumberOrNull(candidate.lat),
         lng: asNumberOrNull(candidate.lng),
@@ -317,7 +337,7 @@ function toInterviewMissionQuestions(missions: FotoAiInterviewDraft["missions"])
         text: instruction,
         aiPrompt: targetObject,
         mediaUrl: "",
-        answers: BLANK_ANSWERS,
+        answers: buildPhotoAnswers(targetObject),
         correctIndex: 0,
         lat: null,
         lng: null,
@@ -670,7 +690,7 @@ function FotoMissionBuilderPageContent() {
         type: "ai_image" as const,
         text: question.text.trim(),
         aiPrompt: question.aiPrompt.trim(),
-        answers: BLANK_ANSWERS,
+        answers: buildPhotoAnswers(question.aiPrompt.trim()),
         correctIndex: 0,
         mediaUrl: question.mediaUrl.trim(),
       }))
