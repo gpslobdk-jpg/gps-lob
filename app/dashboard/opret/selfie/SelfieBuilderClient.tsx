@@ -1,14 +1,16 @@
-﻿"use client";
+"use client";
 
-import { ChevronDown, ChevronUp, Loader2, Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import SelfieAiInterviewModal, {
+  type SelfieAiInterviewDraft,
+} from "@/components/builders/selfie/SelfieAiInterviewModal";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import type { SavedPin } from "@/components/MapPicker";
-import { SELFIE_PROMPT, SYSTEM_ARKITEKT } from "@/constants/aiPrompts";
 import {
   DEFAULT_MAP_CENTER,
   RACE_TYPES,
@@ -16,12 +18,12 @@ import {
   asNumberOrNull,
   asTrimmedString,
   isRecord,
+  readDescriptionText,
   toQuestionId,
 } from "@/utils/gpsRuns";
 import {
   clearRunDraft,
   readRunDraft,
-  restoreDraftBoolean,
   restoreDraftMapCenter,
   restoreDraftString,
   writeRunDraft,
@@ -62,13 +64,6 @@ const SUBJECT_OPTIONS = [
   "Madkundskab",
 ] as const;
 
-const GRADE_OPTIONS = [
-  "Indskoling",
-  "Mellemtrin",
-  "Udskoling",
-  "Ungdomsuddannelse",
-] as const;
-
 type Question = {
   id: number;
   type: "ai_image";
@@ -81,12 +76,6 @@ type Question = {
   lng: number | null;
 };
 
-type GeneratedQuestion = {
-  text?: string;
-  answers?: string[];
-  correctIndex?: number;
-};
-
 type StoredSelfieQuestionRecord = {
   id?: unknown;
   type?: unknown;
@@ -95,6 +84,7 @@ type StoredSelfieQuestionRecord = {
   text?: unknown;
   aiPrompt?: unknown;
   ai_prompt?: unknown;
+  answers?: unknown;
   lat?: unknown;
   lng?: unknown;
 };
@@ -109,20 +99,15 @@ type BuilderNotice = {
   message: string;
 };
 
-const AI_REQUEST_TIMEOUT_MS = 20_000;
 const SELFIE_DRAFT_STORAGE_KEY = "draft_run_selfie";
 const SELFIE_REMINDER = "Husk at få dit ansigt med på selfien!";
 const BLANK_ANSWERS: [string, string, string, string] = ["", "", "", ""];
 
 type SelfieBuilderDraftState = {
   title?: unknown;
+  description?: unknown;
   subject?: unknown;
-  showSubjectField?: unknown;
-  showAIMetadataFields?: unknown;
   questions?: unknown;
-  aiRunBrief?: unknown;
-  aiSubject?: unknown;
-  aiGrade?: unknown;
   mapCenter?: unknown;
 };
 
@@ -133,7 +118,7 @@ const textareaClass =
   "w-full rounded-2xl border border-rose-500/30 bg-rose-950/20 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const aiActionButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 px-5 py-3 text-sm font-semibold transition-all";
+  "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-rose-500/30 bg-rose-500/10 px-5 py-3 text-sm font-semibold text-rose-300 transition-all hover:bg-rose-500/20";
 
 const buildAnswers = (targetObject: string): [string, string, string, string] => [
   targetObject.trim(),
@@ -154,6 +139,18 @@ const createQuestion = (): Question => ({
   lng: null,
 });
 
+function getStoredTargetObject(candidate: StoredSelfieQuestionRecord) {
+  const normalizedPrompt = asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt);
+  if (normalizedPrompt) return normalizedPrompt;
+
+  if (Array.isArray(candidate.answers)) {
+    const firstAnswer = candidate.answers.find((answer): answer is string => typeof answer === "string");
+    return asTrimmedString(firstAnswer);
+  }
+
+  return "";
+}
+
 function toSelfieQuestions(value: unknown): Question[] {
   if (!Array.isArray(value)) return [];
 
@@ -164,7 +161,7 @@ function toSelfieQuestions(value: unknown): Question[] {
       if (!isRecord(item)) return null;
 
       const candidate = item as StoredSelfieQuestionRecord;
-      const normalizedTarget = asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt);
+      const normalizedTarget = getStoredTargetObject(candidate);
 
       return {
         id: toQuestionId(candidate.id, timestamp + index),
@@ -181,11 +178,6 @@ function toSelfieQuestions(value: unknown): Question[] {
     .filter((question): question is Question => question !== null);
 }
 
-function extractRequestedCount(text: string) {
-  const match = text.match(/\b([1-9]|1\d|20)\b/);
-  return match ? Number(match[1]) : 5;
-}
-
 function ensureSentenceEnding(value: string) {
   return /[.!?]$/.test(value) ? value : `${value}.`;
 }
@@ -199,7 +191,7 @@ function normalizeSelfieInstruction(text: string, targetObject: string) {
   const baseInstruction =
     trimmedText ||
     (trimmedTarget
-      ? `Find ${trimmedTarget.toLowerCase()} og tag en selfie med det i baggrunden`
+      ? `Tag en selfie, hvor ${trimmedTarget.toLowerCase()} kan ses på billedet`
       : "Tag en selfie på det rigtige sted");
 
   const normalizedBase = ensureSentenceEnding(baseInstruction);
@@ -210,28 +202,60 @@ function normalizeSelfieInstruction(text: string, targetObject: string) {
   return hasReminder ? normalizedBase : `${normalizedBase} ${SELFIE_REMINDER}`;
 }
 
+function isQuestionEmpty(question: Question) {
+  return (
+    !question.text.trim() &&
+    !question.aiPrompt.trim() &&
+    question.lat === null &&
+    question.lng === null
+  );
+}
+
+function toInterviewSelfieQuestions(
+  missions: SelfieAiInterviewDraft["missions"]
+): Question[] {
+  const timestamp = Date.now();
+
+  return missions
+    .map((mission, index): Question | null => {
+      const backgroundTarget = mission.backgroundTarget.trim();
+      const instruction = normalizeSelfieInstruction(mission.instruction, backgroundTarget);
+
+      if (!backgroundTarget || !instruction) {
+        return null;
+      }
+
+      return {
+        id: timestamp + index,
+        type: "ai_image",
+        isSelfie: true,
+        text: instruction,
+        aiPrompt: backgroundTarget,
+        answers: buildAnswers(backgroundTarget),
+        correctIndex: 0,
+        lat: null,
+        lng: null,
+      };
+    })
+    .filter((question): question is Question => question !== null);
+}
+
 export default function SelfieBuilderClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editRunId = searchParams.get("id")?.trim() ?? "";
   const isEditMode = editRunId.length > 0;
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [subject, setSubject] = useState("");
-  const [showSubjectField, setShowSubjectField] = useState(false);
-  const [showAIModal, setShowAIModal] = useState(false);
-  const [showAIMetadataFields, setShowAIMetadataFields] = useState(false);
-  const [aiRunBrief, setAiRunBrief] = useState("");
-  const [aiSubject, setAiSubject] = useState("");
-  const [aiGrade, setAiGrade] = useState("Mellemtrin");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingExistingRun, setIsLoadingExistingRun] = useState(isEditMode);
   const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([createQuestion()]);
-  const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
-  const isAiBusy = isGenerating;
-  const editorLockClass = isAiBusy ? "pointer-events-none opacity-50" : "";
+  const isEditorBusy = isSaving;
+  const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
   const [mapCenter, setMapCenter] = useState<MapCenter>({
     lat: DEFAULT_MAP_CENTER.lat,
     lng: DEFAULT_MAP_CENTER.lng,
@@ -278,64 +302,61 @@ export default function SelfieBuilderClient() {
       setNotice(null);
 
       try {
+        const supabase = createClient();
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-      const supabase = createClient();
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+        if (!isActive) return;
 
-      if (!isActive) return;
+        if (userError || !user) {
+          setNotice({ tone: "error", message: "Du skal være logget ind for at redigere dette løb." });
+          return;
+        }
 
-      if (userError || !user) {
-        setNotice({ tone: "error", message: "Du skal være logget ind for at redigere dette løb." });
-        return;
-      }
+        const { data: run, error } = await supabase
+          .from("gps_runs")
+          .select("id,user_id,title,subject,description,topic,questions,race_type")
+          .eq("id", editRunId)
+          .eq("user_id", user.id)
+          .single<StoredRunRecord>();
 
-      const { data: run, error } = await supabase
-        .from("gps_runs")
-        .select("id,user_id,title,subject,description,topic,questions,race_type")
-        .eq("id", editRunId)
-        .eq("user_id", user.id)
-        .single<StoredRunRecord>();
+        if (!isActive) return;
 
-      if (!isActive) return;
+        if (error || !run) {
+          console.error("Kunne ikke hente selfie-løbet til redigering:", error);
+          setNotice({
+            tone: "error",
+            message: "Vi kunne ikke åbne dette selfie-løb til redigering. Tjek at du er ejer, og prøv igen fra arkivet.",
+          });
+          return;
+        }
 
-      if (error || !run) {
-        console.error("Kunne ikke hente selfie-løbet til redigering:", error);
-        setNotice({
-          tone: "error",
-          message: "Vi kunne ikke åbne dette selfie-løb til redigering. Tjek at du er ejer, og prøv igen fra arkivet.",
-        });
-        return;
-      }
+        const loadedQuestions = toSelfieQuestions(run.questions);
+        const loadedDescription = readDescriptionText(run.description);
+        const loadedTopic = asTrimmedString(run.topic);
+        const nextDescription = loadedDescription || loadedTopic;
+        const firstPinnedQuestion =
+          loadedQuestions.find((question) => question.lat !== null && question.lng !== null) ?? null;
 
-      const loadedQuestions = toSelfieQuestions(run.questions);
-      const loadedTopic = asTrimmedString(run.topic);
-      const firstPinnedQuestion =
-        loadedQuestions.find((question) => question.lat !== null && question.lng !== null) ?? null;
-
-      setTitle(asTrimmedString(run.title));
-      setSubject(asTrimmedString(run.subject));
-      setShowSubjectField(Boolean(asTrimmedString(run.subject)));
-      setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
-      setPreviewQuestions([]);
-      setShowAIModal(false);
-      setShowAIMetadataFields(false);
-      setAiSubject("");
-      setAiRunBrief(loadedTopic);
-      setMapCenter(
-        firstPinnedQuestion
-          ? {
-              lat: firstPinnedQuestion.lat ?? DEFAULT_MAP_CENTER.lat,
-              lng: firstPinnedQuestion.lng ?? DEFAULT_MAP_CENTER.lng,
-            }
-          : {
-              lat: DEFAULT_MAP_CENTER.lat,
-              lng: DEFAULT_MAP_CENTER.lng,
-            }
-      );
-      setLoadedRunId(run.id);
+        setTitle(asTrimmedString(run.title));
+        setDescription(nextDescription);
+        setSubject(asTrimmedString(run.subject));
+        setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
+        setShowAiInterviewModal(false);
+        setMapCenter(
+          firstPinnedQuestion
+            ? {
+                lat: firstPinnedQuestion.lat ?? DEFAULT_MAP_CENTER.lat,
+                lng: firstPinnedQuestion.lng ?? DEFAULT_MAP_CENTER.lng,
+              }
+            : {
+                lat: DEFAULT_MAP_CENTER.lat,
+                lng: DEFAULT_MAP_CENTER.lng,
+              }
+        );
+        setLoadedRunId(run.id);
       } catch (error) {
         console.error("Kunne ikke indlæse selfie-løbet til redigering:", error);
         if (!isActive) return;
@@ -378,21 +399,13 @@ export default function SelfieBuilderClient() {
       : null;
 
     if (restoredDraft) {
-      const restoredSubject = restoreDraftString(restoredDraft.subject);
       const restoredQuestions = toSelfieQuestions(restoredDraft.questions);
 
       setTitle(restoreDraftString(restoredDraft.title));
-      setSubject(restoredSubject);
-      setShowSubjectField(
-        restoreDraftBoolean(restoredDraft.showSubjectField, Boolean(restoredSubject.trim()))
-      );
-      setShowAIMetadataFields(restoreDraftBoolean(restoredDraft.showAIMetadataFields));
+      setDescription(restoreDraftString(restoredDraft.description));
+      setSubject(restoreDraftString(restoredDraft.subject));
       setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
-      setPreviewQuestions([]);
-      setShowAIModal(false);
-      setAiRunBrief(restoreDraftString(restoredDraft.aiRunBrief));
-      setAiSubject(restoreDraftString(restoredDraft.aiSubject));
-      setAiGrade(restoreDraftString(restoredDraft.aiGrade) || "Mellemtrin");
+      setShowAiInterviewModal(false);
       setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
       setNotice(null);
     }
@@ -405,27 +418,12 @@ export default function SelfieBuilderClient() {
 
     writeRunDraft(SELFIE_DRAFT_STORAGE_KEY, editRunId, {
       title,
+      description,
       subject,
-      showSubjectField,
-      showAIMetadataFields,
       questions,
-      aiRunBrief,
-      aiSubject,
-      aiGrade,
       mapCenter,
     } satisfies SelfieBuilderDraftState);
-  }, [
-    aiGrade,
-    aiRunBrief,
-    aiSubject,
-    editRunId,
-    mapCenter,
-    questions,
-    showAIMetadataFields,
-    showSubjectField,
-    subject,
-    title,
-  ]);
+  }, [description, editRunId, mapCenter, questions, subject, title]);
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -445,12 +443,6 @@ export default function SelfieBuilderClient() {
     );
   };
 
-  const updatePreviewQuestion = (id: number, updates: Partial<Question>) => {
-    setPreviewQuestions((current) =>
-      current.map((question) => (question.id === id ? { ...question, ...updates } : question))
-    );
-  };
-
   const addQuestion = () => {
     setQuestions((current) => [...current, createQuestion()]);
   };
@@ -459,160 +451,50 @@ export default function SelfieBuilderClient() {
     updateQuestion(id, { lat: mapCenter.lat, lng: mapCenter.lng });
   };
 
-  const closeAIModal = () => {
-    if (isGenerating) return;
-    setShowAIModal(false);
-    setPreviewQuestions([]);
-    setShowAIMetadataFields(false);
-  };
-
-  const handleApproveAIPreview = () => {
-    if (previewQuestions.length === 0) return;
-
-    const hasExistingQuestions =
-      questions.length > 1 ||
-      questions.some(
-        (question) =>
-          question.text.trim().length > 0 ||
-          question.aiPrompt.trim().length > 0 ||
-          question.lat !== null ||
-          question.lng !== null
-      );
-
-    if (hasExistingQuestions) {
-      const shouldReplace = window.confirm(
-        "Advarsel: Dette vil erstatte alle dine nuværende poster. Er du sikker på, at du vil fortsætte?"
-      );
-
-      if (!shouldReplace) {
-        return;
-      }
-    }
-
-    const timestamp = Date.now();
-    setQuestions(
-      previewQuestions.map((question, index) => {
-        const normalizedTarget = question.aiPrompt.trim();
-        return {
-          ...question,
-          id: timestamp + index,
-          text: normalizeSelfieInstruction(question.text, normalizedTarget),
-          aiPrompt: normalizedTarget,
-          answers: buildAnswers(normalizedTarget),
-          correctIndex: 0,
-          lat: null,
-          lng: null,
-        };
-      })
-    );
-    setPreviewQuestions([]);
-    setShowAIModal(false);
-    setShowAIMetadataFields(false);
-  };
-
-  const handleAIGenerate = async () => {
-    const normalizedBrief = aiRunBrief.trim();
-    const normalizedSubject = aiSubject.trim() || subject.trim() || "Generelt";
-    const normalizedGrade = aiGrade.trim() || "Ikke angivet";
-    const requestedCount = extractRequestedCount(normalizedBrief);
-
+  const closeAiInterviewModal = () => {
     setNotice(null);
+    setShowAiInterviewModal(false);
+  };
 
-    if (!normalizedBrief) {
+  const handleAiInterviewComplete = (draft: SelfieAiInterviewDraft) => {
+    const nextTitle = draft.title.trim();
+    const nextDescription = draft.description.trim();
+    const nextQuestions = toInterviewSelfieQuestions(draft.missions);
+
+    if (!nextTitle || !nextDescription || nextQuestions.length === 0) {
       setNotice({
         tone: "error",
-        message: "Skriv først, hvilket sted eller tema AI'en skal bruge til selfie-jagten.",
+        message: "AI'en returnerede ingen brugbare selfie-poster. Prøv igen.",
       });
       return;
     }
 
-    setIsGenerating(true);
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => {
-      controller.abort();
-    }, AI_REQUEST_TIMEOUT_MS);
+    const hasExistingContent =
+      title.trim().length > 0 ||
+      description.trim().length > 0 ||
+      questions.some((question) => !isQuestionEmpty(question));
 
-    try {
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        signal: controller.signal,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subject: normalizedSubject,
-          topic: normalizedBrief,
-          grade: normalizedGrade,
-          count: requestedCount,
-          prompt:
-            `Lav præcis ${requestedCount} selfie-poster om ${normalizedBrief}. ` +
-            `Baggrundsmotivet skal være tydeligt, og instruktionen skal være kort og klar.`,
-          systemContext: SYSTEM_ARKITEKT,
-          builderContext: SELFIE_PROMPT.replace("[EMNE]", normalizedBrief).replace(
-            "[MÅLGRUPPE]",
-            normalizedGrade
-          ),
-        }),
-      });
+    if (hasExistingContent) {
+      const shouldReplace = window.confirm(
+        "AI-udkastet erstatter de nuværende selfie-poster i builderen. Vil du fortsætte?"
+      );
 
-      const data = (await response.json()) as { questions?: GeneratedQuestion[]; error?: string };
-      if (!response.ok) {
-        throw new Error(data.error || "AI-generering fejlede");
-      }
-
-      const generated = Array.isArray(data.questions)
-        ? data.questions
-            .map((question, index): Question | null => {
-              const answers = Array.isArray(question.answers)
-                ? question.answers.filter((item): item is string => typeof item === "string")
-                : [];
-              const safeCorrectIndex =
-                typeof question.correctIndex === "number" &&
-                Number.isInteger(question.correctIndex) &&
-                question.correctIndex >= 0 &&
-                question.correctIndex < answers.length
-                  ? question.correctIndex
-                  : 0;
-              const targetObject = answers[safeCorrectIndex]?.trim() || answers[0]?.trim() || "";
-              const instruction = normalizeSelfieInstruction(question.text ?? "", targetObject);
-
-              if (!targetObject || !instruction) return null;
-
-              return {
-                id: Date.now() + index,
-                type: "ai_image",
-                isSelfie: true,
-                text: instruction,
-                aiPrompt: targetObject,
-                answers: buildAnswers(targetObject),
-                correctIndex: 0,
-                lat: null,
-                lng: null,
-              };
-            })
-            .filter((question): question is Question => question !== null)
-        : [];
-
-      if (generated.length === 0) {
+      if (!shouldReplace) {
         setNotice({
-          tone: "error",
-          message: "AI returnerede ingen brugbare selfie-poster. Prøv igen.",
+          tone: "success",
+          message: "Dit nuværende arbejde blev beholdt uændret.",
         });
         return;
       }
-
-      setPreviewQuestions(generated);
-    } catch (error) {
-      console.error("AI-selfiefejl:", error);
-      setNotice({
-        tone: "error",
-        message:
-          error instanceof Error && error.name === "AbortError"
-            ? "AI'en var for længe om at svare. Prøv igen."
-            : "Der skete en fejl. Prøv igen.",
-      });
-    } finally {
-      window.clearTimeout(timeoutId);
-      setIsGenerating(false);
     }
+
+    setTitle(nextTitle);
+    setDescription(nextDescription);
+    setQuestions(nextQuestions);
+    setNotice({
+      tone: "success",
+      message: "AI har klargjort en komplet selfie-jagt. Gennemgå felterne og placer posterne på kortet.",
+    });
   };
 
   const handleSaveRun = async () => {
@@ -633,9 +515,12 @@ export default function SelfieBuilderClient() {
       return;
     }
 
+    const normalizedDescription = description.trim();
+
     const normalizedQuestions = questions
       .map((question) => {
         const normalizedTarget = question.aiPrompt.trim();
+
         return {
           ...question,
           text: normalizeSelfieInstruction(question.text, normalizedTarget),
@@ -664,7 +549,7 @@ export default function SelfieBuilderClient() {
     if (hasIncompleteQuestions) {
       setNotice({
         tone: "error",
-        message: "Udfyld både baggrundsmotiv og instruktion til deltagerne på hver post.",
+        message: "Udfyld både hvad AI'en skal genkende og instruktionen til deltagerne på hver post.",
       });
       scrollToSaveFeedback();
       return;
@@ -700,8 +585,8 @@ export default function SelfieBuilderClient() {
       const payload = {
         title: title.trim(),
         subject: subject.trim() || "Generelt",
-        description: "",
-        topic: aiRunBrief.trim(),
+        description: normalizedDescription,
+        topic: normalizedDescription || title.trim(),
         questions: normalizedQuestions,
         race_type: RACE_TYPES.SELFIE,
       };
@@ -741,11 +626,11 @@ export default function SelfieBuilderClient() {
 
       if (!isEditMode) {
         setTitle("");
+        setDescription("");
         setSubject("");
-        setShowSubjectField(false);
         setQuestions([createQuestion()]);
-        setAiRunBrief("");
       }
+
       router.push("/dashboard/arkiv");
     } catch (error) {
       console.error("Fejl ved gemning af selfie-jagt:", error);
@@ -787,77 +672,89 @@ export default function SelfieBuilderClient() {
           <section className="hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
             <div className="mx-auto max-w-3xl">
               <fieldset
-                disabled={isAiBusy}
-                aria-busy={isAiBusy}
+                disabled={isEditorBusy}
+                aria-busy={isEditorBusy}
                 className={`min-w-0 space-y-6 border-0 p-0 ${editorLockClass}`}
               >
-              <div className="px-1 pt-1">
-                {isEditMode ? (
-                  <div className="mb-4 inline-flex items-center rounded-full border border-rose-500/25 bg-rose-500/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-rose-50 uppercase">
-                    Edit-mode
-                  </div>
-                ) : null}
-                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
-                  Løbets titel
-                </label>
-                <input
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  placeholder="F.eks. 4.A's kreative selfie-jagt"
-                  className={textInputClass}
-                />
-              </div>
-
-              <div className="px-1">
-                <div className="rounded-[1.4rem] border border-rose-500/30 bg-rose-950/20 p-4 backdrop-blur-xl">
+                <div className="px-1 pt-1">
+                  {isEditMode ? (
+                    <div className="mb-4 inline-flex items-center rounded-full border border-rose-500/25 bg-rose-500/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-rose-50 uppercase">
+                      Edit-mode
+                    </div>
+                  ) : null}
                   <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
-                    Fag
+                    Løbets titel
                   </label>
-                  <select
-                    value={subject}
-                    onChange={(event) => setSubject(event.target.value)}
-                    className="w-full appearance-none rounded-2xl border border-rose-500/30 bg-rose-950/20 p-3 text-slate-100 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                  >
-                    <option value="" className="bg-slate-900 text-white">
-                      Vælg et fag til arkivet...
-                    </option>
-                    {SUBJECT_OPTIONS.map((subjectOption) => (
-                      <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
-                        {subjectOption}
+                  <input
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                    placeholder="F.eks. 4.A's kreative selfie-jagt"
+                    className={textInputClass}
+                  />
+                </div>
+
+                <div className="px-1">
+                  <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
+                    Beskrivelse
+                  </label>
+                  <textarea
+                    value={description}
+                    onChange={(event) => setDescription(event.target.value)}
+                    rows={4}
+                    placeholder="Skriv en kort og indbydende beskrivelse af selfie-jagten, så den også giver mening i arkivet."
+                    className={textareaClass}
+                  />
+                </div>
+
+                <div className="px-1">
+                  <div className="rounded-[1.4rem] border border-rose-500/30 bg-rose-950/20 p-4 backdrop-blur-xl">
+                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
+                      Fag
+                    </label>
+                    <select
+                      value={subject}
+                      onChange={(event) => setSubject(event.target.value)}
+                      className="w-full appearance-none rounded-2xl border border-rose-500/30 bg-rose-950/20 p-3 text-slate-100 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    >
+                      <option value="" className="bg-slate-900 text-white">
+                        Vælg et fag til arkivet...
                       </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-3 px-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAIModal(true);
-                    setPreviewQuestions([]);
-                  }}
-                  disabled={isAiBusy || isSaving || isLoadingExistingRun}
-                  className={`${aiActionButtonClass} rounded-full px-4 py-2 text-xs`}
-                >
-                  <span aria-hidden>✨</span>
-                  AI-udfyld
-                </button>
-
-                <div className="flex items-end justify-between gap-4">
-                  <p className="text-xs font-semibold tracking-[0.24em] text-rose-100/65 uppercase">
-                    Dine poster
-                  </p>
-                  <span className="rounded-full border border-rose-500/30 bg-rose-950/20 px-3 py-1.5 text-sm font-semibold text-rose-100/80 backdrop-blur-xl">
-                    {questions.length}
-                  </span>
+                      {SUBJECT_OPTIONS.map((subjectOption) => (
+                        <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
+                          {subjectOption}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-                {renderNotice()}
-              </div>
+                <div className="space-y-3 px-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotice(null);
+                      setShowAiInterviewModal(true);
+                    }}
+                    disabled={isEditorBusy || isLoadingExistingRun}
+                    className={`${aiActionButtonClass} rounded-full px-4 py-2 text-xs`}
+                  >
+                    <span aria-hidden>✨</span>
+                    AI-udfyld
+                  </button>
 
-              {questions.map((question, index) => {
-                return (
+                  <div className="flex items-end justify-between gap-4">
+                    <p className="text-xs font-semibold tracking-[0.24em] text-rose-100/65 uppercase">
+                      Dine poster
+                    </p>
+                    <span className="rounded-full border border-rose-500/30 bg-rose-950/20 px-3 py-1.5 text-sm font-semibold text-rose-100/80 backdrop-blur-xl">
+                      {questions.length}
+                    </span>
+                  </div>
+
+                  {renderNotice()}
+                </div>
+
+                {questions.map((question, index) => (
                   <article
                     key={question.id}
                     className="rounded-[1.7rem] border border-rose-500/30 bg-rose-950/20 p-4 shadow-[0_20px_48px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-5"
@@ -880,12 +777,12 @@ export default function SelfieBuilderClient() {
 
                     <div className="mt-4">
                       <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
-                        Hvad skal være i baggrunden?
+                        Hvad skal AI genkende? (Hold det bredt og tilgivende, f.eks. "ansigter")
                       </label>
                       <input
                         value={question.aiPrompt}
                         onChange={(event) => updateQuestion(question.id, { aiPrompt: event.target.value })}
-                        placeholder="fx Springvandet, skolens ur eller den store eg"
+                        placeholder='f.eks. "ansigter", "personer", "træ" eller "natur"'
                         className={textInputClass}
                       />
                     </div>
@@ -898,7 +795,7 @@ export default function SelfieBuilderClient() {
                         value={question.text}
                         onChange={(event) => updateQuestion(question.id, { text: event.target.value })}
                         rows={3}
-                        placeholder="f.eks. Stil jer ved springvandet. Vores AI tjekker ansigterne live og blokerer snyd med skærmbilleder!"
+                        placeholder="F.eks. Tag en selfie foran det ældste træ I kan finde, og se så forskrækkede ud som muligt."
                         className={textareaClass}
                       />
                     </div>
@@ -917,31 +814,30 @@ export default function SelfieBuilderClient() {
                       </p>
                     ) : null}
                   </article>
-                );
-              })}
+                ))}
 
-              <div className="rounded-[1.7rem] border border-rose-500/30 bg-rose-950/20 p-4 shadow-[0_20px_48px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-5">
-                <button
-                  type="button"
-                  onClick={addQuestion}
-                  className="inline-flex items-center gap-2 rounded-[1.2rem] border border-rose-500/30 bg-rose-950/20 px-4 py-3 text-sm font-semibold text-rose-100 backdrop-blur-xl transition hover:bg-rose-500/10"
-                >
-                  <Plus className="h-4 w-4" />
-                  Tilføj ny selfie-post
-                </button>
-
-                <div ref={saveFeedbackRef} className="mt-5 space-y-4">
-                  {notice?.tone === "error" ? renderNotice() : null}
+                <div className="rounded-[1.7rem] border border-rose-500/30 bg-rose-950/20 p-4 shadow-[0_20px_48px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-5">
                   <button
                     type="button"
-                    onClick={handleSaveRun}
-                    disabled={isSaving || isAiBusy}
-                    className="w-full rounded-[1.5rem] border border-rose-500/30 bg-rose-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-rose-500/20 transition-all hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={addQuestion}
+                    className="inline-flex items-center gap-2 rounded-[1.2rem] border border-rose-500/30 bg-rose-950/20 px-4 py-3 text-sm font-semibold text-rose-100 backdrop-blur-xl transition hover:bg-rose-500/10"
                   >
-                    {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
+                    <Plus className="h-4 w-4" />
+                    Tilføj ny selfie-post
                   </button>
+
+                  <div ref={saveFeedbackRef} className="mt-5 space-y-4">
+                    {notice?.tone === "error" ? renderNotice() : null}
+                    <button
+                      type="button"
+                      onClick={handleSaveRun}
+                      disabled={isSaving}
+                      className="w-full rounded-[1.5rem] border border-rose-500/30 bg-rose-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-rose-500/20 transition-all hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
+                    </button>
+                  </div>
                 </div>
-              </div>
               </fieldset>
             </div>
           </section>
@@ -956,171 +852,12 @@ export default function SelfieBuilderClient() {
         </div>
       </div>
 
-      {showAIModal && (
-        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xl">
-          <div className="w-full max-w-3xl rounded-3xl border border-rose-500/20 bg-slate-900/60 p-6 shadow-[0_32px_100px_rgba(0,0,0,0.72)] backdrop-blur-xl sm:p-8">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold tracking-[0.28em] text-rose-100/55 uppercase">
-                  AI-modal
-                </p>
-                <h2 className={`mt-3 text-3xl font-extrabold text-rose-50 ${rubik.className}`}>
-                  Intelligent selfie-assistent
-                </h2>
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-rose-100/75">
-                  Beskriv stedet, så foreslår AI&apos;en korte selfie-poster med tydelige baggrunde.
-                </p>
-              </div>
-            </div>
-
-            {previewQuestions.length > 0 ? (
-              <div className="mt-8">
-                <p className="mb-4 text-sm text-rose-100/75">
-                  Gennemgå posterne og ret dem til, før de overføres til kortet.
-                </p>
-
-                <div className="max-h-[58vh] space-y-4 overflow-y-auto pr-1">
-                  {previewQuestions.map((question, index) => (
-                    <div
-                      key={question.id}
-                      className="rounded-3xl border border-rose-500/20 bg-slate-900/60 p-4 backdrop-blur-xl"
-                    >
-                      <p className="mb-3 text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
-                        Selfie-post {index + 1}
-                      </p>
-                      <input
-                        value={question.aiPrompt}
-                        onChange={(event) =>
-                          updatePreviewQuestion(question.id, { aiPrompt: event.target.value })
-                        }
-                        disabled={isGenerating}
-                        className={textInputClass}
-                      />
-                      <textarea
-                        value={question.text}
-                        onChange={(event) =>
-                          updatePreviewQuestion(question.id, { text: event.target.value })
-                        }
-                        rows={3}
-                        disabled={isGenerating}
-                        className={`mt-3 ${textareaClass}`}
-                      />
-                      <p className="mt-3 text-sm leading-relaxed text-rose-50">
-                        {normalizeSelfieInstruction(question.text, question.aiPrompt)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={handleApproveAIPreview}
-                    disabled={isGenerating}
-                    className={`${aiActionButtonClass} w-full`}
-                  >
-                    Godkend og placer på kortet
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewQuestions([])}
-                    className="w-full rounded-[1.4rem] border border-rose-500/20 bg-slate-900/60 py-3 font-semibold text-rose-100/80 transition hover:bg-slate-800/80"
-                  >
-                    Kassér og prøv igen
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="mt-8">
-                  <label className="mb-3 block text-sm font-semibold text-rose-50">
-                    Hvad skal AI&apos;en bygge ud fra?
-                  </label>
-                  <textarea
-                    value={aiRunBrief}
-                    onChange={(event) => setAiRunBrief(event.target.value)}
-                    rows={6}
-                    disabled={isGenerating}
-                    placeholder="F.eks. Lav 6 selfie-poster i en park med tydelige steder og naturdetaljer."
-                    className="w-full rounded-3xl border border-slate-700 bg-slate-900/50 p-5 text-slate-100 placeholder:text-slate-500 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                  />
-                </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowAIMetadataFields((current) => !current)}
-                    disabled={isGenerating}
-                    className="mt-4 inline-flex items-center gap-2 text-sm text-rose-100/70 transition hover:text-rose-100"
-                  >
-                  {showAIMetadataFields ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  Tilpas fag og niveau (valgfrit)
-                </button>
-
-                {showAIMetadataFields ? (
-                  <section className="mt-4 rounded-3xl border border-rose-500/20 bg-slate-900/60 p-4 backdrop-blur-xl">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <select
-                        value={aiSubject}
-                        onChange={(event) => setAiSubject(event.target.value)}
-                        disabled={isGenerating}
-                        className="w-full rounded-2xl border border-slate-700 bg-slate-900/50 p-3 text-slate-100 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                      >
-                        <option value="" className="bg-slate-900 text-white">
-                          Vælg fag...
-                        </option>
-                        {SUBJECT_OPTIONS.map((subjectOption) => (
-                          <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
-                            {subjectOption}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={aiGrade}
-                        onChange={(event) => setAiGrade(event.target.value)}
-                        disabled={isGenerating}
-                        className="w-full rounded-2xl border border-slate-700 bg-slate-900/50 p-3 text-slate-100 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                      >
-                        {GRADE_OPTIONS.map((gradeOption) => (
-                          <option key={gradeOption} value={gradeOption} className="bg-slate-900 text-white">
-                            {gradeOption}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </section>
-                ) : null}
-
-                <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
-                  <button
-                    type="button"
-                    onClick={closeAIModal}
-                    disabled={isGenerating}
-                    className="rounded-[1.4rem] border border-rose-500/20 bg-slate-900/60 px-5 py-3 text-sm font-semibold text-rose-100/80 transition hover:bg-slate-800/80 disabled:opacity-60"
-                  >
-                    Luk
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAIGenerate}
-                    disabled={isGenerating}
-                    className={`${aiActionButtonClass} w-full`}
-                  >
-                    {isGenerating ? (
-                      <span className="inline-flex animate-pulse items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        🪄 Arbejder...
-                      </span>
-                    ) : (
-                      "Generer poster"
-                    )}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <SelfieAiInterviewModal
+        open={showAiInterviewModal}
+        initialSubject={subject}
+        onClose={closeAiInterviewModal}
+        onComplete={handleAiInterviewComplete}
+      />
     </>
   );
 }
-
