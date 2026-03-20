@@ -11,7 +11,7 @@ const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const DEFAULT_COUNT = 6;
+const DEFAULT_COUNT = 10;
 const OPENAI_TIMEOUT_MS = 45_000;
 
 const interviewPayloadSchema = z
@@ -20,7 +20,7 @@ const interviewPayloadSchema = z
     subject: z.string().trim().max(80).optional().default(""),
     audience: z.string().trim().min(1).max(80),
     tone: z.string().trim().min(1).max(80),
-    count: z.number().int().min(3).max(10).optional().default(DEFAULT_COUNT),
+    count: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(20)]).optional().default(DEFAULT_COUNT),
   })
   .strict();
 
@@ -92,6 +92,7 @@ Du SKAL altid følge disse regler:
 - Alt indhold skal være på dansk.
 - Returner kun gyldigt JSON, der matcher schemaet.
 - Returner præcis ${count} multiple-choice spørgsmål.
+- Du må under ingen omstændigheder returnere færre eller flere end ${count} spørgsmål.
 - Hvert spørgsmål skal have præcis 4 svarmuligheder i "options".
 - "correctAnswer" skal matche én af de 4 svarmuligheder ordret.
 - Generér kun klassiske quiz-poster. Ingen foto-opgaver, ingen rollespil, ingen gåder, ingen medieelementer.
@@ -107,6 +108,7 @@ Du SKAL altid følge disse regler:
       `Målgruppe: ${audience}.`,
       `Tone: ${tone}.`,
       `Antal spørgsmål: ${count}.`,
+      `KRITISK: Returner præcis ${count} spørgsmål. Ikke 4, ikke 6, ikke 8, ikke flere og ikke færre.`,
       "Byg nu et komplet quiz-løb med titel, beskrivelse og spørgsmål.",
       "Spørgsmålene må gerne variere i vinkel, men de skal alle tydeligt høre til samme løb.",
     ].join("\n");

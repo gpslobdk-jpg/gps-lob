@@ -28,9 +28,10 @@ const TONE_OPTIONS = [
   { value: "action", label: "Action" },
 ] as const;
 
-const DEFAULT_QUESTION_COUNT = 6;
+const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
+const DEFAULT_QUESTION_COUNT: (typeof QUESTION_COUNT_OPTIONS)[number] = 10;
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3 | 4 | 5;
 
 export type ManualAiInterviewQuestion = {
   question: string;
@@ -112,6 +113,8 @@ export default function ManualAiInterviewModal({
   const [topic, setTopic] = useState("");
   const [audience, setAudience] = useState<(typeof AUDIENCE_OPTIONS)[number]["value"]>("Mellemtrin");
   const [tone, setTone] = useState<(typeof TONE_OPTIONS)[number]["value"]>("sjov");
+  const [questionCount, setQuestionCount] =
+    useState<(typeof QUESTION_COUNT_OPTIONS)[number]>(DEFAULT_QUESTION_COUNT);
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -124,6 +127,7 @@ export default function ManualAiInterviewModal({
     setTopic("");
     setAudience("Mellemtrin");
     setTone("sjov");
+    setQuestionCount(DEFAULT_QUESTION_COUNT);
     setError(null);
     setIsGenerating(false);
   }, [open]);
@@ -150,7 +154,7 @@ export default function ManualAiInterviewModal({
   const trimmedTopic = topic.trim();
   const trimmedSubject = initialSubject.trim();
   const canContinue = trimmedTopic.length > 0;
-  const progress = (step / 4) * 100;
+  const progress = (step / 5) * 100;
 
   const handleClose = () => {
     if (isGenerating) return;
@@ -182,12 +186,20 @@ export default function ManualAiInterviewModal({
     setStep(3);
   };
 
-  const handleGenerate = async (selectedTone: (typeof TONE_OPTIONS)[number]["value"]) => {
-    if (!trimmedTopic || isGenerating) return;
+  const handleToneSelect = (selectedTone: (typeof TONE_OPTIONS)[number]["value"]) => {
+    if (isGenerating) return;
 
     setTone(selectedTone);
     setError(null);
     setStep(4);
+  };
+
+  const handleGenerate = async (selectedCount: (typeof QUESTION_COUNT_OPTIONS)[number]) => {
+    if (!trimmedTopic || isGenerating) return;
+
+    setQuestionCount(selectedCount);
+    setError(null);
+    setStep(5);
     setIsGenerating(true);
 
     const controller = new AbortController();
@@ -204,8 +216,8 @@ export default function ManualAiInterviewModal({
           topic: trimmedTopic,
           subject: trimmedSubject || undefined,
           audience,
-          tone: selectedTone,
-          count: DEFAULT_QUESTION_COUNT,
+          tone,
+          count: selectedCount,
         }),
       });
 
@@ -249,7 +261,7 @@ export default function ManualAiInterviewModal({
         return;
       }
 
-      setStep(3);
+      setStep(4);
       setError(requestError instanceof Error ? requestError.message : "Noget gik galt. Prøv igen.");
     } finally {
       abortRef.current = null;
@@ -278,7 +290,7 @@ export default function ManualAiInterviewModal({
               Luk
             </button>
             <span>Interview-AI</span>
-            <span>Trin {step}/4</span>
+            <span>Trin {step}/5</span>
           </div>
 
           <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-white/8">
@@ -380,9 +392,7 @@ export default function ManualAiInterviewModal({
                     <button
                       key={option.value}
                       type="button"
-                      onClick={() => {
-                        void handleGenerate(option.value);
-                      }}
+                      onClick={() => handleToneSelect(option.value)}
                       className="w-full rounded-[1.6rem] border border-white/10 bg-white/[0.04] px-6 py-5 text-lg font-semibold text-white transition hover:border-emerald-300/40 hover:bg-emerald-400/10"
                     >
                       {option.label}
@@ -404,11 +414,52 @@ export default function ManualAiInterviewModal({
             ) : null}
 
             {step === 4 ? (
+              <>
+                <p className="text-sm font-semibold tracking-[0.28em] text-emerald-300 uppercase">Trin 4</p>
+                <h2
+                  id="manual-ai-interview-title"
+                  className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
+                >
+                  Hvor mange poster skal løbet have?
+                </h2>
+                <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
+                  Vælg længden på løbet. Klik på en mulighed for at starte genereringen.
+                </p>
+
+                <div className="mx-auto mt-10 flex max-w-xl flex-col gap-4">
+                  {QUESTION_COUNT_OPTIONS.map((countOption) => (
+                    <button
+                      key={countOption}
+                      type="button"
+                      onClick={() => {
+                        void handleGenerate(countOption);
+                      }}
+                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/[0.04] px-6 py-5 text-lg font-semibold text-white transition hover:border-emerald-300/40 hover:bg-emerald-400/10"
+                    >
+                      {countOption} poster
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-10">
+                  <button
+                    type="button"
+                    onClick={goBack}
+                    disabled={isGenerating}
+                    className="text-sm font-semibold text-slate-300 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Tilbage
+                  </button>
+                </div>
+              </>
+            ) : null}
+
+            {step === 5 ? (
               <div className="flex min-h-[24rem] flex-col items-center justify-center">
                 <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 p-6 text-emerald-300">
                   <Loader2 className="h-10 w-10 animate-spin" />
                 </div>
-                <p className="mt-8 text-sm font-semibold tracking-[0.28em] text-emerald-300 uppercase">Trin 4</p>
+                <p className="mt-8 text-sm font-semibold tracking-[0.28em] text-emerald-300 uppercase">Trin 5</p>
                 <h2
                   id="manual-ai-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
@@ -416,7 +467,7 @@ export default function ManualAiInterviewModal({
                   Genererer dit løb...
                 </h2>
                 <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
-                  Vi samler nu titel, beskrivelse og {DEFAULT_QUESTION_COUNT} multiple-choice spørgsmål.
+                  Vi samler nu titel, beskrivelse og {questionCount} multiple-choice spørgsmål.
                 </p>
               </div>
             ) : null}
