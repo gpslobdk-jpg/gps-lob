@@ -1,9 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Check, ChevronDown, ChevronUp, ImageIcon, Loader2, Plus, Sparkles, Youtube } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, ImageIcon, Loader2, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
 import { type ChangeEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
@@ -516,8 +514,7 @@ function OpretLoebPageContent() {
   const defaultQuestionType = getQuestionTypeFromQuery(searchParams.get("type"));
   const editRunId = searchParams.get("id")?.trim() ?? "";
   const isEditMode = editRunId.length > 0;
-  const addQuestionLabel =
-    defaultQuestionType === "ai_image" ? "Tilføj ny mission" : "Tilføj nyt spørgsmål";
+  const addQuestionLabel = "Tilføj nyt spørgsmål";
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [subject, setSubject] = useState<string>("");
@@ -538,17 +535,12 @@ function OpretLoebPageContent() {
   const [isAutoGeneratingRun, setIsAutoGeneratingRun] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingExistingRun, setIsLoadingExistingRun] = useState(isEditMode);
-  const [generatingImages, setGeneratingImages] = useState<Record<number, boolean>>({});
   const [questions, setQuestions] = useState<Question[]>(() => [createQuestion(defaultQuestionType)]);
   const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
   const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>(DEFAULT_MAP_CENTER);
-  const isGeneratingAnyImage = useMemo(
-    () => Object.values(generatingImages).some(Boolean),
-    [generatingImages]
-  );
-  const isAiBusy = isGenerating || isAutoGeneratingRun || isGeneratingAnyImage;
+  const isAiBusy = isGenerating || isAutoGeneratingRun;
   const editorLockClass = isAiBusy ? "pointer-events-none opacity-50" : "";
 
   const renderNotice = (className = "") =>
@@ -707,7 +699,6 @@ function OpretLoebPageContent() {
       setShowTeacherField(Boolean(asTrimmedString(run.subject)));
       setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion(defaultQuestionType)]);
       setPreviewQuestions([]);
-      setGeneratingImages({});
       setShowAIModal(false);
       setShowAITeacherFields(false);
       setAiSubject("");
@@ -778,7 +769,6 @@ function OpretLoebPageContent() {
         restoredQuestions.length > 0 ? restoredQuestions : [createQuestion(defaultQuestionType)]
       );
       setPreviewQuestions([]);
-      setGeneratingImages({});
       setShowAIModal(false);
       setAiRunBrief(restoreDraftString(restoredDraft.aiRunBrief));
       setAiSubject(restoreDraftString(restoredDraft.aiSubject));
@@ -934,7 +924,7 @@ function OpretLoebPageContent() {
     const approvedQuestions: Question[] = previewQuestions.map((q, index) => ({
       ...q,
       id: timestamp + index,
-      type: q.type === "ai_image" ? "ai_image" : "multiple_choice",
+      type: "multiple_choice",
       text: q.text.trim(),
       aiPrompt: q.aiPrompt.trim(),
       answers: toAnswersTuple(q.answers),
@@ -1115,7 +1105,6 @@ function OpretLoebPageContent() {
       setDescription(nextDescription);
       setQuestions(nextQuestions);
       setPreviewQuestions([]);
-      setGeneratingImages({});
       setShowAIModal(false);
       setShowAITeacherFields(false);
       setAiRunBrief(nextTopicSeed);
@@ -1210,7 +1199,7 @@ function OpretLoebPageContent() {
             index: number
           ) => ({
             id: Date.now() + index,
-            type: q.type === "ai_image" ? "ai_image" : "multiple_choice",
+            type: "multiple_choice",
             text: q.text,
             aiPrompt:
               typeof q.aiPrompt === "string"
@@ -1255,55 +1244,6 @@ function OpretLoebPageContent() {
     }
   };
 
-  const handleGenerateAIImage = async (questionId: number, questionText: string) => {
-    const normalizedSubject = aiSubject.trim() || subject.trim() || "Generelt";
-    const normalizedTopic = aiTopic.trim() || aiRunBrief.trim() || description.trim();
-
-    if (!normalizedTopic) {
-      setNotice({
-        tone: "error",
-        message: "Generér først spørgsmål i AI-assistenten, så emnet er sat.",
-      });
-      return;
-    }
-
-    setGeneratingImages((prev) => ({ ...prev, [questionId]: true }));
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => {
-      controller.abort();
-    }, AI_REQUEST_TIMEOUT_MS);
-
-    try {
-      const res = await fetch("/api/generate-image", {
-        method: "POST",
-        signal: controller.signal,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questionText, subject: normalizedSubject, topic: normalizedTopic }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.error || "Billedgenerering fejlede");
-      }
-
-      if (data.imageUrl) {
-        updateQuestion(questionId, "mediaUrl", data.imageUrl);
-      }
-    } catch (error) {
-      console.error(error);
-      setNotice({
-        tone: "error",
-        message:
-          error instanceof Error && error.name === "AbortError"
-            ? "AI-billedet var for længe om at blive genereret. Prøv igen."
-            : "Der skete en fejl. Prøv igen.",
-      });
-    } finally {
-      window.clearTimeout(timeoutId);
-      setGeneratingImages((prev) => ({ ...prev, [questionId]: false }));
-    }
-  };
-
   const handleSaveRun = async () => {
     setNotice(null);
 
@@ -1325,7 +1265,7 @@ function OpretLoebPageContent() {
     const normalizedQuestions = questions
       .map((q) => ({
         ...q,
-        type: q.type === "ai_image" ? "ai_image" : "multiple_choice",
+        type: "multiple_choice",
         text: q.text.trim(),
         aiPrompt: q.aiPrompt.trim(),
         answers: q.answers.map((answer) => answer.trim()) as Question["answers"],
@@ -1347,14 +1287,12 @@ function OpretLoebPageContent() {
 
     const hasIncompleteQuestions = normalizedQuestions.some((q) => {
       if (!q.text) return true;
-      if (q.type === "ai_image") return !q.aiPrompt;
       return q.answers.some((answer) => !answer);
     });
     if (hasIncompleteQuestions) {
       setNotice({
         tone: "error",
-        message:
-          "Udfyld postens tekst. Multiple choice kræver fire svarmuligheder, og AI-billede kræver AI-instruks.",
+        message: "Udfyld postens tekst og alle fire svarmuligheder.",
       });
       scrollToSaveFeedback();
       return;
@@ -1446,7 +1384,6 @@ function OpretLoebPageContent() {
         setQuestions([createQuestion(defaultQuestionType)]);
         setAiRunBrief("");
         setAiTopic("");
-        setGeneratingImages({});
       }
 
       await new Promise((resolve) => window.setTimeout(resolve, 450));
@@ -1458,9 +1395,6 @@ function OpretLoebPageContent() {
       setIsSaving(false);
     }
   };
-
-  const truncateText = (text: string, length: number) =>
-    text.length > length ? text.substring(0, length) + "..." : text;
 
   if (isEditMode && isLoadingExistingRun) {
     return (
@@ -1593,9 +1527,7 @@ function OpretLoebPageContent() {
                         {questionIndex + 1}
                       </div>
                       <div>
-                        <h3 className={`text-lg font-bold text-emerald-100 ${rubik.className}`}>
-                          {question.type === "ai_image" ? "Foto-post" : "Quiz-post"}
-                        </h3>
+                        <h3 className={`text-lg font-bold text-emerald-100 ${rubik.className}`}>Quiz-post</h3>
                         <p className="text-xs text-emerald-100/65">
                           {question.lat !== null && question.lng !== null
                             ? "Pin er valgt på kortet"
@@ -1604,8 +1536,8 @@ function OpretLoebPageContent() {
                       </div>
                     </div>
                     <span className="rounded-full border border-emerald-500/30 bg-emerald-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-emerald-100/75 uppercase backdrop-blur-xl">
-                      {question.type === "ai_image" ? "AI foto" : "4 svar"}
-                      </span>
+                      4 svar
+                    </span>
                   </div>
 
                   <div className="mt-4">
@@ -1621,138 +1553,56 @@ function OpretLoebPageContent() {
                     />
                   </div>
 
-                  {question.type === "ai_image" ? (
-                    <div className="mt-4 rounded-[1.4rem] border border-emerald-500/30 bg-emerald-950/20 p-3 backdrop-blur-xl">
-                      <label className="mb-2 block text-sm font-semibold text-emerald-100">
-                        Instruks til AI-dommeren
-                      </label>
-                      <textarea
-                        value={question.aiPrompt}
-                        onChange={(event) => updateQuestion(question.id, { aiPrompt: event.target.value })}
-                        disabled={isAiBusy}
-                        rows={4}
-                        placeholder="Hvad skal deltagerne tage billede af? F.eks. 'Find et egetræ' eller 'Tag et billede af noget rundt og blåt'."
-                        className="w-full rounded-2xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                      />
-                      <p className="mt-2 text-xs text-emerald-100/70">
-                        Skriv en tydelig dommer-instruks, så AI&apos;en kan vurdere billedet præcist.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="mt-4 space-y-2">
-                      {question.answers.map((answer, answerIndex) => {
-                        const isCorrectAnswer = question.correctIndex === answerIndex;
+                  <div className="mt-4 space-y-2">
+                    {question.answers.map((answer, answerIndex) => {
+                      const isCorrectAnswer = question.correctIndex === answerIndex;
 
-                        return (
-                          <div
-                            key={`${question.id}-${answerIndex}`}
-                            className={`flex items-center gap-2.5 rounded-[1.25rem] border px-3 py-2.5 transition ${
+                      return (
+                        <div
+                          key={`${question.id}-${answerIndex}`}
+                          className={`flex items-center gap-2.5 rounded-[1.25rem] border px-3 py-2.5 transition ${
+                            isCorrectAnswer
+                              ? "border-emerald-300/40 bg-emerald-500/12 shadow-[0_14px_28px_rgba(16,185,129,0.12)]"
+                              : "border-emerald-500/30 bg-emerald-950/20 hover:border-emerald-400/25"
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => updateQuestion(question.id, { correctIndex: answerIndex })}
+                            aria-label={`Markér svar ${answerIndex + 1} som korrekt`}
+                            aria-pressed={isCorrectAnswer}
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-black transition ${
                               isCorrectAnswer
-                                ? "border-emerald-300/40 bg-emerald-500/12 shadow-[0_14px_28px_rgba(16,185,129,0.12)]"
-                                : "border-emerald-500/30 bg-emerald-950/20 hover:border-emerald-400/25"
+                                ? "border-emerald-200 bg-emerald-300 text-[#062515] shadow-[0_0_18px_rgba(110,231,183,0.24)]"
+                                : "border-emerald-500/30 bg-emerald-950/20 text-emerald-100/78 hover:border-emerald-300/30"
                             }`}
                           >
-                            <button
-                              type="button"
-                              onClick={() => updateQuestion(question.id, { correctIndex: answerIndex })}
-                              aria-label={`Markér svar ${answerIndex + 1} som korrekt`}
-                              aria-pressed={isCorrectAnswer}
-                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-black transition ${
-                                isCorrectAnswer
-                                  ? "border-emerald-200 bg-emerald-300 text-[#062515] shadow-[0_0_18px_rgba(110,231,183,0.24)]"
-                                  : "border-emerald-500/30 bg-emerald-950/20 text-emerald-100/78 hover:border-emerald-300/30"
-                              }`}
-                            >
-                              {String.fromCharCode(65 + answerIndex)}
-                            </button>
+                            {String.fromCharCode(65 + answerIndex)}
+                          </button>
 
-                            <input
-                              value={answer}
-                              onChange={(event) => updateAnswer(question.id, answerIndex, event.target.value)}
-                              disabled={isAiBusy}
-                              placeholder={`Svar ${answerIndex + 1}`}
-                              className="min-w-0 flex-1 bg-transparent py-1 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                            />
+                          <input
+                            value={answer}
+                            onChange={(event) => updateAnswer(question.id, answerIndex, event.target.value)}
+                            disabled={isAiBusy}
+                            placeholder={`Svar ${answerIndex + 1}`}
+                            className="min-w-0 flex-1 bg-transparent py-1 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                          />
 
-                            <button
-                              type="button"
-                              onClick={() => updateQuestion(question.id, { correctIndex: answerIndex })}
-                              className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] transition ${
-                                isCorrectAnswer
-                                  ? "border-emerald-200/60 bg-emerald-300 text-[#062515]"
-                                  : "border-emerald-500/30 bg-emerald-950/20 text-emerald-100/72 hover:border-emerald-300/30 hover:text-emerald-100"
-                              }`}
-                            >
-                              {isCorrectAnswer ? <Check className="h-3.5 w-3.5" /> : null}
-                              {isCorrectAnswer ? "Korrekt" : "Markér"}
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  <div className="mt-4 rounded-[1.4rem] border border-emerald-500/30 bg-emerald-950/20 p-3 backdrop-blur-xl">
-                    <div className="flex flex-wrap items-center gap-2 text-sm text-emerald-100/75">
-                      <ImageIcon className="h-4 w-4 text-emerald-200" />
-                      <Youtube className="h-4 w-4 text-emerald-200" />
-                      <span>Medie (valgfrit)</span>
-                    </div>
-
-                    {question.mediaUrl && question.mediaUrl.startsWith("http") && (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="relative mx-auto mt-4 aspect-video w-full max-w-[300px] overflow-hidden rounded-2xl border border-emerald-500/30 bg-emerald-950/20 shadow-2xl backdrop-blur-xl"
-                      >
-                        <Image
-                          src={question.mediaUrl}
-                          alt="Preview"
-                          fill
-                          sizes="(max-width: 640px) 100vw, 300px"
-                          className="object-cover"
-                          unoptimized
-                          loader={({ src }) => src}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                        <button
-                          type="button"
-                          onClick={() => updateQuestion(question.id, "mediaUrl", "")}
-                          className="absolute top-2 right-2 rounded-full bg-slate-900/60 p-1.5 text-emerald-100 transition hover:bg-emerald-900/80"
-                        >
-                          ✕
-                        </button>
-                      </motion.div>
-                    )}
-
-                    <div className="mt-3 flex flex-col gap-2.5 xl:flex-row xl:items-center">
-                      <input
-                        type="text"
-                        placeholder="Indsæt link til billede eller YouTube-video..."
-                        value={question.mediaUrl || ""}
-                        onChange={(e) => updateQuestion(question.id, "mediaUrl", e.target.value)}
-                        disabled={isAiBusy}
-                        className="min-w-0 flex-1 rounded-2xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleGenerateAIImage(question.id, question.text)}
-                        disabled={isAiBusy || !question.text}
-                        className={`${aiActionButtonClass} rounded-2xl px-4 py-3 text-xs uppercase tracking-[0.18em]`}
-                      >
-                        {generatingImages[question.id] ? (
-                          <span className="inline-flex animate-pulse items-center gap-2">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            🪄 Arbejder...
-                          </span>
-                        ) : (
-                          <>
-                            <Sparkles className="h-4 w-4" />
-                            Generér billede til &quot;{truncateText(question.text || "posten", 24)}&quot;
-                          </>
-                        )}
-                      </button>
-                    </div>
+                          <button
+                            type="button"
+                            onClick={() => updateQuestion(question.id, { correctIndex: answerIndex })}
+                            className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] transition ${
+                              isCorrectAnswer
+                                ? "border-emerald-200/60 bg-emerald-300 text-[#062515]"
+                                : "border-emerald-500/30 bg-emerald-950/20 text-emerald-100/72 hover:border-emerald-300/30 hover:text-emerald-100"
+                            }`}
+                          >
+                            {isCorrectAnswer ? <Check className="h-3.5 w-3.5" /> : null}
+                            {isCorrectAnswer ? "Korrekt" : "Markér"}
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
 
                   <button
