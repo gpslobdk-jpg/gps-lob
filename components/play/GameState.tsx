@@ -36,6 +36,7 @@ import type {
 import {
   AUTO_UNLOCK_RADIUS,
   MANUAL_UNLOCK_RADIUS,
+  buildRouteOrder,
   clearStoredActiveParticipant,
   compressImageForUpload,
   containsBadWord,
@@ -45,11 +46,14 @@ import {
   getGpsErrorContent,
   getNormalizedAnsweredPostIndex,
   getQuestionDisplayText,
+  getNextRoutePostIndex,
+  getRouteStepIndex,
   getRoleplayAvatar,
   getRoleplayCharacterName,
   getRoleplayCharacterPersonality,
   getRoleplayCorrectAnswer,
   getRoleplayMessage,
+  isMissingColumnError,
   normalizeMasterCode,
   normalizeRaceMode,
   parseQuestion,
@@ -57,7 +61,9 @@ import {
   reloadPage,
   resolvePostVariant,
   saveStoredActiveParticipant,
+  supportsStaggeredStart,
   toFiniteNumber,
+  toIntegerStartOffset,
 } from "./playUtils";
 import { createClient } from "@/utils/supabase/client";
 
@@ -148,6 +154,7 @@ export function usePlayGameState({
   const [participantId, setParticipantId] = useState<string | null>(
     () => storedParticipantOnLoad?.participantId ?? null
   );
+  const [startOffset, setStartOffset] = useState(() => storedParticipantOnLoad?.startOffset ?? 0);
   const supabase = useMemo(
     () => createClient({ participantId, sessionId }),
     [participantId, sessionId]
@@ -195,18 +202,21 @@ export function usePlayGameState({
   }, []);
 
   const rememberActiveParticipant = useCallback(
-    (nextParticipantId: string, nextStudentName: string) => {
+    (nextParticipantId: string, nextStudentName: string, nextStartOffset?: number | null) => {
       if (!sessionId || !nextParticipantId) return;
       const normalizedName = nextStudentName.trim();
+      const resolvedStartOffset = toIntegerStartOffset(nextStartOffset) ?? startOffset;
       setParticipantId(nextParticipantId);
+      setStartOffset(resolvedStartOffset);
       saveStoredActiveParticipant({
         participantId: nextParticipantId,
         sessionId,
         studentName: normalizedName,
+        startOffset: resolvedStartOffset,
         savedAt: new Date().toISOString(),
       });
     },
-    [sessionId]
+    [sessionId, startOffset]
   );
 
   const registerParticipantIdentity = useCallback(
@@ -232,7 +242,7 @@ export function usePlayGameState({
         });
 
         const payload = (await response.json().catch(() => null)) as
-          | { participantId?: string; studentName?: string; error?: string }
+          | { participantId?: string; studentName?: string; startOffset?: number; error?: string }
           | null;
 
         if (!response.ok || !payload?.participantId) {
@@ -240,11 +250,20 @@ export function usePlayGameState({
         }
 
         const resolvedName = (payload.studentName ?? normalizedName).trim() || normalizedName;
+        const resolvedStartOffset = toIntegerStartOffset(payload.startOffset) ?? 0;
         setPendingPlayerNameState(resolvedName);
         setPlayerName(resolvedName);
         setHasConfirmedName(true);
         setNameError(null);
-        rememberActiveParticipant(payload.participantId, resolvedName);
+        const initialRouteOrder = buildRouteOrder(
+          questions.length,
+          resolvedStartOffset,
+          supportsStaggeredStart(raceMode)
+        );
+        if (initialRouteOrder.length > 0) {
+          setCurrentPostIndex(initialRouteOrder[0] ?? 0);
+        }
+        rememberActiveParticipant(payload.participantId, resolvedName, resolvedStartOffset);
         return true;
       } catch (error) {
         console.error("Kunne ikke registrere deltageridentitet:", error);
@@ -255,7 +274,7 @@ export function usePlayGameState({
         setIsProvisioningParticipant(false);
       }
     },
-    [isProvisioningParticipant, rememberActiveParticipant, sessionId]
+    [isProvisioningParticipant, questions.length, raceMode, rememberActiveParticipant, sessionId]
   );
 
   const beginSubmission = useCallback(() => {
@@ -273,6 +292,12 @@ export function usePlayGameState({
     setIsSubmitting(false);
   }, []);
 
+  const routeOrder = useMemo(
+    () => buildRouteOrder(questions.length, startOffset, supportsStaggeredStart(raceMode)),
+    [questions.length, raceMode, startOffset]
+  );
+  const currentRouteStepIndex = getRouteStepIndex(routeOrder, currentPostIndex);
+  const displayPostNumber = routeOrder.length > 0 ? currentRouteStepIndex + 1 : 0;
   const activeQuestion = questions[currentPostIndex];
   const activePostVariant = activeQuestion ? resolvePostVariant(raceMode, activeQuestion) : "unknown";
   const activeQuestionDisplayText =
@@ -323,6 +348,37 @@ export function usePlayGameState({
   const collectedEscapeRewardsCount = collectedEscapeRewards.length;
   const hasAllEscapeBricks =
     isEscapeRace && questions.length > 0 && collectedEscapeRewardsCount >= questions.length;
+
+  const fetchParticipantSnapshot = useCallback(
+    async (targetParticipantId: string) => {
+      if (!sessionId) {
+        return { data: null as ParticipantRow | null, error: null };
+      }
+
+      const runQuery = (selectClause: string) =>
+        supabase
+          .from("participants")
+          .select(selectClause)
+          .eq("id", targetParticipantId)
+          .eq("session_id", sessionId)
+          .maybeSingle<ParticipantRow>();
+
+      let result = await runQuery("id,session_id,student_name,lat,lng,finished_at,start_offset");
+      if (result.error && isMissingColumnError(result.error)) {
+        result = await runQuery("id,session_id,student_name,lat,lng,finished_at");
+      }
+
+      return result;
+    },
+    [sessionId, supabase]
+  );
+
+  useEffect(() => {
+    if (questions.length === 0 || isFinished || correctAnswersCount > 0 || routeOrder.length === 0) return;
+
+    const firstRoutePostIndex = routeOrder[0] ?? 0;
+    setCurrentPostIndex((current) => (current === firstRoutePostIndex ? current : firstRoutePostIndex));
+  }, [correctAnswersCount, isFinished, questions.length, routeOrder]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -491,23 +547,19 @@ export function usePlayGameState({
 
     const restoreFromStorage = async () => {
       const storedName = storedParticipantOnLoad?.studentName?.trim() || playerName || initialStudentName;
+      const storedStartOffset = storedParticipantOnLoad?.startOffset ?? 0;
       if (storedName) {
         setPlayerName(storedName);
         setPendingPlayerNameState(storedName);
         setHasConfirmedName(true);
         setNameError(null);
-        rememberActiveParticipant(participantId, storedName);
+        rememberActiveParticipant(participantId, storedName, storedStartOffset);
       }
 
       let participantData: ParticipantRow | null = null;
       let didResolveParticipant = false;
 
-      const { data, error: participantError } = await supabase
-        .from("participants")
-        .select("id,session_id,student_name,lat,lng,finished_at")
-        .eq("id", participantId)
-        .eq("session_id", sessionId)
-        .maybeSingle<ParticipantRow>();
+      const { data, error: participantError } = await fetchParticipantSnapshot(participantId);
 
       if (!isActive) return;
 
@@ -541,12 +593,7 @@ export function usePlayGameState({
 
           if (!isActive) break;
 
-          const { data: retryData, error: retryError } = await supabase
-            .from("participants")
-            .select("id,session_id,student_name,lat,lng,finished_at")
-            .eq("id", participantId)
-            .eq("session_id", sessionId)
-            .maybeSingle<ParticipantRow>();
+          const { data: retryData, error: retryError } = await fetchParticipantSnapshot(participantId);
 
           if (!isActive) break;
 
@@ -582,6 +629,15 @@ export function usePlayGameState({
         typeof participantData?.student_name === "string"
           ? participantData.student_name.trim()
           : "";
+      const restoredStartOffset =
+        toIntegerStartOffset(participantData?.start_offset) ?? storedStartOffset;
+      const restoredRouteOrder = buildRouteOrder(
+        questions.length,
+        restoredStartOffset,
+        supportsStaggeredStart(raceMode)
+      );
+      const firstRoutePostIndex = restoredRouteOrder[0] ?? 0;
+      setStartOffset(restoredStartOffset);
 
       const resolvedName = restoredName || storedName;
       if (resolvedName) {
@@ -592,7 +648,7 @@ export function usePlayGameState({
       }
 
       if (participantData?.id && resolvedName) {
-        rememberActiveParticipant(String(participantData.id), resolvedName);
+        rememberActiveParticipant(String(participantData.id), resolvedName, restoredStartOffset);
       }
 
       const restoredLat = toFiniteNumber(participantData?.lat);
@@ -610,6 +666,7 @@ export function usePlayGameState({
       }
 
       if (resolvedName) {
+        let nextPostIndex = firstRoutePostIndex;
         const { data: answersData, error: answersError } = await supabase
           .from("answers")
           .select("post_index,question_index,is_correct")
@@ -636,21 +693,7 @@ export function usePlayGameState({
           setCorrectAnswersCount(confirmedCorrectPosts.size);
           setCollectedEscapeRewards(getEscapeCodeEntriesFromRows(rows, questions));
 
-          let highestCompletedPost = 0;
-          for (const row of rows) {
-            if (row.is_correct === false) continue;
-            const normalizedPostIndex = getNormalizedAnsweredPostIndex(row);
-            const normalizedPostNumber =
-              normalizedPostIndex === null ? null : normalizedPostIndex + 1;
-            if (
-              normalizedPostNumber !== null &&
-              normalizedPostNumber > highestCompletedPost
-            ) {
-              highestCompletedPost = normalizedPostNumber;
-            }
-          }
-
-          if (highestCompletedPost >= questions.length) {
+          if (confirmedCorrectPosts.size >= questions.length) {
             setShowQuestion(false);
             setDistanceState(null);
             setEscapeReward(null);
@@ -664,12 +707,17 @@ export function usePlayGameState({
             return;
           }
 
-          const nextPostNumber = Math.max(1, highestCompletedPost + 1);
-          const nextPostIndex = Math.min(nextPostNumber, questions.length) - 1;
-          setCurrentPostIndex(nextPostIndex);
-          setShowQuestion(false);
-          setDistanceState(null);
+          nextPostIndex =
+            getNextRoutePostIndex(restoredRouteOrder, confirmedCorrectPosts) ?? firstRoutePostIndex;
         }
+
+        setCurrentPostIndex(nextPostIndex);
+        setShowQuestion(false);
+        setDistanceState(null);
+      } else {
+        setCurrentPostIndex(firstRoutePostIndex);
+        setShowQuestion(false);
+        setDistanceState(null);
       }
 
       if (resolvedName) {
@@ -684,11 +732,13 @@ export function usePlayGameState({
     return () => {
       isActive = false;
     };
-  }, [
+    }, [
+    fetchParticipantSnapshot,
     sessionId,
     participantId,
     questions,
     questions.length,
+    raceMode,
     supabase,
     playerName,
     initialStudentName,
@@ -1158,7 +1208,10 @@ export function usePlayGameState({
   const continueFromSolvedPost = async () => {
     clearRoleplayInputErrorTone();
     setPostActionError(null);
-    if (currentPostIndex + 1 < questions.length) {
+    const nextRoutePostIndex =
+      currentRouteStepIndex + 1 < routeOrder.length ? routeOrder[currentRouteStepIndex + 1] : null;
+
+    if (nextRoutePostIndex !== null) {
       setDismissedPostIndex(null);
       setPhotoFeedback(null);
       setQuizAnswerFeedback(null);
@@ -1168,7 +1221,7 @@ export function usePlayGameState({
       setWrongAttempts(0);
       setShowQuestion(false);
       setDistanceState(null);
-      setCurrentPostIndex((prev) => prev + 1);
+      setCurrentPostIndex(nextRoutePostIndex);
       return true;
     }
 
@@ -1748,6 +1801,7 @@ export function usePlayGameState({
     questions,
     raceMode,
     currentPostIndex,
+    displayPostNumber,
     totalQuestions: questions.length,
     progressPercent,
     correctAnswersCount,

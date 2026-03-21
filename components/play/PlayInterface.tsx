@@ -126,6 +126,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const {
     questions,
     currentPostIndex,
+    displayPostNumber,
     progressPercent,
     correctAnswersCount,
     dismissedPostIndex,
@@ -831,7 +832,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                           {activeDisplayName}
                         </p>
                         <p className="mt-2 font-mono text-xs uppercase tracking-widest text-white/70">
-                          Find post {currentPostIndex + 1} af {questions.length}
+                          Find post {displayPostNumber} af {questions.length}
                         </p>
                       </div>
 
@@ -978,7 +979,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                 <div className={tacticalOverlayCardClass}>
                   <div className="mb-6 flex items-center justify-between gap-3">
                     <span className={tacticalPillClass}>Mission Device</span>
-                    <span className={tacticalMetaLabelClass}>Post {currentPostIndex + 1}</span>
+                    <span className={tacticalMetaLabelClass}>Post {displayPostNumber}</span>
                   </div>
                 {activePostVariant === "escape" ? (
                   <div className="mb-6">
@@ -1050,7 +1051,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                           onClick={() => void actions.continueFromSolvedPost()}
                           className={quizContinueButtonClass}
                         >
-                          {currentPostIndex + 1 < questions.length ? "Gå til næste post" : "Se resultat"}
+                          {correctAnswersCount < questions.length ? "Gå til næste post" : "Se resultat"}
                         </button>
 
                         {activePostActionError ? (

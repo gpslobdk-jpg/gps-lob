@@ -100,6 +100,7 @@ export type StoredActiveParticipant = {
   participantId: string;
   sessionId: string;
   studentName: string;
+  startOffset?: number;
   savedAt: string;
 };
 
@@ -110,6 +111,7 @@ export type ParticipantRow = {
   lat?: number | string | null;
   lng?: number | string | null;
   finished_at?: string | null;
+  start_offset?: number | string | null;
 };
 
 export type EscapeResultEntry = {
@@ -169,6 +171,7 @@ export interface PlayProgressState {
   questions: Question[];
   raceMode: RaceMode;
   currentPostIndex: number;
+  displayPostNumber: number;
   totalQuestions: number;
   progressPercent: number;
   correctAnswersCount: number;

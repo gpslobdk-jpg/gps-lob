@@ -67,6 +67,42 @@ export function getNormalizedAnsweredPostIndex(row: AnswerProgressRow) {
   return null;
 }
 
+export function toIntegerStartOffset(value: unknown) {
+  const parsed = toFiniteNumber(value);
+  return parsed !== null && Number.isInteger(parsed) ? parsed : null;
+}
+
+export function supportsStaggeredStart(raceMode: RaceMode) {
+  return raceMode === "quiz" || raceMode === "photo";
+}
+
+export function normalizeStartOffset(startOffset: number, questionCount: number) {
+  if (!Number.isInteger(startOffset) || questionCount <= 1) return 0;
+  return ((startOffset % questionCount) + questionCount) % questionCount;
+}
+
+export function buildRouteOrder(questionCount: number, startOffset: number, staggerEnabled: boolean) {
+  if (questionCount <= 0) return [];
+
+  const normalizedOffset = staggerEnabled ? normalizeStartOffset(startOffset, questionCount) : 0;
+  return Array.from({ length: questionCount }, (_, index) => (index + normalizedOffset) % questionCount);
+}
+
+export function getNextRoutePostIndex(routeOrder: number[], completedPosts: Set<number>) {
+  for (const postIndex of routeOrder) {
+    if (!completedPosts.has(postIndex)) {
+      return postIndex;
+    }
+  }
+
+  return null;
+}
+
+export function getRouteStepIndex(routeOrder: number[], currentPostIndex: number) {
+  const routeStepIndex = routeOrder.indexOf(currentPostIndex);
+  return routeStepIndex >= 0 ? routeStepIndex : 0;
+}
+
 export function readStoredActiveParticipant(): StoredActiveParticipant | null {
   if (typeof window === "undefined") return null;
 
@@ -75,10 +111,12 @@ export function readStoredActiveParticipant(): StoredActiveParticipant | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<StoredActiveParticipant>;
     if (!parsed.participantId || !parsed.sessionId) return null;
+    const startOffset = toIntegerStartOffset(parsed.startOffset) ?? 0;
     return {
       participantId: parsed.participantId,
       sessionId: parsed.sessionId,
       studentName: parsed.studentName ?? "",
+      startOffset,
       savedAt: parsed.savedAt ?? "",
     };
   } catch {
@@ -209,6 +247,10 @@ export function normalizeRaceMode(value: unknown): RaceMode {
     case "quiz":
     case "manuel":
     case "manual":
+    case "scanner":
+    case "bogscanner":
+    case "bookscanner":
+    case "qrscanner":
       return "quiz";
     case "foto":
     case "photo":

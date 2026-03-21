@@ -27,6 +27,7 @@ type ParticipantRow = {
   id?: string | null;
   session_id?: string | null;
   student_name?: string | null;
+  start_offset?: number | string | null;
 };
 
 type JoinParticipantRequest = {
@@ -38,6 +39,11 @@ type JoinParticipantResponse = {
   participantId: string;
   sessionId: string;
   studentName: string;
+  startOffset: number;
+};
+
+type ParticipantOffsetRow = {
+  start_offset?: number | string | null;
 };
 
 type SupabaseRestError = {
@@ -88,6 +94,80 @@ function isMissingColumnError(error: SupabaseRestError | null | undefined) {
   if (!error) return false;
   if (error.code === "42703" || error.code === "PGRST204") return true;
   return /column/i.test(`${error.message ?? ""} ${error.details ?? ""}`);
+}
+
+function normalizeStartOffset(value: unknown, questionCount: number) {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : Number.NaN;
+
+  if (!Number.isInteger(parsed) || questionCount <= 1) {
+    return 0;
+  }
+
+  return ((parsed % questionCount) + questionCount) % questionCount;
+}
+
+function normalizeStaggerRaceType(value: unknown) {
+  if (typeof value !== "string") return "unknown";
+
+  switch (value.trim().toLocaleLowerCase("da-DK")) {
+    case "quiz":
+    case "manuel":
+    case "manual":
+      return "quiz";
+    case "foto":
+    case "photo":
+      return "photo";
+    case "selfie":
+      return "selfie";
+    case "scanner":
+    case "bogscanner":
+    case "bookscanner":
+    case "qrscanner":
+      return "scanner";
+    case "escape":
+    case "escape_room":
+    case "escaperoom":
+      return "escape";
+    case "rollespil":
+    case "roleplay":
+    case "role_play":
+    case "tidsmaskinen":
+      return "roleplay";
+    default:
+      return "unknown";
+  }
+}
+
+function supportsStaggeredStart(value: unknown) {
+  const normalizedRaceType = normalizeStaggerRaceType(value);
+  return (
+    normalizedRaceType === "quiz" ||
+    normalizedRaceType === "photo" ||
+    normalizedRaceType === "selfie" ||
+    normalizedRaceType === "scanner"
+  );
+}
+
+function getQuestionCount(run: (RunRecord & { questions?: unknown }) | null) {
+  return Array.isArray(run?.questions) ? run.questions.length : 0;
+}
+
+function pickLeastUsedStartOffset(rows: ParticipantOffsetRow[] | null, questionCount: number) {
+  if (!rows || questionCount <= 1) return 0;
+
+  const usageByOffset = Array.from({ length: questionCount }, () => 0);
+  for (const row of rows) {
+    const normalizedOffset = normalizeStartOffset(row?.start_offset, questionCount);
+    usageByOffset[normalizedOffset] += 1;
+  }
+
+  const minUsage = Math.min(...usageByOffset);
+  return usageByOffset.findIndex((usage) => usage === minUsage);
 }
 
 function buildParticipantHeaders(participantId: string, sessionId: string) {
@@ -176,7 +256,7 @@ async function fetchLiveSessionById(
 ) {
   const { data, error } = await adminSupabase
     .from("live_sessions")
-    .select("id,status")
+    .select("id,status,run_id")
     .eq("id", sessionId)
     .in("status", statuses)
     .limit(1);
@@ -188,63 +268,173 @@ async function fetchLiveSessionById(
   return (data?.[0] ?? null) as LiveSessionRow | null;
 }
 
+async function fetchParticipantRecord(
+  sessionId: string,
+  adminSupabase: AdminSupabaseClient,
+  options: {
+    participantId?: string;
+    studentName?: string;
+  }
+) {
+  const runQuery = async (selectClause: string) => {
+    let query = adminSupabase.from("participants").select(selectClause).eq("session_id", sessionId);
+
+    if (options.participantId) {
+      query = query.eq("id", options.participantId);
+    }
+
+    if (options.studentName) {
+      query = query.eq("student_name", options.studentName).order("created_at", { ascending: false });
+    }
+
+    return await query.limit(1);
+  };
+
+  let { data, error } = await runQuery("id,session_id,student_name,start_offset");
+  if (error && isMissingColumnError(error)) {
+    ({ data, error } = await runQuery("id,session_id,student_name"));
+  }
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? [])[0] ?? null) as ParticipantRow | null;
+}
+
+async function fetchSessionParticipantOffsets(
+  sessionId: string,
+  adminSupabase: AdminSupabaseClient
+) {
+  const { data, error } = await adminSupabase
+    .from("participants")
+    .select("start_offset")
+    .eq("session_id", sessionId);
+
+  if (error) {
+    if (isMissingColumnError(error)) {
+      return null;
+    }
+
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as ParticipantOffsetRow[];
+}
+
+async function persistParticipantStartOffset(
+  sessionId: string,
+  participantId: string,
+  startOffset: number,
+  adminSupabase: AdminSupabaseClient
+) {
+  const { error } = await adminSupabase
+    .from("participants")
+    .update({ start_offset: startOffset })
+    .eq("id", participantId)
+    .eq("session_id", sessionId);
+
+  if (error) {
+    if (isMissingColumnError(error)) {
+      return null;
+    }
+
+    throw new Error(error.message);
+  }
+
+  return await fetchParticipantRecord(sessionId, adminSupabase, { participantId });
+}
+
 async function insertParticipant(
   sessionId: string,
   studentName: string,
   participantId: string,
+  startOffset: number,
   adminSupabase: AdminSupabaseClient
 ) {
   const normalizedStudentName = studentName.trim();
   const timestamp = new Date().toISOString();
   const headers = buildParticipantHeaders(participantId, sessionId);
   const payloads = [
+    {
+      id: participantId,
+      session_id: sessionId,
+      student_name: normalizedStudentName,
+      last_updated: timestamp,
+      start_offset: startOffset,
+    },
+    { id: participantId, session_id: sessionId, student_name: normalizedStudentName, start_offset: startOffset },
     { id: participantId, session_id: sessionId, student_name: normalizedStudentName, last_updated: timestamp },
     { id: participantId, session_id: sessionId, student_name: normalizedStudentName },
   ];
 
   for (const payload of payloads) {
-    const result = await supabaseRequest<ParticipantRow[]>(
-      "participants?select=id,session_id,student_name",
+    const result = await supabaseRequest<unknown>(
+      "participants",
       {
         method: "POST",
         headers,
         body: JSON.stringify(payload),
-      }
+      },
+      "return=minimal"
     );
 
     if (result.ok) {
-      return result;
-    }
-
-    if (result.error.code === "23505") {
-      const { data, error } = await adminSupabase
-        .from("participants")
-        .select("id,session_id,student_name")
-        .eq("session_id", sessionId)
-        .eq("student_name", normalizedStudentName)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (error) {
+      const insertedParticipant = await fetchParticipantRecord(sessionId, adminSupabase, { participantId });
+      if (!insertedParticipant) {
         return {
           ok: false,
           status: 500,
-          error: { code: error.code, message: error.message, details: error.details ?? undefined },
+          error: { code: "PGRST116", message: "Deltageren blev oprettet, men kunne ikke genindlæses." },
         } satisfies SupabaseResult<ParticipantRow[]>;
       }
 
       return {
         ok: true,
-        status: 200,
-        data: (data ?? []) as ParticipantRow[],
+        status: result.status,
+        data: [insertedParticipant],
       } satisfies SupabaseResult<ParticipantRow[]>;
+    }
+
+    if (result.error.code === "23505") {
+      try {
+        const existingParticipant = await fetchParticipantRecord(sessionId, adminSupabase, {
+          studentName: normalizedStudentName,
+        });
+        if (!existingParticipant) {
+          return {
+            ok: false,
+            status: 404,
+            error: { code: "PGRST116", message: "Deltageren findes allerede, men kunne ikke genindlæses." },
+          } satisfies SupabaseResult<ParticipantRow[]>;
+        }
+
+        return {
+          ok: true,
+          status: 200,
+          data: [existingParticipant],
+        } satisfies SupabaseResult<ParticipantRow[]>;
+      } catch (error) {
+        return {
+          ok: false,
+          status: 500,
+          error: {
+            code: "PGRST500",
+            message: error instanceof Error ? error.message : "Kunne ikke genindlæse eksisterende deltager.",
+          },
+        } satisfies SupabaseResult<ParticipantRow[]>;
+      }
     }
 
     if (isMissingColumnError(result.error)) {
       continue;
     }
 
-    return result;
+    return {
+      ok: false,
+      status: result.status,
+      error: result.error,
+    } satisfies SupabaseResult<ParticipantRow[]>;
   }
 
   return {
@@ -398,10 +588,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const run = activeSession.run_id ? await fetchRun(String(activeSession.run_id), adminSupabase) : null;
+    const questionCount = getQuestionCount(run);
+    const staggerEnabled = supportsStaggeredStart(run?.race_type ?? run?.raceType);
+    const plannedStartOffset = staggerEnabled
+      ? pickLeastUsedStartOffset(
+          await fetchSessionParticipantOffsets(sessionId, adminSupabase),
+          questionCount
+        )
+      : 0;
+
     const participantResult = await insertParticipant(
       sessionId,
       studentName,
       crypto.randomUUID(),
+      plannedStartOffset,
       adminSupabase
     );
     if (!participantResult.ok) {
@@ -414,7 +615,6 @@ export async function POST(request: NextRequest) {
 
     const participantRow = Array.isArray(participantResult.data) ? participantResult.data[0] : null;
     const participantId = asTrimmedString(participantRow?.id);
-    const normalizedStudentName = asTrimmedString(participantRow?.student_name) || studentName;
 
     if (!participantId) {
       return NextResponse.json(
@@ -423,6 +623,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let resolvedParticipantRow = participantRow;
+
+    if (
+      staggerEnabled &&
+      questionCount > 1 &&
+      (participantRow?.start_offset === null || participantRow?.start_offset === undefined)
+    ) {
+      try {
+        const updatedParticipantRow = await persistParticipantStartOffset(
+          sessionId,
+          participantId,
+          plannedStartOffset,
+          adminSupabase
+        );
+        if (updatedParticipantRow) {
+          resolvedParticipantRow = updatedParticipantRow;
+        }
+      } catch (error) {
+        console.warn("Kunne ikke gemme start_offset for eksisterende deltager:", error);
+      }
+    }
+
+    const normalizedStudentName =
+      asTrimmedString(resolvedParticipantRow?.student_name) || studentName;
+    const startOffset = staggerEnabled
+      ? normalizeStartOffset(resolvedParticipantRow?.start_offset ?? plannedStartOffset, questionCount)
+      : 0;
+
     void ensureSessionStudent(sessionId, normalizedStudentName);
 
     return NextResponse.json<JoinParticipantResponse>(
@@ -430,6 +658,7 @@ export async function POST(request: NextRequest) {
         participantId,
         sessionId,
         studentName: normalizedStudentName,
+        startOffset,
       },
       {
         headers: {

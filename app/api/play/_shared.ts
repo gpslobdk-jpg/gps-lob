@@ -74,6 +74,10 @@ export function normalizeRaceMode(value: unknown) {
     case "quiz":
     case "manuel":
     case "manual":
+    case "scanner":
+    case "bogscanner":
+    case "bookscanner":
+    case "qrscanner":
       return "quiz";
     case "foto":
     case "photo":
