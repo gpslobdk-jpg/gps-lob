@@ -166,6 +166,10 @@ export function parseQuestion(raw: unknown): Question | null {
 
   return {
     type,
+    postType:
+      candidate.postType === "intro" || candidate.post_type === "intro"
+        ? "intro"
+        : "quiz",
     text: typeof candidate.text === "string" ? candidate.text : "",
     aiPrompt: aiPrompt || undefined,
     hint: typeof candidate.hint === "string" ? candidate.hint : undefined,

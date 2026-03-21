@@ -3,7 +3,7 @@
 import "leaflet/dist/leaflet.css";
 
 import { MapPin } from "lucide-react";
-import type { DivIcon } from "leaflet";
+import type { DivIcon, LatLngBoundsExpression } from "leaflet";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
@@ -76,7 +76,7 @@ function FitBoundsSync({
     ];
 
     try {
-      map.fitBounds(bounds as any, { padding: [80, 80], maxZoom: 17, animate: true });
+      map.fitBounds(bounds as LatLngBoundsExpression, { padding: [80, 80], maxZoom: 17, animate: true });
       hasFittedInitialRef.current = true;
       prevTargetKeyRef.current = `${targetLocation.lat},${targetLocation.lng}`;
       try {
@@ -84,13 +84,13 @@ function FitBoundsSync({
           playerLocation,
           targetLocation,
         });
-      } catch (e) {
+      } catch {
         /* no-op */
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
-  }, [playerLocation?.lat, playerLocation?.lng, targetLocation?.lat, targetLocation?.lng, map]);
+  }, [map, playerLocation, targetLocation]);
 
   useEffect(() => {
     if (!targetLocation) return;
@@ -105,21 +105,21 @@ function FitBoundsSync({
       ];
 
       try {
-        map.fitBounds(bounds as any, { padding: [80, 80], maxZoom: 17, animate: true });
+        map.fitBounds(bounds as LatLngBoundsExpression, { padding: [80, 80], maxZoom: 17, animate: true });
         prevTargetKeyRef.current = targetKey;
         try {
           console.debug("Map auto-zoomed (fitBounds) triggered by: target_change", {
             playerLocation,
             targetLocation,
           });
-        } catch (e) {
+        } catch {
           /* no-op */
         }
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
-  }, [targetLocation?.lat, targetLocation?.lng, playerLocation?.lat, playerLocation?.lng, map]);
+  }, [map, playerLocation, targetLocation]);
 
   return null;
 }

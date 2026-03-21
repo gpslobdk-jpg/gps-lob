@@ -776,7 +776,7 @@ export default function SelfieBuilderClient() {
 
                     <div className="mt-4">
                       <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
-                        Hvad skal AI genkende? (Hold det bredt og tilgivende, f.eks. "ansigter")
+                        Hvad skal AI genkende? (Hold det bredt og tilgivende, f.eks. &quot;ansigter&quot;)
                       </label>
                       <input
                         value={question.aiPrompt}

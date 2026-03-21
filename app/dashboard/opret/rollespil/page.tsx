@@ -174,6 +174,8 @@ type StoredRoleplayQuestionRecord = {
   ai_prompt?: unknown;
   mediaUrl?: unknown;
   media_url?: unknown;
+  post_type?: unknown;
+  postType?: unknown;
   answers?: unknown;
   lat?: unknown;
   lng?: unknown;
@@ -302,9 +304,7 @@ function toRoleplayQuestions(value: unknown): Question[] {
         asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt) ||
         (hasLegacyMarkers ? parsedLegacyText.message : "");
 
-      const rawPostType = isRecord(candidate)
-        ? (asTrimmedString((candidate as any).post_type) || asTrimmedString((candidate as any).postType))
-        : "";
+      const rawPostType = asTrimmedString(candidate.post_type) || asTrimmedString(candidate.postType);
       const postType: "quiz" | "intro" = rawPostType === "intro" ? "intro" : "quiz";
 
       return {

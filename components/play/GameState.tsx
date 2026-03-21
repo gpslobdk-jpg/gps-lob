@@ -1,5 +1,6 @@
 "use client";
 
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
@@ -49,7 +50,6 @@ import {
   getRoleplayCharacterPersonality,
   getRoleplayCorrectAnswer,
   getRoleplayMessage,
-  isMissingColumnError,
   normalizeMasterCode,
   normalizeRaceMode,
   parseQuestion,
@@ -64,6 +64,10 @@ import { createClient } from "@/utils/supabase/client";
 type UsePlayGameStateParams = {
   sessionId?: string;
   initialStudentName?: string;
+};
+
+type LiveSessionStatusRow = {
+  status?: string | null;
 };
 
 export function usePlayGameState({
@@ -158,7 +162,7 @@ export function usePlayGameState({
   const quizAnswerFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roleplayInputErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wakeLockSentinelRef = useRef<WakeLockSentinelLike | null>(null);
-  const messageChannelRef = useRef<any | null>(null);
+  const messageChannelRef = useRef<RealtimeChannel | null>(null);
   const masterVictoryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const submissionLockRef = useRef(false);
   const isMountedRef = useRef(true);
@@ -336,7 +340,7 @@ export function usePlayGameState({
 
         if (!mounted) return;
         if (!error && data) {
-          setSessionStatus((data as any).status ?? null);
+          setSessionStatus((data as LiveSessionStatusRow).status ?? null);
         }
       } catch (err) {
         console.error("Kunne ikke hente session-status:", err);
@@ -351,10 +355,10 @@ export function usePlayGameState({
         { event: "UPDATE", schema: "public", table: "live_sessions", filter: `id=eq.${sessionId}` },
         (payload) => {
           try {
-            const next = (payload.new as any)?.status ?? null;
+            const next = (payload.new as LiveSessionStatusRow | null)?.status ?? null;
             setSessionStatus(next);
-          } catch (e) {
-            console.error("Fejl ved behandling af live_sessions-opdatering:", e);
+          } catch (error) {
+            console.error("Fejl ved behandling af live_sessions-opdatering:", error);
           }
         }
       )
@@ -364,7 +368,7 @@ export function usePlayGameState({
       mounted = false;
       try {
         supabase.removeChannel(channel);
-      } catch (e) {
+      } catch {
         // ignore
       }
     };
@@ -795,7 +799,7 @@ export function usePlayGameState({
         return false;
       }
     },
-    [participantId, playerName, sessionId, supabase]
+    [participantId, playerName, sessionId]
   );
 
   useEffect(() => {
@@ -1037,7 +1041,7 @@ export function usePlayGameState({
       if (document.visibilityState === "visible") {
         try {
           console.debug("Wake-up: Re-subscriber til Supabase");
-        } catch (e) {
+        } catch {
           /* no-op */
         }
 
@@ -1076,10 +1080,6 @@ export function usePlayGameState({
       );
       quizAnswerFeedbackTimerRef.current = null;
     }, 900);
-    setTypedAnswerError({
-      key: feedbackKey,
-      message: "Forkert svar. Prøv igen.",
-    });
   }, []);
 
   const requestRoleplayWrongAnswerResponse = useCallback(

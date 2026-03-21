@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { AlertCircle, Camera, CheckCircle2, KeyRound, Loader2 } from "lucide-react";
+import { AlertCircle, Camera, CheckCircle2, KeyRound, Loader2, XCircle } from "lucide-react";
 import Image from "next/image";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
@@ -200,6 +200,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     "w-full rounded-[1.35rem] border border-emerald-500/50 bg-slate-950 px-4 py-4 text-base text-emerald-50 outline-none transition placeholder:text-white/40 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-70";
   const tacticalSuccessPanelClass =
     "overflow-hidden rounded-[1.9rem] border border-emerald-300/35 bg-emerald-500 p-6 text-center text-slate-950 shadow-[0_0_36px_rgba(16,185,129,0.22)] animate-pulse";
+  const quizContinueButtonClass =
+    `inline-flex min-h-[60px] w-full items-center justify-center gap-2 rounded-[1.1rem] border border-emerald-300/40 bg-emerald-600 px-5 py-4 text-base font-black text-white shadow-[0_18px_40px_rgba(5,150,105,0.35)] transition-all hover:-translate-y-0.5 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 ${rubik.className}`;
 
   
 
@@ -690,7 +692,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
           </div>
 
           <div className="relative z-10 mt-10 w-full max-w-lg rounded-3xl border border-white/20 bg-white/10 p-8 text-center shadow-[0_0_45px_rgba(251,191,36,0.3)] backdrop-blur-xl">
-            <div className="mx-auto mb-6 h-36 w-36 drop-shadow-2xl">
+            <div className="mx-auto mb-6 h-24 w-24 max-w-[96px] aspect-square drop-shadow-2xl sm:h-28 sm:w-28">
               <Lottie animationData={trophyAnimation} loop={true} />
             </div>
             <h1 className="mb-2 bg-gradient-to-r from-yellow-200 via-amber-300 to-yellow-100 bg-clip-text text-2xl md:text-4xl font-black tracking-widest text-transparent uppercase">
@@ -1015,42 +1017,38 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                           isSelectedFeedback && activeQuizAnswerFeedback?.tone === "success";
                         const isErrorAnswer =
                           isSelectedFeedback && activeQuizAnswerFeedback?.tone === "error";
+                        const isAnswerDimmed = Boolean(activeQuizAnswerFeedback) && !isSelectedFeedback;
 
                         return (
                           <button
                             key={idx}
                             type="button"
-                            disabled={Boolean(hasActiveQuizSuccess) || isSubmittingAnswer || isSubmitting}
+                            disabled={Boolean(activeQuizAnswerFeedback) || isSubmittingAnswer || isSubmitting}
                             onClick={() => void actions.submitQuizAnswer(idx)}
-                            className={`min-h-[56px] w-full overflow-hidden rounded-[1.35rem] border p-4 text-left text-base font-black uppercase tracking-[0.2em] transition-all sm:text-lg ${wrapTextClass} ${rubik.className} ${
+                            className={`flex min-h-[56px] w-full items-center justify-between gap-3 overflow-hidden rounded-[1.35rem] border p-4 text-left text-base font-black uppercase tracking-[0.2em] transition-all sm:text-lg ${wrapTextClass} ${rubik.className} ${
                               isSuccessAnswer
-                                ? "animate-pulse border-emerald-300 bg-emerald-500 text-slate-950 shadow-[0_18px_38px_rgba(16,185,129,0.3)]"
+                                ? "border-emerald-300 bg-emerald-500 text-white shadow-[0_18px_38px_rgba(16,185,129,0.32)]"
                               : isErrorAnswer
-                                  ? "border-rose-400/60 bg-rose-500/18 text-rose-50 shadow-[0_14px_30px_rgba(244,63,94,0.18)]"
-                                  : "border-emerald-500 bg-emerald-600 text-white shadow-md hover:scale-[1.02] hover:bg-emerald-500"
-                            } disabled:cursor-default disabled:hover:border-emerald-300 disabled:hover:bg-emerald-500 disabled:hover:scale-100`}
+                                  ? "border-red-300 bg-red-500 text-white shadow-[0_18px_38px_rgba(239,68,68,0.28)]"
+                                  : isAnswerDimmed
+                                      ? "border-white/10 bg-slate-900/55 text-white/55 opacity-50"
+                                      : "border-white/15 bg-white/8 text-white shadow-[0_12px_28px_rgba(15,23,42,0.3)] hover:-translate-y-0.5 hover:border-emerald-300/45 hover:bg-white/12"
+                            } disabled:cursor-default disabled:hover:translate-y-0`}
                           >
-                            {answer}
+                            <span className="flex-1">{answer}</span>
+                            {isSuccessAnswer ? <CheckCircle2 className="h-5 w-5 shrink-0" /> : null}
+                            {isErrorAnswer ? <XCircle className="h-5 w-5 shrink-0" /> : null}
                           </button>
                         );
                       })}
                     </div>
 
                     {hasActiveQuizSuccess ? (
-                      <div className="mt-4 space-y-4">
-                        <div className={tacticalSuccessPanelClass}>
-                          <p className="font-mono text-xs font-black uppercase tracking-[0.32em] text-slate-950/70">
-                            Kode accepteret
-                          </p>
-                          <p className={`mt-3 text-xl font-black text-slate-950 ${wrapTextClass}`}>
-                            Missionen er godkendt. Fortsæt.
-                          </p>
-                        </div>
-
+                      <div className="mt-5">
                         <button
                           type="button"
                           onClick={() => void actions.continueFromSolvedPost()}
-                          className={tacticalPrimaryButtonClass}
+                          className={quizContinueButtonClass}
                         >
                           {currentPostIndex + 1 < questions.length ? "Gå til næste post" : "Se resultat"}
                         </button>
@@ -1263,7 +1261,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                 ) : null}
 
                 {activePostVariant === "roleplay" ? (
-                  ( (activeQuestion as any)?.post_type === "intro" || (activeQuestion as any)?.postType === "intro") ? (
+                  activeQuestion?.postType === "intro" ? (
                     <div className="space-y-5 overflow-hidden">
                       <div className="animate-in fade-in duration-300">
                         <div className="mx-auto w-full max-w-2xl rounded-2xl bg-black/90 p-6 text-center text-amber-50 font-serif shadow-2xl">

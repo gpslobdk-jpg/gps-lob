@@ -155,7 +155,7 @@ export async function GET(request: Request) {
       return redirectToLogin(safeOrigin, "oauth_exchange_failed");
     }
 
-    const { error: exchangeError, data: exchangeData } = exchangeResult as any;
+    const { error: exchangeError, data: exchangeData } = exchangeResult;
     if (exchangeError) {
       console.error("Auth callback: exchange returned error", exchangeError);
       return redirectToLogin(safeOrigin, "oauth_exchange_failed");
@@ -174,7 +174,7 @@ export async function GET(request: Request) {
       return redirectToLogin(safeOrigin, "oauth_user_missing");
     }
 
-    const { data: userData, error: userError } = userResult as any;
+    const { data: userData, error: userError } = userResult;
     const user = userData?.user ?? null;
     if (userError || !user) {
       console.error("Auth callback: getUser returned error or no user", { userError, user });

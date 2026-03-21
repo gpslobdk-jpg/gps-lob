@@ -235,8 +235,6 @@ const textareaClass =
 const aiActionButtonClass =
   "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 px-5 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
-const BLANK_ANSWERS: [string, string, string, string] = ["", "", "", ""];
-
 function toPhotoQuestions(value: unknown): Question[] {
   if (!Array.isArray(value)) return [];
 

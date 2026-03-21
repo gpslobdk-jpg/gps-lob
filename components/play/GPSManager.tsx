@@ -166,7 +166,7 @@ export default function GPSManager({
       if (document.visibilityState === "visible") {
         try {
           console.debug("Wake-up: Genstarter GPS");
-        } catch (e) {
+        } catch {
           /* no-op */
         }
         try {
@@ -178,7 +178,7 @@ export default function GPSManager({
               gpsOptions
             );
           }
-        } catch (e) {
+        } catch {
           // ignore
         }
 

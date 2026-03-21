@@ -20,6 +20,14 @@ type ValidateAnswerPayload = {
   selectedIndex?: unknown;
 };
 
+function getPostType(rawQuestion: unknown) {
+  if (!rawQuestion || typeof rawQuestion !== "object" || Array.isArray(rawQuestion)) return null;
+  const candidate = rawQuestion as { post_type?: unknown; postType?: unknown };
+  if (typeof candidate.post_type === "string") return candidate.post_type;
+  if (typeof candidate.postType === "string") return candidate.postType;
+  return null;
+}
+
 function asPostIndex(value: unknown) {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null;
 }
@@ -54,8 +62,7 @@ export async function POST(request: NextRequest) {
 
     const rawQuestion = run.questions[postIndex];
     // Allow explicit post_type to short-circuit validation (e.g. intro posts)
-    const postType =
-      (rawQuestion && (rawQuestion.post_type ?? (rawQuestion as any).postType)) || null;
+    const postType = getPostType(rawQuestion);
 
     if (typeof postType === "string" && postType.trim().toLowerCase() === "intro") {
       return NextResponse.json({ isCorrect: true, isIntro: true });

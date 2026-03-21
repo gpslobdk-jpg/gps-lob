@@ -12,7 +12,16 @@ function isArrayOfRecords(value: unknown): value is Record<string, unknown>[] {
   return Array.isArray(value) && value.every((v) => typeof v === "object" && v !== null && !Array.isArray(v));
 }
 
-function isMissingColumnError(error: any) {
+function isMissingColumnError(
+  error:
+    | {
+        code?: unknown;
+        message?: unknown;
+        details?: unknown;
+      }
+    | null
+    | undefined
+) {
   if (!error) return false;
   if (error.code === "PGRST205" || error.code === "42P01" || error.code === "42703") return true;
   const message = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();

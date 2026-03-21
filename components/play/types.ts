@@ -2,6 +2,7 @@ export type QuestionType = "multiple_choice" | "ai_image" | "unknown";
 
 export type Question = {
   type: QuestionType;
+  postType?: PostType;
   text: string;
   aiPrompt?: string;
   hint?: string;

@@ -290,10 +290,6 @@ function getCorrectIndex(rawQuestion) {
   return rawQuestion.correctIndex;
 }
 
-function normalizeTypedAnswer(value) {
-  return String(value).toLowerCase().trim().replace(/\s+/gu, " ");
-}
-
 function getExpectedAnswer(rawQuestion) {
   const correctIndex = getCorrectIndex(rawQuestion);
   if (correctIndex === null) return "";

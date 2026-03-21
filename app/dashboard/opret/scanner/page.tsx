@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowLeft, Camera, Loader2, Sparkles } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
@@ -1005,9 +1006,12 @@ export default function ScannerPortalPage() {
 
                     {compressedImage ? (
                       <div className="overflow-hidden rounded-[1.75rem] border border-cyan-500/20 bg-cyan-950/20">
-                        <img
+                        <Image
                           src={compressedImage}
                           alt="Valgt bogside"
+                          width={1200}
+                          height={780}
+                          unoptimized
                           className="h-[260px] w-full object-cover"
                         />
                       </div>

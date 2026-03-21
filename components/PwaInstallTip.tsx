@@ -52,7 +52,7 @@ export default function PwaInstallTip({
               <span>
                 <span className="font-semibold text-white">iPhone (Safari):</span> Tryk på Del-ikonet
                 (firkant med pil op) i bunden og vælg{" "}
-                <span className="font-semibold text-emerald-200">'Føj til hjemmeskærm'</span>.
+                <span className="font-semibold text-emerald-200">&apos;Føj til hjemmeskærm&apos;</span>.
               </span>
             </li>
             <li className="flex items-start gap-3">
@@ -60,7 +60,7 @@ export default function PwaInstallTip({
               <span>
                 <span className="font-semibold text-white">Android (Chrome):</span> Tryk på Menu-ikonet
                 (tre prikker) i toppen og vælg{" "}
-                <span className="font-semibold text-emerald-200">'Føj til startskærm'</span>.
+                <span className="font-semibold text-emerald-200">&apos;Føj til startskærm&apos;</span>.
               </span>
             </li>
           </ul>
