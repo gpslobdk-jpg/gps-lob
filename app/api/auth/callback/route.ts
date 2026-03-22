@@ -17,6 +17,8 @@ type ProfileSeedRow = {
   access_expires_at: string | null;
 };
 
+type ProfileClient = Pick<NonNullable<ReturnType<typeof createAdminClient>>, "from">;
+
 function redirectToLogin(origin: string, error: string) {
   const loginUrl = new URL("/login", origin);
   loginUrl.searchParams.set("error", error);
@@ -32,18 +34,13 @@ function withTimeout<T>(promise: PromiseLike<T>, ms: number, label: string): Pro
   ]);
 }
 
-async function ensureBetaAccess(userId: string) {
-  const adminSupabase = createAdminClient();
-  if (!adminSupabase) {
-    return;
-  }
-
+async function ensureProfileRecord(userId: string, profileClient: ProfileClient) {
   try {
     const { data: existingProfile, error: profileError } = await withTimeout<{
       data: ProfileSeedRow | null;
       error: PostgrestError | null;
     }>(
-      adminSupabase
+      profileClient
         .from("profiles")
         .select("id, plan_type, access_expires_at")
         .eq("id", userId)
@@ -67,14 +64,14 @@ async function ensureBetaAccess(userId: string) {
       shouldSeedPlan ||
       (existingProfile?.plan_type === BETA_PLAN && (!currentExpiry || currentExpiry < betaExpiry));
 
-    if (!shouldSeedPlan && !shouldSeedExpiry) {
+    if (existingProfile && !shouldSeedPlan && !shouldSeedExpiry) {
       return;
     }
 
     const { error: upsertError } = await withTimeout<{
       error: PostgrestError | null;
     }>(
-      adminSupabase.from("profiles").upsert(
+      profileClient.from("profiles").upsert(
         {
           id: userId,
           ...(shouldSeedPlan ? { plan_type: BETA_PLAN } : {}),
@@ -87,10 +84,10 @@ async function ensureBetaAccess(userId: string) {
     );
 
     if (upsertError) {
-      console.error("Kunne ikke skrive beta-adgang til profiles:", upsertError);
+      console.error("Kunne ikke sikre profile i databasen:", upsertError);
     }
   } catch (error) {
-    console.error("Beta-seeding fejlede uden at blokere login:", error);
+    console.error("Profile-seeding fejlede uden at blokere login:", error);
   }
 }
 
@@ -183,6 +180,9 @@ export async function GET(request: Request) {
 
     console.log("Auth callback: user fetched", { userId: user.id });
 
+    const profileClient = createAdminClient() ?? supabase;
+    await ensureProfileRecord(user.id, profileClient);
+
       // QUICK onboard check: if the user has no saved runs, redirect them directly
       // to the welcome/onboarding flow. This is a fast, best-effort check with a
       // short timeout — if it fails we fall back to the normal redirect.
@@ -211,8 +211,6 @@ export async function GET(request: Request) {
         // continue with the normal flow so login doesn't block.
         console.warn("Onboard check failed or timed out, continuing with regular redirect:", err);
       }
-
-    await ensureBetaAccess(user.id);
 
     return NextResponse.redirect(`${safeOrigin}${nextPath}`);
   } catch (error) {
