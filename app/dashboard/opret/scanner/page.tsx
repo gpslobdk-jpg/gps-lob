@@ -873,6 +873,18 @@ export default function ScannerPortalPage() {
                       </span>
                     </button>
                   </div>
+
+                  <p className="mx-auto mt-6 max-w-2xl text-center text-sm leading-6 text-cyan-100/55">
+                    Husk altid at overholde gældende regler for ophavsret (f.eks. Copydan), når du
+                    bruger tekster.{" "}
+                    <Link
+                      href="/ophavsret"
+                      className="font-medium text-cyan-200 underline decoration-cyan-300/45 underline-offset-4 transition hover:text-cyan-100"
+                    >
+                      Læs mere om Ophavsret &amp; AI
+                    </Link>
+                    .
+                  </p>
                 </>
               ) : null}
 
