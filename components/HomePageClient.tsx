@@ -85,11 +85,11 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
 
     const cleanedCode = code.replace(/\D/g, "").slice(0, 5);
     if (cleanedCode.length === 0) {
-      setCodeError("Husk at skrive koden fÃ¸rst!");
+      setCodeError("Husk at skrive koden først!");
       return;
     }
     if (cleanedCode.length !== 5) {
-      setCodeError("Koden skal bestÃ¥ af 5 tal.");
+      setCodeError("Koden skal bestå af 5 tal.");
       return;
     }
     setCodeError("");
@@ -123,7 +123,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
             <div className="rounded-3xl border border-emerald-500/30 bg-slate-950/80 p-5 shadow-[0_0_40px_rgba(16,185,129,0.15)] backdrop-blur-xl">
               <form onSubmit={handleSubmit} className="space-y-5">
                 <p className="text-center text-sm font-semibold tracking-wide text-slate-200">
-                  Indtast lÃ¸bskode
+                  Indtast løbskode
                 </p>
                 <input
                   value={code}
@@ -135,7 +135,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
                   inputMode="numeric"
                   pattern="[0-9]*"
                   maxLength={5}
-                  placeholder="Indtast lÃ¸bskode"
+                  placeholder="Indtast løbskode"
                   className="w-full rounded-3xl border border-slate-700 bg-slate-900 px-4 py-5 text-center font-mono text-base font-black tracking-[0.16em] text-emerald-400 outline-none placeholder:font-sans placeholder:text-sm placeholder:font-semibold placeholder:tracking-normal placeholder:text-slate-500 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/25 sm:px-5 sm:py-6 sm:text-lg sm:placeholder:text-base"
                 />
                 <button
@@ -144,7 +144,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
                   aria-busy={isJoining}
                   className="w-full rounded-3xl bg-emerald-500 px-6 py-8 text-3xl font-bold tracking-wide text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.99] disabled:cursor-wait disabled:opacity-70"
                 >
-                  {isJoining ? "Ã…bner lÃ¸bet..." : "Deltag"}
+                  {isJoining ? "Åbner løbet..." : "Deltag"}
                 </button>
                 {codeError ? (
                   <p className="text-center text-sm font-semibold text-rose-200">{codeError}</p>
@@ -202,7 +202,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
                 aria-busy={isJoining}
                 className="w-full rounded-2xl bg-emerald-500 px-4 py-3 text-base font-bold tracking-wide text-slate-950 transition-all hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-70"
               >
-                {isJoining ? "Ã…bner lÃ¸bet..." : "Deltag"}
+                {isJoining ? "Åbner løbet..." : "Deltag"}
               </button>
               {codeError ? (
                 <p className="text-center text-xs font-medium text-rose-300">{codeError}</p>
@@ -253,7 +253,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
               </>
             )}
           </svg>
-          <span>{isMuted ? "SlÃ¥ lyd til" : "SlÃ¥ lyd fra"}</span>
+          <span>{isMuted ? "Slå lyd til" : "Slå lyd fra"}</span>
         </button>
 
         <button
@@ -269,13 +269,13 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
         <div className="mt-8 flex flex-col items-center gap-2 text-center text-sm text-slate-400">
           <div className="flex flex-wrap items-center justify-center gap-4">
             <Link href="/privacy" className="transition hover:underline">
-              Privatlivspolitik &amp; VilkÃ¥r
+              Privatlivspolitik &amp; Vilkår
             </Link>
             <Link
               href="/teknologi"
               className="font-medium text-slate-200 transition hover:underline"
             >
-              LÃ¦s om teknikken bag
+              Læs om teknikken bag
             </Link>
             <Link href="/priser" className="transition hover:underline">
               Priser
