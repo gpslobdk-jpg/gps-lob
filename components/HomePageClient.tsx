@@ -271,6 +271,9 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
             <Link href="/privacy" className="transition hover:underline">
               Privatlivspolitik &amp; Vilkår
             </Link>
+            <Link href="/ophavsret" className="transition hover:underline">
+              Ophavsret &amp; AI
+            </Link>
             <Link
               href="/teknologi"
               className="font-medium text-slate-200 transition hover:underline"
