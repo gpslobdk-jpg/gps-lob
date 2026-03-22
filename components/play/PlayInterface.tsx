@@ -16,6 +16,7 @@ import {
   looksLikeImageSource,
   wrapTextClass,
 } from "./playUtils";
+import QuestionTtsButton from "./QuestionTtsButton";
 import trophyAnimation from "@/public/trophy.json";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
@@ -1007,9 +1008,12 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
                 {activePostVariant === "quiz" ? (
                   <>
-                    <p className={`mb-6 text-2xl font-black text-white ${wrapTextClass} ${rubik.className}`}>
-                      {activeQuestion.text}
-                    </p>
+                    <div className="mb-6 flex items-start justify-between gap-3">
+                      <p className={`flex-1 text-2xl font-black text-white ${wrapTextClass} ${rubik.className}`}>
+                        {activeQuestion.text}
+                      </p>
+                      <QuestionTtsButton question={activeQuestion.text} answers={activeQuestion.answers} />
+                    </div>
 
                     <div className="space-y-3">
                       {activeQuestion.answers.map((answer, idx) => {
