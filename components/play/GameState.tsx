@@ -1616,17 +1616,15 @@ export function usePlayGameState({
 
     try {
       const image = await compressImageForUpload(file);
+      const formData = new FormData();
+      formData.append("image", image);
+      formData.append("sessionId", sessionId);
+      formData.append("participantId", participantId);
+      formData.append("postIndex", String(currentPostIndex));
+
       const response = await fetch("/api/analyze-photo", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          image,
-          sessionId,
-          participantId,
-          postIndex: currentPostIndex,
-        }),
+        body: formData,
       });
 
       const payload = (await response.json()) as {

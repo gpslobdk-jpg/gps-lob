@@ -19,11 +19,10 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 type AdminSupabaseClient = NonNullable<ReturnType<typeof createAdminClient>>;
 
-type AnalyzePhotoPayload = {
-  image?: unknown;
-  sessionId?: unknown;
-  participantId?: unknown;
-  postIndex?: unknown;
+type UploadedPhotoInput = {
+  buffer: Buffer;
+  mimeType: string;
+  openAiImageUrl: string;
 };
 
 type AnalyzePhotoResult = {
@@ -58,7 +57,16 @@ type SupabaseApiClientOptions = {
 };
 
 function asPostIndex(value: unknown) {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null;
+  if (typeof value === "number" && Number.isInteger(value) && value >= 0) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value.trim());
+    return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+  }
+
+  return null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -101,23 +109,27 @@ function getSupabaseApiClient(options: SupabaseApiClientOptions = {}) {
   });
 }
 
-function parseImageDataUri(image: string) {
-  const match = image.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
-  if (!match) return null;
+function buildOpenAiImageUrl(buffer: Buffer, mimeType: string) {
+  return `data:${mimeType};base64,${buffer.toString("base64")}`;
+}
 
-  const mimeType = match[1]?.trim();
-  const base64Payload = match[2]?.trim();
-
-  if (!mimeType || !base64Payload) return null;
-
-  try {
-    return {
-      mimeType,
-      buffer: Buffer.from(base64Payload, "base64"),
-    };
-  } catch {
+async function parseUploadedImage(file: File): Promise<UploadedPhotoInput | null> {
+  const mimeType = file.type.trim().toLowerCase();
+  if (!mimeType.startsWith("image/")) {
     return null;
   }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  if (buffer.byteLength === 0) {
+    return null;
+  }
+
+  return {
+    buffer,
+    mimeType,
+    openAiImageUrl: buildOpenAiImageUrl(buffer, mimeType),
+  };
 }
 
 function getImageFileExtension(mimeType: string) {
@@ -128,10 +140,25 @@ function getImageFileExtension(mimeType: string) {
   return normalizedSubtype || "jpg";
 }
 
-function buildStoragePath(sessionId: string, postIndex: number, mimeType: string) {
+function createStorageUploadNonce() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID().replace(/-/g, "");
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function buildStoragePath(
+  sessionId: string,
+  participantId: string,
+  postIndex: number,
+  mimeType: string
+) {
   const safeSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, "") || "session";
+  const safeParticipantId = participantId.replace(/[^a-zA-Z0-9_-]/g, "") || "participant";
   const extension = getImageFileExtension(mimeType);
-  return `${safeSessionId}/${Date.now()}-${postIndex}.${extension}`;
+  const uploadNonce = createStorageUploadNonce();
+  return `${safeSessionId}/${safeParticipantId}/${uploadNonce}-${postIndex}.${extension}`;
 }
 
 function getQuestionText(rawQuestion: unknown) {
@@ -140,22 +167,17 @@ function getQuestionText(rawQuestion: unknown) {
 }
 
 async function uploadPhotoToStorage(
-  image: string,
+  image: UploadedPhotoInput,
   sessionId: string,
+  participantId: string,
   postIndex: number,
   adminSupabase: AdminSupabaseClient
 ): Promise<UploadedPhoto> {
-  const parsedImage = parseImageDataUri(image);
-  if (!parsedImage) {
-    console.error("Kunne ikke parse data-URI til billedeupload.");
-    return { imageUrl: null };
-  }
-
-  const storagePath = buildStoragePath(sessionId, postIndex, parsedImage.mimeType);
+  const storagePath = buildStoragePath(sessionId, participantId, postIndex, image.mimeType);
   const { error: uploadError } = await adminSupabase.storage
     .from("participant-uploads")
-    .upload(storagePath, parsedImage.buffer, {
-      contentType: parsedImage.mimeType,
+    .upload(storagePath, image.buffer, {
+      contentType: image.mimeType,
       upsert: false,
     });
 
@@ -303,29 +325,27 @@ function normalizeAnalysisResult(raw: unknown): AnalyzePhotoResult | null {
 }
 
 export async function POST(req: Request) {
-  let payload: AnalyzePhotoPayload;
+  let formData: FormData;
 
   try {
-    payload = (await req.json()) as AnalyzePhotoPayload;
+    formData = await req.formData();
   } catch {
     return NextResponse.json({ error: "Ugyldig foresporgsel." }, { status: 400 });
   }
 
   try {
-    const image = asTrimmedString(payload.image);
-    const sessionId = asTrimmedString(payload.sessionId);
-    const participantId = asTrimmedString(payload.participantId);
-    const postIndex = asPostIndex(payload.postIndex);
+    const imageEntry = formData.get("image");
+    const sessionId = asTrimmedString(formData.get("sessionId"));
+    const participantId = asTrimmedString(formData.get("participantId"));
+    const postIndex = asPostIndex(formData.get("postIndex"));
 
-    if (!image || !sessionId || !participantId || postIndex === null) {
+    if (!(imageEntry instanceof File) || !sessionId || !participantId || postIndex === null) {
       return NextResponse.json({ error: "Billede eller postdata mangler." }, { status: 400 });
     }
 
-    if (!image.startsWith("data:image/")) {
-      return NextResponse.json(
-        { error: "Billedet skal vaere et base64 data-URI." },
-        { status: 400 }
-      );
+    const image = await parseUploadedImage(imageEntry);
+    if (!image) {
+      return NextResponse.json({ error: "Billedfilen er ugyldig." }, { status: 400 });
     }
 
     const adminSupabase = createAdminClient();
@@ -369,6 +389,7 @@ export async function POST(req: Request) {
     const uploadedPhoto = await uploadPhotoToStorage(
       image,
       sessionId,
+      participantId,
       postIndex,
       adminSupabase
     );
@@ -404,7 +425,7 @@ Returner KUN et validt JSON-objekt med dette format:
             { type: "input_text", text: userPrompt },
             {
               type: "input_image",
-              image_url: image,
+              image_url: image.openAiImageUrl,
               detail: "high",
             },
           ],

@@ -401,6 +401,54 @@ export function readFileAsDataUri(file: File) {
   });
 }
 
+const PHOTO_UPLOAD_MAX_DIMENSION = 1200;
+const PHOTO_UPLOAD_MAX_BYTES = 512 * 1024;
+const PHOTO_UPLOAD_INITIAL_QUALITY = 0.82;
+const PHOTO_UPLOAD_MIN_QUALITY = 0.45;
+const PHOTO_UPLOAD_RESIZE_STEP = 0.85;
+const PHOTO_UPLOAD_MIN_DIMENSION = 480;
+const PHOTO_UPLOAD_MAX_ATTEMPTS = 8;
+
+function blobToUploadFile(blob: Blob, originalFileName: string) {
+  const normalized = originalFileName.trim();
+  const lastDot = normalized.lastIndexOf(".");
+  const baseName = lastDot > 0 ? normalized.slice(0, lastDot) : normalized;
+  const nextFileName = `${baseName || "photo-upload"}.jpg`;
+
+  return new File([blob], nextFileName, {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, quality: number) {
+  return new Promise<Blob | null>((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), "image/jpeg", quality);
+  });
+}
+
+function drawImageToCanvas(
+  canvas: HTMLCanvasElement,
+  image: HTMLImageElement,
+  width: number,
+  height: number
+) {
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return false;
+  }
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, width, height);
+  context.drawImage(image, 0, 0, width, height);
+  return true;
+}
+
 export function loadImageElement(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new window.Image();
@@ -412,7 +460,7 @@ export function loadImageElement(src: string) {
 
 export async function compressImageForUpload(file: File) {
   if (typeof window === "undefined" || typeof document === "undefined") {
-    return readFileAsDataUri(file);
+    return file;
   }
 
   const objectUrl = URL.createObjectURL(file);
@@ -422,27 +470,54 @@ export async function compressImageForUpload(file: File) {
     const sourceWidth = image.naturalWidth || image.width;
     const sourceHeight = image.naturalHeight || image.height;
     const longestSide = Math.max(sourceWidth, sourceHeight, 1);
-    const scale = longestSide > 1080 ? 1080 / longestSide : 1;
-    const targetWidth = Math.max(1, Math.round(sourceWidth * scale));
-    const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
+    const scale =
+      longestSide > PHOTO_UPLOAD_MAX_DIMENSION ? PHOTO_UPLOAD_MAX_DIMENSION / longestSide : 1;
+    let targetWidth = Math.max(1, Math.round(sourceWidth * scale));
+    let targetHeight = Math.max(1, Math.round(sourceHeight * scale));
 
     const canvas = document.createElement("canvas");
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
+    let quality = PHOTO_UPLOAD_INITIAL_QUALITY;
+    let bestBlob: Blob | null = null;
 
-    const context = canvas.getContext("2d");
-    if (!context) {
-      return readFileAsDataUri(file);
+    for (let attempt = 0; attempt < PHOTO_UPLOAD_MAX_ATTEMPTS; attempt += 1) {
+      const didDraw = drawImageToCanvas(canvas, image, targetWidth, targetHeight);
+      if (!didDraw) {
+        return file;
+      }
+
+      const blob = await canvasToBlob(canvas, quality);
+      if (!blob) {
+        return file;
+      }
+
+      bestBlob = blob;
+      if (blob.size <= PHOTO_UPLOAD_MAX_BYTES) {
+        return blobToUploadFile(blob, file.name);
+      }
+
+      if (quality > PHOTO_UPLOAD_MIN_QUALITY) {
+        quality = Math.max(PHOTO_UPLOAD_MIN_QUALITY, quality - 0.12);
+        continue;
+      }
+
+      const nextLongestSide = Math.max(targetWidth, targetHeight) * PHOTO_UPLOAD_RESIZE_STEP;
+      if (nextLongestSide < PHOTO_UPLOAD_MIN_DIMENSION) {
+        break;
+      }
+
+      targetWidth = Math.max(1, Math.round(targetWidth * PHOTO_UPLOAD_RESIZE_STEP));
+      targetHeight = Math.max(1, Math.round(targetHeight * PHOTO_UPLOAD_RESIZE_STEP));
+      quality = Math.min(PHOTO_UPLOAD_INITIAL_QUALITY, quality + 0.08);
     }
 
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, targetWidth, targetHeight);
-    context.drawImage(image, 0, 0, targetWidth, targetHeight);
+    if (bestBlob) {
+      return blobToUploadFile(bestBlob, file.name);
+    }
 
-    return canvas.toDataURL("image/jpeg", 0.7);
+    return file;
   } catch (error) {
     console.error("Kunne ikke komprimere billedet lokalt:", error);
-    return readFileAsDataUri(file);
+    return file;
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
