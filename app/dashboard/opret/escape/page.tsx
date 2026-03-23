@@ -869,6 +869,12 @@ function EscapeBuilderPageContent() {
                     Edit-mode
                   </div>
                 ) : null}
+
+                <div className="mb-8">
+                  <h3 className="text-xl font-semibold text-amber-100">Velkommen til Escape Room løbet.</h3>
+                  <p className="mt-2 text-sm text-amber-100/80">Placer dine poster på kortet, og skriv en udfordrende gåde til hver lokation. Eleverne skal løse gåderne ude på ruten for at indsamle brikker til en endelig master-kode. Mangler du idéer, kan du bruge den indbyggede AI-assistent til at generere gåderne for dig.</p>
+                </div>
+
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
                   Løbets titel
                 </label>
