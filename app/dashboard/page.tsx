@@ -90,7 +90,9 @@ export default function DashboardPage() {
         }
 
         if (runCount === 0) {
-          router.replace("/dashboard");
+          // No saved runs yet — keep the dashboard view but don't attempt
+          // to redirect to a removed welcome/onboarding page.
+          if (isMounted) setActiveSessionId(null);
           return;
         }
 
