@@ -968,6 +968,12 @@ function OpretLoebPageContent() {
                       Edit-mode
                     </div>
                   ) : null}
+
+                  <div className="mb-8">
+                    <h3 className="text-xl font-semibold text-emerald-100">Velkommen til det klassiske quiz løb.</h3>
+                    <p className="mt-2 text-sm text-emerald-100/80">Placer posterne på kortet, og indtast et spørgsmål med fire svarmuligheder til hver post. Du kan også bruge den indbyggede AI-assistent til at generere spørgsmålene for dig.</p>
+                  </div>
+
                   <div className="mb-2">
                     <label className="block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
                       Løbets titel
