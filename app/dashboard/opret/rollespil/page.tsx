@@ -929,6 +929,10 @@ function RollespilBuilderPageContent() {
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                   Løbets titel
                 </label>
+                <div className="mb-3 text-sm leading-6 text-violet-100/70">
+                  <p className="font-bold">Byg et kort rollespil — hurtigt og nemt</p>
+                  <p className="mt-2">Skriv en titel og en kort beskrivelse. Brug AI-interviewet til at få genereret karakterposter og spørgsmål på dansk, klar til mobilbrug.</p>
+                </div>
                 <input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
