@@ -64,9 +64,9 @@ export type RollespilAiInterviewDraft = {
 };
 
 type ApiSuccessResponse = {
-  title?: unknown;
-  description?: unknown;
-  posts?: unknown;
+  roll_title?: unknown;
+  roll_desc?: unknown;
+  questions?: unknown;
 };
 
 type Props = {
@@ -104,40 +104,45 @@ function normalizeStep(value: unknown): RestorableStep {
 
 function isInterviewDraftResponse(value: unknown): value is RollespilAiInterviewDraft {
   if (!value || typeof value !== "object") return false;
-
   const candidate = value as ApiSuccessResponse;
-  if (!asTrimmedString(candidate.title) || !asTrimmedString(candidate.description)) {
+  if (!asTrimmedString(candidate.roll_title) || !asTrimmedString(candidate.roll_desc)) {
     return false;
   }
 
-  if (!Array.isArray(candidate.posts) || candidate.posts.length === 0) {
+  if (!Array.isArray(candidate.questions) || candidate.questions.length === 0) {
     return false;
   }
 
-  return candidate.posts.every((post, index) => {
+  return candidate.questions.every((post, index) => {
     if (!post || typeof post !== "object") return false;
-
     const candidatePost = post as {
+      id?: unknown;
+      postType?: unknown;
       characterName?: unknown;
-      avatar?: unknown;
-      message?: unknown;
-      question?: unknown;
+      introMessage?: unknown;
+      questionMessage?: unknown;
+      answers?: unknown;
       options?: unknown;
-      answer?: unknown;
     };
 
     const characterName = asTrimmedString(candidatePost.characterName);
-    const message = asTrimmedString(candidatePost.message || candidatePost.question);
-    const answer = asTrimmedString(candidatePost.answer);
-    const options = Array.isArray(candidatePost.options) ? (candidatePost.options as unknown[]) : [];
+    const introMessage = asTrimmedString(candidatePost.introMessage || candidatePost.message);
+    const questionMessage = asTrimmedString(candidatePost.questionMessage || candidatePost.question || candidatePost.message);
+    const answers = Array.isArray(candidatePost.answers)
+      ? (candidatePost.answers as unknown[])
+      : Array.isArray(candidatePost.options)
+      ? (candidatePost.options as unknown[])
+      : [];
 
-    if (!characterName || !message) return false;
-    if (index === 0) return !answer;
+    if (index === 0) {
+      // Intro must have a characterName and introMessage
+      return Boolean(characterName && introMessage);
+    }
 
-    // For quiz posts require options array with 4 items and an answer present
-    if (!Array.isArray(options) || options.length !== 4) return false;
-    if (!answer) return false;
-    return options.map((o) => asTrimmedString(o)).includes(answer);
+    // Quiz posts: require a questionMessage and four answers
+    if (!questionMessage) return false;
+    if (!Array.isArray(answers) || answers.length !== 4) return false;
+    return answers.every((a) => typeof a === "string" && asTrimmedString(a));
   });
 }
 
@@ -296,37 +301,37 @@ export default function RollespilAiInterviewModal({
       }
 
       onComplete({
-        title: asTrimmedString(payload.title),
-        description: asTrimmedString(payload.description),
-        posts: payload.posts.map((post, index) => {
-          const candidatePost = post as {
+        title: asTrimmedString(payload.roll_title) || asTrimmedString(payload.title),
+        description: asTrimmedString(payload.roll_desc) || asTrimmedString(payload.description),
+        posts: (payload.questions as any[]).map((q, index) => {
+          const candidate = q as {
+            id?: unknown;
+            postType?: unknown;
             characterName?: unknown;
-            avatar?: unknown;
-            message?: unknown;
-            question?: unknown;
+            introMessage?: unknown;
+            questionMessage?: unknown;
+            answers?: unknown;
             options?: unknown;
-            answer?: unknown;
           };
 
-          const characterName = asTrimmedString(candidatePost.characterName);
-          const message = asTrimmedString(candidatePost.message || candidatePost.question);
-
+          const characterName = asTrimmedString(candidate.characterName) || "";
           if (index === 0) {
             return {
               characterName,
-              message,
+              message: asTrimmedString(candidate.introMessage) || asTrimmedString(candidate.message) || "",
             } as RollespilAiInterviewPost;
           }
 
-          const rawOptions = Array.isArray(candidatePost.options) ? (candidatePost.options as unknown[]) : [];
-          const options = rawOptions.map((o) => asTrimmedString(o));
-          const answer = asTrimmedString(candidatePost.answer);
+          const opts = Array.isArray(candidate.answers)
+            ? (candidate.answers as unknown[])
+            : Array.isArray(candidate.options)
+            ? (candidate.options as unknown[])
+            : [];
 
           return {
             characterName,
-            question: message,
-            options,
-            answer,
+            question: asTrimmedString(candidate.questionMessage) || asTrimmedString(candidate.question) || asTrimmedString(candidate.message) || "",
+            options: opts.map((o) => asTrimmedString(o)),
           } as RollespilAiInterviewPost;
         }),
       });
