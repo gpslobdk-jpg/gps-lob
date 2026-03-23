@@ -17,8 +17,15 @@ import type {
   SessionRow,
   StudentRow,
   TeacherLiveData,
+  TeacherLiveStanding,
 } from "@/components/live/types";
 import { createClient } from "@/utils/supabase/client";
+
+function toTimestamp(value: string | null | undefined) {
+  if (!value) return null;
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? null : parsed;
+}
 
 export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   const [pin, setPin] = useState("");
@@ -30,6 +37,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   const [studentLocations, setStudentLocations] = useState<LiveStudentLocation[]>([]);
   const [runQuestions, setRunQuestions] = useState<TeacherLiveData["runQuestions"]>([]);
   const [liveAnswers, setLiveAnswers] = useState<TeacherLiveData["liveAnswers"]>([]);
+  const [sessionAnswers, setSessionAnswers] = useState<TeacherLiveData["liveAnswers"]>([]);
   const [hasParticipantsTable, setHasParticipantsTable] = useState(true);
   const [hasAnswersTable, setHasAnswersTable] = useState(true);
   const [isEndingRun, setIsEndingRun] = useState(false);
@@ -55,12 +63,22 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       addStudentName(location.name);
     };
 
-    const addLiveAnswer = (row: AnswerRow) => {
-      const parsed = toLiveAnswer(row);
-      if (!parsed || parsed.isCorrect !== true) return;
+      const addLiveAnswer = (row: AnswerRow) => {
+        const parsed = toLiveAnswer(row);
+        if (!parsed) return;
 
-      setLiveAnswers((previous) => prependAnswer(previous, parsed));
-    };
+        setSessionAnswers((previous) =>
+          [...previous.filter((item) => item.id !== parsed.id), parsed].sort((a, b) => {
+            const aTs = toTimestamp(a.createdAt) ?? 0;
+            const bTs = toTimestamp(b.createdAt) ?? 0;
+            return aTs - bTs;
+          })
+        );
+
+        if (parsed.isCorrect !== true) return;
+
+        setLiveAnswers((previous) => prependAnswer(previous, parsed));
+      };
 
     const fetchLobbyData = async () => {
       setIsLoading(true);
@@ -163,8 +181,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       const { data: answersData, error: answersError } = await supabase
         .from("answers")
         .select("*")
-        .eq("session_id", sessionId)
-        .limit(120);
+        .eq("session_id", sessionId);
 
       if (!isActive) return { supportsParticipants, supportsAnswers: false };
 
@@ -176,15 +193,24 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       } else if (answersData) {
         const parsed = (answersData as AnswerRow[])
           .map((row) => toLiveAnswer(row))
-          .filter((row): row is NonNullable<typeof row> => row !== null && row.isCorrect === true)
+          .filter((row): row is NonNullable<typeof row> => row !== null)
+          .sort((a, b) => {
+            const aTs = toTimestamp(a.createdAt) ?? 0;
+            const bTs = toTimestamp(b.createdAt) ?? 0;
+            return aTs - bTs;
+          });
+
+        setSessionAnswers(parsed);
+        setLiveAnswers(
+          parsed
+            .filter((row) => row.isCorrect === true)
           .sort((a, b) => {
             const aTs = a.createdAt ? new Date(a.createdAt).getTime() : 0;
             const bTs = b.createdAt ? new Date(b.createdAt).getTime() : 0;
             return bTs - aTs;
           })
-          .slice(0, 40);
-
-        setLiveAnswers(parsed);
+            .slice(0, 40)
+        );
       }
 
       setHasAnswersTable(supportsAnswers);
@@ -316,6 +342,119 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     () => `${mapCenter[0]}-${mapCenter[1]}-${runQuestions.length}`,
     [mapCenter, runQuestions.length]
   );
+  const totalPosts = runQuestions.length;
+
+  const participantRoster = useMemo(() => {
+    const participantsByName = new Map<string, LiveStudentLocation>();
+
+    for (const student of studentLocations) {
+      const normalizedKey = student.name.toLocaleLowerCase("da-DK");
+      participantsByName.set(normalizedKey, student);
+    }
+
+    for (const studentName of students) {
+      const normalizedName = normalizeName(studentName);
+      if (!normalizedName) continue;
+
+      const normalizedKey = normalizedName.toLocaleLowerCase("da-DK");
+      if (participantsByName.has(normalizedKey)) continue;
+
+      participantsByName.set(normalizedKey, {
+        id: `${sessionId ?? "session"}-${normalizedKey}`,
+        name: normalizedName,
+        student_name: normalizedName,
+        lat: null,
+        lng: null,
+        updated_at: null,
+        finished_at: null,
+      });
+    }
+
+    return Array.from(participantsByName.values());
+  }, [sessionId, studentLocations, students]);
+
+  const finalStandings = useMemo<TeacherLiveStanding[]>(() => {
+    const statsByName = new Map<
+      string,
+      {
+        correctPosts: Set<number>;
+        attemptedPosts: Set<number>;
+        lastCorrectAt: string | null;
+        lastActivityAt: string | null;
+      }
+    >();
+
+    for (const answer of sessionAnswers) {
+      const normalizedName = normalizeName(answer.studentName);
+      if (!normalizedName) continue;
+
+      const normalizedKey = normalizedName.toLocaleLowerCase("da-DK");
+      const entry =
+        statsByName.get(normalizedKey) ??
+        {
+          correctPosts: new Set<number>(),
+          attemptedPosts: new Set<number>(),
+          lastCorrectAt: null,
+          lastActivityAt: null,
+        };
+
+      if (typeof answer.postNumber === "number" && Number.isFinite(answer.postNumber)) {
+        entry.attemptedPosts.add(answer.postNumber);
+        if (answer.isCorrect === true) {
+          entry.correctPosts.add(answer.postNumber);
+        }
+      }
+
+      const answerTs = toTimestamp(answer.createdAt);
+      const lastActivityTs = toTimestamp(entry.lastActivityAt);
+      if (answerTs !== null && (lastActivityTs === null || answerTs > lastActivityTs)) {
+        entry.lastActivityAt = answer.createdAt;
+      }
+
+      if (answer.isCorrect === true) {
+        const lastCorrectTs = toTimestamp(entry.lastCorrectAt);
+        if (answerTs !== null && (lastCorrectTs === null || answerTs > lastCorrectTs)) {
+          entry.lastCorrectAt = answer.createdAt;
+        }
+      }
+
+      statsByName.set(normalizedKey, entry);
+    }
+
+    return [...participantRoster]
+      .map((student) => {
+        const normalizedKey = student.name.toLocaleLowerCase("da-DK");
+        const stats = statsByName.get(normalizedKey);
+        const score = stats?.correctPosts.size ?? 0;
+        const completedPosts = stats?.attemptedPosts.size ?? 0;
+        const progressPercent =
+          totalPosts > 0 ? Math.max(0, Math.min(100, Math.round((completedPosts / totalPosts) * 100))) : 0;
+
+        return {
+          student,
+          score,
+          completedPosts,
+          progressPercent,
+          lastActivityAt: stats?.lastCorrectAt ?? stats?.lastActivityAt ?? null,
+        };
+      })
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.completedPosts !== a.completedPosts) return b.completedPosts - a.completedPosts;
+
+        const aFinished = Boolean(a.student.finished_at);
+        const bFinished = Boolean(b.student.finished_at);
+        if (aFinished !== bFinished) {
+          return aFinished ? -1 : 1;
+        }
+
+        const aTime = toTimestamp(a.student.finished_at ?? a.lastActivityAt) ?? Number.POSITIVE_INFINITY;
+        const bTime = toTimestamp(b.student.finished_at ?? b.lastActivityAt) ?? Number.POSITIVE_INFINITY;
+        if (aTime !== bTime) return aTime - bTime;
+
+        return a.student.name.localeCompare(b.student.name, "da");
+      });
+  }, [participantRoster, sessionAnswers, totalPosts]);
 
   const finishers = useMemo(
     () =>
@@ -330,7 +469,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   );
 
   const winnerCelebrationName =
-    finishers[0]?.name || finishers[0]?.student_name || "Holdet";
+    finalStandings[0]?.student.name || finalStandings[0]?.student.student_name || "Holdet";
 
   const activeStudents = useMemo(
     () =>
@@ -393,6 +532,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     setIsEndingRun(true);
 
     const supabase = createClient();
+    const finishedAt = new Date().toISOString();
     const { error } = await supabase
       .from("live_sessions")
       .update({ status: "finished" })
@@ -403,6 +543,29 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       alert("Kunne ikke afslutte løbet.");
       setIsEndingRun(false);
       return;
+    }
+
+    if (hasParticipantsTable) {
+      const { error: finishParticipantsError } = await supabase
+        .from("participants")
+        .update({ finished_at: finishedAt })
+        .eq("session_id", sessionId)
+        .is("finished_at", null);
+
+      if (finishParticipantsError) {
+        console.warn("Kunne ikke registrere afslutning paa aktive deltagere:", finishParticipantsError);
+      } else {
+        setStudentLocations((previous) =>
+          previous.map((student) =>
+            student.finished_at
+              ? student
+              : {
+                  ...student,
+                  finished_at: finishedAt,
+                }
+          )
+        );
+      }
     }
 
     setStatus("finished");
@@ -451,7 +614,9 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     activeStudents,
     studentLocations,
     finishers,
+    finalStandings,
     winnerCelebrationName,
+    totalPosts,
     mapCenter,
     mapKey,
     setNewMessage: updateNewMessage,

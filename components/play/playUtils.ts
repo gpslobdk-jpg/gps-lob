@@ -271,6 +271,10 @@ export function normalizeRaceMode(value: unknown): RaceMode {
 }
 
 export function resolvePostVariant(raceMode: RaceMode, question: Question): ActivePostVariant {
+  if (question.type === "ai_image") {
+    return "photo";
+  }
+
   if (raceMode !== "unknown") {
     return raceMode;
   }

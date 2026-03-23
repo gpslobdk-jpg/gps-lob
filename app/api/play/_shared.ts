@@ -156,6 +156,11 @@ export function inferEscapeQuestion(rawQuestion: unknown) {
 }
 
 export function resolveQuestionVariant(raceMode: unknown, rawQuestion: unknown): QuestionVariant {
+  if (isRecord(rawQuestion)) {
+    const rawType = asTrimmedString(rawQuestion.type);
+    if (rawType === "ai_image") return "photo";
+  }
+
   const normalizedRaceMode = normalizeRaceMode(raceMode);
   if (normalizedRaceMode !== "unknown") {
     return normalizedRaceMode;
@@ -164,8 +169,6 @@ export function resolveQuestionVariant(raceMode: unknown, rawQuestion: unknown):
   if (!isRecord(rawQuestion)) return "unknown";
 
   const rawType = asTrimmedString(rawQuestion.type);
-  if (rawType === "ai_image") return "photo";
-
   const [answer0 = "", answer1 = "", answer2 = "", answer3 = ""] = getNormalizedAnswers(rawQuestion);
   if (Boolean(answer2) && !answer3) return "roleplay";
   if (inferEscapeQuestion(rawQuestion)) return "escape";

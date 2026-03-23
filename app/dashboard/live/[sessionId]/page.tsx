@@ -36,7 +36,8 @@ export default function LiveLobbyPage() {
         />
       ) : live.status === "finished" ? (
         <TeacherLiveResults
-          finishers={live.finishers}
+          standings={live.finalStandings}
+          totalPosts={live.totalPosts}
           winnerCelebrationName={live.winnerCelebrationName}
         />
       ) : (

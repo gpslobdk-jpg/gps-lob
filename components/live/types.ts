@@ -62,6 +62,14 @@ export type LiveAnswer = {
   createdAt: string | null;
 };
 
+export type TeacherLiveStanding = {
+  student: LiveStudentLocation;
+  score: number;
+  completedPosts: number;
+  progressPercent: number;
+  lastActivityAt: string | null;
+};
+
 export type TeacherLiveData = {
   sessionId: string | null;
   pin: string;
@@ -79,7 +87,9 @@ export type TeacherLiveData = {
   isEndingRun: boolean;
   activeStudents: LiveStudentLocation[];
   finishers: LiveStudentLocation[];
+  finalStandings: TeacherLiveStanding[];
   winnerCelebrationName: string;
+  totalPosts: number;
   mapCenter: [number, number];
   mapKey: string;
   setNewMessage: (value: string) => void;

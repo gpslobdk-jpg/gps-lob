@@ -43,14 +43,14 @@ const STEP_PLACEHOLDERS: Record<WizardStep, string> = {
 const STEP_QUESTIONS: Record<Exclude<WizardStep, 4>, string> = {
   1: "Fedt. Hvilket klassetrin skal løbet passe til?",
   2: "Perfekt. Hvor mange poster vil du have med? Skriv et tal mellem 3 og 10.",
-  3: "Super. Har du særlige ønsker? (f.eks. mange foto-missioner eller korte quizzer)",
+  3: "Super. Har du særlige ønsker? (f.eks. korte quizzer eller ekstra udfordrende spørgsmål)",
 };
 
 const QUICK_REPLIES: Record<WizardStep, readonly string[]> = {
   1: ["Romerriget", "Brøker", "Fotosyntese"],
   2: ["3. klasse", "5. klasse", "Udskoling"],
   3: ["4", "6", "8"],
-  4: ["Mange foto-missioner", "Korte quizzer", "Ingen særlige ønsker"],
+  4: ["Korte quizzer", "Mere udfordrende spørgsmål", "Ingen særlige ønsker"],
 };
 
 function buildCombinedPrompt(answers: WizardAnswers) {
@@ -59,7 +59,7 @@ function buildCombinedPrompt(answers: WizardAnswers) {
     `Klassetrin: ${answers.grade}.`,
     `Antal poster: ${answers.postCount}.`,
     `Særlige ønsker: ${answers.specialWishes}.`,
-    "Lav et varieret GPS-løb med quiz-spørgsmål og foto-missioner, hvor læreren selv placerer posterne på kortet bagefter.",
+    "Lav et varieret GPS-løb kun med klassiske multiple-choice spørgsmål, hvor hver post har præcis 4 forskellige svarmuligheder og 1 korrekt svar, og hvor læreren selv placerer posterne på kortet bagefter.",
   ].join(" ");
 }
 

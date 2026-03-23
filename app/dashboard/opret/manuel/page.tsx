@@ -234,10 +234,20 @@ const createQuestion = (type: Question["type"] = "multiple_choice"): Question =>
 const inputClass =
   "w-full rounded-2xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
+const textareaClass =
+  "w-full rounded-2xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+
 const aiActionButtonClass =
   "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 px-5 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const DEFAULT_ANSWERS: [string, string, string, string] = ["", "", "", ""];
+
+const buildPhotoAnswers = (targetObject: string): [string, string, string, string] => [
+  targetObject.trim(),
+  "",
+  "",
+  "",
+];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -277,6 +287,32 @@ function toQuestionId(value: unknown, fallback: number) {
   return parsed !== null && Number.isInteger(parsed) ? parsed : fallback;
 }
 
+function getStoredPhotoTarget(
+  candidate: Pick<StoredQuestionRecord, "aiPrompt" | "ai_prompt">,
+  answers: [string, string, string, string]
+) {
+  const normalizedPrompt = asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt);
+  if (normalizedPrompt) return normalizedPrompt;
+
+  return answers[0] ?? "";
+}
+
+function normalizeQuestionForSave(question: Question): Question {
+  const type = question.type === "ai_image" ? "ai_image" : "multiple_choice";
+  const text = question.text.trim();
+  const aiPrompt = question.aiPrompt.trim();
+
+  return {
+    ...question,
+    type,
+    text,
+    aiPrompt,
+    mediaUrl: question.mediaUrl.trim(),
+    answers: type === "ai_image" ? buildPhotoAnswers(aiPrompt) : question.answers.map((answer) => answer.trim()) as Question["answers"],
+    correctIndex: type === "ai_image" ? 0 : question.correctIndex,
+  };
+}
+
 function toQuestionList(value: unknown): Question[] {
   if (!Array.isArray(value)) return [];
 
@@ -287,7 +323,9 @@ function toQuestionList(value: unknown): Question[] {
       if (!isRecord(item)) return null;
 
       const candidate = item as StoredQuestionRecord;
+      const type = candidate.type === "ai_image" ? "ai_image" : "multiple_choice";
       const rawAnswers = toAnswersTuple(candidate.answers);
+      const photoTarget = getStoredPhotoTarget(candidate, rawAnswers);
       const correctIndex = asNumberOrNull(candidate.correctIndex ?? candidate.correct_index);
       const safeCorrectIndex =
         correctIndex !== null && Number.isInteger(correctIndex) && correctIndex >= 0 && correctIndex <= 3
@@ -296,12 +334,12 @@ function toQuestionList(value: unknown): Question[] {
 
       return {
         id: toQuestionId(candidate.id, timestamp + index),
-        type: candidate.type === "ai_image" ? "ai_image" : "multiple_choice",
+        type,
         text: asTrimmedString(candidate.text),
-        aiPrompt: asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt),
+        aiPrompt: type === "ai_image" ? photoTarget : asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt),
         mediaUrl: asTrimmedString(candidate.mediaUrl ?? candidate.media_url),
-        answers: rawAnswers,
-        correctIndex: safeCorrectIndex,
+        answers: type === "ai_image" ? buildPhotoAnswers(photoTarget) : rawAnswers,
+        correctIndex: type === "ai_image" ? 0 : safeCorrectIndex,
         lat: asNumberOrNull(candidate.lat),
         lng: asNumberOrNull(candidate.lng),
       };
@@ -433,6 +471,7 @@ function OpretLoebPageContent() {
           if (!rawItem || typeof rawItem !== "object") return null;
           const item = rawItem as MagicDraftQuestion;
           const answers = toAnswersTuple(item.options);
+          const type = item.type === "ai_image" ? "ai_image" : "multiple_choice";
           const questionText = typeof item.question === "string" ? item.question : "";
           const aiPromptText =
             typeof item.aiPrompt === "string"
@@ -453,12 +492,12 @@ function OpretLoebPageContent() {
 
           return {
             id: mappedId !== null ? mappedId : Date.now() + index,
-            type: item.type === "ai_image" ? "ai_image" : "multiple_choice",
+            type,
             text: questionText,
             aiPrompt: aiPromptText,
             mediaUrl: "",
-            answers,
-            correctIndex: answerIndex >= 0 ? answerIndex : 0,
+            answers: type === "ai_image" ? buildPhotoAnswers(aiPromptText) : answers,
+            correctIndex: type === "ai_image" ? 0 : answerIndex >= 0 ? answerIndex : 0,
             lat: hasDummyCoordinates ? null : rawLat,
             lng: hasDummyCoordinates ? null : rawLng,
           };
@@ -759,13 +798,7 @@ function OpretLoebPageContent() {
     }
 
     const normalizedQuestions = questions
-      .map((q) => ({
-        ...q,
-        type: "multiple_choice",
-        text: q.text.trim(),
-        aiPrompt: q.aiPrompt.trim(),
-        answers: q.answers.map((answer) => answer.trim()) as Question["answers"],
-      }))
+      .map((question) => normalizeQuestionForSave(question))
       .filter(
         (q) =>
           q.text.length > 0 ||
@@ -782,13 +815,17 @@ function OpretLoebPageContent() {
     }
 
     const hasIncompleteQuestions = normalizedQuestions.some((q) => {
+      if (q.type === "ai_image") {
+        return !q.text || !q.aiPrompt;
+      }
+
       if (!q.text) return true;
       return q.answers.some((answer) => !answer);
     });
     if (hasIncompleteQuestions) {
       setNotice({
         tone: "error",
-        message: "Udfyld postens tekst og alle fire svarmuligheder.",
+        message: "Udfyld enten postens tekst og alle fire svarmuligheder eller både motiv og instruktion på foto-poster.",
       });
       scrollToSaveFeedback();
       return;
@@ -1009,111 +1046,154 @@ function OpretLoebPageContent() {
                 {renderNotice()}
               </div>
 
-              {questions.map((question, questionIndex) => (
-                <article
-                  key={question.id}
-                  className="rounded-[1.8rem] border border-emerald-500/30 bg-emerald-950/20 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-950/20 text-sm font-bold text-emerald-100">
-                        {questionIndex + 1}
-                      </div>
-                      <div>
-                        <h3 className={`text-lg font-bold text-emerald-100 ${rubik.className}`}>Quiz-post</h3>
-                        <p className="text-xs text-emerald-100/65">
-                          {question.lat !== null && question.lng !== null
-                            ? "Pin er valgt på kortet"
-                            : "Ingen pin valgt endnu"}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="rounded-full border border-emerald-500/30 bg-emerald-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-emerald-100/75 uppercase backdrop-blur-xl">
-                      4 svar
-                    </span>
-                  </div>
+              {questions.map((question, questionIndex) => {
+                const isPhotoMission = question.type === "ai_image";
 
-                  <div className="mt-4">
-                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
-                      Spørgsmålstekst
-                    </label>
-                    <input
-                      value={question.text}
-                      onChange={(event) => updateQuestion(question.id, { text: event.target.value })}
-                      disabled={isEditorBusy}
-                      placeholder="Skriv spørgsmålet her..."
-                      className={inputClass}
-                    />
-                  </div>
-
-                  <div className="mt-4 space-y-2">
-                    {question.answers.map((answer, answerIndex) => {
-                      const isCorrectAnswer = question.correctIndex === answerIndex;
-
-                      return (
-                        <div
-                          key={`${question.id}-${answerIndex}`}
-                          className={`flex items-center gap-2.5 rounded-[1.25rem] border px-3 py-2.5 transition ${
-                            isCorrectAnswer
-                              ? "border-emerald-300/40 bg-emerald-500/12 shadow-[0_14px_28px_rgba(16,185,129,0.12)]"
-                              : "border-emerald-500/30 bg-emerald-950/20 hover:border-emerald-400/25"
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => updateQuestion(question.id, { correctIndex: answerIndex })}
-                            aria-label={`Markér svar ${answerIndex + 1} som korrekt`}
-                            aria-pressed={isCorrectAnswer}
-                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-black transition ${
-                              isCorrectAnswer
-                                ? "border-emerald-200 bg-emerald-300 text-[#062515] shadow-[0_0_18px_rgba(110,231,183,0.24)]"
-                                : "border-emerald-500/30 bg-emerald-950/20 text-emerald-100/78 hover:border-emerald-300/30"
-                            }`}
-                          >
-                            {String.fromCharCode(65 + answerIndex)}
-                          </button>
-
-                          <input
-                            value={answer}
-                            onChange={(event) => updateAnswer(question.id, answerIndex, event.target.value)}
-                            disabled={isEditorBusy}
-                            placeholder={`Svar ${answerIndex + 1}`}
-                            className="min-w-0 flex-1 bg-transparent py-1 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                          />
-
-                          <button
-                            type="button"
-                            onClick={() => updateQuestion(question.id, { correctIndex: answerIndex })}
-                            className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] transition ${
-                              isCorrectAnswer
-                                ? "border-emerald-200/60 bg-emerald-300 text-[#062515]"
-                                : "border-emerald-500/30 bg-emerald-950/20 text-emerald-100/72 hover:border-emerald-300/30 hover:text-emerald-100"
-                            }`}
-                          >
-                            {isCorrectAnswer ? <Check className="h-3.5 w-3.5" /> : null}
-                            {isCorrectAnswer ? "Korrekt" : "Markér"}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => assignPinFromCenter(question.id)}
-                    disabled={isEditorBusy}
-                    className="mt-4 w-full rounded-[1.35rem] border border-emerald-500/30 bg-emerald-500 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                return (
+                  <article
+                    key={question.id}
+                    className="rounded-[1.8rem] border border-emerald-500/30 bg-emerald-950/20 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
                   >
-                    Hent pin fra kortet
-                  </button>
+                    <div className="flex flex-wrap items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-950/20 text-sm font-bold text-emerald-100">
+                          {questionIndex + 1}
+                        </div>
+                        <div>
+                          <h3 className={`text-lg font-bold text-emerald-100 ${rubik.className}`}>
+                            {isPhotoMission ? "Foto-post" : "Quiz-post"}
+                          </h3>
+                          <p className="text-xs text-emerald-100/65">
+                            {question.lat !== null && question.lng !== null
+                              ? "Pin er valgt på kortet"
+                              : "Ingen pin valgt endnu"}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="rounded-full border border-emerald-500/30 bg-emerald-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-emerald-100/75 uppercase backdrop-blur-xl">
+                        {isPhotoMission ? "AI foto" : "4 svar"}
+                      </span>
+                    </div>
 
-                  {question.lat !== null && question.lng !== null ? (
-                    <p className="mt-2.5 text-xs text-emerald-100/70">
-                      Pin gemt: {question.lat.toFixed(5)}, {question.lng.toFixed(5)}
-                    </p>
-                  ) : null}
-                </article>
-              ))}
+                    {isPhotoMission ? (
+                      <>
+                        <div className="mt-4">
+                          <label className="mb-2 block text-xs font-semibold tracking-[0.12em] text-emerald-100/65">
+                            Hvad skal de finde?
+                          </label>
+                          <input
+                            value={question.aiPrompt}
+                            onChange={(event) => updateQuestion(question.id, { aiPrompt: event.target.value })}
+                            disabled={isEditorBusy}
+                            placeholder="fx Bøgeblad, Rød postkasse, Sten"
+                            className={inputClass}
+                          />
+                        </div>
+
+                        <div className="mt-4">
+                          <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                            Instruktion
+                          </label>
+                          <textarea
+                            value={question.text}
+                            onChange={(event) => updateQuestion(question.id, { text: event.target.value })}
+                            disabled={isEditorBusy}
+                            rows={4}
+                            placeholder="f.eks. Find et rødt bøgeblad. Vores AI tjekker billedet med det samme (og husk: man kan ikke snyde ved at fotografere en skærm!)."
+                            className={textareaClass}
+                          />
+                        </div>
+
+                        <div className="mt-4 rounded-[1.25rem] border border-emerald-500/30 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-50/85">
+                          Denne foto-post bruger AI-billedtjek under spillet, så den har ikke svarmuligheder.
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="mt-4">
+                          <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                            Spørgsmålstekst
+                          </label>
+                          <input
+                            value={question.text}
+                            onChange={(event) => updateQuestion(question.id, { text: event.target.value })}
+                            disabled={isEditorBusy}
+                            placeholder="Skriv spørgsmålet her..."
+                            className={inputClass}
+                          />
+                        </div>
+
+                        <div className="mt-4 space-y-2">
+                          {question.answers.map((answer, answerIndex) => {
+                            const isCorrectAnswer = question.correctIndex === answerIndex;
+
+                            return (
+                              <div
+                                key={`${question.id}-${answerIndex}`}
+                                className={`flex items-center gap-2.5 rounded-[1.25rem] border px-3 py-2.5 transition ${
+                                  isCorrectAnswer
+                                    ? "border-emerald-300/40 bg-emerald-500/12 shadow-[0_14px_28px_rgba(16,185,129,0.12)]"
+                                    : "border-emerald-500/30 bg-emerald-950/20 hover:border-emerald-400/25"
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => updateQuestion(question.id, { correctIndex: answerIndex })}
+                                  aria-label={`Markér svar ${answerIndex + 1} som korrekt`}
+                                  aria-pressed={isCorrectAnswer}
+                                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-black transition ${
+                                    isCorrectAnswer
+                                      ? "border-emerald-200 bg-emerald-300 text-[#062515] shadow-[0_0_18px_rgba(110,231,183,0.24)]"
+                                      : "border-emerald-500/30 bg-emerald-950/20 text-emerald-100/78 hover:border-emerald-300/30"
+                                  }`}
+                                >
+                                  {String.fromCharCode(65 + answerIndex)}
+                                </button>
+
+                                <input
+                                  value={answer}
+                                  onChange={(event) => updateAnswer(question.id, answerIndex, event.target.value)}
+                                  disabled={isEditorBusy}
+                                  placeholder={`Svar ${answerIndex + 1}`}
+                                  className="min-w-0 flex-1 bg-transparent py-1 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                                />
+
+                                <button
+                                  type="button"
+                                  onClick={() => updateQuestion(question.id, { correctIndex: answerIndex })}
+                                  className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] transition ${
+                                    isCorrectAnswer
+                                      ? "border-emerald-200/60 bg-emerald-300 text-[#062515]"
+                                      : "border-emerald-500/30 bg-emerald-950/20 text-emerald-100/72 hover:border-emerald-300/30 hover:text-emerald-100"
+                                  }`}
+                                >
+                                  {isCorrectAnswer ? <Check className="h-3.5 w-3.5" /> : null}
+                                  {isCorrectAnswer ? "Korrekt" : "Markér"}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => assignPinFromCenter(question.id)}
+                      disabled={isEditorBusy}
+                      className="mt-4 w-full rounded-[1.35rem] border border-emerald-500/30 bg-emerald-500 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      Hent pin fra kortet
+                    </button>
+
+                    {question.lat !== null && question.lng !== null ? (
+                      <p className="mt-2.5 text-xs text-emerald-100/70">
+                        Pin gemt: {question.lat.toFixed(5)}, {question.lng.toFixed(5)}
+                      </p>
+                    ) : null}
+                  </article>
+                );
+              })}
 
               <div className="rounded-[2rem] border border-emerald-500/30 bg-emerald-950/20 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
                 <button
