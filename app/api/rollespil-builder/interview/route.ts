@@ -153,6 +153,7 @@ Du SKAL altid følge disse regler:
       `KRITISK: Post 0 er altid introen og må ikke have answer.`,
       `KRITISK: Der skal være præcis ${Math.max(0, count - 1)} quiz- eller gådeposter efter introen.`,
       "Hver quiz-post efter introen skal have ét ekstremt simpelt facitsvar, helst ét ord.",
+      "Hver quiz-post efter introen skal udover et enkelt facitsvar også indeholde en 'options' liste med præcis 4 korte svarmuligheder, hvor 'answer' er ét af disse.",
       "Byg nu et komplet rollespils-løb med title, description og posts.",
     ].join("\n");
 
@@ -184,6 +185,8 @@ Du SKAL altid følge disse regler:
       const avatar = asTrimmedString((raw as any).avatar) || fallbackAvatar();
       let message = asTrimmedString((raw as any).message);
       let answer = asTrimmedString((raw as any).answer);
+      const rawOptions = Array.isArray((raw as any).options) ? (raw as any).options : [];
+      const options = rawOptions.map((o: unknown) => asTrimmedString(o)).filter(Boolean);
 
       if (i === 0) {
         // Intro post requirements
@@ -198,12 +201,31 @@ Du SKAL altid følge disse regler:
       } else {
         // Quiz posts: ensure there's a short/simple answer.
         if (!hasSimpleAnswer(answer)) {
-          // Pick a deterministic fallback answer for variety.
           answer = fallbackAnswers[i % fallbackAnswers.length];
         }
         if (!message) {
           message = `${characterName} stiller et spørgsmål til spillerne.`;
         }
+        // Ensure we have 4 options — prefer model-provided options, otherwise
+        // construct them using the answer and fallbacks.
+        const resultOptions: string[] = [];
+        if (options.length >= 1) {
+          resultOptions.push(...options.slice(0, 4));
+        }
+        if (resultOptions.length === 0) {
+          // Put answer first then fill with fallback labels
+          resultOptions.push(answer);
+        }
+        let fillIndex = 0;
+        while (resultOptions.length < 4) {
+          const candidate = fallbackAnswers[(i + fillIndex) % fallbackAnswers.length];
+          if (!resultOptions.includes(candidate)) resultOptions.push(candidate);
+          fillIndex += 1;
+        }
+        // Ensure answer is one of the options
+        if (!resultOptions.includes(answer)) resultOptions[0] = answer;
+        // attach options
+        (raw as any)._normalizedOptions = resultOptions.slice(0, 4);
       }
 
       return {
@@ -211,6 +233,7 @@ Du SKAL altid følge disse regler:
         avatar,
         message,
         answer,
+        options: (raw as any)._normalizedOptions ?? [],
       };
     });
 
@@ -224,13 +247,12 @@ Du SKAL altid følge disse regler:
         index === 0
           ? {
               characterName: post.characterName,
-              avatar: post.avatar,
               message: post.message,
             }
           : {
               characterName: post.characterName,
-              avatar: post.avatar,
-              message: post.message,
+              question: post.message,
+              options: post.options,
               answer: post.answer,
             }
       ),

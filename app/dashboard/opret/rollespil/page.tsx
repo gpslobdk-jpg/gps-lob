@@ -157,6 +157,7 @@ type Question = {
   aiPrompt: string;
   mediaUrl: string;
   answers: [string, string, string, string];
+  options?: string[];
   correctIndex: number;
   lat: number | null;
   lng: number | null;
@@ -339,9 +340,10 @@ function toInterviewRoleplayQuestions(posts: RollespilAiInterviewDraft["posts"])
 
   return posts.map((post, index) => {
     const characterName = post.characterName.trim() || fallbackCharacterName(index);
-    const avatar = post.avatar.trim() || fallbackAvatar();
-    const message = post.message.trim();
-    const answer = index === 0 ? "" : post.answer?.trim() ?? "";
+    const avatar = post.avatar?.trim() || fallbackAvatar();
+    const message = (post.message ?? post.question ?? "").trim();
+    const answer = index === 0 ? "" : (post.answer ?? "").trim();
+    const options = Array.isArray(post.options) ? post.options.map((o) => String(o).trim()) : undefined;
 
     return {
       id: timestamp + index,
@@ -351,6 +353,7 @@ function toInterviewRoleplayQuestions(posts: RollespilAiInterviewDraft["posts"])
       aiPrompt: message,
       mediaUrl: "",
       answers: toRoleplayAnswers(answer, characterName, avatar),
+      options,
       correctIndex: 0,
       lat: null,
       lng: null,
@@ -758,6 +761,7 @@ function RollespilBuilderPageContent() {
             normalizedCharacterName,
             normalizedAvatar
           ),
+          options: (question.options ?? []).map((o) => o.trim()).filter(Boolean),
           correctIndex: 0,
           mediaUrl: question.mediaUrl.trim(),
         };
@@ -783,7 +787,7 @@ function RollespilBuilderPageContent() {
         !question.text ||
         !question.aiPrompt ||
         !question.answers[2] ||
-        ((question.post_type ?? question.postType ?? "quiz") !== "intro" && !question.answers[0])
+        ((question.post_type ?? question.postType ?? "quiz") !== "intro" && (!question.answers[0] || !(Array.isArray(question.options) && question.options.length === 4)))
     );
     if (hasIncompleteQuestions) {
       setNotice({
