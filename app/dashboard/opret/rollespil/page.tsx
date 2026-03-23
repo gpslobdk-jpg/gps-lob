@@ -928,7 +928,7 @@ function RollespilBuilderPageContent() {
                 ) : null}
                 <div className="mb-8">
                   <h2 className="text-xl font-semibold text-white mb-2">Velkommen til det tema-baserede rollespil.</h2>
-                  <p className="text-sm text-white/80">Her skaber du en unik oplevelse, hvor eleverne møder forskellige karakterer og løser opgaver i et sammenhængende univers. Beskriv dit tema eller brug den indbyggede AI til at generere hele historien for dig.</p>
+                  <p className="text-sm text-white/80">Her bygger du et løb, hvor eleverne møder en karakter. Den første post skal altid være en introduktion, hvor karakteren præsenterer sig selv i jeg-form (f.eks. Kong Christian d. 4). Brug AI-assistenten til at generere teksten, så den taler direkte til eleven. På elevens mobil fremstår det som en personlig hilsen fra karakteren.</p>
                 </div>
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                   Løbets titel
@@ -1031,7 +1031,10 @@ function RollespilBuilderPageContent() {
                             <div className="inline-flex items-center rounded-full border border-violet-500/20 bg-violet-950/10 px-3 py-2 text-sm font-semibold text-white">
                               Intro (ventepost)
                             </div>
-                            <p className="mt-2 text-xs text-white/60">Intro — her skal eleverne ikke svare på spørgsmål</p>
+                            <div className="mt-3 text-sm text-white/80">
+                              <p>Post 1: Introduktion. Her præsenterer rollen sig selv. Skriv altid i jeg-form.</p>
+                              <p className="mt-2">Eksempel: "God dag unge mennesker! Jeg hedder Kong Christian d. 4. Jeg grundlagde jeres by, og nu skal I hjælpe mig med..."</p>
+                            </div>
                           </div>
                         ) : (
                           <div>
@@ -1072,19 +1075,21 @@ function RollespilBuilderPageContent() {
                         />
                       </div>
 
-                      <div className="w-full md:w-56">
-                        <label className="mb-2 block text-xs uppercase tracking-wider text-white/50">
-                          Avatar (Emoji eller billed-URL)
-                        </label>
-                        <input
-                          value={question.answers[2]}
-                          onChange={(event) =>
-                            updateRoleplayQuestion(question.id, { avatar: event.target.value })
-                          }
-                          placeholder="F.eks. Emoji eller billed-URL"
-                          className={textInputClass}
-                        />
-                      </div>
+                      {index !== 0 && (
+                        <div className="w-full md:w-56">
+                          <label className="mb-2 block text-xs uppercase tracking-wider text-white/50">
+                            Avatar (Emoji eller billed-URL)
+                          </label>
+                          <input
+                            value={question.answers[2]}
+                            onChange={(event) =>
+                              updateRoleplayQuestion(question.id, { avatar: event.target.value })
+                            }
+                            placeholder="F.eks. Emoji eller billed-URL"
+                            className={textInputClass}
+                          />
+                        </div>
+                      )}
                     </div>
 
                     <div className="mt-3">
