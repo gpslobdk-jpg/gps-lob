@@ -853,6 +853,11 @@ function FotoMissionBuilderPageContent() {
                       Edit-mode
                     </div>
                   ) : null}
+                  <div className="mb-8">
+                    <h3 className="text-xl font-semibold text-sky-100">Velkommen til AI Foto-mission.</h3>
+                    <p className="mt-2 text-sm text-sky-100/80">Placer missionerne på kortet, og beskriv præcist, hvad eleverne skal fotografere ved hver post. AI'en vurderer automatisk elevernes billeder ude på ruten. Du kan også bruge den indbyggede AI-assistent til at generere missionerne for dig.</p>
+                  </div>
+
                   <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
                     Løbets titel
                   </label>
