@@ -28,29 +28,28 @@ const interviewPayloadSchema = z
   })
   .strict();
 
-// Be permissive: accept partial or slightly different shapes from the AI and
-// normalise afterwards. We'll expect the AI to return an object with a
-// top-level title/description and a `posts` array, but keep validation loose
-// to avoid 500s when the model deviates slightly.
-const generatedPostSchema = z.object({
-  characterName: z.string().optional(),
-  introMessage: z.string().optional(),
-  message: z.string().optional(),
-  questionMessage: z.string().optional(),
-  answers: z.array(z.string()).optional(),
-  options: z.array(z.string()).optional(),
-  answer: z.string().optional(),
-  postType: z.string().optional(),
-});
-
 function createGeneratedRunSchema(desiredCount: number) {
-  // Provide a permissive schema for the AI so it can still be guided, but
-  // don't enforce exact lengths/strict fields here. We'll normalise and
-  // provide safe defaults server-side after generation.
   return z.object({
-    title: z.string().optional(),
-    description: z.string().optional(),
-    posts: z.array(z.unknown()).optional(),
+    roll_title: z.string().optional(),
+    roll_desc: z.string().optional(),
+    fag: z.string().optional(),
+    questions: z
+      .array(
+        z.object({
+          id: z.union([z.string(), z.number()]).optional(),
+          postType: z.enum(["intro", "quiz"]).optional(),
+          characterName: z.string().optional(),
+          introMessage: z.string().optional(),
+          questionMessage: z.string().optional(),
+          message: z.string().optional(),
+          question: z.string().optional(),
+          answers: z.array(z.string()).optional(),
+          options: z.array(z.string()).optional(),
+          answer: z.string().optional(),
+        })
+      )
+      .length(desiredCount)
+      .optional(),
   });
 }
 
@@ -69,12 +68,6 @@ function isTimeoutError(error: unknown) {
     error instanceof Error &&
     (error.name === "AbortError" || /timed out|timeout|aborted/i.test(error.message))
   );
-}
-
-function hasSimpleAnswer(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return false;
-  return trimmed.split(/\s+/).filter(Boolean).length <= 2 && trimmed.length <= 24;
 }
 
 export async function POST(req: Request) {
@@ -105,7 +98,6 @@ export async function POST(req: Request) {
     }
 
     const { topic, subject, audience, tone, count } = parsedPayload.data;
-    const forceFirstPerson = parsedPayload.data.forceFirstPerson === true;
     const schema = createGeneratedRunSchema(count);
     const subjectLine = subject ? `Fag eller kategori: ${subject}.` : "";
 
@@ -153,13 +145,16 @@ KRITISK: Følg disse regler strengt. Post 1 = jeg-fortæller med fakta. Post 2+ 
       },
     });
 
+    const text = JSON.stringify(object);
+    console.log("RAW AI RESPONSE:", text);
+
     // Normalise output and provide sensible fallbacks instead of throwing.
-    const rawPosts = Array.isArray(object.posts) ? object.posts : [];
+    const rawQuestions = Array.isArray((object as any).questions) ? (object as any).questions : [];
 
     const fallbackAnswers = ["konge", "slot", "sværd", "hest", "skat", "nøgle", "lys", "bog"];
 
     const normalizedPosts = Array.from({ length: count }).map((_, i) => {
-      const raw = rawPosts[i] ?? {};
+      const raw = rawQuestions[i] ?? {};
       const characterName =
         asTrimmedString((raw as any).characterName) || fallbackCharacterName(i);
 
@@ -218,9 +213,9 @@ KRITISK: Følg disse regler strengt. Post 1 = jeg-fortæller med fakta. Post 2+ 
       } as const;
     });
 
-    const roll_title = asTrimmedString((object as any).title) || `${topic} — Rollespil`;
-    const roll_desc = asTrimmedString((object as any).description) || `Et kort rollespil om ${topic}.`;
-    const fag = subject || "";
+    const roll_title = asTrimmedString((object as any).roll_title) || `${topic} — Rollespil`;
+    const roll_desc = asTrimmedString((object as any).roll_desc) || `Et kort rollespil om ${topic}.`;
+    const fag = asTrimmedString((object as any).fag) || subject || "";
 
     return NextResponse.json({
       roll_title,

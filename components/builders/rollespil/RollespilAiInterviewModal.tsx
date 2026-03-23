@@ -316,7 +316,7 @@ export default function RollespilAiInterviewModal({
       }
 
       const src = payload as any;
-      onComplete({
+      const draft = {
         roll_title: asTrimmedString(src.roll_title) || asTrimmedString(src.title),
         roll_desc: asTrimmedString(src.roll_desc) || asTrimmedString(src.description),
         fag: asTrimmedString(src.fag),
@@ -365,9 +365,10 @@ export default function RollespilAiInterviewModal({
             options: normalizedOptions,
           } as RollespilAiInterviewQuestion;
         }),
-      });
+      } satisfies RollespilAiInterviewDraft;
+      console.log("MODAL SENDING DRAFT:", draft);
+      onComplete(draft);
       clearSessionDraft(ROLLESPIL_AI_INTERVIEW_SESSION_KEY);
-      onClose();
     } catch (requestError) {
       if (requestError instanceof DOMException && requestError.name === "AbortError") {
         return;

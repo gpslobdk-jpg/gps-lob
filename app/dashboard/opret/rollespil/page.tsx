@@ -342,12 +342,11 @@ function toInterviewRoleplayQuestions(posts: RollespilAiInterviewQuestion[]): Qu
   return posts.map((post, index) => {
     const characterName = asTrimmedString(post.characterName) || fallbackCharacterName(index);
     const avatar = fallbackAvatar();
-    const message =
-      index === 0
-        ? asTrimmedString(post.introMessage) || asTrimmedString(post.message)
-        : asTrimmedString(post.questionMessage) ||
-          asTrimmedString(post.question) ||
-          asTrimmedString(post.message);
+    const introMessage = asTrimmedString(post.introMessage) || asTrimmedString(post.message);
+    const questionMessage =
+      asTrimmedString(post.questionMessage) ||
+      asTrimmedString(post.question) ||
+      asTrimmedString(post.message);
     const optionSource = Array.isArray(post.options)
       ? post.options
       : Array.isArray(post.answers)
@@ -359,12 +358,14 @@ function toInterviewRoleplayQuestions(posts: RollespilAiInterviewQuestion[]): Qu
       options.push("");
     }
 
+    const nextMessage = index === 0 ? introMessage : questionMessage;
+
     return {
       id: timestamp + index,
       type: "multiple_choice",
       postType: index === 0 ? "intro" : "quiz",
       text: characterName,
-      aiPrompt: message,
+      aiPrompt: nextMessage,
       mediaUrl: "",
       answers: toRoleplayAnswers(index === 0 ? "" : (options[0] ?? ""), characterName, avatar),
       options: index === 0 ? [] : options,
@@ -689,11 +690,44 @@ function RollespilBuilderPageContent() {
   };
 
   const handleAiInterviewComplete = (draft: RollespilAiInterviewDraft) => {
+    console.log("PAGE RECEIVED DRAFT:", draft);
     const nextTitle = asTrimmedString(draft.roll_title);
     const nextDescription = asTrimmedString(draft.roll_desc);
     const nextSubject = asTrimmedString(draft.fag);
     const sourceQuestions = Array.isArray(draft.questions) ? draft.questions : [];
-    const nextQuestions = enforceFirstRoleplayIntro(toInterviewRoleplayQuestions(sourceQuestions));
+    const nextQuestions = enforceFirstRoleplayIntro(
+      toInterviewRoleplayQuestions(
+        sourceQuestions.map((item, index) => {
+          const introMessage = asTrimmedString(item.introMessage) || asTrimmedString(item.message);
+          const questionMessage =
+            asTrimmedString(item.questionMessage) ||
+            asTrimmedString(item.question) ||
+            asTrimmedString(item.message);
+          const rawOptions = Array.isArray(item.answers)
+            ? item.answers
+            : Array.isArray(item.options)
+            ? item.options
+            : [];
+          const normalizedOptions = rawOptions
+            .map((option) => asTrimmedString(option))
+            .slice(0, 4);
+
+          while (index > 0 && normalizedOptions.length < 4) {
+            normalizedOptions.push("");
+          }
+
+          return {
+            ...item,
+            postType: index === 0 ? "intro" : "quiz",
+            characterName: asTrimmedString(item.characterName) || fallbackCharacterName(index),
+            introMessage,
+            questionMessage,
+            answers: index === 0 ? [] : normalizedOptions,
+            options: index === 0 ? [] : normalizedOptions,
+          } satisfies RollespilAiInterviewQuestion;
+        })
+      )
+    );
 
     if (!nextTitle || !nextDescription || nextQuestions.length === 0) {
       setNotice({
@@ -735,7 +769,7 @@ function RollespilBuilderPageContent() {
     if (nextSubject) {
       setSubject(nextSubject);
     }
-    setQuestions(nextQuestions);
+    setQuestions([...nextQuestions]);
     setShowAiInterviewModal(false);
     setNotice({
       tone: "success",
