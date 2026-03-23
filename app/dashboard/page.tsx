@@ -290,7 +290,20 @@ export default function DashboardPage() {
               <MapPin className="h-7 w-7" />
             </div>
             <h2 className={`mb-2 text-2xl font-black tracking-wide text-emerald-950 uppercase ${rubik.className}`}>
-              {isNavigatingCreate ? "Gør klar..." : "OPRET NYT L\u00d8B"}
+              <div className="flex items-center">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`${isNavigatingCreate ? "visible animate-spin" : "invisible"} h-4 w-4 mr-2 text-emerald-950`}
+                >
+                  <path d="M12 2v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M12 18v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M4.93 4.93l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M16.24 16.24l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+                <span>{isNavigatingCreate ? "Gør klar..." : "OPRET NYT L\u00d8B"}</span>
+              </div>
             </h2>
             <p className="mb-4 text-sm font-semibold text-emerald-700 uppercase">
               {"BYG P\u00c5 ET RIGTIGT KORT."}
@@ -361,7 +374,20 @@ export default function DashboardPage() {
               <FolderOpen className="h-7 w-7" />
             </div>
             <h2 className={`mb-2 text-2xl font-black tracking-wide text-blue-950 uppercase ${rubik.className}`}>
-              {isNavigatingArchive ? "Indlæser..." : "MIT L\u00d8BSARKIV"}
+              <div className="flex items-center">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`${isNavigatingArchive ? "visible animate-spin" : "invisible"} h-4 w-4 mr-2 text-blue-950`}
+                >
+                  <path d="M12 2v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M12 18v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M4.93 4.93l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M16.24 16.24l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+                <span>{isNavigatingArchive ? "Indlæser..." : "MIT L\u00d8BSARKIV"}</span>
+              </div>
             </h2>
             <p className="mb-4 text-sm font-semibold text-blue-700 uppercase">GENBRUG OG DEL.</p>
             <p className="text-sm leading-relaxed text-blue-800">
