@@ -90,7 +90,7 @@ export default function DashboardPage() {
         }
 
         if (runCount === 0) {
-          router.replace("/dashboard/velkommen");
+          router.replace("/dashboard");
           return;
         }
 

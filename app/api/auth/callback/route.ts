@@ -202,7 +202,7 @@ export async function GET(request: Request) {
           if (!runsError) {
             const hasRuns = Array.isArray(runsData) && runsData.length > 0;
             if (!hasRuns) {
-              return NextResponse.redirect(`${safeOrigin}/dashboard/velkommen`);
+              return NextResponse.redirect(`${safeOrigin}/dashboard`);
             }
           }
         }
