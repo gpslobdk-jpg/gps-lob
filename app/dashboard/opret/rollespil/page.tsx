@@ -926,13 +926,13 @@ function RollespilBuilderPageContent() {
                     Edit-mode
                   </div>
                 ) : null}
+                <div className="mb-8">
+                  <h2 className="text-xl font-semibold text-white mb-2">Velkommen til det tema-baserede rollespil.</h2>
+                  <p className="text-sm text-white/80">Her skaber du en unik oplevelse, hvor eleverne møder forskellige karakterer og løser opgaver i et sammenhængende univers. Beskriv dit tema eller brug den indbyggede AI til at generere hele historien for dig.</p>
+                </div>
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                   Løbets titel
                 </label>
-                <div className="mb-3 text-sm leading-6 text-violet-100/70">
-                  <p className="font-bold">Byg et kort rollespil — hurtigt og nemt</p>
-                  <p className="mt-2">Skriv en titel og en kort beskrivelse. Brug AI-interviewet til at få genereret karakterposter og spørgsmål på dansk, klar til mobilbrug.</p>
-                </div>
                 <input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
@@ -1004,7 +1004,7 @@ function RollespilBuilderPageContent() {
               {questions.map((question, index) => (
                 <article
                   key={question.id}
-                  className="rounded-[1.8rem] border border-violet-500/30 bg-violet-950/20 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
+                  className="rounded-[1.8rem] border border-violet-500/30 bg-violet-950/20 p-3 shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur-2xl"
                 >
                     <div className="flex flex-wrap items-center justify-between gap-2.5">
                     <div className="flex items-center gap-2.5">
@@ -1025,19 +1025,29 @@ function RollespilBuilderPageContent() {
 
                     <div className="mt-3 flex items-center justify-between gap-4">
                       <div>
-                        <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
-                          Post Type
-                        </label>
-                        <select
-                          value={question.postType ?? "quiz"}
-                          onChange={(e) =>
-                            updateQuestion(question.id, { postType: e.target.value as "quiz" | "intro" })
-                          }
-                          className={textInputClass}
-                        >
-                          <option value="quiz">Quiz</option>
-                          <option value="intro">Intro (ventepost)</option>
-                        </select>
+                        {index === 0 ? (
+                          <div>
+                            <div className="mb-2 text-xs uppercase tracking-wider text-white/50">Post Type</div>
+                            <div className="inline-flex items-center rounded-full border border-violet-500/20 bg-violet-950/10 px-3 py-2 text-sm font-semibold text-white">
+                              Intro (ventepost)
+                            </div>
+                            <p className="mt-2 text-xs text-white/60">Intro — her skal eleverne ikke svare på spørgsmål</p>
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="mb-2 block text-xs uppercase tracking-wider text-white/50">Post Type</label>
+                            <select
+                              value={question.postType ?? "quiz"}
+                              onChange={(e) =>
+                                updateQuestion(question.id, { postType: e.target.value as "quiz" | "intro" })
+                              }
+                              className={textInputClass}
+                            >
+                              <option value="quiz">Quiz</option>
+                              <option value="intro">Intro (ventepost)</option>
+                            </select>
+                          </div>
+                        )}
                       </div>
 
                       <span className="rounded-full border border-violet-500/30 bg-violet-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-violet-100/75 uppercase backdrop-blur-xl">
@@ -1046,37 +1056,39 @@ function RollespilBuilderPageContent() {
                     </div>
                   </div>
 
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <div>
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
-                        Karakterens Navn
-                      </label>
-                      <input
-                        value={question.text}
-                        onChange={(event) =>
-                          updateRoleplayQuestion(question.id, { characterName: event.target.value })
-                        }
-                        placeholder="F.eks. Valdemar Atterdag"
-                        className={textInputClass}
-                      />
+                  <div className="mt-4">
+                    <div className="flex flex-col md:flex-row gap-4">
+                      <div className="flex-1">
+                        <label className="mb-2 block text-xs uppercase tracking-wider text-white/50">
+                          Karakterens navn
+                        </label>
+                        <input
+                          value={question.text}
+                          onChange={(event) =>
+                            updateRoleplayQuestion(question.id, { characterName: event.target.value })
+                          }
+                          placeholder="F.eks. Valdemar Atterdag"
+                          className={textInputClass}
+                        />
+                      </div>
+
+                      <div className="w-full md:w-56">
+                        <label className="mb-2 block text-xs uppercase tracking-wider text-white/50">
+                          Avatar (Emoji eller billed-URL)
+                        </label>
+                        <input
+                          value={question.answers[2]}
+                          onChange={(event) =>
+                            updateRoleplayQuestion(question.id, { avatar: event.target.value })
+                          }
+                          placeholder="F.eks. Emoji eller billed-URL"
+                          className={textInputClass}
+                        />
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
-                        Avatar (Emoji eller Billed-URL)
-                      </label>
-                      <input
-                        value={question.answers[2]}
-                        onChange={(event) =>
-                          updateRoleplayQuestion(question.id, { avatar: event.target.value })
-                        }
-                        placeholder="F.eks. 👑"
-                        className={textInputClass}
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
+                    <div className="mt-3">
+                      <label className="mb-2 block text-xs uppercase tracking-wider text-white/50">
                         Karakterens besked / Gåde
                       </label>
                       <textarea
@@ -1090,9 +1102,9 @@ function RollespilBuilderPageContent() {
                       />
                     </div>
 
-                    {question.postType !== "intro" && (
-                      <div className="md:col-span-2">
-                        <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
+                    {index !== 0 && (
+                      <div className="mt-3">
+                        <label className="mb-2 block text-xs uppercase tracking-wider text-white/50">
                           Det rigtige svar fra deltageren
                         </label>
                         <input
@@ -1105,6 +1117,7 @@ function RollespilBuilderPageContent() {
                         />
                       </div>
                     )}
+                  </div>
                   </div>
 
                   <button
