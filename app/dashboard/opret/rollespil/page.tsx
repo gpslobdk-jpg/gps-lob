@@ -677,7 +677,50 @@ function RollespilBuilderPageContent() {
   const handleAiInterviewComplete = (draft: RollespilAiInterviewDraft) => {
     const nextTitle = draft.title.trim();
     const nextDescription = draft.description.trim();
-    const nextQuestions = enforceFirstRoleplayIntro(toInterviewRoleplayQuestions(draft.posts));
+    // Map AI draft posts (introMessage / questionMessage / options) into builder Question[] state
+    const posts = Array.isArray(draft.posts) ? draft.posts : [];
+    const timestamp = Date.now();
+    const nextQuestions = posts.map((p, idx) => {
+      const characterName = asTrimmedString((p as any).characterName) || fallbackCharacterName(idx);
+      if (idx === 0) {
+        const intro = asTrimmedString((p as any).introMessage) || asTrimmedString((p as any).message) || "";
+        return {
+          id: timestamp + idx,
+          type: "multiple_choice",
+          postType: "intro",
+          text: characterName,
+          aiPrompt: intro,
+          mediaUrl: "",
+          answers: toRoleplayAnswers("", characterName, ""),
+          options: [],
+          correctIndex: 0,
+          lat: null,
+          lng: null,
+        } as Question;
+      }
+
+      const questionMessage =
+        asTrimmedString((p as any).questionMessage) || asTrimmedString((p as any).question) || asTrimmedString((p as any).message) || "";
+      const optsRaw = Array.isArray((p as any).options) ? (p as any).options : Array.isArray((p as any).answers) ? (p as any).answers : [];
+      const options = Array.isArray(optsRaw) ? optsRaw.map((o: unknown) => asTrimmedString(o)).slice(0, 4) : [];
+
+      // Ensure there are exactly 4 slots (fill with blanks if necessary)
+      while (options.length < 4) options.push("");
+
+      return {
+        id: timestamp + idx,
+        type: "multiple_choice",
+        postType: "quiz",
+        text: characterName,
+        aiPrompt: questionMessage,
+        mediaUrl: "",
+        answers: toRoleplayAnswers(options[0] || "", characterName, ""),
+        options,
+        correctIndex: 0,
+        lat: null,
+        lng: null,
+      } as Question;
+    });
 
     if (!nextTitle || !nextDescription || nextQuestions.length === 0) {
       setNotice({
