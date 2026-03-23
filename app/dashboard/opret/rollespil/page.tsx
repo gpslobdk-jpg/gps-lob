@@ -19,7 +19,6 @@ import {
   asNumberOrNull,
   asTrimmedString,
   isRecord,
-  readDescriptionText,
   toQuestionId,
 } from "@/utils/gpsRuns";
 import {
@@ -194,7 +193,6 @@ const ROLLESPIL_DRAFT_STORAGE_KEY = "draft_run_rollespil";
 
 type RollespilBuilderDraftState = {
   title?: unknown;
-  description?: unknown;
   subject?: unknown;
   showTeacherField?: unknown;
   showAiInterviewModal?: unknown;
@@ -429,7 +427,6 @@ function RollespilBuilderPageContent() {
   const editRunId = searchParams.get("id")?.trim() ?? "";
   const isEditMode = editRunId.length > 0;
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
   const [subject, setSubject] = useState("");
   const [showTeacherField, setShowTeacherField] = useState(false);
   const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
@@ -519,14 +516,10 @@ function RollespilBuilderPageContent() {
       }
 
       const loadedQuestions = enforceFirstRoleplayIntro(toRoleplayQuestions(run.questions));
-      const loadedDescription = readDescriptionText(run.description);
-      const loadedTopic = asTrimmedString(run.topic);
-      const nextDescription = loadedDescription || loadedTopic;
       const firstPinnedQuestion =
         loadedQuestions.find((question) => question.lat !== null && question.lng !== null) ?? null;
 
       setTitle(asTrimmedString(run.title));
-      setDescription(nextDescription);
       setSubject(asTrimmedString(run.subject));
       setShowTeacherField(Boolean(asTrimmedString(run.subject)));
       setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
@@ -585,7 +578,6 @@ function RollespilBuilderPageContent() {
       const restoredQuestions = enforceFirstRoleplayIntro(toRoleplayQuestions(restoredDraft.questions));
 
       setTitle(restoreDraftString(restoredDraft.title));
-      setDescription(restoreDraftString(restoredDraft.description));
       setSubject(restoredSubject);
       setShowTeacherField(
         restoreDraftBoolean(restoredDraft.showTeacherField, Boolean(restoredSubject.trim()))
@@ -605,7 +597,6 @@ function RollespilBuilderPageContent() {
 
     writeRunDraft(ROLLESPIL_DRAFT_STORAGE_KEY, editRunId, {
       title,
-      description,
       subject,
       showTeacherField,
       showAiInterviewModal,
@@ -613,7 +604,6 @@ function RollespilBuilderPageContent() {
       mapCenter,
     } satisfies RollespilBuilderDraftState);
   }, [
-    description,
     editRunId,
     mapCenter,
     questions,
@@ -758,7 +748,6 @@ function RollespilBuilderPageContent() {
   const handleAiInterviewComplete = (draft: RollespilAiInterviewDraft) => {
     console.log("PAGE RECEIVED DRAFT:", draft);
     const nextTitle = asTrimmedString(draft.roll_title);
-    const nextDescription = asTrimmedString(draft.roll_desc);
     const nextSubject = asTrimmedString(draft.fag);
     const sourceQuestions = Array.isArray(draft.questions) ? draft.questions : [];
     const nextQuestions = enforceFirstRoleplayIntro(
@@ -795,7 +784,7 @@ function RollespilBuilderPageContent() {
       )
     );
 
-    if (!nextTitle || !nextDescription || nextQuestions.length === 0) {
+    if (!nextTitle || nextQuestions.length === 0) {
       setNotice({
         tone: "error",
         message: "AI'en returnerede ingen brugbare rolleposter. Prøv igen.",
@@ -813,7 +802,6 @@ function RollespilBuilderPageContent() {
 
     const hasExistingContent =
       title.trim().length > 0 ||
-      description.trim().length > 0 ||
       questions.some((question) => !isQuestionEmpty(question));
 
     if (hasExistingContent) {
@@ -831,7 +819,6 @@ function RollespilBuilderPageContent() {
     }
 
     setTitle(nextTitle);
-    setDescription(nextDescription);
     if (nextSubject) {
       setSubject(nextSubject);
     }
@@ -861,8 +848,6 @@ function RollespilBuilderPageContent() {
       scrollToSaveFeedback();
       return;
     }
-
-    const normalizedDescription = description.trim();
 
     const normalizedQuestions = questions
       .map((question, index) => {
@@ -935,7 +920,7 @@ function RollespilBuilderPageContent() {
     setIsSaving(true);
 
     try {
-      const normalizedTopic = normalizedDescription || title.trim();
+      const normalizedTopic = title.trim();
       const supabase = createClient();
       const {
         data: { user },
@@ -954,7 +939,7 @@ function RollespilBuilderPageContent() {
       const payload = {
         title: title.trim(),
         subject: subject.trim() || "Generelt",
-        description: normalizedDescription,
+        description: "",
         topic: normalizedTopic,
         questions: normalizedQuestions,
         race_type: RACE_TYPES.ROLLESPIL,
@@ -999,7 +984,6 @@ function RollespilBuilderPageContent() {
 
       if (!isEditMode) {
         setTitle("");
-        setDescription("");
         setSubject("");
         setShowTeacherField(false);
         setQuestions([createQuestion()]);
@@ -1052,21 +1036,19 @@ function RollespilBuilderPageContent() {
                     Edit-mode
                   </div>
                 ) : null}
-                <div className="mb-6">
+                <div className="mb-8">
+                  <h2 className="text-xl font-semibold text-white mb-2">Velkommen til det klassiske rollespil.</h2>
+                  <p className="text-sm text-muted-foreground">Her bygger du en fortaelling i jeg-form, hvor eleverne møder en karakter, f.eks. en historisk person som Christian d. 4. Den første post er altid en personlig introduktion, hvor karakteren fortaeller om sig selv, sin tid og sin mission. Det er denne tekst, der satter scenen og giver eleverne den viden, de skal bruge i de efterfolgende quiz-sporgsmal. Eleverne kan fa historien last hojt direkte pa deres telefon, mens de bevager sig ude pa ruten, sa de lettere kan leve sig ind i fortaellingen. Brug AI-assistenten til at generere bade introduktionen og de efterfolgende sporgsmal, sa sproget passer til din valgte figur.</p>
                   <button
                     type="button"
                     onClick={() => {
                       setNotice(null);
                       setShowAiInterviewModal(true);
                     }}
-                    className={`${aiActionButtonClass} w-full sm:w-auto`}
+                    className={`${aiActionButtonClass} mt-4 w-full sm:w-auto`}
                   >
                     Auto-udfyld historie med AI
                   </button>
-                </div>
-                <div className="mb-8">
-                  <h2 className="text-xl font-semibold text-white mb-2">Velkommen til det klassiske rollespil.</h2>
-                  <p className="text-sm text-muted-foreground">Her bygger du en fortaelling i jeg-form, hvor eleverne møder en karakter, f.eks. en historisk person som Christian d. 4. Den første post er altid en personlig introduktion, hvor karakteren fortaeller om sig selv, sin tid og sin mission. Det er denne tekst, der satter scenen og giver eleverne den viden, de skal bruge i de efterfolgende quiz-sporgsmal. Eleverne kan fa historien last hojt direkte pa deres telefon, mens de bevager sig ude pa ruten, sa de lettere kan leve sig ind i fortaellingen. Brug AI-assistenten til at generere bade introduktionen og de efterfolgende sporgsmal, sa sproget passer til din valgte figur.</p>
                 </div>
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                   Løbets titel
@@ -1078,20 +1060,6 @@ function RollespilBuilderPageContent() {
                   className={textInputClass}
                 />
               </div>
-
-              <div className="px-1">
-                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
-                  Beskrivelse
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  rows={3}
-                  placeholder="Kort intro eller beskrivelse af rollespillet"
-                  className={textareaClass}
-                />
-              </div>
-
               <div className="px-1">
                 <div className="rounded-[1.5rem] border border-violet-500/30 bg-violet-950/20 p-4 backdrop-blur-xl">
                   <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
