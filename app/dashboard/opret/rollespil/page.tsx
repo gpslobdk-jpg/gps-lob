@@ -1026,14 +1026,10 @@ function RollespilBuilderPageContent() {
                     <div className="mt-3 flex items-center justify-between gap-4">
                       <div>
                         {index === 0 ? (
-                          <div>
-                            <div className="mb-2 text-xs uppercase tracking-wider text-white/50">Post Type</div>
-                            <div className="inline-flex items-center rounded-full border border-violet-500/20 bg-violet-950/10 px-3 py-2 text-sm font-semibold text-white">
-                              Intro (ventepost)
-                            </div>
-                            <div className="mt-3 text-sm text-white/80">
-                              <p>Post 1: Introduktion. Her præsenterer rollen sig selv. Skriv altid i jeg-form.</p>
-                              <p className="mt-2">Eksempel: "God dag unge mennesker! Jeg hedder Kong Christian d. 4. Jeg grundlagde jeres by, og nu skal I hjælpe mig med..."</p>
+                          <div className="mt-1">
+                            <div className="text-sm text-white/80">
+                              <p>Post 1: Introduktion. Her præsenterer rollen sig selv i jeg-form. Det er denne tekst, eleverne møder som det første ude på ruten.</p>
+                              <p className="mt-2">Eksempel: "God dag unge mennesker! Jeg hedder Kong Christian d. 4. Jeg grundlagde jeres by, og nu har jeg brug for jeres hjælp til..."</p>
                             </div>
                           </div>
                         ) : (

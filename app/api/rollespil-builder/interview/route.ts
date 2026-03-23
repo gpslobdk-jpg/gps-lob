@@ -20,6 +20,7 @@ const interviewPayloadSchema = z
     subject: z.string().trim().max(80).optional().default(""),
     audience: z.string().trim().min(1).max(80),
     tone: z.string().trim().min(1).max(80),
+    forceFirstPerson: z.boolean().optional().default(false),
     count: z
       .union([z.literal(5), z.literal(10), z.literal(15), z.literal(20)])
       .optional()
@@ -101,6 +102,7 @@ export async function POST(req: Request) {
     }
 
     const { topic, subject, audience, tone, count } = parsedPayload.data;
+    const forceFirstPerson = parsedPayload.data.forceFirstPerson === true;
     const schema = createGeneratedRunSchema(count);
     const subjectLine = subject ? `Fag eller kategori: ${subject}.` : "Fag eller kategori: Ikke angivet.";
 
@@ -135,6 +137,13 @@ Du SKAL altid følge disse regler:
 - Tonen "${tone}" må gerne præge historien, men må aldrig gøre facitsvarene lange eller uklare.
 - Hele løbet skal opleves som én samlet historie med en tydelig begyndelse i intro-posten.`;
 
+    // If caller requested a first-person intro, make that explicit in the system prompt
+    const firstPersonNote = forceFirstPerson
+      ? "\nKRITISK: Post 0 skal være skrevet i jeg-form (første person) og henvende sig direkte til eleven."
+      : "";
+
+    const effectiveSystemPrompt = systemPrompt + firstPersonNote;
+
     const prompt = [
       `Tema: ${topic}.`,
       subjectLine,
@@ -153,7 +162,7 @@ Du SKAL altid følge disse regler:
       schemaName: "RollespilBuilderInterviewRun",
       schemaDescription:
         "Et komplet rollespils-løb med titel, beskrivelse og karakterposter, hvor første post er intro.",
-      system: systemPrompt,
+      system: effectiveSystemPrompt,
       prompt,
       temperature: 0.8,
       timeout: OPENAI_TIMEOUT_MS,

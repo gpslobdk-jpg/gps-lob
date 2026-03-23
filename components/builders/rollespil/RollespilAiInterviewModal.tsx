@@ -263,6 +263,7 @@ export default function RollespilAiInterviewModal({
           audience,
           tone,
           count: selectedCount,
+          forceFirstPerson: true,
         }),
       });
 
