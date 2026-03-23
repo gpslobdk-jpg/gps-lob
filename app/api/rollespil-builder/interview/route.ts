@@ -29,13 +29,18 @@ const interviewPayloadSchema = z
   .strict();
 
 // Be permissive: accept partial or slightly different shapes from the AI and
-// normalise afterwards. Strict validation here caused 500s when the model
-// deviated by a little.
+// normalise afterwards. We'll expect the AI to return an object with a
+// top-level title/description and a `posts` array, but keep validation loose
+// to avoid 500s when the model deviates slightly.
 const generatedPostSchema = z.object({
   characterName: z.string().optional(),
-  avatar: z.string().optional(),
+  introMessage: z.string().optional(),
   message: z.string().optional(),
+  questionMessage: z.string().optional(),
+  answers: z.array(z.string()).optional(),
+  options: z.array(z.string()).optional(),
   answer: z.string().optional(),
+  postType: z.string().optional(),
 });
 
 function createGeneratedRunSchema(desiredCount: number) {
@@ -57,9 +62,7 @@ function fallbackCharacterName(index: number) {
   return `Karakter ${index + 1}`;
 }
 
-function fallbackAvatar() {
-  return "🎭";
-}
+// avatar field removed from normalised output; keep no emoji defaults.
 
 function isTimeoutError(error: unknown) {
   return (
@@ -104,45 +107,23 @@ export async function POST(req: Request) {
     const { topic, subject, audience, tone, count } = parsedPayload.data;
     const forceFirstPerson = parsedPayload.data.forceFirstPerson === true;
     const schema = createGeneratedRunSchema(count);
-    const subjectLine = subject ? `Fag eller kategori: ${subject}.` : "Fag eller kategori: Ikke angivet.";
+    const subjectLine = subject ? `Fag eller kategori: ${subject}.` : "";
 
-    const systemPrompt = `Du er en dansk seniorforfatter og pædagogisk scenedesigner for GPSLØB.
-Du bygger komplette rollespils-løb til rollespil-builderen.
+    const systemPrompt = `You are a special-purpose generator for narrative-driven educational roleplay games. Your task is to create a complete game structure for a specified character or theme, using a first-person perspective.
 
-Du SKAL altid følge disse regler:
-- Alt indhold skal være på dansk.
-- Returner kun gyldigt JSON, der matcher schemaet.
-- Returner præcis ${count} posts.
-- Post 0 SKAL være en ren intro-post.
-- Intro-posten må IKKE være et spørgsmål.
-- Intro-posten må IKKE give en opgave.
-- Intro-posten må IKKE kræve et svar.
-- Intro-posten må IKKE have noget udfyldt i "answer".
-- Intro-posten skal kun præsentere karakteren, situationen og historiens start.
-- Alle efterfølgende poster skal være quiz- eller gådeposter med ét tydeligt facit i "answer".
-- For post 1 og frem SKAL "answer" være ekstremt simpelt og let at skrive på mobil.
-- Foretræk ét ord i "answer". Brug kun to ord hvis det er absolut nødvendigt.
-- Brug konkrete og lette facitord som "konge", "sværd", "hest", "slot" eller lignende.
-- Undgå lange facitsvar, hele sætninger, navne med titler og komplicerede formuleringer.
-- Karakterens beskeder skal være levende, in-character og fortællende, men stadig korte nok til at fungere på mobil.
-- Hver post skal have en tydelig karakter med navn og en enkel avatar, helst en emoji.
-- Titel skal være fængende, motiverende og brugbar i arkivet.
-- Beskrivelse skal være engagerende, indbydende og forklare løbets idé i 1-2 sætninger.
-- Tilpas både sprog, sværhedsgrad og fortællestil til målgruppen "${audience}".
-- Tag målgruppen seriøst:
-  - Indskoling: brug meget enkel formulering, korte beskeder og helt konkrete svarord.
-  - Mellemtrin: brug let forståelig fortælling med lidt mere variation, men stadig korte og tydelige svarord.
-  - Udskoling: brug mere moden fortælling og lidt skarpere spørgsmål, men stadig meget lette facitsvar.
-  - Voksne: brug mere præcis og stemningsfuld formulering, men hold stadig facitsvarene ekstremt enkle.
-- Tonen "${tone}" må gerne præge historien, men må aldrig gøre facitsvarene lange eller uklare.
-- Hele løbet skal opleves som én samlet historie med en tydelig begyndelse i intro-posten.`;
+Critical Rule 1 (Post 1: The Intro):
+The first element (questions[0]) is ALWAYS the character introduction. This must be a captivating, information-dense first-person ("jeg") narrative. In this post, the character introduces themselves and provides all necessary facts and information about who they are, their life, their mission, etc. This text is the SOLE source of information for all following questions. The character must speak directly to the students, e.g., "Goddag unge mennesker! Jeg hedder Kong Christian IV..."
 
-    // If caller requested a first-person intro, make that explicit in the system prompt
-    const firstPersonNote = forceFirstPerson
-      ? "\nKRITISK: Post 0 skal være skrevet i jeg-form (første person) og henvende sig direkte til eleven."
-      : "";
+Critical Rule 2 (Post 2+: The Derived Quiz):
+All subsequent elements (Post 2+) are simple quiz questions with four answer options. These questions must be derived strictly and solely from the information presented in the Post 1 intro text. Each question must have one correct answer (index 0) and three plausible incorrect ones. The goal is to test students on what the character just told them.
 
-    const effectiveSystemPrompt = systemPrompt + firstPersonNote;
+Formatting:
+The entire response must be a single JSON object. Do not include markdown or emojis. Use clean Danish.
+
+{ roll_title: "Faglig titel på løbet", roll_desc: "Kort beskrivelse", fag: "Relevant dansk fag", questions: [ { id: "1", postType: "intro", characterName: "Navn på rollen", introMessage: "Førstepersonsfortælling..." }, { id: "2", postType: "quiz", questionMessage: "Simple quiz-spørgsmål 1...", answers: ["Korrekt svar", "Svar B", "Svar C", "Svar D"] }, { id: "3", postType: "quiz", questionMessage: "Simple quiz-spørgsmål 2...", answers: ["Korrekt svar", "Svar B", "Svar C", "Svar D"] } ] }`;
+
+    // Ensure AI generates Danish text and no emojis in labels or content.
+    const languageNote = "Skriv altid på dansk. Ingen emojis."
 
     const prompt = [
       `Tema: ${topic}.`,
@@ -150,26 +131,24 @@ Du SKAL altid følge disse regler:
       `Målgruppe: ${audience}.`,
       `Tone: ${tone}.`,
       `Antal poster i alt: ${count}.`,
-      `KRITISK: Post 0 er altid introen og må ikke have answer.`,
-      `KRITISK: Der skal være præcis ${Math.max(0, count - 1)} quiz- eller gådeposter efter introen.`,
-      "Hver quiz-post efter introen skal have ét ekstremt simpelt facitsvar, helst ét ord.",
-      "Hver quiz-post efter introen skal udover et enkelt facitsvar også indeholde en 'options' liste med præcis 4 korte svarmuligheder, hvor 'answer' er ét af disse.",
-      "Byg nu et komplet rollespils-løb med title, description og posts.",
+      languageNote,
+      forceFirstPerson ? "KRITISK: Post 1 (index 0) SKAL være i første person (jeg) og tale direkte til eleven." : "KRITISK: Post 1 (index 0) SKAL være intro og indeholde al nødvendig information.",
+      `KRITISK: Alle quiz-spørgsmål efter introen skal udelukkende være udledt af introens indhold og have 4 svarmuligheder hvor index 0 er korrekt.`,
+      "Returner kun gyldigt JSON i det angivne format. Ingen ekstra felter som avatar eller emojis.",
     ].join("\n");
 
     const { object } = await generateObject({
       model: openai("gpt-4o-mini"),
       schema,
       schemaName: "RollespilBuilderInterviewRun",
-      schemaDescription:
-        "Et komplet rollespils-løb med titel, beskrivelse og karakterposter, hvor første post er intro.",
-      system: effectiveSystemPrompt,
+      schemaDescription: "Et komplet rollespils-løb i nyt intro+quiz-format.",
+      system: systemPrompt,
       prompt,
-      temperature: 0.8,
+      temperature: 0.6,
       timeout: OPENAI_TIMEOUT_MS,
       providerOptions: {
         openai: {
-          strictJsonSchema: true,
+          strictJsonSchema: false,
         },
       },
     });
@@ -181,81 +160,89 @@ Du SKAL altid følge disse regler:
 
     const normalizedPosts = Array.from({ length: count }).map((_, i) => {
       const raw = rawPosts[i] ?? {};
-      const characterName = asTrimmedString((raw as any).characterName) || fallbackCharacterName(i);
-      const avatar = asTrimmedString((raw as any).avatar) || fallbackAvatar();
-      let message = asTrimmedString((raw as any).message);
-      let answer = asTrimmedString((raw as any).answer);
-      const rawOptions = Array.isArray((raw as any).options) ? (raw as any).options : [];
-      const options = rawOptions.map((o: unknown) => asTrimmedString(o)).filter(Boolean);
+      const characterName =
+        asTrimmedString((raw as any).characterName) || fallbackCharacterName(i);
 
+      // Intro post: prefer explicit fields introMessage / message
       if (i === 0) {
-        // Intro post requirements
-        if (!message) {
-          message = `${characterName} sætter scenen for historien.`;
-        }
-        // Ensure intro has no answer and is not a question.
-        answer = "";
-        if (message.includes("?")) {
-          message = message.replace(/\?/g, ".");
-        }
-      } else {
-        // Quiz posts: ensure there's a short/simple answer.
-        if (!hasSimpleAnswer(answer)) {
-          answer = fallbackAnswers[i % fallbackAnswers.length];
-        }
-        if (!message) {
-          message = `${characterName} stiller et spørgsmål til spillerne.`;
-        }
-        // Ensure we have 4 options — prefer model-provided options, otherwise
-        // construct them using the answer and fallbacks.
-        const resultOptions: string[] = [];
-        if (options.length >= 1) {
-          resultOptions.push(...options.slice(0, 4));
-        }
-        if (resultOptions.length === 0) {
-          // Put answer first then fill with fallback labels
-          resultOptions.push(answer);
-        }
-        let fillIndex = 0;
-        while (resultOptions.length < 4) {
-          const candidate = fallbackAnswers[(i + fillIndex) % fallbackAnswers.length];
-          if (!resultOptions.includes(candidate)) resultOptions.push(candidate);
-          fillIndex += 1;
-        }
-        // Ensure answer is one of the options
-        if (!resultOptions.includes(answer)) resultOptions[0] = answer;
-        // attach options
-        (raw as any)._normalizedOptions = resultOptions.slice(0, 4);
+        const introMessage =
+          asTrimmedString((raw as any).introMessage) || asTrimmedString((raw as any).message) || "";
+        const safeIntro = introMessage || `${characterName} præsenterer sig.`;
+        return {
+          id: String(i + 1),
+          postType: "intro",
+          characterName,
+          introMessage: safeIntro.replace(/\?/g, "."),
+        } as const;
       }
 
+      // Quiz posts: extract question and answers/options
+      const questionMessage =
+        asTrimmedString((raw as any).questionMessage) || asTrimmedString((raw as any).question) || asTrimmedString((raw as any).message) || "";
+      let answers: string[] = Array.isArray((raw as any).answers)
+        ? (raw as any).answers.map((a: unknown) => asTrimmedString(a)).filter(Boolean)
+        : Array.isArray((raw as any).options)
+        ? (raw as any).options.map((a: unknown) => asTrimmedString(a)).filter(Boolean)
+        : [];
+
+      // If the AI provided a single 'answer' value, ensure it's the first item.
+      const explicitAnswer = asTrimmedString((raw as any).answer);
+      if (explicitAnswer && !answers.includes(explicitAnswer)) {
+        answers = [explicitAnswer, ...answers];
+      }
+
+      // Fill to exactly 4 options, prefer keeping provided ones
+      const resultOptions: string[] = [];
+      for (const a of answers) {
+        if (a && !resultOptions.includes(a)) resultOptions.push(a);
+        if (resultOptions.length === 4) break;
+      }
+      let fillIndex = 0;
+      while (resultOptions.length < 4) {
+        const candidate = fallbackAnswers[(i + fillIndex) % fallbackAnswers.length];
+        if (!resultOptions.includes(candidate)) resultOptions.push(candidate);
+        fillIndex += 1;
+      }
+
+      // Ensure the declared correct answer (if any) is at index 0.
+      const correct = explicitAnswer || resultOptions[0] || fallbackAnswers[i % fallbackAnswers.length];
+      // Move correct to index 0
+      const deduped = Array.from(new Set([correct, ...resultOptions]));
+      const finalAnswers = deduped.slice(0, 4);
+
       return {
-        characterName,
-        avatar,
-        message,
-        answer,
-        options: (raw as any)._normalizedOptions ?? [],
-      };
+        id: String(i + 1),
+        postType: "quiz",
+        questionMessage: questionMessage || `${characterName} stiller et spørgsmål.`,
+        answers: finalAnswers,
+      } as const;
     });
 
-    const title = asTrimmedString((object as any).title) || `${topic} — Rollespil`;
-    const description = asTrimmedString((object as any).description) || `Et kort rollespil om ${topic}.`;
+    const roll_title = asTrimmedString((object as any).title) || `${topic} — Rollespil`;
+    const roll_desc = asTrimmedString((object as any).description) || `Et kort rollespil om ${topic}.`;
+    const fag = subject || "";
 
     return NextResponse.json({
-      title,
-      description,
-      posts: normalizedPosts.map((post, index) =>
-        index === 0
-          ? {
-              characterName: post.characterName,
-              message: post.message,
-            }
-          : {
-              characterName: post.characterName,
-              question: post.message,
-              options: post.options,
-              answer: post.answer,
-            }
-      ),
+      roll_title,
+      roll_desc,
+      fag,
+      questions: normalizedPosts.map((p) => {
+        if ((p as any).postType === "intro") {
+          return {
+            id: (p as any).id,
+            postType: "intro",
+            characterName: (p as any).characterName,
+            introMessage: (p as any).introMessage,
+          };
+        }
+
+        return {
+          id: (p as any).id,
+          postType: "quiz",
+          questionMessage: (p as any).questionMessage,
+          answers: (p as any).answers,
+        };
+      }),
     });
   } catch (error) {
     console.error("Fejl i rollespil-builder/interview:", error);
