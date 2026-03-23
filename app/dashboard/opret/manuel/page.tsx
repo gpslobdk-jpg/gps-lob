@@ -972,6 +972,17 @@ function OpretLoebPageContent() {
                   <div className="mb-8">
                     <h3 className="text-xl font-semibold text-emerald-100">Velkommen til det klassiske quiz løb.</h3>
                     <p className="mt-2 text-sm text-emerald-100/80">Placer posterne på kortet, og indtast et spørgsmål med fire svarmuligheder til hver post. Du kan også bruge den indbyggede AI-assistent til at generere spørgsmålene for dig.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNotice(null);
+                        setShowAiInterviewModal(true);
+                      }}
+                      disabled={isEditorBusy}
+                      className={`${aiActionButtonClass} mt-4 w-full sm:w-auto`}
+                    >
+                      Auto-udfyld med AI
+                    </button>
                   </div>
 
                   <div className="mb-2">
@@ -987,21 +998,6 @@ function OpretLoebPageContent() {
                     className="w-full rounded-[1.6rem] border border-emerald-500/30 bg-emerald-950/20 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                   />
                 </div>
-
-              <div className="px-1">
-                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
-                  Beskrivelse
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  disabled={isEditorBusy}
-                  rows={3}
-                  placeholder="Kort intro eller beskrivelse af løbet (valgfrit)"
-                  className="w-full rounded-[1.6rem] border border-emerald-500/30 bg-emerald-950/20 px-5 py-4 text-sm leading-6 text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                />
-              </div>
-
               <div className="px-1">
                 <div className="rounded-[1.5rem] border border-emerald-500/30 bg-emerald-950/20 p-4 backdrop-blur-xl">
                   <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
@@ -1026,18 +1022,6 @@ function OpretLoebPageContent() {
               </div>
 
               <div className="space-y-4 px-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNotice(null);
-                    setShowAiInterviewModal(true);
-                  }}
-                  disabled={isEditorBusy}
-                  className={`${aiActionButtonClass} w-full sm:w-auto`}
-                >
-                  Auto-udfyld med AI
-                </button>
-
                 <div className="flex items-end justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold tracking-[0.24em] text-emerald-100/65 uppercase">
