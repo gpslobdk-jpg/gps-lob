@@ -1052,9 +1052,21 @@ function RollespilBuilderPageContent() {
                     Edit-mode
                   </div>
                 ) : null}
+                <div className="mb-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotice(null);
+                      setShowAiInterviewModal(true);
+                    }}
+                    className={`${aiActionButtonClass} w-full sm:w-auto`}
+                  >
+                    Auto-udfyld historie med AI
+                  </button>
+                </div>
                 <div className="mb-8">
                   <h2 className="text-xl font-semibold text-white mb-2">Velkommen til det klassiske rollespil.</h2>
-                  <p className="text-sm text-muted-foreground">Her bygger du en historie, hvor eleverne møder en karakter, f.eks. en historisk person som Kong Christian d. 4. Den første post fungerer altid som en introduktion, hvor karakteren præsenterer sig selv og sin tid i jeg-form. Det er denne tekst, der sætter scenen og giver eleverne den viden, de skal bruge for at løse de efterfølgende opgaver. Eleverne kan få alt læst højt direkte på deres telefon, mens de bevæger sig ude på ruten, så de kan leve sig helt ind i fortællingen. Brug AI-assistenten til at generere både introduktionen og de efterfølgende spørgsmål, så sproget passer præcis til din valgte figur.</p>
+                  <p className="text-sm text-muted-foreground">Her bygger du en fortaelling i jeg-form, hvor eleverne møder en karakter, f.eks. en historisk person som Christian d. 4. Den første post er altid en personlig introduktion, hvor karakteren fortaeller om sig selv, sin tid og sin mission. Det er denne tekst, der satter scenen og giver eleverne den viden, de skal bruge i de efterfolgende quiz-sporgsmal. Eleverne kan fa historien last hojt direkte pa deres telefon, mens de bevager sig ude pa ruten, sa de lettere kan leve sig ind i fortaellingen. Brug AI-assistenten til at generere bade introduktionen og de efterfolgende sporgsmal, sa sproget passer til din valgte figur.</p>
                 </div>
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                   Løbets titel
@@ -1062,7 +1074,7 @@ function RollespilBuilderPageContent() {
                 <input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
-                  placeholder="F.eks. 5.A's rejse til Vikingetiden"
+                  placeholder="F.eks. En dag med Christian d. 4."
                   className={textInputClass}
                 />
               </div>
@@ -1103,17 +1115,6 @@ function RollespilBuilderPageContent() {
               </div>
 
               <div className="space-y-4 px-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNotice(null);
-                    setShowAiInterviewModal(true);
-                  }}
-                  className={`${aiActionButtonClass} w-full sm:w-auto`}
-                >
-                  Auto-udfyld historie med AI
-                </button>
-
                 <div className="flex items-end justify-between gap-4">
                   <p className="text-xs font-semibold tracking-[0.24em] text-violet-100/65 uppercase">
                     Dine poster
@@ -1134,34 +1135,16 @@ function RollespilBuilderPageContent() {
                   }}
                   className={`rounded-[1.8rem] border bg-violet-950/20 p-3 shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur-2xl transition-all ${
                     activePinQuestionId === question.id
-                      ? "border-cyan-300 shadow-[0_0_0_1px_rgba(103,232,249,0.5),0_0_34px_rgba(34,211,238,0.22)]"
+                      ? "border-violet-400 ring-2 ring-violet-500/70 shadow-[0_0_0_1px_rgba(167,139,250,0.35),0_0_28px_rgba(139,92,246,0.18)]"
                       : "border-violet-500/30"
                   }`}
                 >
-                  <div className="mb-3 flex items-start justify-between gap-3 rounded-[1.2rem] border border-white/10 bg-slate-950/35 px-4 py-3">
+                  <div className="mb-3 rounded-[1.2rem] border border-white/10 bg-slate-950/35 px-4 py-3">
                     <div>
                       <p className="text-xs font-semibold tracking-[0.22em] text-violet-100/60 uppercase">Rollepost</p>
                       <h3 className="mt-1 text-sm font-black tracking-[0.08em] text-white uppercase">
                         {index === 0 ? `Post 1: Intro (Start)` : `Post ${index + 1}: Quiz-sporgsmal`}
                       </h3>
-                    </div>
-
-                    <div className="text-right">
-                      <div
-                        className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] ${
-                          question.lat !== null && question.lng !== null
-                            ? "border border-emerald-300/35 bg-emerald-500/15 text-emerald-100"
-                            : activePinQuestionId === question.id
-                            ? "border border-cyan-300/45 bg-cyan-400/15 text-cyan-100"
-                            : "border border-amber-300/35 bg-amber-500/15 text-amber-100"
-                        }`}
-                      >
-                        {question.lat !== null && question.lng !== null
-                          ? "Pin gemt"
-                          : activePinQuestionId === question.id
-                          ? "Venter pa kort-klik"
-                          : "Mangler pin"}
-                      </div>
                     </div>
                   </div>
 
@@ -1239,9 +1222,9 @@ function RollespilBuilderPageContent() {
                         onClick={() => startPinSelection(question.id)}
                         className={`rounded-[1.2rem] px-4 py-3 text-sm font-extrabold uppercase tracking-[0.18em] transition-all ${
                           suggestedPinQuestionId === question.id
-                            ? "border border-cyan-300/55 bg-cyan-400/20 text-cyan-50 shadow-[0_0_24px_rgba(34,211,238,0.18)] hover:bg-cyan-400/25"
+                            ? "border border-violet-400/60 bg-violet-500/20 text-violet-50 shadow-[0_0_24px_rgba(139,92,246,0.2)] hover:bg-violet-500/25"
                             : "border border-violet-500/30 bg-violet-950/20 text-violet-100 hover:bg-violet-500/15"
-                        } ${activePinQuestionId === question.id ? "ring-2 ring-cyan-300/50" : ""}`}
+                        } ${activePinQuestionId === question.id ? "ring-2 ring-violet-500/70" : ""}`}
                       >
                         {activePinQuestionId === question.id ? "Klar til kort-klik" : "Hent pin fra kortet"}
                       </button>
