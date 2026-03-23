@@ -17,6 +17,7 @@ import {
   wrapTextClass,
 } from "./playUtils";
 import QuestionTtsButton from "./QuestionTtsButton";
+import WifiConnectionTip from "@/components/WifiConnectionTip";
 import trophyAnimation from "@/public/trophy.json";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
@@ -728,6 +729,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
               </div>
               <h1 className="text-2xl font-black">Gør jer klar!</h1>
               <p className="mt-3 text-sm text-white/80">Venter på at læreren starter løbet...</p>
+              <WifiConnectionTip className="mt-6" />
             </div>
           </div>
         </div>

@@ -9,6 +9,7 @@ import {
   type RunScheduleGate,
   type RunSchedule,
 } from "@/utils/runSchedule";
+import WifiConnectionTip from "@/components/WifiConnectionTip";
 import { saveStoredActiveParticipant } from "@/components/play/playUtils";
 import { createClient } from "@/utils/supabase/client";
 
@@ -388,12 +389,7 @@ function JoinForm() {
               </p>
             </div>
 
-            <div className="mx-auto mt-6 max-w-2xl rounded-[1.5rem] border border-amber-300/30 bg-amber-400/12 px-5 py-4 text-left shadow-[0_18px_40px_rgba(251,191,36,0.14)] backdrop-blur-md">
-              <p className="text-sm font-semibold leading-6 text-amber-50 sm:text-base">
-                💡 Tip: Sluk for Wi-Fi og brug mobildata! Så mister du ikke forbindelsen ude på
-                ruten.
-              </p>
-            </div>
+            <WifiConnectionTip className="mx-auto mt-6 max-w-2xl" />
 
             {runTitle ? (
               <div className="mt-6 inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-emerald-50/90 backdrop-blur-md">
@@ -507,11 +503,7 @@ function JoinForm() {
             Indtast pinkoden og dit agentnavn. Vi checker automatisk, om missionen er klar til start.
           </p>
 
-          <div className="mt-6 rounded-[1.5rem] border border-amber-300/30 bg-amber-400/12 px-5 py-4 text-left shadow-[0_18px_40px_rgba(251,191,36,0.14)] backdrop-blur-md">
-            <p className="text-sm font-semibold leading-6 text-amber-50 sm:text-base">
-              💡 Tip: Sluk for Wi-Fi og brug mobildata! Så mister du ikke forbindelsen ude på ruten.
-            </p>
-          </div>
+          <WifiConnectionTip className="mt-6" />
 
           <form onSubmit={handleJoin} className="mt-8 space-y-5">
             {error ? (
