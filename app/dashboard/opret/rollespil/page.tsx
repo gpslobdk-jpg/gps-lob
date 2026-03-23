@@ -8,6 +8,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import RollespilAiInterviewModal, {
   type RollespilAiInterviewDraft,
+  type RollespilAiInterviewQuestion,
 } from "@/components/builders/rollespil/RollespilAiInterviewModal";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import type { SavedPin } from "@/components/MapPicker";
@@ -335,15 +336,28 @@ function isQuestionEmpty(question: Question) {
   );
 }
 
-function toInterviewRoleplayQuestions(posts: RollespilAiInterviewDraft["posts"]): Question[] {
+function toInterviewRoleplayQuestions(posts: RollespilAiInterviewQuestion[]): Question[] {
   const timestamp = Date.now();
 
   return posts.map((post, index) => {
-    const characterName = post.characterName.trim() || fallbackCharacterName(index);
-    const avatar = post.avatar?.trim() || fallbackAvatar();
-    const message = (post.message ?? post.question ?? "").trim();
-    const answer = index === 0 ? "" : (post.answer ?? "").trim();
-    const options = Array.isArray(post.options) ? post.options.map((o) => String(o).trim()) : undefined;
+    const characterName = asTrimmedString(post.characterName) || fallbackCharacterName(index);
+    const avatar = fallbackAvatar();
+    const message =
+      index === 0
+        ? asTrimmedString(post.introMessage) || asTrimmedString(post.message)
+        : asTrimmedString(post.questionMessage) ||
+          asTrimmedString(post.question) ||
+          asTrimmedString(post.message);
+    const optionSource = Array.isArray(post.options)
+      ? post.options
+      : Array.isArray(post.answers)
+      ? post.answers
+      : [];
+    const options = optionSource.map((option) => asTrimmedString(option)).slice(0, 4);
+
+    while (index > 0 && options.length < 4) {
+      options.push("");
+    }
 
     return {
       id: timestamp + index,
@@ -352,8 +366,8 @@ function toInterviewRoleplayQuestions(posts: RollespilAiInterviewDraft["posts"])
       text: characterName,
       aiPrompt: message,
       mediaUrl: "",
-      answers: toRoleplayAnswers(answer, characterName, avatar),
-      options,
+      answers: toRoleplayAnswers(index === 0 ? "" : (options[0] ?? ""), characterName, avatar),
+      options: index === 0 ? [] : options,
       correctIndex: 0,
       lat: null,
       lng: null,
@@ -675,52 +689,11 @@ function RollespilBuilderPageContent() {
   };
 
   const handleAiInterviewComplete = (draft: RollespilAiInterviewDraft) => {
-    const nextTitle = draft.title.trim();
-    const nextDescription = draft.description.trim();
-    // Map AI draft posts (introMessage / questionMessage / options) into builder Question[] state
-    const posts = Array.isArray(draft.posts) ? draft.posts : [];
-    const timestamp = Date.now();
-    const nextQuestions = posts.map((p, idx) => {
-      const characterName = asTrimmedString((p as any).characterName) || fallbackCharacterName(idx);
-      if (idx === 0) {
-        const intro = asTrimmedString((p as any).introMessage) || asTrimmedString((p as any).message) || "";
-        return {
-          id: timestamp + idx,
-          type: "multiple_choice",
-          postType: "intro",
-          text: characterName,
-          aiPrompt: intro,
-          mediaUrl: "",
-          answers: toRoleplayAnswers("", characterName, ""),
-          options: [],
-          correctIndex: 0,
-          lat: null,
-          lng: null,
-        } as Question;
-      }
-
-      const questionMessage =
-        asTrimmedString((p as any).questionMessage) || asTrimmedString((p as any).question) || asTrimmedString((p as any).message) || "";
-      const optsRaw = Array.isArray((p as any).options) ? (p as any).options : Array.isArray((p as any).answers) ? (p as any).answers : [];
-      const options = Array.isArray(optsRaw) ? optsRaw.map((o: unknown) => asTrimmedString(o)).slice(0, 4) : [];
-
-      // Ensure there are exactly 4 slots (fill with blanks if necessary)
-      while (options.length < 4) options.push("");
-
-      return {
-        id: timestamp + idx,
-        type: "multiple_choice",
-        postType: "quiz",
-        text: characterName,
-        aiPrompt: questionMessage,
-        mediaUrl: "",
-        answers: toRoleplayAnswers(options[0] || "", characterName, ""),
-        options,
-        correctIndex: 0,
-        lat: null,
-        lng: null,
-      } as Question;
-    });
+    const nextTitle = asTrimmedString(draft.roll_title);
+    const nextDescription = asTrimmedString(draft.roll_desc);
+    const nextSubject = asTrimmedString(draft.fag);
+    const sourceQuestions = Array.isArray(draft.questions) ? draft.questions : [];
+    const nextQuestions = enforceFirstRoleplayIntro(toInterviewRoleplayQuestions(sourceQuestions));
 
     if (!nextTitle || !nextDescription || nextQuestions.length === 0) {
       setNotice({
@@ -759,7 +732,11 @@ function RollespilBuilderPageContent() {
 
     setTitle(nextTitle);
     setDescription(nextDescription);
+    if (nextSubject) {
+      setSubject(nextSubject);
+    }
     setQuestions(nextQuestions);
+    setShowAiInterviewModal(false);
     setNotice({
       tone: "success",
       message: "AI har klargjort et komplet rollespil. Gennemgå felterne og placer posterne på kortet.",

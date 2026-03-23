@@ -57,10 +57,23 @@ export type RollespilAiInterviewPost = {
   answer?: string;
 };
 
+export type RollespilAiInterviewQuestion = {
+  id?: string;
+  postType?: "intro" | "quiz";
+  characterName?: string;
+  introMessage?: string;
+  questionMessage?: string;
+  message?: string;
+  question?: string;
+  answers?: string[];
+  options?: string[];
+};
+
 export type RollespilAiInterviewDraft = {
-  title: string;
-  description: string;
-  posts: RollespilAiInterviewPost[];
+  roll_title: string;
+  roll_desc: string;
+  fag?: string;
+  questions: RollespilAiInterviewQuestion[];
 };
 
 type ApiSuccessResponse = {
@@ -304,9 +317,10 @@ export default function RollespilAiInterviewModal({
 
       const src = payload as any;
       onComplete({
-        title: asTrimmedString(src.roll_title) || asTrimmedString(src.title),
-        description: asTrimmedString(src.roll_desc) || asTrimmedString(src.description),
-        posts: (src.questions as any[]).map((q, index) => {
+        roll_title: asTrimmedString(src.roll_title) || asTrimmedString(src.title),
+        roll_desc: asTrimmedString(src.roll_desc) || asTrimmedString(src.description),
+        fag: asTrimmedString(src.fag),
+        questions: (src.questions as any[]).map((q, index) => {
           const candidate = q as {
             id?: unknown;
             postType?: unknown;
@@ -322,9 +336,12 @@ export default function RollespilAiInterviewModal({
           const characterName = asTrimmedString(candidate.characterName) || "";
           if (index === 0) {
             return {
+              id: asTrimmedString(candidate.id) || String(index + 1),
+              postType: "intro",
               characterName,
-              message: asTrimmedString(candidate.introMessage) || asTrimmedString(candidate.message) || "",
-            } as RollespilAiInterviewPost;
+              introMessage:
+                asTrimmedString(candidate.introMessage) || asTrimmedString(candidate.message) || "",
+            } as RollespilAiInterviewQuestion;
           }
 
           const opts = Array.isArray(candidate.answers)
@@ -333,11 +350,20 @@ export default function RollespilAiInterviewModal({
             ? (candidate.options as unknown[])
             : [];
 
+          const normalizedOptions = opts.map((o) => asTrimmedString(o)).slice(0, 4);
+
           return {
+            id: asTrimmedString(candidate.id) || String(index + 1),
+            postType: "quiz",
             characterName,
-            question: asTrimmedString(candidate.questionMessage) || asTrimmedString(candidate.question) || asTrimmedString(candidate.message) || "",
-            options: opts.map((o) => asTrimmedString(o)),
-          } as RollespilAiInterviewPost;
+            questionMessage:
+              asTrimmedString(candidate.questionMessage) ||
+              asTrimmedString(candidate.question) ||
+              asTrimmedString(candidate.message) ||
+              "",
+            answers: normalizedOptions,
+            options: normalizedOptions,
+          } as RollespilAiInterviewQuestion;
         }),
       });
       clearSessionDraft(ROLLESPIL_AI_INTERVIEW_SESSION_KEY);
