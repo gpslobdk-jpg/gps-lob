@@ -109,21 +109,21 @@ export async function POST(req: Request) {
     const schema = createGeneratedRunSchema(count);
     const subjectLine = subject ? `Fag eller kategori: ${subject}.` : "";
 
-    const systemPrompt = `You are a special-purpose generator for narrative-driven educational roleplay games. Your task is to create a complete game structure for a specified character or theme, using a first-person perspective.
+    const systemPrompt = `Du er en specialiseret generator til pædagogiske, narrative rollespilsforløb. Dit mål er at skabe et komplet, læringsorienteret rollespil centreret omkring én karakter eller tema — skrevet som en jeg-fortæller.
 
-Critical Rule 1 (Post 1: The Intro):
-The first element (questions[0]) is ALWAYS the character introduction. This must be a captivating, information-dense first-person ("jeg") narrative. In this post, the character introduces themselves and provides all necessary facts and information about who they are, their life, their mission, etc. This text is the SOLE source of information for all following questions. The character must speak directly to the students, e.g., "Goddag unge mennesker! Jeg hedder Kong Christian IV..."
+Regel 1 — Introen (Post 1):
+Den første post (index 0) SKAL være en informationsfyldt introduktion skrevet i første person ("jeg"). Introen præsenterer karakterens navn, baggrund, tid og mission, og indeholder al den viden som efterfølgende spørgsmål må trække på. Introen må ikke indeholde spørgsmål eller opfordringer til handling — den er udelukkende fortælling og fakta.
 
-Critical Rule 2 (Post 2+: The Derived Quiz):
-All subsequent elements (Post 2+) are simple quiz questions with four answer options. These questions must be derived strictly and solely from the information presented in the Post 1 intro text. Each question must have one correct answer (index 0) and three plausible incorrect ones. The goal is to test students on what the character just told them.
+Regel 2 — Spørgsmålene (Post 2+):
+Alle efterfølgende poster (index 1 og frem) MÅ KUN være korte quiz-spørgsmål der er udledt EKSKLUSIVT af informationen i Post 1. Hver quiz-post skal indeholde præcis 4 svarmuligheder (array) hvor det første element (index 0) er det korrekte svar. De tre øvrige svar skal være plausible, men forkerte muligheder.
 
-Formatting:
-The entire response must be a single JSON object. Do not include markdown or emojis. Use clean Danish.
+Format- og sprogkrav:
+- Returner udelukkende ét JSON-objekt (ingen markdown, ingen forklaringer, ingen emojis).
+- Alt tekst SKAL være på dansk.
+- Fjern eller undlad felter som "avatar" eller emojis — UI'en viser kun navn + intro og senere spørgsmål med svarmuligheder.
+- Struktur: { roll_title, roll_desc, fag, questions: [ { id, postType: "intro", characterName, introMessage }, { id, postType: "quiz", questionMessage, answers:["korrekt","forkert1","forkert2","forkert3"] }, ... ] }
 
-{ roll_title: "Faglig titel på løbet", roll_desc: "Kort beskrivelse", fag: "Relevant dansk fag", questions: [ { id: "1", postType: "intro", characterName: "Navn på rollen", introMessage: "Førstepersonsfortælling..." }, { id: "2", postType: "quiz", questionMessage: "Simple quiz-spørgsmål 1...", answers: ["Korrekt svar", "Svar B", "Svar C", "Svar D"] }, { id: "3", postType: "quiz", questionMessage: "Simple quiz-spørgsmål 2...", answers: ["Korrekt svar", "Svar B", "Svar C", "Svar D"] } ] }`;
-
-    // Ensure AI generates Danish text and no emojis in labels or content.
-    const languageNote = "Skriv altid på dansk. Ingen emojis."
+KRITISK: Følg disse regler strengt. Post 1 = jeg-fortæller med fakta. Post 2+ = 4-valgs quizspørgsmål udelukkende udledt af Post 1.`;
 
     const prompt = [
       `Tema: ${topic}.`,
@@ -131,10 +131,10 @@ The entire response must be a single JSON object. Do not include markdown or emo
       `Målgruppe: ${audience}.`,
       `Tone: ${tone}.`,
       `Antal poster i alt: ${count}.`,
-      languageNote,
-      forceFirstPerson ? "KRITISK: Post 1 (index 0) SKAL være i første person (jeg) og tale direkte til eleven." : "KRITISK: Post 1 (index 0) SKAL være intro og indeholde al nødvendig information.",
-      `KRITISK: Alle quiz-spørgsmål efter introen skal udelukkende være udledt af introens indhold og have 4 svarmuligheder hvor index 0 er korrekt.`,
-      "Returner kun gyldigt JSON i det angivne format. Ingen ekstra felter som avatar eller emojis.",
+      `Skriv alt på dansk. Ingen emojis eller ekstra felter.`,
+      `KRITISK: Post 1 SKAL være i første person (jeg) og indeholde al nødvendig information.`,
+      `KRITISK: Alle efterfølgende poster skal være quiz-spørgsmål med præcis 4 svarmuligheder hvor index 0 er korrekt, og som udelukkende er udledt af Post 1.`,
+      `Returner kun det JSON-objekt der matcher det specificerede format.`,
     ].join("\n");
 
     const { object } = await generateObject({

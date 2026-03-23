@@ -932,7 +932,7 @@ function RollespilBuilderPageContent() {
                 ) : null}
                 <div className="mb-8">
                   <h2 className="text-xl font-semibold text-white mb-2">Velkommen til det klassiske rollespil.</h2>
-                  <p className="text-sm text-muted-foreground">Post 1 er altid introduktionen til din karakter. De efterfølgende poster er spørgsmål med 4 svarmuligheder baseret på din fortælling.</p>
+                  <p className="text-sm text-muted-foreground">Her bygger du en historie, hvor eleverne møder en karakter, f.eks. en historisk person som Kong Christian d. 4. Den første post fungerer altid som en introduktion, hvor karakteren præsenterer sig selv og sin tid i jeg-form. Det er denne tekst, der sætter scenen og giver eleverne den viden, de skal bruge for at løse de efterfølgende opgaver. Eleverne kan få alt læst højt direkte på deres telefon, mens de bevæger sig ude på ruten, så de kan leve sig helt ind i fortællingen. Brug AI-assistenten til at generere både introduktionen og de efterfølgende spørgsmål, så sproget passer præcis til din valgte figur.</p>
                 </div>
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                   Løbets titel
@@ -1028,7 +1028,7 @@ function RollespilBuilderPageContent() {
                           value={question.aiPrompt}
                           onChange={(event) => updateQuestion(question.id, { aiPrompt: event.target.value })}
                           rows={6}
-                          placeholder={`Goddag unge mennesker! Jeg hedder Kong Christian d. 4. Jeg grundlagde jeres by, og jeg husker tydeligt dagene ved hoffet. Nu har jeg brug for jeres hjælp til at finde det gamle segl, som jeg skjulte for at beskytte riget. I skal lytte til min historie og svare på spørgsmål baseret udelukkende på, hvad jeg fortæller.`}
+                          placeholder={"God dag unge mennesker! Jeg hedder Kong Christian d. 4. Jeg grundlagde jeres by, byggede Børsen og Rundetårn, og nu har jeg brug for jeres hjælp til at..."}
                           className={textareaClass}
                         />
                       </div>
