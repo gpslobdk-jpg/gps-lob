@@ -18,7 +18,6 @@ import {
   asNumberOrNull,
   asTrimmedString,
   isRecord,
-  readDescriptionText,
   readMasterCodeFromDescription,
   serializeEscapeDescription,
   toQuestionId,
@@ -192,7 +191,6 @@ const MAX_MASTER_CODE_LENGTH = 20;
 
 type EscapeBuilderDraftState = {
   title?: unknown;
-  description?: unknown;
   masterCode?: unknown;
   subject?: unknown;
   showAiInterviewModal?: unknown;
@@ -367,7 +365,6 @@ function EscapeBuilderPageContent() {
   const editRunId = searchParams.get("id")?.trim() ?? "";
   const isEditMode = editRunId.length > 0;
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
   const [masterCode, setMasterCode] = useState("");
   const [subject, setSubject] = useState("");
   const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
@@ -456,14 +453,10 @@ function EscapeBuilderPageContent() {
         }
 
         const loadedQuestions = toEscapeQuestions(run.questions);
-        const loadedTopic = asTrimmedString(run.topic);
-        const loadedDescription = readDescriptionText(run.description);
-        const nextDescription = loadedDescription || loadedTopic;
         const firstPinnedQuestion =
           loadedQuestions.find((question) => question.lat !== null && question.lng !== null) ?? null;
 
         setTitle(asTrimmedString(run.title));
-        setDescription(nextDescription);
         setMasterCode(readMasterCodeFromDescription(run.description));
         setSubject(asTrimmedString(run.subject));
         setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
@@ -521,7 +514,6 @@ function EscapeBuilderPageContent() {
       const restoredQuestions = toEscapeQuestions(restoredDraft.questions);
 
       setTitle(restoreDraftString(restoredDraft.title));
-      setDescription(restoreDraftString(restoredDraft.description));
       setMasterCode(restoreDraftString(restoredDraft.masterCode));
       setSubject(restoredSubject);
       setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
@@ -538,7 +530,6 @@ function EscapeBuilderPageContent() {
 
     writeRunDraft(ESCAPE_DRAFT_STORAGE_KEY, editRunId, {
       title,
-      description,
       masterCode,
       subject,
       showAiInterviewModal,
@@ -546,7 +537,6 @@ function EscapeBuilderPageContent() {
       mapCenter,
     } satisfies EscapeBuilderDraftState);
   }, [
-    description,
     editRunId,
     mapCenter,
     masterCode,
@@ -609,11 +599,10 @@ function EscapeBuilderPageContent() {
 
   const handleAiInterviewComplete = (draft: EscapeAiInterviewDraft) => {
     const nextTitle = draft.title.trim();
-    const nextDescription = draft.description.trim();
     const nextMasterCode = normalizeMasterCode(draft.masterCode).slice(0, MAX_MASTER_CODE_LENGTH);
     const nextQuestions = toInterviewEscapeQuestions(draft.puzzles, nextMasterCode);
 
-    if (!nextTitle || !nextDescription || !nextMasterCode || nextQuestions.length === 0) {
+    if (!nextTitle || !nextMasterCode || nextQuestions.length === 0) {
       setNotice({
         tone: "error",
         message: "AI'en returnerede ingen brugbare escape-gåder. Prøv igen.",
@@ -631,7 +620,6 @@ function EscapeBuilderPageContent() {
 
     const hasExistingContent =
       title.trim().length > 0 ||
-      description.trim().length > 0 ||
       masterCode.trim().length > 0 ||
       questions.some((question) => !isQuestionEmpty(question));
 
@@ -650,7 +638,6 @@ function EscapeBuilderPageContent() {
     }
 
     setTitle(nextTitle);
-    setDescription(nextDescription);
     setMasterCode(nextMasterCode);
     setQuestions(nextQuestions);
     setNotice({
@@ -676,8 +663,6 @@ function EscapeBuilderPageContent() {
       scrollToSaveFeedback();
       return;
     }
-
-    const normalizedDescription = description.trim();
 
     const normalizedQuestions = questions
       .map((question) => ({
@@ -748,7 +733,7 @@ function EscapeBuilderPageContent() {
     setIsSaving(true);
 
     try {
-      const normalizedTopic = normalizedDescription || title.trim();
+      const normalizedTopic = title.trim();
       const supabase = createClient();
       const {
         data: { user },
@@ -767,7 +752,7 @@ function EscapeBuilderPageContent() {
       const payload = {
         title: title.trim(),
         subject: subject.trim() || "Generelt",
-        description: serializeEscapeDescription(normalizedDescription, normalizedMasterCode),
+        description: serializeEscapeDescription("", normalizedMasterCode),
         topic: normalizedTopic,
         questions: normalizedQuestions,
         race_type: RACE_TYPES.ESCAPE,
@@ -812,7 +797,6 @@ function EscapeBuilderPageContent() {
 
       if (!isEditMode) {
         setTitle("");
-        setDescription("");
         setMasterCode("");
         setSubject("");
         setQuestions([createQuestion()]);
@@ -873,6 +857,18 @@ function EscapeBuilderPageContent() {
                 <div className="mb-8">
                   <h3 className="text-xl font-semibold text-amber-100">Velkommen til Escape Room løbet.</h3>
                   <p className="mt-2 text-sm text-amber-100/80">Placer dine poster på kortet, og skriv en udfordrende gåde til hver lokation. Eleverne skal løse gåderne ude på ruten for at indsamle brikker til en endelig master-kode. Mangler du idéer, kan du bruge den indbyggede AI-assistent til at generere gåderne for dig.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotice(null);
+                      setShowAiInterviewModal(true);
+                    }}
+                    disabled={isEditorBusy || isLoadingExistingRun}
+                    className={`${aiActionButtonClass} mt-4 rounded-full px-4 py-2 text-xs`}
+                  >
+                    <span aria-hidden>✨</span>
+                    AI-udfyld
+                  </button>
                 </div>
 
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
@@ -885,20 +881,6 @@ function EscapeBuilderPageContent() {
                   className={textInputClass}
                 />
               </div>
-
-              <div className="px-1">
-                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
-                  Beskrivelse
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  rows={4}
-                  placeholder="Skriv en kort og spændende beskrivelse af escape roomet, så det også giver mening i arkivet."
-                  className={textareaClass}
-                />
-              </div>
-
               <div className="rounded-[1.4rem] border border-amber-500/30 bg-amber-950/20 p-4 backdrop-blur-xl">
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
                   Emne
@@ -937,19 +919,6 @@ function EscapeBuilderPageContent() {
               </div>
 
               <div className="space-y-3 px-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNotice(null);
-                    setShowAiInterviewModal(true);
-                  }}
-                  disabled={isEditorBusy || isLoadingExistingRun}
-                  className={`${aiActionButtonClass} rounded-full px-4 py-2 text-xs`}
-                >
-                  <span aria-hidden>✨</span>
-                  AI-udfyld
-                </button>
-
                 <div className="flex items-end justify-between gap-4">
                   <p className="text-xs font-semibold tracking-[0.24em] text-amber-100/65 uppercase">
                     Dine gåder
