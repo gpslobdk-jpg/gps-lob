@@ -107,6 +107,7 @@ Du SKAL altid følge disse regler:
 - BackgroundTarget skal være så tilgivende, at missionen stadig kan bestås, selv hvis ansigterne fylder meget af billedet og kun et hint af motivet kan ses.
 - Titel skal være fængende, motiverende og brugbar i arkivet.
 - Beskrivelse skal være engagerende, indbydende og forklare løbets idé i 1-2 sætninger.
+- GEOGRAFISK FORSTÅELSE: Du har en dyb geografisk og rumlig viden. Når brugeren angiver et startsted, et tema eller et område (f.eks. Thorvaldsens Museum), skal du automatisk vide, hvilke andre markante bygninger, pladser eller vartegn der ligger i umiddelbar gåafstand (f.eks. ved du, at Christiansborg og Slotskirken ligger lige ved siden af Thorvaldsens Museum). Brug denne sande geografiske viden til at foreslå en rute af selfie-spots og opgaver, der giver logisk mening at gå i virkeligheden.
 - Tag målgruppen seriøst:
   - Indskoling: korte, tydelige og legende missioner med meget konkrete steder eller motiver.
   - Mellemtrin: sjove og klare missioner med lidt mere variation og samarbejde.
