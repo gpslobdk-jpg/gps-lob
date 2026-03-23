@@ -187,7 +187,6 @@ const FOTO_DRAFT_STORAGE_KEY = "draft_run_foto";
 
 type FotoBuilderDraftState = {
   title?: unknown;
-  description?: unknown;
   subject?: unknown;
   showTeacherField?: unknown;
   showAiInterviewModal?: unknown;
@@ -382,7 +381,6 @@ function FotoMissionBuilderPageContent() {
   const editRunId = searchParams.get("id")?.trim() ?? "";
   const isEditMode = editRunId.length > 0;
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
   const [subject, setSubject] = useState("");
   const [showTeacherField, setShowTeacherField] = useState(false);
   const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
@@ -471,14 +469,10 @@ function FotoMissionBuilderPageContent() {
         }
 
         const loadedQuestions = toPhotoQuestions(run.questions);
-        const loadedDescription = asTrimmedString(run.description);
-        const loadedTopic = asTrimmedString(run.topic);
-        const nextDescription = loadedDescription || loadedTopic;
         const firstPinnedQuestion =
           loadedQuestions.find((question) => question.lat !== null && question.lng !== null) ?? null;
 
         setTitle(asTrimmedString(run.title));
-        setDescription(nextDescription);
         setSubject(asTrimmedString(run.subject));
         setShowTeacherField(Boolean(asTrimmedString(run.subject)));
         setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
@@ -536,7 +530,6 @@ function FotoMissionBuilderPageContent() {
       const restoredQuestions = toPhotoQuestions(restoredDraft.questions);
 
       setTitle(restoreDraftString(restoredDraft.title));
-      setDescription(restoreDraftString(restoredDraft.description));
       setSubject(restoredSubject);
       setShowTeacherField(
         restoreDraftBoolean(restoredDraft.showTeacherField, Boolean(restoredSubject.trim()))
@@ -555,7 +548,6 @@ function FotoMissionBuilderPageContent() {
 
     writeRunDraft(FOTO_DRAFT_STORAGE_KEY, editRunId, {
       title,
-      description,
       subject,
       showTeacherField,
       showAiInterviewModal,
@@ -563,7 +555,6 @@ function FotoMissionBuilderPageContent() {
       mapCenter,
     } satisfies FotoBuilderDraftState);
   }, [
-    description,
     editRunId,
     mapCenter,
     questions,
@@ -622,10 +613,9 @@ function FotoMissionBuilderPageContent() {
 
   const handleAiInterviewComplete = (draft: FotoAiInterviewDraft) => {
     const nextTitle = draft.title.trim();
-    const nextDescription = draft.description.trim();
     const nextQuestions = toInterviewMissionQuestions(draft.missions);
 
-    if (!nextTitle || !nextDescription || nextQuestions.length === 0) {
+    if (!nextTitle || nextQuestions.length === 0) {
       setNotice({
         tone: "error",
         message: "AI'en returnerede ingen brugbare foto-missioner. Prøv igen.",
@@ -635,7 +625,6 @@ function FotoMissionBuilderPageContent() {
 
     const hasExistingContent =
       title.trim().length > 0 ||
-      description.trim().length > 0 ||
       questions.some((question) => !isQuestionEmpty(question));
 
     if (hasExistingContent) {
@@ -653,7 +642,6 @@ function FotoMissionBuilderPageContent() {
     }
 
     setTitle(nextTitle);
-    setDescription(nextDescription);
     setQuestions(nextQuestions);
     setNotice({
       tone: "success",
@@ -678,8 +666,6 @@ function FotoMissionBuilderPageContent() {
       scrollToSaveFeedback();
       return;
     }
-
-    const normalizedDescription = description.trim();
 
     const normalizedQuestions = questions
       .map((question) => ({
@@ -732,7 +718,7 @@ function FotoMissionBuilderPageContent() {
     setIsSaving(true);
 
     try {
-      const normalizedTopic = normalizedDescription || title.trim();
+      const normalizedTopic = title.trim();
       const supabase = createClient();
       const {
         data: { user },
@@ -751,7 +737,7 @@ function FotoMissionBuilderPageContent() {
       const payload = {
         title: title.trim(),
         subject: subject.trim() || "Generelt",
-        description: normalizedDescription,
+        description: "",
         topic: normalizedTopic,
         questions: normalizedQuestions,
         race_type: RACE_TYPES.FOTO,
@@ -796,7 +782,6 @@ function FotoMissionBuilderPageContent() {
 
       if (!isEditMode) {
         setTitle("");
-        setDescription("");
         setSubject("");
         setShowTeacherField(false);
         setQuestions([createQuestion()]);
@@ -856,6 +841,18 @@ function FotoMissionBuilderPageContent() {
                   <div className="mb-8">
                     <h3 className="text-xl font-semibold text-sky-100">Velkommen til AI Foto-mission.</h3>
                     <p className="mt-2 text-sm text-sky-100/80">Placer missionerne på kortet, og beskriv præcist, hvad eleverne skal fotografere ved hver post. AI'en vurderer automatisk elevernes billeder ude på ruten. Du kan også bruge den indbyggede AI-assistent til at generere missionerne for dig.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNotice(null);
+                        setShowAiInterviewModal(true);
+                      }}
+                      disabled={isEditorBusy || isLoadingExistingRun}
+                      className={`${aiActionButtonClass} mt-4 w-full sm:w-auto`}
+                    >
+                      <span aria-hidden>✨</span>
+                      Auto-udfyld med AI
+                    </button>
                   </div>
 
                   <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
@@ -869,21 +866,6 @@ function FotoMissionBuilderPageContent() {
                     className={textInputClass}
                   />
                 </div>
-
-              <div className="px-1">
-                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
-                  Beskrivelse
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  disabled={isEditorBusy}
-                  rows={3}
-                  placeholder="Kort pitch eller introduktion til foto-løbet"
-                  className={textareaClass}
-                />
-              </div>
-
               <div className="px-1">
                 <div className="rounded-[1.5rem] border border-sky-500/30 bg-sky-950/20 p-4 backdrop-blur-xl">
                   <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
@@ -908,19 +890,6 @@ function FotoMissionBuilderPageContent() {
               </div>
 
               <div className="space-y-4 px-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNotice(null);
-                    setShowAiInterviewModal(true);
-                  }}
-                  disabled={isEditorBusy || isLoadingExistingRun}
-                  className={`${aiActionButtonClass} w-full sm:w-auto`}
-                >
-                  <span aria-hidden>✨</span>
-                  Auto-udfyld med AI
-                </button>
-
                 <div className="flex items-end justify-between gap-4">
                   <p className="text-xs font-semibold tracking-[0.24em] text-sky-100/65 uppercase">
                     Dine missioner
