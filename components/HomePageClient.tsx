@@ -10,9 +10,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import AIChatButton from "@/components/AIChatButton";
 import natureAnimation from "@/public/nature.json";
 
-const WelcomeModal = dynamic(() => import("@/components/WelcomeModal"), {
-  ssr: false,
-});
+// WelcomeModal removed — onboarding flow deprecated
 
 type HomePageClientProps = {
   isNativeGpslobApp: boolean;
@@ -113,9 +111,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
       <div className="fixed inset-0 -z-10 bg-slate-950/70 backdrop-blur-[2px]" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(16,185,129,0.16),transparent_35%),radial-gradient(circle_at_85%_95%,rgba(14,165,233,0.1),transparent_40%),radial-gradient(rgba(148,163,184,0.08)_1px,transparent_1px)] [background-size:100%_100%,100%_100%,20px_20px] lg:hidden" />
 
-      <div className="hidden md:block">
-        <WelcomeModal forceOpenToken={showIntroToken} />
-      </div>
+      {/* Welcome modal removed; no onboarding modal shown */}
 
       <main className="relative mx-auto flex w-full flex-1 flex-col justify-center px-4 py-8 md:hidden">
         <section className="flex flex-1 items-center justify-center">
