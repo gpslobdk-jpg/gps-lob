@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import AuthLoadingScreen from "@/components/AuthLoadingScreen";
@@ -32,6 +32,10 @@ function LoginPageContent() {
   const searchParams = useSearchParams();
   const { user, isLoading: isAuthLoading } = useAuth();
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isEmailLoading, setIsEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
 
   const searchParamsString = searchParams.toString();
   const hasCodeParam = searchParams.has("code");
@@ -61,6 +65,32 @@ function LoginPageContent() {
     router.replace(safeNextPath);
   }, [hasCodeParam, isAuthLoading, isRedirecting, router, safeNextPath, user]);
 
+  const getFriendlyEmailAuthError = (message: string | null | undefined) => {
+    const normalized = (message ?? "").toLocaleLowerCase("da-DK");
+
+    if (
+      normalized.includes("invalid login credentials") ||
+      normalized.includes("user already registered") ||
+      normalized.includes("already registered")
+    ) {
+      return "Forkert adgangskode eller e-mail.";
+    }
+
+    if (
+      normalized.includes("invalid email") ||
+      normalized.includes("email address") ||
+      normalized.includes("email not valid")
+    ) {
+      return "Skriv en gyldig e-mailadresse.";
+    }
+
+    if (normalized.includes("password")) {
+      return "Adgangskoden skal opfylde kravene for at kunne bruges.";
+    }
+
+    return "Vi kunne ikke logge dig ind lige nu. Prøv igen.";
+  };
+
   const handleOAuthLogin = async (provider: "google" | "facebook" | "azure") => {
     setIsRedirecting(true);
 
@@ -89,6 +119,70 @@ function LoginPageContent() {
     if (error) {
       console.error("OAuth-login fejlede:", error);
       setIsRedirecting(false);
+    }
+  };
+
+  const handleEmailAuth = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
+      setEmailError("Skriv både e-mail og adgangskode.");
+      return;
+    }
+
+    setEmailError("");
+    setIsEmailLoading(true);
+
+    const supabase = createClient();
+    let shouldKeepLoading = true;
+
+    try {
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
+      });
+
+      if (!signInError && signInData.session) {
+        shouldKeepLoading = false;
+        setIsRedirecting(true);
+        router.replace(safeNextPath);
+        return;
+      }
+
+      const shouldTrySignUp =
+        signInError?.message?.toLocaleLowerCase("da-DK").includes("invalid login credentials") ?? false;
+
+      if (!shouldTrySignUp) {
+        setEmailError(getFriendlyEmailAuthError(signInError?.message));
+        return;
+      }
+
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: trimmedEmail,
+        password,
+      });
+
+      if (signUpError) {
+        setEmailError(getFriendlyEmailAuthError(signUpError.message));
+        return;
+      }
+
+      if (signUpData.session) {
+        shouldKeepLoading = false;
+        setIsRedirecting(true);
+        router.replace(safeNextPath);
+        return;
+      }
+
+      setEmailError("Forkert adgangskode eller e-mail.");
+    } catch (error) {
+      console.error("E-mail-login fejlede:", error);
+      setEmailError("Vi kunne ikke logge dig ind lige nu. Prøv igen.");
+    } finally {
+      if (shouldKeepLoading) {
+        setIsEmailLoading(false);
+      }
     }
   };
 
@@ -199,13 +293,19 @@ function LoginPageContent() {
             <div className="h-px flex-1 bg-emerald-500/20" />
           </div>
 
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={handleEmailAuth}>
             <div className="text-left">
               <label className="mb-1 block text-sm font-medium text-emerald-400">Email</label>
               <input
                 type="email"
                 placeholder="Email"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  if (emailError) setEmailError("");
+                }}
                 className="w-full rounded-xl border border-emerald-500/30 bg-slate-900 px-4 py-3 text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                autoComplete="email"
               />
             </div>
             <div className="text-left">
@@ -213,16 +313,29 @@ function LoginPageContent() {
               <input
                 type="password"
                 placeholder="Adgangskode"
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  if (emailError) setEmailError("");
+                }}
                 className="w-full rounded-xl border border-emerald-500/30 bg-slate-900 px-4 py-3 text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                autoComplete="current-password"
               />
             </div>
 
             <motion.button
-              type="button"
-              className="w-full rounded-full border border-emerald-500/30 bg-emerald-500/10 px-5 py-3 text-base font-bold text-emerald-400 shadow-[0_0_28px_rgba(16,185,129,0.14)] transition-all duration-300 hover:scale-[1.02] hover:bg-emerald-500 hover:text-slate-950"
+              type="submit"
+              disabled={isEmailLoading}
+              className="w-full rounded-full border border-emerald-500/30 bg-emerald-500/10 px-5 py-3 text-base font-bold text-emerald-400 shadow-[0_0_28px_rgba(16,185,129,0.14)] transition-all duration-300 hover:scale-[1.02] hover:bg-emerald-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 disabled:hover:bg-emerald-500/10 disabled:hover:text-emerald-400"
             >
-              Log ind / Opret
+              {isEmailLoading ? "Logger ind..." : "Log ind / Opret"}
             </motion.button>
+
+            {emailError ? (
+              <div className="rounded-xl border border-rose-400/40 bg-rose-500/15 px-4 py-3 text-sm font-semibold text-rose-100">
+                {emailError}
+              </div>
+            ) : null}
           </form>
 
           <div className="mt-5 text-center">
