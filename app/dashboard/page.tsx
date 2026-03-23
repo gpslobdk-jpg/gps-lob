@@ -138,12 +138,6 @@ export default function DashboardPage() {
     setLiveHint("Start et l\u00f8b fra arkivet f\u00f8rst.");
   };
 
-  const handleLogUd = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/");
-  };
-
   const handleRetryDashboardLoad = () => {
     setDashboardRetryKey((current) => current + 1);
   };
@@ -263,13 +257,6 @@ export default function DashboardPage() {
 
       <header className="flex items-center justify-between">
         <Image src="/gpslogo.png" width={150} height={50} alt="Logo" priority />
-        <button
-          type="button"
-          onClick={() => void handleLogUd()}
-          className="text-white drop-shadow-md transition-colors hover:text-white/90"
-        >
-          Log ud
-        </button>
       </header>
 
       <section className="text-center">
