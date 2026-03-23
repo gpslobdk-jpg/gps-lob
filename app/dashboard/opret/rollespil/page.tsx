@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { Loader2, Plus } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -931,8 +931,8 @@ function RollespilBuilderPageContent() {
                   </div>
                 ) : null}
                 <div className="mb-8">
-                  <h2 className="text-xl font-semibold text-white mb-2">Velkommen til det tema-baserede rollespil.</h2>
-                  <p className="text-sm text-muted-foreground">Her bygger du et løb, hvor eleverne møder en karakter. Den første post skal altid være en introduktion, hvor karakteren præsenterer sig selv i jeg-form (f.eks. Kong Christian d. 4). Brug AI-assistenten til at generere teksten, så den taler direkte til eleven. På elevens mobil fremstår det som en personlig hilsen fra karakteren.</p>
+                  <h2 className="text-xl font-semibold text-white mb-2">Velkommen til det klassiske rollespil.</h2>
+                  <p className="text-sm text-muted-foreground">Post 1 er altid introduktionen til din karakter. De efterfølgende poster er spørgsmål med 4 svarmuligheder baseret på din fortælling.</p>
                 </div>
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                   Løbets titel
@@ -989,7 +989,6 @@ function RollespilBuilderPageContent() {
                   }}
                   className={`${aiActionButtonClass} w-full sm:w-auto`}
                 >
-                  <span aria-hidden>✨</span>
                   Auto-udfyld historie med AI
                 </button>
 
@@ -1010,133 +1009,63 @@ function RollespilBuilderPageContent() {
                   key={question.id}
                   className="rounded-[1.8rem] border border-violet-500/30 bg-violet-950/20 p-3 shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur-2xl"
                 >
-                    <div className="flex flex-wrap items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full border border-violet-500/30 bg-violet-950/20 text-sm font-bold text-violet-100">
-                        {index + 1}
-                      </div>
+                  {index === 0 ? (
+                    // Post 1: only show character name and intro textarea
+                    <div>
                       <div>
-                        <h3 className={`text-lg font-bold text-violet-100 ${rubik.className}`}>
-                          Post {index + 1}
-                        </h3>
-                        <p className="text-xs text-violet-100/65">
-                          {question.lat !== null && question.lng !== null
-                            ? "Pin er valgt på kortet"
-                            : "Ingen pin valgt endnu"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 flex items-center justify-between gap-4">
-                      <div>
-                        {index === 0 ? (
-                          <div className="mt-1">
-                            <div className="text-sm text-white/80">
-                              <p>Post 1: Introduktion. Her præsenterer rollen sig selv i jeg-form. Det er denne tekst, eleverne møder som det første ude på ruten.</p>
-                              <p className="mt-2">Eksempel: "God dag unge mennesker! Jeg hedder Kong Christian d. 4. Jeg grundlagde jeres by, og nu har jeg brug for jeres hjælp til..."</p>
-                            </div>
-                          </div>
-                        ) : (
-                          <div>
-                            <label className="mb-2 block text-xs uppercase tracking-wider text-white/50">Post Type</label>
-                            <select
-                              value={question.postType ?? "quiz"}
-                              onChange={(e) =>
-                                updateQuestion(question.id, { postType: e.target.value as "quiz" | "intro" })
-                              }
-                              className={textInputClass}
-                            >
-                              <option value="quiz">Quiz</option>
-                              <option value="intro">Intro (ventepost)</option>
-                            </select>
-                          </div>
-                        )}
-                      </div>
-
-                      <span className="rounded-full border border-violet-500/30 bg-violet-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-violet-100/75 uppercase backdrop-blur-xl">
-                        Rollespil
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    <div className="flex flex-col md:flex-row gap-4">
-                      <div className="flex-1">
-                        <label className="mb-2 block text-xs uppercase tracking-wider text-white/50">
-                          Karakterens navn
-                        </label>
+                        <label className="mb-2 block text-sm font-semibold text-white">Karakterens navn</label>
                         <input
                           value={question.text}
-                          onChange={(event) =>
-                            updateRoleplayQuestion(question.id, { characterName: event.target.value })
-                          }
-                          placeholder="F.eks. Valdemar Atterdag"
+                          onChange={(event) => updateQuestion(question.id, { text: event.target.value })}
+                          placeholder="F.eks. Kong Christian d. 4"
                           className={textInputClass}
                         />
                       </div>
 
-                      {index !== 0 && (
-                        <div className="w-full md:w-56">
-                          <label className="mb-2 block text-xs uppercase tracking-wider text-white/50">
-                            Avatar eller billed-URL
-                          </label>
-                          <input
-                            value={question.answers[2]}
-                            onChange={(event) =>
-                              updateRoleplayQuestion(question.id, { avatar: event.target.value })
-                            }
-                            placeholder="F.eks. Billed-URL"
-                            className={textInputClass}
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-3">
-                      <label className="mb-2 block text-xs uppercase tracking-wider text-white/50">
-                        Karakterens besked / Gåde
-                      </label>
-                      <textarea
-                        value={question.aiPrompt}
-                        onChange={(event) =>
-                          updateRoleplayQuestion(question.id, { message: event.target.value })
-                        }
-                        rows={3}
-                        placeholder="F.eks. Hvem vover at træde ind på min borg uden tilladelse?"
-                        className={textareaClass}
-                      />
-                    </div>
-
-                    {index !== 0 && (
                       <div className="mt-3">
-                        <label className="mb-2 block text-xs uppercase tracking-wider text-white/50">
-                          Det rigtige svar fra deltageren
-                        </label>
-                        <input
-                          value={question.answers[0]}
-                          onChange={(event) =>
-                            updateRoleplayQuestion(question.id, { correctAnswer: event.target.value })
-                          }
-                          placeholder="F.eks. Fred"
-                          className={textInputClass}
+                        <label className="mb-2 block text-sm font-semibold text-white">Karakterens introduktion</label>
+                        <textarea
+                          value={question.aiPrompt}
+                          onChange={(event) => updateQuestion(question.id, { aiPrompt: event.target.value })}
+                          rows={6}
+                          placeholder={`Goddag unge mennesker! Jeg hedder Kong Christian d. 4. Jeg grundlagde jeres by, og jeg husker tydeligt dagene ved hoffet. Nu har jeg brug for jeres hjælp til at finde det gamle segl, som jeg skjulte for at beskytte riget. I skal lytte til min historie og svare på spørgsmål baseret udelukkende på, hvad jeg fortæller.`}
+                          className={textareaClass}
                         />
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    // Quiz posts: only show question and four answer options
+                    <div>
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-white">Spørgsmål</label>
+                        <textarea
+                          value={question.aiPrompt}
+                          onChange={(event) => updateQuestion(question.id, { aiPrompt: event.target.value })}
+                          rows={3}
+                          placeholder="Skriv det korte quiz-spørgsmål her"
+                          className={textareaClass}
+                        />
+                      </div>
 
-                  <button
-                    type="button"
-                    onClick={() => assignPinFromCenter(question.id)}
-                    className="mt-4 w-full rounded-[1.35rem] border border-violet-500/30 bg-violet-500 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-violet-500/20 transition-all hover:bg-violet-400"
-                  >
-                    Hent pin fra kortet
-                  </button>
-
-                  {question.lat !== null && question.lng !== null ? (
-                    <p className="mt-2.5 text-xs text-violet-100/70">
-                      Pin gemt: {question.lat.toFixed(5)}, {question.lng.toFixed(5)}
-                    </p>
-                  ) : null}
+                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {Array.from({ length: 4 }).map((_, optIndex) => (
+                          <div key={optIndex}>
+                            <label className="mb-2 block text-sm font-semibold text-white">Svar {String.fromCharCode(65 + optIndex)}</label>
+                            <input
+                              value={(question.options ?? ["", "", "", ""])[optIndex] ?? ""}
+                              onChange={(e) => {
+                                const nextOptions = Array.from(question.options ?? ["", "", "", ""]);
+                                nextOptions[optIndex] = e.target.value;
+                                updateQuestion(question.id, { options: nextOptions });
+                              }}
+                              placeholder={`Svar ${String.fromCharCode(65 + optIndex)}`}
+                              className={textInputClass}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </article>
               ))}
 
@@ -1144,9 +1073,8 @@ function RollespilBuilderPageContent() {
                 <button
                   type="button"
                   onClick={addQuestion}
-                  className="inline-flex items-center gap-2 rounded-[1.4rem] border border-violet-500/30 bg-violet-950/20 px-4 py-3 text-sm font-semibold text-violet-100 backdrop-blur-xl transition hover:bg-violet-500/15"
+                  className="rounded-[1.4rem] border border-violet-500/30 bg-violet-950/20 px-4 py-3 text-sm font-semibold text-violet-100 backdrop-blur-xl transition hover:bg-violet-500/15"
                 >
-                  <Plus className="h-4 w-4" />
                   Tilføj ny post
                 </button>
 
