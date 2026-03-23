@@ -121,6 +121,8 @@ function isInterviewDraftResponse(value: unknown): value is RollespilAiInterview
       characterName?: unknown;
       introMessage?: unknown;
       questionMessage?: unknown;
+      message?: unknown;
+      question?: unknown;
       answers?: unknown;
       options?: unknown;
     };
@@ -300,16 +302,19 @@ export default function RollespilAiInterviewModal({
         throw new Error("AI'en returnerede et ugyldigt rollespilsformat.");
       }
 
+      const src = payload as any;
       onComplete({
-        title: asTrimmedString(payload.roll_title) || asTrimmedString(payload.title),
-        description: asTrimmedString(payload.roll_desc) || asTrimmedString(payload.description),
-        posts: (payload.questions as any[]).map((q, index) => {
+        title: asTrimmedString(src.roll_title) || asTrimmedString(src.title),
+        description: asTrimmedString(src.roll_desc) || asTrimmedString(src.description),
+        posts: (src.questions as any[]).map((q, index) => {
           const candidate = q as {
             id?: unknown;
             postType?: unknown;
             characterName?: unknown;
             introMessage?: unknown;
             questionMessage?: unknown;
+            message?: unknown;
+            question?: unknown;
             answers?: unknown;
             options?: unknown;
           };
