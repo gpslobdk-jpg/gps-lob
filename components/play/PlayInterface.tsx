@@ -919,15 +919,26 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
             {latestMessage ? (
               <div className="animate-in slide-in-from-top fade-in duration-500">
-                <div className="flex items-start gap-3 rounded-[1.5rem] border border-white/20 bg-white/10 p-4 shadow-lg backdrop-blur-2xl">
-                  <div className="mt-0.5 rounded-full border border-white/20 bg-white/10 p-2 text-white/80">
-                    <AlertCircle className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <div className={tacticalMetaLabelClass}>
-                      Besked fra arrangøren
+                <div className="rounded-[1.5rem] border border-white/20 bg-white/10 p-4 shadow-lg backdrop-blur-2xl">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 rounded-full border border-white/20 bg-white/10 p-2 text-white/80">
+                        <AlertCircle className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <div className={tacticalMetaLabelClass}>
+                          Besked fra arrangøren
+                        </div>
+                        <div className={`text-sm font-medium text-white ${wrapTextClass}`}>{latestMessage}</div>
+                      </div>
                     </div>
-                    <div className={`text-sm font-medium text-white ${wrapTextClass}`}>{latestMessage}</div>
+                    <button
+                      type="button"
+                      onClick={actions.dismissLatestMessage}
+                      className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-white/20"
+                    >
+                      Forstået
+                    </button>
                   </div>
                 </div>
               </div>

@@ -201,6 +201,10 @@ export function usePlayGameState({
     }, 5000);
   }, []);
 
+  const dismissLatestMessage = useCallback(() => {
+    setLatestMessage(null);
+  }, []);
+
   const rememberActiveParticipant = useCallback(
     (nextParticipantId: string, nextStudentName: string, nextStartOffset?: number | null) => {
       if (!sessionId || !nextParticipantId) return;
@@ -1013,9 +1017,43 @@ export function usePlayGameState({
   }, [shouldKeepScreenAwake]);
 
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId) {
+      setLatestMessage(null);
+      return;
+    }
 
-    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+    let isActive = true;
+
+    const loadLatestTeacherMessage = async () => {
+      const messageClient = createClient({ sessionId });
+      const { data, error } = await messageClient
+        .from("session_messages")
+        .select("message,is_teacher,created_at")
+        .eq("session_id", sessionId)
+        .eq("is_teacher", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!isActive) return;
+
+      if (error) {
+        console.error("Fejl ved hentning af seneste besked:", error);
+        return;
+      }
+
+      setLatestMessage(data?.message?.trim() ? data.message : null);
+    };
+
+    void loadLatestTeacherMessage();
+
+    return () => {
+      isActive = false;
+    };
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!sessionId) return;
 
     const createSubscription = () => {
       // remove existing channel if present
@@ -1038,8 +1076,6 @@ export function usePlayGameState({
             const messageRow = payload.new as { is_teacher?: boolean; message?: string | null };
             if (messageRow.is_teacher && messageRow.message) {
               setLatestMessage(messageRow.message);
-              if (hideTimer) clearTimeout(hideTimer);
-              hideTimer = setTimeout(() => setLatestMessage(null), 8000);
             }
           }
         )
@@ -1103,7 +1139,6 @@ export function usePlayGameState({
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
-      if (hideTimer) clearTimeout(hideTimer);
       document.removeEventListener("visibilitychange", handleVisibility);
       if (messageChannelRef.current) {
         void supabase.removeChannel(messageChannelRef.current);
@@ -1840,6 +1875,7 @@ export function usePlayGameState({
       setPendingPlayerName,
       setMasterLockInput,
       setShowEscapeResults,
+      dismissLatestMessage,
       clearTypedAnswerError,
       clearPostActionError,
       clearRoleplayInputErrorTone,

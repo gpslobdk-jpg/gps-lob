@@ -272,6 +272,7 @@ export interface PlayActions {
   setPendingPlayerName: (value: string) => void;
   setMasterLockInput: (value: string) => void;
   setShowEscapeResults: (value: boolean) => void;
+  dismissLatestMessage: () => void;
   clearTypedAnswerError: () => void;
   clearPostActionError: () => void;
   clearRoleplayInputErrorTone: () => void;
