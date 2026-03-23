@@ -122,6 +122,20 @@ function normalizeQuestions(
   }));
 }
 
+function dataUrlToUint8Array(dataUrl: string): Uint8Array | null {
+  // Expect format: data:[<mediatype>][;base64],<data>
+  const comma = dataUrl.indexOf(",");
+  if (comma === -1) return null;
+
+  const base64 = dataUrl.substring(comma + 1);
+  try {
+    const buffer = Buffer.from(base64, "base64");
+    return new Uint8Array(buffer);
+  } catch (err) {
+    return null;
+  }
+}
+
 function isTimeoutError(error: unknown) {
   return (
     error instanceof Error &&
@@ -274,6 +288,19 @@ ${subjectLine}`;
 
     const schema = createGeneratedRunSchema(count);
 
+    // If an image data-URL was provided, convert it to a Uint8Array buffer
+    let imagePayload: Uint8Array | undefined = undefined;
+    if (imageBase64) {
+      const converted = dataUrlToUint8Array(imageBase64);
+      if (!converted) {
+        return NextResponse.json(
+          { error: "Billedet skal sendes som en gyldig data-URL." },
+          { status: 400 }
+        );
+      }
+      imagePayload = converted;
+    }
+
     const { object } = await generateObject({
       model: openai("gpt-4o-mini"),
       schema,
@@ -300,11 +327,11 @@ ${subjectLine}`;
                         : "\n\nBrug bogside-billedet som materiale.") +
                       "\n\nReturner kun det strukturerede output.",
                   },
-                  ...(imageBase64
+                  ...(imagePayload
                     ? [
                         {
                           type: "image" as const,
-                          image: imageBase64,
+                          image: imagePayload,
                           providerOptions: {
                             openai: { imageDetail: "low" },
                           },
