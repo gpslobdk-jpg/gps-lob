@@ -28,7 +28,6 @@ function createGeneratedRunSchema(desiredCount: number) {
   return z
     .object({
       title: z.string().trim().min(1),
-      description: z.string().trim().min(1),
       missions: z.array(z.string().trim().min(1)).length(desiredCount),
     })
     .strict();
@@ -89,7 +88,6 @@ Du SKAL altid følge disse regler:
 - Hver mission skal helst begynde med "Find ..." og nævne det konkrete mål tidligt i sætningen, før formuleringer som "og tag et tydeligt billede".
 - Missionerne må ikke være dubletter eller næsten ens.
 - Titel skal være fængende, motiverende og brugbar i arkivet.
-- Beskrivelse skal være engagerende, indbydende og forklare løbets idé i 1-2 sætninger, så deltagerne får lyst til at gå i gang.
 - Tonen skal afspejle brugerens valg uden at gøre missionerne uklare eller useriøse.
 - Hvis tonen er "Faglig", skal missionerne tænke ud af boksen og pege på synlige beviser for faglige begreber.
 - Ved faglig tone er "Find et eksempel på oxidation eller rust" bedre end "Find noget brunt".
@@ -109,15 +107,14 @@ Du SKAL altid følge disse regler:
       "Missionerne skal være tydeligt fotograférbare og kunne løses i praksis.",
       "Hvis emnet er fagligt eller abstrakt, skal missionerne omsætte det til synlige og dokumenterbare eksempler.",
       "Skriv missionerne som korte instruktioner, gerne i formatet: 'Find ... og tag et tydeligt billede af det.'",
-      "Byg nu et komplet foto-løb med titel, beskrivelse og missioner.",
+      "Byg nu et komplet foto-løb med titel og missioner.",
     ].join("\n");
 
     const { object } = await generateObject({
       model: openai("gpt-4o-mini"),
       schema,
       schemaName: "FotoMissionBuilderInterviewRun",
-      schemaDescription:
-        "Et komplet foto-missionsløb med titel, beskrivelse og mission-tekster til foto-builderen.",
+      schemaDescription: "Et komplet foto-missionsløb med titel og mission-tekster til foto-builderen.",
       system: systemPrompt,
       prompt,
       temperature: 0.8,
@@ -131,7 +128,6 @@ Du SKAL altid følge disse regler:
 
     return NextResponse.json({
       title: object.title.trim(),
-      description: object.description.trim(),
       missions: object.missions.map((mission) => mission.trim()),
     });
   } catch (error) {
