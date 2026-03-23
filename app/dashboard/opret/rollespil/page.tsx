@@ -928,7 +928,7 @@ function RollespilBuilderPageContent() {
                 ) : null}
                 <div className="mb-8">
                   <h2 className="text-xl font-semibold text-white mb-2">Velkommen til det tema-baserede rollespil.</h2>
-                  <p className="text-sm text-white/80">Her bygger du et løb, hvor eleverne møder en karakter. Den første post skal altid være en introduktion, hvor karakteren præsenterer sig selv i jeg-form (f.eks. Kong Christian d. 4). Brug AI-assistenten til at generere teksten, så den taler direkte til eleven. På elevens mobil fremstår det som en personlig hilsen fra karakteren.</p>
+                  <p className="text-sm text-muted-foreground">Her bygger du et løb, hvor eleverne møder en karakter. Den første post skal altid være en introduktion, hvor karakteren præsenterer sig selv i jeg-form (f.eks. Kong Christian d. 4). Brug AI-assistenten til at generere teksten, så den taler direkte til eleven. På elevens mobil fremstår det som en personlig hilsen fra karakteren.</p>
                 </div>
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
                   Løbets titel
@@ -1078,14 +1078,14 @@ function RollespilBuilderPageContent() {
                       {index !== 0 && (
                         <div className="w-full md:w-56">
                           <label className="mb-2 block text-xs uppercase tracking-wider text-white/50">
-                            Avatar (Emoji eller billed-URL)
+                            Avatar eller billed-URL
                           </label>
                           <input
                             value={question.answers[2]}
                             onChange={(event) =>
                               updateRoleplayQuestion(question.id, { avatar: event.target.value })
                             }
-                            placeholder="F.eks. Emoji eller billed-URL"
+                            placeholder="F.eks. Billed-URL"
                             className={textInputClass}
                           />
                         </div>
