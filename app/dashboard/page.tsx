@@ -35,6 +35,9 @@ export default function DashboardPage() {
   const [liveHint, setLiveHint] = useState("");
   const [runCountError, setRunCountError] = useState(false);
   const [dashboardRetryKey, setDashboardRetryKey] = useState(0);
+  const [isNavigatingCreate, setIsNavigatingCreate] = useState(false);
+  const [isNavigatingArchive, setIsNavigatingArchive] = useState(false);
+  const [isNavigatingLive, setIsNavigatingLive] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -131,7 +134,8 @@ export default function DashboardPage() {
     if (isCheckingLiveSession) return;
 
     if (activeSessionId) {
-      router.push(`/dashboard/live/${activeSessionId}`);
+      setIsNavigatingLive(true);
+      void router.push(`/dashboard/live/${activeSessionId}`);
       return;
     }
 
@@ -269,13 +273,24 @@ export default function DashboardPage() {
       </section>
 
       <section className="mx-auto mt-12 grid max-w-6xl grid-cols-1 gap-8 md:grid-cols-3">
-        <Link href="/dashboard/opret/valg" data-tour="dashboard-create-run" className="block">
-          <motion.article whileHover={{ scale: 1.03 }} className={`${cardBaseClass} cursor-pointer`}>
+        <motion.button
+          type="button"
+          onClick={() => {
+            if (isNavigatingCreate) return;
+            setIsNavigatingCreate(true);
+            void router.push("/dashboard/opret/valg");
+          }}
+          data-tour="dashboard-create-run"
+          className="block w-full text-left"
+          aria-busy={isNavigatingCreate}
+          aria-disabled={isNavigatingCreate}
+        >
+          <motion.article whileHover={{ scale: isNavigatingCreate ? 1 : 1.03 }} className={`${cardBaseClass} ${isNavigatingCreate ? "cursor-progress opacity-80" : "cursor-pointer"}`}>
             <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-emerald-600">
               <MapPin className="h-7 w-7" />
             </div>
             <h2 className={`mb-2 text-2xl font-black tracking-wide text-emerald-950 uppercase ${rubik.className}`}>
-              {"OPRET NYT L\u00d8B"}
+              {isNavigatingCreate ? "Gør klar..." : "OPRET NYT L\u00d8B"}
             </h2>
             <p className="mb-4 text-sm font-semibold text-emerald-700 uppercase">
               {"BYG P\u00c5 ET RIGTIGT KORT."}
@@ -286,7 +301,7 @@ export default function DashboardPage() {
               }
             </p>
           </motion.article>
-        </Link>
+        </motion.button>
 
         <motion.button
           type="button"
@@ -330,20 +345,30 @@ export default function DashboardPage() {
           </article>
         </motion.button>
 
-        <Link href="/dashboard/arkiv" className="block">
-          <article className={`${cardBaseClass} cursor-pointer`}>
+        <motion.button
+          type="button"
+          onClick={() => {
+            if (isNavigatingArchive) return;
+            setIsNavigatingArchive(true);
+            void router.push("/dashboard/arkiv");
+          }}
+          className="block w-full text-left"
+          aria-busy={isNavigatingArchive}
+          aria-disabled={isNavigatingArchive}
+        >
+          <article className={`${cardBaseClass} ${isNavigatingArchive ? "cursor-progress opacity-80" : "cursor-pointer"}`}>
             <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-blue-200 bg-blue-100 text-blue-600">
               <FolderOpen className="h-7 w-7" />
             </div>
             <h2 className={`mb-2 text-2xl font-black tracking-wide text-blue-950 uppercase ${rubik.className}`}>
-              {"MIT L\u00d8BSARKIV"}
+              {isNavigatingArchive ? "Indlæser..." : "MIT L\u00d8BSARKIV"}
             </h2>
             <p className="mb-4 text-sm font-semibold text-blue-700 uppercase">GENBRUG OG DEL.</p>
             <p className="text-sm leading-relaxed text-blue-800">
               {"Find alle dine tidligere l\u00f8b, rediger dem, eller del koden med en ny gruppe."}
             </p>
           </article>
-        </Link>
+        </motion.button>
       </section>
 
       <section className="mx-auto mt-8 w-full max-w-4xl">
