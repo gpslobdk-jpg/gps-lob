@@ -19,6 +19,14 @@ type MagicPost = Omit<Post, "type"> & {
   type: "multiple_choice";
 };
 
+type RawMagicPost = Partial<Omit<Post, "type" | "options" | "answer" | "mission">> & {
+  type?: string | null;
+  question?: string | null;
+  options?: string[] | null;
+  answer?: string | null;
+  mission?: string | null;
+};
+
 function getRequestedPostCount(prompt: string) {
   const match = prompt.match(/\b([3-9]|10)\b/);
   if (!match) return DEFAULT_POST_COUNT;
@@ -29,28 +37,16 @@ function getRequestedPostCount(prompt: string) {
   return Math.max(MIN_POST_COUNT, Math.min(MAX_POST_COUNT, count));
 }
 
-const magicPostSchema = jsonSchema<MagicPost>({
+const magicPostSchema = jsonSchema<RawMagicPost>({
   type: "object",
   additionalProperties: false,
-  required: [
-    "id",
-    "type",
-    "lat",
-    "lng",
-    "question",
-    "options",
-    "answer",
-    "mission",
-    "unlockRange",
-  ],
   properties: {
     id: {
       type: "integer",
       minimum: 1,
     },
     type: {
-      type: "string",
-      enum: ["multiple_choice"],
+      anyOf: [{ type: "string" }, { type: "null" }],
     },
     lat: {
       type: "number",
@@ -60,25 +56,18 @@ const magicPostSchema = jsonSchema<MagicPost>({
     },
     question: {
       type: "string",
-      minLength: 8,
     },
     options: {
       type: "array",
-      minItems: 4,
-      maxItems: 4,
-      uniqueItems: true,
       items: {
         type: "string",
-        minLength: 1,
       },
     },
     answer: {
       type: "string",
-      minLength: 1,
     },
     mission: {
-      type: "string",
-      maxLength: 0,
+      anyOf: [{ type: "string" }, { type: "null" }],
     },
     unlockRange: {
       type: "integer",
@@ -88,16 +77,70 @@ const magicPostSchema = jsonSchema<MagicPost>({
   },
 });
 
-function normalizeMagicPosts(posts: MagicPost[]): MagicPost[] {
+function getTrimmedString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getFallbackOption(index: number, existingOptions: string[]) {
+  const labels = ["Mulighed A", "Mulighed B", "Mulighed C", "Mulighed D", "Mulighed E"];
+  const preferredLabel = labels[index] ?? `Mulighed ${index + 1}`;
+
+  if (!existingOptions.includes(preferredLabel)) {
+    return preferredLabel;
+  }
+
+  let suffix = index + 1;
+
+  while (existingOptions.includes(`Mulighed ${suffix}`)) {
+    suffix += 1;
+  }
+
+  return `Mulighed ${suffix}`;
+}
+
+function normalizeOptions(options: unknown, answer: string) {
+  const rawOptions = Array.isArray(options) ? options : [];
+  const dedupedOptions: string[] = [];
+
+  const pushIfValid = (value: unknown) => {
+    const trimmedValue = getTrimmedString(value);
+    if (!trimmedValue || dedupedOptions.includes(trimmedValue)) {
+      return;
+    }
+
+    dedupedOptions.push(trimmedValue);
+  };
+
+  pushIfValid(answer);
+
+  rawOptions.forEach((option) => {
+    pushIfValid(option);
+  });
+
+  while (dedupedOptions.length < 4) {
+    dedupedOptions.push(getFallbackOption(dedupedOptions.length, dedupedOptions));
+  }
+
+  return dedupedOptions.slice(0, 4) as [string, string, string, string];
+}
+
+function normalizeUnlockRange(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return DEFAULT_UNLOCK_RANGE;
+  }
+
+  return Math.max(5, Math.min(100, Math.round(value)));
+}
+
+function normalizeMagicPosts(posts: RawMagicPost[]): MagicPost[] {
   return posts.map((post, index) => {
-    const question = post.question.trim();
-    const normalizedOptions = [...post.options]
-      .slice(0, 4)
-      .map((option) => option.trim()) as [string, string, string, string];
+    const question = getTrimmedString(post.question) || `Spørgsmål ${index + 1}`;
+    const answer = getTrimmedString(post.answer);
+    const normalizedOptions = normalizeOptions(post.options, answer);
 
     const validAnswer =
-      post.answer.trim() && normalizedOptions.includes(post.answer.trim())
-        ? post.answer.trim()
+      answer && normalizedOptions.includes(answer)
+        ? answer
         : normalizedOptions[0] ?? "";
 
     return {
@@ -109,7 +152,7 @@ function normalizeMagicPosts(posts: MagicPost[]): MagicPost[] {
       options: normalizedOptions,
       answer: validAnswer,
       mission: "",
-      unlockRange: DEFAULT_UNLOCK_RANGE,
+      unlockRange: normalizeUnlockRange(post.unlockRange),
     };
   });
 }
@@ -180,7 +223,16 @@ Undgaa meta-kommentarer, forklaringer og markdown.`,
       });
     }
 
-    return NextResponse.json(normalizeMagicPosts(object).slice(0, requestedPostCount));
+    const normalizedPosts = normalizeMagicPosts(object).slice(0, requestedPostCount);
+
+    if (normalizedPosts.length === 0) {
+      return NextResponse.json(
+        { error: "AI returnerede ingen gyldige poster." },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json(normalizedPosts);
   } catch (error) {
     console.error("Magi API-fejl:", error);
     return NextResponse.json({ error: "Kunne ikke generere loebet lige nu." }, { status: 500 });
