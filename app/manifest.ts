@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "GPSløb",
-    short_name: "GPSløb",
+    name: "GPS Løb",
+    short_name: "GPS Løb",
     description: "Interaktive GPS-missioner",
     start_url: "/",
     display: "standalone",

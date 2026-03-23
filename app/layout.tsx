@@ -15,12 +15,13 @@ export const metadata: Metadata = {
   title: "GPSLOB.DK - Stjerneløb for hele klassen",
   description: "Byg, del og følg med live.",
   icons: {
-    apple: "/icon-512x512.png",
+    apple: "/logomobil1.png",
+    icon: "/mobillogo2.png",
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "GPSløb",
+    title: "GPS Løb",
   },
 };
 
@@ -40,12 +41,6 @@ export default function RootLayout({
     <html lang="da">
       <head>
         <link rel="preload" href="/introvideo.mp4" as="video" type="video/mp4" />
-        <meta name="theme-color" content="#020617" />
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <link rel="apple-touch-icon" href="/logomobil1.png" />
-        <link rel="icon" href="/mobillogo2.png" sizes="512x512" />
       </head>
       <body className={`${poppins.variable} font-sans antialiased bg-[#0a1128]`}>
         <AuthProvider>
