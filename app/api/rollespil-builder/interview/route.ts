@@ -52,6 +52,14 @@ function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function fallbackCharacterName(index: number) {
+  return `Karakter ${index + 1}`;
+}
+
+function fallbackAvatar() {
+  return "🎭";
+}
+
 function isTimeoutError(error: unknown) {
   return (
     error instanceof Error &&
