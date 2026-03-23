@@ -36,7 +36,6 @@ function createGeneratedRunSchema(desiredCount: number) {
   return z
     .object({
       title: z.string().trim().min(1),
-      description: z.string().trim().min(1),
       questions: z.array(generatedQuestionSchema).length(desiredCount),
     })
     .strict();
@@ -104,7 +103,6 @@ Du SKAL altid følge disse regler:
 - De forkerte svarmuligheder skal være intelligente og plausible distractors, så de virker realistiske i konteksten.
 - Undgå joke-svar, fjollede svar og åbenlyst forkerte svarmuligheder, medmindre tonen tydeligt kræver noget mere legende. Selv ved en sjov tone skal svarene stadig være brugbare som reel quiz.
 - Titel skal være fængende, motiverende og brugbar i arkivet.
-- Beskrivelse skal være engagerende, indbydende og forklare løbets stemning og fokus i 1-2 sætninger, så eleverne får lyst til at løbe turen.
 - Spørgsmålene skal passe til en udendørs GPS-quiz og være lette at placere på et kort bagefter.
 - Svarmulighederne skal være troværdige, men tydeligt adskilte, så der kun er ét korrekt svar.
 - Tonen skal afspejle brugerens valg uden at gøre spørgsmålene useriøse eller uklare.`;
@@ -118,8 +116,8 @@ Du SKAL altid følge disse regler:
       `KRITISK: Returner præcis ${count} spørgsmål. Ikke 4, ikke 6, ikke 8, ikke flere og ikke færre.`,
       "Faglig kvalitet er afgørende: spørgsmålene skal undervise, udfordre og være faktuelt solide.",
       "Svarmulighederne skal være realistiske distractors, så det korrekte svar ikke bliver åbenlyst.",
-      "Titel og beskrivelse skal gøre løbet indbydende og motivere deltagerne til at komme i gang.",
-      "Byg nu et komplet quiz-løb med titel, beskrivelse og spørgsmål.",
+      "Titel skal gøre løbet indbydende og motivere deltagerne til at komme i gang.",
+      "Byg nu et komplet quiz-løb med titel og spørgsmål.",
       "Spørgsmålene må gerne variere i vinkel, men de skal alle tydeligt høre til samme løb.",
     ].join("\n");
 
@@ -127,8 +125,7 @@ Du SKAL altid følge disse regler:
       model: openai("gpt-4o-mini"),
       schema,
       schemaName: "ManualBuilderInterviewRun",
-      schemaDescription:
-        "Et komplet multiple-choice løb til den manuelle builder med titel, beskrivelse og spørgsmål.",
+      schemaDescription: "Et komplet multiple-choice løb til den manuelle builder med titel og spørgsmål.",
       system: systemPrompt,
       prompt,
       temperature: 0.7,
@@ -168,7 +165,6 @@ Du SKAL altid følge disse regler:
 
     return NextResponse.json({
       title: object.title.trim(),
-      description: object.description.trim(),
       questions,
     });
   } catch (error) {
