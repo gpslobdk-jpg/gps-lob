@@ -188,6 +188,8 @@ type BuilderNotice = {
   message: string;
 };
 
+type QuestionCardElement = HTMLElement | null;
+
 const ROLLESPIL_DRAFT_STORAGE_KEY = "draft_run_rollespil";
 
 type RollespilBuilderDraftState = {
@@ -394,6 +396,10 @@ function enforceFirstRoleplayIntro(questions: Question[]) {
   });
 }
 
+function findFirstUnpinnedQuestionId(questions: Question[]) {
+  return questions.find((question) => question.lat === null || question.lng === null)?.id ?? null;
+}
+
 export default function RollespilBuilderPage() {
   return (
     <Suspense
@@ -432,6 +438,7 @@ function RollespilBuilderPageContent() {
   const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([createQuestion()]);
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
+  const [activePinQuestionId, setActivePinQuestionId] = useState<number | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>({
     lat: DEFAULT_MAP_CENTER.lat,
     lng: DEFAULT_MAP_CENTER.lng,
@@ -451,6 +458,7 @@ function RollespilBuilderPageContent() {
     ) : null;
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedDraftRef = useRef(false);
+  const questionCardRefs = useRef<Record<number, QuestionCardElement>>({});
 
   const scrollToSaveFeedback = () => {
     if (saveFeedbackRef.current) {
@@ -522,6 +530,7 @@ function RollespilBuilderPageContent() {
       setSubject(asTrimmedString(run.subject));
       setShowTeacherField(Boolean(asTrimmedString(run.subject)));
       setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
+      setActivePinQuestionId(findFirstUnpinnedQuestionId(loadedQuestions));
       setShowAiInterviewModal(false);
       setMapCenter(
         firstPinnedQuestion
@@ -582,6 +591,7 @@ function RollespilBuilderPageContent() {
         restoreDraftBoolean(restoredDraft.showTeacherField, Boolean(restoredSubject.trim()))
       );
       setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
+      setActivePinQuestionId(findFirstUnpinnedQuestionId(restoredQuestions));
       setShowAiInterviewModal(restoreDraftBoolean(restoredDraft.showAiInterviewModal));
       setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
       setNotice(null);
@@ -625,6 +635,17 @@ function RollespilBuilderPageContent() {
     [questions]
   );
 
+  const activePinQuestionIndex =
+    activePinQuestionId === null ? -1 : questions.findIndex((question) => question.id === activePinQuestionId);
+  const activePinLabel =
+    activePinQuestionIndex >= 0
+      ? `Venter pa kort-klik for Post ${activePinQuestionIndex + 1}. Klik et sted pa kortet for at gemme pinnen med det samme.`
+      : null;
+  const suggestedPinQuestionId =
+    activePinQuestionId ??
+    questions.find((question) => question.lat === null || question.lng === null)?.id ??
+    null;
+
   function updateQuestion<K extends keyof Question>(
     id: number,
     key: K,
@@ -646,6 +667,22 @@ function RollespilBuilderPageContent() {
       })
     );
   }
+
+  const scrollToQuestionCard = (id: number) => {
+    const card = questionCardRefs.current[id];
+    card?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const findNextUnpinnedQuestionId = (startIndex: number) => {
+    for (let index = startIndex; index < questions.length; index += 1) {
+      const question = questions[index];
+      if (question && (question.lat === null || question.lng === null)) {
+        return question.id;
+      }
+    }
+
+    return null;
+  };
 
   const updateRoleplayQuestion = (
     id: number,
@@ -676,8 +713,37 @@ function RollespilBuilderPageContent() {
     );
   };
 
-  const assignPinFromCenter = (id: number) => {
-    updateQuestion(id, { lat: mapCenter.lat, lng: mapCenter.lng });
+  const assignPinToQuestion = (id: number, coords: MapCenter) => {
+    const questionIndex = questions.findIndex((question) => question.id === id);
+    if (questionIndex === -1) return;
+
+    updateQuestion(id, { lat: coords.lat, lng: coords.lng });
+    setMapCenter(coords);
+
+    const nextQuestionId = findNextUnpinnedQuestionId(questionIndex + 1);
+    if (nextQuestionId !== null) {
+      setActivePinQuestionId(nextQuestionId);
+      window.setTimeout(() => {
+        scrollToQuestionCard(nextQuestionId);
+      }, 120);
+      return;
+    }
+
+    setActivePinQuestionId(null);
+  };
+
+  const startPinSelection = (id: number) => {
+    setActivePinQuestionId(id);
+    scrollToQuestionCard(id);
+    setNotice({
+      tone: "success",
+      message: "Klik nu pa kortet for at placere den valgte post.",
+    });
+  };
+
+  const handleMapClick = (coords: MapCenter) => {
+    if (activePinQuestionId === null) return;
+    assignPinToQuestion(activePinQuestionId, coords);
   };
 
   const addQuestion = () => {
@@ -770,6 +836,7 @@ function RollespilBuilderPageContent() {
       setSubject(nextSubject);
     }
     setQuestions([...nextQuestions]);
+    setActivePinQuestionId(findFirstUnpinnedQuestionId(nextQuestions));
     setShowAiInterviewModal(false);
     setNotice({
       tone: "success",
@@ -936,6 +1003,7 @@ function RollespilBuilderPageContent() {
         setSubject("");
         setShowTeacherField(false);
         setQuestions([createQuestion()]);
+        setActivePinQuestionId(null);
       }
 
       await new Promise((resolve) => window.setTimeout(resolve, 450));
@@ -1061,8 +1129,42 @@ function RollespilBuilderPageContent() {
               {questions.map((question, index) => (
                 <article
                   key={question.id}
-                  className="rounded-[1.8rem] border border-violet-500/30 bg-violet-950/20 p-3 shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur-2xl"
+                  ref={(element) => {
+                    questionCardRefs.current[question.id] = element;
+                  }}
+                  className={`rounded-[1.8rem] border bg-violet-950/20 p-3 shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur-2xl transition-all ${
+                    activePinQuestionId === question.id
+                      ? "border-cyan-300 shadow-[0_0_0_1px_rgba(103,232,249,0.5),0_0_34px_rgba(34,211,238,0.22)]"
+                      : "border-violet-500/30"
+                  }`}
                 >
+                  <div className="mb-3 flex items-start justify-between gap-3 rounded-[1.2rem] border border-white/10 bg-slate-950/35 px-4 py-3">
+                    <div>
+                      <p className="text-xs font-semibold tracking-[0.22em] text-violet-100/60 uppercase">Rollepost</p>
+                      <h3 className="mt-1 text-sm font-black tracking-[0.08em] text-white uppercase">
+                        {index === 0 ? `Post 1: Intro (Start)` : `Post ${index + 1}: Quiz-sporgsmal`}
+                      </h3>
+                    </div>
+
+                    <div className="text-right">
+                      <div
+                        className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] ${
+                          question.lat !== null && question.lng !== null
+                            ? "border border-emerald-300/35 bg-emerald-500/15 text-emerald-100"
+                            : activePinQuestionId === question.id
+                            ? "border border-cyan-300/45 bg-cyan-400/15 text-cyan-100"
+                            : "border border-amber-300/35 bg-amber-500/15 text-amber-100"
+                        }`}
+                      >
+                        {question.lat !== null && question.lng !== null
+                          ? "Pin gemt"
+                          : activePinQuestionId === question.id
+                          ? "Venter pa kort-klik"
+                          : "Mangler pin"}
+                      </div>
+                    </div>
+                  </div>
+
                   {index === 0 ? (
                     // Post 1: only show character name and intro textarea
                     <div>
@@ -1120,6 +1222,31 @@ function RollespilBuilderPageContent() {
                       </div>
                     </div>
                   )}
+
+                  <div className="mt-4 rounded-[1.2rem] border border-white/10 bg-slate-950/35 px-4 py-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-xs font-semibold tracking-[0.18em] text-violet-100/60 uppercase">Kortplacering</p>
+                        <p className="mt-1 text-sm text-violet-50/85">
+                          {question.lat !== null && question.lng !== null
+                            ? `Lat ${question.lat.toFixed(5)} | Lng ${question.lng.toFixed(5)}`
+                            : "Denne post mangler stadig koordinater."}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => startPinSelection(question.id)}
+                        className={`rounded-[1.2rem] px-4 py-3 text-sm font-extrabold uppercase tracking-[0.18em] transition-all ${
+                          suggestedPinQuestionId === question.id
+                            ? "border border-cyan-300/55 bg-cyan-400/20 text-cyan-50 shadow-[0_0_24px_rgba(34,211,238,0.18)] hover:bg-cyan-400/25"
+                            : "border border-violet-500/30 bg-violet-950/20 text-violet-100 hover:bg-violet-500/15"
+                        } ${activePinQuestionId === question.id ? "ring-2 ring-cyan-300/50" : ""}`}
+                      >
+                        {activePinQuestionId === question.id ? "Klar til kort-klik" : "Hent pin fra kortet"}
+                      </button>
+                    </div>
+                  </div>
                 </article>
               ))}
 
@@ -1150,7 +1277,13 @@ function RollespilBuilderPageContent() {
           <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
             <div className="lg:sticky lg:top-5">
               <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-violet-500/20 bg-slate-900/60 shadow-[0_0_0_1px_rgba(139,92,246,0.08),0_0_36px_rgba(139,92,246,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
-                <MapPicker center={mapCenter} pins={pins} onCenterChange={setMapCenter} />
+                <MapPicker
+                  center={mapCenter}
+                  pins={pins}
+                  onCenterChange={setMapCenter}
+                  onMapClick={handleMapClick}
+                  activePinLabel={activePinLabel}
+                />
               </div>
             </div>
           </aside>

@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { Crosshair, MapPin, Search } from "lucide-react";
 import L from "leaflet";
 import { useEffect, useState } from "react";
-import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 
 type MapCenter = {
   lat: number;
@@ -23,6 +23,8 @@ type MapPickerProps = {
   center: MapCenter;
   pins: SavedPin[];
   onCenterChange?: (center: MapCenter) => void;
+  onMapClick?: (center: MapCenter) => void;
+  activePinLabel?: string | null;
 };
 
 type SearchResult = {
@@ -67,6 +69,20 @@ function MapController({ centerCoords }: { centerCoords: [number, number] | null
   return null;
 }
 
+function MapClickReporter({
+  onMapClick,
+}: {
+  onMapClick?: (center: MapCenter) => void;
+}) {
+  useMapEvents({
+    click(event) {
+      onMapClick?.({ lat: event.latlng.lat, lng: event.latlng.lng });
+    },
+  });
+
+  return null;
+}
+
 function numberedPinIcon(number: number) {
   return L.divIcon({
     className: "",
@@ -76,7 +92,13 @@ function numberedPinIcon(number: number) {
   });
 }
 
-export default function MapPicker({ center, pins, onCenterChange }: MapPickerProps) {
+export default function MapPicker({
+  center,
+  pins,
+  onCenterChange,
+  onMapClick,
+  activePinLabel,
+}: MapPickerProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -159,6 +181,7 @@ export default function MapPicker({ center, pins, onCenterChange }: MapPickerPro
         />
         <CenterReporter onCenterChange={onCenterChange} />
         <MapController centerCoords={targetCoords} />
+        <MapClickReporter onMapClick={onMapClick} />
 
         {pins.map((pin) => (
           <Marker
@@ -168,6 +191,12 @@ export default function MapPicker({ center, pins, onCenterChange }: MapPickerPro
           />
         ))}
       </MapContainer>
+
+      {activePinLabel ? (
+        <div className="pointer-events-none absolute right-4 bottom-4 left-4 z-[1000] rounded-2xl border border-cyan-300/45 bg-slate-950/82 px-4 py-3 text-sm font-semibold text-cyan-100 shadow-[0_0_24px_rgba(34,211,238,0.2)] backdrop-blur-xl">
+          {activePinLabel}
+        </div>
+      ) : null}
 
       <Crosshair className="absolute inset-0 m-auto z-[400] pointer-events-none h-8 w-8 text-cyan-200 drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
     </div>
