@@ -841,6 +841,7 @@ function FotoMissionBuilderPageContent() {
                   <div className="mb-8">
                     <h3 className="text-xl font-semibold text-sky-100">Velkommen til AI Foto-mission.</h3>
                     <p className="mt-2 text-sm text-sky-100/80">Placer missionerne på kortet, og beskriv præcist, hvad eleverne skal fotografere ved hver post. AI'en vurderer automatisk elevernes billeder ude på ruten. Du kan også bruge den indbyggede AI-assistent til at generere missionerne for dig.</p>
+                    <p className="mt-3 text-sm text-sky-100/80">Skab kreative foto-missioner. Eleverne skal tage bestemte billeder (selfies/fællesbillede) på udvalgte steder på kortet. Brug AI-hjælpen til at finde på opgaver.</p>
                     <button
                       type="button"
                       onClick={() => {
@@ -862,7 +863,7 @@ function FotoMissionBuilderPageContent() {
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
                     disabled={isEditorBusy}
-                    placeholder="F.eks. 6.A's forårstur"
+                    placeholder="F.eks. Foto-eventyr i Vordingborg"
                     className={textInputClass}
                   />
                 </div>
