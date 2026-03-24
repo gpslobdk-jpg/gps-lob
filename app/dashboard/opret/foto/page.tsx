@@ -840,9 +840,9 @@ function FotoMissionBuilderPageContent() {
                     </div>
                   ) : null}
                   <div className="mb-8">
-                    <h3 className="text-xl font-semibold text-sky-100">Velkommen til AI Foto-mission.</h3>
-                    <p className="mt-2 text-sm text-sky-100/80">Placer missionerne på kortet, og beskriv præcist, hvad eleverne skal fotografere ved hver post. AI'en vurderer automatisk elevernes billeder ude på ruten. Du kan også bruge den indbyggede AI-assistent til at generere missionerne for dig.</p>
-                    <p className="mt-3 text-sm text-sky-100/80">Skab kreative foto-missioner. Eleverne skal tage bestemte billeder (selfies/fællesbillede) på udvalgte steder på kortet. Brug AI-hjælpen til at finde på opgaver.</p>
+                    <h3 className="text-xl font-semibold text-sky-100">Velkommen til Foto mission.</h3>
+                    <p className="mt-2 text-sm text-sky-100/80">Placer missionerne på kortet, og beskriv præcist, hvad eleverne skal fotografere ved hver post.</p>
+                    <p className="mt-3 text-sm text-sky-100/80">Eleverne løser kreative foto-opgaver ude på ruten og uploader billederne. Efter løbet kan du som lærer gennemgå og godkende holdenes pletskud.</p>
                     <button
                       type="button"
                       onClick={() => {
