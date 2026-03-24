@@ -734,12 +734,13 @@ function OpretLoebPageContent() {
   };
 
   const handleAiInterviewComplete = (draft: ManualAiInterviewDraft) => {
+    console.log("MANUAL PAGE RECEIVED DRAFT:", draft);
+
     const nextTitle = draft.title.trim();
-    const nextDescription = draft.description.trim();
     const nextQuestions = toInterviewQuestionList(draft.questions);
     const nextSubject = draft.subject.trim();
 
-    if (!nextTitle || !nextDescription || nextQuestions.length === 0) {
+    if (!nextTitle || nextQuestions.length === 0) {
       setNotice({
         tone: "error",
         message: "AI'en returnerede et ugyldigt løbsudkast. Prøv igen.",
@@ -767,12 +768,13 @@ function OpretLoebPageContent() {
     }
 
     setTitle(nextTitle);
-    setDescription(nextDescription);
-    setQuestions(nextQuestions);
+    setDescription("");
+    setQuestions([...nextQuestions]);
     if (nextSubject) {
       setSubject(nextSubject);
       setShowTeacherField(true);
     }
+    setShowAiInterviewModal(false);
     setNotice({
       tone: "success",
       message: "AI har klargjort et komplet quiz-løb. Gennemgå felterne og placer posterne på kortet.",

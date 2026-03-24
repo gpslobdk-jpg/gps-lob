@@ -57,13 +57,11 @@ export type ManualAiInterviewQuestion = {
 export type ManualAiInterviewDraft = {
   subject: string;
   title: string;
-  description: string;
   questions: ManualAiInterviewQuestion[];
 };
 
 type ApiSuccessResponse = {
   title?: unknown;
-  description?: unknown;
   questions?: unknown;
 };
 
@@ -114,7 +112,7 @@ function isInterviewDraftResponse(value: unknown): value is ManualAiInterviewDra
   if (!value || typeof value !== "object") return false;
 
   const candidate = value as ApiSuccessResponse;
-  if (!asTrimmedString(candidate.title) || !asTrimmedString(candidate.description)) {
+  if (!asTrimmedString(candidate.title)) {
     return false;
   }
 
@@ -290,7 +288,6 @@ export default function ManualAiInterviewModal({
       const draft: ManualAiInterviewDraft = {
         subject: trimmedSubject,
         title: asTrimmedString(payload.title),
-        description: asTrimmedString(payload.description),
         questions: payload.questions.map((question) => {
           const candidateQuestion = question as {
             question?: unknown;
@@ -307,8 +304,8 @@ export default function ManualAiInterviewModal({
       };
 
       clearSessionDraft(MANUAL_AI_INTERVIEW_SESSION_KEY);
+      console.log("MANUAL MODAL SENDING DRAFT:", draft);
       onComplete(draft);
-      onClose();
     } catch (requestError) {
       if (requestError instanceof DOMException && requestError.name === "AbortError") {
         return;
