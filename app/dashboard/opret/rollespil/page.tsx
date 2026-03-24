@@ -713,32 +713,18 @@ function RollespilBuilderPageContent() {
 
     if (activeQuestionId === null) return;
 
-    let nextQuestionId: number | null = null;
+    const questionIndex = questions.findIndex((question) => question.id === activeQuestionId);
+    if (questionIndex === -1) return;
 
-    setQuestions((current) => {
-      const questionIndex = current.findIndex((question) => question.id === activeQuestionId);
-      if (questionIndex === -1) {
-        return current;
-      }
+    updateQuestion(activeQuestionId, { lat, lng });
 
-      const nextQuestions = [...current];
-      nextQuestions[questionIndex] = {
-        ...nextQuestions[questionIndex],
-        lat,
-        lng,
-      };
-
-      nextQuestionId =
-        nextQuestions.find((question, index) => index > questionIndex && (question.lat === null || question.lng === null))?.id ?? null;
-
-      return nextQuestions;
-    });
+    const nextQuestionId =
+      questions.find((question, index) => index > questionIndex && (question.lat === null || question.lng === null))?.id ?? null;
 
     setMapCenter({ lat, lng });
-    setActivePinQuestionId(null);
+    setActivePinQuestionId(nextQuestionId);
 
     if (nextQuestionId !== null) {
-      setActivePinQuestionId(nextQuestionId);
       window.setTimeout(() => {
         scrollToQuestionCard(nextQuestionId!);
       }, 120);
