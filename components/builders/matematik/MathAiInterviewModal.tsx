@@ -311,7 +311,7 @@ export default function MathAiInterviewModal({
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.16),transparent_30%),radial-gradient(circle_at_bottom,rgba(99,102,241,0.12),transparent_34%)]" />
 
       <div className="relative flex min-h-screen items-start justify-center px-6 py-10 sm:items-center">
-        <div className="mx-auto w-full max-w-2xl text-center">
+        <div className="mx-auto w-full max-w-5xl text-center">
           <div className="flex items-center justify-between gap-4 text-xs font-semibold tracking-[0.24em] text-slate-400 uppercase">
             <button
               type="button"
@@ -348,11 +348,11 @@ export default function MathAiInterviewModal({
                   </span>
                   Hvilket klassetrin er løbet til?
                 </h2>
-                <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
+                <p className="mx-auto mt-5 w-full text-base leading-8 text-slate-300 sm:text-lg">
                   Vælg det præcise klassetrin, så bygger AI&apos;en opgaverne med det rette faglige niveau.
                 </p>
 
-                <div className="mx-auto mt-10 grid max-w-2xl grid-cols-2 gap-4 sm:grid-cols-3">
+                <div className="mx-auto mt-10 grid w-full grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
                   {GRADE_LEVEL_OPTIONS.map((option) => (
                     <button
                       key={option}
@@ -376,7 +376,7 @@ export default function MathAiInterviewModal({
                 >
                   Hvilket matematisk emne skal løbet fokusere på?
                 </h2>
-                <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
+                <p className="mx-auto mt-5 w-full text-base leading-8 text-slate-300 sm:text-lg">
                   Beskriv det konkrete matematikemne, for eksempel brøker, geometri, ligninger eller statistik.
                 </p>
 
@@ -390,7 +390,7 @@ export default function MathAiInterviewModal({
                 />
 
                 {topicSuggestions.length > 0 ? (
-                  <div className="mt-6 flex flex-wrap justify-center gap-3">
+                  <div className="mt-6 flex w-full flex-wrap justify-start gap-3">
                     {topicSuggestions.map((suggestion) => (
                       <button
                         key={suggestion}
@@ -433,11 +433,11 @@ export default function MathAiInterviewModal({
                 >
                   Hvor mange poster skal matematik-løbet have?
                 </h2>
-                <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
+                <p className="mx-auto mt-5 w-full text-base leading-8 text-slate-300 sm:text-lg">
                   Vælg længden på løbet. AI&apos;en bygger derefter et komplet sæt opgaver med matematisk korrekte svar.
                 </p>
 
-                <div className="mx-auto mt-10 flex max-w-xl flex-col gap-4">
+                <div className="mx-auto mt-10 grid w-full gap-4 md:grid-cols-3">
                   {QUESTION_COUNT_OPTIONS.map((countOption) => (
                     <button
                       key={countOption}
@@ -477,14 +477,14 @@ export default function MathAiInterviewModal({
                 >
                   Genererer dit matematik-løb...
                 </h2>
-                <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
+                <p className="mx-auto mt-5 w-full text-base leading-8 text-slate-300 sm:text-lg">
                   Vi bygger nu {questionCount} matematisk korrekte multiple-choice opgaver til {gradeLevel} om {mathTopic}.
                 </p>
               </div>
             ) : null}
 
             {error ? (
-              <div className="mx-auto mt-8 max-w-xl rounded-[1.4rem] border border-red-400/20 bg-red-500/10 px-5 py-4 text-sm font-semibold text-red-100">
+              <div className="mx-auto mt-8 w-full rounded-[1.4rem] border border-red-400/20 bg-red-500/10 px-5 py-4 text-sm font-semibold text-red-100">
                 {error}
               </div>
             ) : null}
