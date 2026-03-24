@@ -456,6 +456,7 @@ function RollespilBuilderPageContent() {
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedDraftRef = useRef(false);
   const questionCardRefs = useRef<Record<number, QuestionCardElement>>({});
+  const activePinQuestionIdRef = useRef<number | null>(null);
 
   const scrollToSaveFeedback = () => {
     if (saveFeedbackRef.current) {
@@ -613,6 +614,10 @@ function RollespilBuilderPageContent() {
     title,
   ]);
 
+  useEffect(() => {
+    activePinQuestionIdRef.current = activePinQuestionId;
+  }, [activePinQuestionId]);
+
   const pins = useMemo<SavedPin[]>(
     () =>
       questions
@@ -692,36 +697,6 @@ function RollespilBuilderPageContent() {
     );
   };
 
-  const assignPinToQuestion = (id: number, coords: MapCenter) => {
-    let nextQuestionId: number | null = null;
-
-    setQuestions((current) => {
-      const questionIndex = current.findIndex((question) => question.id === id);
-      if (questionIndex === -1) {
-        return current;
-      }
-
-      const nextQuestions = current.map((question) =>
-        question.id === id ? { ...question, lat: coords.lat, lng: coords.lng } : question
-      );
-
-      nextQuestionId =
-        nextQuestions.find((question, index) => index > questionIndex && (question.lat === null || question.lng === null))?.id ?? null;
-
-      return [...nextQuestions];
-    });
-
-    setMapCenter(coords);
-    setActivePinQuestionId(null);
-
-    if (nextQuestionId !== null) {
-      setActivePinQuestionId(nextQuestionId);
-      window.setTimeout(() => {
-        scrollToQuestionCard(nextQuestionId!);
-      }, 120);
-    }
-  };
-
   const startPinSelection = (id: number) => {
     setActivePinQuestionId(id);
     scrollToQuestionCard(id);
@@ -732,8 +707,42 @@ function RollespilBuilderPageContent() {
   };
 
   const handleMapClick = (coords: MapCenter) => {
-    if (activePinQuestionId === null) return;
-    assignPinToQuestion(activePinQuestionId, coords);
+    const { lat, lng } = coords;
+    const activeQuestionId = activePinQuestionIdRef.current;
+    console.log("Map clicked in Rollespil!", lat, lng, "Active pin index:", activeQuestionId);
+
+    if (activeQuestionId === null) return;
+
+    let nextQuestionId: number | null = null;
+
+    setQuestions((current) => {
+      const questionIndex = current.findIndex((question) => question.id === activeQuestionId);
+      if (questionIndex === -1) {
+        return current;
+      }
+
+      const nextQuestions = [...current];
+      nextQuestions[questionIndex] = {
+        ...nextQuestions[questionIndex],
+        lat,
+        lng,
+      };
+
+      nextQuestionId =
+        nextQuestions.find((question, index) => index > questionIndex && (question.lat === null || question.lng === null))?.id ?? null;
+
+      return nextQuestions;
+    });
+
+    setMapCenter({ lat, lng });
+    setActivePinQuestionId(null);
+
+    if (nextQuestionId !== null) {
+      setActivePinQuestionId(nextQuestionId);
+      window.setTimeout(() => {
+        scrollToQuestionCard(nextQuestionId!);
+      }, 120);
+    }
   };
 
   const addQuestion = () => {
