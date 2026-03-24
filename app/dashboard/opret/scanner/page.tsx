@@ -607,7 +607,6 @@ export default function ScannerPortalPage() {
     if (remainingSlots <= 0) {
       window.alert("Du har allerede valgt maks 5 billeder.");
       setError("Du har allerede valgt maks 5 billeder.");
-      event.target.value = "";
       return;
     }
 
@@ -619,13 +618,11 @@ export default function ScannerPortalPage() {
 
     if (nextFiles.some((file) => !file.type.startsWith("image/"))) {
       setError("Vælg gyldige billeder af bogsider.");
-      event.target.value = "";
       return;
     }
 
     if (nextFiles.some((file) => file.size > MAX_IMAGE_FILE_SIZE)) {
       setError("Et af billederne er for stort. Vælg billeder under 12 MB.");
-      event.target.value = "";
       return;
     }
 
