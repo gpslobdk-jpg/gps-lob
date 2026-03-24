@@ -46,7 +46,7 @@ const cards: HubCard[] = [
     raceType: "foto",
     title: "Foto mission",
     description:
-      "Eleverne tager billeder pa udvalgte lokationer og uploader dem, sa laereren kan se og gennemga dem bagefter.",
+      "Eleverne løser kreative foto-opgaver ude på ruten og uploader billederne. Efter løbet kan du som lærer gennemgå og godkende holdenes pletskud.",
     href: "/dashboard/opret/foto",
     icon: Camera,
   },
