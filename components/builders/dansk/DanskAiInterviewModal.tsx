@@ -223,7 +223,7 @@ export default function DanskAiInterviewModal({
 
   const goToCountStep = () => {
     if (!canContinueTopic) {
-      setError("Skriv forst hvilket danskfagligt emne lobet skal fokusere pa.");
+      setError("Skriv først hvilket danskfagligt emne løbet skal fokusere på.");
       return;
     }
 
@@ -264,12 +264,12 @@ export default function DanskAiInterviewModal({
         const message =
           payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
             ? payload.error
-            : "AI'en kunne ikke bygge dansk-lobet lige nu.";
+            : "AI'en kunne ikke bygge dansk-løbet lige nu.";
         throw new Error(message);
       }
 
       if (!isInterviewDraftResponse(payload)) {
-        throw new Error("AI'en returnerede et ugyldigt lobsformat.");
+        throw new Error("AI'en returnerede et ugyldigt løbsformat.");
       }
 
       const draftQuestions = payload.questions.map((question) => ({
@@ -294,7 +294,7 @@ export default function DanskAiInterviewModal({
       }
 
       setStep(3);
-      setError(requestError instanceof Error ? requestError.message : "Noget gik galt. Prov igen.");
+      setError(requestError instanceof Error ? requestError.message : "Noget gik galt. Prøv igen.");
     } finally {
       abortRef.current = null;
       setIsGenerating(false);
@@ -346,10 +346,10 @@ export default function DanskAiInterviewModal({
                   <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-rose-400/25 bg-rose-500/10 text-rose-200 shadow-[0_14px_28px_rgba(244,63,94,0.18)] sm:h-14 sm:w-14">
                     <img src="/danskikon4.svg" alt="Dansk" className="h-12 w-12 object-contain" />
                   </span>
-                  Hvilket klassetrin er lobet til?
+                  Hvilket klassetrin er løbet til?
                 </h2>
                 <p className="mx-auto mt-5 w-full text-base leading-8 text-slate-300 sm:text-lg">
-                  Vaelg det praecise klassetrin, sa bygger AI&apos;en opgaverne med det rette danskfaglige niveau.
+                  Vælg det præcise klassetrin, så bygger AI&apos;en opgaverne med det rette danskfaglige niveau.
                 </p>
 
                 <div className="mx-auto mt-10 grid w-full grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
@@ -374,10 +374,10 @@ export default function DanskAiInterviewModal({
                   id="dansk-ai-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                 >
-                  Hvilket danskfagligt emne skal lobet fokusere pa?
+                  Hvilket danskfagligt emne skal løbet fokusere på?
                 </h2>
                 <p className="mx-auto mt-5 w-full text-base leading-8 text-slate-300 sm:text-lg">
-                  Beskriv det konkrete emne, for eksempel laeseforstaelse, grammatik, stavning, H.C. Andersen eller analyse.
+                  Beskriv det konkrete emne, for eksempel læseforståelse, grammatik, stavning, H.C. Andersen eller analyse.
                 </p>
 
                 <textarea
@@ -385,7 +385,7 @@ export default function DanskAiInterviewModal({
                   value={danishTopic}
                   onChange={(event) => setDanishTopic(event.target.value)}
                   rows={5}
-                  placeholder="F.eks. laeseforstaelse i 4. klasse, nutids-r i 5. klasse eller H.C. Andersen og eventyr i 6. klasse."
+                  placeholder="F.eks. læseforståelse i 4. klasse, nutids-r i 5. klasse eller H.C. Andersen og eventyr i 6. klasse."
                   className="mt-10 w-full rounded-[1.8rem] border border-white/10 bg-slate-950/90 px-6 py-5 text-left text-lg text-white placeholder:text-slate-500 focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-400/50"
                 />
 
@@ -418,7 +418,7 @@ export default function DanskAiInterviewModal({
                     disabled={!canContinueTopic}
                     className="inline-flex min-w-55 items-center justify-center rounded-[1.4rem] border border-rose-300/30 bg-rose-400 px-8 py-4 text-lg font-bold text-slate-950 transition hover:bg-rose-300 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    Naeste
+                    Næste
                   </button>
                 </div>
               </>
@@ -431,10 +431,10 @@ export default function DanskAiInterviewModal({
                   id="dansk-ai-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                 >
-                  Hvor mange poster skal dansk-lobet have?
+                  Hvor mange poster skal dansk-løbet have?
                 </h2>
                 <p className="mx-auto mt-5 w-full text-base leading-8 text-slate-300 sm:text-lg">
-                  Vaelg laengden pa lobet. AI&apos;en bygger derefter et komplet saet danskfaglige opgaver med entydige svar.
+                  Vælg længden på løbet. AI&apos;en bygger derefter et komplet sæt danskfaglige opgaver med entydige svar.
                 </p>
 
                 <div className="mx-auto mt-10 grid w-full gap-4 md:grid-cols-3">
@@ -475,7 +475,7 @@ export default function DanskAiInterviewModal({
                   id="dansk-ai-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                 >
-                  Genererer dit dansk-lob...
+                  Genererer dit dansk-løb...
                 </h2>
                 <p className="mx-auto mt-5 w-full text-base leading-8 text-slate-300 sm:text-lg">
                   Vi bygger nu {questionCount} danskfaglige multiple-choice opgaver til {gradeLevel} om {danishTopic}.

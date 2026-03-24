@@ -157,36 +157,36 @@ function createDanskPrompt(input: z.infer<typeof danishInterviewPayloadSchema>) 
 
   return {
     schemaName: "DanskBuilderInterviewRun",
-    schemaDescription: "Et komplet dansk-lob med titel og fagligt korrekte multiple-choice sporgsmal.",
-    systemPrompt: `Du er en danskfaglig laerer, lasevejleder, opgaveforfatter og kvalitetssikrer for GPSLOB.
-Du bygger komplette dansk-lob til skolebrug.
+    schemaDescription: "Et komplet dansk-løb med titel og fagligt korrekte multiple-choice spørgsmål.",
+    systemPrompt: `Du er en danskfaglig lærer, læsevejleder, opgaveforfatter og kvalitetssikrer for GPSLØB.
+Du bygger komplette dansk-løb til skolebrug.
 
-Du SKAL altid folge disse regler:
-- Alt indhold skal vare pa dansk.
+Du SKAL altid følge disse regler:
+- Alt indhold skal være på dansk.
 - Returner kun gyldigt JSON, der matcher schemaet.
-- Returner praecis ${count} multiple-choice sporgsmal.
-- Du ma under ingen omstaendigheder returnere faerre eller flere end ${count} sporgsmal.
-- Hvert sporgsmal skal have praecis 4 svarmuligheder i "options".
+- Returner præcis ${count} multiple-choice spørgsmål.
+- Du må under ingen omstændigheder returnere færre eller flere end ${count} spørgsmål.
+- Hvert spørgsmål skal have præcis 4 svarmuligheder i "options".
 - "correctAnswer" skal matche en af de 4 svarmuligheder ordret.
-- Alle sporgsmal skal vare danskfagligt korrekte, alderssvarende og tydeligt knyttet til det angivne klassetrin.
-- Fokus skal ligge pa lasning, sprogforstaelse, grammatik, stavning, litteratur eller analyse, alt efter emnet.
-- De forkerte svar skal vare plausible sproglige misforstaelser eller naerliggende tolkninger, ikke fjollede joke-svar.
-- Variér sporgsmalstyperne inden for emnet, sa lobet foles gennemarbejdet og undervisningsrelevant.
+- Alle spørgsmål skal være danskfagligt korrekte, alderssvarende og tydeligt knyttet til det angivne klassetrin.
+- Fokus skal ligge på læsning, sprogforståelse, grammatik, stavning, litteratur eller analyse, alt efter emnet.
+- De forkerte svar skal være plausible sproglige misforståelser eller nærliggende tolkninger, ikke fjollede joke-svar.
+- Variér spørgsmålstyperne inden for emnet, så løbet føles gennemarbejdet og undervisningsrelevant.
 - Brug et klart, elevvenligt sprog uden at udvande det faglige niveau.
-- Titel skal vare motiverende, konkret og brugbar i arkivet.
-- Sporgsmalene skal fungere som poster i et udendors GPS-lob, sa de skal vare korte nok til at kunne lases staende pa en mobil.
-- Ved analyse- eller lasesporgsmal skal facit stadig vare entydigt.
-- Undga tvetydige facit, upracise formuleringer og sproglige fejl.`,
+- Titel skal være motiverende, konkret og brugbar i arkivet.
+- Spørgsmålene skal fungere som poster i et udendørs GPS-løb, så de skal være korte nok til at kunne læses stående på en mobil.
+- Ved analyse- eller læsespørgsmål skal facit stadig være entydigt.
+- Undgå tvetydige facit, upræcise formuleringer og sproglige fejl.`,
     prompt: [
       `Fag: Dansk.`,
       `Klassetrin: ${gradeLevel}.`,
       `Danskfagligt emne: ${danishTopic}.`,
-      `Antal sporgsmal: ${count}.`,
-      `KRITISK: Returner praecis ${count} sporgsmal. Ikke 4, ikke 6, ikke 8, ikke flere og ikke faerre.`,
-      "Sporgsmalene skal vare danskfagligt skarpe og have et entydigt korrekt svar.",
-      "De forkerte svar skal ligne typiske elevfejl, naerliggende fortolkninger eller plausible sproglige forvekslinger.",
-      "Variér gerne mellem laeseforstaelse, grammatik, stavning, ordkendskab og litteratur, hvis emnet tillader det.",
-      "Byg nu et komplet dansk-lob med titel og sporgsmal.",
+      `Antal spørgsmål: ${count}.`,
+      `KRITISK: Returner præcis ${count} spørgsmål. Ikke 4, ikke 6, ikke 8, ikke flere og ikke færre.`,
+      "Spørgsmålene skal være danskfagligt skarpe og have et entydigt korrekt svar.",
+      "De forkerte svar skal ligne typiske elevfejl, nærliggende fortolkninger eller plausible sproglige forvekslinger.",
+      "Variér gerne mellem læseforståelse, grammatik, stavning, ordkendskab og litteratur, hvis emnet tillader det.",
+      "Byg nu et komplet dansk-løb med titel og spørgsmål.",
     ].join("\n"),
   };
 }

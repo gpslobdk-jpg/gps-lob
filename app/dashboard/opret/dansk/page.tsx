@@ -42,7 +42,7 @@ const poppins = Poppins({
 });
 
 const SUBJECT_TOPICS = [
-  "Laeseforstaelse",
+  "Læseforståelse",
   "Grammatik & Stavning",
   "Analyse",
   "H.C. Andersen & Eventyr",
@@ -305,7 +305,7 @@ export default function OpretDanskLoebPage() {
         <div className={`min-h-screen bg-slate-950 ${poppins.className}`}>
           <div className="flex min-h-screen items-center justify-center px-6 text-center">
             <div className="rounded-4xl border border-rose-500/20 bg-slate-900/50 px-8 py-10 text-rose-50 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
-              <p className="text-xs font-semibold tracking-[0.28em] text-rose-100/55 uppercase">Indlaeser</p>
+              <p className="text-xs font-semibold tracking-[0.28em] text-rose-100/55 uppercase">Indlæser</p>
               <h1 className={`mt-3 text-3xl font-black tracking-tight text-rose-50 ${rubik.className}`}>
                 Dansk-bygger
               </h1>
@@ -325,7 +325,7 @@ function OpretDanskLoebPageContent() {
   const defaultQuestionType: Question["type"] = "multiple_choice";
   const editRunId = searchParams.get("id")?.trim() ?? "";
   const isEditMode = editRunId.length > 0;
-  const addQuestionLabel = "Tilfoj nyt dansksporgsmal";
+  const addQuestionLabel = "Tilføj nyt danskspørgsmål";
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [showTeacherField, setShowTeacherField] = useState(true);
@@ -419,7 +419,7 @@ function OpretDanskLoebPageContent() {
         setQuestions(mappedQuestions);
       }
     } catch (error) {
-      console.error("Kunne ikke indlaese magisk kladde:", error);
+      console.error("Kunne ikke indlæse magisk kladde:", error);
     } finally {
       window.sessionStorage.removeItem(MAGIC_DRAFT_STORAGE_KEY);
     }
@@ -449,7 +449,7 @@ function OpretDanskLoebPageContent() {
         if (!isActive) return;
 
         if (userError || !user) {
-          setNotice({ tone: "error", message: "Du skal vaere logget ind for at redigere dette lob." });
+          setNotice({ tone: "error", message: "Du skal være logget ind for at redigere dette løb." });
           return;
         }
 
@@ -466,7 +466,7 @@ function OpretDanskLoebPageContent() {
           console.error("Edit load error:", error);
           setNotice({
             tone: "error",
-            message: "Kunne ikke indlaese lobet pa grund af en serverfejl. Prov igen.",
+            message: "Kunne ikke indlæse løbet på grund af en serverfejl. Prøv igen.",
           });
           return;
         }
@@ -479,7 +479,7 @@ function OpretDanskLoebPageContent() {
           setNotice({
             tone: "error",
             message:
-              "Kunne ikke finde lobet. Enten findes det ikke, eller ogsa har du ikke rettigheder til det.",
+              "Kunne ikke finde løbet. Enten findes det ikke, eller også har du ikke rettigheder til det.",
           });
           return;
         }
@@ -506,11 +506,11 @@ function OpretDanskLoebPageContent() {
         );
         setLoadedRunId(run.id);
       } catch (error) {
-        console.error("Kunne ikke indlaese lobet til redigering:", error);
+        console.error("Kunne ikke indlæse løbet til redigering:", error);
         if (!isActive) return;
         setNotice({
           tone: "error",
-          message: "Vi kunne ikke abne dette lob til redigering. Prov igen fra arkivet om et ojeblik.",
+          message: "Vi kunne ikke åbne dette løb til redigering. Prøv igen fra arkivet om et øjeblik.",
         });
       } finally {
         if (isActive) {
@@ -660,7 +660,7 @@ function OpretDanskLoebPageContent() {
     if (!nextTitle || nextQuestions.length === 0) {
       setNotice({
         tone: "error",
-        message: "AI'en returnerede et ugyldigt lobsudkast. Prov igen.",
+        message: "AI'en returnerede et ugyldigt løbsudkast. Prøv igen.",
       });
       return;
     }
@@ -672,13 +672,13 @@ function OpretDanskLoebPageContent() {
 
     if (hasExistingContent) {
       const shouldReplace = window.confirm(
-        "AI-udkastet erstatter de nuvaerende felter i builderen. Vil du fortsaette?"
+        "AI-udkastet erstatter de nuværende felter i builderen. Vil du fortsætte?"
       );
 
       if (!shouldReplace) {
         setNotice({
           tone: "success",
-          message: "Dit nuvaerende arbejde blev beholdt uaendret.",
+          message: "Dit nuværende arbejde blev beholdt uændret.",
         });
         return;
       }
@@ -697,7 +697,7 @@ function OpretDanskLoebPageContent() {
     if (isEditMode && loadedRunId !== editRunId) {
       setNotice({
         tone: "error",
-        message: "Lobet er ikke indlaest endnu. Vent et ojeblik og prov igen.",
+        message: "Løbet er ikke indlæst endnu. Vent et øjeblik og prøv igen.",
       });
       scrollToSaveFeedback();
       return;
@@ -721,7 +721,7 @@ function OpretDanskLoebPageContent() {
       );
 
     if (normalizedQuestions.length === 0) {
-      setNotice({ tone: "error", message: "Tilfoj mindst et udfyldt sporgsmal." });
+      setNotice({ tone: "error", message: "Tilføj mindst ét udfyldt spørgsmål." });
       scrollToSaveFeedback();
       return;
     }
@@ -738,7 +738,7 @@ function OpretDanskLoebPageContent() {
       setNotice({
         tone: "error",
         message:
-          "Udfyld enten postens tekst og alle fire svarmuligheder eller bade motiv og instruktion pa foto-poster.",
+          "Udfyld enten postens tekst og alle fire svarmuligheder eller både motiv og instruktion på foto-poster.",
       });
       scrollToSaveFeedback();
       return;
@@ -750,7 +750,7 @@ function OpretDanskLoebPageContent() {
     if (hasMissingCoordinates) {
       setNotice({
         tone: "error",
-        message: "Du mangler at placere alle poster pa kortet.",
+        message: "Du mangler at placere alle poster på kortet.",
       });
       scrollToSaveFeedback();
       return;
@@ -770,7 +770,7 @@ function OpretDanskLoebPageContent() {
       if (userError || !user) {
         setNotice({
           tone: "error",
-          message: "Du skal vaere logget ind for at gemme lobet.",
+          message: "Du skal være logget ind for at gemme løbet.",
         });
         scrollToSaveFeedback();
         return;
@@ -800,7 +800,7 @@ function OpretDanskLoebPageContent() {
         if (!updatedRuns || updatedRuns.length === 0) {
           setNotice({
             tone: "error",
-            message: "Vi kunne ikke gemme aendringerne. Tjek at du stadig ejer lobet.",
+            message: "Vi kunne ikke gemme ændringerne. Tjek at du stadig ejer løbet.",
           });
           scrollToSaveFeedback();
           return;
@@ -818,7 +818,7 @@ function OpretDanskLoebPageContent() {
 
       setNotice({
         tone: "success",
-        message: isEditMode ? "AEndringerne er gemt i arkivet!" : "Lobet er gemt i arkivet!",
+        message: isEditMode ? "Ændringerne er gemt i arkivet!" : "Løbet er gemt i arkivet!",
       });
       clearRunDraft(DANSK_DRAFT_STORAGE_KEY);
 
@@ -832,8 +832,8 @@ function OpretDanskLoebPageContent() {
       await new Promise((resolve) => window.setTimeout(resolve, 450));
       router.push("/dashboard/arkiv");
     } catch (error) {
-      console.error("Fejl ved gemning af lob:", error);
-      setNotice({ tone: "error", message: "Kunne ikke gemme lobet. Prov igen." });
+      console.error("Fejl ved gemning af løb:", error);
+      setNotice({ tone: "error", message: "Kunne ikke gemme løbet. Prøv igen." });
     } finally {
       setIsSaving(false);
     }
@@ -847,13 +847,13 @@ function OpretDanskLoebPageContent() {
           <div className="w-full max-w-md rounded-3xl border border-rose-500/20 bg-slate-900/60 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
             <Loader2 className="mx-auto h-10 w-10 animate-spin text-rose-200" />
             <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-rose-100/55 uppercase">
-              Rediger dansk-lob
+              Rediger dansk-løb
             </p>
             <h1 className={`mt-3 text-3xl font-black tracking-tight text-rose-50 ${rubik.className}`}>
-              Indlaeser dine sprogopgaver
+              Indlæser dine sprogopgaver
             </h1>
             <p className="mt-3 text-sm leading-6 text-rose-100/70">
-              Vi henter lobets data og klargor builderen til redigering.
+              Vi henter løbets data og klargør builderen til redigering.
             </p>
           </div>
         </div>
@@ -899,9 +899,9 @@ function OpretDanskLoebPageContent() {
                         <img src="/danskikon1.svg" alt="Dansk" className="h-10 w-10 object-contain" />
                       </div>
                       <div>
-                        <h3 className="text-xl font-semibold text-rose-50">Velkommen til Dansk-lobet</h3>
+                        <h3 className="text-xl font-semibold text-rose-50">Velkommen til Dansk-løbet</h3>
                         <p className="mt-1 text-sm text-rose-100/80">
-                          Giv danskundervisningen nyt liv ved at rykke laesning, sprog og analyse ud i den friske luft. Placer posterne pa kortet, og indtast danskfaglige sporgsmal med fire svarmuligheder. Du kan skrive dem selv, eller lade vores kloge AI-assistent bygge et skraeddersyet lob til dit klassetrin pa fa sekunder.
+                          Giv danskundervisningen nyt liv ved at rykke læsning, sprog og analyse ud i den friske luft. Placer posterne på kortet, og indtast danskfaglige spørgsmål med fire svarmuligheder. Du kan skrive dem selv, eller lade vores kloge AI-assistent bygge et skræddersyet løb til dit klassetrin på få sekunder.
                         </p>
                       </div>
                     </div>
@@ -921,14 +921,14 @@ function OpretDanskLoebPageContent() {
 
                   <div className="mb-2">
                     <label className="block text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
-                      Lobets titel
+                      Løbets titel
                     </label>
                   </div>
                   <input
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
                     disabled={isEditorBusy}
-                    placeholder="F.eks. 5.A's store laeselob"
+                    placeholder="F.eks. 5.A's store læseløb"
                     className="w-full rounded-[1.6rem] border border-rose-500/30 bg-rose-950/20 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                   />
                 </div>
@@ -970,7 +970,7 @@ function OpretDanskLoebPageContent() {
                             </h3>
                             <p className="text-xs text-rose-100/65">
                               {question.lat !== null && question.lng !== null
-                                ? "Pin er valgt pa kortet"
+                                ? "Pin er valgt på kortet"
                                 : "Ingen pin valgt endnu"}
                             </p>
                           </div>
@@ -1001,7 +1001,7 @@ function OpretDanskLoebPageContent() {
                               value={question.aiPrompt}
                               onChange={(event) => updateQuestion(question.id, { aiPrompt: event.target.value })}
                               disabled={isEditorBusy}
-                              placeholder="fx et rimord, et navneord eller en titel i miljoet"
+                              placeholder="fx et rimord, et navneord eller en titel i miljøet"
                               className={inputClass}
                             />
                           </div>
@@ -1015,26 +1015,27 @@ function OpretDanskLoebPageContent() {
                               onChange={(event) => updateQuestion(question.id, { text: event.target.value })}
                               disabled={isEditorBusy}
                               rows={4}
-                              placeholder="f.eks. Find et skilt med et tillagsord, eller tag et billede af noget der passer til et eventyr-univers."
+                              placeholder="f.eks. Find et skilt med et tillægsord, eller tag et billede af noget der passer til et eventyr-univers.
+"
                               className={textareaClass}
                             />
                           </div>
 
                           <div className="mt-4 rounded-[1.25rem] border border-rose-500/30 bg-rose-950/30 px-4 py-3 text-sm text-rose-50/85">
-                            Denne foto-post bruger AI-billedtjek under spillet, sa den har ikke svarmuligheder.
+                            Denne foto-post bruger AI-billedtjek under spillet, så den har ikke svarmuligheder.
                           </div>
                         </>
                       ) : (
                         <>
                           <div className="mt-4">
                             <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
-                              Sporgsmalstekst
+                              Spørgsmålstekst
                             </label>
                             <input
                               value={question.text}
                               onChange={(event) => updateQuestion(question.id, { text: event.target.value })}
                               disabled={isEditorBusy}
-                              placeholder="Skriv sporgsmalet her..."
+                              placeholder="Skriv spørgsmålet her..."
                               className={inputClass}
                             />
                           </div>
@@ -1131,7 +1132,7 @@ function OpretDanskLoebPageContent() {
                       disabled={isSaving}
                       className="w-full rounded-[1.6rem] border border-rose-500/30 bg-rose-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-rose-500/20 transition-all hover:bg-rose-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                     >
-                      {isSaving ? "Gemmer..." : isEditMode ? "Gem aendringer i arkivet" : "Gem dansk-lob i arkivet"}
+                      {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem dansk-løb i arkivet"}
                     </button>
                   </div>
                 </div>
