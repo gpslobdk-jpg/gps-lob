@@ -663,17 +663,6 @@ function RollespilBuilderPageContent() {
     card?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
-  const findNextUnpinnedQuestionId = (startIndex: number) => {
-    for (let index = startIndex; index < questions.length; index += 1) {
-      const question = questions[index];
-      if (question && (question.lat === null || question.lng === null)) {
-        return question.id;
-      }
-    }
-
-    return null;
-  };
-
   const updateRoleplayQuestion = (
     id: number,
     updates: {
@@ -704,22 +693,33 @@ function RollespilBuilderPageContent() {
   };
 
   const assignPinToQuestion = (id: number, coords: MapCenter) => {
-    const questionIndex = questions.findIndex((question) => question.id === id);
-    if (questionIndex === -1) return;
+    let nextQuestionId: number | null = null;
 
-    updateQuestion(id, { lat: coords.lat, lng: coords.lng });
+    setQuestions((current) => {
+      const questionIndex = current.findIndex((question) => question.id === id);
+      if (questionIndex === -1) {
+        return current;
+      }
+
+      const nextQuestions = current.map((question) =>
+        question.id === id ? { ...question, lat: coords.lat, lng: coords.lng } : question
+      );
+
+      nextQuestionId =
+        nextQuestions.find((question, index) => index > questionIndex && (question.lat === null || question.lng === null))?.id ?? null;
+
+      return [...nextQuestions];
+    });
+
     setMapCenter(coords);
+    setActivePinQuestionId(null);
 
-    const nextQuestionId = findNextUnpinnedQuestionId(questionIndex + 1);
     if (nextQuestionId !== null) {
       setActivePinQuestionId(nextQuestionId);
       window.setTimeout(() => {
-        scrollToQuestionCard(nextQuestionId);
+        scrollToQuestionCard(nextQuestionId!);
       }, 120);
-      return;
     }
-
-    setActivePinQuestionId(null);
   };
 
   const startPinSelection = (id: number) => {
@@ -747,8 +747,7 @@ function RollespilBuilderPageContent() {
 
   const handleAiInterviewComplete = (draft: RollespilAiInterviewDraft) => {
     console.log("PAGE RECEIVED DRAFT:", draft);
-    const nextTitle = asTrimmedString(draft.roll_title);
-    const nextSubject = asTrimmedString(draft.fag);
+    const nextTitle = asTrimmedString(draft.title);
     const sourceQuestions = Array.isArray(draft.questions) ? draft.questions : [];
     const nextQuestions = enforceFirstRoleplayIntro(
       toInterviewRoleplayQuestions(
@@ -819,9 +818,6 @@ function RollespilBuilderPageContent() {
     }
 
     setTitle(nextTitle);
-    if (nextSubject) {
-      setSubject(nextSubject);
-    }
     setQuestions([...nextQuestions]);
     setActivePinQuestionId(findFirstUnpinnedQuestionId(nextQuestions));
     setShowAiInterviewModal(false);

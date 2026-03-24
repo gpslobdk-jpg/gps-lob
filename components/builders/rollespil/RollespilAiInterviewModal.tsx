@@ -70,15 +70,12 @@ export type RollespilAiInterviewQuestion = {
 };
 
 export type RollespilAiInterviewDraft = {
-  roll_title: string;
-  roll_desc: string;
-  fag?: string;
+  title: string;
   questions: RollespilAiInterviewQuestion[];
 };
 
 type ApiSuccessResponse = {
-  roll_title?: unknown;
-  roll_desc?: unknown;
+  title?: unknown;
   questions?: unknown;
 };
 
@@ -118,7 +115,7 @@ function normalizeStep(value: unknown): RestorableStep {
 function isInterviewDraftResponse(value: unknown): value is RollespilAiInterviewDraft {
   if (!value || typeof value !== "object") return false;
   const candidate = value as ApiSuccessResponse;
-  if (!asTrimmedString(candidate.roll_title) || !asTrimmedString(candidate.roll_desc)) {
+  if (!asTrimmedString(candidate.title)) {
     return false;
   }
 
@@ -317,9 +314,7 @@ export default function RollespilAiInterviewModal({
 
       const src = payload as any;
       const draft = {
-        roll_title: asTrimmedString(src.roll_title) || asTrimmedString(src.title),
-        roll_desc: asTrimmedString(src.roll_desc) || asTrimmedString(src.description),
-        fag: asTrimmedString(src.fag),
+        title: asTrimmedString(src.title) || asTrimmedString(src.roll_title),
         questions: (src.questions as any[]).map((q, index) => {
           const candidate = q as {
             id?: unknown;

@@ -30,9 +30,7 @@ const interviewPayloadSchema = z
 
 function createGeneratedRunSchema(desiredCount: number) {
   return z.object({
-    roll_title: z.string().optional(),
-    roll_desc: z.string().optional(),
-    fag: z.string().optional(),
+    title: z.string().optional(),
     questions: z
       .array(
         z.object({
@@ -113,7 +111,7 @@ Format- og sprogkrav:
 - Returner udelukkende ét JSON-objekt (ingen markdown, ingen forklaringer, ingen emojis).
 - Alt tekst SKAL være på dansk.
 - Fjern eller undlad felter som "avatar" eller emojis — UI'en viser kun navn + intro og senere spørgsmål med svarmuligheder.
-- Struktur: { roll_title, roll_desc, fag, questions: [ { id, postType: "intro", characterName, introMessage }, { id, postType: "quiz", questionMessage, answers:["korrekt","forkert1","forkert2","forkert3"] }, ... ] }
+- Struktur: { title, questions: [ { id, postType: "intro", characterName, introMessage }, { id, postType: "quiz", questionMessage, answers:["korrekt","forkert1","forkert2","forkert3"] }, ... ] }
 
 KRITISK: Følg disse regler strengt. Post 1 = jeg-fortæller med fakta. Post 2+ = 4-valgs quizspørgsmål udelukkende udledt af Post 1.`;
 
@@ -213,14 +211,10 @@ KRITISK: Følg disse regler strengt. Post 1 = jeg-fortæller med fakta. Post 2+ 
       } as const;
     });
 
-    const roll_title = asTrimmedString((object as any).roll_title) || `${topic} — Rollespil`;
-    const roll_desc = asTrimmedString((object as any).roll_desc) || `Et kort rollespil om ${topic}.`;
-    const fag = asTrimmedString((object as any).fag) || subject || "";
+    const title = asTrimmedString((object as any).title) || `${topic} — Rollespil`;
 
     return NextResponse.json({
-      roll_title,
-      roll_desc,
-      fag,
+      title,
       questions: normalizedPosts.map((p) => {
         if ((p as any).postType === "intro") {
           return {
