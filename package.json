@@ -7,7 +7,8 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "stripe": "stripe listen --forward-to localhost:3000/api/webhook/stripe"
+    "stripe": "stripe listen --forward-to localhost:3000/api/webhook/stripe",
+    "test:ai-grades": "node scripts/ai-grade-check.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.41",

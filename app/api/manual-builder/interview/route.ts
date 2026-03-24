@@ -13,6 +13,7 @@ const openai = createOpenAI({
 
 const DEFAULT_COUNT = 10;
 const OPENAI_TIMEOUT_MS = 45_000;
+const MAX_QUALITY_GENERATION_ATTEMPTS = 2;
 
 const manualInterviewPayloadSchema = z
   .object({
@@ -681,6 +682,82 @@ function isTimeoutError(error: unknown) {
   );
 }
 
+function isQualityValidationError(error: unknown) {
+  return (
+    error instanceof Error &&
+    (error.message.startsWith("Dansk-kvalitetskontrol fejlede:") ||
+      error.message.startsWith("Matematik-kvalitetskontrol fejlede:"))
+  );
+}
+
+function buildRetryPromptConfig(
+  promptConfig: {
+    schemaName: string;
+    schemaDescription: string;
+    systemPrompt: string;
+    prompt: string;
+  },
+  qualityErrorMessage: string,
+  attemptNumber: number
+) {
+  const retryFeedback = `FORRIGE FORSØG FEJLEDE KVALITETSKONTROLLEN.
+Dette er forsøg ${attemptNumber}.
+Du skal rette disse problemer i det nye svar:
+${qualityErrorMessage}
+
+Lav nu et NYT sæt spørgsmål, som er enklere, skarpere og mere præcist tilpasset klassetrinnet. Genbrug ikke generiske formuleringer.`;
+
+  return {
+    ...promptConfig,
+    systemPrompt: `${promptConfig.systemPrompt}\n- Hvis kvalitetskontrollen tidligere er fejlet, skal du i næste forsøg gøre niveauet tydeligt lettere, mere konkret og mere klassetrinssikkert.`,
+    prompt: `${promptConfig.prompt}\n\n${retryFeedback}`,
+  };
+}
+
+function normalizeGeneratedRun(object: { title: string; questions: Array<{ question: string; options: string[]; correctAnswer: string }> }) {
+  const questions = object.questions.map((question) => {
+    const options = question.options.map((option) => option.trim()).slice(0, 4);
+    const paddedOptions = [...options];
+    while (paddedOptions.length < 4) {
+      paddedOptions.push("");
+    }
+
+    const safeOptions = [
+      paddedOptions[0] ?? "",
+      paddedOptions[1] ?? "",
+      paddedOptions[2] ?? "",
+      paddedOptions[3] ?? "",
+    ] as [string, string, string, string];
+
+    const normalizedCorrectAnswer = asTrimmedString(question.correctAnswer);
+    const safeCorrectAnswer = safeOptions.includes(normalizedCorrectAnswer)
+      ? normalizedCorrectAnswer
+      : safeOptions[0];
+
+    return {
+      question: question.question.trim(),
+      options: safeOptions,
+      correctAnswer: safeCorrectAnswer,
+    };
+  });
+
+  return {
+    title: object.title.trim(),
+    questions,
+  };
+}
+
+function validateInterviewRun(
+  payload: z.infer<typeof interviewPayloadSchema>,
+  run: { title: string; questions: Array<{ question: string; options: [string, string, string, string]; correctAnswer: string }> }
+) {
+  if (payload.builderType === "dansk") {
+    validateDanskGeneratedRun(run, payload);
+  } else if (payload.builderType === "matematik") {
+    validateMathGeneratedRun(run, payload);
+  }
+}
+
 export async function POST(req: Request) {
   try {
     if (!process.env.OPENAI_API_KEY) {
@@ -708,7 +785,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const promptConfig =
+    const basePromptConfig =
       parsedPayload.data.builderType === "matematik"
         ? createMathPrompt(parsedPayload.data)
         : parsedPayload.data.builderType === "dansk"
@@ -719,57 +796,58 @@ export async function POST(req: Request) {
 
     const schema = createGeneratedRunSchema(count);
 
-    const { object } = await generateObject({
-      model: openai("gpt-4o-mini"),
-      schema,
-      schemaName: promptConfig.schemaName,
-      schemaDescription: promptConfig.schemaDescription,
-      system: promptConfig.systemPrompt,
-      prompt: promptConfig.prompt,
-      temperature: 0.7,
-      timeout: OPENAI_TIMEOUT_MS,
-      providerOptions: {
-        openai: {
-          strictJsonSchema: true,
-        },
-      },
-    });
+    const maxAttempts =
+      parsedPayload.data.builderType === "dansk" || parsedPayload.data.builderType === "matematik"
+        ? MAX_QUALITY_GENERATION_ATTEMPTS
+        : 1;
 
-    const questions = object.questions.map((question) => {
-      const options = question.options.map((option) => option.trim()).slice(0, 4);
-      const paddedOptions = [...options];
-      while (paddedOptions.length < 4) {
-        paddedOptions.push("");
+    let lastError: unknown = null;
+    let normalizedRun: {
+      title: string;
+      questions: Array<{ question: string; options: [string, string, string, string]; correctAnswer: string }>;
+    } | null = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const promptConfig =
+        attempt === 1 || !(lastError instanceof Error)
+          ? basePromptConfig
+          : buildRetryPromptConfig(basePromptConfig, lastError.message, attempt);
+
+      try {
+        const { object } = await generateObject({
+          model: openai("gpt-4o-mini"),
+          schema,
+          schemaName: promptConfig.schemaName,
+          schemaDescription: promptConfig.schemaDescription,
+          system: promptConfig.systemPrompt,
+          prompt: promptConfig.prompt,
+          temperature: attempt === 1 ? 0.7 : 0.45,
+          timeout: OPENAI_TIMEOUT_MS,
+          providerOptions: {
+            openai: {
+              strictJsonSchema: true,
+            },
+          },
+        });
+
+        normalizedRun = normalizeGeneratedRun(object);
+        validateInterviewRun(parsedPayload.data, normalizedRun);
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+
+        if (isQualityValidationError(error) && attempt < maxAttempts) {
+          console.warn(`AI-kvalitetskontrol fejlede i forsøg ${attempt}. Forsøger igen med skærpet prompt.`);
+          continue;
+        }
+
+        throw error;
       }
+    }
 
-      const safeOptions = [
-        paddedOptions[0] ?? "",
-        paddedOptions[1] ?? "",
-        paddedOptions[2] ?? "",
-        paddedOptions[3] ?? "",
-      ] as [string, string, string, string];
-
-      const normalizedCorrectAnswer = asTrimmedString(question.correctAnswer);
-      const safeCorrectAnswer = safeOptions.includes(normalizedCorrectAnswer)
-        ? normalizedCorrectAnswer
-        : safeOptions[0];
-
-      return {
-        question: question.question.trim(),
-        options: safeOptions,
-        correctAnswer: safeCorrectAnswer,
-      };
-    });
-
-    const normalizedRun = {
-      title: object.title.trim(),
-      questions,
-    };
-
-    if (parsedPayload.data.builderType === "dansk") {
-      validateDanskGeneratedRun(normalizedRun, parsedPayload.data);
-    } else if (parsedPayload.data.builderType === "matematik") {
-      validateMathGeneratedRun(normalizedRun, parsedPayload.data);
+    if (!normalizedRun) {
+      throw lastError instanceof Error ? lastError : new Error("AI-generation fejlede uden et brugbart resultat.");
     }
 
     return NextResponse.json({
