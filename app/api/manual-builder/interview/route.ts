@@ -14,8 +14,9 @@ const openai = createOpenAI({
 const DEFAULT_COUNT = 10;
 const OPENAI_TIMEOUT_MS = 45_000;
 
-const interviewPayloadSchema = z
+const manualInterviewPayloadSchema = z
   .object({
+    builderType: z.literal("manual").optional().default("manual"),
     topic: z.string().trim().min(1).max(180),
     subject: z.string().trim().max(80).optional().default(""),
     audience: z.string().trim().min(1).max(80),
@@ -23,6 +24,18 @@ const interviewPayloadSchema = z
     count: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(20)]).optional().default(DEFAULT_COUNT),
   })
   .strict();
+
+const mathInterviewPayloadSchema = z
+  .object({
+    builderType: z.literal("matematik"),
+    subject: z.string().trim().max(80).optional().default("Matematik"),
+    gradeLevel: z.string().trim().min(1).max(80),
+    mathTopic: z.string().trim().min(1).max(180),
+    count: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(20)]).optional().default(DEFAULT_COUNT),
+  })
+  .strict();
+
+const interviewPayloadSchema = z.union([manualInterviewPayloadSchema, mathInterviewPayloadSchema]);
 
 const generatedQuestionSchema = z
   .object({
@@ -39,6 +52,90 @@ function createGeneratedRunSchema(desiredCount: number) {
       questions: z.array(generatedQuestionSchema).length(desiredCount),
     })
     .strict();
+}
+
+function createManualPrompt(input: z.infer<typeof manualInterviewPayloadSchema>) {
+  const { topic, subject, audience, tone, count } = input;
+  const subjectLine = subject ? `Fag eller kategori: ${subject}.` : "Fag eller kategori: Ikke angivet.";
+
+  return {
+    schemaName: "ManualBuilderInterviewRun",
+    schemaDescription: "Et komplet multiple-choice løb til den manuelle builder med titel og spørgsmål.",
+    systemPrompt: `Du er en dansk senior-redaktør og quizdesigner for GPSLØB.
+Du bygger komplette quiz-løb til den manuelle builder.
+
+Du SKAL altid følge disse regler:
+- Alt indhold skal være på dansk.
+- Returner kun gyldigt JSON, der matcher schemaet.
+- Returner præcis ${count} multiple-choice spørgsmål.
+- Du må under ingen omstændigheder returnere færre eller flere end ${count} spørgsmål.
+- Hvert spørgsmål skal have præcis 4 svarmuligheder i "options".
+- "correctAnswer" skal matche én af de 4 svarmuligheder ordret.
+- Generér kun klassiske quiz-poster. Ingen foto-opgaver, ingen rollespil, ingen gåder, ingen medieelementer.
+- Spørgsmålene skal have høj faglig kvalitet: de skal være lærerige, indholdsrige og faktuelt korrekte.
+- Undgå overfladiske banaliteter, trivielle standardspørgsmål og tom fyldtekst.
+- Tag målgruppen seriøst: tilpas sproget til alderen, men bevar et meningsfuldt fagligt niveau.
+- Hvis målgruppen er yngre børn, skal sproget være simpelt uden at gøre spørgsmålene fordummende lette.
+- Hvis målgruppen er ældre elever eller voksne, skal spørgsmålene være markant mere udfordrende og gerne kræve refleksion, præcis viden eller faglig forståelse.
+- De forkerte svarmuligheder skal være intelligente og plausible distractors, så de virker realistiske i konteksten.
+- Undgå joke-svar, fjollede svar og åbenlyst forkerte svarmuligheder, medmindre tonen tydeligt kræver noget mere legende. Selv ved en sjov tone skal svarene stadig være brugbare som reel quiz.
+- Titel skal være fængende, motiverende og brugbar i arkivet.
+- Spørgsmålene skal passe til en udendørs GPS-quiz og være lette at placere på et kort bagefter.
+- Svarmulighederne skal være troværdige, men tydeligt adskilte, så der kun er ét korrekt svar.
+- Tonen skal afspejle brugerens valg uden at gøre spørgsmålene useriøse eller uklare.`,
+    prompt: [
+      `Tema: ${topic}.`,
+      subjectLine,
+      `Målgruppe: ${audience}.`,
+      `Tone: ${tone}.`,
+      `Antal spørgsmål: ${count}.`,
+      `KRITISK: Returner præcis ${count} spørgsmål. Ikke 4, ikke 6, ikke 8, ikke flere og ikke færre.`,
+      "Faglig kvalitet er afgørende: spørgsmålene skal undervise, udfordre og være faktuelt solide.",
+      "Svarmulighederne skal være realistiske distractors, så det korrekte svar ikke bliver åbenlyst.",
+      "Titel skal gøre løbet indbydende og motivere deltagerne til at komme i gang.",
+      "Byg nu et komplet quiz-løb med titel og spørgsmål.",
+      "Spørgsmålene må gerne variere i vinkel, men de skal alle tydeligt høre til samme løb.",
+    ].join("\n"),
+  };
+}
+
+function createMathPrompt(input: z.infer<typeof mathInterviewPayloadSchema>) {
+  const { count, gradeLevel, mathTopic } = input;
+
+  return {
+    schemaName: "MathBuilderInterviewRun",
+    schemaDescription: "Et komplet matematik-løb med titel og fagligt korrekte multiple-choice spørgsmål.",
+    systemPrompt: `Du er en dansk matematikfaglig redaktør, opgaveforfatter og kvalitetssikrer for GPSLØB.
+Du bygger komplette matematik-løb til skolebrug.
+
+Du SKAL altid følge disse regler:
+- Alt indhold skal være på dansk.
+- Returner kun gyldigt JSON, der matcher schemaet.
+- Returner præcis ${count} multiple-choice spørgsmål.
+- Du må under ingen omstændigheder returnere færre eller flere end ${count} spørgsmål.
+- Hvert spørgsmål skal have præcis 4 svarmuligheder i "options".
+- "correctAnswer" skal matche én af de 4 svarmuligheder ordret.
+- Alle spørgsmål skal være matematisk korrekte, fagligt præcise og passende til det angivne klassetrin.
+- Regnefejl, upræcise formuleringer og tvetydige facit er ikke tilladt.
+- De tre forkerte svar skal være plausible og realistiske fejltrin, ikke absurde joke-svar.
+- Variér opgavetyperne inden for emnet, så løbet føles gennemarbejdet og undervisningsrelevant.
+- Brug et klart og elevvenligt sprog, men uden at gøre opgaverne for lette.
+- Titel skal være motiverende, konkret og brugbar i arkivet.
+- Spørgsmålene skal fungere som poster i et udendørs GPS-løb, så de skal være korte nok til at kunne læses stående på en mobil.
+- Hvis emnet lægger op til beregning, må du gerne bruge små konkrete regnestykker, men facit skal altid være entydigt.
+- Undgå teksttunge forklaringer og hold fokus på faglig træfsikkerhed.`,
+    prompt: [
+      `Fag: Matematik.`,
+      `Klassetrin: ${gradeLevel}.`,
+      `Matematisk emne: ${mathTopic}.`,
+      `Antal spørgsmål: ${count}.`,
+      `KRITISK: Returner præcis ${count} spørgsmål. Ikke 4, ikke 6, ikke 8, ikke flere og ikke færre.`,
+      "Spørgsmålene skal være matematisk korrekte og have ét entydigt facit.",
+      "De forkerte svar skal ligne typiske elevfejl eller nærliggende misforståelser.",
+      "Varier gerne mellem direkte beregning, begrebsforståelse og anvendelse, hvis emnet tillader det.",
+      "Byg nu et komplet matematik-løb med titel og spørgsmål.",
+    ].join("\n"),
+  };
 }
 
 function asTrimmedString(value: unknown) {
@@ -79,55 +176,22 @@ export async function POST(req: Request) {
       );
     }
 
-    const { topic, subject, audience, tone, count } = parsedPayload.data;
+    const promptConfig =
+      parsedPayload.data.builderType === "matematik"
+        ? createMathPrompt(parsedPayload.data)
+        : createManualPrompt(parsedPayload.data);
+
+    const count = parsedPayload.data.count;
 
     const schema = createGeneratedRunSchema(count);
-    const subjectLine = subject ? `Fag eller kategori: ${subject}.` : "Fag eller kategori: Ikke angivet.";
-
-    const systemPrompt = `Du er en dansk senior-redaktør og quizdesigner for GPSLØB.
-Du bygger komplette quiz-løb til den manuelle builder.
-
-Du SKAL altid følge disse regler:
-- Alt indhold skal være på dansk.
-- Returner kun gyldigt JSON, der matcher schemaet.
-- Returner præcis ${count} multiple-choice spørgsmål.
-- Du må under ingen omstændigheder returnere færre eller flere end ${count} spørgsmål.
-- Hvert spørgsmål skal have præcis 4 svarmuligheder i "options".
-- "correctAnswer" skal matche én af de 4 svarmuligheder ordret.
-- Generér kun klassiske quiz-poster. Ingen foto-opgaver, ingen rollespil, ingen gåder, ingen medieelementer.
-- Spørgsmålene skal have høj faglig kvalitet: de skal være lærerige, indholdsrige og faktuelt korrekte.
-- Undgå overfladiske banaliteter, trivielle standardspørgsmål og tom fyldtekst.
-- Tag målgruppen seriøst: tilpas sproget til alderen, men bevar et meningsfuldt fagligt niveau.
-- Hvis målgruppen er yngre børn, skal sproget være simpelt uden at gøre spørgsmålene fordummende lette.
-- Hvis målgruppen er ældre elever eller voksne, skal spørgsmålene være markant mere udfordrende og gerne kræve refleksion, præcis viden eller faglig forståelse.
-- De forkerte svarmuligheder skal være intelligente og plausible distractors, så de virker realistiske i konteksten.
-- Undgå joke-svar, fjollede svar og åbenlyst forkerte svarmuligheder, medmindre tonen tydeligt kræver noget mere legende. Selv ved en sjov tone skal svarene stadig være brugbare som reel quiz.
-- Titel skal være fængende, motiverende og brugbar i arkivet.
-- Spørgsmålene skal passe til en udendørs GPS-quiz og være lette at placere på et kort bagefter.
-- Svarmulighederne skal være troværdige, men tydeligt adskilte, så der kun er ét korrekt svar.
-- Tonen skal afspejle brugerens valg uden at gøre spørgsmålene useriøse eller uklare.`;
-
-    const prompt = [
-      `Tema: ${topic}.`,
-      subjectLine,
-      `Målgruppe: ${audience}.`,
-      `Tone: ${tone}.`,
-      `Antal spørgsmål: ${count}.`,
-      `KRITISK: Returner præcis ${count} spørgsmål. Ikke 4, ikke 6, ikke 8, ikke flere og ikke færre.`,
-      "Faglig kvalitet er afgørende: spørgsmålene skal undervise, udfordre og være faktuelt solide.",
-      "Svarmulighederne skal være realistiske distractors, så det korrekte svar ikke bliver åbenlyst.",
-      "Titel skal gøre løbet indbydende og motivere deltagerne til at komme i gang.",
-      "Byg nu et komplet quiz-løb med titel og spørgsmål.",
-      "Spørgsmålene må gerne variere i vinkel, men de skal alle tydeligt høre til samme løb.",
-    ].join("\n");
 
     const { object } = await generateObject({
       model: openai("gpt-4o-mini"),
       schema,
-      schemaName: "ManualBuilderInterviewRun",
-      schemaDescription: "Et komplet multiple-choice løb til den manuelle builder med titel og spørgsmål.",
-      system: systemPrompt,
-      prompt,
+      schemaName: promptConfig.schemaName,
+      schemaDescription: promptConfig.schemaDescription,
+      system: promptConfig.systemPrompt,
+      prompt: promptConfig.prompt,
       temperature: 0.7,
       timeout: OPENAI_TIMEOUT_MS,
       providerOptions: {
