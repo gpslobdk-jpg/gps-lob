@@ -864,7 +864,7 @@ function OpretEngelskLoebPageContent() {
 
   return (
     <>
-      <div className={`relative min-h-screen overflow-x-hidden bg-slate-950 text-white ${poppins.className}`}>
+      <div className={`relative min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-950 via-slate-900 to-red-950 text-white ${poppins.className}`}>
         <div className="fixed inset-0 -z-10 bg-gradient-to-br from-blue-950 via-slate-900 to-red-950 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
           <MobileBuilderWarning />
@@ -873,13 +873,13 @@ function OpretEngelskLoebPageContent() {
               src="/engelskikon2.svg"
               alt=""
               aria-hidden="true"
-              className="pointer-events-none absolute top-8 -right-8 z-0 h-60 w-60 select-none opacity-[0.16] drop-shadow-[0_24px_56px_rgba(255,255,255,0.14)]"
+              className="pointer-events-none absolute -top-10 -right-20 z-0 h-80 w-80 select-none opacity-[0.03] blur-[2px]"
             />
             <img
               src="/engelskikon3.svg"
               alt=""
               aria-hidden="true"
-              className="pointer-events-none absolute bottom-16 -left-8 z-0 h-60 w-60 select-none opacity-[0.16] drop-shadow-[0_24px_56px_rgba(255,255,255,0.14)]"
+              className="pointer-events-none absolute -bottom-10 -left-20 z-0 h-80 w-80 select-none opacity-[0.03] blur-[2px]"
             />
             <div className="relative z-10 mx-auto max-w-3xl">
               <fieldset
@@ -896,12 +896,8 @@ function OpretEngelskLoebPageContent() {
 
                   <div className="mb-8">
                     <div className="flex items-center gap-3">
-                      <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-[1.55rem] border border-white/80 bg-white px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),inset_0_-6px_12px_rgba(30,64,175,0.08),0_18px_38px_rgba(255,255,255,0.16),0_14px_28px_rgba(239,68,68,0.18)] ring-1 ring-blue-200/55">
-                        <span
-                          aria-hidden="true"
-                          className="pointer-events-none absolute inset-x-2 top-1 h-px rounded-full bg-white/95"
-                        />
-                        <img src="/engelskikon1.svg" alt="Engelsk" className="h-full w-full object-contain drop-shadow-[0_10px_18px_rgba(136,19,55,0.18)]" />
+                      <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-blue-500/30 bg-slate-900/50 shadow-inner shadow-red-500/20">
+                        <img src="/engelskikon1.svg" alt="Engelsk" className="h-10 w-10 object-contain" />
                       </div>
                       <div>
                         <h3 className="text-xl font-semibold text-white">Velkommen til Engelsk-løbet</h3>
@@ -963,8 +959,10 @@ function OpretEngelskLoebPageContent() {
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2.5">
                         <div className="flex items-center gap-2.5">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-blue-400/35 bg-slate-950/55 text-blue-100">
-                            {isPhotoMission ? <Camera className="h-4 w-4" /> : <Type className="h-4 w-4" />}
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-950/40 text-blue-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                            <span className="inline-flex items-center justify-center rounded-md border border-blue-500/20 bg-blue-950/40 p-1">
+                              {isPhotoMission ? <Camera className="h-4 w-4" /> : <Type className="h-4 w-4" />}
+                            </span>
                           </div>
                           <div>
                             <h3 className={`flex items-center gap-2 text-lg font-bold text-white ${rubik.className}`}>
@@ -991,7 +989,9 @@ function OpretEngelskLoebPageContent() {
                             aria-label={`Slet post ${questionIndex + 1}`}
                             className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-blue-400/35 bg-slate-950/55 text-blue-100/75 transition hover:border-red-300/40 hover:bg-red-50/10 hover:text-red-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <span className="inline-flex items-center justify-center rounded-md border border-blue-500/20 bg-blue-950/40 p-1">
+                              <Trash2 className="h-4 w-4" />
+                            </span>
                           </button>
                         </div>
                       </div>
@@ -1105,7 +1105,9 @@ function OpretEngelskLoebPageContent() {
                         disabled={isEditorBusy}
                         className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[1.35rem] border border-red-400/35 bg-red-500 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-red-500/20 transition-all hover:bg-red-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                       >
-                        <Ruler className="h-4 w-4" />
+                        <span className="inline-flex items-center justify-center rounded-md border border-blue-500/20 bg-blue-950/40 p-1 text-blue-100">
+                          <Ruler className="h-4 w-4" />
+                        </span>
                         Hent pin fra kortet
                       </button>
 
