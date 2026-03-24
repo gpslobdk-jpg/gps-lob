@@ -152,8 +152,188 @@ Du SKAL altid følge disse regler:
   };
 }
 
+function normalizeDanishText(value: string) {
+  return value
+    .toLocaleLowerCase("da-DK")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function includesAnyKeyword(value: string, keywords: string[]) {
+  const normalizedValue = normalizeDanishText(value);
+  return keywords.some((keyword) => normalizedValue.includes(normalizeDanishText(keyword)));
+}
+
+function createDanskPromptExamples(danishTopic: string) {
+  const normalizedTopic = normalizeDanishText(danishTopic);
+
+  if (includesAnyKeyword(normalizedTopic, ["nutids-r", "grammatik", "stavning", "ordklasse", "verber"])) {
+    return [
+      "Mini-eksempel: I sætningen 'Sofie kører hver dag til skole', hvilken stavemåde er korrekt i nutid?",
+      "Mini-eksempel: I sætningen 'Mikkel elsker at tegne', hvilket ord fungerer som udsagnsord?",
+      "Mini-eksempel: Hvilken af disse sætninger viser den korrekte brug af nutids-r?",
+    ];
+  }
+
+  if (includesAnyKeyword(normalizedTopic, ["læseforståelse", "lasning", "tekstforstaelse", "tekstforståelse"])) {
+    return [
+      "Mini-eksempel: I det korte uddrag 'Ida lukkede døren forsigtigt, selv om hun havde travlt', hvad kan man udlede om Ida?",
+      "Mini-eksempel: Hvilket ord i teksten viser bedst personens følelse?",
+      "Mini-eksempel: Hvad passer bedst som overskrift til det lille tekstuddrag?",
+    ];
+  }
+
+  if (includesAnyKeyword(normalizedTopic, ["h.c. andersen", "andersen", "eventyr"])) {
+    return [
+      "Mini-eksempel: I 'Den grimme ælling', hvilket tema passer bedst til hovedpersonens udvikling?",
+      "Mini-eksempel: Hvad kendetegner 'Kejserens nye klæder' som eventyr og satire?",
+      "Mini-eksempel: Hvilket historisk eller biografisk udsagn om H.C. Andersen er korrekt?",
+    ];
+  }
+
+  if (includesAnyKeyword(normalizedTopic, ["analyse", "novelle", "fortæller", "fortaeller", "tema", "komposition"])) {
+    return [
+      "Mini-eksempel: I uddraget 'Han svarede ikke, men så ned i jorden', hvad antyder personens reaktion?",
+      "Mini-eksempel: Hvilket tema passer bedst til den beskrevne konflikt?",
+      "Mini-eksempel: Hvilken fortællertype eller synsvinkel passer bedst til teksteksemplet?",
+    ];
+  }
+
+  return [
+    "Mini-eksempel: I sætningen eller teksten her, hvad viser ordvalget bedst?",
+    "Mini-eksempel: Hvilket svar passer bedst til eksemplet og kræver reel danskfaglig forståelse?",
+    "Mini-eksempel: Hvilken fortolkning eller sproglig vurdering er mest præcis i denne situation?",
+  ];
+}
+
+function hasDanskContextSignal(question: string) {
+  return [
+    /i sætningen/i,
+    /i teksten/i,
+    /i uddraget/i,
+    /hvilket ord/i,
+    /hvilken sætning/i,
+    /hvilken formulering/i,
+    /hvilken stavemåde/i,
+    /hvilken fortolkning/i,
+    /hvilket tema/i,
+    /hvad viser/i,
+    /hvad kan man udlede/i,
+    /[:"'“”]/,
+  ].some((pattern) => pattern.test(question));
+}
+
+function isWeakDanskQuestion(question: string) {
+  const trimmedQuestion = question.trim();
+
+  if (trimmedQuestion.length < 24) {
+    return true;
+  }
+
+  if (hasDanskContextSignal(trimmedQuestion)) {
+    return false;
+  }
+
+  return [/^hvad er /i, /^hvad betyder /i, /^hvad kaldes /i, /^hvad hedder /i].some((pattern) =>
+    pattern.test(trimmedQuestion)
+  );
+}
+
+function isPlaceholderDistractor(option: string) {
+  return [
+    /^marker$/i,
+    /^svar\s*\d+$/i,
+    /^mulighed\s*[a-d1-4]$/i,
+    /^andet$/i,
+    /^ved ikke$/i,
+    /^ukendt$/i,
+  ].some((pattern) => pattern.test(option.trim()));
+}
+
+function validateDanskGeneratedRun(
+  run: { title: string; questions: Array<{ question: string; options: [string, string, string, string]; correctAnswer: string }> },
+  input: z.infer<typeof danishInterviewPayloadSchema>
+) {
+  const issues: string[] = [];
+  const normalizedTopic = normalizeDanishText(input.danishTopic);
+  const andersenKeywords = [
+    "h.c. andersen",
+    "andersen",
+    "eventyr",
+    "odense",
+    "1805",
+    "1800-tallet",
+    "den lille havfrue",
+    "den grimme ælling",
+    "kejserens nye klæder",
+    "prinsessen på ærten",
+    "fyrtøjet",
+    "snedronningen",
+    "nattergalen",
+    "klods-hans",
+    "skyggen",
+    "grantræet",
+  ];
+
+  if (run.title.trim().length < 6) {
+    issues.push("Titlen er for kort eller for generisk.");
+  }
+
+  let contextualQuestionCount = 0;
+  let andersenSpecificQuestionCount = 0;
+
+  run.questions.forEach((question, index) => {
+    const questionNumber = index + 1;
+    const trimmedQuestion = question.question.trim();
+    const normalizedOptions = question.options.map((option) => option.trim());
+    const distinctOptionCount = new Set(normalizedOptions.map((option) => normalizeDanishText(option))).size;
+
+    if (hasDanskContextSignal(trimmedQuestion)) {
+      contextualQuestionCount += 1;
+    }
+
+    if (isWeakDanskQuestion(trimmedQuestion)) {
+      issues.push(`Spørgsmål ${questionNumber} er for generisk og mangler en konkret case eller et tydeligt eksempel.`);
+    }
+
+    if (distinctOptionCount < 4) {
+      issues.push(`Spørgsmål ${questionNumber} har ikke fire tydeligt forskellige svarmuligheder.`);
+    }
+
+    if (normalizedOptions.some((option) => option.length < 2 || isPlaceholderDistractor(option))) {
+      issues.push(`Spørgsmål ${questionNumber} indeholder en placeholder eller en for svag svarmulighed.`);
+    }
+
+    if (!normalizedOptions.includes(question.correctAnswer.trim())) {
+      issues.push(`Spørgsmål ${questionNumber} har et facit, der ikke matcher svarmulighederne præcist.`);
+    }
+
+    const combinedText = [trimmedQuestion, ...normalizedOptions].join(" ");
+    if (includesAnyKeyword(normalizedTopic, ["h.c. andersen", "andersen", "eventyr"]) && includesAnyKeyword(combinedText, andersenKeywords)) {
+      andersenSpecificQuestionCount += 1;
+    }
+  });
+
+  const minimumContextualQuestions = Math.max(2, Math.ceil(run.questions.length * 0.6));
+  if (contextualQuestionCount < minimumContextualQuestions) {
+    issues.push("For mange spørgsmål er for abstrakte; mindst størstedelen skal være skrevet som cases, sætninger, uddrag eller konkrete eksempler.");
+  }
+
+  if (
+    includesAnyKeyword(normalizedTopic, ["h.c. andersen", "andersen", "eventyr"]) &&
+    andersenSpecificQuestionCount < Math.max(2, Math.ceil(run.questions.length / 3))
+  ) {
+    issues.push("Løbet om H.C. Andersen eller eventyr er ikke specifikt nok og mangler tydelige referencer til konkrete eventyr, temaer eller historiske forhold.");
+  }
+
+  if (issues.length > 0) {
+    throw new Error(`Dansk-kvalitetskontrol fejlede: ${issues.slice(0, 4).join(" ")}`);
+  }
+}
+
 function createDanskPrompt(input: z.infer<typeof danishInterviewPayloadSchema>) {
   const { count, danishTopic, gradeLevel } = input;
+  const miniExamples = createDanskPromptExamples(danishTopic);
 
   return {
     schemaName: "DanskBuilderInterviewRun",
@@ -181,7 +361,9 @@ Du SKAL altid følge disse regler:
 - Titel skal være motiverende, konkret og brugbar i arkivet.
 - Spørgsmålene skal fungere som poster i et udendørs GPS-løb, så de skal være korte nok til at kunne læses stående på en mobil.
 - Ved analyse- eller læsespørgsmål skal facit stadig være entydigt.
-- Undgå tvetydige facit, upræcise formuleringer og sproglige fejl.`,
+- Undgå tvetydige facit, upræcise formuleringer og sproglige fejl.
+- Brug denne type mini-eksempler som kvalitetsniveau og form, ikke som faste spørgsmål:
+${miniExamples.map((example) => `- ${example}`).join("\n")}`,
     prompt: [
       `Fag: Dansk.`,
       `Klassetrin: ${gradeLevel}.`,
@@ -196,6 +378,8 @@ Du SKAL altid følge disse regler:
       "Hvis emnet er H.C. Andersen eller litteratur, skal spørgsmålene være konkrete og handle om bestemte eventyr, temaer, personer eller historiske forhold.",
       "Tonen skal være opmuntrende, tydelig og alderssvarende for klassetrinnet.",
       "Variér gerne mellem læseforståelse, grammatik, stavning, ordkendskab og litteratur, hvis emnet tillader det.",
+      "Brug disse mini-eksempler som pejlemærker for format og kvalitet:",
+      ...miniExamples,
       "Byg nu et komplet dansk-løb med titel og spørgsmål.",
     ].join("\n"),
   };
@@ -292,9 +476,18 @@ export async function POST(req: Request) {
       };
     });
 
-    return NextResponse.json({
+    const normalizedRun = {
       title: object.title.trim(),
       questions,
+    };
+
+    if (parsedPayload.data.builderType === "dansk") {
+      validateDanskGeneratedRun(normalizedRun, parsedPayload.data);
+    }
+
+    return NextResponse.json({
+      title: normalizedRun.title,
+      questions: normalizedRun.questions,
     });
   } catch (error) {
     console.error("Fejl i manual-builder/interview:", error);
@@ -303,6 +496,16 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "AI'en var for længe om at svare. Prøv igen." },
         { status: 504 }
+      );
+    }
+
+    if (error instanceof Error && error.message.startsWith("Dansk-kvalitetskontrol fejlede:")) {
+      return NextResponse.json(
+        {
+          error:
+            "AI'en leverede danskspørgsmål, der var for generiske eller pædagogisk svage. Prøv igen, så beder vi modellen om et skarpere løb.",
+        },
+        { status: 502 }
       );
     }
 
