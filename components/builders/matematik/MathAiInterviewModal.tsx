@@ -310,7 +310,7 @@ export default function MathAiInterviewModal({
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.14),transparent_30%),radial-gradient(circle_at_bottom,rgba(16,185,129,0.08),transparent_32%)]" />
 
-      <div className="relative flex min-h-screen items-center justify-center px-6 py-10">
+      <div className="relative flex min-h-screen items-start justify-center px-6 py-10 sm:items-center">
         <div className="mx-auto w-full max-w-2xl text-center">
           <div className="flex items-center justify-between gap-4 text-xs font-semibold tracking-[0.24em] text-slate-400 uppercase">
             <button

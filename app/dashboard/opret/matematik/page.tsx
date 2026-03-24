@@ -781,10 +781,6 @@ function OpretLoebPageContent() {
     setSubject(MATH_SUBJECT);
     setShowTeacherField(true);
     setShowAiInterviewModal(false);
-    setNotice({
-      tone: "success",
-      message: "AI har klargjort et komplet matematik-løb. Gennemgå felterne og placer posterne på kortet.",
-    });
   };
 
   const handleSaveRun = async () => {
