@@ -1,6 +1,6 @@
 "use client";
 
-import { Calculator, Camera, Check, Loader2, Plus, Ruler, SquareFunction } from "lucide-react";
+import { Calculator, Camera, Check, Loader2, Plus, Ruler, SquareFunction, Trash2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
@@ -735,6 +735,16 @@ function OpretLoebPageContent() {
     setQuestions((prev) => [...prev, createQuestion(defaultQuestionType)]);
   };
 
+  const removeQuestion = (index: number) => {
+    setQuestions((prev) => {
+      if (index < 0 || index >= prev.length) {
+        return prev;
+      }
+
+      return prev.filter((_, questionIndex) => questionIndex !== index);
+    });
+  };
+
   const closeAiInterviewModal = () => {
     setNotice(null);
     setShowAiInterviewModal(false);
@@ -989,8 +999,8 @@ function OpretLoebPageContent() {
                         />
                       </div>
                       <div>
-                        <h3 className="text-xl font-semibold text-blue-50">Opret matematik-løb</h3>
-                        <p className="mt-1 text-sm text-blue-100/80">Placer posterne på kortet, og indtast et matematikspørgsmål med fire svarmuligheder til hver post. Du kan også bruge den indbyggede AI-assistent til at generere opgaverne for dig.</p>
+                        <h3 className="text-xl font-semibold text-blue-50">Velkommen til Matematik-løbet</h3>
+                        <p className="mt-1 text-sm text-blue-100/80">Gør matematikken levende ved at rykke undervisningen ud i den friske luft! Placer posterne på kortet, og indtast faglige spørgsmål med fire svarmuligheder. Du kan skrive dem selv, eller lade vores kloge AI-assistent bygge et skræddersyet løb til dit klassetrin på få sekunder.</p>
                       </div>
                     </div>
                     <button
@@ -1063,9 +1073,20 @@ function OpretLoebPageContent() {
                           </p>
                         </div>
                       </div>
-                      <span className="rounded-full border border-blue-500/30 bg-blue-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-blue-100/75 uppercase backdrop-blur-xl">
-                        {isPhotoMission ? "AI foto" : "4 svar"}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-blue-500/30 bg-blue-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-blue-100/75 uppercase backdrop-blur-xl">
+                          {isPhotoMission ? "AI foto" : "4 svar"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeQuestion(questionIndex)}
+                          disabled={isEditorBusy}
+                          aria-label={`Slet post ${questionIndex + 1}`}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-blue-500/30 bg-blue-950/20 text-blue-100/75 transition hover:border-red-300/40 hover:bg-red-50/10 hover:text-red-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
 
                     {isPhotoMission ? (
