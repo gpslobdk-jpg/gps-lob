@@ -269,6 +269,7 @@ export async function POST(req: Request) {
     const systemPrompt = hasMaterial
       ? `Du er en dansk AI-løbsbygger til GPSLØB.
 Du hjælper lærere med at forvandle konkret undervisningsmateriale til et GPS-løb.
+Du er en dygtig lærer, der laver en sjov læseforståelses-quiz.
 
 Læs materialet grundigt og generer et GPS-løb med præcis ${count} spørgsmål.
 
@@ -281,11 +282,11 @@ Vigtige regler:
 - correctIndex skal være et heltal fra 0 til 3.
 - lat og lng skal altid være null.
 - Titel og beskrivelse skal være korte, tydelige og brugbare i builderen.
-- Alle spørgsmål og alle rigtige svar skal kunne udledes direkte af det medsendte materiale.
-- Du må kun bruge oplysninger, der tydeligt står i teksten eller tydeligt kan ses på billedet.
-- Du må ikke gætte, udfylde huller, tilføje baggrundsviden eller opfinde fakta.
-- Hvis materialet ikke dokumenterer noget tydeligt, må det ikke bruges i et spørgsmål.
-- Spørgsmålene må gerne omformulere materialet, men facit skal være direkte forankret i materialet.
+- Tag stærkest muligt udgangspunkt i den vedlagte tekst eller de vedlagte billeder.
+- Dine spørgsmål skal handle om det, der står på siderne, så du tester, om eleverne har læst og forstået indholdet.
+- Sørg for, at de rigtige svar giver mening ud fra teksten og materialet.
+- Spørgsmålene må gerne omformulere materialet, men de skal stadig føles tydeligt forankret i det, eleverne har læst.
+- Hvis materialet er uklart et sted, så vælg hellere tydelige og sikre spor fra teksten eller billederne.
 - Sprog og sværhedsgrad skal passe præcist til målgruppen "${audience}".
 - ${audienceGuidance}
 ${subjectLine}`
@@ -339,8 +340,8 @@ ${subjectLine}`;
                       `Læs materialet grundigt og lav nu et GPS-løb med præcis ${count} spørgsmål.` +
                       `\n\nMålgruppe: ${audience}` +
                       (subject ? `\nFag: ${subject}` : "") +
-                      "\nAlle spørgsmål og rigtige svar skal kunne udledes direkte af materialet." +
-                      "\nDu må ikke bruge oplysninger, som ikke tydeligt står eller kan ses i materialet." +
+                      "\nTag stærkest muligt udgangspunkt i materialet og lav spørgsmål, der tester læseforståelse." +
+                      "\nLad spørgsmål og rigtige svar give tydelig mening ud fra det, der står på siderne eller kan ses på billederne." +
                       (sourceText
                         ? `\n\nMaterialetekst:\n${sourceText}`
                         : "\n\nBrug bogside-billederne som materiale.") +
