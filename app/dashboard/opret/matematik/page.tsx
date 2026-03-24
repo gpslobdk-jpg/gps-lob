@@ -417,7 +417,6 @@ function OpretLoebPageContent() {
   const addQuestionLabel = "Tilføj nyt matematikspørgsmål";
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [subject, setSubject] = useState<string>(MATH_SUBJECT);
   const [showTeacherField, setShowTeacherField] = useState(true);
   const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -583,7 +582,6 @@ function OpretLoebPageContent() {
 
         setTitle(asTrimmedString(run.title));
         setDescription(nextDescription);
-        setSubject(MATH_SUBJECT);
         setShowTeacherField(true);
         setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion(defaultQuestionType)]);
         setShowAiInterviewModal(false);
@@ -637,7 +635,6 @@ function OpretLoebPageContent() {
 
       setTitle(restoreDraftString(restoredDraft.title));
       setDescription(restoreDraftString(restoredDraft.description));
-      setSubject(MATH_SUBJECT);
       setShowTeacherField(restoreDraftBoolean(restoredDraft.showTeacherField, true));
       setShowAiInterviewModal(restoreDraftBoolean(restoredDraft.showAiInterviewModal));
       setQuestions(
@@ -669,7 +666,6 @@ function OpretLoebPageContent() {
     questions,
     showAiInterviewModal,
     showTeacherField,
-    subject,
     title,
   ]);
 
@@ -778,7 +774,6 @@ function OpretLoebPageContent() {
     setTitle(nextTitle);
     setDescription("");
     setQuestions([...nextQuestions]);
-    setSubject(MATH_SUBJECT);
     setShowTeacherField(true);
     setShowAiInterviewModal(false);
   };
@@ -916,7 +911,6 @@ function OpretLoebPageContent() {
       if (!isEditMode) {
         setTitle("");
         setDescription("");
-        setSubject(MATH_SUBJECT);
         setShowTeacherField(true);
         setQuestions([createQuestion(defaultQuestionType)]);
       }
@@ -1026,16 +1020,6 @@ function OpretLoebPageContent() {
                     className="w-full rounded-[1.6rem] border border-blue-500/30 bg-blue-950/20 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                   />
                 </div>
-              <div className="px-1">
-                <div className="rounded-3xl border border-blue-500/30 bg-blue-950/20 p-4 backdrop-blur-xl">
-                  <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-blue-100/65 uppercase">
-                    Fag
-                  </label>
-                  <div className="w-full rounded-2xl border border-blue-500/30 bg-blue-950/20 px-4 py-3 text-slate-100">
-                    {MATH_SUBJECT}
-                  </div>
-                </div>
-              </div>
 
               <div className="space-y-4 px-1">
                 <div className="flex items-end justify-between gap-4">
