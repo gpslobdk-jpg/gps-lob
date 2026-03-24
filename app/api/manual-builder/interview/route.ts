@@ -206,6 +206,47 @@ function createDanskPromptExamples(danishTopic: string) {
   ];
 }
 
+function parseGradeLevelNumber(gradeLevel: string) {
+  const match = gradeLevel.match(/(\d+)/);
+  return match ? Number.parseInt(match[1] ?? "", 10) : null;
+}
+
+function createDanskGradeLevelGuidance(gradeLevel: string) {
+  const gradeNumber = parseGradeLevelNumber(gradeLevel);
+
+  if (gradeNumber !== null && gradeNumber <= 2) {
+    return [
+      "Klassetrinskrav: Dette er indskoling. Spørgsmålene skal være meget lette at afkode, meget konkrete og have et lavt fagligt sprogniveau.",
+      "Brug korte sætninger, meget tydelige eksempler og kun én tanke ad gangen.",
+      "Undgå abstrakte analyseord som tema, symbolik, fortæller, komposition og fortolkning, medmindre de forklares helt konkret og børnenært.",
+      "Fokusér på helt grundlæggende færdigheder som lyd, bogstav, rim, enkle ordklasser, let stavning, simple sætninger og helt kort læseforståelse.",
+      "Svarmulighederne skal også være korte og lette at læse. Undgå lange forklarende svar.",
+    ];
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 4) {
+    return [
+      "Klassetrinskrav: Dette er mellem indskoling og begyndende mellemtrin. Spørgsmålene skal stadig være konkrete, tydelige og forholdsvis lette.",
+      "Brug korte cases, simple tekstuddrag og velkendte ord. Hold fagbegreberne få og let forståelige.",
+      "Fokusér på grundlæggende læseforståelse, stavning, ordklasser, enkle grammatiske mønstre og genkendelige litterære træk.",
+    ];
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 6) {
+    return [
+      "Klassetrinskrav: Dette er mellemtrin. Spørgsmålene må gerne udfordre, men de skal stadig være klare, konkrete og elevnære.",
+      "Brug korte tekstuddrag, tydelige eksempler og begyndende analyse, men undgå unødigt akademisk sprog.",
+      "Fokusér på anvendelse af danskfaglig viden frem for rene definitioner.",
+    ];
+  }
+
+  return [
+    "Klassetrinskrav: Dette er udskoling eller ældre elever. Spørgsmålene må gerne være tydeligt mere udfordrende og kræve præcis forståelse, refleksion og danskfaglig sikkerhed.",
+    "Brug gerne korte tekstuddrag, fortolkning, analyse, sproglige nuancer og mere krævende fagbegreber, når det passer til emnet.",
+    "Hold stadig spørgsmålene korte nok til mobilformat, men niveauet må være markant højere end på de lave klassetrin.",
+  ];
+}
+
 function hasDanskContextSignal(question: string) {
   return [
     /i sætningen/i,
@@ -256,6 +297,7 @@ function validateDanskGeneratedRun(
 ) {
   const issues: string[] = [];
   const normalizedTopic = normalizeDanishText(input.danishTopic);
+  const gradeNumber = parseGradeLevelNumber(input.gradeLevel);
   const andersenKeywords = [
     "h.c. andersen",
     "andersen",
@@ -281,6 +323,19 @@ function validateDanskGeneratedRun(
 
   let contextualQuestionCount = 0;
   let andersenSpecificQuestionCount = 0;
+  let lowGradeLengthIssueCount = 0;
+  let lowGradeAbstractIssueCount = 0;
+
+  const lowGradeAbstractKeywords = [
+    "symbolik",
+    "komposition",
+    "fortæller",
+    "fortolkning",
+    "budskab",
+    "personkarakteristik",
+    "synsvinkel",
+    "konfliktniveau",
+  ];
 
   run.questions.forEach((question, index) => {
     const questionNumber = index + 1;
@@ -312,6 +367,22 @@ function validateDanskGeneratedRun(
     if (includesAnyKeyword(normalizedTopic, ["h.c. andersen", "andersen", "eventyr"]) && includesAnyKeyword(combinedText, andersenKeywords)) {
       andersenSpecificQuestionCount += 1;
     }
+
+    if (gradeNumber !== null && gradeNumber <= 2) {
+      if (trimmedQuestion.length > 120 || normalizedOptions.some((option) => option.length > 32)) {
+        lowGradeLengthIssueCount += 1;
+      }
+
+      if (includesAnyKeyword(combinedText, lowGradeAbstractKeywords)) {
+        lowGradeAbstractIssueCount += 1;
+      }
+    }
+
+    if (gradeNumber !== null && gradeNumber <= 4) {
+      if (trimmedQuestion.length > 160 || normalizedOptions.some((option) => option.length > 42)) {
+        lowGradeLengthIssueCount += 1;
+      }
+    }
   });
 
   const minimumContextualQuestions = Math.max(2, Math.ceil(run.questions.length * 0.6));
@@ -326,6 +397,18 @@ function validateDanskGeneratedRun(
     issues.push("Løbet om H.C. Andersen eller eventyr er ikke specifikt nok og mangler tydelige referencer til konkrete eventyr, temaer eller historiske forhold.");
   }
 
+  if (gradeNumber !== null && gradeNumber <= 2 && lowGradeLengthIssueCount >= 2) {
+    issues.push("Spørgsmålene er for lange eller for teksttunge i forhold til 1.-2. klasse.");
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 2 && lowGradeAbstractIssueCount >= 1) {
+    issues.push("Spørgsmålene er for abstrakte til 1.-2. klasse og bruger for avancerede danskfaglige begreber.");
+  }
+
+  if (gradeNumber !== null && gradeNumber >= 3 && gradeNumber <= 4 && lowGradeLengthIssueCount >= 3) {
+    issues.push("Spørgsmålene er for lange eller for komplekse i forhold til 3.-4. klasse.");
+  }
+
   if (issues.length > 0) {
     throw new Error(`Dansk-kvalitetskontrol fejlede: ${issues.slice(0, 4).join(" ")}`);
   }
@@ -334,6 +417,7 @@ function validateDanskGeneratedRun(
 function createDanskPrompt(input: z.infer<typeof danishInterviewPayloadSchema>) {
   const { count, danishTopic, gradeLevel } = input;
   const miniExamples = createDanskPromptExamples(danishTopic);
+  const gradeLevelGuidance = createDanskGradeLevelGuidance(gradeLevel);
 
   return {
     schemaName: "DanskBuilderInterviewRun",
@@ -358,10 +442,14 @@ Du SKAL altid følge disse regler:
 - Hvis emnet handler om litteratur eller forfatterskab, skal spørgsmålene være konkrete og emnespecifikke. Ved fx H.C. Andersen skal spørgsmålene handle om bestemte eventyr, motiver, temaer, personer, fortællergreb eller historiske forhold, ikke blot generel litteratur.
 - Variér spørgsmålstyperne inden for emnet, så løbet føles gennemarbejdet, levende og undervisningsrelevant.
 - Brug et klart, opmuntrende og elevvenligt sprog uden at udvande det faglige niveau.
+- Niveauet SKAL ramme klassetrinnet meget præcist. Hvis klassetrinnet er lavt, skal spørgsmålene være tilsvarende lette, konkrete og forsigtige i sproget. Hvis klassetrinnet er højere, må niveauet gerne være mere udfordrende.
+- Det er vigtigere at ramme elevniveauet præcist end at virke imponerende eller avanceret.
 - Titel skal være motiverende, konkret og brugbar i arkivet.
 - Spørgsmålene skal fungere som poster i et udendørs GPS-løb, så de skal være korte nok til at kunne læses stående på en mobil.
 - Ved analyse- eller læsespørgsmål skal facit stadig være entydigt.
 - Undgå tvetydige facit, upræcise formuleringer og sproglige fejl.
+- Følg disse klassetrinsspecifikke krav meget nøje:
+${gradeLevelGuidance.map((line) => `- ${line}`).join("\n")}
 - Brug denne type mini-eksempler som kvalitetsniveau og form, ikke som faste spørgsmål:
 ${miniExamples.map((example) => `- ${example}`).join("\n")}`,
     prompt: [
@@ -377,6 +465,8 @@ ${miniExamples.map((example) => `- ${example}`).join("\n")}`,
       "Hvis emnet er grammatik eller stavning, skal distraktorerne afspejle virkelige fejltyper fra undervisningen.",
       "Hvis emnet er H.C. Andersen eller litteratur, skal spørgsmålene være konkrete og handle om bestemte eventyr, temaer, personer eller historiske forhold.",
       "Tonen skal være opmuntrende, tydelig og alderssvarende for klassetrinnet.",
+      "Niveauet skal ramme klassetrinnet meget præcist. Ved 1.-2. klasse skal spørgsmålene være mærkbart lettere, kortere og mere konkrete end ved mellemtrin og udskoling.",
+      ...gradeLevelGuidance,
       "Variér gerne mellem læseforståelse, grammatik, stavning, ordkendskab og litteratur, hvis emnet tillader det.",
       "Brug disse mini-eksempler som pejlemærker for format og kvalitet:",
       ...miniExamples,
