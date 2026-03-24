@@ -505,8 +505,6 @@ export default function ScannerPortalPage() {
         return;
       }
 
-      setSelectedImageLabels([]);
-      setCompressedImages([]);
       setIsCameraActive(true);
     } catch (cameraError) {
       console.error("Fejl ved kameraadgang:", cameraError);
@@ -552,6 +550,13 @@ export default function ScannerPortalPage() {
   function handleTakePhoto() {
     if (!isCameraActive || isCapturingPhoto || isGenerating || isPreparingImage) return;
 
+    if (compressedImages.length >= MAX_UPLOAD_IMAGES) {
+      window.alert("Du har allerede valgt maks 5 billeder.");
+      setError("Du har allerede valgt maks 5 billeder.");
+      stopCameraStream();
+      return;
+    }
+
     setError(null);
     setIsCapturingPhoto(true);
     setCountdownValue(3);
@@ -569,8 +574,11 @@ export default function ScannerPortalPage() {
           throw new Error("Billedet blev for stort. Prøv igen med et roligere udsnit.");
         }
 
-        setSelectedImageLabels(["Billede taget med kameraet"]);
-        setCompressedImages([dataUrl]);
+        setSelectedImageLabels((prev) => [
+          ...prev,
+          `Billede taget med kameraet ${prev.length + 1}`,
+        ]);
+        setCompressedImages((prev) => [...prev, dataUrl]);
         stopCameraStream();
       } catch (captureError) {
         console.error("Fejl ved kameracapture:", captureError);
@@ -591,31 +599,30 @@ export default function ScannerPortalPage() {
     setError(null);
 
     if (files.length === 0) {
-      setSelectedImageLabels([]);
-      setCompressedImages([]);
       return;
     }
 
-    if (files.length > MAX_UPLOAD_IMAGES) {
-      window.alert("Du kan maks uploade 5 billeder ad gangen.");
-      setSelectedImageLabels([]);
-      setCompressedImages([]);
-      setError("Du kan maks uploade 5 billeder ad gangen.");
+    const remainingSlots = MAX_UPLOAD_IMAGES - compressedImages.length;
+    if (remainingSlots <= 0) {
+      window.alert("Du har allerede valgt maks 5 billeder.");
+      setError("Du har allerede valgt maks 5 billeder.");
       event.target.value = "";
       return;
     }
 
-    if (files.some((file) => !file.type.startsWith("image/"))) {
-      setSelectedImageLabels([]);
-      setCompressedImages([]);
+    const nextFiles = files.slice(0, remainingSlots);
+    if (nextFiles.length < files.length) {
+      window.alert(`Du kan maks have ${MAX_UPLOAD_IMAGES} billeder i alt. Kun de første ${nextFiles.length} nye billeder blev tilføjet.`);
+      setError(`Du kan maks have ${MAX_UPLOAD_IMAGES} billeder i alt.`);
+    }
+
+    if (nextFiles.some((file) => !file.type.startsWith("image/"))) {
       setError("Vælg gyldige billeder af bogsider.");
       event.target.value = "";
       return;
     }
 
-    if (files.some((file) => file.size > MAX_IMAGE_FILE_SIZE)) {
-      setSelectedImageLabels([]);
-      setCompressedImages([]);
+    if (nextFiles.some((file) => file.size > MAX_IMAGE_FILE_SIZE)) {
       setError("Et af billederne er for stort. Vælg billeder under 12 MB.");
       event.target.value = "";
       return;
@@ -625,20 +632,18 @@ export default function ScannerPortalPage() {
     setIsPreparingImage(true);
 
     try {
-      const dataUrls = await Promise.all(files.map((file) => compressScannerImage(file)));
+      const dataUrls = await Promise.all(nextFiles.map((file) => compressScannerImage(file)));
       if (dataUrls.some((dataUrl) => !dataUrl || dataUrl.length > MAX_IMAGE_DATA_LENGTH)) {
         throw new Error("Et eller flere billeder er stadig for store efter komprimering.");
       }
 
-      setSelectedImageLabels(files.map((file) => file.name));
-      setCompressedImages(dataUrls);
+      setSelectedImageLabels((prev) => [...prev, ...nextFiles.map((file) => file.name)]);
+      setCompressedImages((prev) => [...prev, ...dataUrls]);
     } catch (compressionError) {
       console.error("Fejl ved billedkomprimering:", compressionError);
-      setSelectedImageLabels([]);
-      setCompressedImages([]);
       setError("Kunne ikke klargøre billederne. Prøv et andet udsnit eller mindre filer.");
-      event.target.value = "";
     } finally {
+      event.target.value = "";
       setIsPreparingImage(false);
     }
   }
@@ -1074,7 +1079,12 @@ export default function ScannerPortalPage() {
                       <button
                         type="button"
                         onClick={startCamera}
-                        disabled={isStartingCamera || isPreparingImage || isGenerating}
+                        disabled={
+                          isStartingCamera ||
+                          isPreparingImage ||
+                          isGenerating ||
+                          compressedImages.length >= MAX_UPLOAD_IMAGES
+                        }
                         className="inline-flex min-h-[60px] w-full items-center justify-center gap-3 rounded-full border border-cyan-500/30 bg-white/5 px-6 py-4 text-base font-semibold text-cyan-100 transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-70"
                       >
                         {isStartingCamera ? (
@@ -1082,8 +1092,10 @@ export default function ScannerPortalPage() {
                             <Loader2 className="h-5 w-5 animate-spin" />
                             Starter kamera...
                           </>
+                        ) : compressedImages.length >= MAX_UPLOAD_IMAGES ? (
+                          "Maks 5 billeder valgt"
                         ) : (
-                          "Tag et nyt billede"
+                          "Tag endnu et billede"
                         )}
                       </button>
                     ) : null}
