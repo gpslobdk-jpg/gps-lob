@@ -1,5 +1,6 @@
 export const RACE_TYPES = {
   MANUEL: "manuel",
+  DANSK: "dansk",
   MATEMATIK: "matematik",
   FOTO: "foto",
   SELFIE: "selfie",
@@ -39,6 +40,9 @@ export function normalizeRaceType(value: unknown): RaceType | null {
     case "manuel":
     case "manual":
       return RACE_TYPES.MANUEL;
+    case "dansk":
+    case "danish":
+      return RACE_TYPES.DANSK;
     case "matematik":
     case "math":
       return RACE_TYPES.MATEMATIK;

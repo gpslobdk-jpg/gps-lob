@@ -35,7 +35,21 @@ const mathInterviewPayloadSchema = z
   })
   .strict();
 
-const interviewPayloadSchema = z.union([manualInterviewPayloadSchema, mathInterviewPayloadSchema]);
+const danishInterviewPayloadSchema = z
+  .object({
+    builderType: z.literal("dansk"),
+    subject: z.string().trim().max(80).optional().default("Dansk"),
+    gradeLevel: z.string().trim().min(1).max(80),
+    danishTopic: z.string().trim().min(1).max(180),
+    count: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(20)]).optional().default(DEFAULT_COUNT),
+  })
+  .strict();
+
+const interviewPayloadSchema = z.union([
+  manualInterviewPayloadSchema,
+  mathInterviewPayloadSchema,
+  danishInterviewPayloadSchema,
+]);
 
 const generatedQuestionSchema = z
   .object({
@@ -138,6 +152,45 @@ Du SKAL altid følge disse regler:
   };
 }
 
+function createDanskPrompt(input: z.infer<typeof danishInterviewPayloadSchema>) {
+  const { count, danishTopic, gradeLevel } = input;
+
+  return {
+    schemaName: "DanskBuilderInterviewRun",
+    schemaDescription: "Et komplet dansk-lob med titel og fagligt korrekte multiple-choice sporgsmal.",
+    systemPrompt: `Du er en danskfaglig laerer, lasevejleder, opgaveforfatter og kvalitetssikrer for GPSLOB.
+Du bygger komplette dansk-lob til skolebrug.
+
+Du SKAL altid folge disse regler:
+- Alt indhold skal vare pa dansk.
+- Returner kun gyldigt JSON, der matcher schemaet.
+- Returner praecis ${count} multiple-choice sporgsmal.
+- Du ma under ingen omstaendigheder returnere faerre eller flere end ${count} sporgsmal.
+- Hvert sporgsmal skal have praecis 4 svarmuligheder i "options".
+- "correctAnswer" skal matche en af de 4 svarmuligheder ordret.
+- Alle sporgsmal skal vare danskfagligt korrekte, alderssvarende og tydeligt knyttet til det angivne klassetrin.
+- Fokus skal ligge pa lasning, sprogforstaelse, grammatik, stavning, litteratur eller analyse, alt efter emnet.
+- De forkerte svar skal vare plausible sproglige misforstaelser eller naerliggende tolkninger, ikke fjollede joke-svar.
+- Variér sporgsmalstyperne inden for emnet, sa lobet foles gennemarbejdet og undervisningsrelevant.
+- Brug et klart, elevvenligt sprog uden at udvande det faglige niveau.
+- Titel skal vare motiverende, konkret og brugbar i arkivet.
+- Sporgsmalene skal fungere som poster i et udendors GPS-lob, sa de skal vare korte nok til at kunne lases staende pa en mobil.
+- Ved analyse- eller lasesporgsmal skal facit stadig vare entydigt.
+- Undga tvetydige facit, upracise formuleringer og sproglige fejl.`,
+    prompt: [
+      `Fag: Dansk.`,
+      `Klassetrin: ${gradeLevel}.`,
+      `Danskfagligt emne: ${danishTopic}.`,
+      `Antal sporgsmal: ${count}.`,
+      `KRITISK: Returner praecis ${count} sporgsmal. Ikke 4, ikke 6, ikke 8, ikke flere og ikke faerre.`,
+      "Sporgsmalene skal vare danskfagligt skarpe og have et entydigt korrekt svar.",
+      "De forkerte svar skal ligne typiske elevfejl, naerliggende fortolkninger eller plausible sproglige forvekslinger.",
+      "Variér gerne mellem laeseforstaelse, grammatik, stavning, ordkendskab og litteratur, hvis emnet tillader det.",
+      "Byg nu et komplet dansk-lob med titel og sporgsmal.",
+    ].join("\n"),
+  };
+}
+
 function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -179,6 +232,8 @@ export async function POST(req: Request) {
     const promptConfig =
       parsedPayload.data.builderType === "matematik"
         ? createMathPrompt(parsedPayload.data)
+        : parsedPayload.data.builderType === "dansk"
+          ? createDanskPrompt(parsedPayload.data)
         : createManualPrompt(parsedPayload.data);
 
     const count = parsedPayload.data.count;
