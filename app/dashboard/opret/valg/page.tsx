@@ -44,25 +44,11 @@ const cards: HubCard[] = [
   },
   {
     raceType: "foto",
-    title: "AI Foto-mission",
+    title: "Foto mission",
     description:
-      "Deltagerne fotograferer motiver i virkeligheden, og AI'en vurderer billedet på sekunder.",
+      "Eleverne tager billeder pa udvalgte lokationer og uploader dem, sa laereren kan se og gennemga dem bagefter.",
     href: "/dashboard/opret/foto",
     icon: Camera,
-  },
-  {
-    raceType: "escape",
-    title: "Escape Room",
-    description: "Løs gåder ved hver post og saml kode-brikker til en endelig master-kode.",
-    href: "/dashboard/opret/escape",
-    icon: Lock,
-  },
-  {
-    raceType: "rollespil",
-    title: "Rollespil",
-    description: "Lad eleverne møde karakterer, tale med AI og spille sig gennem historien.",
-    href: "/dashboard/opret/rollespil",
-    icon: MessageSquare,
   },
   {
     raceType: "scanner",
@@ -70,13 +56,6 @@ const cards: HubCard[] = [
     description: "Upload en bogside eller indsæt tekst, og lad AI bygge et komplet quiz-løb.",
     href: "/dashboard/opret/scanner",
     icon: BookOpen,
-  },
-  {
-    raceType: "selfie",
-    title: "Selfie-mission",
-    description: "Byg en jagt med selfie-poster, hvor deltagerne skal finde og dokumentere steder.",
-    href: "/dashboard/opret/selfie",
-    icon: Sparkles,
   },
 ];
 
@@ -145,8 +124,8 @@ export default function ValgHubPage() {
             Hvilken type løb vil du bygge?
           </h1>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-emerald-900 drop-shadow-sm md:text-base lg:text-emerald-50">
-            Vælg det format, der passer bedst til dit arrangement. Her finder du quiz, foto,
-            escape, rollespil, bog-scanner og selfie-missioner samlet et sted.
+            Vælg det format, der passer bedst til dit arrangement. Her finder du quiz, foto og
+            bog-scanner samlet et sted.
           </p>
         </div>
 
