@@ -21,11 +21,12 @@ const MAX_SUBJECT_LENGTH = 80;
 const MAX_SOURCE_TEXT_LENGTH = 18000;
 const MAX_IMAGE_DATA_LENGTH = 6_000_000;
 const MAX_REQUEST_BODY_BYTES = 5_000_000;
+const MAX_IMAGE_COUNT = 5;
 
 type GenerateRunPayload = {
   topic?: unknown;
   sourceText?: unknown;
-  imageBase64?: unknown;
+  imageBase64List?: unknown;
   subject?: unknown;
   audience?: unknown;
   count?: unknown;
@@ -63,6 +64,15 @@ function createGeneratedRunSchema(desiredCount: number) {
 
 function asTrimmedString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function asTrimmedStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function asCount(value: unknown): number {
@@ -194,10 +204,10 @@ export async function POST(req: Request) {
 
     const topic = asTrimmedString(payload.topic);
     const sourceText = asTrimmedString(payload.sourceText);
-    const imageBase64 = asTrimmedString(payload.imageBase64);
+    const imageBase64List = asTrimmedStringArray(payload.imageBase64List);
     const subject = asTrimmedString(payload.subject);
     const audience = asAudience(payload.audience);
-    const hasMaterial = sourceText.length > 0 || imageBase64.length > 0;
+    const hasMaterial = sourceText.length > 0 || imageBase64List.length > 0;
     const count = asCount(payload.count);
 
     if (!topic && !hasMaterial) {
@@ -228,18 +238,27 @@ export async function POST(req: Request) {
       );
     }
 
-    if (imageBase64 && !imageBase64.startsWith("data:image/")) {
+    if (imageBase64List.length > MAX_IMAGE_COUNT) {
       return NextResponse.json(
-        { error: "Billedet skal sendes som en gyldig data-URL." },
+        { error: "Du kan maks sende 5 billeder ad gangen." },
         { status: 400 }
       );
     }
 
-    if (imageBase64.length > MAX_IMAGE_DATA_LENGTH) {
-      return NextResponse.json(
-        { error: "Billedet er for stort til AI-behandling. Prøv et mindre udsnit." },
-        { status: 400 }
-      );
+    for (const imageBase64 of imageBase64List) {
+      if (!imageBase64.startsWith("data:image/")) {
+        return NextResponse.json(
+          { error: "Billederne skal sendes som gyldige data-URL'er." },
+          { status: 400 }
+        );
+      }
+
+      if (imageBase64.length > MAX_IMAGE_DATA_LENGTH) {
+        return NextResponse.json(
+          { error: "Et af billederne er for stort til AI-behandling. Prøv et mindre udsnit." },
+          { status: 400 }
+        );
+      }
     }
 
     const audienceGuidance = getAudienceGuidance(audience);
@@ -288,17 +307,17 @@ ${subjectLine}`;
 
     const schema = createGeneratedRunSchema(count);
 
-    // If an image data-URL was provided, convert it to a Uint8Array buffer
-    let imagePayload: Uint8Array | undefined = undefined;
-    if (imageBase64) {
+    const imagePayloads: Uint8Array[] = [];
+    for (const imageBase64 of imageBase64List) {
       const converted = dataUrlToUint8Array(imageBase64);
       if (!converted) {
         return NextResponse.json(
-          { error: "Billedet skal sendes som en gyldig data-URL." },
+          { error: "Billederne skal sendes som gyldige data-URL'er." },
           { status: 400 }
         );
       }
-      imagePayload = converted;
+
+      imagePayloads.push(converted);
     }
 
     const { object } = await generateObject({
@@ -324,20 +343,16 @@ ${subjectLine}`;
                       "\nDu må ikke bruge oplysninger, som ikke tydeligt står eller kan ses i materialet." +
                       (sourceText
                         ? `\n\nMaterialetekst:\n${sourceText}`
-                        : "\n\nBrug bogside-billedet som materiale.") +
+                        : "\n\nBrug bogside-billederne som materiale.") +
                       "\n\nReturner kun det strukturerede output.",
                   },
-                  ...(imagePayload
-                    ? [
-                        {
-                          type: "image" as const,
-                          image: imagePayload,
-                          providerOptions: {
-                            openai: { imageDetail: "low" },
-                          },
-                        },
-                      ]
-                    : []),
+                  ...imagePayloads.map((imagePayload) => ({
+                    type: "image" as const,
+                    image: imagePayload,
+                    providerOptions: {
+                      openai: { imageDetail: "low" },
+                    },
+                  })),
                 ],
               },
             ],

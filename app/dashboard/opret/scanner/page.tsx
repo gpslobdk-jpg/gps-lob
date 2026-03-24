@@ -44,6 +44,7 @@ const AI_REQUEST_TIMEOUT_MS = 20_000;
 const MAX_SOURCE_TEXT_LENGTH = 18_000;
 const MAX_IMAGE_FILE_SIZE = 12 * 1024 * 1024;
 const MAX_IMAGE_DATA_LENGTH = 6_000_000;
+const MAX_UPLOAD_IMAGES = 5;
 
 const SUBJECT_TOPICS: Record<string, string[]> = {
   Dansk: [],
@@ -127,12 +128,21 @@ type ScannerDraftState = {
   audience: Audience;
   questionCount: QuestionCount;
   sourceText: string;
-  selectedImageLabel: string;
+  selectedImageLabels: string[];
 };
 
 type ScannerImageSessionState = {
-  compressedImage?: unknown;
+  compressedImages?: unknown;
 };
+
+function restoreStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
 function restoreSourceMode(value: unknown): SourceMode | null {
   return value === "camera" || value === "upload" || value === "text" ? value : null;
@@ -276,8 +286,8 @@ export default function ScannerPortalPage() {
   const [audience, setAudience] = useState<Audience>("Mellemtrin");
   const [questionCount, setQuestionCount] = useState<QuestionCount>(10);
   const [sourceText, setSourceText] = useState("");
-  const [selectedImageLabel, setSelectedImageLabel] = useState("");
-  const [compressedImage, setCompressedImage] = useState("");
+  const [selectedImageLabels, setSelectedImageLabels] = useState<string[]>([]);
+  const [compressedImages, setCompressedImages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPreparingImage, setIsPreparingImage] = useState(false);
   const [isStartingCamera, setIsStartingCamera] = useState(false);
@@ -289,8 +299,10 @@ export default function ScannerPortalPage() {
   const progress = (step / 4) * 100;
   const trimmedSourceText = sourceText.trim();
   const canContinueFromStep2 =
-    sourceMode === "text" ? trimmedSourceText.length > 0 : compressedImage.length > 0;
+    sourceMode === "text" ? trimmedSourceText.length > 0 : compressedImages.length > 0;
   const canContinueFromStep3 = subject.trim().length > 0;
+
+  const selectedImageCount = compressedImages.length;
 
   const helperText = isCapturingPhoto
     ? "Kameraet tager billede..."
@@ -298,10 +310,12 @@ export default function ScannerPortalPage() {
       ? "Starter kamera..."
       : isPreparingImage
         ? "Klargør billede..."
-        : selectedImageLabel ||
+        : selectedImageCount > 0
+          ? `${selectedImageCount} ${selectedImageCount === 1 ? "side valgt" : "sider valgt"}`
+          :
           (sourceMode === "camera"
             ? "Tag et tydeligt billede af bogsiden."
-            : "Upload et tydeligt billede af bogsiden.");
+            : "Upload op til 5 tydelige billeder af bogsiderne.");
 
   const selectedSourceLabel =
     sourceMode === "camera"
@@ -348,8 +362,8 @@ export default function ScannerPortalPage() {
     setSourceMode(nextMode);
     setError(null);
     stopCameraStream();
-    setSelectedImageLabel("");
-    setCompressedImage("");
+    setSelectedImageLabels([]);
+    setCompressedImages([]);
     setSourceText("");
   }
 
@@ -381,12 +395,12 @@ export default function ScannerPortalPage() {
       const restoredMode = restoreSourceMode(restoredDraft.sourceMode);
       const restoredSubject = restoreDraftString(restoredDraft.subject);
       const restoredSourceText = restoreDraftString(restoredDraft.sourceText);
-      const restoredCompressedImage = restoreDraftString(restoredImageDraft?.compressedImage);
+      const restoredCompressedImages = restoreStringArray(restoredImageDraft?.compressedImages);
       const restoredStep = restoreStep(restoredDraft.step);
       const hasRestoredSourceInput =
         restoredMode === "text"
           ? restoredSourceText.trim().length > 0
-          : restoredCompressedImage.trim().length > 0;
+          : restoredCompressedImages.length > 0;
 
       let allowedStep: Step = 1;
       if (restoredMode) {
@@ -404,8 +418,8 @@ export default function ScannerPortalPage() {
       setAudience(restoreAudience(restoredDraft.audience));
       setQuestionCount(restoreQuestionCount(restoredDraft.questionCount));
       setSourceText(restoredSourceText);
-      setSelectedImageLabel(restoreDraftString(restoredDraft.selectedImageLabel));
-      setCompressedImage(restoredCompressedImage);
+      setSelectedImageLabels(restoreStringArray(restoredDraft.selectedImageLabels));
+      setCompressedImages(restoredCompressedImages);
       setStep(Math.min(restoredStep, allowedStep) as Step);
       setError(null);
     }
@@ -423,22 +437,22 @@ export default function ScannerPortalPage() {
       audience,
       questionCount,
       sourceText,
-      selectedImageLabel,
+      selectedImageLabels,
     } satisfies ScannerDraftState);
-  }, [audience, compressedImage, questionCount, selectedImageLabel, sourceMode, sourceText, step, subject]);
+  }, [audience, questionCount, selectedImageLabels, sourceMode, sourceText, step, subject]);
 
   useEffect(() => {
     if (!hasInitializedDraftRef.current) return;
 
-    if (compressedImage.trim().length > 0) {
+    if (compressedImages.length > 0) {
       writeSessionDraft(SCANNER_IMAGE_SESSION_KEY, {
-        compressedImage,
+        compressedImages,
       } satisfies ScannerImageSessionState);
       return;
     }
 
     clearSessionDraft(SCANNER_IMAGE_SESSION_KEY);
-  }, [compressedImage]);
+  }, [compressedImages]);
 
   useEffect(() => {
     if (step !== 2 || sourceMode !== "text") return;
@@ -491,8 +505,8 @@ export default function ScannerPortalPage() {
         return;
       }
 
-      setSelectedImageLabel("");
-      setCompressedImage("");
+      setSelectedImageLabels([]);
+      setCompressedImages([]);
       setIsCameraActive(true);
     } catch (cameraError) {
       console.error("Fejl ved kameraadgang:", cameraError);
@@ -555,8 +569,8 @@ export default function ScannerPortalPage() {
           throw new Error("Billedet blev for stort. Prøv igen med et roligere udsnit.");
         }
 
-        setSelectedImageLabel("Billede taget med kameraet");
-        setCompressedImage(dataUrl);
+        setSelectedImageLabels(["Billede taget med kameraet"]);
+        setCompressedImages([dataUrl]);
         stopCameraStream();
       } catch (captureError) {
         console.error("Fejl ved kameracapture:", captureError);
@@ -573,27 +587,36 @@ export default function ScannerPortalPage() {
   }
 
   async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null;
+    const files = Array.from(event.target.files ?? []);
     setError(null);
 
-    if (!file) {
-      setSelectedImageLabel("");
-      setCompressedImage("");
+    if (files.length === 0) {
+      setSelectedImageLabels([]);
+      setCompressedImages([]);
       return;
     }
 
-    if (!file.type.startsWith("image/")) {
-      setSelectedImageLabel("");
-      setCompressedImage("");
-      setError("Vælg et gyldigt billede af en bogside.");
+    if (files.length > MAX_UPLOAD_IMAGES) {
+      window.alert("Du kan maks uploade 5 billeder ad gangen.");
+      setSelectedImageLabels([]);
+      setCompressedImages([]);
+      setError("Du kan maks uploade 5 billeder ad gangen.");
       event.target.value = "";
       return;
     }
 
-    if (file.size > MAX_IMAGE_FILE_SIZE) {
-      setSelectedImageLabel("");
-      setCompressedImage("");
-      setError("Billedet er for stort. Vælg et billede under 12 MB.");
+    if (files.some((file) => !file.type.startsWith("image/"))) {
+      setSelectedImageLabels([]);
+      setCompressedImages([]);
+      setError("Vælg gyldige billeder af bogsider.");
+      event.target.value = "";
+      return;
+    }
+
+    if (files.some((file) => file.size > MAX_IMAGE_FILE_SIZE)) {
+      setSelectedImageLabels([]);
+      setCompressedImages([]);
+      setError("Et af billederne er for stort. Vælg billeder under 12 MB.");
       event.target.value = "";
       return;
     }
@@ -602,18 +625,18 @@ export default function ScannerPortalPage() {
     setIsPreparingImage(true);
 
     try {
-      const dataUrl = await compressScannerImage(file);
-      if (!dataUrl || dataUrl.length > MAX_IMAGE_DATA_LENGTH) {
-        throw new Error("Billedet er stadig for stort efter komprimering.");
+      const dataUrls = await Promise.all(files.map((file) => compressScannerImage(file)));
+      if (dataUrls.some((dataUrl) => !dataUrl || dataUrl.length > MAX_IMAGE_DATA_LENGTH)) {
+        throw new Error("Et eller flere billeder er stadig for store efter komprimering.");
       }
 
-      setSelectedImageLabel(`Valgt billede: ${file.name}`);
-      setCompressedImage(dataUrl);
+      setSelectedImageLabels(files.map((file) => file.name));
+      setCompressedImages(dataUrls);
     } catch (compressionError) {
       console.error("Fejl ved billedkomprimering:", compressionError);
-      setSelectedImageLabel("");
-      setCompressedImage("");
-      setError("Kunne ikke klargøre billedet. Prøv et andet udsnit eller et mindre billede.");
+      setSelectedImageLabels([]);
+      setCompressedImages([]);
+      setError("Kunne ikke klargøre billederne. Prøv et andet udsnit eller mindre filer.");
       event.target.value = "";
     } finally {
       setIsPreparingImage(false);
@@ -631,8 +654,8 @@ export default function ScannerPortalPage() {
         setError("Teksten er for lang. Kort materialet lidt ned og prøv igen.");
         return;
       }
-    } else if (!compressedImage) {
-      setError("Tilføj først et billede af bogsiden, før du går videre.");
+    } else if (compressedImages.length === 0) {
+      setError("Tilføj først mindst ét billede af bogsiderne, før du går videre.");
       return;
     }
 
@@ -674,7 +697,7 @@ export default function ScannerPortalPage() {
       return;
     }
 
-    const hasImage = compressedImage.length > 0;
+    const hasImage = compressedImages.length > 0;
     const trimmedSubject = subject.trim();
 
     if (!trimmedSourceText && !hasImage) {
@@ -708,7 +731,7 @@ export default function ScannerPortalPage() {
         },
         body: JSON.stringify({
           sourceText: trimmedSourceText || undefined,
-          imageBase64: compressedImage || undefined,
+          imageBase64List: compressedImages.length > 0 ? compressedImages : undefined,
           subject: trimmedSubject,
           audience,
           count: questionCount,
@@ -740,7 +763,7 @@ export default function ScannerPortalPage() {
           ? trimmedSourceText
           : sourceMode === "camera"
             ? "Billede af bogside taget med kameraet"
-            : "Uploadet billede af bogside";
+            : `${compressedImages.length} uploadede billeder af bogsider`;
 
       const draft = toManualDraft(payload, sourceSummary, trimmedSubject, audience);
       stopCameraStream();
@@ -850,10 +873,10 @@ export default function ScannerPortalPage() {
                         🖼️
                       </span>
                       <span className="mt-3 text-xl font-bold text-white">
-                        Upload et billede
+                        Upload billeder
                       </span>
                       <span className="mt-2 text-sm text-cyan-100/65">
-                        Vælg et billede af bogsiden fra computeren.
+                        Vælg op til 5 billeder af bogsider fra computeren.
                       </span>
                     </button>
 
@@ -899,13 +922,15 @@ export default function ScannerPortalPage() {
                     {sourceMode === "camera"
                       ? "Tag et tydeligt billede"
                       : sourceMode === "upload"
-                        ? "Upload bogsiden"
+                        ? "Upload bogsider (Max 5)"
                         : "Indsæt teksten"}
                   </h2>
                   <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-cyan-100/75 sm:text-lg">
                     {sourceMode === "text"
                       ? "Indsæt den tekst, som AI'en skal bygge quiz-løbet ud fra."
-                      : "Brug et klart billede, så AI'en kan læse og forstå materialet præcist."}
+                      : sourceMode === "upload"
+                        ? "Upload op til 5 klare billeder, så AI'en kan læse og forstå materialet præcist."
+                        : "Brug et klart billede, så AI'en kan læse og forstå materialet præcist."}
                   </p>
 
                   <div className="mt-10 space-y-5 text-left">
@@ -934,16 +959,17 @@ export default function ScannerPortalPage() {
                             🖼️
                           </span>
                           <span className="mt-4 text-xl font-bold text-white">
-                            Klik for at vælge et billede
+                            Klik for at vælge billeder
                           </span>
                           <span className="mt-2 text-sm text-cyan-100/65">
-                            JPG, PNG eller andet tydeligt foto af en bogside.
+                            JPG, PNG eller andet tydeligt foto af bogsider. Maks 5 billeder.
                           </span>
                         </label>
                         <input
                           id="scanner-image-upload"
                           type="file"
                           accept="image/*"
+                          multiple
                           onChange={handleImageChange}
                           className="sr-only"
                         />
@@ -952,7 +978,7 @@ export default function ScannerPortalPage() {
 
                     {sourceMode === "camera" ? (
                       <>
-                        {!isCameraActive && !compressedImage ? (
+                        {!isCameraActive && compressedImages.length === 0 ? (
                           <button
                             type="button"
                             onClick={startCamera}
@@ -1016,20 +1042,35 @@ export default function ScannerPortalPage() {
                       </>
                     ) : null}
 
-                    {compressedImage ? (
-                      <div className="overflow-hidden rounded-[1.75rem] border border-cyan-500/20 bg-cyan-950/20">
-                        <Image
-                          src={compressedImage}
-                          alt="Valgt bogside"
-                          width={1200}
-                          height={780}
-                          unoptimized
-                          className="h-[260px] w-full object-cover"
-                        />
+                    {compressedImages.length > 0 ? (
+                      <div className="space-y-3">
+                        <p className="text-center text-sm font-medium text-cyan-100/70">
+                          {compressedImages.length} {compressedImages.length === 1 ? "side valgt" : "sider valgt"}
+                        </p>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {compressedImages.map((imageSrc, index) => (
+                            <div
+                              key={`${selectedImageLabels[index] ?? "bogside"}-${index}`}
+                              className="overflow-hidden rounded-[1.75rem] border border-cyan-500/20 bg-cyan-950/20"
+                            >
+                              <Image
+                                src={imageSrc}
+                                alt={`Valgt bogside ${index + 1}`}
+                                width={1200}
+                                height={780}
+                                unoptimized
+                                className="h-[220px] w-full object-cover"
+                              />
+                              <div className="border-t border-cyan-500/20 px-4 py-3 text-sm text-cyan-100/75">
+                                {selectedImageLabels[index] ?? `Side ${index + 1}`}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     ) : null}
 
-                    {sourceMode === "camera" && compressedImage ? (
+                    {sourceMode === "camera" && compressedImages.length > 0 ? (
                       <button
                         type="button"
                         onClick={startCamera}
