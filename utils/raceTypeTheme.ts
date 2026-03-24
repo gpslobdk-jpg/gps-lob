@@ -1,6 +1,7 @@
 export type RaceTypeThemeKey =
   | "manuel"
   | "dansk"
+  | "engelsk"
   | "matematik"
   | "foto"
   | "escape"
@@ -63,6 +64,26 @@ const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
       "border border-rose-200 bg-white text-rose-800 shadow-sm hover:border-rose-300 hover:bg-rose-50",
     archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
     archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
+  },
+  engelsk: {
+    key: "engelsk",
+    label: "Engelsk",
+    selectionCardClass:
+      "border-blue-300/45 bg-gradient-to-br from-blue-950 via-slate-900 to-red-950 text-white shadow-xl shadow-slate-950/35 hover:border-red-300/55 hover:shadow-2xl hover:shadow-slate-950/45",
+    archiveCardClass:
+      "border-blue-300/30 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white shadow-blue-950/20 hover:border-red-300/35 hover:shadow-blue-950/30",
+    archiveHeaderClass: "bg-gradient-to-r from-blue-950 via-slate-900 to-red-950 text-white",
+    archiveAccentIconClass: "text-blue-200",
+    archivePrimaryButtonClass:
+      "border border-red-400/40 bg-red-500 text-slate-950 shadow-[0_12px_24px_rgba(239,68,68,0.24)] hover:bg-red-400",
+    archiveGhostButtonClass:
+      "border border-blue-300/25 bg-slate-950 text-white shadow-sm hover:border-blue-200/35 hover:bg-blue-950/40",
+    archiveGhostIconButtonClass:
+      "border border-blue-300/25 bg-slate-950 text-blue-100 shadow-sm hover:border-blue-200/35 hover:bg-blue-950/40",
+    archiveDangerIconButtonClass:
+      "border border-red-300/35 bg-slate-950 text-red-300 shadow-sm hover:border-red-200/45 hover:bg-red-950/25",
+    archiveStatusBadgeClass:
+      "border border-white/12 bg-white/10 text-white shadow-[0_10px_24px_rgba(15,23,42,0.18)]",
   },
   matematik: {
     key: "matematik",
@@ -182,6 +203,9 @@ export function normalizeRaceTypeThemeKey(value: unknown): RaceTypeThemeKey {
     case "dansk":
     case "danish":
       return "dansk";
+    case "engelsk":
+    case "english":
+      return "engelsk";
     case "matematik":
     case "math":
       return "matematik";

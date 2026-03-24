@@ -46,10 +46,21 @@ const danishInterviewPayloadSchema = z
   })
   .strict();
 
+const englishInterviewPayloadSchema = z
+  .object({
+    builderType: z.literal("engelsk"),
+    subject: z.string().trim().max(80).optional().default("Engelsk"),
+    gradeLevel: z.string().trim().min(1).max(80),
+    englishTopic: z.string().trim().min(1).max(180),
+    count: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(20)]).optional().default(DEFAULT_COUNT),
+  })
+  .strict();
+
 const interviewPayloadSchema = z.union([
   manualInterviewPayloadSchema,
   mathInterviewPayloadSchema,
   danishInterviewPayloadSchema,
+  englishInterviewPayloadSchema,
 ]);
 
 const generatedQuestionSchema = z
@@ -671,6 +682,262 @@ ${miniExamples.map((example) => `- ${example}`).join("\n")}`,
   };
 }
 
+function createEnglishGradeLevelGuidance(gradeLevel: string) {
+  const gradeNumber = parseGradeLevelNumber(gradeLevel);
+
+  if (gradeNumber !== null && gradeNumber <= 2) {
+    return [
+      "Grade-level requirement: early primary learners. Use very short English sentences, concrete vocabulary, and one clear idea at a time.",
+      "Focus on high-frequency words, simple classroom English, very basic grammar, and easy meaning questions.",
+      "Avoid abstract literary analysis, long reading passages, and advanced metalanguage.",
+    ];
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 4) {
+    return [
+      "Grade-level requirement: lower primary to early middle primary. Keep the English clear, concrete, and easy to decode.",
+      "Use short sentences, familiar vocabulary, and direct comprehension or grammar tasks.",
+      "Focus on simple grammar, everyday vocabulary, short reading prompts, and clear meaning questions.",
+    ];
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 6) {
+    return [
+      "Grade-level requirement: middle primary. Questions may be more challenging, but the language must still be clear and student-friendly.",
+      "Use short text excerpts, focused grammar tasks, vocabulary in context, and accessible cultural references.",
+      "Blend comprehension, grammar, vocabulary, and usage without becoming too academic.",
+    ];
+  }
+
+  return [
+    "Grade-level requirement: lower secondary or older learners. Questions may be meaningfully more demanding and require precision, nuance, and stronger language awareness.",
+    "Use richer vocabulary, better distractors, and slightly more advanced reading or grammar contexts while keeping mobile-friendly length.",
+    "Culture questions may include specific British or American references, but they must still be answerable and pedagogically relevant.",
+  ];
+}
+
+function createEnglishPromptExamples(englishTopic: string) {
+  const normalizedTopic = normalizeDanishText(englishTopic);
+
+  if (includesAnyKeyword(normalizedTopic, ["grammar", "spelling", "tense", "verbs"])) {
+    return [
+      "Mini-example: In the sentence 'She walks to school every day', which verb form is correct?",
+      "Mini-example: Which sentence uses the correct past tense?",
+      "Mini-example: Which spelling is correct in this short sentence?",
+    ];
+  }
+
+  if (includesAnyKeyword(normalizedTopic, ["vocabulary", "words", "word", "meaning"])) {
+    return [
+      "Mini-example: What does the word 'borrow' mean in this sentence?",
+      "Mini-example: Which word best completes the sentence?",
+      "Mini-example: Which option is the closest synonym for the highlighted word?",
+    ];
+  }
+
+  if (includesAnyKeyword(normalizedTopic, ["reading", "comprehension", "text"])) {
+    return [
+      "Mini-example: In the text, why is the boy nervous before the match?",
+      "Mini-example: Which heading fits the short text best?",
+      "Mini-example: What can the reader infer from the final sentence?",
+    ];
+  }
+
+  if (includesAnyKeyword(normalizedTopic, ["british", "american", "culture"])) {
+    return [
+      "Mini-example: Which food is most strongly associated with a traditional British breakfast?",
+      "Mini-example: Which spelling is American English rather than British English?",
+      "Mini-example: Which cultural fact about the UK or the USA is correct?",
+    ];
+  }
+
+  return [
+    "Mini-example: Which sentence is correct in English?",
+    "Mini-example: Which word best fits the context?",
+    "Mini-example: What is the best answer based on the short English text?",
+  ];
+}
+
+function hasEnglishContextSignal(question: string) {
+  return [
+    /in the sentence/i,
+    /in the text/i,
+    /in the paragraph/i,
+    /which word/i,
+    /which sentence/i,
+    /which option/i,
+    /what does/i,
+    /what is the best/i,
+    /why does/i,
+    /what can/i,
+    /["'“”]/,
+  ].some((pattern) => pattern.test(question));
+}
+
+function hasEnglishLanguageSignal(value: string) {
+  return [
+    /\bthe\b/i,
+    /\bwhich\b/i,
+    /\bwhat\b/i,
+    /\bcorrect\b/i,
+    /\bsentence\b/i,
+    /\bword\b/i,
+    /\btext\b/i,
+    /\bmeaning\b/i,
+    /\bgrammar\b/i,
+    /\bspelling\b/i,
+    /\bvocabulary\b/i,
+    /\bbritish\b/i,
+    /\bamerican\b/i,
+    /\bread\b/i,
+  ].some((pattern) => pattern.test(value));
+}
+
+function isWeakEnglishQuestion(question: string) {
+  const trimmedQuestion = question.trim();
+
+  if (trimmedQuestion.length < 24) {
+    return true;
+  }
+
+  if (hasEnglishContextSignal(trimmedQuestion)) {
+    return false;
+  }
+
+  return [/^what is /i, /^what does /i, /^what means /i, /^what is called /i].some((pattern) =>
+    pattern.test(trimmedQuestion)
+  );
+}
+
+function validateEnglishGeneratedRun(
+  run: { title: string; questions: Array<{ question: string; options: [string, string, string, string]; correctAnswer: string }> },
+  input: z.infer<typeof englishInterviewPayloadSchema>
+) {
+  const issues: string[] = [];
+  const gradeNumber = parseGradeLevelNumber(input.gradeLevel);
+  let contextualQuestionCount = 0;
+  let nonEnglishQuestionCount = 0;
+  let lowGradeLengthIssueCount = 0;
+
+  if (run.title.trim().length < 6) {
+    issues.push("Titlen er for kort eller for generisk.");
+  }
+
+  run.questions.forEach((question, index) => {
+    const questionNumber = index + 1;
+    const trimmedQuestion = question.question.trim();
+    const normalizedOptions = question.options.map((option) => option.trim());
+    const distinctOptionCount = new Set(normalizedOptions.map((option) => normalizeDanishText(option))).size;
+    const combinedText = [trimmedQuestion, ...normalizedOptions].join(" ");
+
+    if (hasEnglishContextSignal(trimmedQuestion)) {
+      contextualQuestionCount += 1;
+    }
+
+    if (!hasEnglishLanguageSignal(combinedText)) {
+      nonEnglishQuestionCount += 1;
+    }
+
+    if (isWeakEnglishQuestion(trimmedQuestion)) {
+      issues.push(`Spørgsmål ${questionNumber} er for generisk og mangler en konkret engelsk kontekst.`);
+    }
+
+    if (distinctOptionCount < 4) {
+      issues.push(`Spørgsmål ${questionNumber} har ikke fire tydeligt forskellige svarmuligheder.`);
+    }
+
+    if (normalizedOptions.some((option) => option.length < 2 || isPlaceholderDistractor(option))) {
+      issues.push(`Spørgsmål ${questionNumber} indeholder en placeholder eller en for svag svarmulighed.`);
+    }
+
+    if (!normalizedOptions.includes(question.correctAnswer.trim())) {
+      issues.push(`Spørgsmål ${questionNumber} har et facit, der ikke matcher svarmulighederne præcist.`);
+    }
+
+    if (gradeNumber !== null && gradeNumber <= 2) {
+      if (trimmedQuestion.length > 110 || normalizedOptions.some((option) => option.length > 26)) {
+        lowGradeLengthIssueCount += 1;
+      }
+    }
+
+    if (gradeNumber !== null && gradeNumber >= 3 && gradeNumber <= 4) {
+      if (trimmedQuestion.length > 150 || normalizedOptions.some((option) => option.length > 38)) {
+        lowGradeLengthIssueCount += 1;
+      }
+    }
+  });
+
+  if (contextualQuestionCount < Math.max(2, Math.ceil(run.questions.length * 0.5))) {
+    issues.push("For mange spørgsmål mangler konkrete engelske sætninger, små tekster eller tydelige brugssituationer.");
+  }
+
+  if (nonEnglishQuestionCount >= Math.max(2, Math.ceil(run.questions.length / 3))) {
+    issues.push("For meget af indholdet ser ikke ud til at være skrevet tydeligt på engelsk.");
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 2 && lowGradeLengthIssueCount >= 2) {
+    issues.push("Spørgsmålene er for lange eller for teksttunge i forhold til 1.-2. klasse.");
+  }
+
+  if (gradeNumber !== null && gradeNumber >= 3 && gradeNumber <= 4 && lowGradeLengthIssueCount >= 3) {
+    issues.push("Spørgsmålene er for lange eller for komplekse i forhold til 3.-4. klasse.");
+  }
+
+  if (issues.length > 0) {
+    throw new Error(`Engelsk-kvalitetskontrol fejlede: ${issues.slice(0, 4).join(" ")}`);
+  }
+}
+
+function createEnglishPrompt(input: z.infer<typeof englishInterviewPayloadSchema>) {
+  const { count, englishTopic, gradeLevel } = input;
+  const miniExamples = createEnglishPromptExamples(englishTopic);
+  const gradeLevelGuidance = createEnglishGradeLevelGuidance(gradeLevel);
+
+  return {
+    schemaName: "EnglishBuilderInterviewRun",
+    schemaDescription: "A complete English-language run with title and pedagogically strong multiple-choice questions.",
+    systemPrompt: `You are an elite, pedagogically outstanding native English teacher and curriculum designer.
+You create complete English runs for school use.
+
+You MUST always follow these rules:
+- Return only valid JSON matching the schema.
+- Return exactly ${count} multiple-choice questions.
+- Never return fewer or more than ${count} questions.
+- Each question must have exactly 4 answer options in "options".
+- "correctAnswer" must exactly match one of the 4 options.
+- All generated questions, options, and correctAnswer values MUST be written in natural English.
+- Do not write the actual question content in Danish.
+- Every question must be age-appropriate, pedagogically strong, and clearly matched to the stated grade level.
+- Use concrete learning contexts: short sentences, mini texts, vocabulary in context, grammar in context, reading comprehension, or precise culture prompts.
+- Avoid generic filler, vague trivia, joke answers, and placeholders such as "Marker", "Option 1", or other artificial distractors.
+- Distractors must be plausible and should reflect real grammar mistakes, vocabulary confusions, reading misunderstandings, or realistic culture mix-ups.
+- If the topic is grammar or spelling, the wrong answers must look like mistakes students could actually make.
+- If the topic is vocabulary, the wrong answers must be semantically close enough to be believable.
+- If the topic is reading comprehension, use short readable texts with one clear correct inference or understanding.
+- If the topic is British or American culture, use concrete and teachable facts rather than random trivia.
+- Keep every question short enough to work on a phone during an outdoor GPS activity.
+- The title may be in English or Danish, but it must be motivating and specific.
+- Follow these grade-level requirements very closely:
+${gradeLevelGuidance.map((line) => `- ${line}`).join("\n")}
+- Use the following mini-examples as quality and style guides, not as fixed questions:
+${miniExamples.map((example) => `- ${example}`).join("\n")}`,
+    prompt: [
+      `Subject: English.`,
+      `Grade level: ${gradeLevel}.`,
+      `English topic: ${englishTopic}.`,
+      `Question count: ${count}.`,
+      `CRITICAL: Return exactly ${count} questions.`,
+      "All actual question content must be in English.",
+      "Make the distractors plausible and pedagogically useful.",
+      "Use grammar, vocabulary, reading, or culture contexts that fit the topic precisely.",
+      ...gradeLevelGuidance,
+      "Use these mini-examples as quality markers:",
+      ...miniExamples,
+      "Now build the complete English run with title and questions.",
+    ].join("\n"),
+  };
+}
+
 function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -686,7 +953,8 @@ function isQualityValidationError(error: unknown) {
   return (
     error instanceof Error &&
     (error.message.startsWith("Dansk-kvalitetskontrol fejlede:") ||
-      error.message.startsWith("Matematik-kvalitetskontrol fejlede:"))
+      error.message.startsWith("Matematik-kvalitetskontrol fejlede:") ||
+      error.message.startsWith("Engelsk-kvalitetskontrol fejlede:"))
   );
 }
 
@@ -753,6 +1021,8 @@ function validateInterviewRun(
 ) {
   if (payload.builderType === "dansk") {
     validateDanskGeneratedRun(run, payload);
+  } else if (payload.builderType === "engelsk") {
+    validateEnglishGeneratedRun(run, payload);
   } else if (payload.builderType === "matematik") {
     validateMathGeneratedRun(run, payload);
   }
@@ -790,14 +1060,18 @@ export async function POST(req: Request) {
         ? createMathPrompt(parsedPayload.data)
         : parsedPayload.data.builderType === "dansk"
           ? createDanskPrompt(parsedPayload.data)
-        : createManualPrompt(parsedPayload.data);
+          : parsedPayload.data.builderType === "engelsk"
+            ? createEnglishPrompt(parsedPayload.data)
+            : createManualPrompt(parsedPayload.data);
 
     const count = parsedPayload.data.count;
 
     const schema = createGeneratedRunSchema(count);
 
     const maxAttempts =
-      parsedPayload.data.builderType === "dansk" || parsedPayload.data.builderType === "matematik"
+      parsedPayload.data.builderType === "dansk" ||
+      parsedPayload.data.builderType === "matematik" ||
+      parsedPayload.data.builderType === "engelsk"
         ? MAX_QUALITY_GENERATION_ATTEMPTS
         : 1;
 
@@ -879,6 +1153,16 @@ export async function POST(req: Request) {
         {
           error:
             "AI'en leverede matematikspørgsmål, der var for svære, for generiske eller ikke præcist nok tilpasset klassetrinnet. Prøv igen, så beder vi modellen om et skarpere og mere passende løb.",
+        },
+        { status: 502 }
+      );
+    }
+
+    if (error instanceof Error && error.message.startsWith("Engelsk-kvalitetskontrol fejlede:")) {
+      return NextResponse.json(
+        {
+          error:
+            "AI'en leverede engelskspørgsmål, der var for generiske, ikke tydeligt nok på engelsk eller for svage pædagogisk. Prøv igen, så beder vi modellen om et skarpere løb med mere naturligt sprog.",
         },
         { status: 502 }
       );

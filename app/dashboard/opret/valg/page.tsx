@@ -4,10 +4,8 @@ import {
   ArrowLeft,
   BookOpen,
   Camera,
-  Lock,
   MapPin,
   MessageSquare,
-  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -41,6 +39,14 @@ const cards: HubCard[] = [
     description: "Skab en klassisk rute med spørgsmål og fire svarmuligheder.",
     href: "/dashboard/opret/manuel",
     icon: MapPin,
+  },
+  {
+    raceType: "engelsk",
+    title: "Engelsk-løb",
+    description:
+      "Byg et mørkt, britisk-inspireret quiz-løb med grammar, vocabulary, reading og kulturposter.",
+    href: "/dashboard/opret/engelsk",
+    icon: MessageSquare,
   },
   {
     raceType: "foto",
@@ -129,7 +135,7 @@ export default function ValgHubPage() {
           </p>
         </div>
 
-        <div className="mx-auto mt-12 grid max-w-6xl grid-cols-1 gap-8 md:grid-cols-3">
+        <div className="mx-auto mt-12 grid max-w-6xl grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-4">
           {cards.map((card, index) => renderCard(card, index))}
         </div>
 
