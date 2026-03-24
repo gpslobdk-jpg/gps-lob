@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Loader2, SquarePi } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useRef, useState } from "react";
 
@@ -308,7 +308,7 @@ export default function MathAiInterviewModal({
       aria-modal="true"
       aria-labelledby="math-ai-interview-title"
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.14),transparent_30%),radial-gradient(circle_at_bottom,rgba(16,185,129,0.08),transparent_32%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.16),transparent_30%),radial-gradient(circle_at_bottom,rgba(99,102,241,0.12),transparent_34%)]" />
 
       <div className="relative flex min-h-screen items-start justify-center px-6 py-10 sm:items-center">
         <div className="mx-auto w-full max-w-2xl text-center">
@@ -321,13 +321,16 @@ export default function MathAiInterviewModal({
             >
               Luk
             </button>
-            <span>Matematik-AI</span>
+            <span className="inline-flex items-center gap-2 text-blue-200">
+              <SquarePi className="h-4 w-4" />
+              Matematik-AI
+            </span>
             <span>Trin {step}/4</span>
           </div>
 
           <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-white/8">
             <div
-              className="h-full rounded-full bg-emerald-400 transition-all duration-500"
+              className="h-full rounded-full bg-blue-400 transition-all duration-500"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -335,11 +338,14 @@ export default function MathAiInterviewModal({
           <div className="mt-10 rounded-4xl border border-white/10 bg-white/3 px-6 py-10 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:px-10 sm:py-14">
             {step === 1 ? (
               <>
-                <p className="text-sm font-semibold tracking-[0.28em] text-emerald-300 uppercase">Trin 1</p>
+                <p className="text-sm font-semibold tracking-[0.28em] text-blue-300 uppercase">Trin 1</p>
                 <h2
                   id="math-ai-interview-title"
-                  className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
+                  className={`mt-5 flex items-center justify-center gap-3 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                 >
+                  <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-400/25 bg-blue-500/10 text-blue-200 shadow-[0_14px_28px_rgba(59,130,246,0.18)] sm:h-14 sm:w-14">
+                    <SquarePi className="h-6 w-6 sm:h-7 sm:w-7" />
+                  </span>
                   Hvilket klassetrin er løbet til?
                 </h2>
                 <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
@@ -352,7 +358,7 @@ export default function MathAiInterviewModal({
                       key={option}
                       type="button"
                       onClick={() => handleGradeLevelSelect(option)}
-                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/4 px-5 py-5 text-base font-semibold text-white transition hover:border-emerald-300/40 hover:bg-emerald-400/10"
+                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/4 px-5 py-5 text-base font-semibold text-white transition hover:border-blue-300/40 hover:bg-blue-400/10"
                     >
                       {option}
                     </button>
@@ -363,7 +369,7 @@ export default function MathAiInterviewModal({
 
             {step === 2 ? (
               <>
-                <p className="text-sm font-semibold tracking-[0.28em] text-emerald-300 uppercase">Trin 2</p>
+                <p className="text-sm font-semibold tracking-[0.28em] text-blue-300 uppercase">Trin 2</p>
                 <h2
                   id="math-ai-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
@@ -380,7 +386,7 @@ export default function MathAiInterviewModal({
                   onChange={(event) => setMathTopic(event.target.value)}
                   rows={5}
                   placeholder="F.eks. brøker og procenter i 5. klasse eller geometri med vinkler i 7. klasse."
-                  className="mt-10 w-full rounded-[1.8rem] border border-white/10 bg-slate-950/90 px-6 py-5 text-left text-lg text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/50"
+                  className="mt-10 w-full rounded-[1.8rem] border border-white/10 bg-slate-950/90 px-6 py-5 text-left text-lg text-white placeholder:text-slate-500 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
                 />
 
                 {topicSuggestions.length > 0 ? (
@@ -390,7 +396,7 @@ export default function MathAiInterviewModal({
                         key={suggestion}
                         type="button"
                         onClick={() => setMathTopic(suggestion)}
-                        className="rounded-full border border-white/10 bg-white/4 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-emerald-300/40 hover:bg-emerald-400/10"
+                        className="rounded-full border border-white/10 bg-white/4 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-blue-300/40 hover:bg-blue-400/10"
                       >
                         {suggestion}
                       </button>
@@ -410,7 +416,7 @@ export default function MathAiInterviewModal({
                     type="button"
                     onClick={goToCountStep}
                     disabled={!canContinueTopic}
-                    className="inline-flex min-w-55 items-center justify-center rounded-[1.4rem] border border-emerald-300/30 bg-emerald-400 px-8 py-4 text-lg font-bold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex min-w-55 items-center justify-center rounded-[1.4rem] border border-blue-300/30 bg-blue-400 px-8 py-4 text-lg font-bold text-slate-950 transition hover:bg-blue-300 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Næste
                   </button>
@@ -420,7 +426,7 @@ export default function MathAiInterviewModal({
 
             {step === 3 ? (
               <>
-                <p className="text-sm font-semibold tracking-[0.28em] text-emerald-300 uppercase">Trin 3</p>
+                <p className="text-sm font-semibold tracking-[0.28em] text-blue-300 uppercase">Trin 3</p>
                 <h2
                   id="math-ai-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
@@ -439,7 +445,7 @@ export default function MathAiInterviewModal({
                       onClick={() => {
                         void handleGenerate(countOption);
                       }}
-                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/4 px-6 py-5 text-lg font-semibold text-white transition hover:border-emerald-300/40 hover:bg-emerald-400/10"
+                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/4 px-6 py-5 text-lg font-semibold text-white transition hover:border-blue-300/40 hover:bg-blue-400/10"
                     >
                       {countOption} poster
                     </button>
@@ -461,10 +467,10 @@ export default function MathAiInterviewModal({
 
             {step === 4 ? (
               <div className="flex min-h-96 flex-col items-center justify-center">
-                <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 p-6 text-emerald-300">
+                <div className="rounded-full border border-blue-400/20 bg-blue-400/10 p-6 text-blue-300">
                   <Loader2 className="h-10 w-10 animate-spin" />
                 </div>
-                <p className="mt-8 text-sm font-semibold tracking-[0.28em] text-emerald-300 uppercase">Trin 4</p>
+                <p className="mt-8 text-sm font-semibold tracking-[0.28em] text-blue-300 uppercase">Trin 4</p>
                 <h2
                   id="math-ai-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}

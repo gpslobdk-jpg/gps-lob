@@ -1,5 +1,6 @@
 export type RaceTypeThemeKey =
   | "manuel"
+  | "matematik"
   | "foto"
   | "escape"
   | "rollespil"
@@ -42,6 +43,23 @@ const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
       "border border-emerald-200 bg-white text-emerald-900 shadow-sm hover:border-emerald-300 hover:bg-emerald-50",
     archiveGhostIconButtonClass:
       "border border-emerald-200 bg-white text-emerald-800 shadow-sm hover:border-emerald-300 hover:bg-emerald-50",
+    archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
+    archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
+  },
+  matematik: {
+    key: "matematik",
+    label: "Matematik",
+    selectionCardClass:
+      "border-blue-400/40 bg-blue-700 text-white shadow-xl shadow-blue-950/25 hover:border-blue-300/60 hover:bg-blue-600 hover:shadow-2xl hover:shadow-blue-950/35",
+    archiveCardClass: "border-blue-300/60 shadow-blue-500/10 hover:shadow-blue-500/20",
+    archiveHeaderClass: "bg-blue-700 text-white",
+    archiveAccentIconClass: "text-blue-700",
+    archivePrimaryButtonClass:
+      "border border-blue-700 bg-blue-700 text-white shadow-[0_12px_24px_rgba(37,99,235,0.18)] hover:bg-blue-600",
+    archiveGhostButtonClass:
+      "border border-blue-200 bg-white text-blue-900 shadow-sm hover:border-blue-300 hover:bg-blue-50",
+    archiveGhostIconButtonClass:
+      "border border-blue-200 bg-white text-blue-800 shadow-sm hover:border-blue-300 hover:bg-blue-50",
     archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
     archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
   },
@@ -143,6 +161,9 @@ export function normalizeRaceTypeThemeKey(value: unknown): RaceTypeThemeKey {
     case "manuel":
     case "manual":
       return "manuel";
+    case "matematik":
+    case "math":
+      return "matematik";
     case "foto":
     case "photo":
       return "foto";

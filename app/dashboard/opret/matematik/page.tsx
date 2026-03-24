@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Loader2, Plus } from "lucide-react";
+import { Calculator, Camera, Check, Loader2, Plus, Ruler, SquareFunction, SquareSigma } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
@@ -27,7 +27,7 @@ import { createClient } from "@/utils/supabase/client";
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ssr: false,
   loading: () => (
-    <div className="h-full w-full animate-pulse rounded-3xl border border-emerald-500/20 bg-slate-900/50" />
+    <div className="h-full w-full animate-pulse rounded-3xl border border-blue-500/20 bg-slate-900/50" />
   ),
 });
 
@@ -233,13 +233,13 @@ const createQuestion = (type: Question["type"] = "multiple_choice"): Question =>
 });
 
 const inputClass =
-  "w-full rounded-2xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+  "w-full rounded-2xl border border-blue-500/30 bg-blue-950/20 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const textareaClass =
-  "w-full rounded-2xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+  "w-full rounded-2xl border border-blue-500/30 bg-blue-950/20 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const aiActionButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 px-5 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-blue-500/30 bg-blue-500/10 text-blue-200 hover:bg-blue-500/20 px-5 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const DEFAULT_ANSWERS: [string, string, string, string] = ["", "", "", ""];
 
@@ -389,13 +389,13 @@ export default function OpretLoebPage() {
   return (
     <Suspense
       fallback={
-        <div className={`min-h-screen bg-emerald-950 ${poppins.className}`}>
+        <div className={`min-h-screen bg-slate-950 ${poppins.className}`}>
           <div className="flex min-h-screen items-center justify-center px-6 text-center">
-            <div className="rounded-4xl border border-emerald-500/20 bg-slate-900/50 px-8 py-10 text-emerald-100 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
-              <p className="text-xs font-semibold tracking-[0.28em] text-emerald-100/55 uppercase">
+            <div className="rounded-4xl border border-blue-500/20 bg-slate-900/50 px-8 py-10 text-blue-50 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+              <p className="text-xs font-semibold tracking-[0.28em] text-blue-100/55 uppercase">
                 Indlæser
               </p>
-              <h1 className={`mt-3 text-3xl font-black tracking-tight text-emerald-100 ${rubik.className}`}>
+              <h1 className={`mt-3 text-3xl font-black tracking-tight text-blue-50 ${rubik.className}`}>
                 Matematik-bygger
               </h1>
             </div>
@@ -434,7 +434,7 @@ function OpretLoebPageContent() {
       <div
         className={`rounded-3xl border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
           notice.tone === "success"
-            ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-50"
+            ? "border-blue-300/30 bg-blue-500/10 text-blue-50"
             : "border-red-300/30 bg-red-500/10 text-red-100"
         } ${className}`}
       >
@@ -933,18 +933,18 @@ function OpretLoebPageContent() {
 
   if (isEditMode && isLoadingExistingRun) {
     return (
-      <div className={`relative min-h-screen overflow-hidden bg-emerald-950 text-emerald-100 ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-linear-to-br from-emerald-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
+      <div className={`relative min-h-screen overflow-hidden bg-slate-950 text-blue-50 ${poppins.className}`}>
+        <div className="fixed inset-0 -z-10 bg-linear-to-br from-blue-950/60 via-slate-900/80 to-indigo-950 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
-          <div className="w-full max-w-md rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-            <Loader2 className="mx-auto h-10 w-10 animate-spin text-emerald-200" />
-            <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-emerald-100/55 uppercase">
+          <div className="w-full max-w-md rounded-3xl border border-blue-500/20 bg-slate-900/60 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+            <Loader2 className="mx-auto h-10 w-10 animate-spin text-blue-200" />
+            <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-blue-100/55 uppercase">
               Rediger matematik-løb
             </p>
-            <h1 className={`mt-3 text-3xl font-black tracking-tight text-emerald-100 ${rubik.className}`}>
+            <h1 className={`mt-3 text-3xl font-black tracking-tight text-blue-50 ${rubik.className}`}>
               Indlæser dine regneopgaver
             </h1>
-            <p className="mt-3 text-sm leading-6 text-emerald-100/70">
+            <p className="mt-3 text-sm leading-6 text-blue-100/70">
               Vi henter løbets data og klargør builderen til redigering.
             </p>
           </div>
@@ -955,8 +955,8 @@ function OpretLoebPageContent() {
 
   return (
     <>
-      <div className={`relative min-h-screen overflow-x-hidden bg-emerald-950 text-emerald-100 ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-linear-to-br from-emerald-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
+      <div className={`relative min-h-screen overflow-x-hidden bg-slate-950 text-blue-50 ${poppins.className}`}>
+        <div className="fixed inset-0 -z-10 bg-linear-to-br from-blue-950/60 via-slate-900/80 to-indigo-950 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
           <MobileBuilderWarning />
           <section className="hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
@@ -968,14 +968,21 @@ function OpretLoebPageContent() {
               >
                 <div className="px-1 pt-1">
                   {isEditMode ? (
-                    <div className="mb-4 inline-flex items-center rounded-full border border-emerald-400/25 bg-emerald-400/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-emerald-100 uppercase">
+                    <div className="mb-4 inline-flex items-center rounded-full border border-blue-400/25 bg-blue-400/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-blue-50 uppercase">
                       Edit-mode
                     </div>
                   ) : null}
 
                   <div className="mb-8">
-                    <h3 className="text-xl font-semibold text-emerald-100">Velkommen til matematik-løbet.</h3>
-                    <p className="mt-2 text-sm text-emerald-100/80">Placer posterne på kortet, og indtast et matematikspørgsmål med fire svarmuligheder til hver post. Du kan også bruge den indbyggede AI-assistent til at generere opgaverne for dig.</p>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-400/25 bg-blue-500/10 text-blue-200 shadow-[0_14px_28px_rgba(59,130,246,0.18)]">
+                        <SquareSigma className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold text-blue-50">Opret matematik-løb</h3>
+                        <p className="mt-1 text-sm text-blue-100/80">Placer posterne på kortet, og indtast et matematikspørgsmål med fire svarmuligheder til hver post. Du kan også bruge den indbyggede AI-assistent til at generere opgaverne for dig.</p>
+                      </div>
+                    </div>
                     <button
                       type="button"
                       onClick={() => {
@@ -985,12 +992,13 @@ function OpretLoebPageContent() {
                       disabled={isEditorBusy}
                       className={`${aiActionButtonClass} mt-4 w-full sm:w-auto`}
                     >
+                      <Calculator className="h-4 w-4" />
                       Auto-udfyld med AI
                     </button>
                   </div>
 
                   <div className="mb-2">
-                    <label className="block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                    <label className="block text-xs font-semibold tracking-[0.22em] text-blue-100/65 uppercase">
                       Løbets titel
                     </label>
                   </div>
@@ -999,15 +1007,15 @@ function OpretLoebPageContent() {
                     onChange={(event) => setTitle(event.target.value)}
                     disabled={isEditorBusy}
                     placeholder="F.eks. 5.A's store brøk-løb"
-                    className="w-full rounded-[1.6rem] border border-emerald-500/30 bg-emerald-950/20 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                    className="w-full rounded-[1.6rem] border border-blue-500/30 bg-blue-950/20 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                   />
                 </div>
               <div className="px-1">
-                <div className="rounded-3xl border border-emerald-500/30 bg-emerald-950/20 p-4 backdrop-blur-xl">
-                  <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                <div className="rounded-3xl border border-blue-500/30 bg-blue-950/20 p-4 backdrop-blur-xl">
+                  <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-blue-100/65 uppercase">
                     Fag
                   </label>
-                  <div className="w-full rounded-2xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-slate-100">
+                  <div className="w-full rounded-2xl border border-blue-500/30 bg-blue-950/20 px-4 py-3 text-slate-100">
                     {MATH_SUBJECT}
                   </div>
                 </div>
@@ -1016,11 +1024,11 @@ function OpretLoebPageContent() {
               <div className="space-y-4 px-1">
                 <div className="flex items-end justify-between gap-4">
                   <div>
-                    <p className="text-xs font-semibold tracking-[0.24em] text-emerald-100/65 uppercase">
+                    <p className="text-xs font-semibold tracking-[0.24em] text-blue-100/65 uppercase">
                       Dine poster
                     </p>
                   </div>
-                  <span className="rounded-full border border-emerald-500/30 bg-emerald-950/20 px-4 py-2 text-sm font-semibold text-emerald-100/80 backdrop-blur-xl">
+                  <span className="rounded-full border border-blue-500/30 bg-blue-950/20 px-4 py-2 text-sm font-semibold text-blue-100/80 backdrop-blur-xl">
                     {questions.length}
                   </span>
                 </div>
@@ -1034,25 +1042,28 @@ function OpretLoebPageContent() {
                 return (
                   <article
                     key={question.id}
-                    className="rounded-[1.8rem] border border-emerald-500/30 bg-emerald-950/20 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
+                    className="rounded-[1.8rem] border border-blue-500/30 bg-blue-950/20 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2.5">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-950/20 text-sm font-bold text-emerald-100">
-                          {questionIndex + 1}
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-blue-500/30 bg-blue-950/20 text-blue-100">
+                          {isPhotoMission ? <Camera className="h-4 w-4" /> : <SquareFunction className="h-4 w-4" />}
                         </div>
                         <div>
-                          <h3 className={`text-lg font-bold text-emerald-100 ${rubik.className}`}>
+                          <h3 className={`flex items-center gap-2 text-lg font-bold text-blue-50 ${rubik.className}`}>
+                            <span className="rounded-full border border-blue-400/25 bg-blue-500/10 px-2 py-0.5 text-xs font-semibold text-blue-200">
+                              {questionIndex + 1}
+                            </span>
                             {isPhotoMission ? "Foto-post" : "Quiz-post"}
                           </h3>
-                          <p className="text-xs text-emerald-100/65">
+                          <p className="text-xs text-blue-100/65">
                             {question.lat !== null && question.lng !== null
                               ? "Pin er valgt på kortet"
                               : "Ingen pin valgt endnu"}
                           </p>
                         </div>
                       </div>
-                      <span className="rounded-full border border-emerald-500/30 bg-emerald-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-emerald-100/75 uppercase backdrop-blur-xl">
+                      <span className="rounded-full border border-blue-500/30 bg-blue-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-blue-100/75 uppercase backdrop-blur-xl">
                         {isPhotoMission ? "AI foto" : "4 svar"}
                       </span>
                     </div>
@@ -1060,7 +1071,7 @@ function OpretLoebPageContent() {
                     {isPhotoMission ? (
                       <>
                         <div className="mt-4">
-                          <label className="mb-2 block text-xs font-semibold tracking-[0.12em] text-emerald-100/65">
+                          <label className="mb-2 block text-xs font-semibold tracking-[0.12em] text-blue-100/65">
                             Hvad skal de finde?
                           </label>
                           <input
@@ -1073,7 +1084,7 @@ function OpretLoebPageContent() {
                         </div>
 
                         <div className="mt-4">
-                          <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                          <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-blue-100/65 uppercase">
                             Instruktion
                           </label>
                           <textarea
@@ -1086,14 +1097,14 @@ function OpretLoebPageContent() {
                           />
                         </div>
 
-                        <div className="mt-4 rounded-[1.25rem] border border-emerald-500/30 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-50/85">
+                        <div className="mt-4 rounded-[1.25rem] border border-blue-500/30 bg-blue-950/30 px-4 py-3 text-sm text-blue-50/85">
                           Denne foto-post bruger AI-billedtjek under spillet, så den har ikke svarmuligheder.
                         </div>
                       </>
                     ) : (
                       <>
                         <div className="mt-4">
-                          <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                          <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-blue-100/65 uppercase">
                             Spørgsmålstekst
                           </label>
                           <input
@@ -1114,8 +1125,8 @@ function OpretLoebPageContent() {
                                 key={`${question.id}-${answerIndex}`}
                                 className={`flex items-center gap-2.5 rounded-[1.25rem] border px-3 py-2.5 transition ${
                                   isCorrectAnswer
-                                    ? "border-emerald-300/40 bg-emerald-500/12 shadow-[0_14px_28px_rgba(16,185,129,0.12)]"
-                                    : "border-emerald-500/30 bg-emerald-950/20 hover:border-emerald-400/25"
+                                    ? "border-blue-300/40 bg-blue-500/12 shadow-[0_14px_28px_rgba(59,130,246,0.12)]"
+                                    : "border-blue-500/30 bg-blue-950/20 hover:border-blue-400/25"
                                 }`}
                               >
                                 <button
@@ -1125,8 +1136,8 @@ function OpretLoebPageContent() {
                                   aria-pressed={isCorrectAnswer}
                                   className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-black transition ${
                                     isCorrectAnswer
-                                      ? "border-emerald-200 bg-emerald-300 text-[#062515] shadow-[0_0_18px_rgba(110,231,183,0.24)]"
-                                      : "border-emerald-500/30 bg-emerald-950/20 text-emerald-100/78 hover:border-emerald-300/30"
+                                      ? "border-blue-200 bg-blue-300 text-blue-950 shadow-[0_0_18px_rgba(96,165,250,0.24)]"
+                                      : "border-blue-500/30 bg-blue-950/20 text-blue-100/78 hover:border-blue-300/30"
                                   }`}
                                 >
                                   {String.fromCharCode(65 + answerIndex)}
@@ -1145,8 +1156,8 @@ function OpretLoebPageContent() {
                                   onClick={() => updateQuestion(question.id, { correctIndex: answerIndex })}
                                   className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] transition ${
                                     isCorrectAnswer
-                                      ? "border-emerald-200/60 bg-emerald-300 text-[#062515]"
-                                      : "border-emerald-500/30 bg-emerald-950/20 text-emerald-100/72 hover:border-emerald-300/30 hover:text-emerald-100"
+                                      ? "border-blue-200/60 bg-blue-300 text-blue-950"
+                                      : "border-blue-500/30 bg-blue-950/20 text-blue-100/72 hover:border-blue-300/30 hover:text-blue-100"
                                   }`}
                                 >
                                   {isCorrectAnswer ? <Check className="h-3.5 w-3.5" /> : null}
@@ -1163,13 +1174,14 @@ function OpretLoebPageContent() {
                       type="button"
                       onClick={() => assignPinFromCenter(question.id)}
                       disabled={isEditorBusy}
-                      className="mt-4 w-full rounded-[1.35rem] border border-emerald-500/30 bg-emerald-500 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                      className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[1.35rem] border border-blue-500/30 bg-blue-500 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                     >
+                      <Ruler className="h-4 w-4" />
                       Hent pin fra kortet
                     </button>
 
                     {question.lat !== null && question.lng !== null ? (
-                      <p className="mt-2.5 text-xs text-emerald-100/70">
+                      <p className="mt-2.5 text-xs text-blue-100/70">
                         Pin gemt: {question.lat.toFixed(5)}, {question.lng.toFixed(5)}
                       </p>
                     ) : null}
@@ -1177,12 +1189,12 @@ function OpretLoebPageContent() {
                 );
               })}
 
-              <div className="rounded-4xl border border-emerald-500/30 bg-emerald-950/20 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+              <div className="rounded-4xl border border-blue-500/30 bg-blue-950/20 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
                 <button
                   type="button"
                   onClick={addQuestion}
                   disabled={isEditorBusy}
-                  className="inline-flex items-center gap-2 rounded-[1.4rem] border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-sm font-semibold text-emerald-100 backdrop-blur-xl transition hover:bg-emerald-900/30 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-[1.4rem] border border-blue-500/30 bg-blue-950/20 px-4 py-3 text-sm font-semibold text-blue-100 backdrop-blur-xl transition hover:bg-blue-900/30 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                 >
                   <Plus className="h-4 w-4" />
                   {addQuestionLabel}
@@ -1194,7 +1206,7 @@ function OpretLoebPageContent() {
                     type="button"
                     onClick={handleSaveRun}
                     disabled={isSaving}
-                    className="w-full rounded-[1.6rem] border border-emerald-500/30 bg-emerald-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                    className="w-full rounded-[1.6rem] border border-blue-500/30 bg-blue-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                   >
                     {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem matematik-løb i arkivet"}
                   </button>
@@ -1206,7 +1218,7 @@ function OpretLoebPageContent() {
 
         <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
           <div className="lg:sticky lg:top-5">
-            <div className="h-[42vh] min-h-80 w-full overflow-hidden rounded-4xl border border-emerald-500/20 bg-slate-900/50 shadow-[0_0_0_1px_rgba(16,185,129,0.08),0_0_36px_rgba(16,185,129,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
+            <div className="h-[42vh] min-h-80 w-full overflow-hidden rounded-4xl border border-blue-500/20 bg-slate-900/50 shadow-[0_0_0_1px_rgba(59,130,246,0.08),0_0_36px_rgba(59,130,246,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
               <MapPicker center={mapCenter} pins={pins} onCenterChange={setMapCenter} />
             </div>
           </div>
