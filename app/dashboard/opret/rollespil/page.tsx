@@ -524,7 +524,7 @@ function RollespilBuilderPageContent() {
       setSubject(asTrimmedString(run.subject));
       setShowTeacherField(Boolean(asTrimmedString(run.subject)));
       setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
-      setActivePinQuestionId(findFirstUnpinnedQuestionId(loadedQuestions));
+      setActivePinTarget(findFirstUnpinnedQuestionId(loadedQuestions));
       setShowAiInterviewModal(false);
       setMapCenter(
         firstPinnedQuestion
@@ -584,7 +584,7 @@ function RollespilBuilderPageContent() {
         restoreDraftBoolean(restoredDraft.showTeacherField, Boolean(restoredSubject.trim()))
       );
       setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
-      setActivePinQuestionId(findFirstUnpinnedQuestionId(restoredQuestions));
+      setActivePinTarget(findFirstUnpinnedQuestionId(restoredQuestions));
       setShowAiInterviewModal(restoreDraftBoolean(restoredDraft.showAiInterviewModal));
       setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
       setNotice(null);
@@ -614,9 +614,10 @@ function RollespilBuilderPageContent() {
     title,
   ]);
 
-  useEffect(() => {
-    activePinQuestionIdRef.current = activePinQuestionId;
-  }, [activePinQuestionId]);
+  const setActivePinTarget = (id: number | null) => {
+    activePinQuestionIdRef.current = id;
+    setActivePinQuestionId(id);
+  };
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -698,7 +699,7 @@ function RollespilBuilderPageContent() {
   };
 
   const startPinSelection = (id: number) => {
-    setActivePinQuestionId(id);
+    setActivePinTarget(id);
     scrollToQuestionCard(id);
     setNotice({
       tone: "success",
@@ -722,7 +723,7 @@ function RollespilBuilderPageContent() {
       questions.find((question, index) => index > questionIndex && (question.lat === null || question.lng === null))?.id ?? null;
 
     setMapCenter({ lat, lng });
-    setActivePinQuestionId(nextQuestionId);
+    setActivePinTarget(nextQuestionId);
 
     if (nextQuestionId !== null) {
       window.setTimeout(() => {
@@ -814,7 +815,7 @@ function RollespilBuilderPageContent() {
 
     setTitle(nextTitle);
     setQuestions([...nextQuestions]);
-    setActivePinQuestionId(findFirstUnpinnedQuestionId(nextQuestions));
+    setActivePinTarget(findFirstUnpinnedQuestionId(nextQuestions));
     setShowAiInterviewModal(false);
     setNotice({
       tone: "success",
@@ -978,7 +979,7 @@ function RollespilBuilderPageContent() {
         setSubject("");
         setShowTeacherField(false);
         setQuestions([createQuestion()]);
-        setActivePinQuestionId(null);
+        setActivePinTarget(null);
       }
 
       await new Promise((resolve) => window.setTimeout(resolve, 450));
