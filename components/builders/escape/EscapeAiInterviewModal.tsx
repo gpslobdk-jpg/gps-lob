@@ -55,14 +55,12 @@ export type EscapeAiInterviewPuzzle = {
 
 export type EscapeAiInterviewDraft = {
   title: string;
-  description: string;
   masterCode: string;
   puzzles: EscapeAiInterviewPuzzle[];
 };
 
 type ApiSuccessResponse = {
   title?: unknown;
-  description?: unknown;
   masterCode?: unknown;
   puzzles?: unknown;
 };
@@ -110,10 +108,9 @@ function isInterviewDraftResponse(value: unknown): value is EscapeAiInterviewDra
 
   const candidate = value as ApiSuccessResponse;
   const title = asTrimmedString(candidate.title);
-  const description = asTrimmedString(candidate.description);
   const masterCode = asTrimmedString(candidate.masterCode);
 
-  if (!title || !description) {
+  if (!title) {
     return false;
   }
 
@@ -292,7 +289,6 @@ export default function EscapeAiInterviewModal({
 
       onComplete({
         title: asTrimmedString(payload.title),
-        description: asTrimmedString(payload.description),
         masterCode: asTrimmedString(payload.masterCode),
         puzzles: payload.puzzles.map((puzzle) => {
           const candidatePuzzle = puzzle as {
@@ -307,7 +303,6 @@ export default function EscapeAiInterviewModal({
         }),
       });
       clearSessionDraft(ESCAPE_AI_INTERVIEW_SESSION_KEY);
-      onClose();
     } catch (requestError) {
       if (requestError instanceof DOMException && requestError.name === "AbortError") {
         return;

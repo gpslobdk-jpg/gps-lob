@@ -50,13 +50,11 @@ type SessionDraftState = {
 
 export type FotoAiInterviewDraft = {
   title: string;
-  description: string;
   missions: string[];
 };
 
 type ApiSuccessResponse = {
   title?: unknown;
-  description?: unknown;
   missions?: unknown;
 };
 
@@ -97,7 +95,7 @@ function isInterviewDraftResponse(value: unknown): value is FotoAiInterviewDraft
   if (!value || typeof value !== "object") return false;
 
   const candidate = value as ApiSuccessResponse;
-  if (!asTrimmedString(candidate.title) || !asTrimmedString(candidate.description)) {
+  if (!asTrimmedString(candidate.title)) {
     return false;
   }
 
@@ -257,11 +255,9 @@ export default function FotoAiInterviewModal({
 
       onComplete({
         title: asTrimmedString(payload.title),
-        description: asTrimmedString(payload.description),
         missions: payload.missions.map((mission) => asTrimmedString(mission)),
       });
       clearSessionDraft(FOTO_AI_INTERVIEW_SESSION_KEY);
-      onClose();
     } catch (requestError) {
       if (requestError instanceof DOMException && requestError.name === "AbortError") {
         return;

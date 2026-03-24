@@ -639,7 +639,8 @@ function EscapeBuilderPageContent() {
 
     setTitle(nextTitle);
     setMasterCode(nextMasterCode);
-    setQuestions(nextQuestions);
+    setQuestions([...nextQuestions]);
+    setShowAiInterviewModal(false);
     setNotice({
       tone: "success",
       message: "AI har klargjort et komplet escape room. Gennemgå felterne og placer posterne på kortet.",

@@ -642,7 +642,8 @@ function FotoMissionBuilderPageContent() {
     }
 
     setTitle(nextTitle);
-    setQuestions(nextQuestions);
+    setQuestions([...nextQuestions]);
+    setShowAiInterviewModal(false);
     setNotice({
       tone: "success",
       message: "AI har klargjort et komplet foto-løb. Gennemgå felterne og placer missionerne på kortet.",
