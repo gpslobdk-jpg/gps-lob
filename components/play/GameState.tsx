@@ -76,6 +76,9 @@ type LiveSessionStatusRow = {
   status?: string | null;
 };
 
+const LOCATION_SYNC_404_STRIKE_LIMIT = 3;
+const LOCATION_SYNC_RECOVERY_CHECK_COOLDOWN_MS = 15000;
+
 export function usePlayGameState({
   sessionId,
   initialStudentName = "",
@@ -162,6 +165,7 @@ export function usePlayGameState({
   const [isProvisioningParticipant, setIsProvisioningParticipant] = useState(false);
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
   const [sessionStatus, setSessionStatus] = useState<string | null>(null);
+  const [locationSyncErrors, setLocationSyncErrors] = useState(0);
 
   const answersTableMissingRef = useRef(false);
   const hasRestoredRef = useRef(!Boolean(storedParticipantOnLoad) || isStoredParticipantFreshJoin);
@@ -173,6 +177,10 @@ export function usePlayGameState({
   const masterVictoryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const submissionLockRef = useRef(false);
   const isMountedRef = useRef(true);
+  const locationSyncErrorsRef = useRef(0);
+  const locationSyncSuspendedRef = useRef(false);
+  const locationSyncRecoveryCheckInFlightRef = useRef(false);
+  const locationSyncRecoveryCheckCooldownUntilRef = useRef(0);
   const clearRoleplayInputErrorTone = useCallback(() => {
     if (roleplayInputErrorTimerRef.current) {
       clearTimeout(roleplayInputErrorTimerRef.current);
@@ -377,6 +385,130 @@ export function usePlayGameState({
     [sessionId, supabase]
   );
 
+  const resetLocationSyncRecovery = useCallback(() => {
+    locationSyncErrorsRef.current = 0;
+    locationSyncSuspendedRef.current = false;
+    locationSyncRecoveryCheckCooldownUntilRef.current = 0;
+    setLocationSyncErrors(0);
+  }, []);
+
+  const markPlayAsFinished = useCallback(() => {
+    resetLocationSyncRecovery();
+    clearStoredActiveParticipant();
+    setParticipantId(null);
+    setShowQuestion(false);
+    setIsKicked(false);
+    setIsFinished(true);
+  }, [resetLocationSyncRecovery]);
+
+  const markPlayAsKicked = useCallback(() => {
+    resetLocationSyncRecovery();
+    clearStoredActiveParticipant();
+    setParticipantId(null);
+    setShowQuestion(false);
+    setIsFinished(false);
+    setIsKicked(true);
+  }, [resetLocationSyncRecovery]);
+
+  const runAuthoritativeLocationSyncCheck = useCallback(async () => {
+    if (!sessionId || !participantId || locationSyncRecoveryCheckInFlightRef.current) {
+      return;
+    }
+
+    locationSyncRecoveryCheckInFlightRef.current = true;
+
+    try {
+      if (sessionStatus === "finished") {
+        markPlayAsFinished();
+        return;
+      }
+
+      const sessionResponse = await fetch(
+        `/api/play/session?sessionId=${encodeURIComponent(sessionId)}`,
+        {
+          cache: "no-store",
+        }
+      );
+
+      if (sessionResponse.status === 404 || sessionResponse.status === 410) {
+        markPlayAsKicked();
+        return;
+      }
+
+      if (!sessionResponse.ok) {
+        console.error(
+          "Kunne ikke verificere sessionen efter positionsfejl:",
+          sessionResponse.status,
+          sessionResponse.statusText
+        );
+        return;
+      }
+
+      const { data: liveSessionRow, error: liveSessionError } = await supabase
+        .from("live_sessions")
+        .select("status")
+        .eq("id", sessionId)
+        .maybeSingle<LiveSessionStatusRow>();
+
+      if (liveSessionError) {
+        console.error("Kunne ikke hente live session-status efter positionsfejl:", liveSessionError);
+        return;
+      }
+
+      const nextSessionStatus = liveSessionRow?.status ?? null;
+      setSessionStatus(nextSessionStatus);
+
+      if (nextSessionStatus === "finished") {
+        markPlayAsFinished();
+        return;
+      }
+
+      const { data: participantSnapshot, error: participantSnapshotError } =
+        await fetchParticipantSnapshot(participantId);
+
+      if (participantSnapshotError) {
+        console.error(
+          "Kunne ikke verificere deltageren efter positionsfejl:",
+          participantSnapshotError
+        );
+        return;
+      }
+
+      if (!participantSnapshot) {
+        markPlayAsKicked();
+        return;
+      }
+
+      if (participantSnapshot.finished_at) {
+        markPlayAsFinished();
+        return;
+      }
+
+      resetLocationSyncRecovery();
+    } catch (error) {
+      console.error("Kunne ikke gennemfoere autoritativ session-check efter positionsfejl:", error);
+    } finally {
+      locationSyncRecoveryCheckInFlightRef.current = false;
+    }
+  }, [
+    fetchParticipantSnapshot,
+    markPlayAsFinished,
+    markPlayAsKicked,
+    participantId,
+    resetLocationSyncRecovery,
+    sessionId,
+    sessionStatus,
+    supabase,
+  ]);
+
+  useEffect(() => {
+    locationSyncErrorsRef.current = locationSyncErrors;
+  }, [locationSyncErrors]);
+
+  useEffect(() => {
+    resetLocationSyncRecovery();
+  }, [participantId, resetLocationSyncRecovery, sessionId]);
+
   useEffect(() => {
     if (questions.length === 0 || isFinished || correctAnswersCount > 0 || routeOrder.length === 0) return;
 
@@ -491,6 +623,18 @@ export function usePlayGameState({
     async (lat: number, lng: number) => {
       if (!sessionId || !participantId) return;
 
+      if (locationSyncSuspendedRef.current) {
+        if (
+          !locationSyncRecoveryCheckInFlightRef.current &&
+          Date.now() >= locationSyncRecoveryCheckCooldownUntilRef.current
+        ) {
+          locationSyncRecoveryCheckCooldownUntilRef.current =
+            Date.now() + LOCATION_SYNC_RECOVERY_CHECK_COOLDOWN_MS;
+          void runAuthoritativeLocationSyncCheck();
+        }
+        return;
+      }
+
       try {
         const response = await fetch("/api/play/location", {
           method: "POST",
@@ -508,9 +652,25 @@ export function usePlayGameState({
 
         if (!response.ok) {
           const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+          if (response.status === 404) {
+            const nextLocationSyncErrors = locationSyncErrorsRef.current + 1;
+            locationSyncErrorsRef.current = nextLocationSyncErrors;
+            setLocationSyncErrors(nextLocationSyncErrors);
+
+            if (nextLocationSyncErrors >= LOCATION_SYNC_404_STRIKE_LIMIT) {
+              locationSyncSuspendedRef.current = true;
+              locationSyncRecoveryCheckCooldownUntilRef.current =
+                Date.now() + LOCATION_SYNC_RECOVERY_CHECK_COOLDOWN_MS;
+              void runAuthoritativeLocationSyncCheck();
+            }
+          }
+
           console.error("Kunne ikke opdatere deltagerposition:", payload?.error ?? response.statusText);
           return;
         }
+
+        resetLocationSyncRecovery();
 
         const payload = (await response.json().catch(() => null)) as
           | { participantId?: string | null }
@@ -523,7 +683,15 @@ export function usePlayGameState({
         console.error("Kunne ikke synkronisere deltagerposition:", error);
       }
     },
-    [participantId, pendingPlayerName, playerName, rememberActiveParticipant, sessionId]
+    [
+      participantId,
+      pendingPlayerName,
+      playerName,
+      rememberActiveParticipant,
+      resetLocationSyncRecovery,
+      runAuthoritativeLocationSyncCheck,
+      sessionId,
+    ]
   );
 
   useEffect(() => {
