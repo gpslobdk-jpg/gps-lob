@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import RollespilAiInterviewModal, {
   type RollespilAiInterviewDraft,
@@ -707,7 +707,8 @@ function RollespilBuilderPageContent() {
     });
   };
 
-  const handleMapClick = (coords: MapCenter) => {
+  const handleMapClick = useCallback((coords: MapCenter) => {
+    console.error("!!! CLICK REACHED THE PAGE !!!");
     const { lat, lng } = coords;
     const activeQuestionId = activePinQuestionIdRef.current;
     console.log("Map clicked in Rollespil!", lat, lng, "Active pin index:", activeQuestionId);
@@ -730,7 +731,7 @@ function RollespilBuilderPageContent() {
         scrollToQuestionCard(nextQuestionId!);
       }, 120);
     }
-  };
+  }, [questions]);
 
   const addQuestion = () => {
     setQuestions((current) => [...current, createQuestion()]);

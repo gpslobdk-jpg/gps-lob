@@ -76,6 +76,7 @@ function MapClickReporter({
 }) {
   useMapEvents({
     click(event) {
+      console.log("MAP-PICKER INTERNAL CLICK DETECTED");
       onMapClick?.({ lat: event.latlng.lat, lng: event.latlng.lng });
     },
   });
