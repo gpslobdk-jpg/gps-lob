@@ -115,11 +115,13 @@ Du SKAL altid følge disse regler:
 
 function createMathPrompt(input: z.infer<typeof mathInterviewPayloadSchema>) {
   const { count, gradeLevel, mathTopic } = input;
+  const mathPromptExamples = createMathPromptExamples(mathTopic, gradeLevel);
+  const mathGradeLevelGuidance = createMathGradeLevelGuidance(gradeLevel);
 
   return {
     schemaName: "MathBuilderInterviewRun",
     schemaDescription: "Et komplet matematik-løb med titel og fagligt korrekte multiple-choice spørgsmål.",
-    systemPrompt: `Du er en dansk matematikfaglig redaktør, opgaveforfatter og kvalitetssikrer for GPSLØB.
+    systemPrompt: `Du er en dygtig, erfaren og pædagogisk stærk matematiklærer-AI. Din opgave er at gøre matematikundervisningen tydelig, tryg, motiverende og fagligt præcis.
 Du bygger komplette matematik-løb til skolebrug.
 
 Du SKAL altid følge disse regler:
@@ -130,14 +132,23 @@ Du SKAL altid følge disse regler:
 - Hvert spørgsmål skal have præcis 4 svarmuligheder i "options".
 - "correctAnswer" skal matche én af de 4 svarmuligheder ordret.
 - Alle spørgsmål skal være matematisk korrekte, fagligt præcise og passende til det angivne klassetrin.
+- Niveauet SKAL ramme klassetrinnet meget præcist. Hvis klassetrinnet er lavt, skal spørgsmålene være markant lettere, kortere og mere konkrete.
+- Det er vigtigere at ramme elevniveauet præcist end at virke avanceret.
 - Regnefejl, upræcise formuleringer og tvetydige facit er ikke tilladt.
 - De tre forkerte svar skal være plausible og realistiske fejltrin, ikke absurde joke-svar.
+- De forkerte svar skal ligne typiske elevfejl, almindelige regnefejl eller nærliggende misforståelser, som passer til klassetrinnet.
+- Skriv spørgsmålene med konkrete tal, korte hverdagssituationer eller tydelige regneeksempler, især på de lave klassetrin.
+- Undgå unødigt abstrakte eller teksttunge opgaver på de lave klassetrin.
 - Variér opgavetyperne inden for emnet, så løbet føles gennemarbejdet og undervisningsrelevant.
 - Brug et klart og elevvenligt sprog, men uden at gøre opgaverne for lette.
 - Titel skal være motiverende, konkret og brugbar i arkivet.
 - Spørgsmålene skal fungere som poster i et udendørs GPS-løb, så de skal være korte nok til at kunne læses stående på en mobil.
 - Hvis emnet lægger op til beregning, må du gerne bruge små konkrete regnestykker, men facit skal altid være entydigt.
-- Undgå teksttunge forklaringer og hold fokus på faglig træfsikkerhed.`,
+- Undgå teksttunge forklaringer og hold fokus på faglig træfsikkerhed.
+- Følg disse klassetrinsspecifikke krav meget nøje:
+${mathGradeLevelGuidance.map((line) => `- ${line}`).join("\n")}
+- Brug denne type mini-eksempler som kvalitetsniveau og form, ikke som faste spørgsmål:
+${mathPromptExamples.map((example) => `- ${example}`).join("\n")}`,
     prompt: [
       `Fag: Matematik.`,
       `Klassetrin: ${gradeLevel}.`,
@@ -146,7 +157,11 @@ Du SKAL altid følge disse regler:
       `KRITISK: Returner præcis ${count} spørgsmål. Ikke 4, ikke 6, ikke 8, ikke flere og ikke færre.`,
       "Spørgsmålene skal være matematisk korrekte og have ét entydigt facit.",
       "De forkerte svar skal ligne typiske elevfejl eller nærliggende misforståelser.",
+      "Niveauet skal ramme klassetrinnet meget præcist. Ved 1.-2. klasse skal spørgsmålene være mærkbart lettere, kortere og mere konkrete end ved højere klassetrin.",
+      ...mathGradeLevelGuidance,
       "Varier gerne mellem direkte beregning, begrebsforståelse og anvendelse, hvis emnet tillader det.",
+      "Brug disse mini-eksempler som pejlemærker for format og kvalitet:",
+      ...mathPromptExamples,
       "Byg nu et komplet matematik-løb med titel og spørgsmål.",
     ].join("\n"),
   };
@@ -209,6 +224,186 @@ function createDanskPromptExamples(danishTopic: string) {
 function parseGradeLevelNumber(gradeLevel: string) {
   const match = gradeLevel.match(/(\d+)/);
   return match ? Number.parseInt(match[1] ?? "", 10) : null;
+}
+
+function createMathGradeLevelGuidance(gradeLevel: string) {
+  const gradeNumber = parseGradeLevelNumber(gradeLevel);
+
+  if (gradeNumber !== null && gradeNumber <= 2) {
+    return [
+      "Klassetrinskrav: Dette er indskoling. Opgaverne skal være meget lette, meget konkrete og hurtige at afkode.",
+      "Brug små tal, enkle regnearter, tydelige mønstre og helt korte spørgsmål.",
+      "Undgå lange tekstopgaver, flere regnetrin, abstrakte begreber og avanceret matematisk sprog.",
+      "Fokusér på helt grundlæggende talforståelse, tælling, plus, minus, simple former, enkle mønstre og meget let problemløsning.",
+      "Svarmulighederne skal være korte og lette at læse.",
+    ];
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 4) {
+    return [
+      "Klassetrinskrav: Dette er begyndende mellemtrin. Opgaverne skal stadig være konkrete, overskuelige og forholdsvis lette.",
+      "Brug velkendte tal, enkle hverdagssituationer og korte opgaver med ét tydeligt fokus.",
+      "Fokusér på sikkerhed i de grundlæggende regnearter, simple tekststykker og begyndende forståelse af matematiske begreber.",
+    ];
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 6) {
+    return [
+      "Klassetrinskrav: Dette er mellemtrin. Opgaverne må gerne udfordre, men de skal være klare, elevnære og uden unødig sproglig kompleksitet.",
+      "Brug konkrete eksempler, korte tekststykker og tydelige regnesituationer.",
+      "Fokusér på anvendelse, forståelse og sikre mellemregninger frem for ren udenadslære.",
+    ];
+  }
+
+  return [
+    "Klassetrinskrav: Dette er udskoling eller ældre elever. Opgaverne må gerne være tydeligt mere krævende og kræve præcision, flertrinsforståelse og stærkere begrebsforståelse.",
+    "Brug gerne mere komplekse regnesituationer, men hold stadig formuleringerne korte nok til mobilformat.",
+    "Fokusér på korrekthed, metodeforståelse og realistiske elevmisforståelser i distraktorerne.",
+  ];
+}
+
+function createMathPromptExamples(mathTopic: string, gradeLevel: string) {
+  const normalizedTopic = normalizeDanishText(mathTopic);
+  const gradeNumber = parseGradeLevelNumber(gradeLevel);
+
+  if (gradeNumber !== null && gradeNumber <= 2) {
+    return [
+      "Mini-eksempel: Hvad er 3 + 2?",
+      "Mini-eksempel: Emil har 4 æbler og får 1 mere. Hvor mange har han nu?",
+      "Mini-eksempel: Hvilket tal mangler: 2, 3, 4, __ ?",
+    ];
+  }
+
+  if (includesAnyKeyword(normalizedTopic, ["plus", "minus", "regneart", "talforståelse", "tæl", "tael"])) {
+    return [
+      "Mini-eksempel: Hvad er 46 + 17?",
+      "Mini-eksempel: Alma har 72 kr. og bruger 15 kr. Hvor mange kroner har hun tilbage?",
+      "Mini-eksempel: Hvilket svar viser den rigtige udregning af 63 - 28?",
+    ];
+  }
+
+  if (includesAnyKeyword(normalizedTopic, ["gange", "division", "tabeller", "multiplikation", "divider"])) {
+    return [
+      "Mini-eksempel: Hvad er 6 · 4?",
+      "Mini-eksempel: 24 kager deles ligeligt mellem 6 børn. Hvor mange får hver?",
+      "Mini-eksempel: Hvilket regnestykke passer til 8 grupper med 3 i hver?",
+    ];
+  }
+
+  if (includesAnyKeyword(normalizedTopic, ["brøk", "brok", "procent", "decimal"])) {
+    return [
+      "Mini-eksempel: Hvilken brøk viser 3 ud af 4 lige store dele?",
+      "Mini-eksempel: Hvad er 50 % af 20?",
+      "Mini-eksempel: Hvilket decimaltal svarer til en halv?",
+    ];
+  }
+
+  if (includesAnyKeyword(normalizedTopic, ["geometri", "former", "vinkel", "omkreds", "areal"])) {
+    return [
+      "Mini-eksempel: Hvor mange hjørner har et rektangel?",
+      "Mini-eksempel: Hvad er omkredsen af et kvadrat med sidelængden 5 cm?",
+      "Mini-eksempel: Hvilken figur har præcis tre sider?",
+    ];
+  }
+
+  return [
+    "Mini-eksempel: Hvilket svar er rigtigt, når man regner opgaven færdig?",
+    "Mini-eksempel: Hvilket tal mangler i regnestykket?",
+    "Mini-eksempel: Hvilken metode eller udregning passer bedst til situationen?",
+  ];
+}
+
+function isWeakMathQuestion(question: string) {
+  const trimmedQuestion = question.trim();
+
+  if (trimmedQuestion.length < 10) {
+    return true;
+  }
+
+  return [/^hvad er matematik/i, /^hvad er et tal/i, /^hvad er plus/i, /^hvad er minus/i].some((pattern) =>
+    pattern.test(trimmedQuestion)
+  );
+}
+
+function validateMathGeneratedRun(
+  run: { title: string; questions: Array<{ question: string; options: [string, string, string, string]; correctAnswer: string }> },
+  input: z.infer<typeof mathInterviewPayloadSchema>
+) {
+  const issues: string[] = [];
+  const gradeNumber = parseGradeLevelNumber(input.gradeLevel);
+  let lowGradeLengthIssueCount = 0;
+  let lowGradeAbstractIssueCount = 0;
+
+  const abstractMathKeywords = [
+    "algebraisk",
+    "variabel",
+    "funktion",
+    "ligningssystem",
+    "koordinatsystem",
+    "procentvis stigning",
+    "omskriv",
+    "bevis",
+  ];
+
+  if (run.title.trim().length < 6) {
+    issues.push("Titlen er for kort eller for generisk.");
+  }
+
+  run.questions.forEach((question, index) => {
+    const questionNumber = index + 1;
+    const trimmedQuestion = question.question.trim();
+    const normalizedOptions = question.options.map((option) => option.trim());
+    const distinctOptionCount = new Set(normalizedOptions.map((option) => normalizeDanishText(option))).size;
+    const combinedText = [trimmedQuestion, ...normalizedOptions].join(" ");
+
+    if (isWeakMathQuestion(trimmedQuestion)) {
+      issues.push(`Spørgsmål ${questionNumber} er for generisk og ikke matematisk skarpt nok.`);
+    }
+
+    if (distinctOptionCount < 4) {
+      issues.push(`Spørgsmål ${questionNumber} har ikke fire tydeligt forskellige svarmuligheder.`);
+    }
+
+    if (normalizedOptions.some((option) => option.length < 1 || isPlaceholderDistractor(option))) {
+      issues.push(`Spørgsmål ${questionNumber} indeholder en placeholder eller en for svag svarmulighed.`);
+    }
+
+    if (!normalizedOptions.includes(question.correctAnswer.trim())) {
+      issues.push(`Spørgsmål ${questionNumber} har et facit, der ikke matcher svarmulighederne præcist.`);
+    }
+
+    if (gradeNumber !== null && gradeNumber <= 2) {
+      if (trimmedQuestion.length > 90 || normalizedOptions.some((option) => option.length > 20)) {
+        lowGradeLengthIssueCount += 1;
+      }
+
+      if (includesAnyKeyword(combinedText, abstractMathKeywords)) {
+        lowGradeAbstractIssueCount += 1;
+      }
+    }
+
+    if (gradeNumber !== null && gradeNumber >= 3 && gradeNumber <= 4) {
+      if (trimmedQuestion.length > 130 || normalizedOptions.some((option) => option.length > 28)) {
+        lowGradeLengthIssueCount += 1;
+      }
+    }
+  });
+
+  if (gradeNumber !== null && gradeNumber <= 2 && lowGradeLengthIssueCount >= 2) {
+    issues.push("Matematikspørgsmålene er for lange eller teksttunge i forhold til 1.-2. klasse.");
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 2 && lowGradeAbstractIssueCount >= 1) {
+    issues.push("Matematikspørgsmålene er for abstrakte til 1.-2. klasse.");
+  }
+
+  if (gradeNumber !== null && gradeNumber >= 3 && gradeNumber <= 4 && lowGradeLengthIssueCount >= 3) {
+    issues.push("Matematikspørgsmålene er for lange eller for komplekse i forhold til 3.-4. klasse.");
+  }
+
+  if (issues.length > 0) {
+    throw new Error(`Matematik-kvalitetskontrol fejlede: ${issues.slice(0, 4).join(" ")}`);
+  }
 }
 
 function createDanskGradeLevelGuidance(gradeLevel: string) {
@@ -573,6 +768,8 @@ export async function POST(req: Request) {
 
     if (parsedPayload.data.builderType === "dansk") {
       validateDanskGeneratedRun(normalizedRun, parsedPayload.data);
+    } else if (parsedPayload.data.builderType === "matematik") {
+      validateMathGeneratedRun(normalizedRun, parsedPayload.data);
     }
 
     return NextResponse.json({
@@ -594,6 +791,16 @@ export async function POST(req: Request) {
         {
           error:
             "AI'en leverede danskspørgsmål, der var for generiske eller pædagogisk svage. Prøv igen, så beder vi modellen om et skarpere løb.",
+        },
+        { status: 502 }
+      );
+    }
+
+    if (error instanceof Error && error.message.startsWith("Matematik-kvalitetskontrol fejlede:")) {
+      return NextResponse.json(
+        {
+          error:
+            "AI'en leverede matematikspørgsmål, der var for svære, for generiske eller ikke præcist nok tilpasset klassetrinnet. Prøv igen, så beder vi modellen om et skarpere og mere passende løb.",
         },
         { status: 502 }
       );
