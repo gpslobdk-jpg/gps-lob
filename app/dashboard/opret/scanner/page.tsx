@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Camera, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, Camera, Loader2, Sparkles, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -648,6 +648,12 @@ export default function ScannerPortalPage() {
     }
   }
 
+  function handleRemoveImage(indexToRemove: number) {
+    setError(null);
+    setSelectedImageLabels((prev) => prev.filter((_, index) => index !== indexToRemove));
+    setCompressedImages((prev) => prev.filter((_, index) => index !== indexToRemove));
+  }
+
   function handleStepTwoNext() {
     if (sourceMode === "text") {
       if (!trimmedSourceText) {
@@ -1058,14 +1064,24 @@ export default function ScannerPortalPage() {
                               key={`${selectedImageLabels[index] ?? "bogside"}-${index}`}
                               className="overflow-hidden rounded-[1.75rem] border border-cyan-500/20 bg-cyan-950/20"
                             >
-                              <Image
-                                src={imageSrc}
-                                alt={`Valgt bogside ${index + 1}`}
-                                width={1200}
-                                height={780}
-                                unoptimized
-                                className="h-[220px] w-full object-cover"
-                              />
+                              <div className="relative">
+                                <Image
+                                  src={imageSrc}
+                                  alt={`Valgt bogside ${index + 1}`}
+                                  width={1200}
+                                  height={780}
+                                  unoptimized
+                                  className="h-[220px] w-full object-cover"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveImage(index)}
+                                  className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-slate-950/80 text-white transition hover:bg-red-500"
+                                  aria-label={`Fjern billede ${index + 1}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
                               <div className="border-t border-cyan-500/20 px-4 py-3 text-sm text-cyan-100/75">
                                 {selectedImageLabels[index] ?? `Side ${index + 1}`}
                               </div>
