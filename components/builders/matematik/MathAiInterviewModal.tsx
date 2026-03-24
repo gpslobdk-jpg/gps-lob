@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, SquarePi } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useRef, useState } from "react";
 
@@ -322,7 +322,7 @@ export default function MathAiInterviewModal({
               Luk
             </button>
             <span className="inline-flex items-center gap-2 text-blue-200">
-              <SquarePi className="h-4 w-4" />
+              <img src="/matematikikon4.svg" alt="Matematik AI" className="h-5 w-5 object-contain" />
               Matematik-AI
             </span>
             <span>Trin {step}/4</span>
@@ -344,7 +344,7 @@ export default function MathAiInterviewModal({
                   className={`mt-5 flex items-center justify-center gap-3 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                 >
                   <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-400/25 bg-blue-500/10 text-blue-200 shadow-[0_14px_28px_rgba(59,130,246,0.18)] sm:h-14 sm:w-14">
-                    <SquarePi className="h-6 w-6 sm:h-7 sm:w-7" />
+                    <img src="/matematikikon4.svg" alt="Matematik" className="h-12 w-12 object-contain" />
                   </span>
                   Hvilket klassetrin er løbet til?
                 </h2>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Calculator, Camera, Check, Loader2, Plus, Ruler, SquareFunction, SquareSigma } from "lucide-react";
+import { Calculator, Camera, Check, Loader2, Plus, Ruler, SquareFunction } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
@@ -959,8 +959,20 @@ function OpretLoebPageContent() {
         <div className="fixed inset-0 -z-10 bg-linear-to-br from-blue-950/60 via-slate-900/80 to-indigo-950 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
           <MobileBuilderWarning />
-          <section className="hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
-            <div className="mx-auto max-w-3xl">
+          <section className="relative hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
+            <img
+              src="/matematikikon2.svg"
+              alt=""
+              aria-hidden="true"
+              className="pointer-events-none absolute top-10 -right-10 z-0 h-48 w-48 select-none opacity-[0.05]"
+            />
+            <img
+              src="/matematikikon3.svg"
+              alt=""
+              aria-hidden="true"
+              className="pointer-events-none absolute bottom-20 -left-10 z-0 h-48 w-48 select-none opacity-[0.05]"
+            />
+            <div className="relative z-10 mx-auto max-w-3xl">
               <fieldset
                 disabled={isEditorBusy}
                 aria-busy={isEditorBusy}
@@ -976,7 +988,11 @@ function OpretLoebPageContent() {
                   <div className="mb-8">
                     <div className="flex items-center gap-3">
                       <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-400/25 bg-blue-500/10 text-blue-200 shadow-[0_14px_28px_rgba(59,130,246,0.18)]">
-                        <SquareSigma className="h-6 w-6" />
+                        <img
+                          src="/matematikikon1.svg"
+                          alt="Matematik"
+                          className="h-10 w-10 object-contain"
+                        />
                       </div>
                       <div>
                         <h3 className="text-xl font-semibold text-blue-50">Opret matematik-løb</h3>
