@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
 import {
   type ChangeEvent,
+  type DragEvent,
   useEffect,
   useRef,
   useState,
@@ -289,6 +290,7 @@ export default function ScannerPortalPage() {
   const [selectedImageLabels, setSelectedImageLabels] = useState<string[]>([]);
   const [compressedImages, setCompressedImages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isDragOverUpload, setIsDragOverUpload] = useState(false);
   const [isPreparingImage, setIsPreparingImage] = useState(false);
   const [isStartingCamera, setIsStartingCamera] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -594,8 +596,7 @@ export default function ScannerPortalPage() {
     countdownTimersRef.current = [...timers, captureTimer];
   }
 
-  async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []);
+  async function appendFilesToScanner(files: File[]) {
     setError(null);
 
     if (files.length === 0) {
@@ -643,9 +644,34 @@ export default function ScannerPortalPage() {
       console.error("Fejl ved billedkomprimering:", compressionError);
       setError("Kunne ikke klargøre billederne. Prøv et andet udsnit eller mindre filer.");
     } finally {
-      event.target.value = "";
       setIsPreparingImage(false);
     }
+  }
+
+  async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    await appendFilesToScanner(files);
+    event.target.value = "";
+  }
+
+  function handleUploadDragOver(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    if (isPreparingImage || isGenerating) return;
+    setIsDragOverUpload(true);
+  }
+
+  function handleUploadDragLeave(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setIsDragOverUpload(false);
+  }
+
+  async function handleUploadDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    if (isPreparingImage || isGenerating) return;
+
+    setIsDragOverUpload(false);
+    const files = Array.from(event.dataTransfer.files ?? []);
+    await appendFilesToScanner(files);
   }
 
   function handleRemoveImage(indexToRemove: number) {
@@ -964,13 +990,21 @@ export default function ScannerPortalPage() {
                       <>
                         <label
                           htmlFor="scanner-image-upload"
-                          className="flex min-h-[180px] cursor-pointer flex-col items-center justify-center rounded-[1.75rem] border border-dashed border-cyan-400/35 bg-cyan-500/10 px-6 py-8 text-center transition hover:border-cyan-300/50 hover:bg-cyan-400/15"
+                          onDragOver={handleUploadDragOver}
+                          onDragEnter={handleUploadDragOver}
+                          onDragLeave={handleUploadDragLeave}
+                          onDrop={handleUploadDrop}
+                          className={`flex min-h-[180px] cursor-pointer flex-col items-center justify-center rounded-[1.75rem] border border-dashed px-6 py-8 text-center transition ${
+                            isDragOverUpload
+                              ? "border-cyan-200 bg-cyan-400/20"
+                              : "border-cyan-400/35 bg-cyan-500/10 hover:border-cyan-300/50 hover:bg-cyan-400/15"
+                          }`}
                         >
                           <span className="text-4xl" aria-hidden="true">
                             🖼️
                           </span>
                           <span className="mt-4 text-xl font-bold text-white">
-                            Klik for at vælge billeder
+                            {isDragOverUpload ? "Slip billederne her" : "Klik eller slip billeder her"}
                           </span>
                           <span className="mt-2 text-sm text-cyan-100/65">
                             JPG, PNG eller andet tydeligt foto af bogsider. Maks 5 billeder.
