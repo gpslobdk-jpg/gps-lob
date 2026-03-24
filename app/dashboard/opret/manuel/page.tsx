@@ -547,15 +547,28 @@ function OpretLoebPageContent() {
           .select("id,user_id,title,subject,description,topic,questions")
           .eq("id", editRunId)
           .eq("user_id", user.id)
-          .single<StoredRunRecord>();
+          .maybeSingle<StoredRunRecord>();
 
         if (!isActive) return;
 
-        if (error || !run) {
-          console.error("Kunne ikke hente løbet til redigering:", error);
+        if (error) {
+          console.error("Edit load error:", error);
           setNotice({
             tone: "error",
-            message: "Vi kunne ikke åbne dette løb til redigering. Tjek at du er ejer, og prøv igen fra arkivet.",
+            message: "Kunne ikke indlæse løbet på grund af en serverfejl. Prøv igen.",
+          });
+          return;
+        }
+
+        if (!run) {
+          console.warn("Edit load: No run found or RLS blocked", {
+            runId: editRunId,
+            userId: user.id,
+          });
+          setNotice({
+            tone: "error",
+            message:
+              "Kunne ikke finde løbet. Enten findes det ikke, eller også har du ikke rettigheder til det.",
           });
           return;
         }
