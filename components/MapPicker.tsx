@@ -25,6 +25,7 @@ type MapPickerProps = {
   onCenterChange?: (center: MapCenter) => void;
   onMapClick?: (center: MapCenter) => void;
   activePinLabel?: string | null;
+  isAwaitingMapClick?: boolean;
 };
 
 type SearchResult = {
@@ -77,6 +78,7 @@ function MapClickReporter({
   useMapEvents({
     click(event) {
       console.log("MAP-PICKER INTERNAL CLICK DETECTED");
+      window.alert("Kortet har fanget dit klik!");
       onMapClick?.({ lat: event.latlng.lat, lng: event.latlng.lng });
     },
   });
@@ -99,6 +101,7 @@ export default function MapPicker({
   onCenterChange,
   onMapClick,
   activePinLabel,
+  isAwaitingMapClick = false,
 }: MapPickerProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -130,7 +133,7 @@ export default function MapPicker({
   }, [searchQuery]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-3xl">
+    <div className={`relative h-full w-full overflow-hidden rounded-3xl ${isAwaitingMapClick ? "cursor-crosshair" : ""}`}>
       <div className="absolute top-4 left-1/2 z-[1000] w-full max-w-[300px] -translate-x-1/2 px-4 sm:max-w-md">
         <div className="relative">
           <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-emerald-600">
@@ -173,7 +176,7 @@ export default function MapPicker({
       <MapContainer
         center={[center.lat, center.lng]}
         zoom={15}
-        className="h-full w-full"
+        className={`h-full w-full ${isAwaitingMapClick ? "cursor-crosshair" : ""}`}
         zoomControl
       >
         <TileLayer
