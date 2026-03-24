@@ -952,7 +952,7 @@ function FotoMissionBuilderPageContent() {
                       value={question.text}
                       onChange={(event) => updateQuestion(question.id, { text: event.target.value })}
                       rows={4}
-                      placeholder="f.eks. Find et rødt bøgeblad. Vores AI tjekker billedet med det samme (og husk: man kan ikke snyde ved at fotografere en skærm!)."
+                      placeholder="f.eks. Find et stort egetræ og tag et sjovt holdbillede med det. Billederne uploades direkte fra ruten, så læreren kan se og godkende dem bagefter."
                       className={textareaClass}
                     />
                   </div>
