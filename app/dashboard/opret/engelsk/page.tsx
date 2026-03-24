@@ -843,8 +843,12 @@ function OpretEngelskLoebPageContent() {
   if (isEditMode && isLoadingExistingRun) {
     return (
       <div className={`relative min-h-screen overflow-hidden bg-slate-950 text-white ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-blue-950 via-slate-900 to-red-950 backdrop-blur-[2px]" />
-        <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
+        <img
+          src="/britiskflag.svg"
+          alt="British Flag Background"
+          className="pointer-events-none absolute inset-0 z-0 h-full w-full select-none object-cover opacity-20"
+        />
+        <div className="relative z-10 flex min-h-screen items-center justify-center px-6 py-12">
           <div className="w-full max-w-md rounded-3xl border border-blue-500/20 bg-slate-900/60 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
             <Loader2 className="mx-auto h-10 w-10 animate-spin text-blue-100" />
             <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-blue-100/55 uppercase">
@@ -864,9 +868,13 @@ function OpretEngelskLoebPageContent() {
 
   return (
     <>
-      <div className={`relative min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-950 via-slate-900 to-red-950 text-white ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-blue-950 via-slate-900 to-red-950 backdrop-blur-[2px]" />
-        <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
+      <div className={`relative min-h-screen overflow-hidden bg-slate-950 text-white ${poppins.className}`}>
+        <img
+          src="/britiskflag.svg"
+          alt="British Flag Background"
+          className="pointer-events-none absolute inset-0 z-0 h-full w-full select-none object-cover opacity-20"
+        />
+        <div className="relative z-10 flex min-h-screen flex-col lg:flex-row lg:items-start">
           <MobileBuilderWarning />
           <section className="relative hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
             <img
