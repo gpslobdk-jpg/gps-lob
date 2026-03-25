@@ -4,6 +4,7 @@ import { Player } from "@lottiefiles/react-lottie-player";
 import { motion } from "framer-motion";
 import { Award, Medal, Trophy } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
+import type { ReactNode } from "react";
 
 import type { TeacherLiveStanding } from "@/components/live/types";
 
@@ -37,8 +38,89 @@ function formatStandingTime(value: string | null | undefined) {
   });
 }
 
+function formatElapsedTime(value: number | null | undefined) {
+  if (value === null || value === undefined) return "Ingen tid endnu";
+
+  const totalSeconds = Math.max(0, Math.round(value / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}t ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+  }
+
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
 function getStatusLabel(entry: TeacherLiveStanding) {
   return entry.student.finished_at ? "I mål" : "Afsluttet ved stop";
+}
+
+function getTimeLabel(entry: TeacherLiveStanding) {
+  if (entry.elapsedTimeMs === null) return "Ingen tid endnu";
+  return entry.student.finished_at ? formatElapsedTime(entry.elapsedTimeMs) : `${formatElapsedTime(entry.elapsedTimeMs)}*`;
+}
+
+function getTeamName(entry: TeacherLiveStanding) {
+  return entry.student.name || entry.student.student_name;
+}
+
+function PodiumCard({
+  entry,
+  placement,
+  title,
+  icon,
+  accentClassName,
+  panelClassName,
+  totalPosts,
+}: {
+  entry: TeacherLiveStanding;
+  placement: number;
+  title: string;
+  icon: ReactNode;
+  accentClassName: string;
+  panelClassName: string;
+  totalPosts: number;
+}) {
+  return (
+    <div className={`flex h-full flex-col rounded-4xl border border-white/15 p-4 shadow-2xl backdrop-blur-xl ${panelClassName}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/70">{title}</p>
+          <h3 className="mt-2 text-2xl font-black text-white">{getTeamName(entry)}</h3>
+          <p className="mt-2 text-sm text-white/75">{getStatusLabel(entry)}</p>
+        </div>
+        <div className={`flex h-14 w-14 items-center justify-center rounded-2xl border text-white shadow-lg ${accentClassName}`}>
+          {icon}
+        </div>
+      </div>
+
+      <div className="mt-5 grid grid-cols-3 gap-3">
+        <div className="rounded-2xl border border-white/10 bg-black/15 px-3 py-3 text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/65">Point</p>
+          <p className="mt-1 text-2xl font-black text-white">{entry.score}</p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-black/15 px-3 py-3 text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/65">Rigtige svar</p>
+          <p className="mt-1 text-2xl font-black text-white">{entry.correctAnswers}</p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-black/15 px-3 py-3 text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/65">Tid brugt</p>
+          <p className="mt-1 text-lg font-black text-white">{getTimeLabel(entry)}</p>
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center gap-2 text-xs text-white/70">
+        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 uppercase tracking-[0.16em]">
+          Plads {placement}
+        </span>
+        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 uppercase tracking-[0.16em]">
+          Poster: {totalPosts > 0 ? `${entry.completedPosts}/${totalPosts}` : entry.completedPosts}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 export default function TeacherLiveResults({
@@ -55,7 +137,7 @@ export default function TeacherLiveResults({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -16 }}
       transition={{ duration: 0.35 }}
-      className={`relative min-h-screen overflow-hidden bg-gradient-to-b from-indigo-950 via-blue-900 to-cyan-800 px-6 py-10 text-white md:px-10 ${poppins.className}`}
+      className={`relative min-h-screen overflow-hidden bg-linear-to-b from-indigo-950 via-blue-900 to-cyan-800 px-6 py-10 text-white md:px-10 ${poppins.className}`}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(16,185,129,0.25),transparent_40%),radial-gradient(circle_at_80%_10%,rgba(251,191,36,0.22),transparent_42%),radial-gradient(circle_at_50%_90%,rgba(244,114,182,0.2),transparent_40%)]" />
       <div className="pointer-events-none absolute inset-0 opacity-75">
@@ -65,7 +147,7 @@ export default function TeacherLiveResults({
         {Array.from({ length: 28 }).map((_, index) => (
           <motion.span
             key={`confetti-${index}`}
-            className="absolute h-2.5 w-2.5 rounded-full bg-gradient-to-br from-yellow-300 via-pink-300 to-cyan-300 shadow-[0_0_10px_rgba(255,255,255,0.4)]"
+            className="absolute h-2.5 w-2.5 rounded-full bg-linear-to-br from-yellow-300 via-pink-300 to-cyan-300 shadow-[0_0_10px_rgba(255,255,255,0.4)]"
             style={{ left: `${(index * 17) % 100}%` }}
             initial={{ y: -40, opacity: 0 }}
             animate={{ y: ["0vh", "105vh"], opacity: [0, 1, 0.2] }}
@@ -80,9 +162,9 @@ export default function TeacherLiveResults({
       </div>
 
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center">
-        <div className="text-center">
+        <div className="max-w-4xl text-center">
           <h1
-            className={`bg-gradient-to-r from-yellow-200 via-amber-300 to-yellow-100 bg-clip-text text-5xl font-black tracking-[0.16em] text-transparent uppercase drop-shadow-[0_0_30px_rgba(251,191,36,0.5)] md:text-7xl ${rubik.className}`}
+            className={`bg-linear-to-r from-yellow-200 via-amber-300 to-yellow-100 bg-clip-text text-5xl font-black tracking-[0.16em] text-transparent uppercase drop-shadow-[0_0_30px_rgba(251,191,36,0.5)] md:text-7xl ${rubik.className}`}
           >
             Resultater
           </h1>
@@ -91,6 +173,12 @@ export default function TeacherLiveResults({
               ? `Stærkt gået, ${winnerCelebrationName}! I fører feltet ved afslutningen.`
               : "Løbet er afsluttet."}
           </p>
+          <div className="mt-6 inline-flex max-w-full flex-wrap items-center justify-center gap-2 rounded-full border border-white/15 bg-slate-950/35 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-100/85 shadow-[0_20px_60px_rgba(15,23,42,0.25)] backdrop-blur-md">
+            <span>Sortering:</span>
+            <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1">Point</span>
+            <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1">Rigtige svar</span>
+            <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">Hurtigste tid</span>
+          </div>
         </div>
 
         {standings.length === 0 ? (
@@ -98,89 +186,105 @@ export default function TeacherLiveResults({
             Ingen deltagere er registreret endnu.
           </div>
         ) : (
-          <div className="mt-28 flex h-[30rem] w-full flex-col items-end justify-end gap-4 md:flex-row md:gap-8">
-            {podium[1] ? (
-              <div className="animate-in slide-in-from-bottom flex h-3/4 flex-col items-center duration-700 delay-300">
-                <div className="rounded-t-2xl border-b-4 border-slate-200 bg-white/95 px-6 py-3 text-center text-slate-700 shadow-xl">
-                  <p className="text-lg font-bold">{podium[1].student.name || podium[1].student.student_name}</p>
-                  <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                    {podium[1].score} point
-                  </p>
-                </div>
-                <div className="flex w-32 flex-1 flex-col items-center rounded-t-lg border-x border-t border-slate-200/70 bg-gradient-to-t from-slate-500 to-slate-300 pt-6 shadow-2xl">
-                  <Medal size={48} className="text-slate-100 drop-shadow-md" />
-                  <span className="mt-2 text-4xl font-black text-slate-100/70">2</span>
-                </div>
+          <div className="mt-16 grid w-full gap-5 md:grid-cols-3 md:items-end">
+            {podium[0] ? (
+              <div className="order-1 md:order-2 md:-translate-y-4">
+                <PodiumCard
+                  entry={podium[0]}
+                  placement={1}
+                  title="Vinder"
+                  icon={<Trophy className="h-7 w-7" />}
+                  accentClassName="border-amber-200/50 bg-amber-400/25"
+                  panelClassName="bg-gradient-to-br from-amber-400/30 via-amber-300/18 to-yellow-200/10"
+                  totalPosts={totalPosts}
+                />
               </div>
             ) : null}
 
-            {podium[0] ? (
-              <div className="animate-in slide-in-from-bottom flex h-full flex-col items-center duration-1000 delay-500">
-                <div className="z-10 scale-110 rounded-t-3xl border-b-4 border-amber-200 bg-white px-8 py-4 text-center text-amber-600 shadow-2xl">
-                  <p className="text-2xl font-black">{podium[0].student.name || podium[0].student.student_name}</p>
-                  <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-amber-500">
-                    {podium[0].score} point
-                  </p>
-                </div>
-                <div className="flex w-40 flex-1 flex-col items-center rounded-t-xl border-x border-t border-yellow-200/50 bg-gradient-to-t from-amber-500 to-yellow-300 pt-8 shadow-[0_0_50px_rgba(251,191,36,0.55)]">
-                  <Trophy className="mx-auto h-48 w-48 object-contain text-amber-800 drop-shadow-lg" />
-                  <span className="mt-2 text-6xl font-black text-amber-700/70">1</span>
-                </div>
+            {podium[1] ? (
+              <div className="order-2 md:order-1">
+                <PodiumCard
+                  entry={podium[1]}
+                  placement={2}
+                  title="Andenplads"
+                  icon={<Medal className="h-7 w-7" />}
+                  accentClassName="border-slate-200/40 bg-slate-100/20"
+                  panelClassName="bg-gradient-to-br from-slate-300/20 via-slate-100/10 to-white/5"
+                  totalPosts={totalPosts}
+                />
               </div>
             ) : null}
 
             {podium[2] ? (
-              <div className="animate-in slide-in-from-bottom flex h-2/4 flex-col items-center duration-500 delay-100">
-                <div className="rounded-t-2xl border-b-4 border-amber-900/20 bg-white/95 px-6 py-3 text-center text-amber-800 shadow-xl">
-                  <p className="text-lg font-bold">{podium[2].student.name || podium[2].student.student_name}</p>
-                  <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-amber-700/80">
-                    {podium[2].score} point
-                  </p>
-                </div>
-                <div className="flex w-32 flex-1 flex-col items-center rounded-t-lg border-x border-t border-orange-300/50 bg-gradient-to-t from-amber-800 to-orange-500 pt-6 shadow-2xl">
-                  <Award size={48} className="text-amber-100 drop-shadow-md" />
-                  <span className="mt-2 text-4xl font-black text-amber-100/70">3</span>
-                </div>
+              <div className="order-3 md:order-3">
+                <PodiumCard
+                  entry={podium[2]}
+                  placement={3}
+                  title="Tredjeplads"
+                  icon={<Award className="h-7 w-7" />}
+                  accentClassName="border-orange-200/35 bg-orange-400/20"
+                  panelClassName="bg-gradient-to-br from-orange-400/25 via-amber-500/12 to-rose-200/10"
+                  totalPosts={totalPosts}
+                />
               </div>
             ) : null}
           </div>
         )}
 
         {standings.length > 0 ? (
-          <div className="mt-10 w-full max-w-4xl rounded-3xl border border-white/20 bg-white/10 p-6 shadow-xl backdrop-blur-md">
-            <h3
-              className={`mb-4 text-center text-xl font-bold tracking-widest text-amber-100 uppercase ${rubik.className}`}
-            >
-              Hele Stillingen
-            </h3>
+          <div className="mt-10 w-full max-w-6xl rounded-4xl border border-white/20 bg-white/10 p-4 shadow-xl backdrop-blur-md md:p-6">
+            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h3 className={`text-center text-xl font-bold tracking-widest text-amber-100 uppercase md:text-left ${rubik.className}`}>
+                  Hele Stillingen
+                </h3>
+                <p className="mt-2 text-sm text-blue-100/80 md:text-base">
+                  Vinderen findes p\u00e5 flest point, derefter flest rigtige svar, derefter hurtigste tid.
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-50/80">
+                <div className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-3 py-3">Point</div>
+                <div className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-3 py-3">Rigtige svar</div>
+                <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-3">Tid brugt</div>
+              </div>
+            </div>
+
             <div className="space-y-3">
               {standings.map((entry, index) => (
                 <div
                   key={`${entry.student.id}-${index}`}
-                  className="rounded-2xl border border-white/20 bg-white/10 px-4 py-4 text-blue-100 backdrop-blur-md"
+                  className="rounded-[1.75rem] border border-white/20 bg-slate-950/20 px-4 py-4 text-blue-100 shadow-[0_20px_45px_rgba(15,23,42,0.22)] backdrop-blur-md"
                 >
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-3">
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,9rem))] lg:items-center">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2.5">
                         <span className="rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-amber-100">
                           Plads {index + 1}
                         </span>
-                        <span className="text-lg font-bold text-white">
-                          {entry.student.name || entry.student.student_name}
+                        <span className="truncate text-lg font-bold text-white">
+                          {getTeamName(entry)}
                         </span>
                         <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/85">
                           {getStatusLabel(entry)}
                         </span>
                       </div>
                       <p className="mt-2 text-sm text-blue-100/80">
-                        {entry.lastActivityAt
-                          ? `Seneste registrering kl. ${formatStandingTime(entry.lastActivityAt)}`
+                        {entry.firstAnswerAt
+                          ? `Start kl. ${formatStandingTime(entry.firstAnswerAt)}${entry.lastActivityAt ? ` · Seneste registrering kl. ${formatStandingTime(entry.lastActivityAt)}` : ""}`
                           : "Ingen registrerede svar endnu"}
                       </p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-blue-50/75">
+                        <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">
+                          Poster forsøgt: {totalPosts > 0 ? `${entry.completedPosts}/${totalPosts}` : entry.completedPosts}
+                        </span>
+                        <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">
+                          Progress: {entry.progressPercent}%
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-center">
+                    <div className="grid grid-cols-3 gap-3 lg:contents">
+                      <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-center lg:min-w-0">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-100/80">
                           Point
                         </p>
@@ -188,23 +292,22 @@ export default function TeacherLiveResults({
                       </div>
                       <div className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-center">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-100/80">
-                          Poster
+                          Rigtige svar
                         </p>
-                        <p className="mt-1 text-2xl font-black text-white">
-                          {totalPosts > 0 ? `${entry.completedPosts}/${totalPosts}` : entry.completedPosts}
-                        </p>
+                        <p className="mt-1 text-2xl font-black text-white">{entry.correctAnswers}</p>
                       </div>
                       <div className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-center">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">
-                          Progress
+                          Tid brugt
                         </p>
-                        <p className="mt-1 text-2xl font-black text-white">{entry.progressPercent}%</p>
+                        <p className="mt-1 text-lg font-black text-white">{getTimeLabel(entry)}</p>
                       </div>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
+            <p className="mt-4 text-xs text-blue-50/65">* Hold uden m\u00e5lregistrering viser tid frem til seneste aktivitet.</p>
           </div>
         ) : null}
       </div>

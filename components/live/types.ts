@@ -65,9 +65,12 @@ export type LiveAnswer = {
 export type TeacherLiveStanding = {
   student: LiveStudentLocation;
   score: number;
+  correctAnswers: number;
   completedPosts: number;
   progressPercent: number;
+  firstAnswerAt: string | null;
   lastActivityAt: string | null;
+  elapsedTimeMs: number | null;
 };
 
 export type TeacherLiveData = {

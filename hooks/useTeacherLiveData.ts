@@ -379,6 +379,8 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       {
         correctPosts: Set<number>;
         attemptedPosts: Set<number>;
+        correctAnswers: number;
+        firstAnswerAt: string | null;
         lastCorrectAt: string | null;
         lastActivityAt: string | null;
       }
@@ -394,6 +396,8 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         {
           correctPosts: new Set<number>(),
           attemptedPosts: new Set<number>(),
+          correctAnswers: 0,
+          firstAnswerAt: null,
           lastCorrectAt: null,
           lastActivityAt: null,
         };
@@ -406,12 +410,19 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       }
 
       const answerTs = toTimestamp(answer.createdAt);
+      const firstAnswerTs = toTimestamp(entry.firstAnswerAt);
+      if (answerTs !== null && (firstAnswerTs === null || answerTs < firstAnswerTs)) {
+        entry.firstAnswerAt = answer.createdAt;
+      }
+
       const lastActivityTs = toTimestamp(entry.lastActivityAt);
       if (answerTs !== null && (lastActivityTs === null || answerTs > lastActivityTs)) {
         entry.lastActivityAt = answer.createdAt;
       }
 
       if (answer.isCorrect === true) {
+        entry.correctAnswers += 1;
+
         const lastCorrectTs = toTimestamp(entry.lastCorrectAt);
         if (answerTs !== null && (lastCorrectTs === null || answerTs > lastCorrectTs)) {
           entry.lastCorrectAt = answer.createdAt;
@@ -426,21 +437,32 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         const normalizedKey = student.name.toLocaleLowerCase("da-DK");
         const stats = statsByName.get(normalizedKey);
         const score = stats?.correctPosts.size ?? 0;
+        const correctAnswers = stats?.correctAnswers ?? 0;
         const completedPosts = stats?.attemptedPosts.size ?? 0;
         const progressPercent =
           totalPosts > 0 ? Math.max(0, Math.min(100, Math.round((completedPosts / totalPosts) * 100))) : 0;
+        const firstAnswerAt = stats?.firstAnswerAt ?? null;
+        const endTimestamp = toTimestamp(student.finished_at ?? stats?.lastActivityAt ?? null);
+        const startTimestamp = toTimestamp(firstAnswerAt);
+        const elapsedTimeMs =
+          startTimestamp !== null && endTimestamp !== null && endTimestamp >= startTimestamp
+            ? endTimestamp - startTimestamp
+            : null;
 
         return {
           student,
           score,
+          correctAnswers,
           completedPosts,
           progressPercent,
+          firstAnswerAt,
           lastActivityAt: stats?.lastCorrectAt ?? stats?.lastActivityAt ?? null,
+          elapsedTimeMs,
         };
       })
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
-        if (b.completedPosts !== a.completedPosts) return b.completedPosts - a.completedPosts;
+        if (b.correctAnswers !== a.correctAnswers) return b.correctAnswers - a.correctAnswers;
 
         const aFinished = Boolean(a.student.finished_at);
         const bFinished = Boolean(b.student.finished_at);
@@ -448,8 +470,8 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
           return aFinished ? -1 : 1;
         }
 
-        const aTime = toTimestamp(a.student.finished_at ?? a.lastActivityAt) ?? Number.POSITIVE_INFINITY;
-        const bTime = toTimestamp(b.student.finished_at ?? b.lastActivityAt) ?? Number.POSITIVE_INFINITY;
+        const aTime = a.elapsedTimeMs ?? Number.POSITIVE_INFINITY;
+        const bTime = b.elapsedTimeMs ?? Number.POSITIVE_INFINITY;
         if (aTime !== bTime) return aTime - bTime;
 
         return a.student.name.localeCompare(b.student.name, "da");
