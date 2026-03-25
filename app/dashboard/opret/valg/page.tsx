@@ -41,14 +41,6 @@ const cards: HubCard[] = [
     icon: MapPin,
   },
   {
-    raceType: "engelsk",
-    title: "Engelsk-løb",
-    description:
-      "Byg et mørkt, britisk-inspireret quiz-løb med grammar, vocabulary, reading og kulturposter.",
-    href: "/dashboard/opret/engelsk",
-    icon: MessageSquare,
-  },
-  {
     raceType: "foto",
     title: "Foto mission",
     description:

@@ -299,25 +299,18 @@ const isQuestionEmpty = (question: Question) =>
   question.lat === null &&
   question.lng === null;
 
+function BuilderUnavailableRedirect() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/dashboard/opret/valg");
+  }, [router]);
+
+  return null;
+}
+
 export default function OpretDanskLoebPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className={`min-h-screen bg-slate-950 ${poppins.className}`}>
-          <div className="flex min-h-screen items-center justify-center px-6 text-center">
-            <div className="rounded-4xl border border-rose-500/20 bg-slate-900/50 px-8 py-10 text-rose-50 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
-              <p className="text-xs font-semibold tracking-[0.28em] text-rose-100/55 uppercase">Indlæser</p>
-              <h1 className={`mt-3 text-3xl font-black tracking-tight text-rose-50 ${rubik.className}`}>
-                Dansk-bygger
-              </h1>
-            </div>
-          </div>
-        </div>
-      }
-    >
-      <OpretDanskLoebPageContent />
-    </Suspense>
-  );
+  return <BuilderUnavailableRedirect />;
 }
 
 function OpretDanskLoebPageContent() {
