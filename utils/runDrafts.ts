@@ -150,7 +150,7 @@ export function writeRunDraft<T>(key: string, editRunId: string | null | undefin
   }
 }
 
-export function readRunDraft<T>(key: string, editRunId: string | null | undefined) {
+function readRunDraftEnvelope<T>(key: string) {
   if (typeof window === "undefined") return null;
 
   try {
@@ -163,13 +163,27 @@ export function readRunDraft<T>(key: string, editRunId: string | null | undefine
       return null;
     }
 
-    if (normalizeEditRunId(parsed.editRunId) !== normalizeEditRunId(editRunId)) {
-      return null;
-    }
-
-    return parsed.data ?? null;
+    return parsed;
   } catch {
     clearRunDraft(key);
     return null;
   }
+}
+
+export function hasUnsavedDraft(key: string, editRunId: string | null | undefined) {
+  const parsed = readRunDraftEnvelope(key);
+  if (!parsed) return false;
+
+  return normalizeEditRunId(parsed.editRunId) === normalizeEditRunId(editRunId);
+}
+
+export function readRunDraft<T>(key: string, editRunId: string | null | undefined) {
+  const parsed = readRunDraftEnvelope<T>(key);
+  if (!parsed) return null;
+
+  if (normalizeEditRunId(parsed.editRunId) !== normalizeEditRunId(editRunId)) {
+    return null;
+  }
+
+  return parsed.data ?? null;
 }

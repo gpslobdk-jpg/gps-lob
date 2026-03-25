@@ -15,6 +15,7 @@ import { RACE_TYPES } from "@/utils/gpsRuns";
 import {
   consumeDraftAutoload,
   clearRunDraft,
+  hasUnsavedDraft,
   readRunDraft,
   restoreDraftBoolean,
   restoreDraftMapCenter,
@@ -425,7 +426,8 @@ function OpretLoebPageContent() {
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
   const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>(DEFAULT_MAP_CENTER);
-  const isEditorBusy = isSaving;
+  const [showDraftRecoveryPrompt, setShowDraftRecoveryPrompt] = useState(false);
+  const isEditorBusy = isSaving || showDraftRecoveryPrompt;
   const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
 
   const renderNotice = (className = "") =>
@@ -442,6 +444,20 @@ function OpretLoebPageContent() {
     ) : null;
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedDraftRef = useRef(false);
+  const shouldAutoRestoreDraftRef = useRef<boolean | null>(null);
+
+  const applyDraftState = (draft: ManualBuilderDraftState) => {
+    const restoredSubject = restoreDraftString(draft.subject);
+    const restoredQuestions = toQuestionList(draft.questions);
+
+    setTitle(restoreDraftString(draft.title));
+    setDescription(restoreDraftString(draft.description));
+    setSubject(restoredSubject);
+    setShowTeacherField(restoreDraftBoolean(draft.showTeacherField, Boolean(restoredSubject.trim())));
+    setShowAiInterviewModal(restoreDraftBoolean(draft.showAiInterviewModal));
+    setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion(defaultQuestionType)]);
+    setMapCenter(restoreDraftMapCenter(draft.mapCenter, DEFAULT_MAP_CENTER));
+  };
 
   const scrollToSaveFeedback = () => {
     if (saveFeedbackRef.current) {
@@ -515,6 +531,10 @@ function OpretLoebPageContent() {
   }, [editRunId]);
 
   useEffect(() => {
+    hasInitializedDraftRef.current = false;
+    shouldAutoRestoreDraftRef.current = null;
+    setShowDraftRecoveryPrompt(false);
+
     if (!isEditMode) {
       setIsLoadingExistingRun(false);
       setLoadedRunId(null);
@@ -619,6 +639,12 @@ function OpretLoebPageContent() {
   useEffect(() => {
     if (hasInitializedDraftRef.current) return;
 
+    if (shouldAutoRestoreDraftRef.current === null) {
+      shouldAutoRestoreDraftRef.current = shouldRestoreRunDraftOnLoad(MANUEL_DRAFT_STORAGE_KEY);
+    }
+
+    const shouldAutoRestoreDraft = shouldAutoRestoreDraftRef.current;
+
     if (isEditMode) {
       if (isLoadingExistingRun) return;
       if (loadedRunId !== editRunId) {
@@ -627,26 +653,21 @@ function OpretLoebPageContent() {
       }
     }
 
-    const restoredDraft = shouldRestoreRunDraftOnLoad(MANUEL_DRAFT_STORAGE_KEY)
+    const restoredDraft = shouldAutoRestoreDraft
       ? readRunDraft<ManualBuilderDraftState>(MANUEL_DRAFT_STORAGE_KEY, editRunId)
       : null;
 
     if (restoredDraft) {
-      const restoredSubject = restoreDraftString(restoredDraft.subject);
-      const restoredQuestions = toQuestionList(restoredDraft.questions);
-
-      setTitle(restoreDraftString(restoredDraft.title));
-      setDescription(restoreDraftString(restoredDraft.description));
-      setSubject(restoredSubject);
-      setShowTeacherField(
-        restoreDraftBoolean(restoredDraft.showTeacherField, Boolean(restoredSubject.trim()))
-      );
-      setShowAiInterviewModal(restoreDraftBoolean(restoredDraft.showAiInterviewModal));
-      setQuestions(
-        restoredQuestions.length > 0 ? restoredQuestions : [createQuestion(defaultQuestionType)]
-      );
-      setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
+      applyDraftState(restoredDraft);
       setNotice(null);
+      hasInitializedDraftRef.current = true;
+      return;
+    }
+
+    if (isEditMode && !shouldAutoRestoreDraft && hasUnsavedDraft(MANUEL_DRAFT_STORAGE_KEY, editRunId)) {
+      setShowDraftRecoveryPrompt(true);
+      hasInitializedDraftRef.current = true;
+      return;
     }
 
     hasInitializedDraftRef.current = true;
@@ -654,6 +675,7 @@ function OpretLoebPageContent() {
 
   useEffect(() => {
     if (!hasInitializedDraftRef.current) return;
+    if (showDraftRecoveryPrompt) return;
 
     writeRunDraft(MANUEL_DRAFT_STORAGE_KEY, editRunId, {
       title,
@@ -671,9 +693,39 @@ function OpretLoebPageContent() {
     questions,
     showAiInterviewModal,
     showTeacherField,
+    showDraftRecoveryPrompt,
     subject,
     title,
   ]);
+
+  const handleRestoreDraft = () => {
+    const restoredDraft = readRunDraft<ManualBuilderDraftState>(MANUEL_DRAFT_STORAGE_KEY, editRunId);
+
+    if (!restoredDraft) {
+      setShowDraftRecoveryPrompt(false);
+      setNotice({
+        tone: "error",
+        message: "Vi kunne ikke finde den lokale kladde mere. Du arbejder videre på versionen fra arkivet.",
+      });
+      return;
+    }
+
+    applyDraftState(restoredDraft);
+    setShowDraftRecoveryPrompt(false);
+    setNotice({
+      tone: "success",
+      message: "Vi gendannede dine ugemte ændringer fra sidste besøg.",
+    });
+  };
+
+  const handleDiscardDraft = () => {
+    clearRunDraft(MANUEL_DRAFT_STORAGE_KEY);
+    setShowDraftRecoveryPrompt(false);
+    setNotice({
+      tone: "success",
+      message: "Den lokale kladde blev slettet. Du arbejder nu videre på versionen fra arkivet.",
+    });
+  };
 
   useEffect(() => {
     setQuestions((current) => {
@@ -1236,6 +1288,36 @@ function OpretLoebPageContent() {
         </aside>
       </div>
       </div>
+
+      {showDraftRecoveryPrompt ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-6 py-10 backdrop-blur-md">
+          <div className="w-full max-w-2xl rounded-[2rem] border border-emerald-400/25 bg-slate-950/90 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-100/70">Redningskrans</p>
+            <h2 className={`mt-3 text-3xl font-black tracking-tight text-emerald-50 ${rubik.className}`}>
+              Vi fandt ugemte ændringer fra dit sidste besøg
+            </h2>
+            <p className="mt-4 text-sm leading-6 text-emerald-100/80 sm:text-base">
+              Hvis du fortsætter uden at gendanne kladden, beholder vi versionen fra arkivet og sletter den lokale kladde.
+            </p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={handleRestoreDraft}
+                className="rounded-[1.5rem] border border-emerald-300/40 bg-emerald-400 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-300"
+              >
+                Gendan ugemte ændringer
+              </button>
+              <button
+                type="button"
+                onClick={handleDiscardDraft}
+                className="rounded-[1.5rem] border border-white/15 bg-white/5 px-5 py-4 text-sm font-bold uppercase tracking-[0.18em] text-emerald-50 transition hover:bg-white/10"
+              >
+                Slet kladde
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <ManualAiInterviewModal
         open={showAiInterviewModal}
