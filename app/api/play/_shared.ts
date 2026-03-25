@@ -14,6 +14,11 @@ type RunRow = {
   race_type?: unknown;
 };
 
+type ParticipantStartRow = {
+  start_offset?: number | string | null;
+  run_started_at?: string | null;
+};
+
 export type QuestionVariant = "quiz" | "photo" | "escape" | "roleplay" | "unknown";
 
 type AdminSupabaseClient = NonNullable<ReturnType<typeof createAdminClient>>;
@@ -95,6 +100,93 @@ export function normalizeRaceMode(value: unknown) {
     default:
       return "unknown";
   }
+}
+
+export function supportsServerStaggeredStart(raceMode: unknown) {
+  const normalizedRaceMode = normalizeRaceMode(raceMode);
+  return normalizedRaceMode === "quiz" || normalizedRaceMode === "photo";
+}
+
+function toFiniteNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+export function normalizeServerStartOffset(startOffset: unknown, questionCount: number) {
+  const parsedStartOffset = toFiniteNumber(startOffset);
+  if (parsedStartOffset === null || !Number.isInteger(parsedStartOffset) || questionCount <= 1) {
+    return 0;
+  }
+
+  return ((parsedStartOffset % questionCount) + questionCount) % questionCount;
+}
+
+export function getServerRouteOrder(
+  questionCount: number,
+  startOffset: unknown,
+  staggerEnabled: boolean
+) {
+  if (questionCount <= 0) return [] as number[];
+
+  const normalizedStartOffset = staggerEnabled
+    ? normalizeServerStartOffset(startOffset, questionCount)
+    : 0;
+
+  return Array.from({ length: questionCount }, (_, index) =>
+    (index + normalizedStartOffset) % questionCount
+  );
+}
+
+export function getFirstRoutePostIndexForParticipant(
+  questionCount: number,
+  startOffset: unknown,
+  raceMode: unknown
+) {
+  const routeOrder = getServerRouteOrder(
+    questionCount,
+    startOffset,
+    supportsServerStaggeredStart(raceMode)
+  );
+
+  return routeOrder[0] ?? null;
+}
+
+export function getAnsweredPostIndex(payload: Record<string, unknown>) {
+  const questionIndex = toFiniteNumber(payload.question_index);
+  if (questionIndex !== null && Number.isInteger(questionIndex) && questionIndex >= 0) {
+    return questionIndex;
+  }
+
+  const postIndex = toFiniteNumber(payload.post_index);
+  if (postIndex !== null && Number.isInteger(postIndex)) {
+    return postIndex >= 1 ? postIndex - 1 : postIndex;
+  }
+
+  return null;
+}
+
+export async function fetchParticipantStartState(
+  sessionId: string,
+  participantId: string,
+  adminSupabase: AdminSupabaseClient
+) {
+  const { data, error } = await adminSupabase
+    .from("participants")
+    .select("start_offset,run_started_at")
+    .eq("id", participantId)
+    .eq("session_id", sessionId)
+    .maybeSingle<ParticipantStartRow>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ?? null;
 }
 
 export function normalizeMasterCode(value: string) {

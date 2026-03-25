@@ -58,12 +58,14 @@ type ParticipantRecord = {
   id: string;
   session_id: string | null;
   student_name: string | null;
+  run_started_at: string | null;
   finished_at: string | null;
   last_updated: string | null;
 };
 
 type ParticipantSummary = {
   name: string;
+  runStartedAt: string | null;
   finishedAt: string | null;
   answers: AnswerRecord[];
 };
@@ -248,15 +250,31 @@ const parseTimestamp = (value: string | null | undefined) => {
   return Number.isNaN(timestamp) ? null : timestamp;
 };
 
-const getSessionDurationMs = (sessionCreatedAt: string | null, sessionAnswers: AnswerRecord[]) => {
-  let startTime = parseTimestamp(sessionCreatedAt);
+const getSessionDurationMs = (
+  sessionCreatedAt: string | null,
+  participantRows: ParticipantSummary[],
+  sessionAnswers: AnswerRecord[]
+) => {
+  const participantStartTimes = participantRows
+    .map((participant) => parseTimestamp(participant.runStartedAt))
+    .filter((timestamp): timestamp is number => timestamp !== null);
+
+  let startTime =
+    participantStartTimes.length > 0 ? Math.min(...participantStartTimes) : parseTimestamp(sessionCreatedAt);
   let endTime: number | null = null;
+
+  for (const participant of participantRows) {
+    const finishedAt = parseTimestamp(participant.finishedAt);
+    if (finishedAt !== null && (endTime === null || finishedAt > endTime)) {
+      endTime = finishedAt;
+    }
+  }
 
   for (const answer of sessionAnswers) {
     const timestamp = parseTimestamp(answer.answered_at ?? answer.created_at);
     if (timestamp === null) continue;
 
-    if (startTime === null || timestamp < startTime) {
+    if (startTime === null || (participantStartTimes.length === 0 && timestamp < startTime)) {
       startTime = timestamp;
     }
 
@@ -774,7 +792,7 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
       fetchAnswersWithFallback(),
       supabase
         .from("participants")
-        .select("id,session_id,student_name,finished_at,last_updated")
+        .select("id,session_id,student_name,run_started_at,finished_at,last_updated")
         .in("session_id", sessionIds)
         .order("last_updated", { ascending: false }),
     ]);
@@ -814,6 +832,7 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
 
       return {
         name,
+        runStartedAt: participantEntry?.run_started_at ?? null,
         finishedAt: participantEntry?.finished_at ?? null,
         answers: participantAnswers,
       };
@@ -824,7 +843,7 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
       participantRows,
       answerCount: sessionAllAnswers.length,
       correctAnswerCount: sessionAllAnswers.filter((answer) => answer.is_correct === true).length,
-      durationMs: getSessionDurationMs(session.created_at, sessionAllAnswers),
+      durationMs: getSessionDurationMs(session.created_at, participantRows, sessionAllAnswers),
       leaderboardName: getLeaderboardTeamName(participantRows, session.pin),
     };
   });

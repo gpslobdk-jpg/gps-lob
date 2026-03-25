@@ -22,6 +22,7 @@ export type StudentRow = {
   latitude?: number | string | null;
   longitude?: number | string | null;
   updated_at?: string | null;
+  run_started_at?: string | null;
   finished_at?: string | null;
 };
 
@@ -32,6 +33,7 @@ export type LiveStudentLocation = {
   lat: number | null;
   lng: number | null;
   updated_at?: string | null;
+  run_started_at?: string | null;
   finished_at?: string | null;
 };
 

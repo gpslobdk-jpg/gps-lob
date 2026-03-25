@@ -39,6 +39,7 @@ export function toLocation(row: StudentRow): LiveStudentLocation | null {
     lat,
     lng,
     updated_at: row.updated_at ?? null,
+    run_started_at: row.run_started_at ?? null,
     finished_at: row.finished_at ?? null,
   };
 }

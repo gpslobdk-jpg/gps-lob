@@ -110,6 +110,7 @@ export type ParticipantRow = {
   student_name?: string | null;
   lat?: number | string | null;
   lng?: number | string | null;
+  run_started_at?: string | null;
   finished_at?: string | null;
   start_offset?: number | string | null;
 };

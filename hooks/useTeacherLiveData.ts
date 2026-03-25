@@ -442,8 +442,9 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         const progressPercent =
           totalPosts > 0 ? Math.max(0, Math.min(100, Math.round((completedPosts / totalPosts) * 100))) : 0;
         const firstAnswerAt = stats?.firstAnswerAt ?? null;
+        const effectiveStartAt = student.run_started_at ?? firstAnswerAt;
         const endTimestamp = toTimestamp(student.finished_at ?? stats?.lastActivityAt ?? null);
-        const startTimestamp = toTimestamp(firstAnswerAt);
+        const startTimestamp = toTimestamp(effectiveStartAt);
         const elapsedTimeMs =
           startTimestamp !== null && endTimestamp !== null && endTimestamp >= startTimestamp
             ? endTimestamp - startTimestamp

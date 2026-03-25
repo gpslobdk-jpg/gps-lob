@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import {
+  fetchParticipantStartState,
+  fetchRunForSession,
+  getAnsweredPostIndex,
+  getFirstRoutePostIndexForParticipant,
+} from "@/app/api/play/_shared";
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
 
 export const runtime = "edge";
@@ -10,6 +16,59 @@ type SubmitAnswerPayload = {
 
 function isArrayOfRecords(value: unknown): value is Record<string, unknown>[] {
   return Array.isArray(value) && value.every((v) => typeof v === "object" && v !== null && !Array.isArray(v));
+}
+
+function isCorrectAnswerPayload(payload: Record<string, unknown>) {
+  return payload.is_correct === true;
+}
+
+function asTrimmedString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+async function maybeStampRunStartedAt(
+  payload: Record<string, unknown>,
+  admin: NonNullable<ReturnType<typeof createAdminClient>>
+) {
+  if (!isCorrectAnswerPayload(payload)) return;
+
+  const sessionId = asTrimmedString(payload.session_id);
+  const participantId = asTrimmedString(payload.participant_id);
+  const answeredPostIndex = getAnsweredPostIndex(payload);
+
+  if (!sessionId || !participantId || answeredPostIndex === null) {
+    return;
+  }
+
+  const run = await fetchRunForSession(sessionId);
+  const questionCount = Array.isArray(run?.questions) ? run.questions.length : 0;
+  if (questionCount <= 0) return;
+
+  const participantState = await fetchParticipantStartState(sessionId, participantId, admin);
+  if (!participantState || participantState.run_started_at) {
+    return;
+  }
+
+  const firstRoutePostIndex = getFirstRoutePostIndexForParticipant(
+    questionCount,
+    participantState.start_offset ?? 0,
+    run?.raceType ?? run?.race_type
+  );
+
+  if (firstRoutePostIndex === null || answeredPostIndex !== firstRoutePostIndex) {
+    return;
+  }
+
+  const { error } = await admin
+    .from("participants")
+    .update({ run_started_at: new Date().toISOString() })
+    .eq("id", participantId)
+    .eq("session_id", sessionId)
+    .is("run_started_at", null);
+
+  if (error && !isMissingColumnError(error)) {
+    throw new Error(error.message ?? "Kunne ikke gemme run_started_at.");
+  }
 }
 
 function isMissingColumnError(
@@ -51,6 +110,7 @@ export async function POST(request: NextRequest) {
       try {
         const { error } = await admin.from("answers").insert(payload as Record<string, unknown>);
         if (!error) {
+          await maybeStampRunStartedAt(payload, admin);
           return NextResponse.json({ inserted: true });
         }
 
