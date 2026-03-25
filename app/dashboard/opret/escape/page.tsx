@@ -24,6 +24,7 @@ import {
 } from "@/utils/gpsRuns";
 import {
   clearRunDraft,
+  hasUnsavedDraft,
   readRunDraft,
   restoreDraftMapCenter,
   restoreDraftString,
@@ -373,7 +374,8 @@ function EscapeBuilderPageContent() {
   const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([createQuestion()]);
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
-  const isEditorBusy = isSaving;
+  const [showDraftRecoveryPrompt, setShowDraftRecoveryPrompt] = useState(false);
+  const isEditorBusy = isSaving || showDraftRecoveryPrompt;
   const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
   const [mapCenter, setMapCenter] = useState<MapCenter>({
     lat: DEFAULT_MAP_CENTER.lat,
@@ -394,6 +396,19 @@ function EscapeBuilderPageContent() {
     ) : null;
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedDraftRef = useRef(false);
+  const shouldAutoRestoreDraftRef = useRef<boolean | null>(null);
+
+  const applyDraftState = (draft: EscapeBuilderDraftState) => {
+    const restoredSubject = restoreDraftString(draft.subject);
+    const restoredQuestions = toEscapeQuestions(draft.questions);
+
+    setTitle(restoreDraftString(draft.title));
+    setMasterCode(restoreDraftString(draft.masterCode));
+    setSubject(restoredSubject);
+    setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
+    setShowAiInterviewModal(restoreDraftBoolean(draft.showAiInterviewModal));
+    setMapCenter(restoreDraftMapCenter(draft.mapCenter, DEFAULT_MAP_CENTER));
+  };
 
   const scrollToSaveFeedback = () => {
     if (saveFeedbackRef.current) {
@@ -407,6 +422,10 @@ function EscapeBuilderPageContent() {
   };
 
   useEffect(() => {
+    hasInitializedDraftRef.current = false;
+    shouldAutoRestoreDraftRef.current = null;
+    setShowDraftRecoveryPrompt(false);
+
     if (!isEditMode) {
       setIsLoadingExistingRun(false);
       setLoadedRunId(null);
@@ -497,6 +516,12 @@ function EscapeBuilderPageContent() {
   useEffect(() => {
     if (hasInitializedDraftRef.current) return;
 
+    if (shouldAutoRestoreDraftRef.current === null) {
+      shouldAutoRestoreDraftRef.current = shouldRestoreRunDraftOnLoad(ESCAPE_DRAFT_STORAGE_KEY);
+    }
+
+    const shouldAutoRestoreDraft = shouldAutoRestoreDraftRef.current;
+
     if (isEditMode) {
       if (isLoadingExistingRun) return;
       if (loadedRunId !== editRunId) {
@@ -505,21 +530,21 @@ function EscapeBuilderPageContent() {
       }
     }
 
-    const restoredDraft = shouldRestoreRunDraftOnLoad(ESCAPE_DRAFT_STORAGE_KEY)
+    const restoredDraft = shouldAutoRestoreDraft
       ? readRunDraft<EscapeBuilderDraftState>(ESCAPE_DRAFT_STORAGE_KEY, editRunId)
       : null;
 
     if (restoredDraft) {
-      const restoredSubject = restoreDraftString(restoredDraft.subject);
-      const restoredQuestions = toEscapeQuestions(restoredDraft.questions);
-
-      setTitle(restoreDraftString(restoredDraft.title));
-      setMasterCode(restoreDraftString(restoredDraft.masterCode));
-      setSubject(restoredSubject);
-      setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
-      setShowAiInterviewModal(restoreDraftBoolean(restoredDraft.showAiInterviewModal));
-      setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
+      applyDraftState(restoredDraft);
       setNotice(null);
+      hasInitializedDraftRef.current = true;
+      return;
+    }
+
+    if (isEditMode && !shouldAutoRestoreDraft && hasUnsavedDraft(ESCAPE_DRAFT_STORAGE_KEY, editRunId)) {
+      setShowDraftRecoveryPrompt(true);
+      hasInitializedDraftRef.current = true;
+      return;
     }
 
     hasInitializedDraftRef.current = true;
@@ -527,6 +552,7 @@ function EscapeBuilderPageContent() {
 
   useEffect(() => {
     if (!hasInitializedDraftRef.current) return;
+    if (showDraftRecoveryPrompt) return;
 
     writeRunDraft(ESCAPE_DRAFT_STORAGE_KEY, editRunId, {
       title,
@@ -542,9 +568,39 @@ function EscapeBuilderPageContent() {
     masterCode,
     questions,
     showAiInterviewModal,
+    showDraftRecoveryPrompt,
     subject,
     title,
   ]);
+
+  const handleRestoreDraft = () => {
+    const restoredDraft = readRunDraft<EscapeBuilderDraftState>(ESCAPE_DRAFT_STORAGE_KEY, editRunId);
+
+    if (!restoredDraft) {
+      setShowDraftRecoveryPrompt(false);
+      setNotice({
+        tone: "error",
+        message: "Vi kunne ikke finde den lokale kladde mere. Du arbejder videre på versionen fra arkivet.",
+      });
+      return;
+    }
+
+    applyDraftState(restoredDraft);
+    setShowDraftRecoveryPrompt(false);
+    setNotice({
+      tone: "success",
+      message: "Vi gendannede dine ugemte ændringer fra sidste besøg.",
+    });
+  };
+
+  const handleDiscardDraft = () => {
+    clearRunDraft(ESCAPE_DRAFT_STORAGE_KEY);
+    setShowDraftRecoveryPrompt(false);
+    setNotice({
+      tone: "success",
+      message: "Den lokale kladde blev slettet. Du arbejder nu videre på versionen fra arkivet.",
+    });
+  };
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -1055,6 +1111,36 @@ function EscapeBuilderPageContent() {
           </aside>
         </div>
       </div>
+
+      {showDraftRecoveryPrompt ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-6 py-10 backdrop-blur-md">
+          <div className="w-full max-w-2xl rounded-4xl border border-amber-400/25 bg-slate-950/90 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-100/70">Redningskrans</p>
+            <h2 className={`mt-3 text-3xl font-black tracking-tight text-amber-50 ${rubik.className}`}>
+              Vi fandt ugemte ændringer fra dit sidste besøg
+            </h2>
+            <p className="mt-4 text-sm leading-6 text-amber-100/80 sm:text-base">
+              Hvis du fortsætter uden at gendanne kladden, beholder vi versionen fra arkivet og sletter den lokale kladde.
+            </p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={handleRestoreDraft}
+                className="rounded-3xl border border-amber-300/40 bg-amber-400 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-amber-500/20 transition hover:bg-amber-300"
+              >
+                Gendan ugemte ændringer
+              </button>
+              <button
+                type="button"
+                onClick={handleDiscardDraft}
+                className="rounded-3xl border border-white/15 bg-white/5 px-5 py-4 text-sm font-bold uppercase tracking-[0.18em] text-amber-50 transition hover:bg-white/10"
+              >
+                Slet kladde
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <EscapeAiInterviewModal
         open={showAiInterviewModal}

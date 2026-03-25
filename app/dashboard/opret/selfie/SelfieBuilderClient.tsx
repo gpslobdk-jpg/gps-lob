@@ -23,6 +23,7 @@ import {
 } from "@/utils/gpsRuns";
 import {
   clearRunDraft,
+  hasUnsavedDraft,
   readRunDraft,
   restoreDraftBoolean,
   restoreDraftMapCenter,
@@ -257,7 +258,8 @@ export default function SelfieBuilderClient() {
   const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([createQuestion()]);
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
-  const isEditorBusy = isSaving;
+  const [showDraftRecoveryPrompt, setShowDraftRecoveryPrompt] = useState(false);
+  const isEditorBusy = isSaving || showDraftRecoveryPrompt;
   const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
   const [mapCenter, setMapCenter] = useState<MapCenter>({
     lat: DEFAULT_MAP_CENTER.lat,
@@ -265,6 +267,18 @@ export default function SelfieBuilderClient() {
   });
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedDraftRef = useRef(false);
+  const shouldAutoRestoreDraftRef = useRef<boolean | null>(null);
+
+  const applyDraftState = (draft: SelfieBuilderDraftState) => {
+    const restoredQuestions = toSelfieQuestions(draft.questions);
+
+    setTitle(restoreDraftString(draft.title));
+    setDescription(restoreDraftString(draft.description));
+    setSubject(restoreDraftString(draft.subject));
+    setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
+    setShowAiInterviewModal(restoreDraftBoolean(draft.showAiInterviewModal));
+    setMapCenter(restoreDraftMapCenter(draft.mapCenter, DEFAULT_MAP_CENTER));
+  };
 
   const renderNotice = (className = "") =>
     notice ? (
@@ -291,6 +305,10 @@ export default function SelfieBuilderClient() {
   };
 
   useEffect(() => {
+    hasInitializedDraftRef.current = false;
+    shouldAutoRestoreDraftRef.current = null;
+    setShowDraftRecoveryPrompt(false);
+
     if (!isEditMode) {
       setIsLoadingExistingRun(false);
       setLoadedRunId(null);
@@ -384,6 +402,12 @@ export default function SelfieBuilderClient() {
   useEffect(() => {
     if (hasInitializedDraftRef.current) return;
 
+    if (shouldAutoRestoreDraftRef.current === null) {
+      shouldAutoRestoreDraftRef.current = shouldRestoreRunDraftOnLoad(SELFIE_DRAFT_STORAGE_KEY);
+    }
+
+    const shouldAutoRestoreDraft = shouldAutoRestoreDraftRef.current;
+
     if (isEditMode) {
       if (isLoadingExistingRun) return;
       if (loadedRunId !== editRunId) {
@@ -392,20 +416,21 @@ export default function SelfieBuilderClient() {
       }
     }
 
-    const restoredDraft = shouldRestoreRunDraftOnLoad(SELFIE_DRAFT_STORAGE_KEY)
+    const restoredDraft = shouldAutoRestoreDraft
       ? readRunDraft<SelfieBuilderDraftState>(SELFIE_DRAFT_STORAGE_KEY, editRunId)
       : null;
 
     if (restoredDraft) {
-      const restoredQuestions = toSelfieQuestions(restoredDraft.questions);
-
-      setTitle(restoreDraftString(restoredDraft.title));
-      setDescription(restoreDraftString(restoredDraft.description));
-      setSubject(restoreDraftString(restoredDraft.subject));
-      setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
-      setShowAiInterviewModal(restoreDraftBoolean(restoredDraft.showAiInterviewModal));
-      setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
+      applyDraftState(restoredDraft);
       setNotice(null);
+      hasInitializedDraftRef.current = true;
+      return;
+    }
+
+    if (isEditMode && !shouldAutoRestoreDraft && hasUnsavedDraft(SELFIE_DRAFT_STORAGE_KEY, editRunId)) {
+      setShowDraftRecoveryPrompt(true);
+      hasInitializedDraftRef.current = true;
+      return;
     }
 
     hasInitializedDraftRef.current = true;
@@ -413,6 +438,7 @@ export default function SelfieBuilderClient() {
 
   useEffect(() => {
     if (!hasInitializedDraftRef.current) return;
+    if (showDraftRecoveryPrompt) return;
 
     writeRunDraft(SELFIE_DRAFT_STORAGE_KEY, editRunId, {
       title,
@@ -422,7 +448,45 @@ export default function SelfieBuilderClient() {
       questions,
       mapCenter,
     } satisfies SelfieBuilderDraftState);
-  }, [description, editRunId, mapCenter, questions, showAiInterviewModal, subject, title]);
+  }, [
+    description,
+    editRunId,
+    mapCenter,
+    questions,
+    showAiInterviewModal,
+    showDraftRecoveryPrompt,
+    subject,
+    title,
+  ]);
+
+  const handleRestoreDraft = () => {
+    const restoredDraft = readRunDraft<SelfieBuilderDraftState>(SELFIE_DRAFT_STORAGE_KEY, editRunId);
+
+    if (!restoredDraft) {
+      setShowDraftRecoveryPrompt(false);
+      setNotice({
+        tone: "error",
+        message: "Vi kunne ikke finde den lokale kladde mere. Du arbejder videre på versionen fra arkivet.",
+      });
+      return;
+    }
+
+    applyDraftState(restoredDraft);
+    setShowDraftRecoveryPrompt(false);
+    setNotice({
+      tone: "success",
+      message: "Vi gendannede dine ugemte ændringer fra sidste besøg.",
+    });
+  };
+
+  const handleDiscardDraft = () => {
+    clearRunDraft(SELFIE_DRAFT_STORAGE_KEY);
+    setShowDraftRecoveryPrompt(false);
+    setNotice({
+      tone: "success",
+      message: "Den lokale kladde blev slettet. Du arbejder nu videre på versionen fra arkivet.",
+    });
+  };
 
   const pins = useMemo<SavedPin[]>(
     () =>
@@ -850,6 +914,36 @@ export default function SelfieBuilderClient() {
           </aside>
         </div>
       </div>
+
+      {showDraftRecoveryPrompt ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-6 py-10 backdrop-blur-md">
+          <div className="w-full max-w-2xl rounded-4xl border border-rose-400/25 bg-slate-950/90 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-rose-100/70">Redningskrans</p>
+            <h2 className={`mt-3 text-3xl font-black tracking-tight text-rose-50 ${rubik.className}`}>
+              Vi fandt ugemte ændringer fra dit sidste besøg
+            </h2>
+            <p className="mt-4 text-sm leading-6 text-rose-100/80 sm:text-base">
+              Hvis du fortsætter uden at gendanne kladden, beholder vi versionen fra arkivet og sletter den lokale kladde.
+            </p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={handleRestoreDraft}
+                className="rounded-3xl border border-rose-300/40 bg-rose-400 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-rose-500/20 transition hover:bg-rose-300"
+              >
+                Gendan ugemte ændringer
+              </button>
+              <button
+                type="button"
+                onClick={handleDiscardDraft}
+                className="rounded-3xl border border-white/15 bg-white/5 px-5 py-4 text-sm font-bold uppercase tracking-[0.18em] text-rose-50 transition hover:bg-white/10"
+              >
+                Slet kladde
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <SelfieAiInterviewModal
         open={showAiInterviewModal}

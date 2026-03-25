@@ -15,6 +15,7 @@ import { RACE_TYPES } from "@/utils/gpsRuns";
 import {
   consumeDraftAutoload,
   clearRunDraft,
+  hasUnsavedDraft,
   readRunDraft,
   restoreDraftBoolean,
   restoreDraftMapCenter,
@@ -336,7 +337,8 @@ function OpretDanskLoebPageContent() {
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
   const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>(DEFAULT_MAP_CENTER);
-  const isEditorBusy = isSaving;
+  const [showDraftRecoveryPrompt, setShowDraftRecoveryPrompt] = useState(false);
+  const isEditorBusy = isSaving || showDraftRecoveryPrompt;
   const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
 
   const renderNotice = (className = "") =>
@@ -353,6 +355,18 @@ function OpretDanskLoebPageContent() {
     ) : null;
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedDraftRef = useRef(false);
+  const shouldAutoRestoreDraftRef = useRef<boolean | null>(null);
+
+  const applyDraftState = (draft: BuilderDraftState) => {
+    const restoredQuestions = toQuestionList(draft.questions);
+
+    setTitle(restoreDraftString(draft.title));
+    setDescription(restoreDraftString(draft.description));
+    setShowTeacherField(restoreDraftBoolean(draft.showTeacherField, true));
+    setShowAiInterviewModal(restoreDraftBoolean(draft.showAiInterviewModal));
+    setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion(defaultQuestionType)]);
+    setMapCenter(restoreDraftMapCenter(draft.mapCenter, DEFAULT_MAP_CENTER));
+  };
 
   const scrollToSaveFeedback = () => {
     if (saveFeedbackRef.current) {
@@ -426,6 +440,10 @@ function OpretDanskLoebPageContent() {
   }, [editRunId]);
 
   useEffect(() => {
+    hasInitializedDraftRef.current = false;
+    shouldAutoRestoreDraftRef.current = null;
+    setShowDraftRecoveryPrompt(false);
+
     if (!isEditMode) {
       setIsLoadingExistingRun(false);
       setLoadedRunId(null);
@@ -529,6 +547,12 @@ function OpretDanskLoebPageContent() {
   useEffect(() => {
     if (hasInitializedDraftRef.current) return;
 
+    if (shouldAutoRestoreDraftRef.current === null) {
+      shouldAutoRestoreDraftRef.current = shouldRestoreRunDraftOnLoad(DANSK_DRAFT_STORAGE_KEY);
+    }
+
+    const shouldAutoRestoreDraft = shouldAutoRestoreDraftRef.current;
+
     if (isEditMode) {
       if (isLoadingExistingRun) return;
       if (loadedRunId !== editRunId) {
@@ -537,22 +561,21 @@ function OpretDanskLoebPageContent() {
       }
     }
 
-    const restoredDraft = shouldRestoreRunDraftOnLoad(DANSK_DRAFT_STORAGE_KEY)
+    const restoredDraft = shouldAutoRestoreDraft
       ? readRunDraft<BuilderDraftState>(DANSK_DRAFT_STORAGE_KEY, editRunId)
       : null;
 
     if (restoredDraft) {
-      const restoredQuestions = toQuestionList(restoredDraft.questions);
-
-      setTitle(restoreDraftString(restoredDraft.title));
-      setDescription(restoreDraftString(restoredDraft.description));
-      setShowTeacherField(restoreDraftBoolean(restoredDraft.showTeacherField, true));
-      setShowAiInterviewModal(restoreDraftBoolean(restoredDraft.showAiInterviewModal));
-      setQuestions(
-        restoredQuestions.length > 0 ? restoredQuestions : [createQuestion(defaultQuestionType)]
-      );
-      setMapCenter(restoreDraftMapCenter(restoredDraft.mapCenter, DEFAULT_MAP_CENTER));
+      applyDraftState(restoredDraft);
       setNotice(null);
+      hasInitializedDraftRef.current = true;
+      return;
+    }
+
+    if (isEditMode && !shouldAutoRestoreDraft && hasUnsavedDraft(DANSK_DRAFT_STORAGE_KEY, editRunId)) {
+      setShowDraftRecoveryPrompt(true);
+      hasInitializedDraftRef.current = true;
+      return;
     }
 
     hasInitializedDraftRef.current = true;
@@ -560,6 +583,7 @@ function OpretDanskLoebPageContent() {
 
   useEffect(() => {
     if (!hasInitializedDraftRef.current) return;
+    if (showDraftRecoveryPrompt) return;
 
     writeRunDraft(DANSK_DRAFT_STORAGE_KEY, editRunId, {
       title,
@@ -570,7 +594,45 @@ function OpretDanskLoebPageContent() {
       questions,
       mapCenter,
     } satisfies BuilderDraftState);
-  }, [description, editRunId, mapCenter, questions, showAiInterviewModal, showTeacherField, title]);
+  }, [
+    description,
+    editRunId,
+    mapCenter,
+    questions,
+    showAiInterviewModal,
+    showDraftRecoveryPrompt,
+    showTeacherField,
+    title,
+  ]);
+
+  const handleRestoreDraft = () => {
+    const restoredDraft = readRunDraft<BuilderDraftState>(DANSK_DRAFT_STORAGE_KEY, editRunId);
+
+    if (!restoredDraft) {
+      setShowDraftRecoveryPrompt(false);
+      setNotice({
+        tone: "error",
+        message: "Vi kunne ikke finde den lokale kladde mere. Du arbejder videre på versionen fra arkivet.",
+      });
+      return;
+    }
+
+    applyDraftState(restoredDraft);
+    setShowDraftRecoveryPrompt(false);
+    setNotice({
+      tone: "success",
+      message: "Vi gendannede dine ugemte ændringer fra sidste besøg.",
+    });
+  };
+
+  const handleDiscardDraft = () => {
+    clearRunDraft(DANSK_DRAFT_STORAGE_KEY);
+    setShowDraftRecoveryPrompt(false);
+    setNotice({
+      tone: "success",
+      message: "Den lokale kladde blev slettet. Du arbejder nu videre på versionen fra arkivet.",
+    });
+  };
 
   useEffect(() => {
     setQuestions((current) => {
@@ -872,13 +934,13 @@ function OpretDanskLoebPageContent() {
               src="/danskikon2.svg"
               alt=""
               aria-hidden="true"
-              className="pointer-events-none absolute top-10 -right-10 z-0 h-48 w-48 select-none opacity-[0.05]"
+              className="pointer-events-none absolute top-8 -right-8 z-0 h-60 w-60 select-none opacity-[0.16] drop-shadow-[0_24px_56px_rgba(255,255,255,0.14)]"
             />
             <img
               src="/danskikon3.svg"
               alt=""
               aria-hidden="true"
-              className="pointer-events-none absolute bottom-20 -left-10 z-0 h-48 w-48 select-none opacity-[0.05]"
+              className="pointer-events-none absolute bottom-16 -left-8 z-0 h-60 w-60 select-none opacity-[0.16] drop-shadow-[0_24px_56px_rgba(255,255,255,0.14)]"
             />
             <div className="relative z-10 mx-auto max-w-3xl">
               <fieldset
@@ -895,8 +957,12 @@ function OpretDanskLoebPageContent() {
 
                   <div className="mb-8">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-rose-400/25 bg-rose-500/10 text-rose-200 shadow-[0_14px_28px_rgba(244,63,94,0.18)]">
-                        <img src="/danskikon1.svg" alt="Dansk" className="h-10 w-10 object-contain" />
+                      <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-[1.55rem] border border-white/80 bg-white px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),inset_0_-6px_12px_rgba(136,19,55,0.06),0_18px_38px_rgba(255,255,255,0.16),0_14px_28px_rgba(244,63,94,0.18)] ring-1 ring-rose-200/55">
+                        <span
+                          aria-hidden="true"
+                          className="pointer-events-none absolute inset-x-2 top-1 h-px rounded-full bg-white/95"
+                        />
+                        <img src="/danskikon1.svg" alt="Dansk" className="h-full w-full object-contain drop-shadow-[0_10px_18px_rgba(136,19,55,0.18)]" />
                       </div>
                       <div>
                         <h3 className="text-xl font-semibold text-rose-50">Velkommen til Dansk-løbet</h3>
@@ -1149,6 +1215,36 @@ function OpretDanskLoebPageContent() {
           </aside>
         </div>
       </div>
+
+      {showDraftRecoveryPrompt ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-6 py-10 backdrop-blur-md">
+          <div className="w-full max-w-2xl rounded-4xl border border-rose-400/25 bg-slate-950/90 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-rose-100/70">Redningskrans</p>
+            <h2 className={`mt-3 text-3xl font-black tracking-tight text-rose-50 ${rubik.className}`}>
+              Vi fandt ugemte ændringer fra dit sidste besøg
+            </h2>
+            <p className="mt-4 text-sm leading-6 text-rose-100/80 sm:text-base">
+              Hvis du fortsætter uden at gendanne kladden, beholder vi versionen fra arkivet og sletter den lokale kladde.
+            </p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={handleRestoreDraft}
+                className="rounded-3xl border border-rose-300/40 bg-rose-400 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-rose-500/20 transition hover:bg-rose-300"
+              >
+                Gendan ugemte ændringer
+              </button>
+              <button
+                type="button"
+                onClick={handleDiscardDraft}
+                className="rounded-3xl border border-white/15 bg-white/5 px-5 py-4 text-sm font-bold uppercase tracking-[0.18em] text-rose-50 transition hover:bg-white/10"
+              >
+                Slet kladde
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <DanskAiInterviewModal
         open={showAiInterviewModal}
