@@ -20,28 +20,21 @@ const poppins = Poppins({
 });
 
 const cardBaseClass =
-  "group relative mx-auto flex h-[21rem] w-full max-w-[20.5rem] flex-col overflow-hidden rounded-[2rem] border bg-white/10 p-0 text-left shadow-[0_22px_52px_rgba(15,23,42,0.16),0_8px_18px_rgba(15,23,42,0.07),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-lg transition-all duration-300";
+  "group relative mx-auto flex h-[18.75rem] w-full max-w-[20.5rem] flex-col overflow-hidden rounded-[2rem] border bg-white/10 p-0 text-left shadow-[0_22px_52px_rgba(15,23,42,0.16),0_8px_18px_rgba(15,23,42,0.07),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-lg transition-all duration-300";
 
 const cardPanelClass =
-  "relative flex h-full flex-col items-center justify-between rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.05))] px-6 py-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-16px_24px_rgba(15,23,42,0.07)]";
-
-const cardActionClass =
-  "flex min-h-12 w-full max-w-[15.5rem] items-center justify-between rounded-full border border-white/16 bg-white/12 px-5 py-3 shadow-[0_14px_28px_rgba(15,23,42,0.16),inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md";
+  "relative flex h-full flex-col items-center justify-center rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.05))] px-6 py-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-16px_24px_rgba(15,23,42,0.07)]";
 
 type BuilderCard = {
   raceType: RaceTypeThemeKey;
   title: string;
   description: string;
   href?: string;
-  eyebrow: string;
-  actionLabel: string;
-  actionState: string;
   locked?: boolean;
   badge?: string;
   accentClass: string;
   accentGlowClass: string;
   badgeClass: string;
-  actionAccentClass: string;
 };
 
 const cards: BuilderCard[] = [
@@ -50,16 +43,12 @@ const cards: BuilderCard[] = [
     title: "Klassisk Quiz-løb",
     description: "Byg et klassisk løb med spørgsmål, svarmuligheder og fuld kontrol over ruten.",
     href: "/dashboard/opret/manuel",
-    eyebrow: "Quiz & rute",
-    actionLabel: "Åbn quiz-byggeren",
-    actionState: "Byg",
     accentClass:
       "border-emerald-500/75 bg-emerald-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(16,185,129,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
     accentGlowClass:
       "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(16,185,129,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(16,185,129,0.24)]",
     badgeClass:
       "border-emerald-300/40 bg-emerald-400/20 text-white shadow-[0_10px_22px_rgba(16,185,129,0.18)]",
-    actionAccentClass: "border-emerald-300/34 bg-emerald-400/20",
   },
   {
     raceType: "foto",
@@ -67,80 +56,60 @@ const cards: BuilderCard[] = [
     description:
       "Send eleverne ud på kreative foto-opgaver og gennemgå holdenes billeder efter løbet.",
     href: "/dashboard/opret/foto",
-    eyebrow: "Kamera & kreativitet",
-    actionLabel: "Åbn foto-byggeren",
-    actionState: "Skab",
     accentClass:
       "border-blue-500/75 bg-blue-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(59,130,246,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
     accentGlowClass:
       "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(59,130,246,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(59,130,246,0.24)]",
     badgeClass:
       "border-blue-300/40 bg-blue-400/20 text-white shadow-[0_10px_22px_rgba(59,130,246,0.18)]",
-    actionAccentClass: "border-blue-300/34 bg-blue-400/20",
   },
   {
     raceType: "scanner",
     title: "Scan bogen",
     description: "Upload en bogside eller indsæt tekst, og lad AI omsætte den til et færdigt løb.",
     href: "/dashboard/opret/scanner",
-    eyebrow: "AI & tekst",
-    actionLabel: "Åbn scan-byggeren",
-    actionState: "Scan",
     accentClass:
       "border-fuchsia-500/75 bg-fuchsia-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(217,70,239,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
     accentGlowClass:
       "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(217,70,239,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(217,70,239,0.24)]",
     badgeClass:
       "border-fuchsia-300/40 bg-fuchsia-400/20 text-white shadow-[0_10px_22px_rgba(217,70,239,0.18)]",
-    actionAccentClass: "border-fuchsia-300/34 bg-fuchsia-400/20",
   },
   {
     raceType: "engelsk",
     title: "Engelsk",
     description: "Opret interaktive engelsk-løb med AI-samtaletræning og sproglige missioner.",
     href: "/dashboard/opret/engelsk",
-    eyebrow: "Samtale & sprog",
-    actionLabel: "Åbn engelsk-byggeren",
-    actionState: "Tal",
     accentClass:
       "border-indigo-500/75 bg-indigo-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(99,102,241,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
     accentGlowClass:
       "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(99,102,241,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(99,102,241,0.24)]",
     badgeClass:
       "border-indigo-300/40 bg-indigo-400/20 text-white shadow-[0_10px_22px_rgba(99,102,241,0.18)]",
-    actionAccentClass: "border-indigo-300/34 bg-indigo-400/20",
   },
   {
     raceType: "matematik",
     title: "Matematik",
     description: "Løs regnestykker og matematiske gåder ude i virkeligheden.",
     href: "/dashboard/opret/matematik",
-    eyebrow: "Tal & logik",
-    actionLabel: "Åbn matematik-byggeren",
-    actionState: "Regn",
     accentClass:
       "border-amber-500/75 bg-amber-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(245,158,11,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
     accentGlowClass:
       "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(245,158,11,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(245,158,11,0.24)]",
     badgeClass:
       "border-amber-300/40 bg-amber-400/20 text-white shadow-[0_10px_22px_rgba(245,158,11,0.18)]",
-    actionAccentClass: "border-amber-300/34 bg-amber-400/20",
   },
   {
     raceType: "dansk",
     title: "Dansk",
     description: "Læseforståelse og grammatik kombineret med bevægelse.",
     href: "/dashboard/opret/dansk",
-    eyebrow: "Sprog & læsning",
-    actionLabel: "Åbn dansk-byggeren",
-    actionState: "Læs",
     accentClass:
       "border-rose-500/75 bg-rose-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(244,63,94,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
     accentGlowClass:
       "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(244,63,94,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(244,63,94,0.24)]",
     badgeClass:
       "border-rose-300/40 bg-rose-400/20 text-white shadow-[0_10px_22px_rgba(244,63,94,0.18)]",
-    actionAccentClass: "border-rose-300/34 bg-rose-400/20",
   },
 ];
 
@@ -164,32 +133,14 @@ function BuilderCard({ card, index }: { card: BuilderCard; index: number }) {
       ) : null}
 
       <div className={`${cardPanelClass} text-slate-950`}>
-        <div className="relative z-10 flex h-full w-full flex-col items-center text-center">
-          <div
-            className={`inline-flex items-center rounded-full border px-3 py-1.5 text-[0.58rem] font-bold tracking-[0.18em] uppercase backdrop-blur-md ${card.badgeClass}`}
-          >
-            {card.eyebrow}
-          </div>
-
-          <div className="mt-auto space-y-3">
+        <div className="relative z-10 flex h-full w-full flex-col items-center justify-center text-center">
+          <div className="space-y-1.5">
             <h2
               className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}
             >
               {card.title}
             </h2>
-            <p className="text-[0.7rem] font-semibold tracking-[0.18em] text-white/70 uppercase">
-              {card.locked ? "Forberedes til næste bølge" : "Byg med samme premium kontrol"}
-            </p>
-            <p className="mx-auto max-w-[15.5rem] text-sm leading-6 text-white/84">{card.description}</p>
-          </div>
-
-          <div className="mt-auto flex w-full justify-center pt-6">
-            <div className={`${cardActionClass} ${card.actionAccentClass}`}>
-              <span className="text-sm font-bold text-white/92">{card.actionLabel}</span>
-              <span className="text-[0.7rem] font-black tracking-[0.16em] text-white/82 uppercase">
-                {card.actionState}
-              </span>
-            </div>
+            <p className="mx-auto max-w-[15rem] text-sm leading-5.5 text-white/84">{card.description}</p>
           </div>
         </div>
       </div>
