@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { FolderOpen, MapPin, Radio } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
@@ -9,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import PwaInstallTip from "@/components/PwaInstallTip";
+import { readStoredActiveParticipant } from "@/components/play/playUtils";
 import { createClient } from "@/utils/supabase/client";
 
 const rubik = Rubik({
@@ -22,15 +22,43 @@ const poppins = Poppins({
 });
 
 const cardBaseClass =
-  "relative flex h-[300px] flex-col overflow-hidden rounded-[2.5rem] border border-white/50 bg-white/80 p-8 shadow-xl backdrop-blur-md transition-all duration-300 hover:scale-105 hover:bg-white/95 hover:shadow-2xl";
+  "group relative mx-auto flex h-[21rem] w-full max-w-[20.5rem] flex-col overflow-hidden rounded-[2rem] border bg-white/10 p-0 text-left shadow-[0_22px_52px_rgba(15,23,42,0.16),0_8px_18px_rgba(15,23,42,0.07),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-lg transition-all duration-300";
+
+const cardPanelClass =
+  "relative flex h-full flex-col items-center justify-between rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.05))] px-6 py-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-16px_24px_rgba(15,23,42,0.07)]";
+
+const cardActionClass =
+  "flex min-h-12 w-full max-w-[15.5rem] items-center justify-between rounded-full border border-white/16 bg-white/12 px-5 py-3 shadow-[0_14px_28px_rgba(15,23,42,0.16),inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md";
+
+const createCardClass =
+  "border-emerald-400/60 bg-emerald-500/10 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(16,185,129,0.16),inset_0_1px_0_rgba(255,255,255,0.18)]";
+
+const liveCardEnabledClass =
+  "border-amber-400/60 bg-amber-500/10 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(245,158,11,0.16),inset_0_1px_0_rgba(255,255,255,0.18)]";
+
+const archiveCardClass =
+  "border-fuchsia-400/60 bg-fuchsia-500/10 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(217,70,239,0.16),inset_0_1px_0_rgba(255,255,255,0.18)]";
+
+const spinnerClass = "h-3.5 w-3.5 shrink-0 animate-spin";
 
 type ActiveSessionRow = {
   id: string;
 };
 
+type ParticipantResumeRow = {
+  id: string;
+  session_id: string;
+  finished_at: string | null;
+};
+
+type ResumeTarget = {
+  kind: "participant" | "teacher";
+  sessionId: string;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [resumeTarget, setResumeTarget] = useState<ResumeTarget | null>(null);
   const [isCheckingLiveSession, setIsCheckingLiveSession] = useState(true);
   const [liveHint, setLiveHint] = useState("");
   const [runCountError, setRunCountError] = useState(false);
@@ -59,8 +87,30 @@ export default function DashboardPage() {
           if (userError) {
             console.error("Kunne ikke hente bruger:", userError);
           }
-          if (isMounted) setActiveSessionId(null);
+          if (isMounted) setResumeTarget(null);
           return;
+        }
+
+        const storedParticipant = readStoredActiveParticipant();
+        if (storedParticipant?.participantId) {
+          const { data: participantData, error: participantError } = await supabase
+            .from("participants")
+            .select("id,session_id,finished_at")
+            .eq("id", storedParticipant.participantId)
+            .is("finished_at", null)
+            .maybeSingle();
+
+          if (participantError) {
+            console.error("Kunne ikke tjekke aktiv deltagerstatus:", participantError);
+          }
+
+          const activeParticipant = (participantData as ParticipantResumeRow | null) ?? null;
+          if (activeParticipant?.session_id) {
+            if (isMounted) {
+              setResumeTarget({ kind: "participant", sessionId: activeParticipant.session_id });
+            }
+            return;
+          }
         }
 
         const [
@@ -84,7 +134,7 @@ export default function DashboardPage() {
           console.error("Kunne ikke tjekke antal gemte l\u00f8b:", runsError);
           if (isMounted) {
             setRunCountError(true);
-            setActiveSessionId(null);
+            setResumeTarget(null);
           }
           return;
         }
@@ -92,25 +142,25 @@ export default function DashboardPage() {
         if (runCount === 0) {
           // No saved runs yet — keep the dashboard view but don't attempt
           // to redirect to a removed welcome/onboarding page.
-          if (isMounted) setActiveSessionId(null);
+          if (isMounted) setResumeTarget(null);
           return;
         }
 
         if (error) {
           console.error("Kunne ikke tjekke aktiv live-session:", error);
-          if (isMounted) setActiveSessionId(null);
+          if (isMounted) setResumeTarget(null);
           return;
         }
 
         const active = (data as ActiveSessionRow[] | null)?.[0] ?? null;
         if (isMounted) {
-          setActiveSessionId(active?.id ?? null);
+          setResumeTarget(active?.id ? { kind: "teacher", sessionId: active.id } : null);
         }
       } catch (error) {
         console.error("Dashboardet kunne ikke indl\u00e6ses:", error);
         if (isMounted) {
           setRunCountError(true);
-          setActiveSessionId(null);
+          setResumeTarget(null);
         }
       } finally {
         if (isMounted) setIsCheckingLiveSession(false);
@@ -124,20 +174,26 @@ export default function DashboardPage() {
     };
   }, [dashboardRetryKey, router]);
 
-  const hasActiveSession = Boolean(activeSessionId);
+  const hasResumeTarget = Boolean(resumeTarget?.sessionId);
+  const isParticipantResume = resumeTarget?.kind === "participant";
+  const isTeacherResume = resumeTarget?.kind === "teacher";
 
   useEffect(() => {
-    if (hasActiveSession || isCheckingLiveSession) {
+    if (hasResumeTarget || isCheckingLiveSession) {
       setLiveHint("");
     }
-  }, [hasActiveSession, isCheckingLiveSession]);
+  }, [hasResumeTarget, isCheckingLiveSession]);
 
   const handleLiveMonitoringClick = () => {
     if (isCheckingLiveSession) return;
 
-    if (activeSessionId) {
+    if (resumeTarget?.sessionId) {
       setIsNavigatingLive(true);
-      void router.push(`/dashboard/live/${activeSessionId}`);
+      void router.push(
+        resumeTarget.kind === "participant"
+          ? `/play/${resumeTarget.sessionId}`
+          : `/dashboard/live/${resumeTarget.sessionId}`
+      );
       return;
     }
 
@@ -150,13 +206,13 @@ export default function DashboardPage() {
 
   const liveCardClass = useMemo(() => {
     if (isCheckingLiveSession) {
-      return `${cardBaseClass} cursor-progress opacity-85 hover:scale-100`;
+      return `${cardBaseClass} ${liveCardEnabledClass} cursor-progress opacity-90`;
     }
-    if (hasActiveSession) {
-      return `${cardBaseClass} cursor-pointer ring-1 ring-amber-300/60`;
+    if (hasResumeTarget) {
+      return `${cardBaseClass} ${liveCardEnabledClass} cursor-pointer`;
     }
-    return `${cardBaseClass} cursor-not-allowed opacity-75 hover:scale-100`;
-  }, [hasActiveSession, isCheckingLiveSession]);
+    return `${cardBaseClass} border-amber-400/60 bg-amber-500/8 cursor-not-allowed opacity-80 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(245,158,11,0.10),inset_0_1px_0_rgba(255,255,255,0.18)]`;
+  }, [hasResumeTarget, isCheckingLiveSession]);
 
   if (isCheckingLiveSession) {
     return (
@@ -248,7 +304,7 @@ export default function DashboardPage() {
 
   return (
     <div
-      className={`relative flex min-h-screen flex-col bg-gradient-to-b from-sky-300 via-emerald-50 to-emerald-200 p-6 text-white md:p-12 lg:bg-none lg:bg-transparent ${poppins.className}`}
+      className={`relative flex min-h-screen flex-col bg-gradient-to-b from-sky-300 via-emerald-50 to-emerald-200 px-6 pt-0 pb-8 text-white md:px-10 md:pt-0 md:pb-10 lg:bg-none lg:bg-transparent ${poppins.className}`}
     >
       <video
         autoPlay
@@ -265,16 +321,16 @@ export default function DashboardPage() {
         <Image src="/gpslogo.png" width={150} height={50} alt="Logo" priority />
       </header>
 
-      <section className="text-center">
+      <section className="mx-auto -mt-8 flex w-full max-w-5xl flex-col items-center text-center md:-mt-12">
         <h1
-          className={`mt-12 mb-2 text-4xl font-black tracking-widest text-white uppercase drop-shadow-md md:text-6xl ${rubik.className}`}
+          className={`mb-2 text-4xl font-black tracking-widest text-white uppercase drop-shadow-md md:text-6xl ${rubik.className}`}
         >
           UDSIGTSPOSTEN
         </h1>
         <p className="text-emerald-50">{"V\u00e6lg din n\u00e6ste handling og kom i gang"}</p>
       </section>
 
-      <section className="mx-auto mt-12 grid max-w-6xl grid-cols-1 gap-8 md:grid-cols-3">
+      <section className="mx-auto mt-0 grid w-full max-w-5xl grid-cols-1 justify-items-center gap-5 md:mt-1 md:grid-cols-3 md:gap-4">
         <motion.button
           type="button"
           onClick={() => {
@@ -287,77 +343,143 @@ export default function DashboardPage() {
           aria-busy={isNavigatingCreate}
           aria-disabled={isNavigatingCreate}
         >
-          <motion.article whileHover={{ scale: isNavigatingCreate ? 1 : 1.03 }} className={`${cardBaseClass} ${isNavigatingCreate ? "cursor-progress opacity-80" : "cursor-pointer"}`}>
-            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-emerald-600">
-              <MapPin className="h-7 w-7" />
-            </div>
-            <h2 className={`mb-2 text-2xl font-black tracking-wide text-emerald-950 uppercase ${rubik.className}`}>
-              <div className="flex items-center">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className={`${isNavigatingCreate ? "visible animate-spin" : "invisible"} h-4 w-4 mr-2 text-emerald-950`}
-                >
-                  <path d="M12 2v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  <path d="M12 18v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  <path d="M4.93 4.93l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  <path d="M16.24 16.24l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-                <span>{isNavigatingCreate ? "Gør klar..." : "OPRET NYT L\u00d8B"}</span>
+          <motion.article
+            whileHover={isNavigatingCreate ? undefined : { y: -4, scale: 1.012 }}
+            className={`${cardBaseClass} ${createCardClass} ${isNavigatingCreate ? "cursor-progress opacity-85" : "cursor-pointer"}`}
+          >
+            <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_34%),radial-gradient(circle_at_bottom,rgba(16,185,129,0.22),transparent_58%)]" />
+            <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(16,185,129,0.16)]" />
+            <div className={`${cardPanelClass} text-emerald-950`}>
+              <div className="relative z-10 flex h-full w-full flex-col items-center text-center">
+                <div className="inline-flex items-center gap-1 rounded-full border border-emerald-200/30 bg-emerald-400/14 px-3 py-1.5 text-[0.58rem] font-bold tracking-[0.18em] text-white/92 uppercase shadow-[0_8px_18px_rgba(16,185,129,0.14)] backdrop-blur-md">
+                  {isNavigatingCreate ? (
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={spinnerClass}>
+                      <path d="M12 2v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      <path d="M12 18v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      <path d="M4.93 4.93l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      <path d="M16.24 16.24l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  ) : null}
+                  <span>{isNavigatingCreate ? "Forbereder" : "Klar til at bygge"}</span>
+                </div>
+
+                <div className="mt-auto space-y-3">
+                  <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
+                    {isNavigatingCreate ? "Gør klar til nyt løb" : "Opret nyt løb"}
+                  </h2>
+                  <p className="text-[0.7rem] font-semibold tracking-[0.18em] text-white/70 uppercase">
+                    Byg et nyt eventyr med fuld kontrol.
+                  </p>
+                  <p className="mx-auto max-w-[15.5rem] text-sm leading-6 text-white/84">
+                    Sæt poster på kortet, skriv spørgsmål og design et løb, der føles gennemtænkt fra første stop.
+                  </p>
+                </div>
+
+                <div className="mt-auto flex w-full justify-center pt-6">
+                  <div className={`${cardActionClass} border-emerald-200/28 bg-emerald-400/14`}>
+                    <span className="text-sm font-bold text-white/92">Start i løbsbyggeren</span>
+                    <span className="text-[0.7rem] font-black tracking-[0.16em] text-white/82 uppercase">Åbn</span>
+                  </div>
+                </div>
               </div>
-            </h2>
-            <p className="mb-4 text-sm font-semibold text-emerald-700 uppercase">
-              {"BYG P\u00c5 ET RIGTIGT KORT."}
-            </p>
-            <p className="text-sm leading-relaxed text-emerald-800">
-              {
-                "S\u00e6t poster ind p\u00e5 et interaktivt kort, skriv sp\u00f8rgsm\u00e5l og gem lynhurtigt."
-              }
-            </p>
+            </div>
           </motion.article>
         </motion.button>
 
         <motion.button
           type="button"
           onClick={handleLiveMonitoringClick}
-          whileHover={hasActiveSession ? { scale: 1.03 } : undefined}
+          whileHover={hasResumeTarget ? { scale: 1.012 } : undefined}
           className="block w-full text-left"
-          aria-disabled={!hasActiveSession && !isCheckingLiveSession}
+          aria-disabled={!hasResumeTarget && !isCheckingLiveSession}
         >
-          <article className={liveCardClass}>
-            <div
-              className={`mb-6 flex h-14 w-14 items-center justify-center rounded-full border text-amber-600 ${
-                hasActiveSession && !isCheckingLiveSession
-                  ? "animate-pulse border-amber-300 bg-amber-200"
-                  : "border-amber-200 bg-amber-100"
-              }`}
-            >
-              <Radio className="h-7 w-7" />
+          <motion.article whileHover={hasResumeTarget ? { y: -4, scale: 1.012 } : undefined} className={liveCardClass}>
+            <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_34%),radial-gradient(circle_at_bottom,rgba(245,158,11,0.22),transparent_58%)]" />
+            <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(245,158,11,0.16)]" />
+            <div className={`${cardPanelClass} text-amber-950`}>
+              <div className="relative z-10 flex h-full w-full flex-col items-center text-center">
+                <div
+                  className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[0.58rem] font-bold tracking-[0.18em] uppercase shadow-[0_8px_18px_rgba(15,23,42,0.12)] backdrop-blur-md ${
+                    hasResumeTarget && !isCheckingLiveSession
+                      ? "border-amber-200/30 bg-amber-400/14 text-white/92"
+                      : "border-amber-200/20 bg-amber-400/10 text-white/76"
+                  }`}
+                >
+                  {isCheckingLiveSession ? (
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={spinnerClass}>
+                      <path d="M12 2v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      <path d="M12 18v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      <path d="M4.93 4.93l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      <path d="M16.24 16.24l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  ) : null}
+                  <span>
+                    {isCheckingLiveSession
+                      ? "Tjekker session"
+                      : isParticipantResume
+                        ? "Aktiv deltager fundet"
+                        : isTeacherResume
+                          ? "Aktivt løb fundet"
+                        : "Ingen live-session"}
+                  </span>
+                </div>
+
+                <div className="mt-auto space-y-3">
+                  <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
+                    {isParticipantResume ? "Genoptag dit løb" : isTeacherResume ? "Genoptag live-overblik" : "Genoptag"}
+                  </h2>
+                  <p className="text-[0.7rem] font-semibold tracking-[0.18em] text-white/70 uppercase">
+                    {isCheckingLiveSession
+                      ? "Vi leder efter dit aktive løb."
+                      : isParticipantResume
+                        ? "Hop direkte tilbage til din post på ruten."
+                        : isTeacherResume
+                          ? "Hop direkte tilbage ind i det aktive løb."
+                        : "Åbner igen, så snart et løb er sat i gang."}
+                  </p>
+                  <p className="mx-auto max-w-62 text-sm leading-6 text-white/84">
+                    {isCheckingLiveSession
+                      ? "Vi matcher dig med den seneste aktive deltager- eller lærersession, så du kan fortsætte uden ekstra klik."
+                      : isParticipantResume
+                        ? "Fortsæt direkte i spillerflowet på den aktive session uden at miste din fremdrift."
+                        : isTeacherResume
+                          ? "Fortsæt med livekort, svarflow og overblik præcis der, hvor du slap."
+                        : "Start et løb fra arkivet først, hvis du vil åbne overvågning og genoptage en session."}
+                  </p>
+                  {!isCheckingLiveSession && !hasResumeTarget && liveHint ? (
+                    <p className="mx-auto max-w-62 rounded-2xl border border-amber-200/24 bg-amber-400/10 px-4 py-3 text-xs font-semibold text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md">
+                      {liveHint}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="mt-auto flex w-full justify-center pt-6">
+                  <div
+                    className={`${cardActionClass} ${
+                      hasResumeTarget && !isCheckingLiveSession
+                        ? "border-amber-200/30 bg-amber-400/14"
+                        : "border-amber-200/20 bg-amber-400/10"
+                    }`}
+                  >
+                    <span className={`text-sm font-bold ${hasResumeTarget && !isCheckingLiveSession ? "text-white/92" : "text-white/70"}`}>
+                      {isParticipantResume
+                        ? "Fortsæt dit løb"
+                        : isTeacherResume
+                          ? "Åbn live-overblik"
+                          : "Kræver aktiv session"}
+                    </span>
+                    <span
+                      className={`text-[0.7rem] font-black tracking-[0.16em] uppercase ${
+                        hasResumeTarget && !isCheckingLiveSession ? "text-white/82" : "text-white/58"
+                      }`}
+                    >
+                      {hasResumeTarget && !isCheckingLiveSession ? "Fortsæt" : "Afventer"}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <h2 className={`mb-2 text-2xl font-black tracking-wide text-amber-950 uppercase ${rubik.className}`}>
-              {hasActiveSession && !isCheckingLiveSession
-                ? "GENOPTAG IGANGV\u00c6RENDE L\u00d8B"
-                : "LIVE OVERV\u00c5GNING"}
-            </h2>
-            <p className="mb-4 text-sm font-semibold text-amber-700 uppercase">
-              {isCheckingLiveSession
-                ? "TJEKKER AKTIV SESSION..."
-                : hasActiveSession
-                  ? "FORTS\u00c6T DER, HVOR DU SLAP."
-                  : "F\u00d8LG HOLDET I REALTID."}
-            </p>
-            <p className="text-sm leading-relaxed text-amber-800">
-              {isCheckingLiveSession
-                ? "Vi finder automatisk en aktiv session til dig."
-                : hasActiveSession
-                  ? "Hop direkte tilbage til livekort, chat og svarflow uden at miste overblikket."
-                  : "Se deltagernes positioner bev\u00e6ge sig p\u00e5 kortet og modtag deres svar live."}
-            </p>
-            {!isCheckingLiveSession && !hasActiveSession && liveHint ? (
-              <p className="mt-4 text-xs font-semibold text-amber-700">{liveHint}</p>
-            ) : null}
-          </article>
+          </motion.article>
         </motion.button>
 
         <motion.button
@@ -371,39 +493,55 @@ export default function DashboardPage() {
           aria-busy={isNavigatingArchive}
           aria-disabled={isNavigatingArchive}
         >
-          <article className={`${cardBaseClass} ${isNavigatingArchive ? "cursor-progress opacity-80" : "cursor-pointer"}`}>
-            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-blue-200 bg-blue-100 text-blue-600">
-              <FolderOpen className="h-7 w-7" />
-            </div>
-            <h2 className={`mb-2 text-2xl font-black tracking-wide text-blue-950 uppercase ${rubik.className}`}>
-              <div className="flex items-center">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className={`${isNavigatingArchive ? "visible animate-spin" : "invisible"} h-4 w-4 mr-2 text-blue-950`}
-                >
-                  <path d="M12 2v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  <path d="M12 18v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  <path d="M4.93 4.93l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  <path d="M16.24 16.24l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-                <span>{isNavigatingArchive ? "Indlæser..." : "MIT L\u00d8BSARKIV"}</span>
+          <motion.article
+            whileHover={isNavigatingArchive ? undefined : { y: -4, scale: 1.012 }}
+            className={`${cardBaseClass} ${archiveCardClass} ${isNavigatingArchive ? "cursor-progress opacity-85" : "cursor-pointer"}`}
+          >
+            <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_34%),radial-gradient(circle_at_bottom,rgba(217,70,239,0.22),transparent_58%)]" />
+            <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(217,70,239,0.16)]" />
+            <div className={`${cardPanelClass} text-sky-950`}>
+              <div className="relative z-10 flex h-full w-full flex-col items-center text-center">
+                <div className="inline-flex items-center gap-1 rounded-full border border-fuchsia-200/30 bg-fuchsia-400/14 px-3 py-1.5 text-[0.58rem] font-bold tracking-[0.18em] text-white/92 uppercase shadow-[0_8px_18px_rgba(217,70,239,0.14)] backdrop-blur-md">
+                  {isNavigatingArchive ? (
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={spinnerClass}>
+                      <path d="M12 2v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      <path d="M12 18v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      <path d="M4.93 4.93l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      <path d="M16.24 16.24l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  ) : null}
+                  <span>{isNavigatingArchive ? "Indlæser" : "Historik og deling"}</span>
+                </div>
+
+                <div className="mt-auto space-y-3">
+                  <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
+                    Mit løbsarkiv
+                  </h2>
+                  <p className="text-[0.7rem] font-semibold tracking-[0.18em] text-white/70 uppercase">
+                    Gemte løb, klar til genbrug.
+                  </p>
+                  <p className="mx-auto max-w-62 text-sm leading-6 text-white/84">
+                    Find dine tidligere løb, justér indholdet, og del dem hurtigt med nye klasser eller hold.
+                  </p>
+                </div>
+
+                <div className="mt-auto flex w-full justify-center pt-6">
+                  <div className={`${cardActionClass} border-fuchsia-200/28 bg-fuchsia-400/14`}>
+                    <span className="text-sm font-bold text-white/92">Åbn dit arkiv</span>
+                    <span className="text-[0.7rem] font-black tracking-[0.16em] text-white/82 uppercase">Vis</span>
+                  </div>
+                </div>
               </div>
-            </h2>
-            <p className="mb-4 text-sm font-semibold text-blue-700 uppercase">GENBRUG OG DEL.</p>
-            <p className="text-sm leading-relaxed text-blue-800">
-              {"Find alle dine tidligere l\u00f8b, rediger dem, eller del koden med en ny gruppe."}
-            </p>
-          </article>
+            </div>
+          </motion.article>
         </motion.button>
       </section>
 
-      <section className="mx-auto mt-8 w-full max-w-4xl">
+      <section className="mx-auto mt-7 w-full max-w-4xl">
         <PwaInstallTip />
       </section>
 
-      <footer className="mx-auto mt-auto w-full max-w-5xl pt-14 text-center">
+      <footer className="mx-auto mt-auto w-full max-w-5xl pt-10 text-center">
         <div className="flex flex-wrap justify-center gap-6 text-sm text-slate-500">
           <Link href="/dashboard/indstillinger" className="transition hover:text-slate-700">
             Indstillinger
