@@ -397,7 +397,7 @@ function BuilderUnavailableRedirect() {
 }
 
 export default function OpretLoebPage() {
-  return <BuilderUnavailableRedirect />;
+  return <OpretLoebPageContent />;
 }
 
 function OpretLoebPageContent() {

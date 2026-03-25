@@ -310,7 +310,7 @@ function BuilderUnavailableRedirect() {
 }
 
 export default function OpretDanskLoebPage() {
-  return <BuilderUnavailableRedirect />;
+  return <OpretDanskLoebPageContent />;
 }
 
 function OpretDanskLoebPageContent() {

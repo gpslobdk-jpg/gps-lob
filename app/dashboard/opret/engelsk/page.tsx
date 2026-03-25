@@ -311,7 +311,7 @@ function BuilderUnavailableRedirect() {
 }
 
 export default function OpretEngelskLoebPage() {
-  return <BuilderUnavailableRedirect />;
+  return <OpretEngelskLoebPageContent />;
 }
 
 function OpretEngelskLoebPageContent() {
