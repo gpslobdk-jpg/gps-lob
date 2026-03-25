@@ -308,7 +308,7 @@ export default function DanskAiInterviewModal({
       aria-modal="true"
       aria-labelledby="dansk-ai-interview-title"
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(244,63,94,0.16),transparent_30%),radial-gradient(circle_at_bottom,rgba(225,29,72,0.12),transparent_34%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(244,63,94,0.16),transparent_30%),radial-gradient(circle_at_bottom,rgba(136,19,55,0.12),transparent_34%)]" />
 
       <div className="relative flex min-h-screen items-start justify-center px-6 py-10 sm:items-center">
         <div className="mx-auto w-full max-w-5xl text-center">
@@ -322,7 +322,13 @@ export default function DanskAiInterviewModal({
               Luk
             </button>
             <span className="inline-flex items-center gap-2 text-rose-200">
-              <img src="/danskikon4.svg" alt="Dansk AI" className="h-5 w-5 object-contain" />
+              <span className="relative inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-[1.05rem] border border-white/85 bg-white p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.94),inset_0_-6px_12px_rgba(136,19,55,0.08),0_16px_34px_rgba(255,255,255,0.12),0_14px_28px_rgba(244,63,94,0.28)] ring-1 ring-rose-200/45">
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-1.5 top-1 h-px rounded-full bg-white/95"
+                />
+                <img src="/danskikon4.svg" alt="Dansk AI" className="h-full w-full object-contain drop-shadow-[0_8px_14px_rgba(136,19,55,0.22)]" />
+              </span>
               Dansk-AI
             </span>
             <span>Trin {step}/4</span>
@@ -330,7 +336,7 @@ export default function DanskAiInterviewModal({
 
           <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-white/8">
             <div
-              className="h-full rounded-full bg-rose-400 transition-all duration-500"
+              className="h-full rounded-full bg-rose-500 transition-all duration-500"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -343,8 +349,12 @@ export default function DanskAiInterviewModal({
                   id="dansk-ai-interview-title"
                   className={`mt-5 flex items-center justify-center gap-3 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                 >
-                  <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-rose-400/25 bg-rose-500/10 text-rose-200 shadow-[0_14px_28px_rgba(244,63,94,0.18)] sm:h-14 sm:w-14">
-                    <img src="/danskikon4.svg" alt="Dansk" className="h-12 w-12 object-contain" />
+                  <span className="relative inline-flex h-[4.8rem] w-[4.8rem] items-center justify-center overflow-hidden rounded-[1.8rem] border border-white/90 bg-white p-2.5 text-rose-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),inset_0_-8px_16px_rgba(136,19,55,0.08),0_24px_52px_rgba(255,255,255,0.14),0_18px_42px_rgba(244,63,94,0.3)] ring-1 ring-rose-200/55 sm:h-[5.3rem] sm:w-[5.3rem]">
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-3 top-1.5 h-px rounded-full bg-white/95"
+                    />
+                    <img src="/danskikon4.svg" alt="Dansk" className="h-full w-full object-contain drop-shadow-[0_12px_20px_rgba(136,19,55,0.24)]" />
                   </span>
                   Hvilket klassetrin er løbet til?
                 </h2>
@@ -416,7 +426,7 @@ export default function DanskAiInterviewModal({
                     type="button"
                     onClick={goToCountStep}
                     disabled={!canContinueTopic}
-                    className="inline-flex min-w-55 items-center justify-center rounded-[1.4rem] border border-rose-300/30 bg-rose-400 px-8 py-4 text-lg font-bold text-slate-950 transition hover:bg-rose-300 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex min-w-55 items-center justify-center rounded-[1.4rem] border border-rose-300/30 bg-rose-600 px-8 py-4 text-lg font-bold text-slate-950 transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Næste
                   </button>
@@ -484,7 +494,7 @@ export default function DanskAiInterviewModal({
             ) : null}
 
             {error ? (
-              <div className="mx-auto mt-8 w-full rounded-[1.4rem] border border-red-400/20 bg-red-500/10 px-5 py-4 text-sm font-semibold text-red-100">
+              <div className="mx-auto mt-8 w-full rounded-[1.4rem] border border-rose-400/20 bg-rose-500/10 px-5 py-4 text-sm font-semibold text-rose-100">
                 {error}
               </div>
             ) : null}

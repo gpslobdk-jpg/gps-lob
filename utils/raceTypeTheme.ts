@@ -52,12 +52,12 @@ const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
     key: "dansk",
     label: "Dansk",
     selectionCardClass:
-      "border-rose-400/40 bg-rose-700 text-white shadow-xl shadow-rose-950/25 hover:border-rose-300/60 hover:bg-rose-600 hover:shadow-2xl hover:shadow-rose-950/35",
-    archiveCardClass: "border-rose-300/60 shadow-rose-500/10 hover:shadow-rose-500/20",
-    archiveHeaderClass: "bg-rose-700 text-white",
-    archiveAccentIconClass: "text-rose-700",
+      "border-rose-500/30 bg-gradient-to-br from-rose-950 via-slate-900 to-rose-900 text-white shadow-xl shadow-rose-950/25 hover:border-rose-400/50 hover:shadow-2xl hover:shadow-rose-950/35",
+    archiveCardClass: "border-rose-500/30 shadow-rose-500/10 hover:border-rose-400/50 hover:shadow-rose-500/20",
+    archiveHeaderClass: "bg-gradient-to-r from-rose-950 via-slate-900 to-rose-900 text-white",
+    archiveAccentIconClass: "text-rose-300",
     archivePrimaryButtonClass:
-      "border border-rose-700 bg-rose-700 text-white shadow-[0_12px_24px_rgba(190,24,93,0.18)] hover:bg-rose-600",
+      "border border-rose-600 bg-rose-600 text-white shadow-[0_12px_24px_rgba(190,24,93,0.18)] hover:bg-rose-500",
     archiveGhostButtonClass:
       "border border-rose-200 bg-white text-rose-900 shadow-sm hover:border-rose-300 hover:bg-rose-50",
     archiveGhostIconButtonClass:
@@ -69,19 +69,19 @@ const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
     key: "engelsk",
     label: "Engelsk",
     selectionCardClass:
-      "border-blue-300/45 bg-gradient-to-br from-blue-950 via-slate-900 to-red-950 text-white shadow-xl shadow-slate-950/35 hover:border-red-300/55 hover:shadow-2xl hover:shadow-slate-950/45",
+      "border-indigo-400/45 bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 text-white shadow-xl shadow-slate-950/35 hover:border-indigo-300/60 hover:shadow-2xl hover:shadow-slate-950/45",
     archiveCardClass:
-      "border-blue-300/30 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white shadow-blue-950/20 hover:border-red-300/35 hover:shadow-blue-950/30",
-    archiveHeaderClass: "bg-gradient-to-r from-blue-950 via-slate-900 to-red-950 text-white",
-    archiveAccentIconClass: "text-blue-200",
+      "border-indigo-500/30 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white shadow-indigo-950/20 hover:border-indigo-400/50 hover:shadow-indigo-950/30",
+    archiveHeaderClass: "bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-900 text-white",
+    archiveAccentIconClass: "text-indigo-300",
     archivePrimaryButtonClass:
-      "border border-red-400/40 bg-red-500 text-slate-950 shadow-[0_12px_24px_rgba(239,68,68,0.24)] hover:bg-red-400",
+      "border border-indigo-500/45 bg-indigo-600 text-white shadow-[0_12px_24px_rgba(79,70,229,0.24)] hover:bg-indigo-500",
     archiveGhostButtonClass:
-      "border border-blue-300/25 bg-slate-950 text-white shadow-sm hover:border-blue-200/35 hover:bg-blue-950/40",
+      "border border-indigo-400/25 bg-indigo-950/40 text-white shadow-sm hover:border-indigo-300/35 hover:bg-indigo-900/50",
     archiveGhostIconButtonClass:
-      "border border-blue-300/25 bg-slate-950 text-blue-100 shadow-sm hover:border-blue-200/35 hover:bg-blue-950/40",
+      "border border-indigo-400/25 bg-indigo-950/40 text-indigo-100 shadow-sm hover:border-indigo-300/35 hover:bg-indigo-900/50",
     archiveDangerIconButtonClass:
-      "border border-red-300/35 bg-slate-950 text-red-300 shadow-sm hover:border-red-200/45 hover:bg-red-950/25",
+      "border border-indigo-400/35 bg-indigo-950/40 text-indigo-200 shadow-sm hover:border-indigo-300/45 hover:bg-indigo-900/50",
     archiveStatusBadgeClass:
       "border border-white/12 bg-white/10 text-white shadow-[0_10px_24px_rgba(15,23,42,0.18)]",
   },
@@ -89,16 +89,16 @@ const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
     key: "matematik",
     label: "Matematik",
     selectionCardClass:
-      "border-blue-400/40 bg-blue-700 text-white shadow-xl shadow-blue-950/25 hover:border-blue-300/60 hover:bg-blue-600 hover:shadow-2xl hover:shadow-blue-950/35",
-    archiveCardClass: "border-blue-300/60 shadow-blue-500/10 hover:shadow-blue-500/20",
-    archiveHeaderClass: "bg-blue-700 text-white",
-    archiveAccentIconClass: "text-blue-700",
+      "border-amber-400/40 bg-amber-700 text-white shadow-xl shadow-amber-950/25 hover:border-amber-300/60 hover:bg-amber-600 hover:shadow-2xl hover:shadow-amber-950/35",
+    archiveCardClass: "border-amber-500/30 shadow-amber-500/10 hover:border-amber-400/50 hover:shadow-amber-500/20",
+    archiveHeaderClass: "bg-gradient-to-r from-amber-950 via-slate-900 to-amber-900 text-white",
+    archiveAccentIconClass: "text-amber-300",
     archivePrimaryButtonClass:
-      "border border-blue-700 bg-blue-700 text-white shadow-[0_12px_24px_rgba(37,99,235,0.18)] hover:bg-blue-600",
+      "border border-amber-600 bg-amber-600 text-slate-950 shadow-[0_12px_24px_rgba(217,119,6,0.18)] hover:bg-amber-500",
     archiveGhostButtonClass:
-      "border border-blue-200 bg-white text-blue-900 shadow-sm hover:border-blue-300 hover:bg-blue-50",
+      "border border-amber-200 bg-white text-amber-900 shadow-sm hover:border-amber-300 hover:bg-amber-50",
     archiveGhostIconButtonClass:
-      "border border-blue-200 bg-white text-blue-800 shadow-sm hover:border-blue-300 hover:bg-blue-50",
+      "border border-amber-200 bg-white text-amber-800 shadow-sm hover:border-amber-300 hover:bg-amber-50",
     archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
     archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
   },
@@ -159,16 +159,16 @@ const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
     key: "scanner",
     label: "Scanner",
     selectionCardClass:
-      "border-cyan-400/40 bg-cyan-700 text-white shadow-xl shadow-cyan-950/25 hover:border-cyan-300/60 hover:bg-cyan-600 hover:shadow-2xl hover:shadow-cyan-950/35",
-    archiveCardClass: "border-cyan-300/60 shadow-cyan-500/10 hover:shadow-cyan-500/20",
-    archiveHeaderClass: "bg-cyan-700 text-white",
-    archiveAccentIconClass: "text-cyan-700",
+      "border-fuchsia-400/40 bg-fuchsia-700 text-white shadow-xl shadow-fuchsia-950/25 hover:border-fuchsia-300/60 hover:bg-fuchsia-600 hover:shadow-2xl hover:shadow-fuchsia-950/35",
+    archiveCardClass: "border-fuchsia-500/30 shadow-fuchsia-500/10 hover:border-fuchsia-400/50 hover:shadow-fuchsia-500/20",
+    archiveHeaderClass: "bg-gradient-to-r from-fuchsia-950 via-slate-900 to-fuchsia-900 text-white",
+    archiveAccentIconClass: "text-fuchsia-300",
     archivePrimaryButtonClass:
-      "border border-cyan-700 bg-cyan-700 text-white shadow-[0_12px_24px_rgba(14,116,144,0.18)] hover:bg-cyan-600",
+      "border border-fuchsia-600 bg-fuchsia-600 text-white shadow-[0_12px_24px_rgba(192,38,211,0.18)] hover:bg-fuchsia-500",
     archiveGhostButtonClass:
-      "border border-cyan-200 bg-white text-cyan-900 shadow-sm hover:border-cyan-300 hover:bg-cyan-50",
+      "border border-fuchsia-200 bg-white text-fuchsia-900 shadow-sm hover:border-fuchsia-300 hover:bg-fuchsia-50",
     archiveGhostIconButtonClass:
-      "border border-cyan-200 bg-white text-cyan-800 shadow-sm hover:border-cyan-300 hover:bg-cyan-50",
+      "border border-fuchsia-200 bg-white text-fuchsia-800 shadow-sm hover:border-fuchsia-300 hover:bg-fuchsia-50",
     archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
     archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
   },

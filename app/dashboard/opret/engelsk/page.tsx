@@ -28,7 +28,7 @@ import { createClient } from "@/utils/supabase/client";
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ssr: false,
   loading: () => (
-    <div className="h-full w-full animate-pulse rounded-3xl border border-blue-500/20 bg-slate-900/50" />
+    <div className="h-full w-full animate-pulse rounded-3xl border border-indigo-500/20 bg-slate-900/50" />
   ),
 });
 
@@ -142,13 +142,13 @@ const createQuestion = (type: Question["type"] = "multiple_choice"): Question =>
 });
 
 const inputClass =
-  "w-full rounded-2xl border border-blue-400/35 bg-slate-950/55 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+  "w-full rounded-2xl border border-indigo-500/35 bg-slate-950/55 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const textareaClass =
-  "w-full rounded-2xl border border-blue-400/35 bg-slate-950/55 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+  "w-full rounded-2xl border border-indigo-500/35 bg-slate-950/55 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const aiActionButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-blue-400/35 bg-blue-500/12 text-blue-100 hover:bg-red-500/18 px-5 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-indigo-500/35 bg-indigo-500/12 text-indigo-100 hover:bg-indigo-500/18 px-5 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const DEFAULT_ANSWERS: [string, string, string, string] = ["", "", "", ""];
 
@@ -340,8 +340,8 @@ function OpretEngelskLoebPageContent() {
       <div
         className={`rounded-3xl border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
           notice.tone === "success"
-            ? "border-red-300/30 bg-blue-500/12 text-white"
-            : "border-red-300/30 bg-red-500/10 text-red-100"
+            ? "border-indigo-300/35 bg-indigo-500/14 text-white"
+            : "border-indigo-400/30 bg-indigo-500/10 text-indigo-100"
         } ${className}`}
       >
         {notice.message}
@@ -906,15 +906,15 @@ function OpretEngelskLoebPageContent() {
         <div className="pointer-events-none absolute inset-0 z-1 bg-slate-950/38" />
         <div className="pointer-events-none absolute inset-0 z-1 bg-[radial-gradient(circle_at_center,transparent_10%,rgba(2,6,23,0.28)_58%,rgba(2,6,23,0.74)_100%)]" />
         <div className="relative z-10 flex min-h-screen items-center justify-center px-6 py-12">
-          <div className="w-full max-w-md rounded-3xl border border-blue-500/20 bg-slate-900/60 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-            <Loader2 className="mx-auto h-10 w-10 animate-spin text-blue-100" />
-            <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-blue-100/55 uppercase">
+          <div className="w-full max-w-md rounded-3xl border border-indigo-500/20 bg-slate-900/60 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+            <Loader2 className="mx-auto h-10 w-10 animate-spin text-indigo-100" />
+            <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-indigo-100/55 uppercase">
               Rediger engelsk-løb
             </p>
             <h1 className={`mt-3 text-3xl font-black tracking-tight text-white ${rubik.className}`}>
               Indlæser dine sprogopgaver
             </h1>
-            <p className="mt-3 text-sm leading-6 text-blue-100/70">
+            <p className="mt-3 text-sm leading-6 text-indigo-100/70">
               Vi henter løbets data og klargør builderen til redigering.
             </p>
           </div>
@@ -956,19 +956,19 @@ function OpretEngelskLoebPageContent() {
               >
                 <div className="px-1 pt-1">
                   {isEditMode ? (
-                    <div className="mb-4 inline-flex items-center rounded-full border border-red-400/25 bg-red-500/12 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-white uppercase">
+                    <div className="mb-4 inline-flex items-center rounded-full border border-indigo-400/25 bg-indigo-500/12 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-white uppercase">
                       Edit-mode
                     </div>
                   ) : null}
 
                   <div className="mb-8">
                     <div className="flex items-center gap-3">
-                      <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-blue-500/30 bg-slate-900/50 shadow-inner shadow-red-500/20">
+                      <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-indigo-500/30 bg-slate-900/50 shadow-inner shadow-indigo-500/20">
                         <img src="/engelskikon1.svg" alt="Engelsk" className="h-10 w-10 object-contain" />
                       </div>
                       <div>
                         <h3 className="text-xl font-semibold text-white">Velkommen til Engelsk-løbet</h3>
-                        <p className="mt-1 text-sm text-blue-100/80">
+                        <p className="mt-1 text-sm text-indigo-100/80">
                           Giv engelskundervisningen nyt liv ved at rykke grammar, vocabulary, reading og kultur ud i den friske luft. Placer posterne på kortet, og indtast engelskfaglige spørgsmål med fire svarmuligheder. Du kan skrive dem selv, eller lade vores AI-assistent bygge et skræddersyet løb til dit klassetrin på få sekunder.
                         </p>
                       </div>
@@ -988,7 +988,7 @@ function OpretEngelskLoebPageContent() {
                   </div>
 
                   <div className="mb-2">
-                    <label className="block text-xs font-semibold tracking-[0.22em] text-blue-100/65 uppercase">
+                    <label className="block text-xs font-semibold tracking-[0.22em] text-indigo-100/65 uppercase">
                       Løbets titel
                     </label>
                   </div>
@@ -997,18 +997,18 @@ function OpretEngelskLoebPageContent() {
                     onChange={(event) => setTitle(event.target.value)}
                     disabled={isEditorBusy}
                     placeholder="F.eks. 6.A's store engelsk-løb"
-                    className="w-full rounded-[1.6rem] border border-blue-400/35 bg-slate-950/55 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                    className="w-full rounded-[1.6rem] border border-indigo-500/35 bg-slate-950/55 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                   />
                 </div>
 
                 <div className="space-y-4 px-1">
                   <div className="flex items-end justify-between gap-4">
                     <div>
-                      <p className="text-xs font-semibold tracking-[0.24em] text-blue-100/65 uppercase">
+                      <p className="text-xs font-semibold tracking-[0.24em] text-indigo-100/65 uppercase">
                         Dine poster
                       </p>
                     </div>
-                    <span className="rounded-full border border-blue-400/35 bg-slate-950/55 px-4 py-2 text-sm font-semibold text-blue-100/80 backdrop-blur-xl">
+                    <span className="rounded-full border border-indigo-500/35 bg-slate-950/55 px-4 py-2 text-sm font-semibold text-indigo-100/80 backdrop-blur-xl">
                       {questions.length}
                     </span>
                   </div>
@@ -1022,23 +1022,23 @@ function OpretEngelskLoebPageContent() {
                   return (
                     <article
                       key={question.id}
-                      className="rounded-[1.8rem] border border-blue-400/35 bg-slate-950/55 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
+                      className="rounded-[1.8rem] border border-indigo-500/35 bg-slate-950/55 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2.5">
                         <div className="flex items-center gap-2.5">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-950/40 text-blue-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                            <span className="inline-flex items-center justify-center rounded-md border border-blue-500/20 bg-blue-950/40 p-1">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-950/40 text-indigo-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                            <span className="inline-flex items-center justify-center rounded-md border border-indigo-500/20 bg-indigo-950/40 p-1">
                               {isPhotoMission ? <Camera className="h-4 w-4" /> : <Type className="h-4 w-4" />}
                             </span>
                           </div>
                           <div>
                             <h3 className={`flex items-center gap-2 text-lg font-bold text-white ${rubik.className}`}>
-                              <span className="rounded-full border border-red-400/25 bg-blue-500/12 px-2 py-0.5 text-xs font-semibold text-blue-100">
+                              <span className="rounded-full border border-indigo-400/25 bg-indigo-500/12 px-2 py-0.5 text-xs font-semibold text-indigo-100">
                                 {questionIndex + 1}
                               </span>
                               {isPhotoMission ? "Foto-post" : "Quiz-post"}
                             </h3>
-                            <p className="text-xs text-blue-100/65">
+                            <p className="text-xs text-indigo-100/65">
                               {question.lat !== null && question.lng !== null
                                 ? "Pin er valgt på kortet"
                                 : "Ingen pin valgt endnu"}
@@ -1046,7 +1046,7 @@ function OpretEngelskLoebPageContent() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="rounded-full border border-blue-400/35 bg-slate-950/55 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-blue-100/75 uppercase backdrop-blur-xl">
+                          <span className="rounded-full border border-indigo-500/35 bg-slate-950/55 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-indigo-100/75 uppercase backdrop-blur-xl">
                             {isPhotoMission ? "AI foto" : "4 svar"}
                           </span>
                           <button
@@ -1054,9 +1054,9 @@ function OpretEngelskLoebPageContent() {
                             onClick={() => removeQuestion(questionIndex)}
                             disabled={isEditorBusy}
                             aria-label={`Slet post ${questionIndex + 1}`}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-blue-400/35 bg-slate-950/55 text-blue-100/75 transition hover:border-red-300/40 hover:bg-red-50/10 hover:text-red-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-indigo-500/35 bg-slate-950/55 text-indigo-100/75 transition hover:border-indigo-400/45 hover:bg-indigo-500/12 hover:text-indigo-200 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                           >
-                            <span className="inline-flex items-center justify-center rounded-md border border-blue-500/20 bg-blue-950/40 p-1">
+                            <span className="inline-flex items-center justify-center rounded-md border border-indigo-500/20 bg-indigo-950/40 p-1">
                               <Trash2 className="h-4 w-4" />
                             </span>
                           </button>
@@ -1066,7 +1066,7 @@ function OpretEngelskLoebPageContent() {
                       {isPhotoMission ? (
                         <>
                           <div className="mt-4">
-                            <label className="mb-2 block text-xs font-semibold tracking-[0.12em] text-blue-100/65">
+                            <label className="mb-2 block text-xs font-semibold tracking-[0.12em] text-indigo-100/65">
                               Hvad skal de finde?
                             </label>
                             <input
@@ -1079,7 +1079,7 @@ function OpretEngelskLoebPageContent() {
                           </div>
 
                           <div className="mt-4">
-                            <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-blue-100/65 uppercase">
+                            <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-indigo-100/65 uppercase">
                               Instruktion
                             </label>
                             <textarea
@@ -1093,14 +1093,14 @@ function OpretEngelskLoebPageContent() {
                             />
                           </div>
 
-                          <div className="mt-4 rounded-[1.25rem] border border-blue-400/35 bg-slate-950/65 px-4 py-3 text-sm text-white/85">
+                          <div className="mt-4 rounded-[1.25rem] border border-indigo-500/35 bg-slate-950/65 px-4 py-3 text-sm text-white/85">
                             Denne foto-post bruger AI-billedtjek under spillet, så den har ikke svarmuligheder.
                           </div>
                         </>
                       ) : (
                         <>
                           <div className="mt-4">
-                            <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-blue-100/65 uppercase">
+                            <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-indigo-100/65 uppercase">
                               Spørgsmålstekst
                             </label>
                             <input
@@ -1121,8 +1121,8 @@ function OpretEngelskLoebPageContent() {
                                   key={`${question.id}-${answerIndex}`}
                                   className={`flex items-center gap-2.5 rounded-[1.25rem] border px-3 py-2.5 transition ${
                                     isCorrectAnswer
-                                      ? "border-red-300/40 bg-red-500/12 shadow-[0_14px_28px_rgba(244,63,94,0.12)]"
-                                      : "border-blue-400/35 bg-slate-950/55 hover:border-red-400/25"
+                                      ? "border-indigo-300/40 bg-indigo-500/12 shadow-[0_14px_28px_rgba(99,102,241,0.16)]"
+                                      : "border-indigo-500/35 bg-slate-950/55 hover:border-indigo-400/25"
                                   }`}
                                 >
                                   <button
@@ -1132,8 +1132,8 @@ function OpretEngelskLoebPageContent() {
                                     aria-pressed={isCorrectAnswer}
                                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-black transition ${
                                       isCorrectAnswer
-                                        ? "border-blue-200 bg-red-300 text-slate-950 shadow-[0_0_18px_rgba(59,130,246,0.24)]"
-                                        : "border-blue-400/35 bg-slate-950/55 text-blue-100/78 hover:border-red-300/30"
+                                        ? "border-indigo-200 bg-indigo-300 text-slate-950 shadow-[0_0_18px_rgba(99,102,241,0.28)]"
+                                        : "border-indigo-500/35 bg-slate-950/55 text-indigo-100/78 hover:border-indigo-300/30"
                                     }`}
                                   >
                                     {String.fromCharCode(65 + answerIndex)}
@@ -1152,8 +1152,8 @@ function OpretEngelskLoebPageContent() {
                                     onClick={() => updateQuestion(question.id, { correctIndex: answerIndex })}
                                     className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] transition ${
                                       isCorrectAnswer
-                                        ? "border-blue-200/60 bg-red-300 text-slate-950"
-                                        : "border-blue-400/35 bg-slate-950/55 text-blue-100/72 hover:border-red-300/30 hover:text-blue-100"
+                                        ? "border-indigo-200/60 bg-indigo-300 text-slate-950"
+                                        : "border-indigo-500/35 bg-slate-950/55 text-indigo-100/72 hover:border-indigo-300/30 hover:text-indigo-100"
                                     }`}
                                   >
                                     {isCorrectAnswer ? <Check className="h-3.5 w-3.5" /> : null}
@@ -1170,16 +1170,16 @@ function OpretEngelskLoebPageContent() {
                         type="button"
                         onClick={() => assignPinFromCenter(question.id)}
                         disabled={isEditorBusy}
-                        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[1.35rem] border border-red-400/35 bg-red-500 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-red-500/20 transition-all hover:bg-red-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[1.35rem] border border-indigo-500/35 bg-indigo-600 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                       >
-                        <span className="inline-flex items-center justify-center rounded-md border border-blue-500/20 bg-blue-950/40 p-1 text-blue-100">
+                        <span className="inline-flex items-center justify-center rounded-md border border-indigo-500/20 bg-indigo-950/40 p-1 text-indigo-100">
                           <Ruler className="h-4 w-4" />
                         </span>
                         Hent pin fra kortet
                       </button>
 
                       {question.lat !== null && question.lng !== null ? (
-                        <p className="mt-2.5 text-xs text-blue-100/70">
+                        <p className="mt-2.5 text-xs text-indigo-100/70">
                           Pin gemt: {question.lat.toFixed(5)}, {question.lng.toFixed(5)}
                         </p>
                       ) : null}
@@ -1187,12 +1187,12 @@ function OpretEngelskLoebPageContent() {
                   );
                 })}
 
-                <div className="rounded-4xl border border-blue-400/35 bg-slate-950/55 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+                <div className="rounded-4xl border border-indigo-500/35 bg-slate-950/55 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
                   <button
                     type="button"
                     onClick={addQuestion}
                     disabled={isEditorBusy}
-                    className="inline-flex items-center gap-2 rounded-[1.4rem] border border-blue-400/35 bg-slate-950/55 px-4 py-3 text-sm font-semibold text-blue-100 backdrop-blur-xl transition hover:bg-slate-900/60 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-[1.4rem] border border-indigo-500/35 bg-slate-950/55 px-4 py-3 text-sm font-semibold text-indigo-100 backdrop-blur-xl transition hover:bg-indigo-950/40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                   >
                     <Plus className="h-4 w-4" />
                     {addQuestionLabel}
@@ -1204,7 +1204,7 @@ function OpretEngelskLoebPageContent() {
                       type="button"
                       onClick={handleSaveRun}
                       disabled={isSaving}
-                      className="w-full rounded-[1.6rem] border border-red-400/35 bg-red-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-red-500/20 transition-all hover:bg-red-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                      className="w-full rounded-[1.6rem] border border-indigo-500/35 bg-indigo-600 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                     >
                       {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem engelsk-løb i arkivet"}
                     </button>
@@ -1216,7 +1216,7 @@ function OpretEngelskLoebPageContent() {
 
           <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
             <div className="lg:sticky lg:top-5">
-              <div className="h-[42vh] min-h-80 w-full overflow-hidden rounded-4xl border border-blue-500/20 bg-slate-900/50 shadow-[0_0_0_1px_rgba(244,63,94,0.08),0_0_36px_rgba(244,63,94,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
+              <div className="h-[42vh] min-h-80 w-full overflow-hidden rounded-4xl border border-indigo-500/20 bg-slate-900/50 shadow-[0_0_0_1px_rgba(99,102,241,0.08),0_0_36px_rgba(99,102,241,0.12),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
                 <MapPicker center={mapCenter} pins={pins} onCenterChange={setMapCenter} />
               </div>
             </div>
@@ -1226,26 +1226,26 @@ function OpretEngelskLoebPageContent() {
 
       {showDraftRecoveryPrompt ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-6 py-10 backdrop-blur-md">
-          <div className="w-full max-w-2xl rounded-4xl border border-blue-400/30 bg-slate-950/90 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:p-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-blue-100/70">Redningskrans</p>
+          <div className="w-full max-w-2xl rounded-4xl border border-indigo-500/30 bg-slate-950/90 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-indigo-100/70">Redningskrans</p>
             <h2 className={`mt-3 text-3xl font-black tracking-tight text-white ${rubik.className}`}>
               Vi fandt ugemte ændringer fra dit sidste besøg
             </h2>
-            <p className="mt-4 text-sm leading-6 text-blue-100/80 sm:text-base">
+            <p className="mt-4 text-sm leading-6 text-indigo-100/80 sm:text-base">
               Hvis du fortsætter uden at gendanne kladden, beholder vi versionen fra arkivet og sletter den lokale kladde.
             </p>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={handleRestoreDraft}
-                className="rounded-3xl border border-blue-300/40 bg-blue-300 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-blue-500/20 transition hover:bg-blue-200"
+                className="rounded-3xl border border-indigo-300/40 bg-indigo-300 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-200"
               >
                 Gendan ugemte ændringer
               </button>
               <button
                 type="button"
                 onClick={handleDiscardDraft}
-                className="rounded-3xl border border-white/15 bg-white/5 px-5 py-4 text-sm font-bold uppercase tracking-[0.18em] text-blue-50 transition hover:bg-white/10"
+                className="rounded-3xl border border-white/15 bg-white/5 px-5 py-4 text-sm font-bold uppercase tracking-[0.18em] text-indigo-50 transition hover:bg-white/10"
               >
                 Slet kladde
               </button>

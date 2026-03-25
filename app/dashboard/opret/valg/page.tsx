@@ -48,9 +48,9 @@ const cards: BuilderCard[] = [
   {
     raceType: "manuel",
     title: "Klassisk Quiz-løb",
-    description: "Skab en klassisk rute med spørgsmål og fire svarmuligheder.",
+    description: "Byg et klassisk løb med spørgsmål, svarmuligheder og fuld kontrol over ruten.",
     href: "/dashboard/opret/manuel",
-    eyebrow: "Klar til at bygge",
+    eyebrow: "Quiz & rute",
     actionLabel: "Åbn quiz-byggeren",
     actionState: "Byg",
     accentClass:
@@ -65,11 +65,11 @@ const cards: BuilderCard[] = [
     raceType: "foto",
     title: "Foto mission",
     description:
-      "Eleverne løser kreative foto-opgaver ude på ruten og uploader billederne. Efter løbet kan du gennemgå holdenes pletskud.",
+      "Send eleverne ud på kreative foto-opgaver og gennemgå holdenes billeder efter løbet.",
     href: "/dashboard/opret/foto",
     eyebrow: "Kamera & kreativitet",
     actionLabel: "Åbn foto-byggeren",
-    actionState: "Start",
+    actionState: "Skab",
     accentClass:
       "border-blue-500/75 bg-blue-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(59,130,246,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
     accentGlowClass:
@@ -81,18 +81,66 @@ const cards: BuilderCard[] = [
   {
     raceType: "scanner",
     title: "Scan bogen",
-    description: "Upload en bogside eller indsæt tekst, og lad AI bygge et komplet quiz-løb.",
+    description: "Upload en bogside eller indsæt tekst, og lad AI omsætte den til et færdigt løb.",
     href: "/dashboard/opret/scanner",
-    eyebrow: "AI klar på siden",
+    eyebrow: "AI & tekst",
     actionLabel: "Åbn scan-byggeren",
     actionState: "Scan",
     accentClass:
-      "border-teal-500/75 bg-teal-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(20,184,166,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
+      "border-fuchsia-500/75 bg-fuchsia-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(217,70,239,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
     accentGlowClass:
-      "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(20,184,166,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(20,184,166,0.24)]",
+      "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(217,70,239,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(217,70,239,0.24)]",
     badgeClass:
-      "border-teal-300/40 bg-teal-400/20 text-white shadow-[0_10px_22px_rgba(20,184,166,0.18)]",
-    actionAccentClass: "border-teal-300/34 bg-teal-400/20",
+      "border-fuchsia-300/40 bg-fuchsia-400/20 text-white shadow-[0_10px_22px_rgba(217,70,239,0.18)]",
+    actionAccentClass: "border-fuchsia-300/34 bg-fuchsia-400/20",
+  },
+  {
+    raceType: "engelsk",
+    title: "Engelsk",
+    description: "Opret interaktive engelsk-løb med AI-samtaletræning og sproglige missioner.",
+    href: "/dashboard/opret/engelsk",
+    eyebrow: "Samtale & sprog",
+    actionLabel: "Åbn engelsk-byggeren",
+    actionState: "Tal",
+    accentClass:
+      "border-indigo-500/75 bg-indigo-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(99,102,241,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
+    accentGlowClass:
+      "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(99,102,241,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(99,102,241,0.24)]",
+    badgeClass:
+      "border-indigo-300/40 bg-indigo-400/20 text-white shadow-[0_10px_22px_rgba(99,102,241,0.18)]",
+    actionAccentClass: "border-indigo-300/34 bg-indigo-400/20",
+  },
+  {
+    raceType: "matematik",
+    title: "Matematik",
+    description: "Løs regnestykker og matematiske gåder ude i virkeligheden.",
+    href: "/dashboard/opret/matematik",
+    eyebrow: "Tal & logik",
+    actionLabel: "Åbn matematik-byggeren",
+    actionState: "Regn",
+    accentClass:
+      "border-amber-500/75 bg-amber-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(245,158,11,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
+    accentGlowClass:
+      "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(245,158,11,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(245,158,11,0.24)]",
+    badgeClass:
+      "border-amber-300/40 bg-amber-400/20 text-white shadow-[0_10px_22px_rgba(245,158,11,0.18)]",
+    actionAccentClass: "border-amber-300/34 bg-amber-400/20",
+  },
+  {
+    raceType: "dansk",
+    title: "Dansk",
+    description: "Læseforståelse og grammatik kombineret med bevægelse.",
+    href: "/dashboard/opret/dansk",
+    eyebrow: "Sprog & læsning",
+    actionLabel: "Åbn dansk-byggeren",
+    actionState: "Læs",
+    accentClass:
+      "border-rose-500/75 bg-rose-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(244,63,94,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
+    accentGlowClass:
+      "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(244,63,94,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(244,63,94,0.24)]",
+    badgeClass:
+      "border-rose-300/40 bg-rose-400/20 text-white shadow-[0_10px_22px_rgba(244,63,94,0.18)]",
+    actionAccentClass: "border-rose-300/34 bg-rose-400/20",
   },
 ];
 
@@ -166,7 +214,7 @@ function BuilderCard({ card, index }: { card: BuilderCard; index: number }) {
 export default function ValgHubPage() {
   return (
     <main
-      className={`relative flex min-h-screen flex-col bg-gradient-to-b from-sky-300 via-emerald-50 to-emerald-200 px-6 pt-0 pb-8 text-white md:px-10 md:pt-0 md:pb-10 lg:bg-none lg:bg-transparent ${poppins.className}`}
+      className={`relative flex min-h-screen flex-col bg-gradient-to-b from-slate-300 via-slate-100 to-zinc-200 px-6 pt-0 pb-8 text-white md:px-10 md:pt-0 md:pb-10 lg:bg-none lg:bg-transparent ${poppins.className}`}
     >
       <video
         autoPlay
@@ -177,9 +225,9 @@ export default function ValgHubPage() {
         className="fixed top-0 left-0 hidden h-full w-full object-cover -z-20 lg:block"
         src="/promo.mp4"
       />
-      <div className="fixed inset-0 hidden bg-gradient-to-b from-sky-900/20 to-emerald-900/40 backdrop-blur-[2px] -z-10 lg:block" />
+      <div className="fixed inset-0 hidden bg-gradient-to-b from-slate-900/18 via-slate-900/8 to-slate-950/40 backdrop-blur-[2px] -z-10 lg:block" />
 
-      <header className="flex items-center justify-between">
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between py-5 md:py-7">
         <Image src="/gpslogo.png" width={150} height={50} alt="Logo" priority />
         <Link
           href="/dashboard"
@@ -190,22 +238,26 @@ export default function ValgHubPage() {
         </Link>
       </header>
 
-      <section className="mx-auto -mt-8 flex w-full max-w-5xl flex-col items-center text-center md:-mt-12">
-        <p className="mb-3 rounded-full border border-white/16 bg-white/10 px-4 py-2 text-[0.62rem] font-semibold tracking-[0.28em] text-white/78 uppercase shadow-[0_14px_32px_rgba(15,23,42,0.14)] backdrop-blur-xl">
-          Løbstyper
-        </p>
-        <h1
-          className={`mb-2 text-4xl font-black tracking-widest text-white uppercase drop-shadow-md md:text-6xl ${rubik.className}`}
-        >
-          VÆLG LØBSTYPE
-        </h1>
-        <p className="text-emerald-50">Hvilken type løb vil du bygge?</p>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-white/84 md:text-base">
-          Vælg det format, der passer bedst til dit arrangement. Quiz, foto og scanner er klar nu i et mere tydeligt og farvestærkt overblik.
-        </p>
+      <section className="mx-auto mt-2 flex w-full max-w-6xl flex-col items-center text-center md:mt-3">
+        <div className="w-full rounded-[2.4rem] border border-white/16 bg-white/10 px-6 py-8 shadow-[0_24px_70px_rgba(15,23,42,0.16),inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-2xl sm:px-8 sm:py-10 md:px-10 md:py-12">
+          <p className="mx-auto inline-flex rounded-full border border-white/16 bg-white/10 px-4 py-2 text-[0.62rem] font-semibold tracking-[0.28em] text-white/78 uppercase shadow-[0_14px_32px_rgba(15,23,42,0.14)] backdrop-blur-xl">
+            Løbstyper
+          </p>
+          <h1
+            className={`mt-5 text-4xl font-black tracking-[0.22em] text-white uppercase drop-shadow-[0_18px_40px_rgba(15,23,42,0.24)] md:text-6xl ${rubik.className}`}
+          >
+            VÆLG LØBSTYPE
+          </h1>
+          <p className="mt-4 text-sm font-semibold tracking-[0.2em] text-white/68 uppercase md:text-[0.92rem]">
+            Seks builders. Et samlet dashboard.
+          </p>
+          <p className="mx-auto mt-5 max-w-3xl text-sm leading-6 text-white/86 md:text-lg md:leading-8">
+            Vælg det format, der passer bedst til dit arrangement. Alle seks builders er samlet i et tydeligt overblik med samme premium udtryk, så du hurtigt kan gå fra ide til færdigt løb.
+          </p>
+        </div>
       </section>
 
-      <section className="mx-auto mt-4 grid w-full max-w-5xl grid-cols-1 justify-items-center gap-6 md:grid-cols-3">
+      <section className="mx-auto mt-8 grid w-full max-w-6xl grid-cols-1 justify-items-center gap-6 md:mt-10 md:grid-cols-3 lg:mt-12">
         {cards.map((card, index) => (
           <BuilderCard key={`${card.title}-${index}`} card={card} index={index} />
         ))}

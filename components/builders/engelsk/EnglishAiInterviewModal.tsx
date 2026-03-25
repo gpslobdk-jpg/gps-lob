@@ -308,7 +308,7 @@ export default function EnglishAiInterviewModal({
       aria-modal="true"
       aria-labelledby="engelsk-ai-interview-title"
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.16),transparent_30%),radial-gradient(circle_at_bottom,rgba(239,68,68,0.12),transparent_34%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(99,102,241,0.2),transparent_30%),radial-gradient(circle_at_bottom,rgba(99,102,241,0.14),transparent_34%)]" />
 
       <div className="relative flex min-h-screen items-start justify-center px-6 py-10 sm:items-center">
         <div className="mx-auto w-full max-w-5xl text-center">
@@ -321,8 +321,8 @@ export default function EnglishAiInterviewModal({
             >
               Luk
             </button>
-            <span className="inline-flex items-center gap-2 text-blue-100">
-              <span className="relative inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-[1.05rem] border border-white/85 bg-white p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.94),inset_0_-6px_12px_rgba(30,64,175,0.08),0_16px_34px_rgba(255,255,255,0.12),0_14px_28px_rgba(59,130,246,0.28)] ring-1 ring-blue-200/45">
+            <span className="inline-flex items-center gap-2 text-indigo-100">
+              <span className="relative inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-[1.05rem] border border-white/85 bg-white p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.94),inset_0_-6px_12px_rgba(79,70,229,0.08),0_16px_34px_rgba(255,255,255,0.12),0_14px_28px_rgba(99,102,241,0.28)] ring-1 ring-indigo-200/45">
                 <span
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-x-1.5 top-1 h-px rounded-full bg-white/95"
@@ -336,7 +336,7 @@ export default function EnglishAiInterviewModal({
 
           <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-white/8">
             <div
-              className="h-full rounded-full bg-red-500 transition-all duration-500"
+              className="h-full rounded-full bg-indigo-500 transition-all duration-500"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -344,12 +344,12 @@ export default function EnglishAiInterviewModal({
           <div className="mt-10 rounded-4xl border border-white/10 bg-white/3 px-6 py-10 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:px-10 sm:py-14">
             {step === 1 ? (
               <>
-                <p className="text-sm font-semibold tracking-[0.28em] text-red-300 uppercase">Trin 1</p>
+                <p className="text-sm font-semibold tracking-[0.28em] text-indigo-300 uppercase">Trin 1</p>
                 <h2
                   id="engelsk-ai-interview-title"
                   className={`mt-5 flex items-center justify-center gap-3 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                 >
-                  <span className="relative inline-flex h-[4.8rem] w-[4.8rem] items-center justify-center overflow-hidden rounded-[1.8rem] border border-white/90 bg-white p-2.5 text-blue-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),inset_0_-8px_16px_rgba(30,64,175,0.08),0_24px_52px_rgba(255,255,255,0.14),0_18px_42px_rgba(59,130,246,0.3)] ring-1 ring-blue-200/55 sm:h-[5.3rem] sm:w-[5.3rem]">
+                  <span className="relative inline-flex h-[4.8rem] w-[4.8rem] items-center justify-center overflow-hidden rounded-[1.8rem] border border-white/90 bg-white p-2.5 text-indigo-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),inset_0_-8px_16px_rgba(79,70,229,0.08),0_24px_52px_rgba(255,255,255,0.14),0_18px_42px_rgba(99,102,241,0.3)] ring-1 ring-indigo-200/55 sm:h-[5.3rem] sm:w-[5.3rem]">
                     <span
                       aria-hidden="true"
                       className="pointer-events-none absolute inset-x-3 top-1.5 h-px rounded-full bg-white/95"
@@ -368,7 +368,7 @@ export default function EnglishAiInterviewModal({
                       key={option}
                       type="button"
                       onClick={() => handleGradeLevelSelect(option)}
-                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/4 px-5 py-5 text-base font-semibold text-white transition hover:border-red-300/40 hover:bg-red-500/12"
+                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/4 px-5 py-5 text-base font-semibold text-white transition hover:border-indigo-300/40 hover:bg-indigo-500/12"
                     >
                       {option}
                     </button>
@@ -379,7 +379,7 @@ export default function EnglishAiInterviewModal({
 
             {step === 2 ? (
               <>
-                <p className="text-sm font-semibold tracking-[0.28em] text-red-300 uppercase">Trin 2</p>
+                <p className="text-sm font-semibold tracking-[0.28em] text-indigo-300 uppercase">Trin 2</p>
                 <h2
                   id="engelsk-ai-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
@@ -396,7 +396,7 @@ export default function EnglishAiInterviewModal({
                   onChange={(event) => setEnglishTopic(event.target.value)}
                   rows={5}
                   placeholder="F.eks. Grammar & Spelling i 5. klasse, Reading Comprehension i 6. klasse eller British & American Culture i 7. klasse."
-                  className="mt-10 w-full rounded-[1.8rem] border border-white/10 bg-slate-950/90 px-6 py-5 text-left text-lg text-white placeholder:text-slate-500 focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-400/50"
+                  className="mt-10 w-full rounded-[1.8rem] border border-white/10 bg-slate-950/90 px-6 py-5 text-left text-lg text-white placeholder:text-slate-500 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
                 />
 
                 {topicSuggestions.length > 0 ? (
@@ -406,7 +406,7 @@ export default function EnglishAiInterviewModal({
                         key={suggestion}
                         type="button"
                         onClick={() => setEnglishTopic(suggestion)}
-                        className="rounded-full border border-white/10 bg-white/4 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-red-300/40 hover:bg-red-500/12"
+                        className="rounded-full border border-white/10 bg-white/4 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-indigo-300/40 hover:bg-indigo-500/12"
                       >
                         {suggestion}
                       </button>
@@ -426,7 +426,7 @@ export default function EnglishAiInterviewModal({
                     type="button"
                     onClick={goToCountStep}
                     disabled={!canContinueTopic}
-                    className="inline-flex min-w-55 items-center justify-center rounded-[1.4rem] border border-red-300/30 bg-red-500 px-8 py-4 text-lg font-bold text-slate-950 transition hover:bg-red-300 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex min-w-55 items-center justify-center rounded-[1.4rem] border border-indigo-300/30 bg-indigo-500 px-8 py-4 text-lg font-bold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Næste
                   </button>
@@ -436,7 +436,7 @@ export default function EnglishAiInterviewModal({
 
             {step === 3 ? (
               <>
-                <p className="text-sm font-semibold tracking-[0.28em] text-red-300 uppercase">Trin 3</p>
+                <p className="text-sm font-semibold tracking-[0.28em] text-indigo-300 uppercase">Trin 3</p>
                 <h2
                   id="engelsk-ai-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
@@ -455,7 +455,7 @@ export default function EnglishAiInterviewModal({
                       onClick={() => {
                         void handleGenerate(countOption);
                       }}
-                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/4 px-6 py-5 text-lg font-semibold text-white transition hover:border-red-300/40 hover:bg-red-500/12"
+                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/4 px-6 py-5 text-lg font-semibold text-white transition hover:border-indigo-300/40 hover:bg-indigo-500/12"
                     >
                       {countOption} poster
                     </button>
@@ -477,10 +477,10 @@ export default function EnglishAiInterviewModal({
 
             {step === 4 ? (
               <div className="flex min-h-96 flex-col items-center justify-center">
-                <div className="rounded-full border border-red-400/20 bg-red-500/12 p-6 text-red-300">
+                <div className="rounded-full border border-indigo-400/20 bg-indigo-500/12 p-6 text-indigo-300">
                   <Loader2 className="h-10 w-10 animate-spin" />
                 </div>
-                <p className="mt-8 text-sm font-semibold tracking-[0.28em] text-red-300 uppercase">Trin 4</p>
+                <p className="mt-8 text-sm font-semibold tracking-[0.28em] text-indigo-300 uppercase">Trin 4</p>
                 <h2
                   id="engelsk-ai-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
@@ -494,7 +494,7 @@ export default function EnglishAiInterviewModal({
             ) : null}
 
             {error ? (
-              <div className="mx-auto mt-8 w-full rounded-[1.4rem] border border-red-400/20 bg-red-500/10 px-5 py-4 text-sm font-semibold text-red-100">
+              <div className="mx-auto mt-8 w-full rounded-[1.4rem] border border-indigo-400/20 bg-indigo-500/10 px-5 py-4 text-sm font-semibold text-indigo-100">
                 {error}
               </div>
             ) : null}

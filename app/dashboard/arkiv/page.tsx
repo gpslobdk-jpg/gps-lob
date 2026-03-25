@@ -78,6 +78,9 @@ const ALL_SUBJECTS = [
 
 const RACE_TYPE_FILTER_OPTIONS = [
   { value: "Alle", label: "Alle" },
+  { value: "dansk", label: "Dansk" },
+  { value: "matematik", label: "Matematik" },
+  { value: "engelsk", label: "Engelsk" },
   { value: "manuel", label: "Manuel / GPS" },
   { value: "foto", label: "Foto" },
   { value: "escape", label: "Escape Room" },

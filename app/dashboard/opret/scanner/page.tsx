@@ -823,19 +823,19 @@ export default function ScannerPortalPage() {
 
   return (
     <main
-      className={`relative min-h-screen overflow-hidden bg-cyan-950 px-6 py-10 text-slate-100 ${poppins.className}`}
+      className={`relative min-h-screen overflow-hidden bg-fuchsia-950 px-6 py-10 text-slate-100 ${poppins.className}`}
     >
-      <div className="fixed inset-0 -z-10 bg-gradient-to-br from-cyan-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
+      <div className="fixed inset-0 -z-10 bg-gradient-to-br from-fuchsia-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
       <section className="mx-auto flex w-full max-w-5xl flex-col gap-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <Link
             href="/dashboard/opret/valg"
-            className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-950/20 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:border-cyan-300/40 hover:bg-cyan-500/10"
+            className="inline-flex items-center gap-2 rounded-full border border-fuchsia-500/30 bg-fuchsia-950/20 px-4 py-2 text-sm font-medium text-fuchsia-100 transition hover:border-fuchsia-300/40 hover:bg-fuchsia-500/10"
           >
             <ArrowLeft className="h-4 w-4" />
             Tilbage til løbstyper
           </Link>
-          <span className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs font-semibold tracking-[0.22em] text-cyan-100 uppercase">
+          <span className="inline-flex items-center gap-2 rounded-full border border-fuchsia-500/30 bg-fuchsia-500/10 px-4 py-2 text-xs font-semibold tracking-[0.22em] text-fuchsia-100 uppercase">
             <Sparkles className="h-4 w-4" />
             AI-portal
           </span>
@@ -845,7 +845,7 @@ export default function ScannerPortalPage() {
 
         <div className="mx-auto hidden min-h-[calc(100vh-10rem)] w-full items-center justify-center lg:flex">
           <div className="w-full max-w-2xl text-center">
-            <div className="flex items-center justify-between gap-4 text-xs font-semibold tracking-[0.24em] text-cyan-100/55 uppercase">
+            <div className="flex items-center justify-between gap-4 text-xs font-semibold tracking-[0.24em] text-fuchsia-100/55 uppercase">
               <button
                 type="button"
                 onClick={handleBack}
@@ -860,15 +860,15 @@ export default function ScannerPortalPage() {
 
             <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-white/8">
               <div
-                className="h-full rounded-full bg-cyan-400 transition-all duration-500"
+                className="h-full rounded-full bg-fuchsia-400 transition-all duration-500"
                 style={{ width: `${progress}%` }}
               />
             </div>
 
-            <div className="mt-10 rounded-[2rem] border border-cyan-500/20 bg-white/[0.03] px-6 py-10 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:px-10 sm:py-14">
+            <div className="mt-10 rounded-[2rem] border border-fuchsia-500/20 bg-white/[0.03] px-6 py-10 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:px-10 sm:py-14">
               {step === 1 ? (
                 <>
-                  <p className="text-sm font-semibold tracking-[0.28em] text-cyan-300 uppercase">
+                  <p className="text-sm font-semibold tracking-[0.28em] text-fuchsia-300 uppercase">
                     Trin 1
                   </p>
                   <h1
@@ -876,7 +876,7 @@ export default function ScannerPortalPage() {
                   >
                     Hvad vil du bygge løbet ud fra?
                   </h1>
-                  <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-cyan-100/75 sm:text-lg">
+                  <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-fuchsia-100/75 sm:text-lg">
                     Vælg én enkel kilde. Så guider vi dig resten af vejen og lader AI&apos;en
                     finde titel, beskrivelse og spørgsmål for dig.
                   </p>
@@ -885,7 +885,7 @@ export default function ScannerPortalPage() {
                     <button
                       type="button"
                       onClick={() => handleSourceSelect("camera")}
-                      className="flex min-h-[110px] w-full flex-col items-center justify-center rounded-[1.75rem] border border-cyan-400/25 bg-cyan-500/10 px-6 py-7 text-center transition hover:border-cyan-300/50 hover:bg-cyan-400/15"
+                      className="flex min-h-[110px] w-full flex-col items-center justify-center rounded-[1.75rem] border border-fuchsia-400/25 bg-fuchsia-500/10 px-6 py-7 text-center transition hover:border-fuchsia-300/50 hover:bg-fuchsia-400/15"
                     >
                       <span className="text-3xl" aria-hidden="true">
                         📸
@@ -893,7 +893,7 @@ export default function ScannerPortalPage() {
                       <span className="mt-3 text-xl font-bold text-white">
                         Tag et billede af bogen
                       </span>
-                      <span className="mt-2 text-sm text-cyan-100/65">
+                      <span className="mt-2 text-sm text-fuchsia-100/65">
                         Brug kameraet og scan bogsiden direkte.
                       </span>
                     </button>
@@ -901,7 +901,7 @@ export default function ScannerPortalPage() {
                     <button
                       type="button"
                       onClick={() => handleSourceSelect("upload")}
-                      className="flex min-h-[110px] w-full flex-col items-center justify-center rounded-[1.75rem] border border-cyan-400/25 bg-cyan-500/10 px-6 py-7 text-center transition hover:border-cyan-300/50 hover:bg-cyan-400/15"
+                      className="flex min-h-[110px] w-full flex-col items-center justify-center rounded-[1.75rem] border border-fuchsia-400/25 bg-fuchsia-500/10 px-6 py-7 text-center transition hover:border-fuchsia-300/50 hover:bg-fuchsia-400/15"
                     >
                       <span className="text-3xl" aria-hidden="true">
                         🖼️
@@ -909,7 +909,7 @@ export default function ScannerPortalPage() {
                       <span className="mt-3 text-xl font-bold text-white">
                         Upload billeder
                       </span>
-                      <span className="mt-2 text-sm text-cyan-100/65">
+                      <span className="mt-2 text-sm text-fuchsia-100/65">
                         Vælg op til 5 billeder af bogsider fra computeren.
                       </span>
                     </button>
@@ -917,7 +917,7 @@ export default function ScannerPortalPage() {
                     <button
                       type="button"
                       onClick={() => handleSourceSelect("text")}
-                      className="flex min-h-[110px] w-full flex-col items-center justify-center rounded-[1.75rem] border border-cyan-400/25 bg-cyan-500/10 px-6 py-7 text-center transition hover:border-cyan-300/50 hover:bg-cyan-400/15"
+                      className="flex min-h-[110px] w-full flex-col items-center justify-center rounded-[1.75rem] border border-fuchsia-400/25 bg-fuchsia-500/10 px-6 py-7 text-center transition hover:border-fuchsia-300/50 hover:bg-fuchsia-400/15"
                     >
                       <span className="text-3xl" aria-hidden="true">
                         ✍️
@@ -925,18 +925,18 @@ export default function ScannerPortalPage() {
                       <span className="mt-3 text-xl font-bold text-white">
                         Indsæt tekst
                       </span>
-                      <span className="mt-2 text-sm text-cyan-100/65">
+                      <span className="mt-2 text-sm text-fuchsia-100/65">
                         Kopiér teksten direkte ind og byg løbet ud fra den.
                       </span>
                     </button>
                   </div>
 
-                  <p className="mx-auto mt-6 max-w-2xl text-center text-sm leading-6 text-cyan-100/55">
+                  <p className="mx-auto mt-6 max-w-2xl text-center text-sm leading-6 text-fuchsia-100/55">
                     Husk altid at overholde gældende regler for ophavsret (f.eks. Copydan), når du
                     bruger tekster.{" "}
                     <Link
                       href="/ophavsret"
-                      className="font-medium text-cyan-200 underline decoration-cyan-300/45 underline-offset-4 transition hover:text-cyan-100"
+                      className="font-medium text-fuchsia-200 underline decoration-fuchsia-300/45 underline-offset-4 transition hover:text-fuchsia-100"
                     >
                       Læs mere om Ophavsret &amp; AI
                     </Link>
@@ -947,7 +947,7 @@ export default function ScannerPortalPage() {
 
               {step === 2 ? (
                 <>
-                  <p className="text-sm font-semibold tracking-[0.28em] text-cyan-300 uppercase">
+                  <p className="text-sm font-semibold tracking-[0.28em] text-fuchsia-300 uppercase">
                     Trin 2
                   </p>
                   <h2
@@ -959,7 +959,7 @@ export default function ScannerPortalPage() {
                         ? "Upload bogsider (Max 5)"
                         : "Indsæt teksten"}
                   </h2>
-                  <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-cyan-100/75 sm:text-lg">
+                  <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-fuchsia-100/75 sm:text-lg">
                     {sourceMode === "text"
                       ? "Indsæt den tekst, som AI'en skal bygge quiz-løbet ud fra."
                       : sourceMode === "upload"
@@ -975,9 +975,9 @@ export default function ScannerPortalPage() {
                           value={sourceText}
                           onChange={(event) => setSourceText(event.target.value)}
                           placeholder="Indsæt tekst fra dagens lektie, bogside eller andet undervisningsmateriale..."
-                          className="min-h-[260px] w-full rounded-[1.75rem] border border-cyan-500/30 bg-cyan-950/20 px-5 py-4 text-base leading-relaxed text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                          className="min-h-[260px] w-full rounded-[1.75rem] border border-fuchsia-500/30 bg-fuchsia-950/20 px-5 py-4 text-base leading-relaxed text-slate-100 placeholder:text-slate-500 focus:border-fuchsia-500 focus:outline-none focus:ring-2 focus:ring-fuchsia-500"
                         />
-                        <p className="text-center text-sm text-cyan-100/55">
+                        <p className="text-center text-sm text-fuchsia-100/55">
                           {sourceText.length}/{MAX_SOURCE_TEXT_LENGTH} tegn
                         </p>
                       </>
@@ -993,8 +993,8 @@ export default function ScannerPortalPage() {
                           onDrop={handleUploadDrop}
                           className={`flex min-h-[180px] cursor-pointer flex-col items-center justify-center rounded-[1.75rem] border border-dashed px-6 py-8 text-center transition ${
                             isDragOverUpload
-                              ? "border-cyan-200 bg-cyan-400/20"
-                              : "border-cyan-400/35 bg-cyan-500/10 hover:border-cyan-300/50 hover:bg-cyan-400/15"
+                              ? "border-fuchsia-200 bg-fuchsia-400/20"
+                              : "border-fuchsia-400/35 bg-fuchsia-500/10 hover:border-fuchsia-300/50 hover:bg-fuchsia-400/15"
                           }`}
                         >
                           <span className="text-4xl" aria-hidden="true">
@@ -1003,7 +1003,7 @@ export default function ScannerPortalPage() {
                           <span className="mt-4 text-xl font-bold text-white">
                             {isDragOverUpload ? "Slip billederne her" : "Klik eller slip billeder her"}
                           </span>
-                          <span className="mt-2 text-sm text-cyan-100/65">
+                          <span className="mt-2 text-sm text-fuchsia-100/65">
                             JPG, PNG eller andet tydeligt foto af bogsider. Maks 5 billeder.
                           </span>
                         </label>
@@ -1025,7 +1025,7 @@ export default function ScannerPortalPage() {
                             type="button"
                             onClick={startCamera}
                             disabled={isStartingCamera || isPreparingImage || isGenerating}
-                            className="inline-flex min-h-[88px] w-full items-center justify-center gap-3 rounded-[1.75rem] border border-cyan-400/25 bg-cyan-500 px-6 py-5 text-lg font-bold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-wait disabled:opacity-70"
+                            className="inline-flex min-h-[88px] w-full items-center justify-center gap-3 rounded-[1.75rem] border border-fuchsia-400/25 bg-fuchsia-500 px-6 py-5 text-white font-bold transition hover:bg-fuchsia-400 disabled:cursor-wait disabled:opacity-70"
                           >
                             {isStartingCamera ? (
                               <>
@@ -1042,7 +1042,7 @@ export default function ScannerPortalPage() {
                         ) : null}
 
                         {isCameraActive ? (
-                          <div className="relative overflow-hidden rounded-[1.75rem] border border-cyan-500/30 bg-cyan-950/20">
+                          <div className="relative overflow-hidden rounded-[1.75rem] border border-fuchsia-500/30 bg-fuchsia-950/20">
                             <video
                               ref={videoRef}
                               autoPlay
@@ -1064,7 +1064,7 @@ export default function ScannerPortalPage() {
                                 type="button"
                                 onClick={handleTakePhoto}
                                 disabled={isCapturingPhoto || isGenerating || isPreparingImage}
-                                className="inline-flex min-h-[60px] items-center justify-center gap-3 rounded-full bg-cyan-500 px-8 py-4 text-base font-black tracking-wide text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400 disabled:cursor-wait disabled:bg-cyan-400/70"
+                                className="inline-flex min-h-[60px] items-center justify-center gap-3 rounded-full bg-fuchsia-500 px-8 py-4 text-base font-black tracking-wide text-white shadow-lg shadow-fuchsia-500/20 transition hover:bg-fuchsia-400 disabled:cursor-wait disabled:bg-fuchsia-400/70"
                               >
                                 {isCapturingPhoto ? (
                                   <>
@@ -1086,14 +1086,14 @@ export default function ScannerPortalPage() {
 
                     {compressedImages.length > 0 ? (
                       <div className="space-y-3">
-                        <p className="text-center text-sm font-medium text-cyan-100/70">
+                        <p className="text-center text-sm font-medium text-fuchsia-100/70">
                           {compressedImages.length} {compressedImages.length === 1 ? "side valgt" : "sider valgt"}
                         </p>
                         <div className="grid gap-3 sm:grid-cols-2">
                           {compressedImages.map((imageSrc, index) => (
                             <div
                               key={`${selectedImageLabels[index] ?? "bogside"}-${index}`}
-                              className="overflow-hidden rounded-[1.75rem] border border-cyan-500/20 bg-cyan-950/20"
+                              className="overflow-hidden rounded-[1.75rem] border border-fuchsia-500/20 bg-fuchsia-950/20"
                             >
                               <div className="relative">
                                 <Image
@@ -1107,13 +1107,13 @@ export default function ScannerPortalPage() {
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveImage(index)}
-                                  className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-slate-950/80 text-white transition hover:bg-red-500"
+                                  className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-slate-950/80 text-white transition hover:bg-fuchsia-500"
                                   aria-label={`Fjern billede ${index + 1}`}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </button>
                               </div>
-                              <div className="border-t border-cyan-500/20 px-4 py-3 text-sm text-cyan-100/75">
+                              <div className="border-t border-fuchsia-500/20 px-4 py-3 text-sm text-fuchsia-100/75">
                                 {selectedImageLabels[index] ?? `Side ${index + 1}`}
                               </div>
                             </div>
@@ -1132,7 +1132,7 @@ export default function ScannerPortalPage() {
                           isGenerating ||
                           compressedImages.length >= MAX_UPLOAD_IMAGES
                         }
-                        className="inline-flex min-h-[60px] w-full items-center justify-center gap-3 rounded-full border border-cyan-500/30 bg-white/5 px-6 py-4 text-base font-semibold text-cyan-100 transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-70"
+                        className="inline-flex min-h-[60px] w-full items-center justify-center gap-3 rounded-full border border-fuchsia-500/30 bg-white/5 px-6 py-4 text-base font-semibold text-fuchsia-100 transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-70"
                       >
                         {isStartingCamera ? (
                           <>
@@ -1150,7 +1150,7 @@ export default function ScannerPortalPage() {
                     <canvas ref={captureCanvasRef} className="hidden" />
 
                     {sourceMode !== "text" ? (
-                      <p className="text-center text-sm text-cyan-100/55">{helperText}</p>
+                      <p className="text-center text-sm text-fuchsia-100/55">{helperText}</p>
                     ) : null}
                   </div>
 
@@ -1158,7 +1158,7 @@ export default function ScannerPortalPage() {
                     type="button"
                     onClick={handleStepTwoNext}
                     disabled={!canContinueFromStep2 || isPreparingImage || isStartingCamera || isCapturingPhoto}
-                    className="mt-10 inline-flex min-h-[60px] w-full items-center justify-center rounded-full bg-cyan-500 px-6 py-4 text-base font-black uppercase tracking-widest text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-cyan-400/50"
+                    className="mt-10 inline-flex min-h-[60px] w-full items-center justify-center rounded-full bg-fuchsia-500 px-6 py-4 text-base font-black uppercase tracking-widest text-white shadow-lg shadow-fuchsia-500/20 transition hover:bg-fuchsia-400 disabled:cursor-not-allowed disabled:bg-fuchsia-400/50"
                   >
                     Næste
                   </button>
@@ -1167,7 +1167,7 @@ export default function ScannerPortalPage() {
 
               {step === 3 ? (
                 <>
-                  <p className="text-sm font-semibold tracking-[0.28em] text-cyan-300 uppercase">
+                  <p className="text-sm font-semibold tracking-[0.28em] text-fuchsia-300 uppercase">
                     Trin 3
                   </p>
                   <h2
@@ -1175,7 +1175,7 @@ export default function ScannerPortalPage() {
                   >
                     Lidt detaljer om løbet
                   </h2>
-                  <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-cyan-100/75 sm:text-lg">
+                  <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-fuchsia-100/75 sm:text-lg">
                     Nu finjusterer du fag, niveau og længde, så AI&apos;en rammer rigtigt første
                     gang.
                   </p>
@@ -1184,7 +1184,7 @@ export default function ScannerPortalPage() {
                     <div className="space-y-3">
                       <label
                         htmlFor="scanner-subject"
-                        className="block text-sm font-semibold tracking-[0.16em] text-cyan-100/70 uppercase"
+                        className="block text-sm font-semibold tracking-[0.16em] text-fuchsia-100/70 uppercase"
                       >
                         Fag
                       </label>
@@ -1192,7 +1192,7 @@ export default function ScannerPortalPage() {
                         id="scanner-subject"
                         value={subject}
                         onChange={(event) => setSubject(event.target.value)}
-                        className="w-full appearance-none rounded-[1.5rem] border border-cyan-500/30 bg-cyan-950/20 px-5 py-4 text-base text-cyan-100 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        className="w-full appearance-none rounded-[1.5rem] border border-fuchsia-500/30 bg-fuchsia-950/20 px-5 py-4 text-base text-fuchsia-100 focus:border-fuchsia-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-500"
                       >
                         <option value="" className="bg-slate-900 text-white">
                           Vælg et fag...
@@ -1210,7 +1210,7 @@ export default function ScannerPortalPage() {
                     </div>
 
                     <div className="space-y-3">
-                      <p className="text-sm font-semibold tracking-[0.16em] text-cyan-100/70 uppercase">
+                      <p className="text-sm font-semibold tracking-[0.16em] text-fuchsia-100/70 uppercase">
                         Målgruppe
                       </p>
                       <div className="grid gap-3 sm:grid-cols-2">
@@ -1223,8 +1223,8 @@ export default function ScannerPortalPage() {
                               onClick={() => setAudience(option.value)}
                               className={`min-h-[76px] rounded-[1.5rem] border px-5 py-4 text-base font-semibold transition ${
                                 isSelected
-                                  ? "border-cyan-300 bg-cyan-400/20 text-white"
-                                  : "border-cyan-500/20 bg-white/5 text-cyan-100 hover:bg-white/10"
+                                  ? "border-fuchsia-300 bg-fuchsia-400/20 text-white"
+                                  : "border-fuchsia-500/20 bg-white/5 text-fuchsia-100 hover:bg-white/10"
                               }`}
                             >
                               {option.label}
@@ -1235,7 +1235,7 @@ export default function ScannerPortalPage() {
                     </div>
 
                     <div className="space-y-3">
-                      <p className="text-sm font-semibold tracking-[0.16em] text-cyan-100/70 uppercase">
+                      <p className="text-sm font-semibold tracking-[0.16em] text-fuchsia-100/70 uppercase">
                         Antal poster
                       </p>
                       <div className="grid gap-3 sm:grid-cols-2">
@@ -1248,8 +1248,8 @@ export default function ScannerPortalPage() {
                               onClick={() => setQuestionCount(countOption)}
                               className={`min-h-[76px] rounded-[1.5rem] border px-5 py-4 text-base font-semibold transition ${
                                 isSelected
-                                  ? "border-cyan-300 bg-cyan-400/20 text-white"
-                                  : "border-cyan-500/20 bg-white/5 text-cyan-100 hover:bg-white/10"
+                                  ? "border-fuchsia-300 bg-fuchsia-400/20 text-white"
+                                  : "border-fuchsia-500/20 bg-white/5 text-fuchsia-100 hover:bg-white/10"
                               }`}
                             >
                               {countOption} poster
@@ -1264,7 +1264,7 @@ export default function ScannerPortalPage() {
                     type="button"
                     onClick={handleStepThreeNext}
                     disabled={!canContinueFromStep3}
-                    className="mt-10 inline-flex min-h-[60px] w-full items-center justify-center rounded-full bg-cyan-500 px-6 py-4 text-base font-black uppercase tracking-widest text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-cyan-400/50"
+                    className="mt-10 inline-flex min-h-[60px] w-full items-center justify-center rounded-full bg-fuchsia-500 px-6 py-4 text-base font-black uppercase tracking-widest text-white shadow-lg shadow-fuchsia-500/20 transition hover:bg-fuchsia-400 disabled:cursor-not-allowed disabled:bg-fuchsia-400/50"
                   >
                     Næste
                   </button>
@@ -1273,7 +1273,7 @@ export default function ScannerPortalPage() {
 
               {step === 4 ? (
                 <>
-                  <p className="text-sm font-semibold tracking-[0.28em] text-cyan-300 uppercase">
+                  <p className="text-sm font-semibold tracking-[0.28em] text-fuchsia-300 uppercase">
                     Trin 4
                   </p>
                   <h2
@@ -1281,36 +1281,36 @@ export default function ScannerPortalPage() {
                   >
                     Generér løbet
                   </h2>
-                  <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-cyan-100/75 sm:text-lg">
+                  <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-fuchsia-100/75 sm:text-lg">
                     AI&apos;en bygger nu et komplet quiz-løb ud fra dit materiale og sender det
                     direkte videre til Manuel-byggeren.
                   </p>
 
                   <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
                     {selectedSourceLabel ? (
-                      <span className="rounded-full border border-cyan-500/20 bg-white/5 px-4 py-2 text-sm text-cyan-100">
+                      <span className="rounded-full border border-fuchsia-500/20 bg-white/5 px-4 py-2 text-sm text-fuchsia-100">
                         Kilde: {selectedSourceLabel}
                       </span>
                     ) : null}
-                    <span className="rounded-full border border-cyan-500/20 bg-white/5 px-4 py-2 text-sm text-cyan-100">
+                    <span className="rounded-full border border-fuchsia-500/20 bg-white/5 px-4 py-2 text-sm text-fuchsia-100">
                       Fag: {subject}
                     </span>
-                    <span className="rounded-full border border-cyan-500/20 bg-white/5 px-4 py-2 text-sm text-cyan-100">
+                    <span className="rounded-full border border-fuchsia-500/20 bg-white/5 px-4 py-2 text-sm text-fuchsia-100">
                       Målgruppe: {AUDIENCE_OPTIONS.find((option) => option.value === audience)?.label}
                     </span>
-                    <span className="rounded-full border border-cyan-500/20 bg-white/5 px-4 py-2 text-sm text-cyan-100">
+                    <span className="rounded-full border border-fuchsia-500/20 bg-white/5 px-4 py-2 text-sm text-fuchsia-100">
                       Antal poster: {questionCount}
                     </span>
                   </div>
 
                   <div className="mt-10">
                     {isGenerating ? (
-                      <div className="rounded-[1.75rem] border border-cyan-500/20 bg-cyan-500/10 px-6 py-12 text-center">
-                        <Loader2 className="mx-auto h-10 w-10 animate-spin text-cyan-200" />
+                      <div className="rounded-[1.75rem] border border-fuchsia-500/20 bg-fuchsia-500/10 px-6 py-12 text-center">
+                        <Loader2 className="mx-auto h-10 w-10 animate-spin text-fuchsia-200" />
                         <p className="mt-6 text-2xl font-bold text-white">
                           AI&apos;en læser materialet...
                         </p>
-                        <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-cyan-100/70">
+                        <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-fuchsia-100/70">
                           Vi bygger titel, beskrivelse og præcis det antal poster, du har valgt.
                         </p>
                       </div>
@@ -1318,7 +1318,7 @@ export default function ScannerPortalPage() {
                       <button
                         type="button"
                         onClick={handleGenerateRun}
-                        className="inline-flex min-h-[64px] w-full items-center justify-center gap-3 rounded-full bg-cyan-500 px-6 py-4 text-base font-black uppercase tracking-widest text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400"
+                        className="inline-flex min-h-[64px] w-full items-center justify-center gap-3 rounded-full bg-fuchsia-500 px-6 py-4 text-base font-black uppercase tracking-widest text-white shadow-lg shadow-fuchsia-500/20 transition hover:bg-fuchsia-400"
                       >
                         <Sparkles className="h-5 w-5" />
                         Generér løb
@@ -1329,7 +1329,7 @@ export default function ScannerPortalPage() {
               ) : null}
 
               {error ? (
-                <div className="mt-8 rounded-[1.5rem] border border-red-300/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                <div className="mt-8 rounded-[1.5rem] border border-fuchsia-300/30 bg-fuchsia-500/10 px-4 py-3 text-sm text-fuchsia-100">
                   {error}
                 </div>
               ) : null}

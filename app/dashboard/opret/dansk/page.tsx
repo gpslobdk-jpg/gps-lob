@@ -340,7 +340,7 @@ function OpretDanskLoebPageContent() {
         className={`rounded-3xl border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
           notice.tone === "success"
             ? "border-rose-300/30 bg-rose-500/10 text-rose-50"
-            : "border-red-300/30 bg-red-500/10 text-red-100"
+            : "border-rose-400/30 bg-rose-500/10 text-rose-100"
         } ${className}`}
       >
         {notice.message}
@@ -897,7 +897,7 @@ function OpretDanskLoebPageContent() {
   if (isEditMode && isLoadingExistingRun) {
     return (
       <div className={`relative min-h-screen overflow-hidden bg-slate-950 text-rose-50 ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-linear-to-br from-rose-950/60 via-slate-900/80 to-red-950 backdrop-blur-[2px]" />
+        <div className="fixed inset-0 -z-10 bg-linear-to-br from-rose-950/60 via-slate-900/80 to-rose-900 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
           <div className="w-full max-w-md rounded-3xl border border-rose-500/20 bg-slate-900/60 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
             <Loader2 className="mx-auto h-10 w-10 animate-spin text-rose-200" />
@@ -919,7 +919,7 @@ function OpretDanskLoebPageContent() {
   return (
     <>
       <div className={`relative min-h-screen overflow-x-hidden bg-slate-950 text-rose-50 ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-linear-to-br from-rose-950/60 via-slate-900/80 to-red-950 backdrop-blur-[2px]" />
+        <div className="fixed inset-0 -z-10 bg-linear-to-br from-rose-950/60 via-slate-900/80 to-rose-900 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
           <MobileBuilderWarning />
           <section className="relative hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
@@ -1043,7 +1043,7 @@ function OpretDanskLoebPageContent() {
                             onClick={() => removeQuestion(questionIndex)}
                             disabled={isEditorBusy}
                             aria-label={`Slet post ${questionIndex + 1}`}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-500/30 bg-rose-950/20 text-rose-100/75 transition hover:border-red-300/40 hover:bg-red-50/10 hover:text-red-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-500/30 bg-rose-950/20 text-rose-100/75 transition hover:border-rose-300/40 hover:bg-rose-500/10 hover:text-rose-200 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -1157,7 +1157,7 @@ function OpretDanskLoebPageContent() {
                         type="button"
                         onClick={() => assignPinFromCenter(question.id)}
                         disabled={isEditorBusy}
-                        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[1.35rem] border border-rose-500/30 bg-rose-500 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-rose-500/20 transition-all hover:bg-rose-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[1.35rem] border border-rose-500/30 bg-rose-600 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-rose-500/20 transition-all hover:bg-rose-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                       >
                         <Ruler className="h-4 w-4" />
                         Hent pin fra kortet
@@ -1189,7 +1189,7 @@ function OpretDanskLoebPageContent() {
                       type="button"
                       onClick={handleSaveRun}
                       disabled={isSaving}
-                      className="w-full rounded-[1.6rem] border border-rose-500/30 bg-rose-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-rose-500/20 transition-all hover:bg-rose-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                      className="w-full rounded-[1.6rem] border border-rose-500/30 bg-rose-600 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-rose-500/20 transition-all hover:bg-rose-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                     >
                       {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem dansk-løb i arkivet"}
                     </button>
@@ -1223,7 +1223,7 @@ function OpretDanskLoebPageContent() {
               <button
                 type="button"
                 onClick={handleRestoreDraft}
-                className="rounded-3xl border border-rose-300/40 bg-rose-400 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-rose-500/20 transition hover:bg-rose-300"
+                className="rounded-3xl border border-rose-300/40 bg-rose-600 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-rose-500/20 transition hover:bg-rose-500"
               >
                 Gendan ugemte ændringer
               </button>
