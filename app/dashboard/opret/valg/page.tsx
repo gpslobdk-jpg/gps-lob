@@ -227,7 +227,7 @@ export default function ValgHubPage() {
       />
       <div className="fixed inset-0 hidden bg-gradient-to-b from-slate-900/18 via-slate-900/8 to-slate-950/40 backdrop-blur-[2px] -z-10 lg:block" />
 
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between py-5 md:py-7">
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between py-3 md:py-4">
         <Image src="/gpslogo.png" width={150} height={50} alt="Logo" priority />
         <Link
           href="/dashboard"
@@ -238,26 +238,15 @@ export default function ValgHubPage() {
         </Link>
       </header>
 
-      <section className="mx-auto mt-2 flex w-full max-w-6xl flex-col items-center text-center md:mt-3">
-        <div className="w-full rounded-[2.4rem] border border-white/16 bg-white/10 px-6 py-8 shadow-[0_24px_70px_rgba(15,23,42,0.16),inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-2xl sm:px-8 sm:py-10 md:px-10 md:py-12">
-          <p className="mx-auto inline-flex rounded-full border border-white/16 bg-white/10 px-4 py-2 text-[0.62rem] font-semibold tracking-[0.28em] text-white/78 uppercase shadow-[0_14px_32px_rgba(15,23,42,0.14)] backdrop-blur-xl">
-            Løbstyper
-          </p>
-          <h1
-            className={`mt-5 text-4xl font-black tracking-[0.22em] text-white uppercase drop-shadow-[0_18px_40px_rgba(15,23,42,0.24)] md:text-6xl ${rubik.className}`}
-          >
-            VÆLG LØBSTYPE
-          </h1>
-          <p className="mt-4 text-sm font-semibold tracking-[0.2em] text-white/68 uppercase md:text-[0.92rem]">
-            Seks builders. Et samlet dashboard.
-          </p>
-          <p className="mx-auto mt-5 max-w-3xl text-sm leading-6 text-white/86 md:text-lg md:leading-8">
-            Vælg det format, der passer bedst til dit arrangement. Alle seks builders er samlet i et tydeligt overblik med samme premium udtryk, så du hurtigt kan gå fra ide til færdigt løb.
-          </p>
-        </div>
+      <section className="mx-auto mt-0 flex w-full max-w-6xl flex-col items-center text-center">
+        <h1
+          className={`text-4xl font-black tracking-[0.22em] text-white uppercase drop-shadow-[0_18px_40px_rgba(15,23,42,0.24)] md:text-6xl ${rubik.className}`}
+        >
+          VÆLG LØBSTYPE
+        </h1>
       </section>
 
-      <section className="mx-auto mt-8 grid w-full max-w-6xl grid-cols-1 justify-items-center gap-6 md:mt-10 md:grid-cols-3 lg:mt-12">
+      <section className="mx-auto mt-3 grid w-full max-w-6xl grid-cols-1 justify-items-center gap-6 md:mt-4 md:grid-cols-3 lg:mt-5">
         {cards.map((card, index) => (
           <BuilderCard key={`${card.title}-${index}`} card={card} index={index} />
         ))}
