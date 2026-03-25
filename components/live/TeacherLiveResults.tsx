@@ -86,27 +86,29 @@ function PodiumCard({
   return (
     <div className={`flex h-full flex-col rounded-4xl border border-white/15 p-4 shadow-2xl backdrop-blur-xl ${panelClassName}`}>
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/70">{title}</p>
-          <h3 className="mt-2 text-2xl font-black text-white">{getTeamName(entry)}</h3>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/85">{title}</p>
+          <h3 className="mt-2 wrap-break-word text-2xl leading-tight font-black whitespace-normal text-white">
+            {getTeamName(entry)}
+          </h3>
           <p className="mt-2 text-sm text-white/75">{getStatusLabel(entry)}</p>
         </div>
-        <div className={`flex h-14 w-14 items-center justify-center rounded-2xl border text-white shadow-lg ${accentClassName}`}>
+        <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border text-white shadow-lg ${accentClassName}`}>
           {icon}
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-3 gap-3">
+      <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
         <div className="rounded-2xl border border-white/10 bg-black/15 px-3 py-3 text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/65">Point</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/85">Point</p>
           <p className="mt-1 text-2xl font-black text-white">{entry.score}</p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-black/15 px-3 py-3 text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/65">Rigtige svar</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/85">Rigtige svar</p>
           <p className="mt-1 text-2xl font-black text-white">{entry.correctAnswers}</p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-black/15 px-3 py-3 text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/65">Tid brugt</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/85">Tid brugt</p>
           <p className="mt-1 text-lg font-black text-white">{getTimeLabel(entry)}</p>
         </div>
       </div>
@@ -242,7 +244,7 @@ export default function TeacherLiveResults({
                   Vinderen findes p\u00e5 flest point, derefter flest rigtige svar, derefter hurtigste tid.
                 </p>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-50/80">
+              <div className="grid grid-cols-1 gap-2 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-white/90 sm:grid-cols-3">
                 <div className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-3 py-3">Point</div>
                 <div className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-3 py-3">Rigtige svar</div>
                 <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-3">Tid brugt</div>
@@ -261,7 +263,7 @@ export default function TeacherLiveResults({
                         <span className="rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-amber-100">
                           Plads {index + 1}
                         </span>
-                        <span className="truncate text-lg font-bold text-white">
+                        <span className="min-w-0 basis-full truncate text-lg font-bold text-white sm:basis-auto sm:max-w-88">
                           {getTeamName(entry)}
                         </span>
                         <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/85">
@@ -283,21 +285,21 @@ export default function TeacherLiveResults({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3 lg:contents">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3 lg:contents">
                       <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-center lg:min-w-0">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-100/80">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-50">
                           Point
                         </p>
                         <p className="mt-1 text-2xl font-black text-white">{entry.score}</p>
                       </div>
                       <div className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-center">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-100/80">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-cyan-50">
                           Rigtige svar
                         </p>
                         <p className="mt-1 text-2xl font-black text-white">{entry.correctAnswers}</p>
                       </div>
                       <div className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-center">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/85">
                           Tid brugt
                         </p>
                         <p className="mt-1 text-lg font-black text-white">{getTimeLabel(entry)}</p>
