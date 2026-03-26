@@ -223,12 +223,21 @@ export function usePlayGameState({
       const resolvedStartOffset = toIntegerStartOffset(nextStartOffset) ?? startOffset;
       setParticipantId(nextParticipantId);
       setStartOffset(resolvedStartOffset);
+      // Preserve the original savedAt when updating the same participant during gameplay
+      // (e.g. GPS sync). A fresh timestamp is only needed on a genuine new join, otherwise
+      // reloads within 30 s of a recent sync are incorrectly treated as "fresh joins" and
+      // the full DB-restore flow is skipped, resetting progress to post 1.
+      const existing = readStoredActiveParticipant();
+      const savedAt =
+        existing?.participantId === nextParticipantId && existing?.sessionId === sessionId
+          ? existing.savedAt
+          : new Date().toISOString();
       saveStoredActiveParticipant({
         participantId: nextParticipantId,
         sessionId,
         studentName: normalizedName,
         startOffset: resolvedStartOffset,
-        savedAt: new Date().toISOString(),
+        savedAt,
       });
     },
     [sessionId, startOffset]

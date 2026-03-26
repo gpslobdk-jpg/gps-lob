@@ -30,8 +30,8 @@ async function maybeStampRunStartedAt(
   payload: Record<string, unknown>,
   admin: NonNullable<ReturnType<typeof createAdminClient>>
 ) {
-  if (!isCorrectAnswerPayload(payload)) return;
-
+  // Stamp run_started_at on ANY answer to the first route post (correct or not),
+  // so the race clock reflects when the team first interacted with post 1.
   const sessionId = asTrimmedString(payload.session_id);
   const participantId = asTrimmedString(payload.participant_id);
   const answeredPostIndex = getAnsweredPostIndex(payload);
