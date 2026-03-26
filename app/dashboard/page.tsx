@@ -22,13 +22,10 @@ const poppins = Poppins({
 });
 
 const cardBaseClass =
-  "group relative mx-auto flex h-[21rem] w-full max-w-[20.5rem] flex-col overflow-hidden rounded-[2rem] border bg-white/10 p-0 text-left shadow-[0_22px_52px_rgba(15,23,42,0.16),0_8px_18px_rgba(15,23,42,0.07),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-lg transition-all duration-300";
+  "group relative mx-auto flex w-full max-w-[20.5rem] flex-col overflow-hidden rounded-[2rem] border bg-white/10 p-0 text-left shadow-[0_22px_52px_rgba(15,23,42,0.16),0_8px_18px_rgba(15,23,42,0.07),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-lg transition-all duration-300";
 
 const cardPanelClass =
-  "relative flex h-full flex-col items-center justify-between rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.05))] px-6 py-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-16px_24px_rgba(15,23,42,0.07)]";
-
-const cardActionClass =
-  "flex min-h-12 w-full max-w-[15.5rem] items-center justify-between rounded-full border border-white/16 bg-white/12 px-5 py-3 shadow-[0_14px_28px_rgba(15,23,42,0.16),inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md";
+  "relative flex h-full flex-col items-center rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.05))] p-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-16px_24px_rgba(15,23,42,0.07)]";
 
 const createCardClass =
   "border-emerald-400/60 bg-emerald-500/10 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(16,185,129,0.16),inset_0_1px_0_rgba(255,255,255,0.18)]";
@@ -38,8 +35,6 @@ const liveCardEnabledClass =
 
 const archiveCardClass =
   "border-fuchsia-400/60 bg-fuchsia-500/10 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(217,70,239,0.16),inset_0_1px_0_rgba(255,255,255,0.18)]";
-
-const spinnerClass = "h-3.5 w-3.5 shrink-0 animate-spin";
 
 type ActiveSessionRow = {
   id: string;
@@ -350,20 +345,8 @@ export default function DashboardPage() {
             <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_34%),radial-gradient(circle_at_bottom,rgba(16,185,129,0.22),transparent_58%)]" />
             <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(16,185,129,0.16)]" />
             <div className={`${cardPanelClass} text-emerald-950`}>
-              <div className="relative z-10 flex h-full w-full flex-col items-center text-center">
-                <div className="inline-flex items-center gap-1 rounded-full border border-emerald-200/30 bg-emerald-400/14 px-3 py-1.5 text-[0.58rem] font-bold tracking-[0.18em] text-white/92 uppercase shadow-[0_8px_18px_rgba(16,185,129,0.14)] backdrop-blur-md">
-                  {isNavigatingCreate ? (
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={spinnerClass}>
-                      <path d="M12 2v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                      <path d="M12 18v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                      <path d="M4.93 4.93l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                      <path d="M16.24 16.24l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-                  ) : null}
-                  <span>{isNavigatingCreate ? "Forbereder" : "Klar til at bygge"}</span>
-                </div>
-
-                <div className="mt-auto space-y-3">
+              <div className="relative z-10 flex w-full flex-col items-center text-center">
+                <div className="space-y-3">
                   <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
                     {isNavigatingCreate ? "Gør klar til nyt løb" : "Opret nyt løb"}
                   </h2>
@@ -375,12 +358,6 @@ export default function DashboardPage() {
                   </p>
                 </div>
 
-                <div className="mt-auto flex w-full justify-center pt-6">
-                  <div className={`${cardActionClass} border-emerald-200/28 bg-emerald-400/14`}>
-                    <span className="text-sm font-bold text-white/92">Start i løbsbyggeren</span>
-                    <span className="text-[0.7rem] font-black tracking-[0.16em] text-white/82 uppercase">Åbn</span>
-                  </div>
-                </div>
               </div>
             </div>
           </motion.article>
@@ -397,34 +374,8 @@ export default function DashboardPage() {
             <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_34%),radial-gradient(circle_at_bottom,rgba(245,158,11,0.22),transparent_58%)]" />
             <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(245,158,11,0.16)]" />
             <div className={`${cardPanelClass} text-amber-950`}>
-              <div className="relative z-10 flex h-full w-full flex-col items-center text-center">
-                <div
-                  className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[0.58rem] font-bold tracking-[0.18em] uppercase shadow-[0_8px_18px_rgba(15,23,42,0.12)] backdrop-blur-md ${
-                    hasResumeTarget && !isCheckingLiveSession
-                      ? "border-amber-200/30 bg-amber-400/14 text-white/92"
-                      : "border-amber-200/20 bg-amber-400/10 text-white/76"
-                  }`}
-                >
-                  {isCheckingLiveSession ? (
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={spinnerClass}>
-                      <path d="M12 2v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                      <path d="M12 18v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                      <path d="M4.93 4.93l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                      <path d="M16.24 16.24l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-                  ) : null}
-                  <span>
-                    {isCheckingLiveSession
-                      ? "Tjekker session"
-                      : isParticipantResume
-                        ? "Aktiv deltager fundet"
-                        : isTeacherResume
-                          ? "Aktivt løb fundet"
-                        : "Ingen live-session"}
-                  </span>
-                </div>
-
-                <div className="mt-auto space-y-3">
+              <div className="relative z-10 flex w-full flex-col items-center text-center">
+                <div className="space-y-3">
                   <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
                     {isParticipantResume ? "Genoptag dit løb" : isTeacherResume ? "Genoptag live-overblik" : "Genoptag"}
                   </h2>
@@ -453,30 +404,6 @@ export default function DashboardPage() {
                   ) : null}
                 </div>
 
-                <div className="mt-auto flex w-full justify-center pt-6">
-                  <div
-                    className={`${cardActionClass} ${
-                      hasResumeTarget && !isCheckingLiveSession
-                        ? "border-amber-200/30 bg-amber-400/14"
-                        : "border-amber-200/20 bg-amber-400/10"
-                    }`}
-                  >
-                    <span className={`text-sm font-bold ${hasResumeTarget && !isCheckingLiveSession ? "text-white/92" : "text-white/70"}`}>
-                      {isParticipantResume
-                        ? "Fortsæt dit løb"
-                        : isTeacherResume
-                          ? "Åbn live-overblik"
-                          : "Kræver aktiv session"}
-                    </span>
-                    <span
-                      className={`text-[0.7rem] font-black tracking-[0.16em] uppercase ${
-                        hasResumeTarget && !isCheckingLiveSession ? "text-white/82" : "text-white/58"
-                      }`}
-                    >
-                      {hasResumeTarget && !isCheckingLiveSession ? "Fortsæt" : "Afventer"}
-                    </span>
-                  </div>
-                </div>
               </div>
             </div>
           </motion.article>
@@ -500,20 +427,8 @@ export default function DashboardPage() {
             <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_34%),radial-gradient(circle_at_bottom,rgba(217,70,239,0.22),transparent_58%)]" />
             <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(217,70,239,0.16)]" />
             <div className={`${cardPanelClass} text-sky-950`}>
-              <div className="relative z-10 flex h-full w-full flex-col items-center text-center">
-                <div className="inline-flex items-center gap-1 rounded-full border border-fuchsia-200/30 bg-fuchsia-400/14 px-3 py-1.5 text-[0.58rem] font-bold tracking-[0.18em] text-white/92 uppercase shadow-[0_8px_18px_rgba(217,70,239,0.14)] backdrop-blur-md">
-                  {isNavigatingArchive ? (
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={spinnerClass}>
-                      <path d="M12 2v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                      <path d="M12 18v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                      <path d="M4.93 4.93l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                      <path d="M16.24 16.24l2.83 2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-                  ) : null}
-                  <span>{isNavigatingArchive ? "Indlæser" : "Historik og deling"}</span>
-                </div>
-
-                <div className="mt-auto space-y-3">
+              <div className="relative z-10 flex w-full flex-col items-center text-center">
+                <div className="space-y-3">
                   <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
                     Mit løbsarkiv
                   </h2>
@@ -525,12 +440,6 @@ export default function DashboardPage() {
                   </p>
                 </div>
 
-                <div className="mt-auto flex w-full justify-center pt-6">
-                  <div className={`${cardActionClass} border-fuchsia-200/28 bg-fuchsia-400/14`}>
-                    <span className="text-sm font-bold text-white/92">Åbn dit arkiv</span>
-                    <span className="text-[0.7rem] font-black tracking-[0.16em] text-white/82 uppercase">Vis</span>
-                  </div>
-                </div>
               </div>
             </div>
           </motion.article>
