@@ -49,7 +49,15 @@ function MapAutoFit({ zones }: { zones: GameZone[] }) {
 
   useEffect(() => {
     if (hasFittedRef.current) return;
-    const valid = zones.filter((z) => z.center_lat && z.center_lng);
+    const valid = zones.filter(
+      (z) =>
+        typeof z.center_lat === "number" &&
+        typeof z.center_lng === "number" &&
+        Number.isFinite(z.center_lat) &&
+        Number.isFinite(z.center_lng) &&
+        z.center_lat !== 0 &&
+        z.center_lng !== 0
+    );
     if (valid.length === 0) return;
 
     if (valid.length === 1) {
@@ -67,7 +75,7 @@ function MapAutoFit({ zones }: { zones: GameZone[] }) {
 
 export default function ZoneKrigMap({ center, zones, teams }: ZoneKrigMapProps) {
   const teamMap = new Map(teams.map((t) => [t.id, t]));
-  const now = new Date();
+  const nowMs = Date.now();
 
   return (
     <MapContainer
@@ -86,7 +94,9 @@ export default function ZoneKrigMap({ center, zones, teams }: ZoneKrigMapProps) 
       {zones.map((zone) => {
         const team = zone.owner_team_id ? teamMap.get(zone.owner_team_id) : null;
         const color = team?.color ?? "#475569";
-        const isShielded = Boolean(zone.shield_until && new Date(zone.shield_until) > now);
+        const isShielded = Boolean(
+          zone.shield_until && new Date(zone.shield_until).getTime() > nowMs
+        );
         const fillOpacity = team ? (isShielded ? 0.38 : 0.22) : 0.07;
 
         return (

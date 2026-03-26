@@ -565,7 +565,7 @@ function JoinForm() {
                 <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.36em] text-cyan-300/70">
                   Vælg din Fraktion / Farve
                 </p>
-                <div className="grid grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-2.5">
                   {[
                     { color: "#ef4444", name: "Rød" },
                     { color: "#3b82f6", name: "Blå" },
@@ -613,7 +613,7 @@ function JoinForm() {
             <button
               type="submit"
               disabled={!canSubmit}
-              className="mt-2 w-full rounded-[1.6rem] border border-emerald-500/30 bg-emerald-500/10 py-4 text-base font-black tracking-[0.28em] text-emerald-300 uppercase shadow-[0_0_30px_rgba(16,185,129,0.22)] transition-all hover:bg-emerald-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-45"
+              className="mt-2 mb-6 w-full rounded-[1.6rem] border border-emerald-500/30 bg-emerald-500/10 py-4 text-base font-black tracking-[0.28em] text-emerald-300 uppercase shadow-[0_0_30px_rgba(16,185,129,0.22)] transition-all hover:bg-emerald-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-45"
             >
               TILSLUT MISSION 🚀
             </button>
