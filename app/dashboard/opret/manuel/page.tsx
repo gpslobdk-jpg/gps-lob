@@ -427,7 +427,7 @@ function OpretLoebPageContent() {
   const [mapCenter, setMapCenter] = useState<MapCenter>(DEFAULT_MAP_CENTER);
   const [showDraftRecoveryPrompt, setShowDraftRecoveryPrompt] = useState(false);
   const [overrideRaceType, setOverrideRaceType] = useState<string | null>(null);
-  const [isZoneKrigMode, setIsZoneKrigMode] = useState(false);
+  const [isZoneKrigMode, setIsZoneKrigMode] = useState(() => searchParams.get("mode") === "zone-krig");
   const isEditorBusy = isSaving || showDraftRecoveryPrompt;
   const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
   const addQuestionLabel = isZoneKrigMode ? "Tilføj ny zone" : "Tilføj nyt spørgsmål";

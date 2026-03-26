@@ -225,6 +225,45 @@ export default function ValgHubPage() {
         <div className="w-full h-px bg-white/10 my-12" />
 
         <h2 className={`text-2xl font-black tracking-[0.18em] text-white drop-shadow-md uppercase mb-3 ${rubik.className}`}>
+          Spil
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
+          <Link
+            href="/dashboard/opret/manuel?mode=zone-krig"
+            className="block w-full text-left"
+          >
+            <motion.article
+              whileHover={{ y: -4, scale: 1.012 }}
+              className={`${cardBaseClass} cursor-pointer border-orange-500/75 bg-orange-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(249,115,22,0.28),inset_0_1px_0_rgba(255,255,255,0.18)]`}
+            >
+              <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(249,115,22,0.34),transparent_62%)] shadow-[inset_0_0_54px_rgba(249,115,22,0.28)]" />
+              <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem]" />
+
+              <div className="absolute top-4 right-4 z-20">
+                <span className="inline-flex items-center rounded-full border border-orange-300/40 bg-orange-400/20 px-3 py-1 text-[0.58rem] font-bold tracking-[0.18em] text-white uppercase shadow-[0_10px_22px_rgba(249,115,22,0.22)] backdrop-blur-md">
+                  SPIL
+                </span>
+              </div>
+
+              <div className={`${cardPanelClass} text-slate-950`}>
+                <div className="relative z-10 flex h-full w-full flex-col items-center justify-center text-center">
+                  <div className="space-y-1">
+                    <h2 className={`text-[1.4rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
+                      Zone-Krigen 🚩
+                    </h2>
+                    <p className="mx-auto max-w-[15rem] text-xs leading-tight text-white/84">
+                      Omdan din skolegård til et live e-sport arena. Erobr zoner, svar på spørgsmål og kæmp om territorium!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.article>
+          </Link>
+        </div>
+
+        <div className="w-full h-px bg-white/10 my-12" />
+
+        <h2 className={`text-2xl font-black tracking-[0.18em] text-white drop-shadow-md uppercase mb-3 ${rubik.className}`}>
           Kreative Værktøjer & Scannere
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
