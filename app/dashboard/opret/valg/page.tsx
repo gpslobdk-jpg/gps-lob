@@ -20,10 +20,10 @@ const poppins = Poppins({
 });
 
 const cardBaseClass =
-  "group relative mx-auto flex h-[18.75rem] w-full max-w-[20.5rem] flex-col overflow-hidden rounded-[2rem] border bg-white/10 p-0 text-left shadow-[0_22px_52px_rgba(15,23,42,0.16),0_8px_18px_rgba(15,23,42,0.07),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-lg transition-all duration-300";
+  "group relative mx-auto flex h-[12rem] w-full max-w-[20.5rem] flex-col overflow-hidden rounded-[2rem] border bg-white/10 p-0 text-left shadow-[0_22px_52px_rgba(15,23,42,0.16),0_8px_18px_rgba(15,23,42,0.07),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-lg transition-all duration-300";
 
 const cardPanelClass =
-  "relative flex h-full flex-col items-center justify-center rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.05))] px-6 py-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-16px_24px_rgba(15,23,42,0.07)]";
+  "relative flex h-full flex-col items-center justify-center rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.05))] px-4 py-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-16px_24px_rgba(15,23,42,0.07)]";
 
 type BuilderCard = {
   raceType: RaceTypeThemeKey;
@@ -37,10 +37,10 @@ type BuilderCard = {
   badgeClass: string;
 };
 
-const cards: BuilderCard[] = [
+const fagligeCards: BuilderCard[] = [
   {
     raceType: "manuel",
-    title: "Klassisk Quiz-løb",
+    title: "Generel Quiz",
     description: "Byg et klassisk løb med spørgsmål, svarmuligheder og fuld kontrol over ruten.",
     href: "/dashboard/opret/manuel",
     accentClass:
@@ -49,31 +49,6 @@ const cards: BuilderCard[] = [
       "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(16,185,129,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(16,185,129,0.24)]",
     badgeClass:
       "border-emerald-300/40 bg-emerald-400/20 text-white shadow-[0_10px_22px_rgba(16,185,129,0.18)]",
-  },
-  {
-    raceType: "foto",
-    title: "Foto mission",
-    description:
-      "Send eleverne ud på kreative foto-opgaver og gennemgå holdenes billeder efter løbet.",
-    href: "/dashboard/opret/foto",
-    accentClass:
-      "border-blue-500/75 bg-blue-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(59,130,246,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
-    accentGlowClass:
-      "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(59,130,246,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(59,130,246,0.24)]",
-    badgeClass:
-      "border-blue-300/40 bg-blue-400/20 text-white shadow-[0_10px_22px_rgba(59,130,246,0.18)]",
-  },
-  {
-    raceType: "scanner",
-    title: "Scan bogen",
-    description: "Upload en bogside eller indsæt tekst, og lad AI omsætte den til et færdigt løb.",
-    href: "/dashboard/opret/scanner",
-    accentClass:
-      "border-fuchsia-500/75 bg-fuchsia-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(217,70,239,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
-    accentGlowClass:
-      "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(217,70,239,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(217,70,239,0.24)]",
-    badgeClass:
-      "border-fuchsia-300/40 bg-fuchsia-400/20 text-white shadow-[0_10px_22px_rgba(217,70,239,0.18)]",
   },
   {
     raceType: "engelsk",
@@ -113,6 +88,34 @@ const cards: BuilderCard[] = [
   },
 ];
 
+const aiCards: BuilderCard[] = [
+  {
+    raceType: "foto",
+    title: "Foto mission",
+    description:
+      "Send eleverne ud på kreative foto-opgaver og gennemgå holdenes billeder efter løbet.",
+    href: "/dashboard/opret/foto",
+    accentClass:
+      "border-blue-500/75 bg-blue-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(59,130,246,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
+    accentGlowClass:
+      "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(59,130,246,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(59,130,246,0.24)]",
+    badgeClass:
+      "border-blue-300/40 bg-blue-400/20 text-white shadow-[0_10px_22px_rgba(59,130,246,0.18)]",
+  },
+  {
+    raceType: "scanner",
+    title: "Scan bogen",
+    description: "Upload en bogside eller indsæt tekst, og lad AI omsætte den til et færdigt løb.",
+    href: "/dashboard/opret/scanner",
+    accentClass:
+      "border-fuchsia-500/75 bg-fuchsia-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(217,70,239,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
+    accentGlowClass:
+      "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(217,70,239,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(217,70,239,0.24)]",
+    badgeClass:
+      "border-fuchsia-300/40 bg-fuchsia-400/20 text-white shadow-[0_10px_22px_rgba(217,70,239,0.18)]",
+  },
+];
+
 function BuilderCard({ card, index }: { card: BuilderCard; index: number }) {
   const content = (
     <motion.article
@@ -134,13 +137,13 @@ function BuilderCard({ card, index }: { card: BuilderCard; index: number }) {
 
       <div className={`${cardPanelClass} text-slate-950`}>
         <div className="relative z-10 flex h-full w-full flex-col items-center justify-center text-center">
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <h2
-              className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}
+              className={`text-[1.4rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}
             >
               {card.title}
             </h2>
-            <p className="mx-auto max-w-[15rem] text-sm leading-5.5 text-white/84">{card.description}</p>
+            <p className="mx-auto max-w-[15rem] text-xs leading-tight text-white/84">{card.description}</p>
           </div>
         </div>
       </div>
@@ -197,10 +200,26 @@ export default function ValgHubPage() {
         </h1>
       </section>
 
-      <section className="mx-auto mt-3 grid w-full max-w-6xl grid-cols-1 justify-items-center gap-6 md:mt-4 md:grid-cols-3 lg:mt-5">
-        {cards.map((card, index) => (
-          <BuilderCard key={`${card.title}-${index}`} card={card} index={index} />
-        ))}
+      <section className="mx-auto mt-3 w-full max-w-6xl lg:mt-5">
+        <h2 className={`text-2xl font-black tracking-[0.18em] text-white drop-shadow-md uppercase mb-3 ${rubik.className}`}>
+          Faglige Værktøjer
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-4">
+          {fagligeCards.map((card, index) => (
+            <BuilderCard key={`${card.title}-${index}`} card={card} index={index} />
+          ))}
+        </div>
+
+        <div className="w-full h-px bg-white/10 my-6" />
+
+        <h2 className={`text-2xl font-black tracking-[0.18em] text-white drop-shadow-md uppercase mb-3 ${rubik.className}`}>
+          Kreative Værktøjer & Scannere
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-4">
+          {aiCards.map((card, index) => (
+            <BuilderCard key={`${card.title}-${index}`} card={card} index={index} />
+          ))}
+        </div>
       </section>
 
       <div className="mx-auto mt-8 w-full max-w-4xl">
