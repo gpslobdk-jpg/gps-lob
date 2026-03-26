@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Loader2, Plus } from "lucide-react";
+import { Check, Loader2, Plus, Trash2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
@@ -10,7 +10,7 @@ import ManualAiInterviewModal, {
   type ManualAiInterviewDraft,
 } from "@/components/builders/manual/ManualAiInterviewModal";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
-import type { SavedPin, SavedZone } from "@/components/MapPicker";
+import type { SavedPin } from "@/components/MapPicker";
 import { RACE_TYPES } from "@/utils/gpsRuns";
 import {
   consumeDraftAutoload,
@@ -427,10 +427,8 @@ function OpretLoebPageContent() {
   const [mapCenter, setMapCenter] = useState<MapCenter>(DEFAULT_MAP_CENTER);
   const [showDraftRecoveryPrompt, setShowDraftRecoveryPrompt] = useState(false);
   const [overrideRaceType, setOverrideRaceType] = useState<string | null>(null);
-  const [isZoneKrigMode, setIsZoneKrigMode] = useState(() => searchParams.get("mode") === "zone-krig");
   const isEditorBusy = isSaving || showDraftRecoveryPrompt;
   const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
-  const addQuestionLabel = isZoneKrigMode ? "Tilføj ny zone" : "Tilføj nyt spørgsmål";
 
   const renderNotice = (className = "") =>
     notice ? (
@@ -815,30 +813,14 @@ function OpretLoebPageContent() {
 
   const pins = useMemo<SavedPin[]>(
     () =>
-      isZoneKrigMode
-        ? []
-        : questions
-          .map((q, index) =>
-            q.lat !== null && q.lng !== null
-              ? { id: String(q.id), lat: q.lat, lng: q.lng, number: index + 1 }
-              : null
-          )
-          .filter((q): q is SavedPin => q !== null),
-    [isZoneKrigMode, questions]
-  );
-
-  const zones = useMemo<SavedZone[]>(
-    () =>
-      isZoneKrigMode
-        ? (questions
-          .map((q, index) =>
-            q.lat !== null && q.lng !== null
-              ? { id: String(q.id), lat: q.lat, lng: q.lng, radius: 30, label: `Zone ${index + 1}` }
-              : null
-          )
-          .filter((z) => z !== null) as SavedZone[])
-        : [],
-    [isZoneKrigMode, questions]
+      questions
+        .map((q, index) =>
+          q.lat !== null && q.lng !== null
+            ? { id: String(q.id), lat: q.lat, lng: q.lng, number: index + 1 }
+            : null
+        )
+        .filter((q): q is SavedPin => q !== null),
+    [questions]
   );
 
   function updateQuestion<K extends keyof Question>(
@@ -1032,7 +1014,7 @@ function OpretLoebPageContent() {
         description: normalizedDescription,
         topic: normalizedTopic,
         questions: normalizedQuestions,
-        race_type: overrideRaceType ?? (isZoneKrigMode ? RACE_TYPES.ZONE_KRIG : RACE_TYPES.MANUEL),
+        race_type: overrideRaceType ?? RACE_TYPES.MANUEL,
       };
 
       if (isEditMode) {
@@ -1134,57 +1116,24 @@ function OpretLoebPageContent() {
 
                   <div className="mb-8">
                     <h3 className="text-xl font-semibold text-emerald-100">
-                      {isZoneKrigMode
-                        ? "Zone-Krigen: hold og zoner"
-                        : "Velkommen til det klassiske quiz løb."}
+                      Velkommen til det klassiske quiz løb.
                     </h3>
                     <p className="mt-2 text-sm text-emerald-100/80">
-                      {isZoneKrigMode
-                        ? "Placer kampzoner på kortet og tilknyt et spørgsmål til hver. Hold erobrer en zone ved at besvare spørgsmålet korrekt inde i cirklen."
-                        : "Placer posterne på kortet, og indtast et spørgsmål med fire svarmuligheder til hver post. Du kan også bruge den indbyggede AI-assistent til at generere spørgsmålene for dig."}
+                      Placer posterne på kortet, og indtast et spørgsmål med fire svarmuligheder til hver post. Du kan også bruge den indbyggede AI-assistent til at generere spørgsmålene for dig.
                     </p>
 
                     <div className="mt-4 flex flex-wrap items-center gap-3">
-                      <div className="flex overflow-hidden rounded-[1.2rem] border border-emerald-500/30 bg-emerald-950/20 backdrop-blur-xl">
-                        <button
-                          type="button"
-                          onClick={() => setIsZoneKrigMode(false)}
-                          disabled={isEditorBusy}
-                          className={`px-4 py-2 text-sm font-semibold transition disabled:pointer-events-none disabled:opacity-50 ${
-                            !isZoneKrigMode
-                              ? "bg-emerald-500 text-slate-950"
-                              : "text-emerald-100/70 hover:text-emerald-100"
-                          }`}
-                        >
-                          Quiz-løb
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setIsZoneKrigMode(true)}
-                          disabled={isEditorBusy}
-                          className={`px-4 py-2 text-sm font-semibold transition disabled:pointer-events-none disabled:opacity-50 ${
-                            isZoneKrigMode
-                              ? "bg-cyan-400 text-slate-950"
-                              : "text-emerald-100/70 hover:text-emerald-100"
-                          }`}
-                        >
-                          Zone-Krig
-                        </button>
-                      </div>
-
-                      {!isZoneKrigMode && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setNotice(null);
-                            setShowAiInterviewModal(true);
-                          }}
-                          disabled={isEditorBusy}
-                          className={aiActionButtonClass}
-                        >
-                          Auto-udfyld med AI
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNotice(null);
+                          setShowAiInterviewModal(true);
+                        }}
+                        disabled={isEditorBusy}
+                        className={aiActionButtonClass}
+                      >
+                        Auto-udfyld med AI
+                      </button>
                     </div>
                   </div>
 
@@ -1228,7 +1177,7 @@ function OpretLoebPageContent() {
                 <div className="flex items-end justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold tracking-[0.24em] text-emerald-100/65 uppercase">
-                      {isZoneKrigMode ? "Dine zoner" : "Dine poster"}
+                      Dine poster
                     </p>
                   </div>
                   <span className="rounded-full border border-emerald-500/30 bg-emerald-950/20 px-4 py-2 text-sm font-semibold text-emerald-100/80 backdrop-blur-xl">
@@ -1255,20 +1204,29 @@ function OpretLoebPageContent() {
                         </div>
                         <div>
                           <h3 className={`text-lg font-bold text-emerald-100 ${rubik.className}`}>
-                            {isZoneKrigMode
-                              ? `Zone ${questionIndex + 1}`
-                              : isPhotoMission ? "Foto-post" : "Quiz-post"}
+                            {isPhotoMission ? "Foto-post" : "Quiz-post"}
                           </h3>
                           <p className="text-xs text-emerald-100/65">
                             {question.lat !== null && question.lng !== null
-                              ? isZoneKrigMode ? "Zone placeret på kortet" : "Pin er valgt på kortet"
-                              : isZoneKrigMode ? "Zone ikke placeret endnu" : "Ingen pin valgt endnu"}
+                              ? "Pin er valgt på kortet"
+                              : "Ingen pin valgt endnu"}
                           </p>
                         </div>
                       </div>
-                      <span className="rounded-full border border-emerald-500/30 bg-emerald-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-emerald-100/75 uppercase backdrop-blur-xl">
-                        {isPhotoMission ? "AI foto" : "4 svar"}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-emerald-500/30 bg-emerald-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-emerald-100/75 uppercase backdrop-blur-xl">
+                          {isPhotoMission ? "AI foto" : "4 svar"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setQuestions((prev) => prev.filter((_, i) => i !== questionIndex))}
+                          disabled={isEditorBusy || questions.length <= 1}
+                          aria-label={`Slet post ${questionIndex + 1}`}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-rose-500/30 bg-rose-500/10 text-rose-400 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
 
                     {isPhotoMission ? (
@@ -1379,7 +1337,7 @@ function OpretLoebPageContent() {
                       disabled={isEditorBusy}
                       className="mt-4 w-full rounded-[1.35rem] border border-emerald-500/30 bg-emerald-500 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                     >
-                      {isZoneKrigMode ? "Placer zone fra kortet" : "Hent pin fra kortet"}
+                      Hent pin fra kortet
                     </button>
 
                     {question.lat !== null && question.lng !== null ? (
@@ -1399,7 +1357,7 @@ function OpretLoebPageContent() {
                   className="inline-flex items-center gap-2 rounded-[1.4rem] border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-sm font-semibold text-emerald-100 backdrop-blur-xl transition hover:bg-emerald-900/30 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                 >
                   <Plus className="h-4 w-4" />
-                  {addQuestionLabel}
+                  Tilføj nyt spørgsmål
                 </button>
 
                 <div ref={saveFeedbackRef} className="mt-6 space-y-4">
@@ -1421,7 +1379,7 @@ function OpretLoebPageContent() {
         <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
           <div className="lg:sticky lg:top-5">
             <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-slate-900/50 shadow-[0_0_0_1px_rgba(16,185,129,0.08),0_0_36px_rgba(16,185,129,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
-              <MapPicker center={mapCenter} pins={pins} zones={zones} onCenterChange={setMapCenter} />
+              <MapPicker center={mapCenter} pins={pins} zones={[]} onCenterChange={setMapCenter} />
             </div>
           </div>
         </aside>

@@ -240,7 +240,7 @@ export default function ValgHubPage() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
           <Link
-            href="/dashboard/opret/manuel?mode=zone-krig"
+            href="/dashboard/opret/zone-krig"
             className="block w-full text-left"
           >
             <motion.article
