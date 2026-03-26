@@ -41,6 +41,7 @@ import {
   compressImageForUpload,
   containsBadWord,
   formatPhotoFailureMessage,
+  getDistance,
   getEscapeCodeBrick,
   getEscapeCodeEntriesFromRows,
   getGpsErrorContent,
@@ -898,9 +899,25 @@ export function usePlayGameState({
             getNextRoutePostIndex(restoredRouteOrder, confirmedCorrectPosts) ?? firstRoutePostIndex;
         }
 
+        const restoreTargetQuestion = questions[nextPostIndex];
+        const restoredDistanceToNextPost =
+          restoredLat !== null &&
+          restoredLng !== null &&
+          restoreTargetQuestion &&
+          Number.isFinite(restoreTargetQuestion.lat) &&
+          Number.isFinite(restoreTargetQuestion.lng)
+            ? getDistance(restoredLat, restoredLng, restoreTargetQuestion.lat, restoreTargetQuestion.lng)
+            : null;
+
         setCurrentPostIndex(nextPostIndex);
-        setShowQuestion(false);
-        setDistanceState(null);
+        if (restoredDistanceToNextPost !== null && restoredDistanceToNextPost <= AUTO_UNLOCK_RADIUS) {
+          setDismissedPostIndex(null);
+          setShowQuestion(true);
+          setDistanceState(restoredDistanceToNextPost);
+        } else {
+          setShowQuestion(false);
+          setDistanceState(null);
+        }
       } else {
         setCurrentPostIndex(firstRoutePostIndex);
         setShowQuestion(false);

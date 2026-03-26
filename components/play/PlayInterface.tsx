@@ -110,7 +110,11 @@ function MobileHudComponent({
 export default function PlayInterface({ ui, actions, children }: PlayInterfaceProps) {
   const typedAnswerInputRef = useRef<HTMLInputElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const photoPickerPendingRef = useRef(false);
+  const photoPickerReturnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mobileHudOpen, setMobileHudOpen] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraPermissionState, setCameraPermissionState] = useState<PermissionState | "unknown">("unknown");
 
   const { player, gps, progress, flags } = ui;
   const {
@@ -205,6 +209,17 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     "overflow-hidden rounded-[1.9rem] border border-emerald-300/35 bg-emerald-500 p-6 text-center text-slate-950 shadow-[0_0_36px_rgba(16,185,129,0.22)] animate-pulse";
   const quizContinueButtonClass =
     `inline-flex min-h-[60px] w-full items-center justify-center gap-2 rounded-[1.1rem] border border-emerald-300/40 bg-emerald-600 px-5 py-4 text-base font-black text-white shadow-[0_18px_40px_rgba(5,150,105,0.35)] transition-all hover:-translate-y-0.5 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 ${rubik.className}`;
+  const cameraPermissionMessage = "Du skal tillade kamera-adgang i dine browser-indstillinger for at tage billedet.";
+  const cameraRetryHelpMessage =
+    "Hvis kameraet ikke åbner, skal du tillade kamera-adgang i dine browser-indstillinger og prøve igen.";
+
+  const clearPendingPhotoPickerState = () => {
+    photoPickerPendingRef.current = false;
+    if (photoPickerReturnTimerRef.current !== null) {
+      clearTimeout(photoPickerReturnTimerRef.current);
+      photoPickerReturnTimerRef.current = null;
+    }
+  };
 
   
 
@@ -226,8 +241,26 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const handlePhotoCapture = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file) return;
+    clearPendingPhotoPickerState();
+    if (!file) {
+      setCameraError(cameraRetryHelpMessage);
+      return;
+    }
+    setCameraError(null);
     void actions.submitPhoto(file);
+  };
+
+  const handlePhotoButtonClick = () => {
+    setCameraError(null);
+    clearPendingPhotoPickerState();
+
+    if (cameraPermissionState === "denied") {
+      setCameraError(cameraPermissionMessage);
+      return;
+    }
+
+    photoPickerPendingRef.current = true;
+    photoInputRef.current?.click();
   };
 
   useEffect(() => {
@@ -263,6 +296,62 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
       window.clearTimeout(timeoutId);
     };
   }, [activeRoleplayReply, activeTypedAnswerKey, isRoleplayImmersed]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!("permissions" in navigator) || typeof navigator.permissions.query !== "function") {
+      return () => {
+        isActive = false;
+      };
+    }
+
+    navigator.permissions
+      .query({ name: "camera" as PermissionName })
+      .then((status) => {
+        if (!isActive) return;
+        setCameraPermissionState(status.state);
+      })
+      .catch(() => {
+        if (!isActive) return;
+        setCameraPermissionState("unknown");
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handlePhotoPickerReturn = () => {
+      if (!photoPickerPendingRef.current || document.visibilityState === "hidden") return;
+
+      if (photoPickerReturnTimerRef.current !== null) {
+        clearTimeout(photoPickerReturnTimerRef.current);
+      }
+
+      photoPickerReturnTimerRef.current = setTimeout(() => {
+        if (!photoPickerPendingRef.current) return;
+        photoPickerPendingRef.current = false;
+        setCameraError(cameraRetryHelpMessage);
+        photoPickerReturnTimerRef.current = null;
+      }, 280);
+    };
+
+    window.addEventListener("focus", handlePhotoPickerReturn);
+    document.addEventListener("visibilitychange", handlePhotoPickerReturn);
+
+    return () => {
+      window.removeEventListener("focus", handlePhotoPickerReturn);
+      document.removeEventListener("visibilitychange", handlePhotoPickerReturn);
+      clearPendingPhotoPickerState();
+    };
+  }, []);
+
+  useEffect(() => {
+    clearPendingPhotoPickerState();
+    setCameraError(null);
+  }, [activeTypedAnswerKey]);
 
   let content: ReactNode;
 
@@ -1109,7 +1198,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                     {!hasActivePhotoSuccess ? (
                       <button
                         type="button"
-                        onClick={() => photoInputRef.current?.click()}
+                        onClick={handlePhotoButtonClick}
                         disabled={isAnalyzingPhoto || isSubmitting}
                         className={`${tacticalPrimaryButtonClass} break-words hyphens-auto text-base`}
                       >
@@ -1125,6 +1214,12 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                           </>
                         )}
                       </button>
+                    ) : null}
+
+                    {cameraError && !activePhotoFeedback ? (
+                      <div className="overflow-hidden rounded-2xl border border-amber-300/35 bg-amber-500/12 px-4 py-4 text-sm text-amber-50 shadow-[0_18px_40px_rgba(245,158,11,0.16)] backdrop-blur-md">
+                        <p className={`font-semibold ${wrapTextClass}`}>{cameraError}</p>
+                      </div>
                     ) : null}
 
                     {activePhotoFeedback ? (
