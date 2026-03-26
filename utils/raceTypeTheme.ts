@@ -7,7 +7,8 @@ export type RaceTypeThemeKey =
   | "escape"
   | "rollespil"
   | "scanner"
-  | "selfie";
+  | "selfie"
+  | "podcast";
 
 export type RaceTypeTheme = {
   key: RaceTypeThemeKey;
@@ -189,6 +190,23 @@ const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
     archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
     archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
   },
+  podcast: {
+    key: "podcast",
+    label: "Podcast-Detektiven",
+    selectionCardClass:
+      "border-purple-400/40 bg-purple-700 text-white shadow-xl shadow-purple-950/25 hover:border-purple-300/60 hover:bg-purple-600 hover:shadow-2xl hover:shadow-purple-950/35",
+    archiveCardClass: "border-purple-500/30 shadow-purple-500/10 hover:border-purple-400/50 hover:shadow-purple-500/20",
+    archiveHeaderClass: "bg-gradient-to-r from-purple-950 via-slate-900 to-purple-900 text-white",
+    archiveAccentIconClass: "text-purple-300",
+    archivePrimaryButtonClass:
+      "border border-purple-600 bg-purple-600 text-white shadow-[0_12px_24px_rgba(147,51,234,0.18)] hover:bg-purple-500",
+    archiveGhostButtonClass:
+      "border border-purple-200 bg-white text-purple-900 shadow-sm hover:border-purple-300 hover:bg-purple-50",
+    archiveGhostIconButtonClass:
+      "border border-purple-200 bg-white text-purple-800 shadow-sm hover:border-purple-300 hover:bg-purple-50",
+    archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
+    archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
+  },
 };
 
 export function normalizeRaceTypeThemeKey(value: unknown): RaceTypeThemeKey {
@@ -230,6 +248,8 @@ export function normalizeRaceTypeThemeKey(value: unknown): RaceTypeThemeKey {
       return "scanner";
     case "selfie":
       return "selfie";
+    case "podcast":
+      return "podcast";
     default:
       return "manuel";
   }

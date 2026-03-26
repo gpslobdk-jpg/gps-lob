@@ -114,6 +114,18 @@ const aiCards: BuilderCard[] = [
     badgeClass:
       "border-fuchsia-300/40 bg-fuchsia-400/20 text-white shadow-[0_10px_22px_rgba(217,70,239,0.18)]",
   },
+  {
+    raceType: "podcast",
+    title: "Podcast-Detektiven",
+    description: "Indsæt et link, og lad AI'en bygge et løb ud fra lyden.",
+    href: "/dashboard/opret/podcast",
+    accentClass:
+      "border-purple-500/75 bg-purple-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(147,51,234,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
+    accentGlowClass:
+      "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(147,51,234,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(147,51,234,0.24)]",
+    badgeClass:
+      "border-purple-300/40 bg-purple-400/20 text-white shadow-[0_10px_22px_rgba(147,51,234,0.18)]",
+  },
 ];
 
 function BuilderCard({ card, index }: { card: BuilderCard; index: number }) {

@@ -427,6 +427,7 @@ function OpretLoebPageContent() {
   const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>(DEFAULT_MAP_CENTER);
   const [showDraftRecoveryPrompt, setShowDraftRecoveryPrompt] = useState(false);
+  const [overrideRaceType, setOverrideRaceType] = useState<string | null>(null);
   const isEditorBusy = isSaving || showDraftRecoveryPrompt;
   const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
 
@@ -549,6 +550,57 @@ function OpretLoebPageContent() {
       window.sessionStorage.removeItem(MAGIC_DRAFT_STORAGE_KEY);
     }
   }, [editRunId]);
+
+  // Podcast-Detektiv handover: læs draft fra sessionStorage når source=podcast
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (editRunId) return;
+    if (searchParams.get("source") !== "podcast") return;
+
+    const raw = window.sessionStorage.getItem("podcast_draft");
+    window.sessionStorage.removeItem("podcast_draft");
+    if (!raw) return;
+
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return;
+
+      const draft = parsed as { title?: unknown; questions?: unknown };
+      const draftTitle = typeof draft.title === "string" ? draft.title.trim() : "";
+      const rawQuestions = Array.isArray(draft.questions) ? draft.questions : [];
+
+      const timestamp = Date.now();
+      const mappedQuestions: Question[] = rawQuestions
+        .map((rawItem: unknown, index: number): Question | null => {
+          if (!rawItem || typeof rawItem !== "object" || Array.isArray(rawItem)) return null;
+          const item = rawItem as { question?: unknown; options?: unknown; answer?: unknown };
+          const text = typeof item.question === "string" ? item.question.trim() : "";
+          const answers = toAnswersTuple(item.options);
+          const correctAnswer = typeof item.answer === "string" ? item.answer.trim() : "";
+          const correctIndex = answers.findIndex((a) => a.trim() === correctAnswer);
+          if (!text || answers.some((a) => !a)) return null;
+          return {
+            id: timestamp + index,
+            type: "multiple_choice",
+            text,
+            aiPrompt: "",
+            mediaUrl: "",
+            answers,
+            correctIndex: correctIndex >= 0 ? correctIndex : 0,
+            lat: null,
+            lng: null,
+          };
+        })
+        .filter((q): q is Question => q !== null);
+
+      if (draftTitle) setTitle(draftTitle);
+      if (mappedQuestions.length > 0) setQuestions(mappedQuestions);
+      setOverrideRaceType(RACE_TYPES.PODCAST);
+    } catch (err) {
+      console.error("Podcast-kladde kunne ikke indlæses:", err);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     hasInitializedDraftRef.current = false;
@@ -963,7 +1015,7 @@ function OpretLoebPageContent() {
         description: normalizedDescription,
         topic: normalizedTopic,
         questions: normalizedQuestions,
-        race_type: RACE_TYPES.MANUEL,
+        race_type: overrideRaceType ?? RACE_TYPES.MANUEL,
       };
 
       if (isEditMode) {

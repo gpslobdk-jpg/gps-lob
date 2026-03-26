@@ -7,6 +7,7 @@ export const RACE_TYPES = {
   SELFIE: "selfie",
   ESCAPE: "escape",
   ROLLESPIL: "rollespil",
+  PODCAST: "podcast",
 } as const;
 
 export type RaceType = (typeof RACE_TYPES)[keyof typeof RACE_TYPES];
@@ -64,6 +65,8 @@ export function normalizeRaceType(value: unknown): RaceType | null {
     case "role_play":
     case "tidsmaskinen":
       return RACE_TYPES.ROLLESPIL;
+    case "podcast":
+      return RACE_TYPES.PODCAST;
     default:
       return null;
   }
