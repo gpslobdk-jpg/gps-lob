@@ -413,6 +413,7 @@ function FotoMissionBuilderPageContent() {
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedDraftRef = useRef(false);
   const shouldAutoRestoreDraftRef = useRef<boolean | null>(null);
+  const pendingScrollTargetId = useRef<string | null>(null);
 
   const applyDraftState = (draft: FotoBuilderDraftState) => {
     const restoredSubject = restoreDraftString(draft.subject);
@@ -436,6 +437,25 @@ function FotoMissionBuilderPageContent() {
       window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
     }
   };
+
+  useEffect(() => {
+    if (!pendingScrollTargetId.current || typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+
+    const targetId = pendingScrollTargetId.current;
+    const frameId = window.requestAnimationFrame(() => {
+      const targetEl = document.getElementById(`foto-post-${targetId}`);
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      pendingScrollTargetId.current = null;
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [questions]);
 
   useEffect(() => {
     hasInitializedDraftRef.current = false;
@@ -666,6 +686,13 @@ function FotoMissionBuilderPageContent() {
   }
 
   const assignPinFromCenter = (id: number) => {
+    const currentIndex = questions.findIndex((question) => question.id === id);
+    const nextQuestion = currentIndex >= 0 ? questions[currentIndex + 1] : null;
+
+    if (nextQuestion) {
+      pendingScrollTargetId.current = String(nextQuestion.id);
+    }
+
     updateQuestion(id, { lat: mapCenter.lat, lng: mapCenter.lng });
   };
 
@@ -974,6 +1001,7 @@ function FotoMissionBuilderPageContent() {
               {questions.map((question, index) => (
                 <article
                   key={question.id}
+                  id={`foto-post-${question.id}`}
                   className="rounded-[2rem] border border-sky-500/30 bg-sky-950/20 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1115,4 +1143,3 @@ function FotoMissionBuilderPageContent() {
     </>
   );
 }
-

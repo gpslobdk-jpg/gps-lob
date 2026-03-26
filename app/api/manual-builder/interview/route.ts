@@ -13,7 +13,6 @@ const openai = createOpenAI({
 
 const DEFAULT_COUNT = 10;
 const OPENAI_TIMEOUT_MS = 45_000;
-const MAX_QUALITY_GENERATION_ATTEMPTS = 2;
 
 const manualInterviewPayloadSchema = z
   .object({
@@ -143,6 +142,7 @@ Du SKAL altid følge disse regler:
 - Du må under ingen omstændigheder returnere færre eller flere end ${count} spørgsmål.
 - Hvert spørgsmål skal have præcis 4 svarmuligheder i "options".
 - "correctAnswer" skal matche én af de 4 svarmuligheder ordret.
+- Du skal altid generere et løb baseret på brugerens input, uanset hvor generisk, bredt eller kortfattet emnet er.
 - Alle spørgsmål skal være matematisk korrekte, fagligt præcise og passende til det angivne klassetrin.
 - Niveauet SKAL ramme klassetrinnet meget præcist. Hvis klassetrinnet er lavt, skal spørgsmålene være markant lettere, kortere og mere konkrete.
 - Det er vigtigere at ramme elevniveauet præcist end at virke avanceret.
@@ -325,99 +325,6 @@ function createMathPromptExamples(mathTopic: string, gradeLevel: string) {
   ];
 }
 
-function isWeakMathQuestion(question: string) {
-  const trimmedQuestion = question.trim();
-
-  if (trimmedQuestion.length < 10) {
-    return true;
-  }
-
-  return [/^hvad er matematik/i, /^hvad er et tal/i, /^hvad er plus/i, /^hvad er minus/i].some((pattern) =>
-    pattern.test(trimmedQuestion)
-  );
-}
-
-function validateMathGeneratedRun(
-  run: { title: string; questions: Array<{ question: string; options: [string, string, string, string]; correctAnswer: string }> },
-  input: z.infer<typeof mathInterviewPayloadSchema>
-) {
-  const issues: string[] = [];
-  const gradeNumber = parseGradeLevelNumber(input.gradeLevel);
-  let lowGradeLengthIssueCount = 0;
-  let lowGradeAbstractIssueCount = 0;
-
-  const abstractMathKeywords = [
-    "algebraisk",
-    "variabel",
-    "funktion",
-    "ligningssystem",
-    "koordinatsystem",
-    "procentvis stigning",
-    "omskriv",
-    "bevis",
-  ];
-
-  if (run.title.trim().length < 6) {
-    issues.push("Titlen er for kort eller for generisk.");
-  }
-
-  run.questions.forEach((question, index) => {
-    const questionNumber = index + 1;
-    const trimmedQuestion = question.question.trim();
-    const normalizedOptions = question.options.map((option) => option.trim());
-    const distinctOptionCount = new Set(normalizedOptions.map((option) => normalizeDanishText(option))).size;
-    const combinedText = [trimmedQuestion, ...normalizedOptions].join(" ");
-
-    if (isWeakMathQuestion(trimmedQuestion)) {
-      issues.push(`Spørgsmål ${questionNumber} er for generisk og ikke matematisk skarpt nok.`);
-    }
-
-    if (distinctOptionCount < 4) {
-      issues.push(`Spørgsmål ${questionNumber} har ikke fire tydeligt forskellige svarmuligheder.`);
-    }
-
-    if (normalizedOptions.some((option) => option.length < 1 || isPlaceholderDistractor(option))) {
-      issues.push(`Spørgsmål ${questionNumber} indeholder en placeholder eller en for svag svarmulighed.`);
-    }
-
-    if (!normalizedOptions.includes(question.correctAnswer.trim())) {
-      issues.push(`Spørgsmål ${questionNumber} har et facit, der ikke matcher svarmulighederne præcist.`);
-    }
-
-    if (gradeNumber !== null && gradeNumber <= 2) {
-      if (trimmedQuestion.length > 90 || normalizedOptions.some((option) => option.length > 20)) {
-        lowGradeLengthIssueCount += 1;
-      }
-
-      if (includesAnyKeyword(combinedText, abstractMathKeywords)) {
-        lowGradeAbstractIssueCount += 1;
-      }
-    }
-
-    if (gradeNumber !== null && gradeNumber >= 3 && gradeNumber <= 4) {
-      if (trimmedQuestion.length > 130 || normalizedOptions.some((option) => option.length > 28)) {
-        lowGradeLengthIssueCount += 1;
-      }
-    }
-  });
-
-  if (gradeNumber !== null && gradeNumber <= 2 && lowGradeLengthIssueCount >= 2) {
-    issues.push("Matematikspørgsmålene er for lange eller teksttunge i forhold til 1.-2. klasse.");
-  }
-
-  if (gradeNumber !== null && gradeNumber <= 2 && lowGradeAbstractIssueCount >= 1) {
-    issues.push("Matematikspørgsmålene er for abstrakte til 1.-2. klasse.");
-  }
-
-  if (gradeNumber !== null && gradeNumber >= 3 && gradeNumber <= 4 && lowGradeLengthIssueCount >= 3) {
-    issues.push("Matematikspørgsmålene er for lange eller for komplekse i forhold til 3.-4. klasse.");
-  }
-
-  if (issues.length > 0) {
-    throw new Error(`Matematik-kvalitetskontrol fejlede: ${issues.slice(0, 4).join(" ")}`);
-  }
-}
-
 function createDanskGradeLevelGuidance(gradeLevel: string) {
   const gradeNumber = parseGradeLevelNumber(gradeLevel);
 
@@ -454,173 +361,6 @@ function createDanskGradeLevelGuidance(gradeLevel: string) {
   ];
 }
 
-function hasDanskContextSignal(question: string) {
-  return [
-    /i sætningen/i,
-    /i teksten/i,
-    /i uddraget/i,
-    /hvilket ord/i,
-    /hvilken sætning/i,
-    /hvilken formulering/i,
-    /hvilken stavemåde/i,
-    /hvilken fortolkning/i,
-    /hvilket tema/i,
-    /hvad viser/i,
-    /hvad kan man udlede/i,
-    /[:"'“”]/,
-  ].some((pattern) => pattern.test(question));
-}
-
-function isWeakDanskQuestion(question: string) {
-  const trimmedQuestion = question.trim();
-
-  if (trimmedQuestion.length < 24) {
-    return true;
-  }
-
-  if (hasDanskContextSignal(trimmedQuestion)) {
-    return false;
-  }
-
-  return [/^hvad er /i, /^hvad betyder /i, /^hvad kaldes /i, /^hvad hedder /i].some((pattern) =>
-    pattern.test(trimmedQuestion)
-  );
-}
-
-function isPlaceholderDistractor(option: string) {
-  return [
-    /^marker$/i,
-    /^svar\s*\d+$/i,
-    /^mulighed\s*[a-d1-4]$/i,
-    /^andet$/i,
-    /^ved ikke$/i,
-    /^ukendt$/i,
-  ].some((pattern) => pattern.test(option.trim()));
-}
-
-function validateDanskGeneratedRun(
-  run: { title: string; questions: Array<{ question: string; options: [string, string, string, string]; correctAnswer: string }> },
-  input: z.infer<typeof danishInterviewPayloadSchema>
-) {
-  const issues: string[] = [];
-  const normalizedTopic = normalizeDanishText(input.danishTopic);
-  const gradeNumber = parseGradeLevelNumber(input.gradeLevel);
-  const andersenKeywords = [
-    "h.c. andersen",
-    "andersen",
-    "eventyr",
-    "odense",
-    "1805",
-    "1800-tallet",
-    "den lille havfrue",
-    "den grimme ælling",
-    "kejserens nye klæder",
-    "prinsessen på ærten",
-    "fyrtøjet",
-    "snedronningen",
-    "nattergalen",
-    "klods-hans",
-    "skyggen",
-    "grantræet",
-  ];
-
-  if (run.title.trim().length < 6) {
-    issues.push("Titlen er for kort eller for generisk.");
-  }
-
-  let contextualQuestionCount = 0;
-  let andersenSpecificQuestionCount = 0;
-  let lowGradeLengthIssueCount = 0;
-  let lowGradeAbstractIssueCount = 0;
-
-  const lowGradeAbstractKeywords = [
-    "symbolik",
-    "komposition",
-    "fortæller",
-    "fortolkning",
-    "budskab",
-    "personkarakteristik",
-    "synsvinkel",
-    "konfliktniveau",
-  ];
-
-  run.questions.forEach((question, index) => {
-    const questionNumber = index + 1;
-    const trimmedQuestion = question.question.trim();
-    const normalizedOptions = question.options.map((option) => option.trim());
-    const distinctOptionCount = new Set(normalizedOptions.map((option) => normalizeDanishText(option))).size;
-
-    if (hasDanskContextSignal(trimmedQuestion)) {
-      contextualQuestionCount += 1;
-    }
-
-    if (isWeakDanskQuestion(trimmedQuestion)) {
-      issues.push(`Spørgsmål ${questionNumber} er for generisk og mangler en konkret case eller et tydeligt eksempel.`);
-    }
-
-    if (distinctOptionCount < 4) {
-      issues.push(`Spørgsmål ${questionNumber} har ikke fire tydeligt forskellige svarmuligheder.`);
-    }
-
-    if (normalizedOptions.some((option) => option.length < 2 || isPlaceholderDistractor(option))) {
-      issues.push(`Spørgsmål ${questionNumber} indeholder en placeholder eller en for svag svarmulighed.`);
-    }
-
-    if (!normalizedOptions.includes(question.correctAnswer.trim())) {
-      issues.push(`Spørgsmål ${questionNumber} har et facit, der ikke matcher svarmulighederne præcist.`);
-    }
-
-    const combinedText = [trimmedQuestion, ...normalizedOptions].join(" ");
-    if (includesAnyKeyword(normalizedTopic, ["h.c. andersen", "andersen", "eventyr"]) && includesAnyKeyword(combinedText, andersenKeywords)) {
-      andersenSpecificQuestionCount += 1;
-    }
-
-    if (gradeNumber !== null && gradeNumber <= 2) {
-      if (trimmedQuestion.length > 120 || normalizedOptions.some((option) => option.length > 32)) {
-        lowGradeLengthIssueCount += 1;
-      }
-
-      if (includesAnyKeyword(combinedText, lowGradeAbstractKeywords)) {
-        lowGradeAbstractIssueCount += 1;
-      }
-    }
-
-    if (gradeNumber !== null && gradeNumber <= 4) {
-      if (trimmedQuestion.length > 160 || normalizedOptions.some((option) => option.length > 42)) {
-        lowGradeLengthIssueCount += 1;
-      }
-    }
-  });
-
-  const minimumContextualQuestions = Math.max(2, Math.ceil(run.questions.length * 0.6));
-  if (contextualQuestionCount < minimumContextualQuestions) {
-    issues.push("For mange spørgsmål er for abstrakte; mindst størstedelen skal være skrevet som cases, sætninger, uddrag eller konkrete eksempler.");
-  }
-
-  if (
-    includesAnyKeyword(normalizedTopic, ["h.c. andersen", "andersen", "eventyr"]) &&
-    andersenSpecificQuestionCount < Math.max(2, Math.ceil(run.questions.length / 3))
-  ) {
-    issues.push("Løbet om H.C. Andersen eller eventyr er ikke specifikt nok og mangler tydelige referencer til konkrete eventyr, temaer eller historiske forhold.");
-  }
-
-  if (gradeNumber !== null && gradeNumber <= 2 && lowGradeLengthIssueCount >= 2) {
-    issues.push("Spørgsmålene er for lange eller for teksttunge i forhold til 1.-2. klasse.");
-  }
-
-  if (gradeNumber !== null && gradeNumber <= 2 && lowGradeAbstractIssueCount >= 1) {
-    issues.push("Spørgsmålene er for abstrakte til 1.-2. klasse og bruger for avancerede danskfaglige begreber.");
-  }
-
-  if (gradeNumber !== null && gradeNumber >= 3 && gradeNumber <= 4 && lowGradeLengthIssueCount >= 3) {
-    issues.push("Spørgsmålene er for lange eller for komplekse i forhold til 3.-4. klasse.");
-  }
-
-  if (issues.length > 0) {
-    throw new Error(`Dansk-kvalitetskontrol fejlede: ${issues.slice(0, 4).join(" ")}`);
-  }
-}
-
 function createDanskPrompt(input: z.infer<typeof danishInterviewPayloadSchema>) {
   const { count, danishTopic, gradeLevel } = input;
   const miniExamples = createDanskPromptExamples(danishTopic);
@@ -639,6 +379,7 @@ Du SKAL altid følge disse regler:
 - Du må under ingen omstændigheder returnere færre eller flere end ${count} spørgsmål.
 - Hvert spørgsmål skal have præcis 4 svarmuligheder i "options".
 - "correctAnswer" skal matche en af de 4 svarmuligheder ordret.
+- Du skal altid generere et løb baseret på brugerens input, uanset hvor generisk, bredt eller kortfattet emnet er.
 - Alle spørgsmål skal være danskfagligt korrekte, alderssvarende, motiverende og tydeligt knyttet til det angivne klassetrin.
 - Fokus skal ligge på læsning, sprogforståelse, grammatik, stavning, litteratur eller analyse, alt efter emnet.
 - Skriv spørgsmålene som små cases, konkrete sætninger, korte tekstuddrag eller tydelige eksempler. Undgå tørre definitionsspørgsmål uden kontekst.
@@ -758,136 +499,6 @@ function createEnglishPromptExamples(englishTopic: string) {
   ];
 }
 
-function hasEnglishContextSignal(question: string) {
-  return [
-    /in the sentence/i,
-    /in the text/i,
-    /in the paragraph/i,
-    /which word/i,
-    /which sentence/i,
-    /which option/i,
-    /what does/i,
-    /what is the best/i,
-    /why does/i,
-    /what can/i,
-    /["'“”]/,
-  ].some((pattern) => pattern.test(question));
-}
-
-function hasEnglishLanguageSignal(value: string) {
-  return [
-    /\bthe\b/i,
-    /\bwhich\b/i,
-    /\bwhat\b/i,
-    /\bcorrect\b/i,
-    /\bsentence\b/i,
-    /\bword\b/i,
-    /\btext\b/i,
-    /\bmeaning\b/i,
-    /\bgrammar\b/i,
-    /\bspelling\b/i,
-    /\bvocabulary\b/i,
-    /\bbritish\b/i,
-    /\bamerican\b/i,
-    /\bread\b/i,
-  ].some((pattern) => pattern.test(value));
-}
-
-function isWeakEnglishQuestion(question: string) {
-  const trimmedQuestion = question.trim();
-
-  if (trimmedQuestion.length < 24) {
-    return true;
-  }
-
-  if (hasEnglishContextSignal(trimmedQuestion)) {
-    return false;
-  }
-
-  return [/^what is /i, /^what does /i, /^what means /i, /^what is called /i].some((pattern) =>
-    pattern.test(trimmedQuestion)
-  );
-}
-
-function validateEnglishGeneratedRun(
-  run: { title: string; questions: Array<{ question: string; options: [string, string, string, string]; correctAnswer: string }> },
-  input: z.infer<typeof englishInterviewPayloadSchema>
-) {
-  const issues: string[] = [];
-  const gradeNumber = parseGradeLevelNumber(input.gradeLevel);
-  let contextualQuestionCount = 0;
-  let nonEnglishQuestionCount = 0;
-  let lowGradeLengthIssueCount = 0;
-
-  if (run.title.trim().length < 6) {
-    issues.push("Titlen er for kort eller for generisk.");
-  }
-
-  run.questions.forEach((question, index) => {
-    const questionNumber = index + 1;
-    const trimmedQuestion = question.question.trim();
-    const normalizedOptions = question.options.map((option) => option.trim());
-    const distinctOptionCount = new Set(normalizedOptions.map((option) => normalizeDanishText(option))).size;
-    const combinedText = [trimmedQuestion, ...normalizedOptions].join(" ");
-
-    if (hasEnglishContextSignal(trimmedQuestion)) {
-      contextualQuestionCount += 1;
-    }
-
-    if (!hasEnglishLanguageSignal(combinedText)) {
-      nonEnglishQuestionCount += 1;
-    }
-
-    if (isWeakEnglishQuestion(trimmedQuestion)) {
-      issues.push(`Spørgsmål ${questionNumber} er for generisk og mangler en konkret engelsk kontekst.`);
-    }
-
-    if (distinctOptionCount < 4) {
-      issues.push(`Spørgsmål ${questionNumber} har ikke fire tydeligt forskellige svarmuligheder.`);
-    }
-
-    if (normalizedOptions.some((option) => option.length < 2 || isPlaceholderDistractor(option))) {
-      issues.push(`Spørgsmål ${questionNumber} indeholder en placeholder eller en for svag svarmulighed.`);
-    }
-
-    if (!normalizedOptions.includes(question.correctAnswer.trim())) {
-      issues.push(`Spørgsmål ${questionNumber} har et facit, der ikke matcher svarmulighederne præcist.`);
-    }
-
-    if (gradeNumber !== null && gradeNumber <= 2) {
-      if (trimmedQuestion.length > 110 || normalizedOptions.some((option) => option.length > 26)) {
-        lowGradeLengthIssueCount += 1;
-      }
-    }
-
-    if (gradeNumber !== null && gradeNumber >= 3 && gradeNumber <= 4) {
-      if (trimmedQuestion.length > 150 || normalizedOptions.some((option) => option.length > 38)) {
-        lowGradeLengthIssueCount += 1;
-      }
-    }
-  });
-
-  if (contextualQuestionCount < Math.max(2, Math.ceil(run.questions.length * 0.5))) {
-    issues.push("For mange spørgsmål mangler konkrete engelske sætninger, små tekster eller tydelige brugssituationer.");
-  }
-
-  if (nonEnglishQuestionCount >= Math.max(2, Math.ceil(run.questions.length / 3))) {
-    issues.push("For meget af indholdet ser ikke ud til at være skrevet tydeligt på engelsk.");
-  }
-
-  if (gradeNumber !== null && gradeNumber <= 2 && lowGradeLengthIssueCount >= 2) {
-    issues.push("Spørgsmålene er for lange eller for teksttunge i forhold til 1.-2. klasse.");
-  }
-
-  if (gradeNumber !== null && gradeNumber >= 3 && gradeNumber <= 4 && lowGradeLengthIssueCount >= 3) {
-    issues.push("Spørgsmålene er for lange eller for komplekse i forhold til 3.-4. klasse.");
-  }
-
-  if (issues.length > 0) {
-    throw new Error(`Engelsk-kvalitetskontrol fejlede: ${issues.slice(0, 4).join(" ")}`);
-  }
-}
-
 function createEnglishPrompt(input: z.infer<typeof englishInterviewPayloadSchema>) {
   const { count, englishTopic, gradeLevel } = input;
   const miniExamples = createEnglishPromptExamples(englishTopic);
@@ -905,6 +516,7 @@ You MUST always follow these rules:
 - Never return fewer or more than ${count} questions.
 - Each question must have exactly 4 answer options in "options".
 - "correctAnswer" must exactly match one of the 4 options.
+- You must always generate a run based on the user's input, no matter how generic, broad, or brief the topic is.
 - All generated questions, options, and correctAnswer values MUST be written in natural English.
 - Do not write the actual question content in Danish.
 - Every question must be age-appropriate, pedagogically strong, and clearly matched to the stated grade level.
@@ -949,39 +561,6 @@ function isTimeoutError(error: unknown) {
   );
 }
 
-function isQualityValidationError(error: unknown) {
-  return (
-    error instanceof Error &&
-    (error.message.startsWith("Dansk-kvalitetskontrol fejlede:") ||
-      error.message.startsWith("Matematik-kvalitetskontrol fejlede:") ||
-      error.message.startsWith("Engelsk-kvalitetskontrol fejlede:"))
-  );
-}
-
-function buildRetryPromptConfig(
-  promptConfig: {
-    schemaName: string;
-    schemaDescription: string;
-    systemPrompt: string;
-    prompt: string;
-  },
-  qualityErrorMessage: string,
-  attemptNumber: number
-) {
-  const retryFeedback = `FORRIGE FORSØG FEJLEDE KVALITETSKONTROLLEN.
-Dette er forsøg ${attemptNumber}.
-Du skal rette disse problemer i det nye svar:
-${qualityErrorMessage}
-
-Lav nu et NYT sæt spørgsmål, som er enklere, skarpere og mere præcist tilpasset klassetrinnet. Genbrug ikke generiske formuleringer.`;
-
-  return {
-    ...promptConfig,
-    systemPrompt: `${promptConfig.systemPrompt}\n- Hvis kvalitetskontrollen tidligere er fejlet, skal du i næste forsøg gøre niveauet tydeligt lettere, mere konkret og mere klassetrinssikkert.`,
-    prompt: `${promptConfig.prompt}\n\n${retryFeedback}`,
-  };
-}
-
 function normalizeGeneratedRun(object: { title: string; questions: Array<{ question: string; options: string[]; correctAnswer: string }> }) {
   const questions = object.questions.map((question) => {
     const options = question.options.map((option) => option.trim()).slice(0, 4);
@@ -1013,19 +592,6 @@ function normalizeGeneratedRun(object: { title: string; questions: Array<{ quest
     title: object.title.trim(),
     questions,
   };
-}
-
-function validateInterviewRun(
-  payload: z.infer<typeof interviewPayloadSchema>,
-  run: { title: string; questions: Array<{ question: string; options: [string, string, string, string]; correctAnswer: string }> }
-) {
-  if (payload.builderType === "dansk") {
-    validateDanskGeneratedRun(run, payload);
-  } else if (payload.builderType === "engelsk") {
-    validateEnglishGeneratedRun(run, payload);
-  } else if (payload.builderType === "matematik") {
-    validateMathGeneratedRun(run, payload);
-  }
 }
 
 export async function POST(req: Request) {
@@ -1067,62 +633,23 @@ export async function POST(req: Request) {
     const count = parsedPayload.data.count;
 
     const schema = createGeneratedRunSchema(count);
+    const { object } = await generateObject({
+      model: openai("gpt-4o-mini"),
+      schema,
+      schemaName: basePromptConfig.schemaName,
+      schemaDescription: basePromptConfig.schemaDescription,
+      system: basePromptConfig.systemPrompt,
+      prompt: basePromptConfig.prompt,
+      temperature: 0.7,
+      timeout: OPENAI_TIMEOUT_MS,
+      providerOptions: {
+        openai: {
+          strictJsonSchema: true,
+        },
+      },
+    });
 
-    const maxAttempts =
-      parsedPayload.data.builderType === "dansk" ||
-      parsedPayload.data.builderType === "matematik" ||
-      parsedPayload.data.builderType === "engelsk"
-        ? MAX_QUALITY_GENERATION_ATTEMPTS
-        : 1;
-
-    let lastError: unknown = null;
-    let normalizedRun: {
-      title: string;
-      questions: Array<{ question: string; options: [string, string, string, string]; correctAnswer: string }>;
-    } | null = null;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      const promptConfig =
-        attempt === 1 || !(lastError instanceof Error)
-          ? basePromptConfig
-          : buildRetryPromptConfig(basePromptConfig, lastError.message, attempt);
-
-      try {
-        const { object } = await generateObject({
-          model: openai("gpt-4o-mini"),
-          schema,
-          schemaName: promptConfig.schemaName,
-          schemaDescription: promptConfig.schemaDescription,
-          system: promptConfig.systemPrompt,
-          prompt: promptConfig.prompt,
-          temperature: attempt === 1 ? 0.7 : 0.45,
-          timeout: OPENAI_TIMEOUT_MS,
-          providerOptions: {
-            openai: {
-              strictJsonSchema: true,
-            },
-          },
-        });
-
-        normalizedRun = normalizeGeneratedRun(object);
-        validateInterviewRun(parsedPayload.data, normalizedRun);
-        lastError = null;
-        break;
-      } catch (error) {
-        lastError = error;
-
-        if (isQualityValidationError(error) && attempt < maxAttempts) {
-          console.warn(`AI-kvalitetskontrol fejlede i forsøg ${attempt}. Forsøger igen med skærpet prompt.`);
-          continue;
-        }
-
-        throw error;
-      }
-    }
-
-    if (!normalizedRun) {
-      throw lastError instanceof Error ? lastError : new Error("AI-generation fejlede uden et brugbart resultat.");
-    }
+    const normalizedRun = normalizeGeneratedRun(object);
 
     return NextResponse.json({
       title: normalizedRun.title,
@@ -1135,36 +662,6 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "AI'en var for længe om at svare. Prøv igen." },
         { status: 504 }
-      );
-    }
-
-    if (error instanceof Error && error.message.startsWith("Dansk-kvalitetskontrol fejlede:")) {
-      return NextResponse.json(
-        {
-          error:
-            "AI'en leverede danskspørgsmål, der var for generiske eller pædagogisk svage. Prøv igen, så beder vi modellen om et skarpere løb.",
-        },
-        { status: 502 }
-      );
-    }
-
-    if (error instanceof Error && error.message.startsWith("Matematik-kvalitetskontrol fejlede:")) {
-      return NextResponse.json(
-        {
-          error:
-            "AI'en leverede matematikspørgsmål, der var for svære, for generiske eller ikke præcist nok tilpasset klassetrinnet. Prøv igen, så beder vi modellen om et skarpere og mere passende løb.",
-        },
-        { status: 502 }
-      );
-    }
-
-    if (error instanceof Error && error.message.startsWith("Engelsk-kvalitetskontrol fejlede:")) {
-      return NextResponse.json(
-        {
-          error:
-            "AI'en leverede engelskspørgsmål, der var for generiske, ikke tydeligt nok på engelsk eller for svage pædagogisk. Prøv igen, så beder vi modellen om et skarpere løb med mere naturligt sprog.",
-        },
-        { status: 502 }
       );
     }
 

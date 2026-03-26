@@ -445,6 +445,7 @@ function OpretLoebPageContent() {
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedDraftRef = useRef(false);
   const shouldAutoRestoreDraftRef = useRef<boolean | null>(null);
+  const pendingScrollTargetId = useRef<string | null>(null);
 
   const applyDraftState = (draft: ManualBuilderDraftState) => {
     const restoredSubject = restoreDraftString(draft.subject);
@@ -469,6 +470,25 @@ function OpretLoebPageContent() {
       window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
     }
   };
+
+  useEffect(() => {
+    if (!pendingScrollTargetId.current || typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+
+    const targetId = pendingScrollTargetId.current;
+    const frameId = window.requestAnimationFrame(() => {
+      const targetEl = document.getElementById(`manuel-post-${targetId}`);
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      pendingScrollTargetId.current = null;
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [questions]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -786,6 +806,13 @@ function OpretLoebPageContent() {
   };
 
   const assignPinFromCenter = (id: number) => {
+    const currentIndex = questions.findIndex((question) => question.id === id);
+    const nextQuestion = currentIndex >= 0 ? questions[currentIndex + 1] : null;
+
+    if (nextQuestion) {
+      pendingScrollTargetId.current = String(nextQuestion.id);
+    }
+
     updateQuestion(id, { lat: mapCenter.lat, lng: mapCenter.lng });
   };
 
@@ -1109,6 +1136,7 @@ function OpretLoebPageContent() {
                 return (
                   <article
                     key={question.id}
+                    id={`manuel-post-${question.id}`}
                     className="rounded-[1.8rem] border border-emerald-500/30 bg-emerald-950/20 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2.5">
