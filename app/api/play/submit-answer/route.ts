@@ -87,6 +87,71 @@ function isMissingColumnError(
   return message.includes("does not exist") || message.includes("column");
 }
 
+type GameZoneRow = {
+  id: string;
+  owner_team_id: string | null;
+  shield_until: string | null;
+};
+
+async function maybeCaptureZone(
+  payload: Record<string, unknown>,
+  admin: NonNullable<ReturnType<typeof createAdminClient>>
+) {
+  if (!isCorrectAnswerPayload(payload)) return;
+
+  const run = await fetchRunForSession(asTrimmedString(payload.session_id)).catch(() => null);
+  const rawRaceType = asTrimmedString(run?.race_type ?? run?.raceType);
+  if (rawRaceType !== "zone_krig") return;
+
+  const teamId = asTrimmedString(payload.zone_krig_team_id);
+  if (!teamId) return;
+
+  const sessionId = asTrimmedString(payload.session_id);
+  if (!sessionId) return;
+
+  const zoneIndex = getAnsweredPostIndex(payload);
+  if (zoneIndex === null) return;
+
+  const shieldUntil = new Date(Date.now() + 3 * 60 * 1000).toISOString();
+
+  // Check if zone already exists
+  const { data: existingZone } = await admin
+    .from("game_zones")
+    .select("id,owner_team_id,shield_until")
+    .eq("session_id", sessionId)
+    .eq("zone_index", zoneIndex)
+    .maybeSingle<GameZoneRow>();
+
+  if (existingZone) {
+    // Reject capture if zone is shielded by another team
+    const shieldActive =
+      existingZone.shield_until !== null &&
+      new Date(existingZone.shield_until).getTime() > Date.now();
+    if (shieldActive && existingZone.owner_team_id !== teamId) return;
+
+    await admin
+      .from("game_zones")
+      .update({ owner_team_id: teamId, shield_until: shieldUntil })
+      .eq("id", existingZone.id);
+  } else {
+    // Lazily create zone with coordinates from run questions
+    const questions = Array.isArray(run?.questions) ? run!.questions : [];
+    const q = (questions[zoneIndex] ?? {}) as Record<string, unknown>;
+    const centerLat = typeof q.lat === "number" ? q.lat : 0;
+    const centerLng = typeof q.lng === "number" ? q.lng : 0;
+
+    await admin.from("game_zones").insert({
+      session_id: sessionId,
+      zone_index: zoneIndex,
+      center_lat: centerLat,
+      center_lng: centerLng,
+      radius_m: 30,
+      owner_team_id: teamId,
+      shield_until: shieldUntil,
+    });
+  }
+}
+
 export async function POST(request: NextRequest) {
   let body: SubmitAnswerPayload;
   try {
@@ -111,6 +176,7 @@ export async function POST(request: NextRequest) {
         const { error } = await admin.from("answers").insert(payload as Record<string, unknown>);
         if (!error) {
           await maybeStampRunStartedAt(payload, admin);
+          await maybeCaptureZone(payload, admin).catch(() => undefined);
           return NextResponse.json({ inserted: true });
         }
 

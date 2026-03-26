@@ -161,6 +161,7 @@ export function usePlayGameState({
     () => storedParticipantOnLoad?.participantId ?? null
   );
   const [startOffset, setStartOffset] = useState(() => storedParticipantOnLoad?.startOffset ?? 0);
+  const [teamId] = useState<string | null>(() => storedParticipantOnLoad?.teamId ?? null);
   const supabase = useMemo(
     () => createClient({ participantId, sessionId }),
     [participantId, sessionId]
@@ -1006,6 +1007,7 @@ export function usePlayGameState({
           lat,
           lng,
           answered_at: timestamp,
+          ...(raceMode === "zone_krig" && teamId ? { zone_krig_team_id: teamId } : {}),
         },
         {
           session_id: sessionId,
@@ -1062,7 +1064,7 @@ export function usePlayGameState({
         return false;
       }
     },
-    [participantId, playerName, sessionId]
+    [participantId, playerName, sessionId, raceMode, teamId]
   );
 
   useEffect(() => {

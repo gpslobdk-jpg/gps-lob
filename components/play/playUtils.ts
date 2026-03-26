@@ -282,6 +282,9 @@ export function normalizeRaceMode(value: unknown): RaceMode {
     case "role_play":
     case "tidsmaskinen":
       return "roleplay";
+    case "zone_krig":
+    case "zonekrig":
+      return "zone_krig";
     default:
       return "unknown";
   }
@@ -290,6 +293,10 @@ export function normalizeRaceMode(value: unknown): RaceMode {
 export function resolvePostVariant(raceMode: RaceMode, question: Question): ActivePostVariant {
   if (question.type === "ai_image") {
     return "photo";
+  }
+
+  if (raceMode === "zone_krig") {
+    return "quiz";
   }
 
   if (raceMode !== "unknown") {
