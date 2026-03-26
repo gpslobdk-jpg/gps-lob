@@ -177,6 +177,19 @@ export default function PodcastDetektivPage() {
                 "Analysér & Byg Løb"
               )}
             </button>
+
+            <p className="mt-1 text-center text-xs leading-relaxed text-white/40">
+              Vi respekterer{" "}
+              <Link
+                href="/ophavsret-podcast"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 transition hover:text-purple-300"
+              >
+                ophavsretten
+              </Link>
+              . Dit link bruges udelukkende til at læse offentlige resuméer, og lyden afspilles altid via originalkilden.
+            </p>
           </form>
         </div>
       </div>
