@@ -64,19 +64,21 @@ export function toLiveAnswer(row: AnswerRow): LiveAnswer | null {
   const postNumber = rawIndex === null ? null : rawIndex >= 1 ? rawIndex : rawIndex + 1;
   const createdAt = row.answered_at ?? row.created_at ?? null;
   const idSource = row.id ?? `${studentName}-${createdAt ?? Date.now()}-${postNumber ?? "?"}`;
+  const imageUrl = typeof row.image_url === "string" ? row.image_url.trim() : "";
 
   return {
     id: String(idSource),
     studentName,
     postNumber,
     isCorrect: typeof row.is_correct === "boolean" ? row.is_correct : null,
+    image_url: imageUrl || null,
     createdAt,
   };
 }
 
 export function prependAnswer(previous: LiveAnswer[], nextAnswer: LiveAnswer): LiveAnswer[] {
   const deduped = previous.filter((item) => item.id !== nextAnswer.id);
-  return [nextAnswer, ...deduped].slice(0, 40);
+  return [nextAnswer, ...deduped];
 }
 
 export function getTeacherMapCenter(runQuestions: RunQuestion[]): [number, number] {

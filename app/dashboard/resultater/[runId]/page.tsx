@@ -223,7 +223,7 @@ const getSessionCardClassName = (status: string | null | undefined) =>
     ? "overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-2xl backdrop-blur-2xl"
     : "overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-2xl backdrop-blur-2xl";
 
-const getParticipantStateLabel = (finishedAt: string | null) => (finishedAt ? "I maal" : "Aktiv");
+const getParticipantStateLabel = (finishedAt: string | null) => (finishedAt ? "I mål" : "Aktiv");
 
 const getPostLabel = (answer: AnswerRecord) => {
   const rawIndex = typeof answer.post_index === "number" ? answer.post_index : answer.question_index;
@@ -373,7 +373,7 @@ const getFeedbackFromQuery = (searchParams: Record<string, string | string[] | u
     return {
       tone: "success",
       title: "Data ryddet",
-      message: "Alle gemte billeder, besvarelser, deltagerspor og live-sessioner for dette loeb er slettet.",
+      message: "Alle gemte billeder, besvarelser, deltagerspor og live-sessioner for dette løb er slettet.",
     };
   }
 
@@ -382,13 +382,13 @@ const getFeedbackFromQuery = (searchParams: Record<string, string | string[] | u
       return {
         tone: "error",
         title: "Adgang afvist",
-        message: "Du har ikke adgang til at rydde data for dette loeb.",
+        message: "Du har ikke adgang til at rydde data for dette løb.",
       };
     case "delete_failed":
       return {
         tone: "error",
         title: "Sletning fejlede",
-        message: "Vi kunne ikke rydde alle data. Tjek RLS og proev igen.",
+        message: "Vi kunne ikke rydde alle data. Tjek RLS og prøv igen.",
       };
     default:
       return null;
@@ -585,7 +585,7 @@ function SessionSection({
                           </span>
                           {participant.finishedAt ? (
                             <div className="mt-2 text-xs text-white/60">
-                              Faerdig {formatDateTime(participant.finishedAt)}
+                              Færdig {formatDateTime(participant.finishedAt)}
                             </div>
                           ) : null}
                         </td>
@@ -641,7 +641,7 @@ function LeaderboardSection({ entries }: { entries: LeaderboardEntry[] }) {
             Holdenes placering
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-white/70">
-            Sessionerne er sorteret efter flest rigtige svar og derefter laengste tid fra foerste til sidste
+            Sessionerne er sorteret efter flest rigtige svar og derefter længste tid fra første til sidste
             registrerede svar.
           </p>
         </div>
@@ -705,7 +705,7 @@ function LeaderboardSection({ entries }: { entries: LeaderboardEntry[] }) {
                     {formatDuration(entry.durationMs)}
                   </p>
                   <p className="mt-1 text-sm text-white/70">
-                    {entry.answerCount > 0 ? "Fra foerste til sidste svar" : "0 min fordi sessionen endnu er tom"}
+                    {entry.answerCount > 0 ? "Fra første til sidste svar" : "0 min fordi sessionen endnu er tom"}
                   </p>
                 </div>
               </div>
@@ -904,10 +904,10 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
               Resultater
             </p>
             <h1 className={`mt-3 text-4xl font-black text-white drop-shadow-xl break-words line-clamp-2 sm:text-5xl ${rubik.className}`}>
-              {run.title?.trim() || "Ukendt loeb"}
+              {run.title?.trim() || "Ukendt løb"}
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-white/90 drop-shadow-md md:text-base">
-              Oversigt over live-sessioner, deltagere og registrerede besvarelser for dette loeb.
+              Oversigt over live-sessioner, deltagere og registrerede besvarelser for dette løb.
             </p>
           </div>
 
@@ -940,7 +940,7 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
           <section className="mt-10 rounded-[2rem] border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-2xl">
             <h2 className={`text-2xl font-black text-white ${rubik.className}`}>Ingen resultater endnu</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70">
-              Der er endnu ikke oprettet nogen live-sessioner for dette loeb, saa der findes ingen resultater at vise.
+              Der er endnu ikke oprettet nogen live-sessioner for dette løb, så der findes ingen resultater at vise.
             </p>
           </section>
         ) : (
@@ -949,7 +949,7 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
 
             <SessionSection
               title="Aktive sessioner"
-              description="Her ligger lobbyer og live-loeb, som stadig er aabne eller i gang lige nu."
+              description="Her ligger lobbyer og live-løb, som stadig er åbne eller i gang lige nu."
               sessions={activeSessions}
             />
 

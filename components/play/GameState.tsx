@@ -1381,6 +1381,10 @@ export function usePlayGameState({
 
   const validateAnswerOnServer = useCallback(
     async (payload: { selectedIndex?: number; answer?: string }) => {
+      if (!sessionId || !participantId) {
+        throw new Error("Deltageren er ikke klar endnu. Prøv igen om et øjeblik.");
+      }
+
       const response = await fetch("/api/play/validate-answer", {
         method: "POST",
         headers: {
@@ -1389,6 +1393,7 @@ export function usePlayGameState({
         cache: "no-store",
         body: JSON.stringify({
           sessionId,
+          participantId,
           postIndex: currentPostIndex,
           ...payload,
         }),
@@ -1401,7 +1406,7 @@ export function usePlayGameState({
 
       return data;
     },
-    [currentPostIndex, sessionId]
+    [currentPostIndex, participantId, sessionId]
   );
 
   useEffect(() => {

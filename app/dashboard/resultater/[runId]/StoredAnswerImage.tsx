@@ -37,7 +37,7 @@ export default function StoredAnswerImage({ imageUrl }: StoredAnswerImageProps) 
           onError={() => setIsUnavailable(true)}
           className="h-16 w-16 rounded-xl border border-white/20 object-cover"
         />
-        <span className="pt-1 text-xs font-semibold text-white">Aabn billede</span>
+        <span className="pt-1 text-xs font-semibold text-white">Åbn billede</span>
       </a>
     </div>
   );

@@ -118,6 +118,12 @@ function normalizeStaggerRaceType(value: unknown) {
     case "quiz":
     case "manuel":
     case "manual":
+    case "matematik":
+    case "math":
+    case "dansk":
+    case "danish":
+    case "engelsk":
+    case "english":
       return "quiz";
     case "foto":
     case "photo":

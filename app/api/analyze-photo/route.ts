@@ -4,8 +4,10 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import {
   asTrimmedString,
+  fetchParticipantLocationState,
   fetchRunForSession,
   getPhotoMissionConfig,
+  getLocationDistanceMeters,
   resolveQuestionVariant,
 } from "@/app/api/play/_shared";
 import {
@@ -16,6 +18,7 @@ import {
 export const maxDuration = 300;
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const SERVER_POSITION_VALIDATION_RADIUS_METERS = 65;
 
 type AdminSupabaseClient = NonNullable<ReturnType<typeof createAdminClient>>;
 
@@ -71,6 +74,19 @@ function asPostIndex(value: unknown) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asFiniteNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
 }
 
 function isMissingColumnError(error: SupabaseLikeError | null | undefined) {
@@ -164,6 +180,49 @@ function buildStoragePath(
 function getQuestionText(rawQuestion: unknown) {
   if (!isRecord(rawQuestion)) return "";
   return asTrimmedString(rawQuestion.text);
+}
+
+function getQuestionCoordinates(rawQuestion: unknown) {
+  if (!isRecord(rawQuestion)) return null;
+
+  const lat = asFiniteNumber(rawQuestion.lat);
+  const lng = asFiniteNumber(rawQuestion.lng);
+  if (lat === null || lng === null) {
+    return null;
+  }
+
+  return { lat, lng };
+}
+
+async function validateParticipantPosition(
+  sessionId: string,
+  participantId: string,
+  rawQuestion: unknown,
+  adminSupabase: AdminSupabaseClient
+) {
+  const questionCoordinates = getQuestionCoordinates(rawQuestion);
+  if (!questionCoordinates) {
+    return "Posten mangler gyldige GPS-koordinater.";
+  }
+
+  const participantState = await fetchParticipantLocationState(sessionId, participantId, adminSupabase);
+  const participantLat = asFiniteNumber(participantState?.lat);
+  const participantLng = asFiniteNumber(participantState?.lng);
+  if (participantLat === null || participantLng === null) {
+    return "Vi mangler din seneste GPS-position. Gå tættere på posten og prøv igen.";
+  }
+
+  const distanceToPost = getLocationDistanceMeters(
+    participantLat,
+    participantLng,
+    questionCoordinates.lat,
+    questionCoordinates.lng
+  );
+  if (distanceToPost > SERVER_POSITION_VALIDATION_RADIUS_METERS) {
+    return "Du skal være tættere på posten, før billedet kan godkendes.";
+  }
+
+  return null;
 }
 
 async function uploadPhotoToStorage(
@@ -376,6 +435,16 @@ export async function POST(req: Request) {
         { error: "Denne post bruger ikke foto-dommeren." },
         { status: 400 }
       );
+    }
+
+    const positionValidationError = await validateParticipantPosition(
+      sessionId,
+      participantId,
+      rawQuestion,
+      adminSupabase
+    );
+    if (positionValidationError) {
+      return NextResponse.json({ error: positionValidationError }, { status: 403 });
     }
 
     const { targetObject, isSelfie } = getPhotoMissionConfig(rawQuestion);

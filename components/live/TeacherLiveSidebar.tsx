@@ -32,7 +32,7 @@ type TeacherLiveSidebarProps = {
   onKickParticipant: (student: LiveStudentLocation) => Promise<void>;
 };
 
-type SidebarTab = "leaderboard" | "feed";
+type SidebarTab = "leaderboard" | "feed" | "photos";
 
 type LeaderboardEntry = {
   student: LiveStudentLocation;
@@ -79,6 +79,14 @@ function getStudentInitials(name: string) {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
+function getPhotoLabel(answer: LiveAnswer) {
+  return answer.postNumber !== null ? `Post ${answer.postNumber}` : "Foto-mission";
+}
+
+function getPhotoAltText(answer: LiveAnswer) {
+  return `${answer.studentName} - ${getPhotoLabel(answer)}`;
+}
+
 export default function TeacherLiveSidebar({
   activeStudents,
   allParticipants,
@@ -92,6 +100,7 @@ export default function TeacherLiveSidebar({
   onKickParticipant,
 }: TeacherLiveSidebarProps) {
   const [activeTab, setActiveTab] = useState<SidebarTab>("leaderboard");
+  const [selectedPhoto, setSelectedPhoto] = useState<LiveAnswer | null>(null);
 
   const leaderboard = useMemo<LeaderboardEntry[]>(() => {
     const participants = allParticipants ?? activeStudents;
@@ -144,6 +153,11 @@ export default function TeacherLiveSidebar({
     });
   }, [hasAnswersTable, liveAnswers, messages]);
 
+  const photoAnswers = useMemo(
+    () => liveAnswers.filter((answer) => Boolean(answer.image_url)),
+    [liveAnswers]
+  );
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void onSendMessage();
@@ -165,7 +179,7 @@ export default function TeacherLiveSidebar({
               Live Pulse
             </h3>
             <p className="mt-2 text-sm text-slate-300">
-              Overblik over elever, fremdrift og beskeder i realtid.
+              Overblik over elever, fremdrift, billeder og beskeder i realtid.
             </p>
           </div>
           <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-right shadow-[0_0_30px_rgba(16,185,129,0.16)]">
@@ -182,11 +196,11 @@ export default function TeacherLiveSidebar({
           </div>
         ) : null}
 
-        <div className="mt-5 flex rounded-2xl border border-slate-500/30 bg-slate-950/55 p-1.5">
+        <div className="mt-5 grid grid-cols-3 rounded-2xl border border-slate-500/30 bg-slate-950/55 p-1.5">
           <button
             type="button"
             onClick={() => setActiveTab("leaderboard")}
-            className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition ${
+            className={`rounded-xl px-3 py-3 text-sm font-semibold transition ${
               activeTab === "leaderboard"
                 ? "bg-emerald-500 text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.35)]"
                 : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
@@ -197,13 +211,24 @@ export default function TeacherLiveSidebar({
           <button
             type="button"
             onClick={() => setActiveTab("feed")}
-            className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition ${
+            className={`rounded-xl px-3 py-3 text-sm font-semibold transition ${
               activeTab === "feed"
                 ? "bg-emerald-500 text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.35)]"
                 : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
             }`}
           >
             Live Feed
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("photos")}
+            className={`rounded-xl px-3 py-3 text-sm font-semibold transition ${
+              activeTab === "photos"
+                ? "bg-emerald-500 text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.35)]"
+                : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
+            }`}
+          >
+            Foto-strøm
           </button>
         </div>
       </div>
@@ -293,7 +318,7 @@ export default function TeacherLiveSidebar({
               )}
             </div>
           </div>
-        ) : (
+        ) : activeTab === "feed" ? (
           <div className="flex h-full flex-col">
             <div className="border-b border-slate-500/20 px-6 py-4">
               <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
@@ -323,7 +348,7 @@ export default function TeacherLiveSidebar({
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200/75">
-                            Korrekt svar
+                            {item.answer.image_url ? "Foto godkendt" : "Korrekt svar"}
                           </p>
                           <p className="mt-2 text-sm font-semibold text-white">
                             {item.answer.studentName}
@@ -338,6 +363,32 @@ export default function TeacherLiveSidebar({
                           ? `Løste post ${item.answer.postNumber}`
                           : "Løste en post"}
                       </div>
+                      {item.answer.image_url ? (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPhoto(item.answer)}
+                          className="group mt-3 flex w-full items-center gap-3 rounded-[1.35rem] border border-white/10 bg-slate-950/35 p-3 text-left transition hover:border-emerald-300/30 hover:bg-slate-950/55"
+                        >
+                          <div className="overflow-hidden rounded-2xl border border-white/10 shadow-[0_12px_24px_rgba(15,23,42,0.35)]">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={item.answer.image_url}
+                              alt={getPhotoAltText(item.answer)}
+                              loading="lazy"
+                              className="h-20 w-20 object-cover transition duration-300 group-hover:scale-105"
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-200/75">
+                              Foto-preview
+                            </p>
+                            <p className="mt-1 truncate text-sm font-semibold text-white">
+                              {getPhotoLabel(item.answer)}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-300">Klik for at se billedet stort.</p>
+                          </div>
+                        </button>
+                      ) : null}
                     </div>
                   ) : (
                     <div
@@ -370,6 +421,62 @@ export default function TeacherLiveSidebar({
               )}
             </div>
           </div>
+        ) : (
+          <div className="flex h-full flex-col">
+            <div className="border-b border-slate-500/20 px-6 py-4">
+              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                <span>Foto-strøm</span>
+                <span>{photoAnswers.length}</span>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-hidden px-4 py-4">
+              <div className="space-y-3">
+                {!hasAnswersTable ? (
+                  <div className="rounded-[1.5rem] border border-amber-400/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-100">
+                    `answers` mangler, så foto-strømmen er ikke tilgængelig lige nu.
+                  </div>
+                ) : null}
+
+                {photoAnswers.length === 0 ? (
+                  <div className="rounded-[1.5rem] border border-slate-500/20 bg-slate-950/40 px-5 py-6 text-sm text-slate-300">
+                    Ingen live-fotos endnu.
+                  </div>
+                ) : (
+                  <div className="max-h-[500px] overflow-y-auto pr-1">
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                      {photoAnswers.map((answer) =>
+                        answer.image_url ? (
+                          <button
+                            key={`photo-${answer.id}`}
+                            type="button"
+                            onClick={() => setSelectedPhoto(answer)}
+                            className="group rounded-[1.4rem] border border-white/10 bg-slate-950/45 p-2 text-left shadow-[0_16px_30px_rgba(2,6,23,0.3)] transition hover:-translate-y-0.5 hover:border-emerald-300/30 hover:bg-slate-950/60"
+                          >
+                            <div className="aspect-square overflow-hidden rounded-[1rem] border border-white/10 bg-slate-950">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={answer.image_url}
+                                alt={getPhotoAltText(answer)}
+                                loading="lazy"
+                                className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                              />
+                            </div>
+                            <div className="px-1 pb-1 pt-3">
+                              <p className="truncate text-sm font-semibold text-white">{answer.studentName}</p>
+                              <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                                {getPhotoLabel(answer)}
+                              </p>
+                            </div>
+                          </button>
+                        ) : null
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
@@ -400,6 +507,51 @@ export default function TeacherLiveSidebar({
           </button>
         </div>
       </form>
+
+      {selectedPhoto?.image_url ? (
+        <div
+          className="fixed inset-0 z-[1400] flex items-center justify-center bg-slate-950/88 p-4 backdrop-blur-md"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <div
+            className="w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900/95 shadow-[0_40px_120px_rgba(2,6,23,0.7)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200/75">
+                  Live foto
+                </p>
+                <h4 className={`mt-2 text-2xl font-black uppercase tracking-[0.14em] text-white ${rubik.className}`}>
+                  {selectedPhoto.studentName}
+                </h4>
+                <p className="mt-2 text-sm text-slate-300">
+                  {getPhotoLabel(selectedPhoto)}
+                  {selectedPhoto.createdAt ? ` | ${formatFeedTime(selectedPhoto.createdAt)}` : ""}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedPhoto(null)}
+                className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-white transition hover:bg-white/10"
+              >
+                Luk
+              </button>
+            </div>
+
+            <div className="max-h-[85vh] overflow-y-auto p-4 md:p-6">
+              <div className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={selectedPhoto.image_url}
+                  alt={getPhotoAltText(selectedPhoto)}
+                  className="h-auto max-h-[72vh] w-full object-contain bg-slate-950"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </aside>
   );
 }

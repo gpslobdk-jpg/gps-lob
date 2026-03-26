@@ -6,8 +6,8 @@ import type { GpsErrorState, Location } from "./types";
 import {
   AUTO_UNLOCK_CONFIRMATION_HITS,
   AUTO_UNLOCK_RADIUS,
-  LOCATION_SYNC_DISTANCE_METERS,
   LOCATION_SYNC_INTERVAL_MS,
+  MAX_ACCEPTABLE_GPS_ACCURACY_METERS,
   getDistance,
 } from "./playUtils";
 
@@ -67,10 +67,17 @@ export default function GPSManager({
     };
 
     const successHandler = async (position: GeolocationPosition) => {
-      onGpsError(null);
+      const accuracy = Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null;
+      if (accuracy !== null && accuracy > MAX_ACCEPTABLE_GPS_ACCURACY_METERS) {
+        autoUnlockConfirmationRef.current = 0;
+        onGpsError("low_accuracy");
+        onDistanceChange(null);
+        return;
+      }
 
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
+      onGpsError(null);
       onLocationChange({ lat, lng });
 
       if (target && Number.isFinite(target.lat) && Number.isFinite(target.lng)) {
@@ -99,14 +106,12 @@ export default function GPSManager({
       }
 
       const lastLocationSync = lastLocationSyncRef.current;
-      const hasMovedEnough =
-        !lastLocationSync ||
-        getDistance(lat, lng, lastLocationSync.lat, lastLocationSync.lng) >=
-          LOCATION_SYNC_DISTANCE_METERS;
       const waitedLongEnough =
         !lastLocationSync || Date.now() - lastLocationSync.at >= LOCATION_SYNC_INTERVAL_MS;
 
-      if ((hasMovedEnough || waitedLongEnough) && !isLocationSyncInFlightRef.current) {
+      const shouldSyncLocation = !lastLocationSync || waitedLongEnough;
+
+      if (shouldSyncLocation && !isLocationSyncInFlightRef.current) {
         isLocationSyncInFlightRef.current = true;
         lastLocationSyncRef.current = {
           lat,

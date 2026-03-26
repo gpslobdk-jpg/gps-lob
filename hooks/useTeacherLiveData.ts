@@ -204,12 +204,11 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         setLiveAnswers(
           parsed
             .filter((row) => row.isCorrect === true)
-          .sort((a, b) => {
-            const aTs = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-            const bTs = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-            return bTs - aTs;
-          })
-            .slice(0, 40)
+            .sort((a, b) => {
+              const aTs = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+              const bTs = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+              return bTs - aTs;
+            })
         );
       }
 

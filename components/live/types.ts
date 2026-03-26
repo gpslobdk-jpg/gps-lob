@@ -52,6 +52,7 @@ export type AnswerRow = {
   post_index?: number | string | null;
   question_index?: number | string | null;
   is_correct?: boolean | null;
+  image_url?: string | null;
   created_at?: string | null;
   answered_at?: string | null;
 };
@@ -61,6 +62,7 @@ export type LiveAnswer = {
   studentName: string;
   postNumber: number | null;
   isCorrect: boolean | null;
+  image_url: string | null;
   createdAt: string | null;
 };
 

@@ -14,8 +14,9 @@ export const ACTIVE_PARTICIPANT_STORAGE_KEY = "gpslob_active_participant";
 export const AUTO_UNLOCK_RADIUS = 15;
 export const MANUAL_UNLOCK_RADIUS = 50;
 export const AUTO_UNLOCK_CONFIRMATION_HITS = 2;
-export const LOCATION_SYNC_INTERVAL_MS = 4000;
+export const LOCATION_SYNC_INTERVAL_MS = 5000;
 export const LOCATION_SYNC_DISTANCE_METERS = 5;
+export const MAX_ACCEPTABLE_GPS_ACCURACY_METERS = 50;
 export const BAD_WORDS = ["tissemand", "lort", "pik", "fisse", "idiot", "bÃ¸sse", "luder", "snot"];
 export const FIREWORKS_LOTTIE_URL = "https://assets2.lottiefiles.com/packages/lf20_touohxv0.json";
 export const wrapTextClass = "break-words [overflow-wrap:anywhere] hyphens-auto";
@@ -174,6 +175,14 @@ export function getGpsErrorContent(gpsError: GpsErrorState | null): GpsErrorCont
     };
   }
 
+  if (gpsError === "low_accuracy") {
+    return {
+      title: "Dårligt GPS-signal",
+      message: "Din GPS er for upræcis lige nu, så vi venter med at bruge den position.",
+      helper: "Gå lidt væk fra bygninger eller træer og vent et øjeblik, så prøver vi igen.",
+    };
+  }
+
   return null;
 }
 
@@ -247,6 +256,12 @@ export function normalizeRaceMode(value: unknown): RaceMode {
     case "quiz":
     case "manuel":
     case "manual":
+    case "matematik":
+    case "math":
+    case "dansk":
+    case "danish":
+    case "engelsk":
+    case "english":
     case "scanner":
     case "bogscanner":
     case "bookscanner":
