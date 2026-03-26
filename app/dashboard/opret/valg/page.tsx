@@ -204,7 +204,7 @@ export default function ValgHubPage() {
         </Link>
       </header>
 
-      <section className="mx-auto mt-0 flex w-full max-w-6xl flex-col items-center text-center">
+      <section className="mx-auto mt-[-4rem] flex w-full max-w-6xl flex-col items-center text-center">
         <h1
           className={`text-4xl font-black tracking-[0.22em] text-white uppercase drop-shadow-[0_18px_40px_rgba(15,23,42,0.24)] md:text-6xl ${rubik.className}`}
         >
@@ -212,22 +212,22 @@ export default function ValgHubPage() {
         </h1>
       </section>
 
-      <section className="mx-auto mt-3 w-full max-w-6xl lg:mt-5">
+      <section className="mx-auto mt-56 w-full max-w-6xl lg:mt-64">
         <h2 className={`text-2xl font-black tracking-[0.18em] text-white drop-shadow-md uppercase mb-3 ${rubik.className}`}>
           Faglige Værktøjer
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
           {fagligeCards.map((card, index) => (
             <BuilderCard key={`${card.title}-${index}`} card={card} index={index} />
           ))}
         </div>
 
-        <div className="w-full h-px bg-white/10 my-6" />
+        <div className="w-full h-px bg-white/10 my-12" />
 
         <h2 className={`text-2xl font-black tracking-[0.18em] text-white drop-shadow-md uppercase mb-3 ${rubik.className}`}>
           Kreative Værktøjer & Scannere
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
           {aiCards.map((card, index) => (
             <BuilderCard key={`${card.title}-${index}`} card={card} index={index} />
           ))}
