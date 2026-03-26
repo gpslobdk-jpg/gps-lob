@@ -107,6 +107,8 @@ export type StoredActiveParticipant = {
   studentName: string;
   startOffset?: number;
   savedAt: string;
+  teamId?: string | null;
+  teamColor?: string | null;
 };
 
 export type ParticipantRow = {

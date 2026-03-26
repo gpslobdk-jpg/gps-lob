@@ -119,6 +119,8 @@ export function readStoredActiveParticipant(): StoredActiveParticipant | null {
       studentName: parsed.studentName ?? "",
       startOffset,
       savedAt: parsed.savedAt ?? "",
+      teamId: typeof parsed.teamId === "string" ? parsed.teamId : null,
+      teamColor: typeof parsed.teamColor === "string" ? parsed.teamColor : null,
     };
   } catch {
     return null;

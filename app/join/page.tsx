@@ -42,6 +42,7 @@ type JoinLookupResponse =
       runTitle: string;
       schedule: RunSchedule | null;
       scheduleGate: RunScheduleGate;
+      raceType?: string | null;
     };
 
 type JoinLookupErrorResponse = {
@@ -52,6 +53,7 @@ type JoinParticipantResponse = {
   participantId: string;
   sessionId: string;
   studentName: string;
+  teamId?: string | null;
 };
 
 const formatLongDate = (value: string | null | undefined) => {
@@ -97,10 +99,13 @@ function JoinForm() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [runTitle, setRunTitle] = useState("");
   const [schedule, setSchedule] = useState<RunSchedule | null>(null);
+  const [raceType, setRaceType] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState("");
 
+  const isZoneKrig = raceType === "zone_krig";
   const trimmedName = name.trim();
   const trimmedPin = pin.trim();
-  const canSubmit = trimmedPin.length > 0 && trimmedName.length > 0;
+  const canSubmit = trimmedPin.length > 0 && trimmedName.length > 0 && (!isZoneKrig || selectedColor.length > 0);
 
   useEffect(() => {
     if (!sessionId || (view !== "waiting" && view !== "scheduled")) return;
@@ -186,6 +191,8 @@ function JoinForm() {
     setSessionId(null);
     setRunTitle("");
     setSchedule(null);
+    setRaceType(null);
+    setSelectedColor("");
   };
 
   const handleJoin = async (event: FormEvent) => {
@@ -220,6 +227,7 @@ function JoinForm() {
 
       setRunTitle(joinData.runTitle);
       setSchedule(joinData.schedule);
+      setRaceType(joinData.raceType ?? null);
 
       if (joinData.scheduleGate === "error") {
         setView("scheduleError");
@@ -228,6 +236,13 @@ function JoinForm() {
 
       if (joinData.scheduleGate === "expired") {
         setView("expired");
+        return;
+      }
+
+      // Zone-Krig: require faction selection before registering
+      const detectedZoneKrig = (joinData.raceType ?? null) === "zone_krig";
+      if (detectedZoneKrig && !selectedColor) {
+        // Let the UI re-render to show the faction picker; user must pick before submitting again
         return;
       }
 
@@ -240,6 +255,7 @@ function JoinForm() {
         body: JSON.stringify({
           sessionId: joinData.sessionId,
           studentName: trimmedName,
+          color: selectedColor || undefined,
         }),
       });
       const registerData = (await registerResponse.json().catch(() => null)) as
@@ -258,6 +274,8 @@ function JoinForm() {
         sessionId: registerData.sessionId,
         studentName: registerData.studentName,
         savedAt: new Date().toISOString(),
+        teamId: registerData.teamId ?? null,
+        teamColor: selectedColor || null,
       });
 
       setName(registerData.studentName);
@@ -541,6 +559,56 @@ function JoinForm() {
                 className="w-full rounded-[1.6rem] border border-white/20 bg-slate-950 py-4 pr-4 pl-12 text-lg font-semibold text-white shadow-inner outline-none backdrop-blur-md transition placeholder:text-slate-500 focus:border-emerald-400 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-400/20"
               />
             </div>
+
+            {isZoneKrig && (
+              <div className="rounded-[1.7rem] border border-cyan-500/25 bg-cyan-500/5 p-4 backdrop-blur-xl">
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.36em] text-cyan-300/70">
+                  Vælg din Fraktion / Farve
+                </p>
+                <div className="grid grid-cols-4 gap-2.5">
+                  {[
+                    { color: "#ef4444", name: "Rød" },
+                    { color: "#3b82f6", name: "Blå" },
+                    { color: "#22c55e", name: "Grøn" },
+                    { color: "#eab308", name: "Gul" },
+                  ].map(({ color, name: factionName }) => {
+                    const isSelected = selectedColor === color;
+                    return (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setSelectedColor(color)}
+                        aria-label={`Vælg ${factionName} fraktion`}
+                        aria-pressed={isSelected}
+                        className={`flex flex-col items-center gap-1.5 rounded-[1.2rem] border py-3 px-1 text-xs font-bold transition-all ${
+                          isSelected
+                            ? "border-white/40 scale-105 shadow-lg"
+                            : "border-white/10 bg-white/5 opacity-60 hover:opacity-90"
+                        }`}
+                        style={
+                          isSelected
+                            ? { background: `${color}22`, borderColor: color, boxShadow: `0 0 20px ${color}44` }
+                            : {}
+                        }
+                      >
+                        <span
+                          className={`h-8 w-8 rounded-full border-2 transition-all ${isSelected ? "border-white/80 scale-110" : "border-white/20"}`}
+                          style={{ background: color }}
+                        />
+                        <span className={isSelected ? "text-white" : "text-white/50"}>
+                          {factionName}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {!selectedColor && (
+                  <p className="mt-3 text-center text-xs text-cyan-300/60">
+                    Vælg en fraktion for at fortsætte
+                  </p>
+                )}
+              </div>
+            )}
 
             <button
               type="submit"

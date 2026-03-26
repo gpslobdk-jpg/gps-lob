@@ -34,6 +34,7 @@ type ParticipantRow = {
 type JoinParticipantRequest = {
   sessionId?: unknown;
   studentName?: unknown;
+  color?: unknown;
 };
 
 type JoinParticipantResponse = {
@@ -41,6 +42,7 @@ type JoinParticipantResponse = {
   sessionId: string;
   studentName: string;
   startOffset: number;
+  teamId?: string | null;
 };
 
 type ParticipantOffsetRow = {
@@ -74,6 +76,7 @@ type JoinApiResponse =
       runTitle: string;
       schedule: RunSchedule | null;
       scheduleGate: RunScheduleGate;
+      raceType: string | null;
     };
 
 function getSupabaseConfig() {
@@ -484,8 +487,43 @@ async function ensureSessionStudent(sessionId: string, studentName: string) {
   return false;
 }
 
-function respond(data: JoinApiResponse, status = 200) {
-  return NextResponse.json(data, {
+async function ensureGameTeam(
+  sessionId: string,
+  teamName: string,
+  color: string,
+  adminSupabase: AdminSupabaseClient
+): Promise<string | null> {
+  try {
+    // Find existing team by session + color
+    const { data: existing } = await adminSupabase
+      .from("game_teams")
+      .select("id")
+      .eq("session_id", sessionId)
+      .eq("color", color)
+      .limit(1);
+
+    if (existing && existing.length > 0 && existing[0]) {
+      return String((existing[0] as { id?: unknown }).id ?? "");
+    }
+
+    // Insert new team
+    const { data: inserted } = await adminSupabase
+      .from("game_teams")
+      .insert({ session_id: sessionId, team_name: teamName, color })
+      .select("id")
+      .limit(1);
+
+    if (inserted && inserted.length > 0 && inserted[0]) {
+      return String((inserted[0] as { id?: unknown }).id ?? "");
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function respond(data: JoinApiResponse, status = 200) {  return NextResponse.json(data, {
     status,
     headers: {
       "Cache-Control": CACHE_CONTROL,
@@ -528,6 +566,7 @@ export async function GET(request: NextRequest) {
         runTitle: typeof run?.title === "string" ? run.title : "",
         schedule: scheduleResult?.schedule ?? null,
         scheduleGate: getRunScheduleGate(scheduleResult),
+        raceType: typeof run?.race_type === "string" ? run.race_type : null,
       });
     }
 
@@ -576,6 +615,7 @@ export async function POST(request: NextRequest) {
 
   const sessionId = asTrimmedString(payload.sessionId);
   const studentName = asTrimmedString(payload.studentName);
+  const color = asTrimmedString(payload.color);
 
   if (!sessionId || !studentName) {
     return NextResponse.json(
@@ -667,12 +707,28 @@ export async function POST(request: NextRequest) {
 
     void ensureSessionStudent(sessionId, normalizedStudentName);
 
+    // Zone-Krig: ensure team exists
+    let teamId: string | null = null;
+    const isZoneKrig =
+      typeof run?.race_type === "string" && run.race_type.trim().toLocaleLowerCase("da-DK") === "zone_krig";
+    if (isZoneKrig && color) {
+      const FACTION_NAMES: Record<string, string> = {
+        "#ef4444": "Rød",
+        "#3b82f6": "Blå",
+        "#22c55e": "Grøn",
+        "#eab308": "Gul",
+      };
+      const teamName = FACTION_NAMES[color] ?? "Ukendt";
+      teamId = await ensureGameTeam(sessionId, teamName, color, adminSupabase);
+    }
+
     return NextResponse.json<JoinParticipantResponse>(
       {
         participantId,
         sessionId,
         studentName: normalizedStudentName,
         startOffset,
+        teamId,
       },
       {
         headers: {
