@@ -152,7 +152,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
         </section>
       </main>
 
-      <main className="relative mx-auto hidden w-full max-w-md flex-1 flex-col justify-center px-6 py-10 md:flex">
+      <main className="relative mx-auto hidden w-full max-w-lg flex-1 flex-col justify-center px-6 py-10 md:flex">
         <section className="space-y-6">
           <div className="flex justify-center">
             <div className="relative h-52 w-full max-w-[300px]">
@@ -177,44 +177,25 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
             </div>
           </div>
 
-          <div className="rounded-3xl border border-emerald-500/30 bg-slate-950/80 p-5 shadow-[0_0_40px_rgba(16,185,129,0.15)] backdrop-blur-xl">
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <input
-                value={code}
-                onChange={(event) => {
-                  setCode(event.target.value.replace(/\D/g, "").slice(0, 5));
-                  if (codeError) setCodeError("");
-                }}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={5}
-                placeholder={"Indtast l\u00f8bskode"}
-                className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-4 text-center font-mono text-xl font-bold tracking-[0.18em] text-emerald-400 outline-none placeholder:tracking-normal placeholder:text-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25"
-              />
-              <button
-                type="submit"
-                disabled={isJoining}
-                aria-busy={isJoining}
-                className="w-full rounded-2xl bg-emerald-500 px-4 py-3 text-base font-bold tracking-wide text-slate-950 transition-all hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-70"
-              >
-                {isJoining ? "Åbner løbet..." : "Deltag"}
-              </button>
-              {codeError ? (
-                <p className="text-center text-xs font-medium text-rose-300">{codeError}</p>
-              ) : null}
-            </form>
+          <div className="rounded-3xl border border-emerald-500/30 bg-slate-950/80 p-8 text-center shadow-[0_0_40px_rgba(16,185,129,0.15)] backdrop-blur-xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.34em] text-emerald-400">
+              Til arrangører &amp; lærere
+            </p>
+            <h1 className="mt-3 text-2xl font-black tracking-tight text-white">
+              Byg aktive GPS-løb på minutter
+            </h1>
+            <p className="mx-auto mt-3 max-w-xs text-sm leading-6 text-slate-300">
+              Log ind for at oprette løb, hente resultater og styre klassen live. Elever deltager fra mobilen.
+            </p>
+
+            <Link
+              href="/login"
+              data-tour="home-organizer-login"
+              className="mt-6 block w-full rounded-2xl bg-emerald-500 px-4 py-4 text-base font-black tracking-[0.08em] text-slate-950 shadow-[0_0_32px_rgba(16,185,129,0.28)] transition-all hover:bg-emerald-400 hover:shadow-[0_0_44px_rgba(16,185,129,0.38)]"
+            >
+              Log ind
+            </Link>
           </div>
-
-          {!isNativeGpslobApp ? <OrganizerHint /> : null}
-
-          <Link
-            href="/login"
-            data-tour="home-organizer-login"
-            className="block w-full rounded-2xl border border-emerald-500/30 bg-emerald-500 px-4 py-3 text-center text-base font-bold tracking-wide text-slate-950 shadow-[0_0_30px_rgba(16,185,129,0.18)] transition-all hover:bg-emerald-400"
-          >
-            {"Log ind for arrang\u00f8rer"}
-          </Link>
         </section>
       </main>
 
