@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { Crosshair, MapPin, Search } from "lucide-react";
 import L from "leaflet";
 import { useEffect, useState } from "react";
-import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { Circle, MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 
 type MapCenter = {
   lat: number;
@@ -19,9 +19,18 @@ export type SavedPin = {
   number: number;
 };
 
+export type SavedZone = {
+  id: string;
+  lat: number;
+  lng: number;
+  radius: number;
+  label?: string;
+};
+
 type MapPickerProps = {
   center: MapCenter;
   pins: SavedPin[];
+  zones?: SavedZone[];
   onCenterChange?: (center: MapCenter) => void;
   onMapClick?: (center: MapCenter) => void;
   activePinLabel?: string | null;
@@ -77,8 +86,6 @@ function MapClickReporter({
 }) {
   useMapEvents({
     click(event) {
-      console.log("MAP-PICKER INTERNAL CLICK DETECTED");
-      window.alert("Kortet har fanget dit klik!");
       onMapClick?.({ lat: event.latlng.lat, lng: event.latlng.lng });
     },
   });
@@ -98,6 +105,7 @@ function numberedPinIcon(number: number) {
 export default function MapPicker({
   center,
   pins,
+  zones,
   onCenterChange,
   onMapClick,
   activePinLabel,
@@ -192,6 +200,20 @@ export default function MapPicker({
             key={pin.id}
             position={[pin.lat, pin.lng]}
             icon={numberedPinIcon(pin.number)}
+          />
+        ))}
+
+        {zones?.map((zone) => (
+          <Circle
+            key={zone.id}
+            center={[zone.lat, zone.lng]}
+            radius={zone.radius}
+            pathOptions={{
+              color: "#22d3ee",
+              fillColor: "#22d3ee",
+              fillOpacity: 0.18,
+              weight: 2,
+            }}
           />
         ))}
       </MapContainer>
