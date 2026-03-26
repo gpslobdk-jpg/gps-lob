@@ -225,6 +225,17 @@ export default function ValgHubPage() {
         <div className="w-full h-px bg-white/10 my-12" />
 
         <h2 className={`text-2xl font-black tracking-[0.18em] text-white drop-shadow-md uppercase mb-3 ${rubik.className}`}>
+          Kreative Værktøjer & Scannere
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
+          {aiCards.map((card, index) => (
+            <BuilderCard key={`${card.title}-${index}`} card={card} index={index} />
+          ))}
+        </div>
+
+        <div className="w-full h-px bg-white/10 my-12" />
+
+        <h2 className={`text-2xl font-black tracking-[0.18em] text-white drop-shadow-md uppercase mb-3 ${rubik.className}`}>
           Spil
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
@@ -259,17 +270,6 @@ export default function ValgHubPage() {
               </div>
             </motion.article>
           </Link>
-        </div>
-
-        <div className="w-full h-px bg-white/10 my-12" />
-
-        <h2 className={`text-2xl font-black tracking-[0.18em] text-white drop-shadow-md uppercase mb-3 ${rubik.className}`}>
-          Kreative Værktøjer & Scannere
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
-          {aiCards.map((card, index) => (
-            <BuilderCard key={`${card.title}-${index}`} card={card} index={index} />
-          ))}
         </div>
       </section>
 
