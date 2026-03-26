@@ -108,14 +108,15 @@ export default function TeacherLiveSidebar({
 
     for (const answer of liveAnswers) {
       if (answer.isCorrect !== true) continue;
-      scores.set(answer.studentName, (scores.get(answer.studentName) ?? 0) + 1);
+      const scoreKey = answer.participantId ?? answer.studentName;
+      scores.set(scoreKey, (scores.get(scoreKey) ?? 0) + 1);
     }
 
-    const highestScore = Math.max(1, ...participants.map((student) => scores.get(student.name) ?? 0));
+    const highestScore = Math.max(1, ...participants.map((student) => scores.get(student.id) ?? 0));
 
     return [...participants]
       .map((student) => {
-        const score = scores.get(student.name) ?? 0;
+        const score = scores.get(student.id) ?? scores.get(student.name) ?? 0;
 
         return {
           student,
@@ -346,11 +347,11 @@ export default function TeacherLiveSidebar({
                       className="rounded-[1.5rem] border border-emerald-500/20 bg-emerald-500/10 p-4 shadow-[0_12px_30px_rgba(16,185,129,0.12)]"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200/75">
                             {item.answer.image_url ? "Foto godkendt" : "Korrekt svar"}
                           </p>
-                          <p className="mt-2 text-sm font-semibold text-white">
+                          <p className="mt-2 truncate text-sm font-semibold text-white">
                             {item.answer.studentName}
                           </p>
                         </div>
@@ -400,11 +401,11 @@ export default function TeacherLiveSidebar({
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
                             {item.message.is_teacher ? "Broadcast" : "Elevbesked"}
                           </p>
-                          <p className="mt-2 text-sm font-semibold text-white">
+                          <p className="mt-2 truncate text-sm font-semibold text-white">
                             {item.message.sender_name}
                           </p>
                         </div>

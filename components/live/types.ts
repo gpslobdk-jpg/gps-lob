@@ -48,6 +48,7 @@ export type RunQuestion = {
 
 export type AnswerRow = {
   id?: string | number | null;
+  participant_id?: string | number | null;
   student_name?: string | null;
   post_index?: number | string | null;
   question_index?: number | string | null;
@@ -59,6 +60,7 @@ export type AnswerRow = {
 
 export type LiveAnswer = {
   id: string;
+  participantId: string | null;
   studentName: string;
   postNumber: number | null;
   isCorrect: boolean | null;

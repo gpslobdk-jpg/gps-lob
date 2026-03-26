@@ -65,9 +65,12 @@ export function toLiveAnswer(row: AnswerRow): LiveAnswer | null {
   const createdAt = row.answered_at ?? row.created_at ?? null;
   const idSource = row.id ?? `${studentName}-${createdAt ?? Date.now()}-${postNumber ?? "?"}`;
   const imageUrl = typeof row.image_url === "string" ? row.image_url.trim() : "";
+  const participantId =
+    row.participant_id === null || row.participant_id === undefined ? null : String(row.participant_id);
 
   return {
     id: String(idSource),
+    participantId,
     studentName,
     postNumber,
     isCorrect: typeof row.is_correct === "boolean" ? row.is_correct : null,

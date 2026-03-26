@@ -14,6 +14,7 @@ import {
 
 export const runtime = "edge";
 const CACHE_CONTROL = "no-store";
+const MAX_STUDENT_NAME_LENGTH = 20;
 
 type AdminSupabaseClient = NonNullable<ReturnType<typeof createAdminClient>>;
 
@@ -579,6 +580,13 @@ export async function POST(request: NextRequest) {
   if (!sessionId || !studentName) {
     return NextResponse.json(
       { error: "Session eller navn mangler." },
+      { status: 400, headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
+  if (studentName.length > MAX_STUDENT_NAME_LENGTH) {
+    return NextResponse.json(
+      { error: `Navnet må højst være ${MAX_STUDENT_NAME_LENGTH} tegn langt.` },
       { status: 400, headers: { "Cache-Control": "no-store" } }
     );
   }

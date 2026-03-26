@@ -326,6 +326,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
             <input
               id="player-name"
               type="text"
+              maxLength={20}
               value={pendingPlayerName}
               onChange={(event) => actions.setPendingPlayerName(event.target.value)}
               placeholder="Dit navn"

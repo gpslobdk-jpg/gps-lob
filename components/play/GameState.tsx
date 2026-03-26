@@ -78,6 +78,8 @@ type LiveSessionStatusRow = {
 
 const LOCATION_SYNC_404_STRIKE_LIMIT = 3;
 const LOCATION_SYNC_RECOVERY_CHECK_COOLDOWN_MS = 15000;
+const MAX_PLAYER_NAME_LENGTH = 20;
+const OFFLINE_VALIDATION_MESSAGE = "Ingen internetforbindelse. Tjek dit netværk og prøv igen.";
 
 export function usePlayGameState({
   sessionId,
@@ -500,6 +502,19 @@ export function usePlayGameState({
     sessionStatus,
     supabase,
   ]);
+
+  const getAnswerValidationErrorMessage = useCallback((error: unknown) => {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      return OFFLINE_VALIDATION_MESSAGE;
+    }
+
+    const errorMessage = error instanceof Error ? error.message : "";
+    if (/failed to fetch|load failed|networkerror/i.test(errorMessage)) {
+      return OFFLINE_VALIDATION_MESSAGE;
+    }
+
+    return error instanceof Error ? error.message : "NetvÃ¦rksfejl - prÃ¸v igen";
+  }, []);
 
   useEffect(() => {
     locationSyncErrorsRef.current = locationSyncErrors;
@@ -1584,6 +1599,11 @@ export function usePlayGameState({
         return;
       }
 
+      if (trimmedName.length > MAX_PLAYER_NAME_LENGTH) {
+        setNameError(`Navnet mÃ¥ hÃ¸jst vÃ¦re ${MAX_PLAYER_NAME_LENGTH} tegn langt.`);
+        return;
+      }
+
       setNameError(null);
       setPendingPlayerNameState(trimmedName);
       setPlayerName(trimmedName);
@@ -1619,7 +1639,7 @@ export function usePlayGameState({
       }
     } catch (error) {
       console.error("Kunne ikke validere quiz-svar:", error);
-      const msg = error instanceof Error ? error.message : "Netværksfejl - prøv igen";
+      const msg = getAnswerValidationErrorMessage(error);
       setTypedAnswerError({
         key: feedbackKey,
         message: msg,
@@ -1788,7 +1808,7 @@ export function usePlayGameState({
       await handleAnswer(0, payload?.brick ?? null);
     } catch (error) {
       console.error("Kunne ikke validere svar:", error);
-      const msg = error instanceof Error ? error.message : "Netværksfejl - prøv igen";
+      const msg = getAnswerValidationErrorMessage(error);
       setTypedAnswerError({
         key: activeTypedAnswerKey,
         message: msg,

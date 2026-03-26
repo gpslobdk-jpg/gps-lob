@@ -344,11 +344,12 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   const totalPosts = runQuestions.length;
 
   const participantRoster = useMemo(() => {
-    const participantsByName = new Map<string, LiveStudentLocation>();
+    const participantsById = new Map<string, LiveStudentLocation>();
+    const namesWithTrackedParticipants = new Set<string>();
 
     for (const student of studentLocations) {
-      const normalizedKey = student.name.toLocaleLowerCase("da-DK");
-      participantsByName.set(normalizedKey, student);
+      participantsById.set(student.id, student);
+      namesWithTrackedParticipants.add(student.name.toLocaleLowerCase("da-DK"));
     }
 
     for (const studentName of students) {
@@ -356,9 +357,9 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       if (!normalizedName) continue;
 
       const normalizedKey = normalizedName.toLocaleLowerCase("da-DK");
-      if (participantsByName.has(normalizedKey)) continue;
+      if (namesWithTrackedParticipants.has(normalizedKey)) continue;
 
-      participantsByName.set(normalizedKey, {
+      participantsById.set(`${sessionId ?? "session"}-${normalizedKey}`, {
         id: `${sessionId ?? "session"}-${normalizedKey}`,
         name: normalizedName,
         student_name: normalizedName,
@@ -369,11 +370,11 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       });
     }
 
-    return Array.from(participantsByName.values());
+    return Array.from(participantsById.values());
   }, [sessionId, studentLocations, students]);
 
   const finalStandings = useMemo<TeacherLiveStanding[]>(() => {
-    const statsByName = new Map<
+    const statsByParticipant = new Map<
       string,
       {
         correctPosts: Set<number>;
@@ -387,11 +388,12 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
 
     for (const answer of sessionAnswers) {
       const normalizedName = normalizeName(answer.studentName);
-      if (!normalizedName) continue;
+      const participantKey =
+        answer.participantId ?? (normalizedName ? normalizedName.toLocaleLowerCase("da-DK") : null);
+      if (!participantKey) continue;
 
-      const normalizedKey = normalizedName.toLocaleLowerCase("da-DK");
       const entry =
-        statsByName.get(normalizedKey) ??
+        statsByParticipant.get(participantKey) ??
         {
           correctPosts: new Set<number>(),
           attemptedPosts: new Set<number>(),
@@ -428,13 +430,14 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         }
       }
 
-      statsByName.set(normalizedKey, entry);
+      statsByParticipant.set(participantKey, entry);
     }
 
     return [...participantRoster]
       .map((student) => {
-        const normalizedKey = student.name.toLocaleLowerCase("da-DK");
-        const stats = statsByName.get(normalizedKey);
+        const stats =
+          statsByParticipant.get(student.id) ??
+          statsByParticipant.get(student.name.toLocaleLowerCase("da-DK"));
         const score = stats?.correctPosts.size ?? 0;
         const correctAnswers = stats?.correctAnswers ?? 0;
         const completedPosts = stats?.attemptedPosts.size ?? 0;
