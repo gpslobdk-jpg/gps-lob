@@ -23,7 +23,7 @@ type ValidateAnswerPayload = {
   selectedIndex?: unknown;
 };
 
-const SERVER_POSITION_VALIDATION_RADIUS_METERS = 65;
+const SERVER_POSITION_VALIDATION_RADIUS_METERS = 200;
 
 function getPostType(rawQuestion: unknown) {
   if (!rawQuestion || typeof rawQuestion !== "object" || Array.isArray(rawQuestion)) return null;
@@ -86,7 +86,7 @@ async function validateParticipantPosition(sessionId: string, participantId: str
   );
 
   if (distanceToPost > SERVER_POSITION_VALIDATION_RADIUS_METERS) {
-    return "Du skal være tættere på posten, før svaret kan godkendes.";
+    return "Du er for langt væk fra posten til at svare.";
   }
 
   return null;

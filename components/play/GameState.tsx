@@ -514,7 +514,7 @@ export function usePlayGameState({
       return OFFLINE_VALIDATION_MESSAGE;
     }
 
-    return error instanceof Error ? error.message : "NetvÃ¦rksfejl - prÃ¸v igen";
+    return error instanceof Error ? error.message : "Netværksfejl - prøv igen";
   }, []);
 
   useEffect(() => {
