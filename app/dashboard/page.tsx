@@ -22,10 +22,10 @@ const poppins = Poppins({
 });
 
 const cardBaseClass =
-  "group relative mx-auto flex w-full max-w-[20.5rem] flex-col overflow-hidden rounded-[2rem] border bg-white/10 p-0 text-left shadow-[0_22px_52px_rgba(15,23,42,0.16),0_8px_18px_rgba(15,23,42,0.07),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-lg transition-all duration-300";
+  "group relative mx-auto flex h-full w-full max-w-[20.5rem] flex-col overflow-hidden rounded-[2rem] border bg-white/10 p-0 text-left shadow-[0_22px_52px_rgba(15,23,42,0.16),0_8px_18px_rgba(15,23,42,0.07),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-lg transition-all duration-300";
 
 const cardPanelClass =
-  "relative flex h-full flex-col items-center rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.05))] p-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-16px_24px_rgba(15,23,42,0.07)]";
+  "relative flex h-full flex-col items-center justify-center rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.05))] p-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-16px_24px_rgba(15,23,42,0.07)]";
 
 const createCardClass =
   "border-emerald-400/60 bg-emerald-500/10 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(16,185,129,0.16),inset_0_1px_0_rgba(255,255,255,0.18)]";
@@ -325,7 +325,7 @@ export default function DashboardPage() {
         <p className="text-emerald-50">{"V\u00e6lg din n\u00e6ste handling og kom i gang"}</p>
       </section>
 
-      <section className="mx-auto mt-0 grid w-full max-w-5xl grid-cols-1 justify-items-center gap-5 md:mt-1 md:grid-cols-3 md:gap-4">
+      <section className="mx-auto mt-16 grid w-full max-w-5xl grid-cols-1 justify-items-center gap-5 md:mt-20 md:grid-cols-3 md:gap-4">
         <motion.button
           type="button"
           onClick={() => {
@@ -334,7 +334,7 @@ export default function DashboardPage() {
             void router.push("/dashboard/opret/valg");
           }}
           data-tour="dashboard-create-run"
-          className="block w-full text-left"
+          className="flex h-full w-full flex-col justify-center text-left"
           aria-busy={isNavigatingCreate}
           aria-disabled={isNavigatingCreate}
         >
@@ -345,7 +345,7 @@ export default function DashboardPage() {
             <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_34%),radial-gradient(circle_at_bottom,rgba(16,185,129,0.22),transparent_58%)]" />
             <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(16,185,129,0.16)]" />
             <div className={`${cardPanelClass} text-emerald-950`}>
-              <div className="relative z-10 flex w-full flex-col items-center text-center">
+              <div className="relative z-10 flex w-full flex-col items-center justify-center text-center">
                 <div className="space-y-3">
                   <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
                     {isNavigatingCreate ? "Gør klar til nyt løb" : "Opret nyt løb"}
@@ -367,14 +367,14 @@ export default function DashboardPage() {
           type="button"
           onClick={handleLiveMonitoringClick}
           whileHover={hasResumeTarget ? { scale: 1.012 } : undefined}
-          className="block w-full text-left"
+          className="flex h-full w-full flex-col justify-center text-left"
           aria-disabled={!hasResumeTarget && !isCheckingLiveSession}
         >
           <motion.article whileHover={hasResumeTarget ? { y: -4, scale: 1.012 } : undefined} className={liveCardClass}>
             <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_34%),radial-gradient(circle_at_bottom,rgba(245,158,11,0.22),transparent_58%)]" />
             <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(245,158,11,0.16)]" />
             <div className={`${cardPanelClass} text-amber-950`}>
-              <div className="relative z-10 flex w-full flex-col items-center text-center">
+              <div className="relative z-10 flex w-full flex-col items-center justify-center text-center">
                 <div className="space-y-3">
                   <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
                     {isParticipantResume ? "Genoptag dit løb" : isTeacherResume ? "Genoptag live-overblik" : "Genoptag"}
@@ -416,7 +416,7 @@ export default function DashboardPage() {
             setIsNavigatingArchive(true);
             void router.push("/dashboard/arkiv");
           }}
-          className="block w-full text-left"
+          className="flex h-full w-full flex-col justify-center text-left"
           aria-busy={isNavigatingArchive}
           aria-disabled={isNavigatingArchive}
         >
@@ -427,7 +427,7 @@ export default function DashboardPage() {
             <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_34%),radial-gradient(circle_at_bottom,rgba(217,70,239,0.22),transparent_58%)]" />
             <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(217,70,239,0.16)]" />
             <div className={`${cardPanelClass} text-sky-950`}>
-              <div className="relative z-10 flex w-full flex-col items-center text-center">
+              <div className="relative z-10 flex w-full flex-col items-center justify-center text-center">
                 <div className="space-y-3">
                   <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
                     Mit løbsarkiv
