@@ -22,13 +22,17 @@ const poppins = Poppins({
 type TeacherLiveSidebarProps = {
   activeStudents: LiveStudentLocation[];
   allParticipants?: LiveStudentLocation[];
+  joinPin: string;
   hasParticipantsTable: boolean;
+  gpsOverride: boolean;
+  isUpdatingGpsOverride: boolean;
   liveAnswers: LiveAnswer[];
   hasAnswersTable: boolean;
   messages: SessionMessage[];
   newMessage: string;
   onNewMessageChange: (value: string) => void;
   onSendMessage: () => Promise<void>;
+  onToggleGpsOverride: () => Promise<void>;
   onKickParticipant: (student: LiveStudentLocation) => Promise<void>;
 };
 
@@ -90,13 +94,17 @@ function getPhotoAltText(answer: LiveAnswer) {
 export default function TeacherLiveSidebar({
   activeStudents,
   allParticipants,
+  joinPin,
   hasParticipantsTable,
+  gpsOverride,
+  isUpdatingGpsOverride,
   liveAnswers,
   hasAnswersTable,
   messages,
   newMessage,
   onNewMessageChange,
   onSendMessage,
+  onToggleGpsOverride,
   onKickParticipant,
 }: TeacherLiveSidebarProps) {
   const [activeTab, setActiveTab] = useState<SidebarTab>("leaderboard");
@@ -188,6 +196,20 @@ export default function TeacherLiveSidebar({
               Online nu
             </p>
             <p className="mt-1 text-2xl font-black text-white">{activeStudents.length}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-3xl border border-amber-300/25 bg-amber-300/10 px-4 py-4 shadow-[0_16px_40px_rgba(251,191,36,0.12)]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-amber-100/75">
+            Live PIN
+          </p>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <p className="font-mono text-3xl font-black tracking-[0.38em] text-amber-50">
+              {joinPin}
+            </p>
+            <span className="rounded-full border border-amber-200/20 bg-black/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-50/80">
+              Sig den højt
+            </span>
           </div>
         </div>
 
@@ -485,11 +507,40 @@ export default function TeacherLiveSidebar({
         onSubmit={handleSubmit}
         className="border-t border-slate-500/30 bg-slate-950/55 px-5 py-5"
       >
+        <div className="mb-5 rounded-3xl border border-cyan-400/20 bg-cyan-500/10 p-4 shadow-[0_12px_30px_rgba(34,211,238,0.12)]">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200/80">
+                God Mode
+              </p>
+              <p className="mt-2 text-sm font-semibold text-white">
+                Slå GPS-krav fra for hele sessionen.
+              </p>
+              <p className="mt-1 text-xs text-cyan-100/75">
+                Bruges til indendørs spil eller test uden fysisk GPS-lås.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void onToggleGpsOverride()}
+              disabled={isUpdatingGpsOverride}
+              aria-pressed={gpsOverride}
+              className={`inline-flex min-w-38 items-center justify-center rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.2em] transition ${
+                gpsOverride
+                  ? "border-cyan-200/40 bg-cyan-300 text-slate-950 shadow-[0_12px_28px_rgba(34,211,238,0.28)]"
+                  : "border-white/15 bg-white/8 text-white hover:bg-white/12"
+              } disabled:cursor-not-allowed disabled:opacity-60`}
+            >
+              {isUpdatingGpsOverride ? "Gemmer..." : gpsOverride ? "Aktiv" : "Slå til"}
+            </button>
+          </div>
+        </div>
+
         <label
           htmlFor="god-mode-broadcast"
           className="mb-3 block text-xs font-semibold uppercase tracking-[0.26em] text-emerald-200/75"
         >
-          God Mode Broadcast
+          Broadcast
         </label>
         <div className="flex gap-3">
           <input

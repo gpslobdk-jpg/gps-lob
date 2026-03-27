@@ -39,6 +39,8 @@ export default function LiveLobbyPage() {
           standings={live.finalStandings}
           totalPosts={live.totalPosts}
           winnerCelebrationName={live.winnerCelebrationName}
+          photoAnswers={live.photoAnswers}
+          isPhotoMission={live.isPhotoMission}
         />
       ) : (
         <motion.div
@@ -61,13 +63,17 @@ export default function LiveLobbyPage() {
           <TeacherLiveSidebar
             activeStudents={live.activeStudents}
             allParticipants={live.studentLocations}
+            joinPin={live.joinPin}
             hasParticipantsTable={live.hasParticipantsTable}
+            gpsOverride={live.gpsOverride}
+            isUpdatingGpsOverride={live.isUpdatingGpsOverride}
             liveAnswers={live.liveAnswers}
             hasAnswersTable={live.hasAnswersTable}
             messages={live.messages}
             newMessage={live.newMessage}
             onNewMessageChange={live.setNewMessage}
             onSendMessage={live.sendMessage}
+            onToggleGpsOverride={live.toggleGpsOverride}
             onKickParticipant={live.kickParticipant}
           />
         </motion.div>

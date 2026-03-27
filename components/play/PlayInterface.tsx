@@ -50,6 +50,7 @@ type MobileHudProps = {
   correctAnswersCount: number;
   questionsLength: number;
   distance: number | null;
+  gpsOverrideEnabled: boolean;
 };
 
 function MobileHudComponent({
@@ -60,6 +61,7 @@ function MobileHudComponent({
   correctAnswersCount,
   questionsLength,
   distance,
+  gpsOverrideEnabled,
 }: MobileHudProps) {
   return (
     <div className="w-full max-w-xl">
@@ -93,7 +95,9 @@ function MobileHudComponent({
         <div className="mt-3 rounded-2xl border border-white/10 bg-black/40 p-3 text-white">
           <div className="flex items-center justify-between">
             <div className="text-sm font-semibold">{activeDisplayName}</div>
-            <div className="text-sm font-mono">{distance !== null ? `${distance}m` : "GPS..."}</div>
+            <div className="text-sm font-mono">
+              {gpsOverrideEnabled ? "God Mode" : distance !== null ? `${distance}m` : "GPS..."}
+            </div>
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-white/80">
             <div>Progress: {progressPercent}%</div>
@@ -174,6 +178,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const { latestMessage, resumeMessage } = feedback;
   const {
     canManualUnlock,
+    gpsOverrideEnabled,
     hasActivePhotoSuccess,
     hasActiveQuizSuccess,
     hasAllEscapeBricks,
@@ -935,15 +940,17 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                         </p>
                         <p
                           className={`mt-2 text-2xl md:text-3xl font-black ${
-                            distance !== null && distance <= AUTO_UNLOCK_RADIUS
+                            gpsOverrideEnabled || (distance !== null && distance <= AUTO_UNLOCK_RADIUS)
                               ? "text-white"
                               : "text-white/90"
                           }`}
                         >
-                          {distance !== null ? `${distance}m` : "Søger GPS..."}
+                          {gpsOverrideEnabled ? "God Mode" : distance !== null ? `${distance}m` : "Søger GPS..."}
                         </p>
                         <p className="mt-2 font-mono text-xs uppercase tracking-widest text-white/70">
-                          GPS låser automatisk op tæt på posten.
+                          {gpsOverrideEnabled
+                            ? "GPS-kravet er slået fra for denne session."
+                            : "GPS låser automatisk op tæt på posten."}
                         </p>
                       </div>
                     </div>
@@ -999,7 +1006,9 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                         onClick={actions.unlockCurrentPost}
                         className={tacticalPrimaryButtonClass}
                       >
-                        {dismissedPostIndex === currentPostIndex
+                        {gpsOverrideEnabled
+                          ? "Åbn posten (God Mode)"
+                          : dismissedPostIndex === currentPostIndex
                           ? "Åbn gåden igen"
                           : "📍 Står du ved posten? Lås op manuelt"}
                       </button>
@@ -1069,6 +1078,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                 correctAnswersCount={correctAnswersCount}
                 questionsLength={questions.length}
                 distance={distance}
+                gpsOverrideEnabled={gpsOverrideEnabled}
               />
             </div>
           ) : null}

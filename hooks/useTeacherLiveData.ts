@@ -19,6 +19,7 @@ import type {
   TeacherLiveData,
   TeacherLiveStanding,
 } from "@/components/live/types";
+import { normalizeRaceType, RACE_TYPES } from "@/utils/gpsRuns";
 import { createClient } from "@/utils/supabase/client";
 
 function toTimestamp(value: string | null | undefined) {
@@ -32,6 +33,9 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   const [students, setStudents] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState<SessionRow["status"]>("waiting");
+  const [gpsOverride, setGpsOverride] = useState(false);
+  const [isUpdatingGpsOverride, setIsUpdatingGpsOverride] = useState(false);
+  const [runRaceType, setRunRaceType] = useState<string | null>(null);
   const [messages, setMessages] = useState<SessionMessage[]>([]);
   const [newMessage, setNewMessageState] = useState("");
   const [studentLocations, setStudentLocations] = useState<LiveStudentLocation[]>([]);
@@ -99,11 +103,12 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       } else if (sessionData) {
         setPin(String(sessionData.pin ?? ""));
         setStatus(sessionData.status ?? "waiting");
+        setGpsOverride(Boolean(sessionData.gps_override));
 
         if (sessionData.run_id) {
           const { data: runData } = await supabase
             .from("gps_runs")
-            .select("questions")
+            .select("questions,race_type,raceType")
             .eq("id", sessionData.run_id)
             .single();
 
@@ -112,6 +117,16 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
           if (runData?.questions) {
             setRunQuestions(runData.questions as TeacherLiveData["runQuestions"]);
           }
+
+          setRunRaceType(
+            typeof runData?.race_type === "string"
+              ? runData.race_type
+              : typeof runData?.raceType === "string"
+                ? runData.raceType
+                : null
+          );
+        } else {
+          setRunRaceType(null);
         }
       }
 
@@ -260,8 +275,9 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
             filter: `id=eq.${sessionId}`,
           },
           (payload) => {
-            const nextStatus = (payload.new as SessionRow).status;
-            if (nextStatus) setStatus(nextStatus);
+            const nextSession = payload.new as SessionRow;
+            if (nextSession.status) setStatus(nextSession.status);
+            setGpsOverride(Boolean(nextSession.gps_override));
           }
         );
 
@@ -335,6 +351,14 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   }, [sessionId]);
 
   const joinPin = isLoading ? "----" : pin || "----";
+  const photoAnswers = useMemo(
+    () => liveAnswers.filter((answer) => Boolean(answer.image_url)),
+    [liveAnswers]
+  );
+  const isPhotoMission = useMemo(
+    () => normalizeRaceType(runRaceType) === RACE_TYPES.FOTO,
+    [runRaceType]
+  );
 
   const mapCenter = useMemo(() => getTeacherMapCenter(runQuestions), [runQuestions]);
   const mapKey = useMemo(
@@ -528,6 +552,29 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     setNewMessageState("");
   };
 
+  const toggleGpsOverride = async () => {
+    if (!sessionId || isUpdatingGpsOverride) return;
+
+    const nextValue = !gpsOverride;
+    setIsUpdatingGpsOverride(true);
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("live_sessions")
+      .update({ gps_override: nextValue })
+      .eq("id", sessionId);
+
+    if (error) {
+      console.error("Kunne ikke opdatere God Mode:", error);
+      alert("Kunne ikke opdatere God Mode.");
+      setIsUpdatingGpsOverride(false);
+      return;
+    }
+
+    setGpsOverride(nextValue);
+    setIsUpdatingGpsOverride(false);
+  };
+
   const startSession = async () => {
     if (!sessionId) return;
 
@@ -629,10 +676,15 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     students,
     isLoading: sessionId ? isLoading : false,
     status: status ?? "waiting",
+    gpsOverride,
+    isUpdatingGpsOverride,
+    runRaceType,
+    isPhotoMission,
     messages,
     newMessage,
     runQuestions,
     liveAnswers,
+    photoAnswers,
     hasParticipantsTable,
     hasAnswersTable,
     isEndingRun,
@@ -646,6 +698,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     mapKey,
     setNewMessage: updateNewMessage,
     sendMessage,
+    toggleGpsOverride,
     startSession,
     endRun,
     kickParticipant,

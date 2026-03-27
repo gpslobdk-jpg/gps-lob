@@ -4,6 +4,7 @@ export type SessionRow = {
   pin: string | null;
   status: string | null;
   run_id: string | null;
+  gps_override?: boolean | null;
 };
 
 export type SessionMessage = {
@@ -86,11 +87,16 @@ export type TeacherLiveData = {
   students: string[];
   isLoading: boolean;
   status: SessionStatus;
+  gpsOverride: boolean;
+  isUpdatingGpsOverride: boolean;
+  runRaceType: string | null;
+  isPhotoMission: boolean;
   messages: SessionMessage[];
   newMessage: string;
   studentLocations: LiveStudentLocation[];
   runQuestions: RunQuestion[];
   liveAnswers: LiveAnswer[];
+  photoAnswers: LiveAnswer[];
   hasParticipantsTable: boolean;
   hasAnswersTable: boolean;
   isEndingRun: boolean;
@@ -103,6 +109,7 @@ export type TeacherLiveData = {
   mapKey: string;
   setNewMessage: (value: string) => void;
   sendMessage: () => Promise<void>;
+  toggleGpsOverride: () => Promise<void>;
   startSession: () => Promise<void>;
   endRun: () => Promise<void>;
   kickParticipant: (student: LiveStudentLocation) => Promise<void>;

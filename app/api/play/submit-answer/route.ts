@@ -26,6 +26,65 @@ function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+type ExistingAnswerRow = {
+  id: string;
+};
+
+async function hasExistingAnswerRecord(
+  payload: Record<string, unknown>,
+  admin: NonNullable<ReturnType<typeof createAdminClient>>
+) {
+  const sessionId = asTrimmedString(payload.session_id);
+  const participantId = asTrimmedString(payload.participant_id);
+  const studentName = asTrimmedString(payload.student_name);
+  const answeredAt = asTrimmedString(payload.answered_at);
+  const createdAt = asTrimmedString(payload.created_at);
+
+  if (!sessionId) {
+    return false;
+  }
+
+  const identityFilters = [
+    participantId ? { column: "participant_id", value: participantId } : null,
+    studentName ? { column: "student_name", value: studentName } : null,
+  ].filter((value): value is { column: string; value: string } => value !== null);
+
+  const timestampFilters = [
+    answeredAt ? { column: "answered_at", value: answeredAt } : null,
+    createdAt ? { column: "created_at", value: createdAt } : null,
+  ].filter((value): value is { column: string; value: string } => value !== null);
+
+  if (identityFilters.length === 0 || timestampFilters.length === 0) {
+    return false;
+  }
+
+  for (const identity of identityFilters) {
+    for (const timestamp of timestampFilters) {
+      const { data, error } = await admin
+        .from("answers")
+        .select("id")
+        .eq("session_id", sessionId)
+        .eq(identity.column, identity.value)
+        .eq(timestamp.column, timestamp.value)
+        .limit(1);
+
+      if (error) {
+        if (isMissingColumnError(error)) {
+          continue;
+        }
+
+        throw new Error(error.message ?? "Kunne ikke tjekke eksisterende svar.");
+      }
+
+      if (Array.isArray(data) && (data as ExistingAnswerRow[]).length > 0) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 async function maybeStampRunStartedAt(
   payload: Record<string, unknown>,
   admin: NonNullable<ReturnType<typeof createAdminClient>>
@@ -179,6 +238,13 @@ export async function POST(request: NextRequest) {
   try {
     for (const payload of rawPayloads) {
       try {
+        const existingAnswer = await hasExistingAnswerRecord(payload, admin);
+        if (existingAnswer) {
+          await maybeStampRunStartedAt(payload, admin);
+          await maybeCaptureZone(payload, admin);
+          return NextResponse.json({ inserted: true });
+        }
+
         const { error } = await admin.from("answers").insert(payload as Record<string, unknown>);
         if (!error) {
           await maybeStampRunStartedAt(payload, admin);

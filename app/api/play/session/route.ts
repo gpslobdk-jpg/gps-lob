@@ -7,7 +7,7 @@ import {
   resolveQuestionVariant,
   sanitizeQuestionForPlay,
 } from "@/app/api/play/_shared";
-import { ADMIN_ACCESS_MISSING_MESSAGE } from "@/utils/supabase/admin";
+import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -20,6 +20,21 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const adminSupabase = createAdminClient();
+    if (!adminSupabase) {
+      throw new Error(ADMIN_ACCESS_MISSING_MESSAGE);
+    }
+
+    const { data: sessionData, error: sessionError } = await adminSupabase
+      .from("live_sessions")
+      .select("gps_override")
+      .eq("id", sessionId)
+      .maybeSingle<{ gps_override?: boolean | null }>();
+
+    if (sessionError) {
+      throw new Error(sessionError.message);
+    }
+
     const run = await fetchRunForSession(sessionId);
     if (!run) {
       return NextResponse.json({ error: "Kunne ikke finde løbet." }, { status: 404 });
@@ -45,6 +60,7 @@ export async function GET(request: NextRequest) {
       {
         questions,
         raceType,
+        gpsOverride: Boolean(sessionData?.gps_override),
       },
       {
         headers: {

@@ -75,12 +75,15 @@ type UsePlayGameStateParams = {
 
 type LiveSessionStatusRow = {
   status?: string | null;
+  gps_override?: boolean | null;
 };
 
 const LOCATION_SYNC_404_STRIKE_LIMIT = 3;
 const LOCATION_SYNC_RECOVERY_CHECK_COOLDOWN_MS = 15000;
 const MAX_PLAYER_NAME_LENGTH = 20;
 const OFFLINE_VALIDATION_MESSAGE = "Ingen internetforbindelse. Tjek dit netværk og prøv igen.";
+const RESTORE_RETRY_DELAY_MS = 2500;
+const NETWORK_RETRY_DELAY_MS = 3000;
 
 export function usePlayGameState({
   sessionId,
@@ -92,7 +95,6 @@ export function usePlayGameState({
     const stored = readStoredActiveParticipant();
     if (!stored) return null;
     if (stored.sessionId !== sessionId) {
-      clearStoredActiveParticipant();
       return null;
     }
     return stored;
@@ -169,7 +171,10 @@ export function usePlayGameState({
   const [isProvisioningParticipant, setIsProvisioningParticipant] = useState(false);
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
   const [sessionStatus, setSessionStatus] = useState<string | null>(null);
+  const [gpsOverride, setGpsOverride] = useState(false);
   const [locationSyncErrors, setLocationSyncErrors] = useState(0);
+  const [restoreRetryNonce, setRestoreRetryNonce] = useState(0);
+  const [isRestoringParticipant, setIsRestoringParticipant] = useState(false);
 
   const answersTableMissingRef = useRef(false);
   const hasRestoredRef = useRef(!Boolean(storedParticipantOnLoad) || isStoredParticipantFreshJoin);
@@ -179,6 +184,7 @@ export function usePlayGameState({
   const wakeLockSentinelRef = useRef<WakeLockSentinelLike | null>(null);
   const messageChannelRef = useRef<RealtimeChannel | null>(null);
   const masterVictoryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restoreRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const submissionLockRef = useRef(false);
   const isMountedRef = useRef(true);
   const locationSyncErrorsRef = useRef(0);
@@ -405,23 +411,61 @@ export function usePlayGameState({
     setLocationSyncErrors(0);
   }, []);
 
+  const isTransientNetworkError = useCallback((error: unknown) => {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      return true;
+    }
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === "object" && error !== null && "message" in error
+          ? String((error as { message?: unknown }).message ?? "")
+          : "";
+
+    return /failed to fetch|load failed|networkerror|network request failed|fetch failed/i.test(
+      message
+    );
+  }, []);
+
+  const waitForNetworkRetry = useCallback((delayMs = NETWORK_RETRY_DELAY_MS) => {
+    return new Promise<void>((resolve) => {
+      setTimeout(resolve, delayMs);
+    });
+  }, []);
+
+  const clearRestoreRetryTimer = useCallback(() => {
+    if (restoreRetryTimerRef.current !== null) {
+      clearTimeout(restoreRetryTimerRef.current);
+      restoreRetryTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleRestoreRetry = useCallback(
+    (_message: string) => {
+      if (restoreRetryTimerRef.current !== null) {
+        return;
+      }
+
+      setIsRestoringParticipant(true);
+      restoreRetryTimerRef.current = setTimeout(() => {
+        restoreRetryTimerRef.current = null;
+        setRestoreRetryNonce((current) => current + 1);
+      }, RESTORE_RETRY_DELAY_MS);
+    },
+    []
+  );
+
   const markPlayAsFinished = useCallback(() => {
+    clearRestoreRetryTimer();
     resetLocationSyncRecovery();
     clearStoredActiveParticipant();
     setParticipantId(null);
     setShowQuestion(false);
     setIsKicked(false);
     setIsFinished(true);
-  }, [resetLocationSyncRecovery]);
-
-  const markPlayAsKicked = useCallback(() => {
-    resetLocationSyncRecovery();
-    clearStoredActiveParticipant();
-    setParticipantId(null);
-    setShowQuestion(false);
-    setIsFinished(false);
-    setIsKicked(true);
-  }, [resetLocationSyncRecovery]);
+    setIsRestoringParticipant(false);
+  }, [clearRestoreRetryTimer, resetLocationSyncRecovery]);
 
   const runAuthoritativeLocationSyncCheck = useCallback(async () => {
     if (!sessionId || !participantId || locationSyncRecoveryCheckInFlightRef.current) {
@@ -444,7 +488,8 @@ export function usePlayGameState({
       );
 
       if (sessionResponse.status === 404 || sessionResponse.status === 410) {
-        markPlayAsKicked();
+        console.warn("Session-check returnerede midlertidigt 404/410. Bevarer lokal deltagerstate.");
+        scheduleRestoreRetry("Vi genskaber forbindelsen til missionen...");
         return;
       }
 
@@ -459,7 +504,7 @@ export function usePlayGameState({
 
       const { data: liveSessionRow, error: liveSessionError } = await supabase
         .from("live_sessions")
-        .select("status")
+        .select("status,gps_override")
         .eq("id", sessionId)
         .maybeSingle<LiveSessionStatusRow>();
 
@@ -470,6 +515,7 @@ export function usePlayGameState({
 
       const nextSessionStatus = liveSessionRow?.status ?? null;
       setSessionStatus(nextSessionStatus);
+      setGpsOverride(Boolean(liveSessionRow?.gps_override));
 
       if (nextSessionStatus === "finished") {
         markPlayAsFinished();
@@ -484,11 +530,13 @@ export function usePlayGameState({
           "Kunne ikke verificere deltageren efter positionsfejl:",
           participantSnapshotError
         );
+        scheduleRestoreRetry("Vi genskaber forbindelsen til missionen...");
         return;
       }
 
       if (!participantSnapshot) {
-        markPlayAsKicked();
+        console.warn("Deltageren kunne ikke bekræftes efter positionsfejl. Bevarer lokal state.");
+        scheduleRestoreRetry("Vi genskaber forbindelsen til missionen...");
         return;
       }
 
@@ -506,9 +554,9 @@ export function usePlayGameState({
   }, [
     fetchParticipantSnapshot,
     markPlayAsFinished,
-    markPlayAsKicked,
     participantId,
     resetLocationSyncRecovery,
+    scheduleRestoreRetry,
     sessionId,
     sessionStatus,
     supabase,
@@ -536,6 +584,12 @@ export function usePlayGameState({
   }, [participantId, resetLocationSyncRecovery, sessionId]);
 
   useEffect(() => {
+    return () => {
+      clearRestoreRetryTimer();
+    };
+  }, [clearRestoreRetryTimer]);
+
+  useEffect(() => {
     if (questions.length === 0 || isFinished || correctAnswersCount > 0 || routeOrder.length === 0) return;
 
     const firstRoutePostIndex = routeOrder[0] ?? 0;
@@ -551,7 +605,7 @@ export function usePlayGameState({
       try {
         const { data, error } = await supabase
           .from("live_sessions")
-          .select("status")
+          .select("status,gps_override")
           .eq("id", sessionId)
           .limit(1)
           .single();
@@ -559,6 +613,7 @@ export function usePlayGameState({
         if (!mounted) return;
         if (!error && data) {
           setSessionStatus((data as LiveSessionStatusRow).status ?? null);
+          setGpsOverride(Boolean((data as LiveSessionStatusRow).gps_override));
         }
       } catch (err) {
         console.error("Kunne ikke hente session-status:", err);
@@ -573,8 +628,9 @@ export function usePlayGameState({
         { event: "UPDATE", schema: "public", table: "live_sessions", filter: `id=eq.${sessionId}` },
         (payload) => {
           try {
-            const next = (payload.new as LiveSessionStatusRow | null)?.status ?? null;
-            setSessionStatus(next);
+            const nextRow = payload.new as LiveSessionStatusRow | null;
+            setSessionStatus(nextRow?.status ?? null);
+            setGpsOverride(Boolean(nextRow?.gps_override));
           } catch (error) {
             console.error("Fejl ved behandling af live_sessions-opdatering:", error);
           }
@@ -598,12 +654,14 @@ export function usePlayGameState({
     ? questions.map((_, index) => escapeCodeByPostIndex.get(index) ?? "_")
     : [];
   const escapeCodeOverviewText = escapeCodeOverview.join(" ");
-  const isBlockingGpsError = gpsError === "permission_denied" || gpsError === "unsupported";
+  const isBlockingGpsError =
+    !gpsOverride && (gpsError === "permission_denied" || gpsError === "unsupported");
   const gpsErrorContent = isBlockingGpsError ? getGpsErrorContent(gpsError) : null;
   const gpsWarningContent =
-    gpsError && !isBlockingGpsError ? getGpsErrorContent(gpsError) : null;
+    !gpsOverride && gpsError && !isBlockingGpsError ? getGpsErrorContent(gpsError) : null;
   const shouldKeepScreenAwake =
     !isLoading &&
+    !isRestoringParticipant &&
     !loadError &&
     !isBlockingGpsError &&
     !isFinished &&
@@ -612,9 +670,10 @@ export function usePlayGameState({
     questions.length > 0;
   const canManualUnlock =
     !showQuestion &&
-    distance !== null &&
-    ((distance > AUTO_UNLOCK_RADIUS && distance <= MANUAL_UNLOCK_RADIUS) ||
-      dismissedPostIndex === currentPostIndex);
+    (gpsOverride ||
+      (distance !== null &&
+        ((distance > AUTO_UNLOCK_RADIUS && distance <= MANUAL_UNLOCK_RADIUS) ||
+          dismissedPostIndex === currentPostIndex)));
 
   const clearTypedAnswerError = useCallback(() => {
     setTypedAnswerError(null);
@@ -742,6 +801,8 @@ export function usePlayGameState({
     if (!sessionId || !participantId || questions.length === 0 || hasRestoredRef.current) return;
 
     let isActive = true;
+    setIsRestoringParticipant(true);
+    clearRestoreRetryTimer();
 
     const restoreFromStorage = async () => {
       const storedName = storedParticipantOnLoad?.studentName?.trim() || playerName || initialStudentName;
@@ -763,6 +824,8 @@ export function usePlayGameState({
 
       if (participantError) {
         console.error("Kunne ikke genskabe deltagerdata fra participants:", participantError);
+        scheduleRestoreRetry("Henter dine data igen...");
+        return;
       } else {
         didResolveParticipant = true;
         participantData = data ?? null;
@@ -775,8 +838,6 @@ export function usePlayGameState({
         const maxAttempts = 3;
         const retryDelayMs = 800;
         const timers: ReturnType<typeof setTimeout>[] = [];
-
-        showResumeNotice("Henter dine data...");
 
         let resolved = false;
 
@@ -813,12 +874,7 @@ export function usePlayGameState({
         for (const t of timers) clearTimeout(t);
 
         if (!resolved) {
-          // Still not found after retries — treat as kicked
-          clearStoredActiveParticipant();
-          setParticipantId(null);
-          setShowQuestion(false);
-          setIsKicked(true);
-          hasRestoredRef.current = true;
+          scheduleRestoreRetry("Vi kunne ikke hente din deltager endnu. Prøver igen...");
           return;
         }
       }
@@ -859,6 +915,7 @@ export function usePlayGameState({
         clearStoredActiveParticipant();
         setParticipantId(null);
         setIsFinished(true);
+        setIsRestoringParticipant(false);
         hasRestoredRef.current = true;
         return;
       }
@@ -901,6 +958,7 @@ export function usePlayGameState({
             setMasterLockInputState("");
             setIsFinished(true);
             showResumeNotice("Dine kode-brikker er gendannet. Master-låsen er klar.");
+            setIsRestoringParticipant(false);
             hasRestoredRef.current = true;
             return;
           }
@@ -938,6 +996,8 @@ export function usePlayGameState({
         showResumeNotice(`Velkommen tilbage, ${resolvedName}! Genoptager løbet...`);
       }
 
+      clearRestoreRetryTimer();
+      setIsRestoringParticipant(false);
       hasRestoredRef.current = true;
     };
 
@@ -947,12 +1007,15 @@ export function usePlayGameState({
       isActive = false;
     };
     }, [
+    clearRestoreRetryTimer,
     fetchParticipantSnapshot,
     sessionId,
     participantId,
     questions,
     questions.length,
     raceMode,
+    restoreRetryNonce,
+    scheduleRestoreRetry,
     supabase,
     playerName,
     initialStudentName,
@@ -965,20 +1028,29 @@ export function usePlayGameState({
     if (!sessionId || !participantId) return false;
     const finishedAt = new Date().toISOString();
 
-    const { error } = await supabase
-      .from("participants")
-      .update({ finished_at: finishedAt })
-      .eq("id", participantId)
-      .eq("session_id", sessionId);
+    while (isMountedRef.current) {
+      const { error } = await supabase
+        .from("participants")
+        .update({ finished_at: finishedAt })
+        .eq("id", participantId)
+        .eq("session_id", sessionId);
 
-    if (error) {
-      console.error("Kunne ikke gemme målgang i participants:", error);
-      return false;
+      if (!error) {
+        clearStoredActiveParticipant();
+        setParticipantId(null);
+        return true;
+      }
+
+      if (!isTransientNetworkError(error)) {
+        console.error("Kunne ikke gemme målgang i participants:", error);
+        return false;
+      }
+
+      await waitForNetworkRetry();
     }
-    clearStoredActiveParticipant();
-    setParticipantId(null);
-    return true;
-  }, [participantId, sessionId, supabase]);
+
+    return false;
+  }, [isTransientNetworkError, participantId, sessionId, supabase, waitForNetworkRetry]);
 
   const insertAnswerRecord = useCallback(
     async (
@@ -1036,35 +1108,50 @@ export function usePlayGameState({
         },
       ];
 
-      try {
-        const response = await fetch("/api/play/submit-answer", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ payloads }),
-        });
+      while (isMountedRef.current) {
+        try {
+          const response = await fetch("/api/play/submit-answer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ payloads }),
+          });
 
-        const body = (await response.json().catch(() => null)) as {
-          inserted?: boolean;
-          error?: string;
-        } | null;
+          const body = (await response.json().catch(() => null)) as {
+            inserted?: boolean;
+            error?: string;
+          } | null;
 
-        if (!response.ok) {
-          console.error("Kunne ikke gemme svar via API:", body?.error ?? response.statusText);
-          // If admin access is missing, mark answers table missing to avoid repeated attempts
-          if (body?.error === "Admin access missing") answersTableMissingRef.current = true;
+          if (!response.ok) {
+            console.error("Kunne ikke gemme svar via API:", body?.error ?? response.statusText);
+            if (body?.error === "Admin access missing") answersTableMissingRef.current = true;
+            return false;
+          }
+
+          if (body?.inserted === true) return true;
+
+          console.error("API returnerede ikke indsættelse:", body ?? "ukendt svar");
           return false;
+        } catch (error) {
+          if (!isTransientNetworkError(error)) {
+            console.error("Kunne ikke kontakte submit-answer API:", error);
+            return false;
+          }
+
+          await waitForNetworkRetry();
         }
-
-        if (body?.inserted === true) return true;
-
-        console.error("API returnerede ikke indsættelse:", body ?? "ukendt svar");
-        return false;
-      } catch (error) {
-        console.error("Kunne ikke kontakte submit-answer API:", error);
-        return false;
       }
+
+      return false;
     },
-    [participantId, playerName, sessionId, raceMode, teamId]
+    [
+      isTransientNetworkError,
+      participantId,
+      playerName,
+      raceMode,
+      sessionId,
+      teamId,
+      waitForNetworkRetry,
+    ]
   );
 
   useEffect(() => {
@@ -1075,48 +1162,58 @@ export function usePlayGameState({
     const fetchRun = async () => {
       setIsLoading(true);
       setLoadError("");
-      try {
-        const response = await fetch(`/api/play/session?sessionId=${encodeURIComponent(sessionId)}`, {
-          cache: "no-store",
-        });
-        const payload = (await response.json().catch(() => null)) as PlaySessionPayload | null;
 
-        if (!isActive) return;
+      while (isActive) {
+        try {
+          const response = await fetch(`/api/play/session?sessionId=${encodeURIComponent(sessionId)}`, {
+            cache: "no-store",
+          });
+          const payload = (await response.json().catch(() => null)) as PlaySessionPayload | null;
 
-        if (!response.ok) {
-          setLoadError(payload?.error || "Kunne ikke hente løbet.");
+          if (!isActive) return;
+
+          if (!response.ok) {
+            setLoadError(payload?.error || "Kunne ikke hente løbet.");
+            setIsLoading(false);
+            return;
+          }
+
+          const parsedQuestions = Array.isArray(payload?.questions)
+            ? payload.questions.map(parseQuestion).filter((q): q is Question => q !== null)
+            : [];
+
+          if (parsedQuestions.length === 0) {
+            setLoadError("Dette løb har ingen gyldige GPS-poster endnu.");
+          } else {
+            setQuestions(parsedQuestions);
+          }
+
+          setRaceMode(normalizeRaceMode(payload?.raceType));
+          setGpsOverride(Boolean(payload?.gpsOverride));
+          setCollectedEscapeRewards([]);
+          setEscapeReward(null);
+          setPostActionError(null);
+          setDismissedPostIndex(null);
+          submissionLockRef.current = false;
+          setIsSubmitting(false);
+          setIsSubmittingAnswer(false);
+          setShowMasterVictory(false);
+          setMasterLockStatus("locked");
+          setMasterLockError(null);
+          setMasterLockInputState("");
           setIsLoading(false);
           return;
+        } catch (error) {
+          if (!isActive) return;
+          if (!isTransientNetworkError(error)) {
+            console.error("Kunne ikke hente play-data:", error);
+            setLoadError("Kunne ikke hente løbet.");
+            setIsLoading(false);
+            return;
+          }
+
+          await waitForNetworkRetry();
         }
-
-        const parsedQuestions = Array.isArray(payload?.questions)
-          ? payload.questions.map(parseQuestion).filter((q): q is Question => q !== null)
-          : [];
-
-        if (parsedQuestions.length === 0) {
-          setLoadError("Dette løb har ingen gyldige GPS-poster endnu.");
-        } else {
-          setQuestions(parsedQuestions);
-        }
-
-        setRaceMode(normalizeRaceMode(payload?.raceType));
-        setCollectedEscapeRewards([]);
-        setEscapeReward(null);
-        setPostActionError(null);
-        setDismissedPostIndex(null);
-        submissionLockRef.current = false;
-        setIsSubmitting(false);
-        setIsSubmittingAnswer(false);
-        setShowMasterVictory(false);
-        setMasterLockStatus("locked");
-        setMasterLockError(null);
-        setMasterLockInputState("");
-        setIsLoading(false);
-      } catch (error) {
-        if (!isActive) return;
-        console.error("Kunne ikke hente play-data:", error);
-        setLoadError("Kunne ikke hente løbet.");
-        setIsLoading(false);
       }
     };
 
@@ -1125,7 +1222,7 @@ export function usePlayGameState({
     return () => {
       isActive = false;
     };
-  }, [sessionId]);
+  }, [isTransientNetworkError, sessionId, waitForNetworkRetry]);
 
   useEffect(() => {
     if (!showEscapeResults || !isEscapeRace || !sessionId || !participantId) return;
@@ -1136,37 +1233,53 @@ export function usePlayGameState({
       setIsLoadingEscapeResults(true);
       setEscapeResultsError(null);
 
-      const response = await fetch(
-        `/api/play/placements?sessionId=${encodeURIComponent(sessionId)}&participantId=${encodeURIComponent(participantId)}`,
-        {
-          cache: "no-store",
+      while (isActive) {
+        try {
+          const response = await fetch(
+            `/api/play/placements?sessionId=${encodeURIComponent(sessionId)}&participantId=${encodeURIComponent(participantId)}`,
+            {
+              cache: "no-store",
+            }
+          );
+          const payload = (await response.json().catch(() => null)) as
+            | { placements?: ParticipantRow[]; error?: string }
+            | null;
+
+          if (!isActive) return;
+
+          if (!response.ok) {
+            console.error("Kunne ikke hente escape-placeringer:", payload?.error ?? "Ukendt fejl");
+            setEscapeResults([]);
+            setEscapeResultsError("Placeringen kunne ikke hentes endnu. Prøv igen om et øjeblik.");
+            setIsLoadingEscapeResults(false);
+            return;
+          }
+
+          const rows = Array.isArray(payload?.placements) ? payload.placements : [];
+          const nextResults = rows
+            .filter((row) => typeof row.student_name === "string" && row.student_name.trim().length > 0)
+            .map((row, index) => ({
+              place: index + 1,
+              studentName: row.student_name?.trim() ?? `Deltager ${index + 1}`,
+              finishedAt: typeof row.finished_at === "string" ? row.finished_at : null,
+            }));
+
+          setEscapeResults(nextResults);
+          setIsLoadingEscapeResults(false);
+          return;
+        } catch (error) {
+          if (!isActive) return;
+          if (!isTransientNetworkError(error)) {
+            console.error("Kunne ikke hente escape-placeringer:", error);
+            setEscapeResults([]);
+            setEscapeResultsError("Placeringen kunne ikke hentes endnu. Prøv igen om et øjeblik.");
+            setIsLoadingEscapeResults(false);
+            return;
+          }
+
+          await waitForNetworkRetry();
         }
-      );
-      const payload = (await response.json().catch(() => null)) as
-        | { placements?: ParticipantRow[]; error?: string }
-        | null;
-
-      if (!isActive) return;
-
-      if (!response.ok) {
-        console.error("Kunne ikke hente escape-placeringer:", payload?.error ?? "Ukendt fejl");
-        setEscapeResults([]);
-        setEscapeResultsError("Placeringen kunne ikke hentes endnu. Prøv igen om et øjeblik.");
-        setIsLoadingEscapeResults(false);
-        return;
       }
-
-      const rows = Array.isArray(payload?.placements) ? payload.placements : [];
-      const nextResults = rows
-        .filter((row) => typeof row.student_name === "string" && row.student_name.trim().length > 0)
-        .map((row, index) => ({
-          place: index + 1,
-          studentName: row.student_name?.trim() ?? `Deltager ${index + 1}`,
-          finishedAt: typeof row.finished_at === "string" ? row.finished_at : null,
-        }));
-
-      setEscapeResults(nextResults);
-      setIsLoadingEscapeResults(false);
     };
 
     void fetchEscapeResults();
@@ -1174,7 +1287,14 @@ export function usePlayGameState({
     return () => {
       isActive = false;
     };
-  }, [isEscapeRace, participantId, sessionId, showEscapeResults]);
+  }, [
+    isEscapeRace,
+    isTransientNetworkError,
+    participantId,
+    sessionId,
+    showEscapeResults,
+    waitForNetworkRetry,
+  ]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -1302,9 +1422,11 @@ export function usePlayGameState({
             const nextStatus = (payload.new as { status?: string | null })?.status;
             if (nextStatus !== "finished") return;
 
+            clearRestoreRetryTimer();
             clearStoredActiveParticipant();
             setParticipantId(null);
             setShowQuestion(false);
+            setIsRestoringParticipant(false);
             setIsFinished(true);
           }
         )
@@ -1321,9 +1443,11 @@ export function usePlayGameState({
             if (!deletedId || !participantId) return;
             if (String(deletedId) !== participantId) return;
 
+            clearRestoreRetryTimer();
             clearStoredActiveParticipant();
             setParticipantId(null);
             setShowQuestion(false);
+            setIsRestoringParticipant(false);
             setIsKicked(true);
           }
         )
@@ -1356,7 +1480,7 @@ export function usePlayGameState({
         messageChannelRef.current = null;
       }
     };
-  }, [participantId, sessionId, supabase]);
+  }, [clearRestoreRetryTimer, participantId, sessionId, supabase]);
 
   const handleWrongQuizAnswer = useCallback((selectedIndex: number, feedbackKey: string) => {
     if (quizAnswerFeedbackTimerRef.current) {
@@ -1428,28 +1552,40 @@ export function usePlayGameState({
         throw new Error("Deltageren er ikke klar endnu. Prøv igen om et øjeblik.");
       }
 
-      const response = await fetch("/api/play/validate-answer", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-        body: JSON.stringify({
-          sessionId,
-          participantId,
-          postIndex: currentPostIndex,
-          ...payload,
-        }),
-      });
+      while (isMountedRef.current) {
+        try {
+          const response = await fetch("/api/play/validate-answer", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            cache: "no-store",
+            body: JSON.stringify({
+              sessionId,
+              participantId,
+              postIndex: currentPostIndex,
+              ...payload,
+            }),
+          });
 
-      const data = (await response.json().catch(() => null)) as ValidateAnswerPayload | null;
-      if (!response.ok) {
-        throw new Error(data?.error || "Svaret kunne ikke tjekkes.");
+          const data = (await response.json().catch(() => null)) as ValidateAnswerPayload | null;
+          if (!response.ok) {
+            throw new Error(data?.error || "Svaret kunne ikke tjekkes.");
+          }
+
+          return data;
+        } catch (error) {
+          if (!isTransientNetworkError(error)) {
+            throw error;
+          }
+
+          await waitForNetworkRetry();
+        }
       }
 
-      return data;
+      return null;
     },
-    [currentPostIndex, participantId, sessionId]
+    [currentPostIndex, isTransientNetworkError, participantId, sessionId, waitForNetworkRetry]
   );
 
   useEffect(() => {
@@ -1481,7 +1617,7 @@ export function usePlayGameState({
       if (!didFinish) {
         setPostActionError({
           key: activeTypedAnswerKey,
-          message: "Netværksfejl - prøv igen",
+          message: "Svar blev godkendt, men kunne ikke gemmes helt endnu. Prøv igen.",
         });
         return false;
       }
@@ -1539,12 +1675,12 @@ export function usePlayGameState({
         setPhotoFeedback({
           key: feedbackKey,
           tone: "error",
-          message: "Netværksfejl - prøv igen",
+          message: "Svaret kunne ikke gemmes endnu. Prøv igen.",
         });
       } else {
         setTypedAnswerError({
           key: feedbackKey,
-          message: "Netværksfejl - prøv igen",
+          message: "Svaret kunne ikke gemmes endnu. Prøv igen.",
         });
       }
       return false;
@@ -1695,24 +1831,45 @@ export function usePlayGameState({
     setIsFinalizingEscape(true);
 
     try {
-      const response = await fetch("/api/play/validate-master", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-        body: JSON.stringify({
-          sessionId,
-          masterCode: normalizedInput,
-        }),
-      });
-      const payload = (await response.json().catch(() => null)) as
-        | { isCorrect?: boolean; error?: string }
-        | null;
+      let payload:
+        | {
+            isCorrect?: boolean;
+            error?: string;
+          }
+        | null = null;
 
-      if (!response.ok) {
-        throw new Error(payload?.error || "Master-koden kunne ikke tjekkes.");
+      while (isMountedRef.current) {
+        try {
+          const response = await fetch("/api/play/validate-master", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            cache: "no-store",
+            body: JSON.stringify({
+              sessionId,
+              masterCode: normalizedInput,
+            }),
+          });
+          payload = (await response.json().catch(() => null)) as
+            | { isCorrect?: boolean; error?: string }
+            | null;
+
+          if (!response.ok) {
+            throw new Error(payload?.error || "Master-koden kunne ikke tjekkes.");
+          }
+
+          break;
+        } catch (error) {
+          if (!isTransientNetworkError(error)) {
+            throw error;
+          }
+
+          await waitForNetworkRetry();
+        }
       }
+
+      if (!isMountedRef.current) return;
 
       if (payload?.isCorrect !== true) {
         setMasterLockError("Forkert kode - prøv igen.");
@@ -1723,7 +1880,7 @@ export function usePlayGameState({
 
       const didFinish = await markParticipantFinished();
       if (!didFinish) {
-        setMasterLockError("Netværksfejl - prøv igen");
+        setMasterLockError("Målgangen kunne ikke gemmes endnu. Prøv igen.");
         setMasterLockStatus("locked");
         setMasterLockShakeNonce((prev) => prev + 1);
         return;
@@ -1872,28 +2029,56 @@ export function usePlayGameState({
 
     try {
       const image = await compressImageForUpload(file);
-      const formData = new FormData();
-      formData.append("image", image);
-      formData.append("sessionId", sessionId);
-      formData.append("participantId", participantId);
-      formData.append("postIndex", String(currentPostIndex));
+      let payload:
+        | {
+            isMatch?: boolean;
+            message?: string;
+            imageUrl?: string | null;
+            storedAnswer?: boolean;
+            error?: string;
+          }
+        | null = null;
 
-      const response = await fetch("/api/analyze-photo", {
-        method: "POST",
-        body: formData,
-      });
+      while (isMountedRef.current) {
+        try {
+          const formData = new FormData();
+          formData.append("image", image);
+          formData.append("sessionId", sessionId);
+          formData.append("participantId", participantId);
+          formData.append("postIndex", String(currentPostIndex));
 
-      const payload = (await response.json()) as {
-        isMatch?: boolean;
-        message?: string;
-        imageUrl?: string | null;
-        storedAnswer?: boolean;
-        error?: string;
-      };
+          const response = await fetch("/api/analyze-photo", {
+            method: "POST",
+            body: formData,
+          });
 
-      if (!response.ok || typeof payload.isMatch !== "boolean" || typeof payload.message !== "string") {
-        throw new Error(payload.error || "Ugyldigt svar fra billedanalysen.");
+          payload = (await response.json()) as {
+            isMatch?: boolean;
+            message?: string;
+            imageUrl?: string | null;
+            storedAnswer?: boolean;
+            error?: string;
+          };
+
+          if (
+            !response.ok ||
+            typeof payload.isMatch !== "boolean" ||
+            typeof payload.message !== "string"
+          ) {
+            throw new Error(payload.error || "Ugyldigt svar fra billedanalysen.");
+          }
+
+          break;
+        } catch (error) {
+          if (!isTransientNetworkError(error)) {
+            throw error;
+          }
+
+          await waitForNetworkRetry();
+        }
       }
+
+      if (!payload || !isMountedRef.current) return;
 
       if (!isMountedRef.current) return;
 
@@ -1902,7 +2087,7 @@ export function usePlayGameState({
         setPhotoFeedback({
           key: activeTypedAnswerKey,
           tone: "error",
-          message: formatPhotoFailureMessage(payload.message, isSelfie),
+          message: formatPhotoFailureMessage(payload.message ?? "", isSelfie),
         });
         return;
       }
@@ -1919,7 +2104,7 @@ export function usePlayGameState({
       setPhotoFeedback({
         key: activeTypedAnswerKey,
         tone: "success",
-        message: isSelfie ? `Selfie godkendt! ${payload.message}` : payload.message,
+        message: isSelfie ? `Selfie godkendt! ${payload.message ?? ""}` : payload.message ?? "",
       });
       setIsAnalyzingPhoto(false);
     } catch (error) {
@@ -2016,7 +2201,7 @@ export function usePlayGameState({
     resumeMessage,
   };
 
-  const screenMode: PlayScreenState["mode"] = isLoading
+  const screenMode: PlayScreenState["mode"] = isLoading || isRestoringParticipant
     ? "loading"
     : loadError
       ? "load_error"
@@ -2070,6 +2255,7 @@ export function usePlayGameState({
 
   const flags: PlayUiFlags = {
     canManualUnlock,
+    gpsOverrideEnabled: gpsOverride,
     hasActivePhotoSuccess,
     hasActiveQuizSuccess,
     hasAllEscapeBricks,

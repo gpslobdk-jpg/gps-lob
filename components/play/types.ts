@@ -131,6 +131,7 @@ export type EscapeResultEntry = {
 export type PlaySessionPayload = {
   questions?: unknown;
   raceType?: unknown;
+  gpsOverride?: boolean;
   error?: string;
 };
 
@@ -252,6 +253,7 @@ export interface PlayScreenState {
 
 export interface PlayUiFlags {
   canManualUnlock: boolean;
+  gpsOverrideEnabled: boolean;
   hasActivePhotoSuccess: boolean;
   hasActiveQuizSuccess: boolean;
   hasAllEscapeBricks: boolean;
