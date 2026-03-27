@@ -7,7 +7,6 @@ import {
   AUTO_UNLOCK_CONFIRMATION_HITS,
   AUTO_UNLOCK_RADIUS,
   LOCATION_SYNC_INTERVAL_MS,
-  MAX_ACCEPTABLE_GPS_ACCURACY_METERS,
   getDistance,
 } from "./playUtils";
 
@@ -67,14 +66,6 @@ export default function GPSManager({
     };
 
     const successHandler = async (position: GeolocationPosition) => {
-      const accuracy = Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null;
-      if (accuracy !== null && accuracy > MAX_ACCEPTABLE_GPS_ACCURACY_METERS) {
-        autoUnlockConfirmationRef.current = 0;
-        onGpsError("low_accuracy");
-        onDistanceChange(null);
-        return;
-      }
-
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
       onGpsError(null);

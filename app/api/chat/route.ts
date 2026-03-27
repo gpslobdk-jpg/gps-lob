@@ -2,6 +2,8 @@ import { openai } from "@ai-sdk/openai";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { NextResponse } from "next/server";
 
+export const maxDuration = 60;
+
 const SYSTEM_PROMPT = `
 Du er "GPSløb Eksperten" – den officielle guide på platformen.
 
@@ -105,8 +107,6 @@ SVARSTIL
 - Vær konkret nok til, at brugeren ved, hvad næste klik er.
 - Hvis noget er uklart, så giv det bedste praktiske næste skridt i stedet for at stoppe.
 `;
-
-export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {

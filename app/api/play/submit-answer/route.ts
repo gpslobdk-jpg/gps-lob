@@ -9,6 +9,7 @@ import {
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
 
 export const runtime = "edge";
+export const maxDuration = 60;
 
 type SubmitAnswerPayload = {
   payloads?: unknown;
