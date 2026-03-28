@@ -10,7 +10,7 @@ import ManualAiInterviewModal, {
   type ManualAiInterviewDraft,
 } from "@/components/builders/manual/ManualAiInterviewModal";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
-import type { SavedPin } from "@/components/MapPicker";
+import type { SavedPin, SavedZone } from "@/components/MapPicker";
 import { RACE_TYPES } from "@/utils/gpsRuns";
 import {
   consumeDraftAutoload,
@@ -840,6 +840,17 @@ function OpretLoebPageContent() {
     [questions]
   );
 
+  const previewZones = useMemo<SavedZone[]>(
+    () =>
+      pins.map((pin) => ({
+        id: pin.id,
+        lat: pin.lat,
+        lng: pin.lng,
+        radius,
+      })),
+    [pins, radius]
+  );
+
   function updateQuestion<K extends keyof Question>(
     id: number,
     key: K,
@@ -1421,7 +1432,7 @@ function OpretLoebPageContent() {
         <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
           <div className="lg:sticky lg:top-5">
             <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-slate-900/50 shadow-[0_0_0_1px_rgba(16,185,129,0.08),0_0_36px_rgba(16,185,129,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
-              <MapPicker center={mapCenter} pins={pins} zones={[]} onCenterChange={setMapCenter} />
+              <MapPicker center={mapCenter} pins={pins} zones={previewZones} onCenterChange={setMapCenter} />
             </div>
           </div>
         </aside>

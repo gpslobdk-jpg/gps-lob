@@ -11,7 +11,7 @@ import RollespilAiInterviewModal, {
   type RollespilAiInterviewQuestion,
 } from "@/components/builders/rollespil/RollespilAiInterviewModal";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
-import type { SavedPin } from "@/components/MapPicker";
+import type { SavedPin, SavedZone } from "@/components/MapPicker";
 import {
   DEFAULT_MAP_CENTER,
   RACE_TYPES,
@@ -705,6 +705,17 @@ function RollespilBuilderPageContent() {
     [questions]
   );
 
+  const previewZones = useMemo<SavedZone[]>(
+    () =>
+      pins.map((pin) => ({
+        id: pin.id,
+        lat: pin.lat,
+        lng: pin.lng,
+        radius,
+      })),
+    [pins, radius]
+  );
+
   const activePinQuestionIndex =
     activePinQuestionId === null ? -1 : questions.findIndex((question) => question.id === activePinQuestionId);
   const activePinLabel =
@@ -1325,6 +1336,7 @@ function RollespilBuilderPageContent() {
                 <MapPicker
                   center={mapCenter}
                   pins={pins}
+                  zones={previewZones}
                   onCenterChange={setMapCenter}
                   onMapClick={handleMapClick}
                   activePinLabel={activePinLabel}
