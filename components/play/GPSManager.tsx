@@ -5,7 +5,6 @@ import { useEffect, useRef } from "react";
 import type { GpsErrorState, Location } from "./types";
 import {
   AUTO_UNLOCK_CONFIRMATION_HITS,
-  AUTO_UNLOCK_RADIUS,
   LOCATION_SYNC_INTERVAL_MS,
   getDistance,
 } from "./playUtils";
@@ -13,6 +12,7 @@ import {
 type GPSManagerProps = {
   enabled: boolean;
   target: Location | null;
+  autoUnlockRadius: number | null;
   currentPostIndex: number;
   showQuestion: boolean;
   dismissedPostIndex: number | null;
@@ -27,6 +27,7 @@ type GPSManagerProps = {
 export default function GPSManager({
   enabled,
   target,
+  autoUnlockRadius,
   currentPostIndex,
   showQuestion,
   dismissedPostIndex,
@@ -76,7 +77,8 @@ export default function GPSManager({
         onDistanceChange(nextDistance);
 
         if (
-          nextDistance <= AUTO_UNLOCK_RADIUS &&
+          autoUnlockRadius !== null &&
+          nextDistance <= autoUnlockRadius &&
           !showQuestion &&
           dismissedPostIndex !== currentPostIndex
         ) {
@@ -89,7 +91,11 @@ export default function GPSManager({
           autoUnlockConfirmationRef.current = 0;
         }
 
-        if (nextDistance > AUTO_UNLOCK_RADIUS && dismissedPostIndex === currentPostIndex) {
+        if (
+          autoUnlockRadius !== null &&
+          nextDistance > autoUnlockRadius &&
+          dismissedPostIndex === currentPostIndex
+        ) {
           onDismissedReset();
         }
       } else {
@@ -203,6 +209,7 @@ export default function GPSManager({
     onSyncLocation,
     showQuestion,
     target,
+    autoUnlockRadius,
   ]);
 
   return null;

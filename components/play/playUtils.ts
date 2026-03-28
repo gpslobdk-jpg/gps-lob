@@ -11,7 +11,6 @@ import type {
 } from "./types";
 
 export const ACTIVE_PARTICIPANT_STORAGE_KEY = "gpslob_active_participant";
-export const AUTO_UNLOCK_RADIUS = 15;
 export const MANUAL_UNLOCK_RADIUS = 50;
 export const AUTO_UNLOCK_CONFIRMATION_HITS = 2;
 export const LOCATION_SYNC_INTERVAL_MS = 5000;

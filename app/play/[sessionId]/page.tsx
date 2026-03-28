@@ -31,6 +31,7 @@ function PlayScreen() {
       <GPSManager
         enabled={isTrackingEnabled}
         target={game.progress.map.targetLocation}
+        autoUnlockRadius={game.gps.autoUnlockRadius}
         currentPostIndex={game.progress.currentPostIndex}
         showQuestion={game.progress.showQuestion}
         dismissedPostIndex={game.progress.dismissedPostIndex}

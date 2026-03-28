@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   asTrimmedString,
   fetchRunForSession,
+  getRunRadiusMeters,
   normalizeRaceMode,
   resolveQuestionVariant,
   sanitizeQuestionForPlay,
@@ -60,6 +61,7 @@ export async function GET(request: NextRequest) {
       {
         questions,
         raceType,
+        radius: getRunRadiusMeters(run),
         gpsOverride: Boolean(sessionData?.gps_override),
       },
       {

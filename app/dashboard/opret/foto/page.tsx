@@ -189,11 +189,15 @@ const FOTO_DRAFT_STORAGE_KEY = "draft_run_foto";
 type FotoBuilderDraftState = {
   title?: unknown;
   subject?: unknown;
+  radius?: unknown;
   showTeacherField?: unknown;
   showAiInterviewModal?: unknown;
   questions?: unknown;
   mapCenter?: unknown;
 };
+
+const DEFAULT_RUN_RADIUS = 15;
+const RUN_RADIUS_OPTIONS = [15, 30, 50] as const;
 
 const createQuestion = (): Question => ({
   id: Date.now() + Math.floor(Math.random() * 100000),
@@ -224,6 +228,13 @@ function getStoredPhotoTarget(candidate: StoredPhotoQuestionRecord) {
   }
 
   return "";
+}
+
+function normalizeRunRadius(value: unknown) {
+  const parsed = asNumberOrNull(value);
+  return parsed !== null && RUN_RADIUS_OPTIONS.includes(parsed as (typeof RUN_RADIUS_OPTIONS)[number])
+    ? parsed
+    : DEFAULT_RUN_RADIUS;
 }
 
 const textInputClass =
@@ -383,6 +394,7 @@ function FotoMissionBuilderPageContent() {
   const isEditMode = editRunId.length > 0;
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
+  const [radius, setRadius] = useState<number>(DEFAULT_RUN_RADIUS);
   const [showTeacherField, setShowTeacherField] = useState(false);
   const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -421,6 +433,7 @@ function FotoMissionBuilderPageContent() {
 
     setTitle(restoreDraftString(draft.title));
     setSubject(restoredSubject);
+    setRadius(normalizeRunRadius(draft.radius));
     setShowTeacherField(restoreDraftBoolean(draft.showTeacherField, Boolean(restoredSubject.trim())));
     setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
     setShowAiInterviewModal(restoreDraftBoolean(draft.showAiInterviewModal));
@@ -491,7 +504,7 @@ function FotoMissionBuilderPageContent() {
 
         const { data: run, error } = await supabase
           .from("gps_runs")
-          .select("id,user_id,title,subject,description,topic,questions,race_type")
+          .select("id,user_id,title,subject,description,topic,questions,race_type,radius")
           .eq("id", editRunId)
           .eq("user_id", user.id)
           .maybeSingle<StoredRunRecord>();
@@ -526,6 +539,7 @@ function FotoMissionBuilderPageContent() {
 
         setTitle(asTrimmedString(run.title));
         setSubject(asTrimmedString(run.subject));
+        setRadius(normalizeRunRadius(run.radius));
         setShowTeacherField(Boolean(asTrimmedString(run.subject)));
         setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
         setShowAiInterviewModal(false);
@@ -606,6 +620,7 @@ function FotoMissionBuilderPageContent() {
     writeRunDraft(FOTO_DRAFT_STORAGE_KEY, editRunId, {
       title,
       subject,
+      radius,
       showTeacherField,
       showAiInterviewModal,
       questions,
@@ -615,6 +630,7 @@ function FotoMissionBuilderPageContent() {
     editRunId,
     mapCenter,
     questions,
+    radius,
     showAiInterviewModal,
     showTeacherField,
     showDraftRecoveryPrompt,
@@ -835,6 +851,7 @@ function FotoMissionBuilderPageContent() {
         description: "",
         topic: normalizedTopic,
         questions: normalizedQuestions,
+        radius,
         race_type: RACE_TYPES.FOTO,
       };
 
@@ -878,6 +895,7 @@ function FotoMissionBuilderPageContent() {
       if (!isEditMode) {
         setTitle("");
         setSubject("");
+        setRadius(DEFAULT_RUN_RADIUS);
         setShowTeacherField(false);
         setQuestions([createQuestion()]);
       }
@@ -982,6 +1000,29 @@ function FotoMissionBuilderPageContent() {
                       </option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              <div className="px-1">
+                <div className="rounded-[1.5rem] border border-sky-500/30 bg-sky-950/20 p-4 backdrop-blur-xl">
+                  <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
+                    GPS-radius
+                  </label>
+                  <select
+                    value={radius}
+                    onChange={(event) => setRadius(normalizeRunRadius(event.target.value))}
+                    disabled={isEditorBusy}
+                    className="w-full rounded-2xl border border-sky-500/30 bg-sky-950/20 px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    {RUN_RADIUS_OPTIONS.map((radiusOption) => (
+                      <option key={radiusOption} value={radiusOption} className="bg-slate-900 text-white">
+                        {radiusOption} meter
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-sm text-sky-100/70">
+                    Vælg hvor tæt eleven skal være på posten, før GPS-låsen åbner.
+                  </p>
                 </div>
               </div>
 

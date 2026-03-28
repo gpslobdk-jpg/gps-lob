@@ -34,7 +34,6 @@ import type {
   WakeLockSentinelLike,
 } from "./types";
 import {
-  AUTO_UNLOCK_RADIUS,
   MANUAL_UNLOCK_RADIUS,
   buildRouteOrder,
   clearStoredActiveParticipant,
@@ -172,6 +171,7 @@ export function usePlayGameState({
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
   const [sessionStatus, setSessionStatus] = useState<string | null>(null);
   const [gpsOverride, setGpsOverride] = useState(false);
+  const [autoUnlockRadius, setAutoUnlockRadius] = useState<number | null>(null);
   const [locationSyncErrors, setLocationSyncErrors] = useState(0);
   const [restoreRetryNonce, setRestoreRetryNonce] = useState(0);
   const [isRestoringParticipant, setIsRestoringParticipant] = useState(false);
@@ -672,7 +672,8 @@ export function usePlayGameState({
     !showQuestion &&
     (gpsOverride ||
       (distance !== null &&
-        ((distance > AUTO_UNLOCK_RADIUS && distance <= MANUAL_UNLOCK_RADIUS) ||
+        autoUnlockRadius !== null &&
+        ((distance > autoUnlockRadius && distance <= MANUAL_UNLOCK_RADIUS) ||
           dismissedPostIndex === currentPostIndex)));
 
   const clearTypedAnswerError = useCallback(() => {
@@ -978,7 +979,11 @@ export function usePlayGameState({
             : null;
 
         setCurrentPostIndex(nextPostIndex);
-        if (restoredDistanceToNextPost !== null && restoredDistanceToNextPost <= AUTO_UNLOCK_RADIUS) {
+        if (
+          autoUnlockRadius !== null &&
+          restoredDistanceToNextPost !== null &&
+          restoredDistanceToNextPost <= autoUnlockRadius
+        ) {
           setDismissedPostIndex(null);
           setShowQuestion(true);
           setDistanceState(restoredDistanceToNextPost);
@@ -1014,6 +1019,7 @@ export function usePlayGameState({
     questions,
     questions.length,
     raceMode,
+    autoUnlockRadius,
     restoreRetryNonce,
     scheduleRestoreRetry,
     supabase,
@@ -1162,6 +1168,7 @@ export function usePlayGameState({
     const fetchRun = async () => {
       setIsLoading(true);
       setLoadError("");
+      setAutoUnlockRadius(null);
 
       while (isActive) {
         try {
@@ -1178,6 +1185,13 @@ export function usePlayGameState({
             return;
           }
 
+          const parsedRadius = toFiniteNumber(payload?.radius);
+          if (parsedRadius === null || parsedRadius <= 0) {
+            setLoadError("Kunne ikke hente GPS-radius for løbet.");
+            setIsLoading(false);
+            return;
+          }
+
           const parsedQuestions = Array.isArray(payload?.questions)
             ? payload.questions.map(parseQuestion).filter((q): q is Question => q !== null)
             : [];
@@ -1189,6 +1203,7 @@ export function usePlayGameState({
           }
 
           setRaceMode(normalizeRaceMode(payload?.raceType));
+          setAutoUnlockRadius(Math.round(parsedRadius));
           setGpsOverride(Boolean(payload?.gpsOverride));
           setCollectedEscapeRewards([]);
           setEscapeReward(null);
@@ -2149,6 +2164,7 @@ export function usePlayGameState({
   const gps: PlayGpsState = {
     myLoc,
     distance,
+    autoUnlockRadius,
     gpsError,
     gpsErrorContent,
     gpsWarningContent,

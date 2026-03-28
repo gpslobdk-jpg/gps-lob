@@ -195,11 +195,15 @@ const ROLLESPIL_DRAFT_STORAGE_KEY = "draft_run_rollespil";
 type RollespilBuilderDraftState = {
   title?: unknown;
   subject?: unknown;
+  radius?: unknown;
   showTeacherField?: unknown;
   showAiInterviewModal?: unknown;
   questions?: unknown;
   mapCenter?: unknown;
 };
+
+const DEFAULT_RUN_RADIUS = 15;
+const RUN_RADIUS_OPTIONS = [15, 30, 50] as const;
 
 const textInputClass =
   "w-full rounded-2xl border border-violet-500/30 bg-violet-950/20 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500";
@@ -239,6 +243,13 @@ function fallbackCharacterName(index: number) {
 
 function fallbackAvatar() {
   return "🎭";
+}
+
+function normalizeRunRadius(value: unknown) {
+  const parsed = asNumberOrNull(value);
+  return parsed !== null && RUN_RADIUS_OPTIONS.includes(parsed as (typeof RUN_RADIUS_OPTIONS)[number])
+    ? parsed
+    : DEFAULT_RUN_RADIUS;
 }
 
 function parseRoleplayText(rawText: string, index: number) {
@@ -429,6 +440,7 @@ function RollespilBuilderPageContent() {
   const isEditMode = editRunId.length > 0;
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
+  const [radius, setRadius] = useState<number>(DEFAULT_RUN_RADIUS);
   const [showTeacherField, setShowTeacherField] = useState(false);
   const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -469,6 +481,7 @@ function RollespilBuilderPageContent() {
 
     setTitle(restoreDraftString(draft.title));
     setSubject(restoredSubject);
+    setRadius(normalizeRunRadius(draft.radius));
     setShowTeacherField(
       restoreDraftBoolean(draft.showTeacherField, Boolean(restoredSubject.trim()))
     );
@@ -524,7 +537,7 @@ function RollespilBuilderPageContent() {
 
       const { data: run, error } = await supabase
         .from("gps_runs")
-        .select("id,user_id,title,subject,description,topic,questions,race_type")
+        .select("id,user_id,title,subject,description,topic,questions,race_type,radius")
         .eq("id", editRunId)
         .eq("user_id", user.id)
         .single<StoredRunRecord>();
@@ -546,6 +559,7 @@ function RollespilBuilderPageContent() {
 
       setTitle(asTrimmedString(run.title));
       setSubject(asTrimmedString(run.subject));
+      setRadius(normalizeRunRadius(run.radius));
       setShowTeacherField(Boolean(asTrimmedString(run.subject)));
       setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
       setActivePinTarget(findFirstUnpinnedQuestionId(loadedQuestions));
@@ -627,6 +641,7 @@ function RollespilBuilderPageContent() {
     writeRunDraft(ROLLESPIL_DRAFT_STORAGE_KEY, editRunId, {
       title,
       subject,
+      radius,
       showTeacherField,
       showAiInterviewModal,
       questions,
@@ -636,6 +651,7 @@ function RollespilBuilderPageContent() {
     editRunId,
     mapCenter,
     questions,
+    radius,
     showAiInterviewModal,
     showTeacherField,
     showDraftRecoveryPrompt,
@@ -993,6 +1009,7 @@ function RollespilBuilderPageContent() {
         description: "",
         topic: normalizedTopic,
         questions: normalizedQuestions,
+        radius,
         race_type: RACE_TYPES.ROLLESPIL,
       };
 
@@ -1036,6 +1053,7 @@ function RollespilBuilderPageContent() {
       if (!isEditMode) {
         setTitle("");
         setSubject("");
+        setRadius(DEFAULT_RUN_RADIUS);
         setShowTeacherField(false);
         setQuestions([createQuestion()]);
         setActivePinTarget(null);
@@ -1132,6 +1150,29 @@ function RollespilBuilderPageContent() {
                       </option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              <div className="px-1">
+                <div className="rounded-[1.5rem] border border-violet-500/30 bg-violet-950/20 p-4 backdrop-blur-xl">
+                  <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">
+                    GPS-radius
+                  </label>
+                  <select
+                    value={radius}
+                    onChange={(event) => setRadius(normalizeRunRadius(event.target.value))}
+                    disabled={isEditorBusy}
+                    className="w-full appearance-none rounded-2xl border border-violet-500/30 bg-violet-950/20 p-3 text-slate-100 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    {RUN_RADIUS_OPTIONS.map((radiusOption) => (
+                      <option key={radiusOption} value={radiusOption} className="bg-slate-900 text-white">
+                        {radiusOption} meter
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-sm text-violet-100/70">
+                    Vælg hvor tæt eleven skal være på posten, før GPS-låsen åbner.
+                  </p>
                 </div>
               </div>
 

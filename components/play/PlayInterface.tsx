@@ -8,7 +8,6 @@ import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type Rea
 
 import type { PlayActions, PlayUiState } from "./types";
 import {
-  AUTO_UNLOCK_RADIUS,
   FIREWORKS_LOTTIE_URL,
   formatFinishedAt,
   formatPlacement,
@@ -130,6 +129,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   } = player;
   const {
     distance,
+    autoUnlockRadius,
     gpsErrorContent = { title: "", message: "", helper: "" },
     gpsWarningContent,
   } = gps;
@@ -192,6 +192,11 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     isAnalyzingPhoto,
     isCheckingEscapeAnswer,
   } = flags;
+  const isWithinAutoUnlockRadius =
+    !gpsOverrideEnabled &&
+    autoUnlockRadius !== null &&
+    distance !== null &&
+    distance <= autoUnlockRadius;
   const normalizedActiveDisplayName = activeDisplayName.trim().toLocaleLowerCase("da-DK");
   const blockingGpsErrorContent = gpsErrorContent ?? { title: "", message: "", helper: "" };
   const tacticalHudShellClass =
@@ -940,7 +945,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                         </p>
                         <p
                           className={`mt-2 text-2xl md:text-3xl font-black ${
-                            gpsOverrideEnabled || (distance !== null && distance <= AUTO_UNLOCK_RADIUS)
+                            gpsOverrideEnabled || isWithinAutoUnlockRadius
                               ? "text-white"
                               : "text-white/90"
                           }`}
@@ -950,7 +955,9 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                         <p className="mt-2 font-mono text-xs uppercase tracking-widest text-white/70">
                           {gpsOverrideEnabled
                             ? "GPS-kravet er slået fra for denne session."
-                            : "GPS låser automatisk op tæt på posten."}
+                            : autoUnlockRadius !== null
+                              ? `GPS låser automatisk op inden for ${autoUnlockRadius} meter.`
+                              : "GPS-radius hentes..."}
                         </p>
                       </div>
                     </div>

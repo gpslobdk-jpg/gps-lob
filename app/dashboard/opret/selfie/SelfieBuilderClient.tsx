@@ -110,10 +110,14 @@ type SelfieBuilderDraftState = {
   title?: unknown;
   description?: unknown;
   subject?: unknown;
+  radius?: unknown;
   showAiInterviewModal?: unknown;
   questions?: unknown;
   mapCenter?: unknown;
 };
+
+const DEFAULT_RUN_RADIUS = 15;
+const RUN_RADIUS_OPTIONS = [15, 30, 50] as const;
 
 const textInputClass =
   "w-full rounded-2xl border border-rose-500/30 bg-rose-950/20 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
@@ -142,6 +146,13 @@ const createQuestion = (): Question => ({
   lat: null,
   lng: null,
 });
+
+function normalizeRunRadius(value: unknown) {
+  const parsed = asNumberOrNull(value);
+  return parsed !== null && RUN_RADIUS_OPTIONS.includes(parsed as (typeof RUN_RADIUS_OPTIONS)[number])
+    ? parsed
+    : DEFAULT_RUN_RADIUS;
+}
 
 function getStoredTargetObject(candidate: StoredSelfieQuestionRecord) {
   const normalizedPrompt = asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt);
@@ -252,6 +263,7 @@ export default function SelfieBuilderClient() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [subject, setSubject] = useState("");
+  const [radius, setRadius] = useState<number>(DEFAULT_RUN_RADIUS);
   const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingExistingRun, setIsLoadingExistingRun] = useState(isEditMode);
@@ -275,6 +287,7 @@ export default function SelfieBuilderClient() {
     setTitle(restoreDraftString(draft.title));
     setDescription(restoreDraftString(draft.description));
     setSubject(restoreDraftString(draft.subject));
+    setRadius(normalizeRunRadius(draft.radius));
     setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
     setShowAiInterviewModal(restoreDraftBoolean(draft.showAiInterviewModal));
     setMapCenter(restoreDraftMapCenter(draft.mapCenter, DEFAULT_MAP_CENTER));
@@ -338,7 +351,7 @@ export default function SelfieBuilderClient() {
 
         const { data: run, error } = await supabase
           .from("gps_runs")
-          .select("id,user_id,title,subject,description,topic,questions,race_type")
+          .select("id,user_id,title,subject,description,topic,questions,race_type,radius")
           .eq("id", editRunId)
           .eq("user_id", user.id)
           .single<StoredRunRecord>();
@@ -364,6 +377,7 @@ export default function SelfieBuilderClient() {
         setTitle(asTrimmedString(run.title));
         setDescription(nextDescription);
         setSubject(asTrimmedString(run.subject));
+        setRadius(normalizeRunRadius(run.radius));
         setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
         setShowAiInterviewModal(false);
         setMapCenter(
@@ -444,6 +458,7 @@ export default function SelfieBuilderClient() {
       title,
       description,
       subject,
+      radius,
       showAiInterviewModal,
       questions,
       mapCenter,
@@ -453,6 +468,7 @@ export default function SelfieBuilderClient() {
     editRunId,
     mapCenter,
     questions,
+    radius,
     showAiInterviewModal,
     showDraftRecoveryPrompt,
     subject,
@@ -651,6 +667,7 @@ export default function SelfieBuilderClient() {
         description: normalizedDescription,
         topic: normalizedDescription || title.trim(),
         questions: normalizedQuestions,
+        radius,
         race_type: RACE_TYPES.SELFIE,
       };
 
@@ -691,6 +708,7 @@ export default function SelfieBuilderClient() {
         setTitle("");
         setDescription("");
         setSubject("");
+        setRadius(DEFAULT_RUN_RADIUS);
         setQuestions([createQuestion()]);
       }
 
@@ -788,6 +806,29 @@ export default function SelfieBuilderClient() {
                         </option>
                       ))}
                     </select>
+                  </div>
+                </div>
+
+                <div className="px-1">
+                  <div className="rounded-[1.4rem] border border-rose-500/30 bg-rose-950/20 p-4 backdrop-blur-xl">
+                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
+                      GPS-radius
+                    </label>
+                    <select
+                      value={radius}
+                      onChange={(event) => setRadius(normalizeRunRadius(event.target.value))}
+                      disabled={isEditorBusy}
+                      className="w-full appearance-none rounded-2xl border border-rose-500/30 bg-rose-950/20 p-3 text-slate-100 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      {RUN_RADIUS_OPTIONS.map((radiusOption) => (
+                        <option key={radiusOption} value={radiusOption} className="bg-slate-900 text-white">
+                          {radiusOption} meter
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-sm text-rose-100/70">
+                      Vælg hvor tæt eleven skal være på posten, før GPS-låsen åbner.
+                    </p>
                   </div>
                 </div>
 

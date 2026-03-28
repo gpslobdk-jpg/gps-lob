@@ -31,6 +31,7 @@ export type StoredRunRecord = {
   description: string | null;
   topic: string | null;
   questions: unknown;
+  radius?: number | null;
   race_type?: string | null;
   raceType?: string | null;
 };

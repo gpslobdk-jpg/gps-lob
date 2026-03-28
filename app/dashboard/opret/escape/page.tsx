@@ -194,10 +194,14 @@ type EscapeBuilderDraftState = {
   title?: unknown;
   masterCode?: unknown;
   subject?: unknown;
+  radius?: unknown;
   showAiInterviewModal?: unknown;
   questions?: unknown;
   mapCenter?: unknown;
 };
+
+const DEFAULT_RUN_RADIUS = 15;
+const RUN_RADIUS_OPTIONS = [15, 30, 50] as const;
 
 const textInputClass =
   "w-full rounded-2xl border border-amber-500/30 bg-amber-950/20 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
@@ -257,6 +261,13 @@ function toEscapeQuestions(value: unknown): Question[] {
 
 function toEscapeAnswers(solution: string): [string, string, string, string] {
   return [solution, "", "", ""];
+}
+
+function normalizeRunRadius(value: unknown) {
+  const parsed = asNumberOrNull(value);
+  return parsed !== null && RUN_RADIUS_OPTIONS.includes(parsed as (typeof RUN_RADIUS_OPTIONS)[number])
+    ? parsed
+    : DEFAULT_RUN_RADIUS;
 }
 
 function fallbackCodeBrick(index: number) {
@@ -368,6 +379,7 @@ function EscapeBuilderPageContent() {
   const [title, setTitle] = useState("");
   const [masterCode, setMasterCode] = useState("");
   const [subject, setSubject] = useState("");
+  const [radius, setRadius] = useState<number>(DEFAULT_RUN_RADIUS);
   const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingExistingRun, setIsLoadingExistingRun] = useState(isEditMode);
@@ -405,6 +417,7 @@ function EscapeBuilderPageContent() {
     setTitle(restoreDraftString(draft.title));
     setMasterCode(restoreDraftString(draft.masterCode));
     setSubject(restoredSubject);
+    setRadius(normalizeRunRadius(draft.radius));
     setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
     setShowAiInterviewModal(restoreDraftBoolean(draft.showAiInterviewModal));
     setMapCenter(restoreDraftMapCenter(draft.mapCenter, DEFAULT_MAP_CENTER));
@@ -455,7 +468,7 @@ function EscapeBuilderPageContent() {
 
         const { data: run, error } = await supabase
           .from("gps_runs")
-          .select("id,user_id,title,subject,description,topic,questions,race_type")
+          .select("id,user_id,title,subject,description,topic,questions,race_type,radius")
           .eq("id", editRunId)
           .eq("user_id", user.id)
           .single<StoredRunRecord>();
@@ -478,6 +491,7 @@ function EscapeBuilderPageContent() {
         setTitle(asTrimmedString(run.title));
         setMasterCode(readMasterCodeFromDescription(run.description));
         setSubject(asTrimmedString(run.subject));
+        setRadius(normalizeRunRadius(run.radius));
         setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
         setShowAiInterviewModal(false);
         setMapCenter(
@@ -558,6 +572,7 @@ function EscapeBuilderPageContent() {
       title,
       masterCode,
       subject,
+      radius,
       showAiInterviewModal,
       questions,
       mapCenter,
@@ -567,6 +582,7 @@ function EscapeBuilderPageContent() {
     mapCenter,
     masterCode,
     questions,
+    radius,
     showAiInterviewModal,
     showDraftRecoveryPrompt,
     subject,
@@ -812,6 +828,7 @@ function EscapeBuilderPageContent() {
         description: serializeEscapeDescription("", normalizedMasterCode),
         topic: normalizedTopic,
         questions: normalizedQuestions,
+        radius,
         race_type: RACE_TYPES.ESCAPE,
       };
 
@@ -856,6 +873,7 @@ function EscapeBuilderPageContent() {
         setTitle("");
         setMasterCode("");
         setSubject("");
+        setRadius(DEFAULT_RUN_RADIUS);
         setQuestions([createQuestion()]);
       }
 
@@ -960,6 +978,27 @@ function EscapeBuilderPageContent() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="rounded-[1.4rem] border border-amber-500/30 bg-amber-950/20 p-4 backdrop-blur-xl">
+                <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
+                  GPS-radius
+                </label>
+                <select
+                  value={radius}
+                  onChange={(event) => setRadius(normalizeRunRadius(event.target.value))}
+                  disabled={isEditorBusy}
+                  className="w-full appearance-none rounded-2xl border border-amber-500/30 bg-amber-950/20 p-3 text-slate-100 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                >
+                  {RUN_RADIUS_OPTIONS.map((radiusOption) => (
+                    <option key={radiusOption} value={radiusOption} className="bg-slate-900 text-white">
+                      {radiusOption} meter
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-sm text-amber-100/70">
+                  Vælg hvor tæt eleven skal være på posten, før GPS-låsen åbner.
+                </p>
               </div>
 
               <div className="rounded-3xl border border-amber-500/30 bg-amber-950/20 p-4 shadow-[0_20px_48px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:p-5">

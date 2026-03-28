@@ -8,6 +8,7 @@ import {
   getCorrectIndex,
   getExpectedAnswer,
   getLocationDistanceMeters,
+  getServerPositionValidationRadius,
   normalizeEscapeAnswer,
   resolveQuestionVariant,
 } from "@/app/api/play/_shared";
@@ -22,8 +23,6 @@ type ValidateAnswerPayload = {
   answer?: unknown;
   selectedIndex?: unknown;
 };
-
-const SERVER_POSITION_VALIDATION_RADIUS_METERS = 200;
 
 function getPostType(rawQuestion: unknown) {
   if (!rawQuestion || typeof rawQuestion !== "object" || Array.isArray(rawQuestion)) return null;
@@ -59,7 +58,12 @@ function getQuestionCoordinates(rawQuestion: unknown) {
   return { lat, lng };
 }
 
-async function validateParticipantPosition(sessionId: string, participantId: string, rawQuestion: unknown) {
+async function validateParticipantPosition(
+  sessionId: string,
+  participantId: string,
+  rawQuestion: unknown,
+  validationRadiusMeters: number
+) {
   const adminSupabase = createAdminClient();
   if (!adminSupabase) {
     throw new Error(ADMIN_ACCESS_MISSING_MESSAGE);
@@ -85,7 +89,7 @@ async function validateParticipantPosition(sessionId: string, participantId: str
     questionCoordinates.lng
   );
 
-  if (distanceToPost > SERVER_POSITION_VALIDATION_RADIUS_METERS) {
+  if (distanceToPost > validationRadiusMeters) {
     return "Du er for langt væk fra posten til at svare.";
   }
 
@@ -118,6 +122,7 @@ export async function POST(request: NextRequest) {
     }
 
     const rawQuestion = run.questions[postIndex];
+  const validationRadiusMeters = getServerPositionValidationRadius(run);
     // Allow explicit post_type to short-circuit validation (e.g. intro posts)
     const postType = getPostType(rawQuestion);
 
@@ -130,7 +135,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Deltager-id mangler." }, { status: 400 });
     }
 
-    const positionValidationError = await validateParticipantPosition(sessionId, participantId, rawQuestion);
+    const positionValidationError = await validateParticipantPosition(
+      sessionId,
+      participantId,
+      rawQuestion,
+      validationRadiusMeters
+    );
     if (positionValidationError) {
       return NextResponse.json({ error: positionValidationError }, { status: 403 });
     }

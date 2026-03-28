@@ -162,6 +162,7 @@ type StoredRunRecord = {
   description: string | null;
   topic: string | null;
   questions: unknown;
+  radius?: number | null;
 };
 
 type StoredQuestionRecord = {
@@ -215,11 +216,15 @@ type ManualBuilderDraftState = {
   title?: unknown;
   description?: unknown;
   subject?: unknown;
+  radius?: unknown;
   showTeacherField?: unknown;
   showAiInterviewModal?: unknown;
   questions?: unknown;
   mapCenter?: unknown;
 };
+
+const DEFAULT_RUN_RADIUS = 15;
+const RUN_RADIUS_OPTIONS = [15, 30, 50] as const;
 
 const createQuestion = (type: Question["type"] = "multiple_choice"): Question => ({
   id: Date.now() + Math.floor(Math.random() * 100000),
@@ -257,6 +262,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeRunRadius(value: unknown) {
+  const parsed = asNumberOrNull(value);
+  return parsed !== null && RUN_RADIUS_OPTIONS.includes(parsed as (typeof RUN_RADIUS_OPTIONS)[number])
+    ? parsed
+    : DEFAULT_RUN_RADIUS;
 }
 
 function asNumberOrNull(value: unknown) {
@@ -409,6 +421,7 @@ function OpretLoebPageContent() {
   const addQuestionLabel = "Tilføj nyt matematikspørgsmål";
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [radius, setRadius] = useState<number>(DEFAULT_RUN_RADIUS);
   const [showTeacherField, setShowTeacherField] = useState(true);
   const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -443,6 +456,7 @@ function OpretLoebPageContent() {
 
     setTitle(restoreDraftString(draft.title));
     setDescription(restoreDraftString(draft.description));
+    setRadius(normalizeRunRadius(draft.radius));
     setShowTeacherField(restoreDraftBoolean(draft.showTeacherField, true));
     setShowAiInterviewModal(restoreDraftBoolean(draft.showAiInterviewModal));
     setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion(defaultQuestionType)]);
@@ -573,7 +587,7 @@ function OpretLoebPageContent() {
 
         const { data: run, error } = await supabase
           .from("gps_runs")
-          .select("id,user_id,title,subject,description,topic,questions")
+          .select("id,user_id,title,subject,description,topic,questions,radius")
           .eq("id", editRunId)
           .eq("user_id", user.id)
           .maybeSingle<StoredRunRecord>();
@@ -611,6 +625,7 @@ function OpretLoebPageContent() {
 
         setTitle(asTrimmedString(run.title));
         setDescription(nextDescription);
+        setRadius(normalizeRunRadius(run.radius));
         setShowTeacherField(true);
         setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion(defaultQuestionType)]);
         setShowAiInterviewModal(false);
@@ -689,6 +704,7 @@ function OpretLoebPageContent() {
       title,
       description,
       subject: MATH_SUBJECT,
+      radius,
       showTeacherField,
       showAiInterviewModal,
       questions,
@@ -699,6 +715,7 @@ function OpretLoebPageContent() {
     editRunId,
     mapCenter,
     questions,
+    radius,
     showAiInterviewModal,
     showTeacherField,
     showDraftRecoveryPrompt,
@@ -950,6 +967,7 @@ function OpretLoebPageContent() {
         description: normalizedDescription,
         topic: normalizedTopic,
         questions: normalizedQuestions,
+        radius,
         race_type: RACE_TYPES.MATEMATIK,
       };
 
@@ -993,6 +1011,7 @@ function OpretLoebPageContent() {
       if (!isEditMode) {
         setTitle("");
         setDescription("");
+        setRadius(DEFAULT_RUN_RADIUS);
         setShowTeacherField(true);
         setQuestions([createQuestion(defaultQuestionType)]);
       }
@@ -1105,6 +1124,29 @@ function OpretLoebPageContent() {
                     placeholder="F.eks. 5.A's store brøk-løb"
                     className="w-full rounded-[1.6rem] border border-amber-500/30 bg-amber-950/20 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                   />
+                </div>
+
+                <div className="px-1">
+                  <div className="rounded-[1.5rem] border border-amber-500/30 bg-amber-950/20 p-4 backdrop-blur-xl">
+                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
+                      GPS-radius
+                    </label>
+                    <select
+                      value={radius}
+                      onChange={(event) => setRadius(normalizeRunRadius(event.target.value))}
+                      disabled={isEditorBusy}
+                      className="w-full rounded-2xl border border-amber-500/30 bg-amber-950/20 px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      {RUN_RADIUS_OPTIONS.map((radiusOption) => (
+                        <option key={radiusOption} value={radiusOption} className="bg-slate-900 text-white">
+                          {radiusOption} meter
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-sm text-amber-100/70">
+                      Vælg hvor tæt eleven skal være på posten, før GPS-låsen åbner.
+                    </p>
+                  </div>
                 </div>
 
               <div className="space-y-4 px-1">

@@ -131,6 +131,7 @@ export type EscapeResultEntry = {
 export type PlaySessionPayload = {
   questions?: unknown;
   raceType?: unknown;
+  radius?: number | null;
   gpsOverride?: boolean;
   error?: string;
 };
@@ -171,6 +172,7 @@ export interface PlayPlayerState {
 export interface PlayGpsState {
   myLoc: Location | null;
   distance: number | null;
+  autoUnlockRadius: number | null;
   gpsError: GpsErrorState | null;
   gpsErrorContent: GpsErrorContent | null;
   gpsWarningContent: GpsErrorContent | null;

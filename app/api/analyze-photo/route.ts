@@ -8,6 +8,7 @@ import {
   fetchRunForSession,
   getPhotoMissionConfig,
   getLocationDistanceMeters,
+  getServerPositionValidationRadius,
   resolveQuestionVariant,
 } from "@/app/api/play/_shared";
 import {
@@ -18,7 +19,6 @@ import {
 export const maxDuration = 300;
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const SERVER_POSITION_VALIDATION_RADIUS_METERS = 65;
 
 type AdminSupabaseClient = NonNullable<ReturnType<typeof createAdminClient>>;
 
@@ -198,7 +198,8 @@ async function validateParticipantPosition(
   sessionId: string,
   participantId: string,
   rawQuestion: unknown,
-  adminSupabase: AdminSupabaseClient
+  adminSupabase: AdminSupabaseClient,
+  validationRadiusMeters: number
 ) {
   const questionCoordinates = getQuestionCoordinates(rawQuestion);
   if (!questionCoordinates) {
@@ -218,7 +219,7 @@ async function validateParticipantPosition(
     questionCoordinates.lat,
     questionCoordinates.lng
   );
-  if (distanceToPost > SERVER_POSITION_VALIDATION_RADIUS_METERS) {
+  if (distanceToPost > validationRadiusMeters) {
     return "Du skal være tættere på posten, før billedet kan godkendes.";
   }
 
@@ -429,6 +430,7 @@ export async function POST(req: Request) {
     }
 
     const rawQuestion = run.questions[postIndex];
+    const validationRadiusMeters = getServerPositionValidationRadius(run);
     const variant = resolveQuestionVariant(run.raceType ?? run.race_type, rawQuestion);
     if (variant !== "photo") {
       return NextResponse.json(
@@ -441,7 +443,8 @@ export async function POST(req: Request) {
       sessionId,
       participantId,
       rawQuestion,
-      adminSupabase
+      adminSupabase,
+      validationRadiusMeters
     );
     if (positionValidationError) {
       return NextResponse.json({ error: positionValidationError }, { status: 403 });

@@ -12,6 +12,7 @@ type RunRow = {
   description?: unknown;
   raceType?: unknown;
   race_type?: unknown;
+  radius?: unknown;
 };
 
 type ParticipantStartRow = {
@@ -27,6 +28,9 @@ type ParticipantLocationRow = {
 export type QuestionVariant = "quiz" | "photo" | "escape" | "roleplay" | "unknown";
 
 type AdminSupabaseClient = NonNullable<ReturnType<typeof createAdminClient>>;
+
+export const DEFAULT_RUN_RADIUS_METERS = 15;
+export const SERVER_POSITION_VALIDATION_BUFFER_METERS = 30;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -126,6 +130,19 @@ function toFiniteNumber(value: unknown) {
   }
 
   return null;
+}
+
+export function getRunRadiusMeters(run: Pick<RunRow, "radius"> | null | undefined) {
+  const parsedRadius = toFiniteNumber(run?.radius);
+  if (parsedRadius === null || !Number.isFinite(parsedRadius) || parsedRadius <= 0) {
+    return DEFAULT_RUN_RADIUS_METERS;
+  }
+
+  return Math.round(parsedRadius);
+}
+
+export function getServerPositionValidationRadius(run: Pick<RunRow, "radius"> | null | undefined) {
+  return getRunRadiusMeters(run) + SERVER_POSITION_VALIDATION_BUFFER_METERS;
 }
 
 export function normalizeServerStartOffset(startOffset: unknown, questionCount: number) {
