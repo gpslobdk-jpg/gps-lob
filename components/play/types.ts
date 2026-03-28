@@ -67,6 +67,15 @@ export type QuizAnswerFeedbackState = {
   tone: FeedbackTone;
 } | null;
 
+export type ZoneKrigCaptureStatus = "captured" | "blocked_by_shield" | "already_owned" | "zone_missing";
+
+export type ZoneKrigCaptureFeedbackState = {
+  key: string;
+  status: ZoneKrigCaptureStatus;
+  message: string;
+  shieldRemainingSeconds?: number;
+} | null;
+
 export type EscapeRewardState = {
   key: string;
   brick: string;
@@ -165,6 +174,8 @@ export interface PlayPlayerState {
   hasConfirmedName: boolean;
   nameError: string | null;
   participantId: string | null;
+  teamId: string | null;
+  teamColor: string | null;
   activeDisplayName: string;
   celebrationName: string;
 }
@@ -182,6 +193,7 @@ export interface PlayProgressState {
   questions: Question[];
   raceMode: RaceMode;
   currentPostIndex: number;
+  solvedPostIndexes: number[];
   displayPostNumber: number;
   totalQuestions: number;
   progressPercent: number;
@@ -204,6 +216,7 @@ export interface PlayCurrentPostState {
   activePostActionError: string | null;
   activePhotoFeedback: PhotoFeedbackState;
   activeQuizAnswerFeedback: QuizAnswerFeedbackState;
+  activeZoneKrigCaptureFeedback: ZoneKrigCaptureFeedbackState;
   activeEscapeReward: string | null;
   activeEscapeHint: string;
   activeRoleplayReply: RoleplayReplyState;
@@ -235,6 +248,7 @@ export interface PlayFeedbackState {
   photoFeedback: PhotoFeedbackState;
   postActionError: PostActionErrorState;
   quizAnswerFeedback: QuizAnswerFeedbackState;
+  zoneKrigCaptureFeedback: ZoneKrigCaptureFeedbackState;
   escapeReward: EscapeRewardState;
   roleplayReply: RoleplayReplyState;
   typedAnswerError: {
@@ -282,6 +296,7 @@ export interface PlayMapState {
 export interface PlayActions {
   confirmName: (name: string) => void;
   setPendingPlayerName: (value: string) => void;
+  selectPostIndex: (index: number) => void;
   setMasterLockInput: (value: string) => void;
   setShowEscapeResults: (value: boolean) => void;
   dismissLatestMessage: () => void;

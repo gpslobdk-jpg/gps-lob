@@ -125,9 +125,6 @@ const createQuestion = (): Question => ({
 const inputClass =
   "w-full rounded-2xl border border-cyan-500/30 bg-slate-900/40 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
-const textareaClass =
-  "w-full rounded-2xl border border-cyan-500/30 bg-slate-900/40 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -196,16 +193,13 @@ function toQuestionList(value: unknown): Question[] {
     .filter((q): q is Question => q !== null);
 }
 
-const isQuestionEmpty = (q: Question) =>
-  !q.text && !q.aiPrompt && !q.mediaUrl && q.answers.every((a) => !a) && q.lat === null && q.lng === null;
-
 export default function ZoneKrigBuilderPage() {
   return (
     <Suspense
       fallback={
         <div className={`min-h-screen bg-slate-950 ${poppins.className}`}>
           <div className="flex min-h-screen items-center justify-center px-6 text-center">
-            <div className="rounded-[2rem] border border-cyan-500/20 bg-slate-900/50 px-8 py-10 text-cyan-100 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+            <div className="rounded-4xl border border-cyan-500/20 bg-slate-900/50 px-8 py-10 text-cyan-100 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
               <p className="text-xs font-semibold tracking-[0.28em] text-cyan-100/55 uppercase">Indlæser</p>
               <h1 className={`mt-3 text-3xl font-black tracking-tight text-cyan-100 ${rubik.className}`}>
                 Zone-Krigen
@@ -248,7 +242,7 @@ function ZoneKrigBuilderContent() {
   const renderNotice = (className = "") =>
     notice ? (
       <div
-        className={`rounded-[1.5rem] border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
+        className={`rounded-3xl border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
           notice.tone === "success"
             ? "border-cyan-300/30 bg-cyan-500/10 text-cyan-50"
             : "border-red-300/30 bg-red-500/10 text-red-100"
@@ -557,7 +551,7 @@ function ZoneKrigBuilderContent() {
   if (isEditMode && isLoadingExistingRun) {
     return (
       <div className={`relative min-h-screen overflow-hidden bg-slate-950 text-cyan-100 ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-slate-900 via-slate-950 to-black" />
+        <div className="fixed inset-0 -z-10 bg-linear-to-br from-slate-900 via-slate-950 to-black" />
         <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
           <div className="w-full max-w-md rounded-3xl border border-cyan-500/20 bg-slate-900/60 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
             <Loader2 className="mx-auto h-10 w-10 animate-spin text-cyan-300" />
@@ -574,7 +568,7 @@ function ZoneKrigBuilderContent() {
   return (
     <>
       <div className={`relative min-h-screen overflow-x-hidden bg-slate-950 text-cyan-100 ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-slate-900 via-slate-950 to-black" />
+        <div className="fixed inset-0 -z-10 bg-linear-to-br from-slate-900 via-slate-950 to-black" />
         <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
           <MobileBuilderWarning />
 
@@ -605,7 +599,7 @@ function ZoneKrigBuilderContent() {
                       Zone-Krigen: Kommandocentral
                     </h2>
                     <p className="mt-2 text-sm leading-6 text-cyan-100/70">
-                      Omdan skolegården til en live multiplayer-arena. Placer zoner på kortet, tilknyt faglige spørgsmål, og lad holdene dyste om territoriet.
+                      Omdan skolegården til en live multiplayer-arena. Placer zoner på kortet, tilknyt zone-opgaver, og lad holdene dyste om territoriet.
                     </p>
                     <ul className="mt-4 space-y-2">
                       <li className="flex items-start gap-3 text-sm text-slate-300">
@@ -614,7 +608,7 @@ function ZoneKrigBuilderContent() {
                       </li>
                       <li className="flex items-start gap-3 text-sm text-slate-300">
                         <Crosshair className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
-                        <span>Tilknyt et fagligt spørgsmål til hvert område - korrekt svar giver kontrol over zonen.</span>
+                        <span>Tilknyt en zone-opgave til hver zone - korrekt svar giver kontrol over zonen.</span>
                       </li>
                       <li className="flex items-start gap-3 text-sm text-slate-300">
                         <Flag className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
@@ -640,7 +634,7 @@ function ZoneKrigBuilderContent() {
 
                 {/* Subject */}
                 <div className="px-1">
-                  <div className="rounded-[1.5rem] border border-cyan-500/20 bg-slate-900/40 p-4 backdrop-blur-xl">
+                  <div className="rounded-3xl border border-cyan-500/20 bg-slate-900/40 p-4 backdrop-blur-xl">
                     <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-cyan-100/65 uppercase">
                       Emne
                     </label>
@@ -712,13 +706,13 @@ function ZoneKrigBuilderContent() {
 
                     <div className="mt-4">
                       <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-cyan-100/65 uppercase">
-                        Spørgsmålstekst
+                        Zone-opgave
                       </label>
                       <input
                         value={question.text}
                         onChange={(e) => updateQuestion(question.id, { text: e.target.value })}
                         disabled={isEditorBusy}
-                        placeholder="Skriv spørgsmålet her..."
+                        placeholder="Skriv zone-opgaven her..."
                         className={inputClass}
                       />
                     </div>
@@ -790,7 +784,7 @@ function ZoneKrigBuilderContent() {
                 ))}
 
                 {/* Add zone + save */}
-                <div className="rounded-[2rem] border border-cyan-500/20 bg-slate-900/50 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+                <div className="rounded-4xl border border-cyan-500/20 bg-slate-900/50 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
                   <button
                     type="button"
                     onClick={addQuestion}
@@ -798,7 +792,7 @@ function ZoneKrigBuilderContent() {
                     className="inline-flex items-center gap-2 rounded-[1.4rem] border border-cyan-500/30 bg-slate-900/40 px-4 py-3 text-sm font-semibold text-cyan-100 backdrop-blur-xl transition hover:bg-slate-800/50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                   >
                     <Plus className="h-4 w-4" />
-                    Tilføj ny zone
+                    Tilføj zone
                   </button>
 
                   <div ref={saveFeedbackRef} className="mt-6 space-y-4">
@@ -820,7 +814,7 @@ function ZoneKrigBuilderContent() {
           {/* Right panel: map */}
           <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
             <div className="lg:sticky lg:top-5">
-              <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-cyan-500/15 bg-slate-900/50 shadow-[0_0_0_1px_rgba(34,211,238,0.06),0_0_36px_rgba(34,211,238,0.06),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
+              <div className="h-[42vh] min-h-80 w-full overflow-hidden rounded-4xl border border-cyan-500/15 bg-slate-900/50 shadow-[0_0_0_1px_rgba(34,211,238,0.06),0_0_36px_rgba(34,211,238,0.06),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
                 <MapPicker center={mapCenter} pins={[]} zones={zones} onCenterChange={setMapCenter} />
               </div>
             </div>
@@ -831,7 +825,7 @@ function ZoneKrigBuilderContent() {
       {/* Draft recovery prompt */}
       {showDraftRecoveryPrompt ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-6 py-10 backdrop-blur-md">
-          <div className="w-full max-w-2xl rounded-[2rem] border border-cyan-400/25 bg-slate-950/90 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:p-8">
+          <div className="w-full max-w-2xl rounded-4xl border border-cyan-400/25 bg-slate-950/90 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-100/70">Redningskrans</p>
             <h2 className={`mt-3 text-3xl font-black tracking-tight text-cyan-50 ${rubik.className}`}>
               Vi fandt ugemte ændringer
@@ -843,14 +837,14 @@ function ZoneKrigBuilderContent() {
               <button
                 type="button"
                 onClick={handleRestoreDraft}
-                className="rounded-[1.5rem] border border-cyan-300/40 bg-cyan-400 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-300"
+                className="rounded-3xl border border-cyan-300/40 bg-cyan-400 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-300"
               >
                 Gendan ugemte ændringer
               </button>
               <button
                 type="button"
                 onClick={handleDiscardDraft}
-                className="rounded-[1.5rem] border border-white/15 bg-white/5 px-5 py-4 text-sm font-bold uppercase tracking-[0.18em] text-cyan-50 transition hover:bg-white/10"
+                className="rounded-3xl border border-white/15 bg-white/5 px-5 py-4 text-sm font-bold uppercase tracking-[0.18em] text-cyan-50 transition hover:bg-white/10"
               >
                 Slet kladde
               </button>

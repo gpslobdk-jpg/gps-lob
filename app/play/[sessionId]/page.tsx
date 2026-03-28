@@ -8,6 +8,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import GPSManager from "@/components/play/GPSManager";
 import { usePlayGameState } from "@/components/play/GameState";
 import PlayInterface from "@/components/play/PlayInterface";
+import ZoneKrigElevInterface from "@/components/play/ZoneKrigElevInterface";
 
 const MapDisplay = dynamic(() => import("@/components/play/MapDisplay"), { ssr: false });
 
@@ -18,6 +19,7 @@ function PlayScreen() {
   const sessionId = Array.isArray(rawSessionId) ? rawSessionId[0] : rawSessionId;
   const initialStudentName = searchParams.get("name")?.trim() || "";
   const game = usePlayGameState({ sessionId, initialStudentName });
+  const isZoneKrig = game.progress.raceMode === "zone_krig";
   const isTrackingEnabled =
     Boolean(sessionId) &&
     game.progress.questions.length > 0 &&
@@ -42,15 +44,19 @@ function PlayScreen() {
         onDismissedReset={game.actions.clearDismissedPost}
         onSyncLocation={game.actions.syncParticipantLocation}
       />
-      <PlayInterface ui={game} actions={game.actions}>
-        <MapDisplay
-          playerLocation={game.progress.map.playerLocation}
-          targetLocation={game.progress.map.targetLocation}
-          targetLabel={game.progress.map.targetLabel}
-          playerName={game.progress.map.playerName}
-          dimmed={game.flags.isRoleplayImmersed}
-        />
-      </PlayInterface>
+      {isZoneKrig ? (
+        <ZoneKrigElevInterface sessionId={sessionId} ui={game} actions={game.actions} />
+      ) : (
+        <PlayInterface ui={game} actions={game.actions}>
+          <MapDisplay
+            playerLocation={game.progress.map.playerLocation}
+            targetLocation={game.progress.map.targetLocation}
+            targetLabel={game.progress.map.targetLabel}
+            playerName={game.progress.map.playerName}
+            dimmed={game.flags.isRoleplayImmersed}
+          />
+        </PlayInterface>
+      )}
     </>
   );
 }

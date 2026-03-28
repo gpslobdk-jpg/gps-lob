@@ -5,10 +5,12 @@ import {
   extractEscapeCodeBrick,
   fetchParticipantLocationState,
   fetchRunForSession,
+  fetchZoneKrigZoneState,
   getCorrectIndex,
   getExpectedAnswer,
   getLocationDistanceMeters,
   getServerPositionValidationRadius,
+  isZoneKrigRaceType,
   normalizeEscapeAnswer,
   resolveQuestionVariant,
 } from "@/app/api/play/_shared";
@@ -58,20 +60,21 @@ function getQuestionCoordinates(rawQuestion: unknown) {
   return { lat, lng };
 }
 
+type ValidationTarget = {
+  lat: number;
+  lng: number;
+  label: string;
+};
+
 async function validateParticipantPosition(
   sessionId: string,
   participantId: string,
-  rawQuestion: unknown,
+  target: ValidationTarget,
   validationRadiusMeters: number
 ) {
   const adminSupabase = createAdminClient();
   if (!adminSupabase) {
     throw new Error(ADMIN_ACCESS_MISSING_MESSAGE);
-  }
-
-  const questionCoordinates = getQuestionCoordinates(rawQuestion);
-  if (!questionCoordinates) {
-    return "Posten mangler gyldige GPS-koordinater.";
   }
 
   const participantState = await fetchParticipantLocationState(sessionId, participantId, adminSupabase);
@@ -85,12 +88,12 @@ async function validateParticipantPosition(
   const distanceToPost = getLocationDistanceMeters(
     participantLat,
     participantLng,
-    questionCoordinates.lat,
-    questionCoordinates.lng
+    target.lat,
+    target.lng
   );
 
   if (distanceToPost > validationRadiusMeters) {
-    return "Du er for langt væk fra posten til at svare.";
+    return `Du er for langt væk fra ${target.label.toLocaleLowerCase("da-DK")} til at svare.`;
   }
 
   return null;
@@ -116,13 +119,19 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const adminSupabase = createAdminClient();
+    if (!adminSupabase) {
+      throw new Error(ADMIN_ACCESS_MISSING_MESSAGE);
+    }
+
     const run = await fetchRunForSession(sessionId);
     if (!run || !Array.isArray(run.questions) || postIndex >= run.questions.length) {
       return NextResponse.json({ error: "Gåden kunne ikke findes." }, { status: 404 });
     }
 
     const rawQuestion = run.questions[postIndex];
-  const validationRadiusMeters = getServerPositionValidationRadius(run);
+    const isZoneKrig = isZoneKrigRaceType(run.raceType ?? run.race_type);
+    const validationRadiusMeters = getServerPositionValidationRadius(run);
     // Allow explicit post_type to short-circuit validation (e.g. intro posts)
     const postType = getPostType(rawQuestion);
 
@@ -135,11 +144,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Deltager-id mangler." }, { status: 400 });
     }
 
+    let validationTarget: ValidationTarget | null = null;
+    let effectiveValidationRadiusMeters = validationRadiusMeters;
+
+    if (isZoneKrig) {
+      const zone = await fetchZoneKrigZoneState(sessionId, postIndex, adminSupabase);
+      const zoneLat = asFiniteNumber(zone?.center_lat);
+      const zoneLng = asFiniteNumber(zone?.center_lng);
+      const zoneRadius = asFiniteNumber(zone?.radius_m);
+
+      if (!zone || zoneLat === null || zoneLng === null || zoneRadius === null || zoneRadius <= 0) {
+        return NextResponse.json({ error: "Zonen kunne ikke valideres endnu." }, { status: 409 });
+      }
+
+      validationTarget = {
+        lat: zoneLat,
+        lng: zoneLng,
+        label: `Zone ${postIndex + 1}`,
+      };
+      effectiveValidationRadiusMeters = Math.round(zoneRadius);
+    } else {
+      const questionCoordinates = getQuestionCoordinates(rawQuestion);
+      if (!questionCoordinates) {
+        return NextResponse.json({ error: "Posten mangler gyldige GPS-koordinater." }, { status: 400 });
+      }
+
+      validationTarget = {
+        lat: questionCoordinates.lat,
+        lng: questionCoordinates.lng,
+        label: "Posten",
+      };
+    }
+
     const positionValidationError = await validateParticipantPosition(
       sessionId,
       participantId,
-      rawQuestion,
-      validationRadiusMeters
+      validationTarget,
+      effectiveValidationRadiusMeters
     );
     if (positionValidationError) {
       return NextResponse.json({ error: positionValidationError }, { status: 403 });

@@ -32,6 +32,8 @@ import type {
   RoleplayReplyState,
   ValidateAnswerPayload,
   WakeLockSentinelLike,
+  ZoneKrigCaptureFeedbackState,
+  ZoneKrigCaptureStatus,
 } from "./types";
 import {
   MANUAL_UNLOCK_RADIUS,
@@ -83,6 +85,63 @@ const MAX_PLAYER_NAME_LENGTH = 20;
 const OFFLINE_VALIDATION_MESSAGE = "Ingen internetforbindelse. Tjek dit netværk og prøv igen.";
 const RESTORE_RETRY_DELAY_MS = 2500;
 const NETWORK_RETRY_DELAY_MS = 3000;
+
+type ZoneKrigCaptureApiResult = {
+  status?: ZoneKrigCaptureStatus;
+  shieldRemainingSeconds?: number | null;
+} | null;
+
+type InsertAnswerResult = {
+  didPersist: boolean;
+  zoneKrigCapture: ZoneKrigCaptureApiResult;
+};
+
+function formatShieldRemainingTime(seconds: number | null | undefined) {
+  if (!Number.isFinite(seconds) || (seconds ?? 0) <= 0) return "få sekunder";
+  const roundedSeconds = Math.max(0, Math.ceil(seconds ?? 0));
+  if (roundedSeconds < 60) return `${roundedSeconds} sekunder`;
+  const minutes = Math.floor(roundedSeconds / 60);
+  const remainingSeconds = roundedSeconds % 60;
+  if (remainingSeconds === 0) {
+    return minutes === 1 ? "1 minut" : `${minutes} minutter`;
+  }
+  return `${minutes} min ${remainingSeconds} sek`;
+}
+
+function buildZoneKrigCaptureFeedback(
+  captureResult: ZoneKrigCaptureApiResult,
+  key: string
+): ZoneKrigCaptureFeedbackState {
+  switch (captureResult?.status) {
+    case "captured":
+      return {
+        key,
+        status: "captured",
+        message: "Fantastisk! I har erobret zonen!",
+      };
+    case "blocked_by_shield":
+      return {
+        key,
+        status: "blocked_by_shield",
+        message: `Korrekt svar! Men zonen er beskyttet i ${formatShieldRemainingTime(captureResult.shieldRemainingSeconds)} endnu. Prøv igen senere.`,
+        shieldRemainingSeconds: captureResult.shieldRemainingSeconds ?? undefined,
+      };
+    case "already_owned":
+      return {
+        key,
+        status: "already_owned",
+        message: "I ejer allerede denne zone. Godt forsvaret!",
+      };
+    case "zone_missing":
+      return {
+        key,
+        status: "zone_missing",
+        message: "Korrekt svar, men zonen kunne ikke opdateres endnu. Prøv igen om lidt.",
+      };
+    default:
+      return null;
+  }
+}
 
 export function usePlayGameState({
   sessionId,
@@ -137,6 +196,7 @@ export function usePlayGameState({
   const [photoFeedback, setPhotoFeedback] = useState<PhotoFeedbackState>(null);
   const [postActionError, setPostActionError] = useState<PostActionErrorState>(null);
   const [quizAnswerFeedback, setQuizAnswerFeedback] = useState<QuizAnswerFeedbackState>(null);
+  const [zoneKrigCaptureFeedback, setZoneKrigCaptureFeedback] = useState<ZoneKrigCaptureFeedbackState>(null);
   const [escapeReward, setEscapeReward] = useState<EscapeRewardState>(null);
   const [collectedEscapeRewards, setCollectedEscapeRewards] = useState<EscapeCodeEntry[]>([]);
   const [roleplayReply, setRoleplayReply] = useState<RoleplayReplyState>(null);
@@ -163,12 +223,14 @@ export function usePlayGameState({
   );
   const [startOffset, setStartOffset] = useState(() => storedParticipantOnLoad?.startOffset ?? 0);
   const [teamId] = useState<string | null>(() => storedParticipantOnLoad?.teamId ?? null);
+  const [teamColor] = useState<string | null>(() => storedParticipantOnLoad?.teamColor ?? null);
   const supabase = useMemo(
     () => createClient({ participantId, sessionId }),
     [participantId, sessionId]
   );
   const [isProvisioningParticipant, setIsProvisioningParticipant] = useState(false);
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
+  const [solvedPostIndexes, setSolvedPostIndexes] = useState<number[]>([]);
   const [sessionStatus, setSessionStatus] = useState<string | null>(null);
   const [gpsOverride, setGpsOverride] = useState(false);
   const [autoUnlockRadius, setAutoUnlockRadius] = useState<number | null>(null);
@@ -187,6 +249,7 @@ export function usePlayGameState({
   const restoreRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const submissionLockRef = useRef(false);
   const isMountedRef = useRef(true);
+  const solvedPostIndexesRef = useRef<number[]>([]);
   const locationSyncErrorsRef = useRef(0);
   const locationSyncSuspendedRef = useRef(false);
   const locationSyncRecoveryCheckInFlightRef = useRef(false);
@@ -223,6 +286,10 @@ export function usePlayGameState({
     setLatestMessage(null);
   }, []);
 
+  useEffect(() => {
+    solvedPostIndexesRef.current = solvedPostIndexes;
+  }, [solvedPostIndexes]);
+
   const rememberActiveParticipant = useCallback(
     (nextParticipantId: string, nextStudentName: string, nextStartOffset?: number | null) => {
       if (!sessionId || !nextParticipantId) return;
@@ -245,9 +312,11 @@ export function usePlayGameState({
         studentName: normalizedName,
         startOffset: resolvedStartOffset,
         savedAt,
+        teamId: existing?.teamId ?? teamId ?? null,
+        teamColor: existing?.teamColor ?? teamColor ?? null,
       });
     },
-    [sessionId, startOffset]
+    [sessionId, startOffset, teamColor, teamId]
   );
 
   const registerParticipantIdentity = useCallback(
@@ -366,6 +435,8 @@ export function usePlayGameState({
   const activePhotoFeedback = photoFeedback?.key === activeTypedAnswerKey ? photoFeedback : null;
   const activeQuizAnswerFeedback =
     quizAnswerFeedback?.key === activeTypedAnswerKey ? quizAnswerFeedback : null;
+  const activeZoneKrigCaptureFeedback =
+    zoneKrigCaptureFeedback?.key === activeTypedAnswerKey ? zoneKrigCaptureFeedback : null;
   const hasActiveQuizSuccess = activePostVariant === "quiz" && activeQuizAnswerFeedback?.tone === "success";
   const hasActivePhotoSuccess = activePhotoFeedback?.tone === "success";
   const isSelfiePhotoTask = activePostVariant === "photo" && activeQuestion?.isSelfie === true;
@@ -442,7 +513,7 @@ export function usePlayGameState({
   }, []);
 
   const scheduleRestoreRetry = useCallback(
-    (_message: string) => {
+    () => {
       if (restoreRetryTimerRef.current !== null) {
         return;
       }
@@ -690,6 +761,7 @@ export function usePlayGameState({
     setPhotoFeedback(null);
     setPostActionError(null);
     setQuizAnswerFeedback(null);
+    setZoneKrigCaptureFeedback(null);
     setEscapeReward(null);
     setRoleplayReply(null);
     setShowQuestion(true);
@@ -700,6 +772,7 @@ export function usePlayGameState({
     setPhotoFeedback(null);
     setPostActionError(null);
     setQuizAnswerFeedback(null);
+    setZoneKrigCaptureFeedback(null);
     setTypedAnswerError(null);
     setShowQuestion(false);
     setDismissedPostIndex(currentPostIndex);
@@ -946,10 +1019,12 @@ export function usePlayGameState({
             if (normalizedPostIndex === null || normalizedPostIndex < 0) continue;
             confirmedCorrectPosts.add(normalizedPostIndex);
           }
-          setCorrectAnswersCount(confirmedCorrectPosts.size);
+          const restoredSolvedPostIndexes = [...confirmedCorrectPosts].sort((a, b) => a - b);
+          setSolvedPostIndexes(restoredSolvedPostIndexes);
+          setCorrectAnswersCount(restoredSolvedPostIndexes.length);
           setCollectedEscapeRewards(getEscapeCodeEntriesFromRows(rows, questions));
 
-          if (confirmedCorrectPosts.size >= questions.length) {
+          if (raceMode !== "zone_krig" && confirmedCorrectPosts.size >= questions.length) {
             setShowQuestion(false);
             setDistanceState(null);
             setEscapeReward(null);
@@ -965,7 +1040,9 @@ export function usePlayGameState({
           }
 
           nextPostIndex =
-            getNextRoutePostIndex(restoredRouteOrder, confirmedCorrectPosts) ?? firstRoutePostIndex;
+            raceMode === "zone_krig"
+              ? (questions[currentPostIndex] ? currentPostIndex : firstRoutePostIndex)
+              : getNextRoutePostIndex(restoredRouteOrder, confirmedCorrectPosts) ?? firstRoutePostIndex;
         }
 
         const restoreTargetQuestion = questions[nextPostIndex];
@@ -1024,6 +1101,7 @@ export function usePlayGameState({
     scheduleRestoreRetry,
     supabase,
     playerName,
+    currentPostIndex,
     initialStudentName,
     storedParticipantOnLoad,
     rememberActiveParticipant,
@@ -1066,9 +1144,11 @@ export function usePlayGameState({
       questionText: string,
       lat: number | null,
       lng: number | null
-    ) => {
+    ): Promise<InsertAnswerResult> => {
       const activeName = playerName.trim();
-      if (!sessionId || !participantId || !activeName || answersTableMissingRef.current) return false;
+      if (!sessionId || !participantId || !activeName || answersTableMissingRef.current) {
+        return { didPersist: false, zoneKrigCapture: null };
+      }
 
       const timestamp = new Date().toISOString();
       const payloads: Record<string, unknown>[] = [
@@ -1125,29 +1205,35 @@ export function usePlayGameState({
           const body = (await response.json().catch(() => null)) as {
             inserted?: boolean;
             error?: string;
+            zoneKrigCapture?: ZoneKrigCaptureApiResult;
           } | null;
 
           if (!response.ok) {
             console.error("Kunne ikke gemme svar via API:", body?.error ?? response.statusText);
             if (body?.error === "Admin access missing") answersTableMissingRef.current = true;
-            return false;
+            return { didPersist: false, zoneKrigCapture: null };
           }
 
-          if (body?.inserted === true) return true;
+          if (body?.inserted === true) {
+            return {
+              didPersist: true,
+              zoneKrigCapture: body.zoneKrigCapture ?? null,
+            };
+          }
 
           console.error("API returnerede ikke indsættelse:", body ?? "ukendt svar");
-          return false;
+          return { didPersist: false, zoneKrigCapture: null };
         } catch (error) {
           if (!isTransientNetworkError(error)) {
             console.error("Kunne ikke kontakte submit-answer API:", error);
-            return false;
+            return { didPersist: false, zoneKrigCapture: null };
           }
 
           await waitForNetworkRetry();
         }
       }
 
-      return false;
+      return { didPersist: false, zoneKrigCapture: null };
     },
     [
       isTransientNetworkError,
@@ -1205,6 +1291,8 @@ export function usePlayGameState({
           setRaceMode(normalizeRaceMode(payload?.raceType));
           setAutoUnlockRadius(Math.round(parsedRadius));
           setGpsOverride(Boolean(payload?.gpsOverride));
+          setCorrectAnswersCount(0);
+          setSolvedPostIndexes([]);
           setCollectedEscapeRewards([]);
           setEscapeReward(null);
           setPostActionError(null);
@@ -1502,6 +1590,7 @@ export function usePlayGameState({
       clearTimeout(quizAnswerFeedbackTimerRef.current);
     }
 
+    setZoneKrigCaptureFeedback(null);
     setQuizAnswerFeedback({
       key: feedbackKey,
       selectedIndex,
@@ -1610,6 +1699,21 @@ export function usePlayGameState({
   const continueFromSolvedPost = async () => {
     clearRoleplayInputErrorTone();
     setPostActionError(null);
+
+    if (raceMode === "zone_krig") {
+      setDismissedPostIndex(null);
+      setPhotoFeedback(null);
+      setQuizAnswerFeedback(null);
+      setZoneKrigCaptureFeedback(null);
+      setTypedAnswerError(null);
+      setEscapeReward(null);
+      setRoleplayReply(null);
+      setWrongAttempts(0);
+      setShowQuestion(false);
+      setDistanceState(null);
+      return true;
+    }
+
     const nextRoutePostIndex =
       currentRouteStepIndex + 1 < routeOrder.length ? routeOrder[currentRouteStepIndex + 1] : null;
 
@@ -1617,6 +1721,7 @@ export function usePlayGameState({
       setDismissedPostIndex(null);
       setPhotoFeedback(null);
       setQuizAnswerFeedback(null);
+      setZoneKrigCaptureFeedback(null);
       setTypedAnswerError(null);
       setEscapeReward(null);
       setRoleplayReply(null);
@@ -1641,6 +1746,7 @@ export function usePlayGameState({
     setDismissedPostIndex(null);
     setPhotoFeedback(null);
     setQuizAnswerFeedback(null);
+    setZoneKrigCaptureFeedback(null);
     setTypedAnswerError(null);
     setEscapeReward(null);
     setRoleplayReply(null);
@@ -1671,11 +1777,12 @@ export function usePlayGameState({
     if (currentVariant === "quiz") {
       setQuizAnswerFeedback(null);
     }
+    setZoneKrigCaptureFeedback(null);
     setTypedAnswerError(null);
     setPostActionError(null);
 
-    const didSaveAnswer = options?.skipAnswerPersist
-      ? true
+    const answerInsertResult = options?.skipAnswerPersist
+      ? { didPersist: true, zoneKrigCapture: null }
       : await insertAnswerRecord(
           selectedIndex,
           true,
@@ -1685,7 +1792,7 @@ export function usePlayGameState({
           myLoc?.lng ?? null
         );
 
-    if (!didSaveAnswer) {
+    if (!answerInsertResult.didPersist) {
       if (currentVariant === "photo") {
         setPhotoFeedback({
           key: feedbackKey,
@@ -1701,7 +1808,10 @@ export function usePlayGameState({
       return false;
     }
 
-    setCorrectAnswersCount((prev) => prev + 1);
+    if (!solvedPostIndexesRef.current.includes(currentPostIndex)) {
+      setSolvedPostIndexes((prev) => [...prev, currentPostIndex].sort((a, b) => a - b));
+      setCorrectAnswersCount((prev) => prev + 1);
+    }
 
     if (currentVariant === "escape") {
       const codeBrick = escapeBrick?.trim() || getEscapeCodeBrick(current, currentPostIndex);
@@ -1720,6 +1830,9 @@ export function usePlayGameState({
     }
 
     if (currentVariant === "quiz") {
+      if (raceMode === "zone_krig") {
+        setZoneKrigCaptureFeedback(buildZoneKrigCaptureFeedback(answerInsertResult.zoneKrigCapture, feedbackKey));
+      }
       setQuizAnswerFeedback({
         key: feedbackKey,
         selectedIndex,
@@ -1750,6 +1863,29 @@ export function usePlayGameState({
     setPendingPlayerNameState(value);
     setNameError(null);
   }, []);
+
+  const selectPostIndex = useCallback(
+    (index: number) => {
+      if (!Number.isInteger(index) || index < 0 || index >= questions.length) {
+        return;
+      }
+
+      clearRoleplayInputErrorTone();
+      setCurrentPostIndex(index);
+      setShowQuestion(false);
+      setDismissedPostIndex(null);
+      setPhotoFeedback(null);
+      setPostActionError(null);
+      setQuizAnswerFeedback(null);
+      setZoneKrigCaptureFeedback(null);
+      setTypedAnswerError(null);
+      setEscapeReward(null);
+      setRoleplayReply(null);
+      setWrongAttempts(0);
+      setDistanceState(null);
+    },
+    [clearRoleplayInputErrorTone, questions.length]
+  );
 
   const setMasterLockInput = useCallback((value: string) => {
     setMasterLockInputState(value);
@@ -1807,6 +1943,7 @@ export function usePlayGameState({
     const feedbackKey = `${currentPostIndex}-quiz`;
     setTypedAnswerError(null);
     setPostActionError(null);
+    setZoneKrigCaptureFeedback(null);
     setIsSubmittingAnswer(true);
 
     try {
@@ -2157,6 +2294,8 @@ export function usePlayGameState({
     hasConfirmedName,
     nameError,
     participantId,
+    teamId,
+    teamColor,
     activeDisplayName,
     celebrationName,
   };
@@ -2179,6 +2318,7 @@ export function usePlayGameState({
     activePostActionError,
     activePhotoFeedback,
     activeQuizAnswerFeedback,
+    activeZoneKrigCaptureFeedback,
     activeEscapeReward,
     activeEscapeHint,
     activeRoleplayReply,
@@ -2210,6 +2350,7 @@ export function usePlayGameState({
     photoFeedback,
     postActionError,
     quizAnswerFeedback,
+    zoneKrigCaptureFeedback,
     escapeReward,
     roleplayReply,
     typedAnswerError,
@@ -2256,6 +2397,7 @@ export function usePlayGameState({
     questions,
     raceMode,
     currentPostIndex,
+    solvedPostIndexes,
     displayPostNumber,
     totalQuestions: questions.length,
     progressPercent,
@@ -2296,6 +2438,7 @@ export function usePlayGameState({
     actions: {
       confirmName,
       setPendingPlayerName,
+      selectPostIndex,
       setMasterLockInput,
       setShowEscapeResults,
       dismissLatestMessage,

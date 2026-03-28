@@ -11,6 +11,10 @@ import {
   type RunSchedule,
   type RunScheduleGate,
 } from "@/utils/runSchedule";
+import {
+  initializeZoneKrigZones,
+  isZoneKrigRaceType,
+} from "@/app/api/zone-krig/_shared";
 
 export const runtime = "edge";
 const CACHE_CONTROL = "no-store";
@@ -643,6 +647,12 @@ export async function POST(request: NextRequest) {
     }
 
     const run = activeSession.run_id ? await fetchRun(String(activeSession.run_id), adminSupabase) : null;
+    const isZoneKrig = isZoneKrigRaceType(run?.race_type ?? run?.raceType);
+
+    if (isZoneKrig) {
+      await initializeZoneKrigZones(sessionId, run, adminSupabase);
+    }
+
     const questionCount = getQuestionCount(run);
     const staggerEnabled = supportsStaggeredStart(run?.race_type ?? run?.raceType);
     const plannedStartOffset = staggerEnabled
@@ -709,8 +719,6 @@ export async function POST(request: NextRequest) {
 
     // Zone-Krig: ensure team exists
     let teamId: string | null = null;
-    const isZoneKrig =
-      typeof run?.race_type === "string" && run.race_type.trim().toLocaleLowerCase("da-DK") === "zone_krig";
     if (isZoneKrig && color) {
       const FACTION_NAMES: Record<string, string> = {
         "#ef4444": "Rød",

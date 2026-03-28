@@ -5,6 +5,7 @@ import {
   fetchRunForSession,
   getAnsweredPostIndex,
   getFirstRoutePostIndexForParticipant,
+  isZoneKrigRaceType,
 } from "@/app/api/play/_shared";
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
 
@@ -147,74 +148,96 @@ function isMissingColumnError(
   return message.includes("does not exist") || message.includes("column");
 }
 
-type GameZoneRow = {
-  id: string;
-  owner_team_id: string | null;
-  shield_until: string | null;
+type CaptureZoneRpcRow = {
+  zone_id?: string | null;
+  owner_team_id?: string | null;
+  previous_owner_team_id?: string | null;
+  captured?: boolean | null;
+  owner_changed?: boolean | null;
+  blocked_by_shield?: boolean | null;
+  zone_missing?: boolean | null;
+};
+
+type ZoneKrigCaptureStatus = "captured" | "blocked_by_shield" | "already_owned" | "zone_missing";
+
+type ZoneKrigCaptureResponse = {
+  status: ZoneKrigCaptureStatus;
+  shieldRemainingSeconds?: number;
 };
 
 async function maybeCaptureZone(
   payload: Record<string, unknown>,
   admin: NonNullable<ReturnType<typeof createAdminClient>>
-) {
+): Promise<ZoneKrigCaptureResponse | null> {
   try {
-    if (!isCorrectAnswerPayload(payload)) return;
+    if (!isCorrectAnswerPayload(payload)) return null;
 
     const run = await fetchRunForSession(asTrimmedString(payload.session_id)).catch(() => null);
-    const rawRaceType = asTrimmedString(run?.race_type ?? run?.raceType);
-    if (rawRaceType !== "zone_krig") return;
+    if (!isZoneKrigRaceType(run?.race_type ?? run?.raceType)) return null;
 
     const teamId = asTrimmedString(payload.zone_krig_team_id);
-    if (!teamId) return;
+    if (!teamId) return null;
 
     const sessionId = asTrimmedString(payload.session_id);
-    if (!sessionId) return;
+    if (!sessionId) return null;
 
     const zoneIndex = getAnsweredPostIndex(payload);
-    if (zoneIndex === null) return;
+    if (zoneIndex === null) return null;
 
     const shieldUntil = new Date(Date.now() + 3 * 60 * 1000).toISOString();
 
-    // Check if zone already exists
-    const { data: existingZone } = await admin
-      .from("game_zones")
-      .select("id,owner_team_id,shield_until")
-      .eq("session_id", sessionId)
-      .eq("zone_index", zoneIndex)
-      .maybeSingle<GameZoneRow>();
+    const { data, error } = await admin.rpc("capture_zone_krig", {
+      p_session_id: sessionId,
+      p_zone_index: zoneIndex,
+      p_team_id: teamId,
+      p_shield_until: shieldUntil,
+    });
 
-    if (existingZone) {
-      // Reject capture if zone is shielded by another team.
-      // Compare using UTC ms to avoid timezone-skew on server/client.
-      const shieldActiveMs =
-        existingZone.shield_until !== null
-          ? new Date(existingZone.shield_until).getTime()
-          : 0;
-      if (shieldActiveMs > Date.now() && existingZone.owner_team_id !== teamId) return;
-
-      await admin
-        .from("game_zones")
-        .update({ owner_team_id: teamId, shield_until: shieldUntil })
-        .eq("id", existingZone.id);
-    } else {
-      // Lazily create zone with coordinates from run questions
-      const questions = Array.isArray(run?.questions) ? run!.questions : [];
-      const q = (questions[zoneIndex] ?? {}) as Record<string, unknown>;
-      const centerLat = typeof q.lat === "number" ? q.lat : 0;
-      const centerLng = typeof q.lng === "number" ? q.lng : 0;
-
-      await admin.from("game_zones").insert({
-        session_id: sessionId,
-        zone_index: zoneIndex,
-        center_lat: centerLat,
-        center_lng: centerLng,
-        radius_m: 30,
-        owner_team_id: teamId,
-        shield_until: shieldUntil,
-      });
+    if (error) {
+      throw new Error(error.message ?? "Kunne ikke erobre zonen.");
     }
+
+    const captureResult = (Array.isArray(data) ? data[0] : null) as CaptureZoneRpcRow | null;
+    if (!captureResult) {
+      return null;
+    }
+
+    if (captureResult.zone_missing) {
+      console.warn(`[zone-krig] Zone ${zoneIndex} mangler for session ${sessionId}. Capture blev sprunget over.`);
+      return { status: "zone_missing" };
+    }
+
+    if (captureResult.blocked_by_shield) {
+      const { data: zoneRow } = await admin
+        .from("game_zones")
+        .select("shield_until")
+        .eq("session_id", sessionId)
+        .eq("zone_index", zoneIndex)
+        .maybeSingle<{ shield_until?: string | null }>();
+
+      const shieldUntilMs = zoneRow?.shield_until ? new Date(zoneRow.shield_until).getTime() : Number.NaN;
+      const shieldRemainingSeconds = Number.isFinite(shieldUntilMs)
+        ? Math.max(0, Math.ceil((shieldUntilMs - Date.now()) / 1000))
+        : 0;
+
+      return {
+        status: "blocked_by_shield",
+        shieldRemainingSeconds,
+      };
+    }
+
+    if (captureResult.owner_changed) {
+      return { status: "captured" };
+    }
+
+    if (captureResult.owner_team_id === teamId) {
+      return { status: "already_owned" };
+    }
+
+    return { status: "captured" };
   } catch (err) {
     console.error("[zone-krig] maybeCaptureZone failed silently:", err);
+    return null;
   }
 }
 
@@ -242,15 +265,15 @@ export async function POST(request: NextRequest) {
         const existingAnswer = await hasExistingAnswerRecord(payload, admin);
         if (existingAnswer) {
           await maybeStampRunStartedAt(payload, admin);
-          await maybeCaptureZone(payload, admin);
-          return NextResponse.json({ inserted: true });
+          const zoneKrigCapture = await maybeCaptureZone(payload, admin);
+          return NextResponse.json({ inserted: true, zoneKrigCapture });
         }
 
         const { error } = await admin.from("answers").insert(payload as Record<string, unknown>);
         if (!error) {
           await maybeStampRunStartedAt(payload, admin);
-          await maybeCaptureZone(payload, admin);
-          return NextResponse.json({ inserted: true });
+          const zoneKrigCapture = await maybeCaptureZone(payload, admin);
+          return NextResponse.json({ inserted: true, zoneKrigCapture });
         }
 
         if (isMissingColumnError(error)) {

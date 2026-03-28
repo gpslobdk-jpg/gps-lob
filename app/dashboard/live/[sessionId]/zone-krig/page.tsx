@@ -83,22 +83,41 @@ export default function ZoneKrigCommandCenter() {
     let isActive = true;
 
     const loadInitial = async () => {
-      const [teamsRes, zonesRes] = await Promise.all([
-        supabase.from("game_teams").select("*").eq("session_id", sessionId),
-        supabase
-          .from("game_zones")
-          .select("*")
-          .eq("session_id", sessionId)
-          .order("zone_index"),
-      ]);
+      try {
+        const initResponse = await fetch("/api/zone-krig/init", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ sessionId }),
+        });
 
-      if (!isActive) return;
-      if (teamsRes.data) setTeams(teamsRes.data as GameTeam[]);
-      if (zonesRes.data) {
-        setZones(zonesRes.data as GameZone[]);
-        setMapKey(`loaded-${Date.now()}`);
+        if (!initResponse.ok) {
+          console.error("Kunne ikke initialisere neutrale Zone Krig-zoner.");
+        }
+
+        const [teamsRes, zonesRes] = await Promise.all([
+          supabase.from("game_teams").select("*").eq("session_id", sessionId),
+          supabase
+            .from("game_zones")
+            .select("*")
+            .eq("session_id", sessionId)
+            .order("zone_index"),
+        ]);
+
+        if (!isActive) return;
+        if (teamsRes.data) setTeams(teamsRes.data as GameTeam[]);
+        if (zonesRes.data) {
+          setZones(zonesRes.data as GameZone[]);
+          setMapKey(`loaded-${Date.now()}`);
+        }
+      } catch (error) {
+        console.error("Kunne ikke indlæse Zone Krig-kommandocentralen:", error);
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
     };
 
     void loadInitial();

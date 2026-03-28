@@ -3,7 +3,7 @@
 import "leaflet/dist/leaflet.css";
 
 import L from "leaflet";
-import { Fragment, useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Circle, MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 
 export type GameTeam = {
@@ -25,21 +25,19 @@ export type GameZone = {
   shield_until: string | null;
 };
 
-const DEFAULT_CENTER: [number, number] = [55.3959, 10.3883];
-
 type ZoneKrigMapProps = {
   center: [number, number];
   zones: GameZone[];
   teams: GameTeam[];
 };
 
-function zoneLabelIcon(zoneIndex: number, teamName: string | null) {
-  const label = `Z${zoneIndex + 1}${teamName ? `<br/><span style="font-size:9px;opacity:0.8;">${teamName}</span>` : ""}`;
+function zoneLabelIcon(zoneIndex: number, teamColor: string | null) {
+  const resolvedColor = teamColor ?? "#cbd5e1";
   return L.divIcon({
     className: "",
-    html: `<div style="background:rgba(2,6,23,0.85);border:1px solid rgba(255,255,255,0.18);border-radius:0.6rem;padding:3px 8px;font-size:11px;font-weight:800;color:#e2e8f0;text-align:center;white-space:nowrap;backdrop-filter:blur(8px);pointer-events:none;line-height:1.4;">${label}</div>`,
-    iconSize: [70, 36],
-    iconAnchor: [35, 18],
+    html: `<div style="display:flex;align-items:center;justify-content:center;min-width:44px;height:30px;padding:0 10px;background:rgba(2,6,23,0.88);border:1px solid ${resolvedColor};border-radius:999px;font-size:11px;font-weight:900;color:${resolvedColor};text-align:center;white-space:nowrap;backdrop-filter:blur(8px);pointer-events:none;line-height:1;box-shadow:0 0 24px rgba(2,6,23,0.28);">Z${zoneIndex + 1}</div>`,
+    iconSize: [44, 30],
+    iconAnchor: [22, 15],
   });
 }
 
@@ -75,7 +73,17 @@ function MapAutoFit({ zones }: { zones: GameZone[] }) {
 
 export default function ZoneKrigMap({ center, zones, teams }: ZoneKrigMapProps) {
   const teamMap = new Map(teams.map((t) => [t.id, t]));
-  const nowMs = Date.now();
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   return (
     <MapContainer
@@ -114,7 +122,7 @@ export default function ZoneKrigMap({ center, zones, teams }: ZoneKrigMapProps) 
             />
             <Marker
               position={[zone.center_lat, zone.center_lng]}
-              icon={zoneLabelIcon(zone.zone_index, team?.team_name ?? null)}
+              icon={zoneLabelIcon(zone.zone_index, team?.color ?? null)}
               interactive={false}
             />
           </Fragment>

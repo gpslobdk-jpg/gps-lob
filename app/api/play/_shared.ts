@@ -15,6 +15,15 @@ type RunRow = {
   radius?: unknown;
 };
 
+type GameZoneRow = {
+  id?: string | null;
+  center_lat?: number | string | null;
+  center_lng?: number | string | null;
+  radius_m?: number | string | null;
+  owner_team_id?: string | null;
+  shield_until?: string | null;
+};
+
 type ParticipantStartRow = {
   start_offset?: number | string | null;
   run_started_at?: string | null;
@@ -31,6 +40,7 @@ type AdminSupabaseClient = NonNullable<ReturnType<typeof createAdminClient>>;
 
 export const DEFAULT_RUN_RADIUS_METERS = 15;
 export const SERVER_POSITION_VALIDATION_BUFFER_METERS = 30;
+export const DEFAULT_ZONE_KRIG_RADIUS_METERS = 30;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -38,6 +48,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+export function isZoneKrigRaceType(value: unknown) {
+  return asTrimmedString(value).toLocaleLowerCase("da-DK") === "zone_krig";
 }
 
 async function fetchSessionRow(sessionId: string, adminSupabase: AdminSupabaseClient) {
@@ -112,6 +126,9 @@ export function normalizeRaceMode(value: unknown) {
     case "role_play":
     case "tidsmaskinen":
       return "roleplay";
+    case "zone_krig":
+    case "zonekrig":
+      return "zone_krig";
     default:
       return "unknown";
   }
@@ -132,7 +149,29 @@ function toFiniteNumber(value: unknown) {
   return null;
 }
 
-export function getRunRadiusMeters(run: Pick<RunRow, "radius"> | null | undefined) {
+function getZoneKrigRadiusMeters(questions: unknown) {
+  if (!Array.isArray(questions)) {
+    return DEFAULT_ZONE_KRIG_RADIUS_METERS;
+  }
+
+  for (const question of questions) {
+    if (!isRecord(question)) continue;
+    const candidateRadius = toFiniteNumber(question.radius_m ?? question.radius);
+    if (candidateRadius !== null && candidateRadius > 0) {
+      return Math.round(candidateRadius);
+    }
+  }
+
+  return DEFAULT_ZONE_KRIG_RADIUS_METERS;
+}
+
+export function getRunRadiusMeters(
+  run: Pick<RunRow, "radius" | "questions" | "raceType" | "race_type"> | null | undefined
+) {
+  if (isZoneKrigRaceType(run?.raceType ?? run?.race_type)) {
+    return getZoneKrigRadiusMeters(run?.questions);
+  }
+
   const parsedRadius = toFiniteNumber(run?.radius);
   if (parsedRadius === null || !Number.isFinite(parsedRadius) || parsedRadius <= 0) {
     return DEFAULT_RUN_RADIUS_METERS;
@@ -141,7 +180,13 @@ export function getRunRadiusMeters(run: Pick<RunRow, "radius"> | null | undefine
   return Math.round(parsedRadius);
 }
 
-export function getServerPositionValidationRadius(run: Pick<RunRow, "radius"> | null | undefined) {
+export function getServerPositionValidationRadius(
+  run: Pick<RunRow, "radius" | "questions" | "raceType" | "race_type"> | null | undefined
+) {
+  if (isZoneKrigRaceType(run?.raceType ?? run?.race_type)) {
+    return getRunRadiusMeters(run);
+  }
+
   return getRunRadiusMeters(run) + SERVER_POSITION_VALIDATION_BUFFER_METERS;
 }
 
@@ -228,6 +273,25 @@ export async function fetchParticipantLocationState(
     .eq("id", participantId)
     .eq("session_id", sessionId)
     .maybeSingle<ParticipantLocationRow>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ?? null;
+}
+
+export async function fetchZoneKrigZoneState(
+  sessionId: string,
+  zoneIndex: number,
+  adminSupabase: AdminSupabaseClient
+) {
+  const { data, error } = await adminSupabase
+    .from("game_zones")
+    .select("id,center_lat,center_lng,radius_m,owner_team_id,shield_until")
+    .eq("session_id", sessionId)
+    .eq("zone_index", zoneIndex)
+    .maybeSingle<GameZoneRow>();
 
   if (error) {
     throw new Error(error.message);
