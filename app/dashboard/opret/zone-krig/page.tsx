@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Crosshair, Flag, Loader2, Map, Plus, Trash2 } from "lucide-react";
+import { Check, Crosshair, Flag, Loader2, Map, Plus, Shield, Trash2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
@@ -599,22 +599,40 @@ function ZoneKrigBuilderContent() {
                       Zone-Krigen: Kommandocentral
                     </h2>
                     <p className="mt-2 text-sm leading-6 text-cyan-100/70">
-                      Omdan skolegården til en live multiplayer-arena. Placer zoner på kortet, tilknyt zone-opgaver, og lad holdene dyste om territoriet.
+                      Omdan skolegården til en live multiplayer-arena, hvor holdene bevæger sig frit mellem alle zoner og kæmper om kontrollen over kortet. Hver zone er et taktisk mål, og eleverne vælger selv, om de vil angribe, forsvare eller skifte retning undervejs.
+                    </p>
+                    <p className="mt-3 text-sm leading-6 text-cyan-100/70">
+                      Din opgave som lærer er at placere zonerne klogt og skrive opgaver, der gør kampen spændende. Tænk i afstande, overblik og variation, så holdene hele tiden skal vælge mellem sikre point og risikable erobringer.
                     </p>
                     <ul className="mt-4 space-y-2">
                       <li className="flex items-start gap-3 text-sm text-slate-300">
-                        <Map className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
-                        <span>Placer strategiske zoner på kortet via det interaktive kort til højre.</span>
-                      </li>
-                      <li className="flex items-start gap-3 text-sm text-slate-300">
                         <Crosshair className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
-                        <span>Tilknyt en zone-opgave til hver zone - korrekt svar giver kontrol over zonen.</span>
+                        <span>
+                          <strong className="text-cyan-100">Erobring:</strong> Et hold overtager en zone ved at stå fysisk i zonen og besvare zone-opgaven korrekt. Det er altså ikke nok bare at finde stedet - svaret skal også være rigtigt.
+                        </span>
                       </li>
                       <li className="flex items-start gap-3 text-sm text-slate-300">
                         <Flag className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
-                        <span>Holdene dyster live om territoriet. Hurtighed og præcision vinder kampen.</span>
+                        <span>
+                          <strong className="text-cyan-100">Point og kontrol:</strong> Point bliver optjent gennem kontrollen over zonerne. Når et hold overtager en fjendtlig eller neutral zone, ændrer magtbalancen sig med det samme, så hvert korrekt svar får direkte betydning i spillet.
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-3 text-sm text-slate-300">
+                        <Shield className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
+                        <span>
+                          <strong className="text-cyan-100">Fredningstid / skjold:</strong> Efter en erobring får zonen en kort fredet periode. Det forhindrer, at samme zone bare skifter hænder hvert sekund, og giver holdet en reel chance for at rykke videre eller organisere et forsvar.
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-3 text-sm text-slate-300">
+                        <Map className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
+                        <span>
+                          <strong className="text-cyan-100">Fri bevægelighed:</strong> Holdene følger ikke en fast rute. De kan bevæge sig frit mellem alle zoner og vælge deres egen strategi, så kortets placeringer får stor betydning for tempo, pres og overraskelsesangreb.
+                        </span>
                       </li>
                     </ul>
+                    <p className="mt-4 text-xs leading-5 text-cyan-100/60">
+                      Brug kortet til højre til at placere zonerne. Jo bedre du spreder zonerne og varierer sværhedsgraden, jo mere taktisk og levende bliver kampen.
+                    </p>
                   </div>
 
                   {/* Title */}
@@ -815,7 +833,7 @@ function ZoneKrigBuilderContent() {
           <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
             <div className="lg:sticky lg:top-5">
               <div className="h-[42vh] min-h-80 w-full overflow-hidden rounded-4xl border border-cyan-500/15 bg-slate-900/50 shadow-[0_0_0_1px_rgba(34,211,238,0.06),0_0_36px_rgba(34,211,238,0.06),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
-                <MapPicker center={mapCenter} pins={[]} zones={zones} onCenterChange={setMapCenter} />
+                <MapPicker center={mapCenter} pins={[]} zones={zones} onCenterChange={setMapCenter} autoLocateOnLoad={!isEditMode} />
               </div>
             </div>
           </aside>

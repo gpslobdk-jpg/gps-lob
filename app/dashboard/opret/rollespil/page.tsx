@@ -1337,6 +1337,7 @@ function RollespilBuilderPageContent() {
                   center={mapCenter}
                   pins={pins}
                   zones={previewZones}
+                  autoLocateOnLoad={!isEditMode}
                   onCenterChange={setMapCenter}
                   onMapClick={handleMapClick}
                   activePinLabel={activePinLabel}

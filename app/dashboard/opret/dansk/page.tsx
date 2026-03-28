@@ -1283,7 +1283,7 @@ function OpretDanskLoebPageContent() {
           <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
             <div className="lg:sticky lg:top-5">
               <div className="h-[42vh] min-h-80 w-full overflow-hidden rounded-4xl border border-rose-500/20 bg-slate-900/50 shadow-[0_0_0_1px_rgba(244,63,94,0.08),0_0_36px_rgba(244,63,94,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
-                <MapPicker center={mapCenter} pins={pins} zones={previewZones} onCenterChange={setMapCenter} />
+                <MapPicker center={mapCenter} pins={pins} zones={previewZones} onCenterChange={setMapCenter} autoLocateOnLoad={!isEditMode} />
               </div>
             </div>
           </aside>

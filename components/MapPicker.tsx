@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 
 import { Crosshair, MapPin, Search } from "lucide-react";
 import L from "leaflet";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Circle, MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 
 type MapCenter = {
@@ -35,6 +35,23 @@ type MapPickerProps = {
   onMapClick?: (center: MapCenter) => void;
   activePinLabel?: string | null;
   isAwaitingMapClick?: boolean;
+  autoLocateOnLoad?: boolean;
+};
+
+type FocusRequest = {
+  id: number;
+  coords: [number, number];
+  zoom?: number;
+};
+
+type GeolocationState = "idle" | "locating" | "unsupported" | "permission_denied" | "position_unavailable" | "timeout";
+
+const DEFAULT_SEARCH_ZOOM = 15;
+const DEFAULT_GEOLOCATION_ZOOM = 17;
+const GEOLOCATION_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  maximumAge: 0,
+  timeout: 10000,
 };
 
 type SearchResult = {
@@ -67,14 +84,33 @@ function CenterReporter({
   return null;
 }
 
-function MapController({ centerCoords }: { centerCoords: [number, number] | null }) {
+function FocusController({ request }: { request: FocusRequest | null }) {
   const map = useMap();
 
   useEffect(() => {
-    if (centerCoords) {
-      map.flyTo(centerCoords, 15, { animate: true, duration: 1.5 });
+    if (request) {
+      map.flyTo(request.coords, request.zoom ?? map.getZoom(), { animate: true, duration: 1.2 });
     }
-  }, [centerCoords, map]);
+  }, [map, request]);
+
+  return null;
+}
+
+function centersMatch(a: MapCenter, b: MapCenter, tolerance = 0.00005) {
+  return Math.abs(a.lat - b.lat) <= tolerance && Math.abs(a.lng - b.lng) <= tolerance;
+}
+
+function ExternalCenterController({ center }: { center: MapCenter }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const current = map.getCenter();
+    if (centersMatch({ lat: current.lat, lng: current.lng }, center)) {
+      return;
+    }
+
+    map.flyTo([center.lat, center.lng], map.getZoom(), { animate: true, duration: 1.2 });
+  }, [center, map]);
 
   return null;
 }
@@ -110,11 +146,116 @@ export default function MapPicker({
   onMapClick,
   activePinLabel,
   isAwaitingMapClick = false,
+  autoLocateOnLoad = true,
 }: MapPickerProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [targetCoords, setTargetCoords] = useState<[number, number] | null>(null);
+  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
+  const [geolocationState, setGeolocationState] = useState<GeolocationState>("idle");
+  const focusRequestIdRef = useRef(0);
+  const initialCenterRef = useRef<MapCenter>(center);
+  const hasAutoLocateAttemptedRef = useRef(false);
+  const hasExternalCenterOverrideRef = useRef(false);
+  const geolocationRequestIdRef = useRef(0);
+
+  const queueFocus = useCallback((coords: [number, number], zoom?: number) => {
+    focusRequestIdRef.current += 1;
+    setFocusRequest({ id: focusRequestIdRef.current, coords, zoom });
+  }, []);
+
+  const locateUser = useCallback(
+    (source: "auto" | "manual") => {
+      if (typeof navigator === "undefined" || !navigator.geolocation) {
+        setGeolocationState("unsupported");
+        return;
+      }
+
+      geolocationRequestIdRef.current += 1;
+      const requestId = geolocationRequestIdRef.current;
+      setGeolocationState("locating");
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (geolocationRequestIdRef.current !== requestId) return;
+
+          if (source === "auto" && hasExternalCenterOverrideRef.current) {
+            setGeolocationState("idle");
+            return;
+          }
+
+          setGeolocationState("idle");
+          queueFocus(
+            [position.coords.latitude, position.coords.longitude],
+            DEFAULT_GEOLOCATION_ZOOM
+          );
+        },
+        (error) => {
+          if (geolocationRequestIdRef.current !== requestId) return;
+
+          if (error.code === error.PERMISSION_DENIED || error.code === 1) {
+            setGeolocationState("permission_denied");
+            return;
+          }
+
+          if (error.code === error.POSITION_UNAVAILABLE || error.code === 2) {
+            setGeolocationState("position_unavailable");
+            return;
+          }
+
+          setGeolocationState("timeout");
+        },
+        GEOLOCATION_OPTIONS
+      );
+    },
+    [queueFocus]
+  );
+
+  useEffect(() => {
+    if (hasAutoLocateAttemptedRef.current) {
+      return;
+    }
+
+    if (!autoLocateOnLoad) {
+      hasAutoLocateAttemptedRef.current = true;
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      hasAutoLocateAttemptedRef.current = true;
+
+      if (hasExternalCenterOverrideRef.current) {
+        return;
+      }
+
+      locateUser("auto");
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [autoLocateOnLoad, locateUser]);
+
+  useEffect(() => {
+    if (hasAutoLocateAttemptedRef.current) {
+      return;
+    }
+
+    if (!centersMatch(center, initialCenterRef.current)) {
+      hasExternalCenterOverrideRef.current = true;
+    }
+  }, [center]);
+
+  const geolocationMessage =
+    geolocationState === "permission_denied"
+      ? "Lokation er blokeret i browseren. Brug kortet manuelt eller tillad lokation og prøv igen."
+      : geolocationState === "position_unavailable"
+        ? "Vi kunne ikke finde din placering lige nu. Prøv igen om et øjeblik."
+        : geolocationState === "timeout"
+          ? "Lokationen tog for lang tid. Prøv igen."
+          : geolocationState === "unsupported"
+            ? "Denne browser understøtter ikke lokation i builder-kortet."
+            : null;
 
   useEffect(() => {
     if (searchQuery.length < 3) {
@@ -142,7 +283,7 @@ export default function MapPicker({
 
   return (
     <div className={`relative h-full w-full overflow-hidden rounded-3xl ${isAwaitingMapClick ? "cursor-crosshair" : ""}`}>
-      <div className="absolute top-4 left-1/2 z-[1000] w-full max-w-[300px] -translate-x-1/2 px-4 sm:max-w-md">
+      <div className="absolute top-4 left-1/2 z-1000 w-full max-w-75 -translate-x-1/2 px-4 sm:max-w-md">
         <div className="relative">
           <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-emerald-600">
             <Search size={18} />
@@ -167,7 +308,7 @@ export default function MapPicker({
               <li
                 key={idx}
                 onClick={() => {
-                  setTargetCoords([parseFloat(result.lat), parseFloat(result.lon)]);
+                  queueFocus([parseFloat(result.lat), parseFloat(result.lon)], DEFAULT_SEARCH_ZOOM);
                   setSearchResults([]);
                   setSearchQuery("");
                 }}
@@ -181,6 +322,25 @@ export default function MapPicker({
         )}
       </div>
 
+      <div className="absolute top-4 right-4 z-1000 flex flex-col items-end gap-2 px-4 sm:px-0">
+        <button
+          type="button"
+          onClick={() => locateUser("manual")}
+          className="inline-flex items-center gap-2 rounded-2xl border border-cyan-300/35 bg-slate-950/82 px-4 py-2.5 text-sm font-semibold text-cyan-50 shadow-[0_16px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl transition hover:bg-slate-900/90 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={geolocationState === "locating"}
+          aria-label="Find min placering på kortet"
+        >
+          <Crosshair className={`h-4 w-4 ${geolocationState === "locating" ? "animate-pulse" : ""}`} />
+          <span>{geolocationState === "locating" ? "Finder dig..." : "Find mig"}</span>
+        </button>
+
+        {geolocationMessage ? (
+          <div className="max-w-60 rounded-2xl border border-cyan-300/25 bg-slate-950/82 px-3 py-2 text-xs leading-5 text-cyan-50 shadow-[0_16px_32px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+            {geolocationMessage}
+          </div>
+        ) : null}
+      </div>
+
       <MapContainer
         center={[center.lat, center.lng]}
         zoom={15}
@@ -192,7 +352,8 @@ export default function MapPicker({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <CenterReporter onCenterChange={onCenterChange} />
-        <MapController centerCoords={targetCoords} />
+        <ExternalCenterController center={center} />
+        <FocusController request={focusRequest} />
         <MapClickReporter onMapClick={onMapClick} />
 
         {pins.map((pin) => (
@@ -219,12 +380,12 @@ export default function MapPicker({
       </MapContainer>
 
       {activePinLabel ? (
-        <div className="pointer-events-none absolute right-4 bottom-4 left-4 z-[1000] rounded-2xl border border-cyan-300/45 bg-slate-950/82 px-4 py-3 text-sm font-semibold text-cyan-100 shadow-[0_0_24px_rgba(34,211,238,0.2)] backdrop-blur-xl">
+        <div className="pointer-events-none absolute right-4 bottom-4 left-4 z-1000 rounded-2xl border border-cyan-300/45 bg-slate-950/82 px-4 py-3 text-sm font-semibold text-cyan-100 shadow-[0_0_24px_rgba(34,211,238,0.2)] backdrop-blur-xl">
           {activePinLabel}
         </div>
       ) : null}
 
-      <Crosshair className="absolute inset-0 m-auto z-[400] pointer-events-none h-8 w-8 text-cyan-200 drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
+      <Crosshair className="absolute inset-0 m-auto z-400 pointer-events-none h-8 w-8 text-cyan-200 drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
     </div>
   );
 }
