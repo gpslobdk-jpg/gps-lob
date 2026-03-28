@@ -378,7 +378,7 @@ export function resolveQuestionVariant(raceMode: unknown, rawQuestion: unknown):
   }
 
   const normalizedRaceMode = normalizeRaceMode(raceMode);
-  if (normalizedRaceMode !== "unknown") {
+  if (normalizedRaceMode !== "unknown" && normalizedRaceMode !== "zone_krig") {
     return normalizedRaceMode;
   }
 

@@ -12,6 +12,7 @@ type ZoneKrigQuestionRecord = {
 };
 
 type ZoneKrigRunRecord = {
+  [key: string]: unknown;
   questions?: unknown;
   race_type?: unknown;
   raceType?: unknown;

@@ -560,7 +560,7 @@ export function usePlayGameState({
 
       if (sessionResponse.status === 404 || sessionResponse.status === 410) {
         console.warn("Session-check returnerede midlertidigt 404/410. Bevarer lokal deltagerstate.");
-        scheduleRestoreRetry("Vi genskaber forbindelsen til missionen...");
+        scheduleRestoreRetry();
         return;
       }
 
@@ -601,13 +601,13 @@ export function usePlayGameState({
           "Kunne ikke verificere deltageren efter positionsfejl:",
           participantSnapshotError
         );
-        scheduleRestoreRetry("Vi genskaber forbindelsen til missionen...");
+        scheduleRestoreRetry();
         return;
       }
 
       if (!participantSnapshot) {
         console.warn("Deltageren kunne ikke bekræftes efter positionsfejl. Bevarer lokal state.");
-        scheduleRestoreRetry("Vi genskaber forbindelsen til missionen...");
+        scheduleRestoreRetry();
         return;
       }
 
@@ -898,7 +898,7 @@ export function usePlayGameState({
 
       if (participantError) {
         console.error("Kunne ikke genskabe deltagerdata fra participants:", participantError);
-        scheduleRestoreRetry("Henter dine data igen...");
+        scheduleRestoreRetry();
         return;
       } else {
         didResolveParticipant = true;
@@ -948,7 +948,7 @@ export function usePlayGameState({
         for (const t of timers) clearTimeout(t);
 
         if (!resolved) {
-          scheduleRestoreRetry("Vi kunne ikke hente din deltager endnu. Prøver igen...");
+          scheduleRestoreRetry();
           return;
         }
       }
