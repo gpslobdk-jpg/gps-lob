@@ -693,7 +693,7 @@ function OpretEngelskLoebPageContent() {
   const previewZones = useMemo<SavedZone[]>(
     () =>
       pins.map((pin) => ({
-        id: pin.id,
+        id: `${pin.id}-${radius}`,
         lat: pin.lat,
         lng: pin.lng,
         radius,
