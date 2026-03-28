@@ -6,21 +6,100 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
-const QUICK_QUESTIONS = [
-  "Hvordan kommer jeg i gang?",
-  "Hvordan bruger jeg arkivet og AI-hjælpen?",
-  "Hvordan deltager man med pinkode?",
+type QuickAction = {
+  id: string;
+  prompt: string;
+  description: string;
+};
+
+const QUICK_ACTIONS: readonly QuickAction[] = [
+  {
+    id: "zone-krig",
+    prompt: '🎯 "Hvordan fungerer Zone-Krigen?"',
+    description: "Få forklaret zoner, point, erobring og 60-sekunders shields.",
+  },
+  {
+    id: "scanner",
+    prompt: '📚 "Lav et løb ud fra min bogtekst"',
+    description: "Brug Bog-Scanneren til at omsætte tekst, bogsider eller OCR til quizposter.",
+  },
+  {
+    id: "podcast",
+    prompt: '🎙️ "Brug et podcast-link til et løb"',
+    description: "Lad Podcast-Detektiven omdanne et link eller en episode til et færdigt quiz-løb.",
+  },
+  {
+    id: "manual",
+    prompt: '💡 "Giv mig en god idé til en Generel Quiz"',
+    description: "Få en skarp idé til et klassisk GPS-løb med quizposter og tydeligt tema.",
+  },
+  {
+    id: "start",
+    prompt: "Hvordan kommer jeg i gang?",
+    description: "Få en hurtig klik-guide til at vælge builder og starte det første løb.",
+  },
 ] as const;
 
-const WELCOME_MESSAGE =
-  'Hej! Jeg kan guide dig trin for trin gennem GPSLØB. Spørg fx "Hvordan kommer jeg i gang?" eller "Hvordan bruger jeg arkivet?", så peger jeg dig direkte hen til de rigtige knapper og menuer.';
+const getWelcomeMessage = (pathname: string) => {
+  if (pathname.includes("/opret/zone-krig")) {
+    return "Hej! Jeg er klar til at hjælpe dig med Zone-Krigen. Spørg mig om zoner, placering, taktik, pointpres eller hvordan 60-sekunders shields påvirker spillets tempo.";
+  }
+
+  if (pathname.includes("/opret/scanner")) {
+    return "Hej! Jeg kan hjælpe dig med Bog-Scanneren. Du kan spørge om bogtekst, OCR, billeder af sider og hvordan materialet bedst bliver omsat til et skarpt quiz-løb.";
+  }
+
+  if (pathname.includes("/opret/podcast")) {
+    return "Hej! Jeg kan hjælpe dig med Podcast-Detektiven. Spørg mig om podcast-links, episodevalg, transcript-kvalitet og hvordan lydindhold bliver til gode spørgsmål og research-baserede løb.";
+  }
+
+  if (pathname.includes("/opret/manuel")) {
+    return "Hej! Jeg kan hjælpe dig hurtigt i gang med Generel Quiz. Spørg mig om idéer, temaer, multiple-choice poster eller hvordan du bygger et stærkt klassisk GPS-løb.";
+  }
+
+  return "Hej! Jeg er GPSLØB AI Arkitekten. Jeg kan guide dig gennem Generel Quiz, Bog-Scanneren, Podcast-Detektiven, Zone-Krigen og resten af platformens builders og features.";
+};
 
 const PAGE_CONTEXT_MESSAGE_ID = "gpslob-page-context";
 
 const extractMessageText = (message: UIMessage) =>
   message.parts.filter(isTextUIPart).map((part) => part.text).join("").trim();
 
+const getQuickActions = (pathname: string) => {
+  let prioritizedIds: string[] = ["zone-krig", "scanner", "podcast", "manual", "start"];
+
+  if (pathname.includes("/opret/zone-krig")) {
+    prioritizedIds = ["zone-krig", "manual", "scanner", "podcast", "start"];
+  } else if (pathname.includes("/opret/scanner")) {
+    prioritizedIds = ["scanner", "manual", "podcast", "zone-krig", "start"];
+  } else if (pathname.includes("/opret/podcast")) {
+    prioritizedIds = ["podcast", "scanner", "manual", "zone-krig", "start"];
+  } else if (pathname.includes("/opret/manuel")) {
+    prioritizedIds = ["manual", "scanner", "podcast", "zone-krig", "start"];
+  }
+
+  return prioritizedIds
+    .map((id) => QUICK_ACTIONS.find((action) => action.id === id))
+    .filter((action): action is QuickAction => Boolean(action));
+};
+
 const buildPageContext = (pathname: string) => {
+  if (pathname.includes("/opret/zone-krig")) {
+    return "Systemkontekst: Brugeren står i Zone-Krigen-builderen i GPSLØB. Svar altid på dansk. Hjælp som taktisk spildesigner. Fokuser på zoner, strategisk placering, pointpres, angreb/forsvar, variation i sværhedsgrad og 60-sekunders shields efter erobring.";
+  }
+
+  if (pathname.includes("/opret/scanner")) {
+    return "Systemkontekst: Brugeren står i Bog-Scanneren i GPSLØB. Svar altid på dansk. Hjælp med at vælge mellem rå tekst, bogsider og billeder, vurdere om materialet egner sig til quizspørgsmål og forklare hvordan Bog-Scanneren omsætter materialet til et quiz-løb.";
+  }
+
+  if (pathname.includes("/opret/podcast")) {
+    return "Systemkontekst: Brugeren står i Podcast-Detektiven i GPSLØB. Svar altid på dansk. Hjælp med at vurdere podcast-links, episodevalg, transcript-kvalitet og hvordan lydindhold kan blive til et skarpt quiz-løb.";
+  }
+
+  if (pathname.includes("/opret/manuel")) {
+    return "Systemkontekst: Brugeren står i Generel Quiz-builderen i GPSLØB. Svar altid på dansk. Hjælp med klassiske multiple-choice poster, præcis 4 svarmuligheder, gode titler til arkivet og med at afklare hvornår Generel Quiz er bedre end Bog-Scanneren, Podcast-Detektiven eller Zone-Krigen.";
+  }
+
   if (pathname.includes("/opret/escape")) {
     return 'Systemkontekst: Læreren er i gang med at bygge et Escape Room i GPSLØB. Svar altid på dansk. Vær proaktiv og tilbyd hjælp til at finde på en "Master Code", svære gåder, kodebrikker og små spor, som passer til et skoleløb.';
   }
@@ -33,7 +112,7 @@ const buildPageContext = (pathname: string) => {
     return "Systemkontekst: Læreren kigger på Leaderboardet for et løb i GPSLØB. Svar altid på dansk. Tilbyd gerne hjælp til at skrive en sjov tale, et vinderdiplom eller en kort præmiering, der kan læses op for holdene.";
   }
 
-  return "Systemkontekst: Du er en hjælpsom assistent på GPS-platformen. Svar altid på dansk og hjælp lærere og vikarer konkret videre med næste klik, næste valg og praktiske forslag.";
+  return "Systemkontekst: Du er GPSLØB AI Arkitekten. Svar altid på dansk og hjælp brugeren med at vælge den rigtige builder, forstå næste klik og skelne mellem Generel Quiz, Bog-Scanneren, Podcast-Detektiven og Zone-Krigen, når det er relevant.";
 };
 
 const withPageContextMessage = (
@@ -61,6 +140,8 @@ export default function AIChatButton() {
   const pathname = usePathname();
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   const pageContext = useMemo(() => buildPageContext(pathname), [pathname]);
+  const quickActions = useMemo(() => getQuickActions(pathname), [pathname]);
+  const welcomeMessage = useMemo(() => getWelcomeMessage(pathname), [pathname]);
 
   const transport = useMemo(
     () =>
@@ -151,7 +232,7 @@ export default function AIChatButton() {
     setInput("");
   };
 
-  const sendQuickQuestion = (question: (typeof QUICK_QUESTIONS)[number]) => {
+  const sendQuickQuestion = (question: string) => {
     if (isLoading) return;
     if (error) clearError();
 
@@ -204,7 +285,7 @@ export default function AIChatButton() {
             <div className="mt-3 max-h-72 space-y-3 overflow-y-auto pr-1">
               <div className="flex justify-start">
                 <div className="max-w-[88%] rounded-xl border border-emerald-100 bg-white px-3 py-2 text-sm leading-relaxed text-slate-700 shadow-sm shadow-emerald-900/5">
-                  {WELCOME_MESSAGE}
+                  {welcomeMessage}
                 </div>
               </div>
 
@@ -251,18 +332,28 @@ export default function AIChatButton() {
               </p>
             ) : null}
 
-            <div className="mt-4 space-y-2">
-              {QUICK_QUESTIONS.map((question) => (
+            <div className="mt-4">
+              <p className="mb-2 px-1 text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase">
+                Hurtige genveje
+              </p>
+              <div className="grid gap-2">
+              {quickActions.map((action) => (
                 <button
-                  key={question}
+                  key={action.id}
                   type="button"
-                  onClick={() => sendQuickQuestion(question)}
+                  onClick={() => sendQuickQuestion(action.prompt)}
                   disabled={isLoading}
-                  className="w-full rounded-xl border border-emerald-700/15 bg-emerald-600 px-3 py-2 text-left text-sm text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="group w-full rounded-2xl border border-emerald-200/90 bg-white px-3.5 py-3 text-left shadow-sm shadow-emerald-900/5 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {question}
+                  <span className="block text-sm font-semibold text-slate-900 transition group-hover:text-emerald-900">
+                    {action.prompt}
+                  </span>
+                  <span className="mt-1 block text-xs leading-relaxed text-slate-500 transition group-hover:text-slate-600">
+                    {action.description}
+                  </span>
                 </button>
               ))}
+              </div>
             </div>
 
             <form onSubmit={handleSubmit} className="mt-3 flex gap-2">
