@@ -4,6 +4,7 @@ export const RACE_TYPES = {
   ENGELSK: "engelsk",
   MATEMATIK: "matematik",
   FOTO: "foto",
+  SCANNER: "scanner",
   SELFIE: "selfie",
   ESCAPE: "escape",
   ROLLESPIL: "rollespil",
@@ -12,6 +13,20 @@ export const RACE_TYPES = {
 } as const;
 
 export type RaceType = (typeof RACE_TYPES)[keyof typeof RACE_TYPES];
+
+export const RACE_TYPE_LABELS: Record<RaceType, string> = {
+  [RACE_TYPES.MANUEL]: "Generel Quiz",
+  [RACE_TYPES.DANSK]: "Dansk",
+  [RACE_TYPES.ENGELSK]: "Engelsk",
+  [RACE_TYPES.MATEMATIK]: "Matematik",
+  [RACE_TYPES.FOTO]: "Foto",
+  [RACE_TYPES.SCANNER]: "Bog-Scanner",
+  [RACE_TYPES.SELFIE]: "Selfie",
+  [RACE_TYPES.ESCAPE]: "Escape",
+  [RACE_TYPES.ROLLESPIL]: "Rollespil",
+  [RACE_TYPES.PODCAST]: "Podcast-Detektiven",
+  [RACE_TYPES.ZONE_KRIG]: "Zone-Krigen",
+};
 
 export const DEFAULT_MAP_CENTER = {
   lat: 55.6761,
@@ -41,6 +56,7 @@ export function normalizeRaceType(value: unknown): RaceType | null {
 
   switch (value.trim().toLocaleLowerCase("da-DK")) {
     case "quiz":
+    case "generel quiz":
     case "manuel":
     case "manual":
       return RACE_TYPES.MANUEL;
@@ -56,6 +72,17 @@ export function normalizeRaceType(value: unknown): RaceType | null {
     case "foto":
     case "photo":
       return RACE_TYPES.FOTO;
+    case "scanner":
+    case "scan":
+    case "bog-scanner":
+    case "bog scanner":
+    case "bog-scanneren":
+    case "bog scanneren":
+    case "bogscanner":
+    case "bookscanner":
+    case "qr":
+    case "qrscanner":
+      return RACE_TYPES.SCANNER;
     case "selfie":
       return RACE_TYPES.SELFIE;
     case "escape":
@@ -70,6 +97,9 @@ export function normalizeRaceType(value: unknown): RaceType | null {
     case "podcast":
       return RACE_TYPES.PODCAST;
     case "zone_krig":
+    case "zone-krig":
+    case "zone-krigen":
+    case "zone krigen":
     case "zonekrig":
       return RACE_TYPES.ZONE_KRIG;
     default:
@@ -81,7 +111,21 @@ export function getBuilderHrefForRaceType(runId: string, raceType: unknown) {
   const normalizedRaceType = normalizeRaceType(raceType);
   if (!normalizedRaceType) return null;
 
-  return `/dashboard/opret/${normalizedRaceType}?id=${encodeURIComponent(runId)}`;
+  const builderPathByRaceType: Record<RaceType, string> = {
+    [RACE_TYPES.MANUEL]: "/dashboard/opret/manuel",
+    [RACE_TYPES.DANSK]: "/dashboard/opret/dansk",
+    [RACE_TYPES.ENGELSK]: "/dashboard/opret/engelsk",
+    [RACE_TYPES.MATEMATIK]: "/dashboard/opret/matematik",
+    [RACE_TYPES.FOTO]: "/dashboard/opret/foto",
+    [RACE_TYPES.SCANNER]: "/dashboard/opret/scanner",
+    [RACE_TYPES.SELFIE]: "/dashboard/opret/selfie",
+    [RACE_TYPES.ESCAPE]: "/dashboard/opret/escape",
+    [RACE_TYPES.ROLLESPIL]: "/dashboard/opret/rollespil",
+    [RACE_TYPES.PODCAST]: "/dashboard/opret/podcast",
+    [RACE_TYPES.ZONE_KRIG]: "/dashboard/opret/zone-krig",
+  };
+
+  return `${builderPathByRaceType[normalizedRaceType]}?id=${encodeURIComponent(runId)}`;
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {

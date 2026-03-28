@@ -6,9 +6,10 @@ import { useRouter } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useState, type FormEvent } from "react";
 
-import { getBuilderHrefForRaceType } from "@/utils/gpsRuns";
-import { getRaceTypeTheme, normalizeRaceTypeThemeKey } from "@/utils/raceTypeTheme";
+import { getBuilderHrefForRaceType, normalizeRaceType, type RaceType } from "@/utils/gpsRuns";
+import { getRaceTypeTheme } from "@/utils/raceTypeTheme";
 import { buildRunScheduleUpdate, getRunSchedule, hasRunSchedule } from "@/utils/runSchedule";
+import { ARCHIVE_SUBJECT_FILTER_OPTIONS } from "@/utils/subjects";
 import { createClient } from "@/utils/supabase/client";
 
 const rubik = Rubik({
@@ -55,39 +56,19 @@ type LiveSession = {
   status: string | null;
 };
 
-const ALL_SUBJECTS = [
-  "Alle",
-  "Dansk",
-  "Matematik",
-  "Engelsk",
-  "Natur/Teknologi",
-  "Historie",
-  "Idræt",
-  "Kristendomskundskab",
-  "Tysk",
-  "Fransk",
-  "Geografi",
-  "Biologi",
-  "Fysik/Kemi",
-  "Samfundsfag",
-  "Håndværk/Design",
-  "Billedkunst",
-  "Madkundskab",
-  "Musik",
-];
+type RaceTypeFilterValue = "Alle" | RaceType;
 
-const RACE_TYPE_FILTER_OPTIONS = [
+const RACE_TYPE_FILTER_OPTIONS: ReadonlyArray<{ value: RaceTypeFilterValue; label: string }> = [
   { value: "Alle", label: "Alle" },
   { value: "dansk", label: "Dansk" },
   { value: "matematik", label: "Matematik" },
   { value: "engelsk", label: "Engelsk" },
-  { value: "manuel", label: "Manuel / GPS" },
+  { value: "manuel", label: "Generel Quiz" },
   { value: "foto", label: "Foto" },
-  { value: "escape", label: "Escape Room" },
-  { value: "rollespil", label: "Rollespil" },
-  { value: "scanner", label: "Scanner" },
-  { value: "selfie", label: "Selfie" },
-] as const;
+  { value: "scanner", label: "Bog-Scanner" },
+  { value: "podcast", label: "Podcast-Detektiven" },
+  { value: "zone_krig", label: "Zone-Krigen" },
+];
 
 const formatDanishDate = (value: string) => {
   const date = new Date(value);
@@ -104,6 +85,24 @@ const formatDanishDate = (value: string) => {
 
 const getQuestionCount = (questions: Run["questions"]) => {
   return Array.isArray(questions) ? questions.length : 0;
+};
+
+const getNormalizedRunRaceType = (run: Pick<Run, "race_type" | "raceType"> | null | undefined) => {
+  return normalizeRaceType(run?.race_type ?? run?.raceType);
+};
+
+const normalizeArchivedRun = (run: Run): Run => {
+  const normalizedRaceType = getNormalizedRunRaceType(run);
+
+  if (!normalizedRaceType) {
+    return run;
+  }
+
+  return {
+    ...run,
+    race_type: normalizedRaceType,
+    raceType: normalizedRaceType,
+  };
 };
 
 const generateJoinPin = () => Math.floor(100000 + Math.random() * 900000).toString();
@@ -189,7 +188,7 @@ export default function ArkivPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("Alle");
-  const [selectedRaceType, setSelectedRaceType] = useState("Alle");
+  const [selectedRaceType, setSelectedRaceType] = useState<RaceTypeFilterValue>("Alle");
   const [runs, setRuns] = useState<Run[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [startingRunId, setStartingRunId] = useState<string | null>(null);
@@ -241,7 +240,7 @@ export default function ArkivPage() {
         console.error("Fejl ved hentning af løb:", error);
         alert("Kunne ikke hente løbsarkivet.");
       } else {
-        setRuns((data ?? []) as Run[]);
+        setRuns((((data ?? []) as Run[]) ?? []).map(normalizeArchivedRun));
       }
       setIsLoading(false);
     };
@@ -536,11 +535,13 @@ export default function ArkivPage() {
   const filteredRuns = runs.filter((run) => {
     const matchesSearch = run.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSubject = selectedSubject === "Alle" || run.subject === selectedSubject;
-    const normalizedRaceType = normalizeRaceTypeThemeKey(run.race_type ?? run.raceType);
+    const normalizedRaceType = getNormalizedRunRaceType(run);
     const matchesRaceType = selectedRaceType === "Alle" || normalizedRaceType === selectedRaceType;
     return matchesSearch && matchesSubject && matchesRaceType;
   });
-  const scheduleTheme = getRaceTypeTheme(scheduleRun?.race_type ?? scheduleRun?.raceType);
+  const scheduleTheme = getRaceTypeTheme(
+    getNormalizedRunRaceType(scheduleRun) ?? scheduleRun?.race_type ?? scheduleRun?.raceType
+  );
 
   return (
     <main
@@ -580,8 +581,8 @@ export default function ArkivPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <p className="sm:col-span-2 mb-1 px-1 text-[11px] text-white/85 drop-shadow-md">
-              Er du underviser? Filtrér efter fag og løbstype
+            <p className="sm:col-span-2 mb-1 px-1 text-xl font-semibold text-white drop-shadow-md">
+              Filtrér efter fag og løbstype
             </p>
 
             {/* KATEGORIER / FAG DROPDOWN */}
@@ -599,7 +600,7 @@ export default function ArkivPage() {
                   onChange={(e) => setSelectedSubject(e.target.value)}
                   className="w-full cursor-pointer appearance-none rounded-2xl border border-white/50 bg-white/80 py-4 pr-12 pl-6 font-medium text-emerald-950 shadow-lg backdrop-blur-md transition-colors hover:bg-white/95 focus:outline-none focus:ring-2 focus:ring-emerald-300"
                 >
-                  {ALL_SUBJECTS.map((subj) => (
+                  {ARCHIVE_SUBJECT_FILTER_OPTIONS.map((subj) => (
                     <option key={subj} value={subj} className="bg-white py-2 text-emerald-950">
                       {subj}
                     </option>
@@ -636,7 +637,7 @@ export default function ArkivPage() {
                 <select
                   id="race-type-filter"
                   value={selectedRaceType}
-                  onChange={(e) => setSelectedRaceType(e.target.value)}
+                  onChange={(e) => setSelectedRaceType(e.target.value as RaceTypeFilterValue)}
                   className="w-full cursor-pointer appearance-none rounded-2xl border border-white/50 bg-white/80 py-4 pr-12 pl-6 font-medium text-emerald-950 shadow-lg backdrop-blur-md transition-colors hover:bg-white/95 focus:outline-none focus:ring-2 focus:ring-emerald-300"
                 >
                   {RACE_TYPE_FILTER_OPTIONS.map((option) => (
@@ -695,7 +696,9 @@ export default function ArkivPage() {
               </motion.div>
             ) : (
               filteredRuns.map((run) => {
-                const theme = getRaceTypeTheme(run.race_type ?? run.raceType);
+                const theme = getRaceTypeTheme(
+                  getNormalizedRunRaceType(run) ?? run.race_type ?? run.raceType
+                );
                 const runSchedule = getRunSchedule(run);
                 const formattedStart = formatDanishDateTime(runSchedule?.startAt);
                 const formattedEnd = formatDanishDateTime(runSchedule?.endAt);

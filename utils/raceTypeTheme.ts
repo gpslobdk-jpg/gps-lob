@@ -7,12 +7,15 @@ export type RaceTypeThemeKey =
   | "escape"
   | "rollespil"
   | "scanner"
+  | "zone_krig"
   | "selfie"
   | "podcast";
 
 export type RaceTypeTheme = {
   key: RaceTypeThemeKey;
   label: string;
+  icon?: string;
+  colorClass?: string;
   selectionCardClass: string;
   archiveCardClass: string;
   archiveHeaderClass: string;
@@ -33,7 +36,7 @@ const ARCHIVE_STATUS_BADGE_CLASS =
 const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
   manuel: {
     key: "manuel",
-    label: "Manuel",
+    label: "Generel Quiz",
     selectionCardClass:
       "border-emerald-400/40 bg-emerald-700 text-white shadow-xl shadow-emerald-950/25 hover:border-emerald-300/60 hover:bg-emerald-600 hover:shadow-2xl hover:shadow-emerald-950/35",
     archiveCardClass:
@@ -158,7 +161,9 @@ const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
   },
   scanner: {
     key: "scanner",
-    label: "Scanner",
+    label: "Bog-Scanner",
+    icon: "ScanSearch",
+    colorClass: "text-fuchsia-300",
     selectionCardClass:
       "border-fuchsia-400/40 bg-fuchsia-700 text-white shadow-xl shadow-fuchsia-950/25 hover:border-fuchsia-300/60 hover:bg-fuchsia-600 hover:shadow-2xl hover:shadow-fuchsia-950/35",
     archiveCardClass: "border-fuchsia-500/30 shadow-fuchsia-500/10 hover:border-fuchsia-400/50 hover:shadow-fuchsia-500/20",
@@ -173,9 +178,30 @@ const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
     archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
     archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
   },
+  zone_krig: {
+    key: "zone_krig",
+    label: "Zone-Krigen",
+    icon: "Target",
+    colorClass: "text-rose-400",
+    selectionCardClass:
+      "border-rose-400/40 bg-gradient-to-br from-rose-950 via-slate-900 to-red-900 text-white shadow-xl shadow-rose-950/25 hover:border-rose-300/60 hover:shadow-2xl hover:shadow-rose-950/35",
+    archiveCardClass: "border-rose-500/30 shadow-rose-500/10 hover:border-rose-400/50 hover:shadow-rose-500/20",
+    archiveHeaderClass: "bg-gradient-to-r from-rose-950 via-slate-900 to-red-900 text-white",
+    archiveAccentIconClass: "text-rose-400",
+    archivePrimaryButtonClass:
+      "border border-rose-600 bg-rose-600 text-white shadow-[0_12px_24px_rgba(225,29,72,0.18)] hover:bg-rose-500",
+    archiveGhostButtonClass:
+      "border border-rose-200 bg-white text-rose-900 shadow-sm hover:border-rose-300 hover:bg-rose-50",
+    archiveGhostIconButtonClass:
+      "border border-rose-200 bg-white text-rose-800 shadow-sm hover:border-rose-300 hover:bg-rose-50",
+    archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
+    archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
+  },
   selfie: {
     key: "selfie",
     label: "Selfie",
+    icon: "Camera",
+    colorClass: "text-rose-700",
     selectionCardClass:
       "border-rose-400/40 bg-rose-700 text-white shadow-xl shadow-rose-950/25 hover:border-rose-300/60 hover:bg-rose-600 hover:shadow-2xl hover:shadow-rose-950/35",
     archiveCardClass: "border-rose-300/60 shadow-rose-500/10 hover:shadow-rose-500/20",
@@ -215,6 +241,7 @@ export function normalizeRaceTypeThemeKey(value: unknown): RaceTypeThemeKey {
   switch (value.trim().toLocaleLowerCase("da-DK")) {
     case "gps":
     case "quiz":
+    case "generel quiz":
     case "manuel":
     case "manual":
       return "manuel";
@@ -241,11 +268,21 @@ export function normalizeRaceTypeThemeKey(value: unknown): RaceTypeThemeKey {
       return "rollespil";
     case "scanner":
     case "scan":
+    case "bog-scanner":
+    case "bog scanner":
+    case "bog-scanneren":
+    case "bog scanneren":
     case "bogscanner":
     case "bookscanner":
     case "qr":
     case "qrscanner":
       return "scanner";
+    case "zone_krig":
+    case "zone-krig":
+    case "zone-krigen":
+    case "zone krigen":
+    case "zonekrig":
+      return "zone_krig";
     case "selfie":
       return "selfie";
     case "podcast":
