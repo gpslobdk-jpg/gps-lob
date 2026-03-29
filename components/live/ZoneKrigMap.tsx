@@ -6,6 +6,8 @@ import L from "leaflet";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Circle, MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 
+import { createZoneKrigMarkerIcon } from "@/components/play/zoneMarkerHelper";
+
 export type GameTeam = {
   id: string;
   session_id: string;
@@ -30,16 +32,6 @@ type ZoneKrigMapProps = {
   zones: GameZone[];
   teams: GameTeam[];
 };
-
-function zoneLabelIcon(zoneIndex: number, teamColor: string | null) {
-  const resolvedColor = teamColor ?? "#cbd5e1";
-  return L.divIcon({
-    className: "",
-    html: `<div style="display:flex;align-items:center;justify-content:center;min-width:44px;height:30px;padding:0 10px;background:rgba(2,6,23,0.88);border:1px solid ${resolvedColor};border-radius:999px;font-size:11px;font-weight:900;color:${resolvedColor};text-align:center;white-space:nowrap;backdrop-filter:blur(8px);pointer-events:none;line-height:1;box-shadow:0 0 24px rgba(2,6,23,0.28);">Z${zoneIndex + 1}</div>`,
-    iconSize: [44, 30],
-    iconAnchor: [22, 15],
-  });
-}
 
 function MapAutoFit({ zones }: { zones: GameZone[] }) {
   const map = useMap();
@@ -122,7 +114,12 @@ export default function ZoneKrigMap({ center, zones, teams }: ZoneKrigMapProps) 
             />
             <Marker
               position={[zone.center_lat, zone.center_lng]}
-              icon={zoneLabelIcon(zone.zone_index, team?.color ?? null)}
+              icon={createZoneKrigMarkerIcon({
+                state: team ? "owner" : "neutral",
+                teamColor: team?.color ?? null,
+                label: `Z${zone.zone_index + 1}`,
+                isShielded,
+              })}
               interactive={false}
             />
           </Fragment>

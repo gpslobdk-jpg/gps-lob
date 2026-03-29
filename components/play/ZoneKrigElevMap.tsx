@@ -6,6 +6,7 @@ import L from "leaflet";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Circle, MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
+import { createZoneKrigMarkerIcon } from "@/components/play/zoneMarkerHelper";
 import type { Location } from "./types";
 
 export type ZoneKrigGameTeam = {
@@ -39,15 +40,6 @@ const DEFAULT_CENTER: [number, number] = [55.6761, 12.5683];
 
 function zoneColor(teamColor: string | null) {
   return teamColor ?? "#475569";
-}
-
-function zoneLabelIcon(zoneIndex: number, labelColor: string, isSelected: boolean) {
-  return L.divIcon({
-    className: "",
-    html: `<div style="background:${isSelected ? "rgba(15,23,42,0.96)" : "rgba(15,23,42,0.82)"};border:1px solid ${isSelected ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.18)"};border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800;color:${labelColor};text-align:center;white-space:nowrap;backdrop-filter:blur(10px);box-shadow:${isSelected ? "0 0 24px rgba(255,255,255,0.18)" : "none"};">Z${zoneIndex + 1}</div>`,
-    iconSize: [52, 28],
-    iconAnchor: [26, 14],
-  });
 }
 
 function playerIcon() {
@@ -176,11 +168,17 @@ export default function ZoneKrigElevMap({
       {zones.map((zone) => {
         const owner = zone.owner_team_id ? teamMap.get(zone.owner_team_id) ?? null : null;
         const isSelected = zone.zone_index === selectedZoneIndex;
+        const isShielded = Boolean(zone.shield_until && new Date(zone.shield_until).getTime() > nowMs);
         return (
           <Marker
             key={`${zone.id}-label`}
             position={[zone.center_lat, zone.center_lng]}
-            icon={zoneLabelIcon(zone.zone_index, owner?.color ?? "#e2e8f0", isSelected)}
+            icon={createZoneKrigMarkerIcon({
+              state: isSelected ? "selected" : owner ? "owner" : "neutral",
+              teamColor: owner?.color ?? null,
+              label: `Z${zone.zone_index + 1}`,
+              isShielded,
+            })}
             eventHandlers={{
               click: () => onSelectZone(zone.zone_index),
             }}

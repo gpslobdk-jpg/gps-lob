@@ -4,8 +4,10 @@ import "leaflet/dist/leaflet.css";
 
 import { Crosshair, MapPin, Search } from "lucide-react";
 import L from "leaflet";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { Circle, MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
+
+import { createZoneKrigMarkerIcon } from "@/components/play/zoneMarkerHelper";
 
 type MapCenter = {
   lat: number;
@@ -31,6 +33,7 @@ type MapPickerProps = {
   center: MapCenter;
   pins: SavedPin[];
   zones?: SavedZone[];
+  mapMode?: "default" | "zone-krig";
   onCenterChange?: (center: MapCenter) => void;
   onMapClick?: (center: MapCenter) => void;
   activePinLabel?: string | null;
@@ -142,6 +145,7 @@ export default function MapPicker({
   center,
   pins,
   zones,
+  mapMode = "default",
   onCenterChange,
   onMapClick,
   activePinLabel,
@@ -364,19 +368,39 @@ export default function MapPicker({
           />
         ))}
 
-        {zones?.map((zone) => (
-          <Circle
-            key={zone.id}
-            center={[zone.lat, zone.lng]}
-            radius={zone.radius}
-            pathOptions={{
-              color: "#22d3ee",
-              fillColor: "#22d3ee",
-              fillOpacity: 0.18,
-              weight: 2,
-            }}
-          />
-        ))}
+        {zones?.map((zone, index) => {
+          const zoneCircle = (
+            <Circle
+              key={`${zone.id}-circle`}
+              center={[zone.lat, zone.lng]}
+              radius={zone.radius}
+              pathOptions={{
+                color: "#22d3ee",
+                fillColor: "#22d3ee",
+                fillOpacity: 0.18,
+                weight: 2,
+              }}
+            />
+          );
+
+          if (mapMode !== "zone-krig") {
+            return zoneCircle;
+          }
+
+          return (
+            <Fragment key={zone.id}>
+              {zoneCircle}
+              <Marker
+                position={[zone.lat, zone.lng]}
+                icon={createZoneKrigMarkerIcon({
+                  state: "neutral",
+                  label: zone.label ?? `Zone ${index + 1}`,
+                })}
+                interactive={false}
+              />
+            </Fragment>
+          );
+        })}
       </MapContainer>
 
       {activePinLabel ? (
