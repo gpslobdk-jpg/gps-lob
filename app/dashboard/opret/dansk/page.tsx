@@ -370,7 +370,9 @@ function OpretDanskLoebPageContent() {
 
     setTitle(restoreDraftString(draft.title));
     setDescription(restoreDraftString(draft.description));
-    setGradeLevels(Array.isArray(draft.gradeLevels) ? restoredGradeLevels : DEFAULT_SELECTED_GRADE_LEVELS);
+    setGradeLevels(
+      restoredGradeLevels.length > 0 ? restoredGradeLevels : DEFAULT_SELECTED_GRADE_LEVELS
+    );
     setRadius(normalizeRunRadius(draft.radius));
     setShowTeacherField(restoreDraftBoolean(draft.showTeacherField, true));
     setShowAiInterviewModal(restoreDraftBoolean(draft.showAiInterviewModal));
@@ -540,7 +542,11 @@ function OpretDanskLoebPageContent() {
 
         setTitle(asTrimmedString(run.title));
         setDescription(nextDescription);
-        setGradeLevels(normalizeGradeLevels(run.grade_levels));
+        const loadedGradeLevels = normalizeGradeLevels(run.grade_levels);
+
+        setGradeLevels(
+          loadedGradeLevels.length > 0 ? loadedGradeLevels : DEFAULT_SELECTED_GRADE_LEVELS
+        );
         setRadius(normalizeRunRadius(run.radius));
         setShowTeacherField(true);
         setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion(defaultQuestionType)]);
