@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useState, type FormEvent } from "react";
 
+import { Switch } from "@/components/ui/switch";
 import { formatGradeLevelBadge, normalizeGradeLevels } from "@/utils/gradeLevels";
 import { getBuilderHrefForRaceType, normalizeRaceType, type RaceType } from "@/utils/gpsRuns";
 import { getRaceTypeTheme } from "@/utils/raceTypeTheme";
@@ -49,6 +50,7 @@ type Run = {
   created_at: string;
   raceType?: string | null;
   race_type?: string | null;
+  liveSession?: LiveSession | null;
   [key: string]: unknown;
 };
 
@@ -56,6 +58,11 @@ type LiveSession = {
   id: string;
   pin: string | null;
   status: string | null;
+};
+
+type LiveSessionRow = LiveSession & {
+  run_id: string;
+  created_at: string;
 };
 
 type RaceTypeFilterValue = "Alle" | RaceType;
@@ -89,6 +96,8 @@ const getQuestionCount = (questions: Run["questions"]) => {
   return Array.isArray(questions) ? questions.length : 0;
 };
 
+const QUICK_TOGGLE_EXCLUDED_RACE_TYPES = new Set<RaceType>(["zone_krig", "scanner"]);
+
 const getNormalizedRunRaceType = (run: Pick<Run, "race_type" | "raceType"> | null | undefined) => {
   return normalizeRaceType(run?.race_type ?? run?.raceType);
 };
@@ -107,7 +116,15 @@ const normalizeArchivedRun = (run: Run): Run => {
   };
 };
 
-const generateJoinPin = () => Math.floor(100000 + Math.random() * 900000).toString();
+const canQuickToggleRun = (run: Run) => {
+  const raceType = getNormalizedRunRaceType(run);
+  return Boolean(raceType && !QUICK_TOGGLE_EXCLUDED_RACE_TYPES.has(raceType));
+};
+
+const isLobbyOpen = (run: Run) => {
+  const status = run.liveSession?.status ?? null;
+  return status === "waiting" || status === "running";
+};
 
 const padNumber = (value: number) => value.toString().padStart(2, "0");
 
@@ -141,6 +158,13 @@ const formatDanishDateTime = (value: string | null | undefined) => {
 const buildJoinLink = (pin: string) => {
   const path = `/join?pin=${encodeURIComponent(pin)}`;
   return typeof window !== "undefined" ? `${window.location.origin}${path}` : path;
+};
+
+type ArchiveLiveSessionMutationAction = "ensure" | "finish";
+
+type ArchiveLiveSessionMutationResult = {
+  session: LiveSession | null;
+  source: "created" | "reused" | null;
 };
 
 type SupabaseLikeError = {
@@ -185,6 +209,241 @@ const getDeleteErrorMessage = (error: unknown) => {
 
   return base;
 };
+
+async function requestArchiveLiveSessionMutation(
+  runId: string,
+  action: ArchiveLiveSessionMutationAction
+): Promise<ArchiveLiveSessionMutationResult> {
+  const response = await fetch("/api/archive/live-session", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ runId, action }),
+  });
+
+  let body: { error?: string; session?: LiveSession | null; source?: "created" | "reused" | null } | null = null;
+
+  try {
+    body = (await response.json()) as { error?: string; session?: LiveSession | null; source?: "created" | "reused" | null };
+  } catch {
+    body = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(body?.error ?? "Kunne ikke opdatere løbets lobby-status.");
+  }
+
+  return {
+    session: body?.session ?? null,
+    source: body?.source ?? null,
+  };
+}
+
+type ArchivedRunCardProps = {
+  run: Run;
+  isStarting: boolean;
+  onStartRun: (run: Run) => Promise<void>;
+  onToggleLobby: (run: Run, nextEnabled: boolean) => Promise<void>;
+  onOpenSchedule: (run: Run) => void;
+  onOpenResults: (runId: string) => void;
+  onEditRun: (run: Run) => void;
+  onDeleteRun: (runId: string) => Promise<void>;
+};
+
+function ArchivedRunCard({
+  run,
+  isStarting,
+  onStartRun,
+  onToggleLobby,
+  onOpenSchedule,
+  onOpenResults,
+  onEditRun,
+  onDeleteRun,
+}: ArchivedRunCardProps) {
+  const theme = getRaceTypeTheme(getNormalizedRunRaceType(run) ?? run.race_type ?? run.raceType);
+  const gradeLevels = normalizeGradeLevels(run.grade_levels);
+  const runSchedule = getRunSchedule(run);
+  const formattedStart = formatDanishDateTime(runSchedule?.startAt);
+  const formattedEnd = formatDanishDateTime(runSchedule?.endAt);
+  const isScheduled = hasRunSchedule(runSchedule);
+  const scheduleStatusLabel = isScheduled ? "Planlagt" : "Åben adgang";
+  const [isToggling, setIsToggling] = useState(false);
+  const [pendingChecked, setPendingChecked] = useState<boolean | null>(null);
+
+  const showQuickToggle = canQuickToggleRun(run);
+  const lobbyIsOpen = isLobbyOpen(run);
+  const switchChecked = pendingChecked ?? lobbyIsOpen;
+  const quickToggleLabel = isToggling ? (switchChecked ? "Åbner..." : "Lukker...") : switchChecked ? "Åben" : "Lukket";
+  const primaryButtonLabel = lobbyIsOpen
+    ? run.liveSession?.pin
+      ? `PIN: ${run.liveSession.pin} (Åbn Lobby)`
+      : "Åbn Lobby"
+    : "Sæt i gang";
+
+  const handleToggle = async (nextEnabled: boolean) => {
+    setPendingChecked(nextEnabled);
+    setIsToggling(true);
+
+    try {
+      await onToggleLobby(run, nextEnabled);
+    } finally {
+      setPendingChecked(null);
+      setIsToggling(false);
+    }
+  };
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      transition={{ duration: 0.2 }}
+      className={`group relative overflow-hidden rounded-4xl border bg-white/92 p-5 shadow-lg backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:shadow-xl ${theme.archiveCardClass}`}
+    >
+      <div className={`-mx-5 -mt-5 mb-5 border-b border-white/10 px-5 py-5 ${theme.archiveHeaderClass}`}>
+        <div className="flex items-start justify-between gap-3">
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
+            {run.subject}
+          </span>
+
+          <div className="flex items-center gap-3">
+            {showQuickToggle ? (
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/10 px-2.5 py-1.5 backdrop-blur-md">
+                <span className="text-[10px] font-black tracking-[0.22em] text-white uppercase">
+                  {quickToggleLabel}
+                </span>
+                <Switch
+                  checked={switchChecked}
+                  onCheckedChange={(checked) => void handleToggle(checked)}
+                  disabled={isToggling || isStarting}
+                  ariaLabel={`Skift lobby-status for ${run.title}`}
+                />
+              </div>
+            ) : null}
+
+            <span className="text-xs font-medium text-white/80">
+              {formatDanishDate(run.created_at)}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-4 flex items-start justify-between gap-3">
+          <h2
+            className={`max-w-[18rem] text-xl font-bold leading-tight text-white ${rubik.className}`}
+          >
+            {run.title}
+          </h2>
+          <span className="shrink-0 rounded-full border border-white/15 bg-black/10 px-3 py-1 text-[11px] font-black tracking-[0.22em] text-white uppercase">
+            {theme.label}
+          </span>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold ${theme.archiveStatusBadgeClass}`}
+          >
+            {isScheduled ? <Timer className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+            {scheduleStatusLabel}
+          </span>
+
+          {lobbyIsOpen ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200/35 bg-emerald-400/20 px-3 py-1 text-[11px] font-semibold text-white shadow-[0_0_18px_rgba(52,211,153,0.18)]">
+              <Play className="h-3 w-3" />
+              Lobby åben
+            </span>
+          ) : null}
+
+          {gradeLevels.map((gradeLevel) => (
+            <span
+              key={`${run.id}-${gradeLevel}`}
+              className="inline-flex items-center whitespace-nowrap rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-[0.08em] text-white/90 backdrop-blur-md"
+            >
+              {formatGradeLevelBadge(gradeLevel)}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <p className="flex items-center gap-2 text-sm font-medium text-slate-800">
+        <MapPin className={`h-4 w-4 ${theme.archiveAccentIconClass}`} />
+        {getQuestionCount(run.questions)} poster
+      </p>
+
+      {isScheduled ? (
+        <p className="mt-3 flex items-center gap-2 text-xs font-medium text-slate-700">
+          <Timer className={`h-4 w-4 ${theme.archiveAccentIconClass}`} />
+          {runSchedule?.startAt && runSchedule?.endAt
+            ? `Planlagt fra ${formattedStart ?? "ukendt tidspunkt"} til ${formattedEnd ?? "ukendt tidspunkt"}`
+            : runSchedule?.startAt
+              ? `Starter ${formattedStart ?? "ukendt tidspunkt"}`
+              : `Slutter ${formattedEnd ?? "ukendt tidspunkt"}`}
+        </p>
+      ) : null}
+
+      <div className="mt-5 border-t border-slate-200/80 pt-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <button
+            type="button"
+            onClick={() => void onStartRun(run)}
+            disabled={isStarting || isToggling}
+            className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black tracking-[0.08em] transition disabled:cursor-wait disabled:opacity-70 sm:w-auto sm:min-w-44 ${theme.archivePrimaryButtonClass}`}
+          >
+            {isStarting ? (
+              "ÅBNER..."
+            ) : (
+              <>
+                <Play className="h-3.5 w-3.5" />
+                {primaryButtonLabel}
+              </>
+            )}
+          </button>
+
+          <div className="flex flex-wrap items-center gap-2 sm:flex-1 sm:justify-end">
+            <button
+              type="button"
+              onClick={() => onOpenSchedule(run)}
+              className={`inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-full px-3.5 text-xs font-semibold transition ${theme.archiveGhostButtonClass}`}
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              Planlæg
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onOpenResults(run.id)}
+              className={`inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-full px-3.5 text-xs font-semibold transition ${theme.archiveGhostButtonClass}`}
+            >
+              <BarChart className="h-3.5 w-3.5" />
+              Resultater
+            </button>
+
+            <button
+              type="button"
+              aria-label="Rediger løb"
+              title="Rediger løb"
+              onClick={() => onEditRun(run)}
+              className={`grid h-9 w-9 place-items-center rounded-full transition ${theme.archiveGhostIconButtonClass}`}
+            >
+              <Edit2 className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
+              aria-label="Slet løb"
+              title="Slet løb"
+              onClick={() => void onDeleteRun(run.id)}
+              className={`grid h-9 w-9 place-items-center rounded-full transition ${theme.archiveDangerIconButtonClass}`}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 export default function ArkivPage() {
   const router = useRouter();
@@ -238,11 +497,38 @@ export default function ArkivPage() {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
+      const { data: liveSessionData, error: liveSessionError } = await supabase
+        .from("live_sessions")
+        .select("id,run_id,pin,status,created_at")
+        .eq("teacher_id", user.id)
+        .in("status", ["waiting", "running"])
+        .order("created_at", { ascending: false });
+
       if (error) {
         console.error("Fejl ved hentning af løb:", error);
         alert("Kunne ikke hente løbsarkivet.");
       } else {
-        setRuns((((data ?? []) as Run[]) ?? []).map(normalizeArchivedRun));
+        if (liveSessionError) {
+          console.error("Fejl ved hentning af aktive lobbysessioner:", liveSessionError);
+        }
+
+        const liveSessionMap = new Map<string, LiveSession>();
+        for (const session of ((liveSessionData ?? []) as LiveSessionRow[])) {
+          if (!liveSessionMap.has(session.run_id)) {
+            liveSessionMap.set(session.run_id, {
+              id: session.id,
+              pin: typeof session.pin === "string" ? session.pin.trim() : null,
+              status: session.status,
+            });
+          }
+        }
+
+        setRuns(
+          ((((data ?? []) as Run[]) ?? []).map(normalizeArchivedRun)).map((run) => ({
+            ...run,
+            liveSession: liveSessionMap.get(run.id) ?? null,
+          }))
+        );
       }
       setIsLoading(false);
     };
@@ -290,31 +576,17 @@ export default function ArkivPage() {
     }
   };
 
-  const handleStartRun = async (runId: string) => {
-    setStartingRunId(runId);
-    const supabase = createClient();
-
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        alert("Du skal være logget ind!");
-        return;
-      }
-
-      const ensuredSession = await ensureLiveSessionForRun(runId, user.id);
-
-      if (ensuredSession && ensuredSession.id) {
-        router.push(`/dashboard/live/${ensuredSession.id}`);
-      }
-    } catch (err) {
-      console.error("Kunne ikke oprette live session:", err);
-      alert("Der skete en fejl. Prøv igen.");
-    } finally {
-      setStartingRunId(null);
-    }
+  const updateRunLiveSession = (runId: string, nextSession: LiveSession | null) => {
+    setRuns((previous) =>
+      previous.map((run) =>
+        run.id === runId
+          ? {
+              ...run,
+              liveSession: nextSession,
+            }
+          : run
+      )
+    );
   };
 
   const resetScheduleAccessDetails = () => {
@@ -324,91 +596,48 @@ export default function ArkivPage() {
     setDidCopyScheduleAccess(false);
   };
 
-  const ensureLiveSessionForRun = async (runId: string, teacherId: string) => {
-    const supabase = createClient();
-    const { data: activeSessions, error: activeSessionsError } = await supabase
-      .from("live_sessions")
-      .select("id,pin,status")
-      .eq("run_id", runId)
-      .eq("teacher_id", teacherId)
-      .in("status", ["waiting", "running"])
-      .order("created_at", { ascending: false })
-      .limit(1);
+  const handleToggleLobby = async (run: Run, nextEnabled: boolean) => {
+    const previousSession = run.liveSession ?? null;
 
-    if (activeSessionsError) {
-      throw activeSessionsError;
+    updateRunLiveSession(
+      run.id,
+      nextEnabled
+        ? previousSession ?? { id: `pending-${run.id}`, pin: null, status: "waiting" }
+        : null
+    );
+
+    try {
+      const result = await requestArchiveLiveSessionMutation(run.id, nextEnabled ? "ensure" : "finish");
+      updateRunLiveSession(run.id, result.session);
+    } catch (error) {
+      updateRunLiveSession(run.id, previousSession);
+      console.error("Kunne ikke skifte lobby-status:", error);
+      alert(error instanceof Error ? error.message : "Kunne ikke skifte løbets lobby-status.");
+      throw error;
+    }
+  };
+
+  const handleStartRun = async (run: Run) => {
+    if (run.liveSession?.id && isLobbyOpen(run)) {
+      router.push(`/dashboard/live/${run.liveSession.id}`);
+      return;
     }
 
-    const existingSession = ((activeSessions ?? []) as LiveSession[])[0] ?? null;
-    const existingPin = typeof existingSession?.pin === "string" ? existingSession.pin.trim() : "";
+    setStartingRunId(run.id);
 
-    if (existingSession?.id && existingPin) {
-      return {
-        id: existingSession.id,
-        pin: existingPin,
-        source: "reused" as const,
-      };
+    try {
+      const result = await requestArchiveLiveSessionMutation(run.id, "ensure");
+      updateRunLiveSession(run.id, result.session);
+
+      if (result.session?.id) {
+        router.push(`/dashboard/live/${result.session.id}`);
+      }
+    } catch (error) {
+      console.error("Kunne ikke åbne lobbyen fra arkivet:", error);
+      alert(error instanceof Error ? error.message : "Der skete en fejl. Prøv igen.");
+    } finally {
+      setStartingRunId(null);
     }
-
-    // Try to generate a unique PIN up to N attempts before failing
-    const maxAttempts = 5;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      const generatedPin = generateJoinPin();
-
-      // Check quickly if this PIN is already used for an active session
-      const { data: pinMatches, error: pinCheckError } = await supabase
-        .from("live_sessions")
-        .select("id")
-        .eq("pin", generatedPin)
-        .in("status", ["waiting", "running"])
-        .limit(1);
-
-      if (pinCheckError) {
-        console.error("Fejl ved PIN-tjek:", pinCheckError);
-        // on error, fall through to try insert (it may still succeed)
-      }
-
-      if (Array.isArray(pinMatches) && pinMatches.length > 0) {
-        // Collision — try again
-        if (attempt === maxAttempts) break;
-        continue;
-      }
-
-      // Attempt to create the session with this PIN
-      try {
-        const { data: createdSession, error: createdSessionError } = await supabase
-          .from("live_sessions")
-          .insert({
-            run_id: runId,
-            teacher_id: teacherId,
-            pin: generatedPin,
-            status: "waiting",
-          })
-          .select("id,pin,status")
-          .single();
-
-        if (createdSessionError) {
-          // If insert failed due to a constraint, loop to retry
-          console.warn("Fejl ved oprettelse af session (forsøg", attempt, "):", createdSessionError);
-          if (attempt === maxAttempts) throw createdSessionError;
-          continue;
-        }
-
-        const createdPin = typeof createdSession?.pin === "string" ? createdSession.pin.trim() : generatedPin;
-
-        return {
-          id: createdSession.id,
-          pin: createdPin,
-          source: "created" as const,
-        };
-      } catch (err) {
-        console.error("Uventet fejl ved oprettelse af session:", err);
-        if (attempt === maxAttempts) throw err;
-        // otherwise retry
-      }
-    }
-
-    throw new Error("Kunne ikke generere en unik PIN efter flere forsøg. Prøv igen.");
   };
 
   const openScheduleModal = (run: Run) => {
@@ -484,7 +713,8 @@ export default function ArkivPage() {
         return;
       }
 
-      const ensuredSession = await ensureLiveSessionForRun(activeRun.id, user.id);
+      const ensuredSession = await requestArchiveLiveSessionMutation(activeRun.id, "ensure");
+      updateRunLiveSession(activeRun.id, ensuredSession.session);
 
       const { data: updatedRuns, error } = await supabase
         .from("gps_runs")
@@ -522,8 +752,9 @@ export default function ArkivPage() {
           : prev
       );
 
-      setScheduleSharePin(ensuredSession.pin);
-      setScheduleShareLink(buildJoinLink(ensuredSession.pin));
+          const sharePin = ensuredSession.session?.pin ?? "";
+          setScheduleSharePin(sharePin);
+          setScheduleShareLink(sharePin ? buildJoinLink(sharePin) : "");
       setScheduleSessionSource(ensuredSession.source);
       setDidCopyScheduleAccess(false);
     } catch (error) {
@@ -547,7 +778,7 @@ export default function ArkivPage() {
 
   return (
     <main
-      className={`relative min-h-screen bg-gradient-to-t from-emerald-100 via-sky-50 to-sky-300 p-6 text-white lg:bg-none lg:bg-transparent lg:p-12 ${poppins.className}`}
+      className={`relative min-h-screen bg-linear-to-t from-emerald-100 via-sky-50 to-sky-300 p-6 text-white lg:bg-none lg:bg-transparent lg:p-12 ${poppins.className}`}
     >
       <video
         autoPlay
@@ -557,7 +788,7 @@ export default function ArkivPage() {
         className="fixed top-0 left-0 hidden h-full w-full object-cover -z-20 lg:block"
         src="/arkiv-bg.mp4"
       />
-      <div className="fixed inset-0 hidden bg-gradient-to-b from-sky-900/20 to-emerald-900/60 backdrop-blur-[3px] -z-10 lg:block" />
+      <div className="fixed inset-0 hidden bg-linear-to-b from-sky-900/20 to-emerald-900/60 backdrop-blur-[3px] -z-10 lg:block" />
 
       <div className="mx-auto max-w-7xl">
         <h1
@@ -698,142 +929,18 @@ export default function ArkivPage() {
               </motion.div>
             ) : (
               filteredRuns.map((run) => {
-                const theme = getRaceTypeTheme(
-                  getNormalizedRunRaceType(run) ?? run.race_type ?? run.raceType
-                );
-                const gradeLevels = normalizeGradeLevels(run.grade_levels);
-                const runSchedule = getRunSchedule(run);
-                const formattedStart = formatDanishDateTime(runSchedule?.startAt);
-                const formattedEnd = formatDanishDateTime(runSchedule?.endAt);
-                const isScheduled = hasRunSchedule(runSchedule);
-                const scheduleStatusLabel = isScheduled ? "Planlagt" : "Åben adgang";
-
                 return (
-                  <motion.div
+                  <ArchivedRunCard
                     key={run.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ duration: 0.2 }}
-                    className={`group relative overflow-hidden rounded-[2rem] border bg-white/92 p-5 shadow-lg backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:shadow-xl ${theme.archiveCardClass}`}
-                  >
-                    <div className={`-mx-5 -mt-5 mb-5 border-b border-white/10 px-5 py-5 ${theme.archiveHeaderClass}`}>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
-                          {run.subject}
-                        </span>
-                        <span className="text-xs font-medium text-white/80">
-                          {formatDanishDate(run.created_at)}
-                        </span>
-                      </div>
-
-                      <div className="mt-4 flex items-start justify-between gap-3">
-                        <h2
-                          className={`max-w-[18rem] text-xl font-bold leading-tight text-white ${rubik.className}`}
-                        >
-                          {run.title}
-                        </h2>
-                        <span className="shrink-0 rounded-full border border-white/15 bg-black/10 px-3 py-1 text-[11px] font-black tracking-[0.22em] text-white uppercase">
-                          {theme.label}
-                        </span>
-                      </div>
-
-                      <div className="mt-4 flex flex-wrap items-center gap-2">
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold ${theme.archiveStatusBadgeClass}`}
-                        >
-                          {isScheduled ? <Timer className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-                          {scheduleStatusLabel}
-                        </span>
-
-                        {gradeLevels.map((gradeLevel) => (
-                          <span
-                            key={`${run.id}-${gradeLevel}`}
-                            className="inline-flex items-center whitespace-nowrap rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-[0.08em] text-white/90 backdrop-blur-md"
-                          >
-                            {formatGradeLevelBadge(gradeLevel)}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <p className="flex items-center gap-2 text-sm font-medium text-slate-800">
-                      <MapPin className={`h-4 w-4 ${theme.archiveAccentIconClass}`} />
-                      {getQuestionCount(run.questions)} poster
-                    </p>
-
-                    {isScheduled ? (
-                      <p className="mt-3 flex items-center gap-2 text-xs font-medium text-slate-700">
-                        <Timer className={`h-4 w-4 ${theme.archiveAccentIconClass}`} />
-                        {runSchedule?.startAt && runSchedule?.endAt
-                          ? `Planlagt fra ${formattedStart ?? "ukendt tidspunkt"} til ${formattedEnd ?? "ukendt tidspunkt"}`
-                          : runSchedule?.startAt
-                            ? `Starter ${formattedStart ?? "ukendt tidspunkt"}`
-                            : `Slutter ${formattedEnd ?? "ukendt tidspunkt"}`}
-                      </p>
-                    ) : null}
-
-                    <div className="mt-5 border-t border-slate-200/80 pt-4">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <button
-                          type="button"
-                          onClick={() => void handleStartRun(run.id)}
-                          disabled={startingRunId === run.id}
-                          className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black tracking-[0.16em] uppercase transition disabled:cursor-wait disabled:opacity-70 sm:w-auto sm:min-w-[11rem] ${theme.archivePrimaryButtonClass}`}
-                        >
-                          {startingRunId === run.id ? (
-                            "STARTER..."
-                          ) : (
-                            <>
-                              <Play className="h-3.5 w-3.5" />
-                              Sæt i gang
-                            </>
-                          )}
-                        </button>
-
-                        <div className="flex flex-wrap items-center gap-2 sm:flex-1 sm:justify-end">
-                          <button
-                            type="button"
-                            onClick={() => openScheduleModal(run)}
-                            className={`inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-full px-3.5 text-xs font-semibold transition ${theme.archiveGhostButtonClass}`}
-                          >
-                            <Calendar className="h-3.5 w-3.5" />
-                            Planlæg
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => router.push(`/dashboard/resultater/${run.id}`)}
-                            className={`inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-full px-3.5 text-xs font-semibold transition ${theme.archiveGhostButtonClass}`}
-                          >
-                            <BarChart className="h-3.5 w-3.5" />
-                            Resultater
-                          </button>
-
-                          <button
-                            type="button"
-                            aria-label="Rediger løb"
-                            title="Rediger løb"
-                            onClick={() => handleEditRun(run)}
-                            className={`grid h-9 w-9 place-items-center rounded-full transition ${theme.archiveGhostIconButtonClass}`}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-
-                          <button
-                            type="button"
-                            aria-label="Slet løb"
-                            title="Slet løb"
-                            onClick={() => void handleDeleteRun(run.id)}
-                            className={`grid h-9 w-9 place-items-center rounded-full transition ${theme.archiveDangerIconButtonClass}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
+                    run={run}
+                    isStarting={startingRunId === run.id}
+                    onStartRun={handleStartRun}
+                    onToggleLobby={handleToggleLobby}
+                    onOpenSchedule={openScheduleModal}
+                    onOpenResults={(runId) => router.push(`/dashboard/resultater/${runId}`)}
+                    onEditRun={handleEditRun}
+                    onDeleteRun={handleDeleteRun}
+                  />
                 );
               })
             )}
@@ -862,7 +969,7 @@ export default function ArkivPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.98, y: 8 }}
               transition={{ duration: 0.2 }}
-              className="relative w-full max-w-lg overflow-hidden rounded-[2rem] border border-white/15 bg-slate-950/95 p-6 text-white shadow-[0_32px_80px_rgba(2,24,19,0.42)]"
+              className="relative w-full max-w-lg overflow-hidden rounded-4xl border border-white/15 bg-slate-950/95 p-6 text-white shadow-[0_32px_80px_rgba(2,24,19,0.42)]"
             >
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(110,231,183,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.18),transparent_38%)]" />
 
@@ -963,7 +1070,7 @@ export default function ArkivPage() {
                         <button
                           type="button"
                           onClick={() => void handleCopyScheduleAccess()}
-                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.12] px-4 py-3 text-sm font-bold text-white transition hover:bg-white/[0.18]"
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/12 px-4 py-3 text-sm font-bold text-white transition hover:bg-white/18"
                         >
                           <Copy className="h-4 w-4" />
                           {didCopyScheduleAccess ? "KOPIERET" : "KOPIER LINK / PIN"}
