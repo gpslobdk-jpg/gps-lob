@@ -11,7 +11,7 @@ import ManualAiInterviewModal, {
 } from "@/components/builders/manual/ManualAiInterviewModal";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import type { SavedPin, SavedZone } from "@/components/MapPicker";
-import { RACE_TYPES } from "@/utils/gpsRuns";
+import { normalizeRaceType, RACE_TYPES } from "@/utils/gpsRuns";
 import {
   consumeDraftAutoload,
   clearRunDraft,
@@ -163,6 +163,7 @@ type StoredRunRecord = {
   topic: string | null;
   questions: unknown;
   radius?: number | null;
+  race_type?: string | null;
 };
 
 type StoredQuestionRecord = {
@@ -220,6 +221,7 @@ type ManualBuilderDraftState = {
   showAiInterviewModal?: unknown;
   questions?: unknown;
   mapCenter?: unknown;
+  overrideRaceType?: unknown;
 };
 
 const DEFAULT_RUN_RADIUS = 15;
@@ -403,7 +405,7 @@ export default function OpretLoebPage() {
       fallback={
         <div className={`min-h-screen bg-emerald-950 ${poppins.className}`}>
           <div className="flex min-h-screen items-center justify-center px-6 text-center">
-            <div className="rounded-[2rem] border border-emerald-500/20 bg-slate-900/50 px-8 py-10 text-emerald-100 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+            <div className="rounded-4xl border border-emerald-500/20 bg-slate-900/50 px-8 py-10 text-emerald-100 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
               <p className="text-xs font-semibold tracking-[0.28em] text-emerald-100/55 uppercase">
                 Indlæser
               </p>
@@ -446,7 +448,7 @@ function OpretLoebPageContent() {
   const renderNotice = (className = "") =>
     notice ? (
       <div
-        className={`rounded-[1.5rem] border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
+        className={`rounded-3xl border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
           notice.tone === "success"
             ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-50"
             : "border-red-300/30 bg-red-500/10 text-red-100"
@@ -463,6 +465,7 @@ function OpretLoebPageContent() {
   const applyDraftState = (draft: ManualBuilderDraftState) => {
     const restoredSubject = restoreDraftString(draft.subject);
     const restoredQuestions = toQuestionList(draft.questions);
+    const restoredRaceType = normalizeRaceType(draft.overrideRaceType);
 
     setTitle(restoreDraftString(draft.title));
     setDescription(restoreDraftString(draft.description));
@@ -472,6 +475,7 @@ function OpretLoebPageContent() {
     setShowAiInterviewModal(restoreDraftBoolean(draft.showAiInterviewModal));
     setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion(defaultQuestionType)]);
     setMapCenter(restoreDraftMapCenter(draft.mapCenter, DEFAULT_MAP_CENTER));
+    setOverrideRaceType(restoredRaceType);
   };
 
   const scrollToSaveFeedback = () => {
@@ -649,7 +653,7 @@ function OpretLoebPageContent() {
 
         const { data: run, error } = await supabase
           .from("gps_runs")
-          .select("id,user_id,title,subject,description,topic,questions,radius")
+          .select("id,user_id,title,subject,description,topic,questions,radius,race_type")
           .eq("id", editRunId)
           .eq("user_id", user.id)
           .maybeSingle<StoredRunRecord>();
@@ -689,6 +693,7 @@ function OpretLoebPageContent() {
         setDescription(nextDescription);
         setSubject(asTrimmedString(run.subject));
         setRadius(normalizeRunRadius(run.radius));
+        setOverrideRaceType(normalizeRaceType(run.race_type));
         setShowTeacherField(Boolean(asTrimmedString(run.subject)));
         setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion(defaultQuestionType)]);
         setShowAiInterviewModal(false);
@@ -772,11 +777,13 @@ function OpretLoebPageContent() {
       showAiInterviewModal,
       questions,
       mapCenter,
+      overrideRaceType,
     } satisfies ManualBuilderDraftState);
   }, [
     description,
     editRunId,
     mapCenter,
+    overrideRaceType,
     questions,
     radius,
     showAiInterviewModal,
@@ -1105,7 +1112,7 @@ function OpretLoebPageContent() {
   if (isEditMode && isLoadingExistingRun) {
     return (
       <div className={`relative min-h-screen overflow-hidden bg-emerald-950 text-emerald-100 ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-emerald-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
+        <div className="fixed inset-0 -z-10 bg-linear-to-br from-emerald-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
           <div className="w-full max-w-md rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
             <Loader2 className="mx-auto h-10 w-10 animate-spin text-emerald-200" />
@@ -1127,7 +1134,7 @@ function OpretLoebPageContent() {
   return (
     <>
       <div className={`relative min-h-screen overflow-x-hidden bg-emerald-950 text-emerald-100 ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-emerald-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
+        <div className="fixed inset-0 -z-10 bg-linear-to-br from-emerald-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
           <MobileBuilderWarning />
           <section className="hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
@@ -1181,7 +1188,7 @@ function OpretLoebPageContent() {
                   />
                 </div>
               <div className="px-1">
-                <div className="rounded-[1.5rem] border border-emerald-500/30 bg-emerald-950/20 p-4 backdrop-blur-xl">
+                <div className="rounded-3xl border border-emerald-500/30 bg-emerald-950/20 p-4 backdrop-blur-xl">
                   <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
                     Emne
                   </label>
@@ -1204,7 +1211,7 @@ function OpretLoebPageContent() {
               </div>
 
               <div className="px-1">
-                <div className="rounded-[1.5rem] border border-emerald-500/30 bg-emerald-950/20 p-4 backdrop-blur-xl">
+                <div className="rounded-3xl border border-emerald-500/30 bg-emerald-950/20 p-4 backdrop-blur-xl">
                   <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
                     GPS-radius
                   </label>
@@ -1402,7 +1409,7 @@ function OpretLoebPageContent() {
                 );
               })}
 
-              <div className="rounded-[2rem] border border-emerald-500/30 bg-emerald-950/20 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+              <div className="rounded-4xl border border-emerald-500/30 bg-emerald-950/20 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
                 <button
                   type="button"
                   onClick={addQuestion}
@@ -1431,7 +1438,7 @@ function OpretLoebPageContent() {
 
         <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
           <div className="lg:sticky lg:top-5">
-            <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-slate-900/50 shadow-[0_0_0_1px_rgba(16,185,129,0.08),0_0_36px_rgba(16,185,129,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
+            <div className="h-[42vh] min-h-80 w-full overflow-hidden rounded-4xl border border-emerald-500/20 bg-slate-900/50 shadow-[0_0_0_1px_rgba(16,185,129,0.08),0_0_36px_rgba(16,185,129,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
               <MapPicker center={mapCenter} pins={pins} zones={previewZones} onCenterChange={setMapCenter} autoLocateOnLoad={!isEditMode} />
             </div>
           </div>
@@ -1441,7 +1448,7 @@ function OpretLoebPageContent() {
 
       {showDraftRecoveryPrompt ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-6 py-10 backdrop-blur-md">
-          <div className="w-full max-w-2xl rounded-[2rem] border border-emerald-400/25 bg-slate-950/90 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:p-8">
+          <div className="w-full max-w-2xl rounded-4xl border border-emerald-400/25 bg-slate-950/90 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-100/70">Redningskrans</p>
             <h2 className={`mt-3 text-3xl font-black tracking-tight text-emerald-50 ${rubik.className}`}>
               Vi fandt ugemte ændringer fra dit sidste besøg
@@ -1453,14 +1460,14 @@ function OpretLoebPageContent() {
               <button
                 type="button"
                 onClick={handleRestoreDraft}
-                className="rounded-[1.5rem] border border-emerald-300/40 bg-emerald-400 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-300"
+                className="rounded-3xl border border-emerald-300/40 bg-emerald-400 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-300"
               >
                 Gendan ugemte ændringer
               </button>
               <button
                 type="button"
                 onClick={handleDiscardDraft}
-                className="rounded-[1.5rem] border border-white/15 bg-white/5 px-5 py-4 text-sm font-bold uppercase tracking-[0.18em] text-emerald-50 transition hover:bg-white/10"
+                className="rounded-3xl border border-white/15 bg-white/5 px-5 py-4 text-sm font-bold uppercase tracking-[0.18em] text-emerald-50 transition hover:bg-white/10"
               >
                 Slet kladde
               </button>

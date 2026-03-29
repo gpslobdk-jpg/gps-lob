@@ -117,7 +117,7 @@ export function getBuilderHrefForRaceType(runId: string, raceType: unknown) {
     [RACE_TYPES.ENGELSK]: "/dashboard/opret/engelsk",
     [RACE_TYPES.MATEMATIK]: "/dashboard/opret/matematik",
     [RACE_TYPES.FOTO]: "/dashboard/opret/foto",
-    [RACE_TYPES.SCANNER]: "/dashboard/opret/scanner",
+    [RACE_TYPES.SCANNER]: "/dashboard/opret/manuel",
     [RACE_TYPES.SELFIE]: "/dashboard/opret/selfie",
     [RACE_TYPES.ESCAPE]: "/dashboard/opret/escape",
     [RACE_TYPES.ROLLESPIL]: "/dashboard/opret/rollespil",

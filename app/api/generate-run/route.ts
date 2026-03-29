@@ -20,7 +20,7 @@ const MAX_TOPIC_LENGTH = 150;
 const MAX_SUBJECT_LENGTH = 80;
 const MAX_SOURCE_TEXT_LENGTH = 18000;
 const MAX_IMAGE_DATA_LENGTH = 6_000_000;
-const MAX_REQUEST_BODY_BYTES = 5_000_000;
+const MAX_REQUEST_BODY_BYTES = 12_000_000;
 const MAX_IMAGE_COUNT = 5;
 
 type GenerateRunPayload = {
@@ -351,7 +351,7 @@ ${subjectLine}`;
                     type: "image" as const,
                     image: imagePayload,
                     providerOptions: {
-                      openai: { imageDetail: "low" },
+                      openai: { imageDetail: "high" },
                     },
                   })),
                 ],
