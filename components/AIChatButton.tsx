@@ -8,56 +8,56 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type QuickAction = {
   id: string;
+  label: string;
   prompt: string;
-  description: string;
 };
 
 const QUICK_ACTIONS: readonly QuickAction[] = [
   {
     id: "zone-krig",
-    prompt: '🎯 "Hvordan fungerer Zone-Krigen?"',
-    description: "Få forklaret zoner, point, erobring og 60-sekunders shields.",
+    label: "Vis mig, hvordan man vinder i Zone-Krigen",
+    prompt: "Vis mig, hvordan man vinder i Zone-Krigen.",
   },
   {
     id: "scanner",
-    prompt: '📚 "Lav et løb ud fra min bogtekst"',
-    description: "Brug Bog-Scanneren til at omsætte tekst, bogsider eller OCR til quizposter.",
+    label: "Lav et løb ud fra min bogtekst",
+    prompt: "Lav et løb ud fra min bogtekst.",
   },
   {
     id: "podcast",
-    prompt: '🎙️ "Brug et podcast-link til et løb"',
-    description: "Lad Podcast-Detektiven omdanne et link eller en episode til et færdigt quiz-løb.",
+    label: "Byg et løb fra et podcast-link",
+    prompt: "Byg et løb fra et podcast-link.",
   },
   {
     id: "manual",
-    prompt: '💡 "Giv mig en god idé til en Generel Quiz"',
-    description: "Få en skarp idé til et klassisk GPS-løb med quizposter og tydeligt tema.",
+    label: "Giv mig en skarp ide til en Generel Quiz",
+    prompt: "Giv mig en skarp ide til en Generel Quiz.",
   },
   {
     id: "start",
-    prompt: "Hvordan kommer jeg i gang?",
-    description: "Få en hurtig klik-guide til at vælge builder og starte det første løb.",
+    label: "Vis mig den bedste vej i gang",
+    prompt: "Vis mig den bedste vej i gang.",
   },
 ] as const;
 
 const getWelcomeMessage = (pathname: string) => {
   if (pathname.includes("/opret/zone-krig")) {
-    return "Hej! Jeg er klar til at hjælpe dig med Zone-Krigen. Spørg mig om zoner, placering, taktik, pointpres eller hvordan 60-sekunders shields påvirker spillets tempo.";
+    return "Jeg kan hjælpe dig med Zone-Krigen: zoner, placering, pointpres, taktiske greb og balancen i 60-sekunders shields.";
   }
 
   if (pathname.includes("/opret/scanner")) {
-    return "Hej! Jeg kan hjælpe dig med Bog-Scanneren. Du kan spørge om bogtekst, OCR, billeder af sider og hvordan materialet bedst bliver omsat til et skarpt quiz-løb.";
+    return "Jeg kan hjælpe dig med Bog-Scanneren: bogtekst, OCR, billeder af sider og hvordan materialet bliver til et skarpt quiz-løb.";
   }
 
   if (pathname.includes("/opret/podcast")) {
-    return "Hej! Jeg kan hjælpe dig med Podcast-Detektiven. Spørg mig om podcast-links, episodevalg, transcript-kvalitet og hvordan lydindhold bliver til gode spørgsmål og research-baserede løb.";
+    return "Jeg kan hjælpe dig med Podcast-Detektiven: episodevalg, links, transcript-kvalitet og hvordan lyd bliver til stærke spørgsmål.";
   }
 
   if (pathname.includes("/opret/manuel")) {
-    return "Hej! Jeg kan hjælpe dig hurtigt i gang med Generel Quiz. Spørg mig om idéer, temaer, multiple-choice poster eller hvordan du bygger et stærkt klassisk GPS-løb.";
+    return "Jeg kan hjælpe dig med Generel Quiz: ideer, temaer, multiple-choice poster og et skarpt klassisk løb.";
   }
 
-  return "Hej! Jeg er GPSLØB AI Arkitekten. Jeg kan guide dig gennem Generel Quiz, Bog-Scanneren, Podcast-Detektiven, Zone-Krigen og resten af platformens builders og features.";
+  return "Jeg kan guide dig gennem GPSLOB.DK og hjælpe dig med at vælge den rigtige builder, skærpe ideen og komme hurtigt videre.";
 };
 
 const PAGE_CONTEXT_MESSAGE_ID = "gpslob-page-context";
@@ -254,152 +254,184 @@ export default function AIChatButton() {
   };
 
   return (
-    <div className="global-ai-chat-button fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 flex items-end sm:right-6 sm:bottom-6">
-      <div className="flex flex-col items-end gap-3">
-        {isOpen ? (
-          <section className="w-[min(24rem,calc(100vw-2rem))] rounded-2xl border border-emerald-100/90 bg-slate-50/95 p-4 shadow-2xl shadow-emerald-900/15 backdrop-blur-md">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Image
-                  src="/gpslogo.png"
-                  alt={"GPSLØB logo"}
-                  width={28}
-                  height={28}
-                  className="h-6 w-auto"
-                />
-                <p className="text-sm font-semibold tracking-wide text-slate-900">
-                  {"AI Guide \u{1F916}"}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleClose}
-                className="flex items-center gap-1 rounded-md bg-slate-100 p-2 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-200"
-                aria-label="Luk AI Guide"
-              >
-                <span aria-hidden="true">X</span>
-                <span>Luk</span>
-              </button>
-            </div>
-
-            <div className="mt-3 max-h-72 space-y-3 overflow-y-auto pr-1">
-              <div className="flex justify-start">
-                <div className="max-w-[88%] rounded-xl border border-emerald-100 bg-white px-3 py-2 text-sm leading-relaxed text-slate-700 shadow-sm shadow-emerald-900/5">
-                  {welcomeMessage}
-                </div>
+    <>
+      <div className="global-ai-chat-button fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 flex items-end sm:right-6 sm:bottom-6">
+        <div className="flex flex-col items-end gap-3">
+          {isOpen ? (
+            <section
+              className="relative isolate w-[min(22.5rem,calc(100vw-2rem))] overflow-hidden rounded-[1.75rem] border border-emerald-500/15 bg-linear-to-b from-white/96 to-emerald-50/88 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.16)] backdrop-blur-xl"
+              style={{ animation: "aiChatReveal 260ms cubic-bezier(0.16, 1, 0.3, 1)" }}
+            >
+              <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+                <div className="absolute top-0 right-0 h-36 w-36 translate-x-10 -translate-y-10 rounded-full bg-emerald-200/45 blur-3xl" />
+                <div className="absolute bottom-0 left-0 h-24 w-24 -translate-x-6 translate-y-6 rounded-full bg-sky-100/45 blur-2xl" />
               </div>
 
-              {chatMessages.map((message) => {
-                const isUser = message.role === "user";
-
-                return (
-                  <div
-                    key={message.id}
-                    className={`flex ${isUser ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`max-w-[88%] rounded-xl px-3 py-2 text-sm leading-relaxed ${
-                        isUser
-                          ? "border border-emerald-700/20 bg-emerald-600 text-white"
-                          : "border border-emerald-100 bg-white text-slate-700 shadow-sm shadow-emerald-900/5"
-                      }`}
-                    >
-                      {message.text}
+              <div className="relative">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <Image
+                      src="/gpslogo.png"
+                      alt={"GPSLØB logo"}
+                      width={28}
+                      height={28}
+                      className="mt-0.5 h-5 w-auto opacity-90"
+                    />
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-[0.3em] text-emerald-700/55">
+                        GPSLOB.DK
+                      </p>
+                      <p className="mt-1 text-sm font-medium tracking-[0.04em] text-slate-800">
+                        AI Guide
+                      </p>
                     </div>
                   </div>
-                );
-              })}
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-xs text-slate-400 transition-colors hover:bg-emerald-950/5 hover:text-emerald-900"
+                    aria-label="Luk AI Guide"
+                  >
+                    <span aria-hidden="true">✕</span>
+                  </button>
+                </div>
 
-              {isLoading ? (
-                <div className="flex justify-start">
-                  <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm shadow-emerald-900/5">
-                    <span className="inline-flex gap-1">
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 [animation-delay:120ms]" />
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 [animation-delay:240ms]" />
-                    </span>
-                    {"AI tænker..."}
+                <div className="mt-3 h-px w-full bg-linear-to-r from-emerald-200/80 via-white to-transparent" />
+
+                <div className="mt-4 max-h-76 space-y-3.5 overflow-y-auto pr-1.5">
+                  <div className="flex justify-start">
+                    <div className="max-w-[90%] rounded-[1.35rem] border border-emerald-500/12 bg-linear-to-b from-white to-emerald-50/65 px-3.5 py-3 text-[13px] leading-[1.65] tracking-[0.01em] text-[#0f3d2e]/88 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+                      {welcomeMessage}
+                    </div>
+                  </div>
+
+                  {chatMessages.map((message) => {
+                    const isUser = message.role === "user";
+
+                    return (
+                      <div
+                        key={message.id}
+                        className={`flex ${isUser ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-[90%] rounded-[1.35rem] px-3.5 py-3 text-[13px] leading-[1.65] tracking-[0.01em] ${
+                            isUser
+                              ? "border border-emerald-950/10 bg-[#0f3d2e] text-emerald-50 shadow-[0_12px_32px_rgba(6,78,59,0.18)]"
+                              : "border border-emerald-500/12 bg-linear-to-b from-white to-emerald-50/65 text-[#0f3d2e]/88 shadow-[0_8px_30px_rgba(15,23,42,0.05)]"
+                          }`}
+                        >
+                          {message.text}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {isLoading ? (
+                    <div className="flex justify-start">
+                      <div className="inline-flex items-center gap-2 rounded-[1.35rem] border border-emerald-500/12 bg-linear-to-b from-white to-emerald-50/65 px-3.5 py-2.5 text-[10px] uppercase tracking-[0.24em] text-emerald-800/65 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+                        <span className="inline-flex gap-1">
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500/70" />
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500/70 [animation-delay:120ms]" />
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500/70 [animation-delay:240ms]" />
+                        </span>
+                        {"AI tænker..."}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div ref={endOfMessagesRef} />
+                </div>
+
+                {error ? (
+                  <p className="mt-3 text-xs text-rose-600">
+                    {"Forbindelsen fejlede. Prøv igen om et øjeblik."}
+                  </p>
+                ) : null}
+
+                <form onSubmit={handleSubmit} className="mt-4 flex gap-2">
+                  <input
+                    value={input}
+                    onChange={(event) => setInput(event.target.value)}
+                    placeholder={"Skriv dit spørgsmål..."}
+                    disabled={isLoading}
+                    className="w-full rounded-[1.25rem] border border-emerald-500/12 bg-white/92 px-3.5 py-3 text-sm tracking-[0.01em] text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-emerald-500/30 focus:ring-2 focus:ring-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isLoading || input.trim().length === 0}
+                    className="rounded-[1.25rem] border border-emerald-500/14 bg-white/92 px-3.5 py-3 text-[11px] font-medium uppercase tracking-[0.22em] text-emerald-900/70 transition hover:border-emerald-500/25 hover:bg-emerald-50/70 hover:text-emerald-900 disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    Send
+                  </button>
+                </form>
+
+                <div className="mt-2 text-[11px] tracking-[0.01em] text-slate-400">
+                  {"AI-svar kan indeholde fejl. Kontrollér altid vigtige oplysninger."}
+                </div>
+
+                <div className="mt-4 border-t border-emerald-500/10 pt-3.5">
+                  <p className="mb-1.5 px-0.5 text-[10px] uppercase tracking-[0.24em] text-emerald-800/45">
+                    Quick Actions
+                  </p>
+                  <div className="flex flex-col items-start gap-0.5">
+                    {quickActions.map((action) => (
+                      <button
+                        key={action.id}
+                        type="button"
+                        onClick={() => sendQuickQuestion(action.prompt)}
+                        disabled={isLoading}
+                        className="group inline-flex items-center gap-1 px-0 py-1 text-left text-[11px] tracking-[0.01em] text-slate-500 transition-colors duration-200 hover:text-emerald-900 disabled:cursor-not-allowed disabled:opacity-45 sm:text-xs"
+                      >
+                        <span>{action.label}</span>
+                        <span
+                          aria-hidden="true"
+                          className="opacity-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:opacity-100"
+                        >
+                          -&gt;
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 </div>
-              ) : null}
-
-              <div ref={endOfMessagesRef} />
-            </div>
-
-            {error ? (
-              <p className="mt-2 text-xs text-rose-600">
-                {"Forbindelsen fejlede. Prøv igen om et øjeblik."}
-              </p>
-            ) : null}
-
-            <div className="mt-4">
-              <p className="mb-2 px-1 text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase">
-                Hurtige genveje
-              </p>
-              <div className="grid gap-2">
-              {quickActions.map((action) => (
-                <button
-                  key={action.id}
-                  type="button"
-                  onClick={() => sendQuickQuestion(action.prompt)}
-                  disabled={isLoading}
-                  className="group w-full rounded-2xl border border-emerald-200/90 bg-white px-3.5 py-3 text-left shadow-sm shadow-emerald-900/5 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <span className="block text-sm font-semibold text-slate-900 transition group-hover:text-emerald-900">
-                    {action.prompt}
-                  </span>
-                  <span className="mt-1 block text-xs leading-relaxed text-slate-500 transition group-hover:text-slate-600">
-                    {action.description}
-                  </span>
-                </button>
-              ))}
               </div>
-            </div>
+            </section>
+          ) : null}
 
-            <form onSubmit={handleSubmit} className="mt-3 flex gap-2">
-              <input
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                placeholder={"Skriv dit spørgsmål..."}
-                disabled={isLoading}
-                className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-              />
-              <button
-                type="submit"
-                disabled={isLoading || input.trim().length === 0}
-                className="rounded-xl border border-emerald-700/15 bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                Send
-              </button>
-            </form>
-
-            <div className="mt-2 text-[11px] text-slate-500">
-              {"AI-svar kan indeholde fejl. Kontrollér altid vigtige oplysninger."}
-            </div>
-          </section>
-        ) : null}
-
-        <button
-          type="button"
-          onClick={handleToggle}
-          aria-expanded={isOpen}
-          aria-label={"Åbn AI Guide"}
-          className="inline-flex items-center gap-2.5 rounded-full border border-emerald-100 bg-white/80 px-3 py-2 text-slate-800 shadow-lg shadow-emerald-900/15 backdrop-blur-md transition hover:bg-white"
-        >
-          <Image
-            src="/gpslogo.png"
-            alt={"GPSLØB logo"}
-            width={32}
-            height={32}
-            className="h-6 w-auto"
-          />
-          <span className="relative inline-flex h-2.5 w-2.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/70" />
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-          </span>
-          <span className="text-sm font-semibold">AI Guide</span>
-        </button>
+          <button
+            type="button"
+            onClick={handleToggle}
+            aria-expanded={isOpen}
+            aria-label={"Åbn AI Guide"}
+            className="inline-flex items-center gap-2.5 rounded-full border border-emerald-500/20 bg-slate-950/84 px-3 py-2 text-emerald-50 shadow-[0_18px_45px_rgba(15,23,42,0.18)] backdrop-blur-md transition-[transform,box-shadow,border-color,background-color] duration-300 hover:-translate-y-0.5 hover:border-emerald-400/35 hover:bg-slate-950/92 hover:shadow-[0_20px_50px_rgba(6,78,59,0.24)]"
+          >
+            <Image
+              src="/gpslogo.png"
+              alt={"GPSLØB logo"}
+              width={32}
+              height={32}
+              className="h-5.5 w-auto opacity-90"
+            />
+            <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400/85" />
+            <span className="text-sm font-medium tracking-[0.04em] text-emerald-50">AI Guide</span>
+          </button>
+        </div>
       </div>
-    </div>
+
+      <style jsx>{`
+        @media (prefers-reduced-motion: no-preference) {
+          @keyframes aiChatReveal {
+            from {
+              opacity: 0;
+              transform: translateY(14px) scale(0.985);
+            }
+
+            to {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+        }
+      `}</style>
+    </>
   );
 }
