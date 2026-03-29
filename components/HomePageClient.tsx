@@ -237,28 +237,17 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
       </main>
 
       <section className="relative z-20 mx-auto hidden w-full max-w-6xl px-6 pb-6 lg:block">
-        <div className="mb-4 flex items-center justify-between gap-4 px-1">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300/70">
-              Det siger l\u00e6rerne
-            </p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-white">
-              Social proof med ro i samme visuelle tone
-            </h2>
-          </div>
-          <p className="max-w-md text-right text-sm leading-6 text-slate-300/80">
-            Erfaringer fra undervisere, der allerede har pr\u00f8vet GPSL\u00d8B.DK i praksis.
-          </p>
-        </div>
+        <div className="relative overflow-hidden py-2">
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-28 bg-linear-to-r from-slate-950 via-slate-950/70 to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-28 bg-linear-to-l from-slate-950 via-slate-950/70 to-transparent" />
 
-        <div className="overflow-hidden rounded-4xl border border-emerald-500/15 bg-slate-950/35 p-3 shadow-[0_0_48px_rgba(16,185,129,0.08)] backdrop-blur-sm">
           <motion.div
             className="flex w-max gap-4"
             animate={shouldReduceMotion ? undefined : { x: ["0%", "-50%"] }}
             transition={
               shouldReduceMotion
                 ? undefined
-                : { duration: 38, ease: "linear", repeat: Infinity }
+                : { duration: 44, ease: "linear", repeat: Infinity }
             }
           >
             {[0, 1].map((copyIndex) => (
@@ -270,14 +259,14 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
                 {testimonials.map((testimonial) => (
                   <article
                     key={`${copyIndex}-${testimonial.name}`}
-                    className="flex min-h-56 w-88 flex-col justify-between rounded-[1.75rem] border border-emerald-500/20 bg-slate-900/40 p-5 shadow-[0_0_28px_rgba(16,185,129,0.08)] backdrop-blur-xl"
+                    className="flex min-h-52 w-84 flex-col justify-between rounded-3xl border border-emerald-500/20 bg-slate-900/40 p-5 shadow-[0_0_24px_rgba(16,185,129,0.10)] backdrop-blur-xl"
                   >
-                    <blockquote className="text-base leading-7 text-slate-100 italic">
+                    <blockquote className="text-[15px] leading-7 text-slate-100/96 italic">
                       \u201c{testimonial.quote}\u201d
                     </blockquote>
-                    <div className="mt-5 border-t border-white/8 pt-4 text-sm text-slate-300/72">
-                      <p className="font-semibold text-emerald-200/88">{testimonial.name}</p>
-                      <p className="mt-1 uppercase tracking-[0.18em] text-[11px] text-slate-400/85">
+                    <div className="mt-5 border-t border-white/8 pt-4">
+                      <p className="text-sm font-semibold text-emerald-100/92">{testimonial.name}</p>
+                      <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400/82">
                         {testimonial.role}
                       </p>
                     </div>
