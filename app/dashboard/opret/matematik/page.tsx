@@ -4,7 +4,8 @@ import { BookOpen, Calculator, Check, ChevronDown, Loader2, Plus, Printer, Ruler
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 
 import MathAiInterviewModal, {
   type MathAiInterviewDraft,
@@ -260,14 +261,14 @@ const inputClass =
 const textareaClass =
   "w-full rounded-2xl border border-amber-500/30 bg-amber-950/20 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
-const aiActionButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-amber-500/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20 px-5 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
-
 const toolsTriggerButtonClass =
   "inline-flex items-center justify-center gap-2 rounded-[1.2rem] border border-amber-500/25 bg-amber-950/30 px-4 py-2.5 text-sm font-semibold text-amber-50 transition hover:bg-amber-900/35 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const toolsMenuItemClass =
   "flex w-full items-start gap-3 rounded-[1.25rem] px-4 py-3 text-left text-amber-50 transition hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-50";
+
+const PORTAL_MENU_GAP = 12;
+const PORTAL_MENU_MARGIN = 16;
 
 const DEFAULT_ANSWERS: [string, string, string, string] = ["", "", "", ""];
 const ANSWER_LABELS = ["A", "B", "C", "D"] as const;
@@ -354,6 +355,107 @@ function normalizeQuestionForSave(question: Question): Question {
     correctIndex: type === "ai_image" ? 0 : question.correctIndex,
     points: normalizeQuestionPoints(question.points),
   };
+}
+
+type PortalMenuProps = {
+  open: boolean;
+  anchorRef: RefObject<HTMLElement | null>;
+  menuRef: RefObject<HTMLDivElement | null>;
+  align?: "start" | "end";
+  className: string;
+  children: ReactNode;
+};
+
+function PortalMenu({ open, anchorRef, menuRef, align = "start", className, children }: PortalMenuProps) {
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({
+    position: "fixed",
+    top: 0,
+    left: 0,
+    visibility: "hidden",
+    zIndex: 200,
+  });
+
+  useEffect(() => {
+    if (!open || typeof window === "undefined") {
+      return;
+    }
+
+    const updatePosition = () => {
+      const anchorElement = anchorRef.current;
+      const menuElement = menuRef.current;
+      if (!anchorElement || !menuElement) {
+        return;
+      }
+
+      const anchorRect = anchorElement.getBoundingClientRect();
+      const menuRect = menuElement.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const availableBelow = viewportHeight - anchorRect.bottom - PORTAL_MENU_GAP - PORTAL_MENU_MARGIN;
+      const availableAbove = anchorRect.top - PORTAL_MENU_GAP - PORTAL_MENU_MARGIN;
+      const shouldOpenUpward = availableBelow < menuRect.height && availableAbove > availableBelow;
+
+      const unclampedTop = shouldOpenUpward
+        ? anchorRect.top - PORTAL_MENU_GAP - menuRect.height
+        : anchorRect.bottom + PORTAL_MENU_GAP;
+      const maxTop = Math.max(PORTAL_MENU_MARGIN, viewportHeight - PORTAL_MENU_MARGIN - menuRect.height);
+      const top = Math.min(Math.max(PORTAL_MENU_MARGIN, unclampedTop), maxTop);
+
+      const unclampedLeft = align === "end" ? anchorRect.right - menuRect.width : anchorRect.left;
+      const maxLeft = Math.max(PORTAL_MENU_MARGIN, viewportWidth - PORTAL_MENU_MARGIN - menuRect.width);
+      const left = Math.min(Math.max(PORTAL_MENU_MARGIN, unclampedLeft), maxLeft);
+
+      setMenuStyle({
+        position: "fixed",
+        top,
+        left,
+        visibility: "visible",
+        zIndex: 200,
+      });
+    };
+
+    updatePosition();
+
+    const visualViewport = window.visualViewport;
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(() => {
+            updatePosition();
+          });
+
+    if (anchorRef.current) {
+      resizeObserver?.observe(anchorRef.current);
+    }
+
+    if (menuRef.current) {
+      resizeObserver?.observe(menuRef.current);
+    }
+
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    visualViewport?.addEventListener("resize", updatePosition);
+    visualViewport?.addEventListener("scroll", updatePosition);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+      visualViewport?.removeEventListener("resize", updatePosition);
+      visualViewport?.removeEventListener("scroll", updatePosition);
+    };
+  }, [align, anchorRef, menuRef, open]);
+
+  if (!open || typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
+    <div ref={menuRef} style={menuStyle} className={className}>
+      {children}
+    </div>,
+    document.body
+  );
 }
 
 function toQuestionList(value: unknown): Question[] {
@@ -479,8 +581,10 @@ function OpretLoebPageContent() {
       </div>
     ) : null;
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
-  const addQuestionMenuRef = useRef<HTMLDivElement | null>(null);
-  const toolsMenuRef = useRef<HTMLDivElement | null>(null);
+  const addQuestionMenuAnchorRef = useRef<HTMLDivElement | null>(null);
+  const addQuestionMenuPortalRef = useRef<HTMLDivElement | null>(null);
+  const toolsMenuAnchorRef = useRef<HTMLDivElement | null>(null);
+  const toolsMenuPortalRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedDraftRef = useRef(false);
   const shouldAutoRestoreDraftRef = useRef<boolean | null>(null);
   const pendingScrollTargetId = useRef<string | null>(null);
@@ -535,8 +639,10 @@ function OpretLoebPageContent() {
     if (!showAddQuestionMenu && !showToolsMenu) return;
 
     const handlePointerDown = (event: MouseEvent) => {
-      if (addQuestionMenuRef.current?.contains(event.target as Node)) return;
-      if (toolsMenuRef.current?.contains(event.target as Node)) return;
+      if (addQuestionMenuAnchorRef.current?.contains(event.target as Node)) return;
+      if (addQuestionMenuPortalRef.current?.contains(event.target as Node)) return;
+      if (toolsMenuAnchorRef.current?.contains(event.target as Node)) return;
+      if (toolsMenuPortalRef.current?.contains(event.target as Node)) return;
       setShowAddQuestionMenu(false);
       setShowToolsMenu(false);
     };
@@ -1190,7 +1296,7 @@ function OpretLoebPageContent() {
           <div className="print:hidden">
             <MobileBuilderWarning />
           </div>
-          <section className="relative hidden w-full overflow-visible px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-visible lg:px-8 lg:py-8 print:hidden">
+          <section className="relative hidden w-full overflow-visible px-4 py-4 sm:px-6 sm:py-6 lg:block lg:w-[52%] lg:overflow-visible lg:px-8 lg:py-8 print:hidden">
             <img
               src="/matematikikon2.svg"
               alt=""
@@ -1254,7 +1360,7 @@ function OpretLoebPageContent() {
                               {builderStatusLabel}
                             </span>
 
-                            <div ref={toolsMenuRef} className="relative z-50 inline-flex max-w-full flex-col items-end">
+                            <div ref={toolsMenuAnchorRef} className="inline-flex max-w-full flex-col items-end">
                               <button
                                 type="button"
                                 onClick={() => setShowToolsMenu((current) => !current)}
@@ -1267,81 +1373,6 @@ function OpretLoebPageContent() {
                                 Værktøjer
                                 <ChevronDown className={`h-4 w-4 transition-transform ${showToolsMenu ? "rotate-180" : ""}`} />
                               </button>
-
-                              {showToolsMenu ? (
-                                <div className="absolute right-0 top-full z-50 mt-3 max-h-[min(32rem,calc(100vh-10rem))] w-[min(26rem,calc(100vw-2rem))] overflow-x-hidden overflow-y-auto rounded-[1.6rem] border border-amber-400/20 bg-slate-950/96 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl overscroll-contain">
-                                  <div className="px-4 pb-2 pt-2">
-                                    <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-100/45">Opret hurtigt</p>
-                                  </div>
-
-                                  <button type="button" onClick={openAiInterviewModal} disabled={isEditorBusy} className={toolsMenuItemClass}>
-                                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-amber-200">
-                                      <Calculator className="h-4 w-4" />
-                                    </span>
-                                    <span>
-                                      <span className="block text-sm font-black uppercase tracking-[0.16em]">Matematik-AI (Regnehistorier)</span>
-                                      <span className="mt-1 block text-sm leading-6 text-amber-100/72">Byg matematikopgaver og regnehistorier, der passer til klassetrin og niveau.</span>
-                                    </span>
-                                  </button>
-
-                                  <div className="mx-2 my-2 h-px bg-amber-400/10" />
-
-                                  <div className="px-4 pb-2 pt-1">
-                                    <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-100/45">Output</p>
-                                  </div>
-
-                                  <button type="button" onClick={handlePrintDraft} disabled={isEditorBusy} className={toolsMenuItemClass}>
-                                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-amber-200">
-                                      <Printer className="h-4 w-4" />
-                                    </span>
-                                    <span>
-                                      <span className="block text-sm font-black uppercase tracking-[0.16em]">Print udkast</span>
-                                      <span className="mt-1 block text-sm leading-6 text-amber-100/72">Aabn den printvenlige version med titel, poster og svar.</span>
-                                    </span>
-                                  </button>
-
-                                  <div className="mx-2 my-2 h-px bg-amber-400/10" />
-
-                                  <div className="px-4 pb-2 pt-1">
-                                    <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-100/45">Avanceret</p>
-                                  </div>
-
-                                  <div className="space-y-4 px-4 py-3">
-                                    <div>
-                                      <label className="block text-[11px] font-bold uppercase tracking-[0.18em] text-amber-100/58">
-                                        GPS-radius
-                                      </label>
-                                      <select
-                                        value={radius}
-                                        onChange={(event) => setRadius(normalizeRunRadius(event.target.value))}
-                                        disabled={isEditorBusy}
-                                        className="mt-2 w-full rounded-[1.15rem] border border-amber-400/20 bg-amber-950/35 px-4 py-3 text-sm font-semibold text-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-400/40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                                      >
-                                        {RUN_RADIUS_OPTIONS.map((radiusOption) => (
-                                          <option key={radiusOption} value={radiusOption} className="bg-slate-900 text-white">
-                                            {radiusOption} meter
-                                          </option>
-                                        ))}
-                                      </select>
-                                      <p className="mt-2 text-sm leading-6 text-amber-100/68">
-                                        Radius styrer, hvor tæt eleven skal være på posten. Klassetrin bliver i arbejdsfladen, fordi det styrer det faglige niveau.
-                                      </p>
-                                    </div>
-
-                                    <div className="h-px bg-amber-400/10" />
-
-                                    <div className="flex items-start gap-3 rounded-[1.25rem] text-left text-amber-50/90">
-                                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-amber-200">
-                                        <SquareFunction className="h-4 w-4" />
-                                      </span>
-                                      <span>
-                                        <span className="block text-sm font-black uppercase tracking-[0.16em]">Builder-status</span>
-                                        <span className="mt-1 block text-sm leading-6 text-amber-100/68">Klassetrin ligger fortsat synligt i arbejdsfladen, så opgaver og AI kan justeres hurtigt undervejs.</span>
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              ) : null}
                             </div>
                           </div>
                         </div>
@@ -1382,7 +1413,7 @@ function OpretLoebPageContent() {
 
                 </div>
 
-              <div className="relative z-0 space-y-4 px-1 lg:max-h-[calc(100vh-24rem)] lg:overflow-y-auto lg:overscroll-contain lg:pr-2">
+              <div className="relative z-0 space-y-4 px-1 lg:pr-2">
                 <div className="flex items-end justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold tracking-[0.24em] text-amber-100/65 uppercase">
@@ -1561,7 +1592,7 @@ function OpretLoebPageContent() {
               })}
 
               <div className="relative z-0 rounded-4xl border border-amber-500/30 bg-amber-950/20 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
-                <div ref={addQuestionMenuRef} className="relative inline-flex max-w-full flex-col items-start">
+                <div ref={addQuestionMenuAnchorRef} className="inline-flex max-w-full flex-col items-start">
                   <button
                     type="button"
                     onClick={() => setShowAddQuestionMenu((current) => !current)}
@@ -1574,47 +1605,6 @@ function OpretLoebPageContent() {
                     Tilføj post
                     <ChevronDown className={`h-4 w-4 transition-transform ${showAddQuestionMenu ? "rotate-180" : ""}`} />
                   </button>
-
-                  {showAddQuestionMenu ? (
-                    <div className="absolute left-0 top-full z-50 mt-3 w-[min(22rem,calc(100vw-3rem))] overflow-hidden rounded-[1.6rem] border border-amber-400/20 bg-slate-950/96 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          addQuestion();
-                          setShowAddQuestionMenu(false);
-                        }}
-                        disabled={isEditorBusy}
-                        className="flex w-full items-start gap-3 rounded-[1.25rem] px-4 py-3 text-left text-amber-50 transition hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-amber-200">
-                          <Sparkles className="h-4 w-4" />
-                        </span>
-                        <span>
-                          <span className="block text-sm font-black uppercase tracking-[0.16em]">Opret ny post</span>
-                          <span className="mt-1 block text-sm leading-6 text-amber-100/72">
-                            Tilføj en tom matematik-post og byg den videre fra bunden.
-                          </span>
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={openReuseModal}
-                        disabled={isEditorBusy}
-                        className="flex w-full items-start gap-3 rounded-[1.25rem] px-4 py-3 text-left text-amber-50 transition hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-amber-200">
-                          <BookOpen className="h-4 w-4" />
-                        </span>
-                        <span>
-                          <span className="block text-sm font-black uppercase tracking-[0.16em]">Hent fra arkiv</span>
-                          <span className="mt-1 block text-sm leading-6 text-amber-100/72">
-                            Genbrug spørgsmål fra tidligere løb og placer dem på et nyt kort.
-                          </span>
-                        </span>
-                      </button>
-                    </div>
-                  ) : null}
                 </div>
 
                 <div ref={saveFeedbackRef} className="mt-6 space-y-4">
@@ -1640,6 +1630,130 @@ function OpretLoebPageContent() {
             </div>
           </div>
         </aside>
+
+        <PortalMenu
+          open={showToolsMenu}
+          anchorRef={toolsMenuAnchorRef}
+          menuRef={toolsMenuPortalRef}
+          align="end"
+          className="w-[min(26rem,calc(100vw-2rem))] max-h-[min(32rem,calc(100vh-2rem))] overflow-x-hidden overflow-y-auto rounded-[1.6rem] border border-amber-400/20 bg-slate-950/96 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl overscroll-contain"
+        >
+          <div className="px-4 pb-2 pt-2">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-100/45">Opret hurtigt</p>
+          </div>
+
+          <button type="button" onClick={openAiInterviewModal} disabled={isEditorBusy} className={toolsMenuItemClass}>
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-amber-200">
+              <Calculator className="h-4 w-4" />
+            </span>
+            <span>
+              <span className="block text-sm font-black uppercase tracking-[0.16em]">Matematik-AI (Regnehistorier)</span>
+              <span className="mt-1 block text-sm leading-6 text-amber-100/72">Byg matematikopgaver og regnehistorier, der passer til klassetrin og niveau.</span>
+            </span>
+          </button>
+
+          <div className="mx-2 my-2 h-px bg-amber-400/10" />
+
+          <div className="px-4 pb-2 pt-1">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-100/45">Output</p>
+          </div>
+
+          <button type="button" onClick={handlePrintDraft} disabled={isEditorBusy} className={toolsMenuItemClass}>
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-amber-200">
+              <Printer className="h-4 w-4" />
+            </span>
+            <span>
+              <span className="block text-sm font-black uppercase tracking-[0.16em]">Print udkast</span>
+              <span className="mt-1 block text-sm leading-6 text-amber-100/72">Aabn den printvenlige version med titel, poster og svar.</span>
+            </span>
+          </button>
+
+          <div className="mx-2 my-2 h-px bg-amber-400/10" />
+
+          <div className="px-4 pb-2 pt-1">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-100/45">Avanceret</p>
+          </div>
+
+          <div className="space-y-4 px-4 py-3">
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-[0.18em] text-amber-100/58">
+                GPS-radius
+              </label>
+              <select
+                value={radius}
+                onChange={(event) => setRadius(normalizeRunRadius(event.target.value))}
+                disabled={isEditorBusy}
+                className="mt-2 w-full rounded-[1.15rem] border border-amber-400/20 bg-amber-950/35 px-4 py-3 text-sm font-semibold text-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-400/40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+              >
+                {RUN_RADIUS_OPTIONS.map((radiusOption) => (
+                  <option key={radiusOption} value={radiusOption} className="bg-slate-900 text-white">
+                    {radiusOption} meter
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-sm leading-6 text-amber-100/68">
+                Radius styrer, hvor tæt eleven skal være på posten. Klassetrin bliver i arbejdsfladen, fordi det styrer det faglige niveau.
+              </p>
+            </div>
+
+            <div className="h-px bg-amber-400/10" />
+
+            <div className="flex items-start gap-3 rounded-[1.25rem] text-left text-amber-50/90">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-amber-200">
+                <SquareFunction className="h-4 w-4" />
+              </span>
+              <span>
+                <span className="block text-sm font-black uppercase tracking-[0.16em]">Builder-status</span>
+                <span className="mt-1 block text-sm leading-6 text-amber-100/68">Klassetrin ligger fortsat synligt i arbejdsfladen, så opgaver og AI kan justeres hurtigt undervejs.</span>
+              </span>
+            </div>
+          </div>
+        </PortalMenu>
+
+        <PortalMenu
+          open={showAddQuestionMenu}
+          anchorRef={addQuestionMenuAnchorRef}
+          menuRef={addQuestionMenuPortalRef}
+          className="w-[min(22rem,calc(100vw-3rem))] max-h-[min(24rem,calc(100vh-2rem))] overflow-x-hidden overflow-y-auto rounded-[1.6rem] border border-amber-400/20 bg-slate-950/96 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl overscroll-contain"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              addQuestion();
+              setShowAddQuestionMenu(false);
+            }}
+            disabled={isEditorBusy}
+            className="flex w-full items-start gap-3 rounded-[1.25rem] px-4 py-3 text-left text-amber-50 transition hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-amber-200">
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <span>
+              <span className="block text-sm font-black uppercase tracking-[0.16em]">Opret ny post</span>
+              <span className="mt-1 block text-sm leading-6 text-amber-100/72">
+                Tilføj en tom matematik-post og byg den videre fra bunden.
+              </span>
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={openReuseModal}
+            disabled={isEditorBusy}
+            className="flex w-full items-start gap-3 rounded-[1.25rem] px-4 py-3 text-left text-amber-50 transition hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-amber-200">
+              <BookOpen className="h-4 w-4" />
+            </span>
+            <span>
+              <span className="block text-sm font-black uppercase tracking-[0.16em]">Hent fra arkiv</span>
+              <span className="mt-1 block text-sm leading-6 text-amber-100/72">
+                Genbrug spørgsmål fra tidligere løb og placer dem på et nyt kort.
+              </span>
+            </span>
+          </button>
+        </PortalMenu>
+
         <section className="hidden print:block print:bg-white print:px-0 print:py-0 print:text-black">
           <div className="mx-auto w-full max-w-none space-y-6 print:space-y-4">
             <header className="rounded-none border-2 border-slate-900 bg-white p-8 text-black shadow-none print:break-after-page print:[page-break-after:always]">

@@ -588,7 +588,7 @@ function ZoneKrigBuilderContent() {
           <MobileBuilderWarning />
 
           {/* Left panel */}
-          <section className="hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
+          <section className="hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:w-[52%] lg:px-8 lg:py-8">
             <div className="mx-auto max-w-3xl">
               <fieldset
                 disabled={isEditorBusy}
