@@ -1204,9 +1204,9 @@ function OpretDanskLoebPageContent() {
 
   return (
     <>
-      <div className={`relative min-h-screen overflow-x-hidden bg-slate-950 text-rose-50 print:h-auto print:min-h-0 print:overflow-visible print:bg-white print:text-black ${poppins.className}`}>
+      <div className={`relative min-h-screen bg-slate-950 text-rose-50 print:h-auto print:min-h-0 print:overflow-visible print:bg-white print:text-black ${poppins.className}`}>
         <div className="fixed inset-0 -z-10 bg-linear-to-br from-rose-950/60 via-slate-900/80 to-rose-900 backdrop-blur-[2px] print:hidden" />
-        <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start print:block print:h-auto print:min-h-0 print:overflow-visible">
+        <div className="relative flex min-h-screen flex-col lg:flex-row print:block print:h-auto print:min-h-0 print:overflow-visible">
           <div className="print:hidden">
             <MobileBuilderWarning />
           </div>
@@ -1538,9 +1538,9 @@ function OpretDanskLoebPageContent() {
             </div>
           </section>
 
-          <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0 print:hidden">
-            <div className="lg:sticky lg:top-5">
-              <div className="h-[42vh] min-h-80 w-full overflow-hidden rounded-4xl border border-rose-500/20 bg-slate-900/50 shadow-[0_0_0_1px_rgba(244,63,94,0.08),0_0_36px_rgba(244,63,94,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
+          <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:p-8 lg:pl-0 print:hidden">
+            <div className="lg:sticky lg:top-20">
+              <div className="h-[42vh] min-h-80 w-full overflow-hidden rounded-4xl border border-rose-500/20 bg-slate-900/50 shadow-[0_0_0_1px_rgba(244,63,94,0.08),0_0_36px_rgba(244,63,94,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-(--spacing(28)))]">
                 <MapPicker center={mapCenter} pins={pins} zones={previewZones} onCenterChange={setMapCenter} autoLocateOnLoad={!isEditMode} />
               </div>
             </div>

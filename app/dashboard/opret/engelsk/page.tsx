@@ -1211,7 +1211,7 @@ function OpretEngelskLoebPageContent() {
 
   return (
     <>
-      <div className={`relative min-h-screen overflow-x-hidden print:h-auto print:min-h-0 print:overflow-visible print:bg-white print:text-black bg-slate-950 text-white ${poppins.className}`}>
+      <div className={`relative min-h-screen print:h-auto print:min-h-0 print:overflow-visible print:bg-white print:text-black bg-slate-950 text-white ${poppins.className}`}>
         <img
           src="/britiskflag.svg"
           alt="British Flag Background"
@@ -1219,7 +1219,7 @@ function OpretEngelskLoebPageContent() {
         />
         <div className="pointer-events-none absolute inset-0 z-1 bg-slate-950/38 print:hidden" />
         <div className="pointer-events-none absolute inset-0 z-1 bg-[radial-gradient(circle_at_center,transparent_10%,rgba(2,6,23,0.28)_58%,rgba(2,6,23,0.74)_100%)] print:hidden" />
-        <div className="relative z-10 flex min-h-screen flex-col lg:flex-row lg:items-start print:block print:h-auto print:min-h-0 print:overflow-visible">
+        <div className="relative z-10 flex min-h-screen flex-col lg:flex-row print:block print:h-auto print:min-h-0 print:overflow-visible">
           <div className="print:hidden">
             <MobileBuilderWarning />
           </div>
@@ -1549,9 +1549,9 @@ function OpretEngelskLoebPageContent() {
             </div>
           </section>
 
-          <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0 print:hidden">
-            <div className="lg:sticky lg:top-5">
-              <div className="h-[42vh] min-h-80 w-full overflow-hidden rounded-4xl border border-indigo-500/20 bg-slate-900/50 shadow-[0_0_0_1px_rgba(99,102,241,0.08),0_0_36px_rgba(99,102,241,0.12),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
+          <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:p-8 lg:pl-0 print:hidden">
+            <div className="lg:sticky lg:top-20">
+              <div className="h-[42vh] min-h-80 w-full overflow-hidden rounded-4xl border border-indigo-500/20 bg-slate-900/50 shadow-[0_0_0_1px_rgba(99,102,241,0.08),0_0_36px_rgba(99,102,241,0.12),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-(--spacing(28)))]">
                 <MapPicker center={mapCenter} pins={pins} zones={previewZones} onCenterChange={setMapCenter} autoLocateOnLoad={!isEditMode} />
               </div>
             </div>
