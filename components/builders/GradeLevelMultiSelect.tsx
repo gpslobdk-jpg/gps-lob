@@ -1,7 +1,8 @@
 "use client";
 
 import { Check, ChevronDown } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import {
   GRADE_LEVEL_OPTIONS,
@@ -18,6 +19,12 @@ type Props = {
   tone: Tone;
   disabled?: boolean;
   compact?: boolean;
+};
+
+type PopoverPosition = {
+  top: number;
+  left: number;
+  width: number;
 };
 
 const toneClassMap: Record<
@@ -74,8 +81,11 @@ export default function GradeLevelMultiSelect({
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
   const toneClasses = toneClassMap[tone];
   const isPopoverOpen = isOpen && !disabled;
+  const [popoverPosition, setPopoverPosition] = useState<PopoverPosition | null>(null);
   const normalizedSelections = useMemo(
     () => normalizeGradeLevels(selectedGradeLevels),
     [selectedGradeLevels]
@@ -85,6 +95,41 @@ export default function GradeLevelMultiSelect({
     [normalizedSelections]
   );
 
+  const updatePopoverPosition = useCallback(() => {
+    if (!triggerRef.current || typeof window === "undefined") return;
+
+    const triggerRect = triggerRef.current.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const horizontalMargin = 16;
+    const verticalGap = 12;
+    const preferredWidth = Math.max(triggerRect.width, compact ? 288 : 320);
+    const maxWidth = Math.max(220, viewportWidth - horizontalMargin * 2);
+    const width = Math.min(preferredWidth, maxWidth);
+    const left = Math.min(
+      Math.max(horizontalMargin, triggerRect.left),
+      viewportWidth - width - horizontalMargin
+    );
+
+    const estimatedHeight = popoverRef.current?.offsetHeight ?? 260;
+    const spaceBelow = viewportHeight - triggerRect.bottom;
+    const shouldOpenUpwards = spaceBelow < estimatedHeight + 24 && triggerRect.top > estimatedHeight + 24;
+    const top = shouldOpenUpwards
+      ? Math.max(12, triggerRect.top - estimatedHeight - verticalGap)
+      : Math.min(viewportHeight - estimatedHeight - 12, triggerRect.bottom + verticalGap);
+
+    setPopoverPosition({
+      top,
+      left,
+      width,
+    });
+  }, [compact]);
+
+  const openPopover = () => {
+    updatePopoverPosition();
+    setIsOpen(true);
+  };
+
   useEffect(() => {
     if (!isPopoverOpen) return;
 
@@ -92,7 +137,11 @@ export default function GradeLevelMultiSelect({
       if (!containerRef.current) return;
 
       const target = event.target;
-      if (target instanceof Node && !containerRef.current.contains(target)) {
+      const clickedOutsideTrigger =
+        target instanceof Node && !containerRef.current.contains(target);
+      const clickedOutsidePopover = target instanceof Node && !popoverRef.current?.contains(target);
+
+      if (clickedOutsideTrigger && clickedOutsidePopover) {
         setIsOpen(false);
       }
     };
@@ -103,37 +152,42 @@ export default function GradeLevelMultiSelect({
       }
     };
 
+    const syncPosition = () => {
+      updatePopoverPosition();
+    };
+
+    const rafId = window.requestAnimationFrame(syncPosition);
+
     document.addEventListener("mousedown", handlePointerDown);
     document.addEventListener("touchstart", handlePointerDown);
     document.addEventListener("keydown", handleEscape);
+    window.addEventListener("resize", syncPosition);
+    window.addEventListener("scroll", syncPosition, true);
 
     return () => {
+      window.cancelAnimationFrame(rafId);
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("touchstart", handlePointerDown);
       document.removeEventListener("keydown", handleEscape);
+      window.removeEventListener("resize", syncPosition);
+      window.removeEventListener("scroll", syncPosition, true);
     };
-  }, [isPopoverOpen]);
+  }, [isPopoverOpen, updatePopoverPosition]);
 
-  return (
-    <div ref={containerRef} className="relative w-full">
-      <button
-        type="button"
-        disabled={disabled}
-        aria-haspopup="dialog"
-        aria-expanded={isPopoverOpen}
-        onClick={() => setIsOpen((current) => !current)}
-        className={`flex w-full items-center justify-between gap-3 rounded-[1.35rem] border px-4 py-3 text-left backdrop-blur-md transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(15,23,42,0.14)] disabled:cursor-not-allowed disabled:opacity-40 ${toneClasses.shell} ${
-          isPopoverOpen ? toneClasses.selected : toneClasses.idle
-        } ${compact ? "min-h-12 px-3.5 py-3 text-sm sm:text-[15px]" : "min-h-14 text-base"}`}
-      >
-        <span className="min-w-0 flex-1 truncate font-semibold">{triggerLabel}</span>
-        <ChevronDown
-          className={`h-4 w-4 shrink-0 transition-transform duration-200 ${isPopoverOpen ? "rotate-180" : "rotate-0"}`}
-        />
-      </button>
+  const portalTarget = typeof document !== "undefined" ? document.body : null;
 
-      {isPopoverOpen ? (
-        <div className="absolute left-0 top-[calc(100%+0.75rem)] z-40 w-full min-w-0 sm:min-w-[18rem]">
+  const popoverContent = isPopoverOpen && portalTarget && popoverPosition
+    ? createPortal(
+        <div
+          ref={popoverRef}
+          style={{
+            position: "fixed",
+            top: `${popoverPosition.top}px`,
+            left: `${popoverPosition.left}px`,
+            width: `${popoverPosition.width}px`,
+          }}
+          className="z-50"
+        >
           <div className="rounded-2xl border border-white/20 bg-black/40 p-3 shadow-[0_24px_60px_rgba(15,23,42,0.35)] backdrop-blur-md">
             <div className={`grid grid-cols-2 gap-2 ${compact ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
               {GRADE_LEVEL_OPTIONS.map((option) => {
@@ -179,8 +233,37 @@ export default function GradeLevelMultiSelect({
               </button>
             </div>
           </div>
-        </div>
-      ) : null}
+        </div>,
+        portalTarget
+      )
+    : null;
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <button
+        ref={triggerRef}
+        type="button"
+        disabled={disabled}
+        aria-haspopup="dialog"
+        aria-expanded={isPopoverOpen}
+        onClick={() => {
+          if (isPopoverOpen) {
+            setIsOpen(false);
+            return;
+          }
+
+          openPopover();
+        }}
+        className={`flex w-full items-center justify-between gap-3 rounded-[1.35rem] border px-4 py-3 text-left backdrop-blur-md transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(15,23,42,0.14)] disabled:cursor-not-allowed disabled:opacity-40 ${toneClasses.shell} ${
+          isPopoverOpen ? toneClasses.selected : toneClasses.idle
+        } ${compact ? "min-h-12 px-3.5 py-3 text-sm sm:text-[15px]" : "min-h-14 text-base"}`}
+      >
+        <span className="min-w-0 flex-1 truncate font-semibold">{triggerLabel}</span>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 transition-transform duration-200 ${isPopoverOpen ? "rotate-180" : "rotate-0"}`}
+        />
+      </button>
+      {popoverContent}
     </div>
   );
 }
