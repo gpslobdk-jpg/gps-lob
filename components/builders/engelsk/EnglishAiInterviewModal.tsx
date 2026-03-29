@@ -302,7 +302,7 @@ export default function EnglishAiInterviewModal({
 
   return (
     <div
-      className={`fixed inset-0 z-1300 overflow-y-auto bg-slate-950/94 ${poppins.className}`}
+      className={`fixed inset-0 z-1300 overflow-y-auto bg-slate-950/94 print:hidden ${poppins.className}`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="engelsk-ai-interview-title"

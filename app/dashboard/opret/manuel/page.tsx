@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Loader2, Plus, Trash2 } from "lucide-react";
+import { Check, Loader2, Plus, Printer, Trash2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
@@ -249,6 +249,7 @@ const aiActionButtonClass =
   "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 px-5 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const DEFAULT_ANSWERS: [string, string, string, string] = ["", "", "", ""];
+const ANSWER_LABELS = ["A", "B", "C", "D"] as const;
 
 const createEmptyAnswers = (): [string, string, string, string] => ["", "", "", ""];
 
@@ -446,6 +447,9 @@ function OpretLoebPageContent() {
   const [overrideRaceType, setOverrideRaceType] = useState<string | null>(null);
   const isEditorBusy = isSaving || showDraftRecoveryPrompt;
   const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
+  const printTitle = title.trim() || "Udkast uden titel";
+  const printSubject = subject.trim() || "Ikke angivet";
+  const printClassLevel = description.trim() || "Ikke angivet";
 
   const renderNotice = (className = "") =>
     notice ? (
@@ -1160,11 +1164,13 @@ function OpretLoebPageContent() {
 
   return (
     <>
-      <div className={`relative min-h-screen overflow-x-hidden bg-emerald-950 text-emerald-100 ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-linear-to-br from-emerald-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
-        <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
-          <MobileBuilderWarning />
-          <section className="hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
+      <div className={`relative min-h-screen overflow-x-hidden bg-emerald-950 text-emerald-100 print:h-auto print:min-h-0 print:overflow-visible print:bg-white print:text-black ${poppins.className}`}>
+        <div className="fixed inset-0 -z-10 bg-linear-to-br from-emerald-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px] print:hidden" />
+        <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start print:block print:h-auto print:min-h-0 print:overflow-visible">
+          <div className="print:hidden">
+            <MobileBuilderWarning />
+          </div>
+          <section className="hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8 print:hidden">
             <div className="mx-auto max-w-3xl">
               <fieldset
                 disabled={isEditorBusy}
@@ -1186,7 +1192,7 @@ function OpretLoebPageContent() {
                       Placer posterne på kortet, og indtast et spørgsmål med fire svarmuligheder til hver post. Du kan også bruge den indbyggede AI-assistent til at generere spørgsmålene for dig.
                     </p>
 
-                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <div className="mt-4 flex flex-wrap items-center gap-3 print:hidden">
                       <button
                         type="button"
                         onClick={() => {
@@ -1197,6 +1203,19 @@ function OpretLoebPageContent() {
                         className={aiActionButtonClass}
                       >
                         Auto-udfyld med AI
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (typeof window !== "undefined") {
+                            window.print();
+                          }
+                        }}
+                        disabled={isEditorBusy}
+                        className={`${aiActionButtonClass} print:hidden`}
+                      >
+                        <Printer className="h-4 w-4" />
+                        Print udkast
                       </button>
                     </div>
                   </div>
@@ -1486,18 +1505,144 @@ function OpretLoebPageContent() {
             </div>
           </section>
 
-        <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
+        <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0 print:hidden">
           <div className="lg:sticky lg:top-5">
             <div className="h-[42vh] min-h-80 w-full overflow-hidden rounded-4xl border border-emerald-500/20 bg-slate-900/50 shadow-[0_0_0_1px_rgba(16,185,129,0.08),0_0_36px_rgba(16,185,129,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
               <MapPicker center={mapCenter} pins={pins} zones={previewZones} onCenterChange={setMapCenter} autoLocateOnLoad={!isEditMode} />
             </div>
           </div>
         </aside>
+        <section className="hidden print:block print:bg-white print:px-0 print:py-0 print:text-black">
+          <div className="mx-auto w-full max-w-none space-y-6 print:space-y-4">
+            <header className="rounded-none border-2 border-slate-900 bg-white p-8 text-black shadow-none print:break-after-page print:[page-break-after:always]">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-600">
+                Printvenligt udkast
+              </p>
+              <h1 className={`mt-4 text-4xl font-black tracking-tight text-black ${rubik.className}`}>
+                {printTitle}
+              </h1>
+              <div className="mt-8 grid gap-4 sm:grid-cols-3">
+                <div className="border border-slate-300 px-4 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                    Klassetrin
+                  </p>
+                  <p className="mt-3 text-2xl font-black text-black">{printClassLevel}</p>
+                </div>
+                <div className="border border-slate-300 px-4 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                    Fag
+                  </p>
+                  <p className="mt-3 text-2xl font-black text-black">{printSubject}</p>
+                </div>
+                <div className="border border-slate-300 px-4 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                    Antal poster
+                  </p>
+                  <p className="mt-3 text-2xl font-black text-black">{questions.length}</p>
+                </div>
+              </div>
+            </header>
+
+            {questions.map((question, questionIndex) => {
+              const isPhotoMission = question.type === "ai_image";
+              const promptText = question.aiPrompt.trim() || "Ikke angivet endnu";
+              const questionText = question.text.trim() || "Ikke udfyldt endnu";
+
+              return (
+                <article
+                  key={`print-${question.id}`}
+                  className="rounded-none border border-slate-900 bg-white p-6 text-black shadow-none print:break-inside-avoid print:[page-break-inside:avoid]"
+                >
+                  <div className="flex items-start justify-between gap-4 border-b border-slate-300 pb-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                        Post {questionIndex + 1}
+                      </p>
+                      <h2 className={`mt-2 text-2xl font-black text-black ${rubik.className}`}>
+                        {isPhotoMission ? "Foto-opgave" : "Quiz-opgave"}
+                      </h2>
+                    </div>
+                    <div className="text-right text-sm text-slate-600">
+                      <p>{isPhotoMission ? "AI-billede" : "Multiple choice"}</p>
+                    </div>
+                  </div>
+
+                  {isPhotoMission ? (
+                    <div className="mt-6 rounded-none border-2 border-dashed border-slate-400 p-5">
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                        Foto-opgave
+                      </p>
+                      <div className="mt-4 space-y-4">
+                        <div>
+                          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
+                            Motiv
+                          </p>
+                          <p className="mt-2 text-lg font-bold text-black">{promptText}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
+                            Instruktion
+                          </p>
+                          <p className="mt-2 text-base leading-7 text-black">{questionText}</p>
+                        </div>
+                        <div className="mt-6 min-h-32 rounded-none border-2 border-dashed border-slate-300 p-4">
+                          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
+                            Foto-opgave
+                          </p>
+                          <p className="mt-3 text-sm leading-6 text-slate-700">
+                            Her kan læreren hurtigt se, at posten kræver et foto af motivet ovenfor.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mt-6">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                          Spørgsmål
+                        </p>
+                        <p className="mt-3 text-lg leading-8 text-black">{questionText}</p>
+                      </div>
+
+                      <ol className="mt-6 space-y-3">
+                        {question.answers.map((answer, answerIndex) => {
+                          const isCorrectAnswer = question.correctIndex === answerIndex;
+                          const answerText = answer.trim() || "Tom svarmulighed";
+
+                          return (
+                            <li
+                              key={`print-${question.id}-${answerIndex}`}
+                              className={`flex items-start gap-3 border px-4 py-3 ${
+                                isCorrectAnswer ? "border-slate-900 bg-slate-100" : "border-slate-300 bg-white"
+                              }`}
+                            >
+                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-500 text-sm font-bold text-black">
+                                {ANSWER_LABELS[answerIndex]}
+                              </span>
+                              <div className="min-w-0 flex-1 text-base leading-7 text-black">
+                                <span className={isCorrectAnswer ? "font-black" : "font-medium"}>{answerText}</span>
+                                {isCorrectAnswer ? (
+                                  <span className="ml-2 text-sm font-bold uppercase tracking-[0.16em] text-slate-700">
+                                    (Korrekt svar)
+                                  </span>
+                                ) : null}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </section>
       </div>
       </div>
 
       {showDraftRecoveryPrompt ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-6 py-10 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-6 py-10 backdrop-blur-md print:hidden">
           <div className="w-full max-w-2xl rounded-4xl border border-emerald-400/25 bg-slate-950/90 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-100/70">Redningskrans</p>
             <h2 className={`mt-3 text-3xl font-black tracking-tight text-emerald-50 ${rubik.className}`}>

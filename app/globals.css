@@ -100,3 +100,15 @@ body {
   background: rgba(236, 253, 245, 0.98);
   color: #065f46;
 }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+  }
+}

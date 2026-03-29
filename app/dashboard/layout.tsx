@@ -21,10 +21,16 @@ export default function DashboardLayout({
     >
       <DashboardAuthGate>
         <div className="relative pb-32 md:pb-0">
-          <BetaBanner />
-          <DashboardHeader />
+          <div className="print:hidden">
+            <BetaBanner />
+          </div>
+          <div className="print:hidden">
+            <DashboardHeader />
+          </div>
           {children}
-          <AIChatButton />
+          <div className="print:hidden">
+            <AIChatButton />
+          </div>
         </div>
       </DashboardAuthGate>
     </Suspense>

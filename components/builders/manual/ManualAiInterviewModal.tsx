@@ -321,7 +321,7 @@ export default function ManualAiInterviewModal({
 
   return (
     <div
-      className={`fixed inset-0 z-[1300] overflow-y-auto bg-slate-950/94 ${poppins.className}`}
+      className={`fixed inset-0 z-1300 overflow-y-auto bg-slate-950/94 print:hidden ${poppins.className}`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="manual-ai-interview-title"
@@ -350,7 +350,7 @@ export default function ManualAiInterviewModal({
             />
           </div>
 
-          <div className="mt-10 rounded-[2rem] border border-white/10 bg-white/[0.03] px-6 py-10 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:px-10 sm:py-14">
+          <div className="mt-10 rounded-4xl border border-white/10 bg-white/3 px-6 py-10 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:px-10 sm:py-14">
             {step === 1 ? (
               <>
                 <p className="text-sm font-semibold tracking-[0.28em] text-emerald-300 uppercase">Trin 1</p>
@@ -378,7 +378,7 @@ export default function ManualAiInterviewModal({
                     type="button"
                     onClick={goNext}
                     disabled={!canContinue}
-                    className="inline-flex min-w-[220px] items-center justify-center rounded-[1.4rem] border border-emerald-300/30 bg-emerald-400 px-8 py-4 text-lg font-bold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex min-w-55 items-center justify-center rounded-[1.4rem] border border-emerald-300/30 bg-emerald-400 px-8 py-4 text-lg font-bold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Næste
                   </button>
@@ -405,7 +405,7 @@ export default function ManualAiInterviewModal({
                       key={option.value}
                       type="button"
                       onClick={() => handleAudienceSelect(option.value)}
-                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/[0.04] px-6 py-5 text-lg font-semibold text-white transition hover:border-emerald-300/40 hover:bg-emerald-400/10"
+                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/4 px-6 py-5 text-lg font-semibold text-white transition hover:border-emerald-300/40 hover:bg-emerald-400/10"
                     >
                       {option.label}
                     </button>
@@ -443,7 +443,7 @@ export default function ManualAiInterviewModal({
                       key={option.value}
                       type="button"
                       onClick={() => handleToneSelect(option.value)}
-                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/[0.04] px-6 py-5 text-lg font-semibold text-white transition hover:border-emerald-300/40 hover:bg-emerald-400/10"
+                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/4 px-6 py-5 text-lg font-semibold text-white transition hover:border-emerald-300/40 hover:bg-emerald-400/10"
                     >
                       {option.label}
                     </button>
@@ -484,7 +484,7 @@ export default function ManualAiInterviewModal({
                       onClick={() => {
                         void handleGenerate(countOption);
                       }}
-                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/[0.04] px-6 py-5 text-lg font-semibold text-white transition hover:border-emerald-300/40 hover:bg-emerald-400/10"
+                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/4 px-6 py-5 text-lg font-semibold text-white transition hover:border-emerald-300/40 hover:bg-emerald-400/10"
                     >
                       {countOption} poster
                     </button>
@@ -505,7 +505,7 @@ export default function ManualAiInterviewModal({
             ) : null}
 
             {step === 5 ? (
-              <div className="flex min-h-[24rem] flex-col items-center justify-center">
+              <div className="flex min-h-96 flex-col items-center justify-center">
                 <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 p-6 text-emerald-300">
                   <Loader2 className="h-10 w-10 animate-spin" />
                 </div>

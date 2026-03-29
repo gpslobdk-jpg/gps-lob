@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpenText, Camera, Check, Loader2, Plus, Ruler, Trash2, Type } from "lucide-react";
+import { BookOpenText, Camera, Check, Loader2, Plus, Printer, Ruler, Trash2, Type } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
@@ -165,6 +165,7 @@ const aiActionButtonClass =
   "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-indigo-500/35 bg-indigo-500/12 text-indigo-100 hover:bg-indigo-500/18 px-5 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 const DEFAULT_ANSWERS: [string, string, string, string] = ["", "", "", ""];
+const ANSWER_LABELS = ["A", "B", "C", "D"] as const;
 
 const buildPhotoAnswers = (targetObject: string): [string, string, string, string] => [
   targetObject.trim(),
@@ -347,6 +348,10 @@ function OpretEngelskLoebPageContent() {
   const [showDraftRecoveryPrompt, setShowDraftRecoveryPrompt] = useState(false);
   const isEditorBusy = isSaving || showDraftRecoveryPrompt;
   const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
+  const printTitle = title.trim() || "Udkast uden titel";
+  const printSubject = ENGLISH_SUBJECT;
+  const printClassLevel =
+    gradeLevels.length > 0 ? formatGradeLevelsForPrompt(gradeLevels) : "Ikke angivet";
 
   const renderNotice = (className = "") =>
     notice ? (
@@ -1000,28 +1005,30 @@ function OpretEngelskLoebPageContent() {
 
   return (
     <>
-      <div className={`relative min-h-screen overflow-hidden bg-slate-950 text-white ${poppins.className}`}>
+      <div className={`relative min-h-screen overflow-hidden print:h-auto print:min-h-0 print:overflow-visible print:bg-white print:text-black bg-slate-950 text-white ${poppins.className}`}>
         <img
           src="/britiskflag.svg"
           alt="British Flag Background"
-          className="pointer-events-none absolute inset-0 z-0 h-full w-full scale-[1.08] select-none object-cover object-center opacity-45 saturate-125"
+          className="pointer-events-none absolute inset-0 z-0 h-full w-full scale-[1.08] select-none object-cover object-center opacity-45 saturate-125 print:hidden"
         />
-        <div className="pointer-events-none absolute inset-0 z-1 bg-slate-950/38" />
-        <div className="pointer-events-none absolute inset-0 z-1 bg-[radial-gradient(circle_at_center,transparent_10%,rgba(2,6,23,0.28)_58%,rgba(2,6,23,0.74)_100%)]" />
-        <div className="relative z-10 flex min-h-screen flex-col lg:flex-row lg:items-start">
-          <MobileBuilderWarning />
-          <section className="relative hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
+        <div className="pointer-events-none absolute inset-0 z-1 bg-slate-950/38 print:hidden" />
+        <div className="pointer-events-none absolute inset-0 z-1 bg-[radial-gradient(circle_at_center,transparent_10%,rgba(2,6,23,0.28)_58%,rgba(2,6,23,0.74)_100%)] print:hidden" />
+        <div className="relative z-10 flex min-h-screen flex-col lg:flex-row lg:items-start print:block print:h-auto print:min-h-0 print:overflow-visible">
+          <div className="print:hidden">
+            <MobileBuilderWarning />
+          </div>
+          <section className="relative hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8 print:hidden">
             <img
               src="/engelskikon2.svg"
               alt=""
               aria-hidden="true"
-              className="pointer-events-none absolute -top-10 -right-20 z-0 h-80 w-80 select-none opacity-[0.03] blur-[2px]"
+              className="pointer-events-none absolute -top-10 -right-20 z-0 h-80 w-80 select-none opacity-[0.03] blur-[2px] print:hidden"
             />
             <img
               src="/engelskikon3.svg"
               alt=""
               aria-hidden="true"
-              className="pointer-events-none absolute -bottom-10 -left-20 z-0 h-80 w-80 select-none opacity-[0.03] blur-[2px]"
+              className="pointer-events-none absolute -bottom-10 -left-20 z-0 h-80 w-80 select-none opacity-[0.03] blur-[2px] print:hidden"
             />
             <div className="relative z-10 mx-auto max-w-3xl">
               <fieldset
@@ -1048,18 +1055,33 @@ function OpretEngelskLoebPageContent() {
                         </p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNotice(null);
-                        setShowAiInterviewModal(true);
-                      }}
-                      disabled={isEditorBusy}
-                      className={`${aiActionButtonClass} mt-4 w-full sm:w-auto`}
-                    >
-                      <BookOpenText className="h-4 w-4" />
-                      Auto-udfyld med AI
-                    </button>
+                    <div className="mt-4 flex flex-wrap items-center gap-3 print:hidden">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNotice(null);
+                          setShowAiInterviewModal(true);
+                        }}
+                        disabled={isEditorBusy}
+                        className={`${aiActionButtonClass} w-full sm:w-auto`}
+                      >
+                        <BookOpenText className="h-4 w-4" />
+                        Auto-udfyld med AI
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (typeof window !== "undefined") {
+                            window.print();
+                          }
+                        }}
+                        disabled={isEditorBusy}
+                        className={`${aiActionButtonClass} w-full print:hidden sm:w-auto`}
+                      >
+                        <Printer className="h-4 w-4" />
+                        Print udkast
+                      </button>
+                    </div>
                   </div>
 
                   <div className="mb-6 rounded-3xl border border-indigo-500/35 bg-slate-950/55 p-4 backdrop-blur-xl">
@@ -1334,18 +1356,144 @@ function OpretEngelskLoebPageContent() {
             </div>
           </section>
 
-          <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
+          <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0 print:hidden">
             <div className="lg:sticky lg:top-5">
               <div className="h-[42vh] min-h-80 w-full overflow-hidden rounded-4xl border border-indigo-500/20 bg-slate-900/50 shadow-[0_0_0_1px_rgba(99,102,241,0.08),0_0_36px_rgba(99,102,241,0.12),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
                 <MapPicker center={mapCenter} pins={pins} zones={previewZones} onCenterChange={setMapCenter} autoLocateOnLoad={!isEditMode} />
               </div>
             </div>
           </aside>
+          <section className="hidden print:block print:bg-white print:px-0 print:py-0 print:text-black">
+            <div className="mx-auto w-full max-w-none space-y-6 print:space-y-4">
+              <header className="rounded-none border-2 border-slate-900 bg-white p-8 text-black shadow-none print:break-after-page print:[page-break-after:always]">
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-600">
+                  Printvenligt udkast
+                </p>
+                <h1 className={`mt-4 text-4xl font-black tracking-tight text-black ${rubik.className}`}>
+                  {printTitle}
+                </h1>
+                <div className="mt-8 grid gap-4 sm:grid-cols-3">
+                  <div className="border border-slate-300 px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                      Klassetrin
+                    </p>
+                    <p className="mt-3 text-2xl font-black text-black">{printClassLevel}</p>
+                  </div>
+                  <div className="border border-slate-300 px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                      Fag
+                    </p>
+                    <p className="mt-3 text-2xl font-black text-black">{printSubject}</p>
+                  </div>
+                  <div className="border border-slate-300 px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                      Antal poster
+                    </p>
+                    <p className="mt-3 text-2xl font-black text-black">{questions.length}</p>
+                  </div>
+                </div>
+              </header>
+
+              {questions.map((question, questionIndex) => {
+                const isPhotoMission = question.type === "ai_image";
+                const promptText = question.aiPrompt.trim() || "Ikke angivet endnu";
+                const questionText = question.text.trim() || "Ikke udfyldt endnu";
+
+                return (
+                  <article
+                    key={`print-${question.id}`}
+                    className="rounded-none border border-slate-900 bg-white p-6 text-black shadow-none print:break-inside-avoid print:[page-break-inside:avoid]"
+                  >
+                    <div className="flex items-start justify-between gap-4 border-b border-slate-300 pb-4">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                          Post {questionIndex + 1}
+                        </p>
+                        <h2 className={`mt-2 text-2xl font-black text-black ${rubik.className}`}>
+                          {isPhotoMission ? "Foto-opgave" : "Quiz-opgave"}
+                        </h2>
+                      </div>
+                      <div className="text-right text-sm text-slate-600">
+                        <p>{isPhotoMission ? "AI-billede" : "Multiple choice"}</p>
+                      </div>
+                    </div>
+
+                    {isPhotoMission ? (
+                      <div className="mt-6 rounded-none border-2 border-dashed border-slate-400 p-5">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                          Foto-opgave
+                        </p>
+                        <div className="mt-4 space-y-4">
+                          <div>
+                            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
+                              Motiv
+                            </p>
+                            <p className="mt-2 text-lg font-bold text-black">{promptText}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
+                              Instruktion
+                            </p>
+                            <p className="mt-2 text-base leading-7 text-black">{questionText}</p>
+                          </div>
+                          <div className="mt-6 min-h-32 rounded-none border-2 border-dashed border-slate-300 p-4">
+                            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
+                              Foto-opgave
+                            </p>
+                            <p className="mt-3 text-sm leading-6 text-slate-700">
+                              Her kan læreren hurtigt se, at posten kræver et foto af motivet ovenfor.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="mt-6">
+                          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                            Spørgsmål
+                          </p>
+                          <p className="mt-3 text-lg leading-8 text-black">{questionText}</p>
+                        </div>
+
+                        <ol className="mt-6 space-y-3">
+                          {question.answers.map((answer, answerIndex) => {
+                            const isCorrectAnswer = question.correctIndex === answerIndex;
+                            const answerText = answer.trim() || "Tom svarmulighed";
+
+                            return (
+                              <li
+                                key={`print-${question.id}-${answerIndex}`}
+                                className={`flex items-start gap-3 border px-4 py-3 ${
+                                  isCorrectAnswer ? "border-slate-900 bg-slate-100" : "border-slate-300 bg-white"
+                                }`}
+                              >
+                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-500 text-sm font-bold text-black">
+                                  {ANSWER_LABELS[answerIndex]}
+                                </span>
+                                <div className="min-w-0 flex-1 text-base leading-7 text-black">
+                                  <span className={isCorrectAnswer ? "font-black" : "font-medium"}>{answerText}</span>
+                                  {isCorrectAnswer ? (
+                                    <span className="ml-2 text-sm font-bold uppercase tracking-[0.16em] text-slate-700">
+                                      (Korrekt svar)
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ol>
+                      </>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
         </div>
       </div>
 
       {showDraftRecoveryPrompt ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-6 py-10 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-6 py-10 backdrop-blur-md print:hidden">
           <div className="w-full max-w-2xl rounded-4xl border border-indigo-500/30 bg-slate-950/90 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-indigo-100/70">Redningskrans</p>
             <h2 className={`mt-3 text-3xl font-black tracking-tight text-white ${rubik.className}`}>
