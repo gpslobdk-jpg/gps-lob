@@ -1104,7 +1104,7 @@ function OpretDanskLoebPageContent() {
           <div className="print:hidden">
             <MobileBuilderWarning />
           </div>
-          <section className="relative hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8 print:hidden">
+          <section className="relative hidden w-full overflow-visible px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-visible lg:px-8 lg:py-8 print:hidden">
             <img
               src="/danskikon2.svg"
               alt=""
@@ -1183,7 +1183,7 @@ function OpretDanskLoebPageContent() {
                               </button>
 
                               {showToolsMenu ? (
-                                <div className="absolute right-0 top-full z-50 mt-3 w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-[1.6rem] border border-rose-400/20 bg-slate-950/96 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+                                <div className="absolute right-0 top-full z-50 mt-3 max-h-[min(32rem,calc(100vh-10rem))] w-[min(26rem,calc(100vw-2rem))] overflow-x-hidden overflow-y-auto rounded-[1.6rem] border border-rose-400/20 bg-slate-950/96 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl overscroll-contain">
                                   <div className="px-4 pb-2 pt-2">
                                     <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-rose-100/45">Opret hurtigt</p>
                                   </div>
@@ -1306,7 +1306,7 @@ function OpretDanskLoebPageContent() {
 
                 </div>
 
-                <div className="relative z-0 space-y-4 px-1">
+                <div className="relative z-0 space-y-4 px-1 lg:max-h-[calc(100vh-24rem)] lg:overflow-y-auto lg:overscroll-contain lg:pr-2">
                   <div className="flex items-end justify-between gap-4">
                     <div>
                       <p className="text-xs font-semibold tracking-[0.24em] text-rose-100/65 uppercase">
