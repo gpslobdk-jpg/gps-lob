@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Calculator, Camera, Check, ChevronDown, Loader2, Plus, Printer, Ruler, Sparkles, SquareFunction, Trash2, Wrench } from "lucide-react";
+import { BookOpen, Calculator, Check, ChevronDown, Loader2, Plus, Printer, Ruler, Sparkles, SquareFunction, Trash2, Wrench } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
@@ -1216,7 +1216,7 @@ function OpretLoebPageContent() {
                     </div>
                   ) : null}
 
-                  <div className="mb-8 space-y-5">
+                  <div className="relative z-40 mb-8 space-y-5">
                     <div className="flex items-center gap-3">
                       <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-[1.15rem] border border-white/80 bg-white px-2 py-2 text-amber-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),inset_0_-6px_12px_rgba(217,119,6,0.08),0_18px_38px_rgba(255,255,255,0.16),0_14px_28px_rgba(251,191,36,0.18)] ring-1 ring-amber-200/55">
                         <span
@@ -1235,7 +1235,7 @@ function OpretLoebPageContent() {
                       </div>
                     </div>
 
-                    <div className="rounded-4xl border border-amber-500/30 bg-amber-950/20 p-5 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:p-6">
+                    <div className="relative z-40 rounded-4xl border border-amber-500/30 bg-amber-950/20 p-5 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:p-6">
                       <div className="flex flex-col gap-4">
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                           <div>
@@ -1254,7 +1254,7 @@ function OpretLoebPageContent() {
                               {builderStatusLabel}
                             </span>
 
-                            <div ref={toolsMenuRef} className="relative inline-flex max-w-full flex-col items-end">
+                            <div ref={toolsMenuRef} className="relative z-50 inline-flex max-w-full flex-col items-end">
                               <button
                                 type="button"
                                 onClick={() => setShowToolsMenu((current) => !current)}
@@ -1269,7 +1269,7 @@ function OpretLoebPageContent() {
                               </button>
 
                               {showToolsMenu ? (
-                                <div className="absolute right-0 top-full z-50 mt-3 w-[min(25rem,calc(100vw-3rem))] overflow-hidden rounded-[1.6rem] border border-amber-400/20 bg-slate-950/96 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+                                <div className="absolute right-0 top-full z-50 mt-3 w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-[1.6rem] border border-amber-400/20 bg-slate-950/96 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
                                   <div className="px-4 pb-2 pt-2">
                                     <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-100/45">Opret hurtigt</p>
                                   </div>
@@ -1306,14 +1306,39 @@ function OpretLoebPageContent() {
                                     <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-100/45">Avanceret</p>
                                   </div>
 
-                                  <div className="flex items-start gap-3 rounded-[1.25rem] px-4 py-3 text-left text-amber-50/90">
-                                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-amber-200">
-                                      <SquareFunction className="h-4 w-4" />
-                                    </span>
-                                    <span>
-                                      <span className="block text-sm font-black uppercase tracking-[0.16em]">Builder-status</span>
-                                      <span className="mt-1 block text-sm leading-6 text-amber-100/68">Klassetrin og GPS-radius bliver ved med at ligge synligt i arbejdsfladen, fordi de styrer loebets faglige niveau.</span>
-                                    </span>
+                                  <div className="space-y-4 px-4 py-3">
+                                    <div>
+                                      <label className="block text-[11px] font-bold uppercase tracking-[0.18em] text-amber-100/58">
+                                        GPS-radius
+                                      </label>
+                                      <select
+                                        value={radius}
+                                        onChange={(event) => setRadius(normalizeRunRadius(event.target.value))}
+                                        disabled={isEditorBusy}
+                                        className="mt-2 w-full rounded-[1.15rem] border border-amber-400/20 bg-amber-950/35 px-4 py-3 text-sm font-semibold text-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-400/40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                                      >
+                                        {RUN_RADIUS_OPTIONS.map((radiusOption) => (
+                                          <option key={radiusOption} value={radiusOption} className="bg-slate-900 text-white">
+                                            {radiusOption} meter
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <p className="mt-2 text-sm leading-6 text-amber-100/68">
+                                        Radius styrer, hvor tæt eleven skal være på posten. Klassetrin bliver i arbejdsfladen, fordi det styrer det faglige niveau.
+                                      </p>
+                                    </div>
+
+                                    <div className="h-px bg-amber-400/10" />
+
+                                    <div className="flex items-start gap-3 rounded-[1.25rem] text-left text-amber-50/90">
+                                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-amber-200">
+                                        <SquareFunction className="h-4 w-4" />
+                                      </span>
+                                      <span>
+                                        <span className="block text-sm font-black uppercase tracking-[0.16em]">Builder-status</span>
+                                        <span className="mt-1 block text-sm leading-6 text-amber-100/68">Klassetrin ligger fortsat synligt i arbejdsfladen, så opgaver og AI kan justeres hurtigt undervejs.</span>
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
                               ) : null}
@@ -1334,7 +1359,7 @@ function OpretLoebPageContent() {
                     </div>
                   </div>
 
-                  <div className="mb-6 rounded-3xl border border-amber-500/30 bg-amber-950/20 p-4 backdrop-blur-xl">
+                  <div className="relative z-0 mb-6 rounded-3xl border border-amber-500/30 bg-amber-950/20 p-4 backdrop-blur-xl">
                     <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
                       Klassetrin
                     </label>
@@ -1357,30 +1382,7 @@ function OpretLoebPageContent() {
 
                 </div>
 
-                <div className="px-1">
-                  <div className="rounded-3xl border border-amber-500/30 bg-amber-950/20 p-4 backdrop-blur-xl">
-                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-amber-100/65 uppercase">
-                      GPS-radius
-                    </label>
-                    <select
-                      value={radius}
-                      onChange={(event) => setRadius(normalizeRunRadius(event.target.value))}
-                      disabled={isEditorBusy}
-                      className="w-full rounded-2xl border border-amber-500/30 bg-amber-950/20 px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                    >
-                      {RUN_RADIUS_OPTIONS.map((radiusOption) => (
-                        <option key={radiusOption} value={radiusOption} className="bg-slate-900 text-white">
-                          {radiusOption} meter
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-2 text-sm text-amber-100/70">
-                      Vælg hvor tæt eleven skal være på posten, før GPS-låsen åbner.
-                    </p>
-                  </div>
-                </div>
-
-              <div className="space-y-4 px-1">
+              <div className="relative z-0 space-y-4 px-1">
                 <div className="flex items-end justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold tracking-[0.24em] text-amber-100/65 uppercase">
@@ -1402,31 +1404,13 @@ function OpretLoebPageContent() {
                   <article
                     key={question.id}
                     id={`matematik-post-${question.id}`}
-                    className="rounded-[1.8rem] border border-amber-500/30 bg-amber-950/20 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
+                    className="relative z-0 rounded-[1.8rem] border border-amber-500/30 bg-amber-950/20 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-2.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-amber-500/30 bg-amber-950/20 text-amber-100">
-                          {isPhotoMission ? <Camera className="h-4 w-4" /> : <SquareFunction className="h-4 w-4" />}
-                        </div>
-                        <div>
-                          <h3 className={`flex items-center gap-2 text-lg font-bold text-amber-50 ${rubik.className}`}>
-                            <span className="rounded-full border border-amber-400/25 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-200">
-                              {questionIndex + 1}
-                            </span>
-                            {isPhotoMission ? "Foto-post" : "Quiz-post"}
-                          </h3>
-                          <p className="text-xs text-amber-100/65">
-                            {question.lat !== null && question.lng !== null
-                              ? "Pin er valgt på kortet"
-                              : "Ingen pin valgt endnu"}
-                          </p>
-                        </div>
-                      </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <h3 className={`text-lg font-bold text-amber-50 ${rubik.className}`}>
+                        Post {questionIndex + 1}
+                      </h3>
                       <div className="flex items-center gap-2">
-                        <span className="rounded-full border border-amber-500/30 bg-amber-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-amber-100/75 uppercase backdrop-blur-xl">
-                          {isPhotoMission ? "AI foto" : "4 svar"}
-                        </span>
                         <label className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-950/20 px-3 py-1 text-[10px] font-semibold tracking-[0.18em] text-amber-100/75 uppercase backdrop-blur-xl">
                           Point
                           <input
@@ -1576,7 +1560,7 @@ function OpretLoebPageContent() {
                 );
               })}
 
-              <div className="rounded-4xl border border-amber-500/30 bg-amber-950/20 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+              <div className="relative z-0 rounded-4xl border border-amber-500/30 bg-amber-950/20 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
                 <div ref={addQuestionMenuRef} className="relative inline-flex max-w-full flex-col items-start">
                   <button
                     type="button"

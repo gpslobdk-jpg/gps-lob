@@ -1289,7 +1289,7 @@ function OpretLoebPageContent() {
                     </div>
                   ) : null}
 
-                  <div className="mb-8 space-y-5">
+                  <div className="relative z-40 mb-8 space-y-5">
                     <div>
                       <h3 className="text-xl font-semibold text-emerald-100">
                         Velkommen til det klassiske quiz løb.
@@ -1299,7 +1299,7 @@ function OpretLoebPageContent() {
                       </p>
                     </div>
 
-                    <div className="rounded-4xl border border-emerald-500/30 bg-emerald-950/20 p-5 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:p-6">
+                    <div className="relative z-40 rounded-4xl border border-emerald-500/30 bg-emerald-950/20 p-5 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:p-6">
                       <div className="flex flex-col gap-4">
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                           <div>
@@ -1320,7 +1320,7 @@ function OpretLoebPageContent() {
                               {builderStatusLabel}
                             </span>
 
-                            <div ref={toolsMenuRef} className="relative inline-flex max-w-full flex-col items-end">
+                            <div ref={toolsMenuRef} className="relative z-50 inline-flex max-w-full flex-col items-end">
                               <button
                                 type="button"
                                 onClick={() => setShowToolsMenu((current) => !current)}
@@ -1335,7 +1335,7 @@ function OpretLoebPageContent() {
                               </button>
 
                               {showToolsMenu ? (
-                                <div className="absolute right-0 top-full z-50 mt-3 w-[min(25rem,calc(100vw-3rem))] overflow-hidden rounded-[1.6rem] border border-emerald-400/20 bg-slate-950/96 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+                                <div className="absolute right-0 top-full z-50 mt-3 w-[min(28rem,calc(100vw-2rem))] overflow-hidden rounded-[1.6rem] border border-emerald-400/20 bg-slate-950/96 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
                                   <div className="px-4 pb-2 pt-2">
                                     <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-100/45">
                                       Opret hurtigt
@@ -1396,18 +1396,69 @@ function OpretLoebPageContent() {
                                     </p>
                                   </div>
 
-                                  <div className="flex items-start gap-3 rounded-[1.25rem] px-4 py-3 text-left text-emerald-50/90">
-                                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
-                                      <BookOpen className="h-4 w-4" />
-                                    </span>
-                                    <span>
-                                      <span className="block text-sm font-black uppercase tracking-[0.16em]">
-                                        Builder-status
+                                  <div className="space-y-4 px-4 py-3">
+                                    <div>
+                                      <label className="block text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-100/58">
+                                        Vælg arkiv-fag
+                                      </label>
+                                      <select
+                                        value={subject}
+                                        onChange={(event) => setSubject(event.target.value)}
+                                        disabled={isEditorBusy}
+                                        className="mt-2 w-full rounded-[1.15rem] border border-emerald-400/20 bg-emerald-950/35 px-4 py-3 text-sm font-semibold text-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                                      >
+                                        <option value="" className="bg-slate-900 text-white">
+                                          Vælg et fag til arkivet...
+                                        </option>
+                                        {Object.keys(SUBJECT_TOPICS).map((subjectOption) => (
+                                          <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
+                                            {subjectOption}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <p className="mt-2 text-sm leading-6 text-emerald-100/68">
+                                        Faget bruges til arkiv, genbrug og AI-hjælp, men ligger her for at holde titelområdet rent.
+                                      </p>
+                                    </div>
+
+                                    <div className="h-px bg-emerald-400/10" />
+
+                                    <div>
+                                      <label className="block text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-100/58">
+                                        GPS-radius
+                                      </label>
+                                      <select
+                                        value={radius}
+                                        onChange={(event) => setRadius(normalizeRunRadius(event.target.value))}
+                                        disabled={isEditorBusy}
+                                        className="mt-2 w-full rounded-[1.15rem] border border-emerald-400/20 bg-emerald-950/35 px-4 py-3 text-sm font-semibold text-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                                      >
+                                        {RUN_RADIUS_OPTIONS.map((radiusOption) => (
+                                          <option key={radiusOption} value={radiusOption} className="bg-slate-900 text-white">
+                                            {radiusOption} meter
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <p className="mt-2 text-sm leading-6 text-emerald-100/68">
+                                        Vælg hvor tæt eleven skal være på posten, før GPS-låsen åbner.
+                                      </p>
+                                    </div>
+
+                                    <div className="h-px bg-emerald-400/10" />
+
+                                    <div className="flex items-start gap-3 rounded-[1.25rem] text-left text-emerald-50/90">
+                                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
+                                        <BookOpen className="h-4 w-4" />
                                       </span>
-                                      <span className="mt-1 block text-sm leading-6 text-emerald-100/68">
-                                        Løbet gemmes som {currentRaceTypeLabel}. Tilføj post og arkiv-genbrug bliver nederst ved arbejdsområdet, hvor de er lettest at bruge.
+                                      <span>
+                                        <span className="block text-sm font-black uppercase tracking-[0.16em]">
+                                          Builder-status
+                                        </span>
+                                        <span className="mt-1 block text-sm leading-6 text-emerald-100/68">
+                                          Løbet gemmes som {currentRaceTypeLabel}. Tilføj post og arkiv-genbrug bliver nederst ved arbejdsområdet, hvor de er lettest at bruge.
+                                        </span>
                                       </span>
-                                    </span>
+                                    </div>
                                   </div>
                                 </div>
                               ) : null}
@@ -1430,52 +1481,7 @@ function OpretLoebPageContent() {
                     </div>
                   </div>
                 </div>
-              <div className="px-1">
-                <div className="rounded-3xl border border-emerald-500/30 bg-emerald-950/20 p-4 backdrop-blur-xl">
-                  <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
-                    Emne
-                  </label>
-                  <select
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    disabled={isEditorBusy}
-                    className="w-full rounded-2xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                  >
-                    <option value="" className="bg-slate-900 text-white">
-                      Vælg et fag til arkivet...
-                    </option>
-                    {Object.keys(SUBJECT_TOPICS).map((subjectOption) => (
-                      <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
-                        {subjectOption}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="px-1">
-                <div className="rounded-3xl border border-emerald-500/30 bg-emerald-950/20 p-4 backdrop-blur-xl">
-                  <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
-                    GPS-radius
-                  </label>
-                  <select
-                    value={radius}
-                    onChange={(event) => setRadius(normalizeRunRadius(event.target.value))}
-                    disabled={isEditorBusy}
-                    className="w-full rounded-2xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                  >
-                    {RUN_RADIUS_OPTIONS.map((radiusOption) => (
-                      <option key={radiusOption} value={radiusOption} className="bg-slate-900 text-white">
-                        {radiusOption} meter
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-2 text-sm text-emerald-100/70">
-                    Vælg hvor tæt eleven skal være på posten, før GPS-låsen åbner.
-                  </p>
-                </div>
-              </div>
-
+              <div className="relative z-0 space-y-5">
               <div className="space-y-4 px-1">
                 <div className="flex items-end justify-between gap-4">
                   <div>
@@ -1498,51 +1504,13 @@ function OpretLoebPageContent() {
                   <article
                     key={question.id}
                     id={`manuel-post-${question.id}`}
-                    className="rounded-[1.8rem] border border-emerald-500/30 bg-emerald-950/20 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
+                    className="relative z-0 rounded-[1.8rem] border border-emerald-500/30 bg-emerald-950/20 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-2.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-950/20 text-sm font-bold text-emerald-100">
-                          {questionIndex + 1}
-                        </div>
-                        <div>
-                          <h3 className={`text-lg font-bold text-emerald-100 ${rubik.className}`}>
-                            {isPhotoMission ? "Foto-post" : "Quiz-post"}
-                          </h3>
-                          <p className="text-xs text-emerald-100/65">
-                            {question.lat !== null && question.lng !== null
-                              ? "Pin er valgt på kortet"
-                              : "Ingen pin valgt endnu"}
-                          </p>
-                        </div>
-                      </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <h3 className={`text-lg font-bold text-emerald-100 ${rubik.className}`}>
+                        Post {questionIndex + 1}
+                      </h3>
                       <div className="flex flex-wrap items-center justify-end gap-2">
-                        <label className="flex min-w-44 flex-col gap-1 rounded-[1.1rem] border border-emerald-500/30 bg-emerald-950/20 px-3 py-2 backdrop-blur-xl">
-                          <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-100/60">
-                            Skift opgavetype
-                          </span>
-                          <select
-                            value={question.type}
-                            onChange={(event) =>
-                              updateQuestionType(
-                                question.id,
-                                event.target.value === "ai_image" ? "ai_image" : "multiple_choice"
-                              )
-                            }
-                            disabled={isEditorBusy}
-                            className="bg-transparent text-sm font-semibold text-emerald-50 focus:outline-none disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                          >
-                            <option value="multiple_choice" className="bg-slate-900 text-white">
-                              Quiz
-                            </option>
-                            <option value="ai_image" className="bg-slate-900 text-white">
-                              Tag et billede
-                            </option>
-                          </select>
-                        </label>
-                        <span className="rounded-full border border-emerald-500/30 bg-emerald-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-emerald-100/75 uppercase backdrop-blur-xl">
-                          {isPhotoMission ? "AI foto" : "4 svar"}
-                        </span>
                         <label className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-950/20 px-3 py-1 text-[10px] font-semibold tracking-[0.18em] text-emerald-100/75 uppercase backdrop-blur-xl">
                           Point
                           <input
@@ -1569,6 +1537,30 @@ function OpretLoebPageContent() {
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                        Opgavetype
+                      </label>
+                      <select
+                        value={question.type}
+                        onChange={(event) =>
+                          updateQuestionType(
+                            question.id,
+                            event.target.value === "ai_image" ? "ai_image" : "multiple_choice"
+                          )
+                        }
+                        disabled={isEditorBusy}
+                        className="w-full rounded-2xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-sm font-semibold text-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                      >
+                        <option value="multiple_choice" className="bg-slate-900 text-white">
+                          Quiz
+                        </option>
+                        <option value="ai_image" className="bg-slate-900 text-white">
+                          Tag et billede
+                        </option>
+                      </select>
                     </div>
 
                     {isPhotoMission ? (
@@ -1691,7 +1683,7 @@ function OpretLoebPageContent() {
                 );
               })}
 
-              <div className="rounded-4xl border border-emerald-500/30 bg-emerald-950/20 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+              <div className="relative z-0 rounded-4xl border border-emerald-500/30 bg-emerald-950/20 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
                 <div ref={addQuestionMenuRef} className="relative inline-flex max-w-full flex-col items-start">
                   <button
                     type="button"
@@ -1759,6 +1751,7 @@ function OpretLoebPageContent() {
                     {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
                   </button>
                 </div>
+              </div>
               </div>
               </fieldset>
             </div>

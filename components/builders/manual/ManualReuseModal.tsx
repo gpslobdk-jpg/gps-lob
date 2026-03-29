@@ -352,18 +352,10 @@ export default function ManualReuseModal({
                           }}
                           className="text-left rounded-[1.8rem] border border-white/10 bg-slate-950/72 p-5 text-white shadow-[0_20px_50px_rgba(0,0,0,0.26)] transition hover:border-emerald-300/25 hover:bg-slate-950/90"
                         >
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <p className="text-xs font-semibold tracking-[0.22em] text-emerald-300/85 uppercase">
-                                {run.subject}
-                              </p>
-                              <h3 className={`mt-3 text-2xl font-black leading-tight ${rubik.className}`}>
-                                {run.title}
-                              </h3>
-                            </div>
-                            <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-bold tracking-[0.18em] text-slate-200 uppercase">
-                              {describeRaceType(run.raceType)}
-                            </span>
+                          <div>
+                            <h3 className={`text-2xl font-black leading-tight ${rubik.className}`}>
+                              {run.title}
+                            </h3>
                           </div>
 
                           <div className="mt-5 flex flex-wrap items-center gap-2 text-sm text-slate-300">
