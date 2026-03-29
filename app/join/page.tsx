@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { Poppins, Rubik } from "next/font/google";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, ArrowLeft, KeyRound, Leaf, Loader2, Timer, User } from "lucide-react";
@@ -101,6 +101,8 @@ function JoinForm() {
   const [schedule, setSchedule] = useState<RunSchedule | null>(null);
   const [raceType, setRaceType] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState("");
+  const [isJoining, setIsJoining] = useState(false);
+  const joinLockRef = useRef(false);
 
   const isZoneKrig = raceType === "zone_krig";
   const trimmedName = name.trim();
@@ -197,12 +199,21 @@ function JoinForm() {
 
   const handleJoin = async (event: FormEvent) => {
     event.preventDefault();
+
+    if (joinLockRef.current) {
+      return;
+    }
+
     setError("");
 
     if (!trimmedPin || !trimmedName) {
       setError("Udfyld venligst både pinkode og navn.");
       return;
     }
+
+    joinLockRef.current = true;
+    setIsJoining(true);
+    let shouldReleaseLock = true;
 
     try {
       const response = await fetch(`/api/join?pin=${encodeURIComponent(trimmedPin)}`);
@@ -287,6 +298,7 @@ function JoinForm() {
       }
 
       if (joinData.sessionStatus === "running" || joinData.scheduleGate === "active") {
+        shouldReleaseLock = false;
         router.push(`/play/${joinData.sessionId}?name=${encodeURIComponent(trimmedName)}`);
         return;
       }
@@ -295,6 +307,11 @@ function JoinForm() {
     } catch (err) {
       console.error("Fejl ved deltagelse i løbet:", err);
       setError("Der skete en fejl. Prøv igen.");
+    } finally {
+      if (shouldReleaseLock) {
+        joinLockRef.current = false;
+        setIsJoining(false);
+      }
     }
   };
 
@@ -544,6 +561,7 @@ function JoinForm() {
                 pattern="[0-9]*"
                 maxLength={6}
                 autoComplete="one-time-code"
+                disabled={isJoining}
               />
             </div>
 
@@ -557,6 +575,7 @@ function JoinForm() {
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 className="w-full rounded-[1.6rem] border border-white/20 bg-slate-950 py-4 pr-4 pl-12 text-lg font-semibold text-white shadow-inner outline-none backdrop-blur-md transition placeholder:text-slate-500 focus:border-emerald-400 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-400/20"
+                disabled={isJoining}
               />
             </div>
 
@@ -580,6 +599,7 @@ function JoinForm() {
                         onClick={() => setSelectedColor(color)}
                         aria-label={`Vælg ${factionName} fraktion`}
                         aria-pressed={isSelected}
+                        disabled={isJoining}
                         className={`flex flex-col items-center gap-1.5 rounded-[1.2rem] border py-3 px-1 text-xs font-bold transition-all ${
                           isSelected
                             ? "border-white/40 scale-105 shadow-lg"
@@ -612,10 +632,17 @@ function JoinForm() {
 
             <button
               type="submit"
-              disabled={!canSubmit}
+              disabled={!canSubmit || isJoining}
               className="mt-2 mb-6 w-full rounded-[1.6rem] border border-emerald-500/30 bg-emerald-500/10 py-4 text-base font-black tracking-[0.28em] text-emerald-300 uppercase shadow-[0_0_30px_rgba(16,185,129,0.22)] transition-all hover:bg-emerald-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-45"
             >
-              TILSLUT MISSION 🚀
+              {isJoining ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Tilslutter...
+                </span>
+              ) : (
+                "TILSLUT MISSION 🚀"
+              )}
             </button>
           </form>
         </div>

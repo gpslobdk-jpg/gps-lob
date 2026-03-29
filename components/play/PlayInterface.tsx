@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { AlertCircle, Camera, CheckCircle2, KeyRound, Loader2, XCircle } from "lucide-react";
 import Image from "next/image";
 import { Poppins, Rubik } from "next/font/google";
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 
 import type { PlayActions, PlayUiState } from "./types";
 import {
@@ -16,6 +16,7 @@ import {
   wrapTextClass,
 } from "./playUtils";
 import QuestionTtsButton from "./QuestionTtsButton";
+import TeacherBroadcastModal from "./TeacherBroadcastModal";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 import trophyAnimation from "@/public/trophy.json";
 
@@ -116,7 +117,10 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const photoPickerPendingRef = useRef(false);
   const photoPickerReturnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mobileHudOpen, setMobileHudOpen] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraErrorState, setCameraErrorState] = useState<{ key: string; message: string | null }>({
+    key: "",
+    message: null,
+  });
   const [cameraPermissionState, setCameraPermissionState] = useState<PermissionState | "unknown">("unknown");
 
   const { player, gps, progress, flags } = ui;
@@ -222,14 +226,22 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const cameraPermissionMessage = "Du skal tillade kamera-adgang i dine browser-indstillinger for at tage billedet.";
   const cameraRetryHelpMessage =
     "Hvis kameraet ikke åbner, skal du tillade kamera-adgang i dine browser-indstillinger og prøve igen.";
+  const cameraError = cameraErrorState.key === activeTypedAnswerKey ? cameraErrorState.message : null;
 
-  const clearPendingPhotoPickerState = () => {
+  const clearPendingPhotoPickerState = useCallback(() => {
     photoPickerPendingRef.current = false;
     if (photoPickerReturnTimerRef.current !== null) {
       clearTimeout(photoPickerReturnTimerRef.current);
       photoPickerReturnTimerRef.current = null;
     }
-  };
+  }, []);
+
+  const setCameraError = useCallback((message: string | null) => {
+    setCameraErrorState({
+      key: activeTypedAnswerKey,
+      message,
+    });
+  }, [activeTypedAnswerKey]);
 
   
 
@@ -330,7 +342,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [cameraRetryHelpMessage, setCameraError]);
 
   useEffect(() => {
     const handlePhotoPickerReturn = () => {
@@ -356,12 +368,11 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
       document.removeEventListener("visibilitychange", handlePhotoPickerReturn);
       clearPendingPhotoPickerState();
     };
-  }, []);
+  }, [cameraRetryHelpMessage, clearPendingPhotoPickerState, setCameraError]);
 
   useEffect(() => {
     clearPendingPhotoPickerState();
-    setCameraError(null);
-  }, [activeTypedAnswerKey]);
+  }, [activeTypedAnswerKey, clearPendingPhotoPickerState]);
 
   let content: ReactNode;
 
@@ -1025,33 +1036,6 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
               </div>
             </div>
 
-            {latestMessage ? (
-              <div className="animate-in slide-in-from-top fade-in duration-500">
-                <div className="rounded-[1.5rem] border border-white/20 bg-white/10 p-4 shadow-lg backdrop-blur-2xl">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5 rounded-full border border-white/20 bg-white/10 p-2 text-white/80">
-                        <AlertCircle className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <div className={tacticalMetaLabelClass}>
-                          Besked fra arrangøren
-                        </div>
-                        <div className={`text-sm font-medium text-white ${wrapTextClass}`}>{latestMessage}</div>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={actions.dismissLatestMessage}
-                      className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-white/20"
-                    >
-                      Forstået
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
             {resumeMessage ? (
               <div className="animate-in slide-in-from-top fade-in duration-500">
                 <div className="flex items-start gap-3 rounded-[1.5rem] border border-white/20 bg-white/10 p-4 shadow-lg backdrop-blur-2xl">
@@ -1089,6 +1073,11 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
               />
             </div>
           ) : null}
+
+          <TeacherBroadcastModal
+            message={latestMessage}
+            onDismiss={actions.dismissLatestMessage}
+          />
 
           <div className="absolute inset-0 z-[1] h-full w-full">
             {children}

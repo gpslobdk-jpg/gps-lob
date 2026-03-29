@@ -250,6 +250,8 @@ const aiActionButtonClass =
 
 const DEFAULT_ANSWERS: [string, string, string, string] = ["", "", "", ""];
 
+const createEmptyAnswers = (): [string, string, string, string] => ["", "", "", ""];
+
 const buildPhotoAnswers = (targetObject: string): [string, string, string, string] => [
   targetObject.trim(),
   "",
@@ -891,6 +893,31 @@ function OpretLoebPageContent() {
     );
   };
 
+  const updateQuestionType = (id: number, nextType: Question["type"]) => {
+    setQuestions((prev) =>
+      prev.map((question) => {
+        if (question.id !== id) return question;
+
+        if (nextType === "ai_image") {
+          return {
+            ...question,
+            type: "ai_image",
+            answers: createEmptyAnswers(),
+            correctIndex: 0,
+          };
+        }
+
+        return {
+          ...question,
+          type: "multiple_choice",
+          aiPrompt: "",
+          answers: createEmptyAnswers(),
+          correctIndex: 0,
+        };
+      })
+    );
+  };
+
   const assignPinFromCenter = (id: number) => {
     const currentIndex = questions.findIndex((question) => question.id === id);
     const nextQuestion = currentIndex >= 0 ? questions[currentIndex + 1] : null;
@@ -1273,7 +1300,30 @@ function OpretLoebPageContent() {
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <label className="flex min-w-44 flex-col gap-1 rounded-[1.1rem] border border-emerald-500/30 bg-emerald-950/20 px-3 py-2 backdrop-blur-xl">
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-100/60">
+                            Skift opgavetype
+                          </span>
+                          <select
+                            value={question.type}
+                            onChange={(event) =>
+                              updateQuestionType(
+                                question.id,
+                                event.target.value === "ai_image" ? "ai_image" : "multiple_choice"
+                              )
+                            }
+                            disabled={isEditorBusy}
+                            className="bg-transparent text-sm font-semibold text-emerald-50 focus:outline-none disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                          >
+                            <option value="multiple_choice" className="bg-slate-900 text-white">
+                              Quiz
+                            </option>
+                            <option value="ai_image" className="bg-slate-900 text-white">
+                              Tag et billede
+                            </option>
+                          </select>
+                        </label>
                         <span className="rounded-full border border-emerald-500/30 bg-emerald-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-emerald-100/75 uppercase backdrop-blur-xl">
                           {isPhotoMission ? "AI foto" : "4 svar"}
                         </span>

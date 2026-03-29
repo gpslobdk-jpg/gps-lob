@@ -5,6 +5,7 @@ import { AlertCircle, CheckCircle2, Crosshair, Loader2, Radio, Shield, Swords, T
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import type { PlayActions, PlayUiState } from "./types";
+import TeacherBroadcastModal from "./TeacherBroadcastModal";
 import type { ZoneKrigGameTeam, ZoneKrigGameZone } from "./ZoneKrigElevMap";
 import { createClient } from "@/utils/supabase/client";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
@@ -487,13 +488,6 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
                 )}
               </div>
             )}
-
-            {progress.feedback.latestMessage ? (
-              <div className="mt-4 rounded-3xl border border-cyan-400/15 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100">
-                <div className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-300/75">Lærerbesked</div>
-                <p className="mt-2">{progress.feedback.latestMessage}</p>
-              </div>
-            ) : null}
           </section>
 
           <section className="rounded-4xl border border-white/10 bg-slate-900/60 p-5 shadow-2xl backdrop-blur-xl">
@@ -523,6 +517,11 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
               })}
             </div>
           </section>
+
+          <TeacherBroadcastModal
+            message={progress.feedback.latestMessage}
+            onDismiss={actions.dismissLatestMessage}
+          />
         </aside>
       </div>
     </div>

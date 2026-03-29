@@ -14,8 +14,8 @@ export const ACTIVE_PARTICIPANT_STORAGE_KEY = "gpslob_active_participant";
 export const MANUAL_UNLOCK_RADIUS = 50;
 export const AUTO_UNLOCK_CONFIRMATION_HITS = 2;
 export const LOCATION_SYNC_INTERVAL_MS = 5000;
-export const LOCATION_SYNC_DISTANCE_METERS = 5;
-export const MAX_ACCEPTABLE_GPS_ACCURACY_METERS = 1000;
+export const LOCATION_SYNC_DISTANCE_METERS = 3;
+export const MAX_ACCEPTABLE_GPS_ACCURACY_METERS = 30;
 export const BAD_WORDS = ["tissemand", "lort", "pik", "fisse", "idiot", "bÃ¸sse", "luder", "snot"];
 export const FIREWORKS_LOTTIE_URL = "https://assets2.lottiefiles.com/packages/lf20_touohxv0.json";
 export const wrapTextClass = "break-words [overflow-wrap:anywhere] hyphens-auto";
@@ -128,12 +128,20 @@ export function readStoredActiveParticipant(): StoredActiveParticipant | null {
 
 export function saveStoredActiveParticipant(value: StoredActiveParticipant) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(ACTIVE_PARTICIPANT_STORAGE_KEY, JSON.stringify(value));
+  try {
+    window.localStorage.setItem(ACTIVE_PARTICIPANT_STORAGE_KEY, JSON.stringify(value));
+  } catch (error) {
+    console.warn("Kunne ikke gemme aktiv deltager lokalt:", error);
+  }
 }
 
 export function clearStoredActiveParticipant() {
   if (typeof window === "undefined") return;
-  window.localStorage.removeItem(ACTIVE_PARTICIPANT_STORAGE_KEY);
+  try {
+    window.localStorage.removeItem(ACTIVE_PARTICIPANT_STORAGE_KEY);
+  } catch (error) {
+    console.warn("Kunne ikke rydde aktiv deltager lokalt:", error);
+  }
 }
 
 export function reloadPage() {

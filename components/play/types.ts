@@ -105,6 +105,12 @@ export type GpsErrorContent = {
   helper: string;
 };
 
+export type TeacherBroadcastMessage = {
+  key: string;
+  message: string;
+  createdAt: string | null;
+};
+
 export type SupabaseErrorLike = {
   code?: string;
   message?: string;
@@ -255,7 +261,7 @@ export interface PlayFeedbackState {
     key: string;
     message: string;
   } | null;
-  latestMessage: string | null;
+  latestMessage: TeacherBroadcastMessage | null;
   resumeMessage: string | null;
 }
 

@@ -6,6 +6,8 @@ import type { GpsErrorState, Location } from "./types";
 import {
   AUTO_UNLOCK_CONFIRMATION_HITS,
   LOCATION_SYNC_INTERVAL_MS,
+  LOCATION_SYNC_DISTANCE_METERS,
+  MAX_ACCEPTABLE_GPS_ACCURACY_METERS,
   getDistance,
 } from "./playUtils";
 
@@ -39,12 +41,22 @@ export default function GPSManager({
   onSyncLocation,
 }: GPSManagerProps) {
   const autoUnlockConfirmationRef = useRef(0);
+  const lastAcceptedLocationRef = useRef<Location | null>(null);
   const lastLocationSyncRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
   const isLocationSyncInFlightRef = useRef(false);
 
   useEffect(() => {
     autoUnlockConfirmationRef.current = 0;
+    lastAcceptedLocationRef.current = null;
   }, [currentPostIndex, showQuestion]);
+
+  useEffect(() => {
+    if (enabled) return;
+
+    autoUnlockConfirmationRef.current = 0;
+    lastAcceptedLocationRef.current = null;
+    lastLocationSyncRef.current = null;
+  }, [enabled]);
 
   useEffect(() => {
     if (!enabled) {
@@ -67,8 +79,29 @@ export default function GPSManager({
     };
 
     const successHandler = async (position: GeolocationPosition) => {
+      const accuracy = position.coords.accuracy;
+      if (Number.isFinite(accuracy) && accuracy > MAX_ACCEPTABLE_GPS_ACCURACY_METERS) {
+        autoUnlockConfirmationRef.current = 0;
+        onGpsError("low_accuracy");
+        return;
+      }
+
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
+      const previousAcceptedLocation = lastAcceptedLocationRef.current;
+      const distanceSinceLastAccepted = previousAcceptedLocation
+        ? getDistance(previousAcceptedLocation.lat, previousAcceptedLocation.lng, lat, lng)
+        : null;
+
+      if (
+        distanceSinceLastAccepted !== null &&
+        distanceSinceLastAccepted < LOCATION_SYNC_DISTANCE_METERS
+      ) {
+        onGpsError(null);
+        return;
+      }
+
+      lastAcceptedLocationRef.current = { lat, lng };
       onGpsError(null);
       onLocationChange({ lat, lng });
 
@@ -105,8 +138,12 @@ export default function GPSManager({
       const lastLocationSync = lastLocationSyncRef.current;
       const waitedLongEnough =
         !lastLocationSync || Date.now() - lastLocationSync.at >= LOCATION_SYNC_INTERVAL_MS;
+      const movedFarEnoughToSync =
+        !lastLocationSync ||
+        getDistance(lastLocationSync.lat, lastLocationSync.lng, lat, lng) >=
+          LOCATION_SYNC_DISTANCE_METERS;
 
-      const shouldSyncLocation = !lastLocationSync || waitedLongEnough;
+      const shouldSyncLocation = !lastLocationSync || (waitedLongEnough && movedFarEnoughToSync);
 
       if (shouldSyncLocation && !isLocationSyncInFlightRef.current) {
         isLocationSyncInFlightRef.current = true;

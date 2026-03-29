@@ -30,6 +30,7 @@ import type {
   QuizAnswerFeedbackState,
   RaceMode,
   RoleplayReplyState,
+  TeacherBroadcastMessage,
   ValidateAnswerPayload,
   WakeLockSentinelLike,
   ZoneKrigCaptureFeedbackState,
@@ -96,6 +97,12 @@ type InsertAnswerResult = {
   zoneKrigCapture: ZoneKrigCaptureApiResult;
 };
 
+type SessionTeacherMessageRow = {
+  message?: string | null;
+  created_at?: string | null;
+  is_teacher?: boolean | null;
+};
+
 function formatShieldRemainingTime(seconds: number | null | undefined) {
   if (!Number.isFinite(seconds) || (seconds ?? 0) <= 0) return "få sekunder";
   const roundedSeconds = Math.max(0, Math.ceil(seconds ?? 0));
@@ -141,6 +148,24 @@ function buildZoneKrigCaptureFeedback(
     default:
       return null;
   }
+}
+
+function createTeacherBroadcastMessage(
+  row: SessionTeacherMessageRow
+): TeacherBroadcastMessage | null {
+  const normalizedMessage = row.message?.trim();
+  if (!normalizedMessage) {
+    return null;
+  }
+
+  const createdAt =
+    typeof row.created_at === "string" && row.created_at.trim() ? row.created_at : null;
+
+  return {
+    key: `${createdAt ?? "no-time"}:${normalizedMessage}`,
+    message: normalizedMessage,
+    createdAt,
+  };
 }
 
 export function usePlayGameState({
@@ -189,7 +214,7 @@ export function usePlayGameState({
   const [gpsError, setGpsErrorState] = useState<GpsErrorState | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [isKicked, setIsKicked] = useState(false);
-  const [latestMessage, setLatestMessage] = useState<string | null>(null);
+  const [latestMessage, setLatestMessage] = useState<TeacherBroadcastMessage | null>(null);
   const [resumeMessage, setResumeMessage] = useState<string | null>(null);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
@@ -245,6 +270,7 @@ export function usePlayGameState({
   const roleplayInputErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wakeLockSentinelRef = useRef<WakeLockSentinelLike | null>(null);
   const messageChannelRef = useRef<RealtimeChannel | null>(null);
+  const dismissedLatestMessageKeyRef = useRef<string | null>(null);
   const masterVictoryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restoreRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const submissionLockRef = useRef(false);
@@ -282,9 +308,58 @@ export function usePlayGameState({
     }, 5000);
   }, []);
 
-  const dismissLatestMessage = useCallback(() => {
-    setLatestMessage(null);
+  const applyLatestTeacherMessage = useCallback((row: SessionTeacherMessageRow | null) => {
+    const nextMessage = row ? createTeacherBroadcastMessage(row) : null;
+
+    if (!nextMessage) {
+      setLatestMessage(null);
+      return;
+    }
+
+    if (dismissedLatestMessageKeyRef.current === nextMessage.key) {
+      return;
+    }
+
+    setLatestMessage((current) => (current?.key === nextMessage.key ? current : nextMessage));
   }, []);
+
+  const dismissLatestMessage = useCallback(() => {
+    setLatestMessage((current) => {
+      if (current) {
+        dismissedLatestMessageKeyRef.current = current.key;
+      }
+
+      return null;
+    });
+  }, []);
+
+  const loadLatestTeacherMessage = useCallback(async () => {
+    if (!sessionId) {
+      setLatestMessage(null);
+      return;
+    }
+
+    const messageClient = createClient({ participantId, sessionId });
+    const { data, error } = await messageClient
+      .from("session_messages")
+      .select("message,is_teacher,created_at")
+      .eq("session_id", sessionId)
+      .eq("is_teacher", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Fejl ved hentning af seneste besked:", error);
+      return;
+    }
+
+    applyLatestTeacherMessage((data as SessionTeacherMessageRow | null) ?? null);
+  }, [applyLatestTeacherMessage, participantId, sessionId]);
+
+  useEffect(() => {
+    dismissedLatestMessageKeyRef.current = null;
+  }, [sessionId]);
 
   useEffect(() => {
     solvedPostIndexesRef.current = solvedPostIndexes;
@@ -1456,35 +1531,8 @@ export function usePlayGameState({
       return;
     }
 
-    let isActive = true;
-
-    const loadLatestTeacherMessage = async () => {
-      const messageClient = createClient({ sessionId });
-      const { data, error } = await messageClient
-        .from("session_messages")
-        .select("message,is_teacher,created_at")
-        .eq("session_id", sessionId)
-        .eq("is_teacher", true)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (!isActive) return;
-
-      if (error) {
-        console.error("Fejl ved hentning af seneste besked:", error);
-        return;
-      }
-
-      setLatestMessage(data?.message?.trim() ? data.message : null);
-    };
-
     void loadLatestTeacherMessage();
-
-    return () => {
-      isActive = false;
-    };
-  }, [sessionId]);
+  }, [loadLatestTeacherMessage, sessionId]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -1507,9 +1555,9 @@ export function usePlayGameState({
             filter: `session_id=eq.${sessionId}`,
           },
           (payload) => {
-            const messageRow = payload.new as { is_teacher?: boolean; message?: string | null };
+            const messageRow = payload.new as SessionTeacherMessageRow;
             if (messageRow.is_teacher && messageRow.message) {
-              setLatestMessage(messageRow.message);
+              applyLatestTeacherMessage(messageRow);
             }
           }
         )
@@ -1570,6 +1618,7 @@ export function usePlayGameState({
         }
 
         // re-subscribe to ensure channel is active after sleep
+        void loadLatestTeacherMessage();
         createSubscription();
       }
     };
@@ -1583,7 +1632,7 @@ export function usePlayGameState({
         messageChannelRef.current = null;
       }
     };
-  }, [clearRestoreRetryTimer, participantId, sessionId, supabase]);
+  }, [applyLatestTeacherMessage, clearRestoreRetryTimer, loadLatestTeacherMessage, participantId, sessionId, supabase]);
 
   const handleWrongQuizAnswer = useCallback((selectedIndex: number, feedbackKey: string) => {
     if (quizAnswerFeedbackTimerRef.current) {
