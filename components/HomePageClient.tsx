@@ -52,6 +52,8 @@ const testimonials = [
   },
 ] as const;
 
+const reversedTestimonials = [...testimonials].reverse();
+
 function OrganizerHint() {
   return (
     <div className="lg:hidden">
@@ -146,7 +148,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
         className="fixed top-0 left-0 h-full w-full object-cover -z-20"
       />
       <div className="fixed inset-0 -z-10 bg-slate-950/70 backdrop-blur-[2px]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(16,185,129,0.16),transparent_35%),radial-gradient(circle_at_85%_95%,rgba(14,165,233,0.1),transparent_40%),radial-gradient(rgba(148,163,184,0.08)_1px,transparent_1px)] [background-size:100%_100%,100%_100%,20px_20px] lg:hidden" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(16,185,129,0.16),transparent_35%),radial-gradient(circle_at_85%_95%,rgba(14,165,233,0.1),transparent_40%),radial-gradient(rgba(148,163,184,0.08)_1px,transparent_1px)] bg-size-[100%_100%,100%_100%,20px_20px] lg:hidden" />
 
       {/* Welcome modal removed; no onboarding modal shown */}
 
@@ -192,7 +194,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
       <main className="relative mx-auto hidden w-full max-w-lg flex-1 flex-col justify-center px-6 py-10 md:flex">
         <section className="space-y-6">
           <div className="flex justify-center">
-            <div className="relative h-52 w-full max-w-[300px]">
+            <div className="relative h-52 w-full max-w-75">
               <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
                 <Lottie
                   animationData={natureAnimation}
@@ -208,7 +210,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
                   width={320}
                   height={140}
                   priority
-                  className="h-auto w-full max-w-[220px] object-contain drop-shadow-[0_10px_20px_rgba(5,46,22,0.18)]"
+                  className="h-auto w-full max-w-55 object-contain drop-shadow-[0_10px_20px_rgba(5,46,22,0.18)]"
                 />
               </div>
             </div>
@@ -236,45 +238,91 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
         </section>
       </main>
 
-      <section className="relative z-20 mx-auto hidden w-full max-w-6xl px-6 pb-6 lg:block">
-        <div className="relative overflow-hidden py-2">
-          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-28 bg-linear-to-r from-slate-950 via-slate-950/70 to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-28 bg-linear-to-l from-slate-950 via-slate-950/70 to-transparent" />
+      <section className="relative z-20 mx-auto hidden w-full max-w-7xl px-6 pb-8 lg:block">
+        <div className="mb-5 px-1 text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-300/68">
+            Rigtige l\u00e6rere. Rigtige forl\u00f8b.
+          </p>
+          <p className="mx-auto mt-3 max-w-3xl text-sm leading-6 text-slate-300/76">
+            Erfaringer fra undervisere, der allerede bruger GPSL\u00d8B.DK til at g\u00f8re undervisningen mere aktiv, levende og langt lettere at s\u00e6tte i gang.
+          </p>
+        </div>
 
-          <motion.div
-            className="flex w-max gap-4"
-            animate={shouldReduceMotion ? undefined : { x: ["0%", "-50%"] }}
-            transition={
-              shouldReduceMotion
-                ? undefined
-                : { duration: 44, ease: "linear", repeat: Infinity }
-            }
-          >
-            {[0, 1].map((copyIndex) => (
-              <div
-                key={copyIndex}
-                className="flex shrink-0 gap-4 pr-4"
-                aria-hidden={copyIndex === 1}
-              >
-                {testimonials.map((testimonial) => (
-                  <article
-                    key={`${copyIndex}-${testimonial.name}`}
-                    className="flex min-h-52 w-84 flex-col justify-between rounded-3xl border border-emerald-500/20 bg-slate-900/40 p-5 shadow-[0_0_24px_rgba(16,185,129,0.10)] backdrop-blur-xl"
-                  >
-                    <blockquote className="text-[15px] leading-7 text-slate-100/96 italic">
-                      \u201c{testimonial.quote}\u201d
-                    </blockquote>
-                    <div className="mt-5 border-t border-white/8 pt-4">
-                      <p className="text-sm font-semibold text-emerald-100/92">{testimonial.name}</p>
-                      <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400/82">
-                        {testimonial.role}
-                      </p>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ))}
-          </motion.div>
+        <div className="relative overflow-hidden rounded-4xl border border-white/8 bg-white/3 px-4 py-5 shadow-[0_24px_80px_rgba(2,6,23,0.24)] backdrop-blur-sm">
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-32 bg-linear-to-r from-slate-950 via-slate-950/78 to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-32 bg-linear-to-l from-slate-950 via-slate-950/78 to-transparent" />
+
+          <div className="space-y-4">
+            <motion.div
+              className="flex w-max gap-4"
+              animate={shouldReduceMotion ? undefined : { x: ["0%", "-50%"] }}
+              transition={
+                shouldReduceMotion
+                  ? undefined
+                  : { duration: 52, ease: "linear", repeat: Infinity }
+              }
+            >
+              {[0, 1].map((copyIndex) => (
+                <div
+                  key={`top-${copyIndex}`}
+                  className="flex shrink-0 gap-4 pr-4"
+                  aria-hidden={copyIndex === 1}
+                >
+                  {testimonials.map((testimonial) => (
+                    <article
+                      key={`top-${copyIndex}-${testimonial.name}`}
+                      className="flex min-h-52 w-86 flex-col justify-between rounded-3xl border border-white/10 bg-white/5 p-5 shadow-[0_18px_36px_rgba(2,6,23,0.18),0_0_24px_rgba(16,185,129,0.10)] backdrop-blur-xl"
+                    >
+                      <blockquote className="text-[15px] leading-7 text-slate-100/95 italic">
+                        “{testimonial.quote}”
+                      </blockquote>
+                      <div className="mt-5 border-t border-white/8 pt-4">
+                        <p className="text-sm font-semibold text-white/92">{testimonial.name}</p>
+                        <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.18em] text-emerald-200/72">
+                          {testimonial.role}
+                        </p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ))}
+            </motion.div>
+
+            <motion.div
+              className="flex w-max gap-4"
+              animate={shouldReduceMotion ? undefined : { x: ["-50%", "0%"] }}
+              transition={
+                shouldReduceMotion
+                  ? undefined
+                  : { duration: 58, ease: "linear", repeat: Infinity }
+              }
+            >
+              {[0, 1].map((copyIndex) => (
+                <div
+                  key={`bottom-${copyIndex}`}
+                  className="flex shrink-0 gap-4 pr-4"
+                  aria-hidden={copyIndex === 1}
+                >
+                  {reversedTestimonials.map((testimonial) => (
+                    <article
+                      key={`bottom-${copyIndex}-${testimonial.name}`}
+                      className="flex min-h-48 w-80 flex-col justify-between rounded-3xl border border-white/10 bg-white/5 p-5 shadow-[0_18px_36px_rgba(2,6,23,0.18),0_0_20px_rgba(16,185,129,0.08)] backdrop-blur-xl"
+                    >
+                      <blockquote className="text-sm leading-6 text-slate-100/92 italic">
+                        “{testimonial.quote}”
+                      </blockquote>
+                      <div className="mt-4 border-t border-white/8 pt-4">
+                        <p className="text-sm font-semibold text-white/90">{testimonial.name}</p>
+                        <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.18em] text-emerald-200/68">
+                          {testimonial.role}
+                        </p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ))}
+            </motion.div>
+          </div>
         </div>
       </section>
 
