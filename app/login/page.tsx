@@ -321,6 +321,7 @@ function LoginPageContent() {
                 className="w-full rounded-xl border border-emerald-500/30 bg-slate-900 px-4 py-3 text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                 autoComplete="current-password"
               />
+              <p className="mt-2 text-xs text-stone-400/70">Mindst 6 tegn.</p>
             </div>
 
             <motion.button

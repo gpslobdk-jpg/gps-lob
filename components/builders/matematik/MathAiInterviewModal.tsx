@@ -4,6 +4,13 @@ import { Loader2 } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useRef, useState } from "react";
 
+import GradeLevelMultiSelect from "@/components/builders/GradeLevelMultiSelect";
+import {
+  DEFAULT_SELECTED_GRADE_LEVELS,
+  formatGradeLevelsForPrompt,
+  normalizeGradeLevels,
+  type GradeLevel,
+} from "@/utils/gradeLevels";
 import {
   clearSessionDraft,
   readSessionDraft,
@@ -20,18 +27,6 @@ const poppins = Poppins({
   weight: ["400", "500", "600", "700"],
 });
 
-const GRADE_LEVEL_OPTIONS = [
-  "1. klasse",
-  "2. klasse",
-  "3. klasse",
-  "4. klasse",
-  "5. klasse",
-  "6. klasse",
-  "7. klasse",
-  "8. klasse",
-  "9. klasse",
-] as const;
-
 const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
 const DEFAULT_QUESTION_COUNT: (typeof QUESTION_COUNT_OPTIONS)[number] = 10;
 const MATH_AI_INTERVIEW_SESSION_KEY = "math_ai_interview_state";
@@ -40,6 +35,7 @@ type Step = 1 | 2 | 3 | 4;
 type RestorableStep = 1 | 2 | 3;
 type SessionDraftState = {
   step?: unknown;
+  gradeLevels?: unknown;
   gradeLevel?: unknown;
   mathTopic?: unknown;
   questionCount?: unknown;
@@ -55,7 +51,7 @@ export type MathAiInterviewDraft = {
   subject: string;
   title: string;
   questions: MathAiInterviewQuestion[];
-  gradeLevel: string;
+  gradeLevels: string[];
   mathTopic: string;
 };
 
@@ -77,12 +73,6 @@ type Props = {
 
 function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function normalizeGradeLevel(value: unknown): (typeof GRADE_LEVEL_OPTIONS)[number] {
-  return GRADE_LEVEL_OPTIONS.includes(value as (typeof GRADE_LEVEL_OPTIONS)[number])
-    ? (value as (typeof GRADE_LEVEL_OPTIONS)[number])
-    : "4. klasse";
 }
 
 function normalizeQuestionCount(value: unknown): (typeof QUESTION_COUNT_OPTIONS)[number] {
@@ -144,7 +134,7 @@ export default function MathAiInterviewModal({
   onComplete,
 }: Props) {
   const [step, setStep] = useState<Step>(1);
-  const [gradeLevel, setGradeLevel] = useState<(typeof GRADE_LEVEL_OPTIONS)[number]>("4. klasse");
+  const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>(DEFAULT_SELECTED_GRADE_LEVELS);
   const [mathTopic, setMathTopic] = useState("");
   const [questionCount, setQuestionCount] =
     useState<(typeof QUESTION_COUNT_OPTIONS)[number]>(DEFAULT_QUESTION_COUNT);
@@ -157,9 +147,14 @@ export default function MathAiInterviewModal({
     if (!open) return;
 
     const restoredDraft = readSessionDraft<SessionDraftState>(MATH_AI_INTERVIEW_SESSION_KEY);
+    const restoredGradeLevels = Array.isArray(restoredDraft?.gradeLevels)
+      ? normalizeGradeLevels(restoredDraft.gradeLevels)
+      : normalizeGradeLevels(restoredDraft?.gradeLevel);
 
     setStep(normalizeStep(restoredDraft?.step));
-    setGradeLevel(normalizeGradeLevel(restoredDraft?.gradeLevel));
+    setGradeLevels(
+      restoredGradeLevels.length > 0 ? restoredGradeLevels : DEFAULT_SELECTED_GRADE_LEVELS
+    );
     setMathTopic(asTrimmedString(restoredDraft?.mathTopic));
     setQuestionCount(normalizeQuestionCount(restoredDraft?.questionCount));
     setError(null);
@@ -171,11 +166,11 @@ export default function MathAiInterviewModal({
 
     writeSessionDraft(MATH_AI_INTERVIEW_SESSION_KEY, {
       step: step === 4 ? 3 : step,
-      gradeLevel,
+      gradeLevels,
       mathTopic,
       questionCount,
     } satisfies SessionDraftState);
-  }, [gradeLevel, mathTopic, open, questionCount, step]);
+  }, [gradeLevels, mathTopic, open, questionCount, step]);
 
   useEffect(() => {
     if (!open || step !== 2) return;
@@ -197,6 +192,8 @@ export default function MathAiInterviewModal({
   if (!open) return null;
 
   const trimmedMathTopic = mathTopic.trim();
+  const selectedGradeLevelLabel = formatGradeLevelsForPrompt(gradeLevels);
+  const canContinueGradeLevels = gradeLevels.length > 0;
   const canContinueTopic = trimmedMathTopic.length > 0;
   const progress = (step / 4) * 100;
 
@@ -213,10 +210,12 @@ export default function MathAiInterviewModal({
     setStep((current) => (current > 1 ? ((current - 1) as Step) : current));
   };
 
-  const handleGradeLevelSelect = (selectedGradeLevel: (typeof GRADE_LEVEL_OPTIONS)[number]) => {
-    if (isGenerating) return;
+  const goToTopicStep = () => {
+    if (!canContinueGradeLevels) {
+      setError("Vælg mindst ét klassetrin, før du går videre.");
+      return;
+    }
 
-    setGradeLevel(selectedGradeLevel);
     setError(null);
     setStep(2);
   };
@@ -252,7 +251,7 @@ export default function MathAiInterviewModal({
         body: JSON.stringify({
           builderType: "matematik",
           subject: "Matematik",
-          gradeLevel,
+          gradeLevels,
           mathTopic: trimmedMathTopic,
           count: selectedCount,
         }),
@@ -282,7 +281,7 @@ export default function MathAiInterviewModal({
         subject: "Matematik",
         title: payload.title.trim(),
         questions: draftQuestions,
-        gradeLevel,
+        gradeLevels,
         mathTopic: trimmedMathTopic,
       };
 
@@ -359,20 +358,31 @@ export default function MathAiInterviewModal({
                   Hvilket klassetrin er løbet til?
                 </h2>
                 <p className="mx-auto mt-5 w-full text-base leading-8 text-slate-300 sm:text-lg">
-                  Vælg det præcise klassetrin, så bygger AI&apos;en opgaverne med det rette faglige niveau.
+                  Vælg et eller flere klassetrin, så bygger AI&apos;en opgaverne i et niveau, der fungerer for hele målgruppen.
                 </p>
 
-                <div className="mx-auto mt-10 grid w-full grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
-                  {GRADE_LEVEL_OPTIONS.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => handleGradeLevelSelect(option)}
-                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/4 px-5 py-5 text-base font-semibold text-white transition hover:border-amber-300/40 hover:bg-amber-400/10"
-                    >
-                      {option}
-                    </button>
-                  ))}
+                <div className="mt-10">
+                  <GradeLevelMultiSelect
+                    selectedGradeLevels={gradeLevels}
+                    onChange={setGradeLevels}
+                    tone="amber"
+                    disabled={isGenerating}
+                  />
+                </div>
+
+                <p className="mt-5 text-sm text-amber-100/70">
+                  Valgt: {selectedGradeLevelLabel}
+                </p>
+
+                <div className="mt-10 flex items-center justify-center gap-6">
+                  <button
+                    type="button"
+                    onClick={goToTopicStep}
+                    disabled={!canContinueGradeLevels}
+                    className="inline-flex min-w-55 items-center justify-center rounded-[1.4rem] border border-amber-300/30 bg-amber-400 px-8 py-4 text-lg font-bold text-slate-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Næste
+                  </button>
                 </div>
               </>
             ) : null}
@@ -488,7 +498,7 @@ export default function MathAiInterviewModal({
                   Genererer dit matematik-løb...
                 </h2>
                 <p className="mx-auto mt-5 w-full text-base leading-8 text-slate-300 sm:text-lg">
-                  Vi bygger nu {questionCount} matematisk korrekte multiple-choice opgaver til {gradeLevel} om {mathTopic}.
+                  Vi bygger nu {questionCount} matematisk korrekte multiple-choice opgaver til {selectedGradeLevelLabel} om {mathTopic}.
                 </p>
               </div>
             ) : null}

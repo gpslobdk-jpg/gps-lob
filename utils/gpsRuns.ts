@@ -46,6 +46,7 @@ export type StoredRunRecord = {
   description: string | null;
   topic: string | null;
   questions: unknown;
+  grade_levels?: string[] | null;
   radius?: number | null;
   race_type?: string | null;
   raceType?: string | null;

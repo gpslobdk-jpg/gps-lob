@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useState, type FormEvent } from "react";
 
+import { formatGradeLevelBadge, normalizeGradeLevels } from "@/utils/gradeLevels";
 import { getBuilderHrefForRaceType, normalizeRaceType, type RaceType } from "@/utils/gpsRuns";
 import { getRaceTypeTheme } from "@/utils/raceTypeTheme";
 import { buildRunScheduleUpdate, getRunSchedule, hasRunSchedule } from "@/utils/runSchedule";
@@ -44,6 +45,7 @@ type Run = {
   topic: string | null;
   description?: string | null;
   questions: RunQuestion[] | null;
+  grade_levels?: string[] | null;
   created_at: string;
   raceType?: string | null;
   race_type?: string | null;
@@ -699,6 +701,7 @@ export default function ArkivPage() {
                 const theme = getRaceTypeTheme(
                   getNormalizedRunRaceType(run) ?? run.race_type ?? run.raceType
                 );
+                const gradeLevels = normalizeGradeLevels(run.grade_levels);
                 const runSchedule = getRunSchedule(run);
                 const formattedStart = formatDanishDateTime(runSchedule?.startAt);
                 const formattedEnd = formatDanishDateTime(runSchedule?.endAt);
@@ -743,6 +746,15 @@ export default function ArkivPage() {
                           {isScheduled ? <Timer className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                           {scheduleStatusLabel}
                         </span>
+
+                        {gradeLevels.map((gradeLevel) => (
+                          <span
+                            key={`${run.id}-${gradeLevel}`}
+                            className="inline-flex items-center rounded-full border border-white/15 bg-black/10 px-3 py-1 text-[11px] font-semibold text-white/90"
+                          >
+                            {formatGradeLevelBadge(gradeLevel)}
+                          </span>
+                        ))}
                       </div>
                     </div>
 

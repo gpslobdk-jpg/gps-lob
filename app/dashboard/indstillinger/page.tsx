@@ -11,6 +11,10 @@ type UserMetadata = {
   organization?: string;
 };
 
+function getSchoolFromMetadata(metadata: UserMetadata) {
+  return (metadata.school ?? metadata.organization ?? "").trim();
+}
+
 export default function IndstillingerPage() {
   const [navn, setNavn] = useState("");
   const [email, setEmail] = useState("");
@@ -51,7 +55,7 @@ export default function IndstillingerPage() {
         if (isMounted) {
           setEmail(user.email ?? "");
           setNavn(metadata.full_name ?? metadata.name ?? "");
-          setSkoleOrganisation(metadata.school ?? metadata.organization ?? "");
+          setSkoleOrganisation(getSchoolFromMetadata(metadata));
         }
       } finally {
         if (isMounted) {
@@ -72,14 +76,15 @@ export default function IndstillingerPage() {
     setBesked("");
     setFejlBesked("");
     setIsSaving(true);
+    const trimmedSchool = skoleOrganisation.trim();
 
     try {
       const supabase = createClient();
       const { error } = await supabase.auth.updateUser({
         data: {
           full_name: navn,
-          school: skoleOrganisation,
-          organization: skoleOrganisation,
+          school: trimmedSchool,
+          organization: trimmedSchool,
         },
       });
 
@@ -180,6 +185,7 @@ export default function IndstillingerPage() {
                 onChange={(event) => setSkoleOrganisation(event.target.value)}
                 className="w-full rounded-xl border border-emerald-100 bg-white/60 px-4 py-3 text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-300"
                 placeholder="Indtast skole eller organisation"
+                autoComplete="organization"
               />
             </div>
 
@@ -226,6 +232,7 @@ export default function IndstillingerPage() {
                 placeholder="Indtast ny adgangskode"
                 autoComplete="new-password"
               />
+              <p className="mt-2 text-xs text-stone-400/70">Mindst 6 tegn.</p>
             </div>
 
             {adgangskodeFejl ? (

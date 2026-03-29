@@ -3,6 +3,11 @@ import { generateObject } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import {
+  formatGradeLevelsForPrompt,
+  GRADE_LEVEL_OPTIONS,
+  getGradeLevelRange,
+} from "@/utils/gradeLevels";
 import { createClient } from "@/utils/supabase/server";
 
 export const maxDuration = 300;
@@ -29,7 +34,7 @@ const mathInterviewPayloadSchema = z
   .object({
     builderType: z.literal("matematik"),
     subject: z.string().trim().max(80).optional().default("Matematik"),
-    gradeLevel: z.string().trim().min(1).max(80),
+    gradeLevels: z.array(z.enum(GRADE_LEVEL_OPTIONS)).min(1).max(GRADE_LEVEL_OPTIONS.length),
     mathTopic: z.string().trim().min(1).max(180),
     count: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(20)]).optional().default(DEFAULT_COUNT),
   })
@@ -39,7 +44,7 @@ const danishInterviewPayloadSchema = z
   .object({
     builderType: z.literal("dansk"),
     subject: z.string().trim().max(80).optional().default("Dansk"),
-    gradeLevel: z.string().trim().min(1).max(80),
+    gradeLevels: z.array(z.enum(GRADE_LEVEL_OPTIONS)).min(1).max(GRADE_LEVEL_OPTIONS.length),
     danishTopic: z.string().trim().min(1).max(180),
     count: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(20)]).optional().default(DEFAULT_COUNT),
   })
@@ -49,7 +54,7 @@ const englishInterviewPayloadSchema = z
   .object({
     builderType: z.literal("engelsk"),
     subject: z.string().trim().max(80).optional().default("Engelsk"),
-    gradeLevel: z.string().trim().min(1).max(80),
+    gradeLevels: z.array(z.enum(GRADE_LEVEL_OPTIONS)).min(1).max(GRADE_LEVEL_OPTIONS.length),
     englishTopic: z.string().trim().min(1).max(180),
     count: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(20)]).optional().default(DEFAULT_COUNT),
   })
@@ -125,9 +130,10 @@ Du SKAL altid følge disse regler:
 }
 
 function createMathPrompt(input: z.infer<typeof mathInterviewPayloadSchema>) {
-  const { count, gradeLevel, mathTopic } = input;
-  const mathPromptExamples = createMathPromptExamples(mathTopic, gradeLevel);
-  const mathGradeLevelGuidance = createMathGradeLevelGuidance(gradeLevel);
+  const { count, gradeLevels, mathTopic } = input;
+  const gradeLevelLabel = formatGradeLevelsForPrompt(gradeLevels);
+  const mathPromptExamples = createMathPromptExamples(mathTopic, gradeLevels);
+  const mathGradeLevelGuidance = createMathGradeLevelGuidance(gradeLevels);
 
   return {
     schemaName: "MathBuilderInterviewRun",
@@ -143,7 +149,7 @@ Du SKAL altid følge disse regler:
 - Hvert spørgsmål skal have præcis 4 svarmuligheder i "options".
 - "correctAnswer" skal matche én af de 4 svarmuligheder ordret.
 - Du skal altid generere et løb baseret på brugerens input, uanset hvor generisk, bredt eller kortfattet emnet er.
-- Alle spørgsmål skal være matematisk korrekte, fagligt præcise og passende til det angivne klassetrin.
+- Alle spørgsmål skal være matematisk korrekte, fagligt præcise og passende til de angivne klassetrin.
 - Niveauet SKAL ramme klassetrinnet meget præcist. Hvis klassetrinnet er lavt, skal spørgsmålene være markant lettere, kortere og mere konkrete.
 - Det er vigtigere at ramme elevniveauet præcist end at virke avanceret.
 - Regnefejl, upræcise formuleringer og tvetydige facit er ikke tilladt.
@@ -163,7 +169,7 @@ ${mathGradeLevelGuidance.map((line) => `- ${line}`).join("\n")}
 ${mathPromptExamples.map((example) => `- ${example}`).join("\n")}`,
     prompt: [
       `Fag: Matematik.`,
-      `Klassetrin: ${gradeLevel}.`,
+      `Klassetrin: ${gradeLevelLabel}.`,
       `Matematisk emne: ${mathTopic}.`,
       `Antal spørgsmål: ${count}.`,
       `KRITISK: Returner præcis ${count} spørgsmål. Ikke 4, ikke 6, ikke 8, ikke flere og ikke færre.`,
@@ -233,13 +239,18 @@ function createDanskPromptExamples(danishTopic: string) {
   ];
 }
 
-function parseGradeLevelNumber(gradeLevel: string) {
-  const match = gradeLevel.match(/(\d+)/);
-  return match ? Number.parseInt(match[1] ?? "", 10) : null;
-}
+function createMathGradeLevelGuidance(gradeLevels: string[]) {
+  const { lowestGrade, highestGrade } = getGradeLevelRange(gradeLevels);
 
-function createMathGradeLevelGuidance(gradeLevel: string) {
-  const gradeNumber = parseGradeLevelNumber(gradeLevel);
+  if (lowestGrade !== null && highestGrade !== null && lowestGrade !== highestGrade) {
+    return [
+      `Klassetrinskrav: Løbet skal fungere for flere klassetrin samtidig fra ${lowestGrade}. til ${highestGrade}. klasse.`,
+      "Hold sproget og opgaveformen tilgængelig nok til de yngste, men byg stadig reel faglig progression og udfordring ind til de ældste.",
+      "Lad sværhedsgraden ligge i en bred midte, og variér gerne spørgsmålene, så nogle er mere konkrete og andre lidt mere krævende.",
+    ];
+  }
+
+  const gradeNumber = highestGrade;
 
   if (gradeNumber !== null && gradeNumber <= 2) {
     return [
@@ -274,9 +285,10 @@ function createMathGradeLevelGuidance(gradeLevel: string) {
   ];
 }
 
-function createMathPromptExamples(mathTopic: string, gradeLevel: string) {
+function createMathPromptExamples(mathTopic: string, gradeLevels: string[]) {
   const normalizedTopic = normalizeDanishText(mathTopic);
-  const gradeNumber = parseGradeLevelNumber(gradeLevel);
+  const { representativeGrade } = getGradeLevelRange(gradeLevels);
+  const gradeNumber = representativeGrade;
 
   if (gradeNumber !== null && gradeNumber <= 2) {
     return [
@@ -325,8 +337,18 @@ function createMathPromptExamples(mathTopic: string, gradeLevel: string) {
   ];
 }
 
-function createDanskGradeLevelGuidance(gradeLevel: string) {
-  const gradeNumber = parseGradeLevelNumber(gradeLevel);
+function createDanskGradeLevelGuidance(gradeLevels: string[]) {
+  const { lowestGrade, highestGrade } = getGradeLevelRange(gradeLevels);
+
+  if (lowestGrade !== null && highestGrade !== null && lowestGrade !== highestGrade) {
+    return [
+      `Klassetrinskrav: Løbet skal fungere for flere klassetrin samtidig fra ${lowestGrade}. til ${highestGrade}. klasse.`,
+      "Brug tydelige, elevnære formuleringer, så de yngste kan være med, men lad stadig nogle spørgsmål kræve lidt mere sikkerhed og refleksion for de ældste.",
+      "Hold niveauet i en bred midte og undgå både meget barnlige opgaver og unødigt akademisk sprog.",
+    ];
+  }
+
+  const gradeNumber = highestGrade;
 
   if (gradeNumber !== null && gradeNumber <= 2) {
     return [
@@ -362,9 +384,10 @@ function createDanskGradeLevelGuidance(gradeLevel: string) {
 }
 
 function createDanskPrompt(input: z.infer<typeof danishInterviewPayloadSchema>) {
-  const { count, danishTopic, gradeLevel } = input;
+  const { count, danishTopic, gradeLevels } = input;
+  const gradeLevelLabel = formatGradeLevelsForPrompt(gradeLevels);
   const miniExamples = createDanskPromptExamples(danishTopic);
-  const gradeLevelGuidance = createDanskGradeLevelGuidance(gradeLevel);
+  const gradeLevelGuidance = createDanskGradeLevelGuidance(gradeLevels);
 
   return {
     schemaName: "DanskBuilderInterviewRun",
@@ -402,7 +425,7 @@ ${gradeLevelGuidance.map((line) => `- ${line}`).join("\n")}
 ${miniExamples.map((example) => `- ${example}`).join("\n")}`,
     prompt: [
       `Fag: Dansk.`,
-      `Klassetrin: ${gradeLevel}.`,
+      `Klassetrin: ${gradeLevelLabel}.`,
       `Danskfagligt emne: ${danishTopic}.`,
       `Antal spørgsmål: ${count}.`,
       `KRITISK: Returner præcis ${count} spørgsmål. Ikke 4, ikke 6, ikke 8, ikke flere og ikke færre.`,
@@ -423,8 +446,18 @@ ${miniExamples.map((example) => `- ${example}`).join("\n")}`,
   };
 }
 
-function createEnglishGradeLevelGuidance(gradeLevel: string) {
-  const gradeNumber = parseGradeLevelNumber(gradeLevel);
+function createEnglishGradeLevelGuidance(gradeLevels: string[]) {
+  const { lowestGrade, highestGrade } = getGradeLevelRange(gradeLevels);
+
+  if (lowestGrade !== null && highestGrade !== null && lowestGrade !== highestGrade) {
+    return [
+      `Grade-level requirement: the run must work across multiple grades from ${lowestGrade}. to ${highestGrade}. grade.`,
+      "Keep the language accessible enough for the youngest learners while still including some questions that meaningfully stretch the oldest learners.",
+      "Aim for a broad middle level with clear wording, concrete contexts, and a balanced spread of easier and slightly more demanding questions.",
+    ];
+  }
+
+  const gradeNumber = highestGrade;
 
   if (gradeNumber !== null && gradeNumber <= 2) {
     return [
@@ -500,9 +533,10 @@ function createEnglishPromptExamples(englishTopic: string) {
 }
 
 function createEnglishPrompt(input: z.infer<typeof englishInterviewPayloadSchema>) {
-  const { count, englishTopic, gradeLevel } = input;
+  const { count, englishTopic, gradeLevels } = input;
+  const gradeLevelLabel = formatGradeLevelsForPrompt(gradeLevels);
   const miniExamples = createEnglishPromptExamples(englishTopic);
-  const gradeLevelGuidance = createEnglishGradeLevelGuidance(gradeLevel);
+  const gradeLevelGuidance = createEnglishGradeLevelGuidance(gradeLevels);
 
   return {
     schemaName: "EnglishBuilderInterviewRun",
@@ -535,7 +569,7 @@ ${gradeLevelGuidance.map((line) => `- ${line}`).join("\n")}
 ${miniExamples.map((example) => `- ${example}`).join("\n")}`,
     prompt: [
       `Subject: English.`,
-      `Grade level: ${gradeLevel}.`,
+      `Grade level: ${gradeLevelLabel}.`,
       `English topic: ${englishTopic}.`,
       `Question count: ${count}.`,
       `CRITICAL: Return exactly ${count} questions.`,

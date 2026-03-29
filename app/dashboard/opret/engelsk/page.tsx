@@ -4,13 +4,20 @@ import { BookOpenText, Camera, Check, Loader2, Plus, Ruler, Trash2, Type } from 
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import EnglishAiInterviewModal, {
   type EnglishAiInterviewDraft,
 } from "@/components/builders/engelsk/EnglishAiInterviewModal";
+import GradeLevelMultiSelect from "@/components/builders/GradeLevelMultiSelect";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import type { SavedPin, SavedZone } from "@/components/MapPicker";
+import {
+  DEFAULT_SELECTED_GRADE_LEVELS,
+  formatGradeLevelsForPrompt,
+  normalizeGradeLevels,
+  type GradeLevel,
+} from "@/utils/gradeLevels";
 import { RACE_TYPES } from "@/utils/gpsRuns";
 import {
   consumeDraftAutoload,
@@ -71,6 +78,7 @@ type StoredRunRecord = {
   description: string | null;
   topic: string | null;
   questions: unknown;
+  grade_levels?: string[] | null;
   radius?: number | null;
 };
 
@@ -123,6 +131,7 @@ const DEFAULT_MAP_CENTER: MapCenter = {
 type BuilderDraftState = {
   title?: unknown;
   description?: unknown;
+  gradeLevels?: unknown;
   subject?: unknown;
   radius?: unknown;
   showTeacherField?: unknown;
@@ -312,16 +321,6 @@ const isQuestionEmpty = (question: Question) =>
   question.lat === null &&
   question.lng === null;
 
-function BuilderUnavailableRedirect() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace("/dashboard/opret/valg");
-  }, [router]);
-
-  return null;
-}
-
 export default function OpretEngelskLoebPage() {
   return <OpretEngelskLoebPageContent />;
 }
@@ -335,6 +334,7 @@ function OpretEngelskLoebPageContent() {
   const addQuestionLabel = "Tilføj nyt engelskspørgsmål";
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>(DEFAULT_SELECTED_GRADE_LEVELS);
   const [radius, setRadius] = useState<number>(DEFAULT_RUN_RADIUS);
   const [showTeacherField, setShowTeacherField] = useState(true);
   const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
@@ -367,9 +367,11 @@ function OpretEngelskLoebPageContent() {
 
   const applyDraftState = (draft: BuilderDraftState) => {
     const restoredQuestions = toQuestionList(draft.questions);
+    const restoredGradeLevels = normalizeGradeLevels(draft.gradeLevels);
 
     setTitle(restoreDraftString(draft.title));
     setDescription(restoreDraftString(draft.description));
+    setGradeLevels(Array.isArray(draft.gradeLevels) ? restoredGradeLevels : DEFAULT_SELECTED_GRADE_LEVELS);
     setRadius(normalizeRunRadius(draft.radius));
     setShowTeacherField(restoreDraftBoolean(draft.showTeacherField, true));
     setShowAiInterviewModal(restoreDraftBoolean(draft.showAiInterviewModal));
@@ -501,7 +503,7 @@ function OpretEngelskLoebPageContent() {
 
         const { data: run, error } = await supabase
           .from("gps_runs")
-          .select("id,user_id,title,subject,description,topic,questions,radius")
+          .select("id,user_id,title,subject,description,topic,questions,grade_levels,radius")
           .eq("id", editRunId)
           .eq("user_id", user.id)
           .maybeSingle<StoredRunRecord>();
@@ -539,6 +541,7 @@ function OpretEngelskLoebPageContent() {
 
         setTitle(asTrimmedString(run.title));
         setDescription(nextDescription);
+        setGradeLevels(normalizeGradeLevels(run.grade_levels));
         setRadius(normalizeRunRadius(run.radius));
         setShowTeacherField(true);
         setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion(defaultQuestionType)]);
@@ -617,6 +620,7 @@ function OpretEngelskLoebPageContent() {
     writeRunDraft(ENGELSK_DRAFT_STORAGE_KEY, editRunId, {
       title,
       description,
+      gradeLevels,
       subject: ENGLISH_SUBJECT,
       radius,
       showTeacherField,
@@ -627,6 +631,7 @@ function OpretEngelskLoebPageContent() {
   }, [
     description,
     editRunId,
+    gradeLevels,
     mapCenter,
     questions,
     radius,
@@ -795,8 +800,13 @@ function OpretEngelskLoebPageContent() {
       }
     }
 
+    const nextGradeLevels = normalizeGradeLevels(draft.gradeLevels);
+
     setTitle(nextTitle);
     setDescription("");
+    setGradeLevels(
+      nextGradeLevels.length > 0 ? nextGradeLevels : DEFAULT_SELECTED_GRADE_LEVELS
+    );
     setQuestions([...nextQuestions]);
     setShowTeacherField(true);
     setShowAiInterviewModal(false);
@@ -893,6 +903,7 @@ function OpretEngelskLoebPageContent() {
         description: normalizedDescription,
         topic: normalizedTopic,
         questions: normalizedQuestions,
+        grade_levels: gradeLevels.length > 0 ? gradeLevels : null,
         radius,
         race_type: RACE_TYPES.ENGELSK,
       };
@@ -937,6 +948,7 @@ function OpretEngelskLoebPageContent() {
       if (!isEditMode) {
         setTitle("");
         setDescription("");
+        setGradeLevels(DEFAULT_SELECTED_GRADE_LEVELS);
         setRadius(DEFAULT_RUN_RADIUS);
         setShowTeacherField(true);
         setQuestions([createQuestion(defaultQuestionType)]);
@@ -1044,6 +1056,27 @@ function OpretEngelskLoebPageContent() {
                     </button>
                   </div>
 
+                  <div className="mb-6 rounded-3xl border border-indigo-500/35 bg-slate-950/55 p-4 backdrop-blur-xl">
+                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-indigo-100/65 uppercase">
+                      Klassetrin
+                    </label>
+                    <p className="mb-4 text-sm text-indigo-100/75">
+                      Vælg et eller flere klassetrin. Valget gemmes på løbet og sendes også videre til AI&apos;en.
+                    </p>
+                    <GradeLevelMultiSelect
+                      selectedGradeLevels={gradeLevels}
+                      onChange={setGradeLevels}
+                      tone="indigo"
+                      disabled={isEditorBusy}
+                      compact
+                    />
+                    <p className="mt-3 text-sm text-indigo-100/70">
+                      {gradeLevels.length > 0
+                        ? `Valgt: ${formatGradeLevelsForPrompt(gradeLevels)}`
+                        : "Ingen klassetrin valgt endnu."}
+                    </p>
+                  </div>
+
                   <div className="mb-2">
                     <label className="block text-xs font-semibold tracking-[0.22em] text-indigo-100/65 uppercase">
                       Løbets titel
@@ -1059,7 +1092,7 @@ function OpretEngelskLoebPageContent() {
                 </div>
 
                 <div className="px-1">
-                  <div className="rounded-[1.5rem] border border-indigo-500/35 bg-slate-950/55 p-4 backdrop-blur-xl">
+                  <div className="rounded-3xl border border-indigo-500/35 bg-slate-950/55 p-4 backdrop-blur-xl">
                     <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-indigo-100/65 uppercase">
                       GPS-radius
                     </label>
