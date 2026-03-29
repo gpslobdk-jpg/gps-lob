@@ -1,14 +1,17 @@
 "use client";
 
-import { Calculator, Camera, Check, Loader2, Plus, Printer, Ruler, SquareFunction, Trash2 } from "lucide-react";
+import { BookOpen, Calculator, Camera, Check, ChevronDown, Loader2, Plus, Printer, Ruler, Sparkles, SquareFunction, Trash2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import MathAiInterviewModal, {
   type MathAiInterviewDraft,
 } from "@/components/builders/matematik/MathAiInterviewModal";
+import ManualReuseModal, {
+  type ManualReuseQuestion,
+} from "@/components/builders/manual/ManualReuseModal";
 import GradeLevelMultiSelect from "@/components/builders/GradeLevelMultiSelect";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import type { SavedPin, SavedZone } from "@/components/MapPicker";
@@ -418,13 +421,14 @@ function OpretLoebPageContent() {
   const defaultQuestionType: Question["type"] = "multiple_choice";
   const editRunId = searchParams.get("id")?.trim() ?? "";
   const isEditMode = editRunId.length > 0;
-  const addQuestionLabel = "Tilføj nyt matematikspørgsmål";
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>(DEFAULT_SELECTED_GRADE_LEVELS);
   const [radius, setRadius] = useState<number>(DEFAULT_RUN_RADIUS);
   const [showTeacherField, setShowTeacherField] = useState(true);
   const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
+  const [showReuseModal, setShowReuseModal] = useState(false);
+  const [showAddQuestionMenu, setShowAddQuestionMenu] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingExistingRun, setIsLoadingExistingRun] = useState(isEditMode);
   const [questions, setQuestions] = useState<Question[]>(() => [createQuestion(defaultQuestionType)]);
@@ -452,6 +456,7 @@ function OpretLoebPageContent() {
       </div>
     ) : null;
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
+  const addQuestionMenuRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedDraftRef = useRef(false);
   const shouldAutoRestoreDraftRef = useRef<boolean | null>(null);
   const pendingScrollTargetId = useRef<string | null>(null);
@@ -501,6 +506,30 @@ function OpretLoebPageContent() {
       window.cancelAnimationFrame(frameId);
     };
   }, [questions]);
+
+  useEffect(() => {
+    if (!showAddQuestionMenu) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!addQuestionMenuRef.current) return;
+      if (addQuestionMenuRef.current.contains(event.target as Node)) return;
+      setShowAddQuestionMenu(false);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowAddQuestionMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [showAddQuestionMenu]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -849,6 +878,36 @@ function OpretLoebPageContent() {
 
   const addQuestion = () => {
     setQuestions((prev) => [...prev, createQuestion(defaultQuestionType)]);
+  };
+
+  const normalizeQuestionsForReuse = useCallback(
+    (value: unknown): ManualReuseQuestion[] => toQuestionList(value),
+    []
+  );
+
+  const handleImportReuseQuestion = useCallback((question: ManualReuseQuestion) => {
+    setQuestions((previous) => {
+      const nextId = previous.reduce((maxId, currentQuestion) => Math.max(maxId, currentQuestion.id), Date.now()) + 1;
+      const importedQuestion: Question = {
+        ...question,
+        id: nextId,
+        lat: null,
+        lng: null,
+      };
+
+      pendingScrollTargetId.current = String(importedQuestion.id);
+      return [...previous, importedQuestion];
+    });
+  }, []);
+
+  const openReuseModal = () => {
+    setNotice(null);
+    setShowAddQuestionMenu(false);
+    setShowReuseModal(true);
+  };
+
+  const closeReuseModal = () => {
+    setShowReuseModal(false);
   };
 
   const removeQuestion = (index: number) => {
@@ -1402,15 +1461,61 @@ function OpretLoebPageContent() {
               })}
 
               <div className="rounded-4xl border border-amber-500/30 bg-amber-950/20 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
-                <button
-                  type="button"
-                  onClick={addQuestion}
-                  disabled={isEditorBusy}
-                  className="inline-flex items-center gap-2 rounded-[1.4rem] border border-amber-500/30 bg-amber-950/20 px-4 py-3 text-sm font-semibold text-amber-100 backdrop-blur-xl transition hover:bg-amber-900/30 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                >
-                  <Plus className="h-4 w-4" />
-                  {addQuestionLabel}
-                </button>
+                <div ref={addQuestionMenuRef} className="relative inline-flex max-w-full flex-col items-start">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddQuestionMenu((current) => !current)}
+                    disabled={isEditorBusy}
+                    className="inline-flex items-center gap-2 rounded-[1.4rem] border border-amber-500/30 bg-amber-950/20 px-4 py-3 text-sm font-semibold text-amber-100 backdrop-blur-xl transition hover:bg-amber-900/30 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                    aria-haspopup="menu"
+                    aria-expanded={showAddQuestionMenu}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Tilføj post
+                    <ChevronDown className={`h-4 w-4 transition-transform ${showAddQuestionMenu ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {showAddQuestionMenu ? (
+                    <div className="absolute left-0 top-full z-50 mt-3 w-[min(22rem,calc(100vw-3rem))] overflow-hidden rounded-[1.6rem] border border-amber-400/20 bg-slate-950/96 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          addQuestion();
+                          setShowAddQuestionMenu(false);
+                        }}
+                        disabled={isEditorBusy}
+                        className="flex w-full items-start gap-3 rounded-[1.25rem] px-4 py-3 text-left text-amber-50 transition hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-amber-200">
+                          <Sparkles className="h-4 w-4" />
+                        </span>
+                        <span>
+                          <span className="block text-sm font-black uppercase tracking-[0.16em]">Opret ny post</span>
+                          <span className="mt-1 block text-sm leading-6 text-amber-100/72">
+                            Tilføj en tom matematik-post og byg den videre fra bunden.
+                          </span>
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={openReuseModal}
+                        disabled={isEditorBusy}
+                        className="flex w-full items-start gap-3 rounded-[1.25rem] px-4 py-3 text-left text-amber-50 transition hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-amber-200">
+                          <BookOpen className="h-4 w-4" />
+                        </span>
+                        <span>
+                          <span className="block text-sm font-black uppercase tracking-[0.16em]">Hent fra arkiv</span>
+                          <span className="mt-1 block text-sm leading-6 text-amber-100/72">
+                            Genbrug spørgsmål fra tidligere løb og placer dem på et nyt kort.
+                          </span>
+                        </span>
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
 
                 <div ref={saveFeedbackRef} className="mt-6 space-y-4">
                   {notice?.tone === "error" ? renderNotice() : null}
@@ -1593,6 +1698,14 @@ function OpretLoebPageContent() {
           </div>
         </div>
       ) : null}
+
+      <ManualReuseModal
+        open={showReuseModal}
+        currentRunId={editRunId || undefined}
+        onClose={closeReuseModal}
+        normalizeQuestions={normalizeQuestionsForReuse}
+        onImportQuestion={handleImportReuseQuestion}
+      />
 
       <MathAiInterviewModal
         open={showAiInterviewModal}
