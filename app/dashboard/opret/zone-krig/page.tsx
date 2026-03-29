@@ -244,6 +244,10 @@ function ZoneKrigBuilderContent() {
 
   const isEditorBusy = isSaving || showDraftRecoveryPrompt;
   const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
+  const builderStatusLabel = isSaving ? "Gemmer..." : "Gemmes lokalt";
+  const builderStatusDescription = isSaving
+    ? "Vi sender dine seneste ændringer til arkivet nu."
+    : "Titel og zoner bliver gemt lokalt undervejs, indtil du trykker på Gem.";
 
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedDraftRef = useRef(false);
@@ -646,19 +650,40 @@ function ZoneKrigBuilderContent() {
                     </p>
                   </div>
 
-                  {/* Title */}
-                  <div className="mb-2">
-                    <label className="block text-xs font-semibold tracking-[0.22em] text-cyan-100/65 uppercase">
-                      Løbets titel
-                    </label>
+                  <div className="rounded-4xl border border-cyan-500/30 bg-slate-900/40 p-5 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:p-6">
+                    <div className="flex flex-col gap-4">
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div>
+                          <label className="block text-xs font-semibold tracking-[0.22em] text-cyan-100/65 uppercase">
+                            Løbets titel
+                          </label>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 print:hidden">
+                          <span
+                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold backdrop-blur-xl ${
+                              isSaving
+                                ? "border-cyan-300/35 bg-cyan-400/10 text-cyan-50"
+                                : "border-cyan-500/20 bg-slate-900/45 text-cyan-100/72"
+                            }`}
+                          >
+                            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="h-2 w-2 rounded-full bg-cyan-300/70" />}
+                            {builderStatusLabel}
+                          </span>
+                        </div>
+                      </div>
+
+                      <input
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        disabled={isEditorBusy}
+                        placeholder="F.eks. 4.B's Zone-Krig rundt om skolen"
+                        className="w-full rounded-[1.6rem] border border-cyan-500/30 bg-slate-900/40 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                      />
+
+                      <p className="text-sm leading-6 text-cyan-100/68">{builderStatusDescription}</p>
+                    </div>
                   </div>
-                  <input
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    disabled={isEditorBusy}
-                    placeholder="F.eks. 4.B's Zone-Krig rundt om skolen"
-                    className="w-full rounded-[1.6rem] border border-cyan-500/30 bg-slate-900/40 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                  />
                 </div>
 
                 {/* Subject */}

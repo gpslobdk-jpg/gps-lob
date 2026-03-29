@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, BookOpenText, Camera, Check, ChevronDown, Loader2, Plus, Printer, Ruler, Sparkles, Trash2, Type } from "lucide-react";
+import { BookOpen, BookOpenText, Camera, Check, ChevronDown, Loader2, Plus, Printer, Ruler, Sparkles, Trash2, Type, Wrench } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
@@ -169,6 +169,12 @@ const textareaClass =
 
 const aiActionButtonClass =
   "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-rose-500/30 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20 px-5 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+
+const toolsTriggerButtonClass =
+  "inline-flex items-center justify-center gap-2 rounded-[1.2rem] border border-rose-500/25 bg-rose-950/30 px-4 py-2.5 text-sm font-semibold text-rose-50 transition hover:bg-rose-900/35 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+
+const toolsMenuItemClass =
+  "flex w-full items-start gap-3 rounded-[1.25rem] px-4 py-3 text-left text-rose-50 transition hover:bg-rose-400/10 disabled:cursor-not-allowed disabled:opacity-50";
 
 const DEFAULT_ANSWERS: [string, string, string, string] = ["", "", "", ""];
 const ANSWER_LABELS = ["A", "B", "C", "D"] as const;
@@ -354,6 +360,7 @@ function OpretDanskLoebPageContent() {
   const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
   const [showReuseModal, setShowReuseModal] = useState(false);
   const [showAddQuestionMenu, setShowAddQuestionMenu] = useState(false);
+  const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingExistingRun, setIsLoadingExistingRun] = useState(isEditMode);
   const [questions, setQuestions] = useState<Question[]>(() => [createQuestion(defaultQuestionType)]);
@@ -367,6 +374,10 @@ function OpretDanskLoebPageContent() {
   const printSubject = DANISH_SUBJECT;
   const printClassLevel =
     gradeLevels.length > 0 ? formatGradeLevelsForPrompt(gradeLevels) : "Ikke angivet";
+  const builderStatusLabel = isSaving ? "Gemmer..." : "Gemmes lokalt";
+  const builderStatusDescription = isSaving
+    ? "Vi sender dine seneste ændringer til arkivet nu."
+    : "Titel og spørgsmål bliver gemt lokalt undervejs, indtil du trykker på Gem.";
 
   const renderNotice = (className = "") =>
     notice ? (
@@ -382,6 +393,7 @@ function OpretDanskLoebPageContent() {
     ) : null;
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
   const addQuestionMenuRef = useRef<HTMLDivElement | null>(null);
+  const toolsMenuRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedDraftRef = useRef(false);
   const shouldAutoRestoreDraftRef = useRef<boolean | null>(null);
   const pendingScrollTargetId = useRef<string | null>(null);
@@ -433,17 +445,19 @@ function OpretDanskLoebPageContent() {
   }, [questions]);
 
   useEffect(() => {
-    if (!showAddQuestionMenu) return;
+    if (!showAddQuestionMenu && !showToolsMenu) return;
 
     const handlePointerDown = (event: MouseEvent) => {
-      if (!addQuestionMenuRef.current) return;
-      if (addQuestionMenuRef.current.contains(event.target as Node)) return;
+      if (addQuestionMenuRef.current?.contains(event.target as Node)) return;
+      if (toolsMenuRef.current?.contains(event.target as Node)) return;
       setShowAddQuestionMenu(false);
+      setShowToolsMenu(false);
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setShowAddQuestionMenu(false);
+        setShowToolsMenu(false);
       }
     };
 
@@ -454,7 +468,7 @@ function OpretDanskLoebPageContent() {
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [showAddQuestionMenu]);
+  }, [showAddQuestionMenu, showToolsMenu]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -852,6 +866,19 @@ function OpretDanskLoebPageContent() {
     setShowAiInterviewModal(false);
   };
 
+  const openAiInterviewModal = () => {
+    setNotice(null);
+    setShowToolsMenu(false);
+    setShowAiInterviewModal(true);
+  };
+
+  const handlePrintDraft = () => {
+    setShowToolsMenu(false);
+    if (typeof window !== "undefined") {
+      window.print();
+    }
+  };
+
   const handleAiInterviewComplete = (draft: DanskAiInterviewDraft) => {
     const nextTitle = draft.title.trim();
     const nextQuestions = toInterviewQuestionList(draft.questions);
@@ -1103,7 +1130,7 @@ function OpretDanskLoebPageContent() {
                     </div>
                   ) : null}
 
-                  <div className="mb-8">
+                  <div className="mb-8 space-y-5">
                     <div className="flex items-center gap-3">
                       <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-[1.55rem] border border-white/80 bg-white px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),inset_0_-6px_12px_rgba(136,19,55,0.06),0_18px_38px_rgba(255,255,255,0.16),0_14px_28px_rgba(244,63,94,0.18)] ring-1 ring-rose-200/55">
                         <span
@@ -1119,32 +1146,115 @@ function OpretDanskLoebPageContent() {
                         </p>
                       </div>
                     </div>
-                    <div className="mt-4 flex flex-wrap items-center gap-3 print:hidden">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNotice(null);
-                          setShowAiInterviewModal(true);
-                        }}
-                        disabled={isEditorBusy}
-                        className={`${aiActionButtonClass} w-full sm:w-auto`}
-                      >
-                        <BookOpenText className="h-4 w-4" />
-                        Auto-udfyld med AI
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (typeof window !== "undefined") {
-                            window.print();
-                          }
-                        }}
-                        disabled={isEditorBusy}
-                        className={`${aiActionButtonClass} w-full print:hidden sm:w-auto`}
-                      >
-                        <Printer className="h-4 w-4" />
-                        Print udkast
-                      </button>
+
+                    <div className="rounded-4xl border border-rose-500/30 bg-rose-950/20 p-5 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:p-6">
+                      <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                          <div>
+                            <label className="block text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
+                              Løbets titel
+                            </label>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2 print:hidden">
+                            <span
+                              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold backdrop-blur-xl ${
+                                isSaving
+                                  ? "border-rose-300/35 bg-rose-400/10 text-rose-50"
+                                  : "border-rose-500/20 bg-rose-950/30 text-rose-100/72"
+                              }`}
+                            >
+                              {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="h-2 w-2 rounded-full bg-rose-300/70" />}
+                              {builderStatusLabel}
+                            </span>
+
+                            <div ref={toolsMenuRef} className="relative inline-flex max-w-full flex-col items-end">
+                              <button
+                                type="button"
+                                onClick={() => setShowToolsMenu((current) => !current)}
+                                disabled={isEditorBusy}
+                                className={toolsTriggerButtonClass}
+                                aria-haspopup="menu"
+                                aria-expanded={showToolsMenu}
+                              >
+                                <Wrench className="h-4 w-4" />
+                                Værktøjer
+                                <ChevronDown className={`h-4 w-4 transition-transform ${showToolsMenu ? "rotate-180" : ""}`} />
+                              </button>
+
+                              {showToolsMenu ? (
+                                <div className="absolute right-0 top-full z-50 mt-3 w-[min(25rem,calc(100vw-3rem))] overflow-hidden rounded-[1.6rem] border border-rose-400/20 bg-slate-950/96 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+                                  <div className="px-4 pb-2 pt-2">
+                                    <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-rose-100/45">Opret hurtigt</p>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={openAiInterviewModal}
+                                    disabled={isEditorBusy}
+                                    className={toolsMenuItemClass}
+                                  >
+                                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-rose-400/20 bg-rose-400/10 text-rose-200">
+                                      <BookOpenText className="h-4 w-4" />
+                                    </span>
+                                    <span>
+                                      <span className="block text-sm font-black uppercase tracking-[0.16em]">Dansk-AI (Laesning og Analyse)</span>
+                                      <span className="mt-1 block text-sm leading-6 text-rose-100/72">Byg et danskloeb med laesning, sprog og analyse til de valgte klassetrin.</span>
+                                    </span>
+                                  </button>
+
+                                  <div className="mx-2 my-2 h-px bg-rose-400/10" />
+
+                                  <div className="px-4 pb-2 pt-1">
+                                    <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-rose-100/45">Output</p>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={handlePrintDraft}
+                                    disabled={isEditorBusy}
+                                    className={toolsMenuItemClass}
+                                  >
+                                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-rose-400/20 bg-rose-400/10 text-rose-200">
+                                      <Printer className="h-4 w-4" />
+                                    </span>
+                                    <span>
+                                      <span className="block text-sm font-black uppercase tracking-[0.16em]">Print udkast</span>
+                                      <span className="mt-1 block text-sm leading-6 text-rose-100/72">Aabn den printvenlige version med titel, poster og svar.</span>
+                                    </span>
+                                  </button>
+
+                                  <div className="mx-2 my-2 h-px bg-rose-400/10" />
+
+                                  <div className="px-4 pb-2 pt-1">
+                                    <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-rose-100/45">Avanceret</p>
+                                  </div>
+
+                                  <div className="flex items-start gap-3 rounded-[1.25rem] px-4 py-3 text-left text-rose-50/90">
+                                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-rose-400/20 bg-rose-400/10 text-rose-200">
+                                      <Ruler className="h-4 w-4" />
+                                    </span>
+                                    <span>
+                                      <span className="block text-sm font-black uppercase tracking-[0.16em]">Builder-status</span>
+                                      <span className="mt-1 block text-sm leading-6 text-rose-100/68">Klassetrin og GPS-radius bliver ved med at ligge synligt i arbejdsfladen, fordi de er kerneopsaetning for loebet.</span>
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+
+                        <input
+                          value={title}
+                          onChange={(event) => setTitle(event.target.value)}
+                          disabled={isEditorBusy}
+                          placeholder="F.eks. 5.A's store laeseloeb"
+                          className="w-full rounded-[1.6rem] border border-rose-500/30 bg-rose-950/20 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                        />
+
+                        <p className="text-sm leading-6 text-rose-100/68">{builderStatusDescription}</p>
+                      </div>
                     </div>
                   </div>
 
@@ -1169,18 +1279,6 @@ function OpretDanskLoebPageContent() {
                     </p>
                   </div>
 
-                  <div className="mb-2">
-                    <label className="block text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
-                      Løbets titel
-                    </label>
-                  </div>
-                  <input
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    disabled={isEditorBusy}
-                    placeholder="F.eks. 5.A's store læseløb"
-                    className="w-full rounded-[1.6rem] border border-rose-500/30 bg-rose-950/20 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                  />
                 </div>
 
                 <div className="px-1">
