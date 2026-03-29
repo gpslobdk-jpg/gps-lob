@@ -5,6 +5,7 @@ import type {
   RunQuestion,
   StudentRow,
 } from "@/components/live/types";
+import { DEFAULT_QUESTION_POINTS } from "@/utils/questionPoints";
 
 export const DEFAULT_TEACHER_MAP_CENTER: [number, number] = [55.3959, 10.3883];
 
@@ -67,6 +68,13 @@ export function toLiveAnswer(row: AnswerRow): LiveAnswer | null {
   const imageUrl = typeof row.image_url === "string" ? row.image_url.trim() : "";
   const participantId =
     row.participant_id === null || row.participant_id === undefined ? null : String(row.participant_id);
+  const storedAwardedPoints = toFiniteNumber(row.awarded_points);
+  const awardedPoints =
+    row.is_correct === true
+      ? storedAwardedPoints !== null
+        ? Math.max(0, Math.round(storedAwardedPoints))
+        : DEFAULT_QUESTION_POINTS
+      : 0;
 
   return {
     id: String(idSource),
@@ -74,6 +82,7 @@ export function toLiveAnswer(row: AnswerRow): LiveAnswer | null {
     studentName,
     postNumber,
     isCorrect: typeof row.is_correct === "boolean" ? row.is_correct : null,
+    awardedPoints,
     image_url: imageUrl || null,
     createdAt,
   };

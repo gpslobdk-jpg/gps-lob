@@ -7,6 +7,7 @@ import {
   getFirstRoutePostIndexForParticipant,
   isZoneKrigRaceType,
 } from "@/app/api/play/_shared";
+import { getAwardedPoints } from "@/utils/questionPoints";
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
 
 export const runtime = "edge";
@@ -165,20 +166,60 @@ type ZoneKrigCaptureResponse = {
   shieldRemainingSeconds?: number;
 };
 
+type RunCache = Map<string, Awaited<ReturnType<typeof fetchRunForSession>> | null>;
+
+async function getRunForSessionCached(sessionId: string, runCache: RunCache) {
+  if (!runCache.has(sessionId)) {
+    const run = await fetchRunForSession(sessionId).catch(() => null);
+    runCache.set(sessionId, run);
+  }
+
+  return runCache.get(sessionId) ?? null;
+}
+
+async function resolveAwardedPoints(payload: Record<string, unknown>, runCache: RunCache) {
+  if (!isCorrectAnswerPayload(payload)) {
+    return 0;
+  }
+
+  const sessionId = asTrimmedString(payload.session_id);
+  if (!sessionId) {
+    return getAwardedPoints(null, true);
+  }
+
+  const run = await getRunForSessionCached(sessionId, runCache);
+  const questionIndex = getAnsweredPostIndex(payload);
+  const rawQuestion =
+    Array.isArray(run?.questions) && questionIndex !== null && questionIndex >= 0
+      ? run.questions[questionIndex]
+      : null;
+
+  return getAwardedPoints(rawQuestion, true);
+}
+
+async function withAwardedPoints(payload: Record<string, unknown>, runCache: RunCache) {
+  return {
+    ...payload,
+    awarded_points: await resolveAwardedPoints(payload, runCache),
+  };
+}
+
 async function maybeCaptureZone(
   payload: Record<string, unknown>,
-  admin: NonNullable<ReturnType<typeof createAdminClient>>
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  awardedPoints: number,
+  runCache: RunCache
 ): Promise<ZoneKrigCaptureResponse | null> {
   try {
     if (!isCorrectAnswerPayload(payload)) return null;
 
-    const run = await fetchRunForSession(asTrimmedString(payload.session_id)).catch(() => null);
+    const sessionId = asTrimmedString(payload.session_id);
+    const run = sessionId ? await getRunForSessionCached(sessionId, runCache) : null;
     if (!isZoneKrigRaceType(run?.race_type ?? run?.raceType)) return null;
 
     const teamId = asTrimmedString(payload.zone_krig_team_id);
     if (!teamId) return null;
 
-    const sessionId = asTrimmedString(payload.session_id);
     if (!sessionId) return null;
 
     const zoneIndex = getAnsweredPostIndex(payload);
@@ -191,6 +232,7 @@ async function maybeCaptureZone(
       p_zone_index: zoneIndex,
       p_team_id: teamId,
       p_shield_until: shieldUntil,
+      p_points: awardedPoints,
     });
 
     if (error) {
@@ -259,21 +301,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: ADMIN_ACCESS_MISSING_MESSAGE }, { status: 503 });
   }
 
+  const runCache: RunCache = new Map();
+
   try {
     for (const payload of rawPayloads) {
       try {
+        const enrichedPayload = await withAwardedPoints(payload, runCache);
+        const awardedPoints = Number(enrichedPayload.awarded_points) || 0;
         const existingAnswer = await hasExistingAnswerRecord(payload, admin);
         if (existingAnswer) {
-          await maybeStampRunStartedAt(payload, admin);
-          const zoneKrigCapture = await maybeCaptureZone(payload, admin);
-          return NextResponse.json({ inserted: true, zoneKrigCapture });
+          await maybeStampRunStartedAt(enrichedPayload, admin);
+          const zoneKrigCapture = await maybeCaptureZone(enrichedPayload, admin, awardedPoints, runCache);
+          return NextResponse.json({ inserted: true, awardedPoints, zoneKrigCapture });
         }
 
-        const { error } = await admin.from("answers").insert(payload as Record<string, unknown>);
+        const { error } = await admin.from("answers").insert(enrichedPayload);
         if (!error) {
-          await maybeStampRunStartedAt(payload, admin);
-          const zoneKrigCapture = await maybeCaptureZone(payload, admin);
-          return NextResponse.json({ inserted: true, zoneKrigCapture });
+          await maybeStampRunStartedAt(enrichedPayload, admin);
+          const zoneKrigCapture = await maybeCaptureZone(enrichedPayload, admin, awardedPoints, runCache);
+          return NextResponse.json({ inserted: true, awardedPoints, zoneKrigCapture });
         }
 
         if (isMissingColumnError(error)) {

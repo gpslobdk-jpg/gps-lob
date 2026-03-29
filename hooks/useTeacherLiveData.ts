@@ -403,6 +403,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       {
         correctPosts: Set<number>;
         attemptedPosts: Set<number>;
+        score: number;
         correctAnswers: number;
         firstAnswerAt: string | null;
         lastCorrectAt: string | null;
@@ -421,6 +422,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         {
           correctPosts: new Set<number>(),
           attemptedPosts: new Set<number>(),
+          score: 0,
           correctAnswers: 0,
           firstAnswerAt: null,
           lastCorrectAt: null,
@@ -446,6 +448,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       }
 
       if (answer.isCorrect === true) {
+        entry.score += answer.awardedPoints;
         entry.correctAnswers += 1;
 
         const lastCorrectTs = toTimestamp(entry.lastCorrectAt);
@@ -462,7 +465,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         const stats =
           statsByParticipant.get(student.id) ??
           statsByParticipant.get(student.name.toLocaleLowerCase("da-DK"));
-        const score = stats?.correctPosts.size ?? 0;
+        const score = stats?.score ?? 0;
         const correctAnswers = stats?.correctAnswers ?? 0;
         const completedPosts = stats?.attemptedPosts.size ?? 0;
         const progressPercent =

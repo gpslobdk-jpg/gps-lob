@@ -8,6 +8,7 @@ export type Question = {
   hint?: string;
   answers: string[];
   correctIndex: number | null;
+  points: number;
   lat: number;
   lng: number;
   mediaUrl?: string;
@@ -155,6 +156,7 @@ export type AnswerProgressRow = {
   post_index?: number | string | null;
   question_index?: number | string | null;
   is_correct?: boolean | null;
+  awarded_points?: number | string | null;
 };
 
 export type ValidateAnswerPayload = {
@@ -203,6 +205,7 @@ export interface PlayProgressState {
   displayPostNumber: number;
   totalQuestions: number;
   progressPercent: number;
+  score: number;
   correctAnswersCount: number;
   dismissedPostIndex: number | null;
   showQuestion: boolean;

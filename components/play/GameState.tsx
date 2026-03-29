@@ -68,6 +68,7 @@ import {
   toFiniteNumber,
   toIntegerStartOffset,
 } from "./playUtils";
+import { DEFAULT_QUESTION_POINTS } from "@/utils/questionPoints";
 import { createClient } from "@/utils/supabase/client";
 
 type UsePlayGameStateParams = {
@@ -94,6 +95,7 @@ type ZoneKrigCaptureApiResult = {
 
 type InsertAnswerResult = {
   didPersist: boolean;
+  awardedPoints: number;
   zoneKrigCapture: ZoneKrigCaptureApiResult;
 };
 
@@ -255,6 +257,7 @@ export function usePlayGameState({
   );
   const [isProvisioningParticipant, setIsProvisioningParticipant] = useState(false);
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
+  const [score, setScore] = useState(0);
   const [solvedPostIndexes, setSolvedPostIndexes] = useState<number[]>([]);
   const [sessionStatus, setSessionStatus] = useState<string | null>(null);
   const [gpsOverride, setGpsOverride] = useState(false);
@@ -1071,11 +1074,28 @@ export function usePlayGameState({
 
       if (resolvedName) {
         let nextPostIndex = firstRoutePostIndex;
-        const { data: answersData, error: answersError } = await supabase
+        let answersData: AnswerProgressRow[] | null = null;
+        let answersError: { code?: string; message?: string } | null = null;
+
+        const answersWithPointsResult = await supabase
           .from("answers")
-          .select("post_index,question_index,is_correct")
+          .select("post_index,question_index,is_correct,awarded_points")
           .eq("participant_id", participantId)
           .eq("session_id", sessionId);
+
+        if (answersWithPointsResult.error && isMissingColumnError(answersWithPointsResult.error)) {
+          const fallbackAnswersResult = await supabase
+            .from("answers")
+            .select("post_index,question_index,is_correct")
+            .eq("participant_id", participantId)
+            .eq("session_id", sessionId);
+
+          answersData = (fallbackAnswersResult.data as AnswerProgressRow[] | null) ?? null;
+          answersError = fallbackAnswersResult.error;
+        } else {
+          answersData = (answersWithPointsResult.data as AnswerProgressRow[] | null) ?? null;
+          answersError = answersWithPointsResult.error;
+        }
 
         if (!isActive) return;
 
@@ -1088,15 +1108,23 @@ export function usePlayGameState({
         } else if (answersData) {
           const rows = answersData as AnswerProgressRow[];
           const confirmedCorrectPosts = new Set<number>();
+          let restoredScore = 0;
           for (const row of rows) {
             if (row.is_correct !== true) continue;
             const normalizedPostIndex = getNormalizedAnsweredPostIndex(row);
             if (normalizedPostIndex === null || normalizedPostIndex < 0) continue;
             confirmedCorrectPosts.add(normalizedPostIndex);
+
+            const storedAwardedPoints = toFiniteNumber(row.awarded_points);
+            restoredScore +=
+              storedAwardedPoints !== null
+                ? Math.max(0, Math.round(storedAwardedPoints))
+                : questions[normalizedPostIndex]?.points ?? DEFAULT_QUESTION_POINTS;
           }
           const restoredSolvedPostIndexes = [...confirmedCorrectPosts].sort((a, b) => a - b);
           setSolvedPostIndexes(restoredSolvedPostIndexes);
           setCorrectAnswersCount(restoredSolvedPostIndexes.length);
+          setScore(restoredScore);
           setCollectedEscapeRewards(getEscapeCodeEntriesFromRows(rows, questions));
 
           if (raceMode !== "zone_krig" && confirmedCorrectPosts.size >= questions.length) {
@@ -1217,12 +1245,13 @@ export function usePlayGameState({
       isCorrect: boolean,
       postNumber: number,
       questionText: string,
+      questionPoints: number,
       lat: number | null,
       lng: number | null
     ): Promise<InsertAnswerResult> => {
       const activeName = playerName.trim();
       if (!sessionId || !participantId || !activeName || answersTableMissingRef.current) {
-        return { didPersist: false, zoneKrigCapture: null };
+        return { didPersist: false, awardedPoints: 0, zoneKrigCapture: null };
       }
 
       const timestamp = new Date().toISOString();
@@ -1236,6 +1265,7 @@ export function usePlayGameState({
           selected_index: selectedIndex,
           answer_index: selectedIndex,
           is_correct: isCorrect,
+          awarded_points: isCorrect ? questionPoints : 0,
           question_text: questionText,
           lat,
           lng,
@@ -1249,6 +1279,7 @@ export function usePlayGameState({
           post_index: postNumber,
           selected_index: selectedIndex,
           is_correct: isCorrect,
+          awarded_points: isCorrect ? questionPoints : 0,
           answered_at: timestamp,
         },
         {
@@ -1258,6 +1289,7 @@ export function usePlayGameState({
           question_index: postNumber - 1,
           answer_index: selectedIndex,
           is_correct: isCorrect,
+          awarded_points: isCorrect ? questionPoints : 0,
           created_at: timestamp,
         },
         {
@@ -1266,6 +1298,7 @@ export function usePlayGameState({
           student_name: activeName,
           selected_index: selectedIndex,
           is_correct: isCorrect,
+          awarded_points: isCorrect ? questionPoints : 0,
         },
       ];
 
@@ -1279,6 +1312,7 @@ export function usePlayGameState({
 
           const body = (await response.json().catch(() => null)) as {
             inserted?: boolean;
+            awardedPoints?: number;
             error?: string;
             zoneKrigCapture?: ZoneKrigCaptureApiResult;
           } | null;
@@ -1286,29 +1320,35 @@ export function usePlayGameState({
           if (!response.ok) {
             console.error("Kunne ikke gemme svar via API:", body?.error ?? response.statusText);
             if (body?.error === "Admin access missing") answersTableMissingRef.current = true;
-            return { didPersist: false, zoneKrigCapture: null };
+            return { didPersist: false, awardedPoints: 0, zoneKrigCapture: null };
           }
 
           if (body?.inserted === true) {
             return {
               didPersist: true,
+              awardedPoints:
+                typeof body.awardedPoints === "number" && Number.isFinite(body.awardedPoints)
+                  ? Math.max(0, Math.round(body.awardedPoints))
+                  : isCorrect
+                    ? questionPoints
+                    : 0,
               zoneKrigCapture: body.zoneKrigCapture ?? null,
             };
           }
 
           console.error("API returnerede ikke indsættelse:", body ?? "ukendt svar");
-          return { didPersist: false, zoneKrigCapture: null };
+          return { didPersist: false, awardedPoints: 0, zoneKrigCapture: null };
         } catch (error) {
           if (!isTransientNetworkError(error)) {
             console.error("Kunne ikke kontakte submit-answer API:", error);
-            return { didPersist: false, zoneKrigCapture: null };
+            return { didPersist: false, awardedPoints: 0, zoneKrigCapture: null };
           }
 
           await waitForNetworkRetry();
         }
       }
 
-      return { didPersist: false, zoneKrigCapture: null };
+      return { didPersist: false, awardedPoints: 0, zoneKrigCapture: null };
     },
     [
       isTransientNetworkError,
@@ -1367,6 +1407,7 @@ export function usePlayGameState({
           setAutoUnlockRadius(Math.round(parsedRadius));
           setGpsOverride(Boolean(payload?.gpsOverride));
           setCorrectAnswersCount(0);
+          setScore(0);
           setSolvedPostIndexes([]);
           setCollectedEscapeRewards([]);
           setEscapeReward(null);
@@ -1809,7 +1850,7 @@ export function usePlayGameState({
   const handleAnswer = async (
     selectedIndex: number,
     escapeBrick?: string | null,
-    options?: { skipAnswerPersist?: boolean }
+    options?: { skipAnswerPersist?: boolean; awardedPoints?: number }
   ) => {
     const current = questions[currentPostIndex];
     if (!current) return false;
@@ -1831,12 +1872,17 @@ export function usePlayGameState({
     setPostActionError(null);
 
     const answerInsertResult = options?.skipAnswerPersist
-      ? { didPersist: true, zoneKrigCapture: null }
+      ? {
+          didPersist: true,
+          awardedPoints: options.awardedPoints ?? current.points,
+          zoneKrigCapture: null,
+        }
       : await insertAnswerRecord(
           selectedIndex,
           true,
           postNumber,
           currentVariant === "roleplay" ? getRoleplayMessage(current) : current.text,
+          current.points,
           myLoc?.lat ?? null,
           myLoc?.lng ?? null
         );
@@ -1860,6 +1906,7 @@ export function usePlayGameState({
     if (!solvedPostIndexesRef.current.includes(currentPostIndex)) {
       setSolvedPostIndexes((prev) => [...prev, currentPostIndex].sort((a, b) => a - b));
       setCorrectAnswersCount((prev) => prev + 1);
+      setScore((prev) => prev + answerInsertResult.awardedPoints);
     }
 
     if (currentVariant === "escape") {
@@ -2234,6 +2281,7 @@ export function usePlayGameState({
         | {
             isMatch?: boolean;
             message?: string;
+            awardedPoints?: number;
             imageUrl?: string | null;
             storedAnswer?: boolean;
             error?: string;
@@ -2256,6 +2304,7 @@ export function usePlayGameState({
           payload = (await response.json()) as {
             isMatch?: boolean;
             message?: string;
+            awardedPoints?: number;
             imageUrl?: string | null;
             storedAnswer?: boolean;
             error?: string;
@@ -2294,6 +2343,10 @@ export function usePlayGameState({
       }
 
       const didSaveAnswer = await handleAnswer(0, null, {
+        awardedPoints:
+          typeof payload.awardedPoints === "number" && Number.isFinite(payload.awardedPoints)
+            ? Math.max(0, Math.round(payload.awardedPoints))
+            : activeQuestion.points,
         skipAnswerPersist: payload.storedAnswer === true,
       });
       if (!didSaveAnswer) {
@@ -2450,6 +2503,7 @@ export function usePlayGameState({
     displayPostNumber,
     totalQuestions: questions.length,
     progressPercent,
+    score,
     correctAnswersCount,
     dismissedPostIndex,
     showQuestion,

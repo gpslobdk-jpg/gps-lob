@@ -58,6 +58,7 @@ type Question = {
   mediaUrl: string;
   answers: [string, string, string, string];
   correctIndex: number;
+  points: number;
   lat: number | null;
   lng: number | null;
 };
@@ -83,6 +84,7 @@ type StoredQuestionRecord = {
   answers?: unknown;
   correctIndex?: unknown;
   correct_index?: unknown;
+  points?: unknown;
   lat?: unknown;
   lng?: unknown;
 };
@@ -99,6 +101,7 @@ type BuilderNotice = {
 
 const ZONE_KRIG_DRAFT_KEY = "draft_run_zone_krig";
 const DEFAULT_MAP_CENTER: MapCenter = { lat: 55.6761, lng: 12.5683 };
+const DEFAULT_QUESTION_POINTS = 10;
 
 type ZoneKrigDraftState = {
   title?: unknown;
@@ -118,6 +121,7 @@ const createQuestion = (): Question => ({
   mediaUrl: "",
   answers: ["", "", "", ""],
   correctIndex: 0,
+  points: DEFAULT_QUESTION_POINTS,
   lat: null,
   lng: null,
 });
@@ -142,6 +146,11 @@ function asNumberOrNull(value: unknown) {
   return null;
 }
 
+function normalizeQuestionPoints(value: unknown) {
+  const parsed = asNumberOrNull(value);
+  return parsed !== null ? Math.max(0, Math.round(parsed)) : DEFAULT_QUESTION_POINTS;
+}
+
 function toAnswersTuple(value: unknown): [string, string, string, string] {
   if (!Array.isArray(value)) return DEFAULT_ANSWERS;
   const stringAnswers = value.filter((item): item is string => typeof item === "string");
@@ -162,6 +171,7 @@ function normalizeQuestionForSave(question: Question): Question {
     aiPrompt: question.aiPrompt.trim(),
     mediaUrl: question.mediaUrl.trim(),
     answers: question.answers.map((a) => a.trim()) as Question["answers"],
+    points: normalizeQuestionPoints(question.points),
   };
 }
 
@@ -186,6 +196,7 @@ function toQuestionList(value: unknown): Question[] {
         mediaUrl: asTrimmedString(candidate.mediaUrl ?? candidate.media_url),
         answers: rawAnswers,
         correctIndex: safeCorrectIndex,
+        points: normalizeQuestionPoints(candidate.points),
         lat: asNumberOrNull(candidate.lat),
         lng: asNumberOrNull(candidate.lng),
       };
@@ -710,6 +721,22 @@ function ZoneKrigBuilderContent() {
                         <span className="rounded-full border border-cyan-500/20 bg-slate-900/40 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-cyan-100/60 uppercase backdrop-blur-xl">
                           4 svar
                         </span>
+                        <label className="flex items-center gap-2 rounded-full border border-cyan-500/20 bg-slate-900/40 px-3 py-1 text-[10px] font-semibold tracking-[0.18em] text-cyan-100/60 uppercase backdrop-blur-xl">
+                          Point
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={question.points}
+                            onChange={(event) =>
+                              updateQuestion(question.id, {
+                                points: normalizeQuestionPoints(event.target.value),
+                              })
+                            }
+                            disabled={isEditorBusy}
+                            className="w-16 bg-transparent text-right text-sm font-semibold tracking-normal text-cyan-50 focus:outline-none"
+                          />
+                        </label>
                         <button
                           type="button"
                           onClick={() => deleteQuestion(questionIndex)}

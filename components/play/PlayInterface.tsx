@@ -47,6 +47,7 @@ type MobileHudProps = {
   setMobileHudOpen: React.Dispatch<React.SetStateAction<boolean>>;
   activeDisplayName: string;
   progressPercent: number;
+  score: number;
   correctAnswersCount: number;
   questionsLength: number;
   distance: number | null;
@@ -58,6 +59,7 @@ function MobileHudComponent({
   setMobileHudOpen,
   activeDisplayName,
   progressPercent,
+  score,
   correctAnswersCount,
   questionsLength,
   distance,
@@ -101,9 +103,7 @@ function MobileHudComponent({
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-white/80">
             <div>Progress: {progressPercent}%</div>
-            <div>
-              {correctAnswersCount}/{questionsLength}
-            </div>
+            <div>{score} point</div>
           </div>
         </div>
       ) : null}
@@ -142,6 +142,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     currentPostIndex,
     displayPostNumber,
     progressPercent,
+    score,
     correctAnswersCount,
     dismissedPostIndex,
     showQuestion,
@@ -1004,7 +1005,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                             <p className="font-mono text-[10px] uppercase tracking-widest text-white/70">
                               Point
                             </p>
-                            <p className="text-2xl md:text-3xl font-black text-white">{correctAnswersCount}</p>
+                            <p className="text-2xl md:text-3xl font-black text-white">{score}</p>
                           </div>
                         </div>
                         <div>
@@ -1012,7 +1013,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                             Medalje
                           </p>
                           <p className="mt-1 text-sm font-semibold text-white/85">
-                            Din score vokser for hver fundet post.
+                            Dine point kommer fra de rigtige svar, ikke bare antal poster.
                           </p>
                         </div>
                       </div>
@@ -1066,6 +1067,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                 setMobileHudOpen={setMobileHudOpen}
                 activeDisplayName={activeDisplayName}
                 progressPercent={progressPercent}
+                score={score}
                 correctAnswersCount={correctAnswersCount}
                 questionsLength={questions.length}
                 distance={distance}

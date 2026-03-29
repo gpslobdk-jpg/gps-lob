@@ -160,6 +160,7 @@ type Question = {
   mediaUrl: string;
   answers: [string, string, string, string];
   correctIndex: number;
+  points: number;
   lat: number | null;
   lng: number | null;
 };
@@ -187,6 +188,7 @@ type StoredQuestionRecord = {
   answers?: unknown;
   correctIndex?: unknown;
   correct_index?: unknown;
+  points?: unknown;
   lat?: unknown;
   lng?: unknown;
 };
@@ -237,6 +239,7 @@ type ManualBuilderDraftState = {
 
 const DEFAULT_RUN_RADIUS = 15;
 const RUN_RADIUS_OPTIONS = [15, 30, 50] as const;
+const DEFAULT_QUESTION_POINTS = 10;
 
 const createQuestion = (type: Question["type"] = "multiple_choice"): Question => ({
   id: Date.now() + Math.floor(Math.random() * 100000),
@@ -246,6 +249,7 @@ const createQuestion = (type: Question["type"] = "multiple_choice"): Question =>
   mediaUrl: "",
   answers: ["", "", "", ""],
   correctIndex: 0,
+  points: DEFAULT_QUESTION_POINTS,
   lat: null,
   lng: null,
 });
@@ -282,6 +286,11 @@ function normalizeRunRadius(value: unknown) {
   return parsed !== null && RUN_RADIUS_OPTIONS.includes(parsed as (typeof RUN_RADIUS_OPTIONS)[number])
     ? parsed
     : DEFAULT_RUN_RADIUS;
+}
+
+function normalizeQuestionPoints(value: unknown) {
+  const parsed = asNumberOrNull(value);
+  return parsed !== null ? Math.max(0, Math.round(parsed)) : DEFAULT_QUESTION_POINTS;
 }
 
 function asNumberOrNull(value: unknown) {
@@ -337,6 +346,7 @@ function normalizeQuestionForSave(question: Question): Question {
     mediaUrl: question.mediaUrl.trim(),
     answers: type === "ai_image" ? buildPhotoAnswers(aiPrompt) : question.answers.map((answer) => answer.trim()) as Question["answers"],
     correctIndex: type === "ai_image" ? 0 : question.correctIndex,
+    points: normalizeQuestionPoints(question.points),
   };
 }
 
@@ -367,6 +377,7 @@ function toQuestionList(value: unknown): Question[] {
         mediaUrl: asTrimmedString(candidate.mediaUrl ?? candidate.media_url),
         answers: type === "ai_image" ? buildPhotoAnswers(photoTarget) : rawAnswers,
         correctIndex: type === "ai_image" ? 0 : safeCorrectIndex,
+        points: normalizeQuestionPoints(candidate.points),
         lat: asNumberOrNull(candidate.lat),
         lng: asNumberOrNull(candidate.lng),
       };
@@ -396,6 +407,7 @@ function toInterviewQuestionList(questions: MathAiInterviewDraft["questions"]): 
         mediaUrl: "",
         answers,
         correctIndex: safeCorrectIndex >= 0 ? safeCorrectIndex : 0,
+        points: DEFAULT_QUESTION_POINTS,
         lat: null,
         lng: null,
       };
@@ -575,6 +587,7 @@ function OpretLoebPageContent() {
             mediaUrl: "",
             answers: type === "ai_image" ? buildPhotoAnswers(aiPromptText) : answers,
             correctIndex: type === "ai_image" ? 0 : answerIndex >= 0 ? answerIndex : 0,
+            points: DEFAULT_QUESTION_POINTS,
             lat: hasDummyCoordinates ? null : rawLat,
             lng: hasDummyCoordinates ? null : rawLng,
           };
@@ -893,6 +906,7 @@ function OpretLoebPageContent() {
         id: nextId,
         lat: null,
         lng: null,
+        points: normalizeQuestionPoints(question.points),
       };
 
       pendingScrollTargetId.current = String(importedQuestion.id);
@@ -1327,6 +1341,22 @@ function OpretLoebPageContent() {
                         <span className="rounded-full border border-amber-500/30 bg-amber-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-amber-100/75 uppercase backdrop-blur-xl">
                           {isPhotoMission ? "AI foto" : "4 svar"}
                         </span>
+                        <label className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-950/20 px-3 py-1 text-[10px] font-semibold tracking-[0.18em] text-amber-100/75 uppercase backdrop-blur-xl">
+                          Point
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={question.points}
+                            onChange={(event) =>
+                              updateQuestion(question.id, {
+                                points: normalizeQuestionPoints(event.target.value),
+                              })
+                            }
+                            disabled={isEditorBusy}
+                            className="w-16 bg-transparent text-right text-sm font-semibold tracking-normal text-amber-50 focus:outline-none"
+                          />
+                        </label>
                         <button
                           type="button"
                           onClick={() => removeQuestion(questionIndex)}

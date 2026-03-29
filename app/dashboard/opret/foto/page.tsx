@@ -157,6 +157,7 @@ type Question = {
   mediaUrl: string;
   answers: [string, string, string, string];
   correctIndex: number;
+  points: number;
   lat: number | null;
   lng: number | null;
 };
@@ -175,6 +176,7 @@ type StoredPhotoQuestionRecord = {
   answers?: unknown;
   mediaUrl?: unknown;
   media_url?: unknown;
+  points?: unknown;
   lat?: unknown;
   lng?: unknown;
 };
@@ -185,6 +187,7 @@ type BuilderNotice = {
 };
 
 const FOTO_DRAFT_STORAGE_KEY = "draft_run_foto";
+const DEFAULT_QUESTION_POINTS = 10;
 
 type FotoBuilderDraftState = {
   title?: unknown;
@@ -207,9 +210,15 @@ const createQuestion = (): Question => ({
   mediaUrl: "",
   answers: ["", "", "", ""],
   correctIndex: 0,
+  points: DEFAULT_QUESTION_POINTS,
   lat: null,
   lng: null,
 });
+
+function normalizeQuestionPoints(value: unknown) {
+  const parsed = asNumberOrNull(value);
+  return parsed !== null ? Math.max(0, Math.round(parsed)) : DEFAULT_QUESTION_POINTS;
+}
 
 const buildPhotoAnswers = (targetObject: string): [string, string, string, string] => [
   targetObject.trim(),
@@ -265,6 +274,7 @@ function toPhotoQuestions(value: unknown): Question[] {
         mediaUrl: asTrimmedString(candidate.mediaUrl ?? candidate.media_url),
         answers: buildPhotoAnswers(getStoredPhotoTarget(candidate)),
         correctIndex: 0,
+        points: normalizeQuestionPoints(candidate.points),
         lat: asNumberOrNull(candidate.lat),
         lng: asNumberOrNull(candidate.lng),
       };
@@ -350,6 +360,7 @@ function toInterviewMissionQuestions(missions: FotoAiInterviewDraft["missions"])
         mediaUrl: "",
         answers: buildPhotoAnswers(targetObject),
         correctIndex: 0,
+        points: DEFAULT_QUESTION_POINTS,
         lat: null,
         lng: null,
       };
@@ -797,6 +808,7 @@ function FotoMissionBuilderPageContent() {
         aiPrompt: question.aiPrompt.trim(),
         answers: buildPhotoAnswers(question.aiPrompt.trim()),
         correctIndex: 0,
+        points: normalizeQuestionPoints(question.points),
         mediaUrl: question.mediaUrl.trim(),
       }))
       .filter(

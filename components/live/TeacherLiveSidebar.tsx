@@ -41,6 +41,7 @@ type SidebarTab = "leaderboard" | "feed" | "photos";
 type LeaderboardEntry = {
   student: LiveStudentLocation;
   score: number;
+  correctAnswers: number;
   progressPercent: number;
 };
 
@@ -113,11 +114,13 @@ export default function TeacherLiveSidebar({
   const leaderboard = useMemo<LeaderboardEntry[]>(() => {
     const participants = allParticipants ?? activeStudents;
     const scores = new Map<string, number>();
+    const correctAnswers = new Map<string, number>();
 
     for (const answer of liveAnswers) {
       if (answer.isCorrect !== true) continue;
       const scoreKey = answer.participantId ?? answer.studentName;
-      scores.set(scoreKey, (scores.get(scoreKey) ?? 0) + 1);
+      scores.set(scoreKey, (scores.get(scoreKey) ?? 0) + answer.awardedPoints);
+      correctAnswers.set(scoreKey, (correctAnswers.get(scoreKey) ?? 0) + 1);
     }
 
     const highestScore = Math.max(1, ...participants.map((student) => scores.get(student.id) ?? 0));
@@ -129,11 +132,14 @@ export default function TeacherLiveSidebar({
         return {
           student,
           score,
+          correctAnswers:
+            correctAnswers.get(student.id) ?? correctAnswers.get(student.name) ?? 0,
           progressPercent: Math.max(8, Math.round((score / highestScore) * 100)),
         };
       })
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
+        if (b.correctAnswers !== a.correctAnswers) return b.correctAnswers - a.correctAnswers;
         return a.student.name.localeCompare(b.student.name, "da");
       });
   }, [activeStudents, allParticipants, liveAnswers]);
@@ -297,6 +303,9 @@ export default function TeacherLiveSidebar({
                               Score
                             </p>
                             <p className="text-lg font-black text-white">{entry.score}</p>
+                            <p className="mt-1 text-[11px] text-emerald-100/70">
+                              {entry.correctAnswers} rigtige svar
+                            </p>
                           </div>
                         </div>
 

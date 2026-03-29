@@ -9,6 +9,7 @@ import type {
   StoredActiveParticipant,
   SupabaseErrorLike,
 } from "./types";
+import { getQuestionPoints } from "@/utils/questionPoints";
 
 export const ACTIVE_PARTICIPANT_STORAGE_KEY = "gpslob_active_participant";
 export const MANUAL_UNLOCK_RADIUS = 50;
@@ -234,6 +235,7 @@ export function parseQuestion(raw: unknown): Question | null {
       Number.isInteger(correctIndex) && correctIndex >= 0 && correctIndex <= 3
         ? correctIndex
         : null,
+    points: getQuestionPoints(candidate),
     lat,
     lng,
     mediaUrl: typeof candidate.mediaUrl === "string" ? candidate.mediaUrl : "",

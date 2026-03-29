@@ -160,6 +160,7 @@ type Question = {
   answers: [string, string, string, string];
   options?: string[];
   correctIndex: number;
+  points: number;
   lat: number | null;
   lng: number | null;
 };
@@ -179,6 +180,7 @@ type StoredRoleplayQuestionRecord = {
   post_type?: unknown;
   postType?: unknown;
   answers?: unknown;
+  points?: unknown;
   lat?: unknown;
   lng?: unknown;
 };
@@ -191,6 +193,7 @@ type BuilderNotice = {
 type QuestionCardElement = HTMLElement | null;
 
 const ROLLESPIL_DRAFT_STORAGE_KEY = "draft_run_rollespil";
+const DEFAULT_QUESTION_POINTS = 10;
 
 type RollespilBuilderDraftState = {
   title?: unknown;
@@ -225,9 +228,15 @@ const createQuestion = (): Question => ({
   mediaUrl: "",
   answers: BLANK_ANSWERS,
   correctIndex: 0,
+  points: DEFAULT_QUESTION_POINTS,
   lat: null,
   lng: null,
 });
+
+function normalizeQuestionPoints(value: unknown) {
+  const parsed = asNumberOrNull(value);
+  return parsed !== null ? Math.max(0, Math.round(parsed)) : DEFAULT_QUESTION_POINTS;
+}
 
 function toRoleplayAnswers(
   correctAnswer: string,
@@ -330,6 +339,7 @@ function toRoleplayQuestions(value: unknown): Question[] {
         mediaUrl: asTrimmedString(candidate.mediaUrl ?? candidate.media_url),
         answers: toRoleplayAnswers(asTrimmedString(answers[0]), characterName, avatar),
         correctIndex: 0,
+        points: normalizeQuestionPoints(candidate.points),
         lat: asNumberOrNull(candidate.lat),
         lng: asNumberOrNull(candidate.lng),
       };
@@ -382,6 +392,7 @@ function toInterviewRoleplayQuestions(posts: RollespilAiInterviewQuestion[]): Qu
       answers: toRoleplayAnswers(index === 0 ? "" : (options[0] ?? ""), characterName, avatar),
       options: index === 0 ? [] : options,
       correctIndex: 0,
+      points: DEFAULT_QUESTION_POINTS,
       lat: null,
       lng: null,
     };
@@ -947,6 +958,7 @@ function RollespilBuilderPageContent() {
           ),
           options: (question.options ?? []).map((o) => o.trim()).filter(Boolean),
           correctIndex: 0,
+          points: normalizeQuestionPoints(question.points),
           mediaUrl: question.mediaUrl.trim(),
         };
       })

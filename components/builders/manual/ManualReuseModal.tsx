@@ -27,6 +27,7 @@ export type ManualReuseQuestion = {
   mediaUrl: string;
   answers: [string, string, string, string];
   correctIndex: number;
+  points: number;
   lat: number | null;
   lng: number | null;
 };

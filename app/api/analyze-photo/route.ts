@@ -15,6 +15,7 @@ import {
   ADMIN_ACCESS_MISSING_MESSAGE,
   createAdminClient,
 } from "@/utils/supabase/admin";
+import { getAwardedPoints } from "@/utils/questionPoints";
 
 export const maxDuration = 300;
 
@@ -31,6 +32,7 @@ type UploadedPhotoInput = {
 type AnalyzePhotoResult = {
   isMatch: boolean;
   message: string;
+  awardedPoints?: number;
   imageUrl: string | null;
   storedAnswer: boolean;
 };
@@ -302,6 +304,7 @@ async function persistPhotoAnalysisResult({
   studentName,
   postIndex,
   questionText,
+  awardedPoints,
   isMatch,
   message,
   imageUrl,
@@ -311,6 +314,7 @@ async function persistPhotoAnalysisResult({
   studentName: string;
   postIndex: number;
   questionText: string;
+  awardedPoints: number;
   isMatch: boolean;
   message: string;
   imageUrl: string | null;
@@ -336,6 +340,7 @@ async function persistPhotoAnalysisResult({
     selected_index: 0,
     answer_index: 0,
     is_correct: isMatch,
+    awarded_points: awardedPoints,
     question_text: questionText,
     answered_at: timestamp,
     created_at: timestamp,
@@ -513,6 +518,7 @@ Returner KUN et validt JSON-objekt med dette format:
     }
 
     let storedAnswer = false;
+    const awardedPoints = getAwardedPoints(rawQuestion, normalizedResult.isMatch);
     if (normalizedResult.isMatch) {
       storedAnswer = await persistPhotoAnalysisResult({
         sessionId,
@@ -520,6 +526,7 @@ Returner KUN et validt JSON-objekt med dette format:
         studentName,
         postIndex,
         questionText: getQuestionText(rawQuestion),
+        awardedPoints,
         isMatch: normalizedResult.isMatch,
         message: normalizedResult.message,
         imageUrl: uploadedPhoto.imageUrl,
@@ -528,6 +535,7 @@ Returner KUN et validt JSON-objekt med dette format:
 
     return NextResponse.json({
       ...normalizedResult,
+      awardedPoints,
       imageUrl: uploadedPhoto.imageUrl,
       storedAnswer,
     });

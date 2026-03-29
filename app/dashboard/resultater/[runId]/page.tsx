@@ -6,6 +6,7 @@ import { Poppins, Rubik } from "next/font/google";
 import AutoRefresh from "@/app/dashboard/resultater/[runId]/AutoRefresh";
 import ClearRunDataButton from "@/app/dashboard/resultater/[runId]/ClearRunDataButton";
 import StoredAnswerImage from "@/app/dashboard/resultater/[runId]/StoredAnswerImage";
+import { DEFAULT_QUESTION_POINTS } from "@/utils/questionPoints";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
 
@@ -48,6 +49,7 @@ type AnswerRecord = {
   post_index: number | null;
   question_index: number | null;
   is_correct: boolean | null;
+  awarded_points?: number | null;
   image_url?: string | null;
   analysis_message?: string | null;
   answered_at: string | null;
@@ -73,6 +75,7 @@ type ParticipantSummary = {
 type SessionSummary = LiveSessionRecord & {
   participantRows: ParticipantSummary[];
   answerCount: number;
+  totalPoints: number;
   correctAnswerCount: number;
   durationMs: number;
   leaderboardName: string;
@@ -85,6 +88,7 @@ type LeaderboardEntry = {
   teamName: string;
   participantCount: number;
   answerCount: number;
+  points: number;
   correctAnswerCount: number;
   durationMs: number;
 };
@@ -248,6 +252,14 @@ const parseTimestamp = (value: string | null | undefined) => {
 
   const timestamp = new Date(value).getTime();
   return Number.isNaN(timestamp) ? null : timestamp;
+};
+
+const getAwardedPointsValue = (answer: AnswerRecord) => {
+  if (typeof answer.awarded_points === "number" && Number.isFinite(answer.awarded_points)) {
+    return Math.max(0, Math.round(answer.awarded_points));
+  }
+
+  return answer.is_correct === true ? DEFAULT_QUESTION_POINTS : 0;
 };
 
 const getSessionDurationMs = (
@@ -641,8 +653,7 @@ function LeaderboardSection({ entries }: { entries: LeaderboardEntry[] }) {
             Holdenes placering
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-white/70">
-            Sessionerne er sorteret efter flest rigtige svar og derefter længste tid fra første til sidste
-            registrerede svar.
+            Sessionerne er sorteret efter flest point og derefter antal rigtige svar.
           </p>
         </div>
 
@@ -690,11 +701,11 @@ function LeaderboardSection({ entries }: { entries: LeaderboardEntry[] }) {
                 <div className="rounded-[1.5rem] border border-emerald-500/30 bg-emerald-500/10 px-4 py-4 text-white">
                   <p className="text-xs font-semibold tracking-[0.18em] text-white/70 uppercase">Point</p>
                   <p className={`mt-2 text-3xl font-black text-white ${rubik.className}`}>
-                    {entry.correctAnswerCount}
+                    {entry.points}
                   </p>
                   <p className="mt-1 text-sm text-white/70">
                     {entry.answerCount > 0
-                      ? `af ${entry.answerCount} registrerede svar var rigtige`
+                      ? `${entry.correctAnswerCount} rigtige svar af ${entry.answerCount} registrerede`
                       : "Ingen svar er registreret endnu"}
                   </p>
                 </div>
@@ -842,6 +853,7 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
       ...session,
       participantRows,
       answerCount: sessionAllAnswers.length,
+      totalPoints: sessionAllAnswers.reduce((sum, answer) => sum + getAwardedPointsValue(answer), 0),
       correctAnswerCount: sessionAllAnswers.filter((answer) => answer.is_correct === true).length,
       durationMs: getSessionDurationMs(session.created_at, participantRows, sessionAllAnswers),
       leaderboardName: getLeaderboardTeamName(participantRows, session.pin),
@@ -850,6 +862,10 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
 
   const leaderboardEntries: LeaderboardEntry[] = [...sessionsWithSummaries]
     .sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) {
+        return b.totalPoints - a.totalPoints;
+      }
+
       if (b.correctAnswerCount !== a.correctAnswerCount) {
         return b.correctAnswerCount - a.correctAnswerCount;
       }
@@ -873,6 +889,7 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
       teamName: session.leaderboardName,
       participantCount: session.participantRows.length,
       answerCount: session.answerCount,
+      points: session.totalPoints,
       correctAnswerCount: session.correctAnswerCount,
       durationMs: session.durationMs,
     }));
