@@ -2,83 +2,9 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
-import Link from "next/link";
-import Lottie from "lottie-react";
-import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useRef, useState } from "react";
-
-import AIChatButton from "@/components/AIChatButton";
-import natureAnimation from "@/public/nature.json";
-
-// WelcomeModal removed — onboarding flow deprecated
-
-type HomePageClientProps = {
-  isNativeGpslobApp: boolean;
-};
-
-// Testimonials-bobler data (præcis tekst, ingen fejl)
-const testimonialBubbles = [
-  {
-    name: "Eva Marie",
-    quote: "Mindblown – G.E.N.I.A.L.T! AI-generatoren fungerede over al forventning."
-  },
-  {
-    name: "Karsten",
-    quote: "Det her er ret fedt! Jeppe reagerer lynhurtigt."
-  },
-  {
-    name: "Thomas",
-    quote: "Det ser super fint ud. Glæder mig til at bruge det i praksis."
-  },
-  {
-    name: "Mette",
-    quote: "Ser spændende ud 👀 ⭐⭐⭐⭐⭐"
-  },
-];
-
-function OrganizerHint() {
-  return (
-    <div className="lg:hidden">
-      <div className="rounded-2xl border border-white/10 bg-slate-900/55 px-4 py-3 text-left shadow-[0_0_24px_rgba(15,23,42,0.22)] backdrop-blur-xl">
-        <p className="flex items-start gap-2 text-xs leading-5 text-slate-200/80 sm:text-sm">
-          <span className="mt-0.5 shrink-0 text-sm text-sky-200" aria-hidden>
-            {"\u2139\uFE0F"}
-          </span>
-          <span>
-            {
-              "Er du arrang\u00f8r eller l\u00e6rer, der skal oprette et l\u00f8b? \u{1F6E0}\uFE0F S\u00e5 skal du hoppe over p\u00e5 en computer p\u00e5 gpslob.dk. Her p\u00e5 mobilen kan du kun deltage i l\u00f8b."
-            }
-          </span>
-        </p>
-      </div>
-    </div>
+      </footer>
+    </>
   );
-}
-
-export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProps) {
-  const [code, setCode] = useState("");
-  const [codeError, setCodeError] = useState("");
-  const [, setShowIntroToken] = useState(0);
-  const [isMuted, setIsMuted] = useState(true);
-  const [isJoining, setIsJoining] = useState(false);
-  const backgroundVideoRef = useRef<HTMLVideoElement | null>(null);
-  const shouldReduceMotion = useReducedMotion();
-  const router = useRouter();
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (!params.get("code")) return;
-
-    const callbackUrl = new URL("/api/auth/callback", window.location.origin);
-    callbackUrl.search = params.toString();
-    if (!callbackUrl.searchParams.get("next")) {
-      callbackUrl.searchParams.set("next", "/dashboard");
-    }
-
-    window.location.replace(callbackUrl.toString());
-  }, []);
-
-  useEffect(() => {
     const video = backgroundVideoRef.current;
     if (!video) return;
 
