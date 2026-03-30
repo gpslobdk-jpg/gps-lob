@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Trash2, Camera, Images, FileText } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -890,8 +890,12 @@ export default function ScannerPortalPage() {
                     <button
                       type="button"
                       onClick={() => handleSourceSelect("camera")}
-                      className="group flex min-h-28 w-full flex-col justify-between rounded-4xl border border-white/15 bg-white/5 px-6 py-6 backdrop-blur-md transition hover:border-fuchsia-200/30 hover:bg-white/8 hover:shadow-[0_18px_40px_rgba(168,85,247,0.12)]"
+                      className="group flex min-h-28 w-full flex-col justify-center rounded-4xl border border-white/15 bg-white/5 px-6 py-6 text-center backdrop-blur-md transition hover:border-fuchsia-200/30 hover:bg-white/8 hover:shadow-[0_18px_40px_rgba(168,85,247,0.12)]"
                     >
+                      <Camera
+                        className="w-12 h-12 mx-auto mb-4 text-slate-300 drop-shadow-[0_0_12px_rgba(255,255,255,0.3)]"
+                        strokeWidth={1.5}
+                      />
                       <span className="text-[11px] font-medium uppercase tracking-[0.26em] text-white/45">
                         Live capture
                       </span>
@@ -906,8 +910,12 @@ export default function ScannerPortalPage() {
                     <button
                       type="button"
                       onClick={() => handleSourceSelect("upload")}
-                      className="group flex min-h-28 w-full flex-col justify-between rounded-4xl border border-white/15 bg-white/5 px-6 py-6 backdrop-blur-md transition hover:border-fuchsia-200/30 hover:bg-white/8 hover:shadow-[0_18px_40px_rgba(168,85,247,0.12)]"
+                      className="group flex min-h-28 w-full flex-col justify-center rounded-4xl border border-white/15 bg-white/5 px-6 py-6 text-center backdrop-blur-md transition hover:border-fuchsia-200/30 hover:bg-white/8 hover:shadow-[0_18px_40px_rgba(168,85,247,0.12)]"
                     >
+                      <Images
+                        className="w-12 h-12 mx-auto mb-4 text-slate-300 drop-shadow-[0_0_12px_rgba(255,255,255,0.3)]"
+                        strokeWidth={1.5}
+                      />
                       <span className="text-[11px] font-medium uppercase tracking-[0.26em] text-white/45">
                         Billeder
                       </span>
@@ -922,8 +930,12 @@ export default function ScannerPortalPage() {
                     <button
                       type="button"
                       onClick={() => handleSourceSelect("text")}
-                      className="group flex min-h-28 w-full flex-col justify-between rounded-4xl border border-white/15 bg-white/5 px-6 py-6 backdrop-blur-md transition hover:border-fuchsia-200/30 hover:bg-white/8 hover:shadow-[0_18px_40px_rgba(168,85,247,0.12)]"
+                      className="group flex min-h-28 w-full flex-col justify-center rounded-4xl border border-white/15 bg-white/5 px-6 py-6 text-center backdrop-blur-md transition hover:border-fuchsia-200/30 hover:bg-white/8 hover:shadow-[0_18px_40px_rgba(168,85,247,0.12)]"
                     >
+                      <FileText
+                        className="w-12 h-12 mx-auto mb-4 text-slate-300 drop-shadow-[0_0_12px_rgba(255,255,255,0.3)]"
+                        strokeWidth={1.5}
+                      />
                       <span className="text-[11px] font-medium uppercase tracking-[0.26em] text-white/45">
                         Tekst
                       </span>
