@@ -83,63 +83,11 @@ const getQuickActions = (pathname: string) => {
     .filter((action): action is QuickAction => Boolean(action));
 };
 
-const buildPageContext = (pathname: string) => {
-  if (pathname.includes("/opret/zone-krig")) {
-    return "Systemkontekst: Brugeren står i Zone-Krigen-builderen i GPSLØB. Svar altid på dansk. Hjælp som taktisk spildesigner. Fokuser på zoner, strategisk placering, pointpres, angreb/forsvar, variation i sværhedsgrad og 60-sekunders shields efter erobring.";
-  }
-
-  if (pathname.includes("/opret/scanner")) {
-    return "Systemkontekst: Brugeren står i Bog-Scanneren i GPSLØB. Svar altid på dansk. Hjælp med at vælge mellem rå tekst, bogsider og billeder, vurdere om materialet egner sig til quizspørgsmål og forklare hvordan Bog-Scanneren omsætter materialet til et quiz-løb.";
-  }
-
-  if (pathname.includes("/opret/podcast")) {
-    return "Systemkontekst: Brugeren står i Podcast-Detektiven i GPSLØB. Svar altid på dansk. Hjælp med at vurdere podcast-links, episodevalg, transcript-kvalitet og hvordan lydindhold kan blive til et skarpt quiz-løb.";
-  }
-
-  if (pathname.includes("/opret/manuel")) {
-    return "Systemkontekst: Brugeren står i Generel Quiz-builderen i GPSLØB. Svar altid på dansk. Hjælp med klassiske multiple-choice poster, præcis 4 svarmuligheder, gode titler til arkivet og med at afklare hvornår Generel Quiz er bedre end Bog-Scanneren, Podcast-Detektiven eller Zone-Krigen.";
-  }
-
-  if (pathname.includes("/opret/escape")) {
-    return 'Systemkontekst: Læreren er i gang med at bygge et Escape Room i GPSLØB. Svar altid på dansk. Vær proaktiv og tilbyd hjælp til at finde på en "Master Code", svære gåder, kodebrikker og små spor, som passer til et skoleløb.';
-  }
-
-  if (pathname.includes("/opret/rollespil")) {
-    return "Systemkontekst: Læreren bygger et rollespil i GPSLØB. Svar altid på dansk. Vær proaktiv og tilbyd hjælp til at opfinde sjove karakterer som trolde, agenter eller historiske personer samt dialoger og opgaver til posterne.";
-  }
-
-  if (pathname.includes("/resultater")) {
-    return "Systemkontekst: Læreren kigger på Leaderboardet for et løb i GPSLØB. Svar altid på dansk. Tilbyd gerne hjælp til at skrive en sjov tale, et vinderdiplom eller en kort præmiering, der kan læses op for holdene.";
-  }
-
-  return "Systemkontekst: Du er GPSLØB AI Arkitekten. Svar altid på dansk og hjælp brugeren med at vælge den rigtige builder, forstå næste klik og skelne mellem Generel Quiz, Bog-Scanneren, Podcast-Detektiven og Zone-Krigen, når det er relevant.";
-};
-
-const withPageContextMessage = (
-  messages: UIMessage[],
-  pageContext: string
-): UIMessage[] => {
-  const messagesWithoutContext = messages.filter(
-    (message) => message.id !== PAGE_CONTEXT_MESSAGE_ID
-  );
-
-  return [
-    {
-      id: PAGE_CONTEXT_MESSAGE_ID,
-      role: "system",
-      metadata: { hidden: true, type: "page-context" },
-      parts: [{ type: "text", text: pageContext }],
-    },
-    ...messagesWithoutContext,
-  ];
-};
-
 export default function AIChatButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const pathname = usePathname();
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
-  const pageContext = useMemo(() => buildPageContext(pathname), [pathname]);
   const quickActions = useMemo(() => getQuickActions(pathname), [pathname]);
   const welcomeMessage = useMemo(() => getWelcomeMessage(pathname), [pathname]);
 
@@ -159,14 +107,17 @@ export default function AIChatButton() {
           headers,
           body: {
             ...(body ?? {}),
-            messages: withPageContextMessage(messages, pageContext),
+            messages: messages.filter(
+              (message) => message.id !== PAGE_CONTEXT_MESSAGE_ID
+            ),
+            pathname,
           },
         }),
       }),
-    [pageContext]
+    [pathname]
   );
 
-  const { messages, sendMessage, setMessages, status, error, clearError } = useChat({
+  const { messages, sendMessage, status, error, clearError } = useChat({
     transport,
   });
   const isLoading = status === "submitted" || status === "streaming";
@@ -185,20 +136,6 @@ export default function AIChatButton() {
       window.cancelAnimationFrame(frameId);
     };
   }, [pathname]);
-
-  useEffect(() => {
-    setMessages((currentMessages) =>
-      withPageContextMessage(currentMessages, pageContext)
-    );
-  }, [pageContext, setMessages]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    setMessages((currentMessages) =>
-      withPageContextMessage(currentMessages, pageContext)
-    );
-  }, [isOpen, pageContext, setMessages]);
 
   const chatMessages = useMemo(
     () =>

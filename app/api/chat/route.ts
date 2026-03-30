@@ -4,6 +4,50 @@ import { NextResponse } from "next/server";
 
 export const maxDuration = 60;
 
+const getRouteContext = (pathname: string) => {
+  if (pathname.includes("/dashboard/opret/scanner")) {
+    return "Aktuel sidekontekst: Brugeren befinder sig i Scanneren, hvor de kan tage billeder af bogsider, uploade billeder eller indsætte tekst for at bygge et løb.";
+  }
+
+  if (pathname.includes("/dashboard/opret/podcast")) {
+    return "Aktuel sidekontekst: Brugeren befinder sig i Podcast-Detektiven, hvor de kan indsætte et podcast- eller videolink og bygge spørgsmål ud fra lyd og transcript.";
+  }
+
+  if (pathname.includes("/dashboard/opret/escape")) {
+    return "Aktuel sidekontekst: Brugeren befinder sig i Escape Room-builderen, hvor de bygger poster, gåder, spor og en master-kode.";
+  }
+
+  if (pathname.includes("/dashboard/opret/engelsk")) {
+    return "Aktuel sidekontekst: Brugeren befinder sig i Engelsk-builderen, hvor de laver sproglige poster, quizspørgsmål og eventuelle foto-poster til klassetrin.";
+  }
+
+  if (pathname.includes("/dashboard/opret/dansk")) {
+    return "Aktuel sidekontekst: Brugeren befinder sig i Dansk-builderen, hvor de laver poster om læsning, sprog og analyse til klassetrin.";
+  }
+
+  if (pathname.includes("/dashboard/opret/matematik")) {
+    return "Aktuel sidekontekst: Brugeren befinder sig i Matematik-builderen, hvor de laver regnehistorier, opgaver og eventuelle foto-poster til klassetrin.";
+  }
+
+  if (pathname.includes("/dashboard/opret/manuel")) {
+    return "Aktuel sidekontekst: Brugeren befinder sig i Generel Quiz-builderen, hvor de bygger klassiske quizposter med fire svarmuligheder.";
+  }
+
+  if (pathname.includes("/dashboard/opret/foto")) {
+    return "Aktuel sidekontekst: Brugeren befinder sig i Foto mission-builderen, hvor de laver foto-opgaver og beskriver, hvad eleverne skal fotografere.";
+  }
+
+  if (pathname.includes("/dashboard/opret/rollespil")) {
+    return "Aktuel sidekontekst: Brugeren befinder sig i Rollespil-builderen, hvor de skaber karakterer, introer, dialog og quizposter.";
+  }
+
+  if (pathname.includes("/dashboard/opret/selfie")) {
+    return "Aktuel sidekontekst: Brugeren befinder sig i Selfie-builderen, hvor de laver selfie-poster og vælger, hvad billedtjekket skal genkende.";
+  }
+
+  return "";
+};
+
 const SYSTEM_PROMPT = `
 Du er "GPSLØB AI Arkitekten".
 
@@ -140,12 +184,20 @@ export async function POST(req: Request) {
       );
     }
 
-    const { messages } = (await req.json()) as { messages?: UIMessage[] };
+    const { messages, pathname } = (await req.json()) as {
+      messages?: UIMessage[];
+      pathname?: string;
+    };
     const uiMessages = Array.isArray(messages) ? messages : [];
+    const routeContext =
+      typeof pathname === "string" ? getRouteContext(pathname) : "";
+    const systemPrompt = routeContext
+      ? `${SYSTEM_PROMPT}\n\n${routeContext}`
+      : SYSTEM_PROMPT;
 
     const result = streamText({
       model: openai("gpt-4o-mini"),
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       messages: await convertToModelMessages(uiMessages),
       temperature: 0.4,
     });
