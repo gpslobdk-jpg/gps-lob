@@ -57,7 +57,7 @@ const zenBubbles = [
       rotate: [0, -1, 0, 1.2, 0],
     },
   },
-] as const;
+];
 
 function OrganizerHint() {
   return (
