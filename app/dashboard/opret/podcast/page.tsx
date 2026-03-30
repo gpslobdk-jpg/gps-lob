@@ -43,7 +43,7 @@ export default function PodcastDetektivPage() {
 
   const loadingLabel = (() => {
     if (loadingStep === "scraping") return "🕵️‍♂️ Lytter til podcasten...";
-    if (loadingStep === "building") return "🧠 AI'en bygger 8 skarpe spørgsmål...";
+    if (loadingStep === "building") return "🧠 Den smarte motor bygger 8 skarpe spørgsmål...";
     return "Analysér & Byg Løb";
   })();
 
@@ -86,7 +86,7 @@ export default function PodcastDetektivPage() {
       };
 
       if (!builderResult.success || !builderResult.questions?.length) {
-        throw new Error(builderResult.error ?? "AI'en kunne ikke bygge spørgsmål. Prøv igen.");
+        throw new Error(builderResult.error ?? "Spørgsmålene kunne ikke bygges automatisk. Prøv igen.");
       }
 
       console.log("Scraper + builder resultat:", { title, questions: builderResult.questions });

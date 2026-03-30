@@ -1166,7 +1166,7 @@ function OpretLoebPageContent() {
     if (!nextTitle || nextQuestions.length === 0) {
       setNotice({
         tone: "error",
-        message: "AI'en returnerede et ugyldigt løbsudkast. Prøv igen.",
+        message: "Det auto-genererede udkast kunne ikke bruges. Prøv igen.",
       });
       return;
     }
@@ -1178,7 +1178,7 @@ function OpretLoebPageContent() {
 
     if (hasExistingContent) {
       const shouldReplace = window.confirm(
-        "AI-udkastet erstatter de nuværende felter i builderen. Vil du fortsætte?"
+        "Det auto-genererede udkast erstatter de nuværende felter i builderen. Vil du fortsætte?"
       );
 
       if (!shouldReplace) {
@@ -1200,7 +1200,7 @@ function OpretLoebPageContent() {
     setShowAiInterviewModal(false);
     setNotice({
       tone: "success",
-      message: "AI har klargjort et komplet quiz-løb. Gennemgå felterne og placer posterne på kortet.",
+      message: "Et komplet udkast er klar til dit quiz-løb. Gennemgå felterne og placer posterne på kortet.",
     });
   };
 
@@ -1567,13 +1567,13 @@ function OpretLoebPageContent() {
                             onChange={(event) => updateQuestion(question.id, { text: event.target.value })}
                             disabled={isEditorBusy}
                             rows={4}
-                            placeholder="f.eks. Find et rødt bøgeblad. Vores AI tjekker billedet med det samme (og husk: man kan ikke snyde ved at fotografere en skærm!)."
+                            placeholder="f.eks. Find et rødt bøgeblad. Systemet tjekker billedet med det samme (og husk: man kan ikke snyde ved at fotografere en skærm!)."
                             className={textareaClass}
                           />
                         </div>
 
                         <div className="mt-4 rounded-[1.25rem] border border-emerald-500/30 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-50/85">
-                          Denne foto-post bruger AI-billedtjek under spillet, så den har ikke svarmuligheder.
+                          Denne foto-post bruger automatisk billedtjek under spillet, så den har ikke svarmuligheder.
                         </div>
                       </>
                     ) : (
@@ -1728,10 +1728,10 @@ function OpretLoebPageContent() {
             </span>
             <span>
               <span className="block text-sm font-black uppercase tracking-[0.16em]">
-                Auto-udfyld med AI
+                Smart auto-udfyldning
               </span>
               <span className="mt-1 block text-sm leading-6 text-emerald-100/72">
-                Lad AI interviewe dig og klargøre et komplet udkast til løbet.
+                Lad assistenten stille dig spørgsmål og klargøre et komplet udkast til løbet.
               </span>
             </span>
           </button>
@@ -1792,7 +1792,7 @@ function OpretLoebPageContent() {
                 ))}
               </select>
               <p className="mt-2 text-sm leading-6 text-emerald-100/68">
-                Faget bruges til arkiv, genbrug og AI-hjælp, men ligger her for at holde titelområdet rent.
+                Faget bruges til arkiv, genbrug og smart hjælp, men ligger her for at holde titelområdet rent.
               </p>
             </div>
 
@@ -1932,7 +1932,7 @@ function OpretLoebPageContent() {
                       </h2>
                     </div>
                     <div className="text-right text-sm text-slate-600">
-                      <p>{isPhotoMission ? "AI-billede" : "Multiple choice"}</p>
+                      <p>{isPhotoMission ? "Billedtjek" : "Multiple choice"}</p>
                     </div>
                   </div>
 

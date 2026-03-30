@@ -699,7 +699,7 @@ function EscapeBuilderPageContent() {
     if (!nextTitle || !nextMasterCode || nextQuestions.length === 0) {
       setNotice({
         tone: "error",
-        message: "AI'en returnerede ingen brugbare escape-gåder. Prøv igen.",
+        message: "Der kom ingen brugbare forslag til escape-gåder. Prøv igen.",
       });
       return;
     }
@@ -707,7 +707,7 @@ function EscapeBuilderPageContent() {
     if (nextMasterCode.length !== draft.puzzles.length || nextMasterCode.length !== nextQuestions.length) {
       setNotice({
         tone: "error",
-        message: "AI'ens master-kode passer ikke til antallet af poster. Prøv igen.",
+        message: "Den foreslåede master-kode passer ikke til antallet af poster. Prøv igen.",
       });
       return;
     }
@@ -719,7 +719,7 @@ function EscapeBuilderPageContent() {
 
     if (hasExistingContent) {
       const shouldReplace = window.confirm(
-        "AI-udkastet erstatter de nuværende escape-poster i builderen. Vil du fortsætte?"
+        "Det auto-genererede udkast erstatter de nuværende escape-poster i builderen. Vil du fortsætte?"
       );
 
       if (!shouldReplace) {
@@ -737,7 +737,7 @@ function EscapeBuilderPageContent() {
     setShowAiInterviewModal(false);
     setNotice({
       tone: "success",
-      message: "AI har klargjort et komplet escape room. Gennemgå felterne og placer posterne på kortet.",
+      message: "Et komplet udkast er klar til dit escape room. Gennemgå felterne og placer posterne på kortet.",
     });
   };
 
@@ -954,7 +954,7 @@ function EscapeBuilderPageContent() {
 
                 <div className="mb-8">
                   <h3 className="text-xl font-semibold text-amber-100">Velkommen til Escape Room løbet.</h3>
-                  <p className="mt-2 text-sm text-amber-100/80">Placer dine poster på kortet, og skriv en udfordrende gåde til hver lokation. Eleverne skal løse gåderne ude på ruten for at indsamle brikker til en endelig master-kode. Mangler du idéer, kan du bruge den indbyggede AI-assistent til at generere gåderne for dig.</p>
+                  <p className="mt-2 text-sm text-amber-100/80">Placer dine poster på kortet, og skriv en udfordrende gåde til hver lokation. Eleverne skal løse gåderne ude på ruten for at indsamle brikker til en endelig master-kode. Mangler du idéer, kan du bruge den indbyggede smarte assistent til at generere gåderne for dig.</p>
                   <button
                     type="button"
                     onClick={() => {
@@ -965,7 +965,7 @@ function EscapeBuilderPageContent() {
                     className={`${aiActionButtonClass} mt-4 rounded-full px-4 py-2 text-xs`}
                   >
                     <span aria-hidden>✨</span>
-                    AI-udfyld
+                    Smart udfyldning
                   </button>
                 </div>
 
@@ -1213,4 +1213,3 @@ function EscapeBuilderPageContent() {
     </>
   );
 }
-

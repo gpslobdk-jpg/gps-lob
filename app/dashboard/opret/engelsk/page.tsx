@@ -993,7 +993,7 @@ function OpretEngelskLoebPageContent() {
     if (!nextTitle || nextQuestions.length === 0) {
       setNotice({
         tone: "error",
-        message: "AI'en returnerede et ugyldigt løbsudkast. Prøv igen.",
+        message: "Det auto-genererede udkast kunne ikke bruges. Prøv igen.",
       });
       return;
     }
@@ -1005,7 +1005,7 @@ function OpretEngelskLoebPageContent() {
 
     if (hasExistingContent) {
       const shouldReplace = window.confirm(
-        "AI-udkastet erstatter de nuværende felter i builderen. Vil du fortsætte?"
+        "Det auto-genererede udkast erstatter de nuværende felter i builderen. Vil du fortsætte?"
       );
 
       if (!shouldReplace) {
@@ -1257,7 +1257,7 @@ function OpretEngelskLoebPageContent() {
                       <div>
                         <h3 className="text-xl font-semibold text-white">Velkommen til Engelsk-løbet</h3>
                         <p className="mt-1 text-sm text-indigo-100/80">
-                          Giv engelskundervisningen nyt liv ved at rykke grammar, vocabulary, reading og kultur ud i den friske luft. Placer posterne på kortet, og indtast engelskfaglige spørgsmål med fire svarmuligheder. Du kan skrive dem selv, eller lade vores AI-assistent bygge et skræddersyet løb til dit klassetrin på få sekunder.
+                          Giv engelskundervisningen nyt liv ved at rykke grammar, vocabulary, reading og kultur ud i den friske luft. Placer posterne på kortet, og indtast engelskfaglige spørgsmål med fire svarmuligheder. Du kan skrive dem selv, eller lade vores smarte assistent bygge et skræddersyet løb til dit klassetrin på få sekunder.
                         </p>
                       </div>
                     </div>
@@ -1316,7 +1316,7 @@ function OpretEngelskLoebPageContent() {
                       Klassetrin
                     </label>
                     <p className="mb-4 text-sm text-indigo-100/75">
-                      Vælg et eller flere klassetrin. Valget gemmes på løbet og sendes også videre til AI&apos;en.
+                      Vælg et eller flere klassetrin. Valget gemmes på løbet og sendes også videre til assistenten.
                     </p>
                     <GradeLevelMultiSelect
                       selectedGradeLevels={gradeLevels}
@@ -1424,7 +1424,7 @@ function OpretEngelskLoebPageContent() {
                           </div>
 
                           <div className="mt-4 rounded-[1.25rem] border border-indigo-500/35 bg-slate-950/65 px-4 py-3 text-sm text-white/85">
-                            Denne foto-post bruger AI-billedtjek under spillet, så den har ikke svarmuligheder.
+                            Denne foto-post bruger automatisk billedtjek under spillet, så den har ikke svarmuligheder.
                           </div>
                         </>
                       ) : (
@@ -1573,7 +1573,7 @@ function OpretEngelskLoebPageContent() {
                 <BookOpenText className="h-4 w-4" />
               </span>
               <span>
-                <span className="block text-sm font-black uppercase tracking-[0.16em]">English AI (Grammar and Culture)</span>
+                <span className="block text-sm font-black uppercase tracking-[0.16em]">English Assistant (Grammar and Culture)</span>
                 <span className="mt-1 block text-sm leading-6 text-indigo-100/72">Build an English run with grammar, vocabulary, reading and culture for your selected grade levels.</span>
               </span>
             </button>
@@ -1630,7 +1630,7 @@ function OpretEngelskLoebPageContent() {
                 </span>
                 <span>
                   <span className="block text-sm font-black uppercase tracking-[0.16em]">Builder-status</span>
-                  <span className="mt-1 block text-sm leading-6 text-indigo-100/68">Grade levels remain visible in the workspace, so AI scope and difficulty are always easy to tune.</span>
+                  <span className="mt-1 block text-sm leading-6 text-indigo-100/68">Grade levels remain visible in the workspace, so the assistant's scope and difficulty are always easy to tune.</span>
                 </span>
               </div>
             </div>
@@ -1731,7 +1731,7 @@ function OpretEngelskLoebPageContent() {
                         </h2>
                       </div>
                       <div className="text-right text-sm text-slate-600">
-                        <p>{isPhotoMission ? "AI-billede" : "Multiple choice"}</p>
+                        <p>{isPhotoMission ? "Billedtjek" : "Multiple choice"}</p>
                       </div>
                     </div>
 

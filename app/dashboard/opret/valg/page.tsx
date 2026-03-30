@@ -53,7 +53,7 @@ const fagligeCards: BuilderCard[] = [
   {
     raceType: "engelsk",
     title: "Engelsk",
-    description: "Opret interaktive engelsk-løb med AI-samtaletræning og sproglige missioner.",
+    description: "Opret interaktive engelsk-løb med smart samtaletræning og sproglige missioner.",
     href: "/dashboard/opret/engelsk",
     accentClass:
       "border-indigo-500/75 bg-indigo-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(99,102,241,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
@@ -105,7 +105,7 @@ const aiCards: BuilderCard[] = [
   {
     raceType: "scanner",
     title: "Scan bogen",
-    description: "Upload en bogside eller indsæt tekst, og lad AI omsætte den til et færdigt løb.",
+    description: "Upload en bogside eller indsæt tekst, og lad den smarte motor omsætte den til et færdigt løb.",
     href: "/dashboard/opret/scanner",
     accentClass:
       "border-fuchsia-500/75 bg-fuchsia-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(217,70,239,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
@@ -117,7 +117,7 @@ const aiCards: BuilderCard[] = [
   {
     raceType: "podcast",
     title: "Podcast-Detektiven",
-    description: "Indsæt et link, og lad AI'en bygge et løb ud fra lyden.",
+    description: "Indsæt et link, og lad den smarte motor bygge et løb ud fra lyden.",
     href: "/dashboard/opret/podcast",
     accentClass:
       "border-purple-500/75 bg-purple-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(147,51,234,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",

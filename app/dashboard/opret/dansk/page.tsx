@@ -992,7 +992,7 @@ function OpretDanskLoebPageContent() {
     if (!nextTitle || nextQuestions.length === 0) {
       setNotice({
         tone: "error",
-        message: "AI'en returnerede et ugyldigt løbsudkast. Prøv igen.",
+        message: "Det auto-genererede udkast kunne ikke bruges. Prøv igen.",
       });
       return;
     }
@@ -1004,7 +1004,7 @@ function OpretDanskLoebPageContent() {
 
     if (hasExistingContent) {
       const shouldReplace = window.confirm(
-        "AI-udkastet erstatter de nuværende felter i builderen. Vil du fortsætte?"
+        "Det auto-genererede udkast erstatter de nuværende felter i builderen. Vil du fortsætte?"
       );
 
       if (!shouldReplace) {
@@ -1248,7 +1248,7 @@ function OpretDanskLoebPageContent() {
                       <div>
                         <h3 className="text-xl font-semibold text-rose-50">Velkommen til Dansk-løbet</h3>
                         <p className="mt-1 text-sm text-rose-100/80">
-                          Giv danskundervisningen nyt liv ved at rykke læsning, sprog og analyse ud i den friske luft. Placer posterne på kortet, og indtast danskfaglige spørgsmål med fire svarmuligheder. Du kan skrive dem selv, eller lade vores kloge AI-assistent bygge et skræddersyet løb til dit klassetrin på få sekunder.
+                          Giv danskundervisningen nyt liv ved at rykke læsning, sprog og analyse ud i den friske luft. Placer posterne på kortet, og indtast danskfaglige spørgsmål med fire svarmuligheder. Du kan skrive dem selv, eller lade vores smarte assistent bygge et skræddersyet løb til dit klassetrin på få sekunder.
                         </p>
                       </div>
                     </div>
@@ -1309,7 +1309,7 @@ function OpretDanskLoebPageContent() {
                       Klassetrin
                     </label>
                     <p className="mb-4 text-sm text-rose-100/75">
-                      Vælg et eller flere klassetrin. Valget gemmes på løbet og bruges også af AI&apos;en.
+                      Vælg et eller flere klassetrin. Valget gemmes på løbet og bruges også af assistenten.
                     </p>
                     <GradeLevelMultiSelect
                       selectedGradeLevels={gradeLevels}
@@ -1415,7 +1415,7 @@ function OpretDanskLoebPageContent() {
                           </div>
 
                           <div className="mt-4 rounded-[1.25rem] border border-rose-500/30 bg-rose-950/30 px-4 py-3 text-sm text-rose-50/85">
-                            Denne foto-post bruger AI-billedtjek under spillet, så den har ikke svarmuligheder.
+                            Denne foto-post bruger automatisk billedtjek under spillet, så den har ikke svarmuligheder.
                           </div>
                         </>
                       ) : (
@@ -1567,7 +1567,7 @@ function OpretDanskLoebPageContent() {
                 <BookOpenText className="h-4 w-4" />
               </span>
               <span>
-                <span className="block text-sm font-black uppercase tracking-[0.16em]">Dansk-AI (Laesning og Analyse)</span>
+                <span className="block text-sm font-black uppercase tracking-[0.16em]">Dansk-assistent (Læsning og Analyse)</span>
                 <span className="mt-1 block text-sm leading-6 text-rose-100/72">Byg et danskloeb med laesning, sprog og analyse til de valgte klassetrin.</span>
               </span>
             </button>
@@ -1629,7 +1629,7 @@ function OpretDanskLoebPageContent() {
                 </span>
                 <span>
                   <span className="block text-sm font-black uppercase tracking-[0.16em]">Builder-status</span>
-                  <span className="mt-1 block text-sm leading-6 text-rose-100/68">Klassetrin ligger fortsat synligt i arbejdsfladen, så AI og niveauvalg er lette at justere undervejs.</span>
+                  <span className="mt-1 block text-sm leading-6 text-rose-100/68">Klassetrin ligger fortsat synligt i arbejdsfladen, så du let kan justere både assistenten og niveauvalg undervejs.</span>
                 </span>
               </div>
             </div>
@@ -1730,7 +1730,7 @@ function OpretDanskLoebPageContent() {
                         </h2>
                       </div>
                       <div className="text-right text-sm text-slate-600">
-                        <p>{isPhotoMission ? "AI-billede" : "Multiple choice"}</p>
+                        <p>{isPhotoMission ? "Billedtjek" : "Multiple choice"}</p>
                       </div>
                     </div>
 

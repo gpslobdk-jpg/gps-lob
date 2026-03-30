@@ -700,7 +700,7 @@ export default function ScannerPortalPage() {
 
   function handleStepThreeNext() {
     if (!canContinueFromStep3) {
-      setError("Vælg et fag, så AI'en kan ramme den rigtige vinkel.");
+      setError("Vælg et fag, så den smarte motor kan ramme den rigtige vinkel.");
       return;
     }
 
@@ -788,12 +788,12 @@ export default function ScannerPortalPage() {
             "error" in payload &&
             typeof payload.error === "string"
             ? payload.error
-            : "AI'en kunne ikke bygge løbet lige nu."
+            : "Løbet kunne ikke bygges automatisk lige nu."
         );
       }
 
       if (!isGeneratedRunPayload(payload)) {
-        throw new Error("AI'en returnerede et ugyldigt løbsformat.");
+        throw new Error("Det auto-genererede løb havde et ugyldigt format.");
       }
 
       const sourceSummary =
@@ -814,7 +814,7 @@ export default function ScannerPortalPage() {
       console.error("Fejl ved scanner-generering:", requestError);
       setError(
         requestError instanceof Error && requestError.name === "AbortError"
-          ? "AI'en er stadig i gang med at læse materialet. Prøv igen om et øjeblik."
+          ? "Den smarte motor læser stadig materialet. Prøv igen om et øjeblik."
           : requestError instanceof Error
             ? requestError.message
             : "Noget gik galt, mens løbet blev bygget. Prøv igen om et øjeblik."
@@ -943,7 +943,7 @@ export default function ScannerPortalPage() {
                         Indsæt et tekstudsnit
                       </span>
                       <span className="mt-2 text-sm leading-6 text-white/60">
-                        Kopiér indholdet direkte ind og lad AI&apos;en bygge spørgsmålene ud fra det.
+                        Kopiér indholdet direkte ind og lad den smarte motor bygge spørgsmålene ud fra det.
                       </span>
                     </button>
                   </div>
@@ -955,7 +955,7 @@ export default function ScannerPortalPage() {
                       href="/ophavsret"
                       className="font-medium text-fuchsia-100 underline decoration-fuchsia-200/35 underline-offset-4 transition hover:text-white"
                     >
-                      Læs mere om Ophavsret &amp; AI
+                      Læs mere om Ophavsret &amp; smarte værktøjer
                     </Link>
                     .
                   </p>
@@ -978,10 +978,10 @@ export default function ScannerPortalPage() {
                   </h2>
                   <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-white/65 sm:text-lg">
                     {sourceMode === "text"
-                      ? "Indsæt den tekst, som AI'en skal bygge løbet ud fra. Hold det skarpt og relevant."
+                      ? "Indsæt den tekst, som den smarte motor skal bygge løbet ud fra. Hold det skarpt og relevant."
                       : sourceMode === "upload"
-                        ? "Upload op til 5 klare billeder, så AI'en kan læse og forstå materialet med høj præcision."
-                        : "Tag et roligt og tydeligt billede, så teksten står skarpt for AI'en."}
+                        ? "Upload op til 5 klare billeder, så den smarte motor kan læse og forstå materialet med høj præcision."
+                        : "Tag et roligt og tydeligt billede, så teksten står skarpt for den smarte motor."}
                   </p>
 
                   {selectedSourceLabel ? (
@@ -1195,7 +1195,7 @@ export default function ScannerPortalPage() {
                     Finjustér rammen
                   </h2>
                   <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-white/65 sm:text-lg">
-                    Vælg fag, niveau og længde, så AI&apos;en rammer den rigtige vinkel første gang.
+                    Vælg fag, niveau og længde, så den smarte motor rammer den rigtige vinkel første gang.
                   </p>
 
                   <div className="mt-10 space-y-8 text-left">
@@ -1300,7 +1300,7 @@ export default function ScannerPortalPage() {
                     Byg løbet
                   </h2>
                   <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-white/65 sm:text-lg">
-                    AI&apos;en bygger nu et komplet quiz-løb ud fra dit materiale og sender det direkte videre til builderen.
+                    Den smarte motor bygger nu et komplet quiz-løb ud fra dit materiale og sender det direkte videre til builderen.
                   </p>
 
                   <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
@@ -1325,7 +1325,7 @@ export default function ScannerPortalPage() {
                       <div className="rounded-4xl border border-white/15 bg-white/5 px-6 py-12 text-center backdrop-blur-md shadow-[0_18px_40px_rgba(168,85,247,0.08)]">
                         <Loader2 className="mx-auto h-10 w-10 animate-spin text-fuchsia-100" />
                         <p className="mt-6 text-2xl font-semibold tracking-tight text-white">
-                          AI&apos;en læser materialet
+                          Den smarte motor læser materialet
                         </p>
                         <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-white/55">
                           Vi bygger titel, beskrivelse og præcis det antal poster, du har valgt.

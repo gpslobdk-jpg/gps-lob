@@ -750,7 +750,7 @@ function FotoMissionBuilderPageContent() {
     if (!nextTitle || nextQuestions.length === 0) {
       setNotice({
         tone: "error",
-        message: "AI'en returnerede ingen brugbare foto-missioner. Prøv igen.",
+        message: "Der kom ingen brugbare forslag til foto-missioner. Prøv igen.",
       });
       return;
     }
@@ -761,7 +761,7 @@ function FotoMissionBuilderPageContent() {
 
     if (hasExistingContent) {
       const shouldReplace = window.confirm(
-        "AI-udkastet erstatter de nuværende missioner i builderen. Vil du fortsætte?"
+        "Det auto-genererede udkast erstatter de nuværende missioner i builderen. Vil du fortsætte?"
       );
 
       if (!shouldReplace) {
@@ -778,7 +778,7 @@ function FotoMissionBuilderPageContent() {
     setShowAiInterviewModal(false);
     setNotice({
       tone: "success",
-      message: "AI har klargjort et komplet foto-løb. Gennemgå felterne og placer missionerne på kortet.",
+      message: "Et komplet udkast er klar til dit foto-løb. Gennemgå felterne og placer missionerne på kortet.",
     });
   };
 
@@ -988,7 +988,7 @@ function FotoMissionBuilderPageContent() {
                       className={`${aiActionButtonClass} mt-4 w-full sm:w-auto`}
                     >
                       <span aria-hidden>✨</span>
-                      Auto-udfyld med AI
+                      Smart auto-udfyldning
                     </button>
                   </div>
 
@@ -1085,7 +1085,7 @@ function FotoMissionBuilderPageContent() {
                       </div>
                     </div>
                     <span className="rounded-full border border-sky-500/30 bg-sky-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-sky-100/75 uppercase backdrop-blur-xl">
-                      AI foto
+                      Foto med billedtjek
                     </span>
                   </div>
 

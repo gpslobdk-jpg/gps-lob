@@ -879,7 +879,7 @@ function RollespilBuilderPageContent() {
     if (!nextTitle || nextQuestions.length === 0) {
       setNotice({
         tone: "error",
-        message: "AI'en returnerede ingen brugbare rolleposter. Prøv igen.",
+        message: "Der kom ingen brugbare forslag til rolleposter. Prøv igen.",
       });
       return;
     }
@@ -887,7 +887,7 @@ function RollespilBuilderPageContent() {
     if ((nextQuestions[0]?.postType ?? "quiz") !== "intro") {
       setNotice({
         tone: "error",
-        message: "AI'en returnerede ikke en gyldig intro-post. Prøv igen.",
+        message: "Der kom ikke en gyldig intro-post tilbage. Prøv igen.",
       });
       return;
     }
@@ -898,7 +898,7 @@ function RollespilBuilderPageContent() {
 
     if (hasExistingContent) {
       const shouldReplace = window.confirm(
-        "AI-udkastet erstatter de nuværende rolleposter i builderen. Vil du fortsætte?"
+        "Det auto-genererede udkast erstatter de nuværende rolleposter i builderen. Vil du fortsætte?"
       );
 
       if (!shouldReplace) {
@@ -916,7 +916,7 @@ function RollespilBuilderPageContent() {
     setShowAiInterviewModal(false);
     setNotice({
       tone: "success",
-      message: "AI har klargjort et komplet rollespil. Gennemgå felterne og placer posterne på kortet.",
+      message: "Et komplet udkast er klar til dit rollespil. Gennemgå felterne og placer posterne på kortet.",
     });
   };
 
@@ -1132,7 +1132,7 @@ function RollespilBuilderPageContent() {
                   <h2 className="text-xl font-semibold text-white mb-2">
                     {activePinQuestionId !== null ? "LYTTER EFTER KLIK" : "Velkommen til det klassiske rollespil."}
                   </h2>
-                  <p className="text-sm text-muted-foreground">Her bygger du en fortaelling i jeg-form, hvor eleverne møder en karakter, f.eks. en historisk person som Christian d. 4. Den første post er altid en personlig introduktion, hvor karakteren fortaeller om sig selv, sin tid og sin mission. Det er denne tekst, der satter scenen og giver eleverne den viden, de skal bruge i de efterfolgende quiz-sporgsmal. Eleverne kan fa historien last hojt direkte pa deres telefon, mens de bevager sig ude pa ruten, sa de lettere kan leve sig ind i fortaellingen. Brug AI-assistenten til at generere bade introduktionen og de efterfolgende sporgsmal, sa sproget passer til din valgte figur.</p>
+                  <p className="text-sm text-muted-foreground">Her bygger du en fortaelling i jeg-form, hvor eleverne møder en karakter, f.eks. en historisk person som Christian d. 4. Den første post er altid en personlig introduktion, hvor karakteren fortaeller om sig selv, sin tid og sin mission. Det er denne tekst, der satter scenen og giver eleverne den viden, de skal bruge i de efterfolgende quiz-sporgsmal. Eleverne kan fa historien last hojt direkte pa deres telefon, mens de bevager sig ude pa ruten, sa de lettere kan leve sig ind i fortaellingen. Brug den smarte assistent til at generere bade introduktionen og de efterfolgende sporgsmal, sa sproget passer til din valgte figur.</p>
                   <button
                     type="button"
                     onClick={() => {
@@ -1141,7 +1141,7 @@ function RollespilBuilderPageContent() {
                     }}
                     className={`${aiActionButtonClass} mt-4 w-full sm:w-auto`}
                   >
-                    Auto-udfyld historie med AI
+                    Smart historieudfyldning
                   </button>
                 </div>
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-violet-100/65 uppercase">

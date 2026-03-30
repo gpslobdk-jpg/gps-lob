@@ -19,7 +19,7 @@ type HomePageClientProps = {
 const zenBubbles = [
   {
     name: "Eva Marie",
-    quote: "Mindblown – G.E.N.I.A.L.T! AI-generatoren fungerede over al forventning.",
+    quote: "Mindblown – G.E.N.I.A.L.T! Den smarte generator fungerede over al forventning.",
     position: "top-[14%] left-[10%]",
     animation: {
       y: [0, -10, 0, 8, 0],

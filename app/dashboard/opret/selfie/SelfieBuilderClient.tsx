@@ -554,7 +554,7 @@ export default function SelfieBuilderClient() {
     if (!nextTitle || !nextDescription || nextQuestions.length === 0) {
       setNotice({
         tone: "error",
-        message: "AI'en returnerede ingen brugbare selfie-poster. Prøv igen.",
+        message: "Der kom ingen brugbare forslag til selfie-poster. Prøv igen.",
       });
       return;
     }
@@ -566,7 +566,7 @@ export default function SelfieBuilderClient() {
 
     if (hasExistingContent) {
       const shouldReplace = window.confirm(
-        "AI-udkastet erstatter de nuværende selfie-poster i builderen. Vil du fortsætte?"
+        "Det auto-genererede udkast erstatter de nuværende selfie-poster i builderen. Vil du fortsætte?"
       );
 
       if (!shouldReplace) {
@@ -583,7 +583,7 @@ export default function SelfieBuilderClient() {
     setQuestions(nextQuestions);
     setNotice({
       tone: "success",
-      message: "AI har klargjort en komplet selfie-jagt. Gennemgå felterne og placer posterne på kortet.",
+      message: "Et komplet udkast er klar til din selfie-jagt. Gennemgå felterne og placer posterne på kortet.",
     });
   };
 
@@ -639,7 +639,7 @@ export default function SelfieBuilderClient() {
     if (hasIncompleteQuestions) {
       setNotice({
         tone: "error",
-        message: "Udfyld både hvad AI'en skal genkende og instruktionen til deltagerne på hver post.",
+        message: "Udfyld både hvad systemet skal genkende og instruktionen til deltagerne på hver post.",
       });
       scrollToSaveFeedback();
       return;
@@ -854,7 +854,7 @@ export default function SelfieBuilderClient() {
                     className={`${aiActionButtonClass} rounded-full px-4 py-2 text-xs`}
                   >
                     <span aria-hidden>✨</span>
-                    AI-udfyld
+                    Smart udfyldning
                   </button>
 
                   <div className="flex items-end justify-between gap-4">
@@ -892,7 +892,7 @@ export default function SelfieBuilderClient() {
 
                     <div className="mt-4">
                       <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
-                        Hvad skal AI genkende? (Hold det bredt og tilgivende, f.eks. &quot;ansigter&quot;)
+                        Hvad skal billedtjekket genkende? (Hold det bredt og tilgivende, f.eks. &quot;ansigter&quot;)
                       </label>
                       <input
                         value={question.aiPrompt}

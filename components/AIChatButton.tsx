@@ -282,7 +282,7 @@ export default function AIChatButton() {
                         GPSLOB.DK
                       </p>
                       <p className="mt-1 text-sm font-medium tracking-[0.04em] text-slate-800">
-                        AI Guide
+                        GPS-Assistent
                       </p>
                     </div>
                   </div>
@@ -290,7 +290,7 @@ export default function AIChatButton() {
                     type="button"
                     onClick={handleClose}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-full text-xs text-slate-400 transition-colors hover:bg-emerald-950/5 hover:text-emerald-900"
-                    aria-label="Luk AI Guide"
+                    aria-label="Luk Assistent"
                   >
                     <span aria-hidden="true">✕</span>
                   </button>
@@ -334,7 +334,7 @@ export default function AIChatButton() {
                           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500/70 [animation-delay:120ms]" />
                           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500/70 [animation-delay:240ms]" />
                         </span>
-                        {"AI tænker..."}
+                        {"Henter svar..."}
                       </div>
                     </div>
                   ) : null}
@@ -366,7 +366,7 @@ export default function AIChatButton() {
                 </form>
 
                 <div className="mt-2 text-[11px] tracking-[0.01em] text-slate-400">
-                  {"AI-svar kan indeholde fejl. Kontrollér altid vigtige oplysninger."}
+                  {"Automatiske svar kan indeholde fejl. Kontrollér altid vigtige oplysninger."}
                 </div>
 
                 <div className="mt-4 border-t border-emerald-500/10 pt-3.5">
@@ -401,7 +401,7 @@ export default function AIChatButton() {
             type="button"
             onClick={handleToggle}
             aria-expanded={isOpen}
-            aria-label={"Åbn AI Guide"}
+            aria-label={"Åbn Assistent"}
             className="inline-flex items-center gap-2.5 rounded-full border border-emerald-500/20 bg-slate-950/84 px-3 py-2 text-emerald-50 shadow-[0_18px_45px_rgba(15,23,42,0.18)] backdrop-blur-md transition-[transform,box-shadow,border-color,background-color] duration-300 hover:-translate-y-0.5 hover:border-emerald-400/35 hover:bg-slate-950/92 hover:shadow-[0_20px_50px_rgba(6,78,59,0.24)]"
           >
             <Image
@@ -412,7 +412,7 @@ export default function AIChatButton() {
               className="h-5.5 w-auto opacity-90"
             />
             <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400/85" />
-            <span className="text-sm font-medium tracking-[0.04em] text-emerald-50">AI Guide</span>
+            <span className="text-sm font-medium tracking-[0.04em] text-emerald-50">GPS-Assistent</span>
           </button>
         </div>
       </div>
