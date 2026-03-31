@@ -29,7 +29,7 @@ const podcastQuestionSchema = z.object({
 });
 
 const podcastRunSchema = z.object({
-  questions: z.array(podcastQuestionSchema).min(4).max(QUESTION_COUNT),
+  questions: z.array(podcastQuestionSchema).length(QUESTION_COUNT),
 });
 
 export async function POST(request: NextRequest) {

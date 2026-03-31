@@ -14,12 +14,26 @@ type ScraperResult = {
   transcript: string | null;
 };
 
+const ARTICLE_TEXT_MAX_LENGTH = 3500;
+
 function isYouTubeUrl(url: string) {
   return /youtube\.com|youtu\.be/.test(url);
 }
 
 function asTrimmedString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function normalizeWhitespace(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function truncateText(value: string, maxLength: number) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength).trimEnd()}...`;
 }
 
 async function scrapeGeneralPage(url: string): Promise<{ title: string; description: string }> {
@@ -42,10 +56,21 @@ async function scrapeGeneralPage(url: string): Promise<{ title: string; descript
     $("title").text().trim() ||
     "Ukendt titel";
 
-  const description =
+  const metaDescription =
     $('meta[property="og:description"]').attr("content")?.trim() ||
     $('meta[name="description"]').attr("content")?.trim() ||
     "";
+
+  const articleText = normalizeWhitespace(
+    $("p")
+      .map((_, element) => $(element).text())
+      .get()
+      .join(" ")
+  );
+
+  const description = [metaDescription, articleText ? truncateText(articleText, ARTICLE_TEXT_MAX_LENGTH) : ""]
+    .filter(Boolean)
+    .join("\n\n");
 
   return { title, description };
 }
