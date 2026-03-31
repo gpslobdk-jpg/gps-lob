@@ -38,6 +38,7 @@ export default function PodcastDetektivPage() {
   const [url, setUrl] = useState("");
   const [loadingStep, setLoadingStep] = useState<LoadingStep>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
 
   const isLoading = loadingStep !== "idle" && loadingStep !== "done";
 
@@ -155,10 +156,27 @@ export default function PodcastDetektivPage() {
               </p>
             ) : null}
 
+            <div className="mb-6 flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4 shadow-sm">
+              <input
+                type="checkbox"
+                id="copydan-consent-podcast"
+                checked={hasAcceptedTerms}
+                onChange={(e) => setHasAcceptedTerms(e.target.checked)}
+                className="mt-1 h-5 w-5 cursor-pointer rounded border-white/20 bg-black/20 text-purple-600 focus:ring-purple-500"
+              />
+              <label
+                htmlFor="copydan-consent-podcast"
+                className="cursor-pointer select-none text-sm leading-relaxed text-white/80"
+              >
+                Jeg bekræfter, at jeg har rettighederne til at bearbejde dette materiale, eller at min brug er
+                dækket af min skoles gældende aftale med Copydan Tekst &amp; Node.
+              </label>
+            </div>
+
             <button
               type="submit"
-              disabled={isLoading || !url.trim()}
-              className="w-full rounded-2xl border border-purple-400/40 bg-purple-600 px-6 py-4 text-base font-bold text-white shadow-[0_12px_32px_rgba(147,51,234,0.32)] transition-all hover:bg-purple-500 hover:shadow-[0_16px_40px_rgba(147,51,234,0.44)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-purple-600 disabled:hover:shadow-[0_12px_32px_rgba(147,51,234,0.32)]"
+              disabled={!hasAcceptedTerms || isLoading || !url.trim()}
+              className="w-full rounded-2xl border border-purple-400/40 bg-purple-600 px-6 py-4 text-base font-bold text-white shadow-[0_12px_32px_rgba(147,51,234,0.32)] transition-all hover:bg-purple-500 hover:shadow-[0_16px_40px_rgba(147,51,234,0.44)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-purple-600 disabled:hover:shadow-[0_12px_32px_rgba(147,51,234,0.32)] hover:disabled:scale-100"
             >
               {isLoading ? (
                 <span className="inline-flex items-center justify-center gap-2">

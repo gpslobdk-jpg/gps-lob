@@ -293,6 +293,7 @@ export default function ScannerPortalPage() {
   const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
 
   const progress = (step / 4) * 100;
   const trimmedSourceText = sourceText.trim();
@@ -1321,6 +1322,22 @@ export default function ScannerPortalPage() {
                   </div>
 
                   <div className="mt-10">
+                    <div className="mb-6 flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4 shadow-sm">
+                      <input
+                        type="checkbox"
+                        id="copydan-consent-scanner"
+                        checked={hasAcceptedTerms}
+                        onChange={(e) => setHasAcceptedTerms(e.target.checked)}
+                        className="mt-1 h-5 w-5 cursor-pointer rounded border-white/20 bg-black/20 text-purple-600 focus:ring-purple-500"
+                      />
+                      <label
+                        htmlFor="copydan-consent-scanner"
+                        className="cursor-pointer select-none text-sm leading-relaxed text-white/80"
+                      >
+                        Jeg bekræfter, at jeg har rettighederne til at bearbejde dette materiale, eller at min brug
+                        er dækket af min skoles gældende aftale med Copydan Tekst &amp; Node.
+                      </label>
+                    </div>
                     {isGenerating ? (
                       <div className="rounded-4xl border border-white/15 bg-white/5 px-6 py-12 text-center backdrop-blur-md shadow-[0_18px_40px_rgba(168,85,247,0.08)]">
                         <Loader2 className="mx-auto h-10 w-10 animate-spin text-fuchsia-100" />
@@ -1335,7 +1352,8 @@ export default function ScannerPortalPage() {
                       <button
                         type="button"
                         onClick={handleGenerateRun}
-                        className="inline-flex min-h-16 w-full items-center justify-center rounded-full border border-fuchsia-200/25 bg-white/8 px-6 py-4 text-sm font-semibold uppercase tracking-[0.24em] text-white backdrop-blur-md shadow-[0_18px_40px_rgba(168,85,247,0.14)] transition hover:border-fuchsia-200/35 hover:bg-white/10"
+                        disabled={!hasAcceptedTerms || isGenerating}
+                        className="inline-flex min-h-16 w-full items-center justify-center rounded-full border border-fuchsia-200/25 bg-white/8 px-6 py-4 text-sm font-semibold uppercase tracking-[0.24em] text-white backdrop-blur-md shadow-[0_18px_40px_rgba(168,85,247,0.14)] transition hover:border-fuchsia-200/35 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-fuchsia-200/25 disabled:hover:bg-white/8 hover:disabled:scale-100"
                       >
                         Generér løb
                       </button>

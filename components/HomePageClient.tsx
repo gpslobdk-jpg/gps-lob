@@ -81,6 +81,7 @@ function OrganizerHint() {
 export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProps) {
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState("");
+  const [legalModal, setLegalModal] = useState<"ophavsret" | "gdpr" | "databehandling" | null>(null);
   const [, setShowIntroToken] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
@@ -138,6 +139,28 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
     setIsJoining(true);
     router.push(`/join?pin=${cleanedCode}`);
   };
+
+  const legalModalContent = (() => {
+    switch (legalModal) {
+      case "ophavsret":
+        return {
+          title: "Ophavsret",
+          body: "Her kommer teksten om ophavsret, brug af materialer og ansvarlig anvendelse af indhold i GPSLOB.DK.",
+        };
+      case "gdpr":
+        return {
+          title: "GDPR & Privatliv",
+          body: "Her kommer teksten om GDPR, privatliv, datasikkerhed og hvordan personoplysninger behandles i GPSLOB.DK.",
+        };
+      case "databehandling":
+        return {
+          title: "Databehandling",
+          body: "Her kommer teksten om databehandling, opbevaring, sletning og de praktiske rammer for behandling af data i GPSLOB.DK.",
+        };
+      default:
+        return null;
+    }
+  })();
 
   return (
     <div className="relative flex min-h-screen flex-col overflow-x-hidden text-slate-100">
@@ -214,6 +237,29 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
                 ) : null}
               </form>
             </div>
+            <div className="relative z-20 mt-6 flex flex-wrap justify-center gap-4 text-xs text-white/60 sm:gap-6 sm:text-sm">
+              <button
+                type="button"
+                onClick={() => setLegalModal("ophavsret")}
+                className="transition-colors hover:text-white"
+              >
+                Ophavsret
+              </button>
+              <button
+                type="button"
+                onClick={() => setLegalModal("gdpr")}
+                className="transition-colors hover:text-white"
+              >
+                GDPR & Privatliv
+              </button>
+              <button
+                type="button"
+                onClick={() => setLegalModal("databehandling")}
+                className="transition-colors hover:text-white"
+              >
+                Databehandling
+              </button>
+            </div>
             {!isNativeGpslobApp ? <OrganizerHint /> : null}
           </div>
         </section>
@@ -263,8 +309,98 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
               Log ind
             </Link>
           </div>
+          <div className="relative z-20 mt-6 flex flex-wrap justify-center gap-4 text-xs text-white/60 sm:gap-6 sm:text-sm">
+            <button
+              type="button"
+              onClick={() => setLegalModal("ophavsret")}
+              className="transition-colors hover:text-white"
+            >
+              Ophavsret
+            </button>
+            <button
+              type="button"
+              onClick={() => setLegalModal("gdpr")}
+              className="transition-colors hover:text-white"
+            >
+              GDPR & Privatliv
+            </button>
+            <button
+              type="button"
+              onClick={() => setLegalModal("databehandling")}
+              className="transition-colors hover:text-white"
+            >
+              Databehandling
+            </button>
+          </div>
         </section>
       </main>
+
+      {legalModal && legalModalContent ? (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={() => setLegalModal(null)}
+        >
+          <div
+            className="relative max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-emerald-800/50 bg-emerald-950/95 p-8 text-white shadow-2xl backdrop-blur-md"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              aria-label="Luk juridisk modal"
+              onClick={() => setLegalModal(null)}
+              className="absolute top-4 right-4 text-xl font-semibold text-white/70 transition-colors hover:text-white"
+            >
+              X
+            </button>
+            <div className="mt-2 text-left">
+              {legalModal === "ophavsret" ? (
+                <div className="space-y-4">
+                  <h2 className="text-2xl font-bold text-white">Ophavsret &amp; Eksemplarfremstilling</h2>
+                  <p className="text-sm leading-7 text-white/80 sm:text-base">
+                    GPSLØB.DK opererer udelukkende som en digital facilitator for undervisere (Zero Data
+                    Retention). Vi bygger ikke et bibliotek og lagrer ikke ophavsretligt beskyttede tekster eller
+                    billeder på vores servere efter endt AI-bearbejdning.
+                  </p>
+                  <p className="text-sm leading-7 text-white/80 sm:text-base">
+                    Brugen af platformens tekst- og billedscanningsværktøjer forudsætter, at den enkelte bruger
+                    (underviseren) har rettighederne til at digitalisere det pågældende materiale, eller at brugen
+                    er dækket af institutionens gældende aftaler med Copydan Tekst &amp; Node for den pågældende
+                    klasse. Ansvaret for eksemplarfremstillingen påhviler brugeren.
+                  </p>
+                </div>
+              ) : legalModal === "gdpr" ? (
+                <div className="space-y-4">
+                  <h2 className="text-2xl font-bold text-white">GDPR &amp; Privatlivspolitik</h2>
+                  <p className="text-sm leading-7 text-white/80 sm:text-base">
+                    GPSLØB.DK er designet med Privacy by Design. Elever kan deltage i løb fuldstændig anonymt via
+                    en adgangskode uden behov for at oprette en brugerprofil. Vi indsamler ingen personfølsomme
+                    oplysninger (PII) om eleverne.
+                  </p>
+                  <p className="text-sm leading-7 text-white/80 sm:text-base">
+                    For lærere og arrangører behandler vi udelukkende de data (navn og e-mail), der er strengt
+                    nødvendige for at levere tjenesten, jf. Databeskyttelsesforordningens (GDPR) art. 6, stk. 1,
+                    litra b. Data videregives aldrig til tredjepart med henblik på markedsføring.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <h2 className="text-2xl font-bold text-white">Databehandleraftale &amp; AI-Infrastruktur</h2>
+                  <p className="text-sm leading-7 text-white/80 sm:text-base">
+                    For skoler og kommuner, der opretter institutionsaftaler, fungerer GPSLØB.DK som
+                    Databehandler. Al infrastruktur og datalagring hostes inden for EU/EØS på sikre servere.
+                  </p>
+                  <p className="text-sm leading-7 text-white/80 sm:text-base">
+                    Platformen integrerer med underdatabehandlere (LLM-udbydere) for at muliggøre automatisk
+                    spørgsmålsgenerering. Disse integrationer foretages udelukkende via lukkede Enterprise-API&apos;er,
+                    hvilket sikrer, at brugerens input-data (tekster, prompts) aldrig anvendes til at træne
+                    offentlige sprogmodeller.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="hidden md:block">
         <AIChatButton />
