@@ -181,7 +181,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
         {zenBubbles.map((bubble, index) => (
           <motion.div
             key={bubble.name}
-            className={`glass-card absolute max-w-[200px] rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md ${bubble.position}`}
+            className={`absolute max-w-[200px] bg-transparent p-4 ${bubble.position}`}
             animate={shouldReduceMotion ? undefined : bubble.animation}
             transition={
               shouldReduceMotion
@@ -193,9 +193,11 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
                   }
             }
           >
-            <p className="text-[10px] italic text-gray-300">{bubble.quote}</p>
-            <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/80">
-              {bubble.name}
+            <p className="text-base leading-relaxed font-medium italic text-white/90 sm:text-lg">
+              {bubble.quote}
+            </p>
+            <p className="mt-3 block text-xs font-bold tracking-[0.16em] text-emerald-400 sm:text-sm">
+              {bubble.name.toUpperCase()} - Lærer
             </p>
           </motion.div>
         ))}
