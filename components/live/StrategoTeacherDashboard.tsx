@@ -282,7 +282,7 @@ export default function StrategoTeacherDashboard({
 
     const upsertParticipant = (row: ParticipantRow | null | undefined) => {
       const participantId = typeof row?.id === "string" ? row.id : null;
-      if (!participantId) {
+      if (!participantId || !row) {
         return;
       }
 
@@ -308,7 +308,7 @@ export default function StrategoTeacherDashboard({
 
     const upsertStrategoPlayer = (row: StrategoPlayerRow | null | undefined) => {
       const participantId = typeof row?.participant_id === "string" ? row.participant_id : null;
-      if (!participantId) {
+      if (!participantId || !row) {
         return;
       }
 
