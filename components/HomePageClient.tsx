@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+import { FileCheck, Lock, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import Lottie from "lottie-react";
@@ -310,6 +311,29 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
             >
               Log ind
             </Link>
+
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
+              <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-300/80" />
+                  <span>PRIVACY BY DESIGN</span>
+                </div>
+              </div>
+
+              <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
+                  <Lock className="h-3.5 w-3.5 text-emerald-300/80" />
+                  <span>SIKKER DATABEHANDLING</span>
+                </div>
+              </div>
+
+              <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
+                  <FileCheck className="h-3.5 w-3.5 text-emerald-300/80" />
+                  <span>COPYDAN-PARAT</span>
+                </div>
+              </div>
+            </div>
           </div>
           <div className="relative z-20 mt-6 flex flex-wrap justify-center gap-4 text-xs text-white/60 sm:gap-6 sm:text-sm">
             <button
