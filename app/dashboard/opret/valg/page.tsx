@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Shield } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
@@ -239,6 +239,42 @@ export default function ValgHubPage() {
           Spil
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
+          <Link
+            href="/dashboard/opret/stratego"
+            className="block w-full text-left"
+          >
+            <motion.article
+              whileHover={{ y: -4, scale: 1.012 }}
+              className={`${cardBaseClass} cursor-pointer border-red-500/75 bg-red-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(239,68,68,0.28),inset_0_1px_0_rgba(255,255,255,0.18)]`}
+            >
+              <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(249,115,22,0.28),transparent_62%),radial-gradient(circle_at_center,rgba(239,68,68,0.2),transparent_70%)] shadow-[inset_0_0_54px_rgba(239,68,68,0.18)]" />
+              <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem]" />
+
+              <div className="absolute top-4 right-4 z-20">
+                <span className="inline-flex items-center rounded-full border border-red-300/40 bg-red-400/20 px-3 py-1 text-[0.58rem] font-bold tracking-[0.18em] text-white uppercase shadow-[0_10px_22px_rgba(239,68,68,0.22)] backdrop-blur-md">
+                  NYT SPIL
+                </span>
+              </div>
+
+              <div className={`${cardPanelClass} text-slate-950`}>
+                <div className="relative z-10 flex h-full w-full flex-col items-center justify-center text-center">
+                  <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full border border-red-300/35 bg-red-500/18 shadow-[0_10px_30px_rgba(239,68,68,0.22)]">
+                    <Shield className="h-6 w-6 text-orange-200" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <h2 className={`text-[1.4rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
+                      Live Stratego
+                    </h2>
+                    <p className="mx-auto max-w-[15rem] text-xs leading-tight text-white/84">
+                      Det klassiske brætspil vækkes til live. Eleverne får hemmelige roller på mobilen og dyster i virkeligheden.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.article>
+          </Link>
+
           <Link
             href="/dashboard/opret/zone-krig"
             className="block w-full text-left"

@@ -10,6 +10,7 @@ export const RACE_TYPES = {
   ROLLESPIL: "rollespil",
   PODCAST: "podcast",
   ZONE_KRIG: "zone_krig",
+  STRATEGO: "stratego",
 } as const;
 
 export type RaceType = (typeof RACE_TYPES)[keyof typeof RACE_TYPES];
@@ -26,6 +27,7 @@ export const RACE_TYPE_LABELS: Record<RaceType, string> = {
   [RACE_TYPES.ROLLESPIL]: "Rollespil",
   [RACE_TYPES.PODCAST]: "Podcast-Detektiven",
   [RACE_TYPES.ZONE_KRIG]: "Zone-Krigen",
+  [RACE_TYPES.STRATEGO]: "Live Stratego",
 };
 
 export const DEFAULT_MAP_CENTER = {
@@ -97,6 +99,11 @@ export function normalizeRaceType(value: unknown): RaceType | null {
       return RACE_TYPES.ROLLESPIL;
     case "podcast":
       return RACE_TYPES.PODCAST;
+    case "stratego":
+    case "live_stratego":
+    case "live-stratego":
+    case "live stratego":
+      return RACE_TYPES.STRATEGO;
     case "zone_krig":
     case "zone-krig":
     case "zone-krigen":
@@ -124,6 +131,7 @@ export function getBuilderHrefForRaceType(runId: string, raceType: unknown) {
     [RACE_TYPES.ROLLESPIL]: "/dashboard/opret/rollespil",
     [RACE_TYPES.PODCAST]: "/dashboard/opret/podcast",
     [RACE_TYPES.ZONE_KRIG]: "/dashboard/opret/zone-krig",
+    [RACE_TYPES.STRATEGO]: "/dashboard/opret/stratego",
   };
 
   return `${builderPathByRaceType[normalizedRaceType]}?id=${encodeURIComponent(runId)}`;

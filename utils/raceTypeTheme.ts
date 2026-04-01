@@ -8,6 +8,7 @@ export type RaceTypeThemeKey =
   | "rollespil"
   | "scanner"
   | "zone_krig"
+  | "stratego"
   | "selfie"
   | "podcast";
 
@@ -197,6 +198,28 @@ const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
     archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
     archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
   },
+  stratego: {
+    key: "stratego",
+    label: "Live Stratego",
+    icon: "Shield",
+    colorClass: "text-orange-300",
+    selectionCardClass:
+      "border-orange-400/40 bg-gradient-to-br from-orange-950 via-slate-900 to-red-950 text-white shadow-xl shadow-orange-950/25 hover:border-orange-300/60 hover:shadow-2xl hover:shadow-orange-950/35",
+    archiveCardClass:
+      "border-orange-500/30 shadow-orange-500/10 hover:border-orange-400/50 hover:shadow-orange-500/20",
+    archiveHeaderClass: "bg-gradient-to-r from-orange-950 via-slate-900 to-red-950 text-white",
+    archiveAccentIconClass: "text-orange-300",
+    archivePrimaryButtonClass:
+      "border border-orange-600 bg-orange-600 text-white shadow-[0_12px_24px_rgba(234,88,12,0.18)] hover:bg-orange-500",
+    archiveGhostButtonClass:
+      "border border-orange-400/25 bg-orange-950/40 text-white shadow-sm hover:border-orange-300/35 hover:bg-orange-900/50",
+    archiveGhostIconButtonClass:
+      "border border-orange-400/25 bg-orange-950/40 text-orange-100 shadow-sm hover:border-orange-300/35 hover:bg-orange-900/50",
+    archiveDangerIconButtonClass:
+      "border border-orange-400/35 bg-orange-950/40 text-orange-200 shadow-sm hover:border-orange-300/45 hover:bg-orange-900/50",
+    archiveStatusBadgeClass:
+      "border border-white/12 bg-white/10 text-white shadow-[0_10px_24px_rgba(15,23,42,0.18)]",
+  },
   selfie: {
     key: "selfie",
     label: "Selfie",
@@ -283,6 +306,11 @@ export function normalizeRaceTypeThemeKey(value: unknown): RaceTypeThemeKey {
     case "zone krigen":
     case "zonekrig":
       return "zone_krig";
+    case "stratego":
+    case "live_stratego":
+    case "live-stratego":
+    case "live stratego":
+      return "stratego";
     case "selfie":
       return "selfie";
     case "podcast":
