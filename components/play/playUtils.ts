@@ -312,6 +312,10 @@ export function resolvePostVariant(raceMode: RaceMode, question: Question): Acti
     return "quiz";
   }
 
+  if (raceMode === "stratego") {
+    return "unknown";
+  }
+
   if (raceMode !== "unknown") {
     return raceMode;
   }

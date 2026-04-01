@@ -194,7 +194,7 @@ export default function StrategoElevMap({
     }
 
     const firstAlly = allyMarkers.find((entry) => entry.lat !== null && entry.lng !== null);
-    if (firstAlly?.lat !== null && firstAlly.lng !== null) {
+    if (firstAlly && firstAlly.lat !== null && firstAlly.lng !== null) {
       return [firstAlly.lat, firstAlly.lng];
     }
 

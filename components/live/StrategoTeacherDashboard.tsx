@@ -486,17 +486,18 @@ export default function StrategoTeacherDashboard({
       .map((participantId) => {
         const participant = participantsById.get(participantId);
         const strategoPlayer = playersById.get(participantId);
+        const teamCode: TeacherStrategoPlayer["teamCode"] =
+          strategoPlayer?.team_code === "red" || strategoPlayer?.team_code === "blue"
+            ? strategoPlayer.team_code
+            : null;
 
-        return {
+        const player: TeacherStrategoPlayer = {
           participantId,
           name: normalizeParticipantName(participant?.student_name),
           lat: toFiniteNumber(participant?.lat),
           lng: toFiniteNumber(participant?.lng),
           updatedAt: typeof participant?.updated_at === "string" ? participant.updated_at : null,
-          teamCode:
-            strategoPlayer?.team_code === "red" || strategoPlayer?.team_code === "blue"
-              ? strategoPlayer.team_code
-              : null,
+          teamCode,
           rankKey: typeof strategoPlayer?.rank_key === "string" ? strategoPlayer.rank_key : null,
           state: typeof strategoPlayer?.state === "string" ? strategoPlayer.state : "alive",
           eliminatedByParticipantId:
@@ -504,6 +505,8 @@ export default function StrategoTeacherDashboard({
               ? strategoPlayer.eliminated_by_participant_id
               : null,
         };
+
+        return player;
       })
       .sort((left, right) => {
         if (left.teamCode !== right.teamCode) {
@@ -570,7 +573,7 @@ export default function StrategoTeacherDashboard({
     }
 
     const firstPlayerWithLocation = players.find((player) => player.lat !== null && player.lng !== null);
-    if (firstPlayerWithLocation?.lat !== null && firstPlayerWithLocation.lng !== null) {
+    if (firstPlayerWithLocation && firstPlayerWithLocation.lat !== null && firstPlayerWithLocation.lng !== null) {
       return [firstPlayerWithLocation.lat, firstPlayerWithLocation.lng];
     }
 
