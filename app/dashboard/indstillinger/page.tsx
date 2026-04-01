@@ -11,8 +11,53 @@ type UserMetadata = {
   organization?: string;
 };
 
+type ProfileBillingRow = {
+  stripe_customer_id?: string | null;
+  plan_type?: string | null;
+  cancel_at_period_end?: boolean | null;
+  stripe_current_period_end?: string | null;
+};
+
 function getSchoolFromMetadata(metadata: UserMetadata) {
   return (metadata.school ?? metadata.organization ?? "").trim();
+}
+
+function formatPlanLabel(planType: string | null | undefined) {
+  switch ((planType ?? "").trim().toLocaleLowerCase("da-DK")) {
+    case "pro":
+      return "Pro-planen";
+    case "school":
+      return "Skolelicensen";
+    case "weekend":
+      return "Weekend-pakken";
+    case "event":
+      return "Event-pakken";
+    case "beta":
+      return "Beta-adgangen";
+    case "free":
+      return "Gratis-planen";
+    default:
+      return "din plan";
+  }
+}
+
+function formatDanishDateTime(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat("da-DK", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 export default function IndstillingerPage() {
@@ -20,13 +65,16 @@ export default function IndstillingerPage() {
   const [email, setEmail] = useState("");
   const [skoleOrganisation, setSkoleOrganisation] = useState("");
   const [nyAdgangskode, setNyAdgangskode] = useState("");
+  const [billingProfile, setBillingProfile] = useState<ProfileBillingRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [isOpeningPortal, setIsOpeningPortal] = useState(false);
   const [besked, setBesked] = useState("");
   const [fejlBesked, setFejlBesked] = useState("");
   const [adgangskodeBesked, setAdgangskodeBesked] = useState("");
   const [adgangskodeFejl, setAdgangskodeFejl] = useState("");
+  const [billingError, setBillingError] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -50,12 +98,23 @@ export default function IndstillingerPage() {
           return;
         }
 
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("stripe_customer_id, plan_type, cancel_at_period_end, stripe_current_period_end")
+          .eq("id", user.id)
+          .maybeSingle<ProfileBillingRow>();
+
+        if (profileError) {
+          console.error("Kunne ikke hente abonnementsprofil:", profileError);
+        }
+
         const metadata = (user.user_metadata ?? {}) as UserMetadata;
 
         if (isMounted) {
           setEmail(user.email ?? "");
           setNavn(metadata.full_name ?? metadata.name ?? "");
           setSkoleOrganisation(getSchoolFromMetadata(metadata));
+          setBillingProfile(profile ?? null);
         }
       } finally {
         if (isMounted) {
@@ -134,6 +193,43 @@ export default function IndstillingerPage() {
       setIsUpdatingPassword(false);
     }
   };
+
+  const handleOpenBillingPortal = async () => {
+    setBillingError("");
+    setIsOpeningPortal(true);
+
+    try {
+      const response = await fetch("/api/stripe/create-portal", {
+        method: "POST",
+      });
+
+      let data: { url?: string; error?: string } = {};
+      try {
+        data = (await response.json()) as { url?: string; error?: string };
+      } catch {
+        data = {};
+      }
+
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || "Kunne ikke åbne abonnementsportalen.");
+      }
+
+      window.location.href = data.url;
+    } catch (error) {
+      setBillingError(
+        error instanceof Error ? error.message : "Kunne ikke åbne abonnementsportalen lige nu."
+      );
+    } finally {
+      setIsOpeningPortal(false);
+    }
+  };
+
+  const stripeCustomerId =
+    typeof billingProfile?.stripe_customer_id === "string"
+      ? billingProfile.stripe_customer_id.trim()
+      : "";
+  const formattedPeriodEnd = formatDanishDateTime(billingProfile?.stripe_current_period_end);
+  const planLabel = formatPlanLabel(billingProfile?.plan_type);
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-sky-50 via-emerald-50/30 to-sky-100 p-6 md:p-12">
@@ -255,6 +351,43 @@ export default function IndstillingerPage() {
             </button>
           </form>
         </section>
+
+        {stripeCustomerId ? (
+          <section className="rounded-3xl border border-white/60 bg-white/80 p-8 shadow-xl backdrop-blur-md">
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-emerald-950">Abonnement & Betaling</h2>
+              <p className="mt-2 text-sm text-emerald-800">
+                Administrér kort, fakturaer og opsigelse via Stripes sikre kundeportal.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-5 py-4 text-sm text-emerald-900">
+              <p className="font-semibold">Du er på {planLabel}.</p>
+              <p className="mt-2 text-emerald-800">
+                {billingProfile?.cancel_at_period_end
+                  ? `Abonnementet er opsagt og løber frem til ${formattedPeriodEnd ?? "den registrerede udløbsdato"}.`
+                  : formattedPeriodEnd
+                    ? `Næste betaling / udløb: ${formattedPeriodEnd}.`
+                    : "Din nuværende abonnementsperiode er registreret, men uden en præcis slutdato endnu."}
+              </p>
+            </div>
+
+            {billingError ? (
+              <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {billingError}
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => void handleOpenBillingPortal()}
+              disabled={isOpeningPortal || isLoading}
+              className="mt-6 rounded-xl bg-slate-900 px-6 py-3 font-bold text-white shadow-md transition-all hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isOpeningPortal ? "Åbner portal..." : "Administrer Abonnement"}
+            </button>
+          </section>
+        ) : null}
       </div>
     </main>
   );

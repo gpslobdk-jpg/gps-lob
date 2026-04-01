@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 
+import {
+  canCreatePremiumRun,
+  hasPremiumAccess,
+  isPaywallEnabled,
+  type AccessProfile,
+} from "@/utils/accessControl";
+import { normalizeRaceType, RACE_TYPES } from "@/utils/gpsRuns";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
 
@@ -15,6 +22,8 @@ type ArchiveLiveSessionPayload = {
 type RunRow = {
   id: string;
   user_id: string;
+  race_type?: string | null;
+  raceType?: string | null;
 };
 
 type LiveSessionRow = {
@@ -24,6 +33,8 @@ type LiveSessionRow = {
   status: string | null;
   created_at?: string | null;
 };
+
+type ProfileAccessRow = AccessProfile;
 
 function generateJoinPin() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -45,7 +56,7 @@ function toSessionResponse(session: LiveSessionRow) {
 async function fetchOwnedRun(runId: string, userId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data, error } = await supabase
     .from("gps_runs")
-    .select("id,user_id")
+    .select("id,user_id,race_type,raceType")
     .eq("id", runId)
     .eq("user_id", userId)
     .maybeSingle<RunRow>();
@@ -55,6 +66,37 @@ async function fetchOwnedRun(runId: string, userId: string, supabase: Awaited<Re
   }
 
   return data ?? null;
+}
+
+async function fetchProfileAccess(userId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("plan_type,access_expires_at,has_used_free_trial")
+    .eq("id", userId)
+    .maybeSingle<ProfileAccessRow>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? null;
+}
+
+async function markFreeTrialAsUsed(userId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
+  const profileClient = createAdminClient() ?? supabase;
+  const { error } = await profileClient
+    .from("profiles")
+    .upsert(
+      {
+        id: userId,
+        has_used_free_trial: true,
+      },
+      { onConflict: "id" }
+    );
+
+  if (error) {
+    throw error;
+  }
 }
 
 async function fetchActiveSessions(runId: string, teacherId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -212,10 +254,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Løbet blev ikke fundet, eller du har ikke adgang." }, { status: 404 });
     }
 
+    const normalizedRaceType = normalizeRaceType(ownedRun.race_type ?? ownedRun.raceType);
+    const requiresPremiumAccess =
+      normalizedRaceType === RACE_TYPES.STRATEGO || normalizedRaceType === RACE_TYPES.ZONE_KRIG;
+    let shouldConsumeFreeTrial = false;
+
+    if (action === "ensure" && isPaywallEnabled() && requiresPremiumAccess) {
+      const profile = await fetchProfileAccess(user.id, supabase);
+      const existingSessions = await fetchActiveSessions(runId, user.id, supabase);
+      const hasExistingSession = existingSessions.length > 0;
+
+      if (!hasExistingSession && !canCreatePremiumRun(profile)) {
+        return NextResponse.json(
+          { error: "Du har brugt dit gratis pr\u00F8vel\u00F8b. Opgrader for at forts\u00E6tte" },
+          { status: 403 }
+        );
+      }
+
+      shouldConsumeFreeTrial =
+        !hasExistingSession &&
+        normalizedRaceType === RACE_TYPES.STRATEGO &&
+        !hasPremiumAccess(profile) &&
+        profile?.has_used_free_trial !== true;
+    }
+
     const result =
       action === "ensure"
         ? await ensureLiveSession(runId, user.id, supabase)
         : await finishLiveSessions(runId, user.id, supabase);
+
+    if (action === "ensure" && shouldConsumeFreeTrial) {
+      await markFreeTrialAsUsed(user.id, supabase);
+    }
 
     return NextResponse.json(result);
   } catch (error) {

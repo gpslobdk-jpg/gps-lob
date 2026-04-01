@@ -5,9 +5,16 @@ import { ArrowLeft, Shield } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
+import { type ReactNode, useEffect, useState } from "react";
 
 import PwaInstallTip from "@/components/PwaInstallTip";
+import {
+  canCreatePremiumRun,
+  hasPremiumAccess,
+  type AccessProfile,
+} from "@/utils/accessControl";
 import { type RaceTypeThemeKey } from "@/utils/raceTypeTheme";
+import { createClient } from "@/utils/supabase/client";
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -25,6 +32,8 @@ const cardBaseClass =
 const cardPanelClass =
   "relative flex h-full flex-col items-center justify-center rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.05))] px-4 py-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-16px_24px_rgba(15,23,42,0.07)]";
 
+const IS_PAYWALL_ENABLED = process.env.NEXT_PUBLIC_PAYWALL_ENABLED === "true";
+
 type BuilderCard = {
   raceType: RaceTypeThemeKey;
   title: string;
@@ -36,6 +45,9 @@ type BuilderCard = {
   accentGlowClass: string;
   badgeClass: string;
 };
+
+type ProfileAccessRow = AccessProfile;
+type PremiumCardAccessState = "loading" | "premium" | "trial" | "locked";
 
 const fagligeCards: BuilderCard[] = [
   {
@@ -177,7 +189,116 @@ function BuilderCard({ card, index }: { card: BuilderCard; index: number }) {
   );
 }
 
+function PremiumGameCardWrapper({
+  href,
+  children,
+}: {
+  href?: string;
+  children: ReactNode;
+}) {
+  if (!href) {
+    return <div className="block w-full text-left">{children}</div>;
+  }
+
+  return (
+    <Link href={href} className="block w-full text-left">
+      {children}
+    </Link>
+  );
+}
+
 export default function ValgHubPage() {
+  const [premiumAccessState, setPremiumAccessState] = useState<PremiumCardAccessState>(() =>
+    IS_PAYWALL_ENABLED ? "loading" : "premium"
+  );
+
+  useEffect(() => {
+    if (!IS_PAYWALL_ENABLED) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadPremiumAccess = async () => {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (userError || !user) {
+          setPremiumAccessState("locked");
+          return;
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("plan_type,access_expires_at,has_used_free_trial")
+          .eq("id", user.id)
+          .maybeSingle<ProfileAccessRow>();
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (profileError) {
+          console.error("Kunne ikke hente adgangsprofil til premium-kort:", profileError);
+          setPremiumAccessState("locked");
+          return;
+        }
+
+        if (hasPremiumAccess(profile)) {
+          setPremiumAccessState("premium");
+          return;
+        }
+
+        setPremiumAccessState(canCreatePremiumRun(profile) ? "trial" : "locked");
+      } catch (error) {
+        console.error("Kunne ikke afg\u00F8re premium-adgang i Udsigtsposten:", error);
+        if (isMounted) {
+          setPremiumAccessState("locked");
+        }
+      }
+    };
+
+    void loadPremiumAccess();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const premiumCardsAreTrial = IS_PAYWALL_ENABLED && premiumAccessState === "trial";
+  const premiumCardsAreLocked = IS_PAYWALL_ENABLED && premiumAccessState === "locked";
+  const premiumCardsAreLoading = IS_PAYWALL_ENABLED && premiumAccessState === "loading";
+  const strategoCardHref = premiumCardsAreLocked
+    ? "/priser"
+    : premiumCardsAreLoading
+      ? undefined
+      : "/dashboard/opret/stratego";
+  const zoneKrigCardHref = premiumCardsAreLocked
+    ? "/priser"
+    : premiumCardsAreLoading
+      ? undefined
+      : "/dashboard/opret/zone-krig";
+  const premiumBadgeLabel = premiumCardsAreLocked
+    ? "\uD83D\uDD12 L\u00C5ST / KR\u00C6VER PRO"
+    : premiumCardsAreTrial
+      ? "\uD83C\uDF81 1 GRATIS PR\u00D8VEL\u00D8B"
+      : premiumCardsAreLoading
+        ? "TJEKKER ADGANG"
+        : null;
+  const premiumBadgeClass = premiumCardsAreLocked
+    ? "border-red-300/40 bg-red-500/22"
+    : premiumCardsAreTrial
+      ? "border-emerald-300/40 bg-emerald-500/22"
+      : "border-amber-300/40 bg-amber-400/20";
+
   return (
     <main
       className={`relative flex min-h-screen flex-col bg-gradient-to-b from-slate-300 via-slate-100 to-zinc-200 px-6 pt-0 pb-8 text-white md:px-10 md:pt-0 md:pb-10 lg:bg-none lg:bg-transparent ${poppins.className}`}
@@ -239,20 +360,17 @@ export default function ValgHubPage() {
           Spil
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
-          <Link
-            href="/dashboard/opret/stratego"
-            className="block w-full text-left"
-          >
+          <PremiumGameCardWrapper href={strategoCardHref}>
             <motion.article
-              whileHover={{ y: -4, scale: 1.012 }}
-              className={`${cardBaseClass} cursor-pointer border-red-500/75 bg-red-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(239,68,68,0.28),inset_0_1px_0_rgba(255,255,255,0.18)]`}
+              whileHover={strategoCardHref ? { y: -4, scale: 1.012 } : undefined}
+              className={`${cardBaseClass} ${strategoCardHref ? "cursor-pointer" : "cursor-default"} border-red-500/75 bg-red-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(239,68,68,0.28),inset_0_1px_0_rgba(255,255,255,0.18)] ${premiumCardsAreLocked ? "ring-1 ring-amber-300/20" : ""}`}
             >
               <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(249,115,22,0.28),transparent_62%),radial-gradient(circle_at_center,rgba(239,68,68,0.2),transparent_70%)] shadow-[inset_0_0_54px_rgba(239,68,68,0.18)]" />
               <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem]" />
 
               <div className="absolute top-4 right-4 z-20">
-                <span className="inline-flex items-center rounded-full border border-red-300/40 bg-red-400/20 px-3 py-1 text-[0.58rem] font-bold tracking-[0.18em] text-white uppercase shadow-[0_10px_22px_rgba(239,68,68,0.22)] backdrop-blur-md">
-                  NYT SPIL
+                <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[0.58rem] font-bold tracking-[0.18em] text-white uppercase shadow-[0_10px_22px_rgba(239,68,68,0.22)] backdrop-blur-md ${premiumBadgeLabel ? premiumBadgeClass : "border-red-300/40 bg-red-400/20"}`}>
+                  {premiumBadgeLabel ?? "NYT SPIL"}
                 </span>
               </div>
 
@@ -273,22 +391,19 @@ export default function ValgHubPage() {
                 </div>
               </div>
             </motion.article>
-          </Link>
+          </PremiumGameCardWrapper>
 
-          <Link
-            href="/dashboard/opret/zone-krig"
-            className="block w-full text-left"
-          >
+          <PremiumGameCardWrapper href={zoneKrigCardHref}>
             <motion.article
-              whileHover={{ y: -4, scale: 1.012 }}
-              className={`${cardBaseClass} cursor-pointer border-orange-500/75 bg-orange-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(249,115,22,0.28),inset_0_1px_0_rgba(255,255,255,0.18)]`}
+              whileHover={zoneKrigCardHref ? { y: -4, scale: 1.012 } : undefined}
+              className={`${cardBaseClass} ${zoneKrigCardHref ? "cursor-pointer" : "cursor-default"} border-orange-500/75 bg-orange-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(249,115,22,0.28),inset_0_1px_0_rgba(255,255,255,0.18)] ${premiumCardsAreLocked ? "ring-1 ring-amber-300/20" : ""}`}
             >
               <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(249,115,22,0.34),transparent_62%)] shadow-[inset_0_0_54px_rgba(249,115,22,0.28)]" />
               <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem]" />
 
               <div className="absolute top-4 right-4 z-20">
-                <span className="inline-flex items-center rounded-full border border-orange-300/40 bg-orange-400/20 px-3 py-1 text-[0.58rem] font-bold tracking-[0.18em] text-white uppercase shadow-[0_10px_22px_rgba(249,115,22,0.22)] backdrop-blur-md">
-                  SPIL
+                <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[0.58rem] font-bold tracking-[0.18em] text-white uppercase shadow-[0_10px_22px_rgba(249,115,22,0.22)] backdrop-blur-md ${premiumBadgeLabel ? premiumBadgeClass : "border-orange-300/40 bg-orange-400/20"}`}>
+                  {premiumBadgeLabel ?? "SPIL"}
                 </span>
               </div>
 
@@ -305,7 +420,7 @@ export default function ValgHubPage() {
                 </div>
               </div>
             </motion.article>
-          </Link>
+          </PremiumGameCardWrapper>
         </div>
       </section>
 
