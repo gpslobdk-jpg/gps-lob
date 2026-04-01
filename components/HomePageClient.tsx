@@ -313,50 +313,39 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
             </Link>
 
             <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
-              <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">
-                <div className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
+              <button
+                type="button"
+                onClick={() => setLegalModal("gdpr")}
+                className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 transition-all cursor-pointer hover:border-white/20 hover:bg-white/5"
+              >
+                <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
                   <ShieldCheck className="h-3.5 w-3.5 text-emerald-300/80" />
                   <span>PRIVACY BY DESIGN</span>
-                </div>
-              </div>
+                </span>
+              </button>
 
-              <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">
-                <div className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
+              <button
+                type="button"
+                onClick={() => setLegalModal("databehandling")}
+                className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 transition-all cursor-pointer hover:border-white/20 hover:bg-white/5"
+              >
+                <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
                   <Lock className="h-3.5 w-3.5 text-emerald-300/80" />
                   <span>SIKKER DATABEHANDLING</span>
-                </div>
-              </div>
+                </span>
+              </button>
 
-              <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">
-                <div className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
+              <button
+                type="button"
+                onClick={() => setLegalModal("ophavsret")}
+                className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 transition-all cursor-pointer hover:border-white/20 hover:bg-white/5"
+              >
+                <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
                   <FileCheck className="h-3.5 w-3.5 text-emerald-300/80" />
                   <span>COPYDAN-PARAT</span>
-                </div>
-              </div>
+                </span>
+              </button>
             </div>
-          </div>
-          <div className="relative z-20 mt-6 flex flex-wrap justify-center gap-4 text-xs text-white/60 sm:gap-6 sm:text-sm">
-            <button
-              type="button"
-              onClick={() => setLegalModal("ophavsret")}
-              className="transition-colors hover:text-white"
-            >
-              Ophavsret
-            </button>
-            <button
-              type="button"
-              onClick={() => setLegalModal("gdpr")}
-              className="transition-colors hover:text-white"
-            >
-              GDPR & Privatliv
-            </button>
-            <button
-              type="button"
-              onClick={() => setLegalModal("databehandling")}
-              className="transition-colors hover:text-white"
-            >
-              Databehandling
-            </button>
           </div>
         </section>
       </main>
