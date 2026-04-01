@@ -1,10 +1,11 @@
 "use client";
 
-import { Home, LogOut, Settings } from "lucide-react";
+import { Home, LogOut, Settings, Volume2, VolumeX } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { useAudio } from "@/contexts/AudioContext";
 import { createClient } from "@/utils/supabase/client";
 
 type NavLink = {
@@ -40,6 +41,7 @@ function getNavLinkClasses(isActive: boolean) {
 export default function DashboardHeader() {
   const pathname = usePathname();
   const router = useRouter();
+  const { isPlaying, toggleAudio } = useAudio();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const handleLogUd = async () => {
@@ -91,15 +93,31 @@ export default function DashboardHeader() {
             })}
           </nav>
 
-          <button
-            type="button"
-            onClick={() => void handleLogUd()}
-            disabled={isSigningOut}
-            className="hidden items-center gap-2 rounded-full border border-red-200 bg-white/90 px-4 py-2 text-sm font-semibold text-red-600 transition-all hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-70 md:inline-flex"
-          >
-            <LogOut className="h-4 w-4" />
-            {isSigningOut ? "Logger ud..." : "Log ud"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleAudio}
+              aria-pressed={isPlaying}
+              aria-label={isPlaying ? "Sluk baggrundslyd" : "Taend baggrundslyd"}
+              title={isPlaying ? "Sluk baggrundslyd" : "Taend baggrundslyd"}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-emerald-200 bg-white/90 text-emerald-700 shadow-sm transition-all hover:bg-emerald-50 hover:text-emerald-900"
+            >
+              {isPlaying ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              <span className="sr-only">
+                {isPlaying ? "Sluk baggrundslyd" : "Taend baggrundslyd"}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void handleLogUd()}
+              disabled={isSigningOut}
+              className="hidden items-center gap-2 rounded-full border border-red-200 bg-white/90 px-4 py-2 text-sm font-semibold text-red-600 transition-all hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-70 md:inline-flex"
+            >
+              <LogOut className="h-4 w-4" />
+              {isSigningOut ? "Logger ud..." : "Log ud"}
+            </button>
+          </div>
         </div>
       </div>
     </header>
