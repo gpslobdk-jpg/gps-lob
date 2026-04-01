@@ -339,6 +339,10 @@ export default function StrategoTeacherDashboard({
       }
 
       setDuelEvents((previous) => {
+        if (!row) {
+          return previous;
+        }
+
         const next = [row, ...previous.filter((item) => item.id !== eventId)];
         return next.slice(0, 10);
       });
