@@ -45,6 +45,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   const [hasParticipantsTable, setHasParticipantsTable] = useState(true);
   const [hasAnswersTable, setHasAnswersTable] = useState(true);
   const [isEndingRun, setIsEndingRun] = useState(false);
+  const [isUpdatingPause, setIsUpdatingPause] = useState(false);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -596,6 +597,31 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     setStatus("running");
   };
 
+  const togglePause = async () => {
+    if (!sessionId || isUpdatingPause || isEndingRun) return;
+
+    const nextStatus = status === "paused" ? "running" : "paused";
+    setIsUpdatingPause(true);
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("live_sessions")
+        .update({ status: nextStatus })
+        .eq("id", sessionId);
+
+      if (error) {
+        console.error("Kunne ikke opdatere pausetilstand:", error);
+        alert("Kunne ikke skifte pause-tilstand.");
+        return;
+      }
+
+      setStatus(nextStatus);
+    } finally {
+      setIsUpdatingPause(false);
+    }
+  };
+
   const endRun = async () => {
     if (!sessionId || isEndingRun) return;
 
@@ -691,6 +717,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     hasParticipantsTable,
     hasAnswersTable,
     isEndingRun,
+    isUpdatingPause,
     activeStudents,
     studentLocations,
     finishers,
@@ -702,6 +729,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     setNewMessage: updateNewMessage,
     sendMessage,
     toggleGpsOverride,
+    togglePause,
     startSession,
     endRun,
     kickParticipant,

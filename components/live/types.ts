@@ -1,4 +1,4 @@
-export type SessionStatus = "waiting" | "running" | "finished" | string;
+export type SessionStatus = "waiting" | "running" | "paused" | "finished" | string;
 
 export type SessionRow = {
   pin: string | null;
@@ -102,6 +102,7 @@ export type TeacherLiveData = {
   hasParticipantsTable: boolean;
   hasAnswersTable: boolean;
   isEndingRun: boolean;
+  isUpdatingPause: boolean;
   activeStudents: LiveStudentLocation[];
   finishers: LiveStudentLocation[];
   finalStandings: TeacherLiveStanding[];
@@ -112,6 +113,7 @@ export type TeacherLiveData = {
   setNewMessage: (value: string) => void;
   sendMessage: () => Promise<void>;
   toggleGpsOverride: () => Promise<void>;
+  togglePause: () => Promise<void>;
   startSession: () => Promise<void>;
   endRun: () => Promise<void>;
   kickParticipant: (student: LiveStudentLocation) => Promise<void>;

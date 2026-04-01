@@ -68,6 +68,7 @@ import {
   toFiniteNumber,
   toIntegerStartOffset,
 } from "./playUtils";
+import { useStrategoEngine } from "./useStrategoEngine";
 import { DEFAULT_QUESTION_POINTS } from "@/utils/questionPoints";
 import { createClient } from "@/utils/supabase/client";
 
@@ -495,6 +496,8 @@ export function usePlayGameState({
     (raceMode === "unknown" &&
       questions.length > 0 &&
       questions.every((question) => resolvePostVariant(raceMode, question) === "escape"));
+  const isStrategoRace = raceMode === "stratego";
+  const isSessionPaused = sessionStatus === "paused";
   const activeDisplayName = playerName || pendingPlayerName || "Deltager";
   const celebrationName = activeDisplayName;
   const normalizedActiveDisplayName = activeDisplayName.trim().toLocaleLowerCase("da-DK");
@@ -816,7 +819,7 @@ export function usePlayGameState({
     !isFinished &&
     !isKicked &&
     hasConfirmedName &&
-    questions.length > 0;
+    (questions.length > 0 || isStrategoRace);
   const canManualUnlock =
     !showQuestion &&
     (gpsOverride ||
@@ -950,7 +953,14 @@ export function usePlayGameState({
   }, []);
 
   useEffect(() => {
-    if (!sessionId || !participantId || questions.length === 0 || hasRestoredRef.current) return;
+    if (
+      !sessionId ||
+      !participantId ||
+      (questions.length === 0 && !isStrategoRace) ||
+      hasRestoredRef.current
+    ) {
+      return;
+    }
 
     let isActive = true;
     setIsRestoringParticipant(true);
@@ -1127,7 +1137,12 @@ export function usePlayGameState({
           setScore(restoredScore);
           setCollectedEscapeRewards(getEscapeCodeEntriesFromRows(rows, questions));
 
-          if (raceMode !== "zone_krig" && confirmedCorrectPosts.size >= questions.length) {
+          if (
+            !isStrategoRace &&
+            questions.length > 0 &&
+            raceMode !== "zone_krig" &&
+            confirmedCorrectPosts.size >= questions.length
+          ) {
             setShowQuestion(false);
             setDistanceState(null);
             setEscapeReward(null);
@@ -1199,6 +1214,7 @@ export function usePlayGameState({
     questions,
     questions.length,
     raceMode,
+    isStrategoRace,
     autoUnlockRadius,
     restoreRetryNonce,
     scheduleRestoreRetry,
@@ -1396,14 +1412,15 @@ export function usePlayGameState({
           const parsedQuestions = Array.isArray(payload?.questions)
             ? payload.questions.map(parseQuestion).filter((q): q is Question => q !== null)
             : [];
+          const nextRaceMode = normalizeRaceMode(payload?.raceType);
 
-          if (parsedQuestions.length === 0) {
+          if (parsedQuestions.length === 0 && nextRaceMode !== "stratego") {
             setLoadError("Dette løb har ingen gyldige GPS-poster endnu.");
           } else {
             setQuestions(parsedQuestions);
           }
 
-          setRaceMode(normalizeRaceMode(payload?.raceType));
+          setRaceMode(nextRaceMode);
           setAutoUnlockRadius(Math.round(parsedRadius));
           setGpsOverride(Boolean(payload?.gpsOverride));
           setCorrectAnswersCount(0);
@@ -2390,6 +2407,21 @@ export function usePlayGameState({
     setGpsErrorState(error);
   }, []);
 
+  const stratego = useStrategoEngine({
+    enabled:
+      isStrategoRace &&
+      Boolean(sessionId) &&
+      Boolean(participantId) &&
+      hasConfirmedName &&
+      !isFinished &&
+      !isKicked,
+    isPaused: isSessionPaused,
+    sessionId,
+    participantId,
+    myLoc,
+    supabase,
+  });
+
   const player: PlayPlayerState = {
     pendingPlayerName,
     playerName,
@@ -2524,12 +2556,14 @@ export function usePlayGameState({
     isBlockingGpsError,
     isProvisioningParticipant,
     isEscapeRace,
+    isStrategoRace,
     isRoleplayImmersed,
     isSelfiePhotoTask,
     isSubmitting,
     isSubmittingAnswer,
     isAnalyzingPhoto,
     isCheckingEscapeAnswer,
+    isSessionPaused,
     shouldKeepScreenAwake,
   };
 
@@ -2537,6 +2571,7 @@ export function usePlayGameState({
     player,
     gps,
     progress,
+    stratego,
     flags,
     actions: {
       confirmName,
@@ -2548,6 +2583,8 @@ export function usePlayGameState({
       clearTypedAnswerError,
       clearPostActionError,
       clearRoleplayInputErrorTone,
+      clearStrategoDuelEvent: stratego.clearDuelEvent,
+      triggerStrategoDuel: stratego.triggerDuel,
       unlockCurrentPost,
       dismissCurrentPost,
       clearDismissedPost,

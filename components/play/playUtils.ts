@@ -294,6 +294,10 @@ export function normalizeRaceMode(value: unknown): RaceMode {
     case "zone_krig":
     case "zonekrig":
       return "zone_krig";
+    case "stratego":
+    case "live_stratego":
+    case "live-stratego":
+      return "stratego";
     default:
       return "unknown";
   }

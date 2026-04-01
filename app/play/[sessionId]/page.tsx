@@ -8,6 +8,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import GPSManager from "@/components/play/GPSManager";
 import { usePlayGameState } from "@/components/play/GameState";
 import PlayInterface from "@/components/play/PlayInterface";
+import StrategoElevInterface from "@/components/play/StrategoElevInterface";
 import ZoneKrigElevInterface from "@/components/play/ZoneKrigElevInterface";
 
 const MapDisplay = dynamic(() => import("@/components/play/MapDisplay"), { ssr: false });
@@ -20,9 +21,10 @@ function PlayScreen() {
   const initialStudentName = searchParams.get("name")?.trim() || "";
   const game = usePlayGameState({ sessionId, initialStudentName });
   const isZoneKrig = game.progress.raceMode === "zone_krig";
+  const isStratego = game.progress.raceMode === "stratego";
   const isTrackingEnabled =
     Boolean(sessionId) &&
-    game.progress.questions.length > 0 &&
+    (game.progress.questions.length > 0 || game.flags.isStrategoRace) &&
     !game.progress.screen.isFinished &&
     !game.progress.screen.isKicked &&
     game.player.hasConfirmedName &&
@@ -46,6 +48,8 @@ function PlayScreen() {
       />
       {isZoneKrig ? (
         <ZoneKrigElevInterface sessionId={sessionId} ui={game} actions={game.actions} />
+      ) : isStratego ? (
+        <StrategoElevInterface sessionId={sessionId} ui={game} actions={game.actions} />
       ) : (
         <PlayInterface ui={game} actions={game.actions}>
           <MapDisplay

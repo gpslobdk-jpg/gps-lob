@@ -28,7 +28,7 @@ export type Post = {
 };
 
 export type ActivePostVariant = "quiz" | "photo" | "escape" | "roleplay" | "unknown";
-export type RaceMode = ActivePostVariant | "zone_krig";
+export type RaceMode = ActivePostVariant | "zone_krig" | "stratego";
 export type PostType = "quiz" | "intro";
 export type GpsErrorState =
   | "permission_denied"
@@ -142,6 +142,37 @@ export type EscapeResultEntry = {
   place: number;
   studentName: string;
   finishedAt: string | null;
+};
+
+export type StrategoPresenceEntry = {
+  participantId: string;
+  sessionId: string;
+  teamCode: string;
+  state: string;
+  lat: number | null;
+  lng: number | null;
+  updatedAt: string | null;
+};
+
+export type StrategoSelfPlayer = {
+  participantId: string;
+  sessionId: string;
+  teamCode: string;
+  state: string;
+  rankKey: string | null;
+};
+
+export type StrategoDuelEvent = {
+  id: string;
+  sessionId: string;
+  winnerId: string | null;
+  loserId: string | null;
+  attackerId: string;
+  defenderId: string;
+  attackerRoleKey: string;
+  defenderRoleKey: string;
+  isDraw: boolean;
+  createdAt: string | null;
 };
 
 export type PlaySessionPayload = {
@@ -276,6 +307,21 @@ export interface PlayScreenState {
   isKicked: boolean;
 }
 
+export interface PlayStrategoState {
+  selfPlayer: StrategoSelfPlayer | null;
+  selfPresence: StrategoPresenceEntry | null;
+  allyPresence: StrategoPresenceEntry[];
+  enemyPresence: StrategoPresenceEntry[];
+  isInSafeZone: boolean;
+  isRealtimeRecovering: boolean;
+  targetInSight: StrategoPresenceEntry | null;
+  duelEvent: StrategoDuelEvent | null;
+  duelInFlight: boolean;
+  duelError: string | null;
+  isLoading: boolean;
+  error: string | null;
+}
+
 export interface PlayUiFlags {
   canManualUnlock: boolean;
   gpsOverrideEnabled: boolean;
@@ -286,12 +332,14 @@ export interface PlayUiFlags {
   isBlockingGpsError: boolean;
   isProvisioningParticipant: boolean;
   isEscapeRace: boolean;
+  isStrategoRace: boolean;
   isRoleplayImmersed: boolean;
   isSelfiePhotoTask: boolean;
   isSubmitting: boolean;
   isSubmittingAnswer: boolean;
   isAnalyzingPhoto: boolean;
   isCheckingEscapeAnswer: boolean;
+  isSessionPaused: boolean;
   shouldKeepScreenAwake: boolean;
 }
 
@@ -312,6 +360,8 @@ export interface PlayActions {
   clearTypedAnswerError: () => void;
   clearPostActionError: () => void;
   clearRoleplayInputErrorTone: () => void;
+  clearStrategoDuelEvent: () => void;
+  triggerStrategoDuel: (targetId: string) => Promise<void>;
   unlockCurrentPost: () => void;
   dismissCurrentPost: () => void;
   clearDismissedPost: () => void;
@@ -331,6 +381,7 @@ export interface PlayGameState {
   player: PlayPlayerState;
   gps: PlayGpsState;
   progress: PlayProgressState;
+  stratego: PlayStrategoState;
   flags: PlayUiFlags;
   actions: PlayActions;
 }

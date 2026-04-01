@@ -35,6 +35,8 @@ type ActiveSessionRow = {
   id?: string | null;
 };
 
+const ACTIVE_PLAY_SESSION_STATUSES = ["waiting", "running", "active", "paused"] as const;
+
 function getSupabaseConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
@@ -149,7 +151,7 @@ async function fetchActiveParticipant(
     .from("live_sessions")
     .select("id")
     .eq("id", sessionId)
-    .in("status", ["waiting", "running"])
+    .in("status", [...ACTIVE_PLAY_SESSION_STATUSES])
     .maybeSingle<ActiveSessionRow>();
 
   if (sessionError) {

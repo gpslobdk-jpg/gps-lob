@@ -13,6 +13,12 @@ import { useTeacherLiveData } from "@/hooks/useTeacherLiveData";
 const TeacherLiveMap = dynamic(() => import("@/components/live/TeacherLiveMap"), {
   ssr: false,
 });
+const StrategoTeacherSetup = dynamic(() => import("@/components/live/StrategoTeacherSetup"), {
+  ssr: false,
+});
+const StrategoTeacherDashboard = dynamic(() => import("@/components/live/StrategoTeacherDashboard"), {
+  ssr: false,
+});
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -24,16 +30,31 @@ export default function LiveLobbyPage() {
   const rawSessionId = params?.sessionId;
   const sessionId = Array.isArray(rawSessionId) ? rawSessionId[0] : rawSessionId ?? null;
   const live = useTeacherLiveData(sessionId);
+  const isStrategoRace =
+    typeof live.runRaceType === "string" &&
+    ["stratego", "live_stratego", "live-stratego"].includes(
+      live.runRaceType.trim().toLocaleLowerCase("da-DK")
+    );
 
   return (
     <AnimatePresence mode="wait">
       {live.status === "waiting" ? (
-        <TeacherLiveLobby
-          joinPin={live.joinPin}
-          students={live.students}
-          isLoading={live.isLoading}
-          onStartSession={live.startSession}
-        />
+        isStrategoRace ? (
+          <StrategoTeacherSetup
+            sessionId={sessionId}
+            joinPin={live.joinPin}
+            students={live.students}
+            isLoading={live.isLoading}
+            onStartSession={live.startSession}
+          />
+        ) : (
+          <TeacherLiveLobby
+            joinPin={live.joinPin}
+            students={live.students}
+            isLoading={live.isLoading}
+            onStartSession={live.startSession}
+          />
+        )
       ) : live.status === "finished" ? (
         <TeacherLiveResults
           standings={live.finalStandings}
@@ -41,6 +62,16 @@ export default function LiveLobbyPage() {
           winnerCelebrationName={live.winnerCelebrationName}
           photoAnswers={live.photoAnswers}
           isPhotoMission={live.isPhotoMission}
+        />
+      ) : isStrategoRace ? (
+        <StrategoTeacherDashboard
+          sessionId={sessionId}
+          joinPin={live.joinPin}
+          sessionStatus={live.status}
+          isEndingRun={live.isEndingRun}
+          isUpdatingPause={live.isUpdatingPause}
+          onTogglePause={live.togglePause}
+          onEndRun={live.endRun}
         />
       ) : (
         <motion.div
