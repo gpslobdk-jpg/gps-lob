@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import PwaInstallTip from "@/components/PwaInstallTip";
+import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
 import { readStoredActiveParticipant } from "@/components/play/playUtils";
 import { createClient } from "@/utils/supabase/client";
 
@@ -60,7 +61,7 @@ export default function DashboardPage() {
   const [dashboardRetryKey, setDashboardRetryKey] = useState(0);
   const [isNavigatingCreate, setIsNavigatingCreate] = useState(false);
   const [isNavigatingArchive, setIsNavigatingArchive] = useState(false);
-  const [isNavigatingLive, setIsNavigatingLive] = useState(false);
+  const [, setIsNavigatingLive] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -325,7 +326,11 @@ export default function DashboardPage() {
         <p className="text-emerald-50">{"V\u00e6lg din n\u00e6ste handling og kom i gang"}</p>
       </section>
 
-      <section className="mx-auto mt-16 grid w-full max-w-5xl grid-cols-1 justify-items-center gap-5 md:mt-20 md:grid-cols-3 md:gap-4">
+      <section className="mx-auto mt-8 w-full max-w-4xl">
+        <MobileInSchoolBanner variant="dashboard" />
+      </section>
+
+      <section className="mx-auto mt-10 grid w-full max-w-5xl grid-cols-1 justify-items-center gap-5 md:mt-14 md:grid-cols-3 md:gap-4">
         <motion.button
           type="button"
           onClick={() => {

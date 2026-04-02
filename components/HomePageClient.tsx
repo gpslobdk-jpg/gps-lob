@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 import AIChatButton from "@/components/AIChatButton";
+import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
 import natureAnimation from "@/public/nature.json";
 
 // WelcomeModal removed — onboarding flow deprecated
@@ -205,6 +206,12 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
       </div>
 
       {/* Welcome modal removed; no onboarding modal shown */}
+
+      <div className="relative z-20 mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 md:px-8 md:pt-6">
+        <div className="mx-auto max-w-4xl">
+          <MobileInSchoolBanner variant="home" />
+        </div>
+      </div>
 
       <main className="relative mx-auto flex w-full flex-1 flex-col justify-center px-4 py-8 md:hidden">
         <section className="flex flex-1 items-center justify-center">
