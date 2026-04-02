@@ -1,24 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
 
 import { useAudio } from "@/contexts/AudioContext";
 
-function getAudioSource(pathname: string) {
-  if (pathname === "/dashboard" || pathname === "/dashboard/opret") {
-    return "/forest.mp3";
-  }
-
-  return "/zen-focus.mp3";
-}
-
 export default function DashboardAudioPlayer() {
-  const pathname = usePathname();
   const { isPlaying, setIsPlaying } = useAudio();
   const audioRef = useRef<HTMLAudioElement>(null);
   const activeSourceRef = useRef<string | null>(null);
-  const audioSrc = getAudioSource(pathname);
+  const audioSrc = "/skovlyd.mp3";
 
   useEffect(() => {
     const audio = audioRef.current;
