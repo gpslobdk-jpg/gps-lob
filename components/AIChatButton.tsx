@@ -14,6 +14,11 @@ type QuickAction = {
 
 const QUICK_ACTIONS: readonly QuickAction[] = [
   {
+    id: "stratego",
+    label: "Vis mig, hvordan Live Stratego fungerer",
+    prompt: "Vis mig, hvordan Live Stratego fungerer.",
+  },
+  {
     id: "zone-krig",
     label: "Vis mig, hvordan man vinder i Zone-Krigen",
     prompt: "Vis mig, hvordan man vinder i Zone-Krigen.",
@@ -41,6 +46,10 @@ const QUICK_ACTIONS: readonly QuickAction[] = [
 ] as const;
 
 const getWelcomeMessage = (pathname: string) => {
+  if (pathname.includes("/opret/stratego")) {
+    return "Jeg kan hjælpe dig med Live Stratego: radar, hemmelige roller, fredszoner, kontrolrum og hvornår det er det stærkeste valg.";
+  }
+
   if (pathname.includes("/opret/zone-krig")) {
     return "Jeg kan hjælpe dig med Zone-Krigen: zoner, placering, pointpres, taktiske greb og balancen i 60-sekunders shields.";
   }
@@ -66,16 +75,25 @@ const extractMessageText = (message: UIMessage) =>
   message.parts.filter(isTextUIPart).map((part) => part.text).join("").trim();
 
 const getQuickActions = (pathname: string) => {
-  let prioritizedIds: string[] = ["zone-krig", "scanner", "podcast", "manual", "start"];
+  let prioritizedIds: string[] = [
+    "stratego",
+    "zone-krig",
+    "scanner",
+    "podcast",
+    "manual",
+    "start",
+  ];
 
-  if (pathname.includes("/opret/zone-krig")) {
-    prioritizedIds = ["zone-krig", "manual", "scanner", "podcast", "start"];
+  if (pathname.includes("/opret/stratego")) {
+    prioritizedIds = ["stratego", "zone-krig", "manual", "scanner", "podcast", "start"];
+  } else if (pathname.includes("/opret/zone-krig")) {
+    prioritizedIds = ["zone-krig", "stratego", "manual", "scanner", "podcast", "start"];
   } else if (pathname.includes("/opret/scanner")) {
-    prioritizedIds = ["scanner", "manual", "podcast", "zone-krig", "start"];
+    prioritizedIds = ["scanner", "manual", "podcast", "stratego", "zone-krig", "start"];
   } else if (pathname.includes("/opret/podcast")) {
-    prioritizedIds = ["podcast", "scanner", "manual", "zone-krig", "start"];
+    prioritizedIds = ["podcast", "scanner", "manual", "stratego", "zone-krig", "start"];
   } else if (pathname.includes("/opret/manuel")) {
-    prioritizedIds = ["manual", "scanner", "podcast", "zone-krig", "start"];
+    prioritizedIds = ["manual", "scanner", "podcast", "stratego", "zone-krig", "start"];
   }
 
   return prioritizedIds
