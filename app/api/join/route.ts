@@ -527,6 +527,27 @@ async function ensureGameTeam(
   }
 }
 
+async function assignParticipantToZoneKrigTeam(
+  sessionId: string,
+  participantId: string,
+  teamId: string,
+  adminSupabase: AdminSupabaseClient
+) {
+  const { error } = await adminSupabase
+    .from("participants")
+    .update({ zone_krig_team_id: teamId })
+    .eq("id", participantId)
+    .eq("session_id", sessionId);
+
+  if (error) {
+    if (isMissingColumnError(error)) {
+      return;
+    }
+
+    throw new Error(error.message);
+  }
+}
+
 function respond(data: JoinApiResponse, status = 200) {  return NextResponse.json(data, {
     status,
     headers: {
@@ -728,6 +749,9 @@ export async function POST(request: NextRequest) {
       };
       const teamName = FACTION_NAMES[color] ?? "Ukendt";
       teamId = await ensureGameTeam(sessionId, teamName, color, adminSupabase);
+      if (teamId) {
+        await assignParticipantToZoneKrigTeam(sessionId, participantId, teamId, adminSupabase);
+      }
     }
 
     return NextResponse.json<JoinParticipantResponse>(

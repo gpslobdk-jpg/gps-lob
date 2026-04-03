@@ -705,6 +705,7 @@ export default function StrategoTeacherDashboard({
 
   const winnerBanner = getWinnerBanner(game);
   const isPaused = sessionStatus === "paused";
+  const isFinished = sessionStatus === "finished";
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -723,14 +724,19 @@ export default function StrategoTeacherDashboard({
             <button
               type="button"
               onClick={() => void onTogglePause()}
-              disabled={isUpdatingPause || isEndingRun}
+              disabled={isUpdatingPause || isEndingRun || isFinished}
               className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.22em] transition disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-slate-800 disabled:text-white/45 ${
                 isPaused
                   ? "border-emerald-300/25 bg-emerald-500 text-slate-950 hover:bg-emerald-400"
                   : "border-rose-300/25 bg-rose-500 text-white hover:bg-rose-400"
               }`}
             >
-              {isUpdatingPause ? (
+              {isFinished ? (
+                <>
+                  <Shield className="h-4 w-4" />
+                  SPIL AFSLUTTET
+                </>
+              ) : isUpdatingPause ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Gemmer
@@ -753,10 +759,15 @@ export default function StrategoTeacherDashboard({
             <button
               type="button"
               onClick={() => void onEndRun()}
-              disabled={isEndingRun}
+              disabled={isEndingRun || isFinished}
               className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-white/45"
             >
-              {isEndingRun ? (
+              {isFinished ? (
+                <>
+                  <Shield className="h-4 w-4" />
+                  Afsluttet
+                </>
+              ) : isEndingRun ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Afslutter

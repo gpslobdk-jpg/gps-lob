@@ -18,6 +18,8 @@ const STRATEGO_DUEL_TRIGGER_COOLDOWN_MS = 3000;
 const STRATEGO_DUEL_ERROR_TIMEOUT_MS = 3000;
 const STRATEGO_RESPAWN_RETRY_COOLDOWN_MS = 5000;
 const STRATEGO_RESPAWN_FEEDBACK_TIMEOUT_MS = 4000;
+const STRATEGO_PRESENCE_STALE_MS = 15000;
+const STRATEGO_PRESENCE_STALE_TICK_MS = 5000;
 
 type SupabaseBrowserClient = ReturnType<typeof createClient>;
 
@@ -222,6 +224,19 @@ function getDuelRejectionMessage(message: string | null | undefined) {
   return matchedMessage ?? "Målet er allerede i kamp";
 }
 
+function isPresenceFresh(updatedAt: string | null | undefined, nowMs: number) {
+  if (!updatedAt) {
+    return true;
+  }
+
+  const timestamp = new Date(updatedAt).getTime();
+  if (!Number.isFinite(timestamp)) {
+    return true;
+  }
+
+  return nowMs - timestamp <= STRATEGO_PRESENCE_STALE_MS;
+}
+
 export function useStrategoEngine({
   enabled,
   isPaused,
@@ -241,6 +256,7 @@ export function useStrategoEngine({
   const [isRealtimeRecovering, setIsRealtimeRecovering] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [presenceFreshnessTick, setPresenceFreshnessTick] = useState(() => Date.now());
 
   const duelInFlightRef = useRef(false);
   const duelCooldownUntilRef = useRef(0);
@@ -403,6 +419,20 @@ export function useStrategoEngine({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!enabled || !sessionId) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      setPresenceFreshnessTick(Date.now());
+    }, STRATEGO_PRESENCE_STALE_TICK_MS);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [enabled, sessionId]);
 
   useEffect(() => {
     if (!enabled || !sessionId || !participantId) {
@@ -635,9 +665,10 @@ export function useStrategoEngine({
       (entry) =>
         entry.participantId !== participantId &&
         entry.teamCode !== effectiveSelfPlayer.teamCode &&
-        entry.state === "alive"
+        entry.state === "alive" &&
+        isPresenceFresh(entry.updatedAt, presenceFreshnessTick)
     );
-  }, [effectiveSelfPlayer?.teamCode, participantId, presenceEntries]);
+  }, [effectiveSelfPlayer?.teamCode, participantId, presenceEntries, presenceFreshnessTick]);
 
   const allyPresence = useMemo(() => {
     if (!participantId || !effectiveSelfPlayer?.teamCode) {

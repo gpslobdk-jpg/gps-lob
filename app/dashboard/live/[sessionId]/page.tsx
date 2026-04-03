@@ -55,14 +55,6 @@ export default function LiveLobbyPage() {
             onStartSession={live.startSession}
           />
         )
-      ) : live.status === "finished" ? (
-        <TeacherLiveResults
-          standings={live.finalStandings}
-          totalPosts={live.totalPosts}
-          winnerCelebrationName={live.winnerCelebrationName}
-          photoAnswers={live.photoAnswers}
-          isPhotoMission={live.isPhotoMission}
-        />
       ) : isStrategoRace ? (
         <StrategoTeacherDashboard
           sessionId={sessionId}
@@ -72,6 +64,14 @@ export default function LiveLobbyPage() {
           isUpdatingPause={live.isUpdatingPause}
           onTogglePause={live.togglePause}
           onEndRun={live.endRun}
+        />
+      ) : live.status === "finished" ? (
+        <TeacherLiveResults
+          standings={live.finalStandings}
+          totalPosts={live.totalPosts}
+          winnerCelebrationName={live.winnerCelebrationName}
+          photoAnswers={live.photoAnswers}
+          isPhotoMission={live.isPhotoMission}
         />
       ) : (
         <motion.div

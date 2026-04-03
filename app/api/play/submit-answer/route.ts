@@ -166,6 +166,10 @@ type ZoneKrigCaptureResponse = {
   shieldRemainingSeconds?: number;
 };
 
+type ZoneKrigParticipantTeamRow = {
+  zone_krig_team_id?: string | null;
+};
+
 type RunCache = Map<string, Awaited<ReturnType<typeof fetchRunForSession>> | null>;
 
 async function getRunForSessionCached(sessionId: string, runCache: RunCache) {
@@ -204,6 +208,35 @@ async function withAwardedPoints(payload: Record<string, unknown>, runCache: Run
   };
 }
 
+async function resolveZoneKrigTeamId(
+  payload: Record<string, unknown>,
+  admin: NonNullable<ReturnType<typeof createAdminClient>>
+) {
+  const sessionId = asTrimmedString(payload.session_id);
+  const participantId = asTrimmedString(payload.participant_id);
+
+  if (!sessionId || !participantId) {
+    return asTrimmedString(payload.zone_krig_team_id) || null;
+  }
+
+  const { data, error } = await admin
+    .from("participants")
+    .select("zone_krig_team_id")
+    .eq("id", participantId)
+    .eq("session_id", sessionId)
+    .maybeSingle<ZoneKrigParticipantTeamRow>();
+
+  if (error) {
+    if (isMissingColumnError(error)) {
+      return asTrimmedString(payload.zone_krig_team_id) || null;
+    }
+
+    throw new Error(error.message ?? "Kunne ikke hente spillerens hold.");
+  }
+
+  return asTrimmedString(data?.zone_krig_team_id) || null;
+}
+
 async function maybeCaptureZone(
   payload: Record<string, unknown>,
   admin: NonNullable<ReturnType<typeof createAdminClient>>,
@@ -217,7 +250,7 @@ async function maybeCaptureZone(
     const run = sessionId ? await getRunForSessionCached(sessionId, runCache) : null;
     if (!isZoneKrigRaceType(run?.race_type ?? run?.raceType)) return null;
 
-    const teamId = asTrimmedString(payload.zone_krig_team_id);
+    const teamId = await resolveZoneKrigTeamId(payload, admin);
     if (!teamId) return null;
 
     if (!sessionId) return null;

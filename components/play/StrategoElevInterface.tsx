@@ -210,8 +210,29 @@ export default function StrategoElevInterface({
 
     void loadStrategoMeta();
 
+    const gameChannel = supabase
+      .channel(`stratego-elev-game-${sessionId}-${player.participantId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "stratego_games", filter: `session_id=eq.${sessionId}` },
+        (payload) => {
+          if (!isActive) {
+            return;
+          }
+
+          if (payload.eventType === "DELETE") {
+            setStrategoGame(null);
+            return;
+          }
+
+          setStrategoGame((payload.new as StrategoGameRow | null) ?? null);
+        }
+      )
+      .subscribe();
+
     return () => {
       isActive = false;
+      void supabase.removeChannel(gameChannel);
     };
   }, [player.participantId, sessionId]);
 

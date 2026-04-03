@@ -619,7 +619,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   };
 
   const togglePause = async () => {
-    if (!sessionId || isUpdatingPause || isEndingRun) return;
+    if (!sessionId || isUpdatingPause || isEndingRun || status === "finished") return;
 
     const nextStatus = status === "paused" ? "running" : "paused";
     setIsUpdatingPause(true);
@@ -644,7 +644,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   };
 
   const endRun = async () => {
-    if (!sessionId || isEndingRun) return;
+    if (!sessionId || isEndingRun || status === "finished") return;
 
     const confirmed = confirm(
       "Er du sikker på, at du vil afslutte løbet for alle deltagere? Dette kan ikke fortrydes."

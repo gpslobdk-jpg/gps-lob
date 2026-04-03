@@ -7,6 +7,7 @@ import { createClient } from "@/utils/supabase/client";
 type AntiCheatProps = {
   sessionId: string;
   zoneId: string | null;
+  participantId?: string | null;
   onCheatDetected?: () => void;
   onDismiss?: () => void;
 };
@@ -14,6 +15,7 @@ type AntiCheatProps = {
 export default function AntiCheat({
   sessionId,
   zoneId,
+  participantId = null,
   onCheatDetected,
   onDismiss,
 }: AntiCheatProps) {
@@ -24,8 +26,8 @@ export default function AntiCheat({
       if (!document.hidden) return;
       setShowWarning(true);
       onCheatDetected?.();
-      if (zoneId) {
-        void lockZone(sessionId, zoneId);
+      if (zoneId && participantId) {
+        void lockZone(sessionId, zoneId, participantId);
       }
     };
 
@@ -33,7 +35,7 @@ export default function AntiCheat({
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [sessionId, zoneId, onCheatDetected]);
+  }, [participantId, sessionId, zoneId, onCheatDetected]);
 
   if (!showWarning) return null;
 
@@ -67,12 +69,14 @@ export default function AntiCheat({
   );
 }
 
-async function lockZone(sessionId: string, zoneId: string): Promise<void> {
-  const supabase = createClient();
+async function lockZone(sessionId: string, zoneId: string, participantId: string): Promise<void> {
+  const supabase = createClient({ participantId, sessionId });
   const shieldUntil = new Date(Date.now() + 60_000).toISOString();
-  await supabase
-    .from("game_zones")
-    .update({ shield_until: shieldUntil })
-    .eq("id", zoneId)
-    .eq("session_id", sessionId);
+
+  await supabase.rpc("lock_zone_krig_zone", {
+    p_session_id: sessionId,
+    p_zone_id: zoneId,
+    p_participant_id: participantId,
+    p_shield_until: shieldUntil,
+  });
 }
