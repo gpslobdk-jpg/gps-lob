@@ -25,6 +25,7 @@
     "cheerio": "^1.2.0",
     "driver.js": "^1.4.0",
     "framer-motion": "^12.34.4",
+    "html5-qrcode": "^2.3.8",
     "leaflet": "^1.9.4",
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.576.0",

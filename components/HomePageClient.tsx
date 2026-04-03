@@ -10,6 +10,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 
 import AIChatButton from "@/components/AIChatButton";
 import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
+import QRScannerModal from "@/components/QRScannerModal";
 import natureAnimation from "@/public/nature.json";
 
 // WelcomeModal removed — onboarding flow deprecated
@@ -215,7 +216,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
       <main className="relative mx-auto flex w-full flex-1 flex-col justify-center px-4 py-8 md:hidden">
         <section className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-lg space-y-3">
-            <div className="flex justify-center pt-1">
+            <div className="my-4 flex flex-wrap justify-center gap-3">
               <button
                 type="button"
                 onClick={toggleBackgroundSound}
@@ -248,6 +249,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
                 </svg>
                 <span>{isMuted ? "Slå lyd til" : "Slå lyd fra"}</span>
               </button>
+              <QRScannerModal />
             </div>
             <div className="rounded-3xl border border-emerald-500/30 bg-slate-950/80 p-5 shadow-[0_0_40px_rgba(16,185,129,0.15)] backdrop-blur-xl">
               <form onSubmit={handleSubmit} className="space-y-5">
