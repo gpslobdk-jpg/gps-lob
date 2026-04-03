@@ -68,7 +68,12 @@ export type QuizAnswerFeedbackState = {
   tone: FeedbackTone;
 } | null;
 
-export type ZoneKrigCaptureStatus = "captured" | "blocked_by_shield" | "already_owned" | "zone_missing";
+export type ZoneKrigCaptureStatus =
+  | "captured"
+  | "blocked_by_shield"
+  | "already_owned"
+  | "zone_missing"
+  | "game_over";
 
 export type ZoneKrigCaptureFeedbackState = {
   key: string;

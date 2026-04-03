@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { AlertCircle, CheckCircle2, Crosshair, Loader2, Radio, Shield, Swords, Target } from "lucide-react";
+import { AlertCircle, CheckCircle2, Crosshair, Loader2, Radio, Shield, Swords, Target, Timer } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import type { PlayActions, PlayUiState } from "./types";
@@ -23,6 +23,11 @@ type ZoneKrigElevInterfaceProps = {
   sessionId?: string;
   ui: PlayUiState;
   actions: PlayActions;
+};
+
+type ZoneKrigSessionRow = {
+  status?: string | null;
+  ends_at?: string | null;
 };
 
 const DEFAULT_MAP_CENTER: [number, number] = [55.6761, 12.5683];
@@ -48,6 +53,8 @@ function getZoneCaptureFeedbackClasses(status: NonNullable<PlayUiState["progress
       return "border-cyan-300/30 bg-cyan-500/15 text-cyan-100";
     case "zone_missing":
       return "border-rose-300/30 bg-rose-500/15 text-rose-100";
+    case "game_over":
+      return "border-amber-300/30 bg-amber-500/15 text-amber-100";
     default:
       return "border-white/10 bg-white/5 text-white";
   }
@@ -68,11 +75,47 @@ function deriveMapCenter(zones: ZoneKrigGameZone[], playerLocation: PlayUiState[
   return [lat, lng] as [number, number];
 }
 
+function formatMatchCountdown(remainingMs: number | null) {
+  if (remainingMs === null) return "--:--";
+  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function deriveZoneKrigWinner(teams: ZoneKrigGameTeam[], zones: ZoneKrigGameZone[]) {
+  const zonesOwnedByTeam = new Map<string, number>(teams.map((team) => [team.id, 0]));
+
+  for (const zone of zones) {
+    if (!zone.owner_team_id) continue;
+    zonesOwnedByTeam.set(zone.owner_team_id, (zonesOwnedByTeam.get(zone.owner_team_id) ?? 0) + 1);
+  }
+
+  const rankedTeams = teams
+    .map((team) => ({
+      team,
+      ownedZones: zonesOwnedByTeam.get(team.id) ?? 0,
+    }))
+    .sort((left, right) => right.ownedZones - left.ownedZones);
+
+  const topOwnedZones = rankedTeams[0]?.ownedZones ?? 0;
+  const tiedTeams = rankedTeams.filter((entry) => entry.ownedZones === topOwnedZones);
+
+  return {
+    topOwnedZones,
+    winner: topOwnedZones > 0 && tiedTeams.length === 1 ? tiedTeams[0]?.team ?? null : null,
+    isTie: topOwnedZones > 0 && tiedTeams.length > 1,
+  };
+}
+
 export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKrigElevInterfaceProps) {
   const { player, gps, progress, flags } = ui;
   const [zones, setZones] = useState<ZoneKrigGameZone[]>([]);
   const [teams, setTeams] = useState<ZoneKrigGameTeam[]>([]);
   const [isBattlefieldLoading, setIsBattlefieldLoading] = useState(true);
+  const [sessionStatus, setSessionStatus] = useState<string | null>(null);
+  const [endsAt, setEndsAt] = useState<string | null>(null);
+  const [countdownNowMs, setCountdownNowMs] = useState(() => Date.now());
 
   const selectedZone = zones.find((zone) => zone.zone_index === progress.currentPostIndex) ?? null;
   const selectedQuestion = progress.currentPost.activeQuestion;
@@ -94,6 +137,18 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
 
   const myZoneCount = zones.filter((zone) => zone.owner_team_id === player.teamId).length;
   const neutralZoneCount = zones.filter((zone) => zone.owner_team_id === null).length;
+  const winnerSummary = useMemo(() => deriveZoneKrigWinner(teams, zones), [teams, zones]);
+  const remainingMs = useMemo(() => {
+    if (!endsAt) return null;
+    const endsAtMs = new Date(endsAt).getTime();
+    if (!Number.isFinite(endsAtMs)) return null;
+    return Math.max(0, endsAtMs - countdownNowMs);
+  }, [countdownNowMs, endsAt]);
+  const countdownLabel = formatMatchCountdown(remainingMs);
+  const isMatchOver =
+    progress.screen.mode === "finished" ||
+    sessionStatus === "finished" ||
+    (remainingMs !== null && remainingMs <= 0);
 
   useEffect(() => {
     if (!sessionId || !player.hasConfirmedName || !player.participantId) {
@@ -105,19 +160,26 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
 
     const loadBattlefield = async () => {
       try {
-        const [teamsRes, zonesRes] = await Promise.all([
+        const [teamsRes, zonesRes, sessionRes] = await Promise.all([
           supabase.from("game_teams").select("id,team_name,color,score").eq("session_id", sessionId),
           supabase
             .from("game_zones")
             .select("id,session_id,zone_index,center_lat,center_lng,radius_m,owner_team_id,shield_until")
             .eq("session_id", sessionId)
             .order("zone_index"),
+          supabase
+            .from("live_sessions")
+            .select("status,ends_at")
+            .eq("id", sessionId)
+            .maybeSingle<ZoneKrigSessionRow>(),
         ]);
 
         if (!isActive) return;
 
         setTeams((teamsRes.data ?? []) as ZoneKrigGameTeam[]);
         setZones((zonesRes.data ?? []) as ZoneKrigGameZone[]);
+        setSessionStatus(sessionRes.data?.status ?? null);
+        setEndsAt(sessionRes.data?.ends_at ?? null);
       } finally {
         if (isActive) {
           setIsBattlefieldLoading(false);
@@ -182,12 +244,42 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
       )
       .subscribe();
 
+    const sessionChannel = supabase
+      .channel(`zone-krig-elev-session-${sessionId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "live_sessions", filter: `id=eq.${sessionId}` },
+        (payload) => {
+          if (!isActive) return;
+          const updated = payload.new as ZoneKrigSessionRow;
+          setSessionStatus(updated.status ?? null);
+          setEndsAt(updated.ends_at ?? null);
+        }
+      )
+      .subscribe();
+
     return () => {
       isActive = false;
       void supabase.removeChannel(teamsChannel);
       void supabase.removeChannel(zonesChannel);
+      void supabase.removeChannel(sessionChannel);
     };
   }, [player.hasConfirmedName, player.participantId, sessionId]);
+
+  useEffect(() => {
+    if (!endsAt || sessionStatus === "finished") {
+      return;
+    }
+
+    setCountdownNowMs(Date.now());
+    const intervalId = window.setInterval(() => {
+      setCountdownNowMs(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [endsAt, sessionStatus]);
 
   if (progress.screen.mode === "loading") {
     return (
@@ -226,6 +318,21 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
           <Radio className="mx-auto h-10 w-10 animate-pulse text-cyan-300" />
           <h1 className="mt-4 text-3xl font-black">Kommandocentralen kalibrerer</h1>
           <p className="mt-3 text-sm leading-6 text-white/75">Du er registreret. Vent på at læreren starter Zone Krig.</p>
+          {myTeam ? (
+            <div
+              className="mx-auto mt-5 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold text-white"
+              style={{
+                borderColor: myTeam.color ?? "rgba(34,211,238,0.35)",
+                backgroundColor: myTeam.color ? `${myTeam.color}22` : "rgba(34,211,238,0.12)",
+              }}
+            >
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: myTeam.color ?? "#22d3ee" }}
+              />
+              Du er på {myTeam.team_name} hold!
+            </div>
+          ) : null}
           <WifiConnectionTip className="mt-6" />
         </div>
       </div>
@@ -264,13 +371,53 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
     );
   }
 
-  if (progress.screen.mode === "finished") {
+  if (isMatchOver) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
-        <div className="w-full max-w-lg rounded-4xl border border-emerald-400/20 bg-slate-900/70 p-8 text-center shadow-2xl backdrop-blur-xl">
-          <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-300" />
-          <h1 className="mt-4 text-3xl font-black">Kampen er afsluttet</h1>
-          <p className="mt-3 text-sm leading-6 text-white/75">Zone Krig er lukket. Vent på resultatet fra læreren.</p>
+        <div className="w-full max-w-2xl rounded-4xl border border-amber-300/20 bg-slate-900/80 p-8 text-center shadow-2xl backdrop-blur-xl">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-amber-300/30 bg-amber-500/10">
+            <CheckCircle2 className="h-8 w-8 text-amber-200" />
+          </div>
+          <p className="mt-6 text-xs font-black uppercase tracking-[0.38em] text-amber-300/80">
+            Game Over
+          </p>
+          <h1 className="mt-4 text-4xl font-black sm:text-5xl">
+            {winnerSummary.winner
+              ? `${winnerSummary.winner.team_name.toUpperCase()} VINDER!`
+              : winnerSummary.isTie
+                ? "DET ENDER UAFGJORT!"
+                : "KAMPEN ER AFSLUTTET"}
+          </h1>
+          <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-white/75 sm:text-base">
+            {remainingMs !== null && remainingMs <= 0
+              ? "Tiden er ude!"
+              : "Zone Krig er afsluttet af læreren."}{" "}
+            {winnerSummary.winner
+              ? `${winnerSummary.winner.team_name} holdet står øverst med ${winnerSummary.topOwnedZones} zoner.`
+              : winnerSummary.isTie
+                ? `Flere hold sluttede lige med ${winnerSummary.topOwnedZones} zoner hver.`
+                : "Ingen hold nåede at overtage en zone før slutfløjtet."}
+          </p>
+          <div className="mx-auto mt-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-white">
+            <Timer className="h-4 w-4 text-amber-300" />
+            Sluttid: {countdownLabel}
+          </div>
+          {myTeam ? (
+            <div
+              className="mx-auto mt-5 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold text-white"
+              style={{
+                borderColor: myTeam.color ?? "rgba(34,211,238,0.35)",
+                backgroundColor: myTeam.color ? `${myTeam.color}22` : "rgba(34,211,238,0.12)",
+              }}
+            >
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: myTeam.color ?? "#22d3ee" }}
+              />
+              Dit hold sluttede med {myZoneCount} zoner.
+            </div>
+          ) : null}
+          <p className="hidden">Zone Krig er lukket. Vent på resultatet fra læreren.</p>
         </div>
       </div>
     );
@@ -331,7 +478,7 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
             <p className="mt-1 text-sm text-white/60">{myTeam ? `${myTeam.team_name} er i kamp` : "Holdforbindelse mangler"}</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <div className="rounded-3xl border border-white/10 bg-white/5 px-4 py-3">
               <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Dine zoner</p>
               <p className="mt-2 text-2xl font-black">{myZoneCount}</p>
@@ -347,6 +494,13 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
             <div className="rounded-3xl border border-white/10 bg-white/5 px-4 py-3">
               <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Distance</p>
               <p className="mt-2 text-2xl font-black">{distanceToSelectedZone}</p>
+            </div>
+            <div className="rounded-3xl border border-amber-300/20 bg-amber-500/10 px-4 py-3">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-amber-100/65">Tid tilbage</p>
+              <p className="mt-2 flex items-center gap-2 text-2xl font-black text-amber-100">
+                <Timer className="h-5 w-5 text-amber-300" />
+                {countdownLabel}
+              </p>
             </div>
           </div>
         </div>

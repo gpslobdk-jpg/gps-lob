@@ -54,6 +54,8 @@ type JoinParticipantResponse = {
   sessionId: string;
   studentName: string;
   teamId?: string | null;
+  teamName?: string | null;
+  teamColor?: string | null;
 };
 
 const formatLongDate = (value: string | null | undefined) => {
@@ -100,14 +102,15 @@ function JoinForm() {
   const [runTitle, setRunTitle] = useState("");
   const [schedule, setSchedule] = useState<RunSchedule | null>(null);
   const [raceType, setRaceType] = useState<string | null>(null);
-  const [selectedColor, setSelectedColor] = useState("");
+  const [assignedTeamName, setAssignedTeamName] = useState<string | null>(null);
+  const [assignedTeamColor, setAssignedTeamColor] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const joinLockRef = useRef(false);
 
   const isZoneKrig = raceType === "zone_krig";
   const trimmedName = name.trim();
   const trimmedPin = pin.trim();
-  const canSubmit = trimmedPin.length > 0 && trimmedName.length > 0 && (!isZoneKrig || selectedColor.length > 0);
+  const canSubmit = trimmedPin.length > 0 && trimmedName.length > 0;
 
   useEffect(() => {
     if (!sessionId || (view !== "waiting" && view !== "scheduled")) return;
@@ -194,7 +197,8 @@ function JoinForm() {
     setRunTitle("");
     setSchedule(null);
     setRaceType(null);
-    setSelectedColor("");
+    setAssignedTeamName(null);
+    setAssignedTeamColor(null);
   };
 
   const handleJoin = async (event: FormEvent) => {
@@ -250,13 +254,6 @@ function JoinForm() {
         return;
       }
 
-      // Zone-Krig: require faction selection before registering
-      const detectedZoneKrig = (joinData.raceType ?? null) === "zone_krig";
-      if (detectedZoneKrig && !selectedColor) {
-        // Let the UI re-render to show the faction picker; user must pick before submitting again
-        return;
-      }
-
       const registerResponse = await fetch("/api/join", {
         method: "POST",
         headers: {
@@ -266,7 +263,6 @@ function JoinForm() {
         body: JSON.stringify({
           sessionId: joinData.sessionId,
           studentName: trimmedName,
-          color: selectedColor || undefined,
         }),
       });
       const registerData = (await registerResponse.json().catch(() => null)) as
@@ -286,11 +282,13 @@ function JoinForm() {
         studentName: registerData.studentName,
         savedAt: new Date().toISOString(),
         teamId: registerData.teamId ?? null,
-        teamColor: selectedColor || null,
+        teamColor: registerData.teamColor ?? null,
       });
 
       setName(registerData.studentName);
       setSessionId(joinData.sessionId);
+      setAssignedTeamName(registerData.teamName ?? null);
+      setAssignedTeamColor(registerData.teamColor ?? null);
 
       if (joinData.scheduleGate === "scheduled") {
         setView("scheduled");
@@ -352,6 +350,22 @@ function JoinForm() {
                 Missionen starter automatisk d. {scheduledDate ?? "ukendt dato"} kl.{" "}
                 {scheduledTime ?? "ukendt tid"}. Hold agentudstyret klar.
               </p>
+
+              {isZoneKrig && assignedTeamName ? (
+                <div
+                  className="mx-auto mt-6 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold text-white shadow-[0_0_24px_rgba(15,23,42,0.24)]"
+                  style={{
+                    borderColor: assignedTeamColor ?? "rgba(34,211,238,0.35)",
+                    backgroundColor: assignedTeamColor ? `${assignedTeamColor}22` : "rgba(34,211,238,0.12)",
+                  }}
+                >
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: assignedTeamColor ?? "#22d3ee" }}
+                  />
+                  Du er på {assignedTeamName} hold!
+                </div>
+              ) : null}
 
               {runTitle ? (
                 <div className="mt-6 inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-emerald-50/90 backdrop-blur-md">
@@ -422,6 +436,22 @@ function JoinForm() {
               <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-slate-300 sm:text-base">
                 Venter på at Løbslederen starter missionen...
               </p>
+
+              {isZoneKrig && assignedTeamName ? (
+                <div
+                  className="mx-auto mt-6 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold text-white shadow-[0_0_24px_rgba(15,23,42,0.24)]"
+                  style={{
+                    borderColor: assignedTeamColor ?? "rgba(34,211,238,0.35)",
+                    backgroundColor: assignedTeamColor ? `${assignedTeamColor}22` : "rgba(34,211,238,0.12)",
+                  }}
+                >
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: assignedTeamColor ?? "#22d3ee" }}
+                  />
+                  Du er på {assignedTeamName} hold!
+                </div>
+              ) : null}
             </div>
 
             <WifiConnectionTip className="mx-auto mt-6 max-w-2xl" />
@@ -579,7 +609,7 @@ function JoinForm() {
               />
             </div>
 
-            {isZoneKrig && (
+            {/* legacy manual team picker removed
               <div className="rounded-[1.7rem] border border-cyan-500/25 bg-cyan-500/5 p-4 backdrop-blur-xl">
                 <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.36em] text-cyan-300/70">
                   Vælg din Fraktion / Farve
@@ -628,7 +658,18 @@ function JoinForm() {
                   </p>
                 )}
               </div>
-            )}
+            )} */}
+
+            {isZoneKrig ? (
+              <div className="rounded-[1.7rem] border border-cyan-500/25 bg-cyan-500/5 p-4 text-center backdrop-blur-xl">
+                <p className="text-[10px] font-bold uppercase tracking-[0.36em] text-cyan-300/70">
+                  Zone Krig
+                </p>
+                <p className="mt-3 text-sm leading-6 text-cyan-100/80">
+                  Hold fordeles automatisk, nÃ¥r du joiner. Du skal bare indtaste pinkode og navn.
+                </p>
+              </div>
+            ) : null}
 
             <button
               type="submit"

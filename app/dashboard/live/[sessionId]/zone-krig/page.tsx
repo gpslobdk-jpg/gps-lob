@@ -3,8 +3,8 @@
 import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
 import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { Crown, Shield, Swords, Wifi, Zap } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Crown, Shield, Swords, Timer, Wifi, Zap } from "lucide-react";
 
 import type { GameTeam, GameZone } from "@/components/live/ZoneKrigMap";
 import { createClient } from "@/utils/supabase/client";
@@ -34,6 +34,11 @@ type LogEntry = {
   zoneIndex: number;
 };
 
+type LiveSessionStateRow = {
+  status?: string | null;
+  ends_at?: string | null;
+};
+
 function deriveMapCenter(zones: GameZone[]): [number, number] {
   const valid = zones.filter((z) => z.center_lat && z.center_lng);
   if (valid.length === 0) return DEFAULT_MAP_CENTER;
@@ -59,6 +64,14 @@ function hexToRgb(hex: string): string {
   return `${r},${g},${b}`;
 }
 
+function formatCountdown(remainingMs: number | null) {
+  if (remainingMs === null) return "--:--";
+  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
 export default function ZoneKrigCommandCenter() {
   const params = useParams<{ sessionId: string }>();
   const rawSessionId = params?.sessionId;
@@ -69,12 +82,68 @@ export default function ZoneKrigCommandCenter() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [mapKey, setMapKey] = useState("initial");
+  const [sessionStatus, setSessionStatus] = useState<string | null>(null);
+  const [endsAt, setEndsAt] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [isEndingMatch, setIsEndingMatch] = useState(false);
 
   // Keep a stable ref to teams for use inside realtime callbacks
   const teamsRef = useRef<GameTeam[]>([]);
   useEffect(() => {
     teamsRef.current = teams;
   }, [teams]);
+
+  const finishMatch = useCallback(
+    async (mode: "manual" | "timer") => {
+      if (!sessionId || isEndingMatch || sessionStatus === "finished") {
+        return;
+      }
+
+      if (
+        mode === "manual" &&
+        !confirm("Er du sikker på, at du vil afslutte Zone Krig med det samme?")
+      ) {
+        return;
+      }
+
+      setIsEndingMatch(true);
+
+      try {
+        const supabase = createClient();
+        const finishedAt = new Date().toISOString();
+
+        const { error } = await supabase
+          .from("live_sessions")
+          .update({ status: "finished", ends_at: finishedAt })
+          .eq("id", sessionId);
+
+        if (error) {
+          throw error;
+        }
+
+        const { error: finishParticipantsError } = await supabase
+          .from("participants")
+          .update({ finished_at: finishedAt })
+          .eq("session_id", sessionId)
+          .is("finished_at", null);
+
+        if (finishParticipantsError) {
+          console.warn("Kunne ikke markere deltagere som afsluttede i Zone Krig:", finishParticipantsError);
+        }
+
+        setSessionStatus("finished");
+        setEndsAt(finishedAt);
+      } catch (error) {
+        console.error("Kunne ikke afslutte Zone Krig-sessionen:", error);
+        if (mode === "manual") {
+          alert("Kunne ikke afslutte spillet.");
+        }
+      } finally {
+        setIsEndingMatch(false);
+      }
+    },
+    [isEndingMatch, sessionId, sessionStatus]
+  );
 
   useEffect(() => {
     if (!sessionId) return;
@@ -96,13 +165,18 @@ export default function ZoneKrigCommandCenter() {
           console.error("Kunne ikke initialisere neutrale Zone Krig-zoner.");
         }
 
-        const [teamsRes, zonesRes] = await Promise.all([
+        const [teamsRes, zonesRes, sessionRes] = await Promise.all([
           supabase.from("game_teams").select("*").eq("session_id", sessionId),
           supabase
             .from("game_zones")
             .select("*")
             .eq("session_id", sessionId)
             .order("zone_index"),
+          supabase
+            .from("live_sessions")
+            .select("status,ends_at")
+            .eq("id", sessionId)
+            .maybeSingle<LiveSessionStateRow>(),
         ]);
 
         if (!isActive) return;
@@ -111,6 +185,8 @@ export default function ZoneKrigCommandCenter() {
           setZones(zonesRes.data as GameZone[]);
           setMapKey(`loaded-${Date.now()}`);
         }
+        setSessionStatus(sessionRes.data?.status ?? null);
+        setEndsAt(sessionRes.data?.ends_at ?? null);
       } catch (error) {
         console.error("Kunne ikke indlæse Zone Krig-kommandocentralen:", error);
       } finally {
@@ -198,12 +274,47 @@ export default function ZoneKrigCommandCenter() {
       )
       .subscribe();
 
+    const sessionChannel = supabase
+      .channel(`zk-session-${sessionId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "live_sessions",
+          filter: `id=eq.${sessionId}`,
+        },
+        (payload) => {
+          if (!isActive) return;
+          const updated = payload.new as LiveSessionStateRow;
+          setSessionStatus(updated.status ?? null);
+          setEndsAt(updated.ends_at ?? null);
+        }
+      )
+      .subscribe();
+
     return () => {
       isActive = false;
       void supabase.removeChannel(teamsChannel);
       void supabase.removeChannel(zonesChannel);
+      void supabase.removeChannel(sessionChannel);
     };
   }, [sessionId]);
+
+  useEffect(() => {
+    if (!endsAt || sessionStatus === "finished") {
+      return;
+    }
+
+    setNowMs(Date.now());
+    const intervalId = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [endsAt, sessionStatus]);
 
   // Derived state
   const zonesOwnedByTeam = new Map<string, number>(teams.map((t) => [t.id, 0]));
@@ -224,9 +335,35 @@ export default function ZoneKrigCommandCenter() {
   });
 
   const leader = sortedTeams[0] ?? null;
+  const topOwnedZones = leader ? zonesOwnedByTeam.get(leader.id) ?? 0 : 0;
+  const tiedTeams = leader
+    ? sortedTeams.filter((team) => (zonesOwnedByTeam.get(team.id) ?? 0) === topOwnedZones)
+    : [];
+  const winnerTeam = topOwnedZones > 0 && tiedTeams.length === 1 ? tiedTeams[0] ?? null : null;
+  const isTie = topOwnedZones > 0 && tiedTeams.length > 1;
   const totalZones = zones.length;
   const contestedZones = zones.filter((z) => z.owner_team_id).length;
-  const mapCenter = deriveMapCenter(zones);
+  const mapCenter = useMemo(() => deriveMapCenter(zones), [zones]);
+  const remainingMs = useMemo(() => {
+    if (!endsAt) return null;
+    const endsAtMs = new Date(endsAt).getTime();
+    if (!Number.isFinite(endsAtMs)) return null;
+    return Math.max(0, endsAtMs - nowMs);
+  }, [endsAt, nowMs]);
+  const countdownLabel = formatCountdown(remainingMs);
+  const isMatchOver = sessionStatus === "finished" || (remainingMs !== null && remainingMs <= 0);
+
+  useEffect(() => {
+    if (!endsAt || sessionStatus === "finished" || isEndingMatch) {
+      return;
+    }
+
+    if (remainingMs === null || remainingMs > 0) {
+      return;
+    }
+
+    void finishMatch("timer");
+  }, [endsAt, finishMatch, isEndingMatch, remainingMs, sessionStatus]);
 
   return (
     <div
@@ -253,10 +390,22 @@ export default function ZoneKrigCommandCenter() {
           <span className="hidden items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/50 sm:inline-flex">
             {contestedZones}/{totalZones} zoner erobret
           </span>
+          <span className="flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-100">
+            <Timer className="h-3.5 w-3.5 text-amber-300" />
+            {countdownLabel}
+          </span>
           <span className="flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-bold text-cyan-300">
             <Wifi className="h-3 w-3" />
-            LIVE
+            {isMatchOver ? "AFSLUTTET" : "LIVE"}
           </span>
+          <button
+            type="button"
+            onClick={() => void finishMatch("manual")}
+            disabled={isEndingMatch || isMatchOver}
+            className="rounded-full border border-rose-400/30 bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-100 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isEndingMatch ? "Afslutter..." : "Afslut Spil"}
+          </button>
         </div>
       </header>
 
@@ -309,7 +458,36 @@ export default function ZoneKrigCommandCenter() {
                     : { borderColor: "rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)" }
                 }
               >
-                {leader ? (
+                {isMatchOver ? (
+                  <div className="relative flex items-center gap-3">
+                    <Crown className="h-7 w-7 shrink-0 text-amber-300" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-200/70">
+                        Kampen er slut
+                      </p>
+                      <p className={`truncate text-2xl font-black text-white ${rubik.className}`}>
+                        {winnerTeam
+                          ? `${winnerTeam.team_name} vinder`
+                          : isTie
+                            ? "Uafgjort"
+                            : "Ingen vinder"}
+                      </p>
+                      <p className="mt-1 text-xs text-white/55">
+                        {winnerTeam
+                          ? `${winnerTeam.team_name} kontrollerer ${topOwnedZones} zoner ved slutfløjtet.`
+                          : isTie
+                            ? `Flere hold sluttede lige med ${topOwnedZones} zoner hver.`
+                            : "Ingen hold nåede at erobre en zone før tiden løb ud."}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className={`text-3xl font-black ${rubik.className}`}>{countdownLabel}</p>
+                      <p className="text-[10px] uppercase tracking-widest text-white/40">
+                        sluttid
+                      </p>
+                    </div>
+                  </div>
+                ) : leader ? (
                   <>
                     <div
                       className="pointer-events-none absolute inset-0"

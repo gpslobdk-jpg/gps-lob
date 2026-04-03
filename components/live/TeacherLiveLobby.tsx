@@ -26,6 +26,7 @@ type TeacherLiveLobbyProps = {
   students: string[];
   isLoading: boolean;
   onStartSession: () => Promise<void>;
+  startHint?: string | null;
 };
 
 export default function TeacherLiveLobby({
@@ -33,6 +34,7 @@ export default function TeacherLiveLobby({
   students,
   isLoading,
   onStartSession,
+  startHint = null,
 }: TeacherLiveLobbyProps) {
   return (
     <motion.main
@@ -110,6 +112,10 @@ export default function TeacherLiveLobby({
             ) : null}
           </div>
         </section>
+
+        {startHint ? (
+          <p className="mt-8 text-sm font-semibold text-emerald-800/80">{startHint}</p>
+        ) : null}
 
         <button
           type="button"

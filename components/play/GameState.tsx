@@ -148,6 +148,12 @@ function buildZoneKrigCaptureFeedback(
         status: "zone_missing",
         message: "Korrekt svar, men zonen kunne ikke opdateres endnu. Prøv igen om lidt.",
       };
+    case "game_over":
+      return {
+        key,
+        status: "game_over",
+        message: "Spillet er slut! Flere zoner kan ikke overtages nu.",
+      };
     default:
       return null;
   }
@@ -250,8 +256,8 @@ export function usePlayGameState({
     () => storedParticipantOnLoad?.participantId ?? null
   );
   const [startOffset, setStartOffset] = useState(() => storedParticipantOnLoad?.startOffset ?? 0);
-  const [teamId] = useState<string | null>(() => storedParticipantOnLoad?.teamId ?? null);
-  const [teamColor] = useState<string | null>(() => storedParticipantOnLoad?.teamColor ?? null);
+  const [teamId, setTeamId] = useState<string | null>(() => storedParticipantOnLoad?.teamId ?? null);
+  const [teamColor, setTeamColor] = useState<string | null>(() => storedParticipantOnLoad?.teamColor ?? null);
   const supabase = useMemo(
     () => createClient({ participantId, sessionId }),
     [participantId, sessionId]
@@ -370,7 +376,13 @@ export function usePlayGameState({
   }, [solvedPostIndexes]);
 
   const rememberActiveParticipant = useCallback(
-    (nextParticipantId: string, nextStudentName: string, nextStartOffset?: number | null) => {
+    (
+      nextParticipantId: string,
+      nextStudentName: string,
+      nextStartOffset?: number | null,
+      nextTeamId?: string | null,
+      nextTeamColor?: string | null
+    ) => {
       if (!sessionId || !nextParticipantId) return;
       const normalizedName = nextStudentName.trim();
       const resolvedStartOffset = toIntegerStartOffset(nextStartOffset) ?? startOffset;
@@ -391,8 +403,8 @@ export function usePlayGameState({
         studentName: normalizedName,
         startOffset: resolvedStartOffset,
         savedAt,
-        teamId: existing?.teamId ?? teamId ?? null,
-        teamColor: existing?.teamColor ?? teamColor ?? null,
+        teamId: nextTeamId ?? existing?.teamId ?? teamId ?? null,
+        teamColor: nextTeamColor ?? existing?.teamColor ?? teamColor ?? null,
       });
     },
     [sessionId, startOffset, teamColor, teamId]
@@ -421,7 +433,14 @@ export function usePlayGameState({
         });
 
         const payload = (await response.json().catch(() => null)) as
-          | { participantId?: string; studentName?: string; startOffset?: number; error?: string }
+          | {
+              participantId?: string;
+              studentName?: string;
+              startOffset?: number;
+              teamId?: string | null;
+              teamColor?: string | null;
+              error?: string;
+            }
           | null;
 
         if (!response.ok || !payload?.participantId) {
@@ -430,10 +449,14 @@ export function usePlayGameState({
 
         const resolvedName = (payload.studentName ?? normalizedName).trim() || normalizedName;
         const resolvedStartOffset = toIntegerStartOffset(payload.startOffset) ?? 0;
+        const resolvedTeamId = typeof payload.teamId === "string" ? payload.teamId : null;
+        const resolvedTeamColor = typeof payload.teamColor === "string" ? payload.teamColor : null;
         setPendingPlayerNameState(resolvedName);
         setPlayerName(resolvedName);
         setHasConfirmedName(true);
         setNameError(null);
+        setTeamId(resolvedTeamId);
+        setTeamColor(resolvedTeamColor);
         const initialRouteOrder = buildRouteOrder(
           questions.length,
           resolvedStartOffset,
@@ -442,7 +465,13 @@ export function usePlayGameState({
         if (initialRouteOrder.length > 0) {
           setCurrentPostIndex(initialRouteOrder[0] ?? 0);
         }
-        rememberActiveParticipant(payload.participantId, resolvedName, resolvedStartOffset);
+        rememberActiveParticipant(
+          payload.participantId,
+          resolvedName,
+          resolvedStartOffset,
+          resolvedTeamId,
+          resolvedTeamColor
+        );
         return true;
       } catch (error) {
         console.error("Kunne ikke registrere deltageridentitet:", error);

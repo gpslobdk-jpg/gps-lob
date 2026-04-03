@@ -9,6 +9,7 @@ import TeacherLiveLobby from "@/components/live/TeacherLiveLobby";
 import TeacherLiveResults from "@/components/live/TeacherLiveResults";
 import TeacherLiveSidebar from "@/components/live/TeacherLiveSidebar";
 import { useTeacherLiveData } from "@/hooks/useTeacherLiveData";
+import { normalizeRaceType, RACE_TYPES } from "@/utils/gpsRuns";
 
 const TeacherLiveMap = dynamic(() => import("@/components/live/TeacherLiveMap"), {
   ssr: false,
@@ -35,6 +36,7 @@ export default function LiveLobbyPage() {
     ["stratego", "live_stratego", "live-stratego"].includes(
       live.runRaceType.trim().toLocaleLowerCase("da-DK")
     );
+  const isZoneKrigRace = normalizeRaceType(live.runRaceType) === RACE_TYPES.ZONE_KRIG;
 
   return (
     <AnimatePresence mode="wait">
@@ -53,6 +55,11 @@ export default function LiveLobbyPage() {
             students={live.students}
             isLoading={live.isLoading}
             onStartSession={live.startSession}
+            startHint={
+              isZoneKrigRace
+                ? "Standard kampur: 15 minutter. Timeren starter automatisk, når du starter spillet."
+                : null
+            }
           />
         )
       ) : isStrategoRace ? (

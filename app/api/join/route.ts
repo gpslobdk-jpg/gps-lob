@@ -33,12 +33,12 @@ type ParticipantRow = {
   session_id?: string | null;
   student_name?: string | null;
   start_offset?: number | string | null;
+  zone_krig_team_id?: string | null;
 };
 
 type JoinParticipantRequest = {
   sessionId?: unknown;
   studentName?: unknown;
-  color?: unknown;
 };
 
 type JoinParticipantResponse = {
@@ -47,10 +47,19 @@ type JoinParticipantResponse = {
   studentName: string;
   startOffset: number;
   teamId?: string | null;
+  teamName?: string | null;
+  teamColor?: string | null;
 };
 
 type ParticipantOffsetRow = {
   start_offset?: number | string | null;
+};
+
+type GameTeamRow = {
+  id?: string | null;
+  session_id?: string | null;
+  team_name?: string | null;
+  color?: string | null;
 };
 
 type SupabaseRestError = {
@@ -82,6 +91,13 @@ type JoinApiResponse =
       scheduleGate: RunScheduleGate;
       raceType: string | null;
     };
+
+const ZONE_KRIG_DEFAULT_TEAMS = [
+  { teamName: "Rød", color: "#ef4444" },
+  { teamName: "Blå", color: "#3b82f6" },
+  { teamName: "Grøn", color: "#22c55e" },
+  { teamName: "Gul", color: "#eab308" },
+] as const;
 
 function getSupabaseConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -304,7 +320,11 @@ async function fetchParticipantRecord(
     return await query.limit(1);
   };
 
-  let { data, error } = await runQuery("id,session_id,student_name,start_offset");
+  let { data, error } = await runQuery("id,session_id,student_name,start_offset,zone_krig_team_id");
+  if (error && isMissingColumnError(error)) {
+    ({ data, error } = await runQuery("id,session_id,student_name,start_offset"));
+  }
+
   if (error && isMissingColumnError(error)) {
     ({ data, error } = await runQuery("id,session_id,student_name"));
   }
@@ -527,6 +547,114 @@ async function ensureGameTeam(
   }
 }
 
+async function ensureZoneKrigAutoBalanceTeams(
+  sessionId: string,
+  adminSupabase: AdminSupabaseClient
+) {
+  const teams: Array<{ id: string; teamName: string; color: string }> = [];
+
+  for (const defaultTeam of ZONE_KRIG_DEFAULT_TEAMS) {
+    const teamId = await ensureGameTeam(
+      sessionId,
+      defaultTeam.teamName,
+      defaultTeam.color,
+      adminSupabase
+    );
+
+    if (!teamId) {
+      continue;
+    }
+
+    teams.push({
+      id: teamId,
+      teamName: defaultTeam.teamName,
+      color: defaultTeam.color,
+    });
+  }
+
+  if (teams.length > 0) {
+    return teams;
+  }
+
+  const { data, error } = await adminSupabase
+    .from("game_teams")
+    .select("id,team_name,color")
+    .eq("session_id", sessionId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as GameTeamRow[])
+    .map((row) => {
+      const id = asTrimmedString(row.id);
+      const teamName = asTrimmedString(row.team_name);
+      const color = asTrimmedString(row.color);
+
+      if (!id || !teamName || !color) {
+        return null;
+      }
+
+      return {
+        id,
+        teamName,
+        color,
+      };
+    })
+    .filter((row): row is { id: string; teamName: string; color: string } => row !== null);
+}
+
+async function pickLeastPopulatedZoneKrigTeam(
+  sessionId: string,
+  participantId: string,
+  teams: Array<{ id: string; teamName: string; color: string }>,
+  adminSupabase: AdminSupabaseClient
+) {
+  const { data, error } = await adminSupabase
+    .from("participants")
+    .select("id,zone_krig_team_id")
+    .eq("session_id", sessionId);
+
+  if (error) {
+    if (isMissingColumnError(error)) {
+      return teams[0] ?? null;
+    }
+
+    throw new Error(error.message);
+  }
+
+  const countsByTeamId = new Map<string, number>(teams.map((team) => [team.id, 0]));
+
+  for (const row of (data ?? []) as ParticipantRow[]) {
+    const rowParticipantId = asTrimmedString(row.id);
+    const rowTeamId = asTrimmedString(row.zone_krig_team_id);
+
+    if (!rowParticipantId || rowParticipantId === participantId || !rowTeamId) {
+      continue;
+    }
+
+    if (!countsByTeamId.has(rowTeamId)) {
+      continue;
+    }
+
+    countsByTeamId.set(rowTeamId, (countsByTeamId.get(rowTeamId) ?? 0) + 1);
+  }
+
+  return teams.reduce<{ id: string; teamName: string; color: string } | null>(
+    (currentLeastPopulated, candidateTeam) => {
+      if (!currentLeastPopulated) {
+        return candidateTeam;
+      }
+
+      const currentCount = countsByTeamId.get(currentLeastPopulated.id) ?? 0;
+      const candidateCount = countsByTeamId.get(candidateTeam.id) ?? 0;
+      return candidateCount < currentCount ? candidateTeam : currentLeastPopulated;
+    },
+    null
+  );
+}
+
 async function assignParticipantToZoneKrigTeam(
   sessionId: string,
   participantId: string,
@@ -640,7 +768,6 @@ export async function POST(request: NextRequest) {
 
   const sessionId = asTrimmedString(payload.sessionId);
   const studentName = asTrimmedString(payload.studentName);
-  const color = asTrimmedString(payload.color);
 
   if (!sessionId || !studentName) {
     return NextResponse.json(
@@ -738,19 +865,36 @@ export async function POST(request: NextRequest) {
 
     void ensureSessionStudent(sessionId, normalizedStudentName);
 
-    // Zone-Krig: ensure team exists
+    // Zone-Krig: auto-balance player onto the least populated team
     let teamId: string | null = null;
-    if (isZoneKrig && color) {
-      const FACTION_NAMES: Record<string, string> = {
+    let assignedZoneKrigTeam: { id: string; teamName: string; color: string } | null = null;
+    if (isZoneKrig) {
+      const autoBalanceTeams = await ensureZoneKrigAutoBalanceTeams(sessionId, adminSupabase); /* legacy manual color selection removed
         "#ef4444": "Rød",
         "#3b82f6": "Blå",
         "#22c55e": "Grøn",
         "#eab308": "Gul",
       };
-      const teamName = FACTION_NAMES[color] ?? "Ukendt";
-      teamId = await ensureGameTeam(sessionId, teamName, color, adminSupabase);
-      if (teamId) {
-        await assignParticipantToZoneKrigTeam(sessionId, participantId, teamId, adminSupabase);
+      */ const existingTeamId = asTrimmedString(resolvedParticipantRow?.zone_krig_team_id);
+
+      if (existingTeamId) {
+        assignedZoneKrigTeam = autoBalanceTeams.find((team) => team.id === existingTeamId) ?? null;
+        teamId = assignedZoneKrigTeam?.id ?? null;
+      }
+
+      if (!teamId) {
+        assignedZoneKrigTeam = await pickLeastPopulatedZoneKrigTeam(
+          sessionId,
+          participantId,
+          autoBalanceTeams,
+          adminSupabase
+        );
+
+        teamId = assignedZoneKrigTeam?.id ?? null;
+
+        if (teamId) {
+          await assignParticipantToZoneKrigTeam(sessionId, participantId, teamId, adminSupabase);
+        }
       }
     }
 
@@ -761,6 +905,8 @@ export async function POST(request: NextRequest) {
         studentName: normalizedStudentName,
         startOffset,
         teamId,
+        teamName: assignedZoneKrigTeam?.teamName ?? null,
+        teamColor: assignedZoneKrigTeam?.color ?? null,
       },
       {
         headers: {

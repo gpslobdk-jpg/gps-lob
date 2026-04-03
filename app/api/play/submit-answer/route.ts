@@ -159,7 +159,12 @@ type CaptureZoneRpcRow = {
   zone_missing?: boolean | null;
 };
 
-type ZoneKrigCaptureStatus = "captured" | "blocked_by_shield" | "already_owned" | "zone_missing";
+type ZoneKrigCaptureStatus =
+  | "captured"
+  | "blocked_by_shield"
+  | "already_owned"
+  | "zone_missing"
+  | "game_over";
 
 type ZoneKrigCaptureResponse = {
   status: ZoneKrigCaptureStatus;
@@ -168,6 +173,11 @@ type ZoneKrigCaptureResponse = {
 
 type ZoneKrigParticipantTeamRow = {
   zone_krig_team_id?: string | null;
+};
+
+type ZoneKrigSessionStateRow = {
+  status?: string | null;
+  ends_at?: string | null;
 };
 
 type RunCache = Map<string, Awaited<ReturnType<typeof fetchRunForSession>> | null>;
@@ -237,6 +247,33 @@ async function resolveZoneKrigTeamId(
   return asTrimmedString(data?.zone_krig_team_id) || null;
 }
 
+async function fetchZoneKrigSessionState(
+  sessionId: string,
+  admin: NonNullable<ReturnType<typeof createAdminClient>>
+) {
+  const { data, error } = await admin
+    .from("live_sessions")
+    .select("status,ends_at")
+    .eq("id", sessionId)
+    .maybeSingle<ZoneKrigSessionStateRow>();
+
+  if (error) {
+    if (isMissingColumnError(error)) {
+      return {
+        status: null,
+        endsAt: null,
+      };
+    }
+
+    throw new Error(error.message ?? "Kunne ikke hente kampens tidsstyring.");
+  }
+
+  return {
+    status: asTrimmedString(data?.status) || null,
+    endsAt: asTrimmedString(data?.ends_at) || null,
+  };
+}
+
 async function maybeCaptureZone(
   payload: Record<string, unknown>,
   admin: NonNullable<ReturnType<typeof createAdminClient>>,
@@ -249,11 +286,20 @@ async function maybeCaptureZone(
     const sessionId = asTrimmedString(payload.session_id);
     const run = sessionId ? await getRunForSessionCached(sessionId, runCache) : null;
     if (!isZoneKrigRaceType(run?.race_type ?? run?.raceType)) return null;
+    if (!sessionId) return null;
+
+    const zoneKrigSession = await fetchZoneKrigSessionState(sessionId, admin);
+    const endsAtMs = zoneKrigSession.endsAt ? new Date(zoneKrigSession.endsAt).getTime() : Number.NaN;
+
+    if (
+      zoneKrigSession.status === "finished" ||
+      (Number.isFinite(endsAtMs) && Date.now() > endsAtMs)
+    ) {
+      return { status: "game_over" };
+    }
 
     const teamId = await resolveZoneKrigTeamId(payload, admin);
     if (!teamId) return null;
-
-    if (!sessionId) return null;
 
     const zoneIndex = getAnsweredPostIndex(payload);
     if (zoneIndex === null) return null;

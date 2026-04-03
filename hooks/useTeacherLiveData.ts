@@ -22,6 +22,8 @@ import type {
 import { normalizeRaceType, RACE_TYPES } from "@/utils/gpsRuns";
 import { createClient } from "@/utils/supabase/client";
 
+const DEFAULT_ZONE_KRIG_DURATION_MINUTES = 15;
+
 function toTimestamp(value: string | null | undefined) {
   if (!value) return null;
   const parsed = new Date(value).getTime();
@@ -603,10 +605,19 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       }
     }
 
+    const normalizedRaceType = normalizeRaceType(runRaceType);
+    const sessionUpdate: { status: string; ends_at?: string | null } = {
+      status: "running",
+      ends_at:
+        normalizedRaceType === RACE_TYPES.ZONE_KRIG
+          ? new Date(Date.now() + DEFAULT_ZONE_KRIG_DURATION_MINUTES * 60 * 1000).toISOString()
+          : null,
+    };
+
     const supabase = createClient();
     const { error } = await supabase
       .from("live_sessions")
-      .update({ status: "running" })
+      .update(sessionUpdate)
       .eq("id", sessionId);
 
     if (error) {
@@ -655,9 +666,14 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
 
     const supabase = createClient();
     const finishedAt = new Date().toISOString();
+    const normalizedRaceType = normalizeRaceType(runRaceType);
+    const sessionUpdate: { status: string; ends_at?: string } = { status: "finished" };
+    if (normalizedRaceType === RACE_TYPES.ZONE_KRIG) {
+      sessionUpdate.ends_at = finishedAt;
+    }
     const { error } = await supabase
       .from("live_sessions")
-      .update({ status: "finished" })
+      .update(sessionUpdate)
       .eq("id", sessionId);
 
     if (error) {
