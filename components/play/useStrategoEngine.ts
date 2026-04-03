@@ -16,6 +16,8 @@ const STRATEGO_TARGET_IN_SIGHT_DISTANCE_METERS = 20;
 const STRATEGO_SAFE_ZONE_DISTANCE_METERS = 30;
 const STRATEGO_DUEL_TRIGGER_COOLDOWN_MS = 3000;
 const STRATEGO_DUEL_ERROR_TIMEOUT_MS = 3000;
+const STRATEGO_RESPAWN_RETRY_COOLDOWN_MS = 5000;
+const STRATEGO_RESPAWN_FEEDBACK_TIMEOUT_MS = 4000;
 
 type SupabaseBrowserClient = ReturnType<typeof createClient>;
 
@@ -198,6 +200,28 @@ function isLikelyNetworkMessage(message: string | null | undefined) {
   return /network|fetch|offline|timeout|timed out|connection/i.test(message);
 }
 
+function getDuelRejectionMessage(message: string | null | undefined) {
+  if (!message) {
+    return "Målet er allerede i kamp";
+  }
+
+  if (isLikelyNetworkMessage(message)) {
+    return "Netværksfejl - prøv igen";
+  }
+
+  const knownMessages = [
+    "Målet er for langt væk (over 20m).",
+    "Målet befinder sig i en fredszone.",
+    "Du befinder dig i din egen fredszone.",
+    "Kunne ikke validere spillerpositionerne.",
+    "Stratego-baserne mangler for denne session.",
+  ];
+
+  const trimmedMessage = message.trim();
+  const matchedMessage = knownMessages.find((knownMessage) => trimmedMessage.includes(knownMessage));
+  return matchedMessage ?? "Målet er allerede i kamp";
+}
+
 export function useStrategoEngine({
   enabled,
   isPaused,
@@ -213,6 +237,7 @@ export function useStrategoEngine({
   const [duelEvent, setDuelEvent] = useState<StrategoDuelEvent | null>(null);
   const [duelInFlight, setDuelInFlight] = useState(false);
   const [duelError, setDuelError] = useState<string | null>(null);
+  const [respawnMessage, setRespawnMessage] = useState<string | null>(null);
   const [isRealtimeRecovering, setIsRealtimeRecovering] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -221,6 +246,10 @@ export function useStrategoEngine({
   const duelCooldownUntilRef = useRef(0);
   const lastDuelEventIdRef = useRef<string | null>(null);
   const duelErrorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const respawnMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const respawnInFlightRef = useRef(false);
+  const respawnCooldownUntilRef = useRef(0);
+  const respawnZoneLockRef = useRef(false);
   const realtimeSubscriptionStateRef = useRef({
     presence: false,
     duel: false,
@@ -245,6 +274,27 @@ export function useStrategoEngine({
       }, STRATEGO_DUEL_ERROR_TIMEOUT_MS);
     },
     [clearDuelError]
+  );
+
+  const clearRespawnMessage = useCallback(() => {
+    if (respawnMessageTimeoutRef.current) {
+      clearTimeout(respawnMessageTimeoutRef.current);
+      respawnMessageTimeoutRef.current = null;
+    }
+
+    setRespawnMessage(null);
+  }, []);
+
+  const showRespawnMessage = useCallback(
+    (message: string) => {
+      clearRespawnMessage();
+      setRespawnMessage(message);
+      respawnMessageTimeoutRef.current = setTimeout(() => {
+        setRespawnMessage(null);
+        respawnMessageTimeoutRef.current = null;
+      }, STRATEGO_RESPAWN_FEEDBACK_TIMEOUT_MS);
+    },
+    [clearRespawnMessage]
   );
 
   const refreshPresence = useCallback(async () => {
@@ -346,6 +396,11 @@ export function useStrategoEngine({
         clearTimeout(duelErrorTimeoutRef.current);
         duelErrorTimeoutRef.current = null;
       }
+
+      if (respawnMessageTimeoutRef.current) {
+        clearTimeout(respawnMessageTimeoutRef.current);
+        respawnMessageTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -358,9 +413,13 @@ export function useStrategoEngine({
       setDuelEvent(null);
       setDuelInFlight(false);
       clearDuelError();
+      clearRespawnMessage();
       setIsRealtimeRecovering(false);
       duelInFlightRef.current = false;
       duelCooldownUntilRef.current = 0;
+      respawnInFlightRef.current = false;
+      respawnCooldownUntilRef.current = 0;
+      respawnZoneLockRef.current = false;
       lastDuelEventIdRef.current = null;
       realtimeSubscriptionStateRef.current = {
         presence: false,
@@ -521,6 +580,7 @@ export function useStrategoEngine({
     enabled,
     participantId,
     clearDuelError,
+    clearRespawnMessage,
     refreshGameBases,
     refreshPresence,
     refreshStrategoState,
@@ -599,6 +659,119 @@ export function useStrategoEngine({
     () => isInsideSafeZone(myLoc, ownBaseLocation),
     [myLoc, ownBaseLocation]
   );
+
+  useEffect(() => {
+    if (!enabled || !sessionId || !participantId || !myLoc || !ownBaseLocation) {
+      respawnInFlightRef.current = false;
+      respawnCooldownUntilRef.current = 0;
+      respawnZoneLockRef.current = false;
+      return;
+    }
+
+    if (effectiveSelfPlayer?.state !== "returning_to_base") {
+      respawnInFlightRef.current = false;
+      respawnCooldownUntilRef.current = 0;
+      respawnZoneLockRef.current = false;
+      return;
+    }
+
+    if (!isInSafeZone) {
+      respawnZoneLockRef.current = false;
+      return;
+    }
+
+    if (
+      isRealtimeRecovering ||
+      respawnInFlightRef.current ||
+      respawnZoneLockRef.current ||
+      Date.now() < respawnCooldownUntilRef.current
+    ) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    respawnInFlightRef.current = true;
+    respawnZoneLockRef.current = true;
+    respawnCooldownUntilRef.current = Date.now() + STRATEGO_RESPAWN_RETRY_COOLDOWN_MS;
+
+    const attemptRespawn = async () => {
+      try {
+        const { data, error: respawnError } = await supabase.rpc("respawn_stratego_player", {
+          p_player_id: participantId,
+          p_session_id: sessionId,
+        });
+
+        if (isCancelled) {
+          return;
+        }
+
+        if (respawnError) {
+          console.error("Kunne ikke genoplive Stratego-spiller:", respawnError);
+          respawnZoneLockRef.current = false;
+          setError(
+            isLikelyNetworkMessage(respawnError.message)
+              ? "Netværksfejl - vi prøver at genoplive dig igen, når forbindelsen er tilbage."
+              : (respawnError.message ?? "Kunne ikke genoplive dig endnu.")
+          );
+          return;
+        }
+
+        const didRespawn =
+          typeof data === "object" &&
+          data !== null &&
+          "respawned" in data &&
+          data.respawned === true;
+
+        if (!didRespawn) {
+          respawnZoneLockRef.current = false;
+          return;
+        }
+
+        setError(null);
+        showRespawnMessage("Du er genoplivet! Tag tilbage i kampen.");
+        void refreshSelfPlayer();
+        void refreshPresence();
+      } catch (unexpectedError) {
+        if (isCancelled) {
+          return;
+        }
+
+        console.error("Uventet fejl under Stratego-respawn:", unexpectedError);
+        respawnZoneLockRef.current = false;
+        setError(
+          isLikelyNetworkMessage(
+            unexpectedError instanceof Error ? unexpectedError.message : null
+          )
+            ? "Netværksfejl - vi prøver at genoplive dig igen, når forbindelsen er tilbage."
+            : "Kunne ikke genoplive dig endnu."
+        );
+      } finally {
+        if (!isCancelled) {
+          respawnInFlightRef.current = false;
+        }
+      }
+    };
+
+    void attemptRespawn();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    effectiveSelfPlayer?.state,
+    enabled,
+    isInSafeZone,
+    isRealtimeRecovering,
+    myLoc,
+    ownBaseLocation,
+    participantId,
+    refreshPresence,
+    refreshSelfPlayer,
+    sessionId,
+    showRespawnMessage,
+    supabase,
+  ]);
 
   const targetInSight = useMemo(
     () => enemyPresence.find((entry) => entry.participantId === targetInSightId) ?? null,
@@ -746,19 +919,19 @@ export function useStrategoEngine({
         const { data: duelResult, error: duelRpcError } = await supabase.rpc(
           "resolve_stratego_duel",
           {
-          p_attacker_id: participantId,
-          p_defender_id: targetId,
-          p_session_id: sessionId,
+            p_attacker_id: participantId,
+            p_defender_id: targetId,
+            p_session_id: sessionId,
+            p_attacker_lat: myLoc.lat,
+            p_attacker_lng: myLoc.lng,
+            p_defender_lat: targetLocation.lat,
+            p_defender_lng: targetLocation.lng,
           }
         );
 
         if (duelRpcError) {
           console.error("Kunne ikke afvikle Stratego-duel:", duelRpcError);
-          showDuelError(
-            isLikelyNetworkMessage(duelRpcError.message)
-              ? "Netværksfejl - prøv igen"
-              : "Målet er allerede i kamp"
-          );
+          showDuelError(getDuelRejectionMessage(duelRpcError.message));
           return;
         }
 
@@ -816,6 +989,7 @@ export function useStrategoEngine({
     duelEvent,
     duelInFlight,
     duelError,
+    respawnMessage,
     isLoading,
     error,
     clearDuelEvent,

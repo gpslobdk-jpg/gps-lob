@@ -582,6 +582,27 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   const startSession = async () => {
     if (!sessionId) return;
 
+    if (normalizeRaceType(runRaceType) === RACE_TYPES.STRATEGO) {
+      const provisionResponse = await fetch("/api/stratego/provision", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify({ sessionId }),
+      });
+
+      const provisionPayload = (await provisionResponse.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+
+      if (!provisionResponse.ok) {
+        console.error("Kunne ikke klargøre Stratego-spillere:", provisionPayload?.error);
+        alert(provisionPayload?.error || "Kunne ikke klargøre Stratego-holdene.");
+        return;
+      }
+    }
+
     const supabase = createClient();
     const { error } = await supabase
       .from("live_sessions")

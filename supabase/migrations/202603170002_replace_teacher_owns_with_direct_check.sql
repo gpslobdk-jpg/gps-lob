@@ -26,7 +26,8 @@ $$;
 
 -- Create owner policies using direct joins: gps_runs.user_id must equal auth.uid()
 -- Teacher can SELECT participants for sessions whose run is owned by them
-create policy if not exists participants_teacher_select
+drop policy if exists participants_teacher_select on public.participants;
+create policy participants_teacher_select
 on public.participants
 for select
 to authenticated
@@ -40,7 +41,8 @@ using (
   )
 );
 
-create policy if not exists participants_teacher_update
+drop policy if exists participants_teacher_update on public.participants;
+create policy participants_teacher_update
 on public.participants
 for update
 to authenticated
@@ -63,7 +65,8 @@ with check (
   )
 );
 
-create policy if not exists participants_teacher_delete
+drop policy if exists participants_teacher_delete on public.participants;
+create policy participants_teacher_delete
 on public.participants
 for delete
 to authenticated

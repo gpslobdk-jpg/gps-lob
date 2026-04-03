@@ -318,6 +318,7 @@ export interface PlayStrategoState {
   duelEvent: StrategoDuelEvent | null;
   duelInFlight: boolean;
   duelError: string | null;
+  respawnMessage: string | null;
   isLoading: boolean;
   error: string | null;
 }

@@ -84,8 +84,34 @@ type TeacherStrategoPlayer = {
   eliminatedByParticipantId: string | null;
 };
 
+type TeacherPlayerMarkerModel = {
+  participantId: string;
+  name: string;
+  position: [number, number];
+  icon: L.DivIcon;
+  roleName: string;
+  teamLabel: string;
+  stateLabel: string;
+  updatedLabel: string;
+};
+
+type TeacherPlayerMarkerVisual = Omit<TeacherPlayerMarkerModel, "icon"> & {
+  iconSource: TeacherStrategoPlayer;
+  visualSignature: string;
+};
+
+type TeacherBaseMarkerModel = {
+  key: "red" | "blue";
+  position: [number, number];
+  icon: L.DivIcon;
+  title: string;
+  description: string;
+};
+
 const DEFAULT_MAP_CENTER: [number, number] = [55.6761, 12.5683];
 const LIVE_STATUS_WINDOW_MS = 30_000;
+const TEACHER_PLAYER_ICON_CACHE_LIMIT = 500;
+const teacherPlayerIconCache = new Map<string, L.DivIcon>();
 
 function toFiniteNumber(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -99,6 +125,19 @@ function toFiniteNumber(value: unknown) {
 
 function normalizeParticipantName(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : "Ukendt spiller";
+}
+
+function isPlayerLive(updatedAt: string | null | undefined) {
+  if (!updatedAt) {
+    return true;
+  }
+
+  const timestamp = new Date(updatedAt).getTime();
+  if (!Number.isFinite(timestamp)) {
+    return true;
+  }
+
+  return Date.now() - timestamp < LIVE_STATUS_WINDOW_MS;
 }
 
 function getRoleGlyph(rankKey: string | null | undefined) {
@@ -139,10 +178,7 @@ function getTeamHex(teamCode: string | null | undefined) {
 function createPlayerIcon(player: TeacherStrategoPlayer, roleName: string) {
   const color = getTeamHex(player.teamCode);
   const isReturning = player.state === "returning_to_base";
-  const isLive =
-    !player.updatedAt ||
-    !Number.isFinite(new Date(player.updatedAt).getTime()) ||
-    Date.now() - new Date(player.updatedAt).getTime() < LIVE_STATUS_WINDOW_MS;
+  const isLive = isPlayerLive(player.updatedAt);
   const statusDot = isLive ? "#34d399" : "#94a3b8";
 
   return L.divIcon({
@@ -164,6 +200,25 @@ function createPlayerIcon(player: TeacherStrategoPlayer, roleName: string) {
   });
 }
 
+function getCachedTeacherPlayerIcon(
+  visualSignature: string,
+  player: TeacherStrategoPlayer,
+  roleName: string
+) {
+  const existingIcon = teacherPlayerIconCache.get(visualSignature);
+  if (existingIcon) {
+    return existingIcon;
+  }
+
+  if (teacherPlayerIconCache.size >= TEACHER_PLAYER_ICON_CACHE_LIMIT) {
+    teacherPlayerIconCache.clear();
+  }
+
+  const nextIcon = createPlayerIcon(player, roleName);
+  teacherPlayerIconCache.set(visualSignature, nextIcon);
+  return nextIcon;
+}
+
 function createBaseIcon(teamCode: "red" | "blue") {
   const color = getTeamHex(teamCode);
   const label = teamCode === "blue" ? "B" : "R";
@@ -183,55 +238,38 @@ function createBaseIcon(teamCode: "red" | "blue") {
 }
 
 function MapAutoFit({
-  players,
-  game,
+  points,
+  fallbackCenter,
+  fitKey,
 }: {
-  players: TeacherStrategoPlayer[];
-  game: StrategoGameRow | null;
+  points: [number, number][];
+  fallbackCenter: [number, number];
+  fitKey: string;
 }) {
   const map = useMap();
-  const hasFittedRef = useRef(false);
+  const hasInitialFitRef = useRef(false);
 
   useEffect(() => {
-    const points: [number, number][] = [];
+    hasInitialFitRef.current = false;
+  }, [fitKey]);
 
-    for (const player of players) {
-      if (player.lat !== null && player.lng !== null) {
-        points.push([player.lat, player.lng]);
-      }
-    }
-
-    const redLat = toFiniteNumber(game?.red_base_lat);
-    const redLng = toFiniteNumber(game?.red_base_lng);
-    const blueLat = toFiniteNumber(game?.blue_base_lat);
-    const blueLng = toFiniteNumber(game?.blue_base_lng);
-
-    if (redLat !== null && redLng !== null) {
-      points.push([redLat, redLng]);
-    }
-
-    if (blueLat !== null && blueLng !== null) {
-      points.push([blueLat, blueLng]);
-    }
-
-    if (points.length === 0) {
-      map.setView(DEFAULT_MAP_CENTER, 16, { animate: true });
+  useEffect(() => {
+    if (hasInitialFitRef.current || points.length === 0) {
       return;
     }
 
-    if (!hasFittedRef.current || points.length > 1) {
-      if (points.length === 1) {
-        map.setView(points[0] ?? DEFAULT_MAP_CENTER, 17, { animate: true });
-      } else {
-        map.fitBounds(L.latLngBounds(points), {
-          padding: [56, 56],
-          maxZoom: 17,
-          animate: true,
-        });
-      }
-      hasFittedRef.current = true;
+    if (points.length === 1) {
+      map.setView(points[0] ?? fallbackCenter, 17, { animate: false });
+    } else {
+      map.fitBounds(L.latLngBounds(points), {
+        padding: [56, 56],
+        maxZoom: 17,
+        animate: false,
+      });
     }
-  }, [game, map, players]);
+
+    hasInitialFitRef.current = true;
+  }, [fallbackCenter, map, points]);
 
   return null;
 }
@@ -583,6 +621,88 @@ export default function StrategoTeacherDashboard({
   const redBaseIcon = useMemo(() => createBaseIcon("red"), []);
   const blueBaseIcon = useMemo(() => createBaseIcon("blue"), []);
 
+  const baseMarkers = useMemo<TeacherBaseMarkerModel[]>(() => {
+    const nextMarkers: TeacherBaseMarkerModel[] = [];
+    const redLat = toFiniteNumber(game?.red_base_lat);
+    const redLng = toFiniteNumber(game?.red_base_lng);
+    const blueLat = toFiniteNumber(game?.blue_base_lat);
+    const blueLng = toFiniteNumber(game?.blue_base_lng);
+
+    if (redLat !== null && redLng !== null) {
+      nextMarkers.push({
+        key: "red",
+        position: [redLat, redLng],
+        icon: redBaseIcon,
+        title: "Hold Rød Base",
+        description: "Genoplivning og flagzone",
+      });
+    }
+
+    if (blueLat !== null && blueLng !== null) {
+      nextMarkers.push({
+        key: "blue",
+        position: [blueLat, blueLng],
+        icon: blueBaseIcon,
+        title: "Hold Blå Base",
+        description: "Genoplivning og flagzone",
+      });
+    }
+
+    return nextMarkers;
+  }, [blueBaseIcon, game, redBaseIcon]);
+
+  const playerMarkerVisuals = useMemo<TeacherPlayerMarkerVisual[]>(() => {
+    return players.flatMap((player) => {
+      if (player.lat === null || player.lng === null) {
+        return [];
+      }
+
+      const roleName = roleNamesByKey.get(player.rankKey ?? "") ?? player.rankKey ?? "Ukendt";
+      const visualSignature = [
+        player.participantId,
+        player.name,
+        player.teamCode ?? "unknown",
+        player.rankKey ?? "unknown",
+        player.state,
+        roleName,
+        isPlayerLive(player.updatedAt) ? "live" : "stale",
+      ].join("|");
+
+      return [
+        {
+          participantId: player.participantId,
+          name: player.name,
+          position: [player.lat, player.lng] as [number, number],
+          roleName,
+          teamLabel:
+            player.teamCode === "blue"
+              ? "Hold Blå"
+              : player.teamCode === "red"
+                ? "Hold Rød"
+                : "Ukendt hold",
+          stateLabel: player.state === "returning_to_base" ? "På vej til basen" : "I live",
+          updatedLabel: formatRelativeTimestamp(player.updatedAt),
+          iconSource: player,
+          visualSignature,
+        },
+      ];
+    });
+  }, [players, roleNamesByKey]);
+
+  const playerMarkers = useMemo<TeacherPlayerMarkerModel[]>(() => {
+    return playerMarkerVisuals.map(({ iconSource: _iconSource, visualSignature, ...marker }) => ({
+      ...marker,
+      icon: getCachedTeacherPlayerIcon(visualSignature, _iconSource, marker.roleName),
+    }));
+  }, [playerMarkerVisuals]);
+
+  const initialFitPoints = useMemo<[number, number][]>(() => {
+    return [
+      ...baseMarkers.map((baseMarker) => baseMarker.position),
+      ...playerMarkers.map((playerMarker) => playerMarker.position),
+    ];
+  }, [baseMarkers, playerMarkers]);
+
   const winnerBanner = getWinnerBanner(game);
   const isPaused = sessionStatus === "paused";
 
@@ -682,7 +802,11 @@ export default function StrategoTeacherDashboard({
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; CARTO'
                 url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
               />
-              <MapAutoFit players={players} game={game} />
+              <MapAutoFit
+                points={initialFitPoints}
+                fallbackCenter={mapCenter}
+                fitKey={sessionId ?? game?.session_id ?? "stratego-teacher-dashboard"}
+              />
 
               {(() => {
                 const redLat = toFiniteNumber(game?.red_base_lat);
@@ -718,30 +842,24 @@ export default function StrategoTeacherDashboard({
                 );
               })()}
 
-              {players.map((player) =>
-                player.lat !== null && player.lng !== null ? (
-                  <Marker
-                    key={player.participantId}
-                    position={[player.lat, player.lng]}
-                    icon={createPlayerIcon(
-                      player,
-                      roleNamesByKey.get(player.rankKey ?? "") ?? player.rankKey ?? "Ukendt"
-                    )}
-                  >
-                    <Popup>
-                      <div className="text-sm text-slate-900">
-                        <div className="font-black">{player.name}</div>
-                        <div>
-                          {(player.teamCode === "blue" ? "Hold Blå" : "Hold Rød")} •{" "}
-                          {roleNamesByKey.get(player.rankKey ?? "") ?? player.rankKey ?? "Ukendt"}
-                        </div>
-                        <div>{player.state === "returning_to_base" ? "På vej til basen" : "I live"}</div>
-                        <div>Sidst set: {formatRelativeTimestamp(player.updatedAt)}</div>
+              {playerMarkers.map((playerMarker) => (
+                <Marker
+                  key={playerMarker.participantId}
+                  position={playerMarker.position}
+                  icon={playerMarker.icon}
+                >
+                  <Popup>
+                    <div className="text-sm text-slate-900">
+                      <div className="font-black">{playerMarker.name}</div>
+                      <div>
+                        {playerMarker.teamLabel} • {playerMarker.roleName}
                       </div>
-                    </Popup>
-                  </Marker>
-                ) : null
-              )}
+                      <div>{playerMarker.stateLabel}</div>
+                      <div>Sidst set: {playerMarker.updatedLabel}</div>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
             </MapContainer>
           </div>
         </section>

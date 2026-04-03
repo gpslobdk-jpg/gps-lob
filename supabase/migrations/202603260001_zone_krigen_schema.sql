@@ -27,29 +27,58 @@ alter table public.game_teams enable row level security;
 alter table public.game_zones enable row level security;
 
 -- Participants (anon) can read teams and zones for any session
+drop policy if exists "public read game_teams" on public.game_teams;
 create policy "public read game_teams"
   on public.game_teams for select using (true);
 
+drop policy if exists "public read game_zones" on public.game_zones;
 create policy "public read game_zones"
   on public.game_zones for select using (true);
 
 -- Only service role (server-side) may insert/update teams
+drop policy if exists "service only insert game_teams" on public.game_teams;
 create policy "service only insert game_teams"
   on public.game_teams for insert with check (false);
 
+drop policy if exists "service only update game_teams" on public.game_teams;
 create policy "service only update game_teams"
   on public.game_teams for update using (false);
 
 -- Participants may set shield_until (anti-cheat lock) on a zone (anon update)
 -- Service role bypasses RLS for all other writes
+drop policy if exists "participants can shield zones" on public.game_zones;
 create policy "participants can shield zones"
   on public.game_zones for update
   using (true)
   with check (shield_until is not null);
 
+drop policy if exists "service only insert game_zones" on public.game_zones;
 create policy "service only insert game_zones"
   on public.game_zones for insert with check (false);
 
 -- Realtime
-alter publication supabase_realtime add table public.game_teams;
-alter publication supabase_realtime add table public.game_zones;
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    if not exists (
+      select 1
+      from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = 'game_teams'
+    ) then
+      alter publication supabase_realtime add table public.game_teams;
+    end if;
+
+    if not exists (
+      select 1
+      from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = 'game_zones'
+    ) then
+      alter publication supabase_realtime add table public.game_zones;
+    end if;
+  end if;
+end
+$$;

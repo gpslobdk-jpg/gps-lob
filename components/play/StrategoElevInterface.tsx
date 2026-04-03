@@ -667,6 +667,19 @@ export default function StrategoElevInterface({
             </div>
           </div>
         ) : null}
+
+        {stratego.respawnMessage ? (
+          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[1260] px-4 pb-[max(env(safe-area-inset-bottom),1rem)] sm:px-6">
+            <div className="mx-auto max-w-5xl rounded-[1.8rem] border border-emerald-300/25 bg-[linear-gradient(145deg,rgba(6,95,70,0.94),rgba(5,150,105,0.92))] px-5 py-4 text-center shadow-[0_24px_80px_rgba(5,150,105,0.35)] backdrop-blur-2xl">
+              <p className="text-sm font-black uppercase tracking-[0.28em] text-emerald-100/75">
+                Respawn
+              </p>
+              <p className="mt-2 text-base font-black text-white sm:text-lg">
+                {stratego.respawnMessage}
+              </p>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {flags.isSessionPaused ? (
