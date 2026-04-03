@@ -216,6 +216,40 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
       <main className="relative mx-auto flex w-full flex-1 flex-col justify-center px-4 py-8 md:hidden">
         <section className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-lg space-y-3">
+            <div className="flex justify-center pt-1">
+              <button
+                type="button"
+                onClick={toggleBackgroundSound}
+                aria-pressed={!isMuted}
+                className="inline-flex items-center gap-3 rounded-full border border-emerald-500/30 bg-slate-950/70 px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] text-emerald-300 shadow-[0_0_24px_rgba(16,185,129,0.15)] backdrop-blur-xl transition-all hover:border-emerald-400/60 hover:bg-emerald-500/10 hover:text-emerald-200"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                  aria-hidden="true"
+                >
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  {isMuted ? (
+                    <>
+                      <line x1="23" y1="9" x2="17" y2="15" />
+                      <line x1="17" y1="9" x2="23" y2="15" />
+                    </>
+                  ) : (
+                    <>
+                      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+                      <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+                    </>
+                  )}
+                </svg>
+                <span>{isMuted ? "Slå lyd til" : "Slå lyd fra"}</span>
+              </button>
+            </div>
             <div className="rounded-3xl border border-emerald-500/30 bg-slate-950/80 p-5 shadow-[0_0_40px_rgba(16,185,129,0.15)] backdrop-blur-xl">
               <form onSubmit={handleSubmit} className="space-y-5">
                 <p className="text-center text-sm font-semibold tracking-wide text-slate-200">
@@ -427,7 +461,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
       <div className="hidden md:block">
         <AIChatButton />
       </div>
-      <div className="pointer-events-none fixed inset-x-0 bottom-5 z-30 flex justify-center px-4">
+      <div className="pointer-events-none fixed inset-x-0 bottom-5 z-30 hidden justify-center px-4 md:flex">
         <div className="pointer-events-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-3">
           <button
             type="button"
