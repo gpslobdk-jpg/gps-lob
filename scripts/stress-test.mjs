@@ -320,7 +320,7 @@ async function fetchRunForSession(supabase, sessionId) {
 
   const runResponse = await supabaseRequest(
     supabase,
-    `gps_runs?id=eq.${encodeURIComponent(runId)}&select=id,questions,raceType,race_type&limit=1`,
+    `gps_runs?id=eq.${encodeURIComponent(runId)}&select=id,questions,race_type,raceType:race_type&limit=1`,
     { method: "GET" }
   );
 

@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
 
     const { data: run, error: runError } = await adminSupabase
       .from("gps_runs")
-      .select("race_type,raceType")
+      .select("race_type,raceType:race_type")
       .eq("id", session.run_id)
       .maybeSingle<RunRow>();
 

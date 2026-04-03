@@ -111,7 +111,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         if (sessionData.run_id) {
           const { data: runData } = await supabase
             .from("gps_runs")
-            .select("questions,race_type,raceType")
+            .select("questions,race_type,raceType:race_type")
             .eq("id", sessionData.run_id)
             .single();
 

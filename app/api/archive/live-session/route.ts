@@ -56,7 +56,7 @@ function toSessionResponse(session: LiveSessionRow) {
 async function fetchOwnedRun(runId: string, userId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data, error } = await supabase
     .from("gps_runs")
-    .select("id,user_id,race_type,raceType")
+    .select("id,user_id,race_type,raceType:race_type")
     .eq("id", runId)
     .eq("user_id", userId)
     .maybeSingle<RunRow>();
