@@ -155,7 +155,7 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
       return;
     }
 
-    const supabase = createClient({ participantId: player.participantId, sessionId });
+    const supabase = createClient({ authScope: "participant" });
     let isActive = true;
 
     const loadBattlefield = async () => {

@@ -70,7 +70,7 @@ export default function AntiCheat({
 }
 
 async function lockZone(sessionId: string, zoneId: string, participantId: string): Promise<void> {
-  const supabase = createClient({ participantId, sessionId });
+  const supabase = createClient({ authScope: "participant" });
   const shieldUntil = new Date(Date.now() + 60_000).toISOString();
 
   await supabase.rpc("lock_zone_krig_zone", {

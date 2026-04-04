@@ -175,7 +175,7 @@ export default function StrategoElevInterface({
       return;
     }
 
-    const supabase = createClient({ participantId: player.participantId, sessionId });
+    const supabase = createClient({ authScope: "participant" });
     let isActive = true;
 
     const loadStrategoMeta = async () => {
@@ -241,7 +241,7 @@ export default function StrategoElevInterface({
       return;
     }
 
-    const supabase = createClient({ participantId: player.participantId, sessionId });
+    const supabase = createClient({ authScope: "participant" });
     let isActive = true;
 
     const loadAllyNames = async () => {

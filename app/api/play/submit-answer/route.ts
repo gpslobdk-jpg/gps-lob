@@ -9,6 +9,8 @@ import {
 } from "@/app/api/play/_shared";
 import { getAwardedPoints } from "@/utils/questionPoints";
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
+import type { ParticipantRequestContext } from "@/utils/supabase/participantServer";
+import { resolveParticipantRequestContext } from "@/utils/supabase/participantServer";
 
 export const runtime = "edge";
 export const maxDuration = 60;
@@ -27,6 +29,33 @@ function isCorrectAnswerPayload(payload: Record<string, unknown>) {
 
 function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function collectDistinctPayloadStrings(
+  payloads: Record<string, unknown>[],
+  field: string
+) {
+  return [...new Set(payloads.map((payload) => asTrimmedString(payload[field])).filter(Boolean))];
+}
+
+function sanitizeAnswerPayload(
+  payload: Record<string, unknown>,
+  participantContext: ParticipantRequestContext
+) {
+  const sanitizedPayload: Record<string, unknown> = {
+    ...payload,
+    session_id: participantContext.sessionId,
+    participant_id: participantContext.participantId,
+    student_name: participantContext.studentName,
+  };
+
+  if (participantContext.teamId) {
+    sanitizedPayload.zone_krig_team_id = participantContext.teamId;
+  } else {
+    delete sanitizedPayload.zone_krig_team_id;
+  }
+
+  return sanitizedPayload;
 }
 
 type ExistingAnswerRow = {
@@ -375,6 +404,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Manglende eller ugyldigt payload." }, { status: 400 });
   }
 
+  const claimedSessionIds = collectDistinctPayloadStrings(rawPayloads, "session_id");
+  if (claimedSessionIds.length > 1) {
+    return NextResponse.json(
+      { error: "Payloads matcher ikke den aktive deltager-session." },
+      { status: 403 }
+    );
+  }
+
+  const claimedParticipantIds = collectDistinctPayloadStrings(rawPayloads, "participant_id");
+  if (claimedParticipantIds.length > 1) {
+    return NextResponse.json(
+      { error: "Payloads matcher ikke den aktive deltager." },
+      { status: 403 }
+    );
+  }
+
   const admin = createAdminClient();
   if (!admin) {
     return NextResponse.json({ error: ADMIN_ACCESS_MISSING_MESSAGE }, { status: 503 });
@@ -383,11 +428,24 @@ export async function POST(request: NextRequest) {
   const runCache: RunCache = new Map();
 
   try {
-    for (const payload of rawPayloads) {
+    const participantContext = await resolveParticipantRequestContext({
+      adminSupabase: admin,
+      claimedParticipantId: claimedParticipantIds[0] ?? null,
+      claimedSessionId: claimedSessionIds[0] ?? null,
+    });
+    if (!participantContext.ok) {
+      return NextResponse.json({ error: participantContext.error }, { status: participantContext.status });
+    }
+
+    const sanitizedPayloads = rawPayloads.map((payload) =>
+      sanitizeAnswerPayload(payload, participantContext.data)
+    );
+
+    for (const payload of sanitizedPayloads) {
       try {
         const enrichedPayload = await withAwardedPoints(payload, runCache);
         const awardedPoints = Number(enrichedPayload.awarded_points) || 0;
-        const existingAnswer = await hasExistingAnswerRecord(payload, admin);
+        const existingAnswer = await hasExistingAnswerRecord(enrichedPayload, admin);
         if (existingAnswer) {
           await maybeStampRunStartedAt(enrichedPayload, admin);
           const zoneKrigCapture = await maybeCaptureZone(enrichedPayload, admin, awardedPoints, runCache);

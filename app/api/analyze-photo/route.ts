@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import {
   asTrimmedString,
   fetchParticipantLocationState,
   fetchRunForSession,
-  getPhotoMissionConfig,
   getLocationDistanceMeters,
+  getPhotoMissionConfig,
   getServerPositionValidationRadius,
   resolveQuestionVariant,
 } from "@/app/api/play/_shared";
@@ -16,6 +15,7 @@ import {
   createAdminClient,
 } from "@/utils/supabase/admin";
 import { getAwardedPoints } from "@/utils/questionPoints";
+import { resolveParticipantRequestContext } from "@/utils/supabase/participantServer";
 
 export const maxDuration = 300;
 
@@ -47,18 +47,8 @@ type UploadedPhoto = {
   imageUrl: string | null;
 };
 
-type ParticipantIdentityRow = {
-  id?: string | null;
-  student_name?: string | null;
-};
-
 type ActiveSessionRow = {
   id?: string | null;
-};
-
-type SupabaseApiClientOptions = {
-  participantId?: string;
-  sessionId?: string;
 };
 
 function asPostIndex(value: unknown) {
@@ -99,32 +89,6 @@ function isMissingColumnError(error: SupabaseLikeError | null | undefined) {
 
   const message = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
   return message.includes("does not exist") || message.includes("column");
-}
-
-function buildParticipantHeaders(options: SupabaseApiClientOptions = {}) {
-  return {
-    ...(options.participantId ? { "x-participant-id": options.participantId } : {}),
-    ...(options.sessionId ? { "x-session-id": options.sessionId } : {}),
-  };
-}
-
-function getSupabaseApiClient(options: SupabaseApiClientOptions = {}) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return null;
-  }
-
-  return createSupabaseClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-    global: {
-      headers: buildParticipantHeaders(options),
-    },
-  });
 }
 
 function buildOpenAiImageUrl(buffer: Buffer, mimeType: string) {
@@ -208,7 +172,11 @@ async function validateParticipantPosition(
     return "Posten mangler gyldige GPS-koordinater.";
   }
 
-  const participantState = await fetchParticipantLocationState(sessionId, participantId, adminSupabase);
+  const participantState = await fetchParticipantLocationState(
+    sessionId,
+    participantId,
+    adminSupabase
+  );
   const participantLat = asFiniteNumber(participantState?.lat);
   const participantLng = asFiniteNumber(participantState?.lng);
   if (participantLat === null || participantLng === null) {
@@ -257,28 +225,6 @@ async function uploadPhotoToStorage(
   };
 }
 
-async function fetchParticipantIdentity(sessionId: string, participantId: string) {
-  const supabase = getSupabaseApiClient({ participantId, sessionId });
-  if (!supabase) {
-    console.error("Supabase-klienten til deltageropslag er ikke konfigureret.");
-    return null;
-  }
-
-  const { data, error } = await supabase
-    .from("participants")
-    .select("id,student_name")
-    .eq("id", participantId)
-    .eq("session_id", sessionId)
-    .maybeSingle<ParticipantIdentityRow>();
-
-  if (error) {
-    console.error("Kunne ikke hente deltageridentitet til fotoanalyse:", error);
-    return null;
-  }
-
-  return data ?? null;
-}
-
 async function fetchActiveSession(
   sessionId: string,
   adminSupabase: AdminSupabaseClient
@@ -299,6 +245,7 @@ async function fetchActiveSession(
 }
 
 async function persistPhotoAnalysisResult({
+  adminSupabase,
   sessionId,
   participantId,
   studentName,
@@ -309,6 +256,7 @@ async function persistPhotoAnalysisResult({
   message,
   imageUrl,
 }: {
+  adminSupabase: AdminSupabaseClient;
   sessionId: string;
   participantId: string;
   studentName: string;
@@ -321,12 +269,6 @@ async function persistPhotoAnalysisResult({
 }) {
   const normalizedStudentName = studentName.trim();
   if (!normalizedStudentName) {
-    return false;
-  }
-
-  const supabase = getSupabaseApiClient({ participantId, sessionId });
-  if (!supabase) {
-    console.error("Supabase-klienten til fotoresultater er ikke konfigureret.");
     return false;
   }
 
@@ -360,7 +302,7 @@ async function persistPhotoAnalysisResult({
   ];
 
   for (const payload of payloads) {
-    const { error } = await supabase.from("answers").insert(payload);
+    const { error } = await adminSupabase.from("answers").insert(payload);
     if (!error) return true;
     if (isMissingColumnError(error)) continue;
 
@@ -400,11 +342,11 @@ export async function POST(req: Request) {
 
   try {
     const imageEntry = formData.get("image");
-    const sessionId = asTrimmedString(formData.get("sessionId"));
-    const participantId = asTrimmedString(formData.get("participantId"));
+    const claimedSessionId = asTrimmedString(formData.get("sessionId"));
+    const claimedParticipantId = asTrimmedString(formData.get("participantId"));
     const postIndex = asPostIndex(formData.get("postIndex"));
 
-    if (!(imageEntry instanceof File) || !sessionId || !participantId || postIndex === null) {
+    if (!(imageEntry instanceof File) || postIndex === null) {
       return NextResponse.json({ error: "Billede eller postdata mangler." }, { status: 400 });
     }
 
@@ -418,6 +360,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: ADMIN_ACCESS_MISSING_MESSAGE }, { status: 503 });
     }
 
+    const participantContext = await resolveParticipantRequestContext({
+      adminSupabase,
+      claimedParticipantId: claimedParticipantId || null,
+      claimedSessionId: claimedSessionId || null,
+    });
+    if (!participantContext.ok) {
+      return NextResponse.json({ error: participantContext.error }, { status: participantContext.status });
+    }
+
+    const { participantId, sessionId, studentName } = participantContext.data;
+
     const run = await fetchRunForSession(sessionId);
     if (!run || !Array.isArray(run.questions) || postIndex >= run.questions.length) {
       return NextResponse.json({ error: "Foto-posten kunne ikke findes." }, { status: 404 });
@@ -428,9 +381,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Sessionen er ikke aktiv laengere." }, { status: 404 });
     }
 
-    const participant = await fetchParticipantIdentity(sessionId, participantId);
-    const studentName = asTrimmedString(participant?.student_name);
-    if (!studentName) {
+    if (!studentName.trim()) {
       return NextResponse.json({ error: "Deltageren kunne ikke findes." }, { status: 404 });
     }
 
@@ -521,6 +472,7 @@ Returner KUN et validt JSON-objekt med dette format:
     const awardedPoints = getAwardedPoints(rawQuestion, normalizedResult.isMatch);
     if (normalizedResult.isMatch) {
       storedAnswer = await persistPhotoAnalysisResult({
+        adminSupabase,
         sessionId,
         participantId,
         studentName,

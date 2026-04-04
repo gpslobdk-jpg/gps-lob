@@ -14,7 +14,9 @@ import {
   normalizeEscapeAnswer,
   resolveQuestionVariant,
 } from "@/app/api/play/_shared";
-import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
+import { ADMIN_ACCESS_MISSING_MESSAGE } from "@/utils/supabase/admin";
+import type { ParticipantRequestContext } from "@/utils/supabase/participantServer";
+import { resolveParticipantRequestContext } from "@/utils/supabase/participantServer";
 
 export const runtime = "edge";
 
@@ -70,13 +72,9 @@ async function validateParticipantPosition(
   sessionId: string,
   participantId: string,
   target: ValidationTarget,
-  validationRadiusMeters: number
+  validationRadiusMeters: number,
+  adminSupabase: ParticipantRequestContext["adminSupabase"]
 ) {
-  const adminSupabase = createAdminClient();
-  if (!adminSupabase) {
-    throw new Error(ADMIN_ACCESS_MISSING_MESSAGE);
-  }
-
   const participantState = await fetchParticipantLocationState(sessionId, participantId, adminSupabase);
   const participantLat = asFiniteNumber(participantState?.lat);
   const participantLng = asFiniteNumber(participantState?.lng);
@@ -108,21 +106,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Ugyldig forespørgsel." }, { status: 400 });
   }
 
-  const sessionId = asTrimmedString(payload.sessionId);
-  const participantId = asTrimmedString(payload.participantId);
+  const claimedSessionId = asTrimmedString(payload.sessionId);
+  const claimedParticipantId = asTrimmedString(payload.participantId);
   const postIndex = asPostIndex(payload.postIndex);
   const answer = asTrimmedString(payload.answer);
   const selectedIndex = asSelectedIndex(payload.selectedIndex);
 
-  if (!sessionId || postIndex === null) {
+  if (postIndex === null) {
     return NextResponse.json({ error: "Manglende valideringsdata." }, { status: 400 });
   }
 
   try {
-    const adminSupabase = createAdminClient();
-    if (!adminSupabase) {
-      throw new Error(ADMIN_ACCESS_MISSING_MESSAGE);
+    const participantContext = await resolveParticipantRequestContext({
+      claimedParticipantId: claimedParticipantId || null,
+      claimedSessionId: claimedSessionId || null,
+    });
+    if (!participantContext.ok) {
+      return NextResponse.json({ error: participantContext.error }, { status: participantContext.status });
     }
+    const { adminSupabase, participantId, sessionId } = participantContext.data;
 
     const run = await fetchRunForSession(sessionId);
     if (!run || !Array.isArray(run.questions) || postIndex >= run.questions.length) {
@@ -140,10 +142,6 @@ export async function POST(request: NextRequest) {
     }
 
     const variant = resolveQuestionVariant(run.raceType ?? run.race_type, rawQuestion);
-    if (!participantId) {
-      return NextResponse.json({ error: "Deltager-id mangler." }, { status: 400 });
-    }
-
     let validationTarget: ValidationTarget | null = null;
     let effectiveValidationRadiusMeters = validationRadiusMeters;
 
@@ -180,7 +178,8 @@ export async function POST(request: NextRequest) {
       sessionId,
       participantId,
       validationTarget,
-      effectiveValidationRadiusMeters
+      effectiveValidationRadiusMeters,
+      adminSupabase
     );
     if (positionValidationError) {
       return NextResponse.json({ error: positionValidationError }, { status: 403 });

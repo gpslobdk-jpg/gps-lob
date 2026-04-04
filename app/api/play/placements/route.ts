@@ -4,6 +4,7 @@ import {
   ADMIN_ACCESS_MISSING_MESSAGE,
   createAdminClient,
 } from "@/utils/supabase/admin";
+import { resolveParticipantRequestContext } from "@/utils/supabase/participantServer";
 
 export const runtime = "edge";
 
@@ -11,10 +12,6 @@ type PlacementRow = {
   student_name?: string | null;
   run_started_at?: string | null;
   finished_at?: string | null;
-};
-
-type ParticipantLookupRow = {
-  id?: string | null;
 };
 
 function asTrimmedString(value: string | null) {
@@ -28,39 +25,33 @@ function toTimestamp(value: string | null | undefined) {
 }
 
 export async function GET(request: NextRequest) {
-  const sessionId = asTrimmedString(request.nextUrl.searchParams.get("sessionId"));
-  const participantId = asTrimmedString(request.nextUrl.searchParams.get("participantId"));
-
-  if (!sessionId || !participantId) {
-    return NextResponse.json({ error: "Session-id eller deltager-id mangler." }, { status: 400 });
-  }
+  const claimedSessionId = asTrimmedString(request.nextUrl.searchParams.get("sessionId"));
+  const claimedParticipantId = asTrimmedString(request.nextUrl.searchParams.get("participantId"));
 
   const adminSupabase = createAdminClient();
   if (!adminSupabase) {
     return NextResponse.json({ error: ADMIN_ACCESS_MISSING_MESSAGE }, { status: 503 });
   }
 
-  const { data: participantRows, error: participantError } = await adminSupabase
-    .from("participants")
-    .select("id")
-    .eq("id", participantId)
-    .eq("session_id", sessionId)
-    .limit(1);
-
-  if (participantError) {
-    console.error("Kunne ikke validere deltageren før play-placeringer:", participantError);
-    return NextResponse.json({ error: "Placeringerne kunne ikke hentes." }, { status: 500 });
+  const participantContext = await resolveParticipantRequestContext({
+    adminSupabase,
+    claimedParticipantId: claimedParticipantId || null,
+    claimedSessionId: claimedSessionId || null,
+  });
+  if (!participantContext.ok) {
+    return NextResponse.json({ error: participantContext.error }, { status: participantContext.status });
   }
 
-  const participant = ((participantRows ?? []) as ParticipantLookupRow[])[0] ?? null;
-  if (!participant?.id) {
-    return NextResponse.json({ error: "Deltageren findes ikke i sessionen." }, { status: 404 });
-  }
+  const { sessionId } = participantContext.data;
 
   const loadPlacements = async (table: "participants" | "session_students") =>
     adminSupabase
       .from(table)
-      .select(table === "participants" ? "student_name,run_started_at,finished_at" : "student_name,finished_at")
+      .select(
+        table === "participants"
+          ? "student_name,run_started_at,finished_at"
+          : "student_name,finished_at"
+      )
       .eq("session_id", sessionId)
       .not("finished_at", "is", null)
       .order("finished_at", { ascending: true });

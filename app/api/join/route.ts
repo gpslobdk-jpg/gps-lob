@@ -4,6 +4,7 @@ import {
   ADMIN_ACCESS_MISSING_MESSAGE,
   createAdminClient,
 } from "@/utils/supabase/admin";
+import { createParticipantClient as createParticipantServerClient } from "@/utils/supabase/participantServer";
 import {
   getRunScheduleGate,
   inspectRunSchedule,
@@ -21,6 +22,7 @@ const CACHE_CONTROL = "no-store";
 const MAX_STUDENT_NAME_LENGTH = 20;
 
 type AdminSupabaseClient = NonNullable<ReturnType<typeof createAdminClient>>;
+type ParticipantServerClient = Awaited<ReturnType<typeof createParticipantServerClient>>;
 
 type LiveSessionRow = {
   id?: string | number | null;
@@ -200,13 +202,6 @@ function pickLeastUsedStartOffset(rows: ParticipantOffsetRow[] | null, questionC
   return usageByOffset.findIndex((usage) => usage === minUsage);
 }
 
-function buildParticipantHeaders(participantId: string, sessionId: string) {
-  return {
-    "x-participant-id": participantId,
-    "x-session-id": sessionId,
-  };
-}
-
 async function supabaseRequest<T>(
   path: string,
   init: RequestInit,
@@ -384,12 +379,35 @@ async function insertParticipant(
   studentName: string,
   participantId: string,
   startOffset: number,
+  authUserId: string,
   adminSupabase: AdminSupabaseClient
 ) {
   const normalizedStudentName = studentName.trim();
   const timestamp = new Date().toISOString();
-  const headers = buildParticipantHeaders(participantId, sessionId);
   const payloads = [
+    {
+      id: participantId,
+      session_id: sessionId,
+      student_name: normalizedStudentName,
+      auth_user_id: authUserId,
+      last_updated: timestamp,
+      start_offset: startOffset,
+    },
+    {
+      id: participantId,
+      session_id: sessionId,
+      student_name: normalizedStudentName,
+      auth_user_id: authUserId,
+      start_offset: startOffset,
+    },
+    {
+      id: participantId,
+      session_id: sessionId,
+      student_name: normalizedStudentName,
+      auth_user_id: authUserId,
+      last_updated: timestamp,
+    },
+    { id: participantId, session_id: sessionId, student_name: normalizedStudentName, auth_user_id: authUserId },
     {
       id: participantId,
       session_id: sessionId,
@@ -403,17 +421,9 @@ async function insertParticipant(
   ];
 
   for (const payload of payloads) {
-    const result = await supabaseRequest<unknown>(
-      "participants",
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-      },
-      "return=minimal"
-    );
+    const { error } = await adminSupabase.from("participants").insert(payload);
 
-    if (result.ok) {
+    if (!error) {
       const insertedParticipant = await fetchParticipantRecord(sessionId, adminSupabase, { participantId });
       if (!insertedParticipant) {
         return {
@@ -425,12 +435,12 @@ async function insertParticipant(
 
       return {
         ok: true,
-        status: result.status,
+        status: 201,
         data: [insertedParticipant],
       } satisfies SupabaseResult<ParticipantRow[]>;
     }
 
-    if (result.error.code === "23505") {
+    if (error.code === "23505") {
       try {
         const existingParticipant = await fetchParticipantRecord(sessionId, adminSupabase, {
           studentName: normalizedStudentName,
@@ -460,14 +470,18 @@ async function insertParticipant(
       }
     }
 
-    if (isMissingColumnError(result.error)) {
+    if (isMissingColumnError(error)) {
       continue;
     }
 
     return {
       ok: false,
-      status: result.status,
-      error: result.error,
+      status: 500,
+      error: {
+        code: error.code,
+        message: error.message,
+        details: error.details ?? undefined,
+      },
     } satisfies SupabaseResult<ParticipantRow[]>;
   }
 
@@ -476,6 +490,80 @@ async function insertParticipant(
     status: 400,
     error: { code: "PGRST204", message: "Participants-tabellen mangler et nÃ¸dvendigt felt." },
   } satisfies SupabaseResult<ParticipantRow[]>;
+}
+
+async function bindParticipantAuthUser(
+  sessionId: string,
+  participantId: string,
+  authUserId: string,
+  adminSupabase: AdminSupabaseClient
+) {
+  const timestamp = new Date().toISOString();
+  const payloads = [
+    { auth_user_id: authUserId, last_updated: timestamp },
+    { auth_user_id: authUserId },
+    { last_updated: timestamp },
+  ];
+
+  for (const payload of payloads) {
+    const { error } = await adminSupabase
+      .from("participants")
+      .update(payload)
+      .eq("id", participantId)
+      .eq("session_id", sessionId);
+
+    if (!error) {
+      return await fetchParticipantRecord(sessionId, adminSupabase, { participantId });
+    }
+
+    if (isMissingColumnError(error)) {
+      continue;
+    }
+
+    throw new Error(error.message);
+  }
+
+  return await fetchParticipantRecord(sessionId, adminSupabase, { participantId });
+}
+
+async function createParticipantAuthSession() {
+  const participantSupabase = await createParticipantServerClient();
+  const { data, error } = await participantSupabase.auth.signInAnonymously();
+
+  if (error) {
+    return {
+      ok: false as const,
+      client: participantSupabase,
+      error,
+    };
+  }
+
+  const authUserId = asTrimmedString(data.user?.id);
+  if (!authUserId) {
+    return {
+      ok: false as const,
+      client: participantSupabase,
+      error: { message: "Deltager-login mangler bruger-id." },
+    };
+  }
+
+  return {
+    ok: true as const,
+    client: participantSupabase,
+    authUserId,
+  };
+}
+
+async function clearParticipantAuthSession(participantSupabase: ParticipantServerClient | null) {
+  if (!participantSupabase) {
+    return;
+  }
+
+  try {
+    await participantSupabase.auth.signOut();
+  } catch (error) {
+    console.warn("Kunne ikke rydde deltager-session efter join-fejl:", error);
+  }
 }
 
 async function ensureSessionStudent(sessionId: string, studentName: string) {
@@ -756,6 +844,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   let payload: JoinParticipantRequest;
+  let participantAuthClient: ParticipantServerClient | null = null;
 
   try {
     payload = (await request.json()) as JoinParticipantRequest;
@@ -810,15 +899,58 @@ export async function POST(request: NextRequest) {
         )
       : 0;
 
-    const participantResult = await insertParticipant(
-      sessionId,
-      studentName,
-      crypto.randomUUID(),
-      plannedStartOffset,
-      adminSupabase
-    );
+    const participantAuthSession = await createParticipantAuthSession();
+    participantAuthClient = participantAuthSession.client;
+
+    if (!participantAuthSession.ok) {
+      console.error("Kunne ikke oprette deltager-login:", participantAuthSession.error);
+      await clearParticipantAuthSession(participantAuthClient);
+      return NextResponse.json(
+        { error: "Kunne ikke oprette deltager-login." },
+        { status: 503, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    const existingParticipant = await fetchParticipantRecord(sessionId, adminSupabase, { studentName });
+    const existingParticipantId = asTrimmedString(existingParticipant?.id);
+
+    let participantResult: SupabaseResult<ParticipantRow[]>;
+    if (existingParticipantId) {
+      const reboundParticipant = await bindParticipantAuthUser(
+        sessionId,
+        existingParticipantId,
+        participantAuthSession.authUserId,
+        adminSupabase
+      );
+
+      participantResult = reboundParticipant
+        ? {
+            ok: true,
+            status: 200,
+            data: [reboundParticipant],
+          }
+        : {
+            ok: false,
+            status: 404,
+            error: {
+              code: "PGRST116",
+              message: "Den eksisterende deltager kunne ikke genindlæses.",
+            },
+          };
+    } else {
+      participantResult = await insertParticipant(
+        sessionId,
+        studentName,
+        crypto.randomUUID(),
+        plannedStartOffset,
+        participantAuthSession.authUserId,
+        adminSupabase
+      );
+    }
+
     if (!participantResult.ok) {
       console.error("Kunne ikke oprette deltager ved join:", participantResult.error);
+      await clearParticipantAuthSession(participantAuthClient);
       return NextResponse.json(
         { error: "Kunne ikke oprette deltageren." },
         { status: 500, headers: { "Cache-Control": "no-store" } }
@@ -829,10 +961,7 @@ export async function POST(request: NextRequest) {
     const participantId = asTrimmedString(participantRow?.id);
 
     if (!participantId) {
-      return NextResponse.json(
-        { error: "Deltager-id mangler i svar." },
-        { status: 500, headers: { "Cache-Control": "no-store" } }
-      );
+      throw new Error("Deltager-id mangler i svar.");
     }
 
     let resolvedParticipantRow = participantRow;
@@ -915,6 +1044,8 @@ export async function POST(request: NextRequest) {
       }
     );
   } catch (error) {
+    await clearParticipantAuthSession(participantAuthClient);
+
     if (error instanceof Error && error.message === ADMIN_ACCESS_MISSING_MESSAGE) {
       return NextResponse.json(
         { error: ADMIN_ACCESS_MISSING_MESSAGE },

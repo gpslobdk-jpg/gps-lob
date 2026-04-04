@@ -1,27 +1,36 @@
-import { createBrowserClient } from '@supabase/ssr'
+import { createBrowserClient } from "@supabase/ssr";
+
+import { PARTICIPANT_AUTH_STORAGE_KEY } from "@/utils/supabase/participantAuth";
 
 type BrowserClientOptions = {
-  headers?: Record<string, string>
-  participantId?: string | null
-  sessionId?: string | null
-}
+  headers?: Record<string, string>;
+  authScope?: "default" | "participant";
+};
 
 export function createClient(options: BrowserClientOptions = {}) {
+  const isParticipantClient = options.authScope === "participant";
   const headers = {
     ...(options.headers ?? {}),
-    ...(options.participantId ? { 'x-participant-id': options.participantId } : {}),
-    ...(options.sessionId ? { 'x-session-id': options.sessionId } : {}),
-  }
+  };
 
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    Object.keys(headers).length > 0
-      ? {
-          global: {
-            headers,
-          },
-        }
-      : undefined
-  )
+    {
+      ...(isParticipantClient
+        ? {
+            auth: {
+              storageKey: PARTICIPANT_AUTH_STORAGE_KEY,
+            },
+          }
+        : {}),
+      ...(Object.keys(headers).length > 0
+        ? {
+            global: {
+              headers,
+            },
+          }
+        : {}),
+    }
+  );
 }

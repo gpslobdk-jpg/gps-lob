@@ -258,10 +258,7 @@ export function usePlayGameState({
   const [startOffset, setStartOffset] = useState(() => storedParticipantOnLoad?.startOffset ?? 0);
   const [teamId, setTeamId] = useState<string | null>(() => storedParticipantOnLoad?.teamId ?? null);
   const [teamColor, setTeamColor] = useState<string | null>(() => storedParticipantOnLoad?.teamColor ?? null);
-  const supabase = useMemo(
-    () => createClient({ participantId, sessionId }),
-    [participantId, sessionId]
-  );
+  const supabase = useMemo(() => createClient({ authScope: "participant" }), []);
   const [isProvisioningParticipant, setIsProvisioningParticipant] = useState(false);
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
   const [score, setScore] = useState(0);
@@ -349,7 +346,7 @@ export function usePlayGameState({
       return;
     }
 
-    const messageClient = createClient({ participantId, sessionId });
+    const messageClient = createClient({ authScope: "participant" });
     const { data, error } = await messageClient
       .from("session_messages")
       .select("message,is_teacher,created_at")
@@ -365,7 +362,7 @@ export function usePlayGameState({
     }
 
     applyLatestTeacherMessage((data as SessionTeacherMessageRow | null) ?? null);
-  }, [applyLatestTeacherMessage, participantId, sessionId]);
+  }, [applyLatestTeacherMessage, sessionId]);
 
   useEffect(() => {
     dismissedLatestMessageKeyRef.current = null;
