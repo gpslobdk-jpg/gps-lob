@@ -150,6 +150,14 @@ function buildFinishedMessage(winnerTeam: string | null | undefined, myTeamCode:
   return `${winnerTeam === "blue" ? "Hold Blå" : "Hold Rød"} vandt slaget.`;
 }
 
+function formatRemainingSeconds(seconds: number) {
+  if (seconds <= 1) {
+    return "1 sekund";
+  }
+
+  return `${seconds} sekunder`;
+}
+
 export default function StrategoElevInterface({
   sessionId,
   ui,
@@ -319,6 +327,7 @@ export default function StrategoElevInterface({
     !flags.isSessionPaused &&
     stratego.selfPlayer?.state === "alive" &&
     !Boolean(stratego.duelEvent);
+  const attackButtonDisabled = stratego.duelInFlight || stratego.isDuelCooldownActive;
   const previousAttackTargetIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -550,6 +559,17 @@ export default function StrategoElevInterface({
                 {stratego.error}
               </div>
             ) : null}
+
+            {stratego.isSpawnShieldActive ? (
+              <div className="mt-4 rounded-[1.3rem] border border-emerald-300/24 bg-emerald-500/14 px-4 py-3 text-sm font-semibold text-emerald-50">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-4 w-4 shrink-0" />
+                  <span>
+                    Spawn-skjold aktivt i {formatRemainingSeconds(stratego.spawnShieldRemainingSeconds)}
+                  </span>
+                </div>
+              </div>
+            ) : null}
           </div>
         </header>
 
@@ -589,14 +609,16 @@ export default function StrategoElevInterface({
                     <button
                       type="button"
                       onClick={() => void actions.triggerStrategoDuel(attackTargetId)}
-                      disabled={stratego.duelInFlight}
+                      disabled={attackButtonDisabled}
                       className="pointer-events-auto inline-flex min-h-[4.75rem] items-center justify-center gap-3 rounded-[1.8rem] border border-rose-200/28 bg-[linear-gradient(145deg,rgba(251,113,133,0.96),rgba(190,24,93,0.98))] px-6 py-4 text-white shadow-[0_26px_60px_rgba(244,63,94,0.34)] transition hover:scale-[1.02] hover:shadow-[0_30px_72px_rgba(244,63,94,0.42)] disabled:cursor-not-allowed disabled:opacity-65 sm:px-8 animate-pulse"
                     >
                       <span className="text-sm font-black uppercase tracking-[0.24em] text-rose-50/92 sm:text-base">
-                        Fjende nær!
+                        {stratego.isDuelCooldownActive ? "Cooldown aktiv" : "Fjende nær!"}
                       </span>
                       <span className="rounded-full border border-white/18 bg-white/12 px-4 py-2 text-base font-black uppercase tracking-[0.28em] sm:text-lg">
-                        ANGRIB
+                        {stratego.isDuelCooldownActive
+                          ? `Klar igen om ${formatRemainingSeconds(stratego.duelCooldownRemainingSeconds)}`
+                          : "ANGRIB"}
                       </span>
                     </button>
                   </div>

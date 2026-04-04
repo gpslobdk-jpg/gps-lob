@@ -20,12 +20,12 @@ import { createClient } from "@/utils/supabase/client";
 
 const STRATEGO_TARGET_IN_SIGHT_DISTANCE_METERS = 20;
 const STRATEGO_SAFE_ZONE_DISTANCE_METERS = 30;
-const STRATEGO_DUEL_TRIGGER_COOLDOWN_MS = 3000;
+const STRATEGO_DUEL_TRIGGER_COOLDOWN_MS = 5000;
 const STRATEGO_DUEL_ERROR_TIMEOUT_MS = 3000;
 const STRATEGO_RESPAWN_RETRY_COOLDOWN_MS = 5000;
 const STRATEGO_RESPAWN_FEEDBACK_TIMEOUT_MS = 4000;
 const STRATEGO_PRESENCE_STALE_MS = 10000;
-const STRATEGO_PRESENCE_STALE_TICK_MS = 2000;
+const STRATEGO_PRESENCE_STALE_TICK_MS = 1000;
 const STRATEGO_OWN_SIGNAL_STALE_MS = 10000;
 
 type SupabaseBrowserClient = ReturnType<typeof createClient>;
@@ -39,6 +39,7 @@ type StrategoPresenceRow = {
   lng?: number | string | null;
   accuracy?: number | string | null;
   updated_at?: string | null;
+  spawn_shield_until?: string | null;
 };
 
 type StrategoPlayerRow = {
@@ -47,6 +48,7 @@ type StrategoPlayerRow = {
   team_code?: string | null;
   state?: string | null;
   rank_key?: string | null;
+  last_duel_at?: string | null;
 };
 
 type StrategoGameRow = {
@@ -108,6 +110,8 @@ function normalizePresenceEntry(row: StrategoPresenceRow | null | undefined): St
     lng: toFiniteNumber(row?.lng),
     accuracy: toFiniteNumber(row?.accuracy),
     updatedAt: typeof row?.updated_at === "string" ? row.updated_at : null,
+    spawnShieldUntil:
+      typeof row?.spawn_shield_until === "string" ? row.spawn_shield_until : null,
   };
 }
 
@@ -127,6 +131,7 @@ function normalizeSelfPlayer(row: StrategoPlayerRow | null | undefined): Strateg
     teamCode,
     state,
     rankKey: typeof row?.rank_key === "string" ? row.rank_key : null,
+    lastDuelAt: typeof row?.last_duel_at === "string" ? row.last_duel_at : null,
   };
 }
 
@@ -221,17 +226,21 @@ function getDuelRejectionMessage(message: string | null | undefined) {
     return "Netværksfejl - prøv igen";
   }
 
-  const knownMessages = [
-    "Målet er for langt væk (over 20m).",
-    "Målet befinder sig i en fredszone.",
-    "Du befinder dig i din egen fredszone.",
-    "Kunne ikke validere spillerpositionerne.",
-    "Stratego-baserne mangler for denne session.",
-  ];
-
   const trimmedMessage = message.trim();
-  const matchedMessage = knownMessages.find((knownMessage) => trimmedMessage.includes(knownMessage));
-  return matchedMessage ?? "Målet er allerede i kamp";
+  const normalizedMessage = trimmedMessage.toLowerCase();
+
+  if (
+    normalizedMessage.includes("duel-cooldown") ||
+    normalizedMessage.includes("fredet") ||
+    normalizedMessage.includes("fredszone") ||
+    normalizedMessage.includes("positionerne") ||
+    normalizedMessage.includes("stratego-baserne") ||
+    normalizedMessage.includes("20m")
+  ) {
+    return trimmedMessage;
+  }
+
+  return "Målet er allerede i kamp";
 }
 
 function isPresenceFresh(updatedAt: string | null | undefined, nowMs: number) {
@@ -249,6 +258,40 @@ function isPresenceFresh(updatedAt: string | null | undefined, nowMs: number) {
 
 function isPresenceAccuracyReliable(accuracy: number | null | undefined) {
   return accuracy == null || accuracy <= MAX_ACCEPTABLE_GPS_ACCURACY_METERS;
+}
+
+function getFutureTimestampMs(timestampValue: string | null | undefined) {
+  if (!timestampValue) {
+    return 0;
+  }
+
+  const timestampMs = new Date(timestampValue).getTime();
+  return Number.isFinite(timestampMs) ? timestampMs : 0;
+}
+
+function getRemainingSeconds(untilMs: number, nowMs: number) {
+  if (untilMs <= nowMs) {
+    return 0;
+  }
+
+  return Math.max(1, Math.ceil((untilMs - nowMs) / 1000));
+}
+
+function getSpawnShieldUntilMs(spawnShieldUntil: string | null | undefined) {
+  return getFutureTimestampMs(spawnShieldUntil);
+}
+
+function hasActiveSpawnShield(spawnShieldUntil: string | null | undefined, nowMs: number) {
+  return getSpawnShieldUntilMs(spawnShieldUntil) > nowMs;
+}
+
+function getServerDuelCooldownUntilMs(lastDuelAt: string | null | undefined) {
+  const lastDuelAtMs = getFutureTimestampMs(lastDuelAt);
+  if (lastDuelAtMs <= 0) {
+    return 0;
+  }
+
+  return lastDuelAtMs + STRATEGO_DUEL_TRIGGER_COOLDOWN_MS;
 }
 
 function isOwnLocationReliable(
@@ -291,13 +334,13 @@ export function useStrategoEngine({
   const [duelInFlight, setDuelInFlight] = useState(false);
   const [duelError, setDuelError] = useState<string | null>(null);
   const [respawnMessage, setRespawnMessage] = useState<string | null>(null);
+  const [clientDuelCooldownUntilMs, setClientDuelCooldownUntilMs] = useState(0);
   const [isRealtimeRecovering, setIsRealtimeRecovering] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [presenceFreshnessTick, setPresenceFreshnessTick] = useState(() => Date.now());
 
   const duelInFlightRef = useRef(false);
-  const duelCooldownUntilRef = useRef(0);
   const lastDuelEventIdRef = useRef<string | null>(null);
   const duelErrorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const respawnMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -361,12 +404,13 @@ export function useStrategoEngine({
       supabase.from("stratego_presence_view").select(selectClause).eq("session_id", sessionId);
 
     let presenceResult = await fetchPresence(
-      "participant_id,session_id,team_code,state,lat,lng,accuracy,updated_at"
+      "participant_id,session_id,team_code,state,lat,lng,updated_at,accuracy,spawn_shield_until"
     );
     if (presenceResult.error && isMissingColumnError(presenceResult.error)) {
-      presenceResult = await fetchPresence(
-        "participant_id,session_id,team_code,state,lat,lng,updated_at"
-      );
+      presenceResult = await fetchPresence("participant_id,session_id,team_code,state,lat,lng,updated_at,accuracy");
+    }
+    if (presenceResult.error && isMissingColumnError(presenceResult.error)) {
+      presenceResult = await fetchPresence("participant_id,session_id,team_code,state,lat,lng,updated_at");
     }
 
     const { data, error: presenceError } = presenceResult;
@@ -392,7 +436,7 @@ export function useStrategoEngine({
 
     const { data, error: playerError } = await supabase
       .from("stratego_players")
-      .select("participant_id,session_id,team_code,state,rank_key")
+      .select("participant_id,session_id,team_code,state,rank_key,last_duel_at")
       .eq("participant_id", participantId)
       .eq("session_id", sessionId)
       .maybeSingle<StrategoPlayerRow>();
@@ -491,9 +535,9 @@ export function useStrategoEngine({
       setDuelInFlight(false);
       clearDuelError();
       clearRespawnMessage();
+      setClientDuelCooldownUntilMs(0);
       setIsRealtimeRecovering(false);
       duelInFlightRef.current = false;
-      duelCooldownUntilRef.current = 0;
       respawnInFlightRef.current = false;
       respawnCooldownUntilRef.current = 0;
       respawnZoneLockRef.current = false;
@@ -628,7 +672,7 @@ export function useStrategoEngine({
           }
 
           lastDuelEventIdRef.current = nextEvent.id;
-          duelCooldownUntilRef.current = Date.now() + STRATEGO_DUEL_TRIGGER_COOLDOWN_MS;
+          setClientDuelCooldownUntilMs(Date.now() + STRATEGO_DUEL_TRIGGER_COOLDOWN_MS);
           duelInFlightRef.current = false;
           setDuelInFlight(false);
           clearDuelError();
@@ -691,6 +735,29 @@ export function useStrategoEngine({
     [participantId, presenceEntries]
   );
 
+  const duelCooldownUntilMs = useMemo(
+    () => Math.max(clientDuelCooldownUntilMs, getServerDuelCooldownUntilMs(selfPlayer?.lastDuelAt)),
+    [clientDuelCooldownUntilMs, selfPlayer?.lastDuelAt]
+  );
+
+  const duelCooldownRemainingSeconds = useMemo(
+    () => getRemainingSeconds(duelCooldownUntilMs, presenceFreshnessTick),
+    [duelCooldownUntilMs, presenceFreshnessTick]
+  );
+
+  const isDuelCooldownActive = duelCooldownRemainingSeconds > 0;
+
+  const spawnShieldRemainingSeconds = useMemo(
+    () =>
+      getRemainingSeconds(
+        getSpawnShieldUntilMs(selfPresence?.spawnShieldUntil),
+        presenceFreshnessTick
+      ),
+    [presenceFreshnessTick, selfPresence?.spawnShieldUntil]
+  );
+
+  const isSpawnShieldActive = spawnShieldRemainingSeconds > 0;
+
   const hasReliableOwnGpsSignal = useMemo(
     () => isOwnLocationReliable(myLoc, gpsError, presenceFreshnessTick),
     [gpsError, myLoc, presenceFreshnessTick]
@@ -699,14 +766,15 @@ export function useStrategoEngine({
   const effectiveSelfPlayer = selfPlayer
     ? selfPlayer
     : selfPresence
-      ? {
-          participantId: selfPresence.participantId,
-          sessionId: selfPresence.sessionId,
-          teamCode: selfPresence.teamCode,
-          state: selfPresence.state,
-          rankKey: null,
-        }
-      : null;
+        ? {
+            participantId: selfPresence.participantId,
+            sessionId: selfPresence.sessionId,
+            teamCode: selfPresence.teamCode,
+            state: selfPresence.state,
+            rankKey: null,
+            lastDuelAt: null,
+          }
+        : null;
 
   const enemyPresence = useMemo(() => {
     if (!participantId || !effectiveSelfPlayer?.teamCode) {
@@ -719,7 +787,8 @@ export function useStrategoEngine({
         entry.teamCode !== effectiveSelfPlayer.teamCode &&
         entry.state === "alive" &&
         isPresenceFresh(entry.updatedAt, presenceFreshnessTick) &&
-        isPresenceAccuracyReliable(entry.accuracy)
+        isPresenceAccuracyReliable(entry.accuracy) &&
+        !hasActiveSpawnShield(entry.spawnShieldUntil, presenceFreshnessTick)
     );
   }, [effectiveSelfPlayer?.teamCode, participantId, presenceEntries, presenceFreshnessTick]);
 
@@ -813,7 +882,7 @@ export function useStrategoEngine({
         }
 
         setError(null);
-        showRespawnMessage("Du er genoplivet! Tag tilbage i kampen.");
+        showRespawnMessage("Du er genoplivet! Spawn-skjold aktivt i 10 sekunder.");
         void refreshSelfPlayer();
         void refreshPresence();
       } catch (unexpectedError) {
@@ -973,7 +1042,7 @@ export function useStrategoEngine({
         return;
       }
 
-      if (duelEvent || duelInFlightRef.current || Date.now() < duelCooldownUntilRef.current) {
+      if (duelEvent || duelInFlightRef.current || isDuelCooldownActive) {
         return;
       }
 
@@ -1014,7 +1083,7 @@ export function useStrategoEngine({
       clearDuelError();
       setError(null);
       duelInFlightRef.current = true;
-      duelCooldownUntilRef.current = Date.now() + STRATEGO_DUEL_TRIGGER_COOLDOWN_MS;
+      setClientDuelCooldownUntilMs(Date.now() + STRATEGO_DUEL_TRIGGER_COOLDOWN_MS);
       setDuelInFlight(true);
 
       try {
@@ -1063,6 +1132,7 @@ export function useStrategoEngine({
       enemyPresence,
       gameBases,
       hasReliableOwnGpsSignal,
+      isDuelCooldownActive,
       isInSafeZone,
       isPaused,
       isRealtimeRecovering,
@@ -1088,6 +1158,10 @@ export function useStrategoEngine({
     enemyPresence,
     isInSafeZone,
     isRealtimeRecovering,
+    isDuelCooldownActive,
+    duelCooldownRemainingSeconds,
+    isSpawnShieldActive,
+    spawnShieldRemainingSeconds,
     targetInSight,
     duelEvent,
     duelInFlight,

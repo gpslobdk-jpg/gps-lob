@@ -142,6 +142,7 @@ export type ParticipantRow = {
   lat?: number | string | null;
   lng?: number | string | null;
   accuracy?: number | string | null;
+  spawn_shield_until?: string | null;
   run_started_at?: string | null;
   finished_at?: string | null;
   start_offset?: number | string | null;
@@ -162,6 +163,7 @@ export type StrategoPresenceEntry = {
   lng: number | null;
   accuracy: number | null;
   updatedAt: string | null;
+  spawnShieldUntil: string | null;
 };
 
 export type StrategoSelfPlayer = {
@@ -170,6 +172,7 @@ export type StrategoSelfPlayer = {
   teamCode: string;
   state: string;
   rankKey: string | null;
+  lastDuelAt: string | null;
 };
 
 export type StrategoDuelEvent = {
@@ -324,6 +327,10 @@ export interface PlayStrategoState {
   enemyPresence: StrategoPresenceEntry[];
   isInSafeZone: boolean;
   isRealtimeRecovering: boolean;
+  isDuelCooldownActive: boolean;
+  duelCooldownRemainingSeconds: number;
+  isSpawnShieldActive: boolean;
+  spawnShieldRemainingSeconds: number;
   targetInSight: StrategoPresenceEntry | null;
   duelEvent: StrategoDuelEvent | null;
   duelInFlight: boolean;
