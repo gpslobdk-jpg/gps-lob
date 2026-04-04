@@ -17,6 +17,8 @@ export const AUTO_UNLOCK_CONFIRMATION_HITS = 2;
 export const LOCATION_SYNC_INTERVAL_MS = 5000;
 export const LOCATION_SYNC_DISTANCE_METERS = 3;
 export const MAX_ACCEPTABLE_GPS_ACCURACY_METERS = 30;
+export const GPS_JUMP_FILTER_MIN_DISTANCE_METERS = 35;
+export const GPS_JUMP_FILTER_MAX_SPEED_METERS_PER_SECOND = 15;
 export const BAD_WORDS = ["tissemand", "lort", "pik", "fisse", "idiot", "bÃ¸sse", "luder", "snot"];
 export const FIREWORKS_LOTTIE_URL = "https://assets2.lottiefiles.com/packages/lf20_touohxv0.json";
 export const wrapTextClass = "break-words [overflow-wrap:anywhere] hyphens-auto";
@@ -51,6 +53,7 @@ export function toFiniteNumber(value: unknown): number | null {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
   }
+
   return null;
 }
 
@@ -190,6 +193,14 @@ export function getGpsErrorContent(gpsError: GpsErrorState | null): GpsErrorCont
       title: "Dårligt GPS-signal",
       message: "Din GPS er for upræcis lige nu, så vi venter med at bruge den position.",
       helper: "Gå lidt væk fra bygninger eller træer og vent et øjeblik, så prøver vi igen.",
+    };
+  }
+
+  if (gpsError === "unstable_signal") {
+    return {
+      title: "GPS-signalet hopper rundt",
+      message: "Vi ignorerer en måling, der sprang for langt for hurtigt, fordi den ligner GPS-støj.",
+      helper: "Bliv stående et øjeblik, så bruger vi næste stabile måling i stedet.",
     };
   }
 

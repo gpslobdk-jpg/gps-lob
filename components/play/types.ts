@@ -35,7 +35,8 @@ export type GpsErrorState =
   | "position_unavailable"
   | "timeout"
   | "unsupported"
-  | "low_accuracy";
+  | "low_accuracy"
+  | "unstable_signal";
 export type FeedbackTone = "success" | "error";
 export type RoleplayReplyTone = "success" | "hint";
 export type MasterLockStatus = "locked" | "unlocked";
@@ -103,6 +104,8 @@ export type RoleplayReplyState = {
 export type Location = {
   lat: number;
   lng: number;
+  accuracy?: number | null;
+  timestampMs?: number | null;
 };
 
 export type GpsErrorContent = {
@@ -138,6 +141,7 @@ export type ParticipantRow = {
   student_name?: string | null;
   lat?: number | string | null;
   lng?: number | string | null;
+  accuracy?: number | string | null;
   run_started_at?: string | null;
   finished_at?: string | null;
   start_offset?: number | string | null;
@@ -156,6 +160,7 @@ export type StrategoPresenceEntry = {
   state: string;
   lat: number | null;
   lng: number | null;
+  accuracy: number | null;
   updatedAt: string | null;
 };
 
@@ -380,7 +385,7 @@ export interface PlayActions {
   setLiveLocation: (location: Location | null) => void;
   setDistance: (distance: number | null) => void;
   setGpsError: (error: GpsErrorState | null) => void;
-  syncParticipantLocation: (lat: number, lng: number) => Promise<void>;
+  syncParticipantLocation: (lat: number, lng: number, accuracy: number | null) => Promise<void>;
 }
 
 export interface PlayGameState {

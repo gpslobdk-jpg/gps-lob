@@ -10,6 +10,7 @@ type LocationPayload = {
   participantId?: unknown;
   lat?: unknown;
   lng?: unknown;
+  accuracy?: unknown;
 };
 
 type ActiveSessionRow = {
@@ -24,6 +25,11 @@ type SupabaseLikeError = {
   code?: string;
   message?: string;
   details?: string;
+};
+
+type ParticipantUpdateResult = {
+  data: ParticipantIdRow[] | null;
+  error: SupabaseLikeError | null;
 };
 
 const ACTIVE_PLAY_SESSION_STATUSES = ["waiting", "running", "active", "paused"] as const;
@@ -47,26 +53,58 @@ async function updateParticipantById(
   participantId: string,
   lat: number,
   lng: number,
+  accuracy: number | null,
   timestamp: string,
   adminSupabase: ParticipantRequestContext["adminSupabase"]
-) {
-  let result = await adminSupabase
-    .from("participants")
-    .update({ lat, lng, last_updated: timestamp })
-    .eq("id", participantId)
-    .eq("session_id", sessionId)
-    .select("id");
+): Promise<ParticipantUpdateResult> {
+  const updateCandidates: Array<Record<string, number | string | null>> = [
+    {
+      lat,
+      lng,
+      accuracy,
+      last_updated: timestamp,
+    },
+    {
+      lat,
+      lng,
+      last_updated: timestamp,
+    },
+    {
+      lat,
+      lng,
+      accuracy,
+    },
+    {
+      lat,
+      lng,
+    },
+  ];
 
-  if (result.error && isMissingColumnError(result.error)) {
-    result = await adminSupabase
+  let lastResult: ParticipantUpdateResult | null = null;
+
+  for (const candidate of updateCandidates) {
+    const result = await adminSupabase
       .from("participants")
-      .update({ lat, lng })
+      .update(candidate)
       .eq("id", participantId)
       .eq("session_id", sessionId)
       .select("id");
+
+    if (!result.error || !isMissingColumnError(result.error)) {
+      return result;
+    }
+
+    lastResult = result;
   }
 
-  return result;
+  return (
+    lastResult ?? {
+      data: null,
+      error: {
+        message: "Ingen gyldige opdateringskandidater til participant-position.",
+      },
+    }
+  );
 }
 
 async function fetchActiveParticipant(
@@ -122,6 +160,7 @@ export async function POST(request: NextRequest) {
 
   const lat = asFiniteNumber(payload.lat);
   const lng = asFiniteNumber(payload.lng);
+  const accuracy = asFiniteNumber(payload.accuracy);
 
   if (lat === null || lng === null) {
     return NextResponse.json({ error: "Manglende positionsdata." }, { status: 400 });
@@ -164,6 +203,7 @@ export async function POST(request: NextRequest) {
       participantId,
       lat,
       lng,
+      accuracy,
       timestamp,
       adminSupabase
     );

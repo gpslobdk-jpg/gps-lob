@@ -5,8 +5,10 @@ import { useEffect, useRef } from "react";
 import type { GpsErrorState, Location } from "./types";
 import {
   AUTO_UNLOCK_CONFIRMATION_HITS,
-  LOCATION_SYNC_INTERVAL_MS,
+  GPS_JUMP_FILTER_MAX_SPEED_METERS_PER_SECOND,
+  GPS_JUMP_FILTER_MIN_DISTANCE_METERS,
   LOCATION_SYNC_DISTANCE_METERS,
+  LOCATION_SYNC_INTERVAL_MS,
   MAX_ACCEPTABLE_GPS_ACCURACY_METERS,
   getDistance,
 } from "./playUtils";
@@ -23,8 +25,23 @@ type GPSManagerProps = {
   onGpsError: (error: GpsErrorState | null) => void;
   onAutoUnlock: () => void;
   onDismissedReset: () => void;
-  onSyncLocation: (lat: number, lng: number) => Promise<void>;
+  onSyncLocation: (lat: number, lng: number, accuracy: number | null) => Promise<void>;
 };
+
+type AcceptedGpsLocation = Location & {
+  accuracy: number;
+  timestampMs: number;
+};
+
+const MOVEMENT_SYNC_MIN_INTERVAL_MS = 2000;
+
+function getRoundedAccuracyMeters(rawAccuracy: number) {
+  return Number.isFinite(rawAccuracy) ? Math.max(0, Math.round(rawAccuracy)) : null;
+}
+
+function getMeasurementTimestampMs(rawTimestamp: number) {
+  return Number.isFinite(rawTimestamp) && rawTimestamp > 0 ? rawTimestamp : Date.now();
+}
 
 export default function GPSManager({
   enabled,
@@ -41,13 +58,12 @@ export default function GPSManager({
   onSyncLocation,
 }: GPSManagerProps) {
   const autoUnlockConfirmationRef = useRef(0);
-  const lastAcceptedLocationRef = useRef<Location | null>(null);
+  const lastAcceptedLocationRef = useRef<AcceptedGpsLocation | null>(null);
   const lastLocationSyncRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
   const isLocationSyncInFlightRef = useRef(false);
 
   useEffect(() => {
     autoUnlockConfirmationRef.current = 0;
-    lastAcceptedLocationRef.current = null;
   }, [currentPostIndex, showQuestion]);
 
   useEffect(() => {
@@ -79,31 +95,53 @@ export default function GPSManager({
     };
 
     const successHandler = async (position: GeolocationPosition) => {
-      const accuracy = position.coords.accuracy;
-      if (Number.isFinite(accuracy) && accuracy > MAX_ACCEPTABLE_GPS_ACCURACY_METERS) {
+      const accuracy = getRoundedAccuracyMeters(position.coords.accuracy);
+      if (accuracy === null || accuracy > MAX_ACCEPTABLE_GPS_ACCURACY_METERS) {
         autoUnlockConfirmationRef.current = 0;
         onGpsError("low_accuracy");
+        onDistanceChange(null);
         return;
       }
 
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
+      const timestampMs = getMeasurementTimestampMs(position.timestamp);
       const previousAcceptedLocation = lastAcceptedLocationRef.current;
       const distanceSinceLastAccepted = previousAcceptedLocation
         ? getDistance(previousAcceptedLocation.lat, previousAcceptedLocation.lng, lat, lng)
         : null;
+      const elapsedMs =
+        previousAcceptedLocation && Number.isFinite(previousAcceptedLocation.timestampMs)
+          ? Math.max(1, timestampMs - previousAcceptedLocation.timestampMs)
+          : null;
+      const speedMetersPerSecond =
+        distanceSinceLastAccepted !== null && elapsedMs !== null
+          ? distanceSinceLastAccepted / (elapsedMs / 1000)
+          : null;
 
       if (
         distanceSinceLastAccepted !== null &&
-        distanceSinceLastAccepted < LOCATION_SYNC_DISTANCE_METERS
+        elapsedMs !== null &&
+        distanceSinceLastAccepted >= GPS_JUMP_FILTER_MIN_DISTANCE_METERS &&
+        speedMetersPerSecond !== null &&
+        speedMetersPerSecond > GPS_JUMP_FILTER_MAX_SPEED_METERS_PER_SECOND
       ) {
-        onGpsError(null);
+        autoUnlockConfirmationRef.current = 0;
+        onGpsError("unstable_signal");
+        onDistanceChange(null);
         return;
       }
 
-      lastAcceptedLocationRef.current = { lat, lng };
+      const acceptedLocation: AcceptedGpsLocation = {
+        lat,
+        lng,
+        accuracy,
+        timestampMs,
+      };
+
+      lastAcceptedLocationRef.current = acceptedLocation;
       onGpsError(null);
-      onLocationChange({ lat, lng });
+      onLocationChange(acceptedLocation);
 
       if (target && Number.isFinite(target.lat) && Number.isFinite(target.lng)) {
         const nextDistance = getDistance(lat, lng, target.lat, target.lng);
@@ -135,26 +173,31 @@ export default function GPSManager({
         autoUnlockConfirmationRef.current = 0;
       }
 
+      const nowMs = Date.now();
       const lastLocationSync = lastLocationSyncRef.current;
       const waitedLongEnough =
-        !lastLocationSync || Date.now() - lastLocationSync.at >= LOCATION_SYNC_INTERVAL_MS;
+        !lastLocationSync || nowMs - lastLocationSync.at >= LOCATION_SYNC_INTERVAL_MS;
       const movedFarEnoughToSync =
         !lastLocationSync ||
         getDistance(lastLocationSync.lat, lastLocationSync.lng, lat, lng) >=
           LOCATION_SYNC_DISTANCE_METERS;
-
-      const shouldSyncLocation = !lastLocationSync || (waitedLongEnough && movedFarEnoughToSync);
+      const canEarlySyncOnMovement =
+        Boolean(lastLocationSync) && nowMs - (lastLocationSync?.at ?? 0) >= MOVEMENT_SYNC_MIN_INTERVAL_MS;
+      const shouldSyncLocation =
+        !lastLocationSync ||
+        waitedLongEnough ||
+        (movedFarEnoughToSync && canEarlySyncOnMovement);
 
       if (shouldSyncLocation && !isLocationSyncInFlightRef.current) {
         isLocationSyncInFlightRef.current = true;
         lastLocationSyncRef.current = {
           lat,
           lng,
-          at: Date.now(),
+          at: nowMs,
         };
 
         try {
-          await onSyncLocation(lat, lng);
+          await onSyncLocation(lat, lng, accuracy);
         } finally {
           isLocationSyncInFlightRef.current = false;
         }
@@ -164,6 +207,7 @@ export default function GPSManager({
     const errorHandler = (error: GeolocationPositionError) => {
       console.error("GPS Error:", error);
       autoUnlockConfirmationRef.current = 0;
+      onDistanceChange(null);
 
       if (error.code === error.PERMISSION_DENIED || error.code === 1) {
         onGpsError("permission_denied");
@@ -209,7 +253,6 @@ export default function GPSManager({
           /* no-op */
         }
         try {
-          // Try an immediate position read to wake GPS
           if (navigator.geolocation.getCurrentPosition) {
             navigator.geolocation.getCurrentPosition(
               (pos) => void successHandler(pos),
@@ -218,10 +261,9 @@ export default function GPSManager({
             );
           }
         } catch {
-          // ignore
+          /* no-op */
         }
 
-        // Restart watch to ensure watcher isn't stale
         startWatch();
       }
     };

@@ -886,7 +886,7 @@ export function usePlayGameState({
   }, [clearRoleplayInputErrorTone, currentPostIndex]);
 
   const syncParticipantLocation = useCallback(
-    async (lat: number, lng: number) => {
+    async (lat: number, lng: number, accuracy: number | null) => {
       if (!sessionId || !participantId) return;
 
       if (locationSyncSuspendedRef.current) {
@@ -913,6 +913,7 @@ export function usePlayGameState({
             participantId,
             lat,
             lng,
+            accuracy,
           }),
         });
 
@@ -2445,6 +2446,7 @@ export function usePlayGameState({
     sessionId,
     participantId,
     myLoc,
+    gpsError,
     supabase,
   });
 
