@@ -38,6 +38,21 @@ type StrategoElevMapProps = {
 
 const DEFAULT_CENTER: [number, number] = [55.6761, 12.5683];
 const STRATEGO_SAFE_ZONE_RADIUS_METERS = 30;
+const STRATEGO_ENEMY_SIGNAL_PRIMARY_RADIUS_METERS = 38;
+const STRATEGO_ENEMY_SIGNAL_SECONDARY_RADIUS_METERS = 26;
+const STRATEGO_ENEMY_SIGNAL_TERTIARY_RADIUS_METERS = 18;
+
+type StrategoEnemySignalCloud = {
+  key: string;
+  teamCode: string;
+  lat: number;
+  lng: number;
+  radius: number;
+  weight: number;
+  opacity: number;
+  fillOpacity: number;
+  dashArray?: string;
+};
 
 function getTeamHex(teamCode: string | null | undefined) {
   return teamCode === "blue" ? "#38bdf8" : "#f43f5e";
@@ -75,20 +90,87 @@ function createAllyIcon(teamCode: string | null, glyph: string, dimmed: boolean)
   });
 }
 
-function createEnemyIcon(teamCode: string) {
-  const teamHex = getTeamHex(teamCode);
+function hashSignalSeed(value: string) {
+  let hash = 0;
 
-  return L.divIcon({
-    className: "stratego-leaflet-icon",
-    html: `
-      <div class="stratego-enemy-marker" style="--stratego-team:${teamHex};">
-        <span class="stratego-enemy-marker__pulse"></span>
-        <span class="stratego-enemy-marker__core"></span>
-      </div>
-    `,
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
-  });
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+
+  return hash;
+}
+
+function offsetLocationByMeters(
+  latitude: number,
+  longitude: number,
+  distanceMeters: number,
+  bearingDegrees: number
+) {
+  const bearingRadians = (bearingDegrees * Math.PI) / 180;
+  const latOffset = (distanceMeters * Math.cos(bearingRadians)) / 111320;
+  const longitudeScale = Math.max(0.2, Math.cos((latitude * Math.PI) / 180));
+  const lngOffset = (distanceMeters * Math.sin(bearingRadians)) / (111320 * longitudeScale);
+
+  return {
+    lat: latitude + latOffset,
+    lng: longitude + lngOffset,
+  };
+}
+
+function buildEnemySignalClouds(enemy: StrategoPresenceEntry): StrategoEnemySignalCloud[] {
+  if (enemy.lat === null || enemy.lng === null) {
+    return [];
+  }
+
+  const seed = hashSignalSeed(enemy.participantId);
+  const primary = offsetLocationByMeters(enemy.lat, enemy.lng, 12, seed % 360);
+  const secondary = offsetLocationByMeters(
+    enemy.lat,
+    enemy.lng,
+    21,
+    (seed * 7 + 120) % 360
+  );
+  const tertiary = offsetLocationByMeters(
+    enemy.lat,
+    enemy.lng,
+    16,
+    (seed * 11 + 255) % 360
+  );
+
+  return [
+    {
+      key: `enemy-signal-primary-${enemy.participantId}`,
+      teamCode: enemy.teamCode,
+      lat: primary.lat,
+      lng: primary.lng,
+      radius: STRATEGO_ENEMY_SIGNAL_PRIMARY_RADIUS_METERS,
+      weight: 1.2,
+      opacity: 0.2,
+      fillOpacity: 0.12,
+      dashArray: "9 10",
+    },
+    {
+      key: `enemy-signal-secondary-${enemy.participantId}`,
+      teamCode: enemy.teamCode,
+      lat: secondary.lat,
+      lng: secondary.lng,
+      radius: STRATEGO_ENEMY_SIGNAL_SECONDARY_RADIUS_METERS,
+      weight: 1,
+      opacity: 0.16,
+      fillOpacity: 0.1,
+      dashArray: "5 11",
+    },
+    {
+      key: `enemy-signal-tertiary-${enemy.participantId}`,
+      teamCode: enemy.teamCode,
+      lat: tertiary.lat,
+      lng: tertiary.lng,
+      radius: STRATEGO_ENEMY_SIGNAL_TERTIARY_RADIUS_METERS,
+      weight: 0.9,
+      opacity: 0.14,
+      fillOpacity: 0.08,
+    },
+  ];
 }
 
 function createBaseIcon(teamCode: "red" | "blue") {
@@ -202,18 +284,16 @@ export default function StrategoElevMap({
   }, [allyMarkers, baseMarkers, playerLocation]);
 
   const playerIcon = useMemo(() => createPlayerIcon(selfTeamCode), [selfTeamCode]);
-  const enemyIcons = useMemo(() => {
-    return {
-      red: createEnemyIcon("red"),
-      blue: createEnemyIcon("blue"),
-    };
-  }, []);
   const baseIcons = useMemo(() => {
     return {
       red: createBaseIcon("red"),
       blue: createBaseIcon("blue"),
     };
   }, []);
+  const enemySignalClouds = useMemo(
+    () => enemyMarkers.flatMap((enemy) => buildEnemySignalClouds(enemy)),
+    [enemyMarkers]
+  );
 
   return (
     <>
@@ -272,22 +352,21 @@ export default function StrategoElevMap({
             </Marker>
           ))}
 
-          {enemyMarkers.map((enemy) =>
-            enemy.lat !== null && enemy.lng !== null ? (
-              <Marker
-                key={`enemy-${enemy.participantId}`}
-                position={[enemy.lat, enemy.lng]}
-                icon={enemy.teamCode === "blue" ? enemyIcons.blue : enemyIcons.red}
-              >
-                <Popup>
-                  <div className="text-sm text-slate-900">
-                    <div className="font-black">Ukendt fjendtligt signal</div>
-                    <div>Rang skjult af fog of war</div>
-                  </div>
-                </Popup>
-              </Marker>
-            ) : null
-          )}
+          {enemySignalClouds.map((cloud) => (
+            <Circle
+              key={cloud.key}
+              center={[cloud.lat, cloud.lng]}
+              radius={cloud.radius}
+              pathOptions={{
+                color: getTeamHex(cloud.teamCode),
+                weight: cloud.weight,
+                opacity: dimmed ? cloud.opacity * 0.55 : cloud.opacity,
+                fillColor: getTeamHex(cloud.teamCode),
+                fillOpacity: dimmed ? cloud.fillOpacity * 0.55 : cloud.fillOpacity,
+                dashArray: cloud.dashArray,
+              }}
+            />
+          ))}
 
           {allyMarkers.map((ally) =>
             ally.lat !== null && ally.lng !== null ? (
@@ -361,7 +440,7 @@ export default function StrategoElevMap({
               ? "Du står i fredszonen"
               : radarAlertActive
                 ? "Fjende låst på radaren"
-                : "Fjender vises som anonyme signaler"}
+                : "Fjender vises som diffuse signalzoner"}
           </div>
         </div>
       </div>
@@ -414,33 +493,6 @@ export default function StrategoElevMap({
           line-height: 1;
         }
 
-        .stratego-enemy-marker {
-          position: relative;
-          width: 22px;
-          height: 22px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .stratego-enemy-marker__pulse,
-        .stratego-enemy-marker__core {
-          position: absolute;
-          border-radius: 999px;
-          inset: 0;
-        }
-
-        .stratego-enemy-marker__pulse {
-          background: color-mix(in srgb, var(--stratego-team) 22%, transparent);
-          animation: stratego-enemy-pulse 1.5s ease-out infinite;
-        }
-
-        .stratego-enemy-marker__core {
-          inset: 5px;
-          background: var(--stratego-team);
-          box-shadow: 0 0 16px color-mix(in srgb, var(--stratego-team) 70%, transparent);
-        }
-
         .stratego-base-marker {
           width: 34px;
           height: 42px;
@@ -478,17 +530,6 @@ export default function StrategoElevMap({
           position: relative;
           z-index: 1;
           transform: rotate(45deg);
-        }
-
-        @keyframes stratego-enemy-pulse {
-          0% {
-            transform: scale(0.72);
-            opacity: 0.65;
-          }
-          100% {
-            transform: scale(1.8);
-            opacity: 0;
-          }
         }
       `}</style>
     </>

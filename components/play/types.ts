@@ -325,6 +325,8 @@ export interface PlayStrategoState {
   selfPresence: StrategoPresenceEntry | null;
   allyPresence: StrategoPresenceEntry[];
   enemyPresence: StrategoPresenceEntry[];
+  nearestEnemyDistanceMeters: number | null;
+  nearestEnemySignalBand: "none" | "far" | "medium" | "near" | "attack";
   isInSafeZone: boolean;
   isRealtimeRecovering: boolean;
   isDuelCooldownActive: boolean;

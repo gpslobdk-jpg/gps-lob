@@ -158,6 +158,52 @@ function formatRemainingSeconds(seconds: number) {
   return `${seconds} sekunder`;
 }
 
+function getNearestSignalCopy(
+  signalBand: PlayUiState["stratego"]["nearestEnemySignalBand"],
+  isRadarOffline: boolean
+) {
+  if (isRadarOffline) {
+    return {
+      title: "Nærheds-sensor offline",
+      detail: "Afventer stabil realtime-forbindelse",
+      toneClass: "border-slate-300/14 bg-slate-950/40 text-slate-100/78",
+    };
+  }
+
+  switch (signalBand) {
+    case "attack":
+      return {
+        title: "Klar til angreb!",
+        detail: "Fjendtligt signal inden for 20 meter",
+        toneClass: "border-rose-300/24 bg-rose-500/12 text-rose-100",
+      };
+    case "near":
+      return {
+        title: "Nærmeste signal: Nær",
+        detail: "Omtrent 20-40 meter væk",
+        toneClass: "border-amber-300/22 bg-amber-500/12 text-amber-100",
+      };
+    case "medium":
+      return {
+        title: "Nærmeste signal: Mellem",
+        detail: "Omtrent 40-80 meter væk",
+        toneClass: "border-cyan-300/22 bg-cyan-500/12 text-cyan-100",
+      };
+    case "far":
+      return {
+        title: "Nærmeste signal: Fjern",
+        detail: "Mere end 80 meter væk",
+        toneClass: "border-white/12 bg-white/6 text-white/82",
+      };
+    default:
+      return {
+        title: "Ingen sikre signaler",
+        detail: "Radaren ser ingen fjender lige nu",
+        toneClass: "border-white/10 bg-white/6 text-white/72",
+      };
+  }
+}
+
 export default function StrategoElevInterface({
   sessionId,
   ui,
@@ -319,6 +365,10 @@ export default function StrategoElevInterface({
   const myRoleGlyph = getRoleGlyph(stratego.selfPlayer?.rankKey);
   const isReturningToBase = stratego.selfPlayer?.state === "returning_to_base";
   const attackTargetId = stratego.targetInSight?.participantId ?? null;
+  const nearestSignalCopy = getNearestSignalCopy(
+    stratego.nearestEnemySignalBand,
+    stratego.isRealtimeRecovering
+  );
   const showAttackButton =
     Boolean(attackTargetId) &&
     !isReturningToBase &&
@@ -647,6 +697,18 @@ export default function StrategoElevInterface({
                     <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Radarlogik</p>
                     <p className="mt-3 text-sm leading-6 text-white/72">
                       Når en levende fjende kommer inden for 20 meter uden for begge fredszoner, låser radaren målet og gør dit angreb klar.
+                    </p>
+                  </div>
+
+                  <div className={`rounded-[1.4rem] border px-4 py-4 ${nearestSignalCopy.toneClass}`}>
+                    <div className="flex items-center gap-2">
+                      <Radio className="h-4 w-4" />
+                      <p className="text-[10px] uppercase tracking-[0.24em]">Nærheds-sensor</p>
+                    </div>
+                    <p className="mt-3 text-base font-black">{nearestSignalCopy.title}</p>
+                    <p className="mt-2 text-sm leading-6 opacity-80">{nearestSignalCopy.detail}</p>
+                    <p className="mt-2 text-xs uppercase tracking-[0.2em] opacity-55">
+                      Viser kun område, ikke præcis position
                     </p>
                   </div>
 

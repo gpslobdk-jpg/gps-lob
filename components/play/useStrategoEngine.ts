@@ -20,6 +20,8 @@ import { createClient } from "@/utils/supabase/client";
 
 const STRATEGO_TARGET_IN_SIGHT_DISTANCE_METERS = 20;
 const STRATEGO_SAFE_ZONE_DISTANCE_METERS = 30;
+const STRATEGO_NEAR_SIGNAL_DISTANCE_METERS = 40;
+const STRATEGO_MEDIUM_SIGNAL_DISTANCE_METERS = 80;
 const STRATEGO_DUEL_TRIGGER_COOLDOWN_MS = 5000;
 const STRATEGO_DUEL_ERROR_TIMEOUT_MS = 3000;
 const STRATEGO_RESPAWN_RETRY_COOLDOWN_MS = 5000;
@@ -90,6 +92,8 @@ type UseStrategoEngineResult = PlayStrategoState & {
   clearDuelEvent: () => void;
   triggerDuel: (targetId: string) => Promise<void>;
 };
+
+type StrategoEnemySignalBand = PlayStrategoState["nearestEnemySignalBand"];
 
 function normalizePresenceEntry(row: StrategoPresenceRow | null | undefined): StrategoPresenceEntry | null {
   const participantId = typeof row?.participant_id === "string" ? row.participant_id : "";
@@ -292,6 +296,26 @@ function getServerDuelCooldownUntilMs(lastDuelAt: string | null | undefined) {
   }
 
   return lastDuelAtMs + STRATEGO_DUEL_TRIGGER_COOLDOWN_MS;
+}
+
+function getEnemySignalBand(distanceMeters: number | null): StrategoEnemySignalBand {
+  if (distanceMeters === null) {
+    return "none";
+  }
+
+  if (distanceMeters <= STRATEGO_TARGET_IN_SIGHT_DISTANCE_METERS) {
+    return "attack";
+  }
+
+  if (distanceMeters <= STRATEGO_NEAR_SIGNAL_DISTANCE_METERS) {
+    return "near";
+  }
+
+  if (distanceMeters <= STRATEGO_MEDIUM_SIGNAL_DISTANCE_METERS) {
+    return "medium";
+  }
+
+  return "far";
 }
 
 function isOwnLocationReliable(
@@ -792,6 +816,49 @@ export function useStrategoEngine({
     );
   }, [effectiveSelfPlayer?.teamCode, participantId, presenceEntries, presenceFreshnessTick]);
 
+  const enemyRadarContacts = useMemo(() => {
+    if (!enabled || !myLoc) {
+      return [];
+    }
+
+    return enemyPresence
+      .map((enemy) => {
+        if (enemy.lat === null || enemy.lng === null) {
+          return null;
+        }
+
+        const enemyLocation = { lat: enemy.lat, lng: enemy.lng };
+        if (
+          isInsideSafeZone(enemyLocation, getBaseLocationForTeam(enemy.teamCode, gameBases))
+        ) {
+          return null;
+        }
+
+        return {
+          enemy,
+          distance: getDistance(myLoc.lat, myLoc.lng, enemyLocation.lat, enemyLocation.lng),
+        };
+      })
+      .filter(
+        (
+          candidate
+        ): candidate is {
+          enemy: StrategoPresenceEntry;
+          distance: number;
+        } => candidate !== null
+      )
+      .sort((left, right) => left.distance - right.distance);
+  }, [enabled, enemyPresence, gameBases, myLoc]);
+
+  const nearestEnemySignal = enemyRadarContacts[0] ?? null;
+
+  const nearestEnemyDistanceMeters = nearestEnemySignal?.distance ?? null;
+
+  const nearestEnemySignalBand = useMemo(
+    () => getEnemySignalBand(nearestEnemyDistanceMeters),
+    [nearestEnemyDistanceMeters]
+  );
+
   const allyPresence = useMemo(() => {
     if (!participantId || !effectiveSelfPlayer?.teamCode) {
       return [];
@@ -959,48 +1026,24 @@ export function useStrategoEngine({
       return;
     }
 
-    const nearestEnemy = enemyPresence
-      .map((enemy) => {
-        if (enemy.lat === null || enemy.lng === null) {
-          return null;
-        }
-
-        const enemyLocation = { lat: enemy.lat, lng: enemy.lng };
-        if (
-          isInsideSafeZone(enemyLocation, getBaseLocationForTeam(enemy.teamCode, gameBases))
-        ) {
-          return null;
-        }
-
-        return {
-          enemy,
-          distance: getDistance(myLoc.lat, myLoc.lng, enemyLocation.lat, enemyLocation.lng),
-        };
-      })
-      .filter(
-        (
-          candidate
-        ): candidate is {
-          enemy: StrategoPresenceEntry;
-          distance: number;
-        } => candidate !== null
-      )
-      .sort((left, right) => left.distance - right.distance)[0];
-
-    if (!nearestEnemy || nearestEnemy.distance > STRATEGO_TARGET_IN_SIGHT_DISTANCE_METERS) {
+    if (
+      !nearestEnemySignal ||
+      nearestEnemySignal.distance > STRATEGO_TARGET_IN_SIGHT_DISTANCE_METERS
+    ) {
       setTargetInSightId(null);
       return;
     }
 
     setTargetInSightId((previous) =>
-      previous === nearestEnemy.enemy.participantId ? previous : nearestEnemy.enemy.participantId
+      previous === nearestEnemySignal.enemy.participantId
+        ? previous
+        : nearestEnemySignal.enemy.participantId
     );
   }, [
     duelEvent,
+    nearestEnemySignal,
     effectiveSelfPlayer?.state,
     enabled,
-    enemyPresence,
-    gameBases,
     hasReliableOwnGpsSignal,
     isInSafeZone,
     isPaused,
@@ -1156,6 +1199,8 @@ export function useStrategoEngine({
     selfPresence,
     allyPresence,
     enemyPresence,
+    nearestEnemyDistanceMeters,
+    nearestEnemySignalBand,
     isInSafeZone,
     isRealtimeRecovering,
     isDuelCooldownActive,
