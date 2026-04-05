@@ -8,7 +8,14 @@ import { useEffect, useState, type FormEvent } from "react";
 
 import { Switch } from "@/components/ui/switch";
 import { formatGradeLevelBadge, normalizeGradeLevels } from "@/utils/gradeLevels";
-import { getBuilderHrefForRaceType, normalizeRaceType, type RaceType } from "@/utils/gpsRuns";
+import {
+  asTrimmedString,
+  getBuilderHrefForRaceType,
+  getNormalizedRunRaceType,
+  type RaceType,
+  type RunQuestionRecord,
+  type StoredRunRecord,
+} from "@/utils/gpsRuns";
 import { getRaceTypeTheme } from "@/utils/raceTypeTheme";
 import { buildRunScheduleUpdate, getRunSchedule, hasRunSchedule } from "@/utils/runSchedule";
 import { ARCHIVE_SUBJECT_FILTER_OPTIONS } from "@/utils/subjects";
@@ -24,34 +31,23 @@ const poppins = Poppins({
   weight: ["400", "500", "600", "700"],
 });
 
-type RunQuestion = {
-  id?: number;
-  type?: "multiple_choice" | "ai_image";
-  text?: string;
-  aiPrompt?: string;
-  ai_prompt?: string;
-  answers?: string[];
-  correctIndex?: number;
-  lat?: number | null;
-  lng?: number | null;
-  mediaUrl?: string;
-  isSelfie?: boolean;
-  is_selfie?: boolean;
-};
-
-type Run = {
+type Run = Omit<StoredRunRecord, "title" | "subject" | "description" | "topic" | "questions" | "created_at"> & {
   id: string;
   title: string;
   subject: string;
   topic: string | null;
-  description?: string | null;
-  questions: RunQuestion[] | null;
+  description: string | null;
+  questions: RunQuestionRecord[] | null;
   grade_levels?: string[] | null;
   created_at: string;
-  raceType?: string | null;
-  race_type?: string | null;
+  raceType: RaceType | null;
+  race_type: RaceType | null;
   liveSession?: LiveSession | null;
   [key: string]: unknown;
+};
+
+type ArchivedRunRow = StoredRunRecord & {
+  created_at: string;
 };
 
 type LiveSession = {
@@ -99,19 +95,16 @@ const getQuestionCount = (questions: Run["questions"]) => {
 
 const QUICK_TOGGLE_EXCLUDED_RACE_TYPES = new Set<RaceType>(["zone_krig", "scanner"]);
 
-const getNormalizedRunRaceType = (run: Pick<Run, "race_type" | "raceType"> | null | undefined) => {
-  return normalizeRaceType(run?.race_type ?? run?.raceType);
-};
-
-const normalizeArchivedRun = (run: Run): Run => {
+const normalizeArchivedRun = (run: ArchivedRunRow): Run => {
   const normalizedRaceType = getNormalizedRunRaceType(run);
-
-  if (!normalizedRaceType) {
-    return run;
-  }
 
   return {
     ...run,
+    title: asTrimmedString(run.title) || "Løb uden titel",
+    subject: asTrimmedString(run.subject) || "Ukendt fag",
+    description: typeof run.description === "string" ? run.description : null,
+    topic: typeof run.topic === "string" ? run.topic : null,
+    questions: Array.isArray(run.questions) ? (run.questions as RunQuestionRecord[]) : null,
     race_type: normalizedRaceType,
     raceType: normalizedRaceType,
   };
@@ -525,7 +518,7 @@ export default function ArkivPage() {
         }
 
         setRuns(
-          ((((data ?? []) as Run[]) ?? []).map(normalizeArchivedRun)).map((run) => ({
+          ((((data ?? []) as ArchivedRunRow[]) ?? []).map(normalizeArchivedRun)).map((run) => ({
             ...run,
             liveSession: liveSessionMap.get(run.id) ?? null,
           }))

@@ -1,12 +1,15 @@
 "use client";
 
-import "leaflet/dist/leaflet.css";
+import { AlertTriangle, Loader2, Shield, Swords, Users } from "lucide-react";
+import { useEffect, useState } from "react";
 
-import L from "leaflet";
-import { AlertTriangle, Loader2, MapPinned, Shield, Swords, Users } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
-
+import StrategoBasePlacementMap from "@/components/live/StrategoBasePlacementMap";
+import {
+  buildStrategoGameConfig,
+  getStrategoBasePreset,
+  type BaseLocation,
+  type StoredRunRecord,
+} from "@/utils/gpsRuns";
 import { createClient } from "@/utils/supabase/client";
 
 type StrategoTeacherSetupProps = {
@@ -17,11 +20,6 @@ type StrategoTeacherSetupProps = {
   onStartSession: () => Promise<void>;
 };
 
-type BaseLocation = {
-  lat: number;
-  lng: number;
-};
-
 type StrategoGameRow = {
   red_base_lat?: number | string | null;
   red_base_lng?: number | string | null;
@@ -29,7 +27,11 @@ type StrategoGameRow = {
   blue_base_lng?: number | string | null;
 };
 
-const DEFAULT_MAP_CENTER: [number, number] = [55.6761, 12.5683];
+type LiveSessionRunRow = {
+  run_id?: string | null;
+};
+
+type StoredStrategoPresetRun = Pick<StoredRunRecord, "game_config" | "gameConfig">;
 
 function toFiniteNumber(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -37,72 +39,6 @@ function toFiniteNumber(value: unknown) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
   }
-
-  return null;
-}
-
-function createBaseIcon(teamCode: "red" | "blue") {
-  const background = teamCode === "blue" ? "#0ea5e9" : "#f43f5e";
-  const label = teamCode === "blue" ? "B" : "R";
-
-  return L.divIcon({
-    className: "stratego-base-icon-shell",
-    html: `
-      <div style="position:relative;width:34px;height:42px;">
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border-radius:18px 18px 18px 0;transform:rotate(-45deg);background:${background};box-shadow:0 14px 28px ${teamCode === "blue" ? "rgba(14,165,233,0.35)" : "rgba(244,63,94,0.35)"};">
-          <span style="transform:rotate(45deg);font-size:14px;font-weight:900;color:white;">${label}</span>
-        </div>
-      </div>
-    `,
-    iconSize: [34, 42],
-    iconAnchor: [17, 38],
-  });
-}
-
-function MapViewportSync({
-  redBase,
-  blueBase,
-}: {
-  redBase: BaseLocation | null;
-  blueBase: BaseLocation | null;
-}) {
-  const map = useMap();
-
-  useEffect(() => {
-    const points = [redBase, blueBase]
-      .filter((value): value is BaseLocation => value !== null)
-      .map((value) => [value.lat, value.lng] as [number, number]);
-
-    if (points.length === 0) {
-      map.setView(DEFAULT_MAP_CENTER, 16, { animate: true });
-      return;
-    }
-
-    if (points.length === 1) {
-      map.setView(points[0] ?? DEFAULT_MAP_CENTER, 17, { animate: true });
-      return;
-    }
-
-    map.fitBounds(L.latLngBounds(points), {
-      padding: [64, 64],
-      maxZoom: 17,
-      animate: true,
-    });
-  }, [blueBase, map, redBase]);
-
-  return null;
-}
-
-function SetupMapClicks({
-  onPick,
-}: {
-  onPick: (lat: number, lng: number) => void;
-}) {
-  useMapEvents({
-    click: (event) => {
-      onPick(event.latlng.lat, event.latlng.lng);
-    },
-  });
 
   return null;
 }
@@ -124,9 +60,7 @@ export default function StrategoTeacherSetup({
   const [placementMode, setPlacementMode] = useState<"red" | "blue">("red");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-
-  const redBaseIcon = useMemo(() => createBaseIcon("red"), []);
-  const blueBaseIcon = useMemo(() => createBaseIcon("blue"), []);
+  const [runId, setRunId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!sessionId) {
@@ -137,31 +71,70 @@ export default function StrategoTeacherSetup({
     let isActive = true;
 
     const loadSavedBases = async () => {
-      const { data, error } = await supabase
-        .from("stratego_games")
-        .select("red_base_lat,red_base_lng,blue_base_lat,blue_base_lng")
-        .eq("session_id", sessionId)
-        .maybeSingle<StrategoGameRow>();
+      const { data: sessionData, error: sessionError } = await supabase
+        .from("live_sessions")
+        .select("run_id")
+        .eq("id", sessionId)
+        .maybeSingle<LiveSessionRunRow>();
 
-      if (!isActive || error || !data) {
+      if (!isActive) {
         return;
       }
 
-      const nextRedLat = toFiniteNumber(data.red_base_lat);
-      const nextRedLng = toFiniteNumber(data.red_base_lng);
-      const nextBlueLat = toFiniteNumber(data.blue_base_lat);
-      const nextBlueLng = toFiniteNumber(data.blue_base_lng);
+      const nextRunId = typeof sessionData?.run_id === "string" ? sessionData.run_id : null;
+      setRunId(nextRunId);
 
-      if (nextRedLat !== null && nextRedLng !== null) {
-        setRedBase({ lat: nextRedLat, lng: nextRedLng });
+      if (sessionError) {
+        return;
       }
 
-      if (nextBlueLat !== null && nextBlueLng !== null) {
-        setBlueBase({ lat: nextBlueLat, lng: nextBlueLng });
+      const [gameResult, runResult] = await Promise.all([
+        supabase
+          .from("stratego_games")
+          .select("red_base_lat,red_base_lng,blue_base_lat,blue_base_lng")
+          .eq("session_id", sessionId)
+          .maybeSingle<StrategoGameRow>(),
+        nextRunId
+          ? supabase
+              .from("gps_runs")
+              .select("game_config,gameConfig:game_config")
+              .eq("id", nextRunId)
+              .maybeSingle<StoredStrategoPresetRun>()
+          : Promise.resolve({ data: null, error: null }),
+      ]);
+
+      if (!isActive) {
+        return;
       }
 
-      if (nextRedLat !== null && nextRedLng !== null && nextBlueLat === null) {
+      const gameRow = gameResult.error ? null : gameResult.data;
+      const preset = runResult.error ? { redBase: null, blueBase: null } : getStrategoBasePreset(runResult.data);
+
+      const sessionRedBase =
+        gameRow && toFiniteNumber(gameRow.red_base_lat) !== null && toFiniteNumber(gameRow.red_base_lng) !== null
+          ? {
+              lat: toFiniteNumber(gameRow.red_base_lat) ?? 0,
+              lng: toFiniteNumber(gameRow.red_base_lng) ?? 0,
+            }
+          : null;
+      const sessionBlueBase =
+        gameRow && toFiniteNumber(gameRow.blue_base_lat) !== null && toFiniteNumber(gameRow.blue_base_lng) !== null
+          ? {
+              lat: toFiniteNumber(gameRow.blue_base_lat) ?? 0,
+              lng: toFiniteNumber(gameRow.blue_base_lng) ?? 0,
+            }
+          : null;
+
+      const nextRedBase = sessionRedBase ?? preset.redBase;
+      const nextBlueBase = sessionBlueBase ?? preset.blueBase;
+
+      setRedBase(nextRedBase);
+      setBlueBase(nextBlueBase);
+
+      if (nextRedBase && !nextBlueBase) {
         setPlacementMode("blue");
+      } else {
+        setPlacementMode("red");
       }
     };
 
@@ -211,6 +184,38 @@ export default function StrategoTeacherSetup({
 
       if (error) {
         throw error;
+      }
+
+      let nextRunId = runId;
+      if (!nextRunId) {
+        const { data: sessionData, error: sessionError } = await supabase
+          .from("live_sessions")
+          .select("run_id")
+          .eq("id", sessionId)
+          .maybeSingle<LiveSessionRunRow>();
+
+        if (sessionError) {
+          throw sessionError;
+        }
+
+        nextRunId = typeof sessionData?.run_id === "string" ? sessionData.run_id : null;
+        setRunId(nextRunId);
+      }
+
+      if (nextRunId) {
+        const { error: presetError } = await supabase
+          .from("gps_runs")
+          .update({
+            game_config: buildStrategoGameConfig({
+              redBase,
+              blueBase,
+            }),
+          })
+          .eq("id", nextRunId);
+
+        if (presetError) {
+          throw presetError;
+        }
       }
 
       await onStartSession();
@@ -330,43 +335,15 @@ export default function StrategoTeacherSetup({
           </button>
         </section>
 
-        <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900/60 shadow-[0_30px_80px_rgba(2,6,23,0.38)] backdrop-blur-2xl">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.26em] text-cyan-300">Baseplacering</p>
-              <p className="mt-1 text-sm text-white/55">Klik første gang for rød base og anden gang for blå base. Derefter kan du finjustere ved at vælge farven ovenfor.</p>
-            </div>
-            <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/65">
-              {redBase && blueBase ? "Klar til start" : "Afventer 2 klik"}
-            </div>
-          </div>
-
-          <div className="h-[calc(100svh-2rem)] min-h-[42rem] w-full lg:h-[calc(100svh-2rem)]">
-            <MapContainer center={DEFAULT_MAP_CENTER} zoom={16} className="h-full w-full" zoomControl>
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; CARTO'
-                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              />
-              <MapViewportSync redBase={redBase} blueBase={blueBase} />
-              <SetupMapClicks onPick={handleMapPick} />
-
-              {redBase ? <Marker position={[redBase.lat, redBase.lng]} icon={redBaseIcon} /> : null}
-              {blueBase ? <Marker position={[blueBase.lat, blueBase.lng]} icon={blueBaseIcon} /> : null}
-            </MapContainer>
-          </div>
-
-          {!redBase || !blueBase ? (
-            <div className="pointer-events-none absolute bottom-6 left-6 right-6">
-              <div className="mx-auto flex max-w-xl items-center gap-3 rounded-[1.4rem] border border-amber-300/20 bg-amber-500/12 px-4 py-3 text-sm text-amber-100 shadow-[0_18px_40px_rgba(245,158,11,0.12)] backdrop-blur-xl">
-                <MapPinned className="h-5 w-5 shrink-0" />
-                <span>
-                  {redBase && !blueBase
-                    ? "Rød base er sat. Klik nu for at placere blå base."
-                    : "Klik på kortet for at placere rød base først."}
-                </span>
-              </div>
-            </div>
-          ) : null}
+        <div className="relative">
+          <StrategoBasePlacementMap
+            redBase={redBase}
+            blueBase={blueBase}
+            onPick={handleMapPick}
+            readyLabel="Klar til start"
+            pendingLabel="Afventer 2 klik"
+            mapHeightClassName="h-[calc(100svh-2rem)] min-h-[42rem] w-full lg:h-[calc(100svh-2rem)]"
+          />
 
           {!sessionId ? (
             <div className="pointer-events-none absolute inset-x-6 top-6">
@@ -376,7 +353,7 @@ export default function StrategoTeacherSetup({
               </div>
             </div>
           ) : null}
-        </section>
+        </div>
       </div>
     </main>
   );

@@ -6,7 +6,7 @@ import {
   isPaywallEnabled,
   type AccessProfile,
 } from "@/utils/accessControl";
-import { normalizeRaceType, RACE_TYPES } from "@/utils/gpsRuns";
+import { getNormalizedRunRaceType, RACE_TYPES, type StoredRunRecord } from "@/utils/gpsRuns";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
 
@@ -19,12 +19,7 @@ type ArchiveLiveSessionPayload = {
   runId?: string;
 };
 
-type RunRow = {
-  id: string;
-  user_id: string;
-  race_type?: string | null;
-  raceType?: string | null;
-};
+type RunRow = Pick<StoredRunRecord, "id" | "user_id" | "race_type" | "raceType">;
 
 type LiveSessionRow = {
   id: string;
@@ -254,7 +249,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Løbet blev ikke fundet, eller du har ikke adgang." }, { status: 404 });
     }
 
-    const normalizedRaceType = normalizeRaceType(ownedRun.race_type ?? ownedRun.raceType);
+    const normalizedRaceType = getNormalizedRunRaceType(ownedRun);
     const requiresPremiumAccess =
       normalizedRaceType === RACE_TYPES.STRATEGO || normalizedRaceType === RACE_TYPES.ZONE_KRIG;
     let shouldConsumeFreeTrial = false;

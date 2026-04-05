@@ -15,6 +15,21 @@ export const RACE_TYPES = {
 
 export type RaceType = (typeof RACE_TYPES)[keyof typeof RACE_TYPES];
 
+export const RACE_TYPE_VALUES = [
+  RACE_TYPES.MANUEL,
+  RACE_TYPES.DANSK,
+  RACE_TYPES.ENGELSK,
+  RACE_TYPES.MATEMATIK,
+  RACE_TYPES.FOTO,
+  RACE_TYPES.SCANNER,
+  RACE_TYPES.SELFIE,
+  RACE_TYPES.ESCAPE,
+  RACE_TYPES.ROLLESPIL,
+  RACE_TYPES.PODCAST,
+  RACE_TYPES.ZONE_KRIG,
+  RACE_TYPES.STRATEGO,
+] as const;
+
 export const RACE_TYPE_LABELS: Record<RaceType, string> = {
   [RACE_TYPES.MANUEL]: "Generel Quiz",
   [RACE_TYPES.DANSK]: "Dansk",
@@ -35,9 +50,46 @@ export const DEFAULT_MAP_CENTER = {
   lng: 12.5683,
 } as const;
 
+export type BaseLocation = {
+  lat: number;
+  lng: number;
+};
+
+export type StrategoBasePreset = {
+  redBase: BaseLocation | null;
+  blueBase: BaseLocation | null;
+};
+
 type StoredDescriptionRecord = {
   text?: unknown;
   masterCode?: unknown;
+};
+
+export type RunRaceTypeRecord = {
+  race_type?: RaceType | null;
+  raceType?: RaceType | null;
+};
+
+export type RunGameConfigRecord = {
+  game_config?: unknown;
+  gameConfig?: unknown;
+};
+
+export type RunQuestionRecord = {
+  id?: number | null;
+  type?: "multiple_choice" | "ai_image";
+  text?: string | null;
+  aiPrompt?: string | null;
+  ai_prompt?: string | null;
+  answers?: string[] | null;
+  correctIndex?: number | null;
+  correct_index?: number | null;
+  lat?: number | null;
+  lng?: number | null;
+  mediaUrl?: string | null;
+  media_url?: string | null;
+  isSelfie?: boolean | null;
+  is_selfie?: boolean | null;
 };
 
 export type StoredRunRecord = {
@@ -48,13 +100,29 @@ export type StoredRunRecord = {
   description: string | null;
   topic: string | null;
   questions: unknown;
+  created_at?: string | null;
   grade_levels?: string[] | null;
   radius?: number | null;
-  race_type?: string | null;
-  raceType?: string | null;
+} & RunRaceTypeRecord &
+  RunGameConfigRecord;
+
+export type RunRecordWithNormalizedRaceType<T extends { race_type?: unknown; raceType?: unknown }> = Omit<
+  T,
+  "race_type" | "raceType"
+> & {
+  race_type: RaceType | null;
+  raceType: RaceType | null;
 };
 
+export function isRaceType(value: unknown): value is RaceType {
+  return typeof value === "string" && (RACE_TYPE_VALUES as readonly string[]).includes(value);
+}
+
 export function normalizeRaceType(value: unknown): RaceType | null {
+  if (isRaceType(value)) {
+    return value;
+  }
+
   if (typeof value !== "string") return null;
 
   switch (value.trim().toLocaleLowerCase("da-DK")) {
@@ -115,6 +183,22 @@ export function normalizeRaceType(value: unknown): RaceType | null {
   }
 }
 
+export function getNormalizedRunRaceType(run: { race_type?: unknown; raceType?: unknown } | null | undefined) {
+  return normalizeRaceType(run?.race_type ?? run?.raceType);
+}
+
+export function withNormalizedRunRaceType<T extends { race_type?: unknown; raceType?: unknown }>(
+  run: T
+): RunRecordWithNormalizedRaceType<T> {
+  const normalizedRaceType = getNormalizedRunRaceType(run);
+
+  return {
+    ...run,
+    race_type: normalizedRaceType,
+    raceType: normalizedRaceType,
+  } as RunRecordWithNormalizedRaceType<T>;
+}
+
 export function getBuilderHrefForRaceType(runId: string, raceType: unknown) {
   const normalizedRaceType = normalizeRaceType(raceType);
   if (!normalizedRaceType) return null;
@@ -141,6 +225,30 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+export function readRunGameConfig(record: RunGameConfigRecord | null | undefined) {
+  const rawValue = record?.game_config ?? record?.gameConfig;
+
+  if (isRecord(rawValue)) {
+    return rawValue;
+  }
+
+  if (typeof rawValue !== "string") {
+    return null;
+  }
+
+  const trimmed = rawValue.trim();
+  if (!trimmed.startsWith("{")) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -161,6 +269,53 @@ export function asNumberOrNull(value: unknown) {
 export function toQuestionId(value: unknown, fallback: number) {
   const parsed = asNumberOrNull(value);
   return parsed !== null && Number.isInteger(parsed) ? parsed : fallback;
+}
+
+function toBaseLocation(latValue: unknown, lngValue: unknown) {
+  const lat = asNumberOrNull(latValue);
+  const lng = asNumberOrNull(lngValue);
+
+  if (lat === null || lng === null) {
+    return null;
+  }
+
+  return { lat, lng } satisfies BaseLocation;
+}
+
+export function getStrategoBasePreset(record: RunGameConfigRecord | null | undefined): StrategoBasePreset {
+  const gameConfig = readRunGameConfig(record);
+  const strategoConfig = isRecord(gameConfig?.stratego) ? (gameConfig.stratego as Record<string, unknown>) : gameConfig;
+
+  return {
+    redBase: strategoConfig
+      ? toBaseLocation(strategoConfig.red_base_lat, strategoConfig.red_base_lng)
+      : null,
+    blueBase: strategoConfig
+      ? toBaseLocation(strategoConfig.blue_base_lat, strategoConfig.blue_base_lng)
+      : null,
+  };
+}
+
+export function buildStrategoGameConfig(preset: StrategoBasePreset) {
+  const strategoConfig: Record<string, number> = {};
+
+  if (preset.redBase) {
+    strategoConfig.red_base_lat = preset.redBase.lat;
+    strategoConfig.red_base_lng = preset.redBase.lng;
+  }
+
+  if (preset.blueBase) {
+    strategoConfig.blue_base_lat = preset.blueBase.lat;
+    strategoConfig.blue_base_lng = preset.blueBase.lng;
+  }
+
+  if (Object.keys(strategoConfig).length === 0) {
+    return {};
+  }
+
+  return {
+    stratego: strategoConfig,
+  };
 }
 
 export function readDescriptionObject(value: unknown) {

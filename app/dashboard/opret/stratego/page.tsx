@@ -1,12 +1,20 @@
 "use client";
 
 import { ArrowLeft, Crosshair, Loader2, Shield } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
-import { RACE_TYPES } from "@/utils/gpsRuns";
+import {
+  buildStrategoGameConfig,
+  getNormalizedRunRaceType,
+  getStrategoBasePreset,
+  type BaseLocation,
+  RACE_TYPES,
+  type StoredRunRecord,
+} from "@/utils/gpsRuns";
 import { createClient } from "@/utils/supabase/client";
 
 const rubik = Rubik({
@@ -35,13 +43,22 @@ type ArchiveLiveSessionMutationResult = {
   source: "created" | "reused" | null;
 };
 
-type StoredStrategoRun = {
-  id: string;
-  user_id: string | null;
-  title: string | null;
-  description: string | null;
-  race_type?: string | null;
-};
+type StoredStrategoRun = Pick<
+  StoredRunRecord,
+  "id" | "user_id" | "title" | "description" | "race_type" | "game_config" | "gameConfig"
+>;
+
+const StrategoBasePlacementMap = dynamic(() => import("@/components/live/StrategoBasePlacementMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[24rem] w-full animate-pulse rounded-[1.8rem] border border-white/10 bg-slate-950/55" />
+  ),
+});
+
+function formatCoordinate(value: number | null) {
+  if (value === null) return "Ikke sat";
+  return value.toFixed(5);
+}
 
 async function requestArchiveLiveSessionMutation(runId: string) {
   const response = await fetch("/api/archive/live-session", {
@@ -103,6 +120,9 @@ function StrategoBuilderContent() {
   const [isLoadingRun, setIsLoadingRun] = useState(isEditMode);
   const [isSavingArchive, setIsSavingArchive] = useState(false);
   const [isOpeningLive, setIsOpeningLive] = useState(false);
+  const [redBase, setRedBase] = useState<BaseLocation | null>(null);
+  const [blueBase, setBlueBase] = useState<BaseLocation | null>(null);
+  const [placementMode, setPlacementMode] = useState<"red" | "blue">("red");
 
   useEffect(() => {
     if (!isEditMode) return;
@@ -126,7 +146,7 @@ function StrategoBuilderContent() {
 
         const { data, error } = await supabase
           .from("gps_runs")
-          .select("id,user_id,title,description,race_type")
+          .select("id,user_id,title,description,race_type,game_config,gameConfig:game_config")
           .eq("id", editRunId)
           .eq("user_id", user.id)
           .single<StoredStrategoRun>();
@@ -135,10 +155,18 @@ function StrategoBuilderContent() {
           throw new Error("Kunne ikke finde det valgte Stratego-løb.");
         }
 
+        if (getNormalizedRunRaceType(data) !== RACE_TYPES.STRATEGO) {
+          throw new Error("Det valgte loeb er ikke et Stratego-loeb.");
+        }
+
         if (!isMounted) return;
 
+        const preset = getStrategoBasePreset(data);
         setTitle(typeof data.title === "string" ? data.title : "");
         setDescription(typeof data.description === "string" ? data.description : "");
+        setRedBase(preset.redBase);
+        setBlueBase(preset.blueBase);
+        setPlacementMode(preset.redBase && !preset.blueBase ? "blue" : "red");
       } catch (error) {
         if (!isMounted) return;
         setNotice({
@@ -164,6 +192,20 @@ function StrategoBuilderContent() {
     () => (title.trim().length > 0 ? title.trim() : "Live Stratego"),
     [title]
   );
+
+  const handleMapPick = (lat: number, lng: number) => {
+    setNotice(null);
+
+    if (placementMode === "red" || !redBase) {
+      setRedBase({ lat, lng });
+      if (!blueBase) {
+        setPlacementMode("blue");
+      }
+      return;
+    }
+
+    setBlueBase({ lat, lng });
+  };
 
   const saveRun = async (mode: "archive" | "live") => {
     const trimmedTitle = title.trim();
@@ -199,6 +241,10 @@ function StrategoBuilderContent() {
         topic: trimmedDescription || trimmedTitle,
         questions: [],
         race_type: RACE_TYPES.STRATEGO,
+        game_config: buildStrategoGameConfig({
+          redBase,
+          blueBase,
+        }),
       };
 
       let runId = editRunId;
@@ -330,7 +376,7 @@ function StrategoBuilderContent() {
             </p>
             <h2 className={`mt-3 text-3xl font-black text-white ${rubik.className}`}>{primaryTitle}</h2>
             <p className="mt-3 text-sm leading-6 text-white/70">
-              Giv løbet en titel her. Baseplacering, teams og den egentlige live-opsætning sker i næste trin.
+              Giv løbet en titel her. Du kan allerede gemme et base-preset til arkivet nu, så næste Stratego-session åbner med de rigtige baser på plads.
             </p>
 
             <div className="mt-8 space-y-5">
@@ -359,6 +405,75 @@ function StrategoBuilderContent() {
                   placeholder="Valgfrit: Skriv en kort note om klasse, område eller særlige regler."
                   className="w-full rounded-[1.4rem] border border-white/14 bg-slate-950/45 px-5 py-4 text-sm leading-6 text-white placeholder:text-white/28 focus:border-orange-300/50 focus:outline-none focus:ring-2 focus:ring-orange-400/40 disabled:cursor-not-allowed disabled:opacity-60"
                 />
+              </div>
+
+              <div className="rounded-[1.6rem] border border-white/10 bg-slate-950/35 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-semibold tracking-[0.22em] text-white/55 uppercase">
+                      Base-preset til arkivet
+                    </p>
+                    <p className="mt-2 max-w-xl text-sm leading-6 text-white/70">
+                      Valgfrit, men smart: Gem rød og blå base her, så live-setup&apos;et åbner med de samme placeringer næste gang.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPlacementMode("red")}
+                      disabled={isBusy}
+                      className={`rounded-[1.1rem] border px-4 py-3 text-sm font-bold transition ${
+                        placementMode === "red"
+                          ? "border-rose-300/35 bg-rose-500/12 text-rose-100"
+                          : "border-white/10 bg-white/6 text-white/72 hover:bg-white/10"
+                      }`}
+                    >
+                      Næste klik: Rød
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPlacementMode("blue")}
+                      disabled={isBusy}
+                      className={`rounded-[1.1rem] border px-4 py-3 text-sm font-bold transition ${
+                        placementMode === "blue"
+                          ? "border-sky-300/35 bg-sky-500/12 text-sky-100"
+                          : "border-white/10 bg-white/6 text-white/72 hover:bg-white/10"
+                      }`}
+                    >
+                      Næste klik: Blå
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-[1.2rem] border border-white/10 bg-white/6 px-4 py-4">
+                    <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Rød base</p>
+                    <p className="mt-2 text-sm font-semibold text-white/88">
+                      {formatCoordinate(redBase?.lat ?? null)} / {formatCoordinate(redBase?.lng ?? null)}
+                    </p>
+                  </div>
+                  <div className="rounded-[1.2rem] border border-white/10 bg-white/6 px-4 py-4">
+                    <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Blå base</p>
+                    <p className="mt-2 text-sm font-semibold text-white/88">
+                      {formatCoordinate(blueBase?.lat ?? null)} / {formatCoordinate(blueBase?.lng ?? null)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 overflow-hidden rounded-[1.8rem] border border-white/10">
+                  <StrategoBasePlacementMap
+                    redBase={redBase}
+                    blueBase={blueBase}
+                    onPick={handleMapPick}
+                    title="Kort til base-preset"
+                    description="Klik på kortet for at sætte rød og blå base. Du kan altid gemme uden preset og placere baserne senere i live-setup'et."
+                    readyLabel="Preset klar"
+                    pendingLabel="Valgfri preset"
+                    className="rounded-none border-0 bg-transparent shadow-none"
+                    mapHeightClassName="h-[24rem] w-full"
+                  />
+                </div>
               </div>
             </div>
 

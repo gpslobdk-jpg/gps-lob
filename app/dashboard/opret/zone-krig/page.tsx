@@ -1,14 +1,15 @@
 "use client";
 
-import { Check, Crosshair, Flag, Loader2, Map, Plus, Shield, Trash2 } from "lucide-react";
+import { BookOpen, Check, Crosshair, Flag, Loader2, Map, Plus, Shield, Trash2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
+import ManualReuseModal, { type ManualReuseQuestion } from "@/components/builders/manual/ManualReuseModal";
 import type { SavedZone } from "@/components/MapPicker";
-import { RACE_TYPES } from "@/utils/gpsRuns";
+import { getNormalizedRunRaceType, RACE_TYPES, type StoredRunRecord } from "@/utils/gpsRuns";
 import {
   clearRunDraft,
   hasUnsavedDraft,
@@ -61,16 +62,6 @@ type Question = {
   points: number;
   lat: number | null;
   lng: number | null;
-};
-
-type StoredRunRecord = {
-  id: string;
-  user_id: string | null;
-  title: string | null;
-  subject: string | null;
-  description: string | null;
-  topic: string | null;
-  questions: unknown;
 };
 
 type StoredQuestionRecord = {
@@ -175,6 +166,17 @@ function normalizeQuestionForSave(question: Question): Question {
   };
 }
 
+function isQuestionEmpty(question: Question) {
+  return (
+    !question.text &&
+    !question.aiPrompt &&
+    !question.mediaUrl &&
+    question.answers.every((answer) => !answer) &&
+    question.lat === null &&
+    question.lng === null
+  );
+}
+
 function toQuestionList(value: unknown): Question[] {
   if (!Array.isArray(value)) return [];
   const timestamp = Date.now();
@@ -241,6 +243,7 @@ function ZoneKrigBuilderContent() {
   const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>(DEFAULT_MAP_CENTER);
   const [showDraftRecoveryPrompt, setShowDraftRecoveryPrompt] = useState(false);
+  const [showReuseModal, setShowReuseModal] = useState(false);
 
   const isEditorBusy = isSaving || showDraftRecoveryPrompt;
   const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
@@ -324,13 +327,17 @@ function ZoneKrigBuilderContent() {
         }
         const { data: run, error } = await supabase
           .from("gps_runs")
-          .select("id,user_id,title,subject,description,topic,questions")
+          .select("id,user_id,title,subject,description,topic,questions,race_type,raceType:race_type")
           .eq("id", editRunId)
           .eq("user_id", user.id)
           .maybeSingle<StoredRunRecord>();
         if (!isActive) return;
         if (error || !run) {
           setNotice({ tone: "error", message: "Kunne ikke indlæse løbet." });
+          return;
+        }
+        if (getNormalizedRunRaceType(run) !== RACE_TYPES.ZONE_KRIG) {
+          setNotice({ tone: "error", message: "Dette loeb er ikke et Zone-Krig loeb." });
           return;
         }
         const loadedQuestions = toQuestionList(run.questions);
@@ -475,6 +482,79 @@ function ZoneKrigBuilderContent() {
 
   const addQuestion = () => {
     setQuestions((prev) => [...prev, createQuestion()]);
+  };
+
+  const normalizeQuestionsForReuse = useCallback(
+    (value: unknown): ManualReuseQuestion[] => toQuestionList(value),
+    []
+  );
+
+  const mergeImportedQuestions = useCallback((previous: Question[], imported: Question[]) => {
+    const preservedQuestions = previous.filter((question) => !isQuestionEmpty(question));
+    return preservedQuestions.length > 0 ? [...preservedQuestions, ...imported] : imported;
+  }, []);
+
+  const handleImportReuseQuestion = useCallback(
+    async (question: ManualReuseQuestion) => {
+      setQuestions((previous) => {
+        const nextId = previous.reduce((maxId, currentQuestion) => Math.max(maxId, currentQuestion.id), Date.now()) + 1;
+        const importedQuestion: Question = {
+          ...question,
+          id: nextId,
+          type: "multiple_choice",
+          lat: null,
+          lng: null,
+          points: normalizeQuestionPoints(question.points),
+        };
+
+        pendingScrollTargetId.current = String(importedQuestion.id);
+        return mergeImportedQuestions(previous, [importedQuestion]);
+      });
+
+      setNotice({
+        tone: "success",
+        message: "Zonen blev hentet fra arkivet. Husk at placere den pa kortet.",
+      });
+    },
+    [mergeImportedQuestions]
+  );
+
+  const handleImportReuseRun = useCallback(
+    async (importedQuestions: ManualReuseQuestion[]) => {
+      setQuestions((previous) => {
+        const currentMaxId = previous.reduce((maxId, question) => Math.max(maxId, question.id), Date.now());
+        const nextQuestions = importedQuestions.map((question, index): Question => ({
+          ...question,
+          id: currentMaxId + index + 1,
+          type: "multiple_choice",
+          lat: null,
+          lng: null,
+          points: normalizeQuestionPoints(question.points),
+        }));
+
+        if (nextQuestions.length > 0) {
+          pendingScrollTargetId.current = String(nextQuestions[0].id);
+        }
+
+        return mergeImportedQuestions(previous, nextQuestions);
+      });
+
+      setShowReuseModal(false);
+      setNotice({
+        tone: "success",
+        message: "Spoergsmaalssaettet er hentet fra arkivet. Placer nu zonerne pa kortet.",
+      });
+    },
+    [mergeImportedQuestions]
+  );
+
+  const openReuseModal = () => {
+    setNotice(null);
+    setShowReuseModal(true);
+  };
+
+  const closeReuseModal = () => {
+    setShowReuseModal(false);
   };
 
   const handleSaveRun = async () => {
@@ -855,15 +935,27 @@ function ZoneKrigBuilderContent() {
 
                 {/* Add zone + save */}
                 <div className="rounded-4xl border border-cyan-500/20 bg-slate-900/50 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
-                  <button
-                    type="button"
-                    onClick={addQuestion}
-                    disabled={isEditorBusy}
-                    className="inline-flex items-center gap-2 rounded-[1.4rem] border border-cyan-500/30 bg-slate-900/40 px-4 py-3 text-sm font-semibold text-cyan-100 backdrop-blur-xl transition hover:bg-slate-800/50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Tilføj zone
-                  </button>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={addQuestion}
+                      disabled={isEditorBusy}
+                      className="inline-flex items-center gap-2 rounded-[1.4rem] border border-cyan-500/30 bg-slate-900/40 px-4 py-3 text-sm font-semibold text-cyan-100 backdrop-blur-xl transition hover:bg-slate-800/50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Tilføj zone
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={openReuseModal}
+                      disabled={isEditorBusy}
+                      className="inline-flex items-center gap-2 rounded-[1.4rem] border border-cyan-400/25 bg-cyan-500/10 px-4 py-3 text-sm font-semibold text-cyan-50 backdrop-blur-xl transition hover:bg-cyan-500/15 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      <BookOpen className="h-4 w-4" />
+                      Hent fra arkiv
+                    </button>
+                  </div>
 
                   <div ref={saveFeedbackRef} className="mt-6 space-y-4">
                     {notice?.tone === "error" ? renderNotice() : null}
@@ -922,6 +1014,16 @@ function ZoneKrigBuilderContent() {
           </div>
         </div>
       ) : null}
+
+      <ManualReuseModal
+        open={showReuseModal}
+        currentRunId={editRunId || undefined}
+        onClose={closeReuseModal}
+        normalizeQuestions={normalizeQuestionsForReuse}
+        onImportQuestion={handleImportReuseQuestion}
+        onImportRun={handleImportReuseRun}
+        importRunLabel="Importer alle zoner"
+      />
     </>
   );
 }

@@ -4,7 +4,7 @@ import { ArrowLeft, BookOpen, Check, Loader2, Search, X } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useMemo, useState } from "react";
 
-import { normalizeRaceType } from "@/utils/gpsRuns";
+import { getNormalizedRunRaceType, RACE_TYPE_LABELS, type RaceType, type StoredRunRecord } from "@/utils/gpsRuns";
 import { createClient } from "@/utils/supabase/client";
 
 const rubik = Rubik({
@@ -32,24 +32,23 @@ export type ManualReuseQuestion = {
   lng: number | null;
 };
 
-type StoredRunLibraryRecord = {
-  id: string;
-  title: string | null;
-  subject: string | null;
-  race_type?: string | null;
-  raceType?: string | null;
+type StoredRunLibraryRecord = Pick<
+  StoredRunRecord,
+  "id" | "title" | "subject" | "race_type" | "raceType" | "questions"
+> & {
   created_at: string;
-  questions: unknown;
 };
 
 type ReusableRun = {
   id: string;
   title: string;
   subject: string;
-  raceType: string;
+  raceType: RaceType | null;
   createdAt: string;
   questions: ManualReuseQuestion[];
 };
+
+type ReusableRunSummary = Pick<ReusableRun, "id" | "title" | "subject" | "raceType" | "createdAt">;
 
 type Props = {
   open: boolean;
@@ -57,6 +56,8 @@ type Props = {
   onClose: () => void;
   normalizeQuestions: (questions: unknown) => ManualReuseQuestion[];
   onImportQuestion: (question: ManualReuseQuestion) => Promise<void> | void;
+  onImportRun?: (questions: ManualReuseQuestion[], run: ReusableRunSummary) => Promise<void> | void;
+  importRunLabel?: string;
 };
 
 function formatDanishDate(value: string) {
@@ -72,33 +73,8 @@ function formatDanishDate(value: string) {
   }).format(date);
 }
 
-function describeRaceType(value: string) {
-  switch (normalizeRaceType(value) ?? value) {
-    case "manuel":
-      return "Generel Quiz";
-    case "dansk":
-      return "Dansk";
-    case "matematik":
-      return "Matematik";
-    case "engelsk":
-      return "Engelsk";
-    case "foto":
-      return "Foto";
-    case "selfie":
-      return "Selfie";
-    case "escape":
-      return "Escape";
-    case "rollespil":
-      return "Rollespil";
-    case "podcast":
-      return "Podcast";
-    case "scanner":
-      return "Bog-Scanner";
-    case "zone_krig":
-      return "Zone-Krigen";
-    default:
-      return value || "Ukendt type";
-  }
+function describeRaceType(value: RaceType | null) {
+  return value ? RACE_TYPE_LABELS[value] : "Ukendt type";
 }
 
 export default function ManualReuseModal({
@@ -107,6 +83,8 @@ export default function ManualReuseModal({
   onClose,
   normalizeQuestions,
   onImportQuestion,
+  onImportRun,
+  importRunLabel = "Kopiér hele sættet",
 }: Props) {
   const [runs, setRuns] = useState<ReusableRun[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -115,6 +93,7 @@ export default function ManualReuseModal({
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [importingKey, setImportingKey] = useState<string | null>(null);
+  const [isImportingRun, setIsImportingRun] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -124,6 +103,7 @@ export default function ManualReuseModal({
       setError(null);
       setSuccessMessage(null);
       setImportingKey(null);
+      setIsImportingRun(false);
       return;
     }
 
@@ -168,7 +148,7 @@ export default function ManualReuseModal({
               id: run.id,
               title: run.title?.trim() || "Løb uden titel",
               subject: run.subject?.trim() || "Ukendt fag",
-              raceType: run.race_type?.trim() || run.raceType?.trim() || "manuel",
+              raceType: getNormalizedRunRaceType(run),
               createdAt: run.created_at,
               questions: normalizedQuestions,
             } satisfies ReusableRun;
@@ -238,6 +218,29 @@ export default function ManualReuseModal({
     }
   };
 
+  const handleImportRun = async () => {
+    if (!selectedRun || !onImportRun) return;
+
+    setIsImportingRun(true);
+    setError(null);
+
+    try {
+      await onImportRun(selectedRun.questions, {
+        id: selectedRun.id,
+        title: selectedRun.title,
+        subject: selectedRun.subject,
+        raceType: selectedRun.raceType,
+        createdAt: selectedRun.createdAt,
+      });
+      setSuccessMessage(`${selectedRun.questions.length} poster blev kopieret ind.`);
+    } catch (importError) {
+      console.error("Kunne ikke importere spørgsmålsæt:", importError);
+      setError("Spørgsmålsættet kunne ikke kopieres ind i builderen.");
+    } finally {
+      setIsImportingRun(false);
+    }
+  };
+
   return (
     <div
       className={`fixed inset-0 z-1300 overflow-y-auto bg-slate-950/94 print:hidden ${poppins.className}`}
@@ -275,24 +278,46 @@ export default function ManualReuseModal({
                 </h2>
                 <p className="mt-4 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
                   {selectedRun
-                    ? "Klik på en post for at kopiere den ind i det aktuelle løb. Vi nulstiller placeringen, så du aktivt vælger en ny pin på kortet."
+                    ? onImportRun
+                      ? "Importér hele spørgsmålsættet på én gang, eller kopier enkelte poster. Vi nulstiller placeringen, så du aktivt vælger nye pins på kortet."
+                      : "Klik på en post for at kopiere den ind i det aktuelle løb. Vi nulstiller placeringen, så du aktivt vælger en ny pin på kortet."
                     : "Vælg et tidligere løb, og hent de bedste spørgsmål direkte ind i dit nuværende draft uden at forlade builderen."}
                 </p>
               </div>
 
               {selectedRun ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedRunId(null);
-                    setSuccessMessage(null);
-                    setError(null);
-                  }}
-                  className="inline-flex items-center gap-2 self-start rounded-full border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Tilbage til løb
-                </button>
+                <div className="flex flex-wrap items-center gap-3 self-start">
+                  {onImportRun ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleImportRun()}
+                      disabled={isImportingRun || Boolean(importingKey)}
+                      className="inline-flex items-center gap-2 rounded-full border border-emerald-300/30 bg-emerald-400 px-4 py-2.5 text-sm font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-55"
+                    >
+                      {isImportingRun ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Kopierer...
+                        </>
+                      ) : (
+                        importRunLabel
+                      )}
+                    </button>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedRunId(null);
+                      setSuccessMessage(null);
+                      setError(null);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Tilbage til løb
+                  </button>
+                </div>
               ) : null}
             </div>
 
@@ -458,7 +483,7 @@ export default function ManualReuseModal({
                       <button
                         type="button"
                         onClick={() => void handleImport(question, index)}
-                        disabled={Boolean(importingKey)}
+                        disabled={Boolean(importingKey) || isImportingRun}
                         className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-[1.4rem] border border-emerald-300/30 bg-emerald-400 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-55"
                       >
                         {isImporting ? (

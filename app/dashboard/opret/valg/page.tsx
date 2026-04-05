@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import PwaInstallTip from "@/components/PwaInstallTip";
 import {
@@ -240,9 +241,43 @@ function PremiumGameCardWrapper({
 
 function GameInfoPopover({ copy }: { copy: GameInfoCopy }) {
   const [isPinnedOpen, setIsPinnedOpen] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
+  const [isHoverActive, setIsHoverActive] = useState(false);
+  const [popoverStyle, setPopoverStyle] = useState<{
+    left: number;
+    top: number;
+    width: number;
+  } | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const isOpen = isPinnedOpen || isHovered;
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const hoverCloseTimeoutRef = useRef<number | null>(null);
+  const isOpen = isPinnedOpen || isHoverActive;
+
+  const clearHoverCloseTimeout = () => {
+    if (hoverCloseTimeoutRef.current === null || typeof window === "undefined") {
+      return;
+    }
+
+    window.clearTimeout(hoverCloseTimeoutRef.current);
+    hoverCloseTimeoutRef.current = null;
+  };
+
+  const handleHoverStart = () => {
+    clearHoverCloseTimeout();
+    setIsHoverActive(true);
+  };
+
+  const handleHoverEnd = () => {
+    if (typeof window === "undefined") {
+      setIsHoverActive(false);
+      return;
+    }
+
+    clearHoverCloseTimeout();
+    hoverCloseTimeoutRef.current = window.setTimeout(() => {
+      setIsHoverActive(false);
+      hoverCloseTimeoutRef.current = null;
+    }, 100);
+  };
 
   useEffect(() => {
     if (!isPinnedOpen) {
@@ -251,7 +286,9 @@ function GameInfoPopover({ copy }: { copy: GameInfoCopy }) {
 
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as Node | null;
-      if (wrapperRef.current && target && !wrapperRef.current.contains(target)) {
+      const isInsideTrigger = wrapperRef.current && target ? wrapperRef.current.contains(target) : false;
+      const isInsidePopover = popoverRef.current && target ? popoverRef.current.contains(target) : false;
+      if (!isInsideTrigger && !isInsidePopover) {
         setIsPinnedOpen(false);
       }
     };
@@ -271,12 +308,67 @@ function GameInfoPopover({ copy }: { copy: GameInfoCopy }) {
     };
   }, [isPinnedOpen]);
 
+  useEffect(() => {
+    if (!isOpen || typeof window === "undefined") {
+      return;
+    }
+
+    const updatePosition = () => {
+      if (!wrapperRef.current) {
+        return;
+      }
+
+      const rect = wrapperRef.current.getBoundingClientRect();
+      const viewportPadding = 16;
+      const desiredWidth = Math.min(288, Math.max(220, window.innerWidth - viewportPadding * 2));
+      const nextLeft = Math.min(
+        Math.max(rect.left, viewportPadding),
+        Math.max(viewportPadding, window.innerWidth - desiredWidth - viewportPadding)
+      );
+
+      const gap = 8;
+      const popoverHeight = popoverRef.current?.offsetHeight ?? 0;
+      let nextTop = rect.bottom + gap;
+
+      if (popoverHeight > 0 && nextTop + popoverHeight > window.innerHeight - viewportPadding) {
+        nextTop = Math.max(viewportPadding, rect.top - popoverHeight - gap);
+      }
+
+      setPopoverStyle({
+        left: nextLeft,
+        top: nextTop,
+        width: desiredWidth,
+      });
+    };
+
+    updatePosition();
+    const frameId = window.requestAnimationFrame(updatePosition);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    window.visualViewport?.addEventListener("resize", updatePosition);
+    window.visualViewport?.addEventListener("scroll", updatePosition);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+      window.visualViewport?.removeEventListener("resize", updatePosition);
+      window.visualViewport?.removeEventListener("scroll", updatePosition);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    return () => {
+      clearHoverCloseTimeout();
+    };
+  }, []);
+
   return (
     <div
       ref={wrapperRef}
       className="absolute top-4 left-4 z-30"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={handleHoverStart}
+      onMouseLeave={handleHoverEnd}
       onPointerDownCapture={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -300,30 +392,52 @@ function GameInfoPopover({ copy }: { copy: GameInfoCopy }) {
         <CircleHelp className="h-4 w-4" />
       </button>
 
-      {isOpen ? (
-        <div
-          className={`absolute left-0 top-12 w-[min(18rem,calc(100vw-4rem))] rounded-[1.5rem] border px-4 py-4 backdrop-blur-2xl ${copy.toneClassName}`}
-        >
-          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/72">
-            Læs Om Spillet
-          </p>
-          <h3 className={`mt-2 text-lg font-black tracking-tight text-white ${rubik.className}`}>
-            {copy.title}
-          </h3>
+      {isOpen && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              ref={popoverRef}
+              onMouseEnter={handleHoverStart}
+              onMouseLeave={handleHoverEnd}
+              onPointerDownCapture={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+              onClickCapture={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+              style={{
+                position: "fixed",
+                left: popoverStyle?.left ?? 16,
+                top: popoverStyle?.top ?? 16,
+                width: popoverStyle?.width ?? 288,
+                zIndex: 1200,
+                visibility: popoverStyle ? "visible" : "hidden",
+              }}
+              className={`rounded-[1.5rem] border px-4 py-4 backdrop-blur-2xl ${copy.toneClassName}`}
+            >
+              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/72">
+                Læs Om Spillet
+              </p>
+              <h3 className={`mt-2 text-lg font-black tracking-tight text-white ${rubik.className}`}>
+                {copy.title}
+              </h3>
 
-          <div className="mt-4 space-y-3">
-            <div className="rounded-[1rem] border border-white/12 bg-white/8 px-3 py-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/62">Formål</p>
-              <p className="mt-2 text-sm leading-6 text-white/88">{copy.purpose}</p>
-            </div>
+              <div className="mt-4 space-y-3">
+                <div className="rounded-[1rem] border border-white/12 bg-white/8 px-3 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/62">Formål</p>
+                  <p className="mt-2 text-sm leading-6 text-white/88">{copy.purpose}</p>
+                </div>
 
-            <div className="rounded-[1rem] border border-white/12 bg-white/8 px-3 py-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/62">Spillets gang</p>
-              <p className="mt-2 text-sm leading-6 text-white/88">{copy.flow}</p>
-            </div>
-          </div>
-        </div>
-      ) : null}
+                <div className="rounded-[1rem] border border-white/12 bg-white/8 px-3 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/62">Spillets gang</p>
+                  <p className="mt-2 text-sm leading-6 text-white/88">{copy.flow}</p>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }
