@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { AlertCircle, CheckCircle2, Crosshair, Loader2, Radio, Shield, Swords, Target, Timer } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
+import StudentRulesSheet from "./StudentRulesSheet";
 import type { PlayActions, PlayUiState } from "./types";
 import TeacherBroadcastModal from "./TeacherBroadcastModal";
 import type { ZoneKrigGameTeam, ZoneKrigGameZone } from "./ZoneKrigElevMap";
@@ -116,6 +117,7 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
   const [sessionStatus, setSessionStatus] = useState<string | null>(null);
   const [endsAt, setEndsAt] = useState<string | null>(null);
   const [countdownNowMs, setCountdownNowMs] = useState(() => Date.now());
+  const [isRulesOpen, setIsRulesOpen] = useState(false);
 
   const selectedZone = zones.find((zone) => zone.zone_index === progress.currentPostIndex) ?? null;
   const selectedQuestion = progress.currentPost.activeQuestion;
@@ -470,9 +472,22 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
       <div className="border-b border-white/10 bg-slate-900/80 px-4 py-4 backdrop-blur-xl sm:px-6">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-cyan-300">
-              <Swords className="h-5 w-5" />
-              <span className="text-xs font-black uppercase tracking-[0.3em]">Zone Krig</span>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2 text-cyan-300">
+                <Swords className="h-5 w-5" />
+                <span className="text-xs font-black uppercase tracking-[0.3em]">Zone Krig</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsRulesOpen(true)}
+                className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 text-xs font-bold text-white/78 transition hover:bg-white/10 hover:text-white"
+              >
+                <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white/12 bg-white/8 text-[11px] font-black text-white/90">
+                  ?
+                </span>
+                Regler
+              </button>
             </div>
             <h1 className="mt-2 text-2xl font-black sm:text-3xl">{player.activeDisplayName}</h1>
             <p className="mt-1 text-sm text-white/60">{myTeam ? `${myTeam.team_name} er i kamp` : "Holdforbindelse mangler"}</p>
@@ -678,6 +693,12 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
           />
         </aside>
       </div>
+
+      <StudentRulesSheet
+        open={isRulesOpen}
+        onClose={() => setIsRulesOpen(false)}
+        gameType="zone-krig"
+      />
     </div>
   );
 }

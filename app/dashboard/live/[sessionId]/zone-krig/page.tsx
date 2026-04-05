@@ -4,8 +4,9 @@ import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Crown, Shield, Swords, Timer, Wifi, Zap } from "lucide-react";
+import { BookOpen, Crown, Shield, Swords, Timer, Wifi, Zap } from "lucide-react";
 
+import LiveRulesSheet from "@/components/live/LiveRulesSheet";
 import type { GameTeam, GameZone } from "@/components/live/ZoneKrigMap";
 import { createClient } from "@/utils/supabase/client";
 
@@ -86,6 +87,7 @@ export default function ZoneKrigCommandCenter() {
   const [endsAt, setEndsAt] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [isEndingMatch, setIsEndingMatch] = useState(false);
+  const [isRulesOpen, setIsRulesOpen] = useState(false);
 
   // Keep a stable ref to teams for use inside realtime callbacks
   const teamsRef = useRef<GameTeam[]>([]);
@@ -400,6 +402,14 @@ export default function ZoneKrigCommandCenter() {
           </span>
           <button
             type="button"
+            onClick={() => setIsRulesOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-white/75 transition hover:bg-white/10 hover:text-white"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            Spilregler
+          </button>
+          <button
+            type="button"
             onClick={() => void finishMatch("manual")}
             disabled={isEndingMatch || isMatchOver}
             className="rounded-full border border-rose-400/30 bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-100 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50"
@@ -666,6 +676,8 @@ export default function ZoneKrigCommandCenter() {
           </div>
         </aside>
       </div>
+
+      <LiveRulesSheet open={isRulesOpen} onClose={() => setIsRulesOpen(false)} gameType="zone-krig" />
     </div>
   );
 }

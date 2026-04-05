@@ -15,6 +15,7 @@ import {
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import StrategoClashModal from "./StrategoClashModal";
+import StudentRulesSheet from "./StudentRulesSheet";
 import TeacherBroadcastModal from "./TeacherBroadcastModal";
 import type { PlayActions, PlayUiState } from "./types";
 import { createClient } from "@/utils/supabase/client";
@@ -215,6 +216,7 @@ export default function StrategoElevInterface({
     Map<string, { displayName: string; rankKey: string | null }>
   >(new Map());
   const [strategoGame, setStrategoGame] = useState<StrategoGameRow | null>(null);
+  const [isRulesOpen, setIsRulesOpen] = useState(false);
 
   const selfTeamCode = stratego.selfPlayer?.teamCode ?? null;
   const teamTheme = getTeamTheme(selfTeamCode);
@@ -533,7 +535,8 @@ export default function StrategoElevInterface({
           <div className="mx-auto max-w-7xl rounded-[2rem] border border-white/10 bg-slate-950/70 p-4 shadow-[0_30px_80px_rgba(2,6,23,0.45)] backdrop-blur-2xl sm:p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
                   <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/6 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.3em] text-white/65">
                     <Swords className="h-4 w-4 text-rose-200" />
                     Live Stratego
@@ -566,6 +569,16 @@ export default function StrategoElevInterface({
                       Clash registreres
                     </div>
                   ) : null}
+                  </div>
+
+                  <button
+                    type="button"
+                    aria-label="Åbn spilleregler"
+                    onClick={() => setIsRulesOpen(true)}
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-black text-white/82 transition hover:bg-white/10 hover:text-white"
+                  >
+                    ?
+                  </button>
                 </div>
 
                 <div className="mt-4 flex items-center gap-4">
@@ -824,6 +837,12 @@ export default function StrategoElevInterface({
         playerParticipantId={player.participantId}
         roleNamesByKey={roleNamesByKey}
         onClose={actions.clearStrategoDuelEvent}
+      />
+
+      <StudentRulesSheet
+        open={isRulesOpen}
+        onClose={() => setIsRulesOpen(false)}
+        gameType="stratego"
       />
     </div>
   );

@@ -1,11 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowLeft, Shield } from "lucide-react";
+import { ArrowLeft, CircleHelp, Shield } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import PwaInstallTip from "@/components/PwaInstallTip";
 import {
@@ -48,6 +48,37 @@ type BuilderCard = {
 
 type ProfileAccessRow = AccessProfile;
 type PremiumCardAccessState = "loading" | "premium" | "trial" | "locked";
+type GameInfoCopy = {
+  title: string;
+  purpose: string;
+  flow: string;
+  toneClassName: string;
+  iconToneClassName: string;
+};
+
+const GAME_INFO_COPY: Record<"stratego" | "zone-krig", GameInfoCopy> = {
+  stratego: {
+    title: "Live Stratego",
+    purpose: "Find og fang modstanderholdets Fane for at vinde øjeblikkeligt.",
+    flow:
+      "Fjender vises som abstrakte radarzoner. Se afstanden, men find dem i virkeligheden. Området omkring jeres base er fredet, og dueller afgøres af rang med klassiske undtagelser.",
+    toneClassName:
+      "border-red-300/28 bg-[linear-gradient(145deg,rgba(127,29,29,0.94),rgba(136,19,55,0.9))] text-white shadow-[0_24px_60px_rgba(127,29,29,0.35)]",
+    iconToneClassName:
+      "border-red-300/35 bg-red-500/18 text-red-50 shadow-[0_12px_26px_rgba(239,68,68,0.22)]",
+  },
+  "zone-krig": {
+    title: "Zone-Krigen",
+    purpose:
+      "Erobr og hold fast i flest zoner, når tiden løber ud. Point er kun til pynt – zoner afgør sejren.",
+    flow:
+      "Løb hen til en zone og svar rigtigt på opgaven for at overtage den. Når en zone overtages, får den et 3-minutters skjold, og et korrekt svar på egen zone fornyer skjoldet.",
+    toneClassName:
+      "border-orange-300/28 bg-[linear-gradient(145deg,rgba(154,52,18,0.94),rgba(194,65,12,0.9))] text-white shadow-[0_24px_60px_rgba(194,65,12,0.28)]",
+    iconToneClassName:
+      "border-orange-300/35 bg-orange-500/18 text-orange-50 shadow-[0_12px_26px_rgba(249,115,22,0.2)]",
+  },
+};
 
 const fagligeCards: BuilderCard[] = [
   {
@@ -204,6 +235,96 @@ function PremiumGameCardWrapper({
     <Link href={href} className="block w-full text-left">
       {children}
     </Link>
+  );
+}
+
+function GameInfoPopover({ copy }: { copy: GameInfoCopy }) {
+  const [isPinnedOpen, setIsPinnedOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const isOpen = isPinnedOpen || isHovered;
+
+  useEffect(() => {
+    if (!isPinnedOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (wrapperRef.current && target && !wrapperRef.current.contains(target)) {
+        setIsPinnedOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsPinnedOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isPinnedOpen]);
+
+  return (
+    <div
+      ref={wrapperRef}
+      className="absolute top-4 left-4 z-30"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onPointerDownCapture={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+      onClickCapture={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+    >
+      <button
+        type="button"
+        aria-label={`Læs om ${copy.title}`}
+        aria-expanded={isOpen}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setIsPinnedOpen((previous) => !previous);
+        }}
+        className={`inline-flex h-10 w-10 items-center justify-center rounded-full border backdrop-blur-xl transition hover:scale-[1.03] ${copy.iconToneClassName}`}
+      >
+        <CircleHelp className="h-4 w-4" />
+      </button>
+
+      {isOpen ? (
+        <div
+          className={`absolute left-0 top-12 w-[min(18rem,calc(100vw-4rem))] rounded-[1.5rem] border px-4 py-4 backdrop-blur-2xl ${copy.toneClassName}`}
+        >
+          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/72">
+            Læs Om Spillet
+          </p>
+          <h3 className={`mt-2 text-lg font-black tracking-tight text-white ${rubik.className}`}>
+            {copy.title}
+          </h3>
+
+          <div className="mt-4 space-y-3">
+            <div className="rounded-[1rem] border border-white/12 bg-white/8 px-3 py-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/62">Formål</p>
+              <p className="mt-2 text-sm leading-6 text-white/88">{copy.purpose}</p>
+            </div>
+
+            <div className="rounded-[1rem] border border-white/12 bg-white/8 px-3 py-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/62">Spillets gang</p>
+              <p className="mt-2 text-sm leading-6 text-white/88">{copy.flow}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -367,6 +488,7 @@ export default function ValgHubPage() {
             >
               <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(249,115,22,0.28),transparent_62%),radial-gradient(circle_at_center,rgba(239,68,68,0.2),transparent_70%)] shadow-[inset_0_0_54px_rgba(239,68,68,0.18)]" />
               <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem]" />
+              <GameInfoPopover copy={GAME_INFO_COPY.stratego} />
 
               <div className="absolute top-4 right-4 z-20">
                 <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[0.58rem] font-bold tracking-[0.18em] text-white uppercase shadow-[0_10px_22px_rgba(239,68,68,0.22)] backdrop-blur-md ${premiumBadgeLabel ? premiumBadgeClass : "border-red-300/40 bg-red-400/20"}`}>
@@ -400,6 +522,7 @@ export default function ValgHubPage() {
             >
               <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(249,115,22,0.34),transparent_62%)] shadow-[inset_0_0_54px_rgba(249,115,22,0.28)]" />
               <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem]" />
+              <GameInfoPopover copy={GAME_INFO_COPY["zone-krig"]} />
 
               <div className="absolute top-4 right-4 z-20">
                 <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[0.58rem] font-bold tracking-[0.18em] text-white uppercase shadow-[0_10px_22px_rgba(249,115,22,0.22)] backdrop-blur-md ${premiumBadgeLabel ? premiumBadgeClass : "border-orange-300/40 bg-orange-400/20"}`}>

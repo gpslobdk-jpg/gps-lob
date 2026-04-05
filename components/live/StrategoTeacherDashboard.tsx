@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import {
   AlertTriangle,
+  BookOpen,
   Crown,
   Loader2,
   MapPinned,
@@ -16,6 +17,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
+import LiveRulesSheet from "@/components/live/LiveRulesSheet";
 import { createClient } from "@/utils/supabase/client";
 
 type StrategoTeacherDashboardProps = {
@@ -309,6 +311,7 @@ export default function StrategoTeacherDashboard({
   const [game, setGame] = useState<StrategoGameRow | null>(null);
   const [duelEvents, setDuelEvents] = useState<StrategoDuelEventRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRulesOpen, setIsRulesOpen] = useState(false);
 
   useEffect(() => {
     if (!sessionId) {
@@ -723,6 +726,14 @@ export default function StrategoTeacherDashboard({
           <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
+              onClick={() => setIsRulesOpen(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-4 py-2 text-xs font-bold text-white/75 transition hover:bg-white/10 hover:text-white"
+            >
+              <BookOpen className="h-4 w-4" />
+              Spilregler
+            </button>
+            <button
+              type="button"
               onClick={() => void onTogglePause()}
               disabled={isUpdatingPause || isEndingRun || isFinished}
               className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.22em] transition disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-slate-800 disabled:text-white/45 ${
@@ -979,6 +990,8 @@ export default function StrategoTeacherDashboard({
           </section>
         </aside>
       </div>
+
+      <LiveRulesSheet open={isRulesOpen} onClose={() => setIsRulesOpen(false)} gameType="stratego" />
     </div>
   );
 }
