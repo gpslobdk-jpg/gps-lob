@@ -30,14 +30,17 @@ export default function TeacherBroadcastModal({ message, onDismiss }: TeacherBro
   useEffect(() => {
     if (!message) return;
 
+    const previousOverflow = document.body.style.overflow;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         onDismiss();
       }
     };
 
+    document.body.style.overflow = "hidden";
     document.addEventListener("keydown", handleKeyDown);
     return () => {
+      document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [message, onDismiss]);

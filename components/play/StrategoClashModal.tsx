@@ -1,6 +1,7 @@
 "use client";
 
 import { Crown, Shield, Swords, Target, Trophy, XCircle } from "lucide-react";
+import { useEffect } from "react";
 
 import type { StrategoDuelEvent } from "./types";
 
@@ -150,6 +151,19 @@ export default function StrategoClashModal({
   roleNamesByKey,
   onClose,
 }: StrategoClashModalProps) {
+  useEffect(() => {
+    if (!event) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [event]);
+
   if (!event) {
     return null;
   }

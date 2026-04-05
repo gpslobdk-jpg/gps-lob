@@ -351,7 +351,7 @@ function GameInfoPopover({ copy }: { copy: GameInfoCopy }) {
             event.preventDefault();
             event.stopPropagation();
           }}
-          className={`absolute left-0 top-12 z-40 w-[min(18rem,calc(100vw-4rem))] rounded-[1.5rem] border px-4 py-4 backdrop-blur-2xl ${copy.toneClassName}`}
+          className={`absolute left-0 top-12 z-40 max-h-[min(26rem,calc(100vh-6rem))] w-[min(18rem,calc(100vw-4rem))] overflow-y-auto rounded-[1.5rem] border px-4 py-4 backdrop-blur-2xl overscroll-contain ${copy.toneClassName}`}
         >
           <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/72">
             Læs Om Spillet

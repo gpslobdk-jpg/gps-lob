@@ -322,7 +322,7 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
           <p className="mt-3 text-sm leading-6 text-white/75">Du er registreret. Vent på at læreren starter Zone Krig.</p>
           {myTeam ? (
             <div
-              className="mx-auto mt-5 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold text-white"
+              className="mx-auto mt-5 inline-flex max-w-full items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold text-white"
               style={{
                 borderColor: myTeam.color ?? "rgba(34,211,238,0.35)",
                 backgroundColor: myTeam.color ? `${myTeam.color}22` : "rgba(34,211,238,0.12)",
@@ -332,7 +332,7 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
                 className="h-2.5 w-2.5 rounded-full"
                 style={{ backgroundColor: myTeam.color ?? "#22d3ee" }}
               />
-              Du er på {myTeam.team_name} hold!
+              <span className="truncate">Du er på {myTeam.team_name} hold!</span>
             </div>
           ) : null}
           <WifiConnectionTip className="mt-6" />
@@ -469,19 +469,26 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      <div className="border-b border-white/10 bg-slate-900/80 px-4 py-4 backdrop-blur-xl sm:px-6">
+      <div className="border-b border-white/10 bg-slate-900/80 px-4 pb-4 pt-[max(env(safe-area-inset-top),1rem)] backdrop-blur-xl sm:px-6">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2 text-cyan-300">
-                <Swords className="h-5 w-5" />
-                <span className="text-xs font-black uppercase tracking-[0.3em]">Zone Krig</span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-cyan-300">
+                  <Swords className="h-5 w-5" />
+                  <span className="text-xs font-black uppercase tracking-[0.3em]">Zone Krig</span>
+                </div>
+
+                <h1 className="mt-2 truncate text-2xl font-black sm:text-3xl">{player.activeDisplayName}</h1>
+                <p className="mt-1 truncate text-sm text-white/60">
+                  {myTeam ? `${myTeam.team_name} er i kamp` : "Holdforbindelse mangler"}
+                </p>
               </div>
 
               <button
                 type="button"
                 onClick={() => setIsRulesOpen(true)}
-                className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 text-xs font-bold text-white/78 transition hover:bg-white/10 hover:text-white"
+                className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 text-xs font-bold text-white/78 transition hover:bg-white/10 hover:text-white"
               >
                 <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white/12 bg-white/8 text-[11px] font-black text-white/90">
                   ?
@@ -489,8 +496,6 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
                 Regler
               </button>
             </div>
-            <h1 className="mt-2 text-2xl font-black sm:text-3xl">{player.activeDisplayName}</h1>
-            <p className="mt-1 text-sm text-white/60">{myTeam ? `${myTeam.team_name} er i kamp` : "Holdforbindelse mangler"}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -521,7 +526,7 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
         </div>
       </div>
 
-      <div className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.85fr)] lg:px-6">
+      <div className="mx-auto grid w-full max-w-7xl gap-6 px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.85fr)] lg:px-6">
         <section className="overflow-hidden rounded-4xl border border-white/10 bg-slate-900/60 shadow-2xl backdrop-blur-xl">
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
             <div>
@@ -677,8 +682,8 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
                         : "border-white/10 bg-white/5 text-white/75 hover:bg-white/10"
                     }`}
                   >
-                    <div className="text-sm font-black">Zone {zone.zone_index + 1}</div>
-                    <div className="mt-1 text-xs" style={{ color: owner?.color ?? "#cbd5e1" }}>
+                    <div className="truncate text-sm font-black">Zone {zone.zone_index + 1}</div>
+                    <div className="mt-1 truncate text-xs" style={{ color: owner?.color ?? "#cbd5e1" }}>
                       {isMine ? "Din zone" : owner ? owner.team_name : "Neutral"}
                     </div>
                   </button>

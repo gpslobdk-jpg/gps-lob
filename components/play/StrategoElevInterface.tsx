@@ -575,7 +575,7 @@ export default function StrategoElevInterface({
                     type="button"
                     aria-label="Åbn spilleregler"
                     onClick={() => setIsRulesOpen(true)}
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-black text-white/82 transition hover:bg-white/10 hover:text-white"
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-black text-white/82 transition hover:bg-white/10 hover:text-white"
                   >
                     ?
                   </button>
@@ -731,18 +731,24 @@ export default function StrategoElevInterface({
                       <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Holdkammerater</p>
                     </div>
                     <div className="mt-3 space-y-2">
-                      <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-3">
-                        <span className="text-sm font-semibold text-white">{player.activeDisplayName}</span>
-                        <span className={`text-xs font-black uppercase tracking-[0.2em] ${teamTheme.accent}`}>Dig</span>
+                      <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-3">
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
+                          {player.activeDisplayName}
+                        </span>
+                        <span className={`shrink-0 text-xs font-black uppercase tracking-[0.2em] ${teamTheme.accent}`}>
+                          Dig
+                        </span>
                       </div>
                       {allyMarkers.length > 0 ? (
                         allyMarkers.map((ally) => (
                           <div
                             key={ally.participantId}
-                            className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/40 px-3 py-3"
+                            className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/40 px-3 py-3"
                           >
-                            <span className="text-sm font-semibold text-white/88">{ally.displayName}</span>
-                            <span className="text-xs uppercase tracking-[0.2em] text-white/45">
+                            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white/88">
+                              {ally.displayName}
+                            </span>
+                            <span className="shrink-0 text-xs uppercase tracking-[0.2em] text-white/45">
                               {ally.state === "alive" ? "I live" : "Til base"}
                             </span>
                           </div>

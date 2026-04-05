@@ -375,12 +375,12 @@ export default function ZoneKrigCommandCenter() {
       <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(ellipse_at_top_left,rgba(34,211,238,0.06),transparent_40%),radial-gradient(ellipse_at_bottom_right,rgba(99,102,241,0.07),transparent_40%),linear-gradient(180deg,#020617_0%,#020b18_100%)]" />
 
       {/* ── HEADER ── */}
-      <header className="relative z-10 flex items-center gap-3 border-b border-white/10 bg-slate-900/70 px-5 py-3 backdrop-blur-xl">
-        <div className="flex items-center gap-2.5">
+      <header className="relative z-10 flex flex-wrap items-center gap-3 border-b border-white/10 bg-slate-900/70 px-5 py-3 backdrop-blur-xl">
+        <div className="flex min-w-0 items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10">
             <Swords className="h-4 w-4 text-cyan-400" />
           </div>
-          <h1 className={`text-base font-black tracking-tight text-white ${rubik.className}`}>
+          <h1 className={`truncate text-base font-black tracking-tight text-white ${rubik.className}`}>
             Zone-Krigen
             <span className="ml-2 text-sm font-semibold text-white/40">
               Kommandocentral
@@ -388,7 +388,7 @@ export default function ZoneKrigCommandCenter() {
           </h1>
         </div>
 
-        <div className="ml-auto flex items-center gap-2.5">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2.5">
           <span className="hidden items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/50 sm:inline-flex">
             {contestedZones}/{totalZones} zoner erobret
           </span>
@@ -403,7 +403,7 @@ export default function ZoneKrigCommandCenter() {
           <button
             type="button"
             onClick={() => setIsRulesOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-white/75 transition hover:bg-white/10 hover:text-white"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3.5 py-2 text-xs font-bold text-white/75 transition hover:bg-white/10 hover:text-white"
           >
             <BookOpen className="h-3.5 w-3.5" />
             Spilregler
@@ -412,7 +412,7 @@ export default function ZoneKrigCommandCenter() {
             type="button"
             onClick={() => void finishMatch("manual")}
             disabled={isEndingMatch || isMatchOver}
-            className="rounded-full border border-rose-400/30 bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-100 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            className="min-h-11 rounded-full border border-rose-400/30 bg-rose-500/10 px-3.5 py-2 text-xs font-bold text-rose-100 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isEndingMatch ? "Afslutter..." : "Afslut Spil"}
           </button>

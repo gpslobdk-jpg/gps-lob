@@ -190,9 +190,9 @@ function createPlayerIcon(player: TeacherStrategoPlayer, roleName: string) {
         <div style="display:flex;height:36px;width:36px;align-items:center;justify-content:center;border-radius:14px;background:${color};color:white;font-size:12px;font-weight:900;box-shadow:0 0 18px ${player.teamCode === "blue" ? "rgba(56,189,248,0.35)" : "rgba(244,63,94,0.35)"};">
           ${getRoleGlyph(player.rankKey)}
         </div>
-        <div style="display:flex;flex-direction:column;min-width:0;">
-          <span style="font-size:12px;font-weight:800;color:white;white-space:nowrap;">${player.name}</span>
-          <span style="font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:${color};white-space:nowrap;">${roleName}</span>
+        <div style="display:flex;flex-direction:column;min-width:0;max-width:120px;">
+          <span style="display:block;font-size:12px;font-weight:800;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${player.name}</span>
+          <span style="display:block;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:${color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${roleName}</span>
         </div>
         <span style="display:flex;height:10px;width:10px;border-radius:999px;background:${statusDot};box-shadow:0 0 12px ${statusDot};"></span>
       </div>
@@ -715,19 +715,19 @@ export default function StrategoTeacherDashboard({
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.08),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(244,63,94,0.08),transparent_30%),linear-gradient(180deg,#020617_0%,#020b18_100%)]" />
 
       <header className="relative z-10 border-b border-white/10 bg-slate-900/76 px-5 py-4 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center gap-3">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-start gap-3 sm:items-center">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/6">
             <Swords className="h-5 w-5 text-rose-200" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h1 className="text-xl font-black tracking-tight text-white">Live Stratego Kontrolrum</h1>
             <p className="text-sm text-white/55">PIN {joinPin} • lærerens fulde gude-overblik</p>
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
             <button
               type="button"
               onClick={() => setIsRulesOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-4 py-2 text-xs font-bold text-white/75 transition hover:bg-white/10 hover:text-white"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-white/6 px-4 py-2.5 text-xs font-bold text-white/75 transition hover:bg-white/10 hover:text-white"
             >
               <BookOpen className="h-4 w-4" />
               Spilregler
@@ -736,7 +736,7 @@ export default function StrategoTeacherDashboard({
               type="button"
               onClick={() => void onTogglePause()}
               disabled={isUpdatingPause || isEndingRun || isFinished}
-              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.22em] transition disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-slate-800 disabled:text-white/45 ${
+              className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-4 py-2.5 text-xs font-black uppercase tracking-[0.22em] transition disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-slate-800 disabled:text-white/45 ${
                 isPaused
                   ? "border-emerald-300/25 bg-emerald-500 text-slate-950 hover:bg-emerald-400"
                   : "border-rose-300/25 bg-rose-500 text-white hover:bg-rose-400"
@@ -771,7 +771,7 @@ export default function StrategoTeacherDashboard({
               type="button"
               onClick={() => void onEndRun()}
               disabled={isEndingRun || isFinished}
-              className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-white/45"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500 px-4 py-2.5 text-xs font-black uppercase tracking-[0.22em] text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-white/45"
             >
               {isFinished ? (
                 <>
