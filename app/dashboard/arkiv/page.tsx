@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { BarChart, Calendar, Copy, Edit2, MapPin, Play, Search, Timer, Trash2, X } from "lucide-react";
+import { BarChart, Calendar, Copy, Edit2, MapPin, Play, Search, Shield, Timer, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useState, type FormEvent } from "react";
@@ -12,6 +12,8 @@ import {
   asTrimmedString,
   getBuilderHrefForRaceType,
   getNormalizedRunRaceType,
+  getStrategoBasePreset,
+  RACE_TYPES,
   type RaceType,
   type RunQuestionRecord,
   type StoredRunRecord,
@@ -91,6 +93,39 @@ const formatDanishDate = (value: string) => {
 
 const getQuestionCount = (questions: Run["questions"]) => {
   return Array.isArray(questions) ? questions.length : 0;
+};
+
+const getArchiveContentSummary = (run: Run) => {
+  const normalizedRaceType = getNormalizedRunRaceType(run);
+
+  if (normalizedRaceType === RACE_TYPES.ZONE_KRIG) {
+    const zoneCount = getQuestionCount(run.questions);
+    return {
+      label: `${zoneCount} ${zoneCount === 1 ? "zone" : "zoner"}`,
+      Icon: MapPin,
+    };
+  }
+
+  if (normalizedRaceType === RACE_TYPES.STRATEGO) {
+    const preset = getStrategoBasePreset(run);
+    const baseCount = Number(Boolean(preset.redBase)) + Number(Boolean(preset.blueBase));
+
+    return {
+      label:
+        baseCount === 0
+          ? "Ingen base gemt"
+          : baseCount === 2
+            ? "Base-preset gemt"
+            : "1 base gemt",
+      Icon: Shield,
+    };
+  }
+
+  const questionCount = getQuestionCount(run.questions);
+  return {
+    label: `${questionCount} poster`,
+    Icon: MapPin,
+  };
 };
 
 const QUICK_TOGGLE_EXCLUDED_RACE_TYPES = new Set<RaceType>(["zone_krig", "scanner"]);
@@ -258,6 +293,7 @@ function ArchivedRunCard({
   const theme = getRaceTypeTheme(getNormalizedRunRaceType(run) ?? run.race_type ?? run.raceType);
   const gradeLevels = normalizeGradeLevels(run.grade_levels);
   const runSchedule = getRunSchedule(run);
+  const contentSummary = getArchiveContentSummary(run);
   const formattedStart = formatDanishDateTime(runSchedule?.startAt);
   const formattedEnd = formatDanishDateTime(runSchedule?.endAt);
   const isScheduled = hasRunSchedule(runSchedule);
@@ -361,8 +397,8 @@ function ArchivedRunCard({
       </div>
 
       <p className="flex items-center gap-2 text-sm font-medium text-slate-800">
-        <MapPin className={`h-4 w-4 ${theme.archiveAccentIconClass}`} />
-        {getQuestionCount(run.questions)} poster
+        <contentSummary.Icon className={`h-4 w-4 ${theme.archiveAccentIconClass}`} />
+        {contentSummary.label}
       </p>
 
       {isScheduled ? (
@@ -703,7 +739,7 @@ export default function ArkivPage() {
       } = await supabase.auth.getUser();
 
       if (userError || !user) {
-        alert("Du skal vÃ¦re logget ind for at planlÃ¦gge et lÃ¸b.");
+        alert("Du skal vaere logget ind for at planlaegge et loeb.");
         return;
       }
 

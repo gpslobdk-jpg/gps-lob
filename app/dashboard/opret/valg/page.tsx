@@ -6,7 +6,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 
 import PwaInstallTip from "@/components/PwaInstallTip";
 import {
@@ -28,7 +27,10 @@ const poppins = Poppins({
 });
 
 const cardBaseClass =
-  "group relative mx-auto flex h-[12rem] w-full max-w-[20.5rem] flex-col overflow-hidden rounded-[2rem] border bg-white/10 p-0 text-left shadow-[0_22px_52px_rgba(15,23,42,0.16),0_8px_18px_rgba(15,23,42,0.07),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-lg transition-all duration-300";
+  "group relative z-0 mx-auto flex h-[12rem] w-full max-w-[20.5rem] flex-col overflow-visible rounded-[2rem] border bg-white/10 p-0 text-left shadow-[0_22px_52px_rgba(15,23,42,0.16),0_8px_18px_rgba(15,23,42,0.07),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-lg transition-all duration-300 hover:z-20 focus-within:z-20";
+
+const cardBackgroundShellClass =
+  "pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[2rem]";
 
 const cardPanelClass =
   "relative flex h-full flex-col items-center justify-center rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.05))] px-4 py-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-16px_24px_rgba(15,23,42,0.07)]";
@@ -178,8 +180,10 @@ function BuilderCard({ card, index }: { card: BuilderCard; index: number }) {
       whileHover={card.locked ? undefined : { y: -4, scale: 1.012 }}
       className={`${cardBaseClass} ${card.accentClass} ${card.locked ? "cursor-default" : "cursor-pointer"}`}
     >
-      <div className={`pointer-events-none absolute inset-0 rounded-[2rem] ${card.accentGlowClass}`} />
-      <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem]" />
+      <div className={cardBackgroundShellClass}>
+        <div className={`absolute inset-0 rounded-[2rem] ${card.accentGlowClass}`} />
+        <div className="absolute inset-[1px] rounded-[1.95rem]" />
+      </div>
 
       {card.badge ? (
         <div className="absolute top-4 right-4 z-20">
@@ -242,13 +246,7 @@ function PremiumGameCardWrapper({
 function GameInfoPopover({ copy }: { copy: GameInfoCopy }) {
   const [isPinnedOpen, setIsPinnedOpen] = useState(false);
   const [isHoverActive, setIsHoverActive] = useState(false);
-  const [popoverStyle, setPopoverStyle] = useState<{
-    left: number;
-    top: number;
-    width: number;
-  } | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const popoverRef = useRef<HTMLDivElement | null>(null);
   const hoverCloseTimeoutRef = useRef<number | null>(null);
   const isOpen = isPinnedOpen || isHoverActive;
 
@@ -286,9 +284,7 @@ function GameInfoPopover({ copy }: { copy: GameInfoCopy }) {
 
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as Node | null;
-      const isInsideTrigger = wrapperRef.current && target ? wrapperRef.current.contains(target) : false;
-      const isInsidePopover = popoverRef.current && target ? popoverRef.current.contains(target) : false;
-      if (!isInsideTrigger && !isInsidePopover) {
+      if (wrapperRef.current && target && !wrapperRef.current.contains(target)) {
         setIsPinnedOpen(false);
       }
     };
@@ -307,55 +303,6 @@ function GameInfoPopover({ copy }: { copy: GameInfoCopy }) {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isPinnedOpen]);
-
-  useEffect(() => {
-    if (!isOpen || typeof window === "undefined") {
-      return;
-    }
-
-    const updatePosition = () => {
-      if (!wrapperRef.current) {
-        return;
-      }
-
-      const rect = wrapperRef.current.getBoundingClientRect();
-      const viewportPadding = 16;
-      const desiredWidth = Math.min(288, Math.max(220, window.innerWidth - viewportPadding * 2));
-      const nextLeft = Math.min(
-        Math.max(rect.left, viewportPadding),
-        Math.max(viewportPadding, window.innerWidth - desiredWidth - viewportPadding)
-      );
-
-      const gap = 8;
-      const popoverHeight = popoverRef.current?.offsetHeight ?? 0;
-      let nextTop = rect.bottom + gap;
-
-      if (popoverHeight > 0 && nextTop + popoverHeight > window.innerHeight - viewportPadding) {
-        nextTop = Math.max(viewportPadding, rect.top - popoverHeight - gap);
-      }
-
-      setPopoverStyle({
-        left: nextLeft,
-        top: nextTop,
-        width: desiredWidth,
-      });
-    };
-
-    updatePosition();
-    const frameId = window.requestAnimationFrame(updatePosition);
-    window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", updatePosition, true);
-    window.visualViewport?.addEventListener("resize", updatePosition);
-    window.visualViewport?.addEventListener("scroll", updatePosition);
-
-    return () => {
-      window.cancelAnimationFrame(frameId);
-      window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", updatePosition, true);
-      window.visualViewport?.removeEventListener("resize", updatePosition);
-      window.visualViewport?.removeEventListener("scroll", updatePosition);
-    };
-  }, [isOpen]);
 
   useEffect(() => {
     return () => {
@@ -392,52 +339,40 @@ function GameInfoPopover({ copy }: { copy: GameInfoCopy }) {
         <CircleHelp className="h-4 w-4" />
       </button>
 
-      {isOpen && typeof document !== "undefined"
-        ? createPortal(
-            <div
-              ref={popoverRef}
-              onMouseEnter={handleHoverStart}
-              onMouseLeave={handleHoverEnd}
-              onPointerDownCapture={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-              }}
-              onClickCapture={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-              }}
-              style={{
-                position: "fixed",
-                left: popoverStyle?.left ?? 16,
-                top: popoverStyle?.top ?? 16,
-                width: popoverStyle?.width ?? 288,
-                zIndex: 1200,
-                visibility: popoverStyle ? "visible" : "hidden",
-              }}
-              className={`rounded-[1.5rem] border px-4 py-4 backdrop-blur-2xl ${copy.toneClassName}`}
-            >
-              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/72">
-                Læs Om Spillet
-              </p>
-              <h3 className={`mt-2 text-lg font-black tracking-tight text-white ${rubik.className}`}>
-                {copy.title}
-              </h3>
+      {isOpen ? (
+        <div
+          onMouseEnter={handleHoverStart}
+          onMouseLeave={handleHoverEnd}
+          onPointerDownCapture={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onClickCapture={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          className={`absolute left-0 top-12 z-40 w-[min(18rem,calc(100vw-4rem))] rounded-[1.5rem] border px-4 py-4 backdrop-blur-2xl ${copy.toneClassName}`}
+        >
+          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/72">
+            Læs Om Spillet
+          </p>
+          <h3 className={`mt-2 text-lg font-black tracking-tight text-white ${rubik.className}`}>
+            {copy.title}
+          </h3>
 
-              <div className="mt-4 space-y-3">
-                <div className="rounded-[1rem] border border-white/12 bg-white/8 px-3 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/62">Formål</p>
-                  <p className="mt-2 text-sm leading-6 text-white/88">{copy.purpose}</p>
-                </div>
+          <div className="mt-4 space-y-3">
+            <div className="rounded-[1rem] border border-white/12 bg-white/8 px-3 py-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/62">Formål</p>
+              <p className="mt-2 text-sm leading-6 text-white/88">{copy.purpose}</p>
+            </div>
 
-                <div className="rounded-[1rem] border border-white/12 bg-white/8 px-3 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/62">Spillets gang</p>
-                  <p className="mt-2 text-sm leading-6 text-white/88">{copy.flow}</p>
-                </div>
-              </div>
-            </div>,
-            document.body
-          )
-        : null}
+            <div className="rounded-[1rem] border border-white/12 bg-white/8 px-3 py-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/62">Spillets gang</p>
+              <p className="mt-2 text-sm leading-6 text-white/88">{copy.flow}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -600,8 +535,10 @@ export default function ValgHubPage() {
               whileHover={strategoCardHref ? { y: -4, scale: 1.012 } : undefined}
               className={`${cardBaseClass} ${strategoCardHref ? "cursor-pointer" : "cursor-default"} border-red-500/75 bg-red-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(239,68,68,0.28),inset_0_1px_0_rgba(255,255,255,0.18)] ${premiumCardsAreLocked ? "ring-1 ring-amber-300/20" : ""}`}
             >
-              <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(249,115,22,0.28),transparent_62%),radial-gradient(circle_at_center,rgba(239,68,68,0.2),transparent_70%)] shadow-[inset_0_0_54px_rgba(239,68,68,0.18)]" />
-              <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem]" />
+              <div className={cardBackgroundShellClass}>
+                <div className="absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(249,115,22,0.28),transparent_62%),radial-gradient(circle_at_center,rgba(239,68,68,0.2),transparent_70%)] shadow-[inset_0_0_54px_rgba(239,68,68,0.18)]" />
+                <div className="absolute inset-[1px] rounded-[1.95rem]" />
+              </div>
               <GameInfoPopover copy={GAME_INFO_COPY.stratego} />
 
               <div className="absolute top-4 right-4 z-20">
@@ -634,8 +571,10 @@ export default function ValgHubPage() {
               whileHover={zoneKrigCardHref ? { y: -4, scale: 1.012 } : undefined}
               className={`${cardBaseClass} ${zoneKrigCardHref ? "cursor-pointer" : "cursor-default"} border-orange-500/75 bg-orange-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(249,115,22,0.28),inset_0_1px_0_rgba(255,255,255,0.18)] ${premiumCardsAreLocked ? "ring-1 ring-amber-300/20" : ""}`}
             >
-              <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(249,115,22,0.34),transparent_62%)] shadow-[inset_0_0_54px_rgba(249,115,22,0.28)]" />
-              <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem]" />
+              <div className={cardBackgroundShellClass}>
+                <div className="absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(249,115,22,0.34),transparent_62%)] shadow-[inset_0_0_54px_rgba(249,115,22,0.28)]" />
+                <div className="absolute inset-[1px] rounded-[1.95rem]" />
+              </div>
               <GameInfoPopover copy={GAME_INFO_COPY["zone-krig"]} />
 
               <div className="absolute top-4 right-4 z-20">
