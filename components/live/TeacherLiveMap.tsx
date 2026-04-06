@@ -7,7 +7,7 @@ import { Poppins, Rubik } from "next/font/google";
 import { useEffect } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
-import { toFiniteNumber } from "@/components/live/liveUtils";
+import { escapeHtml, toFiniteNumber } from "@/components/live/liveUtils";
 import type { LiveStudentLocation, RunQuestion } from "@/components/live/types";
 
 const rubik = Rubik({
@@ -72,7 +72,8 @@ function getMapPoints(
 }
 
 function createStudentIcon(name: string, isLive: boolean) {
-  const initial = name.trim().charAt(0).toUpperCase() || "?";
+  const initial = escapeHtml(name.trim().charAt(0).toUpperCase() || "?");
+  const safeName = escapeHtml(name);
   const statusMarkup = isLive
     ? `<span class="absolute inline-flex h-3.5 w-3.5 animate-ping rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex h-3 w-3 rounded-full border border-emerald-100/80 bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.95)]"></span>`
     : `<span class="relative inline-flex h-3 w-3 rounded-full border border-slate-300/60 bg-slate-500 shadow-[0_0_10px_rgba(100,116,139,0.75)]"></span>`;
@@ -81,7 +82,7 @@ function createStudentIcon(name: string, isLive: boolean) {
     className: "bg-transparent border-none w-auto",
     html: `<div class="relative flex items-center gap-2 rounded-2xl border border-slate-500/70 bg-slate-900/92 px-3 py-2 text-white shadow-lg shadow-slate-950/70 ring-1 ring-white/10 backdrop-blur-md whitespace-nowrap ${isLive ? "" : "opacity-50"}">
       <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-800 text-[11px] font-black uppercase text-white shadow-inner shadow-black/40">${initial}</span>
-      <span class="text-xs font-bold tracking-wide text-white">${name}</span>
+      <span class="text-xs font-bold tracking-wide text-white">${safeName}</span>
       <span class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center">
         ${statusMarkup}
       </span>

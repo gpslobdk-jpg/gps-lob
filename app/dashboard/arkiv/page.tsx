@@ -955,7 +955,9 @@ export default function ArkivPage() {
                 exit={{ opacity: 0 }}
                 className="col-span-full rounded-2xl border border-white/50 bg-white/80 p-8 text-center text-emerald-800 shadow-lg backdrop-blur-md"
               >
-                Ingen løb matcher din søgning.
+                {runs.length === 0
+                  ? "Du har endnu ingen løb. Opret dit første løb i dashboardet!"
+                  : "Ingen løb matcher din søgning."}
               </motion.div>
             ) : (
               filteredRuns.map((run) => {

@@ -115,6 +115,15 @@ const LIVE_STATUS_WINDOW_MS = 30_000;
 const TEACHER_PLAYER_ICON_CACHE_LIMIT = 500;
 const teacherPlayerIconCache = new Map<string, L.DivIcon>();
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
 function toFiniteNumber(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
@@ -191,7 +200,7 @@ function createPlayerIcon(player: TeacherStrategoPlayer, roleName: string) {
           ${getRoleGlyph(player.rankKey)}
         </div>
         <div style="display:flex;flex-direction:column;min-width:0;max-width:120px;">
-          <span style="display:block;font-size:12px;font-weight:800;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${player.name}</span>
+          <span style="display:block;font-size:12px;font-weight:800;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(player.name)}</span>
           <span style="display:block;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:${color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${roleName}</span>
         </div>
         <span style="display:flex;height:10px;width:10px;border-radius:999px;background:${statusDot};box-shadow:0 0 12px ${statusDot};"></span>

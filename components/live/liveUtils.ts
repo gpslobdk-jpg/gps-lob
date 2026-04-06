@@ -93,6 +93,15 @@ export function prependAnswer(previous: LiveAnswer[], nextAnswer: LiveAnswer): L
   return [nextAnswer, ...deduped];
 }
 
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
 export function getTeacherMapCenter(runQuestions: RunQuestion[]): [number, number] {
   const firstRunQuestionWithCoords = runQuestions.find((question) => {
     const lat = toFiniteNumber(question.lat);
