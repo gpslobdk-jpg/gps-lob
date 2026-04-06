@@ -383,14 +383,14 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
           <p className="mt-6 text-xs font-black uppercase tracking-[0.38em] text-amber-300/80">
             Game Over
           </p>
-          <h1 className="mt-4 text-4xl font-black sm:text-5xl">
+          <h1 className="mt-4 break-words text-4xl font-black sm:text-5xl">
             {winnerSummary.winner
               ? `${winnerSummary.winner.team_name.toUpperCase()} VINDER!`
               : winnerSummary.isTie
                 ? "DET ENDER UAFGJORT!"
                 : "KAMPEN ER AFSLUTTET"}
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-white/75 sm:text-base">
+          <p className="mx-auto mt-4 max-w-xl break-words text-sm leading-7 text-white/75 sm:text-base">
             {remainingMs !== null && remainingMs <= 0
               ? "Tiden er ude!"
               : "Zone Krig er afsluttet af læreren."}{" "}

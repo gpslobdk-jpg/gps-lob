@@ -5,7 +5,7 @@ import { ArrowLeft, CircleHelp, Shield } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import PwaInstallTip from "@/components/PwaInstallTip";
 import {
@@ -51,6 +51,7 @@ type BuilderCard = {
 
 type ProfileAccessRow = AccessProfile;
 type PremiumCardAccessState = "loading" | "premium" | "trial" | "locked";
+type GameType = "stratego" | "zone-krig";
 type GameInfoCopy = {
   title: string;
   purpose: string;
@@ -59,12 +60,11 @@ type GameInfoCopy = {
   iconToneClassName: string;
 };
 
-const GAME_INFO_COPY: Record<"stratego" | "zone-krig", GameInfoCopy> = {
+const GAME_INFO_COPY: Record<GameType, GameInfoCopy> = {
   stratego: {
     title: "Live Stratego",
-    purpose: "Find og fang modstanderholdets Fane for at vinde øjeblikkeligt.",
-    flow:
-      "Fjender vises som abstrakte radarzoner. Se afstanden, men find dem i virkeligheden. Området omkring jeres base er fredet, og dueller afgøres af rang med klassiske undtagelser.",
+    purpose: "Tag det klassiske brætspil ud i virkeligheden! Eleverne får pulsen op, mens de samarbejder, tænker taktisk og dyster mod hinanden i det fri.",
+    flow: "Eleverne inddeles i hold, og deres telefoner fungerer som spillebrikker på et stort, interaktivt kort. Holdene skal forsøge at finde og erobre modstandernes fane, som er gemt i en af baserne. Det kræver, at eleverne bevæger sig fysisk ud til zonerne for at angribe eller forsvare. Bliver man angrebet, dyster holdene på rang (præcis som i brætspillet), og taberen må løbe tilbage til start. Et fantastisk spil til idræt, trivselsdage eller som et aktivt afbræk i undervisningen.",
     toneClassName:
       "border-red-300/28 bg-[linear-gradient(145deg,rgba(127,29,29,0.94),rgba(136,19,55,0.9))] text-white shadow-[0_24px_60px_rgba(127,29,29,0.35)]",
     iconToneClassName:
@@ -72,10 +72,8 @@ const GAME_INFO_COPY: Record<"stratego" | "zone-krig", GameInfoCopy> = {
   },
   "zone-krig": {
     title: "Zone-Krigen",
-    purpose:
-      "Erobr og hold fast i flest zoner, når tiden løber ud. Point er kun til pynt – zoner afgør sejren.",
-    flow:
-      "Løb hen til en zone og svar rigtigt på opgaven for at overtage den. Når en zone overtages, får den et 3-minutters skjold, og et korrekt svar på egen zone fornyer skjoldet.",
+    purpose: "Gør skolegården eller lokalområdet til en levende spilleplade. Her handler det om strategi, udholdenhed og at løfte i flok som hold.",
+    flow: "Spillet fungerer som en moderne, digital fangeleg. Læreren placerer en række \"zoner\" på kortet (eller henter dem fra Arkivet). Holdene skal nu løbe ud og stille sig ind i zonerne for at erobre dem. Jo længere et hold kan fastholde en zone uden at blive jagtet væk af de andre, jo flere point tikker der ind på kontoen. Det hold, der har samlet flest point, når tiden rinder ud, vinder. En intens og sjov hold-dyst, hvor alle kan være med!",
     toneClassName:
       "border-orange-300/28 bg-[linear-gradient(145deg,rgba(154,52,18,0.94),rgba(194,65,12,0.9))] text-white shadow-[0_24px_60px_rgba(194,65,12,0.28)]",
     iconToneClassName:
@@ -243,136 +241,33 @@ function PremiumGameCardWrapper({
   );
 }
 
-function GameInfoPopover({ copy }: { copy: GameInfoCopy }) {
-  const [isPinnedOpen, setIsPinnedOpen] = useState(false);
-  const [isHoverActive, setIsHoverActive] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const hoverCloseTimeoutRef = useRef<number | null>(null);
-  const isOpen = isPinnedOpen || isHoverActive;
-
-  const clearHoverCloseTimeout = () => {
-    if (hoverCloseTimeoutRef.current === null || typeof window === "undefined") {
-      return;
-    }
-
-    window.clearTimeout(hoverCloseTimeoutRef.current);
-    hoverCloseTimeoutRef.current = null;
-  };
-
-  const handleHoverStart = () => {
-    clearHoverCloseTimeout();
-    setIsHoverActive(true);
-  };
-
-  const handleHoverEnd = () => {
-    if (typeof window === "undefined") {
-      setIsHoverActive(false);
-      return;
-    }
-
-    clearHoverCloseTimeout();
-    hoverCloseTimeoutRef.current = window.setTimeout(() => {
-      setIsHoverActive(false);
-      hoverCloseTimeoutRef.current = null;
-    }, 100);
-  };
-
-  useEffect(() => {
-    if (!isPinnedOpen) {
-      return;
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node | null;
-      if (wrapperRef.current && target && !wrapperRef.current.contains(target)) {
-        setIsPinnedOpen(false);
-      }
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsPinnedOpen(false);
-      }
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isPinnedOpen]);
-
-  useEffect(() => {
-    return () => {
-      clearHoverCloseTimeout();
-    };
-  }, []);
+function GameInfoButton({
+  gameType,
+  isOpen,
+  onToggle,
+}: {
+  gameType: GameType;
+  isOpen: boolean;
+  onToggle: (gameType: GameType) => void;
+}) {
+  const copy = GAME_INFO_COPY[gameType];
 
   return (
-    <div
-      ref={wrapperRef}
-      className="absolute top-4 left-4 z-30"
-      onMouseEnter={handleHoverStart}
-      onMouseLeave={handleHoverEnd}
-      onPointerDownCapture={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      }}
-      onClickCapture={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      }}
-    >
+    <div className="absolute top-4 left-4 z-30">
       <button
         type="button"
         aria-label={`Læs om ${copy.title}`}
         aria-expanded={isOpen}
+        aria-haspopup="dialog"
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          setIsPinnedOpen((previous) => !previous);
+          onToggle(gameType);
         }}
         className={`inline-flex h-10 w-10 items-center justify-center rounded-full border backdrop-blur-xl transition hover:scale-[1.03] ${copy.iconToneClassName}`}
       >
         <CircleHelp className="h-4 w-4" />
       </button>
-
-      {isOpen ? (
-        <div
-          onMouseEnter={handleHoverStart}
-          onMouseLeave={handleHoverEnd}
-          onPointerDownCapture={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-          }}
-          onClickCapture={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-          }}
-          className={`absolute left-0 top-12 z-40 max-h-[min(26rem,calc(100vh-6rem))] w-[min(18rem,calc(100vw-4rem))] overflow-y-auto rounded-[1.5rem] border px-4 py-4 backdrop-blur-2xl overscroll-contain ${copy.toneClassName}`}
-        >
-          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/72">
-            Læs Om Spillet
-          </p>
-          <h3 className={`mt-2 text-lg font-black tracking-tight text-white ${rubik.className}`}>
-            {copy.title}
-          </h3>
-
-          <div className="mt-4 space-y-3">
-            <div className="rounded-[1rem] border border-white/12 bg-white/8 px-3 py-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/62">Formål</p>
-              <p className="mt-2 text-sm leading-6 text-white/88">{copy.purpose}</p>
-            </div>
-
-            <div className="rounded-[1rem] border border-white/12 bg-white/8 px-3 py-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/62">Spillets gang</p>
-              <p className="mt-2 text-sm leading-6 text-white/88">{copy.flow}</p>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -381,6 +276,7 @@ export default function ValgHubPage() {
   const [premiumAccessState, setPremiumAccessState] = useState<PremiumCardAccessState>(() =>
     IS_PAYWALL_ENABLED ? "loading" : "premium"
   );
+  const [selectedInfo, setSelectedInfo] = useState<GameType | null>(null);
 
   useEffect(() => {
     if (!IS_PAYWALL_ENABLED) {
@@ -443,9 +339,34 @@ export default function ValgHubPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!selectedInfo) {
+      return;
+    }
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedInfo(null);
+      }
+    };
+
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectedInfo]);
+
   const premiumCardsAreTrial = IS_PAYWALL_ENABLED && premiumAccessState === "trial";
   const premiumCardsAreLocked = IS_PAYWALL_ENABLED && premiumAccessState === "locked";
   const premiumCardsAreLoading = IS_PAYWALL_ENABLED && premiumAccessState === "loading";
+  const selectedInfoCopy = selectedInfo ? GAME_INFO_COPY[selectedInfo] : null;
+  const handleInfoToggle = (gameType: GameType) => {
+    setSelectedInfo((current) => (current === gameType ? null : gameType));
+  };
   const strategoCardHref = premiumCardsAreLocked
     ? "/priser"
     : premiumCardsAreLoading
@@ -539,7 +460,11 @@ export default function ValgHubPage() {
                 <div className="absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(249,115,22,0.28),transparent_62%),radial-gradient(circle_at_center,rgba(239,68,68,0.2),transparent_70%)] shadow-[inset_0_0_54px_rgba(239,68,68,0.18)]" />
                 <div className="absolute inset-[1px] rounded-[1.95rem]" />
               </div>
-              <GameInfoPopover copy={GAME_INFO_COPY.stratego} />
+              <GameInfoButton
+                gameType="stratego"
+                isOpen={selectedInfo === "stratego"}
+                onToggle={handleInfoToggle}
+              />
 
               <div className="absolute top-4 right-4 z-20">
                 <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[0.58rem] font-bold tracking-[0.18em] text-white uppercase shadow-[0_10px_22px_rgba(239,68,68,0.22)] backdrop-blur-md ${premiumBadgeLabel ? premiumBadgeClass : "border-red-300/40 bg-red-400/20"}`}>
@@ -575,7 +500,11 @@ export default function ValgHubPage() {
                 <div className="absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(249,115,22,0.34),transparent_62%)] shadow-[inset_0_0_54px_rgba(249,115,22,0.28)]" />
                 <div className="absolute inset-[1px] rounded-[1.95rem]" />
               </div>
-              <GameInfoPopover copy={GAME_INFO_COPY["zone-krig"]} />
+              <GameInfoButton
+                gameType="zone-krig"
+                isOpen={selectedInfo === "zone-krig"}
+                onToggle={handleInfoToggle}
+              />
 
               <div className="absolute top-4 right-4 z-20">
                 <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[0.58rem] font-bold tracking-[0.18em] text-white uppercase shadow-[0_10px_22px_rgba(249,115,22,0.22)] backdrop-blur-md ${premiumBadgeLabel ? premiumBadgeClass : "border-orange-300/40 bg-orange-400/20"}`}>
@@ -614,6 +543,54 @@ export default function ValgHubPage() {
           </Link>
         </div>
       </div>
+
+      {selectedInfoCopy ? (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+          onClick={() => setSelectedInfo(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="game-info-modal-title"
+            className={`relative max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-[1.75rem] border p-6 backdrop-blur-2xl overscroll-contain sm:p-8 ${selectedInfoCopy.toneClassName}`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              aria-label="Luk info"
+              onClick={() => setSelectedInfo(null)}
+              className="absolute top-4 right-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/18 bg-white/10 text-lg font-semibold text-white/92 transition hover:bg-white/16"
+            >
+              X
+            </button>
+
+            <p className="pr-12 text-[10px] font-black uppercase tracking-[0.28em] text-white/72">
+              Læs Om Spillet
+            </p>
+            <h3
+              id="game-info-modal-title"
+              className={`mt-3 pr-12 text-2xl font-black tracking-tight text-white ${rubik.className}`}
+            >
+              {selectedInfoCopy.title}
+            </h3>
+
+            <div className="mt-6 space-y-4">
+              <div className="rounded-[1rem] border border-white/12 bg-white/8 px-4 py-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/62">Formål</p>
+                <p className="mt-2 text-sm leading-6 text-white/88">{selectedInfoCopy.purpose}</p>
+              </div>
+
+              <div className="rounded-[1rem] border border-white/12 bg-white/8 px-4 py-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/62">
+                  Spillets gang
+                </p>
+                <p className="mt-2 text-sm leading-6 text-white/88">{selectedInfoCopy.flow}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

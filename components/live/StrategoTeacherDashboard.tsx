@@ -931,10 +931,10 @@ export default function StrategoTeacherDashboard({
               {renderedDuelEvents.length > 0 ? (
                 renderedDuelEvents.map((event) => (
                   <div key={event.id} className="rounded-[1.2rem] border border-white/10 bg-slate-950/45 px-4 py-3">
-                    <p className="text-sm font-semibold text-white/88">
+                    <p className="break-words text-sm font-semibold text-white/88 line-clamp-2">
                       {event.attackerName} ({event.attackerRole}) vs {event.defenderName} ({event.defenderRole})
                     </p>
-                    <p className="mt-1 text-xs text-white/55">
+                    <p className="mt-1 break-words text-xs text-white/55 line-clamp-2">
                       {event.isDraw ? "Uafgjort - begge tilbage til basen" : `${event.winnerName} tog duellen`} •{" "}
                       {formatRelativeTimestamp(event.createdAt)}
                     </p>

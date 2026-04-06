@@ -334,7 +334,7 @@ function ArchivedRunCard({
     >
       <div className={`-mx-5 -mt-5 mb-5 border-b border-white/10 px-5 py-5 ${theme.archiveHeaderClass}`}>
         <div className="flex items-start justify-between gap-3">
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
+          <span className="max-w-[8rem] truncate rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
             {run.subject}
           </span>
 
@@ -361,7 +361,7 @@ function ArchivedRunCard({
 
         <div className="mt-4 flex items-start justify-between gap-3">
           <h2
-            className={`max-w-[18rem] text-xl font-bold leading-tight text-white ${rubik.className}`}
+            className={`line-clamp-2 max-w-[18rem] break-words text-xl font-bold leading-tight text-white ${rubik.className}`}
           >
             {run.title}
           </h2>
@@ -1009,7 +1009,7 @@ export default function ArkivPage() {
                     <p className="text-xs font-semibold tracking-[0.32em] text-white/70 uppercase">
                       Tidsstyring
                     </p>
-                    <h2 className={`mt-3 text-2xl font-black text-white ${rubik.className}`}>
+                <h2 className={`mt-3 line-clamp-2 break-words text-2xl font-black text-white ${rubik.className}`}>
                       {scheduleRun.title}
                     </h2>
                     <p className="mt-3 max-w-md text-sm leading-6 text-white/80">

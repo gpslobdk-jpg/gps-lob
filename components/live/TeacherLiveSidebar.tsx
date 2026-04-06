@@ -444,7 +444,7 @@ export default function TeacherLiveSidebar({
                           {formatFeedTime(item.message.created_at)}
                         </span>
                       </div>
-                      <div className="mt-3 rounded-2xl border border-slate-500/15 bg-slate-950/35 px-4 py-3 text-sm leading-relaxed text-slate-200">
+              <div className="mt-3 break-words whitespace-pre-wrap rounded-2xl border border-slate-500/15 bg-slate-950/35 px-4 py-3 text-sm leading-relaxed text-slate-200">
                         {item.message.message}
                       </div>
                     </div>
