@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import { Poppins } from "next/font/google";
 
+import { FullscreenWarning } from "@/components/ui/FullscreenWarning";
 import TeacherLiveLobby from "@/components/live/TeacherLiveLobby";
 import TeacherLiveResults from "@/components/live/TeacherLiveResults";
 import TeacherLiveSidebar from "@/components/live/TeacherLiveSidebar";
@@ -39,7 +40,9 @@ export default function LiveLobbyPage() {
   const isZoneKrigRace = normalizeRaceType(live.runRaceType) === RACE_TYPES.ZONE_KRIG;
 
   return (
-    <AnimatePresence mode="wait">
+    <>
+      <FullscreenWarning />
+      <AnimatePresence mode="wait">
       {live.status === "waiting" ? (
         isStrategoRace ? (
           <StrategoTeacherSetup
@@ -117,5 +120,6 @@ export default function LiveLobbyPage() {
         </motion.div>
       )}
     </AnimatePresence>
+    </>
   );
 }

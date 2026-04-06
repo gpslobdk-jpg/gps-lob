@@ -5,6 +5,7 @@ import { Crosshair } from "lucide-react";
 import { Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 
+import { FullscreenWarning } from "@/components/ui/FullscreenWarning";
 import GPSManager from "@/components/play/GPSManager";
 import { usePlayGameState } from "@/components/play/GameState";
 import PlayInterface from "@/components/play/PlayInterface";
@@ -32,6 +33,7 @@ function PlayScreen() {
 
   return (
     <>
+      <FullscreenWarning />
       <GPSManager
         enabled={isTrackingEnabled}
         target={game.progress.map.targetLocation}

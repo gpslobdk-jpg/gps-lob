@@ -19,7 +19,7 @@ type ArchiveLiveSessionPayload = {
   runId?: string;
 };
 
-type RunRow = Pick<StoredRunRecord, "id" | "user_id" | "race_type" | "raceType">;
+type RunRow = Pick<StoredRunRecord, "id" | "user_id" | "race_type">;
 
 type LiveSessionRow = {
   id: string;
@@ -51,7 +51,7 @@ function toSessionResponse(session: LiveSessionRow) {
 async function fetchOwnedRun(runId: string, userId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data, error } = await supabase
     .from("gps_runs")
-    .select("id,user_id,race_type,raceType:race_type")
+    .select("id,user_id,race_type")
     .eq("id", runId)
     .eq("user_id", userId)
     .maybeSingle<RunRow>();
