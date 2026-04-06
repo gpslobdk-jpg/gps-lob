@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
+
+export const metadata: Metadata = {
+  title: "Privatliv & Datasikkerhed | GPSLØB",
+  description:
+    "GPSLØB er bygget med Privacy by Design. Elevernes GPS-data bruges kun aktivt under løbet og slettes automatisk bagefter. Ingen elev-logins, ingen sporing.",
+};
 
 const rubik = Rubik({
   subsets: ["latin"],

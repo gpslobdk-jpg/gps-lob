@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "GDPR & Datasikkerhed | GPSLØB",
+  description:
+    "GPSLØB er fuldt GDPR-kompatibelt og bygget til folkeskolen. Eleverne behøver ikke oprette konto – de deltager direkte via browser med en pinkode.",
+};
 
 const rubik = Rubik({
   subsets: ["latin"],

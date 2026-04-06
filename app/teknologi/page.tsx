@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Teknologi bag GPSLØB | Engineering the Future of Outdoor Learning",
+  description:
+    "Et dybdegående kig bag kulissen på GPSLØB.dk – fra vores headless hook-arkitektur til Supabase Realtime og Vercel AI SDK.",
+};
 
 export default function TeknikSide() {
   return (

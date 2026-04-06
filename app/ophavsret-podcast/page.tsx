@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Scale } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
+
+export const metadata: Metadata = {
+  title: "Podcast-Detektiven & Ophavsret | GPSLØB",
+  description:
+    "Podcast-Detektiven i GPSLØB er 100% lovlig at bruge i undervisningen. Vi arbejder inden for citatretten og bruger kun offentligt tilgængeligt indhold.",
+};
 
 const rubik = Rubik({
   subsets: ["latin"],

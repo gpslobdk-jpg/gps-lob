@@ -14,7 +14,7 @@ import { getQuestionPoints } from "@/utils/questionPoints";
 export const ACTIVE_PARTICIPANT_STORAGE_KEY = "gpslob_active_participant";
 export const MANUAL_UNLOCK_RADIUS = 50;
 export const AUTO_UNLOCK_CONFIRMATION_HITS = 2;
-export const LOCATION_SYNC_INTERVAL_MS = 5000;
+export const LOCATION_SYNC_INTERVAL_MS = 8000;
 export const LOCATION_SYNC_DISTANCE_METERS = 3;
 export const MAX_ACCEPTABLE_GPS_ACCURACY_METERS = 30;
 export const GPS_JUMP_FILTER_MIN_DISTANCE_METERS = 35;

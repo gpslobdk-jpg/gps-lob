@@ -11,7 +11,6 @@ import {
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
 
 export const runtime = "edge";
-export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const sessionId = asTrimmedString(request.nextUrl.searchParams.get("sessionId"));
@@ -66,7 +65,7 @@ export async function GET(request: NextRequest) {
       },
       {
         headers: {
-          "Cache-Control": "no-store",
+          "Cache-Control": "public, s-maxage=5, stale-while-revalidate=10",
         },
       }
     );

@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
+
+export const metadata: Metadata = {
+  title: "Ophavsret & AI-brug | GPSLØB",
+  description:
+    "Klare principper for ophavsret og ansvarlig brug af AI og tekster i GPSLØB. Din data bruges ikke til at træne offentlige AI-modeller.",
+};
 
 const rubik = Rubik({
   subsets: ["latin"],
