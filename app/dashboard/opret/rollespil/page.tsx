@@ -1121,7 +1121,7 @@ function RollespilBuilderPageContent() {
         <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
           <MobileBuilderWarning />
           <section className="hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
-            <div className="mx-auto max-w-3xl space-y-5">
+            <div className={`mx-auto max-w-3xl space-y-5 ${editorLockClass}`}>
               <div className="px-1 pt-1">
                 {isEditMode ? (
                   <div className="mb-4 inline-flex items-center rounded-full border border-violet-500/25 bg-violet-500/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-violet-100 uppercase">
