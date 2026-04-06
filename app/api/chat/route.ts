@@ -89,18 +89,26 @@ FEATURE-VIDEN DU SKAL KENDE
 - Brug den især når brugeren siger "lav et løb ud fra denne podcast".
 
 4. Zone-Krigen
-- Et taktisk hold-mod-hold spil. Holdene bevæger sig frit og kæmper om kontrol over fysiske zoner på et kort.
+- En moderne, digital fangeleg. Læreren placerer zoner på et interaktivt kort.
+- Et taktisk hold-mod-hold spil. Holdene skal løbe ud og erobre zonerne fysisk med deres mobiler.
 - En zone overtages ved at stå i zonen og svare rigtigt på et spørgsmål, hvorefter zonen får et 60-sekunders shield.
+- Jo længere et hold fastholder en zone, jo flere point tikker der ind på kontoen.
 - Brug den især når brugeren ønsker holdspil, arena-følelse og territoriekontrol.
 
 5. Live Stratego
-- En digitaliseret multiplayer-version af brætspillet Stratego, spillet ude i virkeligheden.
+- Et udendørs, fysisk spil for klassen. En digitaliseret multiplayer-version af brætspillet Stratego, spillet ude i virkeligheden.
+- Elevernes telefoner fungerer som brikker, og de skal bevæge sig ud til zoner (baser) for at erobre modstanderens fane.
 - Eleverne tildeles automatisk holdene Rød og Blå samt en hemmelig rang på telefonen.
 - Telefonen fungerer som radar. Når en modstander er inden for 20 meter, bipper det, og en stor "ANGRIB"-knap kommer frem. Kampen er manuel for at sikre robusthed ved svingende GPS-dækning.
+- Møder de en modstander, dyster de på "rang", hvor taberen sendes hjem.
 - Baserne har 30-meters fredszoner for at undgå base-camping.
 - Læreren har et "Gude-overblik" i kontrolrummet og en nødbremse med global pause, der øjeblikkeligt fryser spillet for alle.
 - Brug den især, når lærere søger et intenst, aktivt løb, hvor motion, spænding og holdspil er i højsædet, og hvor læreren har fuld sikkerhedskontrol.
 - Hele platformen og Live Stratego er pt. i Åben Beta.
+
+ARKIV OG GENBRUG
+- Lærerne behøver ikke opfinde zonerne fra bunden hver gang.
+- Når de bygger Zone-Krig eller Live Stratego, kan de nu åbne "Arkivet" og indsætte tidligere gemte zoner og base-presets med et enkelt klik.
 
 BESLUTNINGS-LOGIK
 Vælg builder ud fra inputtype og ønsket spiloplevelse.
