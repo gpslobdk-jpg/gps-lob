@@ -488,7 +488,7 @@ async function insertParticipant(
   return {
     ok: false,
     status: 400,
-    error: { code: "PGRST204", message: "Participants-tabellen mangler et nÃ¸dvendigt felt." },
+    error: { code: "PGRST204", message: "Participants-tabellen mangler et nødvendigt felt." },
   } satisfies SupabaseResult<ParticipantRow[]>;
 }
 
@@ -592,7 +592,7 @@ async function ensureSessionStudent(sessionId: string, studentName: string) {
       continue;
     }
 
-    console.warn("Kunne ikke oprette session_students-rÃ¦kke:", result.error);
+    console.warn("Kunne ikke oprette session_students-række:", result.error);
     return false;
   }
 
@@ -850,7 +850,7 @@ export async function POST(request: NextRequest) {
     payload = (await request.json()) as JoinParticipantRequest;
   } catch {
     return NextResponse.json(
-      { error: "Ugyldig forespÃ¸rgsel." },
+      { error: "Ugyldig forespørgsel." },
       { status: 400, headers: { "Cache-Control": "no-store" } }
     );
   }
@@ -878,7 +878,7 @@ export async function POST(request: NextRequest) {
 
     if (!activeSession?.id) {
       return NextResponse.json(
-        { error: "Sessionen findes ikke lÃ¦ngere." },
+        { error: "Sessionen findes ikke længere." },
         { status: 404, headers: { "Cache-Control": "no-store" } }
       );
     }

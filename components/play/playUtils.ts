@@ -19,7 +19,7 @@ export const LOCATION_SYNC_DISTANCE_METERS = 3;
 export const MAX_ACCEPTABLE_GPS_ACCURACY_METERS = 30;
 export const GPS_JUMP_FILTER_MIN_DISTANCE_METERS = 35;
 export const GPS_JUMP_FILTER_MAX_SPEED_METERS_PER_SECOND = 15;
-export const BAD_WORDS = ["tissemand", "lort", "pik", "fisse", "idiot", "bÃ¸sse", "luder", "snot"];
+export const BAD_WORDS = ["tissemand", "lort", "pik", "fisse", "idiot", "bøsse", "luder", "snot"];
 export const FIREWORKS_LOTTIE_URL = "https://assets2.lottiefiles.com/packages/lf20_touohxv0.json";
 export const wrapTextClass = "break-words [overflow-wrap:anywhere] hyphens-auto";
 
@@ -426,11 +426,11 @@ export function looksLikeImageSource(value: string) {
 export function formatPhotoFailureMessage(message: string, isSelfie: boolean) {
   const trimmed = message.trim();
   if (!isSelfie) {
-    return trimmed || "PrÃ¸v igen med et tydeligere billede.";
+    return trimmed || "Prøv igen med et tydeligere billede.";
   }
 
   if (!trimmed) {
-    return "TÃ¦t pÃ¥! PrÃ¸v igen med bÃ¥de ansigtet og baggrunden tydeligt i billedet.";
+    return "Tæt på! Prøv igen med både ansigtet og baggrunden tydeligt i billedet.";  
   }
 
   const normalized = trimmed.toLocaleLowerCase("da-DK");
@@ -438,7 +438,7 @@ export function formatPhotoFailureMessage(message: string, isSelfie: boolean) {
     return trimmed;
   }
 
-  return `TÃ¦t pÃ¥! ${trimmed}`;
+  return `Tæt på! ${trimmed}`;
 }
 
 export function readFileAsDataUri(file: File) {
@@ -450,9 +450,9 @@ export function readFileAsDataUri(file: File) {
         resolve(result);
         return;
       }
-      reject(new Error("Kunne ikke lÃ¦se billedet som tekst."));
+      reject(new Error("Kunne ikke læse billedet som tekst."));
     };
-    reader.onerror = () => reject(new Error("Kunne ikke lÃ¦se billedet."));
+    reader.onerror = () => reject(new Error("Kunne ikke læse billedet."));
     reader.readAsDataURL(file);
   });
 }
@@ -509,7 +509,7 @@ export function loadImageElement(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new window.Image();
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Kunne ikke indlÃ¦se billedet."));
+    image.onerror = () => reject(new Error("Kunne ikke indlæse billedet."));
     image.src = src;
   });
 }

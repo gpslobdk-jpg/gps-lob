@@ -272,7 +272,7 @@ function JoinForm() {
 
       if (!registerResponse.ok || !registerData || !("participantId" in registerData)) {
         const errorMessage =
-          registerData && "error" in registerData ? registerData.error : "Kunne ikke klargÃ¸re deltageren.";
+          registerData && "error" in registerData ? registerData.error : "Kunne ikke klargøre deltageren.";
         throw new Error(errorMessage);
       }
 
@@ -666,7 +666,7 @@ function JoinForm() {
                   Zone Krig
                 </p>
                 <p className="mt-3 text-sm leading-6 text-cyan-100/80">
-                  Hold fordeles automatisk, nÃ¥r du joiner. Du skal bare indtaste pinkode og navn.
+                  Hold fordeles automatisk, når du joiner. Du skal bare indtaste pinkode og navn.
                 </p>
               </div>
             ) : null}

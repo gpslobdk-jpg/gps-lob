@@ -2055,7 +2055,7 @@ export function usePlayGameState({
       }
 
       if (trimmedName.length > MAX_PLAYER_NAME_LENGTH) {
-        setNameError(`Navnet mÃ¥ hÃ¸jst vÃ¦re ${MAX_PLAYER_NAME_LENGTH} tegn langt.`);
+        setNameError(`Navnet må højst være ${MAX_PLAYER_NAME_LENGTH} tegn langt.`);
         return;
       }
 
