@@ -32,8 +32,8 @@ type PriceCard = {
 
 const WEEKEND_PASS_PRICE_ID = "price_1T9B9BFezSVmwrOXmJX9Qw1L";
 const EVENT_PASS_PRICE_ID = "price_1T9BJsFezSVmwrOXlaklvAzQ";
-const BETA_PRICE_COPY = "Gratis under Beta";
-const BETA_META_COPY = "Soft opening frem til 1. august 2026";
+const BETA_PRICE_COPY = "100% Gratis frem til juli 2026";
+const BETA_META_COPY = "Fri adgang for alle lærere og skoler hele foråret. Efter juni 2026 overgår vi til en abonnementsmodel.";
 const CHECKOUT_DISABLED = true;
 
 const priceCards: PriceCard[] = [
