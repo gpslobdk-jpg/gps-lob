@@ -19,6 +19,7 @@ import QuestionTtsButton from "./QuestionTtsButton";
 import TeacherBroadcastModal from "./TeacherBroadcastModal";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 import trophyAnimation from "@/public/trophy.json";
+import { getGamerTitle } from "@/utils/gamerTitle";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 const LottiePlayer = dynamic(
@@ -374,6 +375,16 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   useEffect(() => {
     clearPendingPhotoPickerState();
   }, [activeTypedAnswerKey, clearPendingPhotoPickerState]);
+
+  const finishedMaxScore = questions.length * 10;
+  const finishedScoreRatio = finishedMaxScore > 0 ? score / finishedMaxScore : 0;
+  const finishedElapsedSec =
+    screen.playStartedAtMs !== null ? (Date.now() - screen.playStartedAtMs) / 1000 : null;
+  const finishedAvgSecPerPost =
+    finishedElapsedSec !== null && questions.length > 0
+      ? finishedElapsedSec / questions.length
+      : null;
+  const gamerTitle = getGamerTitle(finishedScoreRatio, finishedAvgSecPerPost);
 
   let content: ReactNode;
 
@@ -823,6 +834,14 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
             >
               KÆMPE TILLYKKE, {celebrationName}! Du er i mål!
             </p>
+            <div className="mb-6 rounded-2xl border border-violet-500/30 bg-violet-500/10 px-4 py-3 text-center">
+              <p className="text-[10px] font-semibold tracking-[0.26em] text-violet-200/70 uppercase">
+                Officiel Skolegårds-Titel
+              </p>
+              <p className="mt-1 whitespace-normal break-words text-sm font-black text-violet-100">
+                {gamerTitle}
+              </p>
+            </div>
             <div className="rounded-xl border border-white/20 bg-black/35 px-4 py-3 text-sm font-medium text-slate-100">
               Løbet er slut. Kig op på arrangørens skærm og se den store podie-fejring!
             </div>

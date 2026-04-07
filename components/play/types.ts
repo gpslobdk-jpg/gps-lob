@@ -318,6 +318,7 @@ export interface PlayScreenState {
   loadError: string;
   isFinished: boolean;
   isKicked: boolean;
+  playStartedAtMs: number | null;
 }
 
 export interface PlayStrategoState {

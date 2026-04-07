@@ -7,6 +7,7 @@ import AutoRefresh from "@/app/dashboard/resultater/[runId]/AutoRefresh";
 import ClearRunDataButton from "@/app/dashboard/resultater/[runId]/ClearRunDataButton";
 import StoredAnswerImage from "@/app/dashboard/resultater/[runId]/StoredAnswerImage";
 import { DEFAULT_QUESTION_POINTS } from "@/utils/questionPoints";
+import { getGamerTitle } from "@/utils/gamerTitle";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
 
@@ -228,6 +229,29 @@ const getSessionCardClassName = (status: string | null | undefined) =>
     : "overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-2xl backdrop-blur-2xl";
 
 const getParticipantStateLabel = (finishedAt: string | null) => (finishedAt ? "I mål" : "Aktiv");
+
+const getParticipantTitle = (participant: ParticipantSummary): string | null => {
+  if (!participant.finishedAt || participant.answers.length === 0) return null;
+  const participantScore = participant.answers.reduce((s, a) => s + getAwardedPointsValue(a), 0);
+  const maxScore = participant.answers.length * DEFAULT_QUESTION_POINTS;
+  const scoreRatio = maxScore > 0 ? participantScore / maxScore : 0;
+  const startMs = parseTimestamp(participant.runStartedAt);
+  const endMs = parseTimestamp(participant.finishedAt);
+  const avgSecPerPost =
+    startMs !== null && endMs !== null && participant.answers.length > 0
+      ? (endMs - startMs) / 1000 / participant.answers.length
+      : null;
+  return getGamerTitle(scoreRatio, avgSecPerPost);
+};
+
+const getLeaderboardTitle = (entry: LeaderboardEntry): string | null => {
+  if (entry.answerCount === 0) return null;
+  const maxScore = entry.answerCount * DEFAULT_QUESTION_POINTS;
+  const scoreRatio = maxScore > 0 ? entry.points / maxScore : 0;
+  const avgSecPerPost =
+    entry.durationMs > 0 ? entry.durationMs / 1000 / entry.answerCount : null;
+  return getGamerTitle(scoreRatio, avgSecPerPost);
+};
 
 const getPostLabel = (answer: AnswerRecord) => {
   const rawIndex = typeof answer.post_index === "number" ? answer.post_index : answer.question_index;
@@ -590,6 +614,13 @@ function SessionSection({
                           <div className="mt-1 text-xs text-white/60">
                             {participant.answers.length} registrerede besvarelser
                           </div>
+                          {getParticipantTitle(participant) ? (
+                            <div className="mt-1.5">
+                              <span className="inline whitespace-normal break-words rounded border border-violet-500/30 bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-semibold leading-relaxed text-violet-200">
+                                {getParticipantTitle(participant)}
+                              </span>
+                            </div>
+                          ) : null}
                         </td>
                         <td className="px-6 py-5 align-top">
                           <span className="inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-300">
@@ -689,6 +720,11 @@ function LeaderboardSection({ entries }: { entries: LeaderboardEntry[] }) {
                   <h3 className={`mt-3 break-words text-xl font-black text-white sm:text-2xl ${rubik.className}`}>
                     {entry.teamName}
                   </h3>
+                  {getLeaderboardTitle(entry) ? (
+                    <p className="mt-1 whitespace-normal break-words text-xs font-semibold text-violet-300">
+                      {getLeaderboardTitle(entry)}
+                    </p>
+                  ) : null}
                   <p className="mt-2 text-sm leading-6 text-white/70">
                     {entry.participantCount > 0
                       ? `${entry.participantCount} deltagere i sessionen`

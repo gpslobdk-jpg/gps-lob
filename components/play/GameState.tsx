@@ -273,6 +273,7 @@ export function usePlayGameState({
   const answersTableMissingRef = useRef(false);
   const hasRestoredRef = useRef(!Boolean(storedParticipantOnLoad) || isStoredParticipantFreshJoin);
   const resumeMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [playStartedAtMs, setPlayStartedAtMs] = useState<number | null>(null);
   const quizAnswerFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roleplayInputErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wakeLockSentinelRef = useRef<WakeLockSentinelLike | null>(null);
@@ -2540,12 +2541,19 @@ export function usePlayGameState({
                   ? "finished"
                   : "active";
 
+  useEffect(() => {
+    if (screenMode === "active" && playStartedAtMs === null) {
+      setPlayStartedAtMs(Date.now());
+    }
+  }, [screenMode, playStartedAtMs]);
+
   const screen: PlayScreenState = {
     mode: screenMode,
     isLoading,
     loadError,
     isFinished,
     isKicked,
+    playStartedAtMs,
   };
 
   const map: PlayMapState = {
