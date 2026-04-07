@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
+import { sendTelemetry } from "@/utils/telemetry";
+
 import type { GpsErrorState, Location } from "./types";
 import {
   AUTO_UNLOCK_CONFIRMATION_HITS,
@@ -67,6 +69,7 @@ export default function GPSManager({
   const isLocationSyncInFlightRef = useRef(false);
   const gpsWakeUpUntilRef = useRef(0);
   const lastPositionTimestampRef = useRef(0);
+  const heartbeatRestartCountRef = useRef(0);
 
   useEffect(() => {
     autoUnlockConfirmationRef.current = 0;
@@ -265,6 +268,12 @@ export default function GPSManager({
         Date.now() - lastPositionTimestampRef.current > GPS_HEARTBEAT_STALE_THRESHOLD_MS;
       if (stale) {
         console.debug("GPS heartbeat: ingen opdatering i >15s, genstarter watcher");
+        heartbeatRestartCountRef.current++;
+        if (heartbeatRestartCountRef.current >= 2) {
+          sendTelemetry("gps_died", {
+            message: `GPS heartbeat restarted ${heartbeatRestartCountRef.current} times (no update in >15s)`,
+          });
+        }
         startWatch();
       }
     }, GPS_HEARTBEAT_INTERVAL_MS);

@@ -3,6 +3,8 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { sendTelemetry } from "@/utils/telemetry";
+
 import type {
   AnswerProgressRow,
   EscapeCodeEntry,
@@ -938,6 +940,11 @@ export function usePlayGameState({
           if (response.status === 401) {
             // JWT may have expired — attempt a silent refresh so the next sync succeeds
             void supabase.auth.refreshSession().catch(() => undefined);
+            sendTelemetry("auth_error", {
+              participant_id: participantId,
+              session_id: sessionId,
+              message: "401 on location sync — triggering JWT refresh",
+            });
           }
 
           console.error("Kunne ikke opdatere deltagerposition:", payload?.error ?? response.statusText);
@@ -1696,6 +1703,11 @@ export function usePlayGameState({
               setParticipantId(null);
               setShowQuestion(false);
               setIsRestoringParticipant(false);
+              sendTelemetry("session_drop", {
+                participant_id: participantId,
+                session_id: sessionId,
+                message: "realtime DELETE confirmed after 2s delay",
+              });
               setIsKicked(true);
             }, 2000);
           }
