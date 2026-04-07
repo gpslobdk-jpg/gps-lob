@@ -905,9 +905,14 @@ export async function POST(request: NextRequest) {
     if (!participantAuthSession.ok) {
       console.error("Kunne ikke oprette deltager-login:", participantAuthSession.error);
       await clearParticipantAuthSession(participantAuthClient);
+      const authErrorStatus =
+        "status" in participantAuthSession.error
+          ? (participantAuthSession.error as { status?: unknown }).status
+          : undefined;
+      const isRateLimit = authErrorStatus === 429;
       return NextResponse.json(
         { error: "Kunne ikke oprette deltager-login." },
-        { status: 503, headers: { "Cache-Control": "no-store" } }
+        { status: isRateLimit ? 429 : 503, headers: { "Cache-Control": "no-store" } }
       );
     }
 

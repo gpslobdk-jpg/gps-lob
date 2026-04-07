@@ -87,6 +87,32 @@ const formatClockTime = (value: string | null | undefined) => {
   }).format(date);
 };
 
+const RATE_LIMIT_MESSAGE =
+  "Der er lige nu kø i skolegården. Vent 5-10 sekunder og prøv at trykke 'Deltag' igen.";
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+async function fetchWithRetry(
+  input: string,
+  init?: RequestInit,
+  maxAttempts = 3
+): Promise<Response> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    // eslint-disable-next-line no-await-in-loop
+    const response = await fetch(input, init);
+    if (response.status !== 429 && response.status !== 503) {
+      return response;
+    }
+    if (attempt < maxAttempts) {
+      // eslint-disable-next-line no-await-in-loop
+      await sleep(500);
+    } else {
+      return response;
+    }
+  }
+  return fetch(input, init);
+}
+
 function JoinForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -231,7 +257,13 @@ function JoinForm() {
     let shouldReleaseLock = true;
 
     try {
-      const response = await fetch(`/api/join?pin=${encodeURIComponent(trimmedPin)}`);
+      const response = await fetchWithRetry(`/api/join?pin=${encodeURIComponent(trimmedPin)}`);
+
+      if (response.status === 429 || response.status === 503) {
+        setError(RATE_LIMIT_MESSAGE);
+        return;
+      }
+
       const joinData = (await response.json()) as JoinLookupResponse | JoinLookupErrorResponse;
 
       if (response.status === 404 || ("kind" in joinData && joinData.kind === "invalid")) {
@@ -265,7 +297,7 @@ function JoinForm() {
         return;
       }
 
-      const registerResponse = await fetch("/api/join", {
+      const registerResponse = await fetchWithRetry("/api/join", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -276,6 +308,12 @@ function JoinForm() {
           studentName: trimmedName,
         }),
       });
+
+      if (registerResponse.status === 429 || registerResponse.status === 503) {
+        setError(RATE_LIMIT_MESSAGE);
+        return;
+      }
+
       const registerData = (await registerResponse.json().catch(() => null)) as
         | JoinParticipantResponse
         | JoinLookupErrorResponse
