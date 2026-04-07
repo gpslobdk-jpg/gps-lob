@@ -1214,6 +1214,7 @@ export function useStrategoEngine({
     respawnMessage,
     isLoading,
     error,
+    hasReliableGpsSignal: hasReliableOwnGpsSignal,
     clearDuelEvent,
     triggerDuel,
   };

@@ -11,8 +11,9 @@ import {
   Swords,
   Target,
   Users,
+  WifiOff,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import StrategoClashModal from "./StrategoClashModal";
 import StudentRulesSheet from "./StudentRulesSheet";
@@ -217,6 +218,23 @@ export default function StrategoElevInterface({
   >(new Map());
   const [strategoGame, setStrategoGame] = useState<StrategoGameRow | null>(null);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
+  const [isManualRespawnLoading, setIsManualRespawnLoading] = useState(false);
+
+  const handleManualRespawn = useCallback(async () => {
+    if (!sessionId || !player.participantId || isManualRespawnLoading) {
+      return;
+    }
+    setIsManualRespawnLoading(true);
+    try {
+      const supabase = createClient({ authScope: "participant" });
+      await supabase.rpc("respawn_stratego_player", {
+        p_player_id: player.participantId,
+        p_session_id: sessionId,
+      });
+    } finally {
+      setIsManualRespawnLoading(false);
+    }
+  }, [isManualRespawnLoading, player.participantId, sessionId]);
 
   const selfTeamCode = stratego.selfPlayer?.teamCode ?? null;
   const teamTheme = getTeamTheme(selfTeamCode);
@@ -366,6 +384,10 @@ export default function StrategoElevInterface({
   const myRoleName = getRoleName(stratego.selfPlayer?.rankKey, roleNamesByKey);
   const myRoleGlyph = getRoleGlyph(stratego.selfPlayer?.rankKey);
   const isReturningToBase = stratego.selfPlayer?.state === "returning_to_base";
+  const winnerTeam = strategoGame?.winner_team ?? null;
+  const showGameOverOverlay = Boolean(winnerTeam) && progress.screen.mode !== "finished";
+  const isVictory = winnerTeam === selfTeamCode;
+  const winnerLabel = winnerTeam === "blue" ? "Hold Blå" : winnerTeam === "red" ? "Hold Rød" : "";
   const attackTargetId = stratego.targetInSight?.participantId ?? null;
   const nearestSignalCopy = getNearestSignalCopy(
     stratego.nearestEnemySignalBand,
@@ -782,12 +804,60 @@ export default function StrategoElevInterface({
         </main>
 
         {isReturningToBase ? (
-          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[1250] px-4 pb-[max(env(safe-area-inset-bottom),1rem)] sm:px-6">
-            <div className="mx-auto max-w-5xl rounded-[1.8rem] border border-rose-300/25 bg-[linear-gradient(145deg,rgba(127,29,29,0.94),rgba(136,19,55,0.92))] px-5 py-4 text-center shadow-[0_24px_80px_rgba(127,29,29,0.45)] backdrop-blur-2xl">
-              <p className="text-sm font-black uppercase tracking-[0.28em] text-rose-100/75">Advarsel</p>
-              <p className="mt-2 text-base font-black text-white sm:text-lg">
-                DU ER BLIVET FANGET! LØB TILBAGE TIL BASEN FOR AT GENOPLIVE.
-              </p>
+          <div className="fixed inset-0 z-1300 flex items-end justify-center bg-[linear-gradient(180deg,rgba(2,6,23,0.82),rgba(2,6,23,0.96))] px-4 pb-[max(env(safe-area-inset-bottom),1.5rem)] backdrop-blur-sm">
+            <div
+              className={`w-full max-w-2xl rounded-4xl border p-7 text-center shadow-[0_34px_90px_rgba(2,6,23,0.55)] ${
+                stratego.isInSafeZone
+                  ? "border-emerald-300/28 bg-[linear-gradient(145deg,rgba(5,150,105,0.94),rgba(6,95,70,0.96))]"
+                  : "border-rose-300/25 bg-[linear-gradient(145deg,rgba(127,29,29,0.94),rgba(136,19,55,0.96))]"
+              }`}
+            >
+              {stratego.isInSafeZone ? (
+                <>
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.4rem] border border-emerald-200/30 bg-emerald-400/20 text-3xl">
+                    ⚡
+                  </div>
+                  <p className="mt-5 text-sm font-black uppercase tracking-[0.28em] text-emerald-100/75">
+                    Spawn-zone nået
+                  </p>
+                  <h2 className="mt-2 text-2xl font-black text-white sm:text-3xl">
+                    Klar til genoplivning!
+                  </h2>
+                  <p className="mt-3 text-sm leading-6 text-emerald-50/78">
+                    Du er tilbage ved basen. Tryk for at vende tilbage til slagmarken.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void handleManualRespawn()}
+                    disabled={isManualRespawnLoading}
+                    className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-3xl border border-emerald-200/25 bg-emerald-400/20 px-5 py-5 text-base font-black uppercase tracking-[0.22em] text-white transition hover:bg-emerald-400/30 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {isManualRespawnLoading ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Genopliver...
+                      </>
+                    ) : (
+                      "⚡ Genopstå nu"
+                    )}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.4rem] border border-rose-200/30 bg-rose-400/20 text-3xl">
+                    ✕
+                  </div>
+                  <p className="mt-5 text-sm font-black uppercase tracking-[0.28em] text-rose-100/75">
+                    Du er besejret
+                  </p>
+                  <h2 className="mt-2 text-2xl font-black text-white sm:text-3xl">
+                    Løb tilbage til basen!
+                  </h2>
+                  <p className="mt-3 text-sm leading-6 text-rose-50/78">
+                    Find jeres base på kortet herover og løb derhen. Når du er inden for spawn-zonen, kan du genoplive dig.
+                  </p>
+                </>
+              )}
             </div>
           </div>
         ) : null}
@@ -833,6 +903,46 @@ export default function StrategoElevInterface({
             </p>
             <p className="mt-1 text-sm font-semibold text-white sm:text-base">
               {stratego.duelError}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {stratego.selfPlayer?.state === "alive" && !stratego.hasReliableGpsSignal ? (
+        <div className="pointer-events-none fixed inset-x-4 top-[max(env(safe-area-inset-top),0.75rem)] z-1180 flex justify-center">
+          <div className="inline-flex items-center gap-2.5 rounded-[1.4rem] border border-amber-300/28 bg-amber-900/90 px-4 py-3 shadow-[0_16px_40px_rgba(120,53,15,0.4)] backdrop-blur-xl">
+            <WifiOff className="h-4 w-4 shrink-0 text-amber-300" />
+            <p className="text-xs font-semibold text-amber-100">
+              Venter på bedre GPS-signal — angreb er deaktiveret
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {showGameOverOverlay ? (
+        <div className="fixed inset-0 z-1500 flex items-center justify-center bg-[linear-gradient(180deg,rgba(2,6,23,0.88),rgba(2,6,23,0.98))] px-6 backdrop-blur-md">
+          <div
+            className={`w-full max-w-lg rounded-4xl border p-10 text-center shadow-[0_40px_100px_rgba(2,6,23,0.65)] ${
+              isVictory
+                ? "border-amber-300/24 bg-[linear-gradient(145deg,rgba(120,53,15,0.92),rgba(93,32,4,0.96))]"
+                : "border-slate-300/12 bg-slate-950/95"
+            }`}
+          >
+            <div className="text-7xl">{isVictory ? "🏆" : "⚑"}</div>
+            <p
+              className={`mt-5 text-sm font-black uppercase tracking-[0.3em] ${
+                isVictory ? "text-amber-300/80" : "text-rose-300/80"
+              }`}
+            >
+              {isVictory ? "Sejr!" : "Kamp afsluttet"}
+            </p>
+            <h2 className="mt-3 text-4xl font-black text-white sm:text-5xl">
+              {isVictory ? `${winnerLabel} vandt!` : `${winnerLabel} vandt`}
+            </h2>
+            <p className="mt-4 text-base leading-7 text-white/72">
+              {isVictory
+                ? "I fangede modstanderens fane og vandt kampen! Godt spillet!"
+                : "Fjenden fangede jeres fane. Kig efter læreren for debriefing."}
             </p>
           </div>
         </div>

@@ -341,6 +341,7 @@ export interface PlayStrategoState {
   respawnMessage: string | null;
   isLoading: boolean;
   error: string | null;
+  hasReliableGpsSignal: boolean;
 }
 
 export interface PlayUiFlags {
