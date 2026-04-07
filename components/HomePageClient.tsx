@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { FileCheck, Lock, ShieldCheck } from "lucide-react";
+import { FileCheck, Lock, ShieldCheck, Sparkles } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import Lottie from "lottie-react";
@@ -382,6 +382,16 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
                 <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
                   <FileCheck className="h-3.5 w-3.5 text-emerald-300/80" />
                   <span>COPYDAN-PARAT</span>
+                </span>
+              </Link>
+
+              <Link
+                href="/opdateringer"
+                className="rounded-full border border-amber-400/20 bg-amber-400/6 px-3 py-2 transition-all hover:border-amber-400/30 hover:bg-amber-400/10"
+              >
+                <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-amber-300/80 uppercase sm:text-xs">
+                  <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                  <span>SENESTE NYT</span>
                 </span>
               </Link>
             </div>
