@@ -35,7 +35,7 @@ const LIVE_STATUS_WINDOW_MS = 30_000;
 function createPostIcon(index: number) {
   return L.divIcon({
     className: "bg-transparent border-none",
-    html: `<div class="w-8 h-8 rounded-full bg-cyan-950 border-2 border-cyan-400 flex items-center justify-center text-cyan-400 font-bold shadow-[0_0_15px_rgba(34,211,238,0.6)] backdrop-blur-md">${index + 1}</div>`,
+    html: `<div class="w-8 h-8 rounded-md bg-blue-800 flex items-center justify-center text-white font-bold text-sm shadow-md border border-blue-600">${index + 1}</div>`,
     iconSize: [32, 32],
     iconAnchor: [16, 16],
   });
@@ -75,14 +75,14 @@ function createStudentIcon(name: string, isLive: boolean) {
   const initial = escapeHtml(name.trim().charAt(0).toUpperCase() || "?");
   const safeName = escapeHtml(name);
   const statusMarkup = isLive
-    ? `<span class="absolute inline-flex h-3.5 w-3.5 animate-ping rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex h-3 w-3 rounded-full border border-emerald-100/80 bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.95)]"></span>`
-    : `<span class="relative inline-flex h-3 w-3 rounded-full border border-slate-300/60 bg-slate-500 shadow-[0_0_10px_rgba(100,116,139,0.75)]"></span>`;
+    ? `<span class="absolute inline-flex h-3.5 w-3.5 animate-ping rounded-full bg-orange-400 opacity-75"></span><span class="relative inline-flex h-3 w-3 rounded-full border border-orange-100/80 bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.8)]"></span>`
+    : `<span class="relative inline-flex h-3 w-3 rounded-full border border-slate-300/60 bg-slate-400 shadow-[0_0_6px_rgba(100,116,139,0.5)]"></span>`;
 
   return L.divIcon({
     className: "bg-transparent border-none w-auto",
-    html: `<div class="relative flex items-center gap-2 rounded-2xl border border-slate-500/70 bg-slate-900/92 px-3 py-2 text-white shadow-lg shadow-slate-950/70 ring-1 ring-white/10 backdrop-blur-md whitespace-nowrap ${isLive ? "" : "opacity-50"}">
-      <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-800 text-[11px] font-black uppercase text-white shadow-inner shadow-black/40">${initial}</span>
-      <span class="text-xs font-bold tracking-wide text-white">${safeName}</span>
+    html: `<div class="relative flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-slate-800 shadow-md whitespace-nowrap ${isLive ? "" : "opacity-50"}">
+      <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-[11px] font-black uppercase text-slate-700 shadow-inner shadow-slate-200">${initial}</span>
+      <span class="text-xs font-bold tracking-wide text-slate-800">${safeName}</span>
       <span class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center">
         ${statusMarkup}
       </span>
@@ -133,15 +133,15 @@ export default function TeacherLiveMap({
     <div
       className={`relative z-0 h-full w-2/3 overflow-hidden rounded-[2rem] border-4 border-white/20 shadow-2xl ${poppins.className}`}
     >
-      <div className="absolute left-6 top-6 z-[1000] rounded-3xl border border-white/20 bg-white/10 p-6 shadow-2xl backdrop-blur-md">
+      <div className="absolute left-6 top-6 z-[1000] rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-xl backdrop-blur-md">
         <h2
-          className={`text-xl font-black tracking-widest text-white drop-shadow-md uppercase ${rubik.className}`}
+          className={`text-xl font-black tracking-widest text-slate-800 uppercase ${rubik.className}`}
         >
           Live Overvågning
         </h2>
-        <p className="text-sm text-blue-100">{studentLocations.length} deltagere online</p>
+        <p className="text-sm text-slate-500">{studentLocations.length} deltagere online</p>
         {!hasParticipantsTable ? (
-          <p className="mt-1 text-xs text-blue-100">`participants` mangler - bruger fallback.</p>
+          <p className="mt-1 text-xs text-slate-400">`participants` mangler - bruger fallback.</p>
         ) : null}
         <button
           type="button"
@@ -165,7 +165,10 @@ export default function TeacherLiveMap({
           runQuestions={runQuestions}
           studentLocations={studentLocations}
         />
-        <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        />
 
         {runQuestions.map((question, index) => {
           const lat = toFiniteNumber(question.lat);
@@ -179,7 +182,7 @@ export default function TeacherLiveMap({
               icon={createPostIcon(index)}
             >
               <Popup>
-                <strong className="text-cyan-400">Post {index + 1}</strong>
+                <strong className="text-blue-800">Post {index + 1}</strong>
                 <br />
                 {question.text}
               </Popup>
