@@ -82,7 +82,7 @@ type LiveSessionStatusRow = {
   gps_override?: boolean | null;
 };
 
-const LOCATION_SYNC_404_STRIKE_LIMIT = 3;
+const LOCATION_SYNC_404_STRIKE_LIMIT = 5;
 const LOCATION_SYNC_RECOVERY_CHECK_COOLDOWN_MS = 15000;
 const MAX_PLAYER_NAME_LENGTH = 20;
 const OFFLINE_VALIDATION_MESSAGE = "Ingen internetforbindelse. Tjek dit netværk og prøv igen.";
@@ -281,6 +281,7 @@ export function usePlayGameState({
   const dismissedLatestMessageKeyRef = useRef<string | null>(null);
   const masterVictoryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restoreRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const kickConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const submissionLockRef = useRef(false);
   const isMountedRef = useRef(true);
   const solvedPostIndexesRef = useRef<number[]>([]);
@@ -934,6 +935,11 @@ export function usePlayGameState({
             }
           }
 
+          if (response.status === 401) {
+            // JWT may have expired — attempt a silent refresh so the next sync succeeds
+            void supabase.auth.refreshSession().catch(() => undefined);
+          }
+
           console.error("Kunne ikke opdatere deltagerposition:", payload?.error ?? response.statusText);
           return;
         }
@@ -959,6 +965,7 @@ export function usePlayGameState({
       resetLocationSyncRecovery,
       runAuthoritativeLocationSyncCheck,
       sessionId,
+      supabase,
     ]
   );
 
@@ -1680,12 +1687,17 @@ export function usePlayGameState({
             if (!deletedId || !participantId) return;
             if (String(deletedId) !== participantId) return;
 
-            clearRestoreRetryTimer();
-            clearStoredActiveParticipant();
-            setParticipantId(null);
-            setShowQuestion(false);
-            setIsRestoringParticipant(false);
-            setIsKicked(true);
+            // Delay by 2s to guard against realtime replay false positives after wake-up
+            if (kickConfirmTimerRef.current) clearTimeout(kickConfirmTimerRef.current);
+            kickConfirmTimerRef.current = setTimeout(() => {
+              kickConfirmTimerRef.current = null;
+              clearRestoreRetryTimer();
+              clearStoredActiveParticipant();
+              setParticipantId(null);
+              setShowQuestion(false);
+              setIsRestoringParticipant(false);
+              setIsKicked(true);
+            }, 2000);
           }
         )
         .subscribe();
@@ -1697,11 +1709,8 @@ export function usePlayGameState({
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        try {
-          console.debug("Wake-up: Re-subscriber til Supabase");
-        } catch {
-          /* no-op */
-        }
+        // Proactively refresh JWT so realtime + API calls don't fail with 401
+        void supabase.auth.refreshSession().catch(() => undefined);
 
         // re-subscribe to ensure channel is active after sleep
         void loadLatestTeacherMessage();
@@ -1713,6 +1722,10 @@ export function usePlayGameState({
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
+      if (kickConfirmTimerRef.current) {
+        clearTimeout(kickConfirmTimerRef.current);
+        kickConfirmTimerRef.current = null;
+      }
       if (messageChannelRef.current) {
         void supabase.removeChannel(messageChannelRef.current);
         messageChannelRef.current = null;

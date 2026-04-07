@@ -34,6 +34,10 @@ type AcceptedGpsLocation = Location & {
 };
 
 const MOVEMENT_SYNC_MIN_INTERVAL_MS = 2000;
+const GPS_WARMUP_DURATION_MS = 10_000;
+const GPS_WARMUP_MAX_ACCURACY_METERS = 150;
+const GPS_HEARTBEAT_INTERVAL_MS = 20_000;
+const GPS_HEARTBEAT_STALE_THRESHOLD_MS = 15_000;
 
 function getRoundedAccuracyMeters(rawAccuracy: number) {
   return Number.isFinite(rawAccuracy) ? Math.max(0, Math.round(rawAccuracy)) : null;
@@ -61,6 +65,8 @@ export default function GPSManager({
   const lastAcceptedLocationRef = useRef<AcceptedGpsLocation | null>(null);
   const lastLocationSyncRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
   const isLocationSyncInFlightRef = useRef(false);
+  const gpsWakeUpUntilRef = useRef(0);
+  const lastPositionTimestampRef = useRef(0);
 
   useEffect(() => {
     autoUnlockConfirmationRef.current = 0;
@@ -95,10 +101,17 @@ export default function GPSManager({
     };
 
     const successHandler = async (position: GeolocationPosition) => {
+      // Track that the watcher is alive (used by heartbeat)
+      lastPositionTimestampRef.current = Date.now();
+
       const accuracy = getRoundedAccuracyMeters(position.coords.accuracy);
-      if (accuracy === null || accuracy > MAX_ACCEPTABLE_GPS_ACCURACY_METERS) {
+      const inWarmUp = Date.now() < gpsWakeUpUntilRef.current;
+      const accuracyLimit = inWarmUp ? GPS_WARMUP_MAX_ACCURACY_METERS : MAX_ACCEPTABLE_GPS_ACCURACY_METERS;
+      if (accuracy === null || accuracy > accuracyLimit) {
         autoUnlockConfirmationRef.current = 0;
-        onGpsError("low_accuracy");
+        if (!inWarmUp) {
+          onGpsError("low_accuracy");
+        }
         onDistanceChange(null);
         return;
       }
@@ -245,19 +258,29 @@ export default function GPSManager({
 
     startWatch();
 
+    // Heartbeat: if no GPS update in 15s, force a watcher restart
+    const heartbeatId = setInterval(() => {
+      const stale =
+        lastPositionTimestampRef.current > 0 &&
+        Date.now() - lastPositionTimestampRef.current > GPS_HEARTBEAT_STALE_THRESHOLD_MS;
+      if (stale) {
+        console.debug("GPS heartbeat: ingen opdatering i >15s, genstarter watcher");
+        startWatch();
+      }
+    }, GPS_HEARTBEAT_INTERVAL_MS);
+
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        try {
-          console.debug("Wake-up: Genstarter GPS");
-        } catch {
-          /* no-op */
-        }
+        // Enter warm-up mode: accept lower-accuracy positions for the next 10s
+        gpsWakeUpUntilRef.current = Date.now() + GPS_WARMUP_DURATION_MS;
+
+        // Get a quick cached fix first, then start a fresh high-accuracy watcher
         try {
           if (navigator.geolocation.getCurrentPosition) {
             navigator.geolocation.getCurrentPosition(
               (pos) => void successHandler(pos),
               () => undefined,
-              gpsOptions
+              { ...gpsOptions, maximumAge: 10_000 }
             );
           }
         } catch {
@@ -271,6 +294,7 @@ export default function GPSManager({
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
+      clearInterval(heartbeatId);
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
