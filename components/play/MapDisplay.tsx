@@ -146,7 +146,7 @@ export default function MapDisplay({
         setPlayerIcon(
           leaflet.divIcon({
             className: "bg-transparent border-none",
-            html: '<div class="h-5 w-5 rounded-full border-2 border-emerald-100 bg-emerald-400 shadow-[0_0_18px_rgba(52,211,153,0.9)]"></div>',
+            html: '<div class="h-5 w-5 rounded-full border-2 border-white bg-emerald-500 shadow-[0_0_12px_rgba(52,211,153,0.9)]"></div>',
             iconSize: [20, 20],
             iconAnchor: [10, 10],
           })
@@ -155,7 +155,7 @@ export default function MapDisplay({
         setTargetIcon(
           leaflet.divIcon({
             className: "bg-transparent border-none",
-            html: '<div class="relative h-8 w-8"><div class="absolute inset-0 rounded-full bg-amber-300/20 animate-ping"></div><div class="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-amber-200 bg-amber-950 text-amber-100 font-black shadow-[0_0_18px_rgba(251,191,36,0.8)]">&#9678;</div></div>',
+            html: '<div class="relative h-8 w-8"><div class="absolute inset-0 rounded-full bg-amber-400/30 animate-ping"></div><div class="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-amber-500 text-white font-black shadow-[0_0_14px_rgba(251,191,36,0.9)]">&#9678;</div></div>',
             iconSize: [32, 32],
             iconAnchor: [16, 16],
           })

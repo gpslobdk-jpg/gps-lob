@@ -68,7 +68,7 @@ function MobileHudComponent({
 }: MobileHudProps) {
   return (
     <div className="w-full max-w-xl">
-      <div className="flex items-center justify-between gap-3 rounded-full bg-slate-900/85 px-3 py-2 shadow-lg backdrop-blur-md">
+      <div className="flex items-center justify-between gap-3 rounded-full bg-slate-900 px-3 py-2 shadow-lg">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-400/90 text-sm font-black text-slate-900">
@@ -76,7 +76,7 @@ function MobileHudComponent({
             </div>
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold">{activeDisplayName}</div>
-              <div className="text-[11px] text-white/70">{progressPercent}% · {correctAnswersCount}/{questionsLength}</div>
+              <div className="text-[11px] text-white/90">{progressPercent}% · {correctAnswersCount}/{questionsLength}</div>
             </div>
           </div>
         </div>
@@ -87,7 +87,7 @@ function MobileHudComponent({
             onClick={() => setMobileHudOpen((s) => !s)}
             aria-label={mobileHudOpen ? "Skjul info" : "Vis info"}
             aria-expanded={mobileHudOpen}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/8 px-3 py-2 text-sm font-semibold text-white"
+            className="inline-flex items-center gap-2 rounded-lg border border-white/30 bg-slate-700 px-3 py-2 text-sm font-semibold text-white"
           >
             {mobileHudOpen ? "Skjul" : "Info"}
           </button>
@@ -95,14 +95,14 @@ function MobileHudComponent({
       </div>
 
       {mobileHudOpen ? (
-        <div className="mt-3 rounded-2xl border border-white/10 bg-black/40 p-3 text-white">
+        <div className="mt-3 rounded-2xl border border-white/20 bg-slate-900 p-3 text-white">
           <div className="flex items-center justify-between">
             <div className="text-sm font-semibold">{activeDisplayName}</div>
             <div className="text-sm font-mono">
               {gpsOverrideEnabled ? "God Mode" : distance !== null ? `${distance}m` : "GPS..."}
             </div>
           </div>
-          <div className="mt-2 flex items-center justify-between text-xs text-white/80">
+          <div className="mt-2 flex items-center justify-between text-xs text-white/90">
             <div>Progress: {progressPercent}%</div>
             <div>{score} point</div>
           </div>
@@ -206,15 +206,15 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const normalizedActiveDisplayName = activeDisplayName.trim().toLocaleLowerCase("da-DK");
   const blockingGpsErrorContent = gpsErrorContent ?? { title: "", message: "", helper: "" };
   const tacticalHudShellClass =
-    "overflow-hidden rounded-[2rem] border border-white/20 bg-white/10 p-4 shadow-lg backdrop-blur-2xl md:p-5";
+    "overflow-hidden rounded-[2rem] border border-white/30 bg-slate-800 p-4 shadow-lg md:p-5";
   const tacticalHudCardClass =
-    "overflow-hidden rounded-[1.6rem] border border-white/20 bg-white/10 p-4 shadow-lg backdrop-blur-2xl";
+    "overflow-hidden rounded-[1.6rem] border border-white/30 bg-slate-800 p-4 shadow-lg";
   const tacticalMetaLabelClass =
-    "font-mono text-[11px] uppercase tracking-[0.32em] text-white/70";
+    "font-mono text-[11px] uppercase tracking-[0.32em] text-white/90";
   const tacticalPillClass =
-    "rounded-full border border-white/20 bg-white/10 px-3 py-1 font-mono text-xs uppercase tracking-widest text-white/90";
+    "rounded-full border border-white/30 bg-slate-700 px-3 py-1 font-mono text-xs uppercase tracking-widest text-white";
   const tacticalOverlayCardClass =
-    "w-full max-w-md overflow-hidden rounded-[2rem] border border-emerald-500/50 bg-slate-950 p-5 shadow-2xl backdrop-blur-2xl sm:p-8";
+    "w-full max-w-md overflow-hidden rounded-[2rem] border border-emerald-500/50 bg-slate-950 p-5 shadow-2xl sm:p-8";
   const tacticalPrimaryButtonClass =
     `inline-flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[1.35rem] border border-emerald-500 bg-emerald-600 px-5 py-4 text-sm font-black uppercase tracking-[0.2em] text-white shadow-md transition-all hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60 ${rubik.className}`;
   const tacticalSecondaryButtonClass =
@@ -454,7 +454,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
               placeholder="Dit navn"
               className="w-full rounded-xl border border-white/20 bg-black/40 px-4 py-3 text-base text-white placeholder:text-white/45 focus:border-emerald-400/60 focus:outline-none"
             />
-            <p className={`mt-3 text-sm text-white/80 ${wrapTextClass}`}>
+            <p className={`mt-3 text-sm text-white/90 ${wrapTextClass}`}>
               Skriv dit rigtige navn. Brug ikke et opdigtet navn.
             </p>
             {nameError ? (
@@ -527,7 +527,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
             className={`relative z-10 w-full max-w-xl overflow-hidden rounded-[2rem] border p-8 shadow-[0_30px_90px_rgba(2,6,23,0.55)] backdrop-blur-xl ${
               masterLockStatus === "unlocked"
                 ? "border-amber-300/40 bg-amber-900/30"
-                : `${masterLockError ? "animate-[master-lock-shake_0.45s_ease-in-out]" : ""} border-white/10 bg-slate-900/80`
+                : `${masterLockError ? "animate-[master-lock-shake_0.45s_ease-in-out]" : ""} border-white/20 bg-slate-900`
             }`}
           >
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.14),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(251,191,36,0.12),transparent_32%)]" />
@@ -565,7 +565,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
               <p className="mt-4 break-words text-base leading-relaxed text-amber-50/88">
                 Indtast den samlede Master-kode fra alle posterne for at vinde løbet.
               </p>
-              <p className="mt-3 text-sm text-white/70">
+              <p className="mt-3 text-sm text-white/90">
                 Kode-brikker samlet: {correctAnswersCount}/{questions.length}
               </p>
 
@@ -859,7 +859,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                 <div className="h-3 w-3 animate-pulse rounded-full bg-white/90" />
               </div>
               <h1 className="text-2xl font-black">Gør jer klar!</h1>
-              <p className="mt-3 text-sm text-white/80">Venter på at læreren starter løbet...</p>
+              <p className="mt-3 text-sm text-white/90">Venter på at læreren starter løbet...</p>
               <WifiConnectionTip className="mt-6" />
             </div>
           </div>
@@ -930,7 +930,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       <span className={tacticalPillClass}>
                         Deltager
                       </span>
-                      <span className={`${tacticalPillClass} border-white/20 bg-white/10 text-white/80`}>
+                      <span className={`${tacticalPillClass} border-white/30 bg-slate-700 text-white`}>
                         Nature-Glass
                       </span>
                     </div>
@@ -1058,8 +1058,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
             {resumeMessage ? (
               <div className="animate-in slide-in-from-top fade-in duration-500">
-                <div className="flex items-start gap-3 rounded-[1.5rem] border border-white/20 bg-white/10 p-4 shadow-lg backdrop-blur-2xl">
-                  <div className="mt-0.5 rounded-full border border-white/20 bg-white/10 p-2 text-white/80">
+                <div className="flex items-start gap-3 rounded-[1.5rem] border border-white/20 bg-slate-800 p-4 shadow-lg">
+                  <div className="mt-0.5 rounded-full border border-white/20 bg-slate-700 p-2 text-white">
                     <CheckCircle2 className="h-4 w-4" />
                   </div>
                   <div className={`text-sm font-medium text-white ${wrapTextClass}`}>{resumeMessage}</div>
@@ -1105,7 +1105,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
           </div>
 
           {showQuestion && activeQuestion ? (
-            <div className="animate-in fade-in zoom-in absolute inset-0 z-[2000] overflow-y-auto bg-slate-900/80 p-6 backdrop-blur-md duration-300">
+            <div className="animate-in fade-in zoom-in absolute inset-0 z-[2000] overflow-y-auto bg-slate-950 p-6 duration-300">
               <div className="flex min-h-full items-center justify-center">
                 <div className={tacticalOverlayCardClass}>
                   <div className="mb-6 flex items-center justify-between gap-3">
@@ -1167,7 +1167,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                                   ? "border-red-300 bg-red-500 text-white shadow-[0_18px_38px_rgba(239,68,68,0.28)]"
                                   : isAnswerDimmed
                                       ? "border-white/10 bg-slate-900/55 text-white/55 opacity-50"
-                                      : "border-white/15 bg-white/8 text-white shadow-[0_12px_28px_rgba(15,23,42,0.3)] hover:-translate-y-0.5 hover:border-emerald-300/45 hover:bg-white/12"
+                                      : "border-slate-500 bg-slate-800 text-white shadow-[0_12px_28px_rgba(15,23,42,0.5)] hover:-translate-y-0.5 hover:border-emerald-400 hover:bg-slate-700"
                             } disabled:cursor-default disabled:hover:translate-y-0`}
                           >
                             <span className="flex-1">{answer}</span>
@@ -1550,7 +1550,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       Ukendt post
                     </p>
                     <h3 className={`text-xl font-black text-white ${wrapTextClass} ${rubik.className}`}>⚠️ Ukendt post-type</h3>
-                    <p className={`text-sm leading-relaxed text-white/80 ${wrapTextClass}`}>
+                    <p className={`text-sm leading-relaxed text-white/90 ${wrapTextClass}`}>
                       Noget gik galt med dataen for denne post. Kontakt din arrangør.
                     </p>
                   </div>
