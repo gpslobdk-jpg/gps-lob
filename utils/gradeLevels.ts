@@ -12,7 +12,7 @@ export const GRADE_LEVEL_OPTIONS = [
 
 export type GradeLevel = (typeof GRADE_LEVEL_OPTIONS)[number];
 
-export const DEFAULT_SELECTED_GRADE_LEVELS: GradeLevel[] = ["4. klasse"];
+export const DEFAULT_SELECTED_GRADE_LEVELS: GradeLevel[] = [];
 
 export function isGradeLevel(value: unknown): value is GradeLevel {
   return GRADE_LEVEL_OPTIONS.includes(value as GradeLevel);
