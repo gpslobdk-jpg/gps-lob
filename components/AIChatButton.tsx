@@ -320,8 +320,17 @@ export default function AIChatButton() {
                   </button>
                 </form>
 
-                <div className="mt-2 text-[11px] tracking-[0.01em] text-slate-400">
-                  {"Automatiske svar kan indeholde fejl. Kontrollér altid vigtige oplysninger."}
+                <div className="mt-2 space-y-1 text-[11px] tracking-[0.01em] text-slate-400">
+                  <div>{"Automatiske svar kan indeholde fejl. Kontrollér altid vigtige oplysninger."}</div>
+                  <div>
+                    {"Oplever du tekniske problemer? Skriv til "}
+                    <a
+                      href="mailto:Gpslobdk@gmail.com"
+                      className="break-all underline transition-colors hover:text-emerald-600"
+                    >
+                      Gpslobdk@gmail.com
+                    </a>
+                  </div>
                 </div>
 
                 <div className="mt-4 border-t border-emerald-500/10 pt-3.5">
