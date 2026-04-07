@@ -105,6 +105,7 @@ function JoinForm() {
   const [assignedTeamName, setAssignedTeamName] = useState<string | null>(null);
   const [assignedTeamColor, setAssignedTeamColor] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
+  const [showInAppWarning, setShowInAppWarning] = useState(false);
   const joinLockRef = useRef(false);
 
   const isZoneKrig = raceType === "zone_krig";
@@ -189,6 +190,16 @@ function JoinForm() {
       window.clearTimeout(timeoutId);
     };
   }, [view, schedule?.endAt]);
+
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    const isKnownInApp = /FBAN|FBAV|Instagram|Snapchat/i.test(ua);
+    const isAndroidWebView = /Android/.test(ua) && /wv/.test(ua);
+    const isIosWebView = /iPhone|iPad/.test(ua) && /AppleWebKit/.test(ua) && !/Safari/.test(ua);
+    if (isKnownInApp || isAndroidWebView || isIosWebView) {
+      setShowInAppWarning(true);
+    }
+  }, []);
 
   const resetToForm = () => {
     setView("form");
@@ -570,6 +581,24 @@ function JoinForm() {
 
           <WifiConnectionTip className="mt-6" />
 
+          {showInAppWarning ? (
+            <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200 backdrop-blur-md">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+              <span className="flex-1 leading-5">
+                <strong className="font-bold">GPS virker ikke i denne browser!</strong> Åbn linket i{" "}
+                <strong>Safari</strong> (iPhone) eller <strong>Chrome</strong> (Android) for at GPS virker.
+              </span>
+              <button
+                type="button"
+                className="shrink-0 text-amber-300/70 hover:text-amber-200"
+                onClick={() => setShowInAppWarning(false)}
+                aria-label="Luk advarsel"
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
+
           <form onSubmit={handleJoin} className="mt-8 space-y-5">
             {error ? (
               <div className="rounded-2xl border border-rose-300/25 bg-rose-400/10 p-3 text-center text-sm text-rose-100 backdrop-blur-md">
@@ -586,7 +615,7 @@ function JoinForm() {
                 placeholder="Pinkode, f.eks. 4921"
                 value={pin}
                 onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                className="w-full rounded-[1.75rem] border border-emerald-500/50 bg-slate-950 py-5 pr-4 pl-12 text-center font-mono text-3xl font-black tracking-[0.5em] text-white shadow-[0_0_24px_rgba(16,185,129,0.12)] shadow-inner outline-none transition placeholder:text-emerald-500/30 focus:border-emerald-400 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-400/20"
+                className="w-full rounded-[1.75rem] border border-emerald-500/50 bg-slate-950 py-5 pr-6 pl-12 text-center font-mono text-3xl font-black tracking-[0.35em] text-white shadow-[0_0_24px_rgba(16,185,129,0.12)] shadow-inner outline-none transition placeholder:text-emerald-500/30 focus:border-emerald-400 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-400/20"
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={6}
