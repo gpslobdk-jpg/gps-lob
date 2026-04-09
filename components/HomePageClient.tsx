@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+    label: "METTE - LÆRER",
 import { FileCheck, Lock, ShieldCheck, Sparkles } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -24,6 +25,7 @@ const JOIN_PIN_LENGTH = 6;
 const zenBubbles = [
   {
     name: "Eva Marie",
+    label: "EVA MARIE - LÆRER",
     quote: "Mindblown – G.E.N.I.A.L.T! Den smarte generator fungerede over al forventning.",
     position: "top-[14%] left-[10%]",
     animation: {
@@ -34,6 +36,7 @@ const zenBubbles = [
   },
   {
     name: "Karsten",
+    label: "KARSTEN - LÆRER",
     quote: "Det her er ret fedt! Jeppe reagerer lynhurtigt.",
     position: "top-[18%] right-[11%]",
     animation: {
@@ -43,7 +46,19 @@ const zenBubbles = [
     },
   },
   {
+    name: "Sille",
+    label: "SILLE, LÆRER",
+    quote: "Det virker bare pisse fedt!! Eleverne er meget motiverede.",
+    position: "top-[44%] right-[5%]",
+    animation: {
+      y: [0, -7, 0, 9, 0],
+      x: [0, 6, 0, -5, 0],
+      rotate: [0, 1.2, 0, -1, 0],
+    },
+  },
+  {
     name: "Thomas",
+    label: "THOMAS - LÆRER",
     quote: "Det ser super fint ud. Glæder mig til at bruge det i praksis.",
     position: "bottom-[18%] left-[16%]",
     animation: {
@@ -178,7 +193,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
               {bubble.quote}
             </p>
             <p className="mt-3 block text-xs font-bold tracking-[0.16em] text-emerald-400 sm:text-sm">
-              {bubble.name.toUpperCase()} - Lærer
+              {bubble.label}
             </p>
           </motion.div>
         ))}
@@ -348,18 +363,6 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
             <p className="mx-auto mt-3 max-w-xs text-sm leading-6 text-slate-300">
               Log ind for at oprette løb, hente resultater og styre klassen live. Elever deltager fra mobilen.
             </p>
-
-            <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-slate-900/40 p-4 text-left shadow-[0_0_24px_rgba(15,23,42,0.16)] backdrop-blur-xl">
-              <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold tracking-[0.18em] text-emerald-400 uppercase">
-                FRA EN LÆRER
-              </span>
-              <p className="mt-3 text-sm leading-6 font-medium italic text-white">
-                "Det virker bare pisse fedt!! Eleverne er meget motiverede."
-              </p>
-              <p className="mt-3 text-[11px] font-bold tracking-[0.18em] text-emerald-400 uppercase">
-                SILLE, LÆRER
-              </p>
-            </div>
 
             <Link
               href="/login"
