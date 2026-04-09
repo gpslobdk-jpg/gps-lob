@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Wifi, LayoutDashboard, Sun, Sparkles } from "lucide-react";
+import { ArrowLeft, KeyRound, LayoutDashboard, Sun, Sparkles, Wifi } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -16,6 +16,33 @@ interface Entry {
 }
 
 const entries: Entry[] = [
+  {
+    date: "9. april 2026",
+    title: "Bedre håndtering af GPS og efternølere",
+    tag: "Ny opdatering",
+    items: [
+      {
+        icon: <KeyRound className="h-4 w-4 text-emerald-400" />,
+        heading: "Slut med pinkode-bøvl",
+        body: "Fejlen, der blokerede for det 6. ciffer i pinkoden på forsiden, er nu rettet. Indtastning spiller nu 100% på alle enheder.",
+      },
+      {
+        icon: <Wifi className="h-4 w-4 text-emerald-400" />,
+        heading: "Manuel GPS-opdatering",
+        body: "Vi har tilføjet en 'Prøv igen'-knap til de elever, hvor telefonen er langsom til at fange lokationen. Det tvinger browseren til at søge på ny.",
+      },
+      {
+        icon: <LayoutDashboard className="h-4 w-4 text-amber-400" />,
+        heading: "Hjælp til forsinkede elever",
+        body: "QR-koden lukker ikke længere automatisk ved start. Læreren har nu altid adgang til pinkode og QR-kode direkte fra toppen af live-dashboardet.",
+      },
+      {
+        icon: <Sparkles className="h-4 w-4 text-amber-400" />,
+        heading: "Smartere navigation",
+        body: "Klik på en markør på kortet i editoren for at hoppe direkte til det tilhørende spørgsmål.",
+      },
+    ],
+  },
   {
     date: "9. april 2026",
     title: "Markant bedre spilflow og vigtige fejlrettelser",
