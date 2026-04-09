@@ -186,7 +186,7 @@ export default function GradeLevelMultiSelect({
             left: `${popoverPosition.left}px`,
             width: `${popoverPosition.width}px`,
           }}
-          className="z-50"
+          className="z-1400"
         >
           <div className="rounded-2xl border border-white/20 bg-black/40 p-3 shadow-[0_24px_60px_rgba(15,23,42,0.35)] backdrop-blur-md">
             <div className={`grid grid-cols-2 gap-2 ${compact ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
