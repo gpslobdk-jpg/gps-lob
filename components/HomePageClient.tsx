@@ -349,6 +349,18 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
               Log ind for at oprette løb, hente resultater og styre klassen live. Elever deltager fra mobilen.
             </p>
 
+            <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-slate-900/40 p-4 text-left shadow-[0_0_24px_rgba(15,23,42,0.16)] backdrop-blur-xl">
+              <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold tracking-[0.18em] text-emerald-400 uppercase">
+                FRA EN LÆRER
+              </span>
+              <p className="mt-3 text-sm leading-6 font-medium italic text-white">
+                "Det virker bare pisse fedt!! Eleverne er meget motiverede."
+              </p>
+              <p className="mt-3 text-[11px] font-bold tracking-[0.18em] text-emerald-400 uppercase">
+                SILLE, LÆRER
+              </p>
+            </div>
+
             <Link
               href="/login"
               data-tour="home-organizer-login"
@@ -396,7 +408,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
                   <Sparkles className="h-3.5 w-3.5 text-amber-400" />
                   <span>SENESTE NYT</span>
                 </span>
-                <span className="pointer-events-none absolute -top-2 -right-2 inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold tracking-[0.18em] text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.18)] backdrop-blur-md">
+                <span className="pointer-events-none absolute -top-2 -right-2 inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold tracking-[0.18em] text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.18)] backdrop-blur-md">
                   <span
                     className={`h-1.5 w-1.5 rounded-full bg-emerald-400 ${shouldReduceMotion ? "" : "animate-pulse"}`}
                   />
