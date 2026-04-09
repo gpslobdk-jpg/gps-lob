@@ -1598,6 +1598,15 @@ export default function PlayInterface({ ui, actions, onRetryGps, children }: Pla
               </div>
             </div>
           ) : null}
+
+          {flags.isSyncingOfflineQueue ? (
+            <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[3000] flex justify-center">
+              <div className="flex items-center gap-2 rounded-full border border-white/15 bg-slate-900/90 px-4 py-2 text-xs font-medium text-white/80 shadow-lg backdrop-blur-sm">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Synkroniserer svar...
+              </div>
+            </div>
+          ) : null}
         </div>
       );
       break;

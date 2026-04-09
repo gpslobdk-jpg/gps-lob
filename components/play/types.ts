@@ -363,6 +363,7 @@ export interface PlayUiFlags {
   isAnalyzingPhoto: boolean;
   isCheckingEscapeAnswer: boolean;
   isSessionPaused: boolean;
+  isSyncingOfflineQueue: boolean;
   shouldKeepScreenAwake: boolean;
 }
 

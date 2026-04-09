@@ -71,6 +71,7 @@ import {
   toIntegerStartOffset,
 } from "./playUtils";
 import { useStrategoEngine } from "./useStrategoEngine";
+import { enqueueOfflineAnswer, readOfflineQueue, removeOfflineEntry } from "./playOfflineQueue";
 import { DEFAULT_QUESTION_POINTS } from "@/utils/questionPoints";
 import { createClient } from "@/utils/supabase/client";
 
@@ -295,6 +296,8 @@ export function usePlayGameState({
   const locationSyncSuspendedRef = useRef(false);
   const locationSyncRecoveryCheckInFlightRef = useRef(false);
   const locationSyncRecoveryCheckCooldownUntilRef = useRef(0);
+  const [isSyncingOfflineQueue, setIsSyncingOfflineQueue] = useState(false);
+  const offlineFlushInFlightRef = useRef(false);
   const clearRoleplayInputErrorTone = useCallback(() => {
     if (roleplayInputErrorTimerRef.current) {
       clearTimeout(roleplayInputErrorTimerRef.current);
@@ -595,6 +598,48 @@ export function usePlayGameState({
     locationSyncSuspendedRef.current = false;
     locationSyncRecoveryCheckCooldownUntilRef.current = 0;
     setLocationSyncErrors(0);
+  }, []);
+
+  const flushOfflineQueue = useCallback(async () => {
+    if (offlineFlushInFlightRef.current) return;
+    const queue = readOfflineQueue();
+    if (queue.length === 0) return;
+
+    offlineFlushInFlightRef.current = true;
+    setIsSyncingOfflineQueue(true);
+
+    try {
+      // Process entries from oldest to newest.
+      // We re-read the queue each iteration so concurrent enqueues are picked up.
+      let current = readOfflineQueue();
+      while (current.length > 0 && isMountedRef.current) {
+        const entry = current[0];
+        try {
+          const response = await fetch("/api/play/submit-answer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ payloads: entry.payloads }),
+          });
+
+          if (response.ok || response.status === 400 || response.status === 403) {
+            // Success or permanent client error — remove from queue either way
+            removeOfflineEntry(0);
+          } else {
+            // Transient server error — stop flushing, will retry later
+            break;
+          }
+        } catch {
+          // Network error — stop flushing, will retry on next trigger
+          break;
+        }
+        current = readOfflineQueue();
+      }
+    } finally {
+      offlineFlushInFlightRef.current = false;
+      if (isMountedRef.current) {
+        setIsSyncingOfflineQueue(readOfflineQueue().length > 0);
+      }
+    }
   }, []);
 
   const isTransientNetworkError = useCallback((error: unknown) => {
@@ -997,6 +1042,27 @@ export function usePlayGameState({
       }
     };
   }, []);
+
+  // Offline answer queue: flush on reconnect, app resume, and initial mount
+  useEffect(() => {
+    // Attempt an initial flush in case items were queued in a previous session
+    void flushOfflineQueue();
+
+    const handleOnline = () => void flushOfflineQueue();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void flushOfflineQueue();
+      }
+    };
+
+    window.addEventListener("online", handleOnline);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [flushOfflineQueue]);
 
   useEffect(() => {
     if (
@@ -1416,6 +1482,8 @@ export function usePlayGameState({
           }
 
           if (body?.inserted === true) {
+            // Successful submit — flush any queued offline answers in the background
+            void flushOfflineQueue();
             return {
               didPersist: true,
               awardedPoints:
@@ -1433,11 +1501,18 @@ export function usePlayGameState({
         } catch (error) {
           if (!isTransientNetworkError(error)) {
             console.error("Kunne ikke kontakte submit-answer API:", error);
+            enqueueOfflineAnswer(payloads);
+            sendTelemetry("answer_queued_offline", { reason: "non_transient_error" });
             return fallbackResult;
           }
 
           await waitForNetworkRetry();
         }
+      }
+
+      // Component unmounted during retry loop — queue so it is not lost
+      if (!isMountedRef.current) {
+        enqueueOfflineAnswer(payloads);
       }
 
       return fallbackResult;
@@ -2653,6 +2728,7 @@ export function usePlayGameState({
     isAnalyzingPhoto,
     isCheckingEscapeAnswer,
     isSessionPaused,
+    isSyncingOfflineQueue,
     shouldKeepScreenAwake,
   };
 
