@@ -58,7 +58,7 @@ const zenBubbles: ZenBubble[] = [
     name: "Sille",
     label: "SILLE, LÆRER",
     quote: "Det virker bare pisse fedt!! Eleverne er meget motiverede.",
-    position: "top-[44%] left-[4%]",
+    position: "top-[45%] right-[5%]",
     animation: {
       y: [0, -7, 0, 9, 0],
       x: [0, 6, 0, -5, 0],
