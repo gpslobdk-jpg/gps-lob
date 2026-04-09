@@ -1,7 +1,6 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-    label: "METTE - LÆRER",
 import { FileCheck, Lock, ShieldCheck, Sparkles } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -20,12 +19,23 @@ type HomePageClientProps = {
   isNativeGpslobApp: boolean;
 };
 
+type ZenBubble = {
+  name: string;
+  quote: string;
+  position: string;
+  label?: string;
+  animation: {
+    y: number[];
+    x: number[];
+    rotate: number[];
+  };
+};
+
 const JOIN_PIN_LENGTH = 6;
 
-const zenBubbles = [
+const zenBubbles: ZenBubble[] = [
   {
     name: "Eva Marie",
-    label: "EVA MARIE - LÆRER",
     quote: "Mindblown – G.E.N.I.A.L.T! Den smarte generator fungerede over al forventning.",
     position: "top-[14%] left-[10%]",
     animation: {
@@ -36,7 +46,6 @@ const zenBubbles = [
   },
   {
     name: "Karsten",
-    label: "KARSTEN - LÆRER",
     quote: "Det her er ret fedt! Jeppe reagerer lynhurtigt.",
     position: "top-[18%] right-[11%]",
     animation: {
@@ -49,7 +58,7 @@ const zenBubbles = [
     name: "Sille",
     label: "SILLE, LÆRER",
     quote: "Det virker bare pisse fedt!! Eleverne er meget motiverede.",
-    position: "top-[44%] right-[5%]",
+    position: "top-[44%] left-[4%]",
     animation: {
       y: [0, -7, 0, 9, 0],
       x: [0, 6, 0, -5, 0],
@@ -58,7 +67,6 @@ const zenBubbles = [
   },
   {
     name: "Thomas",
-    label: "THOMAS - LÆRER",
     quote: "Det ser super fint ud. Glæder mig til at bruge det i praksis.",
     position: "bottom-[18%] left-[16%]",
     animation: {
@@ -193,7 +201,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
               {bubble.quote}
             </p>
             <p className="mt-3 block text-xs font-bold tracking-[0.16em] text-emerald-400 sm:text-sm">
-              {bubble.label}
+              {bubble.label ?? `${bubble.name.toUpperCase()} - Lærer`}
             </p>
           </motion.div>
         ))}
