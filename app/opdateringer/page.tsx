@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Wifi, LayoutDashboard, Sun } from "lucide-react";
+import { ArrowLeft, Wifi, LayoutDashboard, Sun, Sparkles } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -16,6 +16,23 @@ interface Entry {
 }
 
 const entries: Entry[] = [
+  {
+    date: "9. april 2026",
+    title: "Markant bedre spilflow og vigtige fejlrettelser",
+    tag: "Ny opdatering",
+    items: [
+      {
+        icon: <Wifi className="h-4 w-4 text-emerald-400" />,
+        heading: "Stødsikker elev-app",
+        body: "Vi har fjernet tekniske fejlbeskeder og indført en kortvarig 'lås' på svarknappen (\"Sender svar...\"). Det sikrer, at eleverne oplever et glidende flow uden afbrydelser, selv hvis netværket driller i skolegården.",
+      },
+      {
+        icon: <Sparkles className="h-4 w-4 text-amber-400" />,
+        heading: "AI-assistent opdateret",
+        body: "Fejlen, hvor dropdown-menuen til 'Klassetrin' gemte sig bag andre elementer, er nu løst på tværs af alle opret-sider (Dansk, Matematik, Engelsk og Stjerneløb).",
+      },
+    ],
+  },
   {
     date: "7. april 2026",
     title: "Stabilt, overskueligt og klar til forårssolen",
