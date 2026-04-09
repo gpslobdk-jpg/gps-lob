@@ -90,6 +90,8 @@ const formatClockTime = (value: string | null | undefined) => {
 const RATE_LIMIT_MESSAGE =
   "Der er lige nu kø i skolegården. Vent 5-10 sekunder og prøv at trykke 'Deltag' igen.";
 
+const JOIN_PIN_LENGTH = 6;
+
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 async function fetchWithRetry(
@@ -98,13 +100,11 @@ async function fetchWithRetry(
   maxAttempts = 3
 ): Promise<Response> {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    // eslint-disable-next-line no-await-in-loop
     const response = await fetch(input, init);
     if (response.status !== 429 && response.status !== 503) {
       return response;
     }
     if (attempt < maxAttempts) {
-      // eslint-disable-next-line no-await-in-loop
       await sleep(500);
     } else {
       return response;
@@ -119,7 +119,7 @@ function JoinForm() {
   const [supabase] = useState(() => createClient());
 
   const [pin, setPin] = useState(() =>
-    (searchParams.get("pin") || "").replace(/\D/g, "").slice(0, 6)
+    (searchParams.get("pin") || "").replace(/\D/g, "").slice(0, JOIN_PIN_LENGTH)
   );
   const [name, setName] = useState("");
   const [view, setView] = useState<JoinView>("form");
@@ -137,7 +137,7 @@ function JoinForm() {
   const isZoneKrig = raceType === "zone_krig";
   const trimmedName = name.trim();
   const trimmedPin = pin.trim();
-  const canSubmit = trimmedPin.length > 0 && trimmedName.length > 0;
+  const canSubmit = trimmedPin.length === JOIN_PIN_LENGTH && trimmedName.length > 0;
 
   useEffect(() => {
     if (!sessionId || (view !== "waiting" && view !== "scheduled")) return;
@@ -249,6 +249,11 @@ function JoinForm() {
 
     if (!trimmedPin || !trimmedName) {
       setError("Udfyld venligst både pinkode og navn.");
+      return;
+    }
+
+    if (trimmedPin.length !== JOIN_PIN_LENGTH) {
+      setError(`Pinkoden skal bestå af ${JOIN_PIN_LENGTH} tal.`);
       return;
     }
 
@@ -650,13 +655,13 @@ function JoinForm() {
               </div>
               <input
                 type="text"
-                placeholder="Pinkode, f.eks. 4921"
+                placeholder="Pinkode, f.eks. 492173"
                 value={pin}
-                onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, JOIN_PIN_LENGTH))}
                 className="w-full rounded-[1.75rem] border border-emerald-500/50 bg-slate-950 py-5 pr-6 pl-12 text-center font-mono text-3xl font-black tracking-[0.35em] text-white shadow-[0_0_24px_rgba(16,185,129,0.12)] shadow-inner outline-none transition placeholder:text-emerald-500/30 focus:border-emerald-400 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-400/20"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                maxLength={6}
+                maxLength={JOIN_PIN_LENGTH}
                 autoComplete="one-time-code"
                 disabled={isJoining}
               />

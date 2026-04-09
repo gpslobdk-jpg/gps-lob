@@ -40,6 +40,7 @@ const poppins = Poppins({
 type PlayInterfaceProps = {
   ui: PlayUiState;
   actions: PlayActions;
+  onRetryGps: () => void;
   children?: ReactNode;
 };
 
@@ -112,7 +113,7 @@ function MobileHudComponent({
   );
 }
 
-export default function PlayInterface({ ui, actions, children }: PlayInterfaceProps) {
+export default function PlayInterface({ ui, actions, onRetryGps, children }: PlayInterfaceProps) {
   const typedAnswerInputRef = useRef<HTMLInputElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const photoPickerPendingRef = useRef(false);
@@ -135,6 +136,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const {
     distance,
     autoUnlockRadius,
+    gpsError,
     gpsErrorContent = { title: "", message: "", helper: "" },
     gpsWarningContent,
   } = gps;
@@ -232,6 +234,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const isAnswerSubmissionPending = isSubmittingAnswer || isSubmitting;
   const isQuizSubmissionPending =
     activePostVariant === "quiz" && isAnswerSubmissionPending && !activeQuizAnswerFeedback;
+  const canRetryGpsPrompt = gpsError !== "unsupported";
 
   const clearPendingPhotoPickerState = useCallback(() => {
     photoPickerPendingRef.current = false;
@@ -499,13 +502,24 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
             </div>
             <p className={`mb-5 text-red-50 ${wrapTextClass}`}>{blockingGpsErrorContent.message}</p>
             <p className={`text-sm text-red-100/90 ${wrapTextClass}`}>{blockingGpsErrorContent.helper}</p>
-            <button
-              type="button"
-              onClick={actions.reloadPage}
-              className="mt-7 rounded-xl border border-red-200/60 bg-red-100 px-5 py-3 font-bold text-red-900 transition-colors hover:bg-white"
-            >
-              Prøv igen
-            </button>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              {canRetryGpsPrompt ? (
+                <button
+                  type="button"
+                  onClick={onRetryGps}
+                  className="rounded-xl border border-emerald-300/50 bg-emerald-100 px-5 py-3 font-bold text-emerald-950 transition-colors hover:bg-white"
+                >
+                  Jeg har givet adgang - prøv igen
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={actions.reloadPage}
+                className="rounded-xl border border-red-200/60 bg-red-100 px-5 py-3 font-bold text-red-900 transition-colors hover:bg-white"
+              >
+                Opdater siden
+              </button>
+            </div>
           </div>
         </div>
       );

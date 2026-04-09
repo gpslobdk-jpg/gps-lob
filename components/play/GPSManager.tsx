@@ -19,6 +19,7 @@ type GPSManagerProps = {
   enabled: boolean;
   target: Location | null;
   autoUnlockRadius: number | null;
+  retryRequestNonce?: number;
   currentPostIndex: number;
   showQuestion: boolean;
   dismissedPostIndex: number | null;
@@ -53,6 +54,7 @@ export default function GPSManager({
   enabled,
   target,
   autoUnlockRadius,
+  retryRequestNonce = 0,
   currentPostIndex,
   showQuestion,
   dismissedPostIndex,
@@ -70,6 +72,7 @@ export default function GPSManager({
   const gpsWakeUpUntilRef = useRef(0);
   const lastPositionTimestampRef = useRef(0);
   const heartbeatRestartCountRef = useRef(0);
+  const handledRetryNonceRef = useRef(0);
 
   useEffect(() => {
     autoUnlockConfirmationRef.current = 0;
@@ -259,6 +262,25 @@ export default function GPSManager({
       }
     };
 
+    const shouldForceRetry = retryRequestNonce > handledRetryNonceRef.current;
+    if (shouldForceRetry) {
+      handledRetryNonceRef.current = retryRequestNonce;
+      gpsWakeUpUntilRef.current = Date.now() + GPS_WARMUP_DURATION_MS;
+      lastPositionTimestampRef.current = 0;
+
+      try {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            void successHandler(position);
+          },
+          errorHandler,
+          gpsOptions
+        );
+      } catch (error) {
+        console.warn("Kunne ikke trigge ny GPS-forespørgsel:", error);
+      }
+    }
+
     startWatch();
 
     // Heartbeat: if no GPS update in 15s, force a watcher restart
@@ -322,6 +344,7 @@ export default function GPSManager({
     showQuestion,
     target,
     autoUnlockRadius,
+    retryRequestNonce,
   ]);
 
   return null;

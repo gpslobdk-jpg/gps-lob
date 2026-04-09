@@ -19,6 +19,8 @@ type HomePageClientProps = {
   isNativeGpslobApp: boolean;
 };
 
+const JOIN_PIN_LENGTH = 6;
+
 const zenBubbles = [
   {
     name: "Eva Marie",
@@ -127,13 +129,13 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
     event.preventDefault();
     if (isJoining) return;
 
-    const cleanedCode = code.replace(/\D/g, "").slice(0, 5);
+    const cleanedCode = code.replace(/\D/g, "").slice(0, JOIN_PIN_LENGTH);
     if (cleanedCode.length === 0) {
       setCodeError("Husk at skrive koden først!");
       return;
     }
-    if (cleanedCode.length !== 5) {
-      setCodeError("Koden skal bestå af 5 tal.");
+    if (cleanedCode.length !== JOIN_PIN_LENGTH) {
+      setCodeError(`Koden skal bestå af ${JOIN_PIN_LENGTH} tal.`);
       return;
     }
     setCodeError("");
@@ -236,14 +238,15 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
                 <input
                   value={code}
                   onChange={(event) => {
-                    setCode(event.target.value.replace(/\D/g, "").slice(0, 5));
+                    setCode(event.target.value.replace(/\D/g, "").slice(0, JOIN_PIN_LENGTH));
                     if (codeError) setCodeError("");
                   }}
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  maxLength={5}
-                  placeholder="Indtast løbskode"
+                  maxLength={JOIN_PIN_LENGTH}
+                  autoComplete="one-time-code"
+                  placeholder="Indtast 6-cifret pinkode"
                   className="w-full rounded-3xl border border-slate-700 bg-slate-900 px-4 py-5 text-center font-mono text-base font-black tracking-[0.16em] text-emerald-400 outline-none placeholder:font-sans placeholder:text-sm placeholder:font-semibold placeholder:tracking-normal placeholder:text-slate-500 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/25 sm:px-5 sm:py-6 sm:text-lg sm:placeholder:text-base"
                 />
                 <button

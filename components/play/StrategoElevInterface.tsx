@@ -35,6 +35,7 @@ type StrategoElevInterfaceProps = {
   sessionId?: string;
   ui: PlayUiState;
   actions: PlayActions;
+  onRetryGps: () => void;
 };
 
 type StrategoRoleDefinitionRow = {
@@ -210,6 +211,7 @@ export default function StrategoElevInterface({
   sessionId,
   ui,
   actions,
+  onRetryGps,
 }: StrategoElevInterfaceProps) {
   const { player, gps, progress, stratego, flags } = ui;
   const [roleNamesByKey, setRoleNamesByKey] = useState<Map<string, string>>(new Map());
@@ -465,6 +467,8 @@ export default function StrategoElevInterface({
   }
 
   if (progress.screen.mode === "gps_blocked") {
+    const canRetryGpsPrompt = gps.gpsError !== "unsupported";
+
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
         <div className="w-full max-w-lg rounded-[2rem] border border-amber-400/20 bg-slate-900/70 p-8 text-center shadow-2xl backdrop-blur-xl">
@@ -472,13 +476,24 @@ export default function StrategoElevInterface({
           <h1 className="mt-4 text-3xl font-black">GPS kræves for at kæmpe</h1>
           <p className="mt-3 text-sm leading-6 text-white/75">{gps.gpsErrorContent?.message ?? "Aktivér GPS for at fortsætte."}</p>
           <p className="mt-2 text-xs text-white/50">{gps.gpsErrorContent?.helper}</p>
-          <button
-            type="button"
-            onClick={actions.reloadPage}
-            className="mt-6 inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white"
-          >
-            Opdater siden
-          </button>
+          <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            {canRetryGpsPrompt ? (
+              <button
+                type="button"
+                onClick={onRetryGps}
+                className="inline-flex items-center justify-center rounded-full border border-emerald-300/40 bg-emerald-500/15 px-5 py-3 text-sm font-bold text-emerald-100"
+              >
+                Jeg har givet adgang - prøv igen
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={actions.reloadPage}
+              className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white"
+            >
+              Opdater siden
+            </button>
+          </div>
         </div>
       </div>
     );
