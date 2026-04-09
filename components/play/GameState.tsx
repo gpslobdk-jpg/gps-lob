@@ -1502,7 +1502,7 @@ export function usePlayGameState({
           if (!isTransientNetworkError(error)) {
             console.error("Kunne ikke kontakte submit-answer API:", error);
             enqueueOfflineAnswer(payloads);
-            sendTelemetry("answer_queued_offline", { reason: "non_transient_error" });
+            sendTelemetry("answer_queued_offline", { message: "non_transient_error" });
             return fallbackResult;
           }
 
