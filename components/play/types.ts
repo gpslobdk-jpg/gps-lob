@@ -319,6 +319,7 @@ export interface PlayScreenState {
   isFinished: boolean;
   isKicked: boolean;
   playStartedAtMs: number | null;
+  playFinishedAtMs: number | null;
 }
 
 export interface PlayStrategoState {

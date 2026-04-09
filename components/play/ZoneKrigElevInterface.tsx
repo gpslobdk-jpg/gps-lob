@@ -132,6 +132,9 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
   const selectedZoneSolved = progress.solvedPostIndexes.includes(progress.currentPostIndex);
   const zoneCaptureFeedback = progress.currentPost.activeZoneKrigCaptureFeedback;
   const distanceToSelectedZone = formatDistance(gps.distance);
+  const isAnswerSubmissionPending =
+    (flags.isSubmittingAnswer || flags.isSubmitting) &&
+    progress.currentPost.activeQuizAnswerFeedback?.tone !== "success";
   const canUnlockSelectedZone =
     flags.gpsOverrideEnabled ||
     (gps.autoUnlockRadius !== null && gps.distance !== null && gps.distance <= gps.autoUnlockRadius) ||
@@ -615,7 +618,7 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
                       <button
                         key={`${progress.currentPostIndex}-${index}`}
                         type="button"
-                        disabled={flags.isSubmittingAnswer || progress.currentPost.activeQuizAnswerFeedback?.tone === "success"}
+                        disabled={flags.isSubmittingAnswer || flags.isSubmitting || progress.currentPost.activeQuizAnswerFeedback?.tone === "success"}
                         onClick={() => void actions.submitQuizAnswer(index)}
                         className={`rounded-3xl border px-4 py-4 text-left text-sm font-semibold transition ${
                           isSuccess
@@ -630,6 +633,13 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
                     );
                   })}
                 </div>
+
+                {isAnswerSubmissionPending ? (
+                  <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-100">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Sender svar...
+                  </div>
+                ) : null}
 
                 {progress.currentPost.activeTypedAnswerError ? (
                   <p className="mt-4 text-sm text-rose-300">{progress.currentPost.activeTypedAnswerError}</p>

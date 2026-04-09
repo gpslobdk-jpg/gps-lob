@@ -229,6 +229,9 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const cameraRetryHelpMessage =
     "Hvis kameraet ikke åbner, skal du tillade kamera-adgang i dine browser-indstillinger og prøve igen.";
   const cameraError = cameraErrorState.key === activeTypedAnswerKey ? cameraErrorState.message : null;
+  const isAnswerSubmissionPending = isSubmittingAnswer || isSubmitting;
+  const isQuizSubmissionPending =
+    activePostVariant === "quiz" && isAnswerSubmissionPending && !activeQuizAnswerFeedback;
 
   const clearPendingPhotoPickerState = useCallback(() => {
     photoPickerPendingRef.current = false;
@@ -379,7 +382,9 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const finishedMaxScore = questions.length * 10;
   const finishedScoreRatio = finishedMaxScore > 0 ? score / finishedMaxScore : 0;
   const finishedElapsedSec =
-    screen.playStartedAtMs !== null ? (Date.now() - screen.playStartedAtMs) / 1000 : null;
+    screen.playFinishedAtMs !== null && screen.playStartedAtMs !== null
+      ? (screen.playFinishedAtMs - screen.playStartedAtMs) / 1000
+      : null;
   const finishedAvgSecPerPost =
     finishedElapsedSec !== null && questions.length > 0
       ? finishedElapsedSec / questions.length
@@ -407,13 +412,19 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     case "load_error":
       content = (
         <div className="flex h-screen items-center justify-center bg-slate-950 px-6 text-center text-white">
-          <div className="max-w-md rounded-2xl border border-rose-400/30 bg-rose-500/10 p-6 backdrop-blur-xl">
-            <AlertCircle className="mx-auto mb-3 h-8 w-8 text-red-300" />
-            <p className={`font-semibold ${wrapTextClass}`}>{screen.loadError}</p>
+          <div className="max-w-md rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_0_28px_rgba(16,185,129,0.18)] backdrop-blur-xl">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-400/10 text-emerald-200">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+            <p className="text-[11px] font-semibold tracking-[0.28em] text-emerald-100/70 uppercase">
+              Klargør mission
+            </p>
+            <h1 className="mt-3 text-2xl font-black text-white">Vi gør løbet klar...</h1>
+            <p className={`mt-3 text-sm text-white/80 ${wrapTextClass}`}>{screen.loadError}</p>
             <button
               type="button"
               onClick={actions.reloadPage}
-              className="mt-6 rounded-xl border border-rose-200/40 bg-white/10 px-5 py-3 font-bold text-white transition-colors hover:bg-white/20"
+              className="mt-6 rounded-xl border border-emerald-200/30 bg-white/10 px-5 py-3 font-bold text-white transition-colors hover:bg-white/20"
             >
               Prøv igen
             </button>
@@ -741,8 +752,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       <span className={wrapTextClass}>Henter placeringer...</span>
                     </div>
                   ) : escapeResultsError ? (
-                    <div className="mt-5 rounded-[1.35rem] border border-rose-300/20 bg-rose-500/10 px-4 py-4 text-sm text-rose-100">
-                      <p className={wrapTextClass}>{escapeResultsError}</p>
+                    <div className="mt-5 rounded-[1.35rem] border border-white/10 bg-white/5 px-4 py-4 text-sm text-violet-100/85">
+                      <p className={wrapTextClass}>Placeringerne synkroniserer stadig. Kig igen om et øjeblik.</p>
                     </div>
                   ) : escapeResults.length > 0 ? (
                     <div className="mt-5 space-y-3">
@@ -1158,7 +1169,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                           <button
                             key={idx}
                             type="button"
-                            disabled={Boolean(activeQuizAnswerFeedback) || isSubmittingAnswer || isSubmitting}
+                            disabled={Boolean(activeQuizAnswerFeedback) || isAnswerSubmissionPending}
                             onClick={() => void actions.submitQuizAnswer(idx)}
                             className={`flex min-h-[56px] w-full items-center justify-between gap-3 overflow-hidden rounded-[1.35rem] border p-4 text-left text-base font-black uppercase tracking-[0.2em] transition-all sm:text-lg ${wrapTextClass} ${rubik.className} ${
                               isSuccessAnswer
@@ -1177,6 +1188,13 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                         );
                       })}
                     </div>
+
+                    {isQuizSubmissionPending ? (
+                      <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-100">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Sender svar...
+                      </div>
+                    ) : null}
 
                     {hasActiveQuizSuccess ? (
                       <div className="mt-5">
@@ -1528,8 +1546,15 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                                 hasRoleplayInputErrorTone ? "border-rose-300/45 focus:border-rose-300/55 focus:ring-rose-300/20" : "border-emerald-500/50 focus:border-emerald-400 focus:ring-emerald-400/20"
                               } disabled:cursor-not-allowed disabled:opacity-70`}
                             />
-                            <button type="submit" disabled={isSubmittingAnswer || isSubmitting} className={`${tacticalPrimaryButtonClass} min-w-[11rem] shrink-0`}>
-                              Send besked
+                            <button type="submit" disabled={isAnswerSubmissionPending} className={`${tacticalPrimaryButtonClass} min-w-[11rem] shrink-0`}>
+                              {isAnswerSubmissionPending ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Sender...
+                                </>
+                              ) : (
+                                "Send besked"
+                              )}
                             </button>
                           </div>
 
@@ -1547,11 +1572,11 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                     <p
                       className={`${tacticalMetaLabelClass} ${wrapTextClass}`}
                     >
-                      Ukendt post
+                      Mission
                     </p>
-                    <h3 className={`text-xl font-black text-white ${wrapTextClass} ${rubik.className}`}>⚠️ Ukendt post-type</h3>
+                    <h3 className={`text-xl font-black text-white ${wrapTextClass} ${rubik.className}`}>Posten gør sig klar</h3>
                     <p className={`text-sm leading-relaxed text-white/90 ${wrapTextClass}`}>
-                      Noget gik galt med dataen for denne post. Kontakt din arrangør.
+                      Vent et øjeblik og prøv igen. Hvis den ikke åbner, så kig op på arrangørens skærm.
                     </p>
                   </div>
                 ) : null}

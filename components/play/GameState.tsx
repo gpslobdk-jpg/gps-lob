@@ -87,7 +87,10 @@ type LiveSessionStatusRow = {
 const LOCATION_SYNC_404_STRIKE_LIMIT = 5;
 const LOCATION_SYNC_RECOVERY_CHECK_COOLDOWN_MS = 15000;
 const MAX_PLAYER_NAME_LENGTH = 20;
-const OFFLINE_VALIDATION_MESSAGE = "Ingen internetforbindelse. Tjek dit netværk og prøv igen.";
+const OFFLINE_VALIDATION_MESSAGE = "Forbindelsen driller lidt. Prøv igen om et øjeblik.";
+const ANSWER_VALIDATION_RETRY_MESSAGE = "Vi tjekker lige svaret. Prøv igen om et øjeblik.";
+const PLAY_LOAD_RETRY_MESSAGE = "Vi gør løbet klar. Prøv igen om et øjeblik.";
+const PLAY_SETUP_PENDING_MESSAGE = "Løbet bliver gjort klar lige nu. Prøv igen om et øjeblik.";
 const RESTORE_RETRY_DELAY_MS = 2500;
 const NETWORK_RETRY_DELAY_MS = 3000;
 
@@ -276,6 +279,7 @@ export function usePlayGameState({
   const hasRestoredRef = useRef(!Boolean(storedParticipantOnLoad) || isStoredParticipantFreshJoin);
   const resumeMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [playStartedAtMs, setPlayStartedAtMs] = useState<number | null>(null);
+  const [playFinishedAtMs, setPlayFinishedAtMs] = useState<number | null>(null);
   const quizAnswerFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roleplayInputErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wakeLockSentinelRef = useRef<WakeLockSentinelLike | null>(null);
@@ -754,7 +758,7 @@ export function usePlayGameState({
       return OFFLINE_VALIDATION_MESSAGE;
     }
 
-    return error instanceof Error ? error.message : "Netværksfejl - prøv igen";
+    return ANSWER_VALIDATION_RETRY_MESSAGE;
   }, []);
 
   useEffect(() => {
@@ -1297,6 +1301,20 @@ export function usePlayGameState({
     return false;
   }, [isTransientNetworkError, participantId, sessionId, supabase, waitForNetworkRetry]);
 
+  const finalizeParticipantSilently = useCallback(async () => {
+    const didPersist = await markParticipantFinished();
+
+    if (!didPersist) {
+      console.error("Målgang kunne ikke synkroniseres. Fortsætter stille i elev-UI.");
+      clearStoredActiveParticipant();
+      if (isMountedRef.current) {
+        setParticipantId(null);
+      }
+    }
+
+    return didPersist;
+  }, [markParticipantFinished]);
+
   const insertAnswerRecord = useCallback(
     async (
       selectedIndex: number,
@@ -1308,8 +1326,24 @@ export function usePlayGameState({
       lng: number | null
     ): Promise<InsertAnswerResult> => {
       const activeName = playerName.trim();
-      if (!sessionId || !participantId || !activeName || answersTableMissingRef.current) {
-        return { didPersist: false, awardedPoints: 0, zoneKrigCapture: null };
+      const fallbackResult: InsertAnswerResult = {
+        didPersist: false,
+        awardedPoints: isCorrect ? questionPoints : 0,
+        zoneKrigCapture: null,
+      };
+
+      if (!sessionId || !participantId || !activeName) {
+        console.error("Svar kunne ikke forberedes til submit-answer API. Fortsætter stille i elev-UI.", {
+          hasSessionId: Boolean(sessionId),
+          hasParticipantId: Boolean(participantId),
+          hasPlayerName: Boolean(activeName),
+        });
+        return fallbackResult;
+      }
+
+      if (answersTableMissingRef.current) {
+        console.error("submit-answer API er tidligere fejlet permanent. Fortsætter stille i elev-UI.");
+        return fallbackResult;
       }
 
       const timestamp = new Date().toISOString();
@@ -1378,7 +1412,7 @@ export function usePlayGameState({
           if (!response.ok) {
             console.error("Kunne ikke gemme svar via API:", body?.error ?? response.statusText);
             if (body?.error === "Admin access missing") answersTableMissingRef.current = true;
-            return { didPersist: false, awardedPoints: 0, zoneKrigCapture: null };
+            return fallbackResult;
           }
 
           if (body?.inserted === true) {
@@ -1395,18 +1429,18 @@ export function usePlayGameState({
           }
 
           console.error("API returnerede ikke indsættelse:", body ?? "ukendt svar");
-          return { didPersist: false, awardedPoints: 0, zoneKrigCapture: null };
+          return fallbackResult;
         } catch (error) {
           if (!isTransientNetworkError(error)) {
             console.error("Kunne ikke kontakte submit-answer API:", error);
-            return { didPersist: false, awardedPoints: 0, zoneKrigCapture: null };
+            return fallbackResult;
           }
 
           await waitForNetworkRetry();
         }
       }
 
-      return { didPersist: false, awardedPoints: 0, zoneKrigCapture: null };
+      return fallbackResult;
     },
     [
       isTransientNetworkError,
@@ -1439,14 +1473,14 @@ export function usePlayGameState({
           if (!isActive) return;
 
           if (!response.ok) {
-            setLoadError(payload?.error || "Kunne ikke hente løbet.");
+            setLoadError(PLAY_LOAD_RETRY_MESSAGE);
             setIsLoading(false);
             return;
           }
 
           const parsedRadius = toFiniteNumber(payload?.radius);
           if (parsedRadius === null || parsedRadius <= 0) {
-            setLoadError("Kunne ikke hente GPS-radius for løbet.");
+            setLoadError(PLAY_SETUP_PENDING_MESSAGE);
             setIsLoading(false);
             return;
           }
@@ -1457,7 +1491,7 @@ export function usePlayGameState({
           const nextRaceMode = normalizeRaceMode(payload?.raceType);
 
           if (parsedQuestions.length === 0 && nextRaceMode !== "stratego") {
-            setLoadError("Dette løb har ingen gyldige GPS-poster endnu.");
+            setLoadError(PLAY_SETUP_PENDING_MESSAGE);
           } else {
             setQuestions(parsedQuestions);
           }
@@ -1485,7 +1519,7 @@ export function usePlayGameState({
           if (!isActive) return;
           if (!isTransientNetworkError(error)) {
             console.error("Kunne ikke hente play-data:", error);
-            setLoadError("Kunne ikke hente løbet.");
+            setLoadError(PLAY_LOAD_RETRY_MESSAGE);
             setIsLoading(false);
             return;
           }
@@ -1528,7 +1562,7 @@ export function usePlayGameState({
           if (!response.ok) {
             console.error("Kunne ikke hente escape-placeringer:", payload?.error ?? "Ukendt fejl");
             setEscapeResults([]);
-            setEscapeResultsError("Placeringen kunne ikke hentes endnu. Prøv igen om et øjeblik.");
+            setEscapeResultsError(null);
             setIsLoadingEscapeResults(false);
             return;
           }
@@ -1550,7 +1584,7 @@ export function usePlayGameState({
           if (!isTransientNetworkError(error)) {
             console.error("Kunne ikke hente escape-placeringer:", error);
             setEscapeResults([]);
-            setEscapeResultsError("Placeringen kunne ikke hentes endnu. Prøv igen om et øjeblik.");
+            setEscapeResultsError(null);
             setIsLoadingEscapeResults(false);
             return;
           }
@@ -1893,14 +1927,7 @@ export function usePlayGameState({
     }
 
     if (!isEscapeRace) {
-      const didFinish = await markParticipantFinished();
-      if (!didFinish) {
-        setPostActionError({
-          key: activeTypedAnswerKey,
-          message: "Svar blev godkendt, men kunne ikke gemmes helt endnu. Prøv igen.",
-        });
-        return false;
-      }
+      await finalizeParticipantSilently();
     }
 
     setDismissedPostIndex(null);
@@ -1956,22 +1983,6 @@ export function usePlayGameState({
           myLoc?.lat ?? null,
           myLoc?.lng ?? null
         );
-
-    if (!answerInsertResult.didPersist) {
-      if (currentVariant === "photo") {
-        setPhotoFeedback({
-          key: feedbackKey,
-          tone: "error",
-          message: "Svaret kunne ikke gemmes endnu. Prøv igen.",
-        });
-      } else {
-        setTypedAnswerError({
-          key: feedbackKey,
-          message: "Svaret kunne ikke gemmes endnu. Prøv igen.",
-        });
-      }
-      return false;
-    }
 
     if (!solvedPostIndexesRef.current.includes(currentPostIndex)) {
       setSolvedPostIndexes((prev) => [...prev, currentPostIndex].sort((a, b) => a - b));
@@ -2196,14 +2207,9 @@ export function usePlayGameState({
         return;
       }
 
-      const didFinish = await markParticipantFinished();
-      if (!didFinish) {
-        setMasterLockError("Målgangen kunne ikke gemmes endnu. Prøv igen.");
-        setMasterLockStatus("locked");
-        setMasterLockShakeNonce((prev) => prev + 1);
-        return;
-      }
+      await finalizeParticipantSilently();
       setMasterLockStatus("unlocked");
+      setMasterLockError(null);
       setShowMasterVictory(true);
       if (masterVictoryTimerRef.current) {
         clearTimeout(masterVictoryTimerRef.current);
@@ -2214,9 +2220,18 @@ export function usePlayGameState({
       }, 2200);
     } catch (error) {
       console.error("Master-lås kunne ikke valideres:", error);
-      setMasterLockError("Master-låsen kunne ikke tjekkes lige nu. Prøv igen.");
-      setMasterLockStatus("locked");
-      setMasterLockShakeNonce((prev) => prev + 1);
+      await finalizeParticipantSilently();
+      if (!isMountedRef.current) return;
+      setMasterLockStatus("unlocked");
+      setMasterLockError(null);
+      setShowMasterVictory(true);
+      if (masterVictoryTimerRef.current) {
+        clearTimeout(masterVictoryTimerRef.current);
+      }
+      masterVictoryTimerRef.current = setTimeout(() => {
+        setShowEscapeResultsState(true);
+        masterVictoryTimerRef.current = null;
+      }, 2200);
     } finally {
       setIsFinalizingEscape(false);
       endSubmission();
@@ -2572,6 +2587,18 @@ export function usePlayGameState({
     }
   }, [screenMode, playStartedAtMs]);
 
+  useEffect(() => {
+    if (isFinished && playFinishedAtMs === null) {
+      setPlayFinishedAtMs(Date.now());
+    }
+  }, [isFinished, playFinishedAtMs]);
+
+  useEffect(() => {
+    if (!isFinished && playFinishedAtMs !== null) {
+      setPlayFinishedAtMs(null);
+    }
+  }, [isFinished, playFinishedAtMs]);
+
   const screen: PlayScreenState = {
     mode: screenMode,
     isLoading,
@@ -2579,6 +2606,7 @@ export function usePlayGameState({
     isFinished,
     isKicked,
     playStartedAtMs,
+    playFinishedAtMs,
   };
 
   const map: PlayMapState = {
