@@ -101,17 +101,6 @@ const ZONE_KRIG_DEFAULT_TEAMS = [
   { teamName: "Gul", color: "#eab308" },
 ] as const;
 
-function getSupabaseConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-
-  if (!url || !anonKey) {
-    throw new Error("Supabase er ikke konfigureret.");
-  }
-
-  return { url: url.replace(/\/$/, ""), anonKey };
-}
-
 function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -200,44 +189,6 @@ function pickLeastUsedStartOffset(rows: ParticipantOffsetRow[] | null, questionC
 
   const minUsage = Math.min(...usageByOffset);
   return usageByOffset.findIndex((usage) => usage === minUsage);
-}
-
-async function supabaseRequest<T>(
-  path: string,
-  init: RequestInit,
-  prefer = "return=representation"
-): Promise<SupabaseResult<T>> {
-  const { url, anonKey } = getSupabaseConfig();
-  const headers = new Headers(init.headers);
-  headers.set("apikey", anonKey);
-  headers.set("Authorization", `Bearer ${anonKey}`);
-  headers.set("Content-Type", "application/json");
-  headers.set("Prefer", prefer);
-
-  const response = await fetch(`${url}/rest/v1/${path}`, {
-    ...init,
-    headers,
-    cache: "no-store",
-  });
-
-  const contentType = response.headers.get("content-type") ?? "";
-  const body = contentType.includes("application/json")
-    ? ((await response.json()) as T | SupabaseRestError)
-    : ({ message: await response.text() } satisfies SupabaseRestError);
-
-  if (!response.ok) {
-    return {
-      ok: false,
-      status: response.status,
-      error: body as SupabaseRestError,
-    };
-  }
-
-  return {
-    ok: true,
-    status: response.status,
-    data: body as T,
-  };
 }
 
 async function fetchRun(runId: string, adminSupabase: AdminSupabaseClient) {
@@ -566,7 +517,11 @@ async function clearParticipantAuthSession(participantSupabase: ParticipantServe
   }
 }
 
-async function ensureSessionStudent(sessionId: string, studentName: string) {
+async function ensureSessionStudent(
+  sessionId: string,
+  studentName: string,
+  adminSupabase: AdminSupabaseClient
+) {
   const normalizedStudentName = studentName.trim();
   const timestamp = new Date().toISOString();
   const payloads = [
@@ -575,24 +530,17 @@ async function ensureSessionStudent(sessionId: string, studentName: string) {
   ];
 
   for (const payload of payloads) {
-    const result = await supabaseRequest<unknown>(
-      "session_students",
-      {
-        method: "POST",
-        body: JSON.stringify(payload),
-      },
-      "return=minimal"
-    );
+    const { error } = await adminSupabase.from("session_students").insert(payload);
 
-    if (result.ok || result.error.code === "23505") {
+    if (!error || error.code === "23505") {
       return true;
     }
 
-    if (isMissingColumnError(result.error)) {
+    if (isMissingColumnError(error)) {
       continue;
     }
 
-    console.warn("Kunne ikke oprette session_students-række:", result.error);
+    console.warn("Kunne ikke oprette session_students-række:", error);
     return false;
   }
 
@@ -997,7 +945,7 @@ export async function POST(request: NextRequest) {
       ? normalizeStartOffset(resolvedParticipantRow?.start_offset ?? plannedStartOffset, questionCount)
       : 0;
 
-    void ensureSessionStudent(sessionId, normalizedStudentName);
+    void ensureSessionStudent(sessionId, normalizedStudentName, adminSupabase);
 
     // Zone-Krig: auto-balance player onto the least populated team
     let teamId: string | null = null;
