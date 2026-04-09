@@ -36,6 +36,8 @@ type MapPickerProps = {
   mapMode?: "default" | "zone-krig";
   onCenterChange?: (center: MapCenter) => void;
   onMapClick?: (center: MapCenter) => void;
+  onPinClick?: (pinId: SavedPin["id"]) => void;
+  onPinDragEnd?: (pinId: SavedPin["id"], center: MapCenter) => void;
   activePinLabel?: string | null;
   isAwaitingMapClick?: boolean;
   autoLocateOnLoad?: boolean;
@@ -132,10 +134,10 @@ function MapClickReporter({
   return null;
 }
 
-function numberedPinIcon(number: number) {
+function numberedPinIcon(number: number, isDraggable = false) {
   return L.divIcon({
     className: "",
-    html: `<div style="width:30px;height:30px;border-radius:9999px;background:linear-gradient(135deg,#22d3ee,#3b82f6);color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 14px rgba(34,211,238,0.55);border:1px solid rgba(255,255,255,0.35);">${number}</div>`,
+    html: `<div style="width:30px;height:30px;border-radius:9999px;background:linear-gradient(135deg,#22d3ee,#3b82f6);color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 14px rgba(34,211,238,0.55);border:1px solid rgba(255,255,255,0.35);cursor:${isDraggable ? "grab" : "pointer"};touch-action:none;">${number}</div>`,
     iconSize: [30, 30],
     iconAnchor: [15, 15],
   });
@@ -148,6 +150,8 @@ export default function MapPicker({
   mapMode = "default",
   onCenterChange,
   onMapClick,
+  onPinClick,
+  onPinDragEnd,
   activePinLabel,
   isAwaitingMapClick = false,
   autoLocateOnLoad = true,
@@ -162,6 +166,8 @@ export default function MapPicker({
   const hasAutoLocateAttemptedRef = useRef(false);
   const hasExternalCenterOverrideRef = useRef(false);
   const geolocationRequestIdRef = useRef(0);
+  const canDragPins = typeof onPinDragEnd === "function";
+  const showPinDragHint = canDragPins && pins.length > 0 && !isAwaitingMapClick;
 
   const queueFocus = useCallback((coords: [number, number], zoom?: number) => {
     focusRequestIdRef.current += 1;
@@ -364,7 +370,23 @@ export default function MapPicker({
           <Marker
             key={pin.id}
             position={[pin.lat, pin.lng]}
-            icon={numberedPinIcon(pin.number)}
+            icon={numberedPinIcon(pin.number, canDragPins)}
+            draggable={canDragPins}
+            autoPan={canDragPins}
+            title={canDragPins ? `Post ${pin.number}. Træk for at flytte eller klik for at åbne.` : onPinClick ? `Post ${pin.number}. Klik for at hoppe til posten.` : `Post ${pin.number}`}
+            eventHandlers={{
+              click: () => {
+                onPinClick?.(pin.id);
+              },
+              ...(canDragPins
+                ? {
+                    dragend: (event: L.LeafletEvent) => {
+                      const nextLatLng = (event.target as L.Marker).getLatLng();
+                      onPinDragEnd?.(pin.id, { lat: nextLatLng.lat, lng: nextLatLng.lng });
+                    },
+                  }
+                : {}),
+            }}
           />
         ))}
 
@@ -402,6 +424,12 @@ export default function MapPicker({
           );
         })}
       </MapContainer>
+
+      {showPinDragHint ? (
+        <div className="pointer-events-none absolute right-4 bottom-4 left-4 z-1000 rounded-2xl border border-cyan-300/35 bg-slate-950/82 px-4 py-3 text-sm font-medium text-cyan-50 shadow-[0_16px_32px_rgba(0,0,0,0.22)] backdrop-blur-xl sm:left-auto sm:max-w-80">
+          Tip: Træk i post-ikonet for at flytte det, eller klik på det for at hoppe til posten.
+        </div>
+      ) : null}
 
       {activePinLabel ? (
         <div className="pointer-events-none absolute right-4 bottom-4 left-4 z-1000 rounded-2xl border border-cyan-300/45 bg-slate-950/82 px-4 py-3 text-sm font-semibold text-cyan-100 shadow-[0_0_24px_rgba(34,211,238,0.2)] backdrop-blur-xl">

@@ -317,6 +317,14 @@ export default function SelfieBuilderClient() {
     }
   };
 
+  const scrollToQuestionCard = (id: number) => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    document.getElementById(`selfie-post-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
   useEffect(() => {
     hasInitializedDraftRef.current = false;
     shouldAutoRestoreDraftRef.current = null;
@@ -872,6 +880,7 @@ export default function SelfieBuilderClient() {
                 {questions.map((question, index) => (
                   <article
                     key={question.id}
+                    id={`selfie-post-${question.id}`}
                     className="rounded-[1.7rem] border border-rose-500/30 bg-rose-950/20 p-4 shadow-[0_20px_48px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-5"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -960,7 +969,15 @@ export default function SelfieBuilderClient() {
           <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
             <div className="lg:sticky lg:top-5">
               <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-rose-500/20 bg-slate-900/60 shadow-[0_0_0_1px_rgba(244,63,94,0.08),0_0_36px_rgba(244,63,94,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
-                <MapPicker center={mapCenter} pins={pins} zones={previewZones} onCenterChange={setMapCenter} autoLocateOnLoad={!isEditMode} />
+                <MapPicker
+                  center={mapCenter}
+                  pins={pins}
+                  zones={previewZones}
+                  onCenterChange={setMapCenter}
+                  onPinClick={(pinId) => scrollToQuestionCard(Number(pinId))}
+                  onPinDragEnd={(pinId, coords) => updateQuestion(Number(pinId), { lat: coords.lat, lng: coords.lng })}
+                  autoLocateOnLoad={!isEditMode}
+                />
               </div>
             </div>
           </aside>

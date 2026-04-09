@@ -1352,6 +1352,8 @@ function RollespilBuilderPageContent() {
                   autoLocateOnLoad={!isEditMode}
                   onCenterChange={setMapCenter}
                   onMapClick={handleMapClick}
+                  onPinClick={(pinId) => scrollToQuestionCard(Number(pinId))}
+                  onPinDragEnd={(pinId, coords) => updateQuestion(Number(pinId), { lat: coords.lat, lng: coords.lng })}
                   activePinLabel={activePinLabel}
                   isAwaitingMapClick={activePinQuestionId !== null}
                 />

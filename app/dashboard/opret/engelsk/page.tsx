@@ -530,6 +530,14 @@ function OpretEngelskLoebPageContent() {
     }
   };
 
+  const scrollToQuestionCard = (id: number) => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    document.getElementById(`engelsk-post-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
   useEffect(() => {
     if (!pendingScrollTargetId.current || typeof document === "undefined" || typeof window === "undefined") {
       return;
@@ -1552,7 +1560,15 @@ function OpretEngelskLoebPageContent() {
           <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:p-8 lg:pl-0 print:hidden">
             <div className="lg:sticky lg:top-20">
               <div className="h-[42vh] min-h-80 w-full overflow-hidden rounded-4xl border border-indigo-500/20 bg-slate-900/50 shadow-[0_0_0_1px_rgba(99,102,241,0.08),0_0_36px_rgba(99,102,241,0.12),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-(--spacing(28)))]">
-                <MapPicker center={mapCenter} pins={pins} zones={previewZones} onCenterChange={setMapCenter} autoLocateOnLoad={!isEditMode} />
+                <MapPicker
+                  center={mapCenter}
+                  pins={pins}
+                  zones={previewZones}
+                  onCenterChange={setMapCenter}
+                  onPinClick={(pinId) => scrollToQuestionCard(Number(pinId))}
+                  onPinDragEnd={(pinId, coords) => updateQuestion(Number(pinId), { lat: coords.lat, lng: coords.lng })}
+                  autoLocateOnLoad={!isEditMode}
+                />
               </div>
             </div>
           </aside>
