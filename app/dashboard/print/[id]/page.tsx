@@ -124,6 +124,7 @@ export default async function PrintPage({
               runId={run.id}
               runTitle={run.title}
               totalPosts={posts.length}
+              subject={run.subject}
               playfairClass={playfair.className}
             />
           ))}
@@ -143,71 +144,204 @@ export default async function PrintPage({
   );
 }
 
+/* ── Theme Map ─────────────────────────────────────────────────────── */
+type PostTheme = {
+  pageBg: string;
+  headerBg: string;
+  headerFiligree: string;
+  headerSubtitle: string;
+  badgeBg: string;
+  badgeText: string;
+  badgeBorder: string;
+  titleText: string;
+  bodyText: string;
+  dividerBorder: string;
+  dividerGlyph: string;
+  questionText: string;
+  optionBorder: string;
+  optionBg: string;
+  optionLetterBg: string;
+  optionLetterText: string;
+  optionText: string;
+  footerBg: string;
+  footerBorder: string;
+  footerText: string;
+  outerBorder: string;
+};
+
+const THEME_MAP: Record<string, PostTheme> = {
+  historie: {
+    pageBg: "bg-amber-50 print:bg-amber-50",
+    headerBg: "bg-stone-900 print:bg-stone-900",
+    headerFiligree: "border-stone-500",
+    headerSubtitle: "text-stone-400",
+    badgeBg: "bg-amber-600 print:bg-amber-600",
+    badgeText: "text-white",
+    badgeBorder: "border-amber-800",
+    titleText: "text-amber-50",
+    bodyText: "text-stone-700",
+    dividerBorder: "border-stone-400",
+    dividerGlyph: "text-stone-400",
+    questionText: "text-stone-900",
+    optionBorder: "border-stone-700",
+    optionBg: "bg-stone-100 print:bg-stone-100",
+    optionLetterBg: "bg-stone-800 print:bg-stone-800",
+    optionLetterText: "text-amber-300",
+    optionText: "text-stone-800",
+    footerBg: "bg-stone-900 print:bg-stone-900",
+    footerBorder: "border-stone-800",
+    footerText: "text-stone-400",
+    outerBorder: "border-stone-800",
+  },
+  matematik: {
+    pageBg: "bg-blue-50 print:bg-blue-50",
+    headerBg: "bg-indigo-900 print:bg-indigo-900",
+    headerFiligree: "border-indigo-400",
+    headerSubtitle: "text-indigo-300",
+    badgeBg: "bg-blue-600 print:bg-blue-600",
+    badgeText: "text-white",
+    badgeBorder: "border-blue-800",
+    titleText: "text-blue-50",
+    bodyText: "text-slate-700",
+    dividerBorder: "border-indigo-300",
+    dividerGlyph: "text-indigo-400",
+    questionText: "text-slate-900",
+    optionBorder: "border-indigo-600",
+    optionBg: "bg-blue-50 print:bg-blue-50",
+    optionLetterBg: "bg-indigo-800 print:bg-indigo-800",
+    optionLetterText: "text-blue-200",
+    optionText: "text-slate-800",
+    footerBg: "bg-indigo-900 print:bg-indigo-900",
+    footerBorder: "border-indigo-800",
+    footerText: "text-indigo-300",
+    outerBorder: "border-indigo-800",
+  },
+  "natur/teknik": {
+    pageBg: "bg-emerald-50 print:bg-emerald-50",
+    headerBg: "bg-emerald-900 print:bg-emerald-900",
+    headerFiligree: "border-emerald-500",
+    headerSubtitle: "text-emerald-300",
+    badgeBg: "bg-emerald-600 print:bg-emerald-600",
+    badgeText: "text-white",
+    badgeBorder: "border-emerald-800",
+    titleText: "text-emerald-50",
+    bodyText: "text-stone-700",
+    dividerBorder: "border-emerald-300",
+    dividerGlyph: "text-emerald-400",
+    questionText: "text-stone-900",
+    optionBorder: "border-emerald-600",
+    optionBg: "bg-emerald-50 print:bg-emerald-50",
+    optionLetterBg: "bg-emerald-800 print:bg-emerald-800",
+    optionLetterText: "text-emerald-200",
+    optionText: "text-stone-800",
+    footerBg: "bg-emerald-900 print:bg-emerald-900",
+    footerBorder: "border-emerald-800",
+    footerText: "text-emerald-300",
+    outerBorder: "border-emerald-800",
+  },
+};
+
+const DEFAULT_THEME: PostTheme = {
+  pageBg: "bg-slate-50 print:bg-slate-50",
+  headerBg: "bg-slate-800 print:bg-slate-800",
+  headerFiligree: "border-slate-500",
+  headerSubtitle: "text-slate-400",
+  badgeBg: "bg-slate-700 print:bg-slate-700",
+  badgeText: "text-white",
+  badgeBorder: "border-slate-600",
+  titleText: "text-slate-50",
+  bodyText: "text-slate-700",
+  dividerBorder: "border-slate-300",
+  dividerGlyph: "text-slate-400",
+  questionText: "text-slate-900",
+  optionBorder: "border-slate-600",
+  optionBg: "bg-slate-100 print:bg-slate-100",
+  optionLetterBg: "bg-slate-700 print:bg-slate-700",
+  optionLetterText: "text-slate-200",
+  optionText: "text-slate-800",
+  footerBg: "bg-slate-800 print:bg-slate-800",
+  footerBorder: "border-slate-700",
+  footerText: "text-slate-400",
+  outerBorder: "border-slate-700",
+};
+
+function resolveTheme(subject: string): PostTheme {
+  const key = subject.trim().toLowerCase();
+  if (THEME_MAP[key]) return THEME_MAP[key];
+  for (const [mapKey, theme] of Object.entries(THEME_MAP)) {
+    if (key.includes(mapKey) || mapKey.includes(key)) return theme;
+  }
+  return DEFAULT_THEME;
+}
+
 /* ── Post Card ─────────────────────────────────────────────────────── */
 function PostCard({
   post,
   runId,
   runTitle,
   totalPosts,
+  subject,
   playfairClass,
 }: {
   post: Post;
   runId: string;
   runTitle: string;
   totalPosts: number;
+  subject: string;
   playfairClass: string;
 }) {
+  const t = resolveTheme(subject);
+
   return (
     <article
-      className="
+      className={`
         relative box-border w-[210mm] min-h-[297mm]
-        bg-amber-50 print:bg-amber-50
-        border-double border-10 border-stone-800
+        ${t.pageBg}
+        border-double border-10 ${t.outerBorder}
         shadow-[0_20px_60px_rgba(0,0,0,0.4)]
         print:shadow-none
         overflow-hidden
         break-after-page
-      "
+      `}
       style={{ pageBreakAfter: "always" }}
     >
-      {/* ── Top ornamental header ──────────────────────────────────── */}
-      <header className="bg-stone-900 print:bg-stone-900 px-10 pt-7 pb-6 text-center">
+      {/* ── Top header ─────────────────────────────────────────────── */}
+      <header className={`${t.headerBg} px-10 pt-7 pb-6 text-center`}>
         {/* Filigree line */}
         <div className="mb-3 flex items-center gap-3">
-          <div className="flex-1 border-t border-stone-500" />
+          <div className={`flex-1 border-t ${t.headerFiligree}`} />
           <OrnamentSvg />
-          <div className="flex-1 border-t border-stone-500" />
+          <div className={`flex-1 border-t ${t.headerFiligree}`} />
         </div>
 
         {/* Run name */}
         <p
-          className={`text-[0.6rem] font-semibold uppercase tracking-[0.35em] text-stone-400 ${playfairClass}`}
+          className={`text-[0.6rem] font-semibold uppercase tracking-[0.35em] ${t.headerSubtitle} ${playfairClass}`}
         >
           {runTitle}
         </p>
 
-        {/* Post number badge */}
-        <div className="my-3 flex justify-center">
+        {/* ── Post number — bold banner ────────────────────────────── */}
+        <div className="my-4 flex justify-center">
           <span
-            className={`inline-flex h-12 w-12 items-center justify-center border-2 border-amber-400 bg-stone-900 print:bg-stone-900 text-xl font-black text-amber-400 ${playfairClass}`}
-            style={{ clipPath: "polygon(50% 0%,100% 50%,50% 100%,0% 50%)" }}
+            className={`inline-block rounded-sm border-4 ${t.badgeBorder} ${t.badgeBg} px-8 py-2 text-4xl font-black uppercase tracking-wider ${t.badgeText} ${playfairClass}`}
           >
-            {post.number}
+            Post {post.number}
           </span>
         </div>
 
         {/* Post title */}
         <h2
-          className={`text-3xl font-black italic leading-tight tracking-wide text-amber-50 ${playfairClass}`}
+          className={`text-3xl font-black italic leading-tight tracking-wide ${t.titleText} ${playfairClass}`}
         >
           {post.title}
         </h2>
 
         {/* Filigree line */}
         <div className="mt-4 flex items-center gap-3">
-          <div className="flex-1 border-t border-stone-500" />
+          <div className={`flex-1 border-t ${t.headerFiligree}`} />
           <OrnamentSvg flip />
-          <div className="flex-1 border-t border-stone-500" />
+          <div className={`flex-1 border-t ${t.headerFiligree}`} />
         </div>
       </header>
 
@@ -217,53 +351,53 @@ function PostCard({
         <img
           src={getPostImageUrl(post, `${runId}-${post.number}`)}
           alt={post.title}
-          className="
+          className={`
             w-full object-cover
-            border-4 border-stone-800
+            border-4 ${t.outerBorder}
             shadow-[6px_6px_0px_0px_rgba(28,25,23,0.55)]
-          "
+          `}
           style={{ maxHeight: "185px", objectFit: "cover" }}
-          loading="lazy"
-          decoding="async"
+          loading="eager"
+          decoding="sync"
         />
       </div>
 
       {/* ── Body text ─────────────────────────────────────────────── */}
       <div className="px-10 pt-5">
-        <p className="text-[0.9rem] leading-[1.75] text-stone-700">{post.body_text}</p>
+        <p className={`text-[0.9rem] leading-[1.75] ${t.bodyText}`}>{post.body_text}</p>
       </div>
 
       {/* ── Ornamental divider ────────────────────────────────────── */}
       <div className="mx-10 my-5 flex items-center gap-4">
-        <div className="flex-1 border-t-2 border-stone-400" />
-        <span className="text-stone-400 text-lg">✦</span>
-        <div className="flex-1 border-t-2 border-stone-400" />
+        <div className={`flex-1 border-t-2 ${t.dividerBorder}`} />
+        <span className={`${t.dividerGlyph} text-lg`}>✦</span>
+        <div className={`flex-1 border-t-2 ${t.dividerBorder}`} />
       </div>
 
       {/* ── Question ──────────────────────────────────────────────── */}
       <div className="px-10">
         <p
-          className={`mb-5 text-xl font-bold leading-snug text-stone-900 ${playfairClass}`}
+          className={`mb-5 text-xl font-bold leading-snug ${t.questionText} ${playfairClass}`}
         >
           {post.question}
         </p>
 
-        {/* Options — 2-column grid, elegant non-button style */}
+        {/* Options — 2-column grid */}
         <div className="grid grid-cols-2 gap-3">
           {post.options.map((option, i) => (
             <div
               key={i}
-              className="flex items-stretch border-2 border-stone-700 bg-stone-100 print:bg-stone-100"
+              className={`flex items-stretch border-2 ${t.optionBorder} ${t.optionBg}`}
             >
               {/* Fat letter column */}
               <div
-                className={`flex w-12 shrink-0 items-center justify-center bg-stone-800 print:bg-stone-800 text-lg font-black text-amber-300 ${playfairClass}`}
+                className={`flex w-12 shrink-0 items-center justify-center ${t.optionLetterBg} text-lg font-black ${t.optionLetterText} ${playfairClass}`}
               >
                 {LETTER_LABELS[i]}
               </div>
               {/* Answer text */}
               <div className="flex items-center px-3 py-3">
-                <span className="text-sm font-medium leading-snug text-stone-800">
+                <span className={`text-sm font-medium leading-snug ${t.optionText}`}>
                   {option}
                 </span>
               </div>
@@ -273,11 +407,11 @@ function PostCard({
       </div>
 
       {/* ── Footer ────────────────────────────────────────────────── */}
-      <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between border-t-2 border-stone-800 bg-stone-900 print:bg-stone-900 px-10 py-2">
-        <span className={`text-[0.6rem] uppercase tracking-[0.25em] text-stone-400 ${playfairClass}`}>
+      <div className={`absolute bottom-0 left-0 right-0 flex items-center justify-between border-t-2 ${t.footerBorder} ${t.footerBg} px-10 py-2`}>
+        <span className={`text-[0.6rem] uppercase tracking-[0.25em] ${t.footerText} ${playfairClass}`}>
           Post {post.number} / {totalPosts}
         </span>
-        <span className={`text-[0.6rem] uppercase tracking-[0.25em] text-stone-400 ${playfairClass}`}>
+        <span className={`text-[0.6rem] uppercase tracking-[0.25em] ${t.footerText} ${playfairClass}`}>
           gpsloeb.dk
         </span>
       </div>
