@@ -4,14 +4,12 @@ import dynamic from "next/dynamic";
 import {
   AlertTriangle,
   Crown,
-  Crosshair,
   Loader2,
   Radio,
   Shield,
   Swords,
   Target,
   Users,
-  WifiOff,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
@@ -35,7 +33,6 @@ type StrategoElevInterfaceProps = {
   sessionId?: string;
   ui: PlayUiState;
   actions: PlayActions;
-  onRetryGps: () => void;
 };
 
 type StrategoRoleDefinitionRow = {
@@ -162,17 +159,8 @@ function formatRemainingSeconds(seconds: number) {
 }
 
 function getNearestSignalCopy(
-  signalBand: PlayUiState["stratego"]["nearestEnemySignalBand"],
-  isRadarOffline: boolean
+  signalBand: PlayUiState["stratego"]["nearestEnemySignalBand"]
 ) {
-  if (isRadarOffline) {
-    return {
-      title: "Nærheds-sensor offline",
-      detail: "Afventer stabil realtime-forbindelse",
-      toneClass: "border-slate-300/14 bg-slate-950/40 text-slate-100/78",
-    };
-  }
-
   switch (signalBand) {
     case "attack":
       return {
@@ -211,7 +199,6 @@ export default function StrategoElevInterface({
   sessionId,
   ui,
   actions,
-  onRetryGps,
 }: StrategoElevInterfaceProps) {
   const { player, gps, progress, stratego, flags } = ui;
   const [roleNamesByKey, setRoleNamesByKey] = useState<Map<string, string>>(new Map());
@@ -391,15 +378,11 @@ export default function StrategoElevInterface({
   const isVictory = winnerTeam === selfTeamCode;
   const winnerLabel = winnerTeam === "blue" ? "Hold Blå" : winnerTeam === "red" ? "Hold Rød" : "";
   const attackTargetId = stratego.targetInSight?.participantId ?? null;
-  const nearestSignalCopy = getNearestSignalCopy(
-    stratego.nearestEnemySignalBand,
-    stratego.isRealtimeRecovering
-  );
+  const nearestSignalCopy = getNearestSignalCopy(stratego.nearestEnemySignalBand);
   const showAttackButton =
     Boolean(attackTargetId) &&
     !isReturningToBase &&
     !stratego.isInSafeZone &&
-    !stratego.isRealtimeRecovering &&
     !flags.isSessionPaused &&
     stratego.selfPlayer?.state === "alive" &&
     !Boolean(stratego.duelEvent);
@@ -461,39 +444,6 @@ export default function StrategoElevInterface({
           <h1 className="mt-4 text-3xl font-black">Kommandocentralen kalibrerer</h1>
           <p className="mt-3 text-sm leading-6 text-white/75">Du er registreret. Vent på at læreren starter Live Stratego.</p>
           <WifiConnectionTip className="mt-6" />
-        </div>
-      </div>
-    );
-  }
-
-  if (progress.screen.mode === "gps_blocked") {
-    const canRetryGpsPrompt = gps.gpsError !== "unsupported";
-
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
-        <div className="w-full max-w-lg rounded-[2rem] border border-amber-400/20 bg-slate-900/70 p-8 text-center shadow-2xl backdrop-blur-xl">
-          <Crosshair className="mx-auto h-10 w-10 text-amber-300" />
-          <h1 className="mt-4 text-3xl font-black">GPS kræves for at kæmpe</h1>
-          <p className="mt-3 text-sm leading-6 text-white/75">{gps.gpsErrorContent?.message ?? "Aktivér GPS for at fortsætte."}</p>
-          <p className="mt-2 text-xs text-white/50">{gps.gpsErrorContent?.helper}</p>
-          <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            {canRetryGpsPrompt ? (
-              <button
-                type="button"
-                onClick={onRetryGps}
-                className="inline-flex items-center justify-center rounded-full border border-emerald-300/40 bg-emerald-500/15 px-5 py-3 text-sm font-bold text-emerald-100"
-              >
-                Jeg har givet adgang - prøv igen
-              </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={actions.reloadPage}
-              className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white"
-            >
-              Opdater siden
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -594,12 +544,6 @@ export default function StrategoElevInterface({
                       <span>SPIL PAUSET</span>
                     </div>
                   ) : null}
-                  {stratego.isRealtimeRecovering ? (
-                    <div className="inline-flex items-center gap-2 rounded-full border border-slate-300/16 bg-slate-700/35 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.24em] text-slate-100">
-                      <Radio className="h-4 w-4" />
-                      <span>NETVÆRK SØGES</span>
-                    </div>
-                  ) : null}
                   {stratego.duelInFlight ? (
                     <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-500/12 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.28em] text-amber-100">
                       <Target className="h-4 w-4" />
@@ -654,12 +598,6 @@ export default function StrategoElevInterface({
               </div>
             </div>
 
-            {stratego.error ? (
-              <div className="mt-4 rounded-[1.3rem] border border-amber-300/20 bg-amber-500/12 px-4 py-3 text-sm text-amber-100">
-                {stratego.error}
-              </div>
-            ) : null}
-
             {stratego.isSpawnShieldActive ? (
               <div className="mt-4 rounded-[1.3rem] border border-emerald-300/24 bg-emerald-500/14 px-4 py-3 text-sm font-semibold text-emerald-50">
                 <div className="flex items-center gap-2">
@@ -684,9 +622,7 @@ export default function StrategoElevInterface({
                 <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/65">
                   {stratego.isLoading
                     ? "Synkroniserer..."
-                    : stratego.isRealtimeRecovering
-                      ? "Netværk søger..."
-                      : "Realtime aktiv"}
+                    : "Realtime aktiv"}
                 </div>
               </div>
 
@@ -701,7 +637,6 @@ export default function StrategoElevInterface({
                   dimmed={Boolean(stratego.duelEvent)}
                   radarAlertActive={showAttackButton}
                   isInSafeZone={stratego.isInSafeZone}
-                  isRadarOffline={stratego.isRealtimeRecovering}
                 />
 
                 {showAttackButton && attackTargetId ? (
@@ -918,17 +853,6 @@ export default function StrategoElevInterface({
             </p>
             <p className="mt-1 text-sm font-semibold text-white sm:text-base">
               {stratego.duelError}
-            </p>
-          </div>
-        </div>
-      ) : null}
-
-      {stratego.selfPlayer?.state === "alive" && !stratego.hasReliableGpsSignal ? (
-        <div className="pointer-events-none fixed inset-x-4 top-[max(env(safe-area-inset-top),0.75rem)] z-1180 flex justify-center">
-          <div className="inline-flex items-center gap-2.5 rounded-[1.4rem] border border-amber-300/28 bg-amber-900/90 px-4 py-3 shadow-[0_16px_40px_rgba(120,53,15,0.4)] backdrop-blur-xl">
-            <WifiOff className="h-4 w-4 shrink-0 text-amber-300" />
-            <p className="text-xs font-semibold text-amber-100">
-              Venter på bedre GPS-signal — angreb er deaktiveret
             </p>
           </div>
         </div>

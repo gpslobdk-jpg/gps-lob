@@ -2,11 +2,13 @@
 
 import "leaflet/dist/leaflet.css";
 
+import L from "leaflet";
 import { MapPin } from "lucide-react";
-import type { DivIcon, LatLngBoundsExpression } from "leaflet";
-import { useEffect, useMemo, useRef, useState } from "react";
+import type { LatLngBoundsExpression } from "leaflet";
+import { useEffect, useMemo, useRef } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
+import GlidingPlayerMarker from "./GlidingPlayerMarker";
 import type { Location } from "./types";
 
 type MapDisplayProps = {
@@ -26,11 +28,22 @@ const DEFAULT_MAP_CENTER: [number, number] = [55.6761, 12.5683];
 
 function MapViewportSync({ center, dimmed }: MapViewportSyncProps) {
   const map = useMap();
+  const hasCenteredRef = useRef(false);
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => {
       map.invalidateSize();
-      map.setView(center, map.getZoom(), { animate: false });
+
+      if (!hasCenteredRef.current) {
+        map.setView(center, map.getZoom(), { animate: false });
+        hasCenteredRef.current = true;
+        return;
+      }
+
+      map.panTo(center, {
+        animate: true,
+        duration: 0.75,
+      });
     });
 
     return () => {
@@ -131,46 +144,16 @@ export default function MapDisplay({
   playerName,
   dimmed,
 }: MapDisplayProps) {
-  const [playerIcon, setPlayerIcon] = useState<DivIcon | null>(null);
-  const [targetIcon, setTargetIcon] = useState<DivIcon | null>(null);
-
-  useEffect(() => {
-    let isDisposed = false;
-
-    void import("leaflet")
-      .then((leafletModule) => {
-        if (isDisposed) return;
-
-        const leaflet = leafletModule.default ?? leafletModule;
-
-        setPlayerIcon(
-          leaflet.divIcon({
-            className: "bg-transparent border-none",
-            html: '<div class="h-5 w-5 rounded-full border-2 border-white bg-emerald-500 shadow-[0_0_12px_rgba(52,211,153,0.9)]"></div>',
-            iconSize: [20, 20],
-            iconAnchor: [10, 10],
-          })
-        );
-
-        setTargetIcon(
-          leaflet.divIcon({
-            className: "bg-transparent border-none",
-            html: '<div class="relative h-8 w-8"><div class="absolute inset-0 rounded-full bg-amber-400/30 animate-ping"></div><div class="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-amber-500 text-white font-black shadow-[0_0_14px_rgba(251,191,36,0.9)]">&#9678;</div></div>',
-            iconSize: [32, 32],
-            iconAnchor: [16, 16],
-          })
-        );
-      })
-      .catch(() => {
-        if (isDisposed) return;
-        setPlayerIcon(null);
-        setTargetIcon(null);
-      });
-
-    return () => {
-      isDisposed = true;
-    };
-  }, []);
+  const targetIcon = useMemo(
+    () =>
+      L.divIcon({
+        className: "bg-transparent border-none",
+        html: '<div class="relative h-8 w-8"><div class="absolute inset-0 rounded-full bg-amber-400/30 animate-ping"></div><div class="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-amber-500 text-white font-black shadow-[0_0_14px_rgba(251,191,36,0.9)]">&#9678;</div></div>',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      }),
+    []
+  );
 
   const mapCenter = useMemo<[number, number]>(() => {
     if (playerLocation) {
@@ -208,7 +191,7 @@ export default function MapDisplay({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
 
-        {targetLocation && targetIcon ? (
+        {targetLocation ? (
           <Marker position={[targetLocation.lat, targetLocation.lng]} icon={targetIcon}>
             <Popup>
               <div className="text-sm break-words [overflow-wrap:anywhere] hyphens-auto">
@@ -222,10 +205,11 @@ export default function MapDisplay({
           </Marker>
         ) : null}
 
-        {playerLocation && playerIcon ? (
-          <Marker position={[playerLocation.lat, playerLocation.lng]} icon={playerIcon}>
-            <Popup>Du er her{playerName ? `, ${playerName}` : ""}</Popup>
-          </Marker>
+        {playerLocation ? (
+          <GlidingPlayerMarker
+            location={playerLocation}
+            popupContent={`Du er her${playerName ? `, ${playerName}` : ""}`}
+          />
         ) : null}
       </MapContainer>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { AlertCircle, Camera, CheckCircle2, KeyRound, Loader2, XCircle } from "lucide-react";
+import { Camera, CheckCircle2, KeyRound, Loader2, XCircle } from "lucide-react";
 import Image from "next/image";
 import { Poppins, Rubik } from "next/font/google";
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
@@ -40,7 +40,6 @@ const poppins = Poppins({
 type PlayInterfaceProps = {
   ui: PlayUiState;
   actions: PlayActions;
-  onRetryGps: () => void;
   children?: ReactNode;
 };
 
@@ -113,7 +112,7 @@ function MobileHudComponent({
   );
 }
 
-export default function PlayInterface({ ui, actions, onRetryGps, children }: PlayInterfaceProps) {
+export default function PlayInterface({ ui, actions, children }: PlayInterfaceProps) {
   const typedAnswerInputRef = useRef<HTMLInputElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const photoPickerPendingRef = useRef(false);
@@ -136,9 +135,6 @@ export default function PlayInterface({ ui, actions, onRetryGps, children }: Pla
   const {
     distance,
     autoUnlockRadius,
-    gpsError,
-    gpsErrorContent = { title: "", message: "", helper: "" },
-    gpsWarningContent,
   } = gps;
   const {
     questions,
@@ -206,7 +202,6 @@ export default function PlayInterface({ ui, actions, onRetryGps, children }: Pla
     distance !== null &&
     distance <= autoUnlockRadius;
   const normalizedActiveDisplayName = activeDisplayName.trim().toLocaleLowerCase("da-DK");
-  const blockingGpsErrorContent = gpsErrorContent ?? { title: "", message: "", helper: "" };
   const tacticalHudShellClass =
     "overflow-hidden rounded-[2rem] border border-white/30 bg-slate-800 p-4 shadow-lg md:p-5";
   const tacticalHudCardClass =
@@ -234,7 +229,6 @@ export default function PlayInterface({ ui, actions, onRetryGps, children }: Pla
   const isAnswerSubmissionPending = isSubmittingAnswer || isSubmitting;
   const isQuizSubmissionPending =
     activePostVariant === "quiz" && isAnswerSubmissionPending && !activeQuizAnswerFeedback;
-  const canRetryGpsPrompt = gpsError !== "unsupported";
 
   const clearPendingPhotoPickerState = useCallback(() => {
     photoPickerPendingRef.current = false;
@@ -441,7 +435,7 @@ export default function PlayInterface({ ui, actions, onRetryGps, children }: Pla
         <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-red-950 via-[#2a0606] to-[#130303] px-6 text-white">
           <div className="w-full max-w-2xl rounded-3xl border border-red-400/40 bg-red-900/20 p-8 text-center shadow-[0_0_40px_rgba(239,68,68,0.25)] backdrop-blur-md">
             <h1 className="text-3xl font-black md:text-4xl">
-              🚫 Du er blevet fjernet fra løbet af arrangøren.
+              Du er blevet fjernet fra løbet af arrangøren.
             </h1>
           </div>
         </div>
@@ -486,41 +480,6 @@ export default function PlayInterface({ ui, actions, onRetryGps, children }: Pla
               {isProvisioningParticipant ? "Klargør hold..." : "Start Løb"}
             </button>
           </form>
-        </div>
-      );
-      break;
-
-    case "gps_blocked":
-      content = (
-        <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-red-950 via-[#2a0606] to-[#130303] px-6 text-white">
-          <div className="w-full max-w-2xl rounded-3xl border border-red-400/40 bg-red-900/20 p-8 shadow-[0_0_40px_rgba(239,68,68,0.25)] backdrop-blur-md">
-            <div className="mb-4 flex items-center gap-3 text-red-200">
-              <AlertCircle className="h-7 w-7" />
-              <h1 className={`text-2xl font-black md:text-3xl ${wrapTextClass}`}>
-                {blockingGpsErrorContent.title}
-              </h1>
-            </div>
-            <p className={`mb-5 text-red-50 ${wrapTextClass}`}>{blockingGpsErrorContent.message}</p>
-            <p className={`text-sm text-red-100/90 ${wrapTextClass}`}>{blockingGpsErrorContent.helper}</p>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              {canRetryGpsPrompt ? (
-                <button
-                  type="button"
-                  onClick={onRetryGps}
-                  className="rounded-xl border border-emerald-300/50 bg-emerald-100 px-5 py-3 font-bold text-emerald-950 transition-colors hover:bg-white"
-                >
-                  Jeg har givet adgang - prøv igen
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={actions.reloadPage}
-                className="rounded-xl border border-red-200/60 bg-red-100 px-5 py-3 font-bold text-red-900 transition-colors hover:bg-white"
-              >
-                Opdater siden
-              </button>
-            </div>
-          </div>
         </div>
       );
       break;
@@ -915,36 +874,8 @@ export default function PlayInterface({ ui, actions, onRetryGps, children }: Pla
             </div>
           </div>
 
-          {gpsWarningContent ? (
-            <div className="pointer-events-none absolute inset-x-4 top-4 z-[1100] flex justify-center">
-              <div className="w-full max-w-xl rounded-[1.5rem] border border-amber-300/30 bg-amber-500/14 px-4 py-3 text-amber-50 shadow-[0_18px_40px_rgba(245,158,11,0.16)] backdrop-blur-xl">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 rounded-full border border-amber-300/25 bg-amber-300/12 p-2 text-amber-200">
-                    <AlertCircle className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="sr-only">
-                      Dårligt GPS-signal
-                    </p>
-                    <p className="text-[11px] font-semibold tracking-[0.24em] text-amber-100/80 uppercase">
-                      Dårligt GPS-signal
-                    </p>
-                    <p className={`mt-1 text-sm font-semibold text-white ${wrapTextClass}`}>
-                      {gpsWarningContent.message}
-                    </p>
-                    <p className={`mt-1 text-xs text-amber-100/80 ${wrapTextClass}`}>
-                      {gpsWarningContent.helper}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
           <div
-            className={`hidden sm:block absolute inset-x-4 z-[1000] space-y-4 transition-all duration-300 ${
-              gpsWarningContent ? "top-28" : "top-4"
-            } ${isRoleplayImmersed ? "pointer-events-none opacity-0 blur-md" : "opacity-100"}`}
+            className={`hidden sm:block absolute inset-x-4 top-4 z-[1000] space-y-4 transition-all duration-300 ${isRoleplayImmersed ? "pointer-events-none opacity-0 blur-md" : "opacity-100"}`}
           >
             <div className={tacticalHudShellClass}>
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.08),transparent_30%)]" />

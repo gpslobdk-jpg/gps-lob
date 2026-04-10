@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
-  GpsErrorState,
   Location,
   PlayStrategoState,
   StrategoDuelEvent,
@@ -11,7 +10,6 @@ import type {
   StrategoSelfPlayer,
 } from "./types";
 import {
-  MAX_ACCEPTABLE_GPS_ACCURACY_METERS,
   getDistance,
   isMissingColumnError,
   toFiniteNumber,
@@ -84,7 +82,6 @@ type UseStrategoEngineParams = {
   sessionId?: string;
   participantId?: string | null;
   myLoc: Location | null;
-  gpsError: GpsErrorState | null;
   supabase: SupabaseBrowserClient;
 };
 
@@ -260,10 +257,6 @@ function isPresenceFresh(updatedAt: string | null | undefined, nowMs: number) {
   return nowMs - timestamp <= STRATEGO_PRESENCE_STALE_MS;
 }
 
-function isPresenceAccuracyReliable(accuracy: number | null | undefined) {
-  return accuracy == null || accuracy <= MAX_ACCEPTABLE_GPS_ACCURACY_METERS;
-}
-
 function getFutureTimestampMs(timestampValue: string | null | undefined) {
   if (!timestampValue) {
     return 0;
@@ -318,19 +311,8 @@ function getEnemySignalBand(distanceMeters: number | null): StrategoEnemySignalB
   return "far";
 }
 
-function isOwnLocationReliable(
-  location: Location | null,
-  gpsError: GpsErrorState | null,
-  nowMs: number
-) {
-  if (!location || gpsError !== null) {
-    return false;
-  }
-
-  if (
-    typeof location.accuracy === "number" &&
-    location.accuracy > MAX_ACCEPTABLE_GPS_ACCURACY_METERS
-  ) {
+function isOwnLocationReliable(location: Location | null, nowMs: number) {
+  if (!location) {
     return false;
   }
 
@@ -347,7 +329,6 @@ export function useStrategoEngine({
   sessionId,
   participantId,
   myLoc,
-  gpsError,
   supabase,
 }: UseStrategoEngineParams): UseStrategoEngineResult {
   const [presenceEntries, setPresenceEntries] = useState<StrategoPresenceEntry[]>([]);
@@ -797,8 +778,8 @@ export function useStrategoEngine({
   const isSpawnShieldActive = spawnShieldRemainingSeconds > 0;
 
   const hasReliableOwnGpsSignal = useMemo(
-    () => isOwnLocationReliable(myLoc, gpsError, presenceFreshnessTick),
-    [gpsError, myLoc, presenceFreshnessTick]
+    () => isOwnLocationReliable(myLoc, presenceFreshnessTick),
+    [myLoc, presenceFreshnessTick]
   );
 
   const effectiveSelfPlayer = selfPlayer
@@ -825,7 +806,6 @@ export function useStrategoEngine({
         entry.teamCode !== effectiveSelfPlayer.teamCode &&
         entry.state === "alive" &&
         isPresenceFresh(entry.updatedAt, presenceFreshnessTick) &&
-        isPresenceAccuracyReliable(entry.accuracy) &&
         !hasActiveSpawnShield(entry.spawnShieldUntil, presenceFreshnessTick)
     );
   }, [effectiveSelfPlayer?.teamCode, participantId, presenceEntries, presenceFreshnessTick]);
@@ -1035,7 +1015,7 @@ export function useStrategoEngine({
       return;
     }
 
-    if (isPaused || isRealtimeRecovering || duelEvent || duelInFlightRef.current) {
+    if (isPaused || duelEvent || duelInFlightRef.current) {
       setTargetInSightId(null);
       return;
     }
@@ -1061,7 +1041,6 @@ export function useStrategoEngine({
     hasReliableOwnGpsSignal,
     isInSafeZone,
     isPaused,
-    isRealtimeRecovering,
     myLoc,
     participantId,
     sessionId,
@@ -1074,18 +1053,6 @@ export function useStrategoEngine({
       }
 
       if (effectiveSelfPlayer?.state !== "alive") {
-        return;
-      }
-
-      if (!hasReliableOwnGpsSignal) {
-        setTargetInSightId(null);
-        showDuelError("GPS-signalet er ikke stabilt nok endnu");
-        return;
-      }
-
-      if (isRealtimeRecovering) {
-        setTargetInSightId(null);
-        showDuelError("Netværksfejl - prøv igen");
         return;
       }
 
@@ -1108,8 +1075,7 @@ export function useStrategoEngine({
         !target ||
         target.lat === null ||
         target.lng === null ||
-        !isPresenceFresh(target.updatedAt, Date.now()) ||
-        !isPresenceAccuracyReliable(target.accuracy)
+        !isPresenceFresh(target.updatedAt, Date.now())
       ) {
         setTargetInSightId(null);
         showDuelError("Målet er allerede i kamp");
@@ -1188,11 +1154,9 @@ export function useStrategoEngine({
       enabled,
       enemyPresence,
       gameBases,
-      hasReliableOwnGpsSignal,
       isDuelCooldownActive,
       isInSafeZone,
       isPaused,
-      isRealtimeRecovering,
       myLoc,
       participantId,
       clearDuelError,
@@ -1228,7 +1192,6 @@ export function useStrategoEngine({
     respawnMessage,
     isLoading,
     error,
-    hasReliableGpsSignal: hasReliableOwnGpsSignal,
     clearDuelEvent,
     triggerDuel,
   };

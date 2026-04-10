@@ -6,6 +6,7 @@ import L from "leaflet";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Circle, MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
+import GlidingPlayerMarker from "./GlidingPlayerMarker";
 import { createZoneKrigMarkerIcon } from "@/components/play/zoneMarkerHelper";
 import type { Location } from "./types";
 
@@ -40,15 +41,6 @@ const DEFAULT_CENTER: [number, number] = [55.6761, 12.5683];
 
 function zoneColor(teamColor: string | null) {
   return teamColor ?? "#475569";
-}
-
-function playerIcon() {
-  return L.divIcon({
-    className: "",
-    html: '<div style="height:18px;width:18px;border-radius:999px;border:2px solid rgba(255,255,255,0.95);background:#10b981;box-shadow:0 0 0 6px rgba(16,185,129,0.18),0 0 18px rgba(16,185,129,0.6);"></div>',
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
-  });
 }
 
 function FitBattlefield({
@@ -110,7 +102,6 @@ export default function ZoneKrigElevMap({
   onSelectZone,
 }: ZoneKrigElevMapProps) {
   const teamMap = useMemo(() => new Map(teams.map((team) => [team.id, team])), [teams]);
-  const playerMarkerIcon = useMemo(() => playerIcon(), []);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
@@ -187,9 +178,7 @@ export default function ZoneKrigElevMap({
       })}
 
       {playerLocation ? (
-        <Marker position={[playerLocation.lat, playerLocation.lng]} icon={playerMarkerIcon}>
-          <Popup>Du er her</Popup>
-        </Marker>
+        <GlidingPlayerMarker location={playerLocation} popupContent="Du er her" />
       ) : null}
     </MapContainer>
   );

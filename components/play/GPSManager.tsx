@@ -4,14 +4,13 @@ import { useEffect, useRef } from "react";
 
 import { sendTelemetry } from "@/utils/telemetry";
 
-import type { GpsErrorState, Location } from "./types";
+import type { Location } from "./types";
 import {
   AUTO_UNLOCK_CONFIRMATION_HITS,
   GPS_JUMP_FILTER_MAX_SPEED_METERS_PER_SECOND,
   GPS_JUMP_FILTER_MIN_DISTANCE_METERS,
   LOCATION_SYNC_DISTANCE_METERS,
   LOCATION_SYNC_INTERVAL_MS,
-  MAX_ACCEPTABLE_GPS_ACCURACY_METERS,
   getDistance,
 } from "./playUtils";
 
@@ -19,13 +18,11 @@ type GPSManagerProps = {
   enabled: boolean;
   target: Location | null;
   autoUnlockRadius: number | null;
-  retryRequestNonce?: number;
   currentPostIndex: number;
   showQuestion: boolean;
   dismissedPostIndex: number | null;
   onLocationChange: (location: Location | null) => void;
   onDistanceChange: (distance: number | null) => void;
-  onGpsError: (error: GpsErrorState | null) => void;
   onAutoUnlock: () => void;
   onDismissedReset: () => void;
   onSyncLocation: (lat: number, lng: number, accuracy: number | null) => Promise<void>;
@@ -37,11 +34,9 @@ type AcceptedGpsLocation = Location & {
 };
 
 const MOVEMENT_SYNC_MIN_INTERVAL_MS = 2000;
-const GPS_WARMUP_DURATION_MS = 10_000;
-const GPS_WARMUP_MAX_ACCURACY_METERS = 150;
 const GPS_HEARTBEAT_INTERVAL_MS = 20_000;
 const GPS_HEARTBEAT_STALE_THRESHOLD_MS = 15_000;
-const LIVE_TRACKING_MAX_ACCURACY_METERS = 120;
+const LIVE_TRACKING_MAX_ACCURACY_METERS = 250;
 
 function getRoundedAccuracyMeters(rawAccuracy: number) {
   return Number.isFinite(rawAccuracy) ? Math.max(0, Math.round(rawAccuracy)) : null;
@@ -55,13 +50,11 @@ export default function GPSManager({
   enabled,
   target,
   autoUnlockRadius,
-  retryRequestNonce = 0,
   currentPostIndex,
   showQuestion,
   dismissedPostIndex,
   onLocationChange,
   onDistanceChange,
-  onGpsError,
   onAutoUnlock,
   onDismissedReset,
   onSyncLocation,
@@ -72,10 +65,8 @@ export default function GPSManager({
   const lastAcceptedLocationRef = useRef<AcceptedGpsLocation | null>(null);
   const lastLocationSyncRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
   const isLocationSyncInFlightRef = useRef(false);
-  const gpsWakeUpUntilRef = useRef(0);
   const lastPositionTimestampRef = useRef(0);
   const heartbeatRestartCountRef = useRef(0);
-  const handledRetryNonceRef = useRef(0);
 
   useEffect(() => {
     autoUnlockConfirmationRef.current = 0;
@@ -95,9 +86,6 @@ export default function GPSManager({
     }
 
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      queueMicrotask(() => {
-        onGpsError("unsupported");
-      });
       return;
     }
 
@@ -114,18 +102,9 @@ export default function GPSManager({
       lastPositionTimestampRef.current = Date.now();
 
       const accuracy = getRoundedAccuracyMeters(position.coords.accuracy);
-      const inWarmUp = Date.now() < gpsWakeUpUntilRef.current;
-      const reliableAccuracyLimit = inWarmUp
-        ? GPS_WARMUP_MAX_ACCURACY_METERS
-        : MAX_ACCEPTABLE_GPS_ACCURACY_METERS;
-      const trackingAccuracyLimit = Math.max(reliableAccuracyLimit, LIVE_TRACKING_MAX_ACCURACY_METERS);
 
-      if (accuracy === null || accuracy > trackingAccuracyLimit) {
+      if (accuracy === null || accuracy > LIVE_TRACKING_MAX_ACCURACY_METERS) {
         autoUnlockConfirmationRef.current = 0;
-        if (!inWarmUp) {
-          onGpsError("low_accuracy");
-        }
-        onDistanceChange(null);
         return;
       }
 
@@ -153,8 +132,6 @@ export default function GPSManager({
         speedMetersPerSecond > GPS_JUMP_FILTER_MAX_SPEED_METERS_PER_SECOND
       ) {
         autoUnlockConfirmationRef.current = 0;
-        onGpsError("unstable_signal");
-        onDistanceChange(null);
         return;
       }
 
@@ -168,47 +145,35 @@ export default function GPSManager({
       lastAcceptedLocationRef.current = acceptedLocation;
       onLocationChange(acceptedLocation);
 
-      const hasReliableAccuracy = accuracy <= reliableAccuracyLimit;
+      if (targetLat !== null && targetLng !== null) {
+        const nextDistance = getDistance(lat, lng, targetLat, targetLng);
+        onDistanceChange(nextDistance);
 
-      if (!hasReliableAccuracy) {
-        autoUnlockConfirmationRef.current = 0;
-        if (!inWarmUp) {
-          onGpsError("low_accuracy");
-        }
-        onDistanceChange(null);
-      } else {
-        onGpsError(null);
-
-        if (targetLat !== null && targetLng !== null) {
-          const nextDistance = getDistance(lat, lng, targetLat, targetLng);
-          onDistanceChange(nextDistance);
-
-          if (
-            autoUnlockRadius !== null &&
-            nextDistance <= autoUnlockRadius &&
-            !showQuestion &&
-            dismissedPostIndex !== currentPostIndex
-          ) {
-            autoUnlockConfirmationRef.current += 1;
-            if (autoUnlockConfirmationRef.current >= AUTO_UNLOCK_CONFIRMATION_HITS) {
-              autoUnlockConfirmationRef.current = 0;
-              onAutoUnlock();
-            }
-          } else {
+        if (
+          autoUnlockRadius !== null &&
+          nextDistance <= autoUnlockRadius &&
+          !showQuestion &&
+          dismissedPostIndex !== currentPostIndex
+        ) {
+          autoUnlockConfirmationRef.current += 1;
+          if (autoUnlockConfirmationRef.current >= AUTO_UNLOCK_CONFIRMATION_HITS) {
             autoUnlockConfirmationRef.current = 0;
-          }
-
-          if (
-            autoUnlockRadius !== null &&
-            nextDistance > autoUnlockRadius &&
-            dismissedPostIndex === currentPostIndex
-          ) {
-            onDismissedReset();
+            onAutoUnlock();
           }
         } else {
           autoUnlockConfirmationRef.current = 0;
-          onDistanceChange(null);
         }
+
+        if (
+          autoUnlockRadius !== null &&
+          nextDistance > autoUnlockRadius &&
+          dismissedPostIndex === currentPostIndex
+        ) {
+          onDismissedReset();
+        }
+      } else {
+        autoUnlockConfirmationRef.current = 0;
+        onDistanceChange(null);
       }
 
       const nowMs = Date.now();
@@ -248,21 +213,16 @@ export default function GPSManager({
       onDistanceChange(null);
 
       if (error.code === error.PERMISSION_DENIED || error.code === 1) {
-        onGpsError("permission_denied");
         return;
       }
 
       if (error.code === error.POSITION_UNAVAILABLE || error.code === 2) {
-        onGpsError("position_unavailable");
         return;
       }
 
       if (error.code === error.TIMEOUT || error.code === 3) {
-        onGpsError("timeout");
         return;
       }
-
-      onGpsError("timeout");
     };
 
     const startWatch = () => {
@@ -280,25 +240,6 @@ export default function GPSManager({
         console.warn("Failed to start geolocation watch:", e);
       }
     };
-
-    const shouldForceRetry = retryRequestNonce > handledRetryNonceRef.current;
-    if (shouldForceRetry) {
-      handledRetryNonceRef.current = retryRequestNonce;
-      gpsWakeUpUntilRef.current = Date.now() + GPS_WARMUP_DURATION_MS;
-      lastPositionTimestampRef.current = 0;
-
-      try {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            void successHandler(position);
-          },
-          errorHandler,
-          gpsOptions
-        );
-      } catch (error) {
-        console.warn("Kunne ikke trigge ny GPS-forespørgsel:", error);
-      }
-    }
 
     startWatch();
 
@@ -321,9 +262,6 @@ export default function GPSManager({
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        // Enter warm-up mode: accept lower-accuracy positions for the next 10s
-        gpsWakeUpUntilRef.current = Date.now() + GPS_WARMUP_DURATION_MS;
-
         // Get a quick cached fix first, then start a fresh high-accuracy watcher
         try {
           if (navigator.geolocation.getCurrentPosition) {
@@ -357,14 +295,12 @@ export default function GPSManager({
     onAutoUnlock,
     onDismissedReset,
     onDistanceChange,
-    onGpsError,
     onLocationChange,
     onSyncLocation,
     showQuestion,
     targetLat,
     targetLng,
     autoUnlockRadius,
-    retryRequestNonce,
   ]);
 
   return null;
