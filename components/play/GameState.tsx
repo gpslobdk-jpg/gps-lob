@@ -602,16 +602,18 @@ export function usePlayGameState({
 
   const flushOfflineQueue = useCallback(async () => {
     if (offlineFlushInFlightRef.current) return;
-    const queue = readOfflineQueue();
-    if (queue.length === 0) return;
-
     offlineFlushInFlightRef.current = true;
     setIsSyncingOfflineQueue(true);
 
     try {
+      // Re-check after claiming the in-flight lock so the sync flag always resets in finally.
+      let current = readOfflineQueue();
+      if (current.length === 0) {
+        return;
+      }
+
       // Process entries from oldest to newest.
       // We re-read the queue each iteration so concurrent enqueues are picked up.
-      let current = readOfflineQueue();
       while (current.length > 0 && isMountedRef.current) {
         const entry = current[0];
         try {
@@ -637,7 +639,7 @@ export function usePlayGameState({
     } finally {
       offlineFlushInFlightRef.current = false;
       if (isMountedRef.current) {
-        setIsSyncingOfflineQueue(readOfflineQueue().length > 0);
+        setIsSyncingOfflineQueue(false);
       }
     }
   }, []);
@@ -1518,6 +1520,7 @@ export function usePlayGameState({
       return fallbackResult;
     },
     [
+      flushOfflineQueue,
       isTransientNetworkError,
       participantId,
       playerName,
