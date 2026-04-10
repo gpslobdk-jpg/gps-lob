@@ -845,6 +845,14 @@ export function usePlayGameState({
     !isKicked &&
     hasConfirmedName &&
     (questions.length > 0 || isStrategoRace);
+  const canOpenCurrentPost =
+    !showQuestion &&
+    (gpsOverride ||
+      (distance !== null &&
+        autoUnlockRadius !== null &&
+        (distance <= autoUnlockRadius ||
+          (distance > autoUnlockRadius && distance <= MANUAL_UNLOCK_RADIUS) ||
+          dismissedPostIndex === currentPostIndex)));
   const canManualUnlock =
     !showQuestion &&
     (gpsOverride ||
@@ -862,6 +870,10 @@ export function usePlayGameState({
   }, []);
 
   const unlockCurrentPost = useCallback(() => {
+    if (!canOpenCurrentPost) {
+      return;
+    }
+
     clearRoleplayInputErrorTone();
     setDismissedPostIndex(null);
     setPhotoFeedback(null);
@@ -871,7 +883,7 @@ export function usePlayGameState({
     setEscapeReward(null);
     setRoleplayReply(null);
     setShowQuestion(true);
-  }, [clearRoleplayInputErrorTone]);
+  }, [canOpenCurrentPost, clearRoleplayInputErrorTone]);
 
   const dismissCurrentPost = useCallback(() => {
     clearRoleplayInputErrorTone();

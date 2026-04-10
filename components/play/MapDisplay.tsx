@@ -3,22 +3,13 @@
 import "leaflet/dist/leaflet.css";
 
 import L from "leaflet";
-import { ArrowUp, MapPin } from "lucide-react";
+import { ArrowUp } from "lucide-react";
 import type { LatLngBoundsExpression } from "leaflet";
 import { useEffect, useMemo, useRef } from "react";
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 
 import GlidingPlayerMarker from "./GlidingPlayerMarker";
-import type { Location } from "./types";
-
-type MapDisplayProps = {
-  playerLocation: Location | null;
-  targetLocation: Location | null;
-  targetLabel: string;
-  targetNumber: number | null;
-  playerName: string;
-  dimmed: boolean;
-};
+import type { Location, MapDisplayProps } from "./types";
 
 type MapViewportSyncProps = {
   center: [number, number];
@@ -182,6 +173,7 @@ export default function MapDisplay({
   targetNumber,
   playerName,
   dimmed,
+  onTargetClick,
 }: MapDisplayProps) {
   const targetIcon = useMemo(() => createTargetIcon(targetNumber), [targetNumber]);
   const targetHeading = useMemo(
@@ -226,17 +218,12 @@ export default function MapDisplay({
         />
 
         {targetLocation ? (
-          <Marker position={[targetLocation.lat, targetLocation.lng]} icon={targetIcon}>
-            <Popup>
-              <div className="text-sm wrap-anywhere hyphens-auto">
-                <div className="mb-1 flex items-center gap-2 font-semibold text-amber-600">
-                  <MapPin className="h-4 w-4" />
-                  {targetNumber !== null ? `Post ${targetNumber}` : "Næste post"}
-                </div>
-                {targetLabel}
-              </div>
-            </Popup>
-          </Marker>
+          <Marker
+            position={[targetLocation.lat, targetLocation.lng]}
+            icon={targetIcon}
+            title={targetLabel || (targetNumber !== null ? `Post ${targetNumber}` : "Næste post")}
+            eventHandlers={{ click: () => onTargetClick?.() }}
+          />
         ) : null}
 
         {playerLocation ? (

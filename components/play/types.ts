@@ -355,6 +355,16 @@ export interface PlayMapState {
   targetNumber: number | null;
 }
 
+export interface MapDisplayProps {
+  playerLocation: Location | null;
+  targetLocation: Location | null;
+  targetLabel: string;
+  targetNumber: number | null;
+  playerName: string;
+  dimmed: boolean;
+  onTargetClick?: () => void;
+}
+
 export interface PlayActions {
   confirmName: (name: string) => void;
   setPendingPlayerName: (value: string) => void;
