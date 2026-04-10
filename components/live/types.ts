@@ -71,6 +71,8 @@ export type LiveAnswer = {
   createdAt: string | null;
 };
 
+export type LiveModuleId = "leaderboard" | "feed" | "photos";
+
 export type TeacherLiveStanding = {
   student: LiveStudentLocation;
   score: number;

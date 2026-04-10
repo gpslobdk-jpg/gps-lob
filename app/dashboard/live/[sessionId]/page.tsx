@@ -9,9 +9,14 @@ import { useEffect, useRef, useState } from "react";
 import { QRCode } from "react-qrcode-logo";
 
 import { FullscreenWarning } from "@/components/ui/FullscreenWarning";
+import LeaderboardModule from "@/components/live/LeaderboardModule";
+import LiveFeedModule from "@/components/live/LiveFeedModule";
 import TeacherLiveLobby from "@/components/live/TeacherLiveLobby";
+import LivePhotoLightbox from "@/components/live/LivePhotoLightbox";
+import LivePhotosModule from "@/components/live/LivePhotosModule";
 import TeacherLiveResults from "@/components/live/TeacherLiveResults";
 import TeacherLiveSidebar from "@/components/live/TeacherLiveSidebar";
+import type { LiveAnswer, LiveModuleId } from "@/components/live/types";
 import { useTeacherLiveData } from "@/hooks/useTeacherLiveData";
 import { normalizeRaceType, RACE_TYPES } from "@/utils/gpsRuns";
 
@@ -108,6 +113,8 @@ export default function LiveLobbyPage() {
   const rawSessionId = params?.sessionId;
   const sessionId = Array.isArray(rawSessionId) ? rawSessionId[0] : rawSessionId ?? null;
   const live = useTeacherLiveData(sessionId);
+  const [activeModule, setActiveModule] = useState<"none" | LiveModuleId>("none");
+  const [selectedPhoto, setSelectedPhoto] = useState<LiveAnswer | null>(null);
   const [isAccessOverlayOpen, setIsAccessOverlayOpen] = useState(false);
   const [didCopyJoinAccess, setDidCopyJoinAccess] = useState(false);
   const previousStatusRef = useRef(live.status);
@@ -121,6 +128,8 @@ export default function LiveLobbyPage() {
     (live.status === "running" || live.status === "paused") &&
     Boolean(live.joinPin) &&
     live.joinPin !== "----";
+  const isStandardRunningView =
+    !isStrategoRace && live.status !== "waiting" && live.status !== "finished";
 
   const openAccessOverlay = () => {
     setDidCopyJoinAccess(false);
@@ -159,6 +168,9 @@ export default function LiveLobbyPage() {
     };
   }, [live.status]);
 
+  const visibleActiveModule = isStandardRunningView ? activeModule : "none";
+  const visibleSelectedPhoto = isStandardRunningView ? selectedPhoto : null;
+
   const handleCopyJoinAccess = async () => {
     if (typeof window === "undefined" || !live.joinPin || live.joinPin === "----") {
       return;
@@ -173,6 +185,20 @@ export default function LiveLobbyPage() {
       console.error("Kunne ikke kopiere join-adgangen:", error);
       alert("Kunne ikke kopiere linket automatisk.");
     }
+  };
+
+  const handleModuleSelect = (module: LiveModuleId) => {
+    setSelectedPhoto(null);
+    setActiveModule(module);
+  };
+
+  const handleCloseModule = () => {
+    setSelectedPhoto(null);
+    setActiveModule("none");
+  };
+
+  const handleSelectPhoto = (answer: LiveAnswer) => {
+    setSelectedPhoto(answer);
   };
 
   return (
@@ -228,34 +254,64 @@ export default function LiveLobbyPage() {
           transition={{ duration: 0.35 }}
           className={`relative flex h-screen overflow-hidden bg-linear-to-b from-indigo-950 via-blue-900 to-cyan-800 p-4 text-white ${poppins.className}`}
         >
-          <TeacherLiveMap
-            mapCenter={live.mapCenter}
-            mapKey={live.mapKey}
-            runQuestions={live.runQuestions}
-            studentLocations={live.studentLocations}
-            hasParticipantsTable={live.hasParticipantsTable}
-            isEndingRun={live.isEndingRun}
-            onEndRun={live.endRun}
-          />
-          <TeacherLiveSidebar
-            activeStudents={live.activeStudents}
-            allParticipants={live.studentLocations}
-            joinPin={live.joinPin}
-            hasParticipantsTable={live.hasParticipantsTable}
-            gpsOverride={live.gpsOverride}
-            isUpdatingGpsOverride={live.isUpdatingGpsOverride}
-            liveAnswers={live.liveAnswers}
-            hasAnswersTable={live.hasAnswersTable}
-            messages={live.messages}
-            newMessage={live.newMessage}
-            onNewMessageChange={live.setNewMessage}
-            onSendMessage={live.sendMessage}
-            onToggleGpsOverride={live.toggleGpsOverride}
-            onKickParticipant={live.kickParticipant}
-          />
+          {visibleActiveModule === "none" ? (
+            <>
+              <TeacherLiveMap
+                mapCenter={live.mapCenter}
+                mapKey={live.mapKey}
+                runQuestions={live.runQuestions}
+                studentLocations={live.studentLocations}
+                hasParticipantsTable={live.hasParticipantsTable}
+                isEndingRun={live.isEndingRun}
+                onEndRun={live.endRun}
+              />
+              <TeacherLiveSidebar
+                activeStudents={live.activeStudents}
+                joinPin={live.joinPin}
+                hasParticipantsTable={live.hasParticipantsTable}
+                gpsOverride={live.gpsOverride}
+                isUpdatingGpsOverride={live.isUpdatingGpsOverride}
+                newMessage={live.newMessage}
+                onNewMessageChange={live.setNewMessage}
+                onSendMessage={live.sendMessage}
+                onToggleGpsOverride={live.toggleGpsOverride}
+                onModuleSelect={handleModuleSelect}
+              />
+            </>
+          ) : (
+            <div className="h-full w-full min-h-0 min-w-0 overflow-hidden rounded-4xl border border-white/10 bg-slate-950/94 shadow-[0_30px_80px_rgba(2,6,23,0.58)]">
+              {visibleActiveModule === "leaderboard" ? (
+                <LeaderboardModule
+                  activeStudents={live.activeStudents}
+                  allParticipants={live.studentLocations}
+                  liveAnswers={live.liveAnswers}
+                  hasParticipantsTable={live.hasParticipantsTable}
+                  onKickParticipant={live.kickParticipant}
+                  onClose={handleCloseModule}
+                />
+              ) : visibleActiveModule === "feed" ? (
+                <LiveFeedModule
+                  liveAnswers={live.liveAnswers}
+                  hasAnswersTable={live.hasAnswersTable}
+                  messages={live.messages}
+                  onSelectPhoto={handleSelectPhoto}
+                  onClose={handleCloseModule}
+                />
+              ) : (
+                <LivePhotosModule
+                  photoAnswers={live.photoAnswers}
+                  hasAnswersTable={live.hasAnswersTable}
+                  onSelectPhoto={handleSelectPhoto}
+                  onClose={handleCloseModule}
+                />
+              )}
+            </div>
+          )}
         </motion.div>
       )}
       </AnimatePresence>
+
+      <LivePhotoLightbox answer={visibleSelectedPhoto} onClose={() => setSelectedPhoto(null)} />
 
       {hasRunningAccessControls ? (
         <div className={`pointer-events-none fixed inset-x-4 top-4 z-1100 flex justify-center ${poppins.className}`}>
