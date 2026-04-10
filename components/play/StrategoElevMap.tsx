@@ -6,6 +6,7 @@ import L from "leaflet";
 import { useEffect, useMemo, useRef } from "react";
 import { Circle, MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
+import GlidingPlayerMarker from "./GlidingPlayerMarker";
 import type { Location, StrategoPresenceEntry } from "./types";
 
 export type StrategoBaseMarker = {
@@ -56,22 +57,6 @@ type StrategoEnemySignalCloud = {
 
 function getTeamHex(teamCode: string | null | undefined) {
   return teamCode === "blue" ? "#38bdf8" : "#f43f5e";
-}
-
-function createPlayerIcon(teamCode: string | null) {
-  const teamHex = getTeamHex(teamCode);
-
-  return L.divIcon({
-    className: "stratego-leaflet-icon",
-    html: `
-      <div class="stratego-self-marker" style="--stratego-team:${teamHex};">
-        <div class="stratego-self-marker__ring"></div>
-        <div class="stratego-self-marker__core"></div>
-      </div>
-    `,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-  });
 }
 
 function createAllyIcon(teamCode: string | null, glyph: string, dimmed: boolean) {
@@ -283,7 +268,6 @@ export default function StrategoElevMap({
     return DEFAULT_CENTER;
   }, [allyMarkers, baseMarkers, playerLocation]);
 
-  const playerIcon = useMemo(() => createPlayerIcon(selfTeamCode), [selfTeamCode]);
   const baseIcons = useMemo(() => {
     return {
       red: createBaseIcon("red"),
@@ -304,8 +288,6 @@ export default function StrategoElevMap({
           radarAlertActive
             ? "ring-1 ring-rose-300/35 shadow-[0_0_0_1px_rgba(251,113,133,0.14),0_0_44px_rgba(244,63,94,0.18)]"
             : ""
-        } ${
-          isRadarOffline ? "grayscale-[0.2] saturate-[0.7]" : ""
         }`}
       >
         <MapContainer center={center} zoom={16} className="h-full w-full" zoomControl>
@@ -386,57 +368,29 @@ export default function StrategoElevMap({
           )}
 
           {playerLocation ? (
-            <>
-              <Circle
-                center={[playerLocation.lat, playerLocation.lng]}
-                radius={12}
-                pathOptions={{
-                  color: "#f8fafc",
-                  weight: 1.5,
-                  fillColor: getTeamHex(selfTeamCode),
-                  fillOpacity: 0.08,
-                }}
-              />
-              <Marker position={[playerLocation.lat, playerLocation.lng]} icon={playerIcon}>
-                <Popup>
-                  <div className="text-sm text-slate-900">
-                    <div className="font-black">{playerName || "Du"}</div>
-                    <div>Din aktuelle position</div>
-                  </div>
-                </Popup>
-              </Marker>
-            </>
+            <GlidingPlayerMarker
+              location={playerLocation}
+              popupContent={
+                <div className="text-sm text-slate-900">
+                  <div className="font-black">{playerName || "Du"}</div>
+                  <div>Din aktuelle position</div>
+                </div>
+              }
+            />
           ) : null}
         </MapContainer>
-
-        {isRadarOffline ? (
-          <div className="pointer-events-none absolute inset-0 z-[920] flex items-center justify-center bg-[linear-gradient(180deg,rgba(148,163,184,0.08),rgba(15,23,42,0.34))] px-6 backdrop-blur-[2px]">
-            <div className="max-w-md rounded-[1.7rem] border border-white/12 bg-slate-950/72 px-5 py-4 text-center shadow-[0_24px_60px_rgba(2,6,23,0.46)]">
-              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-slate-300/72">
-                Realtime Afbrudt
-              </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-slate-100/90 sm:text-base">
-                Søger efter netværk... Radaren er midlertidigt blind.
-              </p>
-            </div>
-          </div>
-        ) : null}
 
         <div className="pointer-events-none absolute inset-x-4 bottom-4 z-[900] flex justify-center">
           <div
             className={`rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] shadow-[0_18px_34px_rgba(2,6,23,0.44)] backdrop-blur-xl transition ${
-              isRadarOffline
-                ? "border border-slate-300/14 bg-slate-700/30 text-slate-100"
-                : isInSafeZone
+              isInSafeZone
                 ? "border border-emerald-300/20 bg-emerald-500/14 text-emerald-100"
                 : radarAlertActive
                   ? "border border-rose-300/20 bg-rose-500/14 text-rose-100"
                   : "border border-white/10 bg-slate-950/78 text-white/65"
             }`}
           >
-            {isRadarOffline
-              ? "Radaren søger efter netværk"
-              : isInSafeZone
+            {isInSafeZone
               ? "Du står i fredszonen"
               : radarAlertActive
                 ? "Fjende låst på radaren"
@@ -449,29 +403,6 @@ export default function StrategoElevMap({
         .stratego-leaflet-icon {
           background: transparent;
           border: 0;
-        }
-
-        .stratego-self-marker {
-          position: relative;
-          width: 28px;
-          height: 28px;
-        }
-
-        .stratego-self-marker__ring {
-          position: absolute;
-          inset: 0;
-          border-radius: 999px;
-          background: color-mix(in srgb, var(--stratego-team) 22%, transparent);
-          box-shadow: 0 0 0 8px color-mix(in srgb, var(--stratego-team) 18%, transparent),
-            0 0 26px color-mix(in srgb, var(--stratego-team) 70%, transparent);
-        }
-
-        .stratego-self-marker__core {
-          position: absolute;
-          inset: 5px;
-          border-radius: 999px;
-          border: 2px solid rgba(255, 255, 255, 0.92);
-          background: var(--stratego-team);
         }
 
         .stratego-ally-marker {

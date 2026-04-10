@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Crosshair } from "lucide-react";
-import { Suspense, useCallback, useState } from "react";
+import { Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 
 import { FullscreenWarning } from "@/components/ui/FullscreenWarning";
@@ -21,7 +21,6 @@ function PlayScreen() {
   const sessionId = Array.isArray(rawSessionId) ? rawSessionId[0] : rawSessionId;
   const initialStudentName = searchParams.get("name")?.trim() || "";
   const game = usePlayGameState({ sessionId, initialStudentName });
-  const [gpsRetryRequestNonce, setGpsRetryRequestNonce] = useState(0);
   const isZoneKrig = game.progress.raceMode === "zone_krig";
   const isStratego = game.progress.raceMode === "stratego";
   const isTrackingEnabled =
@@ -31,9 +30,6 @@ function PlayScreen() {
     !game.progress.screen.isKicked &&
     game.player.hasConfirmedName &&
     Boolean(game.player.participantId);
-  const handleRetryGps = useCallback(() => {
-    setGpsRetryRequestNonce((current) => current + 1);
-  }, []);
 
   return (
     <>
@@ -42,23 +38,21 @@ function PlayScreen() {
         enabled={isTrackingEnabled}
         target={game.progress.map.targetLocation}
         autoUnlockRadius={game.gps.autoUnlockRadius}
-        retryRequestNonce={gpsRetryRequestNonce}
         currentPostIndex={game.progress.currentPostIndex}
         showQuestion={game.progress.showQuestion}
         dismissedPostIndex={game.progress.dismissedPostIndex}
         onLocationChange={game.actions.setLiveLocation}
         onDistanceChange={game.actions.setDistance}
-        onGpsError={game.actions.setGpsError}
         onAutoUnlock={game.actions.unlockCurrentPost}
         onDismissedReset={game.actions.clearDismissedPost}
         onSyncLocation={game.actions.syncParticipantLocation}
       />
       {isZoneKrig ? (
-        <ZoneKrigElevInterface sessionId={sessionId} ui={game} actions={game.actions} onRetryGps={handleRetryGps} />
+        <ZoneKrigElevInterface sessionId={sessionId} ui={game} actions={game.actions} />
       ) : isStratego ? (
-        <StrategoElevInterface sessionId={sessionId} ui={game} actions={game.actions} onRetryGps={handleRetryGps} />
+        <StrategoElevInterface sessionId={sessionId} ui={game} actions={game.actions} />
       ) : (
-        <PlayInterface ui={game} actions={game.actions} onRetryGps={handleRetryGps}>
+        <PlayInterface ui={game} actions={game.actions}>
           <MapDisplay
             playerLocation={game.progress.map.playerLocation}
             targetLocation={game.progress.map.targetLocation}

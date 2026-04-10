@@ -3,19 +3,13 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   asTrimmedString,
   extractEscapeCodeBrick,
-  fetchParticipantLocationState,
   fetchRunForSession,
-  fetchZoneKrigZoneState,
   getCorrectIndex,
   getExpectedAnswer,
-  getLocationDistanceMeters,
-  getServerPositionValidationRadius,
-  isZoneKrigRaceType,
   normalizeEscapeAnswer,
   resolveQuestionVariant,
 } from "@/app/api/play/_shared";
 import { ADMIN_ACCESS_MISSING_MESSAGE } from "@/utils/supabase/admin";
-import type { ParticipantRequestContext } from "@/utils/supabase/participantServer";
 import { resolveParticipantRequestContext } from "@/utils/supabase/participantServer";
 
 export const runtime = "edge";
@@ -42,59 +36,6 @@ function asPostIndex(value: unknown) {
 
 function asSelectedIndex(value: unknown) {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 3 ? value : null;
-}
-
-function asFiniteNumber(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value)
-    ? value
-    : typeof value === "string"
-      ? Number(value)
-      : null;
-}
-
-function getQuestionCoordinates(rawQuestion: unknown) {
-  if (!rawQuestion || typeof rawQuestion !== "object" || Array.isArray(rawQuestion)) return null;
-  const candidate = rawQuestion as { lat?: unknown; lng?: unknown };
-  const lat = asFiniteNumber(candidate.lat);
-  const lng = asFiniteNumber(candidate.lng);
-  if (lat === null || !Number.isFinite(lat) || lng === null || !Number.isFinite(lng)) return null;
-
-  return { lat, lng };
-}
-
-type ValidationTarget = {
-  lat: number;
-  lng: number;
-  label: string;
-};
-
-async function validateParticipantPosition(
-  sessionId: string,
-  participantId: string,
-  target: ValidationTarget,
-  validationRadiusMeters: number,
-  adminSupabase: ParticipantRequestContext["adminSupabase"]
-) {
-  const participantState = await fetchParticipantLocationState(sessionId, participantId, adminSupabase);
-  const participantLat = asFiniteNumber(participantState?.lat);
-  const participantLng = asFiniteNumber(participantState?.lng);
-
-  if (participantLat === null || !Number.isFinite(participantLat) || participantLng === null || !Number.isFinite(participantLng)) {
-    return "Vi mangler din seneste GPS-position. Gå tættere på posten og prøv igen.";
-  }
-
-  const distanceToPost = getLocationDistanceMeters(
-    participantLat,
-    participantLng,
-    target.lat,
-    target.lng
-  );
-
-  if (distanceToPost > validationRadiusMeters) {
-    return `Du er for langt væk fra ${target.label.toLocaleLowerCase("da-DK")} til at svare.`;
-  }
-
-  return null;
 }
 
 export async function POST(request: NextRequest) {
@@ -124,7 +65,7 @@ export async function POST(request: NextRequest) {
     if (!participantContext.ok) {
       return NextResponse.json({ error: participantContext.error }, { status: participantContext.status });
     }
-    const { adminSupabase, participantId, sessionId } = participantContext.data;
+    const { sessionId } = participantContext.data;
 
     const run = await fetchRunForSession(sessionId);
     if (!run || !Array.isArray(run.questions) || postIndex >= run.questions.length) {
@@ -132,8 +73,6 @@ export async function POST(request: NextRequest) {
     }
 
     const rawQuestion = run.questions[postIndex];
-    const isZoneKrig = isZoneKrigRaceType(run.raceType ?? run.race_type);
-    const validationRadiusMeters = getServerPositionValidationRadius(run);
     // Allow explicit post_type to short-circuit validation (e.g. intro posts)
     const postType = getPostType(rawQuestion);
 
@@ -142,48 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     const variant = resolveQuestionVariant(run.raceType ?? run.race_type, rawQuestion);
-    let validationTarget: ValidationTarget | null = null;
-    let effectiveValidationRadiusMeters = validationRadiusMeters;
-
-    if (isZoneKrig) {
-      const zone = await fetchZoneKrigZoneState(sessionId, postIndex, adminSupabase);
-      const zoneLat = asFiniteNumber(zone?.center_lat);
-      const zoneLng = asFiniteNumber(zone?.center_lng);
-      const zoneRadius = asFiniteNumber(zone?.radius_m);
-
-      if (!zone || zoneLat === null || zoneLng === null || zoneRadius === null || zoneRadius <= 0) {
-        return NextResponse.json({ error: "Zonen kunne ikke valideres endnu." }, { status: 409 });
-      }
-
-      validationTarget = {
-        lat: zoneLat,
-        lng: zoneLng,
-        label: `Zone ${postIndex + 1}`,
-      };
-      effectiveValidationRadiusMeters = Math.round(zoneRadius);
-    } else {
-      const questionCoordinates = getQuestionCoordinates(rawQuestion);
-      if (!questionCoordinates) {
-        return NextResponse.json({ error: "Posten mangler gyldige GPS-koordinater." }, { status: 400 });
-      }
-
-      validationTarget = {
-        lat: questionCoordinates.lat,
-        lng: questionCoordinates.lng,
-        label: "Posten",
-      };
-    }
-
-    const positionValidationError = await validateParticipantPosition(
-      sessionId,
-      participantId,
-      validationTarget,
-      effectiveValidationRadiusMeters,
-      adminSupabase
-    );
-    if (positionValidationError) {
-      return NextResponse.json({ error: positionValidationError }, { status: 403 });
-    }
+    // Answer checking must stay soft: delayed sync and GPS drift may not block the student flow.
 
     if (variant === "quiz") {
       const correctIndex = getCorrectIndex(rawQuestion);

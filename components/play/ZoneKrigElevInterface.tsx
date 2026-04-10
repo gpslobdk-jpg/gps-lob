@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { AlertCircle, CheckCircle2, Crosshair, Loader2, Radio, Shield, Swords, Target, Timer } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Radio, Shield, Swords, Target, Timer } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import StudentRulesSheet from "./StudentRulesSheet";
@@ -24,7 +24,6 @@ type ZoneKrigElevInterfaceProps = {
   sessionId?: string;
   ui: PlayUiState;
   actions: PlayActions;
-  onRetryGps: () => void;
 };
 
 type ZoneKrigSessionRow = {
@@ -110,7 +109,7 @@ function deriveZoneKrigWinner(teams: ZoneKrigGameTeam[], zones: ZoneKrigGameZone
   };
 }
 
-export default function ZoneKrigElevInterface({ sessionId, ui, actions, onRetryGps }: ZoneKrigElevInterfaceProps) {
+export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKrigElevInterfaceProps) {
   const { player, gps, progress, flags } = ui;
   const [zones, setZones] = useState<ZoneKrigGameZone[]>([]);
   const [teams, setTeams] = useState<ZoneKrigGameTeam[]>([]);
@@ -340,39 +339,6 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions, onRetryG
             </div>
           ) : null}
           <WifiConnectionTip className="mt-6" />
-        </div>
-      </div>
-    );
-  }
-
-  if (progress.screen.mode === "gps_blocked") {
-    const canRetryGpsPrompt = gps.gpsError !== "unsupported";
-
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
-        <div className="w-full max-w-lg rounded-4xl border border-amber-400/20 bg-slate-900/70 p-8 text-center shadow-2xl backdrop-blur-xl">
-          <Crosshair className="mx-auto h-10 w-10 text-amber-300" />
-          <h1 className="mt-4 text-3xl font-black">GPS kræves for at kæmpe</h1>
-          <p className="mt-3 text-sm leading-6 text-white/75">{gps.gpsErrorContent?.message ?? "Aktivér GPS for at fortsætte."}</p>
-          <p className="mt-2 text-xs text-white/50">{gps.gpsErrorContent?.helper}</p>
-          <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            {canRetryGpsPrompt ? (
-              <button
-                type="button"
-                onClick={onRetryGps}
-                className="inline-flex items-center justify-center rounded-full border border-emerald-300/40 bg-emerald-500/15 px-5 py-3 text-sm font-bold text-emerald-100"
-              >
-                Jeg har givet adgang - prøv igen
-              </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={actions.reloadPage}
-              className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white"
-            >
-              Opdater siden
-            </button>
-          </div>
         </div>
       </div>
     );

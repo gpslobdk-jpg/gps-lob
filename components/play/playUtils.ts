@@ -2,8 +2,6 @@ import type {
   ActivePostVariant,
   AnswerProgressRow,
   EscapeCodeEntry,
-  GpsErrorContent,
-  GpsErrorState,
   Question,
   RaceMode,
   StoredActiveParticipant,
@@ -16,7 +14,6 @@ export const MANUAL_UNLOCK_RADIUS = 50;
 export const AUTO_UNLOCK_CONFIRMATION_HITS = 2;
 export const LOCATION_SYNC_INTERVAL_MS = 8000;
 export const LOCATION_SYNC_DISTANCE_METERS = 3;
-export const MAX_ACCEPTABLE_GPS_ACCURACY_METERS = 30;
 export const GPS_JUMP_FILTER_MIN_DISTANCE_METERS = 35;
 export const GPS_JUMP_FILTER_MAX_SPEED_METERS_PER_SECOND = 15;
 export const BAD_WORDS = ["tissemand", "lort", "pik", "fisse", "idiot", "bøsse", "luder", "snot"];
@@ -152,59 +149,6 @@ export function reloadPage() {
   if (typeof window !== "undefined") {
     window.location.reload();
   }
-}
-
-export function getGpsErrorContent(gpsError: GpsErrorState | null): GpsErrorContent | null {
-  if (gpsError === "permission_denied") {
-    return {
-      title: "Hov! GPS-adgang mangler",
-      message:
-        "Du har afvist GPS-adgang. På iPhone: Tryk på 'Aa' i adressebaren for at tillade. På Android/Chrome: Tryk på hængelåsen ved siden af webadressen.",
-      helper: "Når GPS-adgangen er tilladt, kan løbet finde dine poster igen.",
-    };
-  }
-
-  if (gpsError === "position_unavailable") {
-    return {
-      title: "Dårligt GPS-signal lige nu",
-      message: "Vi kan ikke finde din præcise placering endnu. Bliv på siden, så prøver GPS'en igen.",
-      helper: "Det hjælper ofte at gå lidt væk fra høje bygninger og vente et øjeblik.",
-    };
-  }
-
-  if (gpsError === "unsupported") {
-    return {
-      title: "GPS er ikke tilgængelig på denne enhed",
-      message: "Din browser eller enhed giver ikke adgang til GPS her.",
-      helper: "Prøv i Safari på iPhone eller Chrome på Android, hvis I kan.",
-    };
-  }
-
-  if (gpsError === "timeout") {
-    return {
-      title: "Dårligt GPS-signal lige nu",
-      message: "GPS-søgningen tog for lang tid. Bliv på siden, så prøver vi igen automatisk.",
-      helper: "Det hjælper ofte at stå et sted med bedre udsyn til himlen.",
-    };
-  }
-
-  if (gpsError === "low_accuracy") {
-    return {
-      title: "Dårligt GPS-signal",
-      message: "Din GPS er for upræcis lige nu, så vi venter med at bruge den position.",
-      helper: "Gå lidt væk fra bygninger eller træer og vent et øjeblik, så prøver vi igen.",
-    };
-  }
-
-  if (gpsError === "unstable_signal") {
-    return {
-      title: "GPS-signalet hopper rundt",
-      message: "Vi ignorerer en måling, der sprang for langt for hurtigt, fordi den ligner GPS-støj.",
-      helper: "Bliv stående et øjeblik, så bruger vi næste stabile måling i stedet.",
-    };
-  }
-
-  return null;
 }
 
 export function parseQuestion(raw: unknown): Question | null {

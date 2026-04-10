@@ -30,13 +30,6 @@ export type Post = {
 export type ActivePostVariant = "quiz" | "photo" | "escape" | "roleplay" | "unknown";
 export type RaceMode = ActivePostVariant | "zone_krig" | "stratego";
 export type PostType = "quiz" | "intro";
-export type GpsErrorState =
-  | "permission_denied"
-  | "position_unavailable"
-  | "timeout"
-  | "unsupported"
-  | "low_accuracy"
-  | "unstable_signal";
 export type FeedbackTone = "success" | "error";
 export type RoleplayReplyTone = "success" | "hint";
 export type MasterLockStatus = "locked" | "unlocked";
@@ -46,7 +39,6 @@ export type PlayScreenMode =
   | "waiting"
   | "kicked"
   | "name_gate"
-  | "gps_blocked"
   | "escape_master_lock"
   | "escape_results"
   | "finished"
@@ -106,12 +98,6 @@ export type Location = {
   lng: number;
   accuracy?: number | null;
   timestampMs?: number | null;
-};
-
-export type GpsErrorContent = {
-  title: string;
-  message: string;
-  helper: string;
 };
 
 export type TeacherBroadcastMessage = {
@@ -236,9 +222,6 @@ export interface PlayGpsState {
   myLoc: Location | null;
   distance: number | null;
   autoUnlockRadius: number | null;
-  gpsError: GpsErrorState | null;
-  gpsErrorContent: GpsErrorContent | null;
-  gpsWarningContent: GpsErrorContent | null;
 }
 
 export interface PlayProgressState {
@@ -342,7 +325,6 @@ export interface PlayStrategoState {
   respawnMessage: string | null;
   isLoading: boolean;
   error: string | null;
-  hasReliableGpsSignal: boolean;
 }
 
 export interface PlayUiFlags {
@@ -352,7 +334,6 @@ export interface PlayUiFlags {
   hasActiveQuizSuccess: boolean;
   hasAllEscapeBricks: boolean;
   hasRoleplayInputErrorTone: boolean;
-  isBlockingGpsError: boolean;
   isProvisioningParticipant: boolean;
   isEscapeRace: boolean;
   isStrategoRace: boolean;
@@ -396,7 +377,6 @@ export interface PlayActions {
   submitMasterCode: (code: string) => Promise<void>;
   setLiveLocation: (location: Location | null) => void;
   setDistance: (distance: number | null) => void;
-  setGpsError: (error: GpsErrorState | null) => void;
   syncParticipantLocation: (lat: number, lng: number, accuracy: number | null) => Promise<void>;
 }
 

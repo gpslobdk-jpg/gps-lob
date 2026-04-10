@@ -10,7 +10,6 @@ import type {
   EscapeCodeEntry,
   EscapeResultEntry,
   EscapeRewardState,
-  GpsErrorState,
   Location,
   MasterLockStatus,
   NavigatorWithWakeLock,
@@ -48,7 +47,6 @@ import {
   getDistance,
   getEscapeCodeBrick,
   getEscapeCodeEntriesFromRows,
-  getGpsErrorContent,
   getNormalizedAnsweredPostIndex,
   getQuestionDisplayText,
   getNextRoutePostIndex,
@@ -225,7 +223,6 @@ export function usePlayGameState({
   const [isFinished, setIsFinished] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [gpsError, setGpsErrorState] = useState<GpsErrorState | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [isKicked, setIsKicked] = useState(false);
   const [latestMessage, setLatestMessage] = useState<TeacherBroadcastMessage | null>(null);
@@ -840,16 +837,10 @@ export function usePlayGameState({
     ? questions.map((_, index) => escapeCodeByPostIndex.get(index) ?? "_")
     : [];
   const escapeCodeOverviewText = escapeCodeOverview.join(" ");
-  const isBlockingGpsError =
-    !gpsOverride && (gpsError === "permission_denied" || gpsError === "unsupported");
-  const gpsErrorContent = isBlockingGpsError ? getGpsErrorContent(gpsError) : null;
-  const gpsWarningContent =
-    !gpsOverride && gpsError && !isBlockingGpsError ? getGpsErrorContent(gpsError) : null;
   const shouldKeepScreenAwake =
     !isLoading &&
     !isRestoringParticipant &&
     !loadError &&
-    !isBlockingGpsError &&
     !isFinished &&
     !isKicked &&
     hasConfirmedName &&
@@ -2471,10 +2462,6 @@ export function usePlayGameState({
     setDistanceState(nextDistance);
   }, []);
 
-  const setGpsError = useCallback((error: GpsErrorState | null) => {
-    setGpsErrorState(error);
-  }, []);
-
   const stratego = useStrategoEngine({
     enabled:
       isStrategoRace &&
@@ -2487,7 +2474,6 @@ export function usePlayGameState({
     sessionId,
     participantId,
     myLoc,
-    gpsError,
     supabase,
   });
 
@@ -2507,9 +2493,6 @@ export function usePlayGameState({
     myLoc,
     distance,
     autoUnlockRadius,
-    gpsError,
-    gpsErrorContent,
-    gpsWarningContent,
   };
 
   const currentPost: PlayCurrentPostState = {
@@ -2571,9 +2554,7 @@ export function usePlayGameState({
           ? "waiting"
           : (!hasConfirmedName || isProvisioningParticipant) && !isFinished
           ? "name_gate"
-          : isBlockingGpsError && !isFinished
-            ? "gps_blocked"
-            : isFinished && isEscapeRace && correctAnswersCount >= questions.length && !showEscapeResults
+          : isFinished && isEscapeRace && correctAnswersCount >= questions.length && !showEscapeResults
               ? "escape_master_lock"
               : isFinished && isEscapeRace && showEscapeResults
                 ? "escape_results"
@@ -2642,7 +2623,6 @@ export function usePlayGameState({
     hasActiveQuizSuccess,
     hasAllEscapeBricks,
     hasRoleplayInputErrorTone,
-    isBlockingGpsError,
     isProvisioningParticipant,
     isEscapeRace,
     isStrategoRace,
@@ -2685,7 +2665,6 @@ export function usePlayGameState({
       submitMasterCode,
       setLiveLocation,
       setDistance,
-      setGpsError,
       syncParticipantLocation,
     },
   };

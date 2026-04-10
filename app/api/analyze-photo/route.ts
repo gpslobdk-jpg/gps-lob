@@ -3,11 +3,8 @@ import OpenAI from "openai";
 
 import {
   asTrimmedString,
-  fetchParticipantLocationState,
   fetchRunForSession,
-  getLocationDistanceMeters,
   getPhotoMissionConfig,
-  getServerPositionValidationRadius,
   resolveQuestionVariant,
 } from "@/app/api/play/_shared";
 import {
@@ -146,54 +143,6 @@ function buildStoragePath(
 function getQuestionText(rawQuestion: unknown) {
   if (!isRecord(rawQuestion)) return "";
   return asTrimmedString(rawQuestion.text);
-}
-
-function getQuestionCoordinates(rawQuestion: unknown) {
-  if (!isRecord(rawQuestion)) return null;
-
-  const lat = asFiniteNumber(rawQuestion.lat);
-  const lng = asFiniteNumber(rawQuestion.lng);
-  if (lat === null || lng === null) {
-    return null;
-  }
-
-  return { lat, lng };
-}
-
-async function validateParticipantPosition(
-  sessionId: string,
-  participantId: string,
-  rawQuestion: unknown,
-  adminSupabase: AdminSupabaseClient,
-  validationRadiusMeters: number
-) {
-  const questionCoordinates = getQuestionCoordinates(rawQuestion);
-  if (!questionCoordinates) {
-    return "Posten mangler gyldige GPS-koordinater.";
-  }
-
-  const participantState = await fetchParticipantLocationState(
-    sessionId,
-    participantId,
-    adminSupabase
-  );
-  const participantLat = asFiniteNumber(participantState?.lat);
-  const participantLng = asFiniteNumber(participantState?.lng);
-  if (participantLat === null || participantLng === null) {
-    return "Vi mangler din seneste GPS-position. Gå tættere på posten og prøv igen.";
-  }
-
-  const distanceToPost = getLocationDistanceMeters(
-    participantLat,
-    participantLng,
-    questionCoordinates.lat,
-    questionCoordinates.lng
-  );
-  if (distanceToPost > validationRadiusMeters) {
-    return "Du skal være tættere på posten, før billedet kan godkendes.";
-  }
-
-  return null;
 }
 
 async function uploadPhotoToStorage(
@@ -386,7 +335,6 @@ export async function POST(req: Request) {
     }
 
     const rawQuestion = run.questions[postIndex];
-    const validationRadiusMeters = getServerPositionValidationRadius(run);
     const variant = resolveQuestionVariant(run.raceType ?? run.race_type, rawQuestion);
     if (variant !== "photo") {
       return NextResponse.json(
@@ -395,16 +343,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const positionValidationError = await validateParticipantPosition(
-      sessionId,
-      participantId,
-      rawQuestion,
-      adminSupabase,
-      validationRadiusMeters
-    );
-    if (positionValidationError) {
-      return NextResponse.json({ error: positionValidationError }, { status: 403 });
-    }
+    // Photo validation must stay soft: delayed GPS sync or drift may not block uploads.
 
     const { targetObject, isSelfie } = getPhotoMissionConfig(rawQuestion);
     if (!targetObject) {
