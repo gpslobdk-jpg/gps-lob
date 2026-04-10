@@ -36,16 +36,21 @@ function getTargetHeadingDegrees(from: Location | null, to: Location | null) {
   return (headingDegrees + 360) % 360;
 }
 
-function createTargetIcon(targetNumber: number | null) {
+function createTargetIcon(targetNumber: number | null, isNearTarget: boolean) {
   const label = Number.isFinite(targetNumber) ? String(targetNumber) : "?";
+  const haloMarkup = isNearTarget
+    ? '<div class="absolute inset-0 rounded-full bg-orange-400/30 animate-ping"></div><div class="absolute inset-0.75 rounded-full bg-orange-300/22 blur-[1px]"></div>'
+    : '<div class="absolute inset-0.75 rounded-full bg-amber-200/16"></div>';
+  const badgeToneClasses = isNearTarget
+    ? "border-white bg-orange-500 text-white shadow-[0_0_18px_rgba(249,115,22,0.92)]"
+    : "border-white/70 bg-amber-200 text-slate-900 shadow-[0_0_10px_rgba(251,191,36,0.24)]";
 
   return L.divIcon({
     className: "bg-transparent border-none",
     html: `
       <div class="relative flex h-11 w-11 items-center justify-center overflow-visible">
-        <div class="absolute inset-0 rounded-full bg-amber-400/30 animate-ping"></div>
-        <div class="absolute inset-0.75 rounded-full bg-amber-300/20 blur-[1px]"></div>
-        <div class="relative flex h-11 w-11 items-center justify-center rounded-full border-2 border-white bg-amber-500 text-lg font-black text-white shadow-[0_0_18px_rgba(251,191,36,0.95)]">
+        ${haloMarkup}
+        <div class="relative flex h-11 w-11 items-center justify-center rounded-full border-2 text-lg font-black ${badgeToneClasses}">
           ${label}
         </div>
       </div>
@@ -173,9 +178,13 @@ export default function MapDisplay({
   targetNumber,
   playerName,
   dimmed,
+  isNearTarget,
   onTargetClick,
 }: MapDisplayProps) {
-  const targetIcon = useMemo(() => createTargetIcon(targetNumber), [targetNumber]);
+  const targetIcon = useMemo(
+    () => createTargetIcon(targetNumber, isNearTarget),
+    [isNearTarget, targetNumber]
+  );
   const targetHeading = useMemo(
     () => getTargetHeadingDegrees(playerLocation, targetLocation),
     [playerLocation, targetLocation]
@@ -221,8 +230,12 @@ export default function MapDisplay({
           <Marker
             position={[targetLocation.lat, targetLocation.lng]}
             icon={targetIcon}
-            title={targetLabel || (targetNumber !== null ? `Post ${targetNumber}` : "Næste post")}
-            eventHandlers={{ click: () => onTargetClick?.() }}
+            title={
+              isNearTarget
+                ? targetLabel || (targetNumber !== null ? `Post ${targetNumber}` : "Næste post")
+                : "Gå tættere på for at åbne posten"
+            }
+            eventHandlers={isNearTarget ? { click: () => onTargetClick?.() } : undefined}
           />
         ) : null}
 

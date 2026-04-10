@@ -2601,6 +2601,10 @@ export function usePlayGameState({
     playStartedAtMs,
     playFinishedAtMs,
   };
+  const isNearTarget =
+    Boolean(activeQuestion) &&
+    (gpsOverride ||
+      (distance !== null && autoUnlockRadius !== null && distance <= autoUnlockRadius));
 
   const map: PlayMapState = {
     playerLocation: myLoc,
@@ -2608,6 +2612,7 @@ export function usePlayGameState({
     targetLocation: activeQuestion ? { lat: activeQuestion.lat, lng: activeQuestion.lng } : null,
     targetLabel: activeQuestionDisplayText,
     targetNumber: activeQuestion ? displayPostNumber : null,
+    isNearTarget,
   };
 
   const progress: PlayProgressState = {

@@ -60,6 +60,7 @@ function PlayScreen() {
             targetNumber={game.progress.map.targetNumber}
             playerName={game.progress.map.playerName}
             dimmed={game.flags.isRoleplayImmersed}
+            isNearTarget={game.progress.map.isNearTarget}
             onTargetClick={game.actions.unlockCurrentPost}
           />
         </PlayInterface>
