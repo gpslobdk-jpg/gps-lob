@@ -516,44 +516,31 @@ export default function TeacherLiveSidebar({
         onSubmit={handleSubmit}
         className="border-t border-slate-500/30 bg-slate-950/55 px-5 py-5"
       >
-        <div className="mb-5 rounded-3xl border border-cyan-400/20 bg-cyan-500/10 p-4 shadow-[0_12px_30px_rgba(34,211,238,0.12)]">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200/80">
-                God Mode
-              </p>
-              <p className="mt-2 text-sm font-semibold text-white">
-                Slå GPS-krav fra for hele sessionen.
-              </p>
-              <p className="mt-1 text-xs text-cyan-100/75">
-                Bruges til indendørs spil eller test uden fysisk GPS-lås.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => void onToggleGpsOverride()}
-              disabled={isUpdatingGpsOverride}
-              aria-pressed={gpsOverride}
-              className={`inline-flex min-w-38 items-center justify-center rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.2em] transition ${
-                gpsOverride
-                  ? "border-cyan-200/40 bg-cyan-300 text-slate-950 shadow-[0_12px_28px_rgba(34,211,238,0.28)]"
-                  : "border-white/15 bg-white/8 text-white hover:bg-white/12"
-              } disabled:cursor-not-allowed disabled:opacity-60`}
-            >
-              {isUpdatingGpsOverride ? "Gemmer..." : gpsOverride ? "Aktiv" : "Slå til"}
-            </button>
-          </div>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <label
+            htmlFor="broadcast-message"
+            className="block text-xs font-semibold uppercase tracking-[0.26em] text-emerald-200/75"
+          >
+            Broadcast
+          </label>
+          <button
+            type="button"
+            onClick={() => void onToggleGpsOverride()}
+            disabled={isUpdatingGpsOverride}
+            aria-pressed={gpsOverride}
+            title="Slå GPS-krav fra eller til for hele sessionen"
+            className={`inline-flex shrink-0 items-center justify-center rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] transition ${
+              gpsOverride
+                ? "border-cyan-200/40 bg-cyan-300 text-slate-950 shadow-[0_10px_24px_rgba(34,211,238,0.22)]"
+                : "border-white/12 bg-white/6 text-slate-200 hover:bg-white/10"
+            } disabled:cursor-not-allowed disabled:opacity-60`}
+          >
+            {isUpdatingGpsOverride ? "Gemmer..." : gpsOverride ? "GPS fri" : "GPS lås"}
+          </button>
         </div>
-
-        <label
-          htmlFor="god-mode-broadcast"
-          className="mb-3 block text-xs font-semibold uppercase tracking-[0.26em] text-emerald-200/75"
-        >
-          Broadcast
-        </label>
         <div className="flex gap-3">
           <input
-            id="god-mode-broadcast"
+            id="broadcast-message"
             type="text"
             value={newMessage}
             onChange={(event) => onNewMessageChange(event.target.value)}

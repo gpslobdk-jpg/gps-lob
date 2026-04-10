@@ -859,21 +859,6 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_28%),radial-gradient(circle_at_20%_18%,rgba(56,189,248,0.12),transparent_24%),radial-gradient(circle_at_80%_8%,rgba(34,197,94,0.1),transparent_22%),linear-gradient(180deg,rgba(2,6,23,0.78)_0%,rgba(2,6,23,0.92)_52%,rgba(2,6,23,1)_100%)]" />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_60%)]" />
 
-          {/* Compact mobile indicator (icon only) */}
-          <div className="pointer-events-none absolute inset-x-4 top-4 z-[1200] flex sm:hidden justify-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-400/95 shadow-lg" aria-hidden="true">
-              <div className="h-2.5 w-2.5 rounded-full bg-white/90" />
-            </div>
-            <span className="sr-only">Instruktion: Find den ravgule markør på kortet</span>
-          </div>
-
-          {/* Full banner visible on tablet+ */}
-          <div className="pointer-events-none absolute inset-x-4 top-4 z-[1200] hidden sm:flex justify-center">
-            <div className="w-full max-w-3xl rounded-2xl bg-amber-400/95 px-3 py-2 text-center text-sm sm:px-4 sm:py-3 font-black uppercase tracking-wide text-slate-900 drop-shadow-lg">
-              Find den ravgule markør på kortet og gå hen til den!
-            </div>
-          </div>
-
           <div
             className={`hidden sm:block absolute inset-x-4 top-4 z-[1000] space-y-4 transition-all duration-300 ${isRoleplayImmersed ? "pointer-events-none opacity-0 blur-md" : "opacity-100"}`}
           >
