@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import { Poppins } from "next/font/google";
-import { Copy, QrCode, X } from "lucide-react";
+import { Copy, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { QRCode } from "react-qrcode-logo";
 
@@ -306,6 +306,7 @@ export default function LiveLobbyPage() {
             isUpdatingGpsOverride={live.isUpdatingGpsOverride}
             newMessage={live.newMessage}
             onNewMessageChange={live.setNewMessage}
+            onOpenAccessOverlay={openAccessOverlay}
             onSendMessage={live.sendMessage}
             onToggleGpsOverride={live.toggleGpsOverride}
             onModuleSelect={handleModuleSelect}
@@ -315,23 +316,6 @@ export default function LiveLobbyPage() {
       </AnimatePresence>
 
       <LivePhotoLightbox answer={visibleSelectedPhoto} onClose={() => setSelectedPhoto(null)} />
-
-      {hasRunningAccessControls ? (
-        <div className={`pointer-events-none fixed inset-x-4 top-4 z-1100 flex justify-center ${poppins.className}`}>
-          <div className="pointer-events-auto flex max-w-full items-center gap-3 rounded-full border border-cyan-300/25 bg-slate-950/82 px-4 py-2.5 text-white shadow-[0_20px_50px_rgba(2,6,23,0.55)] backdrop-blur-xl">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-200/72">PIN</span>
-            <span className="font-mono text-lg font-black tracking-[0.28em] text-cyan-50 sm:text-xl">{live.joinPin}</span>
-            <button
-              type="button"
-              onClick={openAccessOverlay}
-              className="inline-flex items-center gap-2 rounded-full border border-cyan-300/22 bg-cyan-400/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-50 transition hover:bg-cyan-400/18"
-            >
-              <QrCode className="h-3.5 w-3.5" />
-              QR
-            </button>
-          </div>
-        </div>
-      ) : null}
 
       {hasRunningAccessControls ? (
         <TeacherAccessOverlay

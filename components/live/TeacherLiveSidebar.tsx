@@ -1,6 +1,7 @@
 "use client";
 
 import { Poppins, Rubik } from "next/font/google";
+import { QrCode } from "lucide-react";
 import { type FormEvent } from "react";
 
 import type { LiveModuleId, LiveStudentLocation } from "@/components/live/types";
@@ -29,6 +30,7 @@ type TeacherLiveSidebarProps = {
   isUpdatingGpsOverride: boolean;
   newMessage: string;
   onNewMessageChange: (value: string) => void;
+  onOpenAccessOverlay: () => void;
   onSendMessage: () => Promise<void>;
   onToggleGpsOverride: () => Promise<void>;
   onModuleSelect: (module: LiveModuleId) => void;
@@ -42,6 +44,7 @@ export default function TeacherLiveSidebar({
   isUpdatingGpsOverride,
   newMessage,
   onNewMessageChange,
+  onOpenAccessOverlay,
   onSendMessage,
   onToggleGpsOverride,
   onModuleSelect,
@@ -86,11 +89,61 @@ export default function TeacherLiveSidebar({
             <p className="font-mono text-3xl font-black tracking-[0.38em] text-amber-50">
               {joinPin}
             </p>
-            <span className="rounded-full border border-amber-200/20 bg-black/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-50/80">
-              Sig den højt
-            </span>
+            <button
+              type="button"
+              onClick={onOpenAccessOverlay}
+              disabled={joinPin === "----"}
+              className="inline-flex shrink-0 items-center gap-2 rounded-full border border-amber-100/25 bg-slate-950/30 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-50 transition hover:bg-slate-950/45 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <QrCode className="h-3.5 w-3.5" />
+              Vis QR-kode
+            </button>
           </div>
         </div>
+
+        <form
+          onSubmit={handleSubmit}
+          className="mt-4 rounded-3xl border border-slate-500/30 bg-slate-950/55 px-5 py-5"
+        >
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <label
+              htmlFor="broadcast-message"
+              className="block text-xs font-semibold uppercase tracking-[0.26em] text-emerald-200/75"
+            >
+              Broadcast
+            </label>
+            <button
+              type="button"
+              onClick={() => void onToggleGpsOverride()}
+              disabled={isUpdatingGpsOverride}
+              aria-pressed={gpsOverride}
+              title="Slå GPS-krav fra eller til for hele sessionen"
+              className={`inline-flex shrink-0 items-center justify-center rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] transition ${
+                gpsOverride
+                  ? "border-cyan-200/40 bg-cyan-300 text-slate-950 shadow-[0_10px_24px_rgba(34,211,238,0.22)]"
+                  : "border-white/12 bg-white/6 text-slate-200 hover:bg-white/10"
+              } disabled:cursor-not-allowed disabled:opacity-60`}
+            >
+              {isUpdatingGpsOverride ? "Gemmer..." : gpsOverride ? "GPS fri" : "GPS lås"}
+            </button>
+          </div>
+          <div className="flex gap-3">
+            <input
+              id="broadcast-message"
+              type="text"
+              value={newMessage}
+              onChange={(event) => onNewMessageChange(event.target.value)}
+              placeholder="Send en besked til alle elever..."
+              className="flex-1 rounded-2xl border border-emerald-500/25 bg-slate-900/90 px-4 py-3 text-sm text-white shadow-[0_0_24px_rgba(16,185,129,0.12)] placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+            />
+            <button
+              type="submit"
+              className="rounded-2xl border border-emerald-400/30 bg-emerald-500 px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-slate-950 shadow-[0_16px_30px_rgba(16,185,129,0.35)] transition hover:bg-emerald-400"
+            >
+              Send
+            </button>
+          </div>
+        </form>
 
         {!hasParticipantsTable ? (
           <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-xs font-medium text-amber-100">
@@ -115,52 +168,6 @@ export default function TeacherLiveSidebar({
           ))}
         </div>
       </div>
-
-      <div className="flex-1" />
-
-      <form
-        onSubmit={handleSubmit}
-        className="border-t border-slate-500/30 bg-slate-950/55 px-5 py-5"
-      >
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <label
-            htmlFor="broadcast-message"
-            className="block text-xs font-semibold uppercase tracking-[0.26em] text-emerald-200/75"
-          >
-            Broadcast
-          </label>
-          <button
-            type="button"
-            onClick={() => void onToggleGpsOverride()}
-            disabled={isUpdatingGpsOverride}
-            aria-pressed={gpsOverride}
-            title="Slå GPS-krav fra eller til for hele sessionen"
-            className={`inline-flex shrink-0 items-center justify-center rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] transition ${
-              gpsOverride
-                ? "border-cyan-200/40 bg-cyan-300 text-slate-950 shadow-[0_10px_24px_rgba(34,211,238,0.22)]"
-                : "border-white/12 bg-white/6 text-slate-200 hover:bg-white/10"
-            } disabled:cursor-not-allowed disabled:opacity-60`}
-          >
-            {isUpdatingGpsOverride ? "Gemmer..." : gpsOverride ? "GPS fri" : "GPS lås"}
-          </button>
-        </div>
-        <div className="flex gap-3">
-          <input
-            id="broadcast-message"
-            type="text"
-            value={newMessage}
-            onChange={(event) => onNewMessageChange(event.target.value)}
-            placeholder="Send en besked til alle elever..."
-            className="flex-1 rounded-2xl border border-emerald-500/25 bg-slate-900/90 px-4 py-3 text-sm text-white shadow-[0_0_24px_rgba(16,185,129,0.12)] placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-          />
-          <button
-            type="submit"
-            className="rounded-2xl border border-emerald-400/30 bg-emerald-500 px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-slate-950 shadow-[0_16px_30px_rgba(16,185,129,0.35)] transition hover:bg-emerald-400"
-          >
-            Send
-          </button>
-        </div>
-      </form>
     </aside>
   );
 }
