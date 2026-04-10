@@ -354,6 +354,8 @@ export interface PlayMapState {
   targetLabel: string;
   targetNumber: number | null;
   isNearTarget: boolean;
+  canOpenTarget: boolean;
+  distanceToTargetMeters: number | null;
 }
 
 export interface MapDisplayProps {
@@ -364,6 +366,8 @@ export interface MapDisplayProps {
   playerName: string;
   dimmed: boolean;
   isNearTarget: boolean;
+  canOpenTarget: boolean;
+  distanceToTargetMeters: number | null;
   onTargetClick?: () => void;
 }
 

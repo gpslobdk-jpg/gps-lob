@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { ArrowUp } from "lucide-react";
 import type { LatLngBoundsExpression } from "leaflet";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 
 import GlidingPlayerMarker from "./GlidingPlayerMarker";
@@ -179,8 +179,11 @@ export default function MapDisplay({
   playerName,
   dimmed,
   isNearTarget,
+  canOpenTarget,
+  distanceToTargetMeters,
   onTargetClick,
 }: MapDisplayProps) {
+  const [targetClickHint, setTargetClickHint] = useState<string | null>(null);
   const targetIcon = useMemo(
     () => createTargetIcon(targetNumber, isNearTarget),
     [isNearTarget, targetNumber]
@@ -201,6 +204,41 @@ export default function MapDisplay({
 
     return DEFAULT_MAP_CENTER;
   }, [playerLocation, targetLocation]);
+
+  const handleTargetMarkerClick = useCallback(() => {
+    if (canOpenTarget) {
+      setTargetClickHint(null);
+      onTargetClick?.();
+      return;
+    }
+
+    if (distanceToTargetMeters !== null && Number.isFinite(distanceToTargetMeters)) {
+      setTargetClickHint(`Du er ${Math.max(1, Math.round(distanceToTargetMeters))} meter fra posten - gå lidt tættere på`);
+      return;
+    }
+
+    setTargetClickHint("Vi finder stadig din position - prøv igen om et øjeblik");
+  }, [canOpenTarget, distanceToTargetMeters, onTargetClick]);
+
+  useEffect(() => {
+    if (!targetClickHint) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setTargetClickHint(null);
+    }, 2200);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [targetClickHint]);
+
+  useEffect(() => {
+    if (canOpenTarget && targetClickHint) {
+      setTargetClickHint(null);
+    }
+  }, [canOpenTarget, targetClickHint]);
 
   return (
     <div
@@ -231,11 +269,11 @@ export default function MapDisplay({
             position={[targetLocation.lat, targetLocation.lng]}
             icon={targetIcon}
             title={
-              isNearTarget
+              canOpenTarget
                 ? targetLabel || (targetNumber !== null ? `Post ${targetNumber}` : "Næste post")
                 : "Gå tættere på for at åbne posten"
             }
-            eventHandlers={isNearTarget ? { click: () => onTargetClick?.() } : undefined}
+            eventHandlers={{ click: handleTargetMarkerClick }}
           />
         ) : null}
 
@@ -246,6 +284,14 @@ export default function MapDisplay({
           />
         ) : null}
       </MapContainer>
+
+      {targetClickHint ? (
+        <div className="pointer-events-none absolute inset-x-4 bottom-28 z-950 flex justify-center sm:bottom-24">
+          <div className="max-w-md rounded-full border border-white/12 bg-slate-950/90 px-4 py-2 text-center text-xs font-semibold text-amber-100 shadow-[0_18px_30px_rgba(15,23,42,0.45)] backdrop-blur-md">
+            {targetClickHint}
+          </div>
+        </div>
+      ) : null}
 
       {/* compact indicator for mobile */}
       {targetLocation ? (

@@ -38,7 +38,6 @@ import type {
   ZoneKrigCaptureStatus,
 } from "./types";
 import {
-  MANUAL_UNLOCK_RADIUS,
   buildRouteOrder,
   clearStoredActiveParticipant,
   compressImageForUpload,
@@ -68,6 +67,9 @@ import {
   toFiniteNumber,
   toIntegerStartOffset,
 } from "./playUtils";
+
+const TARGET_VISUAL_RADIUS_METERS = 25;
+const TARGET_CLICK_BUFFER_METERS = 20;
 import { useStrategoEngine } from "./useStrategoEngine";
 import { DEFAULT_QUESTION_POINTS } from "@/utils/questionPoints";
 import { createClient } from "@/utils/supabase/client";
@@ -845,21 +847,26 @@ export function usePlayGameState({
     !isKicked &&
     hasConfirmedName &&
     (questions.length > 0 || isStrategoRace);
+  const targetVisualRadius =
+    autoUnlockRadius !== null ? Math.max(autoUnlockRadius, TARGET_VISUAL_RADIUS_METERS) : null;
+  const targetClickBufferRadius =
+    autoUnlockRadius !== null ? Math.max(autoUnlockRadius, TARGET_CLICK_BUFFER_METERS) : null;
   const canOpenCurrentPost =
     !showQuestion &&
     (gpsOverride ||
+      dismissedPostIndex === currentPostIndex ||
       (distance !== null &&
-        autoUnlockRadius !== null &&
-        (distance <= autoUnlockRadius ||
-          (distance > autoUnlockRadius && distance <= MANUAL_UNLOCK_RADIUS) ||
-          dismissedPostIndex === currentPostIndex)));
+        targetClickBufferRadius !== null &&
+        distance <= targetClickBufferRadius));
   const canManualUnlock =
     !showQuestion &&
     (gpsOverride ||
+      dismissedPostIndex === currentPostIndex ||
       (distance !== null &&
         autoUnlockRadius !== null &&
-        ((distance > autoUnlockRadius && distance <= MANUAL_UNLOCK_RADIUS) ||
-          dismissedPostIndex === currentPostIndex)));
+        targetClickBufferRadius !== null &&
+        distance > autoUnlockRadius &&
+        distance <= targetClickBufferRadius));
 
   const clearTypedAnswerError = useCallback(() => {
     setTypedAnswerError(null);
@@ -2604,7 +2611,7 @@ export function usePlayGameState({
   const isNearTarget =
     Boolean(activeQuestion) &&
     (gpsOverride ||
-      (distance !== null && autoUnlockRadius !== null && distance <= autoUnlockRadius));
+      (distance !== null && targetVisualRadius !== null && distance <= targetVisualRadius));
 
   const map: PlayMapState = {
     playerLocation: myLoc,
@@ -2613,6 +2620,8 @@ export function usePlayGameState({
     targetLabel: activeQuestionDisplayText,
     targetNumber: activeQuestion ? displayPostNumber : null,
     isNearTarget,
+    canOpenTarget: canOpenCurrentPost,
+    distanceToTargetMeters: distance,
   };
 
   const progress: PlayProgressState = {
