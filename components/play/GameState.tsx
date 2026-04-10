@@ -2595,6 +2595,7 @@ export function usePlayGameState({
     playerName,
     targetLocation: activeQuestion ? { lat: activeQuestion.lat, lng: activeQuestion.lng } : null,
     targetLabel: activeQuestionDisplayText,
+    targetNumber: activeQuestion ? displayPostNumber : null,
   };
 
   const progress: PlayProgressState = {

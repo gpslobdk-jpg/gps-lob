@@ -57,6 +57,7 @@ function PlayScreen() {
             playerLocation={game.progress.map.playerLocation}
             targetLocation={game.progress.map.targetLocation}
             targetLabel={game.progress.map.targetLabel}
+            targetNumber={game.progress.map.targetNumber}
             playerName={game.progress.map.playerName}
             dimmed={game.flags.isRoleplayImmersed}
           />

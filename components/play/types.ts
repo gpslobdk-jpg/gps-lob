@@ -352,6 +352,7 @@ export interface PlayMapState {
   playerName: string;
   targetLocation: Location | null;
   targetLabel: string;
+  targetNumber: number | null;
 }
 
 export interface PlayActions {

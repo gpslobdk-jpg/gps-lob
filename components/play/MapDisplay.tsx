@@ -3,7 +3,7 @@
 import "leaflet/dist/leaflet.css";
 
 import L from "leaflet";
-import { MapPin } from "lucide-react";
+import { ArrowUp, MapPin } from "lucide-react";
 import type { LatLngBoundsExpression } from "leaflet";
 import { useEffect, useMemo, useRef } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
@@ -15,6 +15,7 @@ type MapDisplayProps = {
   playerLocation: Location | null;
   targetLocation: Location | null;
   targetLabel: string;
+  targetNumber: number | null;
   playerName: string;
   dimmed: boolean;
 };
@@ -25,6 +26,43 @@ type MapViewportSyncProps = {
 };
 
 const DEFAULT_MAP_CENTER: [number, number] = [55.6761, 12.5683];
+
+function getTargetHeadingDegrees(from: Location | null, to: Location | null) {
+  if (!from || !to) {
+    return null;
+  }
+
+  const fromLatRadians = (from.lat * Math.PI) / 180;
+  const toLatRadians = (to.lat * Math.PI) / 180;
+  const deltaLongitudeRadians = ((to.lng - from.lng) * Math.PI) / 180;
+
+  const y = Math.sin(deltaLongitudeRadians) * Math.cos(toLatRadians);
+  const x =
+    Math.cos(fromLatRadians) * Math.sin(toLatRadians) -
+    Math.sin(fromLatRadians) * Math.cos(toLatRadians) * Math.cos(deltaLongitudeRadians);
+  const headingDegrees = (Math.atan2(y, x) * 180) / Math.PI;
+
+  return (headingDegrees + 360) % 360;
+}
+
+function createTargetIcon(targetNumber: number | null) {
+  const label = Number.isFinite(targetNumber) ? String(targetNumber) : "?";
+
+  return L.divIcon({
+    className: "bg-transparent border-none",
+    html: `
+      <div class="relative flex h-11 w-11 items-center justify-center overflow-visible">
+        <div class="absolute inset-0 rounded-full bg-amber-400/30 animate-ping"></div>
+        <div class="absolute inset-0.75 rounded-full bg-amber-300/20 blur-[1px]"></div>
+        <div class="relative flex h-11 w-11 items-center justify-center rounded-full border-2 border-white bg-amber-500 text-lg font-black text-white shadow-[0_0_18px_rgba(251,191,36,0.95)]">
+          ${label}
+        </div>
+      </div>
+    `,
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+  });
+}
 
 function MapViewportSync({ center, dimmed }: MapViewportSyncProps) {
   const map = useMap();
@@ -141,18 +179,14 @@ export default function MapDisplay({
   playerLocation,
   targetLocation,
   targetLabel,
+  targetNumber,
   playerName,
   dimmed,
 }: MapDisplayProps) {
-  const targetIcon = useMemo(
-    () =>
-      L.divIcon({
-        className: "bg-transparent border-none",
-        html: '<div class="relative h-8 w-8"><div class="absolute inset-0 rounded-full bg-amber-400/30 animate-ping"></div><div class="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-amber-500 text-white font-black shadow-[0_0_14px_rgba(251,191,36,0.9)]">&#9678;</div></div>',
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-      }),
-    []
+  const targetIcon = useMemo(() => createTargetIcon(targetNumber), [targetNumber]);
+  const targetHeading = useMemo(
+    () => getTargetHeadingDegrees(playerLocation, targetLocation),
+    [playerLocation, targetLocation]
   );
 
   const mapCenter = useMemo<[number, number]>(() => {
@@ -169,7 +203,7 @@ export default function MapDisplay({
 
   return (
     <div
-      className={`relative h-full min-h-[100svh] w-full transition-all duration-300 ${
+      className={`relative h-full min-h-svh w-full transition-all duration-300 ${
         dimmed ? "pointer-events-none opacity-60 blur-sm" : "opacity-100"
       }`}
     >
@@ -194,10 +228,10 @@ export default function MapDisplay({
         {targetLocation ? (
           <Marker position={[targetLocation.lat, targetLocation.lng]} icon={targetIcon}>
             <Popup>
-              <div className="text-sm break-words [overflow-wrap:anywhere] hyphens-auto">
+              <div className="text-sm wrap-anywhere hyphens-auto">
                 <div className="mb-1 flex items-center gap-2 font-semibold text-amber-600">
                   <MapPin className="h-4 w-4" />
-                  Næste post
+                  {targetNumber !== null ? `Post ${targetNumber}` : "Næste post"}
                 </div>
                 {targetLabel}
               </div>
@@ -214,15 +248,26 @@ export default function MapDisplay({
       </MapContainer>
 
       {/* compact indicator for mobile */}
-      <div className="pointer-events-none absolute right-4 bottom-6 left-4 z-[900] sm:hidden flex justify-center">
-        <div className="h-10 w-10 flex items-center justify-center rounded-full bg-amber-400/95 shadow-md" aria-hidden="true">
-          <div className="h-2 w-2 rounded-full bg-white/90" />
+      {targetLocation ? (
+        <div className="pointer-events-none absolute right-4 bottom-6 left-4 z-900 flex justify-center sm:hidden">
+          <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-slate-900/88 px-3 py-2 shadow-[0_18px_30px_rgba(15,23,42,0.4)] backdrop-blur-md" aria-hidden="true">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-slate-800/90 text-slate-100 shadow-inner shadow-black/20">
+              <ArrowUp
+                className="h-5 w-5 transition-transform duration-300"
+                style={{ transform: `rotate(${targetHeading ?? 0}deg)` }}
+              />
+            </div>
+            <div className="text-left">
+              <div className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Retning</div>
+              <div className="text-xs font-semibold text-slate-100">Mod næste post</div>
+            </div>
+          </div>
+          <span className="sr-only">Retningspil mod næste post</span>
         </div>
-        <span className="sr-only">Hold kursen mod den ravgule markør</span>
-      </div>
+      ) : null}
 
       {/* full hint visible on tablet+ */}
-      <div className="pointer-events-none absolute right-4 bottom-6 left-4 z-[900] hidden sm:flex justify-center">
+      <div className="pointer-events-none absolute right-4 bottom-6 left-4 z-900 hidden sm:flex justify-center">
         <div className="rounded-full border border-white/10 bg-slate-900/78 px-3 py-2 text-xs text-emerald-100/80 shadow-[0_18px_30px_rgba(15,23,42,0.4)] backdrop-blur-md">
           Hold kursen mod den ravgule markør
         </div>
