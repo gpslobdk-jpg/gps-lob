@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Crosshair, Loader2, Shield } from "lucide-react";
+import { ArrowLeft, ArrowRight, Crosshair, Loader2, MapPinned, Shield, Swords, Zap, type LucideIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -48,12 +48,131 @@ type StoredStrategoRun = Pick<
   "id" | "user_id" | "title" | "description" | "race_type" | "game_config" | "gameConfig"
 >;
 
+type PlacementMode = "red" | "blue";
+
+const STEP_ONE_FEATURES: Array<{
+  title: string;
+  description: string;
+  icon: LucideIcon;
+}> = [
+  {
+    title: "Nyt live format",
+    description: "Stratego bygges nu i to klare trin: først rammesætning, derefter baseplacering og direkte live-opstart.",
+    icon: Swords,
+  },
+  {
+    title: "Hemmelige roller",
+    description: "Eleverne går ind i spillet med skjulte roller og et tydeligt hold-mod-hold setup fra første sekund.",
+    icon: Shield,
+  },
+  {
+    title: "Live kontrol",
+    description: "Kortet bruges kun til det vigtige: præcise baser, roligt overblik og en ren vej ind i lærerens live-dashboard.",
+    icon: MapPinned,
+  },
+  {
+    title: "Direkte opstart",
+    description: "Når begge baser er sat, gemmer vi løbet og åbner straks den rigtige live-session uden mellemtrin.",
+    icon: Zap,
+  },
+];
+
 const StrategoBasePlacementMap = dynamic(() => import("@/components/live/StrategoBasePlacementMap"), {
   ssr: false,
   loading: () => (
-    <div className="h-[24rem] w-full animate-pulse rounded-[1.8rem] border border-white/10 bg-slate-950/55" />
+    <div className="h-96 w-full animate-pulse rounded-[1.8rem] border border-white/10 bg-slate-950/55" />
   ),
 });
+
+function InfoFeatureCard({
+  title,
+  description,
+  icon: Icon,
+}: {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+}) {
+  return (
+    <article className="rounded-3xl border border-white/10 bg-white/6 p-4 shadow-[0_18px_44px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+      <div className="flex items-start gap-4">
+        <div className="rounded-2xl border border-white/10 bg-slate-950/55 p-3 text-cyan-300">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <h2 className="text-lg font-black tracking-tight text-white">{title}</h2>
+          <p className="mt-2 text-sm leading-6 text-white/68">{description}</p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function PlacementModeButtons({
+  placementMode,
+  isBusy,
+  onSelect,
+}: {
+  placementMode: PlacementMode;
+  isBusy: boolean;
+  onSelect: (mode: PlacementMode) => void;
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <button
+        type="button"
+        onClick={() => onSelect("red")}
+        disabled={isBusy}
+        className={`rounded-[1.3rem] border px-4 py-4 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
+          placementMode === "red"
+            ? "border-rose-300/30 bg-rose-500/12 text-rose-100"
+            : "border-white/10 bg-white/6 text-white/70 hover:bg-white/10"
+        }`}
+      >
+        <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Næste klik</p>
+        <p className="mt-2 text-lg font-black">Hold Rød Base</p>
+      </button>
+      <button
+        type="button"
+        onClick={() => onSelect("blue")}
+        disabled={isBusy}
+        className={`rounded-[1.3rem] border px-4 py-4 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
+          placementMode === "blue"
+            ? "border-sky-300/30 bg-sky-500/12 text-sky-100"
+            : "border-white/10 bg-white/6 text-white/70 hover:bg-white/10"
+        }`}
+      >
+        <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Næste klik</p>
+        <p className="mt-2 text-lg font-black">Hold Blå Base</p>
+      </button>
+    </div>
+  );
+}
+
+function BaseLocationCards({
+  redBase,
+  blueBase,
+}: {
+  redBase: BaseLocation | null;
+  blueBase: BaseLocation | null;
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <div className="rounded-[1.3rem] border border-white/10 bg-white/6 px-4 py-4">
+        <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Rød base</p>
+        <p className="mt-2 text-sm font-semibold text-white/88">
+          {formatCoordinate(redBase?.lat ?? null)} / {formatCoordinate(redBase?.lng ?? null)}
+        </p>
+      </div>
+      <div className="rounded-[1.3rem] border border-white/10 bg-white/6 px-4 py-4">
+        <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Blå base</p>
+        <p className="mt-2 text-sm font-semibold text-white/88">
+          {formatCoordinate(blueBase?.lat ?? null)} / {formatCoordinate(blueBase?.lng ?? null)}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 function formatCoordinate(value: number | null) {
   if (value === null) return "Ikke sat";
@@ -94,7 +213,7 @@ export default function StrategoBuilderPage() {
         <main className={`relative min-h-screen overflow-hidden bg-slate-950 text-white ${poppins.className}`}>
           <div className="fixed inset-0 -z-20 bg-[radial-gradient(circle_at_top,rgba(249,115,22,0.18),transparent_30%),linear-gradient(180deg,#020617_0%,#0f172a_48%,#1f2937_100%)]" />
           <div className="mx-auto flex min-h-screen max-w-5xl items-center justify-center px-6 py-12">
-            <div className="w-full max-w-md rounded-[2rem] border border-white/12 bg-white/10 p-8 text-center shadow-[0_24px_60px_rgba(15,23,42,0.32)] backdrop-blur-2xl">
+            <div className="w-full max-w-md rounded-4xl border border-white/12 bg-white/10 p-8 text-center shadow-[0_24px_60px_rgba(15,23,42,0.32)] backdrop-blur-2xl">
               <Loader2 className="mx-auto h-10 w-10 animate-spin text-orange-200" />
               <p className="mt-4 text-xs font-semibold tracking-[0.28em] text-white/55 uppercase">Indlæser</p>
               <h1 className={`mt-2 text-3xl font-black text-white ${rubik.className}`}>Live Stratego</h1>
@@ -114,15 +233,15 @@ function StrategoBuilderContent() {
   const editRunId = searchParams.get("id")?.trim() ?? "";
   const isEditMode = editRunId.length > 0;
 
+  const [step, setStep] = useState<1 | 2>(1);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
   const [isLoadingRun, setIsLoadingRun] = useState(isEditMode);
-  const [isSavingArchive, setIsSavingArchive] = useState(false);
   const [isOpeningLive, setIsOpeningLive] = useState(false);
   const [redBase, setRedBase] = useState<BaseLocation | null>(null);
   const [blueBase, setBlueBase] = useState<BaseLocation | null>(null);
-  const [placementMode, setPlacementMode] = useState<"red" | "blue">("red");
+  const [placementMode, setPlacementMode] = useState<PlacementMode>("red");
 
   useEffect(() => {
     if (!isEditMode) return;
@@ -187,11 +306,12 @@ function StrategoBuilderContent() {
     };
   }, [editRunId, isEditMode]);
 
-  const isBusy = isSavingArchive || isOpeningLive || isLoadingRun;
+  const isBusy = isOpeningLive || isLoadingRun;
   const primaryTitle = useMemo(
     () => (title.trim().length > 0 ? title.trim() : "Live Stratego"),
     [title]
   );
+  const hasPlacedBothBases = Boolean(redBase && blueBase);
 
   const handleMapPick = (lat: number, lng: number) => {
     setNotice(null);
@@ -207,21 +327,36 @@ function StrategoBuilderContent() {
     setBlueBase({ lat, lng });
   };
 
-  const saveRun = async (mode: "archive" | "live") => {
+  const handleBaseMove = (teamCode: PlacementMode, lat: number, lng: number) => {
+    setNotice(null);
+    setPlacementMode(teamCode);
+
+    if (teamCode === "red") {
+      setRedBase({ lat, lng });
+      return;
+    }
+
+    setBlueBase({ lat, lng });
+  };
+
+  const saveRun = async () => {
     const trimmedTitle = title.trim();
     const trimmedDescription = description.trim();
 
     if (!trimmedTitle) {
       setNotice({ tone: "error", message: "Giv først dit Stratego-løb en titel." });
+      setStep(1);
+      return;
+    }
+
+    if (!redBase || !blueBase) {
+      setNotice({ tone: "error", message: "Placér først både rød og blå base på kortet." });
+      setStep(2);
       return;
     }
 
     setNotice(null);
-    if (mode === "archive") {
-      setIsSavingArchive(true);
-    } else {
-      setIsOpeningLive(true);
-    }
+    setIsOpeningLive(true);
 
     try {
       const supabase = createClient();
@@ -275,15 +410,6 @@ function StrategoBuilderContent() {
         runId = data.id;
       }
 
-      if (mode === "archive") {
-        setNotice({
-          tone: "success",
-          message: isEditMode ? "Stratego-løbet er gemt i arkivet." : "Live Stratego er gemt i arkivet.",
-        });
-        router.push("/dashboard/arkiv");
-        return;
-      }
-
       const liveSession = await requestArchiveLiveSessionMutation(runId);
       if (!liveSession.session?.id) {
         throw new Error("Kunne ikke oprette en Stratego-session.");
@@ -297,7 +423,6 @@ function StrategoBuilderContent() {
           error instanceof Error ? error.message : "Der opstod en fejl, mens Stratego blev gemt.",
       });
     } finally {
-      setIsSavingArchive(false);
       setIsOpeningLive(false);
     }
   };
@@ -307,7 +432,7 @@ function StrategoBuilderContent() {
       <main className={`relative min-h-screen overflow-hidden bg-slate-950 text-white ${poppins.className}`}>
         <div className="fixed inset-0 -z-20 bg-[radial-gradient(circle_at_top,rgba(249,115,22,0.18),transparent_30%),linear-gradient(180deg,#020617_0%,#0f172a_48%,#1f2937_100%)]" />
         <div className="mx-auto flex min-h-screen max-w-5xl items-center justify-center px-6 py-12">
-          <div className="w-full max-w-md rounded-[2rem] border border-white/12 bg-white/10 p-8 text-center shadow-[0_24px_60px_rgba(15,23,42,0.32)] backdrop-blur-2xl">
+          <div className="w-full max-w-md rounded-4xl border border-white/12 bg-white/10 p-8 text-center shadow-[0_24px_60px_rgba(15,23,42,0.32)] backdrop-blur-2xl">
             <Loader2 className="mx-auto h-10 w-10 animate-spin text-orange-200" />
             <p className="mt-4 text-xs font-semibold tracking-[0.28em] text-white/55 uppercase">Indlæser</p>
             <h1 className={`mt-2 text-3xl font-black text-white ${rubik.className}`}>Live Stratego</h1>
@@ -338,46 +463,35 @@ function StrategoBuilderContent() {
           </div>
         </header>
 
-        <section className="mt-10 grid flex-1 gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-          <div className="rounded-[2.2rem] border border-white/12 bg-white/10 p-8 shadow-[0_24px_60px_rgba(15,23,42,0.3)] backdrop-blur-2xl">
-            <div className="inline-flex h-14 w-14 items-center justify-center rounded-full border border-red-300/30 bg-red-500/16 shadow-[0_14px_34px_rgba(239,68,68,0.22)]">
-              <Crosshair className="h-7 w-7 text-orange-200" />
-            </div>
-
-            <p className="mt-6 text-xs font-semibold tracking-[0.34em] text-white/55 uppercase">
-              Nyt Live Format
-            </p>
-            <h1 className={`mt-3 text-4xl font-black tracking-tight text-white md:text-5xl ${rubik.className}`}>
-              Live Stratego
-            </h1>
-            <p className="mt-4 max-w-xl text-base leading-7 text-white/74">
-              Det klassiske brætspil vækkes til live. Eleverne får hemmelige roller på mobilen, finder modstanderne ude i virkeligheden og kæmper om at erobre fanen.
-            </p>
-
-            <div className="mt-8 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-[1.6rem] border border-white/10 bg-white/7 p-4">
-                <p className="text-[11px] font-semibold tracking-[0.22em] text-white/52 uppercase">Hemmelige roller</p>
-                <p className="mt-2 text-sm leading-6 text-white/76">Spillere får skjulte rangkort og kun læreren har det fulde overblik.</p>
+        {step === 1 ? (
+          <section className="mx-auto mt-10 w-full max-w-3xl rounded-4xl border border-white/12 bg-white/10 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.3)] backdrop-blur-2xl sm:p-8">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="inline-flex h-14 w-14 items-center justify-center rounded-full border border-red-300/30 bg-red-500/16 shadow-[0_14px_34px_rgba(239,68,68,0.22)]">
+                <Crosshair className="h-7 w-7 text-orange-200" />
               </div>
-              <div className="rounded-[1.6rem] border border-white/10 bg-white/7 p-4">
-                <p className="text-[11px] font-semibold tracking-[0.22em] text-white/52 uppercase">Live kontrolrum</p>
-                <p className="mt-2 text-sm leading-6 text-white/76">Placer baser først. Derefter kører Stratego live med radar, safe zones og pauseknap.</p>
-              </div>
-              <div className="rounded-[1.6rem] border border-white/10 bg-white/7 p-4">
-                <p className="text-[11px] font-semibold tracking-[0.22em] text-white/52 uppercase">Direkte opstart</p>
-                <p className="mt-2 text-sm leading-6 text-white/76">Når du er klar, åbner vi lobbyen og sender dig direkte videre til lærerens setup-skærm.</p>
+
+              <div>
+                <p className="text-xs font-semibold tracking-[0.32em] text-white/55 uppercase">Step 1 af 2</p>
+                <h1 className={`mt-2 text-4xl font-black tracking-tight text-white md:text-5xl ${rubik.className}`}>
+                  Live Stratego
+                </h1>
               </div>
             </div>
-          </div>
 
-          <div className="rounded-[2.2rem] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.08))] p-8 shadow-[0_24px_60px_rgba(15,23,42,0.34)] backdrop-blur-2xl">
-            <p className="text-xs font-semibold tracking-[0.32em] text-white/55 uppercase">
-              {isEditMode ? "Redigér Stratego" : "Opret Stratego"}
+            <p className="mt-6 text-base leading-7 text-white/74">
+              Det klassiske brætspil vækkes til live. Først klargør du titel og intro. Derefter åbner vi et rent kort-step, hvor du sætter begge baser og starter sessionen.
             </p>
-            <h2 className={`mt-3 text-3xl font-black text-white ${rubik.className}`}>{primaryTitle}</h2>
-            <p className="mt-3 text-sm leading-6 text-white/70">
-              Giv løbet en titel her. Du kan allerede gemme et base-preset til arkivet nu, så næste Stratego-session åbner med de rigtige baser på plads.
-            </p>
+
+            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              {STEP_ONE_FEATURES.map((feature) => (
+                <InfoFeatureCard
+                  key={feature.title}
+                  title={feature.title}
+                  description={feature.description}
+                  icon={feature.icon}
+                />
+              ))}
+            </div>
 
             <div className="mt-8 space-y-5">
               <div>
@@ -395,7 +509,7 @@ function StrategoBuilderContent() {
 
               <div>
                 <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-white/60 uppercase">
-                  Kort intro til arkivet
+                  Kort intro
                 </label>
                 <textarea
                   value={description}
@@ -406,111 +520,113 @@ function StrategoBuilderContent() {
                   className="w-full rounded-[1.4rem] border border-white/14 bg-slate-950/45 px-5 py-4 text-sm leading-6 text-white placeholder:text-white/28 focus:border-orange-300/50 focus:outline-none focus:ring-2 focus:ring-orange-400/40 disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
-
-              <div className="rounded-[1.6rem] border border-white/10 bg-slate-950/35 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] font-semibold tracking-[0.22em] text-white/55 uppercase">
-                      Base-preset til arkivet
-                    </p>
-                    <p className="mt-2 max-w-xl text-sm leading-6 text-white/70">
-                      Valgfrit, men smart: Gem rød og blå base her, så live-setup&apos;et åbner med de samme placeringer næste gang.
-                    </p>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setPlacementMode("red")}
-                      disabled={isBusy}
-                      className={`rounded-[1.1rem] border px-4 py-3 text-sm font-bold transition ${
-                        placementMode === "red"
-                          ? "border-rose-300/35 bg-rose-500/12 text-rose-100"
-                          : "border-white/10 bg-white/6 text-white/72 hover:bg-white/10"
-                      }`}
-                    >
-                      Næste klik: Rød
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPlacementMode("blue")}
-                      disabled={isBusy}
-                      className={`rounded-[1.1rem] border px-4 py-3 text-sm font-bold transition ${
-                        placementMode === "blue"
-                          ? "border-sky-300/35 bg-sky-500/12 text-sky-100"
-                          : "border-white/10 bg-white/6 text-white/72 hover:bg-white/10"
-                      }`}
-                    >
-                      Næste klik: Blå
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-[1.2rem] border border-white/10 bg-white/6 px-4 py-4">
-                    <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Rød base</p>
-                    <p className="mt-2 text-sm font-semibold text-white/88">
-                      {formatCoordinate(redBase?.lat ?? null)} / {formatCoordinate(redBase?.lng ?? null)}
-                    </p>
-                  </div>
-                  <div className="rounded-[1.2rem] border border-white/10 bg-white/6 px-4 py-4">
-                    <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Blå base</p>
-                    <p className="mt-2 text-sm font-semibold text-white/88">
-                      {formatCoordinate(blueBase?.lat ?? null)} / {formatCoordinate(blueBase?.lng ?? null)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 overflow-hidden rounded-[1.8rem] border border-white/10">
-                  <StrategoBasePlacementMap
-                    redBase={redBase}
-                    blueBase={blueBase}
-                    onPick={handleMapPick}
-                    title="Kort til base-preset"
-                    description="Klik på kortet for at sætte rød og blå base. Du kan altid gemme uden preset og placere baserne senere i live-setup'et."
-                    readyLabel="Preset klar"
-                    pendingLabel="Valgfri preset"
-                    className="rounded-none border-0 bg-transparent shadow-none"
-                    mapHeightClassName="h-[24rem] w-full"
-                  />
-                </div>
-              </div>
             </div>
 
             {notice ? (
-              <div
-                className={`mt-6 rounded-[1.4rem] border px-4 py-3 text-sm font-medium ${
-                  notice.tone === "success"
-                    ? "border-emerald-300/30 bg-emerald-500/12 text-emerald-50"
-                    : "border-red-300/28 bg-red-500/12 text-red-50"
-                }`}
-              >
+              <div className="mt-6 rounded-[1.4rem] border border-red-300/28 bg-red-500/12 px-4 py-3 text-sm font-medium text-red-50">
                 {notice.message}
               </div>
             ) : null}
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <button
-                type="button"
-                onClick={() => void saveRun("live")}
-                disabled={isBusy}
-                className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-[1.2rem] border border-orange-300/35 bg-[linear-gradient(135deg,rgba(249,115,22,0.92),rgba(220,38,38,0.92))] px-5 py-4 text-sm font-black tracking-[0.16em] text-white uppercase shadow-[0_18px_40px_rgba(220,38,38,0.24)] transition hover:scale-[1.01] hover:shadow-[0_24px_46px_rgba(220,38,38,0.28)] disabled:cursor-wait disabled:opacity-70"
-              >
-                {isOpeningLive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
-                {isEditMode ? "Gem og åbn live" : "Opret live session"}
-              </button>
+            <button
+              type="button"
+              onClick={() => {
+                setNotice(null);
+                setStep(2);
+              }}
+              disabled={isBusy}
+              className="mt-8 inline-flex min-h-15 w-full items-center justify-center gap-3 rounded-3xl bg-cyan-400 px-5 py-4 text-sm font-black uppercase tracking-[0.24em] text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-white/45"
+            >
+              <ArrowRight className="h-5 w-5" />
+              Næste: Placer baser på kortet
+            </button>
+          </section>
+        ) : (
+          <section className="mx-auto mt-10 w-full max-w-5xl space-y-4">
+            <button
+              type="button"
+              onClick={() => {
+                setNotice(null);
+                setStep(1);
+              }}
+              disabled={isBusy}
+              className="inline-flex items-center gap-2 rounded-full border border-white/18 bg-white/10 px-4 py-2 text-sm font-medium text-white shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-xl transition-all duration-300 hover:border-white/28 hover:bg-white/16 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <ArrowLeft className="h-4 w-4 text-white/82" />
+              Tilbage
+            </button>
 
-              <button
-                type="button"
-                onClick={() => void saveRun("archive")}
-                disabled={isBusy}
-                className="inline-flex h-12 items-center justify-center rounded-[1.2rem] border border-white/16 bg-white/8 px-5 py-4 text-sm font-semibold text-white transition hover:border-white/26 hover:bg-white/12 disabled:cursor-wait disabled:opacity-70"
-              >
-                {isSavingArchive ? <Loader2 className="h-4 w-4 animate-spin" /> : "Gem i arkiv"}
-              </button>
+            <div className="rounded-4xl border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.08))] p-4 shadow-[0_24px_60px_rgba(15,23,42,0.34)] backdrop-blur-2xl sm:p-6">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold tracking-[0.32em] text-white/55 uppercase">Step 2 af 2</p>
+                  <h2 className={`mt-3 text-3xl font-black text-white ${rubik.className}`}>{primaryTitle}</h2>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70">
+                    Placér nu rød og blå base på kortet. Klik for første placering og træk markørerne, hvis du vil finjustere bagefter.
+                  </p>
+                </div>
+
+                <div className="rounded-full border border-white/12 bg-slate-950/45 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/72">
+                  {hasPlacedBothBases ? "Begge baser klar" : "Placér 2 baser"}
+                </div>
+              </div>
+
+              {notice ? (
+                <div className="mt-6 rounded-[1.4rem] border border-red-300/28 bg-red-500/12 px-4 py-3 text-sm font-medium text-red-50">
+                  {notice.message}
+                </div>
+              ) : null}
+
+              <div className="mt-6 overflow-hidden rounded-[1.8rem] border border-white/10">
+                <StrategoBasePlacementMap
+                  redBase={redBase}
+                  blueBase={blueBase}
+                  onPick={handleMapPick}
+                  onBaseMove={handleBaseMove}
+                  title="Placér baser på kortet"
+                  description="Klik på kortet for at sætte baserne. Når de er sat, kan du trække dem til den endelige position."
+                  readyLabel="Begge baser klar"
+                  pendingLabel="Placér 2 baser"
+                  className="rounded-none border-0 bg-transparent shadow-none"
+                  mapHeightClassName="h-[60vh] min-h-[36rem] w-full xl:h-[68vh]"
+                />
+              </div>
+
+              <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(19rem,22rem)]">
+                <div className="rounded-[1.8rem] border border-white/10 bg-slate-950/35 p-4 sm:p-5">
+                  <PlacementModeButtons
+                    placementMode={placementMode}
+                    isBusy={isBusy}
+                    onSelect={setPlacementMode}
+                  />
+                  <div className="mt-4">
+                    <BaseLocationCards redBase={redBase} blueBase={blueBase} />
+                  </div>
+                </div>
+
+                <div className="rounded-[1.8rem] border border-white/10 bg-slate-950/45 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+                  <p className="text-[11px] font-semibold tracking-[0.26em] text-white/48 uppercase">Klar til live</p>
+                  <h3 className={`mt-3 text-2xl font-black text-white ${rubik.className}`}>
+                    {isEditMode ? "Gem og åbn live" : "Opret Live Session"}
+                  </h3>
+                  <p className="mt-3 text-sm leading-6 text-white/70">
+                    Når du starter her, gemmes Stratego-løbet og der oprettes en live-session med dine valgte baser.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => void saveRun()}
+                    disabled={isBusy || !hasPlacedBothBases}
+                    className="mt-6 inline-flex min-h-15 w-full items-center justify-center gap-3 rounded-3xl border border-orange-300/35 bg-[linear-gradient(135deg,rgba(249,115,22,0.92),rgba(220,38,38,0.92))] px-5 py-4 text-sm font-black uppercase tracking-[0.16em] text-white shadow-[0_18px_40px_rgba(220,38,38,0.24)] transition hover:scale-[1.01] hover:shadow-[0_24px_46px_rgba(220,38,38,0.28)] disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {isOpeningLive ? <Loader2 className="h-5 w-5 animate-spin" /> : <Shield className="h-5 w-5" />}
+                    Opret Live Session
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
       </div>
     </main>
   );

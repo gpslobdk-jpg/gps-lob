@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Loader2, Shield, Swords, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, MapPinned, Shield, Swords, Zap, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import StrategoBasePlacementMap from "@/components/live/StrategoBasePlacementMap";
@@ -31,7 +31,35 @@ type LiveSessionRunRow = {
   run_id?: string | null;
 };
 
-type StoredStrategoPresetRun = Pick<StoredRunRecord, "game_config" | "gameConfig">;
+type StoredStrategoPresetRun = Pick<StoredRunRecord, "title" | "description" | "game_config" | "gameConfig">;
+type PlacementMode = "red" | "blue";
+
+const STEP_ONE_FEATURES: Array<{
+  title: string;
+  description: string;
+  icon: LucideIcon;
+}> = [
+  {
+    title: "Nyt live format",
+    description: "Stratego starter som et enkelt lærerflow: først rammesætning, derefter præcis baseplacering på kortet.",
+    icon: Swords,
+  },
+  {
+    title: "Hemmelige roller",
+    description: "Spillet er bygget til hold med skjulte funktioner, så eleverne går direkte ind i jagt, forsvar og taktik.",
+    icon: Shield,
+  },
+  {
+    title: "Live kontrol",
+    description: "Læreren sætter kun det vigtigste op her og overlader resten til live-dashboardet, når sessionen er startet.",
+    icon: MapPinned,
+  },
+  {
+    title: "Direkte opstart",
+    description: "Når baserne er placeret, kan sessionen oprettes med det samme uden ekstra paneler eller desktop-layouts.",
+    icon: Zap,
+  },
+];
 
 function toFiniteNumber(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -48,6 +76,145 @@ function formatCoordinate(value: number | null) {
   return value.toFixed(5);
 }
 
+function InfoFeatureCard({
+  title,
+  description,
+  icon: Icon,
+}: {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+}) {
+  return (
+    <article className="rounded-[1.6rem] border border-white/10 bg-white/6 p-4 shadow-[0_18px_44px_rgba(2,6,23,0.18)] backdrop-blur-xl">
+      <div className="flex items-start gap-4">
+        <div className="mt-0.5 rounded-2xl border border-white/10 bg-slate-950/55 p-3 text-cyan-300">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <h2 className="text-lg font-black tracking-tight text-white">{title}</h2>
+          <p className="mt-2 text-sm leading-6 text-white/68">{description}</p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function PlacementModeButtons({
+  placementMode,
+  onSelect,
+  compact = false,
+}: {
+  placementMode: PlacementMode;
+  onSelect: (mode: PlacementMode) => void;
+  compact?: boolean;
+}) {
+  return (
+    <div className={`grid gap-3 sm:grid-cols-2 ${compact ? "" : "mt-5"}`}>
+      <button
+        type="button"
+        onClick={() => onSelect("red")}
+        className={`rounded-[1.3rem] border px-4 ${compact ? "py-3" : "py-4"} text-left transition ${
+          placementMode === "red"
+            ? "border-rose-300/30 bg-rose-500/12 text-rose-100"
+            : "border-white/10 bg-white/6 text-white/70 hover:bg-white/10"
+        }`}
+      >
+        <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Næste klik</p>
+        <p className={`mt-2 font-black ${compact ? "text-base" : "text-lg"}`}>Hold Rød Base</p>
+      </button>
+      <button
+        type="button"
+        onClick={() => onSelect("blue")}
+        className={`rounded-[1.3rem] border px-4 ${compact ? "py-3" : "py-4"} text-left transition ${
+          placementMode === "blue"
+            ? "border-sky-300/30 bg-sky-500/12 text-sky-100"
+            : "border-white/10 bg-white/6 text-white/70 hover:bg-white/10"
+        }`}
+      >
+        <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Næste klik</p>
+        <p className={`mt-2 font-black ${compact ? "text-base" : "text-lg"}`}>Hold Blå Base</p>
+      </button>
+    </div>
+  );
+}
+
+function BaseLocationCards({
+  redBase,
+  blueBase,
+  compact = false,
+}: {
+  redBase: BaseLocation | null;
+  blueBase: BaseLocation | null;
+  compact?: boolean;
+}) {
+  return (
+    <div className={compact ? "grid grid-cols-2 gap-2" : "mt-5 grid gap-3 sm:grid-cols-2"}>
+      <div className="rounded-[1.3rem] border border-white/10 bg-white/6 px-4 py-4">
+        <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Rød base</p>
+        <p className={`mt-2 font-semibold text-white/88 ${compact ? "text-xs leading-5" : "text-sm"}`}>
+          {compact ? (
+            <>
+              {formatCoordinate(redBase?.lat ?? null)}
+              <br />
+              {formatCoordinate(redBase?.lng ?? null)}
+            </>
+          ) : (
+            <>{formatCoordinate(redBase?.lat ?? null)} / {formatCoordinate(redBase?.lng ?? null)}</>
+          )}
+        </p>
+      </div>
+      <div className="rounded-[1.3rem] border border-white/10 bg-white/6 px-4 py-4">
+        <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Blå base</p>
+        <p className={`mt-2 font-semibold text-white/88 ${compact ? "text-xs leading-5" : "text-sm"}`}>
+          {compact ? (
+            <>
+              {formatCoordinate(blueBase?.lat ?? null)}
+              <br />
+              {formatCoordinate(blueBase?.lng ?? null)}
+            </>
+          ) : (
+            <>{formatCoordinate(blueBase?.lat ?? null)} / {formatCoordinate(blueBase?.lng ?? null)}</>
+          )}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function StartStrategoButton({
+  isSaving,
+  disabled,
+  onClick,
+  className = "",
+}: {
+  isSaving: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex min-h-14.5 w-full items-center justify-center gap-2 rounded-3xl bg-emerald-500 px-5 py-4 text-sm font-black uppercase tracking-[0.24em] text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-white/45 ${className}`}
+    >
+      {isSaving ? (
+        <>
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Opretter session...
+        </>
+      ) : (
+        <>
+          <Shield className="h-5 w-5" />
+          Opret Live Session
+        </>
+      )}
+    </button>
+  );
+}
+
 export default function StrategoTeacherSetup({
   sessionId,
   joinPin,
@@ -55,12 +222,15 @@ export default function StrategoTeacherSetup({
   isLoading,
   onStartSession,
 }: StrategoTeacherSetupProps) {
+  const [step, setStep] = useState<1 | 2>(1);
   const [redBase, setRedBase] = useState<BaseLocation | null>(null);
   const [blueBase, setBlueBase] = useState<BaseLocation | null>(null);
-  const [placementMode, setPlacementMode] = useState<"red" | "blue">("red");
+  const [placementMode, setPlacementMode] = useState<PlacementMode>("red");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
+  const [runTitle, setRunTitle] = useState("Live Stratego");
+  const [introText, setIntroText] = useState("");
 
   useEffect(() => {
     if (!sessionId) {
@@ -97,7 +267,7 @@ export default function StrategoTeacherSetup({
         nextRunId
           ? supabase
               .from("gps_runs")
-              .select("game_config,gameConfig:game_config")
+              .select("title,description,game_config,gameConfig:game_config")
               .eq("id", nextRunId)
               .maybeSingle<StoredStrategoPresetRun>()
           : Promise.resolve({ data: null, error: null }),
@@ -109,6 +279,13 @@ export default function StrategoTeacherSetup({
 
       const gameRow = gameResult.error ? null : gameResult.data;
       const preset = runResult.error ? { redBase: null, blueBase: null } : getStrategoBasePreset(runResult.data);
+
+      setRunTitle(
+        typeof runResult.data?.title === "string" && runResult.data.title.trim()
+          ? runResult.data.title
+          : "Live Stratego"
+      );
+      setIntroText(typeof runResult.data?.description === "string" ? runResult.data.description : "");
 
       const sessionRedBase =
         gameRow && toFiniteNumber(gameRow.red_base_lat) !== null && toFiniteNumber(gameRow.red_base_lng) !== null
@@ -159,6 +336,20 @@ export default function StrategoTeacherSetup({
     setBlueBase({ lat, lng });
   };
 
+  const handleBaseMove = (teamCode: PlacementMode, lat: number, lng: number) => {
+    setSaveError(null);
+    setPlacementMode(teamCode);
+
+    if (teamCode === "red") {
+      setRedBase({ lat, lng });
+      return;
+    }
+
+    setBlueBase({ lat, lng });
+  };
+
+  const isStartDisabled = !sessionId || !redBase || !blueBase || isSaving;
+
   const handleStart = async () => {
     if (!sessionId || !redBase || !blueBase || isSaving) {
       return;
@@ -203,9 +394,14 @@ export default function StrategoTeacherSetup({
       }
 
       if (nextRunId) {
+        const nextTitle = runTitle.trim() || "Live Stratego";
+        const nextDescription = introText.trim();
+
         const { error: presetError } = await supabase
           .from("gps_runs")
           .update({
+            title: nextTitle,
+            description: nextDescription || null,
             game_config: buildStrategoGameConfig({
               redBase,
               blueBase,
@@ -230,130 +426,106 @@ export default function StrategoTeacherSetup({
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-4 text-white sm:px-6">
-      <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-[minmax(22rem,28rem)_minmax(0,1fr)]">
-        <section className="rounded-[2rem] border border-white/10 bg-slate-900/70 p-6 shadow-[0_30px_80px_rgba(2,6,23,0.45)] backdrop-blur-2xl">
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/6 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.3em] text-white/65">
-            <Swords className="h-4 w-4 text-rose-200" />
-            Live Stratego Setup
-          </div>
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.12),transparent_32%),linear-gradient(180deg,#020617_0%,#0f172a_50%,#111827_100%)] px-4 py-6 text-white sm:px-6 sm:py-10">
+      <div className="mx-auto max-w-2xl">
+        {step === 1 ? (
+          <section className="rounded-4xl border border-white/10 bg-slate-900/72 p-5 shadow-[0_30px_80px_rgba(2,6,23,0.32)] backdrop-blur-2xl sm:p-8">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/6 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.3em] text-white/72">
+              <Swords className="h-4 w-4 text-rose-200" />
+              Step 1 af 2
+            </div>
 
-          <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-[linear-gradient(145deg,rgba(15,23,42,0.92),rgba(15,118,110,0.16))] px-5 py-5">
-            <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-200/70">Join PIN</p>
-            <p className="mt-3 text-5xl font-black tracking-[0.24em] text-white">{joinPin}</p>
-            <p className="mt-3 text-sm leading-6 text-white/65">
-              Lad eleverne joine, placér derefter rød base og blå base på kortet, og start spillet.
+            <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">Klargør Live Stratego</h1>
+            <p className="mt-3 text-sm leading-6 text-white/68 sm:text-base">
+              Først samler du rammesætningen for sessionen. Derefter går du videre til kortet og placerer de to baser i ro og mag.
             </p>
-          </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="mt-6 space-y-3">
+              {STEP_ONE_FEATURES.map((feature) => (
+                <InfoFeatureCard
+                  key={feature.title}
+                  title={feature.title}
+                  description={feature.description}
+                  icon={feature.icon}
+                />
+              ))}
+            </div>
+
+            <div className="mt-6 space-y-4">
+              <label className="block">
+                <span className="text-[11px] font-black uppercase tracking-[0.28em] text-white/48">Titel</span>
+                <input
+                  type="text"
+                  value={runTitle}
+                  onChange={(event) => setRunTitle(event.target.value)}
+                  placeholder="Live Stratego"
+                  className="mt-2 w-full rounded-[1.4rem] border border-white/10 bg-slate-950/55 px-4 py-3 text-base font-semibold text-white outline-none transition placeholder:text-white/30 focus:border-cyan-300/40 focus:bg-slate-950/72"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-[11px] font-black uppercase tracking-[0.28em] text-white/48">Intro</span>
+                <textarea
+                  value={introText}
+                  onChange={(event) => setIntroText(event.target.value)}
+                  rows={6}
+                  placeholder="Skriv en kort intro, som forklarer holdene, stemningen eller missionen, før spillet starter."
+                  className="mt-2 w-full rounded-[1.4rem] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/30 focus:border-cyan-300/40 focus:bg-slate-950/72"
+                />
+              </label>
+            </div>
+
             <button
               type="button"
-              onClick={() => setPlacementMode("red")}
-              className={`rounded-[1.3rem] border px-4 py-4 text-left transition ${
-                placementMode === "red"
-                  ? "border-rose-300/30 bg-rose-500/12 text-rose-100"
-                  : "border-white/10 bg-white/6 text-white/70 hover:bg-white/10"
-              }`}
+              onClick={() => setStep(2)}
+              className="mt-6 inline-flex min-h-15 w-full items-center justify-center gap-3 rounded-3xl bg-cyan-400 px-5 py-4 text-sm font-black uppercase tracking-[0.24em] text-slate-950 transition hover:bg-cyan-300"
             >
-              <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Næste klik</p>
-              <p className="mt-2 text-lg font-black">Hold Rød Base</p>
+              <ArrowRight className="h-5 w-5" />
+              Næste: Placer baser på kortet
             </button>
+          </section>
+        ) : (
+          <section className="mx-auto max-w-5xl space-y-4">
             <button
               type="button"
-              onClick={() => setPlacementMode("blue")}
-              className={`rounded-[1.3rem] border px-4 py-4 text-left transition ${
-                placementMode === "blue"
-                  ? "border-sky-300/30 bg-sky-500/12 text-sky-100"
-                  : "border-white/10 bg-white/6 text-white/70 hover:bg-white/10"
-              }`}
+              onClick={() => setStep(1)}
+              className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-semibold text-white/82 transition hover:bg-white/10"
             >
-              <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Næste klik</p>
-              <p className="mt-2 text-lg font-black">Hold Blå Base</p>
+              <ArrowLeft className="h-4 w-4" />
+              Tilbage
             </button>
-          </div>
 
-          <div className="mt-5 space-y-3">
-            <div className="rounded-[1.3rem] border border-white/10 bg-white/6 px-4 py-4">
-              <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Rød base</p>
-              <p className="mt-2 text-sm font-semibold text-white/88">
-                {formatCoordinate(redBase?.lat ?? null)} / {formatCoordinate(redBase?.lng ?? null)}
-              </p>
-            </div>
-            <div className="rounded-[1.3rem] border border-white/10 bg-white/6 px-4 py-4">
-              <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Blå base</p>
-              <p className="mt-2 text-sm font-semibold text-white/88">
-                {formatCoordinate(blueBase?.lat ?? null)} / {formatCoordinate(blueBase?.lng ?? null)}
-              </p>
-            </div>
-          </div>
+            <StrategoBasePlacementMap
+              redBase={redBase}
+              blueBase={blueBase}
+              onPick={handleMapPick}
+              onBaseMove={handleBaseMove}
+              title="Placér baser"
+              description="Klik for at sætte baserne, og træk derefter markørerne for at finjustere placeringen."
+              readyLabel="Begge baser klar"
+              pendingLabel="Placér 2 baser"
+              mapHeightClassName="h-[60vh] min-h-[60vh] w-full md:h-[68vh]"
+            />
 
-          <div className="mt-5 rounded-[1.3rem] border border-white/10 bg-white/6 px-4 py-4">
-            <div className="flex items-center gap-2 text-white">
-              <Users className="h-4 w-4 text-cyan-300" />
-              <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Deltagere klar</p>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {students.length > 0 ? (
-                students.map((student) => (
-                  <span
-                    key={student}
-                    className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1.5 text-sm font-semibold text-white/82"
-                  >
-                    {student}
-                  </span>
-                ))
-              ) : (
-                <p className="text-sm text-white/55">{isLoading ? "Henter deltagere..." : "Ingen deltagere har joinet endnu."}</p>
-              )}
-            </div>
-          </div>
+            <div className="rounded-[1.8rem] border border-white/10 bg-slate-900/72 p-4 shadow-[0_24px_60px_rgba(2,6,23,0.28)] backdrop-blur-2xl sm:p-5">
+              <PlacementModeButtons placementMode={placementMode} onSelect={setPlacementMode} />
+              <BaseLocationCards redBase={redBase} blueBase={blueBase} />
 
-          {saveError ? (
-            <div className="mt-5 rounded-[1.3rem] border border-rose-300/25 bg-rose-500/12 px-4 py-3 text-sm text-rose-100">
-              {saveError}
+              {saveError ? (
+                <div className="mt-4 rounded-[1.2rem] border border-rose-300/25 bg-rose-500/12 px-4 py-3 text-sm text-rose-100">
+                  {saveError}
+                </div>
+              ) : null}
+
+              <StartStrategoButton
+                isSaving={isSaving}
+                disabled={isStartDisabled}
+                onClick={() => void handleStart()}
+                className="mt-5"
+              />
             </div>
-          ) : null}
-
-          <button
-            type="button"
-            onClick={() => void handleStart()}
-            disabled={!redBase || !blueBase || isSaving}
-            className="mt-6 inline-flex min-h-[58px] w-full items-center justify-center gap-2 rounded-[1.5rem] bg-emerald-500 px-5 py-4 text-sm font-black uppercase tracking-[0.24em] text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-white/45"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Gemmer og starter...
-              </>
-            ) : (
-              <>
-                <Shield className="h-5 w-5" />
-                Start Live Stratego
-              </>
-            )}
-          </button>
-        </section>
-
-        <div className="relative">
-          <StrategoBasePlacementMap
-            redBase={redBase}
-            blueBase={blueBase}
-            onPick={handleMapPick}
-            readyLabel="Klar til start"
-            pendingLabel="Afventer 2 klik"
-            mapHeightClassName="h-[calc(100svh-2rem)] min-h-[42rem] w-full lg:h-[calc(100svh-2rem)]"
-          />
-
-          {!sessionId ? (
-            <div className="pointer-events-none absolute inset-x-6 top-6">
-              <div className="flex items-center gap-3 rounded-[1.4rem] border border-rose-300/20 bg-rose-500/12 px-4 py-3 text-sm text-rose-100 shadow-[0_18px_40px_rgba(244,63,94,0.12)] backdrop-blur-xl">
-                <AlertTriangle className="h-5 w-5 shrink-0" />
-                <span>Session-id mangler. Åbn live-sessionen igen fra dashboardet.</span>
-              </div>
-            </div>
-          ) : null}
-        </div>
+          </section>
+        )}
       </div>
     </main>
   );

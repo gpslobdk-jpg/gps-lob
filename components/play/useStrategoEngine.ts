@@ -584,9 +584,23 @@ export function useStrategoEngine({
     };
 
     const loadInitialStrategoState = async () => {
-      await refreshStrategoState();
-      if (isActive) {
-        setIsLoading(false);
+      try {
+        await refreshStrategoState();
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        console.error("Kunne ikke initialisere Stratego-tilstanden:", error);
+        setError(
+          error instanceof Error && error.message
+            ? error.message
+            : "Kunne ikke hente Stratego-radaren."
+        );
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
       }
     };
 

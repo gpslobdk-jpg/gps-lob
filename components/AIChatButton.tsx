@@ -210,19 +210,25 @@ export default function AIChatButton() {
 
   return (
     <>
-      <div className="global-ai-chat-button fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 flex items-end sm:right-6 sm:bottom-6">
-        <div className="flex flex-col items-end gap-3">
+      <div
+        className="global-ai-chat-button pointer-events-none fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-1200 flex items-end sm:right-6 sm:bottom-6"
+        style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
+      >
+        <div className="pointer-events-auto flex max-h-full min-h-0 flex-col items-end gap-3">
           {isOpen ? (
             <section
-              className="relative isolate w-[min(22.5rem,calc(100vw-2rem))] overflow-hidden rounded-[1.75rem] border border-emerald-500/15 bg-linear-to-b from-white/96 to-emerald-50/88 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.16)] backdrop-blur-xl"
-              style={{ animation: "aiChatReveal 260ms cubic-bezier(0.16, 1, 0.3, 1)" }}
+              className="relative isolate flex max-h-full min-h-0 w-[min(22.5rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-[1.75rem] border border-emerald-500/15 bg-linear-to-b from-white/96 to-emerald-50/88 px-4 pb-4 shadow-[0_24px_80px_rgba(15,23,42,0.16)] backdrop-blur-xl"
+              style={{
+                animation: "aiChatReveal 260ms cubic-bezier(0.16, 1, 0.3, 1)",
+                paddingTop: "max(1rem, calc(env(safe-area-inset-top) + 0.25rem))",
+              }}
             >
               <div aria-hidden="true" className="pointer-events-none absolute inset-0">
                 <div className="absolute top-0 right-0 h-36 w-36 translate-x-10 -translate-y-10 rounded-full bg-emerald-200/45 blur-3xl" />
                 <div className="absolute bottom-0 left-0 h-24 w-24 -translate-x-6 translate-y-6 rounded-full bg-sky-100/45 blur-2xl" />
               </div>
 
-              <div className="relative">
+              <div className="relative flex min-h-0 flex-1 flex-col">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-2.5">
                     <Image
@@ -253,7 +259,7 @@ export default function AIChatButton() {
 
                 <div className="mt-3 h-px w-full bg-linear-to-r from-emerald-200/80 via-white to-transparent" />
 
-                <div className="mt-4 max-h-76 space-y-3.5 overflow-y-auto pr-1.5">
+                <div className="mt-4 min-h-0 flex-1 space-y-3.5 overflow-y-auto overscroll-contain pr-1.5 pt-1">
                   <div className="flex justify-start">
                     <div className="max-w-[90%] rounded-[1.35rem] border border-emerald-500/12 bg-linear-to-b from-white to-emerald-50/65 px-3.5 py-3 text-[13px] leading-[1.65] tracking-[0.01em] text-[#0f3d2e]/88 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
                       {welcomeMessage}
