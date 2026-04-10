@@ -17,6 +17,18 @@ interface Entry {
 
 const entries: Entry[] = [
   {
+    date: "10. april 2026",
+    title: "Kritisk driftsstatus: GPS-stabilitet genoprettet",
+    tag: "Driftsstatus",
+    items: [
+      {
+        icon: <Wifi className="h-4 w-4 text-emerald-400" />,
+        heading: "Driftsmeddelelse",
+        body: "Vi har her til morgen udrullet et akut hotfix. En teknisk fejl i vores synkroniserings-motor kunne under visse omstændigheder skabe et forbindelses-loop, der fik spillet til at fryse for nogle brugere. Vi har rullet de berørte funktioner tilbage, og systemet kører nu igen med 100% stabilitet. Vi beklager de gener, det har givet i skolegården!",
+      },
+    ],
+  },
+  {
     date: "9. april 2026",
     title: "Bedre håndtering af GPS og efternølere",
     tag: "Ny opdatering",
@@ -88,7 +100,6 @@ export default function OpdateringerPage() {
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-12 text-slate-100">
       <div className="mx-auto max-w-2xl">
-        {/* Back link */}
         <Link
           href="/"
           className="mb-10 inline-flex items-center gap-2 text-sm text-slate-400 transition-colors hover:text-slate-200"
@@ -97,7 +108,6 @@ export default function OpdateringerPage() {
           Tilbage til forsiden
         </Link>
 
-        {/* Header */}
         <div className="mb-12">
           <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-amber-400/20 bg-amber-400/8 px-3 py-1 text-xs font-medium tracking-wider text-amber-300 uppercase">
             ✨ Seneste nyt
@@ -111,22 +121,17 @@ export default function OpdateringerPage() {
           </p>
         </div>
 
-        {/* Timeline */}
         <div className="relative">
-          {/* Vertical line */}
           <div className="absolute top-0 left-2.75 h-full w-px bg-slate-800" />
 
           <div className="space-y-12">
             {entries.map((entry, i) => (
               <div key={i} className="relative pl-9">
-                {/* Dot */}
                 <div className="absolute top-1 left-0 flex h-5.75 w-5.75 items-center justify-center rounded-full border-2 border-emerald-500 bg-slate-950">
                   <div className="h-2 w-2 rounded-full bg-emerald-400" />
                 </div>
 
-                {/* Card */}
                 <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-lg">
-                  {/* Meta */}
                   <div className="mb-4 flex flex-wrap items-center gap-3">
                     <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400">
                       {entry.tag}
@@ -138,7 +143,6 @@ export default function OpdateringerPage() {
                     ✨ {entry.title}
                   </h2>
 
-                  {/* Items */}
                   <ul className="space-y-5">
                     {entry.items.map((item, j) => (
                       <li key={j} className="flex gap-3">
