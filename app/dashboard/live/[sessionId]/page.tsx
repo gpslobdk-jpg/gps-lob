@@ -245,68 +245,71 @@ export default function LiveLobbyPage() {
           photoAnswers={live.photoAnswers}
           isPhotoMission={live.isPhotoMission}
         />
+      ) : visibleActiveModule !== "none" ? (
+        <motion.div
+          key={`module-${visibleActiveModule}`}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -16 }}
+          transition={{ duration: 0.35 }}
+          className={`h-screen w-screen overflow-hidden bg-slate-950 text-white ${poppins.className}`}
+        >
+          {visibleActiveModule === "leaderboard" ? (
+            <LeaderboardModule
+              activeStudents={live.activeStudents}
+              allParticipants={live.studentLocations}
+              liveAnswers={live.liveAnswers}
+              hasParticipantsTable={live.hasParticipantsTable}
+              onKickParticipant={live.kickParticipant}
+              onClose={handleCloseModule}
+            />
+          ) : visibleActiveModule === "feed" ? (
+            <LiveFeedModule
+              liveAnswers={live.liveAnswers}
+              hasAnswersTable={live.hasAnswersTable}
+              messages={live.messages}
+              onSelectPhoto={handleSelectPhoto}
+              onClose={handleCloseModule}
+            />
+          ) : (
+            <LivePhotosModule
+              photoAnswers={live.photoAnswers}
+              hasAnswersTable={live.hasAnswersTable}
+              onSelectPhoto={handleSelectPhoto}
+              onClose={handleCloseModule}
+            />
+          )}
+        </motion.div>
       ) : (
         <motion.div
-          key="running"
+          key="running-map"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -16 }}
           transition={{ duration: 0.35 }}
           className={`relative flex h-screen overflow-hidden bg-linear-to-b from-indigo-950 via-blue-900 to-cyan-800 p-4 text-white ${poppins.className}`}
         >
-          {visibleActiveModule === "none" ? (
-            <>
-              <TeacherLiveMap
-                mapCenter={live.mapCenter}
-                mapKey={live.mapKey}
-                runQuestions={live.runQuestions}
-                studentLocations={live.studentLocations}
-                hasParticipantsTable={live.hasParticipantsTable}
-                isEndingRun={live.isEndingRun}
-                onEndRun={live.endRun}
-              />
-              <TeacherLiveSidebar
-                activeStudents={live.activeStudents}
-                joinPin={live.joinPin}
-                hasParticipantsTable={live.hasParticipantsTable}
-                gpsOverride={live.gpsOverride}
-                isUpdatingGpsOverride={live.isUpdatingGpsOverride}
-                newMessage={live.newMessage}
-                onNewMessageChange={live.setNewMessage}
-                onSendMessage={live.sendMessage}
-                onToggleGpsOverride={live.toggleGpsOverride}
-                onModuleSelect={handleModuleSelect}
-              />
-            </>
-          ) : (
-            <div className="h-full w-full min-h-0 min-w-0 overflow-hidden rounded-4xl border border-white/10 bg-slate-950/94 shadow-[0_30px_80px_rgba(2,6,23,0.58)]">
-              {visibleActiveModule === "leaderboard" ? (
-                <LeaderboardModule
-                  activeStudents={live.activeStudents}
-                  allParticipants={live.studentLocations}
-                  liveAnswers={live.liveAnswers}
-                  hasParticipantsTable={live.hasParticipantsTable}
-                  onKickParticipant={live.kickParticipant}
-                  onClose={handleCloseModule}
-                />
-              ) : visibleActiveModule === "feed" ? (
-                <LiveFeedModule
-                  liveAnswers={live.liveAnswers}
-                  hasAnswersTable={live.hasAnswersTable}
-                  messages={live.messages}
-                  onSelectPhoto={handleSelectPhoto}
-                  onClose={handleCloseModule}
-                />
-              ) : (
-                <LivePhotosModule
-                  photoAnswers={live.photoAnswers}
-                  hasAnswersTable={live.hasAnswersTable}
-                  onSelectPhoto={handleSelectPhoto}
-                  onClose={handleCloseModule}
-                />
-              )}
-            </div>
-          )}
+          <TeacherLiveMap
+            mapCenter={live.mapCenter}
+            mapKey={live.mapKey}
+            runQuestions={live.runQuestions}
+            studentLocations={live.studentLocations}
+            hasParticipantsTable={live.hasParticipantsTable}
+            isEndingRun={live.isEndingRun}
+            onEndRun={live.endRun}
+          />
+          <TeacherLiveSidebar
+            activeStudents={live.activeStudents}
+            joinPin={live.joinPin}
+            hasParticipantsTable={live.hasParticipantsTable}
+            gpsOverride={live.gpsOverride}
+            isUpdatingGpsOverride={live.isUpdatingGpsOverride}
+            newMessage={live.newMessage}
+            onNewMessageChange={live.setNewMessage}
+            onSendMessage={live.sendMessage}
+            onToggleGpsOverride={live.toggleGpsOverride}
+            onModuleSelect={handleModuleSelect}
+          />
         </motion.div>
       )}
       </AnimatePresence>

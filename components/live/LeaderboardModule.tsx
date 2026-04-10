@@ -1,7 +1,7 @@
 "use client";
 
 import { Poppins, Rubik } from "next/font/google";
-import { X } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useMemo } from "react";
 
 import { buildLeaderboardEntries, getStudentInitials } from "@/components/live/liveDashboardUtils";
@@ -44,7 +44,15 @@ export default function LeaderboardModule({
       <header className="border-b border-slate-800 px-6 py-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300/70">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center gap-3 rounded-2xl border border-emerald-400/25 bg-emerald-400/10 px-5 py-3 text-sm font-bold uppercase tracking-[0.18em] text-emerald-50 transition hover:bg-emerald-400/18"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Tilbage til Kort
+            </button>
+            <p className="mt-5 text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300/70">
               Modul
             </p>
             <h2 className={`mt-2 text-3xl font-black uppercase tracking-[0.16em] text-white ${rubik.className}`}>
@@ -54,14 +62,6 @@ export default function LeaderboardModule({
               Rangliste, score og hurtige lærerhandlinger i fuld skærm.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-white/6 text-white transition hover:bg-white/10"
-            aria-label="Luk leaderboard"
-          >
-            <X className="h-4 w-4" />
-          </button>
         </div>
       </header>
 
