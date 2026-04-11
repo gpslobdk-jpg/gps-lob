@@ -1238,7 +1238,7 @@ function OpretEngelskLoebPageContent() {
 
   return (
     <>
-      <div className={`relative min-h-screen print:h-auto print:min-h-0 print:overflow-visible print:bg-white print:text-black bg-slate-950 text-white ${poppins.className}`}>
+      <div className={`relative min-h-screen overflow-x-hidden print:h-auto print:min-h-0 print:overflow-visible print:bg-white print:text-black bg-slate-950 text-white ${poppins.className}`}>
         <img
           src="/britiskflag.svg"
           alt="British Flag Background"
