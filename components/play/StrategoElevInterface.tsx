@@ -18,7 +18,7 @@ import StrategoClashModal from "./StrategoClashModal";
 import StudentRulesSheet from "./StudentRulesSheet";
 import TeacherBroadcastModal from "./TeacherBroadcastModal";
 import type { PlayActions, PlayUiState } from "./types";
-import { readFileAsDataUri } from "./playUtils";
+import { compressAvatarImage } from "./playUtils";
 import { createClient } from "@/utils/supabase/client";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 
@@ -239,10 +239,11 @@ export default function StrategoElevInterface({
       }
 
       try {
-        const nextAvatarUrl = await readFileAsDataUri(file);
+        const nextAvatarUrl = await compressAvatarImage(file);
         actions.setPendingAvatarUrl(nextAvatarUrl);
       } catch (error) {
         console.error("Kunne ikke laese avatar-billedet lokalt:", error);
+        window.alert("Kunne ikke læse billedet. Prøv igen.");
       }
     },
     [actions]

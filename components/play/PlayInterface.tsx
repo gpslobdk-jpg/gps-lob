@@ -8,12 +8,12 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEv
 
 import type { PlayActions, PlayUiState } from "./types";
 import {
+  compressAvatarImage,
   FIREWORKS_LOTTIE_URL,
   formatFinishedAt,
   formatPlacement,
   getRoleplayMessage,
   looksLikeImageSource,
-  readFileAsDataUri,
   wrapTextClass,
 } from "./playUtils";
 import QuestionTtsButton from "./QuestionTtsButton";
@@ -266,10 +266,11 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     }
 
     try {
-      const nextAvatarUrl = await readFileAsDataUri(file);
+      const nextAvatarUrl = await compressAvatarImage(file);
       actions.setPendingAvatarUrl(nextAvatarUrl);
     } catch (error) {
       console.error("Kunne ikke laese avatar-billedet lokalt:", error);
+      window.alert("Kunne ikke læse billedet. Prøv igen.");
     }
   };
 

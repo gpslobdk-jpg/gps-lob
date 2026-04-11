@@ -9,7 +9,7 @@ import StudentRulesSheet from "./StudentRulesSheet";
 import type { PlayActions, PlayUiState } from "./types";
 import TeacherBroadcastModal from "./TeacherBroadcastModal";
 import type { ZoneKrigGameTeam, ZoneKrigGameZone } from "./ZoneKrigElevMap";
-import { readFileAsDataUri } from "./playUtils";
+import { compressAvatarImage } from "./playUtils";
 import { createClient } from "@/utils/supabase/client";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 
@@ -168,10 +168,11 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
     }
 
     try {
-      const nextAvatarUrl = await readFileAsDataUri(file);
+      const nextAvatarUrl = await compressAvatarImage(file);
       actions.setPendingAvatarUrl(nextAvatarUrl);
     } catch (error) {
       console.error("Kunne ikke laese avatar-billedet lokalt:", error);
+      window.alert("Kunne ikke læse billedet. Prøv igen.");
     }
   };
 

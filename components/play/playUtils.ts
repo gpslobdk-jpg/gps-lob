@@ -401,6 +401,45 @@ export function readFileAsDataUri(file: File) {
   });
 }
 
+export const compressAvatarImage = async (file: File, maxSize: number = 200): Promise<string> => {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Filen er ikke et billede.");
+  }
+
+  const sourceDataUrl = await readFileAsDataUri(file);
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const nextImage = new Image();
+    nextImage.onload = () => resolve(nextImage);
+    nextImage.onerror = () => reject(new Error("Kunne ikke indlæse billedet."));
+    nextImage.src = sourceDataUrl;
+  });
+
+  const sourceWidth = image.naturalWidth || image.width;
+  const sourceHeight = image.naturalHeight || image.height;
+
+  if (sourceWidth <= 0 || sourceHeight <= 0) {
+    throw new Error("Billedet har ugyldige dimensioner.");
+  }
+
+  const longestSide = Math.max(sourceWidth, sourceHeight);
+  const normalizedMaxSize = Number.isFinite(maxSize) && maxSize > 0 ? maxSize : 200;
+  const scale = longestSide > normalizedMaxSize ? normalizedMaxSize / longestSide : 1;
+  const targetWidth = Math.max(1, Math.round(sourceWidth * scale));
+  const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Canvas er ikke tilgængelig.");
+  }
+
+  context.drawImage(image, 0, 0, targetWidth, targetHeight);
+  return canvas.toDataURL("image/jpeg", 0.8);
+};
+
 const PHOTO_UPLOAD_MAX_DIMENSION = 1200;
 const PHOTO_UPLOAD_MAX_BYTES = 512 * 1024;
 const PHOTO_UPLOAD_INITIAL_QUALITY = 0.82;
