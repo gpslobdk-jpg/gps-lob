@@ -48,6 +48,7 @@ type JoinParticipantResponse = {
   sessionId: string;
   studentName: string;
   startOffset: number;
+  sessionStatus: string | null;
   teamId?: string | null;
   teamName?: string | null;
   teamColor?: string | null;
@@ -986,6 +987,7 @@ export async function POST(request: NextRequest) {
         sessionId,
         studentName: normalizedStudentName,
         startOffset,
+        sessionStatus: typeof activeSession.status === "string" ? activeSession.status : null,
         teamId,
         teamName: assignedZoneKrigTeam?.teamName ?? null,
         teamColor: assignedZoneKrigTeam?.color ?? null,

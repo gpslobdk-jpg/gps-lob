@@ -119,6 +119,8 @@ export type StoredActiveParticipant = {
   savedAt: string;
   teamId?: string | null;
   teamColor?: string | null;
+  avatarUrl?: string | null;
+  sessionStatus?: string | null;
 };
 
 export type ParticipantRow = {

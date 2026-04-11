@@ -212,9 +212,13 @@ export function usePlayGameState({
   const [pendingPlayerName, setPendingPlayerNameState] = useState(
     () => storedParticipantOnLoad?.studentName || initialNameCandidate
   );
-  const [pendingAvatarUrl, setPendingAvatarUrlState] = useState<string | undefined>(undefined);
+  const [pendingAvatarUrl, setPendingAvatarUrlState] = useState<string | undefined>(
+    () => storedParticipantOnLoad?.avatarUrl ?? undefined
+  );
   const [playerName, setPlayerName] = useState(() => storedParticipantOnLoad?.studentName || "");
-  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(
+    () => storedParticipantOnLoad?.avatarUrl ?? undefined
+  );
   const [hasConfirmedName, setHasConfirmedName] = useState(
     () => Boolean(storedParticipantOnLoad?.studentName)
   );
@@ -269,7 +273,9 @@ export function usePlayGameState({
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
   const [score, setScore] = useState(0);
   const [solvedPostIndexes, setSolvedPostIndexes] = useState<number[]>([]);
-  const [sessionStatus, setSessionStatus] = useState<string | null>(null);
+  const [sessionStatus, setSessionStatus] = useState<string | null>(
+    () => storedParticipantOnLoad?.sessionStatus ?? null
+  );
   const [gpsOverride, setGpsOverride] = useState(false);
   const [autoUnlockRadius, setAutoUnlockRadius] = useState<number | null>(null);
   const [locationSyncErrors, setLocationSyncErrors] = useState(0);
@@ -387,7 +393,9 @@ export function usePlayGameState({
       nextStudentName: string,
       nextStartOffset?: number | null,
       nextTeamId?: string | null,
-      nextTeamColor?: string | null
+      nextTeamColor?: string | null,
+      nextAvatarUrl?: string | null,
+      nextSessionStatus?: string | null
     ) => {
       if (!sessionId || !nextParticipantId) return;
       const normalizedName = nextStudentName.trim();
@@ -411,9 +419,11 @@ export function usePlayGameState({
         savedAt,
         teamId: nextTeamId ?? existing?.teamId ?? teamId ?? null,
         teamColor: nextTeamColor ?? existing?.teamColor ?? teamColor ?? null,
+        avatarUrl: nextAvatarUrl ?? existing?.avatarUrl ?? avatarUrl ?? null,
+        sessionStatus: nextSessionStatus ?? existing?.sessionStatus ?? sessionStatus ?? null,
       });
     },
-    [sessionId, startOffset, teamColor, teamId]
+    [avatarUrl, sessionId, sessionStatus, startOffset, teamColor, teamId]
   );
 
   const registerParticipantIdentity = useCallback(
@@ -443,6 +453,7 @@ export function usePlayGameState({
               participantId?: string;
               studentName?: string;
               startOffset?: number;
+              sessionStatus?: string | null;
               teamId?: string | null;
               teamColor?: string | null;
               error?: string;
@@ -455,12 +466,17 @@ export function usePlayGameState({
 
         const resolvedName = (payload.studentName ?? normalizedName).trim() || normalizedName;
         const resolvedStartOffset = toIntegerStartOffset(payload.startOffset) ?? 0;
+        const resolvedSessionStatus =
+          typeof payload.sessionStatus === "string" ? payload.sessionStatus : null;
         const resolvedTeamId = typeof payload.teamId === "string" ? payload.teamId : null;
         const resolvedTeamColor = typeof payload.teamColor === "string" ? payload.teamColor : null;
+        const resolvedAvatarUrl = pendingAvatarUrl ?? avatarUrl ?? null;
         setPendingPlayerNameState(resolvedName);
         setPlayerName(resolvedName);
+        setAvatarUrl(resolvedAvatarUrl ?? undefined);
         setHasConfirmedName(true);
         setNameError(null);
+        setSessionStatus(resolvedSessionStatus);
         setTeamId(resolvedTeamId);
         setTeamColor(resolvedTeamColor);
         const initialRouteOrder = buildRouteOrder(
@@ -476,7 +492,9 @@ export function usePlayGameState({
           resolvedName,
           resolvedStartOffset,
           resolvedTeamId,
-          resolvedTeamColor
+          resolvedTeamColor,
+          resolvedAvatarUrl,
+          resolvedSessionStatus
         );
         return true;
       } catch (error) {
@@ -488,7 +506,15 @@ export function usePlayGameState({
         setIsProvisioningParticipant(false);
       }
     },
-    [isProvisioningParticipant, questions.length, raceMode, rememberActiveParticipant, sessionId]
+    [
+      avatarUrl,
+      isProvisioningParticipant,
+      pendingAvatarUrl,
+      questions.length,
+      raceMode,
+      rememberActiveParticipant,
+      sessionId,
+    ]
   );
 
   const beginSubmission = useCallback(() => {
@@ -833,7 +859,24 @@ export function usePlayGameState({
         // ignore
       }
     };
-  }, [sessionId, supabase]);
+  }, [participantId, sessionId, supabase]);
+
+  useEffect(() => {
+    if (!sessionId || !participantId) {
+      return;
+    }
+
+    const existing = readStoredActiveParticipant();
+    if (!existing || existing.sessionId !== sessionId || existing.participantId !== participantId) {
+      return;
+    }
+
+    saveStoredActiveParticipant({
+      ...existing,
+      avatarUrl: avatarUrl ?? existing.avatarUrl ?? null,
+      sessionStatus,
+    });
+  }, [avatarUrl, participantId, sessionId, sessionStatus]);
   const escapeCodeByPostIndex = new Map(
     collectedEscapeRewards.map((entry) => [entry.postIndex, entry.brick] as const)
   );
@@ -2120,13 +2163,28 @@ export function usePlayGameState({
 
       if (participantId) {
         setHasConfirmedName(true);
-        rememberActiveParticipant(participantId, trimmedName);
+        rememberActiveParticipant(
+          participantId,
+          trimmedName,
+          undefined,
+          undefined,
+          undefined,
+          resolvedAvatarUrl ?? null,
+          sessionStatus
+        );
         return;
       }
 
       void registerParticipantIdentity(trimmedName);
     },
-    [avatarUrl, participantId, pendingAvatarUrl, registerParticipantIdentity, rememberActiveParticipant]
+    [
+      avatarUrl,
+      participantId,
+      pendingAvatarUrl,
+      registerParticipantIdentity,
+      rememberActiveParticipant,
+      sessionStatus,
+    ]
   );
 
   const submitQuizAnswer = async (selectedIndex: number) => {
@@ -2574,7 +2632,10 @@ export function usePlayGameState({
   };
 
   const shouldShowNameGate = !hasConfirmedName || isProvisioningParticipant;
-  const isSessionWaiting = sessionStatus === "waiting" || sessionStatus === "scheduled";
+  const isSessionWaiting =
+    sessionStatus === "waiting" ||
+    sessionStatus === "scheduled" ||
+    (sessionStatus === null && hasConfirmedName && Boolean(participantId));
 
   const screenMode: PlayScreenState["mode"] = isLoading || isRestoringParticipant
     ? "loading"
