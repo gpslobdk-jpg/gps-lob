@@ -29,6 +29,7 @@ function PlayScreen() {
     !game.progress.screen.isFinished &&
     !game.progress.screen.isKicked &&
     game.player.hasConfirmedName &&
+    game.player.hasCompletedAvatarGate &&
     Boolean(game.player.participantId);
 
   return (

@@ -3,13 +3,14 @@
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { AlertCircle, CheckCircle2, Loader2, Radio, Shield, Swords, Target, Timer } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import StudentRulesSheet from "./StudentRulesSheet";
 import type { PlayActions, PlayUiState } from "./types";
 import TeacherBroadcastModal from "./TeacherBroadcastModal";
 import type { ZoneKrigGameTeam, ZoneKrigGameZone } from "./ZoneKrigElevMap";
-import { compressAvatarImage } from "./playUtils";
+import StudentAvatarGateView from "./shared/StudentAvatarGateView";
+import StudentNameGateView from "./shared/StudentNameGateView";
 import { createClient } from "@/utils/supabase/client";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 
@@ -113,7 +114,6 @@ function deriveZoneKrigWinner(teams: ZoneKrigGameTeam[], zones: ZoneKrigGameZone
 
 export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKrigElevInterfaceProps) {
   const { player, gps, progress, flags } = ui;
-  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [zones, setZones] = useState<ZoneKrigGameZone[]>([]);
   const [teams, setTeams] = useState<ZoneKrigGameTeam[]>([]);
   const [isBattlefieldLoading, setIsBattlefieldLoading] = useState(true);
@@ -159,25 +159,8 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
     sessionStatus === "finished" ||
     (remainingMs !== null && remainingMs <= 0);
 
-  const handleAvatarCapture = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-
-    if (!file) {
-      return;
-    }
-
-    try {
-      const nextAvatarUrl = await compressAvatarImage(file);
-      actions.setPendingAvatarUrl(nextAvatarUrl);
-    } catch (error) {
-      console.error("Kunne ikke laese avatar-billedet lokalt:", error);
-      window.alert("Kunne ikke læse billedet. Prøv igen.");
-    }
-  };
-
   useEffect(() => {
-    if (!sessionId || !player.hasConfirmedName || !player.participantId) {
+    if (!sessionId || !player.hasConfirmedName || !player.hasCompletedAvatarGate || !player.participantId) {
       return;
     }
 
@@ -290,7 +273,7 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
       void supabase.removeChannel(zonesChannel);
       void supabase.removeChannel(sessionChannel);
     };
-  }, [player.hasConfirmedName, player.participantId, sessionId]);
+  }, [player.hasCompletedAvatarGate, player.hasConfirmedName, player.participantId, sessionId]);
 
   useEffect(() => {
     if (!endsAt || sessionStatus === "finished") {
@@ -340,10 +323,37 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
   if (progress.screen.mode === "waiting") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
-        <div className="w-full max-w-lg rounded-4xl border border-cyan-400/20 bg-slate-900/70 p-8 text-center shadow-2xl backdrop-blur-xl">
+        <div className="gpslob-waiting-enter w-full max-w-lg rounded-4xl border border-cyan-400/20 bg-slate-900/70 p-8 text-center shadow-2xl backdrop-blur-xl">
           <Radio className="mx-auto h-10 w-10 animate-pulse text-cyan-300" />
           <h1 className="mt-4 text-3xl font-black">Kommandocentralen kalibrerer</h1>
           <p className="mt-3 text-sm leading-6 text-white/75">Du er registreret. Vent på at læreren starter Zone Krig.</p>
+          <div className="mt-6 rounded-[1.7rem] border border-cyan-300/20 bg-cyan-500/10 px-5 py-5 text-left shadow-[0_18px_40px_rgba(34,211,238,0.12)]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-100/70">Enhed registreret</p>
+            <div className="mt-4 flex items-center gap-4">
+              <div className="relative h-16 w-16 overflow-hidden rounded-full border border-cyan-200/30 bg-slate-950 shadow-[0_0_0_4px_rgba(34,211,238,0.12)]">
+                {player.avatarUrl ? (
+                  <Image
+                    src={player.avatarUrl}
+                    alt="Hold-avatar"
+                    fill
+                    className="object-cover"
+                    unoptimized
+                    loader={({ src }) => src}
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.24),transparent_55%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,1))] text-xl">
+                    <span aria-hidden="true">⚔️</span>
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-lg font-black text-white">{player.activeDisplayName}</p>
+                <p className="mt-1 text-sm text-white/65">
+                  {player.avatarUrl ? "Avatar klar til kortet" : "Standard markør valgt"}
+                </p>
+              </div>
+            </div>
+          </div>
           {myTeam ? (
             <div
               className="mx-auto mt-5 inline-flex max-w-full items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold text-white"
@@ -430,97 +440,45 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
   }
 
   if (progress.screen.mode === "name_gate") {
-    const handleNameSubmit = (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      actions.confirmName(player.pendingPlayerName);
-    };
-
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
-        <form onSubmit={handleNameSubmit} className="w-full max-w-md rounded-4xl border border-cyan-400/20 bg-slate-900/70 p-8 shadow-2xl backdrop-blur-xl">
-          <h1 className="text-3xl font-black">Identificér agenten</h1>
-          <p className="mt-3 text-sm leading-6 text-white/75">Indtast dit navn for at få adgang til slagmarken.</p>
+        <StudentNameGateView
+          tone="cyan"
+          title="Registrér holdet"
+          description="Skriv holdnavnet først. Derefter kan I vælge en frivillig hold-avatar, før kampen starter."
+          label="Holdnavn"
+          placeholder="Skriv holdnavn"
+          helperText="Holdnavnet bruges til holdlister og lærerens live-overblik."
+          value={player.pendingPlayerName}
+          error={player.nameError}
+          isSubmitting={flags.isProvisioningParticipant}
+          submitLabel="Videre til avatar"
+          submittingLabel="Forbinder til slagmarken..."
+          onChange={actions.setPendingPlayerName}
+          onSubmit={actions.confirmName}
+        />
+      </div>
+    );
+  }
 
-          <div className="mt-6 overflow-hidden rounded-4xl border border-cyan-300/20 bg-cyan-500/10 p-5 shadow-[0_18px_40px_rgba(34,211,238,0.12)] backdrop-blur-xl">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-100/70">
-                  Smart Avatar
-                </p>
-                <p className="mt-2 text-sm text-cyan-50/88">
-                  Tag en frivillig hold-selfie, sa jeres enhed gloder pa kortet i stedet for GPS-prikken.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="relative h-20 w-20 overflow-hidden rounded-full border border-cyan-200/30 bg-slate-950 shadow-[0_0_0_4px_rgba(34,211,238,0.12),0_0_28px_rgba(34,211,238,0.2)]">
-                  {avatarPreviewUrl ? (
-                    <Image
-                      src={avatarPreviewUrl}
-                      alt="Preview af hold-selfie"
-                      fill
-                      className="object-cover"
-                      unoptimized
-                      loader={({ src }) => src}
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.24),transparent_55%),linear-gradient(180deg,rgba(15,23,42,0.95),rgba(2,6,23,1))] text-2xl">
-                      <span aria-hidden="true">📸</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="min-w-0">
-                  <input
-                    ref={avatarInputRef}
-                    type="file"
-                    accept="image/*"
-                    capture="user"
-                    onChange={handleAvatarCapture}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => avatarInputRef.current?.click()}
-                    className="inline-flex min-h-[52px] items-center justify-center rounded-2xl border border-cyan-300/25 bg-cyan-500/15 px-4 py-3 text-sm font-black tracking-[0.08em] text-cyan-50 transition hover:bg-cyan-500/20"
-                  >
-                    {avatarPreviewUrl ? "📸 Tag en ny hold-selfie" : "📸 Tag en hold-selfie (Frivilligt)"}
-                  </button>
-                  <p className="mt-2 text-xs text-white/60">
-                    Billedet holdes kun lokalt pa telefonen og sendes ikke til serveren.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <input
-            type="text"
-            value={player.pendingPlayerName}
-            onChange={(event) => actions.setPendingPlayerName(event.target.value)}
-            disabled={flags.isProvisioningParticipant}
-            className="mt-6 w-full rounded-3xl border border-white/10 bg-slate-950 px-4 py-4 text-base text-white outline-none focus:border-cyan-400"
-            placeholder="Dit navn"
-          />
-          {player.nameError ? <p className="mt-3 text-sm text-rose-300">{player.nameError}</p> : null}
-          <button
-            type="submit"
-            disabled={flags.isProvisioningParticipant}
-            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-3xl bg-cyan-500 px-5 py-4 text-sm font-black uppercase tracking-[0.22em] text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-white/45"
-          >
-            {flags.isProvisioningParticipant ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Forbinder til slagmarken...
-              </>
-            ) : (
-              "Gå til slagmarken"
-            )}
-          </button>
-          {flags.isProvisioningParticipant ? (
-            <p className="mt-3 text-sm text-cyan-100/70">Vi opretter din plads i kampen og synkroniserer slagmarken.</p>
-          ) : null}
-        </form>
+  if (progress.screen.mode === "avatar_gate") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
+        <StudentAvatarGateView
+          tone="cyan"
+          title="Vælg enheds-avatar"
+          description="Tag en frivillig hold-selfie, eller spring over og brug standardmarkøren på slagmarken."
+          playerName={player.playerName || player.pendingPlayerName || "Jeres hold"}
+          avatarPreviewUrl={avatarPreviewUrl}
+          previewAlt="Preview af hold-selfie"
+          helperText="Selfien bliver kun brugt lokalt på enheden og gør jeres markør nemmere at kende under kampen."
+          captureLabel="Tag en hold-selfie"
+          replaceLabel="Tag et nyt billede"
+          confirmLabel="Brug denne avatar"
+          skipLabel="Spring over uden avatar"
+          onPreviewChange={actions.setPendingAvatarUrl}
+          onComplete={actions.completeAvatarSetup}
+        />
       </div>
     );
   }

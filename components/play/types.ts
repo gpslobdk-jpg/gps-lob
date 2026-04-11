@@ -39,6 +39,7 @@ export type PlayScreenMode =
   | "waiting"
   | "kicked"
   | "name_gate"
+  | "avatar_gate"
   | "escape_master_lock"
   | "escape_results"
   | "finished"
@@ -121,6 +122,7 @@ export type StoredActiveParticipant = {
   teamColor?: string | null;
   avatarUrl?: string | null;
   sessionStatus?: string | null;
+  hasCompletedAvatarGate?: boolean;
 };
 
 export type ParticipantRow = {
@@ -214,6 +216,7 @@ export interface PlayPlayerState {
   playerName: string;
   avatarUrl?: string;
   hasConfirmedName: boolean;
+  hasCompletedAvatarGate: boolean;
   nameError: string | null;
   participantId: string | null;
   teamId: string | null;
@@ -379,6 +382,7 @@ export interface MapDisplayProps {
 
 export interface PlayActions {
   confirmName: (name: string) => void;
+  completeAvatarSetup: (skip: boolean) => void;
   setPendingPlayerName: (value: string) => void;
   setPendingAvatarUrl: (value: string | null) => void;
   selectPostIndex: (index: number) => void;

@@ -1,7 +1,6 @@
 "use client";
 
-import Image from "next/image";
-import { Suspense, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { Poppins, Rubik } from "next/font/google";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, ArrowLeft, KeyRound, Leaf, Loader2, Timer, User } from "lucide-react";
@@ -11,11 +10,7 @@ import {
   type RunSchedule,
 } from "@/utils/runSchedule";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
-import {
-  compressAvatarImage,
-  readStoredActiveParticipant,
-  saveStoredActiveParticipant,
-} from "@/components/play/playUtils";
+import { readStoredActiveParticipant, saveStoredActiveParticipant } from "@/components/play/playUtils";
 import { createClient } from "@/utils/supabase/client";
 
 const rubik = Rubik({
@@ -138,8 +133,6 @@ function JoinForm() {
   const [assignedTeamColor, setAssignedTeamColor] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [showInAppWarning, setShowInAppWarning] = useState(false);
-  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
-  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const joinLockRef = useRef(false);
 
   const isZoneKrig = raceType === "zone_krig";
@@ -173,7 +166,6 @@ function JoinForm() {
             if (existingParticipant && existingParticipant.sessionId === sessionId) {
               saveStoredActiveParticipant({
                 ...existingParticipant,
-                avatarUrl: existingParticipant.avatarUrl ?? avatarPreviewUrl ?? null,
                 sessionStatus: "running",
               });
             }
@@ -186,7 +178,7 @@ function JoinForm() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [avatarPreviewUrl, view, sessionId, name, router, supabase]);
+  }, [view, sessionId, name, router, supabase]);
 
   useEffect(() => {
     if (view !== "scheduled" || !sessionId || !schedule?.startAt) return;
@@ -242,24 +234,6 @@ function JoinForm() {
       setShowInAppWarning(true);
     }
   }, []);
-
-  const handleAvatarCapture = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-
-    if (!file) {
-      return;
-    }
-
-    try {
-      const nextAvatarUrl = await compressAvatarImage(file);
-      setAvatarPreviewUrl(nextAvatarUrl);
-      setError("");
-    } catch (captureError) {
-      console.error("Kunne ikke laese avatar-billedet lokalt:", captureError);
-      setError("Selfien kunne ikke laeses. Proev igen.");
-    }
-  };
 
   const resetToForm = () => {
     setView("form");
@@ -365,6 +339,10 @@ function JoinForm() {
       }
 
       const resolvedSessionStatus = registerData.sessionStatus ?? joinData.sessionStatus ?? null;
+      const existingParticipant = readStoredActiveParticipant();
+      const shouldPreserveExistingParticipant =
+        existingParticipant?.sessionId === registerData.sessionId &&
+        existingParticipant?.participantId === registerData.participantId;
 
       saveStoredActiveParticipant({
         participantId: registerData.participantId,
@@ -373,27 +351,20 @@ function JoinForm() {
         savedAt: new Date().toISOString(),
         teamId: registerData.teamId ?? null,
         teamColor: registerData.teamColor ?? null,
-        avatarUrl: avatarPreviewUrl ?? null,
+        avatarUrl: shouldPreserveExistingParticipant ? existingParticipant?.avatarUrl ?? null : null,
         sessionStatus: resolvedSessionStatus,
+        hasCompletedAvatarGate: shouldPreserveExistingParticipant
+          ? existingParticipant?.hasCompletedAvatarGate ?? true
+          : false,
       });
 
       setName(registerData.studentName);
       setSessionId(joinData.sessionId);
       setAssignedTeamName(registerData.teamName ?? null);
       setAssignedTeamColor(registerData.teamColor ?? null);
-
-      if (joinData.scheduleGate === "scheduled") {
-        setView("scheduled");
-        return;
-      }
-
-      if (resolvedSessionStatus === "running") {
-        shouldReleaseLock = false;
-        router.push(`/play/${joinData.sessionId}?name=${encodeURIComponent(registerData.studentName)}`);
-        return;
-      }
-
-      setView("waiting");
+      shouldReleaseLock = false;
+      router.push(`/play/${joinData.sessionId}?name=${encodeURIComponent(registerData.studentName)}`);
+      return;
     } catch (err) {
       console.error("Fejl ved deltagelse i løbet:", err);
       setError("Der skete en fejl. Prøv igen.");
@@ -717,60 +688,6 @@ function JoinForm() {
                 className="w-full rounded-[1.6rem] border border-white/20 bg-slate-950 py-4 pr-4 pl-12 text-lg font-semibold text-white shadow-inner outline-none backdrop-blur-md transition placeholder:text-slate-500 focus:border-emerald-400 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-400/20"
                 disabled={isJoining}
               />
-            </div>
-
-            <div className="overflow-hidden rounded-[1.7rem] border border-emerald-400/20 bg-emerald-500/10 p-4 shadow-[0_18px_40px_rgba(16,185,129,0.12)] backdrop-blur-xl">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-100/70">
-                    Smart Avatar
-                  </p>
-                  <p className="mt-2 text-sm text-emerald-50/90">
-                    Tag en frivillig selfie, sa jeres markor far en lokal aura-avatar under loebet.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <div className="relative h-20 w-20 overflow-hidden rounded-full border border-emerald-200/30 bg-slate-950 shadow-[0_0_0_4px_rgba(16,185,129,0.12),0_0_30px_rgba(34,197,94,0.22)]">
-                    {avatarPreviewUrl ? (
-                      <Image
-                        src={avatarPreviewUrl}
-                        alt="Preview af avatar-selfie"
-                        fill
-                        className="object-cover"
-                        unoptimized
-                        loader={({ src }) => src}
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(34,197,94,0.2),transparent_55%),linear-gradient(180deg,rgba(15,23,42,0.95),rgba(2,6,23,1))] text-2xl">
-                        <span aria-hidden="true">📸</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="min-w-0">
-                    <input
-                      ref={avatarInputRef}
-                      type="file"
-                      accept="image/*"
-                      capture="user"
-                      onChange={handleAvatarCapture}
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => avatarInputRef.current?.click()}
-                      disabled={isJoining}
-                      className="inline-flex min-h-13 items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-500/15 px-4 py-3 text-sm font-black tracking-[0.08em] text-emerald-50 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {avatarPreviewUrl ? "📸 Tag en ny avatar-selfie" : "📸 Tag en avatar-selfie (Frivilligt)"}
-                    </button>
-                    <p className="mt-2 text-xs text-white/60">
-                      Billedet bliver kun gemt lokalt pa telefonen og sendes ikke til serveren.
-                    </p>
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* legacy manual team picker removed

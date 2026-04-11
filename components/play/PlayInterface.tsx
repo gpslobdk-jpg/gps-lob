@@ -8,7 +8,6 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEv
 
 import type { PlayActions, PlayUiState } from "./types";
 import {
-  compressAvatarImage,
   FIREWORKS_LOTTIE_URL,
   formatFinishedAt,
   formatPlacement,
@@ -18,6 +17,8 @@ import {
 } from "./playUtils";
 import QuestionTtsButton from "./QuestionTtsButton";
 import TeacherBroadcastModal from "./TeacherBroadcastModal";
+import StudentAvatarGateView from "./shared/StudentAvatarGateView";
+import StudentNameGateView from "./shared/StudentNameGateView";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 import trophyAnimation from "@/public/trophy.json";
 import { getGamerTitle } from "@/utils/gamerTitle";
@@ -116,7 +117,6 @@ function MobileHudComponent({
 export default function PlayInterface({ ui, actions, children }: PlayInterfaceProps) {
   const typedAnswerInputRef = useRef<HTMLInputElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
-  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const photoPickerPendingRef = useRef(false);
   const photoPickerReturnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mobileHudOpen, setMobileHudOpen] = useState(false);
@@ -251,29 +251,6 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   }, [activeTypedAnswerKey]);
 
   
-
-  const handleNameSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    actions.confirmName(pendingPlayerName);
-  };
-
-  const handleAvatarCapture = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-
-    if (!file) {
-      return;
-    }
-
-    try {
-      const nextAvatarUrl = await compressAvatarImage(file);
-      actions.setPendingAvatarUrl(nextAvatarUrl);
-    } catch (error) {
-      console.error("Kunne ikke laese avatar-billedet lokalt:", error);
-      window.alert("Kunne ikke læse billedet. Prøv igen.");
-    }
-  };
-
   const handleMasterLockSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void actions.submitMasterCode(masterLockInput);
@@ -467,93 +444,43 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     case "name_gate":
       content = (
         <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
-          <form
-            onSubmit={handleNameSubmit}
-            className="w-full max-w-xl rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_0_28px_rgba(16,185,129,0.18)] backdrop-blur-xl"
-          >
-            <h1 className="mb-5 text-2xl font-black tracking-wide uppercase">Klar til at starte?</h1>
-            <div className="mb-6 overflow-hidden rounded-[1.8rem] border border-emerald-400/20 bg-emerald-500/10 p-5 shadow-[0_18px_40px_rgba(16,185,129,0.12)] backdrop-blur-xl">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-100/70">
-                    Smart Avatar
-                  </p>
-                  <p className={`mt-2 text-sm text-emerald-50/90 ${wrapTextClass}`}>
-                    Tag en frivillig hold-selfie og vis jer selv som aura-avatar pa kortet under loebet.
-                  </p>
-                </div>
+          <StudentNameGateView
+            tone="emerald"
+            title="Navngiv holdet"
+            description="Start med at skrive jeres holdnavn, så vi ved hvem der er på vej ind i løbet."
+            label="Holdnavn"
+            placeholder="Skriv holdnavn"
+            helperText="Brug jeres rigtige holdnavn. Det bliver vist for læreren under løbet."
+            value={pendingPlayerName}
+            error={nameError}
+            isSubmitting={isProvisioningParticipant}
+            submitLabel="Videre til avatar"
+            submittingLabel="Klargør hold..."
+            onChange={actions.setPendingPlayerName}
+            onSubmit={actions.confirmName}
+          />
+        </div>
+      );
+      break;
 
-                <div className="flex items-center gap-4">
-                  <div className="relative h-20 w-20 overflow-hidden rounded-full border border-emerald-200/30 bg-slate-900 shadow-[0_0_0_4px_rgba(16,185,129,0.12),0_0_30px_rgba(34,197,94,0.22)]">
-                    {avatarPreviewUrl ? (
-                      <Image
-                        src={avatarPreviewUrl}
-                        alt="Preview af hold-selfie"
-                        fill
-                        className="object-cover"
-                        unoptimized
-                        loader={({ src }) => src}
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(34,197,94,0.2),transparent_55%),linear-gradient(180deg,rgba(15,23,42,0.95),rgba(2,6,23,1))] text-2xl">
-                        <span aria-hidden="true">📸</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="min-w-0">
-                    <input
-                      ref={avatarInputRef}
-                      type="file"
-                      accept="image/*"
-                      capture="user"
-                      onChange={handleAvatarCapture}
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => avatarInputRef.current?.click()}
-                      className="inline-flex min-h-[52px] items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-500/15 px-4 py-3 text-sm font-black tracking-[0.08em] text-emerald-50 transition hover:bg-emerald-500/20"
-                    >
-                      {avatarPreviewUrl ? "📸 Tag en ny hold-selfie" : "📸 Tag en hold-selfie (Frivilligt)"}
-                    </button>
-                    <p className="mt-2 text-xs text-white/60">
-                      Billedet bliver kun holdt lokalt pa telefonen og sendes ikke til serveren.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <label htmlFor="player-name" className="mb-2 block text-sm font-semibold text-emerald-100">
-              Dit navn
-            </label>
-            <input
-              id="player-name"
-              type="text"
-              maxLength={20}
-              value={pendingPlayerName}
-              onChange={(event) => actions.setPendingPlayerName(event.target.value)}
-              placeholder="Dit navn"
-              className="w-full rounded-xl border border-white/20 bg-black/40 px-4 py-3 text-base text-white placeholder:text-white/45 focus:border-emerald-400/60 focus:outline-none"
-            />
-            <p className={`mt-3 text-sm text-white/90 ${wrapTextClass}`}>
-              Skriv dit rigtige navn. Brug ikke et opdigtet navn.
-            </p>
-            {nameError ? (
-              <div
-                className={`mt-4 rounded-xl border border-red-400/50 bg-red-500/15 px-4 py-3 text-sm font-semibold text-red-100 ${wrapTextClass}`}
-              >
-                {nameError}
-              </div>
-            ) : null}
-            <button
-              type="submit"
-              disabled={isProvisioningParticipant}
-              className="mt-6 w-full rounded-xl bg-gradient-to-r from-emerald-400 to-sky-400 px-4 py-3 text-base font-black tracking-wide text-[#03110d] uppercase transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:scale-100"
-            >
-              {isProvisioningParticipant ? "Klargør hold..." : "Start Løb"}
-            </button>
-          </form>
+    case "avatar_gate":
+      content = (
+        <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
+          <StudentAvatarGateView
+            tone="emerald"
+            title="Tilføj en hold-selfie"
+            description="Vælg et frivilligt billede til kortet. I kan også springe over og gå direkte videre."
+            playerName={playerName || pendingPlayerName || "Jeres hold"}
+            avatarPreviewUrl={avatarPreviewUrl}
+            previewAlt="Preview af hold-selfie"
+            helperText="Selfien bliver kun gemt lokalt pa enheden og bruges som jeres runde markor under løbet."
+            captureLabel="Tag en hold-selfie"
+            replaceLabel="Tag et nyt billede"
+            confirmLabel="Brug dette billede"
+            skipLabel="Spring over uden billede"
+            onPreviewChange={actions.setPendingAvatarUrl}
+            onComplete={actions.completeAvatarSetup}
+          />
         </div>
       );
       break;
@@ -912,12 +839,41 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
       content = (
         <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-950 px-6 py-10 text-white">
           <div className="absolute inset-0 z-[2200] flex items-center justify-center bg-black/70 p-6">
-            <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
+            <div className="gpslob-waiting-enter w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-8 text-center backdrop-blur-xl">
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-400/90">
                 <div className="h-3 w-3 animate-pulse rounded-full bg-white/90" />
               </div>
               <h1 className="text-2xl font-black">Gør jer klar!</h1>
               <p className="mt-3 text-sm text-white/90">Venter på at læreren starter løbet...</p>
+
+              <div className="mt-6 rounded-[1.7rem] border border-emerald-300/16 bg-emerald-500/10 px-5 py-5 text-left shadow-[0_18px_40px_rgba(16,185,129,0.12)]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-100/70">Hold registreret</p>
+                <div className="mt-4 flex items-center gap-4">
+                  <div className="relative h-16 w-16 overflow-hidden rounded-full border border-emerald-200/30 bg-slate-950 shadow-[0_0_0_4px_rgba(16,185,129,0.12)]">
+                    {avatarUrl ? (
+                      <Image
+                        src={avatarUrl}
+                        alt="Hold-avatar"
+                        fill
+                        className="object-cover"
+                        unoptimized
+                        loader={({ src }) => src}
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(52,211,153,0.22),transparent_55%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,1))] text-xl">
+                        <span aria-hidden="true">🏁</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className={`text-lg font-black text-white ${wrapTextClass}`}>{activeDisplayName}</p>
+                    <p className="mt-1 text-sm text-white/65">
+                      {avatarUrl ? "Avatar klar til kortet" : "Ingen avatar valgt endnu"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <WifiConnectionTip className="mt-6" />
             </div>
           </div>

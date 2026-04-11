@@ -84,6 +84,12 @@ type LiveSessionStatusRow = {
   gps_override?: boolean | null;
 };
 
+type PlaySessionStatusSnapshot = {
+  sessionStatus?: string | null;
+  gpsOverride?: boolean;
+  error?: string;
+};
+
 const LOCATION_SYNC_404_STRIKE_LIMIT = 5;
 const LOCATION_SYNC_RECOVERY_CHECK_COOLDOWN_MS = 15000;
 const MAX_PLAYER_NAME_LENGTH = 20;
@@ -93,6 +99,8 @@ const PLAY_LOAD_RETRY_MESSAGE = "Vi gør løbet klar. Prøv igen om et øjeblik.
 const PLAY_SETUP_PENDING_MESSAGE = "Løbet bliver gjort klar lige nu. Prøv igen om et øjeblik.";
 const RESTORE_RETRY_DELAY_MS = 2500;
 const NETWORK_RETRY_DELAY_MS = 3000;
+const WAITING_SESSION_STATUS_POLL_INTERVAL_MS = 4000;
+const ACTIVE_SESSION_STATUS_POLL_INTERVAL_MS = 15000;
 
 type ZoneKrigCaptureApiResult = {
   status?: ZoneKrigCaptureStatus;
@@ -221,6 +229,9 @@ export function usePlayGameState({
   );
   const [hasConfirmedName, setHasConfirmedName] = useState(
     () => Boolean(storedParticipantOnLoad?.studentName)
+  );
+  const [hasCompletedAvatarGate, setHasCompletedAvatarGate] = useState(
+    () => storedParticipantOnLoad?.hasCompletedAvatarGate ?? false
   );
   const [questions, setQuestions] = useState<Question[]>([]);
   const [raceMode, setRaceMode] = useState<RaceMode>("unknown");
@@ -421,9 +432,10 @@ export function usePlayGameState({
         teamColor: nextTeamColor ?? existing?.teamColor ?? teamColor ?? null,
         avatarUrl: nextAvatarUrl ?? existing?.avatarUrl ?? avatarUrl ?? null,
         sessionStatus: nextSessionStatus ?? existing?.sessionStatus ?? sessionStatus ?? null,
+        hasCompletedAvatarGate: existing?.hasCompletedAvatarGate ?? hasCompletedAvatarGate,
       });
     },
-    [avatarUrl, sessionId, sessionStatus, startOffset, teamColor, teamId]
+    [avatarUrl, hasCompletedAvatarGate, sessionId, sessionStatus, startOffset, teamColor, teamId]
   );
 
   const registerParticipantIdentity = useCallback(
@@ -470,11 +482,10 @@ export function usePlayGameState({
           typeof payload.sessionStatus === "string" ? payload.sessionStatus : null;
         const resolvedTeamId = typeof payload.teamId === "string" ? payload.teamId : null;
         const resolvedTeamColor = typeof payload.teamColor === "string" ? payload.teamColor : null;
-        const resolvedAvatarUrl = pendingAvatarUrl ?? avatarUrl ?? null;
         setPendingPlayerNameState(resolvedName);
         setPlayerName(resolvedName);
-        setAvatarUrl(resolvedAvatarUrl ?? undefined);
         setHasConfirmedName(true);
+        setHasCompletedAvatarGate(false);
         setNameError(null);
         setSessionStatus(resolvedSessionStatus);
         setTeamId(resolvedTeamId);
@@ -493,13 +504,14 @@ export function usePlayGameState({
           resolvedStartOffset,
           resolvedTeamId,
           resolvedTeamColor,
-          resolvedAvatarUrl,
+          undefined,
           resolvedSessionStatus
         );
         return true;
       } catch (error) {
         console.error("Kunne ikke registrere deltageridentitet:", error);
         setHasConfirmedName(false);
+        setHasCompletedAvatarGate(false);
         setNameError("Vi kunne ikke starte løbet lige nu. Prøv igen.");
         return false;
       } finally {
@@ -507,9 +519,7 @@ export function usePlayGameState({
       }
     },
     [
-      avatarUrl,
       isProvisioningParticipant,
-      pendingAvatarUrl,
       questions.length,
       raceMode,
       rememberActiveParticipant,
@@ -680,6 +690,31 @@ export function usePlayGameState({
     setIsRestoringParticipant(false);
   }, [clearRestoreRetryTimer, resetLocationSyncRecovery]);
 
+  const fetchSessionStatusSnapshot = useCallback(async () => {
+    if (!sessionId) {
+      return null;
+    }
+
+    try {
+      const response = await fetch(`/api/play/status?sessionId=${encodeURIComponent(sessionId)}`, {
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => null)) as PlaySessionStatusSnapshot | null;
+
+      if (!response.ok || !payload) {
+        return null;
+      }
+
+      return {
+        sessionStatus: typeof payload.sessionStatus === "string" ? payload.sessionStatus : null,
+        gpsOverride: Boolean(payload.gpsOverride),
+      };
+    } catch (error) {
+      console.error("Kunne ikke hente sessionstatus via API:", error);
+      return null;
+    }
+  }, [sessionId]);
+
   const runAuthoritativeLocationSyncCheck = useCallback(async () => {
     if (!sessionId || !participantId || locationSyncRecoveryCheckInFlightRef.current) {
       return;
@@ -715,20 +750,13 @@ export function usePlayGameState({
         return;
       }
 
-      const { data: liveSessionRow, error: liveSessionError } = await supabase
-        .from("live_sessions")
-        .select("status,gps_override")
-        .eq("id", sessionId)
-        .maybeSingle<LiveSessionStatusRow>();
+      const sessionStatusSnapshot = await fetchSessionStatusSnapshot();
+      const nextSessionStatus = sessionStatusSnapshot?.sessionStatus ?? null;
 
-      if (liveSessionError) {
-        console.error("Kunne ikke hente live session-status efter positionsfejl:", liveSessionError);
-        return;
+      if (sessionStatusSnapshot) {
+        setSessionStatus(nextSessionStatus);
+        setGpsOverride(sessionStatusSnapshot.gpsOverride);
       }
-
-      const nextSessionStatus = liveSessionRow?.status ?? null;
-      setSessionStatus(nextSessionStatus);
-      setGpsOverride(Boolean(liveSessionRow?.gps_override));
 
       if (nextSessionStatus === "finished") {
         markPlayAsFinished();
@@ -765,6 +793,7 @@ export function usePlayGameState({
       locationSyncRecoveryCheckInFlightRef.current = false;
     }
   }, [
+    fetchSessionStatusSnapshot,
     fetchParticipantSnapshot,
     markPlayAsFinished,
     participantId,
@@ -772,7 +801,6 @@ export function usePlayGameState({
     scheduleRestoreRetry,
     sessionId,
     sessionStatus,
-    supabase,
   ]);
 
   const getAnswerValidationErrorMessage = useCallback((error: unknown) => {
@@ -812,26 +840,28 @@ export function usePlayGameState({
   useEffect(() => {
     if (!sessionId) return;
     let mounted = true;
+    const pollIntervalMs = sessionStatus === "running"
+      ? ACTIVE_SESSION_STATUS_POLL_INTERVAL_MS
+      : WAITING_SESSION_STATUS_POLL_INTERVAL_MS;
+
+    const syncSessionStatus = async () => {
+      const sessionStatusSnapshot = await fetchSessionStatusSnapshot();
+
+      if (!mounted || !sessionStatusSnapshot) {
+          return;
+      }
+
+      const nextStatus = sessionStatusSnapshot.sessionStatus ?? null;
+        setSessionStatus(nextStatus);
+        setGpsOverride(sessionStatusSnapshot.gpsOverride);
+
+        if (nextStatus === "finished") {
+          markPlayAsFinished();
+        }
+    };
 
     // Fetch initial session status
-    (async () => {
-      try {
-        const { data, error } = await supabase
-          .from("live_sessions")
-          .select("status,gps_override")
-          .eq("id", sessionId)
-          .limit(1)
-          .single();
-
-        if (!mounted) return;
-        if (!error && data) {
-          setSessionStatus((data as LiveSessionStatusRow).status ?? null);
-          setGpsOverride(Boolean((data as LiveSessionStatusRow).gps_override));
-        }
-      } catch (err) {
-        console.error("Kunne ikke hente session-status:", err);
-      }
-    })();
+    void syncSessionStatus();
 
     // Realtime subscription to status updates
     const channel = supabase
@@ -842,8 +872,13 @@ export function usePlayGameState({
         (payload) => {
           try {
             const nextRow = payload.new as LiveSessionStatusRow | null;
-            setSessionStatus(nextRow?.status ?? null);
+            const nextStatus = nextRow?.status ?? null;
+            setSessionStatus(nextStatus);
             setGpsOverride(Boolean(nextRow?.gps_override));
+
+            if (nextStatus === "finished") {
+              markPlayAsFinished();
+            }
           } catch (error) {
             console.error("Fejl ved behandling af live_sessions-opdatering:", error);
           }
@@ -851,15 +886,35 @@ export function usePlayGameState({
       )
       .subscribe();
 
+    const pollTimer = window.setInterval(() => {
+      void syncSessionStatus();
+    }, pollIntervalMs);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void syncSessionStatus();
+      }
+    };
+
+    const handleOnline = () => {
+      void syncSessionStatus();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleOnline);
+
     return () => {
       mounted = false;
+      window.clearInterval(pollTimer);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleOnline);
       try {
         supabase.removeChannel(channel);
       } catch {
         // ignore
       }
     };
-  }, [participantId, sessionId, supabase]);
+  }, [fetchSessionStatusSnapshot, markPlayAsFinished, participantId, sessionId, sessionStatus, supabase]);
 
   useEffect(() => {
     if (!sessionId || !participantId) {
@@ -875,8 +930,9 @@ export function usePlayGameState({
       ...existing,
       avatarUrl: avatarUrl ?? existing.avatarUrl ?? null,
       sessionStatus,
+      hasCompletedAvatarGate,
     });
-  }, [avatarUrl, participantId, sessionId, sessionStatus]);
+  }, [avatarUrl, hasCompletedAvatarGate, participantId, sessionId, sessionStatus]);
   const escapeCodeByPostIndex = new Map(
     collectedEscapeRewards.map((entry) => [entry.postIndex, entry.brick] as const)
   );
@@ -891,6 +947,7 @@ export function usePlayGameState({
     !isFinished &&
     !isKicked &&
     hasConfirmedName &&
+    hasCompletedAvatarGate &&
     (questions.length > 0 || isStrategoRace);
   const targetVisualRadius =
     autoUnlockRadius !== null ? Math.max(autoUnlockRadius, TARGET_VISUAL_RADIUS_METERS) : null;
@@ -2139,7 +2196,6 @@ export function usePlayGameState({
   const confirmName = useCallback(
     (name: string) => {
       const trimmedName = name.trim();
-      const resolvedAvatarUrl = pendingAvatarUrl ?? avatarUrl;
 
       if (!trimmedName) {
         setNameError("Skriv dit eller jeres rigtige navn for at starte.");
@@ -2159,7 +2215,7 @@ export function usePlayGameState({
       setNameError(null);
       setPendingPlayerNameState(trimmedName);
       setPlayerName(trimmedName);
-      setAvatarUrl(resolvedAvatarUrl);
+      setHasCompletedAvatarGate(false);
 
       if (participantId) {
         setHasConfirmedName(true);
@@ -2169,7 +2225,7 @@ export function usePlayGameState({
           undefined,
           undefined,
           undefined,
-          resolvedAvatarUrl ?? null,
+          undefined,
           sessionStatus
         );
         return;
@@ -2178,13 +2234,35 @@ export function usePlayGameState({
       void registerParticipantIdentity(trimmedName);
     },
     [
-      avatarUrl,
       participantId,
-      pendingAvatarUrl,
       registerParticipantIdentity,
       rememberActiveParticipant,
       sessionStatus,
     ]
+  );
+
+  const completeAvatarSetup = useCallback(
+    (skip: boolean) => {
+      const resolvedAvatarUrl = skip ? undefined : pendingAvatarUrl ?? avatarUrl;
+      const resolvedPlayerName = (playerName || pendingPlayerName).trim();
+
+      setAvatarUrl(resolvedAvatarUrl);
+      setPendingAvatarUrlState(undefined);
+      setHasCompletedAvatarGate(true);
+
+      if (participantId && resolvedPlayerName) {
+        rememberActiveParticipant(
+          participantId,
+          resolvedPlayerName,
+          undefined,
+          undefined,
+          undefined,
+          resolvedAvatarUrl ?? null,
+          sessionStatus
+        );
+      }
+    },
+    [avatarUrl, participantId, pendingAvatarUrl, pendingPlayerName, playerName, rememberActiveParticipant, sessionStatus]
   );
 
   const submitQuizAnswer = async (selectedIndex: number) => {
@@ -2553,6 +2631,7 @@ export function usePlayGameState({
       Boolean(sessionId) &&
       Boolean(participantId) &&
       hasConfirmedName &&
+      hasCompletedAvatarGate &&
       !isFinished &&
       !isKicked,
     isPaused: isSessionPaused,
@@ -2568,6 +2647,7 @@ export function usePlayGameState({
     playerName,
     avatarUrl,
     hasConfirmedName,
+    hasCompletedAvatarGate,
     nameError,
     participantId,
     teamId,
@@ -2632,6 +2712,7 @@ export function usePlayGameState({
   };
 
   const shouldShowNameGate = !hasConfirmedName || isProvisioningParticipant;
+  const shouldShowAvatarGate = hasConfirmedName && !hasCompletedAvatarGate && !isProvisioningParticipant;
   const isSessionWaiting =
     sessionStatus === "waiting" ||
     sessionStatus === "scheduled" ||
@@ -2645,6 +2726,8 @@ export function usePlayGameState({
         ? "kicked"
         : shouldShowNameGate
           ? "name_gate"
+          : shouldShowAvatarGate
+            ? "avatar_gate"
           : isSessionWaiting
             ? "waiting"
           : isFinished && isEscapeRace && correctAnswersCount >= questions.length && !showEscapeResults
@@ -2746,6 +2829,7 @@ export function usePlayGameState({
     flags,
     actions: {
       confirmName,
+      completeAvatarSetup,
       setPendingPlayerName,
       setPendingAvatarUrl,
       selectPostIndex,

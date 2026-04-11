@@ -123,6 +123,8 @@ export function readStoredActiveParticipant(): StoredActiveParticipant | null {
       teamColor: typeof parsed.teamColor === "string" ? parsed.teamColor : null,
       avatarUrl: typeof parsed.avatarUrl === "string" ? parsed.avatarUrl : null,
       sessionStatus: typeof parsed.sessionStatus === "string" ? parsed.sessionStatus : null,
+      hasCompletedAvatarGate:
+        typeof parsed.hasCompletedAvatarGate === "boolean" ? parsed.hasCompletedAvatarGate : true,
     };
   } catch {
     return null;
