@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Check, ChevronDown, Loader2, Plus, Printer, Sparkles, Trash2, Wrench } from "lucide-react";
+import { BookOpen, BookOpenText, Check, ChevronDown, GraduationCap, Loader2, Plus, Printer, Ruler, Sparkles, Trash2, Wrench } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
@@ -13,9 +13,17 @@ import ManualAiInterviewModal, {
 import ManualReuseModal, {
   type ManualReuseQuestion,
 } from "@/components/builders/manual/ManualReuseModal";
+import AiReviewDraftModal from "@/components/builders/AiReviewDraftModal";
+import GradeLevelMultiSelect from "@/components/builders/GradeLevelMultiSelect";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import { useBuilderSaveGuidance } from "@/components/builders/useBuilderSaveGuidance";
 import type { SavedPin, SavedZone } from "@/components/MapPicker";
+import {
+  DEFAULT_SELECTED_GRADE_LEVELS,
+  formatGradeLevelsForPrompt,
+  normalizeGradeLevels,
+  type GradeLevel,
+} from "@/utils/gradeLevels";
 import { normalizeRaceType, RACE_TYPE_LABELS, RACE_TYPES } from "@/utils/gpsRuns";
 import {
   consumeDraftAutoload,
@@ -147,6 +155,8 @@ const SUBJECT_TOPICS: Record<string, string[]> = {
   Musik: ["Nodelære & Rytmik", "Instrumentkendskab", "Musikhistorie & Genrer"],
 };
 
+const SUBJECT_OPTIONS = Object.keys(SUBJECT_TOPICS);
+
 type Question = {
   id: number;
   type: "multiple_choice" | "ai_image";
@@ -168,6 +178,7 @@ type StoredRunRecord = {
   description: string | null;
   topic: string | null;
   questions: unknown;
+  grade_levels?: string[] | null;
   radius?: number | null;
   race_type?: string | null;
 };
@@ -212,6 +223,10 @@ type BuilderNotice = {
   message: string;
 };
 
+type PendingManualAiReviewDraft = ManualAiInterviewDraft & {
+  replacesExistingContent: boolean;
+};
+
 const MAGIC_DRAFT_STORAGE_KEY = "magicRunDraft";
 const MANUEL_DRAFT_STORAGE_KEY = "draft_run_manuel";
 const DEFAULT_MAP_CENTER: MapCenter = {
@@ -223,9 +238,11 @@ type ManualBuilderDraftState = {
   title?: unknown;
   description?: unknown;
   subject?: unknown;
+  gradeLevels?: unknown;
   radius?: unknown;
   showTeacherField?: unknown;
   showAiInterviewModal?: unknown;
+  pendingAiReviewDraft?: unknown;
   questions?: unknown;
   mapCenter?: unknown;
   overrideRaceType?: unknown;
@@ -318,6 +335,50 @@ function toAnswersTuple(value: unknown): [string, string, string, string] {
   }
 
   return [padded[0] ?? "", padded[1] ?? "", padded[2] ?? "", padded[3] ?? ""];
+}
+
+function normalizePendingManualAiReviewDraft(value: unknown): PendingManualAiReviewDraft | null {
+  if (!isRecord(value)) return null;
+
+  const title = asTrimmedString(value.title);
+  const subject = asTrimmedString(value.subject);
+  const topic = asTrimmedString(value.topic);
+  const tone = asTrimmedString(value.tone);
+  const gradeLevels = normalizeGradeLevels(value.gradeLevels);
+  const questionCandidates = Array.isArray(value.questions) ? value.questions : [];
+  const questions = questionCandidates
+    .map((candidate) => {
+      if (!isRecord(candidate)) return null;
+
+      const question = asTrimmedString(candidate.question);
+      const options = toAnswersTuple(candidate.options);
+      const correctAnswer = asTrimmedString(candidate.correctAnswer);
+
+      if (!question || !correctAnswer || options.some((option) => !option)) {
+        return null;
+      }
+
+      return {
+        question,
+        options,
+        correctAnswer,
+      };
+    })
+    .filter((candidate): candidate is PendingManualAiReviewDraft["questions"][number] => candidate !== null);
+
+  if (!title || questions.length === 0) {
+    return null;
+  }
+
+  return {
+    subject,
+    title,
+    questions,
+    gradeLevels,
+    topic,
+    tone,
+    replacesExistingContent: Boolean(value.replacesExistingContent),
+  };
 }
 
 function toQuestionId(value: unknown, fallback: number) {
@@ -558,6 +619,7 @@ function OpretLoebPageContent() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [subject, setSubject] = useState<string>("");
+  const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>(DEFAULT_SELECTED_GRADE_LEVELS);
   const [radius, setRadius] = useState<number>(DEFAULT_RUN_RADIUS);
   const [showTeacherField, setShowTeacherField] = useState(false);
   const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
@@ -572,17 +634,29 @@ function OpretLoebPageContent() {
   const [mapCenter, setMapCenter] = useState<MapCenter>(DEFAULT_MAP_CENTER);
   const [showDraftRecoveryPrompt, setShowDraftRecoveryPrompt] = useState(false);
   const [overrideRaceType, setOverrideRaceType] = useState<string | null>(null);
+  const [pendingAiReviewDraft, setPendingAiReviewDraft] = useState<PendingManualAiReviewDraft | null>(null);
   const isEditorBusy = isSaving || showDraftRecoveryPrompt;
   const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
   const printTitle = title.trim() || "Udkast uden titel";
   const printSubject = subject.trim() || "Ikke angivet";
-  const printClassLevel = description.trim() || "Ikke angivet";
+  const printClassLevel = gradeLevels.length > 0 ? formatGradeLevelsForPrompt(gradeLevels) : "Ikke angivet";
   const normalizedBuilderRaceType = normalizeRaceType(overrideRaceType) ?? RACE_TYPES.MANUEL;
   const currentRaceTypeLabel = RACE_TYPE_LABELS[normalizedBuilderRaceType] ?? "Generel Quiz";
   const builderStatusLabel = isSaving ? "Gemmer..." : "Gemmes lokalt";
   const builderStatusDescription = isSaving
     ? "Vi sender dine seneste ændringer til arkivet nu."
     : "Din titel og dine poster bliver gemt lokalt undervejs, indtil du trykker på Gem.";
+  const gradeLevelSummary =
+    gradeLevels.length > 0 ? `Valgt: ${formatGradeLevelsForPrompt(gradeLevels)}` : "Ingen klassetrin valgt endnu.";
+  const advancedStatusDescription =
+    normalizedBuilderRaceType === RACE_TYPES.PODCAST
+      ? "Podcast-import er aktiv. Løbet bevarer typen Podcast-Detektiv, mens du redigerer poster, metadata og kortplacering herfra."
+      : `Løbet gemmes som ${currentRaceTypeLabel}. Metadata ligger i arbejdsfladen, så denne menu er reserveret til output og finjusteringer.`;
+  const pendingAiReviewGradeLabel = pendingAiReviewDraft
+    ? pendingAiReviewDraft.gradeLevels.length > 0
+      ? formatGradeLevelsForPrompt(pendingAiReviewDraft.gradeLevels)
+      : "Ikke angivet"
+    : "";
 
   const renderNotice = (className = "") =>
     notice ? (
@@ -647,15 +721,23 @@ function OpretLoebPageContent() {
 
   const applyDraftState = (draft: ManualBuilderDraftState) => {
     const restoredSubject = restoreDraftString(draft.subject);
+    const restoredGradeLevels = normalizeGradeLevels(draft.gradeLevels);
+    const restoredPendingAiReviewDraft = normalizePendingManualAiReviewDraft(draft.pendingAiReviewDraft);
     const restoredQuestions = toQuestionList(draft.questions);
     const restoredRaceType = normalizeRaceType(draft.overrideRaceType);
 
     setTitle(restoreDraftString(draft.title));
     setDescription(restoreDraftString(draft.description));
     setSubject(restoredSubject);
+    setGradeLevels(
+      restoredGradeLevels.length > 0 ? restoredGradeLevels : DEFAULT_SELECTED_GRADE_LEVELS
+    );
     setRadius(normalizeRunRadius(draft.radius));
     setShowTeacherField(restoreDraftBoolean(draft.showTeacherField, Boolean(restoredSubject.trim())));
-    setShowAiInterviewModal(restoreDraftBoolean(draft.showAiInterviewModal));
+    setShowAiInterviewModal(
+      restoredPendingAiReviewDraft ? false : restoreDraftBoolean(draft.showAiInterviewModal)
+    );
+    setPendingAiReviewDraft(restoredPendingAiReviewDraft);
     setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion(defaultQuestionType)]);
     setMapCenter(restoreDraftMapCenter(draft.mapCenter, DEFAULT_MAP_CENTER));
     setOverrideRaceType(restoredRaceType);
@@ -848,6 +930,7 @@ function OpretLoebPageContent() {
     if (!isEditMode) {
       setIsLoadingExistingRun(false);
       setLoadedRunId(null);
+      setPendingAiReviewDraft(null);
       return;
     }
 
@@ -874,7 +957,7 @@ function OpretLoebPageContent() {
 
         const { data: run, error } = await supabase
           .from("gps_runs")
-          .select("id,user_id,title,subject,description,topic,questions,radius,race_type")
+          .select("id,user_id,title,subject,description,topic,questions,grade_levels,radius,race_type")
           .eq("id", editRunId)
           .eq("user_id", user.id)
           .maybeSingle<StoredRunRecord>();
@@ -906,6 +989,7 @@ function OpretLoebPageContent() {
         const loadedQuestions = toQuestionList(run.questions);
         const loadedDescription = asTrimmedString(run.description);
         const loadedTopic = asTrimmedString(run.topic);
+        const loadedGradeLevels = normalizeGradeLevels(run.grade_levels);
         const nextDescription = loadedDescription || loadedTopic;
         const firstPinnedQuestion =
           loadedQuestions.find((question) => question.lat !== null && question.lng !== null) ?? null;
@@ -913,11 +997,15 @@ function OpretLoebPageContent() {
         setTitle(asTrimmedString(run.title));
         setDescription(nextDescription);
         setSubject(asTrimmedString(run.subject));
+        setGradeLevels(
+          loadedGradeLevels.length > 0 ? loadedGradeLevels : DEFAULT_SELECTED_GRADE_LEVELS
+        );
         setRadius(normalizeRunRadius(run.radius));
         setOverrideRaceType(normalizeRaceType(run.race_type));
         setShowTeacherField(Boolean(asTrimmedString(run.subject)));
         setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion(defaultQuestionType)]);
         setShowAiInterviewModal(false);
+        setPendingAiReviewDraft(null);
         setMapCenter(
           firstPinnedQuestion
             ? {
@@ -993,9 +1081,11 @@ function OpretLoebPageContent() {
       title,
       description,
       subject,
+      gradeLevels,
       radius,
       showTeacherField,
       showAiInterviewModal,
+      pendingAiReviewDraft,
       questions,
       mapCenter,
       overrideRaceType,
@@ -1003,8 +1093,10 @@ function OpretLoebPageContent() {
   }, [
     description,
     editRunId,
+    gradeLevels,
     mapCenter,
     overrideRaceType,
+    pendingAiReviewDraft,
     questions,
     radius,
     showAiInterviewModal,
@@ -1206,11 +1298,12 @@ function OpretLoebPageContent() {
   };
 
   const handleAiInterviewComplete = (draft: ManualAiInterviewDraft) => {
-    console.log("MANUAL PAGE RECEIVED DRAFT:", draft);
-
     const nextTitle = draft.title.trim();
     const nextQuestions = toInterviewQuestionList(draft.questions);
     const nextSubject = draft.subject.trim();
+    const nextGradeLevels = normalizeGradeLevels(draft.gradeLevels);
+    const nextTopic = draft.topic.trim();
+    const nextTone = draft.tone.trim();
 
     if (!nextTitle || nextQuestions.length === 0) {
       setNotice({
@@ -1224,29 +1317,57 @@ function OpretLoebPageContent() {
       title.trim().length > 0 ||
       description.trim().length > 0 ||
       questions.some((question) => !isQuestionEmpty(question));
+    setShowAiInterviewModal(false);
+    setNotice(null);
+    setPendingAiReviewDraft({
+      subject: nextSubject,
+      title: nextTitle,
+      questions: draft.questions,
+      gradeLevels: nextGradeLevels,
+      topic: nextTopic,
+      tone: nextTone,
+      replacesExistingContent: hasExistingContent,
+    });
+  };
 
-    if (hasExistingContent) {
-      const shouldReplace = window.confirm(
-        "Det auto-genererede udkast erstatter de nuværende felter i builderen. Vil du fortsætte?"
-      );
+  const closeAiReviewDraft = () => {
+    if (!pendingAiReviewDraft) return;
 
-      if (!shouldReplace) {
-        setNotice({
-          tone: "success",
-          message: "Dit nuværende arbejde blev beholdt uændret.",
-        });
-        return;
-      }
+    setPendingAiReviewDraft(null);
+    setNotice({
+      tone: "success",
+      message: pendingAiReviewDraft.replacesExistingContent
+        ? "Dit nuværende arbejde blev beholdt uændret."
+        : "AI-udkastet blev lukket uden at blive anvendt.",
+    });
+  };
+
+  const applyAiReviewDraft = () => {
+    if (!pendingAiReviewDraft) return;
+
+    const nextTitle = pendingAiReviewDraft.title.trim();
+    const nextQuestions = toInterviewQuestionList(pendingAiReviewDraft.questions);
+    const nextSubject = pendingAiReviewDraft.subject.trim();
+    const nextGradeLevels = normalizeGradeLevels(pendingAiReviewDraft.gradeLevels);
+
+    if (!nextTitle || nextQuestions.length === 0) {
+      setPendingAiReviewDraft(null);
+      setNotice({
+        tone: "error",
+        message: "Det auto-genererede udkast kunne ikke bruges. Prøv igen.",
+      });
+      return;
     }
 
     setTitle(nextTitle);
     setDescription("");
     setQuestions([...nextQuestions]);
-    if (nextSubject) {
-      setSubject(nextSubject);
-      setShowTeacherField(true);
-    }
-    setShowAiInterviewModal(false);
+    setGradeLevels(
+      nextGradeLevels.length > 0 ? nextGradeLevels : DEFAULT_SELECTED_GRADE_LEVELS
+    );
+    setSubject(nextSubject);
+    setShowTeacherField(Boolean(nextSubject));
+    setPendingAiReviewDraft(null);
     setNotice({
       tone: "success",
       message: "Et komplet udkast er klar til dit quiz-løb. Gennemgå felterne og placer posterne på kortet.",
@@ -1321,6 +1442,7 @@ function OpretLoebPageContent() {
         description: normalizedDescription,
         topic: normalizedTopic,
         questions: normalizedQuestionsForSave,
+        grade_levels: gradeLevels.length > 0 ? gradeLevels : null,
         radius,
         race_type: overrideRaceType ?? RACE_TYPES.MANUEL,
       };
@@ -1366,8 +1488,10 @@ function OpretLoebPageContent() {
         setTitle("");
         setDescription("");
         setSubject("");
+        setGradeLevels(DEFAULT_SELECTED_GRADE_LEVELS);
         setRadius(DEFAULT_RUN_RADIUS);
         setShowTeacherField(false);
+        setPendingAiReviewDraft(null);
         setQuestions([createQuestion(defaultQuestionType)]);
       }
 
@@ -1426,13 +1550,25 @@ function OpretLoebPageContent() {
                   ) : null}
 
                   <div className="relative z-40 mb-8 space-y-5">
-                    <div>
-                      <h3 className="text-xl font-semibold text-emerald-100">
-                        Velkommen til det klassiske quiz løb.
-                      </h3>
-                      <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-100/80">
-                        Placer posterne på kortet, og indtast et spørgsmål med fire svarmuligheder til hver post. De ekstra værktøjer ligger samlet ét sted, så builderen forbliver rolig, mens du arbejder.
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-[1.55rem] border border-white/80 bg-white px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),inset_0_-6px_12px_rgba(6,95,70,0.08),0_18px_38px_rgba(255,255,255,0.16),0_14px_28px_rgba(16,185,129,0.18)] ring-1 ring-emerald-200/55">
+                        <span
+                          aria-hidden="true"
+                          className="pointer-events-none absolute inset-x-2 top-1 h-px rounded-full bg-white/95"
+                        />
+                        <span className="relative flex h-full w-full items-center justify-center rounded-[1.05rem] bg-linear-to-br from-emerald-100 via-white to-emerald-200 text-emerald-950 shadow-[inset_0_-8px_16px_rgba(16,185,129,0.12)]">
+                          <Sparkles className="h-6 w-6" />
+                        </span>
+                        <span className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-emerald-900/10 bg-emerald-500 text-white shadow-[0_8px_18px_rgba(16,185,129,0.35)]">
+                          <BookOpenText className="h-3.5 w-3.5" />
+                        </span>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold text-emerald-50">Velkommen til Generel Quiz</h3>
+                        <p className="mt-1 text-sm text-emerald-100/80">
+                          Byg et fleksibelt quizløb til ethvert fag. Vælg klassetrin og kategori i toppen, placer posterne på kortet, og fyld hver post med quizspørgsmål eller foto-opgaver i dit eget tempo.
+                        </p>
+                      </div>
                     </div>
 
                     <div className="relative z-40 rounded-4xl border border-emerald-500/30 bg-emerald-950/20 p-5 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:p-6">
@@ -1477,13 +1613,85 @@ function OpretLoebPageContent() {
                           value={title}
                           onChange={(event) => setTitle(event.target.value)}
                           disabled={isEditorBusy}
-                          placeholder="F.eks. 4.B's store natur-løb"
+                          placeholder="F.eks. 6.A's store videnløb"
                           className="w-full rounded-[1.6rem] border border-emerald-500/30 bg-emerald-950/20 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                         />
 
                         <p className="text-sm leading-6 text-emerald-100/68">
                           {builderStatusDescription}
                         </p>
+                      </div>
+                    </div>
+
+                    <div className="relative z-0 rounded-3xl border border-emerald-500/30 bg-emerald-950/20 p-4 backdrop-blur-xl">
+                      <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+                        <div>
+                          <div className="mb-3 flex items-start gap-3">
+                            <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
+                              <GraduationCap className="h-4.5 w-4.5" />
+                            </span>
+                            <div>
+                              <label className="block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                                Klassetrin
+                              </label>
+                              <p className="mt-1 text-sm leading-6 text-emerald-100/75">
+                                Vælg et eller flere klassetrin. Valget gemmes på løbet og vises også i print og arkiv.
+                              </p>
+                            </div>
+                          </div>
+
+                          <GradeLevelMultiSelect
+                            selectedGradeLevels={gradeLevels}
+                            onChange={setGradeLevels}
+                            tone="emerald"
+                            disabled={isEditorBusy}
+                            compact
+                          />
+
+                          <p className="mt-3 text-sm text-emerald-100/70">{gradeLevelSummary}</p>
+                        </div>
+
+                        <div>
+                          <div className="mb-3 flex items-start gap-3">
+                            <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
+                              <BookOpenText className="h-4.5 w-4.5" />
+                            </span>
+                            <div>
+                              <label className="block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                                Fag / kategori
+                              </label>
+                              <p className="mt-1 text-sm leading-6 text-emerald-100/75">
+                                Brug fagvalget til arkiv, print og genbrug, så løbet er let at finde igen senere.
+                              </p>
+                            </div>
+                          </div>
+
+                          <select
+                            value={subject}
+                            onChange={(event) => {
+                              const nextSubject = event.target.value;
+                              setSubject(nextSubject);
+                              setShowTeacherField(Boolean(nextSubject.trim()));
+                            }}
+                            disabled={isEditorBusy}
+                            className="w-full rounded-[1.35rem] border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-sm font-semibold text-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                          >
+                            <option value="" className="bg-slate-900 text-white">
+                              Vælg fag eller kategori...
+                            </option>
+                            {SUBJECT_OPTIONS.map((subjectOption) => (
+                              <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
+                                {subjectOption}
+                              </option>
+                            ))}
+                          </select>
+
+                          <p className="mt-3 text-sm text-emerald-100/70">
+                            {subject.trim()
+                              ? `Valgt: ${subject.trim()}`
+                              : "Ingen kategori valgt endnu. Du kan stadig bygge løbet videre og vælge senere."}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1748,7 +1956,7 @@ function OpretLoebPageContent() {
           anchorRef={toolsMenuAnchorRef}
           menuRef={toolsMenuPortalRef}
           align="end"
-          className="w-[min(28rem,calc(100vw-2rem))] max-h-[min(32rem,calc(100vh-2rem))] overflow-x-hidden overflow-y-auto rounded-[1.6rem] border border-emerald-400/20 bg-slate-950/96 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl overscroll-contain"
+          className="w-[min(26rem,calc(100vw-2rem))] max-h-[min(32rem,calc(100vh-2rem))] overflow-x-hidden overflow-y-auto rounded-[1.6rem] border border-emerald-400/20 bg-slate-950/96 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl overscroll-contain"
         >
           <div className="px-4 pb-2 pt-2">
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-100/45">
@@ -1763,14 +1971,12 @@ function OpretLoebPageContent() {
             className={toolsMenuItemClass}
           >
             <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
-              <Sparkles className="h-4 w-4" />
+              <BookOpenText className="h-4 w-4" />
             </span>
             <span>
-              <span className="block text-sm font-black uppercase tracking-[0.16em]">
-                Smart auto-udfyldning
-              </span>
+              <span className="block text-sm font-black uppercase tracking-[0.16em]">Quiz-assistent</span>
               <span className="mt-1 block text-sm leading-6 text-emerald-100/72">
-                Lad assistenten stille dig spørgsmål og klargøre et komplet udkast til løbet.
+                Lad assistenten spørge ind til temaet og klargøre et komplet quizudkast, som du kan tilpasse videre herfra.
               </span>
             </span>
           </button>
@@ -1813,32 +2019,6 @@ function OpretLoebPageContent() {
           <div className="space-y-4 px-4 py-3">
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-100/58">
-                Vælg arkiv-fag
-              </label>
-              <select
-                value={subject}
-                onChange={(event) => setSubject(event.target.value)}
-                disabled={isEditorBusy}
-                className="mt-2 w-full rounded-[1.15rem] border border-emerald-400/20 bg-emerald-950/35 px-4 py-3 text-sm font-semibold text-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-              >
-                <option value="" className="bg-slate-900 text-white">
-                  Vælg et fag til arkivet...
-                </option>
-                {Object.keys(SUBJECT_TOPICS).map((subjectOption) => (
-                  <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
-                    {subjectOption}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-2 text-sm leading-6 text-emerald-100/68">
-                Faget bruges til arkiv, genbrug og smart hjælp, men ligger her for at holde titelområdet rent.
-              </p>
-            </div>
-
-            <div className="h-px bg-emerald-400/10" />
-
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-100/58">
                 GPS-radius
               </label>
               <select
@@ -1854,7 +2034,7 @@ function OpretLoebPageContent() {
                 ))}
               </select>
               <p className="mt-2 text-sm leading-6 text-emerald-100/68">
-                Vælg hvor tæt eleven skal være på posten, før GPS-låsen åbner.
+                Vælg hvor tæt eleven skal være på posten, før GPS-låsen åbner under spillet.
               </p>
             </div>
 
@@ -1862,14 +2042,14 @@ function OpretLoebPageContent() {
 
             <div className="flex items-start gap-3 rounded-[1.25rem] text-left text-emerald-50/90">
               <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
-                <BookOpen className="h-4 w-4" />
+                <Ruler className="h-4 w-4" />
               </span>
               <span>
                 <span className="block text-sm font-black uppercase tracking-[0.16em]">
                   Builder-status
                 </span>
                 <span className="mt-1 block text-sm leading-6 text-emerald-100/68">
-                  Løbet gemmes som {currentRaceTypeLabel}. Tilføj post og arkiv-genbrug bliver nederst ved arbejdsområdet, hvor de er lettest at bruge.
+                  {advancedStatusDescription}
                 </span>
               </span>
             </div>
@@ -1938,7 +2118,7 @@ function OpretLoebPageContent() {
                 </div>
                 <div className="border border-slate-300 px-4 py-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                    Fag
+                    Fag / kategori
                   </p>
                   <p className="mt-3 text-2xl font-black text-black">{printSubject}</p>
                 </div>
@@ -2079,10 +2259,40 @@ function OpretLoebPageContent() {
         </div>
       ) : null}
 
+      {pendingAiReviewDraft ? (
+        <AiReviewDraftModal
+          tone="emerald"
+          eyebrow="AI-kladde"
+          title="Gennemse før du anvender"
+          description="Assistenten har bygget et komplet udkast. Tjek resuméet herunder, før du anvender det i builderen."
+          warning={
+            pendingAiReviewDraft.replacesExistingContent
+              ? "Dit nuværende indhold bliver erstattet, hvis du vælger at anvende kladden."
+              : null
+          }
+          summaryItems={[
+            { label: "Titel", value: pendingAiReviewDraft.title },
+            { label: "Fag / kategori", value: pendingAiReviewDraft.subject.trim() || "Generel quiz" },
+            { label: "Klassetrin", value: pendingAiReviewGradeLabel },
+            { label: "Antal poster", value: pendingAiReviewDraft.questions.length },
+          ]}
+          detailItems={[
+            { label: "Emne", value: pendingAiReviewDraft.topic || "Ikke angivet" },
+            { label: "Stil", value: pendingAiReviewDraft.tone || "Balanceret" },
+          ]}
+          cancelLabel="Annuller"
+          applyLabel="Anvend kladde"
+          headingClassName={rubik.className}
+          onCancel={closeAiReviewDraft}
+          onApply={applyAiReviewDraft}
+        />
+      ) : null}
+
       <ManualAiInterviewModal
         open={showAiInterviewModal}
         initialSubject={subject}
-        subjectSuggestions={Object.keys(SUBJECT_TOPICS)}
+        initialGradeLevels={gradeLevels}
+        subjectSuggestions={SUBJECT_OPTIONS}
         onClose={closeAiInterviewModal}
         onComplete={handleAiInterviewComplete}
       />

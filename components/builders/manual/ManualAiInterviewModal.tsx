@@ -1,9 +1,16 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { BookOpenText, GraduationCap, Loader2, Sparkles } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useRef, useState } from "react";
 
+import GradeLevelMultiSelect from "@/components/builders/GradeLevelMultiSelect";
+import {
+  DEFAULT_SELECTED_GRADE_LEVELS,
+  formatGradeLevelsForPrompt,
+  normalizeGradeLevels,
+  type GradeLevel,
+} from "@/utils/gradeLevels";
 import {
   clearSessionDraft,
   readSessionDraft,
@@ -20,30 +27,25 @@ const poppins = Poppins({
   weight: ["400", "500", "600", "700"],
 });
 
-const AUDIENCE_OPTIONS = [
-  { value: "Indskoling", label: "Indskoling" },
-  { value: "Mellemtrin", label: "Mellemtrin" },
-  { value: "Udskoling", label: "Udskoling" },
-  { value: "Voksne", label: "Voksne" },
-] as const;
-
 const TONE_OPTIONS = [
-  { value: "sjov", label: "Sjov" },
+  { value: "balanceret", label: "Balanceret" },
   { value: "faglig", label: "Faglig" },
-  { value: "uhyggelig", label: "Uhyggelig" },
-  { value: "action", label: "Action" },
+  { value: "legende", label: "Legende" },
+  { value: "mystisk", label: "Mystisk" },
 ] as const;
 
 const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
 const DEFAULT_QUESTION_COUNT: (typeof QUESTION_COUNT_OPTIONS)[number] = 10;
+const DEFAULT_TONE: (typeof TONE_OPTIONS)[number]["value"] = "balanceret";
 const MANUAL_AI_INTERVIEW_SESSION_KEY = "manual_ai_interview_state";
 
-type Step = 1 | 2 | 3 | 4 | 5;
-type RestorableStep = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3 | 4;
+type RestorableStep = 1 | 2 | 3;
 type SessionDraftState = {
   step?: unknown;
+  gradeLevels?: unknown;
+  subject?: unknown;
   topic?: unknown;
-  audience?: unknown;
   tone?: unknown;
   questionCount?: unknown;
 };
@@ -58,16 +60,24 @@ export type ManualAiInterviewDraft = {
   subject: string;
   title: string;
   questions: ManualAiInterviewQuestion[];
+  gradeLevels: GradeLevel[];
+  topic: string;
+  tone: string;
 };
 
 type ApiSuccessResponse = {
-  title?: unknown;
-  questions?: unknown;
+  title: string;
+  questions: Array<{
+    question: string;
+    options: [string, string, string, string];
+    correctAnswer: string;
+  }>;
 };
 
 type Props = {
   open: boolean;
   initialSubject?: string;
+  initialGradeLevels?: GradeLevel[];
   subjectSuggestions: string[];
   onClose: () => void;
   onComplete: (draft: ManualAiInterviewDraft) => void;
@@ -77,16 +87,10 @@ function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function normalizeAudience(value: unknown): (typeof AUDIENCE_OPTIONS)[number]["value"] {
-  return AUDIENCE_OPTIONS.some((option) => option.value === value)
-    ? (value as (typeof AUDIENCE_OPTIONS)[number]["value"])
-    : "Mellemtrin";
-}
-
 function normalizeTone(value: unknown): (typeof TONE_OPTIONS)[number]["value"] {
   return TONE_OPTIONS.some((option) => option.value === value)
     ? (value as (typeof TONE_OPTIONS)[number]["value"])
-    : "sjov";
+    : DEFAULT_TONE;
 }
 
 function normalizeQuestionCount(value: unknown): (typeof QUESTION_COUNT_OPTIONS)[number] {
@@ -96,7 +100,7 @@ function normalizeQuestionCount(value: unknown): (typeof QUESTION_COUNT_OPTIONS)
 }
 
 function normalizeStep(value: unknown): RestorableStep {
-  return value === 2 || value === 3 || value === 4 ? value : 1;
+  return value === 2 || value === 3 ? value : 1;
 }
 
 function toOptionsTuple(value: unknown): [string, string, string, string] | null {
@@ -108,10 +112,13 @@ function toOptionsTuple(value: unknown): [string, string, string, string] | null
   return [options[0]!, options[1]!, options[2]!, options[3]!];
 }
 
-function isInterviewDraftResponse(value: unknown): value is ManualAiInterviewDraft {
+function isInterviewDraftResponse(value: unknown): value is ApiSuccessResponse {
   if (!value || typeof value !== "object") return false;
 
-  const candidate = value as ApiSuccessResponse;
+  const candidate = value as {
+    title?: unknown;
+    questions?: unknown;
+  };
   if (!asTrimmedString(candidate.title)) {
     return false;
   }
@@ -141,13 +148,16 @@ function isInterviewDraftResponse(value: unknown): value is ManualAiInterviewDra
 export default function ManualAiInterviewModal({
   open,
   initialSubject = "",
+  initialGradeLevels = DEFAULT_SELECTED_GRADE_LEVELS,
+  subjectSuggestions,
   onClose,
   onComplete,
 }: Props) {
   const [step, setStep] = useState<Step>(1);
+  const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>(DEFAULT_SELECTED_GRADE_LEVELS);
+  const [subject, setSubject] = useState("");
   const [topic, setTopic] = useState("");
-  const [audience, setAudience] = useState<(typeof AUDIENCE_OPTIONS)[number]["value"]>("Mellemtrin");
-  const [tone, setTone] = useState<(typeof TONE_OPTIONS)[number]["value"]>("sjov");
+  const [tone, setTone] = useState<(typeof TONE_OPTIONS)[number]["value"]>(DEFAULT_TONE);
   const [questionCount, setQuestionCount] =
     useState<(typeof QUESTION_COUNT_OPTIONS)[number]>(DEFAULT_QUESTION_COUNT);
   const [error, setError] = useState<string | null>(null);
@@ -159,30 +169,40 @@ export default function ManualAiInterviewModal({
     if (!open) return;
 
     const restoredDraft = readSessionDraft<SessionDraftState>(MANUAL_AI_INTERVIEW_SESSION_KEY);
+    const restoredGradeLevels = normalizeGradeLevels(restoredDraft?.gradeLevels);
+    const normalizedInitialGradeLevels = normalizeGradeLevels(initialGradeLevels);
 
     setStep(normalizeStep(restoredDraft?.step));
+    setGradeLevels(
+      restoredGradeLevels.length > 0
+        ? restoredGradeLevels
+        : normalizedInitialGradeLevels.length > 0
+          ? normalizedInitialGradeLevels
+          : DEFAULT_SELECTED_GRADE_LEVELS
+    );
+    setSubject(asTrimmedString(restoredDraft?.subject) || initialSubject.trim());
     setTopic(asTrimmedString(restoredDraft?.topic));
-    setAudience(normalizeAudience(restoredDraft?.audience));
     setTone(normalizeTone(restoredDraft?.tone));
     setQuestionCount(normalizeQuestionCount(restoredDraft?.questionCount));
     setError(null);
     setIsGenerating(false);
-  }, [open]);
+  }, [initialGradeLevels, initialSubject, open]);
 
   useEffect(() => {
     if (!open) return;
 
     writeSessionDraft(MANUAL_AI_INTERVIEW_SESSION_KEY, {
-      step: step === 5 ? 4 : step,
+      step: step === 4 ? 3 : step,
+      gradeLevels,
+      subject,
       topic,
-      audience,
       tone,
       questionCount,
     } satisfies SessionDraftState);
-  }, [audience, open, questionCount, step, tone, topic]);
+  }, [gradeLevels, open, questionCount, step, subject, tone, topic]);
 
   useEffect(() => {
-    if (!open || step !== 1) return;
+    if (!open || step !== 2) return;
 
     const timeoutId = window.setTimeout(() => {
       topicInputRef.current?.focus();
@@ -201,9 +221,11 @@ export default function ManualAiInterviewModal({
   if (!open) return null;
 
   const trimmedTopic = topic.trim();
-  const trimmedSubject = initialSubject.trim();
-  const canContinue = trimmedTopic.length > 0;
-  const progress = (step / 5) * 100;
+  const trimmedSubject = subject.trim();
+  const selectedGradeLevelLabel = formatGradeLevelsForPrompt(gradeLevels);
+  const canContinueGradeLevels = gradeLevels.length > 0;
+  const canContinueTopic = trimmedTopic.length > 0;
+  const progress = (step / 4) * 100;
 
   const handleClose = () => {
     if (isGenerating) return;
@@ -218,9 +240,9 @@ export default function ManualAiInterviewModal({
     setStep((current) => (current > 1 ? ((current - 1) as Step) : current));
   };
 
-  const goNext = () => {
-    if (!canContinue) {
-      setError("Skriv først, hvad løbet skal handle om.");
+  const goToTopicStep = () => {
+    if (!canContinueGradeLevels) {
+      setError("Vælg mindst ét klassetrin, før du går videre.");
       return;
     }
 
@@ -228,28 +250,22 @@ export default function ManualAiInterviewModal({
     setStep(2);
   };
 
-  const handleAudienceSelect = (selectedAudience: (typeof AUDIENCE_OPTIONS)[number]["value"]) => {
-    if (isGenerating) return;
+  const goToCountStep = () => {
+    if (!canContinueTopic) {
+      setError("Skriv først hvilket emne quizløbet skal fokusere på.");
+      return;
+    }
 
-    setAudience(selectedAudience);
     setError(null);
     setStep(3);
   };
 
-  const handleToneSelect = (selectedTone: (typeof TONE_OPTIONS)[number]["value"]) => {
-    if (isGenerating) return;
-
-    setTone(selectedTone);
-    setError(null);
-    setStep(4);
-  };
-
   const handleGenerate = async (selectedCount: (typeof QUESTION_COUNT_OPTIONS)[number]) => {
-    if (!trimmedTopic || isGenerating) return;
+    if (!trimmedTopic || !canContinueGradeLevels || isGenerating) return;
 
     setQuestionCount(selectedCount);
     setError(null);
-    setStep(5);
+    setStep(4);
     setIsGenerating(true);
 
     const controller = new AbortController();
@@ -263,9 +279,10 @@ export default function ManualAiInterviewModal({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          topic: trimmedTopic,
+          builderType: "manual",
           subject: trimmedSubject || undefined,
-          audience,
+          gradeLevels,
+          manualTopic: trimmedTopic,
           tone,
           count: selectedCount,
         }),
@@ -277,7 +294,7 @@ export default function ManualAiInterviewModal({
         const message =
           payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
             ? payload.error
-            : "AI'en kunne ikke bygge løbet lige nu.";
+            : "AI'en kunne ikke bygge quizløbet lige nu.";
         throw new Error(message);
       }
 
@@ -301,17 +318,19 @@ export default function ManualAiInterviewModal({
             correctAnswer: asTrimmedString(candidateQuestion.correctAnswer),
           };
         }),
+        gradeLevels,
+        topic: trimmedTopic,
+        tone,
       };
 
       clearSessionDraft(MANUAL_AI_INTERVIEW_SESSION_KEY);
-      console.log("MANUAL MODAL SENDING DRAFT:", draft);
       onComplete(draft);
     } catch (requestError) {
       if (requestError instanceof DOMException && requestError.name === "AbortError") {
         return;
       }
 
-      setStep(4);
+      setStep(3);
       setError(requestError instanceof Error ? requestError.message : "Noget gik galt. Prøv igen.");
     } finally {
       abortRef.current = null;
@@ -326,10 +345,10 @@ export default function ManualAiInterviewModal({
       aria-modal="true"
       aria-labelledby="manual-ai-interview-title"
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.14),transparent_30%),radial-gradient(circle_at_bottom,rgba(16,185,129,0.08),transparent_32%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_30%),radial-gradient(circle_at_bottom,rgba(6,95,70,0.12),transparent_34%)]" />
 
-      <div className="relative flex min-h-screen items-center justify-center px-6 py-10">
-        <div className="mx-auto w-full max-w-2xl text-center">
+      <div className="relative flex min-h-screen items-start justify-center px-6 py-10 sm:items-center">
+        <div className="mx-auto w-full max-w-5xl text-center">
           <div className="flex items-center justify-between gap-4 text-xs font-semibold tracking-[0.24em] text-slate-400 uppercase">
             <button
               type="button"
@@ -339,13 +358,24 @@ export default function ManualAiInterviewModal({
             >
               Luk
             </button>
-            <span>Interview-AI</span>
-            <span>Trin {step}/5</span>
+            <span className="inline-flex items-center gap-2 text-emerald-200">
+              <span className="relative inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-[1.05rem] border border-white/85 bg-white p-1 text-emerald-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.94),inset_0_-6px_12px_rgba(6,95,70,0.08),0_16px_34px_rgba(255,255,255,0.12),0_14px_28px_rgba(16,185,129,0.28)] ring-1 ring-emerald-200/45">
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-1.5 top-1 h-px rounded-full bg-white/95"
+                />
+                <span className="relative flex h-full w-full items-center justify-center rounded-[0.8rem] bg-linear-to-br from-emerald-100 via-white to-emerald-200">
+                  <Sparkles className="h-4.5 w-4.5" />
+                </span>
+              </span>
+              Quiz-assistent
+            </span>
+            <span>Trin {step}/4</span>
           </div>
 
           <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-white/8">
             <div
-              className="h-full rounded-full bg-emerald-400 transition-all duration-500"
+              className="h-full rounded-full bg-emerald-500 transition-all duration-500"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -356,29 +386,43 @@ export default function ManualAiInterviewModal({
                 <p className="text-sm font-semibold tracking-[0.28em] text-emerald-300 uppercase">Trin 1</p>
                 <h2
                   id="manual-ai-interview-title"
-                  className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
+                  className={`mt-5 flex items-center justify-center gap-3 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                 >
-                  Hvad skal løbet handle om?
+                  <span className="relative inline-flex h-[4.8rem] w-[4.8rem] items-center justify-center overflow-hidden rounded-[1.8rem] border border-white/90 bg-white p-2.5 text-emerald-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),inset_0_-8px_16px_rgba(6,95,70,0.08),0_24px_52px_rgba(255,255,255,0.14),0_18px_42px_rgba(16,185,129,0.3)] ring-1 ring-emerald-200/55 sm:h-[5.3rem] sm:w-[5.3rem]">
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-3 top-1.5 h-px rounded-full bg-white/95"
+                    />
+                    <span className="relative flex h-full w-full items-center justify-center rounded-[1.15rem] bg-linear-to-br from-emerald-100 via-white to-emerald-200 text-emerald-900 shadow-[inset_0_-10px_18px_rgba(16,185,129,0.12)]">
+                      <GraduationCap className="h-7 w-7 sm:h-8 sm:w-8" />
+                    </span>
+                    <span className="absolute bottom-2 right-2 flex h-6 w-6 items-center justify-center rounded-full border border-emerald-900/10 bg-emerald-500 text-white shadow-[0_8px_18px_rgba(16,185,129,0.35)]">
+                      <BookOpenText className="h-3.5 w-3.5" />
+                    </span>
+                  </span>
+                  Hvilket klassetrin er quizløbet til?
                 </h2>
-                <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
-                  Beskriv kort temaet eller ideen, så bygger AI&apos;en resten.
+                <p className="mx-auto mt-5 w-full text-base leading-8 text-slate-300 sm:text-lg">
+                  Vælg et eller flere klassetrin, så assistenten tilpasser niveau, sprog og sværhedsgrad til den rigtige elevgruppe.
                 </p>
 
-                <textarea
-                  ref={topicInputRef}
-                  value={topic}
-                  onChange={(event) => setTopic(event.target.value)}
-                  rows={5}
-                  placeholder="F.eks. en sjov quiz om nordisk mytologi eller et fagligt løb om brøker."
-                  className="mt-10 w-full rounded-[1.8rem] border border-white/10 bg-slate-950/90 px-6 py-5 text-left text-lg text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/50"
-                />
-
                 <div className="mt-10">
+                  <GradeLevelMultiSelect
+                    selectedGradeLevels={gradeLevels}
+                    onChange={setGradeLevels}
+                    tone="emerald"
+                    disabled={isGenerating}
+                  />
+                </div>
+
+                <p className="mt-5 text-sm text-emerald-100/70">Valgt: {selectedGradeLevelLabel}</p>
+
+                <div className="mt-10 flex items-center justify-center gap-6">
                   <button
                     type="button"
-                    onClick={goNext}
-                    disabled={!canContinue}
-                    className="inline-flex min-w-55 items-center justify-center rounded-[1.4rem] border border-emerald-300/30 bg-emerald-400 px-8 py-4 text-lg font-bold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
+                    onClick={goToTopicStep}
+                    disabled={!canContinueGradeLevels}
+                    className="inline-flex min-w-55 items-center justify-center rounded-[1.4rem] border border-emerald-300/30 bg-emerald-500 px-8 py-4 text-lg font-bold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Næste
                   </button>
@@ -393,32 +437,102 @@ export default function ManualAiInterviewModal({
                   id="manual-ai-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                 >
-                  Hvem er målgruppen?
+                  Hvilket emne skal quizløbet fokusere på?
                 </h2>
-                <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
-                  Vælg den gruppe, som spørgsmålene skal passe til. Klik på en mulighed for at fortsætte.
+                <p className="mx-auto mt-5 w-full text-base leading-8 text-slate-300 sm:text-lg">
+                  Vælg gerne en kategori som hurtig start, og beskriv derefter temaet mere konkret, så udkastet bliver skarpt og brugbart.
                 </p>
 
-                <div className="mx-auto mt-10 flex max-w-xl flex-col gap-4">
-                  {AUDIENCE_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => handleAudienceSelect(option.value)}
-                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/4 px-6 py-5 text-lg font-semibold text-white transition hover:border-emerald-300/40 hover:bg-emerald-400/10"
+                <div className="mt-8 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+                  <div className="rounded-[1.9rem] border border-white/10 bg-slate-950/65 p-5 text-left shadow-[0_22px_52px_rgba(0,0,0,0.24)]">
+                    <div className="flex items-start gap-3">
+                      <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
+                        <BookOpenText className="h-4.5 w-4.5" />
+                      </span>
+                      <div>
+                        <p className="text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">Fag / kategori</p>
+                        <p className="mt-1 text-sm leading-6 text-slate-300">
+                          Klik på en kategori for at bruge den som udgangspunkt for emnet og arkivtitlen.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      {subjectSuggestions.map((suggestion) => {
+                        const isSelected = suggestion === trimmedSubject;
+
+                        return (
+                          <button
+                            key={suggestion}
+                            type="button"
+                            onClick={() => setSubject(suggestion)}
+                            className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                              isSelected
+                                ? "border-emerald-200/65 bg-emerald-400/18 text-emerald-50 shadow-[0_16px_34px_rgba(16,185,129,0.18)]"
+                                : "border-white/10 bg-white/4 text-slate-200 hover:border-emerald-300/40 hover:bg-emerald-400/10"
+                            }`}
+                          >
+                            {suggestion}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <p className="mt-4 text-sm text-emerald-100/72">
+                      {trimmedSubject ? `Valgt kategori: ${trimmedSubject}` : "Ingen kategori valgt endnu. Du kan stadig beskrive emnet frit."}
+                    </p>
+                  </div>
+
+                  <div className="rounded-[1.9rem] border border-white/10 bg-slate-950/65 p-5 text-left shadow-[0_22px_52px_rgba(0,0,0,0.24)]">
+                    <label className="block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                      Stil
+                    </label>
+                    <p className="mt-1 text-sm leading-6 text-slate-300">
+                      Vælg en let retning for sproget. Niveauet styres stadig primært af klassetrinnet.
+                    </p>
+                    <select
+                      value={tone}
+                      onChange={(event) => setTone(normalizeTone(event.target.value))}
+                      disabled={isGenerating}
+                      className="mt-4 w-full rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {option.label}
-                    </button>
-                  ))}
+                      {TONE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value} className="bg-slate-900 text-white">
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+
+                    <p className="mt-4 text-sm text-emerald-100/72">
+                      Klassetrin: {selectedGradeLevelLabel}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="mt-10">
+                <textarea
+                  ref={topicInputRef}
+                  value={topic}
+                  onChange={(event) => setTopic(event.target.value)}
+                  rows={5}
+                  placeholder="F.eks. nordisk mytologi, klima og bæredygtighed, vikingetiden eller en tværfaglig quiz om kroppen."
+                  className="mt-8 w-full rounded-[1.8rem] border border-white/10 bg-slate-950/90 px-6 py-5 text-left text-lg text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/50"
+                />
+
+                <div className="mt-10 flex items-center justify-center gap-6">
                   <button
                     type="button"
                     onClick={goBack}
                     className="text-sm font-semibold text-slate-300 transition hover:text-white"
                   >
                     Tilbage
+                  </button>
+                  <button
+                    type="button"
+                    onClick={goToCountStep}
+                    disabled={!canContinueTopic}
+                    className="inline-flex min-w-55 items-center justify-center rounded-[1.4rem] border border-emerald-300/30 bg-emerald-500 px-8 py-4 text-lg font-bold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Næste
                   </button>
                 </div>
               </>
@@ -431,52 +545,30 @@ export default function ManualAiInterviewModal({
                   id="manual-ai-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                 >
-                  Hvilken stemning skal løbet have?
+                  Hvor mange poster skal quizløbet have?
                 </h2>
-                <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
-                  Vælg en retning, så genererer vi dit løb med det samme.
+                <p className="mx-auto mt-5 w-full text-base leading-8 text-slate-300 sm:text-lg">
+                  Vælg længden på løbet. Assistensen bygger derefter et komplet sæt multiple-choice poster med ét tydeligt korrekt svar pr. post.
                 </p>
 
-                <div className="mx-auto mt-10 flex max-w-xl flex-col gap-4">
-                  {TONE_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => handleToneSelect(option.value)}
-                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/4 px-6 py-5 text-lg font-semibold text-white transition hover:border-emerald-300/40 hover:bg-emerald-400/10"
-                    >
-                      {option.label}
-                    </button>
-                  ))}
+                <div className="mx-auto mt-8 grid w-full gap-4 rounded-[1.9rem] border border-white/10 bg-slate-950/55 p-5 text-left shadow-[0_22px_52px_rgba(0,0,0,0.24)] sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">Klassetrin</p>
+                    <p className="mt-2 text-sm font-semibold text-white">{selectedGradeLevelLabel}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">Kategori</p>
+                    <p className="mt-2 text-sm font-semibold text-white">{trimmedSubject || "Generel quiz"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">Stil</p>
+                    <p className="mt-2 text-sm font-semibold text-white">
+                      {TONE_OPTIONS.find((option) => option.value === tone)?.label ?? "Balanceret"}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="mt-10">
-                  <button
-                    type="button"
-                    onClick={goBack}
-                    disabled={isGenerating}
-                    className="text-sm font-semibold text-slate-300 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Tilbage
-                  </button>
-                </div>
-              </>
-            ) : null}
-
-            {step === 4 ? (
-              <>
-                <p className="text-sm font-semibold tracking-[0.28em] text-emerald-300 uppercase">Trin 4</p>
-                <h2
-                  id="manual-ai-interview-title"
-                  className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
-                >
-                  Hvor mange poster skal løbet have?
-                </h2>
-                <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
-                  Vælg længden på løbet. Klik på en mulighed for at starte genereringen.
-                </p>
-
-                <div className="mx-auto mt-10 flex max-w-xl flex-col gap-4">
+                <div className="mx-auto mt-10 grid w-full gap-4 md:grid-cols-3">
                   {QUESTION_COUNT_OPTIONS.map((countOption) => (
                     <button
                       key={countOption}
@@ -504,26 +596,27 @@ export default function ManualAiInterviewModal({
               </>
             ) : null}
 
-            {step === 5 ? (
+            {step === 4 ? (
               <div className="flex min-h-96 flex-col items-center justify-center">
                 <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 p-6 text-emerald-300">
                   <Loader2 className="h-10 w-10 animate-spin" />
                 </div>
-                <p className="mt-8 text-sm font-semibold tracking-[0.28em] text-emerald-300 uppercase">Trin 5</p>
+                <p className="mt-8 text-sm font-semibold tracking-[0.28em] text-emerald-300 uppercase">Trin 4</p>
                 <h2
                   id="manual-ai-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                 >
-                  Genererer dit løb...
+                  Genererer dit quizløb...
                 </h2>
-                <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
-                  Vi samler nu titel, beskrivelse og {questionCount} multiple-choice spørgsmål.
+                <p className="mx-auto mt-5 w-full text-base leading-8 text-slate-300 sm:text-lg">
+                  Vi bygger nu {questionCount} quizposter til {selectedGradeLevelLabel}
+                  {trimmedSubject ? ` i kategorien ${trimmedSubject}` : ""} om {trimmedTopic}.
                 </p>
               </div>
             ) : null}
 
             {error ? (
-              <div className="mx-auto mt-8 max-w-xl rounded-[1.4rem] border border-red-400/20 bg-red-500/10 px-5 py-4 text-sm font-semibold text-red-100">
+              <div className="mx-auto mt-8 w-full rounded-[1.4rem] border border-red-400/20 bg-red-500/10 px-5 py-4 text-sm font-semibold text-red-100">
                 {error}
               </div>
             ) : null}

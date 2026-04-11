@@ -11,7 +11,7 @@ import {
   type GradeLevel,
 } from "@/utils/gradeLevels";
 
-type Tone = "rose" | "amber" | "indigo";
+type Tone = "rose" | "amber" | "indigo" | "emerald";
 
 type Props = {
   selectedGradeLevels: GradeLevel[];
@@ -48,6 +48,13 @@ const toneClassMap: Record<
       "border-white/10 bg-white/[0.05] text-white/92 hover:border-amber-300/40 hover:bg-amber-400/10 hover:text-white",
     selected:
       "border-amber-200/65 bg-amber-400/18 text-amber-50 shadow-[0_16px_34px_rgba(251,191,36,0.18)]",
+  },
+  emerald: {
+    shell: "border-emerald-200/10 bg-white/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+    idle:
+      "border-white/10 bg-white/[0.05] text-white/92 hover:border-emerald-300/40 hover:bg-emerald-400/10 hover:text-white",
+    selected:
+      "border-emerald-200/65 bg-emerald-400/18 text-emerald-50 shadow-[0_16px_34px_rgba(16,185,129,0.18)]",
   },
   indigo: {
     shell: "border-indigo-200/10 bg-white/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",

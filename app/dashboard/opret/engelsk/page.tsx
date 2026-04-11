@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import EnglishAiInterviewModal, {
   type EnglishAiInterviewDraft,
 } from "@/components/builders/engelsk/EnglishAiInterviewModal";
+import AiReviewDraftModal from "@/components/builders/AiReviewDraftModal";
 import ManualReuseModal, {
   type ManualReuseQuestion,
 } from "@/components/builders/manual/ManualReuseModal";
@@ -127,6 +128,10 @@ type BuilderNotice = {
   message: string;
 };
 
+type PendingEnglishAiReviewDraft = EnglishAiInterviewDraft & {
+  replacesExistingContent: boolean;
+};
+
 const MAGIC_DRAFT_STORAGE_KEY = "magicRunDraft";
 const ENGELSK_DRAFT_STORAGE_KEY = "draft_run_engelsk";
 const ENGLISH_SUBJECT = "Engelsk";
@@ -143,6 +148,7 @@ type BuilderDraftState = {
   radius?: unknown;
   showTeacherField?: unknown;
   showAiInterviewModal?: unknown;
+  pendingAiReviewDraft?: unknown;
   questions?: unknown;
   mapCenter?: unknown;
 };
@@ -232,6 +238,47 @@ function toAnswersTuple(value: unknown): [string, string, string, string] {
   }
 
   return [padded[0] ?? "", padded[1] ?? "", padded[2] ?? "", padded[3] ?? ""];
+}
+
+function normalizePendingEnglishAiReviewDraft(value: unknown): PendingEnglishAiReviewDraft | null {
+  if (!isRecord(value)) return null;
+
+  const title = asTrimmedString(value.title);
+  const gradeLevels = normalizeGradeLevels(value.gradeLevels);
+  const englishTopic = asTrimmedString(value.englishTopic);
+  const questionCandidates = Array.isArray(value.questions) ? value.questions : [];
+  const questions = questionCandidates
+    .map((candidate) => {
+      if (!isRecord(candidate)) return null;
+
+      const question = asTrimmedString(candidate.question);
+      const options = toAnswersTuple(candidate.options);
+      const correctAnswer = asTrimmedString(candidate.correctAnswer);
+
+      if (!question || !correctAnswer || options.some((option) => !option)) {
+        return null;
+      }
+
+      return {
+        question,
+        options,
+        correctAnswer,
+      };
+    })
+    .filter((candidate): candidate is PendingEnglishAiReviewDraft["questions"][number] => candidate !== null);
+
+  if (!title || questions.length === 0) {
+    return null;
+  }
+
+  return {
+    subject: asTrimmedString(value.subject) || ENGLISH_SUBJECT,
+    title,
+    questions,
+    gradeLevels,
+    englishTopic,
+    replacesExistingContent: Boolean(value.replacesExistingContent),
+  };
 }
 
 function toQuestionId(value: unknown, fallback: number) {
@@ -472,6 +519,7 @@ function OpretEngelskLoebPageContent() {
   const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>(DEFAULT_MAP_CENTER);
   const [showDraftRecoveryPrompt, setShowDraftRecoveryPrompt] = useState(false);
+  const [pendingAiReviewDraft, setPendingAiReviewDraft] = useState<PendingEnglishAiReviewDraft | null>(null);
   const isEditorBusy = isSaving || showDraftRecoveryPrompt;
   const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
   const printTitle = title.trim() || "Udkast uden titel";
@@ -482,6 +530,11 @@ function OpretEngelskLoebPageContent() {
   const builderStatusDescription = isSaving
     ? "We are saving your latest changes to the archive now."
     : "Title and questions are stored locally while you work, until you press Save.";
+  const pendingAiReviewGradeLabel = pendingAiReviewDraft
+    ? pendingAiReviewDraft.gradeLevels.length > 0
+      ? formatGradeLevelsForPrompt(pendingAiReviewDraft.gradeLevels)
+      : "Ikke angivet"
+    : "";
 
   const renderNotice = (className = "") =>
     notice ? (
@@ -547,6 +600,7 @@ function OpretEngelskLoebPageContent() {
   const applyDraftState = (draft: BuilderDraftState) => {
     const restoredQuestions = toQuestionList(draft.questions);
     const restoredGradeLevels = normalizeGradeLevels(draft.gradeLevels);
+    const restoredPendingAiReviewDraft = normalizePendingEnglishAiReviewDraft(draft.pendingAiReviewDraft);
 
     setTitle(restoreDraftString(draft.title));
     setDescription(restoreDraftString(draft.description));
@@ -555,7 +609,10 @@ function OpretEngelskLoebPageContent() {
     );
     setRadius(normalizeRunRadius(draft.radius));
     setShowTeacherField(restoreDraftBoolean(draft.showTeacherField, true));
-    setShowAiInterviewModal(restoreDraftBoolean(draft.showAiInterviewModal));
+    setShowAiInterviewModal(
+      restoredPendingAiReviewDraft ? false : restoreDraftBoolean(draft.showAiInterviewModal)
+    );
+    setPendingAiReviewDraft(restoredPendingAiReviewDraft);
     setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion(defaultQuestionType)]);
     setMapCenter(restoreDraftMapCenter(draft.mapCenter, DEFAULT_MAP_CENTER));
   };
@@ -695,6 +752,7 @@ function OpretEngelskLoebPageContent() {
     if (!isEditMode) {
       setIsLoadingExistingRun(false);
       setLoadedRunId(null);
+      setPendingAiReviewDraft(null);
       return;
     }
 
@@ -768,6 +826,7 @@ function OpretEngelskLoebPageContent() {
         setShowTeacherField(true);
         setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion(defaultQuestionType)]);
         setShowAiInterviewModal(false);
+        setPendingAiReviewDraft(null);
         setMapCenter(
           firstPinnedQuestion
             ? {
@@ -847,6 +906,7 @@ function OpretEngelskLoebPageContent() {
       radius,
       showTeacherField,
       showAiInterviewModal,
+      pendingAiReviewDraft,
       questions,
       mapCenter,
     } satisfies BuilderDraftState);
@@ -855,6 +915,7 @@ function OpretEngelskLoebPageContent() {
     editRunId,
     gradeLevels,
     mapCenter,
+    pendingAiReviewDraft,
     questions,
     radius,
     showAiInterviewModal,
@@ -1052,21 +1113,46 @@ function OpretEngelskLoebPageContent() {
       description.trim().length > 0 ||
       questions.some((question) => !isQuestionEmpty(question));
 
-    if (hasExistingContent) {
-      const shouldReplace = window.confirm(
-        "Det auto-genererede udkast erstatter de nuværende felter i builderen. Vil du fortsætte?"
-      );
-
-      if (!shouldReplace) {
-        setNotice({
-          tone: "success",
-          message: "Dit nuværende arbejde blev beholdt uændret.",
-        });
-        return;
-      }
-    }
-
     const nextGradeLevels = normalizeGradeLevels(draft.gradeLevels);
+    setShowAiInterviewModal(false);
+    setNotice(null);
+    setPendingAiReviewDraft({
+      ...draft,
+      title: nextTitle,
+      questions: draft.questions,
+      gradeLevels: nextGradeLevels,
+      englishTopic: draft.englishTopic.trim(),
+      replacesExistingContent: hasExistingContent,
+    });
+  };
+
+  const closeAiReviewDraft = () => {
+    if (!pendingAiReviewDraft) return;
+
+    setPendingAiReviewDraft(null);
+    setNotice({
+      tone: "success",
+      message: pendingAiReviewDraft.replacesExistingContent
+        ? "Dit nuværende arbejde blev beholdt uændret."
+        : "AI draft closed without applying changes.",
+    });
+  };
+
+  const applyAiReviewDraft = () => {
+    if (!pendingAiReviewDraft) return;
+
+    const nextTitle = pendingAiReviewDraft.title.trim();
+    const nextQuestions = toInterviewQuestionList(pendingAiReviewDraft.questions);
+    const nextGradeLevels = normalizeGradeLevels(pendingAiReviewDraft.gradeLevels);
+
+    if (!nextTitle || nextQuestions.length === 0) {
+      setPendingAiReviewDraft(null);
+      setNotice({
+        tone: "error",
+        message: "Det auto-genererede udkast kunne ikke bruges. Prøv igen.",
+      });
+      return;
+    }
 
     setTitle(nextTitle);
     setDescription("");
@@ -1075,7 +1161,11 @@ function OpretEngelskLoebPageContent() {
     );
     setQuestions([...nextQuestions]);
     setShowTeacherField(true);
-    setShowAiInterviewModal(false);
+    setPendingAiReviewDraft(null);
+    setNotice({
+      tone: "success",
+      message: "A complete draft is ready for your English run. Review the fields and place the posts on the map.",
+    });
   };
 
   const handleSaveRun = async () => {
@@ -1195,6 +1285,7 @@ function OpretEngelskLoebPageContent() {
         setGradeLevels(DEFAULT_SELECTED_GRADE_LEVELS);
         setRadius(DEFAULT_RUN_RADIUS);
         setShowTeacherField(true);
+        setPendingAiReviewDraft(null);
         setQuestions([createQuestion(defaultQuestionType)]);
       }
 
@@ -1278,8 +1369,12 @@ function OpretEngelskLoebPageContent() {
 
                   <div className="relative z-40 mb-8 space-y-5">
                     <div className="flex items-center gap-3">
-                      <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-indigo-500/30 bg-slate-900/50 shadow-inner shadow-indigo-500/20">
-                        <img src="/engelskikon1.svg" alt="Engelsk" className="h-10 w-10 object-contain" />
+                      <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-[1.55rem] border border-white/80 bg-white px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),inset_0_-6px_12px_rgba(79,70,229,0.06),0_18px_38px_rgba(255,255,255,0.16),0_14px_28px_rgba(99,102,241,0.18)] ring-1 ring-indigo-200/55">
+                        <span
+                          aria-hidden="true"
+                          className="pointer-events-none absolute inset-x-2 top-1 h-px rounded-full bg-white/95"
+                        />
+                        <img src="/engelskikon1.svg" alt="Engelsk" className="h-full w-full object-contain drop-shadow-[0_10px_18px_rgba(30,64,175,0.18)]" />
                       </div>
                       <div>
                         <h3 className="text-xl font-semibold text-white">Velkommen til Engelsk-løbet</h3>
@@ -1876,6 +1971,34 @@ function OpretEngelskLoebPageContent() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {pendingAiReviewDraft ? (
+        <AiReviewDraftModal
+          tone="indigo"
+          eyebrow="AI Draft"
+          title="Review before applying"
+          description="The assistant has prepared a complete English draft. Check the summary below before applying it to the builder."
+          warning={
+            pendingAiReviewDraft.replacesExistingContent
+              ? "Your current content will be replaced if you choose to apply this draft."
+              : null
+          }
+          summaryItems={[
+            { label: "Title", value: pendingAiReviewDraft.title },
+            { label: "Subject", value: pendingAiReviewDraft.subject || ENGLISH_SUBJECT },
+            { label: "Grade level", value: pendingAiReviewGradeLabel },
+            { label: "Question count", value: pendingAiReviewDraft.questions.length },
+          ]}
+          detailItems={[
+            { label: "English topic", value: pendingAiReviewDraft.englishTopic || "Not specified" },
+          ]}
+          cancelLabel="Cancel"
+          applyLabel="Apply draft"
+          headingClassName={rubik.className}
+          onCancel={closeAiReviewDraft}
+          onApply={applyAiReviewDraft}
+        />
       ) : null}
 
       <ManualReuseModal

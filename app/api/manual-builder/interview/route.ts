@@ -22,10 +22,10 @@ const OPENAI_TIMEOUT_MS = 45_000;
 const manualInterviewPayloadSchema = z
   .object({
     builderType: z.literal("manual").optional().default("manual"),
-    topic: z.string().trim().min(1).max(180),
     subject: z.string().trim().max(80).optional().default(""),
-    audience: z.string().trim().min(1).max(80),
-    tone: z.string().trim().min(1).max(80),
+    gradeLevels: z.array(z.enum(GRADE_LEVEL_OPTIONS)).min(1).max(GRADE_LEVEL_OPTIONS.length),
+    manualTopic: z.string().trim().min(1).max(180),
+    tone: z.string().trim().min(1).max(80).optional().default("balanceret"),
     count: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(20)]).optional().default(DEFAULT_COUNT),
   })
   .strict();
@@ -85,7 +85,9 @@ function createGeneratedRunSchema(desiredCount: number) {
 }
 
 function createManualPrompt(input: z.infer<typeof manualInterviewPayloadSchema>) {
-  const { topic, subject, audience, tone, count } = input;
+  const { manualTopic, subject, gradeLevels, tone, count } = input;
+  const gradeLevelLabel = formatGradeLevelsForPrompt(gradeLevels);
+  const gradeLevelGuidance = createManualGradeLevelGuidance(gradeLevels);
   const subjectLine = subject ? `Fag eller kategori: ${subject}.` : "Fag eller kategori: Ikke angivet.";
 
   return {
@@ -104,29 +106,77 @@ Du SKAL altid følge disse regler:
 - Generér kun klassiske quiz-poster. Ingen foto-opgaver, ingen rollespil, ingen gåder, ingen medieelementer.
 - Spørgsmålene skal have høj faglig kvalitet: de skal være lærerige, indholdsrige og faktuelt korrekte.
 - Undgå overfladiske banaliteter, trivielle standardspørgsmål og tom fyldtekst.
-- Tag målgruppen seriøst: tilpas sproget til alderen, men bevar et meningsfuldt fagligt niveau.
-- Hvis målgruppen er yngre børn, skal sproget være simpelt uden at gøre spørgsmålene fordummende lette.
-- Hvis målgruppen er ældre elever eller voksne, skal spørgsmålene være markant mere udfordrende og gerne kræve refleksion, præcis viden eller faglig forståelse.
+- Tag klassetrinnet seriøst: tilpas sproget til alderen, men bevar et meningsfuldt fagligt niveau.
+- Hvis klassetrinnet er lavt, skal sproget være simpelt uden at gøre spørgsmålene fordummende lette.
+- Hvis klassetrinnet er højt, skal spørgsmålene være markant mere udfordrende og gerne kræve refleksion, præcis viden eller faglig forståelse.
 - De forkerte svarmuligheder skal være intelligente og plausible distractors, så de virker realistiske i konteksten.
 - Undgå joke-svar, fjollede svar og åbenlyst forkerte svarmuligheder, medmindre tonen tydeligt kræver noget mere legende. Selv ved en sjov tone skal svarene stadig være brugbare som reel quiz.
 - Titel skal være fængende, motiverende og brugbar i arkivet.
 - Spørgsmålene skal passe til en udendørs GPS-quiz og være lette at placere på et kort bagefter.
 - Svarmulighederne skal være troværdige, men tydeligt adskilte, så der kun er ét korrekt svar.
-- Tonen skal afspejle brugerens valg uden at gøre spørgsmålene useriøse eller uklare.`,
+- Tonen skal afspejle brugerens valg uden at gøre spørgsmålene useriøse eller uklare.
+- Følg disse klassetrinskrav meget nøje:
+${gradeLevelGuidance.map((line) => `- ${line}`).join("\n")}`,
     prompt: [
-      `Tema: ${topic}.`,
+      `Tema eller emne: ${manualTopic}.`,
       subjectLine,
-      `Målgruppe: ${audience}.`,
+      `Klassetrin: ${gradeLevelLabel}.`,
       `Tone: ${tone}.`,
       `Antal spørgsmål: ${count}.`,
       `KRITISK: Returner præcis ${count} spørgsmål. Ikke 4, ikke 6, ikke 8, ikke flere og ikke færre.`,
       "Faglig kvalitet er afgørende: spørgsmålene skal undervise, udfordre og være faktuelt solide.",
+      "Spørgsmålene skal tydeligt passe til både klassetrin og den valgte kategori, hvis en kategori er angivet.",
       "Svarmulighederne skal være realistiske distractors, så det korrekte svar ikke bliver åbenlyst.",
       "Titel skal gøre løbet indbydende og motivere deltagerne til at komme i gang.",
+      ...gradeLevelGuidance,
       "Byg nu et komplet quiz-løb med titel og spørgsmål.",
       "Spørgsmålene må gerne variere i vinkel, men de skal alle tydeligt høre til samme løb.",
     ].join("\n"),
   };
+}
+
+function createManualGradeLevelGuidance(gradeLevels: string[]) {
+  const { lowestGrade, highestGrade } = getGradeLevelRange(gradeLevels);
+
+  if (lowestGrade !== null && highestGrade !== null && lowestGrade !== highestGrade) {
+    return [
+      `Klassetrinskrav: Løbet skal fungere for flere klassetrin samtidig fra ${lowestGrade}. til ${highestGrade}. klasse.`,
+      "Hold sproget tilgængeligt nok til de yngste, men byg stadig reel variation og faglig progression ind til de ældste.",
+      "Lad sværhedsgraden ligge i en bred midte, så opgaverne kan løses i fællesskab uden at blive barnlige eller unødigt tunge.",
+    ];
+  }
+
+  const gradeNumber = highestGrade;
+
+  if (gradeNumber !== null && gradeNumber <= 2) {
+    return [
+      "Klassetrinskrav: Dette er indskoling. Spørgsmålene skal være meget konkrete, korte og hurtige at forstå.",
+      "Brug tydelige ord, enkle situationer og lav abstraktionsgrad.",
+      "Svarmulighederne skal være korte, realistiske og lette at afkode på mobil.",
+    ];
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 4) {
+    return [
+      "Klassetrinskrav: Dette er begyndende mellemtrin. Spørgsmålene skal stadig være konkrete og elevnære, men må gerne udfordre lidt mere.",
+      "Brug velkendte situationer, korte cases og tydelige svarmuligheder.",
+      "Hold fokus på forståelse, genkendelse og enkel anvendelse af viden.",
+    ];
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 6) {
+    return [
+      "Klassetrinskrav: Dette er mellemtrin. Spørgsmålene må gerne være tydeligt faglige, men de skal stadig være klare, korte og elevvenlige.",
+      "Brug varierede vinkler, så løbet føles gennemarbejdet og undervisningsrelevant.",
+      "Distraktorerne må gerne afspejle typiske elevmisforståelser eller nærliggende svar.",
+    ];
+  }
+
+  return [
+    "Klassetrinskrav: Dette er udskoling eller ældre elever. Spørgsmålene må gerne være klart mere krævende og kræve sikker viden, præcision og refleksion.",
+    "Brug gerne mere udfordrende formuleringer og bedre distraktorer, men hold længden kort nok til mobilformat.",
+    "Undgå overfladisk trivia og sats i stedet på relevante, meningsfulde og fagligt stærke spørgsmål.",
+  ];
 }
 
 function createMathPrompt(input: z.infer<typeof mathInterviewPayloadSchema>) {
