@@ -653,7 +653,7 @@ function SessionSection({
                                   <StoredAnswerImage imageUrl={answer.image_url} />
                                   {answer.analysis_message ? (
                                     <p className="mt-2 break-words text-xs leading-5 text-white/70">
-                                      AI-note: {answer.analysis_message}
+                                      Note: {answer.analysis_message}
                                     </p>
                                   ) : null}
                                 </div>

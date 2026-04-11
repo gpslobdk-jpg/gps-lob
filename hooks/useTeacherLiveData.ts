@@ -82,7 +82,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
           })
         );
 
-        if (parsed.isCorrect !== true) return;
+        if (parsed.isCorrect !== true && !parsed.image_url) return;
 
         setLiveAnswers((previous) => prependAnswer(previous, parsed));
       };
@@ -221,7 +221,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         setSessionAnswers(parsed);
         setLiveAnswers(
           parsed
-            .filter((row) => row.isCorrect === true)
+            .filter((row) => row.isCorrect === true || Boolean(row.image_url))
             .sort((a, b) => {
               const aTs = a.createdAt ? new Date(a.createdAt).getTime() : 0;
               const bTs = b.createdAt ? new Date(b.createdAt).getTime() : 0;

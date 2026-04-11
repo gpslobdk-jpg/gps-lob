@@ -42,7 +42,6 @@ import {
   clearStoredActiveParticipant,
   compressImageForUpload,
   containsBadWord,
-  formatPhotoFailureMessage,
   getDistance,
   getEscapeCodeBrick,
   getEscapeCodeEntriesFromRows,
@@ -2516,9 +2515,9 @@ export function usePlayGameState({
 
     try {
       const image = await compressImageForUpload(file);
+      const answeredAt = new Date().toISOString();
       let payload:
         | {
-            isMatch?: boolean;
             message?: string;
             awardedPoints?: number;
             imageUrl?: string | null;
@@ -2534,14 +2533,14 @@ export function usePlayGameState({
           formData.append("sessionId", sessionId);
           formData.append("participantId", participantId);
           formData.append("postIndex", String(currentPostIndex));
+          formData.append("answeredAt", answeredAt);
 
-          const response = await fetch("/api/analyze-photo", {
+          const response = await fetch("/api/play/submit-photo", {
             method: "POST",
             body: formData,
           });
 
           payload = (await response.json()) as {
-            isMatch?: boolean;
             message?: string;
             awardedPoints?: number;
             imageUrl?: string | null;
@@ -2549,12 +2548,8 @@ export function usePlayGameState({
             error?: string;
           };
 
-          if (
-            !response.ok ||
-            typeof payload.isMatch !== "boolean" ||
-            typeof payload.message !== "string"
-          ) {
-            throw new Error(payload.error || "Ugyldigt svar fra billedanalysen.");
+          if (!response.ok || typeof payload.message !== "string") {
+            throw new Error(payload.error || "Ugyldigt svar fra foto-upload.");
           }
 
           break;
@@ -2570,16 +2565,6 @@ export function usePlayGameState({
       if (!payload || !isMountedRef.current) return;
 
       if (!isMountedRef.current) return;
-
-      if (!payload.isMatch) {
-        setIsAnalyzingPhoto(false);
-        setPhotoFeedback({
-          key: activeTypedAnswerKey,
-          tone: "error",
-          message: formatPhotoFailureMessage(payload.message ?? "", isSelfie),
-        });
-        return;
-      }
 
       const didSaveAnswer = await handleAnswer(0, null, {
         awardedPoints:
@@ -2597,19 +2582,19 @@ export function usePlayGameState({
       setPhotoFeedback({
         key: activeTypedAnswerKey,
         tone: "success",
-        message: isSelfie ? `Selfie godkendt! ${payload.message ?? ""}` : payload.message ?? "",
+        message: isSelfie ? `Selfie sendt! ${payload.message ?? ""}` : payload.message ?? "",
       });
       setIsAnalyzingPhoto(false);
     } catch (error) {
-      console.error("Fotoanalyse fejlede:", error);
+      console.error("Foto-upload fejlede:", error);
       if (!isMountedRef.current) return;
       setIsAnalyzingPhoto(false);
       setPhotoFeedback({
         key: activeTypedAnswerKey,
         tone: "error",
         message: isSelfie
-          ? "Vi kunne ikke læse selfien helt endnu. Prøv igen med bedre lys og få både ansigt og baggrund tydeligt med."
-          : "Ups, AI'en er lidt træt. Prøv at tage billedet igen.",
+          ? "Vi kunne ikke uploade selfien endnu. Prøv igen med en stabil forbindelse."
+          : "Billedet kunne ikke uploades endnu. Prøv igen.",
       });
     } finally {
       setIsAnalyzingPhoto(false);

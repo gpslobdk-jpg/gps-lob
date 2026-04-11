@@ -1231,7 +1231,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                         {isAnalyzingPhoto ? (
                           <>
                             <Loader2 className="h-5 w-5 animate-spin" />
-                            AI analyserer billedet...
+                            Uploader billedet...
                           </>
                         ) : (
                           <>
@@ -1253,7 +1253,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                         <div className="space-y-4">
                           <div className={tacticalSuccessPanelClass}>
                             <p className="font-mono text-xs font-black uppercase tracking-[0.32em] text-slate-950/70">
-                              Mission godkendt
+                              Foto sendt
                             </p>
                             <p className={`mt-3 text-xl font-black text-slate-950 ${wrapTextClass}`}>
                               {activePhotoFeedback.message}

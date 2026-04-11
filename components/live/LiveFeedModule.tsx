@@ -97,7 +97,7 @@ export default function LiveFeedModule({
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200/75">
-                        {item.answer.image_url ? "Foto godkendt" : "Korrekt svar"}
+                        {item.answer.image_url ? "Foto uploadet" : "Korrekt svar"}
                       </p>
                       <p className="mt-2 truncate text-sm font-semibold text-white">
                         {item.answer.studentName}
