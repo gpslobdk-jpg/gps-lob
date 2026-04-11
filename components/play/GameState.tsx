@@ -2573,16 +2573,19 @@ export function usePlayGameState({
     resumeMessage,
   };
 
+  const shouldShowNameGate = !hasConfirmedName || isProvisioningParticipant;
+  const isSessionWaiting = sessionStatus === "waiting" || sessionStatus === "scheduled";
+
   const screenMode: PlayScreenState["mode"] = isLoading || isRestoringParticipant
     ? "loading"
     : loadError
       ? "load_error"
       : isKicked
         ? "kicked"
-        : (sessionStatus === "waiting" || sessionStatus === "scheduled")
-          ? "waiting"
-          : (!hasConfirmedName || isProvisioningParticipant) && !isFinished
+        : shouldShowNameGate
           ? "name_gate"
+          : isSessionWaiting
+            ? "waiting"
           : isFinished && isEscapeRace && correctAnswersCount >= questions.length && !showEscapeResults
               ? "escape_master_lock"
               : isFinished && isEscapeRace && showEscapeResults
