@@ -234,6 +234,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const isQuizSubmissionPending =
     activePostVariant === "quiz" && isAnswerSubmissionPending && !activeQuizAnswerFeedback;
   const avatarPreviewUrl = pendingAvatarUrl ?? avatarUrl;
+  const shouldQueryCameraPermission = screen.mode === "avatar_gate" || activePostVariant === "photo";
 
   const clearPendingPhotoPickerState = useCallback(() => {
     photoPickerPendingRef.current = false;
@@ -289,20 +290,29 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   useEffect(() => {
     if (!hasRoleplayInputErrorTone) return;
 
-    typedAnswerInputRef.current?.animate(
-      [
-        { transform: "translateX(0)" },
-        { transform: "translateX(-8px)" },
-        { transform: "translateX(7px)" },
-        { transform: "translateX(-5px)" },
-        { transform: "translateX(3px)" },
-        { transform: "translateX(0)" },
-      ],
-      {
-        duration: 360,
-        easing: "ease-in-out",
-      }
-    );
+    const inputElement = typedAnswerInputRef.current;
+    if (!inputElement || typeof inputElement.animate !== "function") {
+      return;
+    }
+
+    try {
+      inputElement.animate(
+        [
+          { transform: "translateX(0)" },
+          { transform: "translateX(-8px)" },
+          { transform: "translateX(7px)" },
+          { transform: "translateX(-5px)" },
+          { transform: "translateX(3px)" },
+          { transform: "translateX(0)" },
+        ],
+        {
+          duration: 360,
+          easing: "ease-in-out",
+        }
+      );
+    } catch (error) {
+      console.warn("Tekstfelt-animation understøttes ikke i denne browser:", error);
+    }
   }, [activeTypedAnswerKey, hasRoleplayInputErrorTone]);
 
   useEffect(() => {
@@ -323,27 +333,38 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   useEffect(() => {
     let isActive = true;
 
-    if (!("permissions" in navigator) || typeof navigator.permissions.query !== "function") {
+    if (!shouldQueryCameraPermission || typeof navigator === "undefined") {
       return () => {
         isActive = false;
       };
     }
 
-    navigator.permissions
-      .query({ name: "camera" as PermissionName })
-      .then((status) => {
+    const permissions = navigator.permissions;
+    if (!permissions || typeof permissions.query !== "function") {
+      setCameraPermissionState("unknown");
+      return () => {
+        isActive = false;
+      };
+    }
+
+    const queryCameraPermission = async () => {
+      try {
+        const status = await permissions.query({ name: "camera" as PermissionName });
         if (!isActive) return;
         setCameraPermissionState(status.state);
-      })
-      .catch(() => {
+      } catch (error) {
         if (!isActive) return;
+        console.warn("Kamera-tilladelse kan ikke forespørges i denne browser:", error);
         setCameraPermissionState("unknown");
-      });
+      }
+    };
+
+    void queryCameraPermission();
 
     return () => {
       isActive = false;
     };
-  }, [cameraRetryHelpMessage, setCameraError]);
+  }, [activePostVariant, screen.mode, shouldQueryCameraPermission]);
 
   useEffect(() => {
     const handlePhotoPickerReturn = () => {
