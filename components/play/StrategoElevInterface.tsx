@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import {
   AlertTriangle,
   Crown,
@@ -11,12 +12,13 @@ import {
   Target,
   Users,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 
 import StrategoClashModal from "./StrategoClashModal";
 import StudentRulesSheet from "./StudentRulesSheet";
 import TeacherBroadcastModal from "./TeacherBroadcastModal";
 import type { PlayActions, PlayUiState } from "./types";
+import { readFileAsDataUri } from "./playUtils";
 import { createClient } from "@/utils/supabase/client";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 
@@ -201,6 +203,7 @@ export default function StrategoElevInterface({
   actions,
 }: StrategoElevInterfaceProps) {
   const { player, gps, progress, stratego, flags } = ui;
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [roleNamesByKey, setRoleNamesByKey] = useState<Map<string, string>>(new Map());
   const [allyMetaById, setAllyMetaById] = useState<
     Map<string, { displayName: string; rankKey: string | null }>
@@ -208,6 +211,7 @@ export default function StrategoElevInterface({
   const [strategoGame, setStrategoGame] = useState<StrategoGameRow | null>(null);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const [isManualRespawnLoading, setIsManualRespawnLoading] = useState(false);
+  const avatarPreviewUrl = player.pendingAvatarUrl ?? player.avatarUrl;
 
   const handleManualRespawn = useCallback(async () => {
     if (!sessionId || !player.participantId || isManualRespawnLoading) {
@@ -224,6 +228,25 @@ export default function StrategoElevInterface({
       setIsManualRespawnLoading(false);
     }
   }, [isManualRespawnLoading, player.participantId, sessionId]);
+
+  const handleAvatarCapture = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+
+      if (!file) {
+        return;
+      }
+
+      try {
+        const nextAvatarUrl = await readFileAsDataUri(file);
+        actions.setPendingAvatarUrl(nextAvatarUrl);
+      } catch (error) {
+        console.error("Kunne ikke laese avatar-billedet lokalt:", error);
+      }
+    },
+    [actions]
+  );
 
   const selfTeamCode = stratego.selfPlayer?.teamCode ?? null;
   const teamTheme = getTeamTheme(selfTeamCode);
@@ -486,6 +509,60 @@ export default function StrategoElevInterface({
         <form onSubmit={handleNameSubmit} className="w-full max-w-md rounded-[2rem] border border-cyan-400/20 bg-slate-900/70 p-8 shadow-2xl backdrop-blur-xl">
           <h1 className="text-3xl font-black">Identificér agenten</h1>
           <p className="mt-3 text-sm leading-6 text-white/75">Indtast dit navn for at få adgang til Live Stratego.</p>
+
+          <div className="mt-6 overflow-hidden rounded-[1.8rem] border border-cyan-300/20 bg-cyan-500/10 p-5 shadow-[0_18px_40px_rgba(34,211,238,0.12)] backdrop-blur-xl">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-100/70">
+                  Smart Avatar
+                </p>
+                <p className="mt-2 text-sm text-cyan-50/88">
+                  Tag en frivillig selfie, sa din agent lyser pa kortet i stedet for den standard prik.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="relative h-20 w-20 overflow-hidden rounded-full border border-cyan-200/30 bg-slate-950 shadow-[0_0_0_4px_rgba(34,211,238,0.12),0_0_28px_rgba(34,211,238,0.2)]">
+                  {avatarPreviewUrl ? (
+                    <Image
+                      src={avatarPreviewUrl}
+                      alt="Preview af avatar-selfie"
+                      fill
+                      className="object-cover"
+                      unoptimized
+                      loader={({ src }) => src}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.24),transparent_55%),linear-gradient(180deg,rgba(15,23,42,0.95),rgba(2,6,23,1))] text-2xl">
+                      <span aria-hidden="true">📸</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="min-w-0">
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="user"
+                    onChange={handleAvatarCapture}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="inline-flex min-h-[52px] items-center justify-center rounded-2xl border border-cyan-300/25 bg-cyan-500/15 px-4 py-3 text-sm font-black tracking-[0.08em] text-cyan-50 transition hover:bg-cyan-500/20"
+                  >
+                    {avatarPreviewUrl ? "📸 Tag en ny agent-selfie" : "📸 Tag en agent-selfie (Frivilligt)"}
+                  </button>
+                  <p className="mt-2 text-xs text-white/60">
+                    Billedet holdes kun lokalt pa telefonen og sendes ikke til serveren.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <input
             type="text"
             value={player.pendingPlayerName}
@@ -630,6 +707,7 @@ export default function StrategoElevInterface({
                 <StrategoElevMap
                   playerLocation={gps.myLoc}
                   playerName={player.activeDisplayName}
+                  avatarUrl={player.avatarUrl}
                   selfTeamCode={selfTeamCode}
                   allyMarkers={allyMarkers}
                   enemyMarkers={stratego.enemyPresence}

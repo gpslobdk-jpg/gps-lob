@@ -13,6 +13,7 @@ import {
   formatPlacement,
   getRoleplayMessage,
   looksLikeImageSource,
+  readFileAsDataUri,
   wrapTextClass,
 } from "./playUtils";
 import QuestionTtsButton from "./QuestionTtsButton";
@@ -115,6 +116,7 @@ function MobileHudComponent({
 export default function PlayInterface({ ui, actions, children }: PlayInterfaceProps) {
   const typedAnswerInputRef = useRef<HTMLInputElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const photoPickerPendingRef = useRef(false);
   const photoPickerReturnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mobileHudOpen, setMobileHudOpen] = useState(false);
@@ -127,7 +129,9 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const { player, gps, progress, flags } = ui;
   const {
     pendingPlayerName,
+    pendingAvatarUrl,
     playerName,
+    avatarUrl,
     nameError,
     activeDisplayName,
     celebrationName,
@@ -229,6 +233,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const isAnswerSubmissionPending = isSubmittingAnswer || isSubmitting;
   const isQuizSubmissionPending =
     activePostVariant === "quiz" && isAnswerSubmissionPending && !activeQuizAnswerFeedback;
+  const avatarPreviewUrl = pendingAvatarUrl ?? avatarUrl;
 
   const clearPendingPhotoPickerState = useCallback(() => {
     photoPickerPendingRef.current = false;
@@ -250,6 +255,22 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const handleNameSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     actions.confirmName(pendingPlayerName);
+  };
+
+  const handleAvatarCapture = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      const nextAvatarUrl = await readFileAsDataUri(file);
+      actions.setPendingAvatarUrl(nextAvatarUrl);
+    } catch (error) {
+      console.error("Kunne ikke laese avatar-billedet lokalt:", error);
+    }
   };
 
   const handleMasterLockSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -450,6 +471,58 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
             className="w-full max-w-xl rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_0_28px_rgba(16,185,129,0.18)] backdrop-blur-xl"
           >
             <h1 className="mb-5 text-2xl font-black tracking-wide uppercase">Klar til at starte?</h1>
+            <div className="mb-6 overflow-hidden rounded-[1.8rem] border border-emerald-400/20 bg-emerald-500/10 p-5 shadow-[0_18px_40px_rgba(16,185,129,0.12)] backdrop-blur-xl">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-100/70">
+                    Smart Avatar
+                  </p>
+                  <p className={`mt-2 text-sm text-emerald-50/90 ${wrapTextClass}`}>
+                    Tag en frivillig hold-selfie og vis jer selv som aura-avatar pa kortet under loebet.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="relative h-20 w-20 overflow-hidden rounded-full border border-emerald-200/30 bg-slate-900 shadow-[0_0_0_4px_rgba(16,185,129,0.12),0_0_30px_rgba(34,197,94,0.22)]">
+                    {avatarPreviewUrl ? (
+                      <Image
+                        src={avatarPreviewUrl}
+                        alt="Preview af hold-selfie"
+                        fill
+                        className="object-cover"
+                        unoptimized
+                        loader={({ src }) => src}
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(34,197,94,0.2),transparent_55%),linear-gradient(180deg,rgba(15,23,42,0.95),rgba(2,6,23,1))] text-2xl">
+                        <span aria-hidden="true">📸</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="min-w-0">
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="user"
+                      onChange={handleAvatarCapture}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => avatarInputRef.current?.click()}
+                      className="inline-flex min-h-[52px] items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-500/15 px-4 py-3 text-sm font-black tracking-[0.08em] text-emerald-50 transition hover:bg-emerald-500/20"
+                    >
+                      {avatarPreviewUrl ? "📸 Tag en ny hold-selfie" : "📸 Tag en hold-selfie (Frivilligt)"}
+                    </button>
+                    <p className="mt-2 text-xs text-white/60">
+                      Billedet bliver kun holdt lokalt pa telefonen og sendes ikke til serveren.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
             <label htmlFor="player-name" className="mb-2 block text-sm font-semibold text-emerald-100">
               Dit navn
             </label>

@@ -33,6 +33,7 @@ type ZoneKrigElevMapProps = {
   zones: ZoneKrigGameZone[];
   teams: ZoneKrigGameTeam[];
   playerLocation: Location | null;
+  avatarUrl?: string;
   selectedZoneIndex: number;
   onSelectZone: (index: number) => void;
 };
@@ -98,6 +99,7 @@ export default function ZoneKrigElevMap({
   zones,
   teams,
   playerLocation,
+  avatarUrl,
   selectedZoneIndex,
   onSelectZone,
 }: ZoneKrigElevMapProps) {
@@ -178,7 +180,7 @@ export default function ZoneKrigElevMap({
       })}
 
       {playerLocation ? (
-        <GlidingPlayerMarker location={playerLocation} popupContent="Du er her" />
+        <GlidingPlayerMarker location={playerLocation} avatarUrl={avatarUrl} popupContent="Du er her" />
       ) : null}
     </MapContainer>
   );

@@ -177,6 +177,7 @@ export default function MapDisplay({
   targetLabel,
   targetNumber,
   playerName,
+  avatarUrl,
   dimmed,
   isNearTarget,
   canOpenTarget,
@@ -280,6 +281,7 @@ export default function MapDisplay({
         {playerLocation ? (
           <GlidingPlayerMarker
             location={playerLocation}
+            avatarUrl={avatarUrl}
             popupContent={`Du er her${playerName ? `, ${playerName}` : ""}`}
           />
         ) : null}

@@ -9,12 +9,36 @@ import type { Location } from "./types";
 
 type GlidingPlayerMarkerProps = {
   location: Location;
+  avatarUrl?: string;
   popupContent?: ReactNode;
 };
 
 const PLAYER_MARKER_GLIDE_MS = 650;
 
-function createBluePlayerDotIcon() {
+function escapeAttribute(value: string) {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
+
+function createPlayerMarkerIcon(avatarUrl?: string) {
+  if (avatarUrl) {
+    const safeAvatarUrl = escapeAttribute(avatarUrl);
+
+    return L.divIcon({
+      className: "gpslob-player-dot-icon",
+      html: `
+        <div class="gpslob-player-avatar">
+          <div class="gpslob-player-avatar__pulse"></div>
+          <div class="gpslob-player-avatar__aura"></div>
+          <div class="gpslob-player-avatar__frame">
+            <img class="gpslob-player-avatar__image" src="${safeAvatarUrl}" alt="" />
+          </div>
+        </div>
+      `,
+      iconSize: [48, 48],
+      iconAnchor: [24, 24],
+    });
+  }
+
   return L.divIcon({
     className: "gpslob-player-dot-icon",
     html: `
@@ -35,12 +59,13 @@ function easeOutCubic(progress: number) {
 
 export default function GlidingPlayerMarker({
   location,
+  avatarUrl,
   popupContent,
 }: GlidingPlayerMarkerProps) {
   const markerRef = useRef<LeafletMarker | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const initialPositionRef = useRef<[number, number]>([location.lat, location.lng]);
-  const icon = useMemo(() => createBluePlayerDotIcon(), []);
+  const icon = useMemo(() => createPlayerMarkerIcon(avatarUrl), [avatarUrl]);
 
   useEffect(() => {
     const marker = markerRef.current;
@@ -122,12 +147,49 @@ export default function GlidingPlayerMarker({
           height: 26px;
         }
 
+        .gpslob-player-avatar {
+          position: relative;
+          width: 48px;
+          height: 48px;
+        }
+
         .gpslob-player-dot__pulse,
         .gpslob-player-dot__halo,
-        .gpslob-player-dot__core {
+        .gpslob-player-dot__core,
+        .gpslob-player-avatar__pulse,
+        .gpslob-player-avatar__aura,
+        .gpslob-player-avatar__frame {
           position: absolute;
           border-radius: 999px;
           inset: 0;
+        }
+
+        .gpslob-player-avatar__pulse {
+          background: rgba(34, 197, 94, 0.2);
+          animation: gpslob-player-dot-pulse 2.2s ease-out infinite;
+          transform-origin: center;
+        }
+
+        .gpslob-player-avatar__aura {
+          inset: 2px;
+          background: radial-gradient(circle, rgba(74, 222, 128, 0.4), rgba(22, 163, 74, 0.12));
+          box-shadow: 0 0 15px 5px rgba(34, 197, 94, 0.38), 0 12px 26px rgba(22, 163, 74, 0.24);
+        }
+
+        .gpslob-player-avatar__frame {
+          inset: 4px;
+          overflow: hidden;
+          border: 2px solid rgba(255, 255, 255, 0.96);
+          box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.32), 0 10px 24px rgba(15, 23, 42, 0.28);
+          background: linear-gradient(180deg, rgba(15, 23, 42, 0.9), rgba(2, 6, 23, 0.98));
+        }
+
+        .gpslob-player-avatar__image {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: 50%;
         }
 
         .gpslob-player-dot__pulse {

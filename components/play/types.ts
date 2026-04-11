@@ -208,7 +208,9 @@ export type NavigatorWithWakeLock = Navigator & {
 
 export interface PlayPlayerState {
   pendingPlayerName: string;
+  pendingAvatarUrl?: string;
   playerName: string;
+  avatarUrl?: string;
   hasConfirmedName: boolean;
   nameError: string | null;
   participantId: string | null;
@@ -350,6 +352,7 @@ export interface PlayUiFlags {
 export interface PlayMapState {
   playerLocation: Location | null;
   playerName: string;
+  avatarUrl?: string;
   targetLocation: Location | null;
   targetLabel: string;
   targetNumber: number | null;
@@ -364,6 +367,7 @@ export interface MapDisplayProps {
   targetLabel: string;
   targetNumber: number | null;
   playerName: string;
+  avatarUrl?: string;
   dimmed: boolean;
   isNearTarget: boolean;
   canOpenTarget: boolean;
@@ -374,6 +378,7 @@ export interface MapDisplayProps {
 export interface PlayActions {
   confirmName: (name: string) => void;
   setPendingPlayerName: (value: string) => void;
+  setPendingAvatarUrl: (value: string | null) => void;
   selectPostIndex: (index: number) => void;
   setMasterLockInput: (value: string) => void;
   setShowEscapeResults: (value: boolean) => void;

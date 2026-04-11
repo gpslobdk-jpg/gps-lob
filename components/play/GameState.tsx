@@ -212,7 +212,9 @@ export function usePlayGameState({
   const [pendingPlayerName, setPendingPlayerNameState] = useState(
     () => storedParticipantOnLoad?.studentName || initialNameCandidate
   );
+  const [pendingAvatarUrl, setPendingAvatarUrlState] = useState<string | undefined>(undefined);
   const [playerName, setPlayerName] = useState(() => storedParticipantOnLoad?.studentName || "");
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
   const [hasConfirmedName, setHasConfirmedName] = useState(
     () => Boolean(storedParticipantOnLoad?.studentName)
   );
@@ -2051,6 +2053,10 @@ export function usePlayGameState({
     setNameError(null);
   }, []);
 
+  const setPendingAvatarUrl = useCallback((value: string | null) => {
+    setPendingAvatarUrlState(value ?? undefined);
+  }, []);
+
   const selectPostIndex = useCallback(
     (index: number) => {
       if (!Number.isInteger(index) || index < 0 || index >= questions.length) {
@@ -2090,6 +2096,7 @@ export function usePlayGameState({
   const confirmName = useCallback(
     (name: string) => {
       const trimmedName = name.trim();
+      const resolvedAvatarUrl = pendingAvatarUrl ?? avatarUrl;
 
       if (!trimmedName) {
         setNameError("Skriv dit eller jeres rigtige navn for at starte.");
@@ -2109,6 +2116,7 @@ export function usePlayGameState({
       setNameError(null);
       setPendingPlayerNameState(trimmedName);
       setPlayerName(trimmedName);
+      setAvatarUrl(resolvedAvatarUrl);
 
       if (participantId) {
         setHasConfirmedName(true);
@@ -2118,7 +2126,7 @@ export function usePlayGameState({
 
       void registerParticipantIdentity(trimmedName);
     },
-    [participantId, registerParticipantIdentity, rememberActiveParticipant]
+    [avatarUrl, participantId, pendingAvatarUrl, registerParticipantIdentity, rememberActiveParticipant]
   );
 
   const submitQuizAnswer = async (selectedIndex: number) => {
@@ -2498,7 +2506,9 @@ export function usePlayGameState({
 
   const player: PlayPlayerState = {
     pendingPlayerName,
+    pendingAvatarUrl,
     playerName,
+    avatarUrl,
     hasConfirmedName,
     nameError,
     participantId,
@@ -2616,6 +2626,7 @@ export function usePlayGameState({
   const map: PlayMapState = {
     playerLocation: myLoc,
     playerName,
+    avatarUrl,
     targetLocation: activeQuestion ? { lat: activeQuestion.lat, lng: activeQuestion.lng } : null,
     targetLabel: activeQuestionDisplayText,
     targetNumber: activeQuestion ? displayPostNumber : null,
@@ -2672,6 +2683,7 @@ export function usePlayGameState({
     actions: {
       confirmName,
       setPendingPlayerName,
+      setPendingAvatarUrl,
       selectPostIndex,
       setMasterLockInput,
       setShowEscapeResults,

@@ -27,6 +27,7 @@ export type StrategoAllyMarker = {
 type StrategoElevMapProps = {
   playerLocation: Location | null;
   playerName: string;
+  avatarUrl?: string;
   selfTeamCode: string | null;
   allyMarkers: StrategoAllyMarker[];
   enemyMarkers: StrategoPresenceEntry[];
@@ -241,6 +242,7 @@ function FitStrategoBattlefield({
 export default function StrategoElevMap({
   playerLocation,
   playerName,
+  avatarUrl,
   selfTeamCode,
   allyMarkers,
   enemyMarkers,
@@ -370,6 +372,7 @@ export default function StrategoElevMap({
           {playerLocation ? (
             <GlidingPlayerMarker
               location={playerLocation}
+              avatarUrl={avatarUrl}
               popupContent={
                 <div className="text-sm text-slate-900">
                   <div className="font-black">{playerName || "Du"}</div>
