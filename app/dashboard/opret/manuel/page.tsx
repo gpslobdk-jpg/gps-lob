@@ -14,6 +14,7 @@ import ManualReuseModal, {
   type ManualReuseQuestion,
 } from "@/components/builders/manual/ManualReuseModal";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
+import { useBuilderSaveGuidance } from "@/components/builders/useBuilderSaveGuidance";
 import type { SavedPin, SavedZone } from "@/components/MapPicker";
 import { normalizeRaceType, RACE_TYPE_LABELS, RACE_TYPES } from "@/utils/gpsRuns";
 import {
@@ -603,6 +604,46 @@ function OpretLoebPageContent() {
   const hasInitializedDraftRef = useRef(false);
   const shouldAutoRestoreDraftRef = useRef<boolean | null>(null);
   const pendingScrollTargetId = useRef<string | null>(null);
+
+  const normalizedQuestionsForSave = useMemo(
+    () =>
+      questions
+        .map((question) => normalizeQuestionForSave(question))
+        .filter(
+          (question) =>
+            question.text.length > 0 ||
+            question.aiPrompt.length > 0 ||
+            question.answers.some((answer) => answer.length > 0) ||
+            question.lat !== null ||
+            question.lng !== null
+        ),
+    [questions]
+  );
+  const hasIncompleteQuestions = useMemo(
+    () =>
+      normalizedQuestionsForSave.some((question) => {
+        if (question.type === "ai_image") {
+          return !question.text || !question.aiPrompt;
+        }
+
+        if (!question.text) return true;
+        return question.answers.some((answer) => !answer);
+      }),
+    [normalizedQuestionsForSave]
+  );
+  const hasMissingCoordinates = useMemo(
+    () => normalizedQuestionsForSave.some((question) => question.lat === null || question.lng === null),
+    [normalizedQuestionsForSave]
+  );
+  const isReadyToSave =
+    title.trim().length > 0 &&
+    normalizedQuestionsForSave.length > 0 &&
+    !hasIncompleteQuestions &&
+    !hasMissingCoordinates;
+  const { shouldHighlight: shouldHighlightSave } = useBuilderSaveGuidance(
+    isReadyToSave,
+    saveFeedbackRef
+  );
 
   const applyDraftState = (draft: ManualBuilderDraftState) => {
     const restoredSubject = restoreDraftString(draft.subject);
@@ -1230,31 +1271,12 @@ function OpretLoebPageContent() {
       return;
     }
 
-    const normalizedQuestions = questions
-      .map((question) => normalizeQuestionForSave(question))
-      .filter(
-        (q) =>
-          q.text.length > 0 ||
-          q.aiPrompt.length > 0 ||
-          q.answers.some((answer) => answer.length > 0) ||
-          q.lat !== null ||
-          q.lng !== null
-      );
-
-    if (normalizedQuestions.length === 0) {
+    if (normalizedQuestionsForSave.length === 0) {
       setNotice({ tone: "error", message: "Tilføj mindst ét udfyldt spørgsmål." });
       scrollToSaveFeedback();
       return;
     }
 
-    const hasIncompleteQuestions = normalizedQuestions.some((q) => {
-      if (q.type === "ai_image") {
-        return !q.text || !q.aiPrompt;
-      }
-
-      if (!q.text) return true;
-      return q.answers.some((answer) => !answer);
-    });
     if (hasIncompleteQuestions) {
       setNotice({
         tone: "error",
@@ -1264,9 +1286,6 @@ function OpretLoebPageContent() {
       return;
     }
 
-    const hasMissingCoordinates = normalizedQuestions.some(
-      (question) => question.lat === null || question.lng === null
-    );
     if (hasMissingCoordinates) {
       setNotice({
         tone: "error",
@@ -1301,7 +1320,7 @@ function OpretLoebPageContent() {
         subject: subject.trim() || "Generelt",
         description: normalizedDescription,
         topic: normalizedTopic,
-        questions: normalizedQuestions,
+        questions: normalizedQuestionsForSave,
         radius,
         race_type: overrideRaceType ?? RACE_TYPES.MANUEL,
       };
@@ -1693,7 +1712,11 @@ function OpretLoebPageContent() {
                     type="button"
                     onClick={handleSaveRun}
                     disabled={isSaving}
-                    className="w-full rounded-[1.6rem] border border-emerald-500/30 bg-emerald-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                    className={`w-full rounded-[1.6rem] border border-emerald-500/30 bg-emerald-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-emerald-500/20 transition-all duration-300 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50 ${
+                      shouldHighlightSave
+                        ? "scale-105 ring-4 ring-emerald-500 ring-offset-2 ring-offset-emerald-950 shadow-emerald-500/50"
+                        : ""
+                    }`}
                   >
                     {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
                   </button>

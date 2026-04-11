@@ -5,8 +5,9 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
+import { useBuilderSaveGuidance } from "@/components/builders/useBuilderSaveGuidance";
 import {
   buildStrategoGameConfig,
   getNormalizedRunRaceType,
@@ -242,6 +243,7 @@ function StrategoBuilderContent() {
   const [redBase, setRedBase] = useState<BaseLocation | null>(null);
   const [blueBase, setBlueBase] = useState<BaseLocation | null>(null);
   const [placementMode, setPlacementMode] = useState<PlacementMode>("red");
+  const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!isEditMode) return;
@@ -312,6 +314,11 @@ function StrategoBuilderContent() {
     [title]
   );
   const hasPlacedBothBases = Boolean(redBase && blueBase);
+  const isReadyToSave = title.trim() !== "" && hasPlacedBothBases;
+  const { shouldHighlight: shouldHighlightSave } = useBuilderSaveGuidance(
+    isReadyToSave,
+    saveFeedbackRef
+  );
 
   const handleMapPick = (lat: number, lng: number) => {
     setNotice(null);
@@ -604,7 +611,14 @@ function StrategoBuilderContent() {
                   </div>
                 </div>
 
-                <div className="rounded-[1.8rem] border border-white/10 bg-slate-950/45 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+                <div
+                  ref={saveFeedbackRef}
+                  className={`rounded-[1.8rem] border border-white/10 bg-slate-950/45 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.18)] transition-all duration-300 ${
+                    shouldHighlightSave
+                      ? "border-orange-300/30 shadow-[0_0_0_1px_rgba(251,146,60,0.22),0_0_36px_rgba(249,115,22,0.18)]"
+                      : ""
+                  }`}
+                >
                   <p className="text-[11px] font-semibold tracking-[0.26em] text-white/48 uppercase">Klar til live</p>
                   <h3 className={`mt-3 text-2xl font-black text-white ${rubik.className}`}>
                     {isEditMode ? "Gem og åbn live" : "Opret Live Session"}
@@ -617,7 +631,11 @@ function StrategoBuilderContent() {
                     type="button"
                     onClick={() => void saveRun()}
                     disabled={isBusy || !hasPlacedBothBases}
-                    className="mt-6 inline-flex min-h-15 w-full items-center justify-center gap-3 rounded-3xl border border-orange-300/35 bg-[linear-gradient(135deg,rgba(249,115,22,0.92),rgba(220,38,38,0.92))] px-5 py-4 text-sm font-black uppercase tracking-[0.16em] text-white shadow-[0_18px_40px_rgba(220,38,38,0.24)] transition hover:scale-[1.01] hover:shadow-[0_24px_46px_rgba(220,38,38,0.28)] disabled:cursor-not-allowed disabled:opacity-70"
+                    className={`mt-6 inline-flex min-h-15 w-full items-center justify-center gap-3 rounded-3xl border border-orange-300/35 bg-[linear-gradient(135deg,rgba(249,115,22,0.92),rgba(220,38,38,0.92))] px-5 py-4 text-sm font-black uppercase tracking-[0.16em] text-white shadow-[0_18px_40px_rgba(220,38,38,0.24)] transition-all duration-300 hover:shadow-[0_24px_46px_rgba(220,38,38,0.28)] disabled:cursor-not-allowed disabled:opacity-70 ${
+                      shouldHighlightSave
+                        ? "scale-105 ring-4 ring-orange-300/80 ring-offset-2 ring-offset-slate-950 shadow-[0_24px_46px_rgba(249,115,22,0.38)]"
+                        : ""
+                    }`}
                   >
                     {isOpeningLive ? <Loader2 className="h-5 w-5 animate-spin" /> : <Shield className="h-5 w-5" />}
                     Opret Live Session

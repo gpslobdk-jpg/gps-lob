@@ -10,6 +10,7 @@ import SelfieAiInterviewModal, {
   type SelfieAiInterviewDraft,
 } from "@/components/builders/selfie/SelfieAiInterviewModal";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
+import { useBuilderSaveGuidance } from "@/components/builders/useBuilderSaveGuidance";
 import type { SavedPin, SavedZone } from "@/components/MapPicker";
 import {
   DEFAULT_MAP_CENTER,
@@ -280,6 +281,47 @@ export default function SelfieBuilderClient() {
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedDraftRef = useRef(false);
   const shouldAutoRestoreDraftRef = useRef<boolean | null>(null);
+
+  const normalizedQuestionsForSave = useMemo(
+    () =>
+      questions
+        .map((question) => {
+          const normalizedTarget = question.aiPrompt.trim();
+
+          return {
+            ...question,
+            text: normalizeSelfieInstruction(question.text, normalizedTarget),
+            aiPrompt: normalizedTarget,
+            answers: buildAnswers(normalizedTarget),
+            correctIndex: 0,
+          };
+        })
+        .filter(
+          (question) =>
+            question.text.length > 0 ||
+            question.aiPrompt.length > 0 ||
+            question.lat !== null ||
+            question.lng !== null
+        ),
+    [questions]
+  );
+  const hasIncompleteQuestions = useMemo(
+    () => normalizedQuestionsForSave.some((question) => !question.text || !question.aiPrompt),
+    [normalizedQuestionsForSave]
+  );
+  const hasMissingCoordinates = useMemo(
+    () => normalizedQuestionsForSave.some((question) => question.lat === null || question.lng === null),
+    [normalizedQuestionsForSave]
+  );
+  const isReadyToSave =
+    title.trim().length > 0 &&
+    normalizedQuestionsForSave.length > 0 &&
+    !hasIncompleteQuestions &&
+    !hasMissingCoordinates;
+  const { shouldHighlight: shouldHighlightSave } = useBuilderSaveGuidance(
+    isReadyToSave,
+    saveFeedbackRef
+  );
 
   const applyDraftState = (draft: SelfieBuilderDraftState) => {
     const restoredQuestions = toSelfieQuestions(draft.questions);
@@ -615,35 +657,12 @@ export default function SelfieBuilderClient() {
 
     const normalizedDescription = description.trim();
 
-    const normalizedQuestions = questions
-      .map((question) => {
-        const normalizedTarget = question.aiPrompt.trim();
-
-        return {
-          ...question,
-          text: normalizeSelfieInstruction(question.text, normalizedTarget),
-          aiPrompt: normalizedTarget,
-          answers: buildAnswers(normalizedTarget),
-          correctIndex: 0,
-        };
-      })
-      .filter(
-        (question) =>
-          question.text.length > 0 ||
-          question.aiPrompt.length > 0 ||
-          question.lat !== null ||
-          question.lng !== null
-      );
-
-    if (normalizedQuestions.length === 0) {
+    if (normalizedQuestionsForSave.length === 0) {
       setNotice({ tone: "error", message: "Tilføj mindst én udfyldt selfie-post." });
       scrollToSaveFeedback();
       return;
     }
 
-    const hasIncompleteQuestions = normalizedQuestions.some(
-      (question) => !question.text || !question.aiPrompt
-    );
     if (hasIncompleteQuestions) {
       setNotice({
         tone: "error",
@@ -653,7 +672,7 @@ export default function SelfieBuilderClient() {
       return;
     }
 
-    if (normalizedQuestions.some((question) => question.lat === null || question.lng === null)) {
+    if (hasMissingCoordinates) {
       setNotice({
         tone: "error",
         message: "Du mangler at placere alle poster på kortet.",
@@ -685,7 +704,7 @@ export default function SelfieBuilderClient() {
         subject: subject.trim() || "Generelt",
         description: normalizedDescription,
         topic: normalizedDescription || title.trim(),
-        questions: normalizedQuestions,
+        questions: normalizedQuestionsForSave,
         radius,
         race_type: RACE_TYPES.SELFIE,
       };
@@ -956,7 +975,11 @@ export default function SelfieBuilderClient() {
                       type="button"
                       onClick={handleSaveRun}
                       disabled={isSaving}
-                      className="w-full rounded-[1.5rem] border border-rose-500/30 bg-rose-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-rose-500/20 transition-all hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-60"
+                      className={`w-full rounded-[1.5rem] border border-rose-500/30 bg-rose-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-rose-500/20 transition-all duration-300 hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-60 ${
+                        shouldHighlightSave
+                          ? "scale-105 ring-4 ring-rose-400 ring-offset-2 ring-offset-rose-950 shadow-rose-400/50"
+                          : ""
+                      }`}
                     >
                       {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
                     </button>

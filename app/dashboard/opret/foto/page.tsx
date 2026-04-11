@@ -10,6 +10,7 @@ import FotoAiInterviewModal, {
   type FotoAiInterviewDraft,
 } from "@/components/builders/foto/FotoAiInterviewModal";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
+import { useBuilderSaveGuidance } from "@/components/builders/useBuilderSaveGuidance";
 import type { SavedPin, SavedZone } from "@/components/MapPicker";
 import {
   DEFAULT_MAP_CENTER,
@@ -438,6 +439,50 @@ function FotoMissionBuilderPageContent() {
   const shouldAutoRestoreDraftRef = useRef<boolean | null>(null);
   const pendingScrollTargetId = useRef<string | null>(null);
 
+  const normalizedQuestionsForSave = useMemo(
+    () =>
+      questions
+        .map((question) => {
+          const normalizedTarget = question.aiPrompt.trim();
+
+          return {
+            ...question,
+            type: "ai_image" as const,
+            text: question.text.trim(),
+            aiPrompt: normalizedTarget,
+            answers: buildPhotoAnswers(normalizedTarget),
+            correctIndex: 0,
+            points: normalizeQuestionPoints(question.points),
+            mediaUrl: question.mediaUrl.trim(),
+          };
+        })
+        .filter(
+          (question) =>
+            question.text.length > 0 ||
+            question.aiPrompt.length > 0 ||
+            question.lat !== null ||
+            question.lng !== null
+        ),
+    [questions]
+  );
+  const hasIncompleteQuestions = useMemo(
+    () => normalizedQuestionsForSave.some((question) => !question.text || !question.aiPrompt),
+    [normalizedQuestionsForSave]
+  );
+  const hasMissingCoordinates = useMemo(
+    () => normalizedQuestionsForSave.some((question) => question.lat === null || question.lng === null),
+    [normalizedQuestionsForSave]
+  );
+  const isReadyToSave =
+    title.trim().length > 0 &&
+    normalizedQuestionsForSave.length > 0 &&
+    !hasIncompleteQuestions &&
+    !hasMissingCoordinates;
+  const { shouldHighlight: shouldHighlightSave } = useBuilderSaveGuidance(
+    isReadyToSave,
+    saveFeedbackRef
+  );
+
   const applyDraftState = (draft: FotoBuilderDraftState) => {
     const restoredSubject = restoreDraftString(draft.subject);
     const restoredQuestions = toPhotoQuestions(draft.questions);
@@ -808,34 +853,12 @@ function FotoMissionBuilderPageContent() {
       return;
     }
 
-    const normalizedQuestions = questions
-      .map((question) => ({
-        ...question,
-        type: "ai_image" as const,
-        text: question.text.trim(),
-        aiPrompt: question.aiPrompt.trim(),
-        answers: buildPhotoAnswers(question.aiPrompt.trim()),
-        correctIndex: 0,
-        points: normalizeQuestionPoints(question.points),
-        mediaUrl: question.mediaUrl.trim(),
-      }))
-      .filter(
-        (question) =>
-          question.text.length > 0 ||
-          question.aiPrompt.length > 0 ||
-          question.lat !== null ||
-          question.lng !== null
-      );
-
-    if (normalizedQuestions.length === 0) {
+    if (normalizedQuestionsForSave.length === 0) {
       setNotice({ tone: "error", message: "Tilføj mindst én udfyldt mission." });
       scrollToSaveFeedback();
       return;
     }
 
-    const hasIncompleteQuestions = normalizedQuestions.some(
-      (question) => !question.text || !question.aiPrompt
-    );
     if (hasIncompleteQuestions) {
       setNotice({
         tone: "error",
@@ -845,9 +868,6 @@ function FotoMissionBuilderPageContent() {
       return;
     }
 
-    const hasMissingCoordinates = normalizedQuestions.some(
-      (question) => question.lat === null || question.lng === null
-    );
     if (hasMissingCoordinates) {
       setNotice({
         tone: "error",
@@ -881,7 +901,7 @@ function FotoMissionBuilderPageContent() {
         subject: subject.trim() || "Generelt",
         description: "",
         topic: normalizedTopic,
-        questions: normalizedQuestions,
+        questions: normalizedQuestionsForSave,
         radius,
         race_type: RACE_TYPES.FOTO,
       };
@@ -1156,7 +1176,11 @@ function FotoMissionBuilderPageContent() {
                       type="button"
                       onClick={handleSaveRun}
                       disabled={isSaving}
-                      className="w-full rounded-[1.6rem] border border-sky-500/30 bg-sky-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-sky-500/20 transition-all hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+                      className={`w-full rounded-[1.6rem] border border-sky-500/30 bg-sky-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-sky-500/20 transition-all duration-300 hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60 ${
+                        shouldHighlightSave
+                          ? "scale-105 ring-4 ring-sky-400 ring-offset-2 ring-offset-slate-950 shadow-sky-400/50"
+                          : ""
+                      }`}
                     >
                       {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
                     </button>

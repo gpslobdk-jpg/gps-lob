@@ -10,6 +10,7 @@ import EscapeAiInterviewModal, {
   type EscapeAiInterviewDraft,
 } from "@/components/builders/escape/EscapeAiInterviewModal";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
+import { useBuilderSaveGuidance } from "@/components/builders/useBuilderSaveGuidance";
 import type { SavedPin, SavedZone } from "@/components/MapPicker";
 import {
   DEFAULT_MAP_CENTER,
@@ -421,6 +422,54 @@ function EscapeBuilderPageContent() {
   const hasInitializedDraftRef = useRef(false);
   const shouldAutoRestoreDraftRef = useRef<boolean | null>(null);
 
+  const normalizedQuestionsForSave = useMemo(
+    () =>
+      questions
+        .map((question) => ({
+          ...question,
+          type: "multiple_choice" as const,
+          text: question.text.trim(),
+          aiPrompt: question.aiPrompt.trim(),
+          hint: question.hint.trim(),
+          answers: toEscapeAnswers(question.answers[0]?.trim() ?? ""),
+          correctIndex: 0,
+          points: normalizeQuestionPoints(question.points),
+          mediaUrl: question.mediaUrl.trim(),
+        }))
+        .filter(
+          (question) =>
+            question.text.length > 0 ||
+            question.aiPrompt.length > 0 ||
+            question.answers[0].length > 0 ||
+            question.lat !== null ||
+            question.lng !== null
+        ),
+    [questions]
+  );
+  const hasIncompleteQuestions = useMemo(
+    () =>
+      normalizedQuestionsForSave.some(
+        (question) => !question.text || !question.answers[0] || !question.aiPrompt
+      ),
+    [normalizedQuestionsForSave]
+  );
+  const hasMissingCoordinates = useMemo(
+    () => normalizedQuestionsForSave.some((question) => question.lat === null || question.lng === null),
+    [normalizedQuestionsForSave]
+  );
+  const normalizedMasterCode = useMemo(() => normalizeMasterCode(masterCode), [masterCode]);
+  const isReadyToSave =
+    title.trim().length > 0 &&
+    normalizedQuestionsForSave.length > 0 &&
+    !hasIncompleteQuestions &&
+    !hasMissingCoordinates &&
+    normalizedMasterCode.length > 0 &&
+    normalizedMasterCode.length === normalizedQuestionsForSave.length;
+  const { shouldHighlight: shouldHighlightSave } = useBuilderSaveGuidance(
+    isReadyToSave,
+    saveFeedbackRef
+  );
+
   const applyDraftState = (draft: EscapeBuilderDraftState) => {
     const restoredSubject = restoreDraftString(draft.subject);
     const restoredQuestions = toEscapeQuestions(draft.questions);
@@ -767,36 +816,12 @@ function EscapeBuilderPageContent() {
       return;
     }
 
-    const normalizedQuestions = questions
-      .map((question) => ({
-        ...question,
-        type: "multiple_choice" as const,
-        text: question.text.trim(),
-        aiPrompt: question.aiPrompt.trim(),
-        hint: question.hint.trim(),
-        answers: toEscapeAnswers(question.answers[0]?.trim() ?? ""),
-        correctIndex: 0,
-        points: normalizeQuestionPoints(question.points),
-        mediaUrl: question.mediaUrl.trim(),
-      }))
-      .filter(
-        (question) =>
-          question.text.length > 0 ||
-          question.aiPrompt.length > 0 ||
-          question.answers[0].length > 0 ||
-          question.lat !== null ||
-          question.lng !== null
-      );
-
-    if (normalizedQuestions.length === 0) {
+    if (normalizedQuestionsForSave.length === 0) {
       setNotice({ tone: "error", message: "Tilføj mindst én udfyldt gåde." });
       scrollToSaveFeedback();
       return;
     }
 
-    const hasIncompleteQuestions = normalizedQuestions.some(
-      (question) => !question.text || !question.answers[0] || !question.aiPrompt
-    );
     if (hasIncompleteQuestions) {
       setNotice({
         tone: "error",
@@ -806,9 +831,6 @@ function EscapeBuilderPageContent() {
       return;
     }
 
-    const hasMissingCoordinates = normalizedQuestions.some(
-      (question) => question.lat === null || question.lng === null
-    );
     if (hasMissingCoordinates) {
       setNotice({
         tone: "error",
@@ -818,17 +840,16 @@ function EscapeBuilderPageContent() {
       return;
     }
 
-    const normalizedMasterCode = normalizeMasterCode(masterCode);
     if (!normalizedMasterCode) {
       setNotice({ tone: "error", message: "Udfyld master-koden til finalen." });
       scrollToSaveFeedback();
       return;
     }
 
-    if (normalizedMasterCode.length !== normalizedQuestions.length) {
+    if (normalizedMasterCode.length !== normalizedQuestionsForSave.length) {
       setNotice({
         tone: "error",
-        message: `Master-koden skal have præcis ${normalizedQuestions.length} tegn, så hver post giver ét bogstav eller tal.`,
+        message: `Master-koden skal have præcis ${normalizedQuestionsForSave.length} tegn, så hver post giver ét bogstav eller tal.`,
       });
       scrollToSaveFeedback();
       return;
@@ -858,7 +879,7 @@ function EscapeBuilderPageContent() {
         subject: subject.trim() || "Generelt",
         description: serializeEscapeDescription("", normalizedMasterCode),
         topic: normalizedTopic,
-        questions: normalizedQuestions,
+        questions: normalizedQuestionsForSave,
         radius,
         race_type: RACE_TYPES.ESCAPE,
       };
@@ -1163,7 +1184,11 @@ function EscapeBuilderPageContent() {
                     type="button"
                     onClick={handleSaveRun}
                     disabled={isSaving}
-                    className="w-full rounded-[1.5rem] border border-amber-500/30 bg-amber-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-amber-500/20 transition-all hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    className={`w-full rounded-[1.5rem] border border-amber-500/30 bg-amber-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-amber-500/20 transition-all duration-300 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60 ${
+                      shouldHighlightSave
+                        ? "scale-105 ring-4 ring-amber-400 ring-offset-2 ring-offset-amber-950 shadow-amber-400/50"
+                        : ""
+                    }`}
                   >
                     {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem løb i arkivet"}
                   </button>

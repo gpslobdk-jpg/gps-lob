@@ -8,6 +8,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import ManualReuseModal, { type ManualReuseQuestion } from "@/components/builders/manual/ManualReuseModal";
+import { useBuilderSaveGuidance } from "@/components/builders/useBuilderSaveGuidance";
 import type { SavedZone } from "@/components/MapPicker";
 import { getNormalizedRunRaceType, RACE_TYPES, type StoredRunRecord } from "@/utils/gpsRuns";
 import {
@@ -256,6 +257,37 @@ function ZoneKrigBuilderContent() {
   const hasInitializedDraftRef = useRef(false);
   const shouldAutoRestoreDraftRef = useRef<boolean | null>(null);
   const pendingScrollTargetId = useRef<string | null>(null);
+
+  const normalizedQuestionsForSave = useMemo(
+    () =>
+      questions
+        .map(normalizeQuestionForSave)
+        .filter(
+          (question) =>
+            question.text.length > 0 ||
+            question.answers.some((answer) => answer.length > 0) ||
+            question.lat !== null ||
+            question.lng !== null
+        ),
+    [questions]
+  );
+  const hasIncompleteQuestions = useMemo(
+    () => normalizedQuestionsForSave.some((question) => !question.text || question.answers.some((answer) => !answer)),
+    [normalizedQuestionsForSave]
+  );
+  const hasMissingCoordinates = useMemo(
+    () => normalizedQuestionsForSave.some((question) => question.lat === null || question.lng === null),
+    [normalizedQuestionsForSave]
+  );
+  const isReadyToSave =
+    title.trim().length > 0 &&
+    normalizedQuestionsForSave.length > 0 &&
+    !hasIncompleteQuestions &&
+    !hasMissingCoordinates;
+  const { shouldHighlight: shouldHighlightSave } = useBuilderSaveGuidance(
+    isReadyToSave,
+    saveFeedbackRef
+  );
 
   const renderNotice = (className = "") =>
     notice ? (
@@ -569,22 +601,17 @@ function ZoneKrigBuilderContent() {
       scrollToSaveFeedback();
       return;
     }
-    const normalizedQuestions = questions
-      .map(normalizeQuestionForSave)
-      .filter((q) => q.text.length > 0 || q.answers.some((a) => a.length > 0) || q.lat !== null || q.lng !== null);
-    if (normalizedQuestions.length === 0) {
+    if (normalizedQuestionsForSave.length === 0) {
       setNotice({ tone: "error", message: "Tilføj mindst én udfyldt zone." });
       scrollToSaveFeedback();
       return;
     }
-    const hasIncomplete = normalizedQuestions.some((q) => !q.text || q.answers.some((a) => !a));
-    if (hasIncomplete) {
+    if (hasIncompleteQuestions) {
       setNotice({ tone: "error", message: "Udfyld tekst og alle fire svarmuligheder på hver zone." });
       scrollToSaveFeedback();
       return;
     }
-    const hasMissingCoords = normalizedQuestions.some((q) => q.lat === null || q.lng === null);
-    if (hasMissingCoords) {
+    if (hasMissingCoordinates) {
       setNotice({ tone: "error", message: "Du mangler at placere alle zoner på kortet." });
       scrollToSaveFeedback();
       return;
@@ -605,7 +632,7 @@ function ZoneKrigBuilderContent() {
         subject: subject.trim() || "Generelt",
         description: normalizedDescription,
         topic: normalizedDescription || title.trim(),
-        questions: normalizedQuestions,
+        questions: normalizedQuestionsForSave,
         race_type: RACE_TYPES.ZONE_KRIG,
       };
       if (isEditMode) {
@@ -963,7 +990,11 @@ function ZoneKrigBuilderContent() {
                       type="button"
                       onClick={handleSaveRun}
                       disabled={isSaving}
-                      className="w-full rounded-[1.6rem] border border-cyan-500/30 bg-cyan-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-cyan-500/20 transition-all hover:bg-cyan-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                      className={`w-full rounded-[1.6rem] border border-cyan-500/30 bg-cyan-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-cyan-500/20 transition-all duration-300 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50 ${
+                        shouldHighlightSave
+                          ? "scale-105 ring-4 ring-cyan-400 ring-offset-2 ring-offset-slate-950 shadow-cyan-400/50"
+                          : ""
+                      }`}
                     >
                       {isSaving ? "Gemmer..." : isEditMode ? "Gem ændringer i arkivet" : "Gem Zone-Krig løb"}
                     </button>
