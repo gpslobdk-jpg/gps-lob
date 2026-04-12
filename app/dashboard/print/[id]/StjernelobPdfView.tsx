@@ -331,7 +331,6 @@ function resolveTemplate(subject: string): PdfTemplate {
 
 /* ── Image URL helpers ─────────────────────────────────────────────── */
 const LETTER_LABELS = ["A", "B", "C", "D"] as const;
-const PDF_IMAGE_REQUEST_DELAY_MS = 300;
 const PDF_IMAGE_FETCH_TIMEOUT_MS = 10_000;
 const PDF_IMAGE_MAX_RETRY_ATTEMPTS = 2;
 const PDF_IMAGE_RETRY_DELAY_MS = 800;
@@ -383,7 +382,116 @@ function svgToBase64DataUrl(svg: string) {
     binary += String.fromCharCode(byte);
   });
 
-  return `data:image/svg+xml;base64,${window.btoa(binary)}`;
+  return `data:image/svg+xml;base64,${globalThis.btoa(binary)}`;
+}
+
+const SUBJECT_ICONS = {
+  standard: svgToBase64DataUrl(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#f8fafc" />
+          <stop offset="100%" stop-color="#e0f2fe" />
+        </linearGradient>
+        <linearGradient id="star" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#0f172a" />
+          <stop offset="100%" stop-color="#38bdf8" />
+        </linearGradient>
+      </defs>
+      <rect width="1200" height="800" rx="48" fill="url(#bg)" />
+      <rect x="74" y="74" width="1052" height="652" rx="36" fill="#ffffff" stroke="#94a3b8" stroke-width="8" />
+      <circle cx="600" cy="400" r="184" fill="#e0f2fe" stroke="#7dd3fc" stroke-width="10" />
+      <path d="M600 208l44 116 124 8-97 77 32 120-103-67-103 67 32-120-97-77 124-8 44-116z" fill="url(#star)" />
+      <circle cx="600" cy="400" r="54" fill="#f8fafc" stroke="#0f172a" stroke-width="12" />
+      <path d="M600 130v58M600 612v58M330 400h-58M928 400h-58" stroke="#0f172a" stroke-width="16" stroke-linecap="round" />
+    </svg>
+  `),
+  dansk: svgToBase64DataUrl(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#fff8f2" />
+          <stop offset="100%" stop-color="#fdf2f8" />
+        </linearGradient>
+      </defs>
+      <rect width="1200" height="800" rx="48" fill="url(#bg)" />
+      <rect x="72" y="72" width="1056" height="656" rx="34" fill="#fffdf9" stroke="#f9a8d4" stroke-width="8" />
+      <path d="M318 246c92-34 177-22 246 18v304c-69-40-154-52-246-18V246z" fill="#fff7ed" stroke="#7a284c" stroke-width="12" />
+      <path d="M882 246c-92-34-177-22-246 18v304c69-40 154-52 246-18V246z" fill="#fff7ed" stroke="#7a284c" stroke-width="12" />
+      <path d="M600 264v306" stroke="#9d174d" stroke-width="10" />
+      <path d="M378 318c58-18 110-20 154-10M378 384c58-18 110-20 154-10M378 450c58-18 110-20 154-10" stroke="#f59eae" stroke-width="12" stroke-linecap="round" />
+      <path d="M668 308c44-10 96-8 154 10M668 374c44-10 96-8 154 10M668 440c44-10 96-8 154 10" stroke="#f59eae" stroke-width="12" stroke-linecap="round" />
+      <circle cx="826" cy="216" r="44" fill="#7a284c" opacity="0.14" />
+      <circle cx="380" cy="584" r="36" fill="#f59eae" opacity="0.22" />
+    </svg>
+  `),
+  matematik: svgToBase64DataUrl(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#eef4ff" />
+          <stop offset="100%" stop-color="#dbeafe" />
+        </linearGradient>
+      </defs>
+      <rect width="1200" height="800" rx="48" fill="url(#bg)" />
+      <rect x="72" y="72" width="1056" height="656" rx="34" fill="#ffffff" stroke="#93c5fd" stroke-width="8" />
+      <g opacity="0.32" stroke="#bfdbfe" stroke-width="6">
+        <path d="M190 180H1010" />
+        <path d="M190 280H1010" />
+        <path d="M190 380H1010" />
+        <path d="M190 480H1010" />
+        <path d="M190 580H1010" />
+        <path d="M290 150V650" />
+        <path d="M460 150V650" />
+        <path d="M630 150V650" />
+        <path d="M800 150V650" />
+      </g>
+      <polygon points="300,560 470,260 640,560" fill="#dbeafe" stroke="#1d4ed8" stroke-width="12" />
+      <rect x="706" y="264" width="178" height="178" rx="18" fill="#eff6ff" stroke="#2563eb" stroke-width="12" />
+      <circle cx="795" cy="548" r="86" fill="#eff6ff" stroke="#1d4ed8" stroke-width="12" />
+      <path d="M300 560h340" stroke="#60a5fa" stroke-width="14" stroke-linecap="round" />
+      <path d="M706 548h178M795 462v172" stroke="#60a5fa" stroke-width="14" stroke-linecap="round" />
+    </svg>
+  `),
+  engelsk: svgToBase64DataUrl(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#fff8ef" />
+          <stop offset="100%" stop-color="#ffedd5" />
+        </linearGradient>
+      </defs>
+      <rect width="1200" height="800" rx="48" fill="url(#bg)" />
+      <rect x="72" y="72" width="1056" height="656" rx="34" fill="#fffdf7" stroke="#fdba74" stroke-width="8" />
+      <rect x="232" y="206" width="330" height="216" rx="18" fill="#102347" />
+      <path d="M232 206l330 216M562 206L232 422" stroke="#ffffff" stroke-width="38" />
+      <path d="M232 206l330 216M562 206L232 422" stroke="#ef4444" stroke-width="18" />
+      <path d="M397 206v216M232 314h330" stroke="#ffffff" stroke-width="64" />
+      <path d="M397 206v216M232 314h330" stroke="#ef4444" stroke-width="30" />
+      <path d="M770 616V232h66v384" fill="#102347" />
+      <path d="M734 270h138M720 364h166M736 458h134M750 552h110" stroke="#102347" stroke-width="24" stroke-linecap="round" />
+      <rect x="748" y="160" width="110" height="82" rx="18" fill="#ef4444" />
+      <circle cx="802" cy="124" r="22" fill="#fdba74" />
+    </svg>
+  `),
+} as const;
+
+function resolveSubjectIcon(subject: string) {
+  const normalizedSubject = subject.trim().toLowerCase();
+
+  if (normalizedSubject.includes("dansk")) {
+    return SUBJECT_ICONS.dansk;
+  }
+
+  if (normalizedSubject.includes("matematik")) {
+    return SUBJECT_ICONS.matematik;
+  }
+
+  if (normalizedSubject.includes("engelsk")) {
+    return SUBJECT_ICONS.engelsk;
+  }
+
+  return SUBJECT_ICONS.standard;
 }
 
 function buildPdfImageFallbackDataUrl(message: string) {
@@ -550,19 +658,27 @@ async function fetchPdfImageSourceWithRetry(
   };
 }
 
-async function preparePdfImages(posts: Post[], signal?: AbortSignal): Promise<PreparedPdfImages> {
-  let pollinationsRequestIndex = 0;
+async function preparePdfImages(
+  posts: Post[],
+  subject: string,
+  signal?: AbortSignal
+): Promise<PreparedPdfImages> {
+  const subjectIcon = resolveSubjectIcon(subject);
+
   const tasks = posts.map(async (post) => {
     if (signal?.aborted) {
       throw new DOMException("Aborted", "AbortError");
     }
 
-    const { url, isPollinations } = getPdfImageRequest(post);
-    const currentPollinationsIndex = isPollinations ? pollinationsRequestIndex++ : 0;
-
-    if (isPollinations && currentPollinationsIndex > 0) {
-      await waitForPdfImageDelay(currentPollinationsIndex * PDF_IMAGE_REQUEST_DELAY_MS);
+    if (post.number !== 1) {
+      return {
+        number: post.number,
+        source: subjectIcon,
+        usedFallback: false,
+      } satisfies PreparedPdfImageResult;
     }
+
+    const { url } = getPdfImageRequest(post);
 
     if (!url) {
       return {
@@ -734,10 +850,20 @@ function createStyles(template: PdfTemplate) {
       overflow: "hidden",
       marginBottom: 12,
     },
+    heroVisual: {
+      backgroundColor: t.panelMutedBg,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+    },
     heroImage: {
       width: "100%",
       height: isPoster ? 190 : isEditorial ? 170 : 150,
       objectFit: "cover",
+    },
+    heroIcon: {
+      width: "100%",
+      height: isPoster ? 190 : isEditorial ? 170 : 150,
+      objectFit: "contain",
     },
     heroCaptionWrap: {
       paddingHorizontal: 12,
@@ -1212,13 +1338,27 @@ function renderPostHeader(
   );
 }
 
-function renderHero(styles: PdfStyles, template: PdfTemplate, post: Post, imageUrl: string) {
+function renderHero(
+  styles: PdfStyles,
+  template: PdfTemplate,
+  post: Post,
+  imageUrl: string,
+  subject: string
+) {
+  const isHeroImage = post.number === 1;
+
   return (
     <View style={styles.heroCard}>
-      <Image src={imageUrl} style={styles.heroImage} />
+      {isHeroImage ? (
+        <Image src={imageUrl} style={styles.heroImage} />
+      ) : (
+        <View style={styles.heroVisual}>
+          <Image src={imageUrl} style={styles.heroIcon} />
+        </View>
+      )}
       <View style={styles.heroCaptionWrap}>
         <Text style={styles.heroCaption}>
-          {template.heroCaption}: {post.title}
+          {isHeroImage ? template.heroCaption : `Fagikon til ${getDisplaySubject(subject)}`}: {post.title}
         </Text>
       </View>
     </View>
@@ -1346,7 +1486,7 @@ function renderClassicPostPage(
       <View style={styles.pageInner}>
         {renderPostHeader(styles, template, run, post)}
         <View style={styles.classicFlow}>
-          {renderHero(styles, template, post, imageUrl)}
+          {renderHero(styles, template, post, imageUrl, run.subject)}
           {renderBodySection(styles, template, post)}
           {renderQuestionSection(styles, template, post)}
         </View>
@@ -1371,7 +1511,7 @@ function renderEditorialPostPage(
         {renderPostHeader(styles, template, run, post)}
         <View style={styles.editorialColumns}>
           <View style={styles.editorialMain}>
-            {renderHero(styles, template, post, imageUrl)}
+            {renderHero(styles, template, post, imageUrl, run.subject)}
             {renderBodySection(styles, template, post, "Læs og fortolk")}
             {renderQuestionSection(styles, template, post)}
           </View>
@@ -1398,7 +1538,7 @@ function renderGridPostPage(
         {renderPostHeader(styles, template, run, post)}
         <View style={styles.gridColumns}>
           <View style={styles.gridLeft}>
-            {renderHero(styles, template, post, imageUrl)}
+            {renderHero(styles, template, post, imageUrl, run.subject)}
             {renderGridAside(styles)}
           </View>
           <View style={styles.gridRight}>
@@ -1426,7 +1566,7 @@ function renderPosterPostPage(
       <View style={styles.pageInner}>
         {renderPostHeader(styles, template, run, post)}
         <View style={styles.posterFlow}>
-          {renderHero(styles, template, post, imageUrl)}
+          {renderHero(styles, template, post, imageUrl, run.subject)}
           <View style={styles.posterIntro}>
             <View style={styles.posterIntroMain}>
               {renderBodySection(styles, template, post, "Mission briefing")}
@@ -1649,7 +1789,7 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
         }
 
         try {
-          const prepared = await preparePdfImages(run.posts, signal);
+          const prepared = await preparePdfImages(run.posts, run.subject, signal);
 
           if (generation !== imagePreparationGenerationRef.current) {
             return {
@@ -1678,23 +1818,25 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
           const fallbackSources = Object.fromEntries(
             run.posts.map((post) => [
               post.number,
-              buildPdfImageFallbackDataUrl(
-                typeof post.title === "string" && post.title.trim()
-                  ? post.title.trim()
-                  : "Illustration mangler"
-              ),
+              post.number === 1
+                ? buildPdfImageFallbackDataUrl(
+                    typeof post.title === "string" && post.title.trim()
+                      ? post.title.trim()
+                      : "Illustration mangler"
+                  )
+                : resolveSubjectIcon(run.subject),
             ])
           );
 
           setPreparedImageSources(fallbackSources);
-          setImageFallbackCount(run.posts.length);
+          setImageFallbackCount(run.posts.some((post) => post.number === 1) ? 1 : 0);
           setImagesLoaded(true);
 
           return {
             sources: fallbackSources,
             totalCount: run.posts.length,
-            loadedCount: 0,
-            fallbackCount: run.posts.length,
+            loadedCount: Math.max(run.posts.length - 1, 0),
+            fallbackCount: run.posts.some((post) => post.number === 1) ? 1 : 0,
           };
         } finally {
           if (prepareImagesPromiseRef.current === promise) {
