@@ -10,6 +10,11 @@ import {
   Image,
   StyleSheet,
   Font,
+  Svg,
+  Path,
+  Rect,
+  Circle,
+  Line,
   pdf,
 } from "@react-pdf/renderer";
 
@@ -374,175 +379,33 @@ function waitForPdfImageDelay(delayMs: number) {
   });
 }
 
-function svgToBase64DataUrl(svg: string) {
-  const normalizedSvg = svg.trim();
+type PdfSubjectIconVariant = "standard" | "dansk" | "matematik" | "engelsk";
 
-  if (typeof Buffer !== "undefined") {
-    return `data:image/svg+xml;base64,${Buffer.from(normalizedSvg, "utf8").toString("base64")}`;
-  }
-
-  if (typeof globalThis.btoa === "function") {
-    const bytes = new TextEncoder().encode(normalizedSvg);
-    let binary = "";
-
-    bytes.forEach((byte) => {
-      binary += String.fromCharCode(byte);
-    });
-
-    return `data:image/svg+xml;base64,${globalThis.btoa(binary)}`;
-  }
-
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(normalizedSvg)}`;
-}
-
-const SUBJECT_ICONS = {
-  standard: svgToBase64DataUrl(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
-      <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#f8fafc" />
-          <stop offset="100%" stop-color="#e0f2fe" />
-        </linearGradient>
-        <linearGradient id="star" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#0f172a" />
-          <stop offset="100%" stop-color="#38bdf8" />
-        </linearGradient>
-      </defs>
-      <rect width="1200" height="800" rx="48" fill="url(#bg)" />
-      <rect x="74" y="74" width="1052" height="652" rx="36" fill="#ffffff" stroke="#94a3b8" stroke-width="8" />
-      <circle cx="600" cy="400" r="184" fill="#e0f2fe" stroke="#7dd3fc" stroke-width="10" />
-      <path d="M600 208l44 116 124 8-97 77 32 120-103-67-103 67 32-120-97-77 124-8 44-116z" fill="url(#star)" />
-      <circle cx="600" cy="400" r="54" fill="#f8fafc" stroke="#0f172a" stroke-width="12" />
-      <path d="M600 130v58M600 612v58M330 400h-58M928 400h-58" stroke="#0f172a" stroke-width="16" stroke-linecap="round" />
-    </svg>
-  `),
-  dansk: svgToBase64DataUrl(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
-      <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#fff8f2" />
-          <stop offset="100%" stop-color="#fdf2f8" />
-        </linearGradient>
-      </defs>
-      <rect width="1200" height="800" rx="48" fill="url(#bg)" />
-      <rect x="72" y="72" width="1056" height="656" rx="34" fill="#fffdf9" stroke="#f9a8d4" stroke-width="8" />
-      <path d="M318 246c92-34 177-22 246 18v304c-69-40-154-52-246-18V246z" fill="#fff7ed" stroke="#7a284c" stroke-width="12" />
-      <path d="M882 246c-92-34-177-22-246 18v304c69-40 154-52 246-18V246z" fill="#fff7ed" stroke="#7a284c" stroke-width="12" />
-      <path d="M600 264v306" stroke="#9d174d" stroke-width="10" />
-      <path d="M378 318c58-18 110-20 154-10M378 384c58-18 110-20 154-10M378 450c58-18 110-20 154-10" stroke="#f59eae" stroke-width="12" stroke-linecap="round" />
-      <path d="M668 308c44-10 96-8 154 10M668 374c44-10 96-8 154 10M668 440c44-10 96-8 154 10" stroke="#f59eae" stroke-width="12" stroke-linecap="round" />
-      <circle cx="826" cy="216" r="44" fill="#7a284c" opacity="0.14" />
-      <circle cx="380" cy="584" r="36" fill="#f59eae" opacity="0.22" />
-    </svg>
-  `),
-  matematik: svgToBase64DataUrl(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
-      <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#eef4ff" />
-          <stop offset="100%" stop-color="#dbeafe" />
-        </linearGradient>
-      </defs>
-      <rect width="1200" height="800" rx="48" fill="url(#bg)" />
-      <rect x="72" y="72" width="1056" height="656" rx="34" fill="#ffffff" stroke="#93c5fd" stroke-width="8" />
-      <g opacity="0.32" stroke="#bfdbfe" stroke-width="6">
-        <path d="M190 180H1010" />
-        <path d="M190 280H1010" />
-        <path d="M190 380H1010" />
-        <path d="M190 480H1010" />
-        <path d="M190 580H1010" />
-        <path d="M290 150V650" />
-        <path d="M460 150V650" />
-        <path d="M630 150V650" />
-        <path d="M800 150V650" />
-      </g>
-      <polygon points="300,560 470,260 640,560" fill="#dbeafe" stroke="#1d4ed8" stroke-width="12" />
-      <rect x="706" y="264" width="178" height="178" rx="18" fill="#eff6ff" stroke="#2563eb" stroke-width="12" />
-      <circle cx="795" cy="548" r="86" fill="#eff6ff" stroke="#1d4ed8" stroke-width="12" />
-      <path d="M300 560h340" stroke="#60a5fa" stroke-width="14" stroke-linecap="round" />
-      <path d="M706 548h178M795 462v172" stroke="#60a5fa" stroke-width="14" stroke-linecap="round" />
-    </svg>
-  `),
-  engelsk: svgToBase64DataUrl(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
-      <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#fff8ef" />
-          <stop offset="100%" stop-color="#ffedd5" />
-        </linearGradient>
-      </defs>
-      <rect width="1200" height="800" rx="48" fill="url(#bg)" />
-      <rect x="72" y="72" width="1056" height="656" rx="34" fill="#fffdf7" stroke="#fdba74" stroke-width="8" />
-      <rect x="232" y="206" width="330" height="216" rx="18" fill="#102347" />
-      <path d="M232 206l330 216M562 206L232 422" stroke="#ffffff" stroke-width="38" />
-      <path d="M232 206l330 216M562 206L232 422" stroke="#ef4444" stroke-width="18" />
-      <path d="M397 206v216M232 314h330" stroke="#ffffff" stroke-width="64" />
-      <path d="M397 206v216M232 314h330" stroke="#ef4444" stroke-width="30" />
-      <path d="M770 616V232h66v384" fill="#102347" />
-      <path d="M734 270h138M720 364h166M736 458h134M750 552h110" stroke="#102347" stroke-width="24" stroke-linecap="round" />
-      <rect x="748" y="160" width="110" height="82" rx="18" fill="#ef4444" />
-      <circle cx="802" cy="124" r="22" fill="#fdba74" />
-    </svg>
-  `),
-} as const;
-
-function resolveSubjectIcon(subject: string) {
+function resolveSubjectIconVariant(subject: string): PdfSubjectIconVariant {
   const normalizedSubject = subject.trim().toLowerCase();
 
   if (normalizedSubject.includes("dansk")) {
-    return SUBJECT_ICONS.dansk;
+    return "dansk";
   }
 
   if (normalizedSubject.includes("matematik")) {
-    return SUBJECT_ICONS.matematik;
+    return "matematik";
   }
 
   if (normalizedSubject.includes("engelsk")) {
-    return SUBJECT_ICONS.engelsk;
+    return "engelsk";
   }
 
-  return SUBJECT_ICONS.standard;
-}
-
-function buildPdfImageFallbackDataUrl(message: string) {
-  const safeMessage = message.replace(/[<&>"]/g, "");
-
-  return svgToBase64DataUrl(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
-      <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#f8fafc" />
-          <stop offset="100%" stop-color="#e2e8f0" />
-        </linearGradient>
-      </defs>
-      <rect width="1200" height="800" fill="url(#bg)" />
-      <rect x="42" y="42" width="1116" height="716" rx="28" fill="none" stroke="#334155" stroke-width="10" stroke-dasharray="20 14" />
-      <text x="600" y="332" text-anchor="middle" font-family="Georgia, serif" font-size="64" fill="#0f172a" font-weight="700">
-        Billede kunne ikke hentes
-      </text>
-      <text x="600" y="408" text-anchor="middle" font-family="Georgia, serif" font-size="28" fill="#475569">
-        ${safeMessage}
-      </text>
-      <text x="600" y="478" text-anchor="middle" font-family="Georgia, serif" font-size="22" fill="#64748b">
-        PDF'en bruger en sikker placeholder i stedet for et tomt billede.
-      </text>
-    </svg>
-  `);
+  return "standard";
 }
 
 function buildInitialPdfImageSources(posts: Post[], subject: string) {
-  const subjectIcon = resolveSubjectIcon(subject);
+  void subject;
 
   return Object.fromEntries(
     posts.map((post) => [
       post.number,
-      post.number === 1
-        ? buildPdfImageFallbackDataUrl(
-            typeof post.title === "string" && post.title.trim()
-              ? post.title.trim()
-              : "Illustration mangler"
-          )
-        : subjectIcon,
+      "",
     ])
   ) as Record<number, string>;
 }
@@ -628,12 +491,6 @@ async function fetchPdfImageSourceWithRetry(
   url: string,
   signal?: AbortSignal
 ): Promise<PreparedPdfImageResult> {
-  const fallbackSource = buildPdfImageFallbackDataUrl(
-    typeof post.title === "string" && post.title.trim()
-      ? post.title.trim()
-      : "Illustration mangler"
-  );
-
   for (let attempt = 1; attempt <= PDF_IMAGE_MAX_RETRY_ATTEMPTS; attempt += 1) {
     try {
       const response = await fetchPdfImageResponseWithTimeout(url, signal);
@@ -669,7 +526,7 @@ async function fetchPdfImageSourceWithRetry(
       if (isLastAttempt) {
         return {
           number: post.number,
-          source: fallbackSource,
+          source: "",
           usedFallback: true,
         };
       }
@@ -680,7 +537,7 @@ async function fetchPdfImageSourceWithRetry(
 
   return {
     number: post.number,
-    source: fallbackSource,
+    source: "",
     usedFallback: true,
   };
 }
@@ -690,7 +547,7 @@ async function preparePdfImages(
   subject: string,
   signal?: AbortSignal
 ): Promise<PreparedPdfImages> {
-  const subjectIcon = resolveSubjectIcon(subject);
+  void subject;
 
   const tasks = posts.map(async (post) => {
     if (signal?.aborted) {
@@ -700,7 +557,7 @@ async function preparePdfImages(
     if (post.number !== 1) {
       return {
         number: post.number,
-        source: subjectIcon,
+        source: "",
         usedFallback: false,
       } satisfies PreparedPdfImageResult;
     }
@@ -710,7 +567,7 @@ async function preparePdfImages(
     if (!url) {
       return {
         number: post.number,
-        source: buildPdfImageFallbackDataUrl("Illustration mangler"),
+        source: "",
         usedFallback: true,
       } satisfies PreparedPdfImageResult;
     }
@@ -881,6 +738,8 @@ function createStyles(template: PdfTemplate) {
       backgroundColor: t.panelMutedBg,
       paddingHorizontal: 16,
       paddingVertical: 14,
+      alignItems: "center",
+      justifyContent: "center",
     },
     heroImage: {
       width: "100%",
@@ -890,7 +749,20 @@ function createStyles(template: PdfTemplate) {
     heroIcon: {
       width: "100%",
       height: isPoster ? 190 : isEditorial ? 170 : 150,
-      objectFit: "contain",
+    },
+    heroFallbackTitle: {
+      fontFamily: "Playfair",
+      fontSize: 18,
+      fontWeight: 700,
+      color: t.questionText,
+      marginBottom: 8,
+    },
+    heroFallbackBody: {
+      fontSize: 9,
+      lineHeight: 1.45,
+      color: t.bodyMutedText,
+      textAlign: "center",
+      maxWidth: 280,
     },
     heroCaptionWrap: {
       paddingHorizontal: 12,
@@ -1373,14 +1245,22 @@ function renderHero(
   subject: string
 ) {
   const isHeroImage = post.number === 1;
+  const hasImage = Boolean(imageUrl);
 
   return (
     <View style={styles.heroCard}>
-      {isHeroImage ? (
+      {isHeroImage && hasImage ? (
         <Image src={imageUrl} style={styles.heroImage} />
+      ) : isHeroImage ? (
+        <View style={styles.heroVisual}>
+          <Text style={styles.heroFallbackTitle}>Illustration mangler</Text>
+          <Text style={styles.heroFallbackBody}>
+            Hero-billedet kunne ikke hentes. PDF'en vises stadig, og resten af posten er intakt.
+          </Text>
+        </View>
       ) : (
         <View style={styles.heroVisual}>
-          <Image src={imageUrl} style={styles.heroIcon} />
+          {renderSubjectIconGraphic(styles, subject)}
         </View>
       )}
       <View style={styles.heroCaptionWrap}>
@@ -1390,6 +1270,66 @@ function renderHero(
       </View>
     </View>
   );
+}
+
+function renderSubjectIconGraphic(styles: PdfStyles, subject: string) {
+  switch (resolveSubjectIconVariant(subject)) {
+    case "dansk":
+      return (
+        <Svg viewBox="0 0 120 80" style={styles.heroIcon}>
+          <Rect x={14} y={12} width={92} height={56} rx={10} fill="#fff7ed" stroke="#7a284c" strokeWidth={2.4} />
+          <Path d="M24 58V24c12-5 24-5 36 0v34c-12-5-24-5-36 0Z" fill="#fffdf9" stroke="#9d174d" strokeWidth={2.4} />
+          <Path d="M96 58V24c-12-5-24-5-36 0v34c12-5 24-5 36 0Z" fill="#fffdf9" stroke="#9d174d" strokeWidth={2.4} />
+          <Line x1={60} y1={24} x2={60} y2={58} stroke="#f59eae" strokeWidth={2.2} />
+          <Line x1={30} y1={31} x2={50} y2={31} stroke="#f59eae" strokeWidth={2.6} />
+          <Line x1={30} y1={39} x2={50} y2={39} stroke="#f59eae" strokeWidth={2.6} />
+          <Line x1={70} y1={31} x2={90} y2={31} stroke="#f59eae" strokeWidth={2.6} />
+          <Line x1={70} y1={39} x2={90} y2={39} stroke="#f59eae" strokeWidth={2.6} />
+        </Svg>
+      );
+    case "matematik":
+      return (
+        <Svg viewBox="0 0 120 80" style={styles.heroIcon}>
+          <Rect x={14} y={12} width={92} height={56} rx={10} fill="#f8fbff" stroke="#60a5fa" strokeWidth={2.4} />
+          <Path d="M28 57L48 24l20 33Z" fill="#dbeafe" stroke="#1d4ed8" strokeWidth={2.4} />
+          <Rect x={58} y={24} width={18} height={18} rx={2.5} fill="#eff6ff" stroke="#2563eb" strokeWidth={2.4} />
+          <Circle cx={88} cy={50} r={10} fill="#eff6ff" stroke="#1d4ed8" strokeWidth={2.4} />
+          <Line x1={22} y1={18} x2={98} y2={18} stroke="#bfdbfe" strokeWidth={1.8} />
+          <Line x1={22} y1={62} x2={98} y2={62} stroke="#bfdbfe" strokeWidth={1.8} />
+        </Svg>
+      );
+    case "engelsk":
+      return (
+        <Svg viewBox="0 0 120 80" style={styles.heroIcon}>
+          <Rect x={14} y={12} width={92} height={56} rx={10} fill="#fffdf7" stroke="#fdba74" strokeWidth={2.4} />
+          <Rect x={24} y={20} width={38} height={24} rx={3} fill="#102347" />
+          <Line x1={24} y1={20} x2={62} y2={44} stroke="#ffffff" strokeWidth={5.5} />
+          <Line x1={62} y1={20} x2={24} y2={44} stroke="#ffffff" strokeWidth={5.5} />
+          <Line x1={24} y1={20} x2={62} y2={44} stroke="#ef4444" strokeWidth={2.6} />
+          <Line x1={62} y1={20} x2={24} y2={44} stroke="#ef4444" strokeWidth={2.6} />
+          <Line x1={43} y1={20} x2={43} y2={44} stroke="#ffffff" strokeWidth={8} />
+          <Line x1={24} y1={32} x2={62} y2={32} stroke="#ffffff" strokeWidth={8} />
+          <Line x1={43} y1={20} x2={43} y2={44} stroke="#ef4444" strokeWidth={3.8} />
+          <Line x1={24} y1={32} x2={62} y2={32} stroke="#ef4444" strokeWidth={3.8} />
+          <Rect x={78} y={18} width={10} height={42} rx={2} fill="#102347" />
+          <Line x1={72} y1={28} x2={94} y2={28} stroke="#102347" strokeWidth={3.6} />
+          <Line x1={70} y1={38} x2={96} y2={38} stroke="#102347" strokeWidth={3.6} />
+          <Line x1={72} y1={48} x2={94} y2={48} stroke="#102347" strokeWidth={3.6} />
+        </Svg>
+      );
+    default:
+      return (
+        <Svg viewBox="0 0 120 80" style={styles.heroIcon}>
+          <Rect x={14} y={12} width={92} height={56} rx={10} fill="#ffffff" stroke="#94a3b8" strokeWidth={2.4} />
+          <Circle cx={60} cy={40} r={18} fill="#e0f2fe" stroke="#38bdf8" strokeWidth={2.4} />
+          <Path d="M60 22l5.5 12.5L79 36l-10 8.5L72 58l-12-7-12 7 3-13.5L41 36l13.5-1.5Z" fill="#0f172a" />
+          <Line x1={60} y1={14} x2={60} y2={22} stroke="#0f172a" strokeWidth={2.6} />
+          <Line x1={60} y1={58} x2={60} y2={66} stroke="#0f172a" strokeWidth={2.6} />
+          <Line x1={34} y1={40} x2={42} y2={40} stroke="#0f172a" strokeWidth={2.6} />
+          <Line x1={78} y1={40} x2={86} y2={40} stroke="#0f172a" strokeWidth={2.6} />
+        </Svg>
+      );
+  }
 }
 
 function renderBodySection(styles: PdfStyles, template: PdfTemplate, post: Post, title?: string) {
@@ -1775,7 +1715,7 @@ function StjernelobDocument({
   return (
     <Document title={run.title} author="gpsloeb.dk">
       {run.posts.map((post) => {
-        const imageUrl = imageSources[post.number] ?? buildPdfImageFallbackDataUrl(post.title);
+        const imageUrl = imageSources[post.number] ?? "";
         return renderPostPage(styles, template, run, post, totalPosts, imageUrl);
       })}
       {renderAnswerSheetPage(styles, template, run)}
