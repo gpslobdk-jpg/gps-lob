@@ -419,11 +419,11 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
                   <Sparkles className="h-3.5 w-3.5 text-amber-400" />
                   <span>SENESTE NYT</span>
                 </span>
-                <span className="pointer-events-none absolute -top-2 -right-2 inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold tracking-[0.18em] text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.18)] backdrop-blur-md">
+                <span className="pointer-events-none absolute -top-2 -right-2 inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-semibold tracking-[0.08em] text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.18)] backdrop-blur-md sm:text-[10px]">
                   <span
                     className={`h-1.5 w-1.5 rounded-full bg-emerald-400 ${shouldReduceMotion ? "" : "animate-pulse"}`}
                   />
-                  <span>NYT 9/4</span>
+                  <span>NYT 12. april 2026</span>
                 </span>
               </Link>
             </div>

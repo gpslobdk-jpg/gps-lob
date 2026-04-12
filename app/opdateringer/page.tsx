@@ -12,10 +12,34 @@ interface Entry {
   date: string;
   title: string;
   tag: string;
+  showTitleIcon?: boolean;
   items: { icon: React.ReactNode; heading: string; body: string }[];
 }
 
 const entries: Entry[] = [
+  {
+    date: "12. april 2026",
+    title: "Midt-April",
+    tag: "Ny opdatering",
+    showTitleIcon: false,
+    items: [
+      {
+        icon: <Wifi className="h-4 w-4 text-emerald-400" />,
+        heading: "Skarpere GPS-præcision på ruten",
+        body: "Elevens position (GPS-'prikken') opdaterer nu hurtigere og med langt større præcision ude i terrænet.",
+      },
+      {
+        icon: <LayoutDashboard className="h-4 w-4 text-emerald-400" />,
+        heading: "Fotoløb er nu lynhurtigt (og live!)",
+        body: "Den automatiske AI-vurdering er fjernet. Billeder lander nu øjeblikkeligt i lærerens fotostrøm på live-dashboardet, og eleverne kan løbe videre med det samme.",
+      },
+      {
+        icon: <Sparkles className="h-4 w-4 text-amber-400" />,
+        heading: "Kæmpe designløft til alle Byggere",
+        body: "Quiz-byggerne har fået et moderne look med dedikerede indstillingskort, og AI-assistenten har fået et flot nyt 'Review & Confirm'-flow.",
+      },
+    ],
+  },
   {
     date: "10. april 2026",
     title: "Kritisk driftsstatus: GPS-stabilitet genoprettet",
@@ -140,7 +164,7 @@ export default function OpdateringerPage() {
                   </div>
 
                   <h2 className="mb-5 text-lg font-bold leading-snug text-white">
-                    ✨ {entry.title}
+                    {entry.showTitleIcon === false ? entry.title : `✨ ${entry.title}`}
                   </h2>
 
                   <ul className="space-y-5">
