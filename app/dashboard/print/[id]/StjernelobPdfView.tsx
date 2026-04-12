@@ -375,14 +375,24 @@ function waitForPdfImageDelay(delayMs: number) {
 }
 
 function svgToBase64DataUrl(svg: string) {
-  const bytes = new TextEncoder().encode(svg);
-  let binary = "";
+  const normalizedSvg = svg.trim();
 
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
+  if (typeof Buffer !== "undefined") {
+    return `data:image/svg+xml;base64,${Buffer.from(normalizedSvg, "utf8").toString("base64")}`;
+  }
 
-  return `data:image/svg+xml;base64,${globalThis.btoa(binary)}`;
+  if (typeof globalThis.btoa === "function") {
+    const bytes = new TextEncoder().encode(normalizedSvg);
+    let binary = "";
+
+    bytes.forEach((byte) => {
+      binary += String.fromCharCode(byte);
+    });
+
+    return `data:image/svg+xml;base64,${globalThis.btoa(binary)}`;
+  }
+
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(normalizedSvg)}`;
 }
 
 const SUBJECT_ICONS = {
@@ -1782,6 +1792,7 @@ const PDFViewer = dynamic(
 );
 
 export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
+  const [isClientMounted, setIsClientMounted] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isPreparingImages, setIsPreparingImages] = useState(false);
@@ -1858,6 +1869,10 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
     },
     [run.posts, run.subject]
   );
+
+  useEffect(() => {
+    setIsClientMounted(true);
+  }, []);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -2052,9 +2067,37 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
 
       {/* PDF Viewer */}
       <div style={{ flex: 1, minHeight: 0 }}>
-        <PDFViewer width="100%" height="100%" showToolbar={false}>
-          <StjernelobDocument run={run} imageSources={preparedImageSources} />
-        </PDFViewer>
+        {isClientMounted ? (
+          <PDFViewer width="100%" height="100%" showToolbar={false}>
+            <StjernelobDocument run={run} imageSources={preparedImageSources} />
+          </PDFViewer>
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              height: "100%",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 24,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#cbd5e1" }}>
+              <span
+                aria-hidden="true"
+                style={{
+                  display: "inline-block",
+                  width: 14,
+                  height: 14,
+                  borderRadius: 999,
+                  border: "2px solid rgba(226,232,240,0.35)",
+                  borderTopColor: "#e2e8f0",
+                  animation: "pdfHeroSpin 0.9s linear infinite",
+                }}
+              />
+              <span style={{ fontSize: 14 }}>Klargør PDF-preview...</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
