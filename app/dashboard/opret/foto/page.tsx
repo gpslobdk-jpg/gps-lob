@@ -1,11 +1,13 @@
 ﻿"use client";
 
-import { Loader2, Plus } from "lucide-react";
+import { Camera, ChevronDown, Loader2, Plus, Ruler, Sparkles, Wrench } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 
+import AiReviewDraftModal from "@/components/builders/AiReviewDraftModal";
 import FotoAiInterviewModal, {
   type FotoAiInterviewDraft,
 } from "@/components/builders/foto/FotoAiInterviewModal";
@@ -187,6 +189,11 @@ type BuilderNotice = {
   message: string;
 };
 
+type PendingFotoAiReviewDraft = FotoAiInterviewDraft & {
+  subject: string;
+  replacesExistingContent: boolean;
+};
+
 const FOTO_DRAFT_STORAGE_KEY = "draft_run_foto";
 const DEFAULT_QUESTION_POINTS = 10;
 
@@ -196,12 +203,14 @@ type FotoBuilderDraftState = {
   radius?: unknown;
   showTeacherField?: unknown;
   showAiInterviewModal?: unknown;
+  pendingAiReviewDraft?: unknown;
   questions?: unknown;
   mapCenter?: unknown;
 };
 
 const DEFAULT_RUN_RADIUS = 15;
 const RUN_RADIUS_OPTIONS = [15, 30, 50] as const;
+const PHOTO_SUBJECT_FALLBACK = "Generelt";
 
 const createQuestion = (): Question => ({
   id: Date.now() + Math.floor(Math.random() * 100000),
@@ -253,8 +262,136 @@ const textInputClass =
 const textareaClass =
   "w-full rounded-2xl border border-sky-500/30 bg-sky-950/20 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
-const aiActionButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-[1.4rem] border border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 px-5 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+const toolsTriggerButtonClass =
+  "inline-flex items-center justify-center gap-2 rounded-[1.2rem] border border-sky-500/25 bg-sky-950/30 px-4 py-2.5 text-sm font-semibold text-sky-50 transition hover:bg-sky-900/35 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+
+const toolsMenuItemClass =
+  "flex w-full items-start gap-3 rounded-[1.25rem] px-4 py-3 text-left text-sky-50 transition hover:bg-sky-400/10 disabled:cursor-not-allowed disabled:opacity-50";
+
+const PORTAL_MENU_GAP = 12;
+const PORTAL_MENU_MARGIN = 16;
+
+function normalizePendingFotoAiReviewDraft(value: unknown): PendingFotoAiReviewDraft | null {
+  if (!isRecord(value)) return null;
+
+  const title = asTrimmedString(value.title);
+  const subject = asTrimmedString(value.subject) || PHOTO_SUBJECT_FALLBACK;
+  const missions = (Array.isArray(value.missions) ? value.missions : [])
+    .map((mission) => asTrimmedString(mission))
+    .filter((mission): mission is string => mission.length > 0);
+
+  if (!title || missions.length === 0) {
+    return null;
+  }
+
+  return {
+    title,
+    subject,
+    missions,
+    replacesExistingContent: Boolean(value.replacesExistingContent),
+  };
+}
+
+type PortalMenuProps = {
+  open: boolean;
+  anchorRef: RefObject<HTMLElement | null>;
+  menuRef: RefObject<HTMLDivElement | null>;
+  align?: "start" | "end";
+  className: string;
+  children: ReactNode;
+};
+
+function PortalMenu({ open, anchorRef, menuRef, align = "start", className, children }: PortalMenuProps) {
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({
+    position: "fixed",
+    top: 0,
+    left: 0,
+    visibility: "hidden",
+    zIndex: 200,
+  });
+
+  useEffect(() => {
+    if (!open || typeof window === "undefined") {
+      return;
+    }
+
+    const updatePosition = () => {
+      const anchorElement = anchorRef.current;
+      const menuElement = menuRef.current;
+      if (!anchorElement || !menuElement) {
+        return;
+      }
+
+      const anchorRect = anchorElement.getBoundingClientRect();
+      const menuRect = menuElement.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const availableBelow = viewportHeight - anchorRect.bottom - PORTAL_MENU_GAP - PORTAL_MENU_MARGIN;
+      const availableAbove = anchorRect.top - PORTAL_MENU_GAP - PORTAL_MENU_MARGIN;
+      const shouldOpenUpward = availableBelow < menuRect.height && availableAbove > availableBelow;
+
+      const unclampedTop = shouldOpenUpward
+        ? anchorRect.top - PORTAL_MENU_GAP - menuRect.height
+        : anchorRect.bottom + PORTAL_MENU_GAP;
+      const maxTop = Math.max(PORTAL_MENU_MARGIN, viewportHeight - PORTAL_MENU_MARGIN - menuRect.height);
+      const top = Math.min(Math.max(PORTAL_MENU_MARGIN, unclampedTop), maxTop);
+
+      const unclampedLeft = align === "end" ? anchorRect.right - menuRect.width : anchorRect.left;
+      const maxLeft = Math.max(PORTAL_MENU_MARGIN, viewportWidth - PORTAL_MENU_MARGIN - menuRect.width);
+      const left = Math.min(Math.max(PORTAL_MENU_MARGIN, unclampedLeft), maxLeft);
+
+      setMenuStyle({
+        position: "fixed",
+        top,
+        left,
+        visibility: "visible",
+        zIndex: 200,
+      });
+    };
+
+    updatePosition();
+
+    const visualViewport = window.visualViewport;
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(() => {
+            updatePosition();
+          });
+
+    if (anchorRef.current) {
+      resizeObserver?.observe(anchorRef.current);
+    }
+
+    if (menuRef.current) {
+      resizeObserver?.observe(menuRef.current);
+    }
+
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    visualViewport?.addEventListener("resize", updatePosition);
+    visualViewport?.addEventListener("scroll", updatePosition);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+      visualViewport?.removeEventListener("resize", updatePosition);
+      visualViewport?.removeEventListener("scroll", updatePosition);
+    };
+  }, [align, anchorRef, menuRef, open]);
+
+  if (!open || typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
+    <div ref={menuRef} style={menuStyle} className={className}>
+      {children}
+    </div>,
+    document.body
+  );
+}
 
 function toPhotoQuestions(value: unknown): Question[] {
   if (!Array.isArray(value)) return [];
@@ -409,23 +546,31 @@ function FotoMissionBuilderPageContent() {
   const [radius, setRadius] = useState<number>(DEFAULT_RUN_RADIUS);
   const [showTeacherField, setShowTeacherField] = useState(false);
   const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
+  const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingExistingRun, setIsLoadingExistingRun] = useState(isEditMode);
   const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([createQuestion()]);
   const [notice, setNotice] = useState<BuilderNotice | null>(null);
   const [showDraftRecoveryPrompt, setShowDraftRecoveryPrompt] = useState(false);
+  const [pendingAiReviewDraft, setPendingAiReviewDraft] = useState<PendingFotoAiReviewDraft | null>(null);
   const isEditorBusy = isSaving || showDraftRecoveryPrompt;
   const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
   const [mapCenter, setMapCenter] = useState<MapCenter>({
     lat: DEFAULT_MAP_CENTER.lat,
     lng: DEFAULT_MAP_CENTER.lng,
   });
+  const builderStatusLabel = isSaving ? "Gemmer..." : "Gemmes lokalt";
+  const builderStatusDescription = isSaving
+    ? "Vi sender dine seneste ændringer til arkivet nu."
+    : "Titel, emne og missioner bliver gemt lokalt undervejs, indtil du trykker på Gem.";
+  const pendingAiReviewPreviewMission =
+    pendingAiReviewDraft?.missions.find((mission) => mission.trim().length > 0) ?? "";
 
   const renderNotice = (className = "") =>
     notice ? (
       <div
-        className={`rounded-[1.5rem] border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
+        className={`rounded-3xl border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
           notice.tone === "success"
             ? "border-sky-300/30 bg-sky-500/10 text-sky-50"
             : "border-red-300/30 bg-red-500/10 text-red-100"
@@ -435,6 +580,8 @@ function FotoMissionBuilderPageContent() {
       </div>
     ) : null;
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
+  const toolsMenuAnchorRef = useRef<HTMLDivElement | null>(null);
+  const toolsMenuPortalRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedDraftRef = useRef(false);
   const shouldAutoRestoreDraftRef = useRef<boolean | null>(null);
   const pendingScrollTargetId = useRef<string | null>(null);
@@ -486,13 +633,17 @@ function FotoMissionBuilderPageContent() {
   const applyDraftState = (draft: FotoBuilderDraftState) => {
     const restoredSubject = restoreDraftString(draft.subject);
     const restoredQuestions = toPhotoQuestions(draft.questions);
+    const restoredPendingAiReviewDraft = normalizePendingFotoAiReviewDraft(draft.pendingAiReviewDraft);
 
     setTitle(restoreDraftString(draft.title));
     setSubject(restoredSubject);
     setRadius(normalizeRunRadius(draft.radius));
     setShowTeacherField(restoreDraftBoolean(draft.showTeacherField, Boolean(restoredSubject.trim())));
     setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion()]);
-    setShowAiInterviewModal(restoreDraftBoolean(draft.showAiInterviewModal));
+    setShowAiInterviewModal(
+      restoredPendingAiReviewDraft ? false : restoreDraftBoolean(draft.showAiInterviewModal)
+    );
+    setPendingAiReviewDraft(restoredPendingAiReviewDraft);
     setMapCenter(restoreDraftMapCenter(draft.mapCenter, DEFAULT_MAP_CENTER));
   };
 
@@ -535,6 +686,30 @@ function FotoMissionBuilderPageContent() {
   }, [questions]);
 
   useEffect(() => {
+    if (!showToolsMenu) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (toolsMenuAnchorRef.current?.contains(event.target as Node)) return;
+      if (toolsMenuPortalRef.current?.contains(event.target as Node)) return;
+      setShowToolsMenu(false);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowToolsMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [showToolsMenu]);
+
+  useEffect(() => {
     hasInitializedDraftRef.current = false;
     shouldAutoRestoreDraftRef.current = null;
     setShowDraftRecoveryPrompt(false);
@@ -542,6 +717,7 @@ function FotoMissionBuilderPageContent() {
     if (!isEditMode) {
       setIsLoadingExistingRun(false);
       setLoadedRunId(null);
+      setPendingAiReviewDraft(null);
       return;
     }
 
@@ -607,6 +783,7 @@ function FotoMissionBuilderPageContent() {
         setShowTeacherField(Boolean(asTrimmedString(run.subject)));
         setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
         setShowAiInterviewModal(false);
+        setPendingAiReviewDraft(null);
         setMapCenter(
           firstPinnedQuestion
             ? {
@@ -687,12 +864,14 @@ function FotoMissionBuilderPageContent() {
       radius,
       showTeacherField,
       showAiInterviewModal,
+      pendingAiReviewDraft,
       questions,
       mapCenter,
     } satisfies FotoBuilderDraftState);
   }, [
     editRunId,
     mapCenter,
+    pendingAiReviewDraft,
     questions,
     radius,
     showAiInterviewModal,
@@ -796,6 +975,12 @@ function FotoMissionBuilderPageContent() {
     setShowAiInterviewModal(false);
   };
 
+  const openAiInterviewModal = () => {
+    setNotice(null);
+    setShowToolsMenu(false);
+    setShowAiInterviewModal(true);
+  };
+
   const handleAiInterviewComplete = (draft: FotoAiInterviewDraft) => {
     const nextTitle = draft.title.trim();
     const nextQuestions = toInterviewMissionQuestions(draft.missions);
@@ -811,24 +996,47 @@ function FotoMissionBuilderPageContent() {
     const hasExistingContent =
       title.trim().length > 0 ||
       questions.some((question) => !isQuestionEmpty(question));
+    setShowAiInterviewModal(false);
+    setNotice(null);
+    setPendingAiReviewDraft({
+      title: nextTitle,
+      subject: subject.trim() || PHOTO_SUBJECT_FALLBACK,
+      missions: draft.missions.map((mission) => mission.trim()).filter((mission) => mission.length > 0),
+      replacesExistingContent: hasExistingContent,
+    });
+  };
 
-    if (hasExistingContent) {
-      const shouldReplace = window.confirm(
-        "Det auto-genererede udkast erstatter de nuværende missioner i builderen. Vil du fortsætte?"
-      );
+  const closeAiReviewDraft = () => {
+    if (!pendingAiReviewDraft) return;
 
-      if (!shouldReplace) {
-        setNotice({
-          tone: "success",
-          message: "Dit nuværende arbejde blev beholdt uændret.",
-        });
-        return;
-      }
+    setPendingAiReviewDraft(null);
+    setNotice({
+      tone: "success",
+      message: pendingAiReviewDraft.replacesExistingContent
+        ? "Dit nuværende arbejde blev beholdt uændret."
+        : "Smart-udkastet blev lukket uden at blive anvendt.",
+    });
+  };
+
+  const applyAiReviewDraft = () => {
+    if (!pendingAiReviewDraft) return;
+
+    const nextTitle = pendingAiReviewDraft.title.trim();
+    const nextQuestions = toInterviewMissionQuestions(pendingAiReviewDraft.missions);
+
+    if (!nextTitle || nextQuestions.length === 0) {
+      setPendingAiReviewDraft(null);
+      setNotice({
+        tone: "error",
+        message: "Det auto-genererede udkast kunne ikke bruges. Prøv igen.",
+      });
+      return;
     }
 
     setTitle(nextTitle);
     setQuestions([...nextQuestions]);
-    setShowAiInterviewModal(false);
+    setShowTeacherField(Boolean(pendingAiReviewDraft.subject.trim()));
+    setPendingAiReviewDraft(null);
     setNotice({
       tone: "success",
       message: "Et komplet udkast er klar til dit foto-løb. Gennemgå felterne og placer missionerne på kortet.",
@@ -948,6 +1156,7 @@ function FotoMissionBuilderPageContent() {
         setSubject("");
         setRadius(DEFAULT_RUN_RADIUS);
         setShowTeacherField(false);
+        setPendingAiReviewDraft(null);
         setQuestions([createQuestion()]);
       }
 
@@ -1002,80 +1211,157 @@ function FotoMissionBuilderPageContent() {
                       Edit-mode
                     </div>
                   ) : null}
-                  <div className="mb-8">
-                    <h3 className="text-xl font-semibold text-sky-100">Velkommen til Foto mission.</h3>
-                    <p className="mt-2 text-sm text-sky-100/80">Placer missionerne på kortet, og beskriv præcist, hvad eleverne skal fotografere ved hver post.</p>
-                    <p className="mt-3 text-sm text-sky-100/80">Eleverne løser kreative foto-opgaver ude på ruten og uploader billederne. Efter løbet kan du som lærer gennemgå og godkende holdenes pletskud.</p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNotice(null);
-                        setShowAiInterviewModal(true);
-                      }}
-                      disabled={isEditorBusy || isLoadingExistingRun}
-                      className={`${aiActionButtonClass} mt-4 w-full sm:w-auto`}
-                    >
-                      <span aria-hidden>✨</span>
-                      Smart auto-udfyldning
-                    </button>
+
+                  <div className="relative z-40 mb-8 space-y-5">
+                    <div className="flex items-center gap-3">
+                      <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-[1.55rem] border border-white/80 bg-white px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),inset_0_-6px_12px_rgba(12,74,110,0.08),0_18px_38px_rgba(255,255,255,0.16),0_14px_28px_rgba(14,165,233,0.18)] ring-1 ring-sky-200/55">
+                        <span
+                          aria-hidden="true"
+                          className="pointer-events-none absolute inset-x-2 top-1 h-px rounded-full bg-white/95"
+                        />
+                        <span className="relative flex h-full w-full items-center justify-center rounded-[1.05rem] bg-linear-to-br from-sky-100 via-white to-sky-200 text-sky-950 shadow-[inset_0_-8px_16px_rgba(14,165,233,0.12)]">
+                          <Sparkles className="h-6 w-6" />
+                        </span>
+                        <span className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-sky-900/10 bg-sky-500 text-white shadow-[0_8px_18px_rgba(14,165,233,0.35)]">
+                          <Camera className="h-3.5 w-3.5" />
+                        </span>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold text-sky-100">Velkommen til Fotoløb</h3>
+                        <p className="mt-1 text-sm text-sky-100/80">
+                          Byg kreative foto-missioner, placer dem på kortet, og lad smart-assistenten klargøre et første udkast, som du kan gennemse, før det lander i builderen.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="relative z-40 rounded-4xl border border-sky-500/30 bg-sky-950/20 p-5 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:p-6">
+                      <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                          <div>
+                            <label className="block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
+                              Løbets titel
+                            </label>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold backdrop-blur-xl ${
+                                isSaving
+                                  ? "border-sky-300/35 bg-sky-400/10 text-sky-50"
+                                  : "border-sky-500/20 bg-sky-950/30 text-sky-100/72"
+                              }`}
+                            >
+                              {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="h-2 w-2 rounded-full bg-sky-300/70" />}
+                              {builderStatusLabel}
+                            </span>
+
+                            <div ref={toolsMenuAnchorRef} className="inline-flex max-w-full flex-col items-end">
+                              <button
+                                type="button"
+                                onClick={() => setShowToolsMenu((current) => !current)}
+                                disabled={isEditorBusy}
+                                className={toolsTriggerButtonClass}
+                                aria-haspopup="menu"
+                                aria-expanded={showToolsMenu}
+                              >
+                                <Wrench className="h-4 w-4" />
+                                Værktøjer
+                                <ChevronDown className={`h-4 w-4 transition-transform ${showToolsMenu ? "rotate-180" : ""}`} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <input
+                          value={title}
+                          onChange={(event) => setTitle(event.target.value)}
+                          disabled={isEditorBusy}
+                          placeholder="F.eks. Foto-eventyr i Vordingborg"
+                          className="w-full rounded-[1.6rem] border border-sky-500/30 bg-sky-950/20 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                        />
+
+                        <p className="text-sm leading-6 text-sky-100/68">{builderStatusDescription}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <div className="rounded-3xl border border-sky-500/30 bg-sky-950/20 p-4 backdrop-blur-xl">
+                        <div className="mb-3 flex items-start gap-3">
+                          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sky-400/20 bg-sky-400/10 text-sky-200">
+                            <Sparkles className="h-4.5 w-4.5" />
+                          </span>
+                          <div>
+                            <label className="block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
+                              Emne
+                            </label>
+                            <p className="mt-1 text-sm leading-6 text-sky-100/75">
+                              Vælg et emne til arkiv og smart-assistent, så udkastet rammer den rigtige retning.
+                            </p>
+                          </div>
+                        </div>
+
+                        <select
+                          value={subject}
+                          onChange={(event) => {
+                            const nextSubject = event.target.value;
+                            setSubject(nextSubject);
+                            setShowTeacherField(Boolean(nextSubject.trim()));
+                          }}
+                          disabled={isEditorBusy}
+                          className="w-full rounded-[1.35rem] border border-sky-500/30 bg-sky-950/20 px-4 py-3 text-sm font-semibold text-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-400/40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                        >
+                          <option value="" className="bg-slate-900 text-white">
+                            Vælg et fag til arkivet...
+                          </option>
+                          {Object.keys(SUBJECT_TOPICS).map((subjectOption) => (
+                            <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
+                              {subjectOption}
+                            </option>
+                          ))}
+                        </select>
+
+                        <p className="mt-3 text-sm text-sky-100/70">
+                          {subject.trim()
+                            ? `Valgt: ${subject.trim()}`
+                            : "Intet emne valgt endnu. Du kan stadig bygge løbet videre og vælge senere."}
+                        </p>
+                      </div>
+
+                      <div className="rounded-3xl border border-sky-500/30 bg-sky-950/20 p-4 backdrop-blur-xl">
+                        <div className="mb-3 flex items-start gap-3">
+                          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sky-400/20 bg-sky-400/10 text-sky-200">
+                            <Ruler className="h-4.5 w-4.5" />
+                          </span>
+                          <div>
+                            <label className="block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
+                              GPS-radius
+                            </label>
+                            <p className="mt-1 text-sm leading-6 text-sky-100/75">
+                              Vælg hvor tæt eleverne skal være på posten, før GPS-låsen åbner på ruten.
+                            </p>
+                          </div>
+                        </div>
+
+                        <select
+                          value={radius}
+                          onChange={(event) => setRadius(normalizeRunRadius(event.target.value))}
+                          disabled={isEditorBusy}
+                          className="w-full rounded-[1.35rem] border border-sky-500/30 bg-sky-950/20 px-4 py-3 text-sm font-semibold text-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-400/40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                        >
+                          {RUN_RADIUS_OPTIONS.map((radiusOption) => (
+                            <option key={radiusOption} value={radiusOption} className="bg-slate-900 text-white">
+                              {radiusOption} meter
+                            </option>
+                          ))}
+                        </select>
+
+                        <p className="mt-3 text-sm text-sky-100/70">
+                          Eleverne skal være inden for {radius} meter, før posten åbner.
+                        </p>
+                      </div>
+                    </div>
                   </div>
-
-                  <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
-                    Løbets titel
-                  </label>
-                  <input
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    disabled={isEditorBusy}
-                    placeholder="F.eks. Foto-eventyr i Vordingborg"
-                    className={textInputClass}
-                  />
                 </div>
-              <div className="px-1">
-                <div className="rounded-[1.5rem] border border-sky-500/30 bg-sky-950/20 p-4 backdrop-blur-xl">
-                  <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
-                    Emne
-                  </label>
-                  <select
-                    value={subject}
-                    onChange={(event) => setSubject(event.target.value)}
-                    disabled={isEditorBusy}
-                    className="w-full appearance-none rounded-2xl border border-sky-500/30 bg-sky-950/20 p-3 text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                  >
-                    <option value="" className="bg-slate-900 text-white">
-                      Vælg et fag til arkivet...
-                    </option>
-                    {Object.keys(SUBJECT_TOPICS).map((subjectOption) => (
-                      <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
-                        {subjectOption}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="px-1">
-                <div className="rounded-[1.5rem] border border-sky-500/30 bg-sky-950/20 p-4 backdrop-blur-xl">
-                  <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
-                    GPS-radius
-                  </label>
-                  <select
-                    value={radius}
-                    onChange={(event) => setRadius(normalizeRunRadius(event.target.value))}
-                    disabled={isEditorBusy}
-                    className="w-full rounded-2xl border border-sky-500/30 bg-sky-950/20 px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                  >
-                    {RUN_RADIUS_OPTIONS.map((radiusOption) => (
-                      <option key={radiusOption} value={radiusOption} className="bg-slate-900 text-white">
-                        {radiusOption} meter
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-2 text-sm text-sky-100/70">
-                    Vælg hvor tæt eleven skal være på posten, før GPS-låsen åbner.
-                  </p>
-                </div>
-              </div>
 
               <div className="space-y-4 px-1">
                 <div className="flex items-end justify-between gap-4">
@@ -1191,8 +1477,8 @@ function FotoMissionBuilderPageContent() {
           </section>
 
           <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
-            <div className="lg:sticky lg:top-5">
-              <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-sky-500/20 bg-slate-900/60 shadow-[0_0_0_1px_rgba(16,185,129,0.08),0_0_36px_rgba(16,185,129,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
+            <div className="lg:sticky lg:top-20">
+              <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-4xl border border-sky-500/20 bg-slate-900/60 shadow-[0_0_0_1px_rgba(14,165,233,0.08),0_0_36px_rgba(14,165,233,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-(--spacing(28)))]">
                 <MapPicker
                   center={mapCenter}
                   pins={pins}
@@ -1205,6 +1491,71 @@ function FotoMissionBuilderPageContent() {
               </div>
             </div>
           </aside>
+
+          <PortalMenu
+            open={showToolsMenu}
+            anchorRef={toolsMenuAnchorRef}
+            menuRef={toolsMenuPortalRef}
+            align="end"
+            className="w-[min(26rem,calc(100vw-2rem))] max-h-[min(32rem,calc(100vh-2rem))] overflow-x-hidden overflow-y-auto rounded-[1.6rem] border border-sky-400/20 bg-slate-950/96 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl overscroll-contain"
+          >
+            <div className="px-4 pb-2 pt-2">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-sky-100/45">Opret hurtigt</p>
+            </div>
+
+            <button
+              type="button"
+              onClick={openAiInterviewModal}
+              disabled={isEditorBusy}
+              className={toolsMenuItemClass}
+            >
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-400/20 bg-sky-400/10 text-sky-200">
+                <Sparkles className="h-4 w-4" />
+              </span>
+              <span>
+                <span className="block text-sm font-black uppercase tracking-[0.16em]">Smart-assistent til foto-missioner</span>
+                <span className="mt-1 block text-sm leading-6 text-sky-100/72">
+                  Byg et komplet foto-løb med titel og missioner, og gennemse det før det lander i builderen.
+                </span>
+              </span>
+            </button>
+
+            <div className="mx-2 my-2 h-px bg-sky-400/10" />
+
+            <div className="px-4 pb-2 pt-1">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-sky-100/45">Overblik</p>
+            </div>
+
+            <div className="space-y-4 px-4 py-3">
+              <div className="flex items-start gap-3 rounded-[1.25rem] text-left text-sky-50/90">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-400/20 bg-sky-400/10 text-sky-200">
+                  <Ruler className="h-4 w-4" />
+                </span>
+                <span>
+                  <span className="block text-sm font-black uppercase tracking-[0.16em]">Aktiv GPS-radius</span>
+                  <span className="mt-1 block text-sm leading-6 text-sky-100/68">
+                    Builderen er sat til {radius} meter. Du kan justere den direkte i arbejdsfladen, mens du placerer posterne.
+                  </span>
+                </span>
+              </div>
+
+              <div className="h-px bg-sky-400/10" />
+
+              <div className="flex items-start gap-3 rounded-[1.25rem] text-left text-sky-50/90">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-400/20 bg-sky-400/10 text-sky-200">
+                  <Camera className="h-4 w-4" />
+                </span>
+                <span>
+                  <span className="block text-sm font-black uppercase tracking-[0.16em]">Emne til arkiv</span>
+                  <span className="mt-1 block text-sm leading-6 text-sky-100/68">
+                    {subject.trim()
+                      ? `Fotoløbet står til ${subject.trim()}, så det er nemt at genfinde og genbruge senere.`
+                      : "Du kan vælge emne direkte i arbejdsfladen, når du er klar til at placere løbet i arkivet."}
+                  </span>
+                </span>
+              </div>
+            </div>
+          </PortalMenu>
         </div>
       </div>
 
@@ -1236,6 +1587,36 @@ function FotoMissionBuilderPageContent() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {pendingAiReviewDraft ? (
+        <AiReviewDraftModal
+          tone="sky"
+          eyebrow="Smart-udkast"
+          title="Review & Confirm"
+          description="Assistenten har bygget et komplet foto-udkast. Tjek resuméet herunder, og bekræft før det lander i builderen."
+          warning={
+            pendingAiReviewDraft.replacesExistingContent
+              ? "Dit nuværende indhold bliver erstattet, hvis du vælger at anvende kladden."
+              : null
+          }
+          summaryItems={[
+            { label: "Titel", value: pendingAiReviewDraft.title },
+            { label: "Emne", value: pendingAiReviewDraft.subject || PHOTO_SUBJECT_FALLBACK },
+            { label: "Antal missioner", value: pendingAiReviewDraft.missions.length },
+            { label: "Format", value: "Foto-missioner" },
+          ]}
+          detailItems={
+            pendingAiReviewPreviewMission
+              ? [{ label: "Første mission", value: pendingAiReviewPreviewMission }]
+              : []
+          }
+          cancelLabel="Annuller"
+          applyLabel="Anvend kladde"
+          headingClassName={rubik.className}
+          onCancel={closeAiReviewDraft}
+          onApply={applyAiReviewDraft}
+        />
       ) : null}
 
       <FotoAiInterviewModal

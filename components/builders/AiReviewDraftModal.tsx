@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 
-type Tone = "emerald" | "rose" | "amber" | "indigo";
+type Tone = "emerald" | "rose" | "amber" | "indigo" | "sky";
 
 type ReviewItem = {
   label: string;
@@ -75,6 +75,16 @@ const toneClassMap: Record<
     cancel: "text-indigo-50",
     apply:
       "border-indigo-300/40 bg-indigo-300 text-slate-950 shadow-lg shadow-indigo-500/20 hover:bg-indigo-200",
+  },
+  sky: {
+    frame: "border-sky-400/25",
+    eyebrow: "text-sky-100/70",
+    heading: "text-sky-50",
+    body: "text-sky-100/80",
+    label: "text-sky-100/65",
+    cancel: "text-sky-50",
+    apply:
+      "border-sky-300/40 bg-sky-400 text-slate-950 shadow-lg shadow-sky-500/20 hover:bg-sky-300",
   },
 };
 

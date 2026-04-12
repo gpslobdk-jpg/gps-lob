@@ -69,6 +69,12 @@ function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function sanitizeVisibleCopy(value: string) {
+  return value
+    .replace(/AI['’]?en/gi, "assistenten")
+    .replace(/\bAI\b/gi, "assistenten");
+}
+
 function normalizeAudience(value: unknown): (typeof AUDIENCE_OPTIONS)[number]["value"] {
   return AUDIENCE_OPTIONS.some((option) => option.value === value)
     ? (value as (typeof AUDIENCE_OPTIONS)[number]["value"])
@@ -245,12 +251,12 @@ export default function FotoAiInterviewModal({
         const message =
           payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
             ? payload.error
-            : "AI'en kunne ikke bygge foto-løbet lige nu.";
-        throw new Error(message);
+              : "Assistenten kunne ikke bygge foto-løbet lige nu.";
+          throw new Error(sanitizeVisibleCopy(message));
       }
 
       if (!isInterviewDraftResponse(payload)) {
-        throw new Error("AI'en returnerede et ugyldigt foto-format.");
+          throw new Error("Assistenten returnerede et ugyldigt foto-format.");
       }
 
       onComplete({
@@ -276,7 +282,7 @@ export default function FotoAiInterviewModal({
       className={`fixed inset-0 z-[1300] overflow-y-auto bg-slate-950/94 ${poppins.className}`}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="foto-ai-interview-title"
+      aria-labelledby="foto-assistent-interview-title"
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.16),transparent_30%),radial-gradient(circle_at_bottom,rgba(56,189,248,0.08),transparent_32%)]" />
 
@@ -291,7 +297,7 @@ export default function FotoAiInterviewModal({
             >
               Luk
             </button>
-            <span>Interview-AI</span>
+            <span>Smart-assistent</span>
             <span>Trin {step}/5</span>
           </div>
 
@@ -307,13 +313,13 @@ export default function FotoAiInterviewModal({
               <>
                 <p className="text-sm font-semibold tracking-[0.28em] text-sky-300 uppercase">Trin 1</p>
                 <h2
-                  id="foto-ai-interview-title"
+                  id="foto-assistent-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                 >
                   Hvad skal foto-løbet handle om?
                 </h2>
                 <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
-                  Beskriv temaet eller motivverdenen, så bygger AI&apos;en resten.
+                  Beskriv temaet eller motivverdenen, så bygger assistenten resten.
                 </p>
 
                 <textarea
@@ -342,7 +348,7 @@ export default function FotoAiInterviewModal({
               <>
                 <p className="text-sm font-semibold tracking-[0.28em] text-sky-300 uppercase">Trin 2</p>
                 <h2
-                  id="foto-ai-interview-title"
+                  id="foto-assistent-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                 >
                   Hvem er målgruppen?
@@ -380,7 +386,7 @@ export default function FotoAiInterviewModal({
               <>
                 <p className="text-sm font-semibold tracking-[0.28em] text-sky-300 uppercase">Trin 3</p>
                 <h2
-                  id="foto-ai-interview-title"
+                  id="foto-assistent-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                 >
                   Hvilken stemning skal løbet have?
@@ -419,7 +425,7 @@ export default function FotoAiInterviewModal({
               <>
                 <p className="text-sm font-semibold tracking-[0.28em] text-sky-300 uppercase">Trin 4</p>
                 <h2
-                  id="foto-ai-interview-title"
+                  id="foto-assistent-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                 >
                   Hvor mange poster skal løbet have?
@@ -463,7 +469,7 @@ export default function FotoAiInterviewModal({
                 </div>
                 <p className="mt-8 text-sm font-semibold tracking-[0.28em] text-sky-300 uppercase">Trin 5</p>
                 <h2
-                  id="foto-ai-interview-title"
+                  id="foto-assistent-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                 >
                   Genererer dit foto-løb...
