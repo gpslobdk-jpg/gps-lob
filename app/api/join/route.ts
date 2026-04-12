@@ -41,6 +41,7 @@ type ParticipantRow = {
 type JoinParticipantRequest = {
   sessionId?: unknown;
   studentName?: unknown;
+  participantId?: unknown;
 };
 
 type JoinParticipantResponse = {
@@ -806,6 +807,7 @@ export async function POST(request: NextRequest) {
 
   const sessionId = asTrimmedString(payload.sessionId);
   const studentName = asTrimmedString(payload.studentName);
+  const preferredParticipantId = asTrimmedString(payload.participantId);
 
   if (!sessionId || !studentName) {
     return NextResponse.json(
@@ -865,7 +867,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const existingParticipant = await fetchParticipantRecord(sessionId, adminSupabase, { studentName });
+    const existingParticipant = preferredParticipantId
+      ? await fetchParticipantRecord(sessionId, adminSupabase, {
+          participantId: preferredParticipantId,
+        })
+      : await fetchParticipantRecord(sessionId, adminSupabase, { studentName });
+
+    if (preferredParticipantId && !existingParticipant) {
+      await clearParticipantAuthSession(participantAuthClient);
+      return NextResponse.json(
+        {
+          error:
+            "Vi kunne ikke genfinde din tidligere deltager i dette spil. Åbn løbet fra samme enhed eller kontakt læreren.",
+        },
+        { status: 409, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     const existingParticipantId = asTrimmedString(existingParticipant?.id);
 
     let participantResult: SupabaseResult<ParticipantRow[]>;

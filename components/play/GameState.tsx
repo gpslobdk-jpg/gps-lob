@@ -520,6 +520,7 @@ export function usePlayGameState({
   const registerParticipantIdentity = useCallback(
     async (nextStudentName: string) => {
       const normalizedName = nextStudentName.trim();
+      const preferredParticipantId = storedParticipantOnLoad?.participantId?.trim() || null;
       if (!sessionId || !normalizedName || isProvisioningParticipant) {
         return false;
       }
@@ -536,6 +537,7 @@ export function usePlayGameState({
           body: JSON.stringify({
             sessionId,
             studentName: normalizedName,
+            participantId: preferredParticipantId,
           }),
         });
 
@@ -561,10 +563,19 @@ export function usePlayGameState({
           typeof payload.sessionStatus === "string" ? payload.sessionStatus : null;
         const resolvedTeamId = typeof payload.teamId === "string" ? payload.teamId : null;
         const resolvedTeamColor = typeof payload.teamColor === "string" ? payload.teamColor : null;
+        const didRebindStoredParticipant =
+          Boolean(preferredParticipantId) && payload.participantId === preferredParticipantId;
+        const preservedAvatarUrl = didRebindStoredParticipant
+          ? storedParticipantOnLoad?.avatarUrl ?? undefined
+          : undefined;
+        const hasRecoveredAvatarGate =
+          didRebindStoredParticipant && storedParticipantOnLoad?.hasCompletedAvatarGate === true;
         setPendingPlayerNameState(resolvedName);
         setPlayerName(resolvedName);
         setHasConfirmedName(true);
-        setHasCompletedAvatarGate(false);
+        setAvatarUrl(preservedAvatarUrl);
+        setPendingAvatarUrlState(undefined);
+        setHasCompletedAvatarGate(hasRecoveredAvatarGate);
         setNameError(null);
         setSessionStatus(resolvedSessionStatus);
         setTeamId(resolvedTeamId);
@@ -583,7 +594,7 @@ export function usePlayGameState({
           resolvedStartOffset,
           resolvedTeamId,
           resolvedTeamColor,
-          undefined,
+          preservedAvatarUrl,
           resolvedSessionStatus
         );
         return true;
@@ -591,7 +602,11 @@ export function usePlayGameState({
         console.error("Kunne ikke registrere deltageridentitet:", error);
         setHasConfirmedName(false);
         setHasCompletedAvatarGate(false);
-        setNameError("Vi kunne ikke starte løbet lige nu. Prøv igen.");
+        setNameError(
+          error instanceof Error && error.message
+            ? error.message
+            : "Vi kunne ikke starte løbet lige nu. Prøv igen."
+        );
         return false;
       } finally {
         setIsProvisioningParticipant(false);
@@ -603,6 +618,9 @@ export function usePlayGameState({
       raceMode,
       rememberActiveParticipant,
       sessionId,
+      storedParticipantOnLoad?.avatarUrl,
+      storedParticipantOnLoad?.hasCompletedAvatarGate,
+      storedParticipantOnLoad?.participantId,
     ]
   );
 

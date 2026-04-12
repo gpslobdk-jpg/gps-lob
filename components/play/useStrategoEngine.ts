@@ -24,6 +24,7 @@ const STRATEGO_DUEL_TRIGGER_COOLDOWN_MS = 5000;
 const STRATEGO_DUEL_ERROR_TIMEOUT_MS = 3000;
 const STRATEGO_RESPAWN_RETRY_COOLDOWN_MS = 5000;
 const STRATEGO_RESPAWN_FEEDBACK_TIMEOUT_MS = 4000;
+const STRATEGO_PRESENCE_REFRESH_THROTTLE_MS = 1000;
 const STRATEGO_PRESENCE_STALE_MS = 10000;
 const STRATEGO_PRESENCE_STALE_TICK_MS = 1000;
 const STRATEGO_OWN_SIGNAL_STALE_MS = 10000;
@@ -49,6 +50,16 @@ type StrategoPlayerRow = {
   state?: string | null;
   rank_key?: string | null;
   last_duel_at?: string | null;
+};
+
+type ParticipantRealtimeRow = {
+  id?: string | null;
+  session_id?: string | null;
+  lat?: number | string | null;
+  lng?: number | string | null;
+  accuracy?: number | string | null;
+  updated_at?: string | null;
+  spawn_shield_until?: string | null;
 };
 
 type StrategoGameRow = {
@@ -133,6 +144,56 @@ function normalizeSelfPlayer(row: StrategoPlayerRow | null | undefined): Strateg
     state,
     rankKey: typeof row?.rank_key === "string" ? row.rank_key : null,
     lastDuelAt: typeof row?.last_duel_at === "string" ? row.last_duel_at : null,
+  };
+}
+
+function hasOwnField(row: object | null | undefined, field: string) {
+  return Boolean(row) && Object.prototype.hasOwnProperty.call(row, field);
+}
+
+function mergeParticipantRealtimeIntoPresenceEntry(
+  entry: StrategoPresenceEntry,
+  row: ParticipantRealtimeRow | null | undefined
+) {
+  const nextEntry: StrategoPresenceEntry = { ...entry };
+
+  if (typeof row?.session_id === "string") {
+    nextEntry.sessionId = row.session_id;
+  }
+
+  if (hasOwnField(row, "lat")) {
+    nextEntry.lat = toFiniteNumber(row?.lat);
+  }
+
+  if (hasOwnField(row, "lng")) {
+    nextEntry.lng = toFiniteNumber(row?.lng);
+  }
+
+  if (hasOwnField(row, "accuracy")) {
+    nextEntry.accuracy = toFiniteNumber(row?.accuracy);
+  }
+
+  if (hasOwnField(row, "updated_at")) {
+    nextEntry.updatedAt = typeof row?.updated_at === "string" ? row.updated_at : null;
+  }
+
+  if (hasOwnField(row, "spawn_shield_until")) {
+    nextEntry.spawnShieldUntil =
+      typeof row?.spawn_shield_until === "string" ? row.spawn_shield_until : null;
+  }
+
+  return nextEntry;
+}
+
+function mergeStrategoPlayerIntoPresenceEntry(
+  entry: StrategoPresenceEntry,
+  row: StrategoPlayerRow | null | undefined
+) {
+  return {
+    ...entry,
+    sessionId: typeof row?.session_id === "string" ? row.session_id : entry.sessionId,
+    teamCode: typeof row?.team_code === "string" ? row.team_code : entry.teamCode,
+    state: typeof row?.state === "string" ? row.state : entry.state,
   };
 }
 
@@ -345,10 +406,15 @@ export function useStrategoEngine({
   const [error, setError] = useState<string | null>(null);
   const [presenceFreshnessTick, setPresenceFreshnessTick] = useState(() => Date.now());
 
+  const presenceEntriesRef = useRef<StrategoPresenceEntry[]>([]);
   const duelInFlightRef = useRef(false);
   const lastDuelEventIdRef = useRef<string | null>(null);
   const duelErrorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const respawnMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const presenceRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const presenceRefreshInFlightRef = useRef(false);
+  const presenceRefreshQueuedRef = useRef(false);
+  const lastPresenceRefreshAtRef = useRef(0);
   const respawnInFlightRef = useRef(false);
   const respawnCooldownUntilRef = useRef(0);
   const respawnZoneLockRef = useRef(false);
@@ -356,6 +422,10 @@ export function useStrategoEngine({
     presence: false,
     duel: false,
   });
+
+  useEffect(() => {
+    presenceEntriesRef.current = presenceEntries;
+  }, [presenceEntries]);
 
   const clearDuelError = useCallback(() => {
     if (duelErrorTimeoutRef.current) {
@@ -432,6 +502,88 @@ export function useStrategoEngine({
     setPresenceEntries(normalizedEntries);
     setError(null);
   }, [enabled, sessionId, supabase]);
+
+  const runPresenceRefreshNow = useCallback(async () => {
+    if (presenceRefreshTimeoutRef.current) {
+      clearTimeout(presenceRefreshTimeoutRef.current);
+      presenceRefreshTimeoutRef.current = null;
+    }
+
+    if (!enabled || !sessionId) {
+      presenceRefreshQueuedRef.current = false;
+      presenceRefreshInFlightRef.current = false;
+      lastPresenceRefreshAtRef.current = 0;
+      setPresenceEntries([]);
+      return;
+    }
+
+    if (presenceRefreshInFlightRef.current) {
+      presenceRefreshQueuedRef.current = true;
+      return;
+    }
+
+    presenceRefreshInFlightRef.current = true;
+    presenceRefreshQueuedRef.current = false;
+    lastPresenceRefreshAtRef.current = Date.now();
+
+    try {
+      await refreshPresence();
+    } finally {
+      presenceRefreshInFlightRef.current = false;
+
+      if (presenceRefreshQueuedRef.current) {
+        const waitMs = Math.max(
+          0,
+          STRATEGO_PRESENCE_REFRESH_THROTTLE_MS -
+            (Date.now() - lastPresenceRefreshAtRef.current)
+        );
+
+        presenceRefreshTimeoutRef.current = setTimeout(() => {
+          presenceRefreshTimeoutRef.current = null;
+          void runPresenceRefreshNow();
+        }, waitMs);
+      }
+    }
+  }, [enabled, refreshPresence, sessionId]);
+
+  const schedulePresenceRefresh = useCallback(
+    (forceImmediate = false) => {
+      if (!enabled || !sessionId) {
+        return;
+      }
+
+      if (forceImmediate) {
+        void runPresenceRefreshNow();
+        return;
+      }
+
+      const elapsedMs = Date.now() - lastPresenceRefreshAtRef.current;
+      const canRunNow =
+        !presenceRefreshInFlightRef.current &&
+        (lastPresenceRefreshAtRef.current === 0 ||
+          elapsedMs >= STRATEGO_PRESENCE_REFRESH_THROTTLE_MS);
+
+      if (canRunNow) {
+        void runPresenceRefreshNow();
+        return;
+      }
+
+      presenceRefreshQueuedRef.current = true;
+      if (presenceRefreshTimeoutRef.current) {
+        return;
+      }
+
+      const waitMs = presenceRefreshInFlightRef.current
+        ? STRATEGO_PRESENCE_REFRESH_THROTTLE_MS
+        : Math.max(0, STRATEGO_PRESENCE_REFRESH_THROTTLE_MS - elapsedMs);
+
+      presenceRefreshTimeoutRef.current = setTimeout(() => {
+        presenceRefreshTimeoutRef.current = null;
+        void runPresenceRefreshNow();
+      }, waitMs);
+    },
+    [enabled, runPresenceRefreshNow, sessionId]
+  );
 
   const refreshSelfPlayer = useCallback(async () => {
     if (!enabled || !sessionId || !participantId) {
@@ -513,6 +665,11 @@ export function useStrategoEngine({
         clearTimeout(respawnMessageTimeoutRef.current);
         respawnMessageTimeoutRef.current = null;
       }
+
+      if (presenceRefreshTimeoutRef.current) {
+        clearTimeout(presenceRefreshTimeoutRef.current);
+        presenceRefreshTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -533,6 +690,7 @@ export function useStrategoEngine({
   useEffect(() => {
     if (!enabled || !sessionId || !participantId) {
       setPresenceEntries([]);
+      presenceEntriesRef.current = [];
       setSelfPlayer(null);
       setGameBases({ red: null, blue: null });
       setTargetInSightId(null);
@@ -542,6 +700,13 @@ export function useStrategoEngine({
       clearRespawnMessage();
       setClientDuelCooldownUntilMs(0);
       setIsRealtimeRecovering(false);
+      if (presenceRefreshTimeoutRef.current) {
+        clearTimeout(presenceRefreshTimeoutRef.current);
+        presenceRefreshTimeoutRef.current = null;
+      }
+      presenceRefreshInFlightRef.current = false;
+      presenceRefreshQueuedRef.current = false;
+      lastPresenceRefreshAtRef.current = 0;
       duelInFlightRef.current = false;
       respawnInFlightRef.current = false;
       respawnCooldownUntilRef.current = 0;
@@ -597,12 +762,48 @@ export function useStrategoEngine({
           table: "participants",
           filter: `session_id=eq.${sessionId}`,
         },
-        () => {
+        (payload) => {
           if (!isActive) {
             return;
           }
 
-          void refreshPresence();
+          const nextRow = (payload.new as ParticipantRealtimeRow | null) ?? null;
+          const previousRow = (payload.old as ParticipantRealtimeRow | null) ?? null;
+          const changedParticipantId =
+            typeof nextRow?.id === "string"
+              ? nextRow.id
+              : typeof previousRow?.id === "string"
+                ? previousRow.id
+                : null;
+
+          if (!changedParticipantId) {
+            schedulePresenceRefresh();
+            return;
+          }
+
+          if (payload.eventType === "DELETE") {
+            setPresenceEntries((previous) =>
+              previous.filter((entry) => entry.participantId !== changedParticipantId)
+            );
+            return;
+          }
+
+          if (
+            !presenceEntriesRef.current.some(
+              (entry) => entry.participantId === changedParticipantId
+            )
+          ) {
+            schedulePresenceRefresh();
+            return;
+          }
+
+          setPresenceEntries((previous) =>
+            previous.map((entry) =>
+              entry.participantId === changedParticipantId
+                ? mergeParticipantRealtimeIntoPresenceEntry(entry, nextRow)
+                : entry
+            )
+          );
         }
       )
       .on(
@@ -618,8 +819,6 @@ export function useStrategoEngine({
             return;
           }
 
-          void refreshPresence();
-
           const changedParticipantId = (() => {
             const nextRow = (payload.new as { participant_id?: string | null } | null) ?? null;
             if (typeof nextRow?.participant_id === "string") {
@@ -629,6 +828,47 @@ export function useStrategoEngine({
             const oldRow = (payload.old as { participant_id?: string | null } | null) ?? null;
             return typeof oldRow?.participant_id === "string" ? oldRow.participant_id : null;
           })();
+
+          const nextRow = (payload.new as StrategoPlayerRow | null) ?? null;
+
+          if (!changedParticipantId) {
+            schedulePresenceRefresh();
+            return;
+          }
+
+          if (payload.eventType === "DELETE") {
+            setPresenceEntries((previous) =>
+              previous.filter((entry) => entry.participantId !== changedParticipantId)
+            );
+
+            if (changedParticipantId === participantId) {
+              setSelfPlayer(null);
+            }
+
+            schedulePresenceRefresh();
+            return;
+          }
+
+          if (changedParticipantId === participantId) {
+            setSelfPlayer(normalizeSelfPlayer(nextRow));
+          }
+
+          if (
+            !presenceEntriesRef.current.some(
+              (entry) => entry.participantId === changedParticipantId
+            )
+          ) {
+            schedulePresenceRefresh();
+            return;
+          }
+
+          setPresenceEntries((previous) =>
+            previous.map((entry) =>
+              entry.participantId === changedParticipantId
+                ? mergeStrategoPlayerIntoPresenceEntry(entry, nextRow)
+                : entry
+            )
+          );
 
           if (changedParticipantId === participantId) {
             void refreshSelfPlayer();
@@ -658,7 +898,9 @@ export function useStrategoEngine({
 
         updateRealtimeRecoveryState("presence", status);
         if (status === "SUBSCRIBED") {
-          void refreshStrategoState();
+          schedulePresenceRefresh(true);
+          void refreshSelfPlayer();
+          void refreshGameBases();
         }
       });
 
@@ -697,7 +939,7 @@ export function useStrategoEngine({
           clearDuelError();
           setDuelEvent(nextEvent);
           void refreshSelfPlayer();
-          void refreshPresence();
+          schedulePresenceRefresh();
         }
       )
       .subscribe((status) => {
@@ -707,7 +949,7 @@ export function useStrategoEngine({
 
         updateRealtimeRecoveryState("duel", status);
         if (status === "SUBSCRIBED") {
-          void refreshStrategoState();
+          void refreshSelfPlayer();
         }
       });
 
@@ -722,9 +964,8 @@ export function useStrategoEngine({
     clearDuelError,
     clearRespawnMessage,
     refreshGameBases,
-    refreshPresence,
-    refreshStrategoState,
     refreshSelfPlayer,
+    schedulePresenceRefresh,
     sessionId,
     supabase,
     updateRealtimeRecoveryState,
@@ -740,14 +981,16 @@ export function useStrategoEngine({
         return;
       }
 
-      void refreshStrategoState();
+      schedulePresenceRefresh(true);
+      void refreshSelfPlayer();
+      void refreshGameBases();
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [enabled, participantId, refreshStrategoState, sessionId]);
+  }, [enabled, participantId, refreshGameBases, refreshSelfPlayer, schedulePresenceRefresh, sessionId]);
 
   const selfPresence = useMemo(
     () => presenceEntries.find((entry) => entry.participantId === participantId) ?? null,
