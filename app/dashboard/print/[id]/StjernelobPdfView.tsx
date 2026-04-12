@@ -58,140 +58,303 @@ Font.register({
 /* ── Theme ─────────────────────────────────────────────────────────── */
 type PdfTheme = {
   pageBg: string;
+  panelBg: string;
+  panelBorder: string;
+  panelMutedBg: string;
   headerBg: string;
-  headerLine: string;
+  headerAccent: string;
   headerSubtitle: string;
   badgeBg: string;
   badgeText: string;
   badgeBorder: string;
   titleText: string;
   bodyText: string;
-  dividerColor: string;
+  bodyMutedText: string;
   questionText: string;
   optionBorder: string;
   optionBg: string;
-  optionLetterBg: string;
-  optionLetterText: string;
+  optionAccentBg: string;
+  optionAccentText: string;
   optionText: string;
   footerBg: string;
   footerBorder: string;
   footerText: string;
   outerBorder: string;
+  answerSheetBg: string;
+  answerKeyBg: string;
+  guideLine: string;
+  noteBg: string;
+  noteBorder: string;
+  noteText: string;
+  chipBg: string;
+  chipBorder: string;
+  chipText: string;
+  imageFrameBg: string;
+  imageFrameBorder: string;
 };
 
-const THEMES: Record<string, PdfTheme> = {
-  historie: {
-    pageBg: "#fffbeb",
-    headerBg: "#1c1917",
-    headerLine: "#78716c",
-    headerSubtitle: "#a8a29e",
-    badgeBg: "#d97706",
-    badgeText: "#ffffff",
-    badgeBorder: "#92400e",
-    titleText: "#fefce8",
-    bodyText: "#44403c",
-    dividerColor: "#a8a29e",
-    questionText: "#1c1917",
-    optionBorder: "#44403c",
-    optionBg: "#f5f5f4",
-    optionLetterBg: "#292524",
-    optionLetterText: "#fcd34d",
-    optionText: "#292524",
-    footerBg: "#1c1917",
-    footerBorder: "#292524",
-    footerText: "#a8a29e",
-    outerBorder: "#292524",
-  },
-  matematik: {
-    pageBg: "#eff6ff",
-    headerBg: "#312e81",
-    headerLine: "#818cf8",
-    headerSubtitle: "#a5b4fc",
-    badgeBg: "#2563eb",
-    badgeText: "#ffffff",
-    badgeBorder: "#1e40af",
-    titleText: "#eff6ff",
-    bodyText: "#334155",
-    dividerColor: "#a5b4fc",
-    questionText: "#0f172a",
-    optionBorder: "#4f46e5",
-    optionBg: "#eff6ff",
-    optionLetterBg: "#3730a3",
-    optionLetterText: "#bfdbfe",
-    optionText: "#1e293b",
-    footerBg: "#312e81",
-    footerBorder: "#3730a3",
-    footerText: "#a5b4fc",
-    outerBorder: "#3730a3",
-  },
-  "natur/teknik": {
-    pageBg: "#ecfdf5",
-    headerBg: "#064e3b",
-    headerLine: "#10b981",
-    headerSubtitle: "#6ee7b7",
-    badgeBg: "#059669",
-    badgeText: "#ffffff",
-    badgeBorder: "#065f46",
-    titleText: "#ecfdf5",
-    bodyText: "#44403c",
-    dividerColor: "#6ee7b7",
-    questionText: "#1c1917",
-    optionBorder: "#059669",
-    optionBg: "#ecfdf5",
-    optionLetterBg: "#065f46",
-    optionLetterText: "#a7f3d0",
-    optionText: "#292524",
-    footerBg: "#064e3b",
-    footerBorder: "#065f46",
-    footerText: "#6ee7b7",
-    outerBorder: "#065f46",
-  },
+type PdfTemplateVariant = "classic" | "editorial" | "grid" | "poster";
+
+type PdfTemplate = {
+  key: string;
+  label: string;
+  variant: PdfTemplateVariant;
+  eyebrow: string;
+  strapline: string;
+  bodyLabel: string;
+  questionLabel: string;
+  heroCaption: string;
+  footerLabel: string;
+  motif: string;
+  optionMode: "grid" | "stacked";
+  theme: PdfTheme;
 };
 
-const DEFAULT_THEME: PdfTheme = {
+const STANDARD_THEME: PdfTheme = {
   pageBg: "#f8fafc",
+  panelBg: "#ffffff",
+  panelBorder: "#cbd5e1",
+  panelMutedBg: "#f1f5f9",
   headerBg: "#1e293b",
-  headerLine: "#64748b",
+  headerAccent: "#38bdf8",
   headerSubtitle: "#94a3b8",
   badgeBg: "#334155",
   badgeText: "#ffffff",
   badgeBorder: "#475569",
   titleText: "#f8fafc",
   bodyText: "#334155",
-  dividerColor: "#94a3b8",
+  bodyMutedText: "#64748b",
   questionText: "#0f172a",
   optionBorder: "#475569",
   optionBg: "#f1f5f9",
-  optionLetterBg: "#334155",
-  optionLetterText: "#e2e8f0",
+  optionAccentBg: "#334155",
+  optionAccentText: "#e2e8f0",
   optionText: "#1e293b",
   footerBg: "#1e293b",
   footerBorder: "#334155",
   footerText: "#94a3b8",
   outerBorder: "#334155",
+  answerSheetBg: "#f8fafc",
+  answerKeyBg: "#f1f5f9",
+  guideLine: "#94a3b8",
+  noteBg: "#e0f2fe",
+  noteBorder: "#7dd3fc",
+  noteText: "#0f172a",
+  chipBg: "#0f172a",
+  chipBorder: "#475569",
+  chipText: "#e2e8f0",
+  imageFrameBg: "#ffffff",
+  imageFrameBorder: "#94a3b8",
 };
 
-function resolveTheme(subject: string): PdfTheme {
+const DANISH_THEME: PdfTheme = {
+  pageBg: "#fff8f2",
+  panelBg: "#fffdf9",
+  panelBorder: "#d8b4bf",
+  panelMutedBg: "#fef2f2",
+  headerBg: "#4a1d2f",
+  headerAccent: "#f59eae",
+  headerSubtitle: "#fbcfe8",
+  badgeBg: "#7a284c",
+  badgeText: "#fff7ed",
+  badgeBorder: "#f9a8d4",
+  titleText: "#fff7ed",
+  bodyText: "#4a1d2f",
+  bodyMutedText: "#7a284c",
+  questionText: "#3b1024",
+  optionBorder: "#9d174d",
+  optionBg: "#fff7f7",
+  optionAccentBg: "#7a284c",
+  optionAccentText: "#ffe4e6",
+  optionText: "#4a1d2f",
+  footerBg: "#4a1d2f",
+  footerBorder: "#7a284c",
+  footerText: "#fbcfe8",
+  outerBorder: "#7a284c",
+  answerSheetBg: "#fff8f2",
+  answerKeyBg: "#fdf2f8",
+  guideLine: "#d8b4bf",
+  noteBg: "#fff1f2",
+  noteBorder: "#f9a8d4",
+  noteText: "#4a1d2f",
+  chipBg: "#fff7ed",
+  chipBorder: "#f9a8d4",
+  chipText: "#7a284c",
+  imageFrameBg: "#fff7ed",
+  imageFrameBorder: "#f9a8d4",
+};
+
+const MATH_THEME: PdfTheme = {
+  pageBg: "#eef4ff",
+  panelBg: "#ffffff",
+  panelBorder: "#a5b4fc",
+  panelMutedBg: "#eef2ff",
+  headerBg: "#162456",
+  headerAccent: "#60a5fa",
+  headerSubtitle: "#c7d2fe",
+  badgeBg: "#2563eb",
+  badgeText: "#eff6ff",
+  badgeBorder: "#93c5fd",
+  titleText: "#eff6ff",
+  bodyText: "#1e3a8a",
+  bodyMutedText: "#475569",
+  questionText: "#0f172a",
+  optionBorder: "#2563eb",
+  optionBg: "#f8fbff",
+  optionAccentBg: "#1d4ed8",
+  optionAccentText: "#dbeafe",
+  optionText: "#1e293b",
+  footerBg: "#162456",
+  footerBorder: "#2563eb",
+  footerText: "#bfdbfe",
+  outerBorder: "#1d4ed8",
+  answerSheetBg: "#eef4ff",
+  answerKeyBg: "#eff6ff",
+  guideLine: "#93c5fd",
+  noteBg: "#dbeafe",
+  noteBorder: "#60a5fa",
+  noteText: "#162456",
+  chipBg: "#eff6ff",
+  chipBorder: "#93c5fd",
+  chipText: "#1e3a8a",
+  imageFrameBg: "#ffffff",
+  imageFrameBorder: "#60a5fa",
+};
+
+const ENGLISH_THEME: PdfTheme = {
+  pageBg: "#fff8ef",
+  panelBg: "#fffdf7",
+  panelBorder: "#fdba74",
+  panelMutedBg: "#fff1f2",
+  headerBg: "#102347",
+  headerAccent: "#f97316",
+  headerSubtitle: "#dbeafe",
+  badgeBg: "#ef4444",
+  badgeText: "#fff7ed",
+  badgeBorder: "#fdba74",
+  titleText: "#fff7ed",
+  bodyText: "#1f2937",
+  bodyMutedText: "#475569",
+  questionText: "#111827",
+  optionBorder: "#ef4444",
+  optionBg: "#fff7ed",
+  optionAccentBg: "#102347",
+  optionAccentText: "#dbeafe",
+  optionText: "#1f2937",
+  footerBg: "#102347",
+  footerBorder: "#ef4444",
+  footerText: "#e0e7ff",
+  outerBorder: "#102347",
+  answerSheetBg: "#fff8ef",
+  answerKeyBg: "#fff7ed",
+  guideLine: "#fdba74",
+  noteBg: "#ffedd5",
+  noteBorder: "#fb923c",
+  noteText: "#7c2d12",
+  chipBg: "#fff7ed",
+  chipBorder: "#fdba74",
+  chipText: "#9a3412",
+  imageFrameBg: "#fff7ed",
+  imageFrameBorder: "#fdba74",
+};
+
+const DEFAULT_TEMPLATE: PdfTemplate = {
+  key: "standard",
+  label: "Standard",
+  variant: "classic",
+  eyebrow: "Læs, gå videre og svar",
+  strapline: "En robust standard-skabelon til alle fag, der ikke har deres egen specialudgave endnu.",
+  bodyLabel: "Faglig tekst",
+  questionLabel: "Spørgsmål",
+  heroCaption: "Illustration til posten",
+  footerLabel: "Analog post",
+  motif: "✦",
+  optionMode: "grid",
+  theme: STANDARD_THEME,
+};
+
+const SUBJECT_TEMPLATES: Record<string, PdfTemplate> = {
+  dansk: {
+    key: "dansk-editorial",
+    label: "Dansk Editorial",
+    variant: "editorial",
+    eyebrow: "Læs, fortolk og svar",
+    strapline: "Boglig og redaktionel post med tydelig læserytme, varm typografi og plads til fordybelse.",
+    bodyLabel: "Tekstuddrag",
+    questionLabel: "Læseopgave",
+    heroCaption: "Stemningsbillede til teksten",
+    footerLabel: "Dansk · analog post",
+    motif: "✒",
+    optionMode: "stacked",
+    theme: DANISH_THEME,
+  },
+  matematik: {
+    key: "matematik-grid",
+    label: "Matematik Grid",
+    variant: "grid",
+    eyebrow: "Se mønsteret og løs opgaven",
+    strapline: "Geometrisk og præcis post med stærkt overblik, hurtig scanning og tydelige svarfelter.",
+    bodyLabel: "Problemfelt",
+    questionLabel: "Løsningsvalg",
+    heroCaption: "Visuel nøgle til opgaven",
+    footerLabel: "Matematik · analog post",
+    motif: "∑",
+    optionMode: "grid",
+    theme: MATH_THEME,
+  },
+  engelsk: {
+    key: "english-poster",
+    label: "English Poster",
+    variant: "poster",
+    eyebrow: "Read, decide, move on",
+    strapline: "Plakatagtig post med klar energi, høj læsbarhed og en stærk mission-følelse.",
+    bodyLabel: "Mission briefing",
+    questionLabel: "Choose the best answer",
+    heroCaption: "Scene setter",
+    footerLabel: "English · analog post",
+    motif: "★",
+    optionMode: "grid",
+    theme: ENGLISH_THEME,
+  },
+};
+
+function resolveTemplate(subject: string): PdfTemplate {
   const key = subject.trim().toLowerCase();
-  if (THEMES[key]) return THEMES[key];
-  for (const [mapKey, theme] of Object.entries(THEMES)) {
-    if (key.includes(mapKey) || mapKey.includes(key)) return theme;
+  for (const [mapKey, template] of Object.entries(SUBJECT_TEMPLATES)) {
+    if (key === mapKey || key.includes(mapKey) || mapKey.includes(key)) {
+      return template;
+    }
   }
-  return DEFAULT_THEME;
+
+  return DEFAULT_TEMPLATE;
 }
 
 /* ── Image URL helpers ─────────────────────────────────────────────── */
 const LETTER_LABELS = ["A", "B", "C", "D"] as const;
 const PDF_IMAGE_REQUEST_DELAY_MS = 300;
+const PDF_IMAGE_FETCH_TIMEOUT_MS = 10_000;
+const PDF_IMAGE_MAX_RETRY_ATTEMPTS = 2;
+const PDF_IMAGE_RETRY_DELAY_MS = 800;
 const POLLINATIONS_HOSTNAME = "image.pollinations.ai";
 
-function getAbsoluteImageUrl(post: Post): string {
-  const prompt = typeof post.image_prompt === "string" ? post.image_prompt.trim() : "";
+function getPdfImagePrompt(post: Post): string {
+  return typeof post.image_prompt === "string" ? post.image_prompt.trim() : "";
+}
+
+function getPdfImageRequest(post: Post): { url: string; isPollinations: boolean } {
+  const prompt = getPdfImagePrompt(post);
   if (prompt) {
-    return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true`;
+    return {
+      url: `/api/pollinations-image?prompt=${encodeURIComponent(prompt)}`,
+      isPollinations: true,
+    };
   }
+
   const rawUrl = typeof post.image_url === "string" ? post.image_url.trim() : "";
-  return rawUrl || "";
+  return {
+    url: rawUrl,
+    isPollinations: isPollinationsImageUrl(rawUrl),
+  };
 }
 
 function isAbortError(error: unknown): boolean {
@@ -212,62 +375,232 @@ function waitForPdfImageDelay(delayMs: number) {
   });
 }
 
-type PreparedPdfImages = {
-  sources: Record<number, string>;
-  objectUrls: string[];
+function svgToBase64DataUrl(svg: string) {
+  const bytes = new TextEncoder().encode(svg);
+  let binary = "";
+
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+
+  return `data:image/svg+xml;base64,${window.btoa(binary)}`;
+}
+
+function buildPdfImageFallbackDataUrl(message: string) {
+  const safeMessage = message.replace(/[<&>"]/g, "");
+
+  return svgToBase64DataUrl(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#f8fafc" />
+          <stop offset="100%" stop-color="#e2e8f0" />
+        </linearGradient>
+      </defs>
+      <rect width="1200" height="800" fill="url(#bg)" />
+      <rect x="42" y="42" width="1116" height="716" rx="28" fill="none" stroke="#334155" stroke-width="10" stroke-dasharray="20 14" />
+      <text x="600" y="332" text-anchor="middle" font-family="Georgia, serif" font-size="64" fill="#0f172a" font-weight="700">
+        Billede kunne ikke hentes
+      </text>
+      <text x="600" y="408" text-anchor="middle" font-family="Georgia, serif" font-size="28" fill="#475569">
+        ${safeMessage}
+      </text>
+      <text x="600" y="478" text-anchor="middle" font-family="Georgia, serif" font-size="22" fill="#64748b">
+        PDF'en bruger en sikker placeholder i stedet for et tomt billede.
+      </text>
+    </svg>
+  `);
+}
+
+function blobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onloadend = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error("Kunne ikke laese billeddata til PDF."));
+    };
+
+    reader.onerror = () => {
+      reject(reader.error ?? new Error("Kunne ikke laese billeddata til PDF."));
+    };
+
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function fetchPdfImageResponseWithTimeout(url: string, signal?: AbortSignal) {
+  const timeoutController = new AbortController();
+
+  const handleParentAbort = () => {
+    timeoutController.abort(signal?.reason);
+  };
+
+  if (signal) {
+    if (signal.aborted) {
+      timeoutController.abort(signal.reason);
+    } else {
+      signal.addEventListener("abort", handleParentAbort, { once: true });
+    }
+  }
+
+  const timeoutId = window.setTimeout(() => {
+    timeoutController.abort(new DOMException("Timed out", "AbortError"));
+  }, PDF_IMAGE_FETCH_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, {
+      cache: "force-cache",
+      signal: timeoutController.signal,
+    });
+  } catch (error) {
+    if (signal?.aborted) {
+      throw error;
+    }
+
+    if (timeoutController.signal.aborted) {
+      throw new Error(`Billedhentning timed out efter ${PDF_IMAGE_FETCH_TIMEOUT_MS} ms.`);
+    }
+
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+    if (signal) {
+      signal.removeEventListener("abort", handleParentAbort);
+    }
+  }
+}
+
+type PreparedPdfImageResult = {
+  number: number;
+  source: string;
+  usedFallback: boolean;
 };
 
-async function preparePdfImages(posts: Post[], signal?: AbortSignal): Promise<PreparedPdfImages> {
-  const sources: Record<number, string> = {};
-  const objectUrls: string[] = [];
-  let hasRequestedPollinationsImage = false;
+type PreparedPdfImages = {
+  sources: Record<number, string>;
+  totalCount: number;
+  loadedCount: number;
+  fallbackCount: number;
+};
 
-  for (const post of posts) {
+async function fetchPdfImageSourceWithRetry(
+  post: Post,
+  url: string,
+  signal?: AbortSignal
+): Promise<PreparedPdfImageResult> {
+  const fallbackSource = buildPdfImageFallbackDataUrl(
+    typeof post.title === "string" && post.title.trim()
+      ? post.title.trim()
+      : "Illustration mangler"
+  );
+
+  for (let attempt = 1; attempt <= PDF_IMAGE_MAX_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetchPdfImageResponseWithTimeout(url, signal);
+      const contentType = response.headers.get("content-type") ?? "";
+      const canUseImageBody = contentType.startsWith("image/");
+
+      if (!response.ok && !canUseImageBody) {
+        throw new Error(`HTTP ${response.status} ${response.statusText}`.trim());
+      }
+
+      const blob = await response.blob();
+      if (blob.size === 0) {
+        throw new Error("Billedblob var tom.");
+      }
+
+      return {
+        number: post.number,
+        source: await blobToDataUrl(blob),
+        usedFallback: !response.ok,
+      };
+    } catch (error) {
+      if (isAbortError(error) || signal?.aborted) {
+        throw error;
+      }
+
+      const isLastAttempt = attempt === PDF_IMAGE_MAX_RETRY_ATTEMPTS;
+      console.error(
+        `Kunne ikke hente PDF-billede (forsøg ${attempt}/${PDF_IMAGE_MAX_RETRY_ATTEMPTS}):`,
+        url,
+        error
+      );
+
+      if (isLastAttempt) {
+        return {
+          number: post.number,
+          source: fallbackSource,
+          usedFallback: true,
+        };
+      }
+
+      await waitForPdfImageDelay(PDF_IMAGE_RETRY_DELAY_MS * attempt);
+    }
+  }
+
+  return {
+    number: post.number,
+    source: fallbackSource,
+    usedFallback: true,
+  };
+}
+
+async function preparePdfImages(posts: Post[], signal?: AbortSignal): Promise<PreparedPdfImages> {
+  let pollinationsRequestIndex = 0;
+  const tasks = posts.map(async (post) => {
     if (signal?.aborted) {
       throw new DOMException("Aborted", "AbortError");
     }
 
-    const imageUrl = getAbsoluteImageUrl(post);
-    if (!imageUrl) {
-      continue;
+    const { url, isPollinations } = getPdfImageRequest(post);
+    const currentPollinationsIndex = isPollinations ? pollinationsRequestIndex++ : 0;
+
+    if (isPollinations && currentPollinationsIndex > 0) {
+      await waitForPdfImageDelay(currentPollinationsIndex * PDF_IMAGE_REQUEST_DELAY_MS);
     }
 
-    if (isPollinationsImageUrl(imageUrl)) {
-      if (hasRequestedPollinationsImage) {
-        await waitForPdfImageDelay(PDF_IMAGE_REQUEST_DELAY_MS);
-      }
-      hasRequestedPollinationsImage = true;
+    if (!url) {
+      return {
+        number: post.number,
+        source: buildPdfImageFallbackDataUrl("Illustration mangler"),
+        usedFallback: true,
+      } satisfies PreparedPdfImageResult;
     }
 
-    try {
-      const response = await fetch(imageUrl, {
-        cache: "force-cache",
-        signal,
-      });
+    return fetchPdfImageSourceWithRetry(post, url, signal);
+  });
 
-      if (!response.ok) {
-        console.error("Kunne ikke hente PDF-billede:", response.status, response.statusText, imageUrl);
-        continue;
-      }
+  const preparedResults = await Promise.all(tasks);
+  const sources: Record<number, string> = {};
+  let fallbackCount = 0;
 
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      sources[post.number] = objectUrl;
-      objectUrls.push(objectUrl);
-    } catch (error) {
-      if (isAbortError(error)) {
-        throw error;
-      }
-
-      console.error("Kunne ikke forberede PDF-billede:", error);
+  for (const result of preparedResults) {
+    sources[result.number] = result.source;
+    if (result.usedFallback) {
+      fallbackCount += 1;
     }
   }
 
-  return { sources, objectUrls };
+  return {
+    sources,
+    totalCount: preparedResults.length,
+    loadedCount: preparedResults.length - fallbackCount,
+    fallbackCount,
+  };
 }
 
 /* ── PDF Styles ────────────────────────────────────────────────────── */
-function createStyles(t: PdfTheme) {
+function createStyles(template: PdfTemplate) {
+  const t = template.theme;
+  const isEditorial = template.variant === "editorial";
+  const isGrid = template.variant === "grid";
+  const isPoster = template.variant === "poster";
+
   return StyleSheet.create({
     page: {
       width: "210mm",
@@ -276,7 +609,7 @@ function createStyles(t: PdfTheme) {
       fontFamily: "Lora",
       position: "relative",
     },
-    border: {
+    frame: {
       position: "absolute",
       top: 8,
       left: 8,
@@ -286,282 +619,978 @@ function createStyles(t: PdfTheme) {
       borderColor: t.outerBorder,
       borderStyle: "solid",
     },
+    pageInner: {
+      flex: 1,
+      paddingHorizontal: 28,
+      paddingTop: 22,
+      paddingBottom: 54,
+    },
     header: {
       backgroundColor: t.headerBg,
-      paddingHorizontal: 40,
-      paddingTop: 28,
-      paddingBottom: 24,
+      borderWidth: 2,
+      borderColor: t.panelBorder,
+      borderRadius: 18,
+      paddingHorizontal: isPoster ? 22 : 20,
+      paddingTop: isPoster ? 20 : 18,
+      paddingBottom: 16,
+      marginBottom: 14,
+    },
+    eyebrowRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
       alignItems: "center",
+      marginBottom: 8,
     },
-    headerLine: {
-      width: "100%",
-      height: 1,
-      backgroundColor: t.headerLine,
-      marginBottom: 10,
-    },
-    headerSubtitle: {
+    eyebrow: {
       fontFamily: "Playfair",
-      fontSize: 6,
+      fontSize: 6.5,
       fontWeight: 700,
       textTransform: "uppercase",
-      letterSpacing: 3,
+      letterSpacing: 2.5,
       color: t.headerSubtitle,
-      marginBottom: 12,
     },
-    badgeContainer: {
-      marginBottom: 12,
+    motif: {
+      fontFamily: "Playfair",
+      fontSize: isPoster ? 18 : 14,
+      fontWeight: 900,
+      color: t.headerAccent,
+    },
+    runTitle: {
+      fontSize: 8.5,
+      color: t.headerSubtitle,
+      marginBottom: 8,
+    },
+    badgeRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
       alignItems: "center",
+      marginBottom: 8,
     },
     badge: {
+      backgroundColor: t.badgeBg,
+      borderWidth: 2,
+      borderColor: t.badgeBorder,
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+    },
+    badgeText: {
       fontFamily: "Playfair",
-      fontSize: 28,
+      fontSize: isPoster ? 12 : 10,
       fontWeight: 900,
       textTransform: "uppercase",
-      letterSpacing: 4,
+      letterSpacing: 1.8,
       color: t.badgeText,
-      backgroundColor: t.badgeBg,
-      borderWidth: 3,
-      borderColor: t.badgeBorder,
-      paddingHorizontal: 28,
-      paddingVertical: 6,
+    },
+    templateLabel: {
+      fontSize: 7,
+      color: t.headerSubtitle,
+      textTransform: "uppercase",
+      letterSpacing: 1.5,
     },
     title: {
       fontFamily: "Playfair",
-      fontSize: 22,
+      fontSize: isPoster ? 23 : isEditorial ? 21 : isGrid ? 20 : 19,
       fontWeight: 900,
-      fontStyle: "italic",
       color: t.titleText,
-      textAlign: "center",
-      letterSpacing: 1,
+      lineHeight: 1.15,
       marginBottom: 8,
     },
-    headerLineBottom: {
-      width: "100%",
-      height: 1,
-      backgroundColor: t.headerLine,
-      marginTop: 6,
+    strapline: {
+      fontSize: isPoster ? 8.8 : 7.8,
+      color: t.headerSubtitle,
+      lineHeight: 1.45,
     },
-    imageContainer: {
-      paddingHorizontal: 40,
-      paddingTop: 22,
-      alignItems: "center",
+    chipRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      marginTop: 10,
     },
-    image: {
+    chip: {
+      backgroundColor: t.chipBg,
+      borderWidth: 1,
+      borderColor: t.chipBorder,
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      marginRight: 6,
+      marginBottom: 6,
+    },
+    chipText: {
+      fontSize: 6.5,
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: 1.2,
+      color: t.chipText,
+    },
+    content: {
+      flex: 1,
+    },
+    heroCard: {
+      backgroundColor: t.imageFrameBg,
+      borderWidth: 2,
+      borderColor: t.imageFrameBorder,
+      borderRadius: 16,
+      overflow: "hidden",
+      marginBottom: 12,
+    },
+    heroImage: {
       width: "100%",
-      maxHeight: 150,
+      height: isPoster ? 190 : isEditorial ? 170 : 150,
       objectFit: "cover",
-      borderWidth: 3,
-      borderColor: t.outerBorder,
     },
-    bodyContainer: {
-      paddingHorizontal: 40,
-      paddingTop: 16,
+    heroCaptionWrap: {
+      paddingHorizontal: 12,
+      paddingTop: 8,
+      paddingBottom: 10,
+      backgroundColor: t.panelMutedBg,
+    },
+    heroCaption: {
+      fontSize: 7.2,
+      color: t.bodyMutedText,
+      lineHeight: 1.4,
+    },
+    bodyCard: {
+      backgroundColor: t.panelBg,
+      borderWidth: 1.5,
+      borderColor: t.panelBorder,
+      borderRadius: 16,
+      paddingHorizontal: 14,
+      paddingTop: 12,
+      paddingBottom: 12,
+      marginBottom: 12,
+    },
+    bodyCardMuted: {
+      backgroundColor: t.panelMutedBg,
+      borderColor: t.guideLine,
+    },
+    sectionLabel: {
+      fontFamily: "Playfair",
+      fontSize: 8,
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: 1.5,
+      color: t.headerAccent,
+      marginBottom: 6,
+    },
+    sectionTitle: {
+      fontFamily: "Playfair",
+      fontSize: 11,
+      fontWeight: 700,
+      color: t.questionText,
+      marginBottom: 4,
     },
     bodyText: {
-      fontSize: 10,
-      lineHeight: 1.75,
+      fontSize: 9.4,
+      lineHeight: isPoster ? 1.55 : 1.65,
       color: t.bodyText,
     },
-    divider: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginHorizontal: 40,
-      marginVertical: 14,
+    mutedText: {
+      fontSize: 8,
+      lineHeight: 1.45,
+      color: t.bodyMutedText,
     },
-    dividerLine: {
-      flex: 1,
-      height: 1.5,
-      backgroundColor: t.dividerColor,
+    noteCard: {
+      backgroundColor: t.noteBg,
+      borderWidth: 1.5,
+      borderColor: t.noteBorder,
+      borderRadius: 14,
+      paddingHorizontal: 12,
+      paddingTop: 10,
+      paddingBottom: 10,
+      marginBottom: 12,
     },
-    dividerGlyph: {
-      fontSize: 14,
-      color: t.dividerColor,
-      marginHorizontal: 10,
+    noteTitle: {
+      fontFamily: "Playfair",
+      fontSize: 8,
+      fontWeight: 700,
+      color: t.noteText,
+      marginBottom: 4,
+      textTransform: "uppercase",
+      letterSpacing: 1.3,
     },
-    questionContainer: {
-      paddingHorizontal: 40,
+    noteBody: {
+      fontSize: 8.2,
+      lineHeight: 1.45,
+      color: t.noteText,
+    },
+    questionCard: {
+      backgroundColor: t.panelBg,
+      borderWidth: 1.5,
+      borderColor: t.optionBorder,
+      borderRadius: 16,
+      paddingHorizontal: 14,
+      paddingTop: 12,
+      paddingBottom: 12,
     },
     questionText: {
       fontFamily: "Playfair",
-      fontSize: 14,
+      fontSize: isPoster ? 13 : isGrid ? 12.5 : 12,
       fontWeight: 700,
       color: t.questionText,
-      marginBottom: 14,
-      lineHeight: 1.4,
+      lineHeight: 1.3,
+      marginBottom: 10,
     },
-    optionsGrid: {
+    optionGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: 8,
+      justifyContent: "space-between",
     },
-    optionItem: {
+    optionStack: {
+      flexDirection: "column",
+    },
+    optionItemGrid: {
       width: "48%",
+      minHeight: 46,
       flexDirection: "row",
       borderWidth: 1.5,
       borderColor: t.optionBorder,
       backgroundColor: t.optionBg,
+      borderRadius: 12,
+      marginBottom: 8,
+      overflow: "hidden",
     },
-    optionLetter: {
-      width: 32,
+    optionItemStacked: {
+      width: "100%",
+      minHeight: 44,
+      flexDirection: "row",
+      borderWidth: 1.5,
+      borderColor: t.optionBorder,
+      backgroundColor: t.optionBg,
+      borderRadius: 12,
+      marginBottom: 8,
+      overflow: "hidden",
+    },
+    optionAccent: {
+      width: 36,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: t.optionLetterBg,
-      fontFamily: "Playfair",
-      fontSize: 13,
-      fontWeight: 900,
-      color: t.optionLetterText,
-    },
-    optionText: {
-      flex: 1,
-      paddingHorizontal: 8,
+      backgroundColor: t.optionAccentBg,
       paddingVertical: 8,
-      fontSize: 9,
-      fontWeight: 500,
-      color: t.optionText,
+    },
+    optionLetter: {
+      fontFamily: "Playfair",
+      fontSize: 12,
+      fontWeight: 900,
+      color: t.optionAccentText,
+    },
+    optionCopy: {
+      flex: 1,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      fontSize: 8.5,
       lineHeight: 1.4,
+      color: t.optionText,
     },
     footer: {
       position: "absolute",
-      bottom: 0,
-      left: 0,
-      right: 0,
+      bottom: 14,
+      left: 28,
+      right: 28,
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
       backgroundColor: t.footerBg,
-      borderTopWidth: 2,
-      borderTopColor: t.footerBorder,
-      paddingHorizontal: 40,
-      paddingVertical: 8,
+      borderWidth: 1.5,
+      borderColor: t.footerBorder,
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      paddingVertical: 7,
     },
     footerText: {
       fontFamily: "Playfair",
-      fontSize: 5.5,
+      fontSize: 6.5,
       fontWeight: 700,
       textTransform: "uppercase",
-      letterSpacing: 2.5,
+      letterSpacing: 1.8,
       color: t.footerText,
     },
-    // Answer sheet styles
-    answerSheetBody: {
-      paddingHorizontal: 40,
-      paddingTop: 30,
+    classicFlow: {
+      flex: 1,
     },
-    holdnavnRow: {
+    editorialColumns: {
+      flex: 1,
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    editorialMain: {
+      width: "59%",
+    },
+    editorialAside: {
+      width: "37%",
+    },
+    gridColumns: {
+      flex: 1,
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    gridLeft: {
+      width: "44%",
+    },
+    gridRight: {
+      width: "52%",
+    },
+    posterFlow: {
+      flex: 1,
+    },
+    posterIntro: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginBottom: 12,
+    },
+    posterIntroMain: {
+      width: "65%",
+    },
+    posterIntroAside: {
+      width: "31%",
+    },
+    summaryPageInner: {
+      flex: 1,
+      paddingHorizontal: 28,
+      paddingTop: 22,
+      paddingBottom: 54,
+    },
+    summaryHeader: {
+      backgroundColor: t.headerBg,
+      borderWidth: 2,
+      borderColor: t.panelBorder,
+      borderRadius: 18,
+      paddingHorizontal: 20,
+      paddingTop: 18,
+      paddingBottom: 16,
+      marginBottom: 14,
+    },
+    summaryTitle: {
+      fontFamily: "Playfair",
+      fontSize: 22,
+      fontWeight: 900,
+      color: t.titleText,
+      marginBottom: 4,
+    },
+    summarySubtitle: {
+      fontSize: 8.3,
+      lineHeight: 1.45,
+      color: t.headerSubtitle,
+    },
+    teamRow: {
       flexDirection: "row",
       alignItems: "flex-end",
-      marginBottom: 24,
-      gap: 10,
+      marginBottom: 16,
     },
-    holdnavnLabel: {
+    teamLabel: {
       fontFamily: "Playfair",
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: 700,
-      color: "#1c1917",
+      color: t.questionText,
+      marginRight: 10,
     },
-    holdnavnLine: {
+    teamLine: {
       flex: 1,
-      borderBottomWidth: 2,
-      borderBottomColor: "#44403c",
-      height: 20,
+      height: 18,
+      borderBottomWidth: 1.5,
+      borderBottomColor: t.guideLine,
     },
     answerInstruction: {
-      fontSize: 9,
-      fontStyle: "italic",
-      color: "#57534e",
-      marginBottom: 18,
+      fontSize: 8.8,
+      lineHeight: 1.45,
+      color: t.bodyMutedText,
+      marginBottom: 12,
+    },
+    guidanceRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginTop: 4,
+      marginBottom: 14,
+    },
+    guidanceCard: {
+      width: "48%",
+      backgroundColor: t.noteBg,
+      borderWidth: 1.5,
+      borderColor: t.noteBorder,
+      borderRadius: 14,
+      paddingHorizontal: 12,
+      paddingTop: 10,
+      paddingBottom: 10,
+    },
+    guidanceCardTitle: {
+      fontFamily: "Playfair",
+      fontSize: 8,
+      fontWeight: 700,
+      color: t.noteText,
+      marginBottom: 4,
+      textTransform: "uppercase",
+      letterSpacing: 1.3,
+    },
+    guidanceCardBody: {
+      fontSize: 8.2,
+      lineHeight: 1.4,
+      color: t.noteText,
     },
     answerGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: 10,
+      justifyContent: "space-between",
     },
     answerItem: {
-      width: "47%",
+      width: "48%",
       flexDirection: "row",
       borderWidth: 1.5,
-      borderColor: "#44403c",
+      borderColor: t.optionBorder,
+      borderRadius: 14,
+      backgroundColor: t.panelBg,
+      overflow: "hidden",
+      marginBottom: 10,
     },
     answerItemNumber: {
-      width: 40,
+      width: 42,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: "#292524",
+      backgroundColor: t.optionAccentBg,
       paddingVertical: 10,
     },
     answerItemNumberLabel: {
-      fontFamily: "Playfair",
-      fontSize: 5,
+      fontSize: 5.5,
       textTransform: "uppercase",
-      letterSpacing: 2,
-      color: "#a8a29e",
+      letterSpacing: 1.8,
+      color: t.optionAccentText,
+      marginBottom: 1,
     },
     answerItemNumberValue: {
       fontFamily: "Playfair",
       fontSize: 16,
       fontWeight: 900,
-      color: "#fcd34d",
+      color: t.optionAccentText,
     },
     answerBox: {
       flex: 1,
-      alignItems: "center",
       justifyContent: "center",
       paddingVertical: 10,
+      paddingHorizontal: 12,
     },
     answerBoxInner: {
-      width: 36,
-      height: 36,
+      height: 34,
       borderWidth: 1.5,
-      borderColor: "#78716c",
+      borderColor: t.guideLine,
+      borderRadius: 8,
       backgroundColor: "#ffffff",
     },
-    // Teacher answer key styles
     answerKeyBody: {
-      paddingHorizontal: 40,
-      paddingTop: 24,
-      paddingBottom: 60,
-      gap: 8,
+      flex: 1,
+      paddingTop: 4,
     },
     answerKeyRow: {
       flexDirection: "row",
       borderWidth: 1.5,
-      borderColor: "#44403c",
-      backgroundColor: "#ffffff",
+      borderColor: t.optionBorder,
+      borderRadius: 14,
+      backgroundColor: t.panelBg,
+      overflow: "hidden",
+      marginBottom: 8,
     },
     answerKeyNumber: {
-      width: 36,
+      width: 40,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: "#292524",
+      backgroundColor: t.optionAccentBg,
+    },
+    answerKeyNumberText: {
       fontFamily: "Playfair",
-      fontSize: 11,
+      fontSize: 14,
       fontWeight: 900,
-      color: "#fcd34d",
+      color: t.optionAccentText,
     },
     answerKeyContent: {
       flex: 1,
       paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingVertical: 9,
     },
     answerKeyTitle: {
       fontFamily: "Playfair",
       fontSize: 10,
       fontWeight: 700,
-      color: "#1c1917",
+      color: t.questionText,
+      marginBottom: 2,
     },
     answerKeyQuestion: {
-      fontSize: 8,
-      color: "#57534e",
-      marginTop: 2,
+      fontSize: 7.8,
+      lineHeight: 1.4,
+      color: t.bodyMutedText,
+      marginBottom: 3,
     },
     answerKeyAnswer: {
       fontFamily: "Playfair",
-      fontSize: 8.5,
+      fontSize: 8.6,
       fontWeight: 700,
-      color: "#b45309",
-      marginTop: 4,
+      color: t.questionText,
+    },
+    answerKeyLetter: {
+      color: t.headerAccent,
+    },
+    answerKeyFooterNote: {
+      backgroundColor: t.noteBg,
+      borderWidth: 1.5,
+      borderColor: t.noteBorder,
+      borderRadius: 14,
+      paddingHorizontal: 12,
+      paddingTop: 10,
+      paddingBottom: 10,
+      marginTop: 6,
+    },
+    answerKeyFooterTitle: {
+      fontFamily: "Playfair",
+      fontSize: 8,
+      fontWeight: 700,
+      color: t.noteText,
+      marginBottom: 4,
+      textTransform: "uppercase",
+      letterSpacing: 1.3,
+    },
+    answerKeyFooterBody: {
+      fontSize: 8.1,
+      lineHeight: 1.45,
+      color: t.noteText,
     },
   });
+}
+
+type PdfStyles = ReturnType<typeof createStyles>;
+
+function getDisplaySubject(subject: string) {
+  return subject.trim() || "Ikke angivet";
+}
+
+function getDisplayGradeLevel(gradeLevel: string) {
+  return gradeLevel.trim() || "Ikke angivet";
+}
+
+function getCorrectAnswer(post: Post) {
+  const letter = LETTER_LABELS[post.correct_index] ?? "?";
+  const option = post.options[post.correct_index] ?? "Ukendt svar";
+
+  return { letter, option };
+}
+
+function renderMetaChips(styles: PdfStyles, values: string[]) {
+  return (
+    <View style={styles.chipRow}>
+      {values.map((value) => (
+        <View key={value} style={styles.chip}>
+          <Text style={styles.chipText}>{value}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function renderPostHeader(
+  styles: PdfStyles,
+  template: PdfTemplate,
+  run: StjernelobData,
+  post: Post
+) {
+  return (
+    <View style={styles.header}>
+      <View style={styles.eyebrowRow}>
+        <Text style={styles.eyebrow}>{template.eyebrow}</Text>
+        <Text style={styles.motif}>{template.motif}</Text>
+      </View>
+      <Text style={styles.runTitle}>{run.title}</Text>
+      <View style={styles.badgeRow}>
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>Post {post.number}</Text>
+        </View>
+        <Text style={styles.templateLabel}>{template.footerLabel}</Text>
+      </View>
+      <Text style={styles.title}>{post.title}</Text>
+      <Text style={styles.strapline}>{template.strapline}</Text>
+      {renderMetaChips(styles, [
+        `Fag: ${getDisplaySubject(run.subject)}`,
+        `Klassetrin: ${getDisplayGradeLevel(run.grade_level)}`,
+        `Layout: ${template.label}`,
+      ])}
+    </View>
+  );
+}
+
+function renderHero(styles: PdfStyles, template: PdfTemplate, post: Post, imageUrl: string) {
+  return (
+    <View style={styles.heroCard}>
+      <Image src={imageUrl} style={styles.heroImage} />
+      <View style={styles.heroCaptionWrap}>
+        <Text style={styles.heroCaption}>
+          {template.heroCaption}: {post.title}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function renderBodySection(styles: PdfStyles, template: PdfTemplate, post: Post, title?: string) {
+  return (
+    <View style={styles.bodyCard}>
+      <Text style={styles.sectionLabel}>{template.bodyLabel}</Text>
+      {title ? <Text style={styles.sectionTitle}>{title}</Text> : null}
+      <Text style={styles.bodyText}>{post.body_text}</Text>
+    </View>
+  );
+}
+
+function renderEditorialAside(styles: PdfStyles, template: PdfTemplate, run: StjernelobData) {
+  return (
+    <>
+      <View style={styles.noteCard}>
+        <Text style={styles.noteTitle}>Læseramme</Text>
+        <Text style={styles.noteBody}>
+          Læs teksten roligt, se efter tydelige spor i formuleringerne, og vælg derefter det svar,
+          der passer bedst til indholdet.
+        </Text>
+      </View>
+      <View style={[styles.bodyCard, styles.bodyCardMuted]}>
+        <Text style={styles.sectionLabel}>Redaktionel tone</Text>
+        <Text style={styles.sectionTitle}>{run.title}</Text>
+        <Text style={styles.mutedText}>
+          Denne udgave er bygget som en mere boglig post med længere læserytme og tydelig
+          tekststruktur.
+        </Text>
+      </View>
+      <View style={styles.noteCard}>
+        <Text style={styles.noteTitle}>Til læreren</Text>
+        <Text style={styles.noteBody}>
+          Hæng posten i øjenhøjde og giv holdene ro til at læse færdigt, før de svarer.
+        </Text>
+      </View>
+    </>
+  );
+}
+
+function renderGridAside(styles: PdfStyles) {
+  return (
+    <View style={[styles.bodyCard, styles.bodyCardMuted]}>
+      <Text style={styles.sectionLabel}>Scan hurtigt</Text>
+      <Text style={styles.sectionTitle}>Mønstre først</Text>
+      <Text style={styles.mutedText}>
+        Kig efter størrelser, relationer, rækkefølger eller geometriske hint i både billedet og
+        teksten, før I vælger svar.
+      </Text>
+    </View>
+  );
+}
+
+function renderPosterAside(styles: PdfStyles) {
+  return (
+    <>
+      <View style={styles.noteCard}>
+        <Text style={styles.noteTitle}>Mission cue</Text>
+        <Text style={styles.noteBody}>
+          Read fast, agree on one answer, and move to the next station with momentum.
+        </Text>
+      </View>
+      <View style={[styles.bodyCard, styles.bodyCardMuted]}>
+        <Text style={styles.sectionLabel}>Tempo</Text>
+        <Text style={styles.sectionTitle}>Keep it moving</Text>
+        <Text style={styles.mutedText}>
+          Poster-layouten er lavet til hurtig scanning, tydelig briefing og stærk mission-følelse.
+        </Text>
+      </View>
+    </>
+  );
+}
+
+function renderQuestionSection(styles: PdfStyles, template: PdfTemplate, post: Post) {
+  const optionsContainerStyle =
+    template.optionMode === "stacked" ? styles.optionStack : styles.optionGrid;
+  const optionItemStyle =
+    template.optionMode === "stacked" ? styles.optionItemStacked : styles.optionItemGrid;
+
+  return (
+    <View style={styles.questionCard}>
+      <Text style={styles.sectionLabel}>{template.questionLabel}</Text>
+      <Text style={styles.questionText}>{post.question}</Text>
+      <View style={optionsContainerStyle}>
+        {post.options.map((option, index) => (
+          <View key={`${post.number}-${index}`} style={optionItemStyle}>
+            <View style={styles.optionAccent}>
+              <Text style={styles.optionLetter}>{LETTER_LABELS[index]}</Text>
+            </View>
+            <Text style={styles.optionCopy}>{option}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function renderPostFooter(styles: PdfStyles, template: PdfTemplate, post: Post, totalPosts: number) {
+  return (
+    <View style={styles.footer}>
+      <Text style={styles.footerText}>
+        Post {post.number} / {totalPosts}
+      </Text>
+      <Text style={styles.footerText}>{template.footerLabel}</Text>
+      <Text style={styles.footerText}>gpsloeb.dk</Text>
+    </View>
+  );
+}
+
+function renderClassicPostPage(
+  styles: PdfStyles,
+  template: PdfTemplate,
+  run: StjernelobData,
+  post: Post,
+  totalPosts: number,
+  imageUrl: string
+) {
+  return (
+    <Page key={`post-${post.number}`} size="A4" style={styles.page}>
+      <View style={styles.frame} />
+      <View style={styles.pageInner}>
+        {renderPostHeader(styles, template, run, post)}
+        <View style={styles.classicFlow}>
+          {renderHero(styles, template, post, imageUrl)}
+          {renderBodySection(styles, template, post)}
+          {renderQuestionSection(styles, template, post)}
+        </View>
+      </View>
+      {renderPostFooter(styles, template, post, totalPosts)}
+    </Page>
+  );
+}
+
+function renderEditorialPostPage(
+  styles: PdfStyles,
+  template: PdfTemplate,
+  run: StjernelobData,
+  post: Post,
+  totalPosts: number,
+  imageUrl: string
+) {
+  return (
+    <Page key={`post-${post.number}`} size="A4" style={styles.page}>
+      <View style={styles.frame} />
+      <View style={styles.pageInner}>
+        {renderPostHeader(styles, template, run, post)}
+        <View style={styles.editorialColumns}>
+          <View style={styles.editorialMain}>
+            {renderHero(styles, template, post, imageUrl)}
+            {renderBodySection(styles, template, post, "Læs og fortolk")}
+            {renderQuestionSection(styles, template, post)}
+          </View>
+          <View style={styles.editorialAside}>{renderEditorialAside(styles, template, run)}</View>
+        </View>
+      </View>
+      {renderPostFooter(styles, template, post, totalPosts)}
+    </Page>
+  );
+}
+
+function renderGridPostPage(
+  styles: PdfStyles,
+  template: PdfTemplate,
+  run: StjernelobData,
+  post: Post,
+  totalPosts: number,
+  imageUrl: string
+) {
+  return (
+    <Page key={`post-${post.number}`} size="A4" style={styles.page}>
+      <View style={styles.frame} />
+      <View style={styles.pageInner}>
+        {renderPostHeader(styles, template, run, post)}
+        <View style={styles.gridColumns}>
+          <View style={styles.gridLeft}>
+            {renderHero(styles, template, post, imageUrl)}
+            {renderGridAside(styles)}
+          </View>
+          <View style={styles.gridRight}>
+            {renderBodySection(styles, template, post, "Problemfelt")}
+            {renderQuestionSection(styles, template, post)}
+          </View>
+        </View>
+      </View>
+      {renderPostFooter(styles, template, post, totalPosts)}
+    </Page>
+  );
+}
+
+function renderPosterPostPage(
+  styles: PdfStyles,
+  template: PdfTemplate,
+  run: StjernelobData,
+  post: Post,
+  totalPosts: number,
+  imageUrl: string
+) {
+  return (
+    <Page key={`post-${post.number}`} size="A4" style={styles.page}>
+      <View style={styles.frame} />
+      <View style={styles.pageInner}>
+        {renderPostHeader(styles, template, run, post)}
+        <View style={styles.posterFlow}>
+          {renderHero(styles, template, post, imageUrl)}
+          <View style={styles.posterIntro}>
+            <View style={styles.posterIntroMain}>
+              {renderBodySection(styles, template, post, "Mission briefing")}
+              {renderQuestionSection(styles, template, post)}
+            </View>
+            <View style={styles.posterIntroAside}>{renderPosterAside(styles)}</View>
+          </View>
+        </View>
+      </View>
+      {renderPostFooter(styles, template, post, totalPosts)}
+    </Page>
+  );
+}
+
+function renderPostPage(
+  styles: PdfStyles,
+  template: PdfTemplate,
+  run: StjernelobData,
+  post: Post,
+  totalPosts: number,
+  imageUrl: string
+) {
+  switch (template.variant) {
+    case "editorial":
+      return renderEditorialPostPage(styles, template, run, post, totalPosts, imageUrl);
+    case "grid":
+      return renderGridPostPage(styles, template, run, post, totalPosts, imageUrl);
+    case "poster":
+      return renderPosterPostPage(styles, template, run, post, totalPosts, imageUrl);
+    default:
+      return renderClassicPostPage(styles, template, run, post, totalPosts, imageUrl);
+  }
+}
+
+function renderAnswerSheetPage(styles: PdfStyles, template: PdfTemplate, run: StjernelobData) {
+  return (
+    <Page size="A4" style={[styles.page, { backgroundColor: template.theme.answerSheetBg }]}>
+      <View style={styles.frame} />
+      <View style={styles.summaryPageInner}>
+        <View style={styles.summaryHeader}>
+          <View style={styles.eyebrowRow}>
+            <Text style={styles.eyebrow}>Holdets svarark</Text>
+            <Text style={styles.motif}>{template.motif}</Text>
+          </View>
+          <Text style={styles.summaryTitle}>Svarark</Text>
+          <Text style={styles.summarySubtitle}>
+            {run.title}. Skriv ét bogstav pr. post, når holdet er enige om svaret, og behold arket ved
+            samlingspunktet eller hos holdlederen.
+          </Text>
+          {renderMetaChips(styles, [
+            `Fag: ${getDisplaySubject(run.subject)}`,
+            `Klassetrin: ${getDisplayGradeLevel(run.grade_level)}`,
+            `Layout: ${template.label}`,
+          ])}
+        </View>
+
+        <View style={styles.teamRow}>
+          <Text style={styles.teamLabel}>Holdnavn</Text>
+          <View style={styles.teamLine} />
+        </View>
+
+        <Text style={styles.answerInstruction}>
+          Skriv A, B, C eller D i boksen ud for hver post. Brug kun ét svar pr. post, og ret først,
+          når hele holdet er enige.
+        </Text>
+
+        <View style={styles.guidanceRow}>
+          <View style={styles.guidanceCard}>
+            <Text style={styles.guidanceCardTitle}>Sådan bruges arket</Text>
+            <Text style={styles.guidanceCardBody}>
+              Tag arket med rundt, eller lad én elev stå for noteringen. Ét bogstav pr. boks gør
+              hurtig efterretning nemmere bagefter.
+            </Text>
+          </View>
+          <View style={styles.guidanceCard}>
+            <Text style={styles.guidanceCardTitle}>Placering</Text>
+            <Text style={styles.guidanceCardBody}>
+              Hvis holdene afleverer centralt, så print ekstra svarark og læg dem ved startområdet.
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.answerGrid}>
+          {run.posts.map((post) => (
+            <View key={`answer-${post.number}`} style={styles.answerItem}>
+              <View style={styles.answerItemNumber}>
+                <Text style={styles.answerItemNumberLabel}>Post</Text>
+                <Text style={styles.answerItemNumberValue}>{post.number}</Text>
+              </View>
+              <View style={styles.answerBox}>
+                <View style={styles.answerBoxInner} />
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Elevsvarark</Text>
+        <Text style={styles.footerText}>{template.footerLabel}</Text>
+        <Text style={styles.footerText}>gpsloeb.dk</Text>
+      </View>
+    </Page>
+  );
+}
+
+function renderAnswerKeyPage(styles: PdfStyles, template: PdfTemplate, run: StjernelobData) {
+  return (
+    <Page size="A4" style={[styles.page, { backgroundColor: template.theme.answerKeyBg }]}>
+      <View style={styles.frame} />
+      <View style={styles.summaryPageInner}>
+        <View style={styles.summaryHeader}>
+          <View style={styles.eyebrowRow}>
+            <Text style={styles.eyebrow}>Kun til lærerens brug</Text>
+            <Text style={styles.motif}>{template.motif}</Text>
+          </View>
+          <Text style={styles.summaryTitle}>Facitliste</Text>
+          <Text style={styles.summarySubtitle}>
+            Brug facitlisten som intern læreroversigt. Den er farvet i samme familie som posterne,
+            men skal ikke hænge ude ved posterne.
+          </Text>
+          {renderMetaChips(styles, [
+            `Fag: ${getDisplaySubject(run.subject)}`,
+            `Klassetrin: ${getDisplayGradeLevel(run.grade_level)}`,
+            `Layout: ${template.label}`,
+          ])}
+        </View>
+
+        <View style={styles.answerKeyBody}>
+          {run.posts.map((post) => {
+            const correctAnswer = getCorrectAnswer(post);
+
+            return (
+              <View key={`key-${post.number}`} style={styles.answerKeyRow}>
+                <View style={styles.answerKeyNumber}>
+                  <Text style={styles.answerKeyNumberText}>{post.number}</Text>
+                </View>
+                <View style={styles.answerKeyContent}>
+                  <Text style={styles.answerKeyTitle}>{post.title}</Text>
+                  <Text style={styles.answerKeyQuestion}>{post.question}</Text>
+                  <Text style={styles.answerKeyAnswer}>
+                    <Text style={styles.answerKeyLetter}>{correctAnswer.letter}</Text>
+                    {` — ${correctAnswer.option}`}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        <View style={styles.answerKeyFooterNote}>
+          <Text style={styles.answerKeyFooterTitle}>Lærerplacering</Text>
+          <Text style={styles.answerKeyFooterBody}>
+            Læg facitlisten ved lærermappen, på clipboard eller i startområdet bagved bordet. Del
+            den først, når holdene er færdige, eller brug den kun til hurtig kontrol undervejs.
+          </Text>
+        </View>
+      </View>
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Facitliste</Text>
+        <Text style={styles.footerText}>{template.footerLabel}</Text>
+        <Text style={styles.footerText}>gpsloeb.dk</Text>
+      </View>
+    </Page>
+  );
 }
 
 /* ── PDF Document ──────────────────────────────────────────────────── */
@@ -572,151 +1601,18 @@ function StjernelobDocument({
   run: StjernelobData;
   imageSources: Record<number, string>;
 }) {
-  const t = resolveTheme(run.subject);
-  const s = createStyles(t);
-  const posts = run.posts;
+  const template = resolveTemplate(run.subject);
+  const styles = createStyles(template);
+  const totalPosts = run.posts.length;
 
   return (
     <Document title={run.title} author="gpsloeb.dk">
-      {/* Post cards */}
-      {posts.map((post) => {
-        const imageUrl = imageSources[post.number] ?? "";
-        return (
-          <Page key={`post-${post.number}`} size="A4" style={s.page}>
-            <View style={s.border} />
-            {/* Header */}
-            <View style={s.header}>
-              <View style={s.headerLine} />
-              <Text style={s.headerSubtitle}>{run.title}</Text>
-              <View style={s.badgeContainer}>
-                <Text style={s.badge}>Post {post.number}</Text>
-              </View>
-              <Text style={s.title}>{post.title}</Text>
-              <View style={s.headerLineBottom} />
-            </View>
-
-            {/* Image */}
-            {imageUrl ? (
-              <View style={s.imageContainer}>
-                <Image src={imageUrl} style={s.image} />
-              </View>
-            ) : null}
-
-            {/* Body text */}
-            <View style={s.bodyContainer}>
-              <Text style={s.bodyText}>{post.body_text}</Text>
-            </View>
-
-            {/* Divider */}
-            <View style={s.divider}>
-              <View style={s.dividerLine} />
-              <Text style={s.dividerGlyph}>✦</Text>
-              <View style={s.dividerLine} />
-            </View>
-
-            {/* Question + Options */}
-            <View style={s.questionContainer}>
-              <Text style={s.questionText}>{post.question}</Text>
-              <View style={s.optionsGrid}>
-                {post.options.map((option, i) => (
-                  <View key={i} style={s.optionItem}>
-                    <View style={s.optionLetter}>
-                      <Text>{LETTER_LABELS[i]}</Text>
-                    </View>
-                    <Text style={s.optionText}>{option}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Footer */}
-            <View style={s.footer}>
-              <Text style={s.footerText}>
-                Post {post.number} / {posts.length}
-              </Text>
-              <Text style={s.footerText}>gpsloeb.dk</Text>
-            </View>
-          </Page>
-        );
+      {run.posts.map((post) => {
+        const imageUrl = imageSources[post.number] ?? buildPdfImageFallbackDataUrl(post.title);
+        return renderPostPage(styles, template, run, post, totalPosts, imageUrl);
       })}
-
-      {/* Student Answer Sheet */}
-      <Page size="A4" style={[s.page, { backgroundColor: "#fffbeb" }]}>
-        <View style={s.border} />
-        <View style={s.header}>
-          <View style={s.headerLine} />
-          <Text style={s.headerSubtitle}>{run.title}</Text>
-          <Text style={s.title}>Svarark</Text>
-          <View style={s.headerLineBottom} />
-        </View>
-        <View style={s.answerSheetBody}>
-          <View style={s.holdnavnRow}>
-            <Text style={s.holdnavnLabel}>Holdnavn:</Text>
-            <View style={s.holdnavnLine} />
-          </View>
-          <Text style={s.answerInstruction}>
-            Skriv A, B, C eller D i boksen ud for hver post, når I har besøgt den.
-          </Text>
-          <View style={s.answerGrid}>
-            {posts.map((post) => (
-              <View key={`answer-${post.number}`} style={s.answerItem}>
-                <View style={s.answerItemNumber}>
-                  <Text style={s.answerItemNumberLabel}>Post</Text>
-                  <Text style={s.answerItemNumberValue}>{post.number}</Text>
-                </View>
-                <View style={s.answerBox}>
-                  <View style={s.answerBoxInner} />
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
-        <View style={s.footer}>
-          <Text style={s.footerText}>Elev-svarark</Text>
-          <Text style={s.footerText}>gpsloeb.dk</Text>
-        </View>
-      </Page>
-
-      {/* Teacher Answer Key */}
-      <Page size="A4" style={[s.page, { backgroundColor: "#f5f5f4" }]}>
-        <View style={s.border} />
-        <View style={s.header}>
-          <View style={s.headerLine} />
-          <Text style={s.headerSubtitle}>{run.title}</Text>
-          <Text style={s.title}>Facitliste</Text>
-          <Text
-            style={{
-              fontFamily: "Playfair",
-              fontSize: 7,
-              color: "#78716c",
-              marginTop: 2,
-            }}
-          >
-            Kun til lærerens brug — hæng ikke op
-          </Text>
-          <View style={s.headerLineBottom} />
-        </View>
-        <View style={s.answerKeyBody}>
-          {posts.map((post) => (
-            <View key={`key-${post.number}`} style={s.answerKeyRow}>
-              <View style={s.answerKeyNumber}>
-                <Text>{post.number}</Text>
-              </View>
-              <View style={s.answerKeyContent}>
-                <Text style={s.answerKeyTitle}>{post.title}</Text>
-                <Text style={s.answerKeyQuestion}>{post.question}</Text>
-                <Text style={s.answerKeyAnswer}>
-                  {LETTER_LABELS[post.correct_index]} — {post.options[post.correct_index]}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
-        <View style={s.footer}>
-          <Text style={s.footerText}>Facitliste</Text>
-          <Text style={s.footerText}>gpsloeb.dk</Text>
-        </View>
-      </Page>
+      {renderAnswerSheetPage(styles, template, run)}
+      {renderAnswerKeyPage(styles, template, run)}
     </Document>
   );
 }
@@ -730,18 +1626,13 @@ const PDFViewer = dynamic(
 
 export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
   const [isPreparingImages, setIsPreparingImages] = useState(false);
+  const [imagesLoaded, setImagesLoaded] = useState(false);
+  const [imageFallbackCount, setImageFallbackCount] = useState(0);
   const [preparedImageSources, setPreparedImageSources] = useState<Record<number, string>>({});
-  const preparedImageUrlsRef = useRef<string[]>([]);
-  const prepareImagesPromiseRef = useRef<Promise<Record<number, string>> | null>(null);
+  const prepareImagesPromiseRef = useRef<Promise<PreparedPdfImages> | null>(null);
   const imagePreparationGenerationRef = useRef(0);
-
-  const revokePreparedImageUrls = useCallback(() => {
-    for (const objectUrl of preparedImageUrlsRef.current) {
-      URL.revokeObjectURL(objectUrl);
-    }
-    preparedImageUrlsRef.current = [];
-  }, []);
 
   const ensurePreparedImageSources = useCallback(
     async (signal?: AbortSignal) => {
@@ -750,33 +1641,61 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
       }
 
       const generation = imagePreparationGenerationRef.current;
-      let promise!: Promise<Record<number, string>>;
+      let promise!: Promise<PreparedPdfImages>;
       promise = (async () => {
         if (generation === imagePreparationGenerationRef.current) {
           setIsPreparingImages(true);
+          setImagesLoaded(false);
         }
 
         try {
           const prepared = await preparePdfImages(run.posts, signal);
 
           if (generation !== imagePreparationGenerationRef.current) {
-            for (const objectUrl of prepared.objectUrls) {
-              URL.revokeObjectURL(objectUrl);
-            }
-            return {};
+            return {
+              sources: {},
+              totalCount: 0,
+              loadedCount: 0,
+              fallbackCount: 0,
+            };
           }
 
-          revokePreparedImageUrls();
-          preparedImageUrlsRef.current = prepared.objectUrls;
           setPreparedImageSources(prepared.sources);
-          return prepared.sources;
+          setImageFallbackCount(prepared.fallbackCount);
+          setImagesLoaded(true);
+          return prepared;
         } catch (error) {
           if (isAbortError(error)) {
-            return {};
+            return {
+              sources: {},
+              totalCount: 0,
+              loadedCount: 0,
+              fallbackCount: 0,
+            };
           }
 
           console.error("Kunne ikke klargoere PDF-billeder:", error);
-          return {};
+          const fallbackSources = Object.fromEntries(
+            run.posts.map((post) => [
+              post.number,
+              buildPdfImageFallbackDataUrl(
+                typeof post.title === "string" && post.title.trim()
+                  ? post.title.trim()
+                  : "Illustration mangler"
+              ),
+            ])
+          );
+
+          setPreparedImageSources(fallbackSources);
+          setImageFallbackCount(run.posts.length);
+          setImagesLoaded(true);
+
+          return {
+            sources: fallbackSources,
+            totalCount: run.posts.length,
+            loadedCount: 0,
+            fallbackCount: run.posts.length,
+          };
         } finally {
           if (prepareImagesPromiseRef.current === promise) {
             prepareImagesPromiseRef.current = null;
@@ -791,7 +1710,7 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
       prepareImagesPromiseRef.current = promise;
       return promise;
     },
-    [revokePreparedImageUrls, run.posts]
+    [run.posts]
   );
 
   useEffect(() => {
@@ -800,22 +1719,26 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
     imagePreparationGenerationRef.current += 1;
     prepareImagesPromiseRef.current = null;
     setPreparedImageSources({});
-    revokePreparedImageUrls();
+    setImageFallbackCount(0);
+    setImagesLoaded(run.posts.length === 0);
 
     void ensurePreparedImageSources(abortController.signal);
 
     return () => {
       abortController.abort();
       prepareImagesPromiseRef.current = null;
-      revokePreparedImageUrls();
     };
-  }, [ensurePreparedImageSources, revokePreparedImageUrls, run.id]);
+  }, [ensurePreparedImageSources, run.id, run.posts.length]);
+
+  const buildPdfBlob = useCallback(async () => {
+    const prepared = await ensurePreparedImageSources();
+    return pdf(<StjernelobDocument run={run} imageSources={prepared.sources} />).toBlob();
+  }, [ensurePreparedImageSources, run]);
 
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      const imageSources = await ensurePreparedImageSources();
-      const blob = await pdf(<StjernelobDocument run={run} imageSources={imageSources} />).toBlob();
+      const blob = await buildPdfBlob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -828,6 +1751,52 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
       setIsDownloading(false);
     }
   };
+
+  const handlePrint = async () => {
+    setIsPrinting(true);
+    try {
+      const blob = await buildPdfBlob();
+      const url = URL.createObjectURL(blob);
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      iframe.style.opacity = "0";
+      iframe.style.pointerEvents = "none";
+
+      const cleanup = () => {
+        iframe.remove();
+        URL.revokeObjectURL(url);
+      };
+
+      iframe.onload = () => {
+        const targetWindow = iframe.contentWindow;
+        if (!targetWindow) {
+          cleanup();
+          return;
+        }
+
+        targetWindow.focus();
+
+        const afterPrintCleanup = () => {
+          targetWindow.removeEventListener("afterprint", afterPrintCleanup);
+          window.setTimeout(cleanup, 250);
+        };
+
+        targetWindow.addEventListener("afterprint", afterPrintCleanup, { once: true });
+        window.setTimeout(cleanup, 60_000);
+        targetWindow.print();
+      };
+
+      iframe.src = url;
+      document.body.appendChild(iframe);
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
+  const isPdfLocked = !imagesLoaded || isPreparingImages;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#1e293b" }}>
@@ -860,7 +1829,12 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
           </h1>
           {isPreparingImages ? (
             <p style={{ fontSize: 12, color: "#78716c", margin: "6px 0 0" }}>
-              Klargoer billeder til PDF en...
+              Klargoer billeder til PDF en. Download og print er laast, indtil alle billeder er klar.
+            </p>
+          ) : null}
+          {!isPreparingImages && imageFallbackCount > 0 ? (
+            <p style={{ fontSize: 12, color: "#92400e", margin: "6px 0 0" }}>
+              {imageFallbackCount} billede{imageFallbackCount === 1 ? "" : "r"} blev erstattet med en sikker placeholder.
             </p>
           ) : null}
         </div>
@@ -882,30 +1856,96 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
             ← Ny version
           </a>
           <button
+            onClick={handlePrint}
+            disabled={isPdfLocked || isPrinting || isDownloading}
+            style={{
+              padding: "8px 20px",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#312e81",
+              background: isPdfLocked || isPrinting || isDownloading ? "#e2e8f0" : "#eef2ff",
+              border: "1px solid #c7d2fe",
+              borderRadius: 8,
+              cursor: isPdfLocked || isPrinting || isDownloading ? "wait" : "pointer",
+              opacity: isPdfLocked || isPrinting || isDownloading ? 0.7 : 1,
+            }}
+          >
+            {isPrinting ? "Forbereder print..." : isPdfLocked ? "Laaser print..." : "Print PDF"}
+          </button>
+          <button
             onClick={handleDownload}
-            disabled={isDownloading}
+            disabled={isPdfLocked || isDownloading || isPrinting}
             style={{
               padding: "8px 20px",
               fontSize: 13,
               fontWeight: 600,
               color: "#ffffff",
-              background: isDownloading ? "#8b5cf6aa" : "#7c3aed",
+              background: isPdfLocked || isDownloading || isPrinting ? "#8b5cf6aa" : "#7c3aed",
               border: "none",
               borderRadius: 8,
-              cursor: isDownloading ? "wait" : "pointer",
-              opacity: isDownloading ? 0.7 : 1,
+              cursor: isPdfLocked || isDownloading || isPrinting ? "wait" : "pointer",
+              opacity: isPdfLocked || isDownloading || isPrinting ? 0.7 : 1,
             }}
           >
-            {isDownloading ? "Genererer..." : isPreparingImages ? "Klargoer billeder..." : "Download PDF"}
+            {isDownloading
+              ? "Genererer..."
+              : isPdfLocked
+                ? "Laaser PDF..."
+                : "Download PDF"}
           </button>
         </div>
       </div>
 
       {/* PDF Viewer */}
       <div style={{ flex: 1, minHeight: 0 }}>
-        <PDFViewer width="100%" height="100%" showToolbar={false}>
-          <StjernelobDocument run={run} imageSources={preparedImageSources} />
-        </PDFViewer>
+        {imagesLoaded ? (
+          <PDFViewer width="100%" height="100%" showToolbar={false}>
+            <StjernelobDocument run={run} imageSources={preparedImageSources} />
+          </PDFViewer>
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              height: "100%",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 24,
+            }}
+          >
+            <div
+              style={{
+                maxWidth: 520,
+                borderRadius: 24,
+                border: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(15,23,42,0.86)",
+                padding: 28,
+                color: "#e2e8f0",
+                textAlign: "center",
+                boxShadow: "0 20px 60px rgba(2,6,23,0.35)",
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                  color: "#c4b5fd",
+                }}
+              >
+                Sikrer billed-pipeline
+              </p>
+              <h2 style={{ margin: "12px 0 0", fontSize: 28, fontWeight: 700, color: "#ffffff" }}>
+                PDF'en er laast, indtil alle billeder er verificeret
+              </h2>
+              <p style={{ margin: "14px 0 0", fontSize: 15, lineHeight: 1.6, color: "#cbd5e1" }}>
+                Vi henter hvert billede, venter paa hele preload-koren og skifter automatisk til en pæn SVG-placeholder,
+                hvis et kald fejler eller timer ud.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

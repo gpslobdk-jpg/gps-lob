@@ -60,6 +60,50 @@ function buildPollinationsUrl(prompt: string): string {
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true`;
 }
 
+type ImageArtDirection = {
+  label: string;
+  promptRule: string;
+  emphasis: string;
+};
+
+function resolveImageArtDirection(subject: string): ImageArtDirection {
+  const normalizedSubject = subject.trim().toLowerCase();
+
+  if (normalizedSubject.includes("dansk")) {
+    return {
+      label: "Dansk Editorial",
+      promptRule:
+        "editorial literary illustration, warm Nordic tones, tactile paper feel, subtle symbolism, school-safe scene, no text overlay, no watermark",
+      emphasis: "læsescener, stemning og fortællende detaljer",
+    };
+  }
+
+  if (normalizedSubject.includes("matematik")) {
+    return {
+      label: "Matematik Grid",
+      promptRule:
+        "clean educational illustration, geometric clarity, structured composition, clear quantities or shapes, high contrast, school-safe, no text overlay, no watermark",
+      emphasis: "mønstre, former, størrelser eller relationer, der understøtter problemløsning",
+    };
+  }
+
+  if (normalizedSubject.includes("engelsk")) {
+    return {
+      label: "English Poster",
+      promptRule:
+        "bold classroom poster illustration, cinematic composition, energetic but school-safe, contemporary everyday scene, no text overlay, no watermark",
+      emphasis: "tydelige situationer, karakterer og handlingsøjeblikke, der giver mission-følelse",
+    };
+  }
+
+  return {
+    label: "Standard",
+    promptRule:
+      "clear educational illustration, friendly realistic detail, readable composition, school-safe, no text overlay, no watermark",
+    emphasis: "en umiddelbart forståelig scene, der hjælper eleverne ind i emnet",
+  };
+}
+
 export async function POST(req: Request) {
   try {
     if (!process.env.OPENAI_API_KEY) {
@@ -118,6 +162,11 @@ export async function POST(req: Request) {
 
     const gradeLine = gradeLevel ? `- Sproglig sværhedsgrad og ordvalg skal passe til ${gradeLevel}.` : "";
     const subjectLine = subject ? `- Brug faget "${subject}" som faglig ramme for alle poster.` : "";
+    const imageArtDirection = resolveImageArtDirection(subject);
+    const imageDirectionLine =
+      `- Alle billedprompts skal følge layout-retningen "${imageArtDirection.label}": ${imageArtDirection.promptRule}.`;
+    const imagePurposeLine =
+      `- Billedprompts skal især fremhæve ${imageArtDirection.emphasis}.`;
 
     const systemPrompt = `Du er en dansk lærer, der laver et analogt stjerneløb til udendørs undervisning.
 Et stjerneløb er en serie af laminerede A4-post-kort, der hænges rundt i skolegården.
@@ -129,7 +178,9 @@ Vigtige regler:
 - Hver post skal have: en kort overskrift, en læsbar brødtekst (3-5 sætninger der fortæller noget fagligt interessant), et billedprompt på ENGELSK til en AI-billedgenerator, et fagligt spørgsmål og præcis 4 svarmuligheder.
 - Kun ét svar er korrekt (correct_index 0-3).
 - Brødteksten skal indeholde svaret på spørgsmålet, så elever kan finde det ved at læse.
-- Billedprompt på engelsk: enkelt beskrivende, illustrativt, passer til posten.
+- Billedprompt på engelsk: én enkel prompt på naturligt engelsk, uden citationstegn eller punktform, og den skal passe direkte til posten.
+${imageDirectionLine}
+${imagePurposeLine}
 - Giv løbet en samlet titel.
 ${subjectLine}
 ${gradeLine}`;
