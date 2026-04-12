@@ -479,71 +479,17 @@ function ArchivedRunCard({
 function CreateNewRunCard() {
   return (
     <Link href="/dashboard/opret" className="flex h-full text-left">
-      <div className="group relative flex h-full w-full overflow-hidden rounded-4xl border border-dashed border-emerald-300/80 bg-white/92 p-5 shadow-lg backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:border-emerald-400 hover:shadow-xl">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.2),transparent_34%),radial-gradient(circle_at_bottom,rgba(16,185,129,0.12),transparent_56%)]" />
+      <div className="group relative flex h-full min-h-64 w-full flex-col items-center justify-center overflow-hidden rounded-4xl border-2 border-dashed border-slate-300/90 bg-white/20 px-6 py-8 text-center shadow-lg backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:border-slate-400 hover:bg-white/40 hover:shadow-xl">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),transparent_42%),radial-gradient(circle_at_bottom,rgba(148,163,184,0.12),transparent_56%)] opacity-80 transition-opacity duration-300 group-hover:opacity-100" />
 
-        <div className="relative flex h-full w-full flex-col">
-          <div className="-mx-5 -mt-5 mb-5 border-b border-white/10 bg-linear-to-r from-emerald-700 via-emerald-600 to-sky-700 px-5 py-5 text-white">
-            <div className="flex items-start justify-between gap-3">
-              <span className="max-w-32 truncate rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
-                Nyt løb
-              </span>
+        <div className="relative flex flex-col items-center justify-center gap-4">
+          <span className="flex h-20 w-20 items-center justify-center rounded-full border border-dashed border-slate-400/80 bg-white/20 text-slate-600 transition-all duration-300 group-hover:border-slate-500 group-hover:bg-white/35 group-hover:text-slate-700">
+            <Plus className="h-12 w-12" />
+          </span>
 
-              <span className="shrink-0 rounded-full border border-white/15 bg-black/10 px-3 py-1 text-[11px] font-black tracking-[0.22em] text-white uppercase">
-                Opret
-              </span>
-            </div>
-
-            <div className="mt-4 flex items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white shadow-[0_0_18px_rgba(255,255,255,0.12)]">
-                <Plus className="h-5 w-5" />
-              </span>
-
-              <div>
-                <h2 className={`text-xl font-bold leading-tight text-white ${rubik.className}`}>
-                  Opret nyt løb
-                </h2>
-                <p className="mt-2 max-w-[18rem] text-sm leading-6 text-white/84">
-                  Start et nyt løb fra valg-siden og kom hurtigt videre til den builder, der passer til dit næste forløb.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/12 px-3 py-1 text-[11px] font-semibold text-white shadow-[0_10px_24px_rgba(15,23,42,0.12)]">
-                <Play className="h-3 w-3" />
-                Alle løbstyper
-              </span>
-
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold text-white/90 backdrop-blur-md">
-                Åbner valg-siden
-              </span>
-            </div>
-          </div>
-
-          <p className="flex items-center gap-2 text-sm font-medium text-slate-800">
-            <MapPin className="h-4 w-4 text-emerald-700" />
-            Vælg løbstype, byg posterne og gem dem direkte til arkivet.
+          <p className={`text-lg font-semibold tracking-[0.04em] text-slate-700 transition-colors duration-300 group-hover:text-slate-800 ${rubik.className}`}>
+            Tilføj nyt løb
           </p>
-
-          <p className="mt-3 text-xs font-medium text-slate-700">
-            Brug kortet som den faste genvej til Dansk, Foto, Generel Quiz og de øvrige builders.
-          </p>
-
-          <div className="mt-5 border-t border-slate-200/80 pt-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <span className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-emerald-700 bg-emerald-700 px-4 py-3 text-sm font-black tracking-[0.08em] text-white shadow-[0_12px_24px_rgba(4,120,87,0.18)] transition group-hover:bg-emerald-600 sm:w-auto sm:min-w-44">
-                <Plus className="h-3.5 w-3.5" />
-                Gå til opret
-              </span>
-
-              <div className="flex flex-wrap items-center gap-2 sm:flex-1 sm:justify-end">
-                <span className="inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-emerald-200 bg-white px-3.5 text-xs font-semibold text-emerald-900 shadow-sm transition group-hover:border-emerald-300 group-hover:bg-emerald-50">
-                  Klar til næste idé
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </Link>
