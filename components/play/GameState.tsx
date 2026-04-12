@@ -31,6 +31,8 @@ import type {
   QuizAnswerFeedbackState,
   RaceMode,
   RoleplayReplyState,
+  StoredPendingAnswer,
+  StoredPlaySnapshot,
   TeacherBroadcastMessage,
   ValidateAnswerPayload,
   WakeLockSentinelLike,
@@ -40,6 +42,7 @@ import type {
 import {
   buildRouteOrder,
   clearStoredActiveParticipant,
+  clearStoredPlaySnapshot,
   compressImageForUpload,
   containsBadWord,
   getDistance,
@@ -59,9 +62,11 @@ import {
   normalizeRaceMode,
   parseQuestion,
   readStoredActiveParticipant,
+  readStoredPlaySnapshot,
   reloadPage,
   resolvePostVariant,
   saveStoredActiveParticipant,
+  saveStoredPlaySnapshot,
   supportsStaggeredStart,
   toFiniteNumber,
   toIntegerStartOffset,
@@ -189,6 +194,12 @@ function createTeacherBroadcastMessage(
   };
 }
 
+function toTimestampMs(value: string | null | undefined) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : null;
+}
+
 export function usePlayGameState({
   sessionId,
   initialStudentName = "",
@@ -203,6 +214,24 @@ export function usePlayGameState({
     }
     return stored;
   }, [sessionId]);
+
+  const storedPlaySnapshotOnLoad = useMemo(() => {
+    if (!sessionId) return null;
+
+    const storedSnapshot = readStoredPlaySnapshot();
+    if (!storedSnapshot || storedSnapshot.sessionId !== sessionId) {
+      return null;
+    }
+
+    if (
+      storedParticipantOnLoad?.participantId &&
+      storedSnapshot.participantId !== storedParticipantOnLoad.participantId
+    ) {
+      return null;
+    }
+
+    return storedSnapshot;
+  }, [sessionId, storedParticipantOnLoad?.participantId]);
 
   const isStoredParticipantFreshJoin = useMemo(() => {
     if (!storedParticipantOnLoad?.savedAt) return false;
@@ -291,11 +320,16 @@ export function usePlayGameState({
   const [locationSyncErrors, setLocationSyncErrors] = useState(0);
   const [restoreRetryNonce, setRestoreRetryNonce] = useState(0);
   const [isRestoringParticipant, setIsRestoringParticipant] = useState(false);
+  const [pendingLocalAnswers, setPendingLocalAnswers] = useState<StoredPendingAnswer[]>(
+    () => storedPlaySnapshotOnLoad?.pendingAnswers ?? []
+  );
 
   const answersTableMissingRef = useRef(false);
   const hasRestoredRef = useRef(!Boolean(storedParticipantOnLoad) || isStoredParticipantFreshJoin);
   const resumeMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [playStartedAtMs, setPlayStartedAtMs] = useState<number | null>(null);
+  const [playStartedAtMs, setPlayStartedAtMs] = useState<number | null>(
+    () => storedPlaySnapshotOnLoad?.playStartedAtMs ?? null
+  );
   const [playFinishedAtMs, setPlayFinishedAtMs] = useState<number | null>(null);
   const quizAnswerFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roleplayInputErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -308,6 +342,8 @@ export function usePlayGameState({
   const submissionLockRef = useRef(false);
   const isMountedRef = useRef(true);
   const solvedPostIndexesRef = useRef<number[]>([]);
+  const pendingLocalAnswersRef = useRef<StoredPendingAnswer[]>(pendingLocalAnswers);
+  const pendingAnswerReplayInFlightRef = useRef(false);
   const locationSyncErrorsRef = useRef(0);
   const locationSyncSuspendedRef = useRef(false);
   const locationSyncRecoveryCheckInFlightRef = useRef(false);
@@ -397,6 +433,46 @@ export function usePlayGameState({
     solvedPostIndexesRef.current = solvedPostIndexes;
   }, [solvedPostIndexes]);
 
+  useEffect(() => {
+    pendingLocalAnswersRef.current = pendingLocalAnswers;
+  }, [pendingLocalAnswers]);
+
+  const getStoredPlaySnapshotForParticipant = useCallback(
+    (targetParticipantId: string | null | undefined): StoredPlaySnapshot | null => {
+      if (!sessionId || !targetParticipantId) return null;
+
+      const storedSnapshot = readStoredPlaySnapshot();
+      if (!storedSnapshot) return null;
+      if (storedSnapshot.sessionId !== sessionId) return null;
+      if (storedSnapshot.participantId !== targetParticipantId) return null;
+
+      return storedSnapshot;
+    },
+    [sessionId]
+  );
+
+  const clearStoredPlayRecoveryState = useCallback(() => {
+    clearStoredActiveParticipant();
+    clearStoredPlaySnapshot();
+    setPendingLocalAnswers([]);
+  }, []);
+
+  const queuePendingLocalAnswer = useCallback((pendingAnswer: StoredPendingAnswer) => {
+    setPendingLocalAnswers((current) => {
+      if (current.some((entry) => entry.id === pendingAnswer.id)) {
+        return current;
+      }
+
+      return [...current, pendingAnswer];
+    });
+  }, []);
+
+  const removePendingLocalAnswer = useCallback((pendingAnswerId: string) => {
+    setPendingLocalAnswers((current) =>
+      current.filter((entry) => entry.id !== pendingAnswerId)
+    );
+  }, []);
+
   const rememberActiveParticipant = useCallback(
     (
       nextParticipantId: string,
@@ -417,6 +493,10 @@ export function usePlayGameState({
       // reloads within 30 s of a recent sync are incorrectly treated as "fresh joins" and
       // the full DB-restore flow is skipped, resetting progress to post 1.
       const existing = readStoredActiveParticipant();
+      if (existing?.participantId !== nextParticipantId || existing?.sessionId !== sessionId) {
+        clearStoredPlaySnapshot();
+        setPendingLocalAnswers([]);
+      }
       const savedAt =
         existing?.participantId === nextParticipantId && existing?.sessionId === sessionId
           ? existing.savedAt
@@ -616,7 +696,12 @@ export function usePlayGameState({
           .eq("session_id", sessionId)
           .maybeSingle<ParticipantRow>();
 
-      let result = await runQuery("id,session_id,student_name,lat,lng,finished_at,start_offset");
+      let result = await runQuery(
+        "id,session_id,student_name,lat,lng,finished_at,start_offset,run_started_at"
+      );
+      if (result.error && isMissingColumnError(result.error)) {
+        result = await runQuery("id,session_id,student_name,lat,lng,finished_at,start_offset");
+      }
       if (result.error && isMissingColumnError(result.error)) {
         result = await runQuery("id,session_id,student_name,lat,lng,finished_at");
       }
@@ -681,13 +766,13 @@ export function usePlayGameState({
   const markPlayAsFinished = useCallback(() => {
     clearRestoreRetryTimer();
     resetLocationSyncRecovery();
-    clearStoredActiveParticipant();
+    clearStoredPlayRecoveryState();
     setParticipantId(null);
     setShowQuestion(false);
     setIsKicked(false);
     setIsFinished(true);
     setIsRestoringParticipant(false);
-  }, [clearRestoreRetryTimer, resetLocationSyncRecovery]);
+  }, [clearRestoreRetryTimer, clearStoredPlayRecoveryState, resetLocationSyncRecovery]);
 
   const fetchSessionStatusSnapshot = useCallback(async () => {
     if (!sessionId) {
@@ -932,6 +1017,124 @@ export function usePlayGameState({
       hasCompletedAvatarGate,
     });
   }, [avatarUrl, hasCompletedAvatarGate, participantId, sessionId, sessionStatus]);
+
+  useEffect(() => {
+    if (!sessionId || !participantId) {
+      return;
+    }
+
+    saveStoredPlaySnapshot({
+      participantId,
+      sessionId,
+      currentPostIndex,
+      solvedPostIndexes,
+      correctAnswersCount,
+      score,
+      showQuestion,
+      dismissedPostIndex,
+      playStartedAtMs,
+      playFinishedAtMs,
+      pendingAnswers: pendingLocalAnswers,
+      savedAt: new Date().toISOString(),
+    });
+  }, [
+    correctAnswersCount,
+    currentPostIndex,
+    dismissedPostIndex,
+    participantId,
+    pendingLocalAnswers,
+    playFinishedAtMs,
+    playStartedAtMs,
+    score,
+    sessionId,
+    showQuestion,
+    solvedPostIndexes,
+  ]);
+
+  const replayPendingLocalAnswers = useCallback(async () => {
+    if (!sessionId || !participantId || pendingAnswerReplayInFlightRef.current) {
+      return;
+    }
+
+    if (answersTableMissingRef.current) {
+      return;
+    }
+
+    const queuedAnswers = pendingLocalAnswersRef.current;
+    if (queuedAnswers.length === 0) {
+      return;
+    }
+
+    pendingAnswerReplayInFlightRef.current = true;
+
+    try {
+      for (const pendingAnswer of queuedAnswers) {
+        try {
+          const response = await fetch("/api/play/submit-answer", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ payloads: pendingAnswer.payloads }),
+          });
+
+          const body = (await response.json().catch(() => null)) as
+            | { inserted?: boolean; error?: string }
+            | null;
+
+          if (!response.ok) {
+            console.error(
+              "Kunne ikke gensynkronisere lokalt svar:",
+              body?.error ?? response.statusText
+            );
+
+            if (body?.error === "Admin access missing") {
+              answersTableMissingRef.current = true;
+            }
+
+            continue;
+          }
+
+          if (body?.inserted === true) {
+            removePendingLocalAnswer(pendingAnswer.id);
+          }
+        } catch (error) {
+          if (isTransientNetworkError(error)) {
+            break;
+          }
+
+          console.error("Kunne ikke gensynkronisere lokalt svar:", error);
+        }
+      }
+    } finally {
+      pendingAnswerReplayInFlightRef.current = false;
+    }
+  }, [isTransientNetworkError, participantId, removePendingLocalAnswer, sessionId]);
+
+  useEffect(() => {
+    if (!sessionId || !participantId || pendingLocalAnswersRef.current.length === 0) {
+      return;
+    }
+
+    void replayPendingLocalAnswers();
+  }, [participantId, replayPendingLocalAnswers, sessionId]);
+
+  useEffect(() => {
+    if (!sessionId || !participantId) {
+      return;
+    }
+
+    const handleOnline = () => {
+      void replayPendingLocalAnswers();
+    };
+
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [participantId, replayPendingLocalAnswers, sessionId]);
+
   const escapeCodeByPostIndex = new Map(
     collectedEscapeRewards.map((entry) => [entry.postIndex, entry.brick] as const)
   );
@@ -1124,6 +1327,9 @@ export function usePlayGameState({
     clearRestoreRetryTimer();
 
     const restoreFromStorage = async () => {
+      const storedProgressSnapshot = getStoredPlaySnapshotForParticipant(participantId);
+      const storedPendingAnswers =
+        storedProgressSnapshot?.pendingAnswers ?? pendingLocalAnswersRef.current;
       const storedName = storedParticipantOnLoad?.studentName?.trim() || playerName || initialStudentName;
       const storedStartOffset = storedParticipantOnLoad?.startOffset ?? 0;
       if (storedName) {
@@ -1204,6 +1410,10 @@ export function usePlayGameState({
           : "";
       const restoredStartOffset =
         toIntegerStartOffset(participantData?.start_offset) ?? storedStartOffset;
+      const restoredRunStartedAtMs =
+        toTimestampMs(participantData?.run_started_at) ??
+        storedProgressSnapshot?.playStartedAtMs ??
+        null;
       const restoredRouteOrder = buildRouteOrder(
         questions.length,
         restoredStartOffset,
@@ -1211,6 +1421,10 @@ export function usePlayGameState({
       );
       const firstRoutePostIndex = restoredRouteOrder[0] ?? 0;
       setStartOffset(restoredStartOffset);
+
+      if (restoredRunStartedAtMs !== null) {
+        setPlayStartedAtMs(restoredRunStartedAtMs);
+      }
 
       const resolvedName = restoredName || storedName;
       if (resolvedName) {
@@ -1231,7 +1445,7 @@ export function usePlayGameState({
       }
 
       if (participantData?.finished_at) {
-        clearStoredActiveParticipant();
+        clearStoredPlayRecoveryState();
         setParticipantId(null);
         setIsFinished(true);
         setIsRestoringParticipant(false);
@@ -1243,6 +1457,29 @@ export function usePlayGameState({
         let nextPostIndex = firstRoutePostIndex;
         let answersData: AnswerProgressRow[] | null = null;
         let answersError: { code?: string; message?: string } | null = null;
+        let restoredAnswerRows: AnswerProgressRow[] = [];
+        const pendingSolvedPosts = new Set<number>();
+        const scoreByPostIndex = new Map<number, number>();
+        const pendingEscapeRewards: EscapeCodeEntry[] = [];
+
+        for (const pendingAnswer of storedPendingAnswers) {
+          if (!questions[pendingAnswer.solvedPostIndex]) continue;
+          pendingSolvedPosts.add(pendingAnswer.solvedPostIndex);
+          if (!scoreByPostIndex.has(pendingAnswer.solvedPostIndex)) {
+            scoreByPostIndex.set(
+              pendingAnswer.solvedPostIndex,
+              Math.max(0, Math.round(pendingAnswer.awardedPoints))
+            );
+          }
+
+          const pendingQuestion = questions[pendingAnswer.solvedPostIndex];
+          if (resolvePostVariant(raceMode, pendingQuestion) === "escape") {
+            pendingEscapeRewards.push({
+              postIndex: pendingAnswer.solvedPostIndex,
+              brick: getEscapeCodeBrick(pendingQuestion, pendingAnswer.solvedPostIndex),
+            });
+          }
+        }
 
         const answersWithPointsResult = await supabase
           .from("answers")
@@ -1266,39 +1503,86 @@ export function usePlayGameState({
 
         if (!isActive) return;
 
+        const confirmedCorrectPosts = new Set<number>();
+
         if (answersError) {
           if (answersError.code === "PGRST205") {
             answersTableMissingRef.current = true;
           } else {
             console.error("Kunde ikke hente deltagerens tidligere svar:", answersError);
           }
+
+          if (pendingSolvedPosts.size > 0) {
+            const restoredSolvedPostIndexes = [...pendingSolvedPosts].sort((a, b) => a - b);
+            const restoredScore = restoredSolvedPostIndexes.reduce((total, postIndex) => {
+              const awardedPoints = scoreByPostIndex.get(postIndex);
+              return total + (awardedPoints ?? questions[postIndex]?.points ?? DEFAULT_QUESTION_POINTS);
+            }, 0);
+
+            setSolvedPostIndexes(restoredSolvedPostIndexes);
+            setCorrectAnswersCount(restoredSolvedPostIndexes.length);
+            setScore(restoredScore);
+            setCollectedEscapeRewards(
+              pendingEscapeRewards.sort((a, b) => a.postIndex - b.postIndex)
+            );
+          }
+
+          const snapshotCurrentPostIndex = storedProgressSnapshot?.currentPostIndex;
+          const canResumeSnapshotPost =
+            typeof snapshotCurrentPostIndex === "number" &&
+            Number.isInteger(snapshotCurrentPostIndex) &&
+            snapshotCurrentPostIndex >= 0 &&
+            snapshotCurrentPostIndex < questions.length &&
+            !pendingSolvedPosts.has(snapshotCurrentPostIndex);
+
+          nextPostIndex = canResumeSnapshotPost
+            ? snapshotCurrentPostIndex
+            : getNextRoutePostIndex(restoredRouteOrder, pendingSolvedPosts) ?? firstRoutePostIndex;
         } else if (answersData) {
-          const rows = answersData as AnswerProgressRow[];
-          const confirmedCorrectPosts = new Set<number>();
-          let restoredScore = 0;
-          for (const row of rows) {
+          restoredAnswerRows = answersData as AnswerProgressRow[];
+          for (const row of restoredAnswerRows) {
             if (row.is_correct !== true) continue;
             const normalizedPostIndex = getNormalizedAnsweredPostIndex(row);
             if (normalizedPostIndex === null || normalizedPostIndex < 0) continue;
             confirmedCorrectPosts.add(normalizedPostIndex);
 
             const storedAwardedPoints = toFiniteNumber(row.awarded_points);
-            restoredScore +=
+            scoreByPostIndex.set(
+              normalizedPostIndex,
               storedAwardedPoints !== null
                 ? Math.max(0, Math.round(storedAwardedPoints))
-                : questions[normalizedPostIndex]?.points ?? DEFAULT_QUESTION_POINTS;
+                : questions[normalizedPostIndex]?.points ?? DEFAULT_QUESTION_POINTS
+            );
           }
-          const restoredSolvedPostIndexes = [...confirmedCorrectPosts].sort((a, b) => a - b);
+
+          const combinedSolvedPosts = new Set<number>([
+            ...confirmedCorrectPosts,
+            ...pendingSolvedPosts,
+          ]);
+          const restoredSolvedPostIndexes = [...combinedSolvedPosts].sort((a, b) => a - b);
+          const restoredScore = restoredSolvedPostIndexes.reduce((total, postIndex) => {
+            const awardedPoints = scoreByPostIndex.get(postIndex);
+            return total + (awardedPoints ?? questions[postIndex]?.points ?? DEFAULT_QUESTION_POINTS);
+          }, 0);
+
           setSolvedPostIndexes(restoredSolvedPostIndexes);
           setCorrectAnswersCount(restoredSolvedPostIndexes.length);
           setScore(restoredScore);
-          setCollectedEscapeRewards(getEscapeCodeEntriesFromRows(rows, questions));
+
+          const restoredEscapeRewards = getEscapeCodeEntriesFromRows(restoredAnswerRows, questions);
+          const mergedEscapeRewards = [...restoredEscapeRewards];
+          for (const pendingReward of pendingEscapeRewards) {
+            if (!mergedEscapeRewards.some((entry) => entry.postIndex === pendingReward.postIndex)) {
+              mergedEscapeRewards.push(pendingReward);
+            }
+          }
+          setCollectedEscapeRewards(mergedEscapeRewards.sort((a, b) => a.postIndex - b.postIndex));
 
           if (
             !isStrategoRace &&
             questions.length > 0 &&
             raceMode !== "zone_krig" &&
-            confirmedCorrectPosts.size >= questions.length
+            combinedSolvedPosts.size >= questions.length
           ) {
             setShowQuestion(false);
             setDistanceState(null);
@@ -1314,10 +1598,50 @@ export function usePlayGameState({
             return;
           }
 
+          const snapshotCurrentPostIndex = storedProgressSnapshot?.currentPostIndex;
+          const canResumeSnapshotPost =
+            typeof snapshotCurrentPostIndex === "number" &&
+            Number.isInteger(snapshotCurrentPostIndex) &&
+            snapshotCurrentPostIndex >= 0 &&
+            snapshotCurrentPostIndex < questions.length &&
+            !combinedSolvedPosts.has(snapshotCurrentPostIndex);
+
           nextPostIndex =
             raceMode === "zone_krig"
-              ? (questions[currentPostIndex] ? currentPostIndex : firstRoutePostIndex)
-              : getNextRoutePostIndex(restoredRouteOrder, confirmedCorrectPosts) ?? firstRoutePostIndex;
+              ? canResumeSnapshotPost
+                ? snapshotCurrentPostIndex
+                : (questions[currentPostIndex] ? currentPostIndex : firstRoutePostIndex)
+              : canResumeSnapshotPost
+                ? snapshotCurrentPostIndex
+                : getNextRoutePostIndex(restoredRouteOrder, combinedSolvedPosts) ?? firstRoutePostIndex;
+        } else {
+          const combinedSolvedPosts = new Set<number>(pendingSolvedPosts);
+          if (combinedSolvedPosts.size > 0) {
+            const restoredSolvedPostIndexes = [...combinedSolvedPosts].sort((a, b) => a - b);
+            const restoredScore = restoredSolvedPostIndexes.reduce((total, postIndex) => {
+              const awardedPoints = scoreByPostIndex.get(postIndex);
+              return total + (awardedPoints ?? questions[postIndex]?.points ?? DEFAULT_QUESTION_POINTS);
+            }, 0);
+
+            setSolvedPostIndexes(restoredSolvedPostIndexes);
+            setCorrectAnswersCount(restoredSolvedPostIndexes.length);
+            setScore(restoredScore);
+            setCollectedEscapeRewards(
+              pendingEscapeRewards.sort((a, b) => a.postIndex - b.postIndex)
+            );
+          }
+
+          const snapshotCurrentPostIndex = storedProgressSnapshot?.currentPostIndex;
+          const canResumeSnapshotPost =
+            typeof snapshotCurrentPostIndex === "number" &&
+            Number.isInteger(snapshotCurrentPostIndex) &&
+            snapshotCurrentPostIndex >= 0 &&
+            snapshotCurrentPostIndex < questions.length &&
+            !combinedSolvedPosts.has(snapshotCurrentPostIndex);
+
+          nextPostIndex = canResumeSnapshotPost
+            ? snapshotCurrentPostIndex
+            : getNextRoutePostIndex(restoredRouteOrder, combinedSolvedPosts) ?? firstRoutePostIndex;
         }
 
         const restoreTargetQuestion = questions[nextPostIndex];
@@ -1329,9 +1653,18 @@ export function usePlayGameState({
           Number.isFinite(restoreTargetQuestion.lng)
             ? getDistance(restoredLat, restoredLng, restoreTargetQuestion.lat, restoreTargetQuestion.lng)
             : null;
+        const shouldResumeOpenQuestion =
+          storedProgressSnapshot?.showQuestion === true &&
+          storedProgressSnapshot.currentPostIndex === nextPostIndex;
+        const shouldRestoreDismissedPost =
+          storedProgressSnapshot?.dismissedPostIndex === nextPostIndex ? nextPostIndex : null;
 
         setCurrentPostIndex(nextPostIndex);
-        if (
+        if (shouldResumeOpenQuestion) {
+          setDismissedPostIndex(null);
+          setShowQuestion(true);
+          setDistanceState(restoredDistanceToNextPost);
+        } else if (
           autoUnlockRadius !== null &&
           restoredDistanceToNextPost !== null &&
           restoredDistanceToNextPost <= autoUnlockRadius
@@ -1340,12 +1673,30 @@ export function usePlayGameState({
           setShowQuestion(true);
           setDistanceState(restoredDistanceToNextPost);
         } else {
+          setDismissedPostIndex(shouldRestoreDismissedPost);
           setShowQuestion(false);
           setDistanceState(null);
         }
       } else {
-        setCurrentPostIndex(firstRoutePostIndex);
-        setShowQuestion(false);
+        const snapshotCurrentPostIndex = storedProgressSnapshot?.currentPostIndex;
+        const fallbackPostIndex =
+          typeof snapshotCurrentPostIndex === "number" &&
+          Number.isInteger(snapshotCurrentPostIndex) &&
+          snapshotCurrentPostIndex >= 0 &&
+          snapshotCurrentPostIndex < questions.length
+            ? snapshotCurrentPostIndex
+            : firstRoutePostIndex;
+
+        setCurrentPostIndex(fallbackPostIndex);
+        setDismissedPostIndex(
+          storedProgressSnapshot?.dismissedPostIndex === fallbackPostIndex
+            ? fallbackPostIndex
+            : null
+        );
+        setShowQuestion(
+          storedProgressSnapshot?.showQuestion === true &&
+            storedProgressSnapshot.currentPostIndex === fallbackPostIndex
+        );
         setDistanceState(null);
       }
 
@@ -1365,6 +1716,7 @@ export function usePlayGameState({
     };
     }, [
     clearRestoreRetryTimer,
+      clearStoredPlayRecoveryState,
     fetchParticipantSnapshot,
     sessionId,
     participantId,
@@ -1380,6 +1732,7 @@ export function usePlayGameState({
     currentPostIndex,
     initialStudentName,
     storedParticipantOnLoad,
+    getStoredPlaySnapshotForParticipant,
     rememberActiveParticipant,
     showResumeNotice,
   ]);
@@ -1396,7 +1749,7 @@ export function usePlayGameState({
         .eq("session_id", sessionId);
 
       if (!error) {
-        clearStoredActiveParticipant();
+        clearStoredPlayRecoveryState();
         setParticipantId(null);
         return true;
       }
@@ -1410,21 +1763,28 @@ export function usePlayGameState({
     }
 
     return false;
-  }, [isTransientNetworkError, participantId, sessionId, supabase, waitForNetworkRetry]);
+  }, [
+    clearStoredPlayRecoveryState,
+    isTransientNetworkError,
+    participantId,
+    sessionId,
+    supabase,
+    waitForNetworkRetry,
+  ]);
 
   const finalizeParticipantSilently = useCallback(async () => {
     const didPersist = await markParticipantFinished();
 
     if (!didPersist) {
       console.error("Målgang kunne ikke synkroniseres. Fortsætter stille i elev-UI.");
-      clearStoredActiveParticipant();
+      clearStoredPlayRecoveryState();
       if (isMountedRef.current) {
         setParticipantId(null);
       }
     }
 
     return didPersist;
-  }, [markParticipantFinished]);
+  }, [clearStoredPlayRecoveryState, markParticipantFinished]);
 
   const insertAnswerRecord = useCallback(
     async (
@@ -1449,11 +1809,6 @@ export function usePlayGameState({
           hasParticipantId: Boolean(participantId),
           hasPlayerName: Boolean(activeName),
         });
-        return fallbackResult;
-      }
-
-      if (answersTableMissingRef.current) {
-        console.error("submit-answer API er tidligere fejlet permanent. Fortsætter stille i elev-UI.");
         return fallbackResult;
       }
 
@@ -1504,6 +1859,24 @@ export function usePlayGameState({
           awarded_points: isCorrect ? questionPoints : 0,
         },
       ];
+      const pendingAnswerId = `${sessionId}:${participantId}:${postNumber - 1}:${selectedIndex}:${timestamp}`;
+      const pendingLocalAnswer = isCorrect
+        ? {
+            id: pendingAnswerId,
+            payloads,
+            solvedPostIndex: postNumber - 1,
+            awardedPoints: questionPoints,
+          }
+        : null;
+
+      if (pendingLocalAnswer) {
+        queuePendingLocalAnswer(pendingLocalAnswer);
+      }
+
+      if (answersTableMissingRef.current) {
+        console.error("submit-answer API er tidligere fejlet permanent. Fortsætter stille i elev-UI.");
+        return fallbackResult;
+      }
 
       while (isMountedRef.current) {
         try {
@@ -1527,6 +1900,10 @@ export function usePlayGameState({
           }
 
           if (body?.inserted === true) {
+            if (pendingLocalAnswer) {
+              removePendingLocalAnswer(pendingAnswerId);
+            }
+
             return {
               didPersist: true,
               awardedPoints:
@@ -1558,7 +1935,9 @@ export function usePlayGameState({
       participantId,
       playerName,
       raceMode,
+      removePendingLocalAnswer,
       sessionId,
+      queuePendingLocalAnswer,
       teamId,
       waitForNetworkRetry,
     ]
@@ -1819,7 +2198,7 @@ export function usePlayGameState({
             if (nextStatus !== "finished") return;
 
             clearRestoreRetryTimer();
-            clearStoredActiveParticipant();
+            clearStoredPlayRecoveryState();
             setParticipantId(null);
             setShowQuestion(false);
             setIsRestoringParticipant(false);
@@ -1844,7 +2223,7 @@ export function usePlayGameState({
             kickConfirmTimerRef.current = setTimeout(() => {
               kickConfirmTimerRef.current = null;
               clearRestoreRetryTimer();
-              clearStoredActiveParticipant();
+              clearStoredPlayRecoveryState();
               setParticipantId(null);
               setShowQuestion(false);
               setIsRestoringParticipant(false);
@@ -1888,7 +2267,15 @@ export function usePlayGameState({
         messageChannelRef.current = null;
       }
     };
-  }, [applyLatestTeacherMessage, clearRestoreRetryTimer, loadLatestTeacherMessage, participantId, sessionId, supabase]);
+  }, [
+    applyLatestTeacherMessage,
+    clearRestoreRetryTimer,
+    clearStoredPlayRecoveryState,
+    loadLatestTeacherMessage,
+    participantId,
+    sessionId,
+    supabase,
+  ]);
 
   const handleWrongQuizAnswer = useCallback((selectedIndex: number, feedbackKey: string) => {
     if (quizAnswerFeedbackTimerRef.current) {

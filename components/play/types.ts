@@ -125,6 +125,28 @@ export type StoredActiveParticipant = {
   hasCompletedAvatarGate?: boolean;
 };
 
+export type StoredPendingAnswer = {
+  id: string;
+  payloads: Record<string, unknown>[];
+  solvedPostIndex: number;
+  awardedPoints: number;
+};
+
+export type StoredPlaySnapshot = {
+  participantId: string;
+  sessionId: string;
+  currentPostIndex: number;
+  solvedPostIndexes: number[];
+  correctAnswersCount: number;
+  score: number;
+  showQuestion: boolean;
+  dismissedPostIndex: number | null;
+  playStartedAtMs: number | null;
+  playFinishedAtMs: number | null;
+  pendingAnswers: StoredPendingAnswer[];
+  savedAt: string;
+};
+
 export type ParticipantRow = {
   id?: string | null;
   session_id?: string | null;

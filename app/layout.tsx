@@ -4,6 +4,7 @@ import { Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 import OnboardingTour from "@/components/OnboardingTour";
+import ErrorBoundary from "@/components/shared/ErrorBoundary";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -43,11 +44,13 @@ export default function RootLayout({
         <link rel="preload" href="/introvideo.mp4" as="video" type="video/mp4" />
       </head>
       <body className={`${poppins.variable} font-sans antialiased bg-[#0a1128]`}>
-        <AuthProvider>
-          {children}
-          <OnboardingTour />
-          <Analytics />
-        </AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            {children}
+            <OnboardingTour />
+            <Analytics />
+          </AuthProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

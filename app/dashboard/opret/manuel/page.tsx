@@ -1535,8 +1535,8 @@ function OpretLoebPageContent() {
           <div className="print:hidden">
             <MobileBuilderWarning />
           </div>
-          <section className="relative hidden w-full overflow-visible px-4 py-4 sm:px-6 sm:py-6 lg:block lg:w-[52%] lg:px-8 lg:py-8 print:hidden">
-            <div className="mx-auto max-w-3xl">
+          <section className="relative hidden w-full overflow-visible px-4 py-4 sm:px-6 sm:py-6 lg:block lg:w-[52%] lg:overflow-visible lg:px-8 lg:py-8 print:hidden">
+            <div className="relative z-10 mx-auto max-w-3xl">
               <fieldset
                 disabled={isEditorBusy}
                 aria-busy={isEditorBusy}
@@ -1747,7 +1747,7 @@ function OpretLoebPageContent() {
                           onClick={() => setQuestions((prev) => prev.filter((_, i) => i !== questionIndex))}
                           disabled={isEditorBusy || questions.length <= 1}
                           aria-label={`Slet post ${questionIndex + 1}`}
-                          className="flex h-8 w-8 items-center justify-center rounded-full border border-rose-500/30 bg-rose-500/10 text-rose-400 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-30"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-950/20 text-emerald-100/75 transition hover:border-rose-300/40 hover:bg-rose-500/10 hover:text-rose-200 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -2263,8 +2263,8 @@ function OpretLoebPageContent() {
         <AiReviewDraftModal
           tone="emerald"
           eyebrow="AI-kladde"
-          title="Gennemse før du anvender"
-          description="Assistenten har bygget et komplet udkast. Tjek resuméet herunder, før du anvender det i builderen."
+          title="Review & Confirm"
+          description="Assistenten har bygget et komplet quizudkast. Tjek resuméet herunder, og bekræft før det lander i builderen."
           warning={
             pendingAiReviewDraft.replacesExistingContent
               ? "Dit nuværende indhold bliver erstattet, hvis du vælger at anvende kladden."

@@ -5,11 +5,14 @@ import type {
   Question,
   RaceMode,
   StoredActiveParticipant,
+  StoredPendingAnswer,
+  StoredPlaySnapshot,
   SupabaseErrorLike,
 } from "./types";
 import { getQuestionPoints } from "@/utils/questionPoints";
 
 export const ACTIVE_PARTICIPANT_STORAGE_KEY = "gpslob_active_participant";
+export const ACTIVE_PLAY_SNAPSHOT_STORAGE_KEY = "gpslob_active_play_snapshot";
 export const MANUAL_UNLOCK_RADIUS = 50;
 export const AUTO_UNLOCK_CONFIRMATION_HITS = 2;
 export const LOCATION_SYNC_INTERVAL_MS = 8000;
@@ -146,6 +149,124 @@ export function clearStoredActiveParticipant() {
     window.localStorage.removeItem(ACTIVE_PARTICIPANT_STORAGE_KEY);
   } catch (error) {
     console.warn("Kunne ikke rydde aktiv deltager lokalt:", error);
+  }
+}
+
+function normalizeStoredPendingAnswer(value: unknown): StoredPendingAnswer | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+  const candidate = value as Record<string, unknown>;
+  const id = typeof candidate.id === "string" ? candidate.id.trim() : "";
+  const solvedPostIndex = toFiniteNumber(candidate.solvedPostIndex);
+  const awardedPoints = toFiniteNumber(candidate.awardedPoints);
+  const payloads = Array.isArray(candidate.payloads)
+    ? candidate.payloads.filter(
+        (payload): payload is Record<string, unknown> =>
+          Boolean(payload) && typeof payload === "object" && !Array.isArray(payload)
+      )
+    : [];
+
+  if (!id || solvedPostIndex === null || !Number.isInteger(solvedPostIndex) || solvedPostIndex < 0) {
+    return null;
+  }
+
+  if (payloads.length === 0) {
+    return null;
+  }
+
+  return {
+    id,
+    payloads: payloads.map((payload) => ({ ...payload })),
+    solvedPostIndex,
+    awardedPoints:
+      awardedPoints !== null && Number.isFinite(awardedPoints)
+        ? Math.max(0, Math.round(awardedPoints))
+        : 0,
+  };
+}
+
+function normalizeStoredIntegerList(value: unknown) {
+  if (!Array.isArray(value)) return [] as number[];
+
+  return value
+    .map((entry) => toFiniteNumber(entry))
+    .filter((entry): entry is number => entry !== null && Number.isInteger(entry) && entry >= 0);
+}
+
+export function readStoredPlaySnapshot(): StoredPlaySnapshot | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(ACTIVE_PLAY_SNAPSHOT_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as Partial<StoredPlaySnapshot>;
+    if (!parsed || typeof parsed !== "object") return null;
+
+    const participantId = typeof parsed.participantId === "string" ? parsed.participantId.trim() : "";
+    const sessionId = typeof parsed.sessionId === "string" ? parsed.sessionId.trim() : "";
+    const currentPostIndex = toFiniteNumber(parsed.currentPostIndex);
+    const correctAnswersCount = toFiniteNumber(parsed.correctAnswersCount);
+    const score = toFiniteNumber(parsed.score);
+    const dismissedPostIndex = toFiniteNumber(parsed.dismissedPostIndex);
+    const playStartedAtMs = toFiniteNumber(parsed.playStartedAtMs);
+    const playFinishedAtMs = toFiniteNumber(parsed.playFinishedAtMs);
+    const pendingAnswers = Array.isArray(parsed.pendingAnswers)
+      ? parsed.pendingAnswers
+          .map((entry) => normalizeStoredPendingAnswer(entry))
+          .filter((entry): entry is StoredPendingAnswer => entry !== null)
+      : [];
+
+    if (!participantId || !sessionId || currentPostIndex === null || !Number.isInteger(currentPostIndex)) {
+      return null;
+    }
+
+    return {
+      participantId,
+      sessionId,
+      currentPostIndex: Math.max(0, currentPostIndex),
+      solvedPostIndexes: normalizeStoredIntegerList(parsed.solvedPostIndexes),
+      correctAnswersCount:
+        correctAnswersCount !== null && Number.isInteger(correctAnswersCount) && correctAnswersCount >= 0
+          ? correctAnswersCount
+          : 0,
+      score: score !== null && Number.isFinite(score) ? Math.max(0, Math.round(score)) : 0,
+      showQuestion: parsed.showQuestion === true,
+      dismissedPostIndex:
+        dismissedPostIndex !== null && Number.isInteger(dismissedPostIndex) && dismissedPostIndex >= 0
+          ? dismissedPostIndex
+          : null,
+      playStartedAtMs:
+        playStartedAtMs !== null && Number.isFinite(playStartedAtMs) && playStartedAtMs > 0
+          ? Math.round(playStartedAtMs)
+          : null,
+      playFinishedAtMs:
+        playFinishedAtMs !== null && Number.isFinite(playFinishedAtMs) && playFinishedAtMs > 0
+          ? Math.round(playFinishedAtMs)
+          : null,
+      pendingAnswers,
+      savedAt: typeof parsed.savedAt === "string" ? parsed.savedAt : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function saveStoredPlaySnapshot(value: StoredPlaySnapshot) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(ACTIVE_PLAY_SNAPSHOT_STORAGE_KEY, JSON.stringify(value));
+  } catch (error) {
+    console.warn("Kunne ikke gemme play-snapshot lokalt:", error);
+  }
+}
+
+export function clearStoredPlaySnapshot() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(ACTIVE_PLAY_SNAPSHOT_STORAGE_KEY);
+  } catch (error) {
+    console.warn("Kunne ikke rydde play-snapshot lokalt:", error);
   }
 }
 
