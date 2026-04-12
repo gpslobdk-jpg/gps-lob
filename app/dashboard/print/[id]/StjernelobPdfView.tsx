@@ -520,6 +520,23 @@ function buildPdfImageFallbackDataUrl(message: string) {
   `);
 }
 
+function buildInitialPdfImageSources(posts: Post[], subject: string) {
+  const subjectIcon = resolveSubjectIcon(subject);
+
+  return Object.fromEntries(
+    posts.map((post) => [
+      post.number,
+      post.number === 1
+        ? buildPdfImageFallbackDataUrl(
+            typeof post.title === "string" && post.title.trim()
+              ? post.title.trim()
+              : "Illustration mangler"
+          )
+        : subjectIcon,
+    ])
+  ) as Record<number, string>;
+}
+
 function blobToDataUrl(blob: Blob) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -1768,9 +1785,10 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isPreparingImages, setIsPreparingImages] = useState(false);
-  const [imagesLoaded, setImagesLoaded] = useState(false);
   const [imageFallbackCount, setImageFallbackCount] = useState(0);
-  const [preparedImageSources, setPreparedImageSources] = useState<Record<number, string>>({});
+  const [preparedImageSources, setPreparedImageSources] = useState<Record<number, string>>(() =>
+    buildInitialPdfImageSources(run.posts, run.subject)
+  );
   const prepareImagesPromiseRef = useRef<Promise<PreparedPdfImages> | null>(null);
   const imagePreparationGenerationRef = useRef(0);
 
@@ -1785,7 +1803,6 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
       promise = (async () => {
         if (generation === imagePreparationGenerationRef.current) {
           setIsPreparingImages(true);
-          setImagesLoaded(false);
         }
 
         try {
@@ -1802,7 +1819,6 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
 
           setPreparedImageSources(prepared.sources);
           setImageFallbackCount(prepared.fallbackCount);
-          setImagesLoaded(true);
           return prepared;
         } catch (error) {
           if (isAbortError(error)) {
@@ -1815,22 +1831,10 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
           }
 
           console.error("Kunne ikke klargoere PDF-billeder:", error);
-          const fallbackSources = Object.fromEntries(
-            run.posts.map((post) => [
-              post.number,
-              post.number === 1
-                ? buildPdfImageFallbackDataUrl(
-                    typeof post.title === "string" && post.title.trim()
-                      ? post.title.trim()
-                      : "Illustration mangler"
-                  )
-                : resolveSubjectIcon(run.subject),
-            ])
-          );
+          const fallbackSources = buildInitialPdfImageSources(run.posts, run.subject);
 
           setPreparedImageSources(fallbackSources);
           setImageFallbackCount(run.posts.some((post) => post.number === 1) ? 1 : 0);
-          setImagesLoaded(true);
 
           return {
             sources: fallbackSources,
@@ -1852,7 +1856,7 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
       prepareImagesPromiseRef.current = promise;
       return promise;
     },
-    [run.posts]
+    [run.posts, run.subject]
   );
 
   useEffect(() => {
@@ -1860,9 +1864,8 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
 
     imagePreparationGenerationRef.current += 1;
     prepareImagesPromiseRef.current = null;
-    setPreparedImageSources({});
+    setPreparedImageSources(buildInitialPdfImageSources(run.posts, run.subject));
     setImageFallbackCount(0);
-    setImagesLoaded(run.posts.length === 0);
 
     void ensurePreparedImageSources(abortController.signal);
 
@@ -1870,7 +1873,7 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
       abortController.abort();
       prepareImagesPromiseRef.current = null;
     };
-  }, [ensurePreparedImageSources, run.id, run.posts.length]);
+  }, [ensurePreparedImageSources, run.id, run.posts, run.subject]);
 
   const buildPdfBlob = useCallback(async () => {
     const prepared = await ensurePreparedImageSources();
@@ -1938,10 +1941,9 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
     }
   };
 
-  const isPdfLocked = !imagesLoaded || isPreparingImages;
-
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#1e293b" }}>
+      <style>{`@keyframes pdfHeroSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       {/* Toolbar */}
       <div
         style={{
@@ -1970,9 +1972,23 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
             {run.title}
           </h1>
           {isPreparingImages ? (
-            <p style={{ fontSize: 12, color: "#78716c", margin: "6px 0 0" }}>
-              Klargoer billeder til PDF en. Download og print er laast, indtil alle billeder er klar.
-            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+              <span
+                aria-hidden="true"
+                style={{
+                  display: "inline-block",
+                  width: 12,
+                  height: 12,
+                  borderRadius: 999,
+                  border: "2px solid #cbd5e1",
+                  borderTopColor: "#475569",
+                  animation: "pdfHeroSpin 0.9s linear infinite",
+                }}
+              />
+              <p style={{ fontSize: 12, color: "#78716c", margin: 0 }}>
+                Opdaterer hero-billede i baggrunden...
+              </p>
+            </div>
           ) : null}
           {!isPreparingImages && imageFallbackCount > 0 ? (
             <p style={{ fontSize: 12, color: "#92400e", margin: "6px 0 0" }}>
@@ -1999,95 +2015,46 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
           </a>
           <button
             onClick={handlePrint}
-            disabled={isPdfLocked || isPrinting || isDownloading}
+            disabled={isPrinting || isDownloading}
             style={{
               padding: "8px 20px",
               fontSize: 13,
               fontWeight: 600,
               color: "#312e81",
-              background: isPdfLocked || isPrinting || isDownloading ? "#e2e8f0" : "#eef2ff",
+              background: isPrinting || isDownloading ? "#e2e8f0" : "#eef2ff",
               border: "1px solid #c7d2fe",
               borderRadius: 8,
-              cursor: isPdfLocked || isPrinting || isDownloading ? "wait" : "pointer",
-              opacity: isPdfLocked || isPrinting || isDownloading ? 0.7 : 1,
+              cursor: isPrinting || isDownloading ? "wait" : "pointer",
+              opacity: isPrinting || isDownloading ? 0.7 : 1,
             }}
           >
-            {isPrinting ? "Forbereder print..." : isPdfLocked ? "Laaser print..." : "Print PDF"}
+            {isPrinting ? "Forbereder print..." : "Print PDF"}
           </button>
           <button
             onClick={handleDownload}
-            disabled={isPdfLocked || isDownloading || isPrinting}
+            disabled={isDownloading || isPrinting}
             style={{
               padding: "8px 20px",
               fontSize: 13,
               fontWeight: 600,
               color: "#ffffff",
-              background: isPdfLocked || isDownloading || isPrinting ? "#8b5cf6aa" : "#7c3aed",
+              background: isDownloading || isPrinting ? "#8b5cf6aa" : "#7c3aed",
               border: "none",
               borderRadius: 8,
-              cursor: isPdfLocked || isDownloading || isPrinting ? "wait" : "pointer",
-              opacity: isPdfLocked || isDownloading || isPrinting ? 0.7 : 1,
+              cursor: isDownloading || isPrinting ? "wait" : "pointer",
+              opacity: isDownloading || isPrinting ? 0.7 : 1,
             }}
           >
-            {isDownloading
-              ? "Genererer..."
-              : isPdfLocked
-                ? "Laaser PDF..."
-                : "Download PDF"}
+            {isDownloading ? "Genererer..." : "Download PDF"}
           </button>
         </div>
       </div>
 
       {/* PDF Viewer */}
       <div style={{ flex: 1, minHeight: 0 }}>
-        {imagesLoaded ? (
-          <PDFViewer width="100%" height="100%" showToolbar={false}>
-            <StjernelobDocument run={run} imageSources={preparedImageSources} />
-          </PDFViewer>
-        ) : (
-          <div
-            style={{
-              display: "flex",
-              height: "100%",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 24,
-            }}
-          >
-            <div
-              style={{
-                maxWidth: 520,
-                borderRadius: 24,
-                border: "1px solid rgba(255,255,255,0.12)",
-                background: "rgba(15,23,42,0.86)",
-                padding: 28,
-                color: "#e2e8f0",
-                textAlign: "center",
-                boxShadow: "0 20px 60px rgba(2,6,23,0.35)",
-              }}
-            >
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  letterSpacing: "0.16em",
-                  textTransform: "uppercase",
-                  color: "#c4b5fd",
-                }}
-              >
-                Sikrer billed-pipeline
-              </p>
-              <h2 style={{ margin: "12px 0 0", fontSize: 28, fontWeight: 700, color: "#ffffff" }}>
-                PDF'en er laast, indtil alle billeder er verificeret
-              </h2>
-              <p style={{ margin: "14px 0 0", fontSize: 15, lineHeight: 1.6, color: "#cbd5e1" }}>
-                Vi henter hvert billede, venter paa hele preload-koren og skifter automatisk til en pæn SVG-placeholder,
-                hvis et kald fejler eller timer ud.
-              </p>
-            </div>
-          </div>
-        )}
+        <PDFViewer width="100%" height="100%" showToolbar={false}>
+          <StjernelobDocument run={run} imageSources={preparedImageSources} />
+        </PDFViewer>
       </div>
     </div>
   );
