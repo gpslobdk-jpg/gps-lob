@@ -12,7 +12,7 @@ import {
   Waves,
 } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -29,6 +29,7 @@ const AUTO_REFRESH_MS = 30_000;
 type AdminLogsTab = "overview" | "network" | "recoveries";
 type DataSourceMode = "live" | "mock";
 type ActiveAlarmSeverity = "critical" | "high" | "warning";
+type DrilldownGroupBy = "route" | "session" | "event";
 
 type TelemetryLogRow = {
   id?: string | number | null;
@@ -108,6 +109,16 @@ type CorrelatedIncident = {
   uniqueParticipants: number;
   uniqueSessions: number;
   startedAt: string | null;
+  lastSeenAt: string | null;
+};
+
+type DrilldownGroup = {
+  key: string;
+  label: string;
+  count: number;
+  items: TelemetryLogItem[];
+  uniqueParticipants: number;
+  uniqueSessions: number;
   lastSeenAt: string | null;
 };
 
@@ -697,6 +708,100 @@ function getCorrelationMetaTags(incident: CorrelatedIncident) {
   return tags;
 }
 
+function getDrilldownSearchText(log: TelemetryLogItem) {
+  const meta = parseStructuredMeta(log.message);
+
+  return [
+    log.eventType,
+    log.message,
+    log.participantId,
+    log.sessionId,
+    meta?.route,
+    meta?.path,
+    meta?.status,
+    meta?.context,
+    meta?.msg,
+    meta?.code,
+    meta?.details,
+    translateTelemetryLog(log),
+    getTelemetryDetail(log),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLocaleLowerCase("da-DK");
+}
+
+function getDrilldownGroupKey(log: TelemetryLogItem, groupBy: DrilldownGroupBy) {
+  if (groupBy === "session") {
+    return log.sessionId ?? "__no_session__";
+  }
+
+  if (groupBy === "event") {
+    return log.eventType;
+  }
+
+  return getRoutePath(log) ?? "__no_route__";
+}
+
+function getDrilldownGroupLabel(log: TelemetryLogItem, groupBy: DrilldownGroupBy) {
+  if (groupBy === "session") {
+    return log.sessionId ?? "Uden session-id";
+  }
+
+  if (groupBy === "event") {
+    return translateTelemetryLog(log);
+  }
+
+  return formatRouteLabel(getRoutePath(log));
+}
+
+function buildDrilldownGroups(logs: TelemetryLogItem[], groupBy: DrilldownGroupBy) {
+  const groups = new Map<string, DrilldownGroup>();
+
+  for (const log of logs) {
+    const key = getDrilldownGroupKey(log, groupBy);
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.count += 1;
+      existing.items.push(log);
+      if (log.participantId) {
+        existing.uniqueParticipants = new Set(existing.items.map((item) => item.participantId).filter(Boolean)).size;
+      }
+      if (log.sessionId) {
+        existing.uniqueSessions = new Set(existing.items.map((item) => item.sessionId).filter(Boolean)).size;
+      }
+      if (!existing.lastSeenAt || (log.createdAt && Date.parse(log.createdAt) > Date.parse(existing.lastSeenAt))) {
+        existing.lastSeenAt = log.createdAt;
+      }
+      continue;
+    }
+
+    groups.set(key, {
+      key,
+      label: getDrilldownGroupLabel(log, groupBy),
+      count: 1,
+      items: [log],
+      uniqueParticipants: log.participantId ? 1 : 0,
+      uniqueSessions: log.sessionId ? 1 : 0,
+      lastSeenAt: log.createdAt,
+    });
+  }
+
+  return Array.from(groups.values()).sort((left, right) => {
+    if (right.count !== left.count) {
+      return right.count - left.count;
+    }
+
+    return (Date.parse(right.lastSeenAt ?? "") || 0) - (Date.parse(left.lastSeenAt ?? "") || 0);
+  });
+}
+
+function getLogMetaEntries(log: TelemetryLogItem) {
+  const meta = parseStructuredMeta(log.message);
+  return meta ? Object.entries(meta) : [];
+}
+
 function getNotificationStatusLabel(permission: NotificationPermission | "unsupported") {
   switch (permission) {
     case "granted":
@@ -740,8 +845,16 @@ export default function AdminLogsPage() {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">(
     "default"
   );
+  const [drilldownQuery, setDrilldownQuery] = useState("");
+  const [drilldownRoute, setDrilldownRoute] = useState("all");
+  const [drilldownSession, setDrilldownSession] = useState("all");
+  const [drilldownStatus, setDrilldownStatus] = useState("all");
+  const [drilldownGroupBy, setDrilldownGroupBy] = useState<DrilldownGroupBy>("route");
+  const [selectedDrilldownGroupKey, setSelectedDrilldownGroupKey] = useState<string>("all");
+  const [selectedDrilldownLogId, setSelectedDrilldownLogId] = useState<string | null>(null);
 
   const previousAlarmIdsRef = useRef<string[]>([]);
+  const deferredDrilldownQuery = useDeferredValue(drilldownQuery);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) {
@@ -958,6 +1071,78 @@ export default function AdminLogsPage() {
     () => activeAlarms.filter((alarm) => newAlarmIds.includes(alarm.id)).map((alarm) => alarm.title),
     [activeAlarms, newAlarmIds]
   );
+  const drilldownRouteOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          logs
+            .map((log) => getRoutePath(log))
+            .filter((value): value is string => Boolean(value))
+        )
+      ).sort((left, right) => left.localeCompare(right, "da-DK")),
+    [logs]
+  );
+  const drilldownSessionOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(logs.map((log) => log.sessionId).filter((value): value is string => Boolean(value)))
+      ).sort((left, right) => left.localeCompare(right, "da-DK")),
+    [logs]
+  );
+  const drilldownStatusOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          logs
+            .map((log) => getStatusCode(log))
+            .filter((value): value is number => value !== null)
+            .map(String)
+        )
+      ).sort((left, right) => Number(left) - Number(right)),
+    [logs]
+  );
+  const filteredDrilldownLogs = useMemo(
+    () =>
+      logs.filter((log) => {
+        const route = getRoutePath(log) ?? "";
+        const status = getStatusCode(log);
+        const query = deferredDrilldownQuery.trim().toLocaleLowerCase("da-DK");
+
+        if (drilldownRoute !== "all" && route !== drilldownRoute) {
+          return false;
+        }
+
+        if (drilldownSession !== "all" && (log.sessionId ?? "") !== drilldownSession) {
+          return false;
+        }
+
+        if (drilldownStatus !== "all" && String(status ?? "") !== drilldownStatus) {
+          return false;
+        }
+
+        if (query && !getDrilldownSearchText(log).includes(query)) {
+          return false;
+        }
+
+        return true;
+      }),
+    [deferredDrilldownQuery, drilldownRoute, drilldownSession, drilldownStatus, logs]
+  );
+  const drilldownGroups = useMemo(
+    () => buildDrilldownGroups(filteredDrilldownLogs, drilldownGroupBy),
+    [drilldownGroupBy, filteredDrilldownLogs]
+  );
+  const activeDrilldownLogs = useMemo(() => {
+    if (selectedDrilldownGroupKey === "all") {
+      return filteredDrilldownLogs;
+    }
+
+    return drilldownGroups.find((group) => group.key === selectedDrilldownGroupKey)?.items ?? [];
+  }, [drilldownGroups, filteredDrilldownLogs, selectedDrilldownGroupKey]);
+  const selectedDrilldownLog = useMemo(
+    () => activeDrilldownLogs.find((log) => log.id === selectedDrilldownLogId) ?? activeDrilldownLogs[0] ?? null,
+    [activeDrilldownLogs, selectedDrilldownLogId]
+  );
 
   const overviewCards = useMemo(
     () => [
@@ -1025,6 +1210,60 @@ export default function AdminLogsPage() {
 
   const visibleLogs =
     activeTab === "overview" ? logs.slice(0, 12) : activeTab === "network" ? networkLogs : recoveryLogs;
+
+  useEffect(() => {
+    if (selectedDrilldownGroupKey === "all") {
+      return;
+    }
+
+    if (!drilldownGroups.some((group) => group.key === selectedDrilldownGroupKey)) {
+      setSelectedDrilldownGroupKey("all");
+    }
+  }, [drilldownGroups, selectedDrilldownGroupKey]);
+
+  useEffect(() => {
+    if (!selectedDrilldownLogId) {
+      return;
+    }
+
+    if (!activeDrilldownLogs.some((log) => log.id === selectedDrilldownLogId)) {
+      setSelectedDrilldownLogId(activeDrilldownLogs[0]?.id ?? null);
+    }
+  }, [activeDrilldownLogs, selectedDrilldownLogId]);
+
+  const clearDrilldownFilters = () => {
+    setDrilldownQuery("");
+    setDrilldownRoute("all");
+    setDrilldownSession("all");
+    setDrilldownStatus("all");
+    setSelectedDrilldownGroupKey("all");
+    setSelectedDrilldownLogId(null);
+  };
+
+  const focusDrilldown = ({
+    route,
+    sessionId,
+    status,
+    search,
+  }: {
+    route?: string | null;
+    sessionId?: string | null;
+    status?: number | null;
+    search?: string | null;
+  }) => {
+    setDrilldownRoute(route && route.trim() ? route : "all");
+    setDrilldownSession(sessionId && sessionId.trim() ? sessionId : "all");
+    setDrilldownStatus(status ? String(status) : "all");
+    setDrilldownQuery(search && search.trim() ? search : "");
+    setSelectedDrilldownGroupKey("all");
+    setSelectedDrilldownLogId(null);
+
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame(() => {
+        document.getElementById("drilldown-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  };
 
   return (
     <div className={`min-h-screen bg-slate-950 px-4 py-8 text-white sm:px-6 lg:px-8 ${poppins.className}`}>
@@ -1236,6 +1475,23 @@ export default function AdminLogsPage() {
                       </div>
                     ) : null}
 
+                    {alarm.source === "telemetry" ? (
+                      <div className="mt-4">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            focusDrilldown({
+                              route: alarm.route,
+                              status: alarm.status,
+                            });
+                          }}
+                          className="rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/20 hover:bg-white/15"
+                        >
+                          Åbn i drilldown
+                        </button>
+                      </div>
+                    ) : null}
+
                     <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-200/75">
                       {getAlarmMetaTags(alarm).map((tag) => (
                         <span key={`${alarm.id}-${tag}`} className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
@@ -1346,6 +1602,22 @@ export default function AdminLogsPage() {
                       </div>
                     ) : null}
 
+                    <div className="mt-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          focusDrilldown({
+                            route: incident.route,
+                            sessionId: incident.sessionId,
+                            status: incident.status,
+                          });
+                        }}
+                        className="rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/20 hover:bg-white/15"
+                      >
+                        Åbn i drilldown
+                      </button>
+                    </div>
+
                     <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-200/75">
                       {getCorrelationMetaTags(incident).map((tag) => (
                         <span key={`${incident.id}-${tag}`} className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
@@ -1356,6 +1628,287 @@ export default function AdminLogsPage() {
                   </article>
                 );
               })}
+            </div>
+          )}
+        </section>
+
+        <section
+          id="drilldown-section"
+          className="mt-6 rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-6"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <Database className="mt-1 h-5 w-5 text-cyan-300" />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200/70">Fase 4</p>
+                <h2 className={`mt-2 text-2xl font-black text-white ${rubik.className}`}>Drilldown og tidslinje</h2>
+                <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-300/80">
+                  Filtrer direkte på route, session, status og fritekst, og gå fra overblik til konkrete loglinjer med rå teknisk kontekst.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-[1.35rem] border border-white/10 bg-slate-950/45 px-4 py-3 text-sm text-slate-300/85">
+              <p className="font-semibold text-white">Drilldown-status</p>
+              <p className="mt-2">{filteredDrilldownLogs.length} loglinjer matcher aktuelle filtre</p>
+              <p className="mt-1">Grupperet efter {drilldownGroupBy === "route" ? "route" : drilldownGroupBy === "session" ? "session" : "hændelsestype"}</p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 lg:grid-cols-5">
+            <label className="lg:col-span-2">
+              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">Søg</span>
+              <input
+                type="search"
+                value={drilldownQuery}
+                onChange={(event) => setDrilldownQuery(event.target.value)}
+                placeholder="Route, statuskode, session, deltager eller fejltekst"
+                className="w-full rounded-[1.1rem] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300/40"
+              />
+            </label>
+
+            <label>
+              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">Route</span>
+              <select
+                value={drilldownRoute}
+                onChange={(event) => {
+                  setDrilldownRoute(event.target.value);
+                  setSelectedDrilldownGroupKey("all");
+                }}
+                className="w-full rounded-[1.1rem] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40"
+              >
+                <option value="all">Alle routes</option>
+                {drilldownRouteOptions.map((route) => (
+                  <option key={route} value={route}>
+                    {formatRouteLabel(route)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">Session</span>
+              <select
+                value={drilldownSession}
+                onChange={(event) => {
+                  setDrilldownSession(event.target.value);
+                  setSelectedDrilldownGroupKey("all");
+                }}
+                className="w-full rounded-[1.1rem] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40"
+              >
+                <option value="all">Alle sessioner</option>
+                {drilldownSessionOptions.map((sessionId) => (
+                  <option key={sessionId} value={sessionId}>
+                    {sessionId}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">Status / gruppering</span>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                <select
+                  value={drilldownStatus}
+                  onChange={(event) => {
+                    setDrilldownStatus(event.target.value);
+                    setSelectedDrilldownGroupKey("all");
+                  }}
+                  className="w-full rounded-[1.1rem] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40"
+                >
+                  <option value="all">Alle statusser</option>
+                  {drilldownStatusOptions.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={drilldownGroupBy}
+                  onChange={(event) => {
+                    setDrilldownGroupBy(event.target.value as DrilldownGroupBy);
+                    setSelectedDrilldownGroupKey("all");
+                  }}
+                  className="w-full rounded-[1.1rem] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40"
+                >
+                  <option value="route">Grupper efter route</option>
+                  <option value="session">Grupper efter session</option>
+                  <option value="event">Grupper efter hændelsestype</option>
+                </select>
+              </div>
+            </label>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={clearDrilldownFilters}
+              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
+            >
+              Nulstil filtre
+            </button>
+            <span className="rounded-full border border-white/10 bg-slate-950/45 px-4 py-2 text-sm text-slate-300/85">
+              Seneste feed {formatDateTime(generatedAt)}
+            </span>
+          </div>
+
+          {filteredDrilldownLogs.length === 0 ? (
+            <div className="mt-5">
+              <EmptyState
+                title="Ingen loglinjer matcher filtrene"
+                body="Udvid søgningen eller nulstil filtrene for at se flere hændelser i tidslinjen."
+              />
+            </div>
+          ) : (
+            <div className="mt-5 grid gap-6 xl:grid-cols-[minmax(280px,0.62fr)_minmax(0,1.38fr)]">
+              <aside className="space-y-4">
+                <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/45 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-white">Grupper</p>
+                    <span className="text-xs uppercase tracking-[0.16em] text-slate-400">{drilldownGroups.length} grupper</span>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDrilldownGroupKey("all")}
+                      className={`w-full rounded-[1rem] border px-3 py-3 text-left text-sm transition ${
+                        selectedDrilldownGroupKey === "all"
+                          ? "border-cyan-300/30 bg-cyan-400/10 text-white"
+                          : "border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      <p className="font-semibold">Alle matchende loglinjer</p>
+                      <p className="mt-1 text-xs text-slate-300/80">{filteredDrilldownLogs.length} hændelser i tidslinjen</p>
+                    </button>
+
+                    {drilldownGroups.slice(0, 12).map((group) => (
+                      <button
+                        key={group.key}
+                        type="button"
+                        onClick={() => setSelectedDrilldownGroupKey(group.key)}
+                        className={`w-full rounded-[1rem] border px-3 py-3 text-left text-sm transition ${
+                          selectedDrilldownGroupKey === group.key
+                            ? "border-cyan-300/30 bg-cyan-400/10 text-white"
+                            : "border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-semibold">{group.label}</p>
+                          <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-xs">{group.count}</span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-300/80">
+                          {group.uniqueParticipants} elever · {group.uniqueSessions} sessioner · senest {formatDateTime(group.lastSeenAt)}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </aside>
+
+              <div className="space-y-4">
+                <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/45 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-white">Tidslinje</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-300/80">
+                        {activeDrilldownLogs.length} loglinjer i denne visning. Klik på en linje for at se rå teknisk kontekst.
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300/85">
+                      {selectedDrilldownGroupKey === "all" ? "Alle grupper" : "Filtreret gruppe"}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    {activeDrilldownLogs.slice(0, 18).map((log) => {
+                      const isSelected = selectedDrilldownLog?.id === log.id;
+
+                      return (
+                        <button
+                          key={log.id}
+                          type="button"
+                          onClick={() => setSelectedDrilldownLogId(log.id)}
+                          className={`w-full rounded-[1rem] border px-3 py-3 text-left transition ${
+                            isSelected
+                              ? "border-cyan-300/30 bg-cyan-400/10"
+                              : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10"
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-white">{translateTelemetryLog(log)}</p>
+                              <p className="mt-1 text-sm leading-6 text-slate-300/80">{getTelemetryDetail(log)}</p>
+                            </div>
+                            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-slate-300/85">
+                              {formatDateTime(log.createdAt)}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/45 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-white">Rå teknisk kontekst</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-300/80">
+                        Parsebare felter fra structured metadata samt den oprindelige logbesked.
+                      </p>
+                    </div>
+                    {selectedDrilldownLog ? (
+                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300/85">
+                        {formatDateTime(selectedDrilldownLog.createdAt)}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {!selectedDrilldownLog ? (
+                    <div className="mt-4">
+                      <EmptyState
+                        title="Vælg en loglinje"
+                        body="Klik på en hændelse i tidslinjen for at se de parsebare metadata og den rå besked." 
+                      />
+                    </div>
+                  ) : (
+                    <div className="mt-4 space-y-4">
+                      <div>
+                        <p className="text-base font-semibold text-white">{translateTelemetryLog(selectedDrilldownLog)}</p>
+                        <p className="mt-1 text-sm leading-6 text-slate-300/80">{getTelemetryDetail(selectedDrilldownLog)}</p>
+                      </div>
+
+                      <div className="rounded-[1.25rem] border border-cyan-300/20 bg-cyan-400/10 p-4 text-sm text-cyan-50/92">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100/80">Anbefalet handling</p>
+                        <p className="mt-2 leading-6">{getTelemetryRecommendedAction(selectedDrilldownLog)}</p>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {getLogMetaEntries(selectedDrilldownLog).length > 0 ? (
+                          getLogMetaEntries(selectedDrilldownLog).map(([key, value]) => (
+                            <div key={`${selectedDrilldownLog.id}-${key}`} className="rounded-[1rem] border border-white/10 bg-white/5 p-3">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{key}</p>
+                              <p className="mt-2 break-words text-sm leading-6 text-white">{value}</p>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="rounded-[1rem] border border-white/10 bg-white/5 p-3 text-sm text-slate-300/80 sm:col-span-2">
+                            Denne loglinje indeholder ikke structured metadata og vises derfor kun med rå besked.
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="rounded-[1.2rem] border border-white/10 bg-black/20 p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Rå besked</p>
+                        <pre className="mt-3 whitespace-pre-wrap break-words font-mono text-xs leading-6 text-slate-200">
+                          {selectedDrilldownLog.message || "Ingen rå besked"}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </section>
