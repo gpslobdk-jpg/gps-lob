@@ -9,7 +9,6 @@ import {
   Text,
   Image,
   StyleSheet,
-  Font,
   Svg,
   Path,
   Rect,
@@ -43,22 +42,6 @@ type StjernelobPdfViewProps = {
 };
 
 /* ── Fonts ─────────────────────────────────────────────────────────── */
-Font.register({
-  family: "Playfair",
-  fonts: [
-    { src: "https://fonts.gstatic.com/s/playfairdisplay/v37/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKdFvUDQZNLo_U2r.woff2", fontWeight: 400 },
-    { src: "https://fonts.gstatic.com/s/playfairdisplay/v37/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKd3ukDQZNLo_U2r.woff2", fontWeight: 700 },
-    { src: "https://fonts.gstatic.com/s/playfairdisplay/v37/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKebukDQZNLo_U2r.woff2", fontWeight: 900 },
-  ],
-});
-
-Font.register({
-  family: "Lora",
-  fonts: [
-    { src: "https://fonts.gstatic.com/s/lora/v35/0QI6MX1D_JOuGQbT0gvTJPa787weuxJBkq0.woff2", fontWeight: 400 },
-    { src: "https://fonts.gstatic.com/s/lora/v35/0QI6MX1D_JOuGQbT0gvTJPa787z5vBJBkq0.woff2", fontWeight: 700 },
-  ],
-});
 
 /* ── Theme ─────────────────────────────────────────────────────────── */
 type PdfTheme = {
@@ -598,7 +581,6 @@ function createStyles(template: PdfTemplate) {
       width: "210mm",
       height: "297mm",
       backgroundColor: t.pageBg,
-      fontFamily: "Lora",
       position: "relative",
     },
     frame: {
@@ -613,6 +595,7 @@ function createStyles(template: PdfTemplate) {
     },
     pageInner: {
       flex: 1,
+      flexDirection: "column",
       paddingHorizontal: 28,
       paddingTop: 22,
       paddingBottom: 54,
@@ -634,7 +617,6 @@ function createStyles(template: PdfTemplate) {
       marginBottom: 8,
     },
     eyebrow: {
-      fontFamily: "Playfair",
       fontSize: 6.5,
       fontWeight: 700,
       textTransform: "uppercase",
@@ -642,9 +624,8 @@ function createStyles(template: PdfTemplate) {
       color: t.headerSubtitle,
     },
     motif: {
-      fontFamily: "Playfair",
       fontSize: isPoster ? 18 : 14,
-      fontWeight: 900,
+      fontWeight: 700,
       color: t.headerAccent,
     },
     runTitle: {
@@ -667,9 +648,8 @@ function createStyles(template: PdfTemplate) {
       paddingVertical: 4,
     },
     badgeText: {
-      fontFamily: "Playfair",
       fontSize: isPoster ? 12 : 10,
-      fontWeight: 900,
+      fontWeight: 700,
       textTransform: "uppercase",
       letterSpacing: 1.8,
       color: t.badgeText,
@@ -681,9 +661,8 @@ function createStyles(template: PdfTemplate) {
       letterSpacing: 1.5,
     },
     title: {
-      fontFamily: "Playfair",
       fontSize: isPoster ? 23 : isEditorial ? 21 : isGrid ? 20 : 19,
-      fontWeight: 900,
+      fontWeight: 700,
       color: t.titleText,
       lineHeight: 1.15,
       marginBottom: 8,
@@ -719,6 +698,7 @@ function createStyles(template: PdfTemplate) {
       flex: 1,
     },
     heroCard: {
+      flexDirection: "column",
       backgroundColor: t.imageFrameBg,
       borderWidth: 2,
       borderColor: t.imageFrameBorder,
@@ -734,6 +714,7 @@ function createStyles(template: PdfTemplate) {
       justifyContent: "center",
     },
     heroImage: {
+      flexShrink: 0,
       width: "100%",
       height: isPoster ? 190 : isEditorial ? 170 : 150,
       objectFit: "cover",
@@ -743,7 +724,6 @@ function createStyles(template: PdfTemplate) {
       height: isPoster ? 190 : isEditorial ? 170 : 150,
     },
     heroFallbackTitle: {
-      fontFamily: "Playfair",
       fontSize: 18,
       fontWeight: 700,
       color: t.questionText,
@@ -782,7 +762,6 @@ function createStyles(template: PdfTemplate) {
       borderColor: t.guideLine,
     },
     sectionLabel: {
-      fontFamily: "Playfair",
       fontSize: 8,
       fontWeight: 700,
       textTransform: "uppercase",
@@ -791,7 +770,6 @@ function createStyles(template: PdfTemplate) {
       marginBottom: 6,
     },
     sectionTitle: {
-      fontFamily: "Playfair",
       fontSize: 11,
       fontWeight: 700,
       color: t.questionText,
@@ -818,7 +796,6 @@ function createStyles(template: PdfTemplate) {
       marginBottom: 12,
     },
     noteTitle: {
-      fontFamily: "Playfair",
       fontSize: 8,
       fontWeight: 700,
       color: t.noteText,
@@ -841,7 +818,6 @@ function createStyles(template: PdfTemplate) {
       paddingBottom: 12,
     },
     questionText: {
-      fontFamily: "Playfair",
       fontSize: isPoster ? 13 : isGrid ? 12.5 : 12,
       fontWeight: 700,
       color: t.questionText,
@@ -886,9 +862,8 @@ function createStyles(template: PdfTemplate) {
       paddingVertical: 8,
     },
     optionLetter: {
-      fontFamily: "Playfair",
       fontSize: 12,
-      fontWeight: 900,
+      fontWeight: 700,
       color: t.optionAccentText,
     },
     optionCopy: {
@@ -915,7 +890,6 @@ function createStyles(template: PdfTemplate) {
       paddingVertical: 7,
     },
     footerText: {
-      fontFamily: "Playfair",
       fontSize: 6.5,
       fontWeight: 700,
       textTransform: "uppercase",
@@ -924,6 +898,7 @@ function createStyles(template: PdfTemplate) {
     },
     classicFlow: {
       flex: 1,
+      flexDirection: "column",
     },
     editorialColumns: {
       flex: 1,
@@ -931,9 +906,11 @@ function createStyles(template: PdfTemplate) {
       justifyContent: "space-between",
     },
     editorialMain: {
+      flexDirection: "column",
       width: "59%",
     },
     editorialAside: {
+      flexDirection: "column",
       width: "37%",
     },
     gridColumns: {
@@ -942,13 +919,16 @@ function createStyles(template: PdfTemplate) {
       justifyContent: "space-between",
     },
     gridLeft: {
+      flexDirection: "column",
       width: "44%",
     },
     gridRight: {
+      flexDirection: "column",
       width: "52%",
     },
     posterFlow: {
       flex: 1,
+      flexDirection: "column",
     },
     posterIntro: {
       flexDirection: "row",
@@ -956,13 +936,16 @@ function createStyles(template: PdfTemplate) {
       marginBottom: 12,
     },
     posterIntroMain: {
+      flexDirection: "column",
       width: "65%",
     },
     posterIntroAside: {
+      flexDirection: "column",
       width: "31%",
     },
     summaryPageInner: {
       flex: 1,
+      flexDirection: "column",
       paddingHorizontal: 28,
       paddingTop: 22,
       paddingBottom: 54,
@@ -978,9 +961,8 @@ function createStyles(template: PdfTemplate) {
       marginBottom: 14,
     },
     summaryTitle: {
-      fontFamily: "Playfair",
       fontSize: 22,
-      fontWeight: 900,
+      fontWeight: 700,
       color: t.titleText,
       marginBottom: 4,
     },
@@ -995,7 +977,6 @@ function createStyles(template: PdfTemplate) {
       marginBottom: 16,
     },
     teamLabel: {
-      fontFamily: "Playfair",
       fontSize: 11,
       fontWeight: 700,
       color: t.questionText,
@@ -1030,7 +1011,6 @@ function createStyles(template: PdfTemplate) {
       paddingBottom: 10,
     },
     guidanceCardTitle: {
-      fontFamily: "Playfair",
       fontSize: 8,
       fontWeight: 700,
       color: t.noteText,
@@ -1073,9 +1053,8 @@ function createStyles(template: PdfTemplate) {
       marginBottom: 1,
     },
     answerItemNumberValue: {
-      fontFamily: "Playfair",
       fontSize: 16,
-      fontWeight: 900,
+      fontWeight: 700,
       color: t.optionAccentText,
     },
     answerBox: {
@@ -1111,9 +1090,8 @@ function createStyles(template: PdfTemplate) {
       backgroundColor: t.optionAccentBg,
     },
     answerKeyNumberText: {
-      fontFamily: "Playfair",
       fontSize: 14,
-      fontWeight: 900,
+      fontWeight: 700,
       color: t.optionAccentText,
     },
     answerKeyContent: {
@@ -1122,7 +1100,6 @@ function createStyles(template: PdfTemplate) {
       paddingVertical: 9,
     },
     answerKeyTitle: {
-      fontFamily: "Playfair",
       fontSize: 10,
       fontWeight: 700,
       color: t.questionText,
@@ -1135,7 +1112,6 @@ function createStyles(template: PdfTemplate) {
       marginBottom: 3,
     },
     answerKeyAnswer: {
-      fontFamily: "Playfair",
       fontSize: 8.6,
       fontWeight: 700,
       color: t.questionText,
@@ -1154,7 +1130,6 @@ function createStyles(template: PdfTemplate) {
       marginTop: 6,
     },
     answerKeyFooterTitle: {
-      fontFamily: "Playfair",
       fontSize: 8,
       fontWeight: 700,
       color: t.noteText,
@@ -1219,12 +1194,6 @@ function renderPostHeader(
         <Text style={styles.templateLabel}>{template.footerLabel}</Text>
       </View>
       <Text style={styles.title}>{post.title}</Text>
-      <Text style={styles.strapline}>{template.strapline}</Text>
-      {renderMetaChips(styles, [
-        `Fag: ${getDisplaySubject(run.subject)}`,
-        `Klassetrin: ${getDisplayGradeLevel(run.grade_level)}`,
-        `Layout: ${template.label}`,
-      ])}
     </View>
   );
 }
@@ -1236,7 +1205,7 @@ function renderHero(
   imageUrl: string,
   subject: string
 ) {
-  const isHeroImage = post.number === 1;
+  const isHeroImage = true;
   const hasImage = Boolean(imageUrl);
 
   return (
