@@ -1178,17 +1178,12 @@ function getDisplayGradeLevel(gradeLevel: string) {
 }
 
 function getCorrectAnswer(post: Post) {
-  if (
-    typeof post.correct_index === "number" &&
-    Array.isArray(post.options) &&
-    post.options[post.correct_index]
-  ) {
-    return {
-      letter: LETTER_LABELS[post.correct_index] ?? "?",
-      option: post.options[post.correct_index] ?? "Ukendt svar",
-    };
+  if (post.correct_index === undefined || !post.options) {
+    return { letter: "?", option: "Intet svar" };
   }
-  return { letter: "?", option: "Ukendt svar" };
+  const letter = LETTER_LABELS[post.correct_index] ?? "?";
+  const option = post.options[post.correct_index] ?? "Ukendt svar";
+  return { letter, option };
 }
 
 function renderMetaChips(styles: PdfStyles, values: string[]) {
@@ -1392,7 +1387,7 @@ function renderQuestionSection(styles: PdfStyles, template: PdfTemplate, post: P
       <Text style={styles.questionText}>{post.question}</Text>
       {post.options && (
         <View style={optionsContainerStyle}>
-          {post.options.map((option, index) => (
+          {post.options.map && post.options.map((option, index) => (
             <View key={`${post.number}-${index}`} style={optionItemStyle}>
               <View style={styles.optionAccent}>
                 <Text style={styles.optionLetter}>{LETTER_LABELS[index]}</Text>
