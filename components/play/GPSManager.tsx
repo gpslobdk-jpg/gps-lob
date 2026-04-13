@@ -260,26 +260,40 @@ export default function GPSManager({
       }
     }, GPS_HEARTBEAT_INTERVAL_MS);
 
+    const restartTracking = () => {
+      // Get a quick cached fix first, then start a fresh high-accuracy watcher.
+      try {
+        if (navigator.geolocation.getCurrentPosition) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => void successHandler(pos),
+            () => undefined,
+            { ...gpsOptions, maximumAge: 10_000 }
+          );
+        }
+      } catch {
+        /* no-op */
+      }
+
+      startWatch();
+    };
+
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        // Get a quick cached fix first, then start a fresh high-accuracy watcher
-        try {
-          if (navigator.geolocation.getCurrentPosition) {
-            navigator.geolocation.getCurrentPosition(
-              (pos) => void successHandler(pos),
-              () => undefined,
-              { ...gpsOptions, maximumAge: 10_000 }
-            );
-          }
-        } catch {
-          /* no-op */
-        }
-
-        startWatch();
+        restartTracking();
       }
     };
 
+    const handleOnline = () => {
+      restartTracking();
+    };
+
+    const handlePageShow = () => {
+      restartTracking();
+    };
+
     document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("pageshow", handlePageShow);
 
     return () => {
       clearInterval(heartbeatId);
@@ -287,6 +301,8 @@ export default function GPSManager({
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
       document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("pageshow", handlePageShow);
     };
   }, [
     currentPostIndex,

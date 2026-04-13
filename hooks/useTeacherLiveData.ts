@@ -17,12 +17,21 @@ import type {
   SessionRow,
   StudentRow,
   TeacherLiveData,
+  TeacherLiveFeedStatus,
   TeacherLiveStanding,
 } from "@/components/live/types";
 import { normalizeRaceType, RACE_TYPES } from "@/utils/gpsRuns";
 import { createClient } from "@/utils/supabase/client";
 
 const DEFAULT_ZONE_KRIG_DURATION_MINUTES = 15;
+const TEACHER_LIVE_REFRESH_INTERVAL_MS = 15_000;
+
+type LiveFeedRecoveryReason =
+  | "init"
+  | "channel_error"
+  | "visibility_resume"
+  | "online_resume"
+  | "interval_refresh";
 
 function toTimestamp(value: string | null | undefined) {
   if (!value) return null;
@@ -34,6 +43,8 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   const [pin, setPin] = useState("");
   const [students, setStudents] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [liveFeedStatus, setLiveFeedStatus] = useState<TeacherLiveFeedStatus>("connecting");
+  const [liveFeedLastSyncedAt, setLiveFeedLastSyncedAt] = useState<string | null>(null);
   const [status, setStatus] = useState<SessionRow["status"]>("waiting");
   const [gpsOverride, setGpsOverride] = useState(false);
   const [isUpdatingGpsOverride, setIsUpdatingGpsOverride] = useState(false);
@@ -55,6 +66,12 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     const supabase = createClient();
     let isActive = true;
     let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const removeStudentLocation = (studentId: string | null | undefined) => {
+      if (!studentId) return;
+
+      setStudentLocations((previous) => previous.filter((item) => item.id !== studentId));
+    };
 
     const addStudentName = (rawName: unknown) => {
       const name = normalizeName(rawName);
@@ -87,11 +104,15 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         setLiveAnswers((previous) => prependAnswer(previous, parsed));
       };
 
-    const fetchLobbyData = async () => {
-      setIsLoading(true);
+    const fetchLobbyData = async (options?: { showLoading?: boolean }) => {
+      const shouldShowLoading = options?.showLoading !== false;
+      if (shouldShowLoading) {
+        setIsLoading(true);
+      }
 
       const studentNames = new Set<string>();
       let fallbackSessionStudents: StudentRow[] = [];
+      let didEncounterLiveFeedError = false;
 
       const { data: sessionData, error: sessionError } = await supabase
         .from("live_sessions")
@@ -102,6 +123,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       if (!isActive) return { supportsParticipants: false, supportsAnswers: false };
 
       if (sessionError) {
+        didEncounterLiveFeedError = true;
         console.error("Fejl ved hentning af session:", sessionError);
       } else if (sessionData) {
         setPin(String(sessionData.pin ?? ""));
@@ -141,6 +163,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       if (!isActive) return { supportsParticipants: false, supportsAnswers: false };
 
       if (sessionStudentsError) {
+        didEncounterLiveFeedError = true;
         console.error("Fejl ved hentning af elever:", sessionStudentsError);
       } else if (sessionStudentsData) {
         fallbackSessionStudents = sessionStudentsData as StudentRow[];
@@ -163,6 +186,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       if (participantsError) {
         supportsParticipants = false;
         if (participantsError.code !== "PGRST205") {
+          didEncounterLiveFeedError = true;
           console.error("Fejl ved hentning af participants:", participantsError);
         }
       } else if (participantsData) {
@@ -173,12 +197,24 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         });
       }
 
-      setStudents(Array.from(studentNames));
-      setStudentLocations(
-        locationRows
-          .map((row) => toLocation(row))
-          .filter((row): row is LiveStudentLocation => row !== null)
+      const nextStudentNames = Array.from(studentNames);
+      setStudents((previous) =>
+        nextStudentNames.length > 0 || previous.length === 0 ? nextStudentNames : previous
       );
+
+      const nextLocations = locationRows
+        .map((row) => toLocation(row))
+        .filter((row): row is LiveStudentLocation => row !== null);
+
+      setStudentLocations((previous) => {
+        if (nextLocations.length === 0) {
+          return previous;
+        }
+
+        return nextLocations.reduce<LiveStudentLocation[]>((accumulator, location) => {
+          return upsertLocation(accumulator, location);
+        }, previous);
+      });
       setHasParticipantsTable(supportsParticipants);
 
       const { data: messagesData, error: messagesError } = await supabase
@@ -190,6 +226,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       if (!isActive) return { supportsParticipants, supportsAnswers: false };
 
       if (messagesError) {
+        didEncounterLiveFeedError = true;
         console.error("Fejl ved hentning af beskeder:", messagesError);
       } else if (messagesData) {
         setMessages(messagesData as SessionMessage[]);
@@ -206,6 +243,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       if (answersError) {
         supportsAnswers = false;
         if (answersError.code !== "PGRST205") {
+          didEncounterLiveFeedError = true;
           console.error("Fejl ved hentning af answers:", answersError);
         }
       } else if (answersData) {
@@ -231,14 +269,30 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       }
 
       setHasAnswersTable(supportsAnswers);
-      setIsLoading(false);
+      if (!didEncounterLiveFeedError) {
+        setLiveFeedLastSyncedAt(new Date().toISOString());
+      } else {
+        setLiveFeedStatus("recovering");
+      }
+
+      if (shouldShowLoading) {
+        setIsLoading(false);
+      }
 
       return { supportsParticipants, supportsAnswers };
     };
 
-    const initRealtime = async () => {
-      const { supportsParticipants, supportsAnswers } = await fetchLobbyData();
-      if (!isActive) return;
+    const removeChannel = () => {
+      if (!channel) return;
+      void supabase.removeChannel(channel);
+      channel = null;
+    };
+
+    const createRealtimeChannel = (
+      supportsParticipants: boolean,
+      supportsAnswers: boolean
+    ) => {
+      removeChannel();
 
       let nextChannel = supabase
         .channel(`teacher-live-${sessionId}`)
@@ -301,6 +355,20 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
           .on(
             "postgres_changes",
             {
+              event: "DELETE",
+              schema: "public",
+              table: "participants",
+              filter: `session_id=eq.${sessionId}`,
+            },
+            (payload) => {
+              const deletedId = (payload.old as { id?: string | number | null })?.id;
+              if (!deletedId) return;
+              removeStudentLocation(String(deletedId));
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
               event: "UPDATE",
               schema: "public",
               table: "participants",
@@ -340,16 +408,79 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         );
       }
 
-      channel = nextChannel.subscribe();
+      channel = nextChannel.subscribe((status) => {
+        if (!isActive) return;
+
+        if (status === "SUBSCRIBED") {
+          setLiveFeedStatus("live");
+          void fetchLobbyData({ showLoading: false });
+          return;
+        }
+
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          setLiveFeedStatus("recovering");
+          void recoverLiveState("channel_error");
+        }
+      });
+    };
+
+    const recoverLiveState = async (reason: LiveFeedRecoveryReason) => {
+      if (reason !== "interval_refresh") {
+        setLiveFeedStatus("recovering");
+      }
+
+      try {
+        const { supportsParticipants, supportsAnswers } = await fetchLobbyData({
+          showLoading: false,
+        });
+
+        if (!isActive) return;
+        createRealtimeChannel(supportsParticipants, supportsAnswers);
+      } catch (error) {
+        console.error("Kunne ikke genoprette lærerens live-data:", error);
+      }
+    };
+
+    const initRealtime = async () => {
+      try {
+        setLiveFeedStatus("connecting");
+        const { supportsParticipants, supportsAnswers } = await fetchLobbyData();
+        if (!isActive) return;
+        createRealtimeChannel(supportsParticipants, supportsAnswers);
+      } catch (error) {
+        console.error("Kunne ikke initialisere lærerens live-data:", error);
+        if (isActive) {
+          setLiveFeedStatus("recovering");
+          setIsLoading(false);
+        }
+      }
     };
 
     void initRealtime();
 
+    const refreshTimer = window.setInterval(() => {
+      void recoverLiveState("interval_refresh");
+    }, TEACHER_LIVE_REFRESH_INTERVAL_MS);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void recoverLiveState("visibility_resume");
+      }
+    };
+
+    const handleOnline = () => {
+      void recoverLiveState("online_resume");
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleOnline);
+
     return () => {
       isActive = false;
-      if (channel) {
-        void supabase.removeChannel(channel);
-      }
+      window.clearInterval(refreshTimer);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleOnline);
+      removeChannel();
     };
   }, [sessionId]);
 
@@ -741,6 +872,8 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     joinPin,
     students,
     isLoading: sessionId ? isLoading : false,
+    liveFeedStatus,
+    liveFeedLastSyncedAt,
     status: status ?? "waiting",
     gpsOverride,
     isUpdatingGpsOverride,

@@ -8,7 +8,11 @@ import { useEffect } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
 import { escapeHtml, toFiniteNumber } from "@/components/live/liveUtils";
-import type { LiveStudentLocation, RunQuestion } from "@/components/live/types";
+import type {
+  LiveStudentLocation,
+  RunQuestion,
+  TeacherLiveFeedStatus,
+} from "@/components/live/types";
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -25,6 +29,8 @@ type TeacherLiveMapProps = {
   mapKey: string;
   runQuestions: RunQuestion[];
   studentLocations: LiveStudentLocation[];
+  liveFeedStatus: TeacherLiveFeedStatus;
+  liveFeedLastSyncedAt: string | null;
   hasParticipantsTable: boolean;
   isEndingRun: boolean;
   onEndRun: () => Promise<void>;
@@ -69,6 +75,60 @@ function getMapPoints(
     .filter((point): point is [number, number] => point !== null);
 
   return [...questionPoints, ...studentPoints];
+}
+
+function formatLiveFeedTimestamp(timestamp: string | null) {
+  if (!timestamp) {
+    return null;
+  }
+
+  const parsed = new Date(timestamp);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toLocaleTimeString("da-DK", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function getLiveFeedIndicatorCopy(
+  status: TeacherLiveFeedStatus,
+  lastSyncedAt: string | null
+) {
+  const formattedSyncTime = formatLiveFeedTimestamp(lastSyncedAt);
+
+  switch (status) {
+    case "live":
+      return {
+        label: "Live-feed aktiv",
+        shellClass: "border-emerald-300/40 bg-emerald-500/10 text-emerald-900",
+        dotClass: "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.55)]",
+        detail: formattedSyncTime
+          ? `Sidst synkroniseret ${formattedSyncTime}.`
+          : "Live-feedet er forbundet nu.",
+      };
+    case "recovering":
+      return {
+        label: "Genopretter live-feed",
+        shellClass: "border-amber-300/45 bg-amber-400/12 text-amber-950",
+        dotClass: "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]",
+        detail: formattedSyncTime
+          ? `Viser sidste kendte data fra ${formattedSyncTime}.`
+          : "Henter forbindelse og opdateringer igen.",
+      };
+    default:
+      return {
+        label: "Kobler på live-feed",
+        shellClass: "border-slate-300/50 bg-white/80 text-slate-700",
+        dotClass: "bg-slate-400 shadow-[0_0_8px_rgba(148,163,184,0.45)]",
+        detail: formattedSyncTime
+          ? `Opkobler igen. Sidste synk var ${formattedSyncTime}.`
+          : "Venter på første live-forbindelse.",
+      };
+  }
 }
 
 function createStudentIcon(name: string, isLive: boolean) {
@@ -125,10 +185,16 @@ export default function TeacherLiveMap({
   mapKey,
   runQuestions,
   studentLocations,
+  liveFeedStatus,
+  liveFeedLastSyncedAt,
   hasParticipantsTable,
   isEndingRun,
   onEndRun,
 }: TeacherLiveMapProps) {
+  const recentActiveCount = studentLocations.filter((student) => isStudentRecentlyActive(student)).length;
+  const staleCount = Math.max(0, studentLocations.length - recentActiveCount);
+  const liveFeedIndicator = getLiveFeedIndicatorCopy(liveFeedStatus, liveFeedLastSyncedAt);
+
   return (
     <div
       className={`relative z-0 h-full w-2/3 overflow-hidden rounded-[2rem] border-4 border-white/20 shadow-2xl ${poppins.className}`}
@@ -139,7 +205,21 @@ export default function TeacherLiveMap({
         >
           Live Overvågning
         </h2>
-        <p className="text-sm text-slate-500">{studentLocations.length} deltagere online</p>
+        <p className="text-sm text-slate-500">
+          {studentLocations.length} deltagere registreret · {recentActiveCount} live nu
+        </p>
+        <div
+          className={`mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] ${liveFeedIndicator.shellClass}`}
+        >
+          <span className={`h-2.5 w-2.5 rounded-full ${liveFeedIndicator.dotClass}`} />
+          <span>{liveFeedIndicator.label}</span>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">{liveFeedIndicator.detail}</p>
+        {staleCount > 0 ? (
+          <p className="mt-1 text-xs text-slate-400">
+            {staleCount} vises som sidst set, indtil næste ping kommer ind.
+          </p>
+        ) : null}
         {!hasParticipantsTable ? (
           <p className="mt-1 text-xs text-slate-400">`participants` mangler - bruger fallback.</p>
         ) : null}

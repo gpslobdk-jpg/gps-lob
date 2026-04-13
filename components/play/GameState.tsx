@@ -20,6 +20,7 @@ import type {
   PlayFeedbackState,
   PlayGameState,
   PlayGpsState,
+  PlayLoadErrorVariant,
   PlayMapState,
   PlayPlayerState,
   PlayProgressState,
@@ -94,6 +95,15 @@ type PlaySessionStatusSnapshot = {
   error?: string;
 };
 
+type ParticipantAuthRecoveryMethod = "refresh" | "rebind";
+
+type WakeReconnectTrigger =
+  | "status_channel_error"
+  | "message_channel_error"
+  | "visibility_resume"
+  | "online_resume"
+  | "auth_refresh";
+
 const LOCATION_SYNC_404_STRIKE_LIMIT = 5;
 const LOCATION_SYNC_RECOVERY_CHECK_COOLDOWN_MS = 15000;
 const MAX_PLAYER_NAME_LENGTH = 20;
@@ -101,7 +111,12 @@ const OFFLINE_VALIDATION_MESSAGE = "Forbindelsen driller lidt. Prøv igen om et 
 const ANSWER_VALIDATION_RETRY_MESSAGE = "Vi tjekker lige svaret. Prøv igen om et øjeblik.";
 const PLAY_LOAD_RETRY_MESSAGE = "Vi gør løbet klar. Prøv igen om et øjeblik.";
 const PLAY_SETUP_PENDING_MESSAGE = "Løbet bliver gjort klar lige nu. Prøv igen om et øjeblik.";
+const PLAY_RESTORE_RETRY_MESSAGE =
+  "Vi kunne ikke genskabe din deltager automatisk. Tryk på Prøv igen for at genindlæse missionen.";
 const RESTORE_RETRY_DELAY_MS = 2500;
+const RESTORE_AUTH_RECOVERY_DELAY_MS = 350;
+const MAX_RESTORE_RETRIES = 6;
+const CHANNEL_RESUBSCRIBE_DELAY_MS = 1000;
 const NETWORK_RETRY_DELAY_MS = 3000;
 const WAITING_SESSION_STATUS_POLL_INTERVAL_MS = 4000;
 const ACTIVE_SESSION_STATUS_POLL_INTERVAL_MS = 15000;
@@ -270,6 +285,7 @@ export function usePlayGameState({
   const [isFinished, setIsFinished] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [loadErrorVariant, setLoadErrorVariant] = useState<PlayLoadErrorVariant>("generic");
   const [nameError, setNameError] = useState<string | null>(null);
   const [isKicked, setIsKicked] = useState(false);
   const [latestMessage, setLatestMessage] = useState<TeacherBroadcastMessage | null>(null);
@@ -334,10 +350,15 @@ export function usePlayGameState({
   const quizAnswerFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roleplayInputErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wakeLockSentinelRef = useRef<WakeLockSentinelLike | null>(null);
+  const sessionStatusChannelRef = useRef<RealtimeChannel | null>(null);
   const messageChannelRef = useRef<RealtimeChannel | null>(null);
   const dismissedLatestMessageKeyRef = useRef<string | null>(null);
   const masterVictoryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restoreRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionStatusResubscribeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const messageResubscribeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restoreRetryCountRef = useRef(0);
+  const reconnectInFlightRef = useRef(false);
   const kickConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const submissionLockRef = useRef(false);
   const isMountedRef = useRef(true);
@@ -703,30 +724,49 @@ export function usePlayGameState({
   const fetchParticipantSnapshot = useCallback(
     async (targetParticipantId: string) => {
       if (!sessionId) {
-        return { data: null as ParticipantRow | null, error: null };
+        return {
+          data: null as ParticipantRow | null,
+          error: null as { status?: number; code?: string; message?: string } | null,
+        };
       }
 
-      const runQuery = (selectClause: string) =>
-        supabase
-          .from("participants")
-          .select(selectClause)
-          .eq("id", targetParticipantId)
-          .eq("session_id", sessionId)
-          .maybeSingle<ParticipantRow>();
+      try {
+        const response = await fetch(
+          `/api/play/participant?sessionId=${encodeURIComponent(sessionId)}&participantId=${encodeURIComponent(targetParticipantId)}`,
+          {
+            cache: "no-store",
+          }
+        );
+        const payload = (await response.json().catch(() => null)) as
+          | { participant?: ParticipantRow | null; error?: string }
+          | null;
 
-      let result = await runQuery(
-        "id,session_id,student_name,lat,lng,finished_at,start_offset,run_started_at"
-      );
-      if (result.error && isMissingColumnError(result.error)) {
-        result = await runQuery("id,session_id,student_name,lat,lng,finished_at,start_offset");
-      }
-      if (result.error && isMissingColumnError(result.error)) {
-        result = await runQuery("id,session_id,student_name,lat,lng,finished_at");
-      }
+        if (!response.ok) {
+          return {
+            data: null as ParticipantRow | null,
+            error: {
+              status: response.status,
+              code: String(response.status),
+              message: payload?.error ?? response.statusText,
+            },
+          };
+        }
 
-      return result;
+        return {
+          data: (payload?.participant ?? null) as ParticipantRow | null,
+          error: null,
+        };
+      } catch (error) {
+        return {
+          data: null as ParticipantRow | null,
+          error: {
+            code: "FETCH_FAILED",
+            message: error instanceof Error ? error.message : "Kunne ikke hente deltager-snapshot.",
+          },
+        };
+      }
     },
-    [sessionId, supabase]
+    [sessionId]
   );
 
   const resetLocationSyncRecovery = useCallback(() => {
@@ -759,10 +799,80 @@ export function usePlayGameState({
     });
   }, []);
 
+  const setPlayLoadError = useCallback(
+    (message: string, variant: PlayLoadErrorVariant = "generic") => {
+      setLoadError(message);
+      setLoadErrorVariant(message ? variant : "generic");
+    },
+    []
+  );
+
+  const recoverParticipantAuthSession = useCallback(
+    async (
+      storedName: string,
+      telemetryReason?: string
+    ): Promise<ParticipantAuthRecoveryMethod | null> => {
+      try {
+        const { data, error } = await supabase.auth.refreshSession();
+        const refreshedUserId = data.user?.id ?? data.session?.user?.id ?? null;
+        if (!error && refreshedUserId) {
+          if (telemetryReason && sessionId) {
+            sendTelemetry("participant_auth_refresh_recovered", {
+              participant_id: participantId,
+              session_id: sessionId,
+              message: `reason=${telemetryReason}`,
+            });
+          }
+
+          return "refresh";
+        }
+      } catch (error) {
+        console.warn("Deltager-login kunne ikke genopfriskes under restore:", error);
+      }
+
+      const normalizedStoredName = storedName.trim();
+      if (!normalizedStoredName) {
+        return null;
+      }
+
+      const didRebind = await registerParticipantIdentity(normalizedStoredName);
+      if (!didRebind) {
+        return null;
+      }
+
+      if (telemetryReason && sessionId) {
+        sendTelemetry("participant_auth_rebind_recovered", {
+          participant_id: participantId,
+          session_id: sessionId,
+          message: `reason=${telemetryReason}`,
+        });
+      }
+
+      restoreRetryCountRef.current = 0;
+      await waitForNetworkRetry(RESTORE_AUTH_RECOVERY_DELAY_MS);
+      return "rebind";
+    },
+    [participantId, registerParticipantIdentity, sessionId, supabase, waitForNetworkRetry]
+  );
+
   const clearRestoreRetryTimer = useCallback(() => {
     if (restoreRetryTimerRef.current !== null) {
       clearTimeout(restoreRetryTimerRef.current);
       restoreRetryTimerRef.current = null;
+    }
+  }, []);
+
+  const clearSessionStatusResubscribeTimer = useCallback(() => {
+    if (sessionStatusResubscribeTimerRef.current !== null) {
+      clearTimeout(sessionStatusResubscribeTimerRef.current);
+      sessionStatusResubscribeTimerRef.current = null;
+    }
+  }, []);
+
+  const clearMessageResubscribeTimer = useCallback(() => {
+    if (messageResubscribeTimerRef.current !== null) {
+      clearTimeout(messageResubscribeTimerRef.current);
+      messageResubscribeTimerRef.current = null;
     }
   }, []);
 
@@ -772,17 +882,34 @@ export function usePlayGameState({
         return;
       }
 
+      const nextRetryCount = restoreRetryCountRef.current + 1;
+      if (nextRetryCount > MAX_RESTORE_RETRIES) {
+        if (sessionId) {
+          sendTelemetry("participant_restore_exhausted", {
+            participant_id: participantId,
+            session_id: sessionId,
+            message: `retries=${nextRetryCount}; state=restore_loading`,
+          });
+        }
+
+        setIsRestoringParticipant(false);
+        setPlayLoadError(PLAY_RESTORE_RETRY_MESSAGE, "restore_recovery");
+        return;
+      }
+
+      restoreRetryCountRef.current = nextRetryCount;
       setIsRestoringParticipant(true);
       restoreRetryTimerRef.current = setTimeout(() => {
         restoreRetryTimerRef.current = null;
         setRestoreRetryNonce((current) => current + 1);
       }, RESTORE_RETRY_DELAY_MS);
     },
-    []
+    [participantId, sessionId, setPlayLoadError]
   );
 
   const markPlayAsFinished = useCallback(() => {
     clearRestoreRetryTimer();
+    restoreRetryCountRef.current = 0;
     resetLocationSyncRecovery();
     clearStoredPlayRecoveryState();
     setParticipantId(null);
@@ -865,6 +992,16 @@ export function usePlayGameState({
         return;
       }
 
+      const authRecoveryMethod = await recoverParticipantAuthSession(
+        storedParticipantOnLoad?.studentName?.trim() || playerName || pendingPlayerName,
+        "location_sync_recovery"
+      );
+
+      if (!authRecoveryMethod) {
+        scheduleRestoreRetry();
+        return;
+      }
+
       const { data: participantSnapshot, error: participantSnapshotError } =
         await fetchParticipantSnapshot(participantId);
 
@@ -897,12 +1034,198 @@ export function usePlayGameState({
   }, [
     fetchSessionStatusSnapshot,
     fetchParticipantSnapshot,
+    pendingPlayerName,
+    playerName,
+    recoverParticipantAuthSession,
     markPlayAsFinished,
     participantId,
     resetLocationSyncRecovery,
     scheduleRestoreRetry,
     sessionId,
     sessionStatus,
+    storedParticipantOnLoad?.studentName,
+  ]);
+
+  const recoverWakeUpState = useCallback(async (trigger: WakeReconnectTrigger = "visibility_resume") => {
+    if (!sessionId || reconnectInFlightRef.current) {
+      return;
+    }
+
+    reconnectInFlightRef.current = true;
+    const shouldTrackReconnectOutcome =
+      isRestoringParticipant ||
+      trigger === "status_channel_error" ||
+      trigger === "message_channel_error";
+    let reconnectOutcomeLogged = false;
+
+    try {
+      const storedName =
+        storedParticipantOnLoad?.studentName?.trim() || playerName || pendingPlayerName;
+      let participantAuthRecoveryMethod: ParticipantAuthRecoveryMethod | null = null;
+      let hasRecoveredParticipantAuth = true;
+
+      if (participantId && !isFinished && !isKicked) {
+        participantAuthRecoveryMethod = await recoverParticipantAuthSession(
+          storedName,
+          shouldTrackReconnectOutcome ? `wake_reconnect:${trigger}` : undefined
+        );
+        hasRecoveredParticipantAuth = participantAuthRecoveryMethod !== null;
+      } else {
+        void supabase.auth.refreshSession().catch(() => undefined);
+      }
+
+      const sessionStatusSnapshot = await fetchSessionStatusSnapshot();
+      const nextSessionStatus = sessionStatusSnapshot?.sessionStatus ?? null;
+
+      if (sessionStatusSnapshot) {
+        setSessionStatus(nextSessionStatus);
+        setGpsOverride(sessionStatusSnapshot.gpsOverride);
+      }
+
+      if (nextSessionStatus === "finished") {
+        if (shouldTrackReconnectOutcome) {
+          sendTelemetry("wake_reconnect_recovered", {
+            participant_id: participantId,
+            session_id: sessionId,
+            message: `trigger=${trigger}; result=session_finished; auth=${participantAuthRecoveryMethod ?? "none"}`,
+          });
+          reconnectOutcomeLogged = true;
+        }
+
+        markPlayAsFinished();
+        return;
+      }
+
+      if (participantId && !isFinished && !isKicked && !hasRecoveredParticipantAuth) {
+        if (shouldTrackReconnectOutcome) {
+          sendTelemetry("wake_reconnect_failed", {
+            participant_id: participantId,
+            session_id: sessionId,
+            message: `trigger=${trigger}; reason=auth_recovery_failed`,
+          });
+          reconnectOutcomeLogged = true;
+        }
+      }
+
+      if (participantId && !isFinished && !isKicked && hasRecoveredParticipantAuth) {
+        const refreshedStoredParticipant = readStoredActiveParticipant();
+        const activeParticipantId =
+          refreshedStoredParticipant?.sessionId === sessionId
+            ? refreshedStoredParticipant.participantId
+            : participantId;
+
+        if (activeParticipantId) {
+          const { data: participantSnapshot, error: participantSnapshotError } =
+            await fetchParticipantSnapshot(activeParticipantId);
+
+          if (!participantSnapshotError && participantSnapshot) {
+            const restoredName =
+              typeof participantSnapshot.student_name === "string"
+                ? participantSnapshot.student_name.trim()
+                : "";
+            const restoredStartOffset = toIntegerStartOffset(participantSnapshot.start_offset);
+            const restoredLat = toFiniteNumber(participantSnapshot.lat);
+            const restoredLng = toFiniteNumber(participantSnapshot.lng);
+
+            if (restoredName) {
+              setPlayerName(restoredName);
+              setPendingPlayerNameState(restoredName);
+              setHasConfirmedName(true);
+              setNameError(null);
+              rememberActiveParticipant(
+                activeParticipantId,
+                restoredName,
+                restoredStartOffset,
+                undefined,
+                undefined,
+                undefined,
+                nextSessionStatus
+              );
+            }
+
+            if (restoredStartOffset !== null) {
+              setStartOffset(restoredStartOffset);
+            }
+
+            if (restoredLat !== null && restoredLng !== null) {
+              setMyLoc({ lat: restoredLat, lng: restoredLng });
+            }
+
+            if (participantSnapshot.finished_at) {
+              markPlayAsFinished();
+              return;
+            }
+
+            clearRestoreRetryTimer();
+            restoreRetryCountRef.current = 0;
+            setIsRestoringParticipant(false);
+            resetLocationSyncRecovery();
+            if (shouldTrackReconnectOutcome) {
+              sendTelemetry("wake_reconnect_recovered", {
+                participant_id: activeParticipantId,
+                session_id: sessionId,
+                message: `trigger=${trigger}; result=participant_restored; auth=${participantAuthRecoveryMethod ?? "none"}`,
+              });
+              reconnectOutcomeLogged = true;
+            }
+          } else if (
+            participantSnapshotError?.status &&
+            ![401, 403, 404].includes(participantSnapshotError.status)
+          ) {
+            console.error(
+              "Kunne ikke genskabe deltager under wake/reconnect:",
+              participantSnapshotError
+            );
+            if (shouldTrackReconnectOutcome) {
+              sendTelemetry("wake_reconnect_failed", {
+                participant_id: activeParticipantId,
+                session_id: sessionId,
+                message: `trigger=${trigger}; reason=snapshot_error; status=${participantSnapshotError.status}`,
+              });
+              reconnectOutcomeLogged = true;
+            }
+          } else if (!participantSnapshot && shouldTrackReconnectOutcome) {
+            sendTelemetry("wake_reconnect_failed", {
+              participant_id: activeParticipantId,
+              session_id: sessionId,
+              message: `trigger=${trigger}; reason=participant_missing`,
+            });
+            reconnectOutcomeLogged = true;
+          }
+        }
+      }
+
+      await loadLatestTeacherMessage();
+    } catch (error) {
+      console.error("Kunne ikke genoprette play-forbindelsen efter wake:", error);
+      if (shouldTrackReconnectOutcome && !reconnectOutcomeLogged) {
+        sendTelemetry("wake_reconnect_failed", {
+          participant_id: participantId,
+          session_id: sessionId,
+          message: `trigger=${trigger}; reason=exception`,
+        });
+      }
+    } finally {
+      reconnectInFlightRef.current = false;
+    }
+  }, [
+    clearRestoreRetryTimer,
+    fetchParticipantSnapshot,
+    fetchSessionStatusSnapshot,
+    isFinished,
+    isKicked,
+    isRestoringParticipant,
+    loadLatestTeacherMessage,
+    markPlayAsFinished,
+    participantId,
+    pendingPlayerName,
+    playerName,
+    recoverParticipantAuthSession,
+    rememberActiveParticipant,
+    resetLocationSyncRecovery,
+    sessionId,
+    storedParticipantOnLoad?.studentName,
+    supabase,
   ]);
 
   const getAnswerValidationErrorMessage = useCallback((error: unknown) => {
@@ -923,14 +1246,17 @@ export function usePlayGameState({
   }, [locationSyncErrors]);
 
   useEffect(() => {
+    restoreRetryCountRef.current = 0;
     resetLocationSyncRecovery();
   }, [participantId, resetLocationSyncRecovery, sessionId]);
 
   useEffect(() => {
     return () => {
       clearRestoreRetryTimer();
+      clearSessionStatusResubscribeTimer();
+      clearMessageResubscribeTimer();
     };
-  }, [clearRestoreRetryTimer]);
+  }, [clearMessageResubscribeTimer, clearRestoreRetryTimer, clearSessionStatusResubscribeTimer]);
 
   useEffect(() => {
     if (questions.length === 0 || isFinished || correctAnswersCount > 0 || routeOrder.length === 0) return;
@@ -962,31 +1288,71 @@ export function usePlayGameState({
         }
     };
 
+    const removeStatusChannel = () => {
+      if (!sessionStatusChannelRef.current) return;
+      void supabase.removeChannel(sessionStatusChannelRef.current);
+      sessionStatusChannelRef.current = null;
+    };
+
+    const scheduleStatusResubscribe = () => {
+      if (!mounted || sessionStatusResubscribeTimerRef.current !== null) {
+        return;
+      }
+
+      sessionStatusResubscribeTimerRef.current = setTimeout(() => {
+        sessionStatusResubscribeTimerRef.current = null;
+        if (!mounted) {
+          return;
+        }
+
+        createStatusSubscription();
+      }, CHANNEL_RESUBSCRIBE_DELAY_MS);
+    };
+
+    const createStatusSubscription = () => {
+      removeStatusChannel();
+
+      sessionStatusChannelRef.current = supabase
+        .channel(`session-status-${sessionId}`)
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "live_sessions", filter: `id=eq.${sessionId}` },
+          (payload) => {
+            try {
+              const nextRow = payload.new as LiveSessionStatusRow | null;
+              const nextStatus = nextRow?.status ?? null;
+              setSessionStatus(nextStatus);
+              setGpsOverride(Boolean(nextRow?.gps_override));
+
+              if (nextStatus === "finished") {
+                markPlayAsFinished();
+              }
+            } catch (error) {
+              console.error("Fejl ved behandling af live_sessions-opdatering:", error);
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (!mounted) {
+            return;
+          }
+
+          if (status === "SUBSCRIBED") {
+            clearSessionStatusResubscribeTimer();
+            void syncSessionStatus();
+            return;
+          }
+
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            void recoverWakeUpState("status_channel_error");
+            scheduleStatusResubscribe();
+          }
+        });
+    };
+
     // Fetch initial session status
     void syncSessionStatus();
-
-    // Realtime subscription to status updates
-    const channel = supabase
-      .channel(`session-status-${sessionId}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "live_sessions", filter: `id=eq.${sessionId}` },
-        (payload) => {
-          try {
-            const nextRow = payload.new as LiveSessionStatusRow | null;
-            const nextStatus = nextRow?.status ?? null;
-            setSessionStatus(nextStatus);
-            setGpsOverride(Boolean(nextRow?.gps_override));
-
-            if (nextStatus === "finished") {
-              markPlayAsFinished();
-            }
-          } catch (error) {
-            console.error("Fejl ved behandling af live_sessions-opdatering:", error);
-          }
-        }
-      )
-      .subscribe();
+    createStatusSubscription();
 
     const pollTimer = window.setInterval(() => {
       void syncSessionStatus();
@@ -994,12 +1360,14 @@ export function usePlayGameState({
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        void syncSessionStatus();
+        void recoverWakeUpState("visibility_resume");
+        createStatusSubscription();
       }
     };
 
     const handleOnline = () => {
-      void syncSessionStatus();
+      void recoverWakeUpState("online_resume");
+      createStatusSubscription();
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -1008,15 +1376,21 @@ export function usePlayGameState({
     return () => {
       mounted = false;
       window.clearInterval(pollTimer);
+      clearSessionStatusResubscribeTimer();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("online", handleOnline);
-      try {
-        supabase.removeChannel(channel);
-      } catch {
-        // ignore
-      }
+      removeStatusChannel();
     };
-  }, [fetchSessionStatusSnapshot, markPlayAsFinished, participantId, sessionId, sessionStatus, supabase]);
+  }, [
+    clearSessionStatusResubscribeTimer,
+    fetchSessionStatusSnapshot,
+    markPlayAsFinished,
+    participantId,
+    recoverWakeUpState,
+    sessionId,
+    sessionStatus,
+    supabase,
+  ]);
 
   useEffect(() => {
     if (!sessionId || !participantId) {
@@ -1358,10 +1732,35 @@ export function usePlayGameState({
         rememberActiveParticipant(participantId, storedName, storedStartOffset);
       }
 
+      const attemptParticipantRestore = async () => {
+        let snapshotResult = await fetchParticipantSnapshot(participantId);
+
+        if (
+          snapshotResult.error?.status === 401 ||
+          snapshotResult.error?.status === 403
+        ) {
+          const authRecoveryMethod = await recoverParticipantAuthSession(
+            storedName,
+            "restore_snapshot_auth_error"
+          );
+          if (!isActive) {
+            return snapshotResult;
+          }
+
+          if (!authRecoveryMethod) {
+            return snapshotResult;
+          }
+
+          snapshotResult = await fetchParticipantSnapshot(participantId);
+        }
+
+        return snapshotResult;
+      };
+
       let participantData: ParticipantRow | null = null;
       let didResolveParticipant = false;
 
-      const { data, error: participantError } = await fetchParticipantSnapshot(participantId);
+      const { data, error: participantError } = await attemptParticipantRestore();
 
       if (!isActive) return;
 
@@ -1395,7 +1794,7 @@ export function usePlayGameState({
 
           if (!isActive) break;
 
-          const { data: retryData, error: retryError } = await fetchParticipantSnapshot(participantId);
+          const { data: retryData, error: retryError } = await attemptParticipantRestore();
 
           if (!isActive) break;
 
@@ -1723,6 +2122,7 @@ export function usePlayGameState({
       }
 
       clearRestoreRetryTimer();
+      restoreRetryCountRef.current = 0;
       setIsRestoringParticipant(false);
       hasRestoredRef.current = true;
     };
@@ -1743,6 +2143,7 @@ export function usePlayGameState({
     raceMode,
     isStrategoRace,
     autoUnlockRadius,
+    recoverParticipantAuthSession,
     restoreRetryNonce,
     scheduleRestoreRetry,
     supabase,
@@ -1968,7 +2369,7 @@ export function usePlayGameState({
 
     const fetchRun = async () => {
       setIsLoading(true);
-      setLoadError("");
+      setPlayLoadError("");
       setAutoUnlockRadius(null);
 
       while (isActive) {
@@ -1981,14 +2382,14 @@ export function usePlayGameState({
           if (!isActive) return;
 
           if (!response.ok) {
-            setLoadError(PLAY_LOAD_RETRY_MESSAGE);
+            setPlayLoadError(PLAY_LOAD_RETRY_MESSAGE);
             setIsLoading(false);
             return;
           }
 
           const parsedRadius = toFiniteNumber(payload?.radius);
           if (parsedRadius === null || parsedRadius <= 0) {
-            setLoadError(PLAY_SETUP_PENDING_MESSAGE);
+            setPlayLoadError(PLAY_SETUP_PENDING_MESSAGE);
             setIsLoading(false);
             return;
           }
@@ -1999,7 +2400,7 @@ export function usePlayGameState({
           const nextRaceMode = normalizeRaceMode(payload?.raceType);
 
           if (parsedQuestions.length === 0 && nextRaceMode !== "stratego") {
-            setLoadError(PLAY_SETUP_PENDING_MESSAGE);
+            setPlayLoadError(PLAY_SETUP_PENDING_MESSAGE);
           } else {
             setQuestions(parsedQuestions);
           }
@@ -2027,7 +2428,7 @@ export function usePlayGameState({
           if (!isActive) return;
           if (!isTransientNetworkError(error)) {
             console.error("Kunne ikke hente play-data:", error);
-            setLoadError(PLAY_LOAD_RETRY_MESSAGE);
+            setPlayLoadError(PLAY_LOAD_RETRY_MESSAGE);
             setIsLoading(false);
             return;
           }
@@ -2042,7 +2443,7 @@ export function usePlayGameState({
     return () => {
       isActive = false;
     };
-  }, [isTransientNetworkError, sessionId, waitForNetworkRetry]);
+  }, [isTransientNetworkError, sessionId, setPlayLoadError, waitForNetworkRetry]);
 
   useEffect(() => {
     if (!showEscapeResults || !isEscapeRace || !sessionId || !participantId) return;
@@ -2254,7 +2655,26 @@ export function usePlayGameState({
             }, 2000);
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            clearMessageResubscribeTimer();
+            void loadLatestTeacherMessage();
+            return;
+          }
+
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            void recoverWakeUpState("message_channel_error");
+
+            if (messageResubscribeTimerRef.current !== null) {
+              return;
+            }
+
+            messageResubscribeTimerRef.current = setTimeout(() => {
+              messageResubscribeTimerRef.current = null;
+              createSubscription();
+            }, CHANNEL_RESUBSCRIBE_DELAY_MS);
+          }
+        });
 
       messageChannelRef.current = ch;
     };
@@ -2263,19 +2683,23 @@ export function usePlayGameState({
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        // Proactively refresh JWT so realtime + API calls don't fail with 401
-        void supabase.auth.refreshSession().catch(() => undefined);
-
-        // re-subscribe to ensure channel is active after sleep
-        void loadLatestTeacherMessage();
+        void recoverWakeUpState("visibility_resume");
         createSubscription();
       }
     };
 
+    const handleOnline = () => {
+      void recoverWakeUpState("online_resume");
+      createSubscription();
+    };
+
     document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("online", handleOnline);
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("online", handleOnline);
+      clearMessageResubscribeTimer();
       if (kickConfirmTimerRef.current) {
         clearTimeout(kickConfirmTimerRef.current);
         kickConfirmTimerRef.current = null;
@@ -2289,11 +2713,31 @@ export function usePlayGameState({
     applyLatestTeacherMessage,
     clearRestoreRetryTimer,
     clearStoredPlayRecoveryState,
+    clearMessageResubscribeTimer,
     loadLatestTeacherMessage,
     participantId,
+    recoverWakeUpState,
     sessionId,
     supabase,
   ]);
+
+  useEffect(() => {
+    if (!sessionId) {
+      return;
+    }
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "TOKEN_REFRESHED" || event === "SIGNED_IN") {
+        void recoverWakeUpState("auth_refresh");
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [recoverWakeUpState, sessionId, supabase]);
 
   const handleWrongQuizAnswer = useCallback((selectedIndex: number, feedbackKey: string) => {
     if (quizAnswerFeedbackTimerRef.current) {
@@ -2596,6 +3040,19 @@ export function usePlayGameState({
   const clearDismissedPost = useCallback(() => {
     setDismissedPostIndex(null);
   }, []);
+
+  const retryRestoreConnection = useCallback(() => {
+    if (!sessionId || !participantId) {
+      reloadPage();
+      return;
+    }
+
+    clearRestoreRetryTimer();
+    restoreRetryCountRef.current = 0;
+    setPlayLoadError("");
+    setIsRestoringParticipant(true);
+    setRestoreRetryNonce((current) => current + 1);
+  }, [clearRestoreRetryTimer, participantId, sessionId, setPlayLoadError]);
 
   const confirmName = useCallback(
     (name: string) => {
@@ -3150,6 +3607,7 @@ export function usePlayGameState({
     mode: screenMode,
     isLoading,
     loadError,
+    loadErrorVariant,
     isFinished,
     isKicked,
     playStartedAtMs,
@@ -3234,6 +3692,7 @@ export function usePlayGameState({
       unlockCurrentPost,
       dismissCurrentPost,
       clearDismissedPost,
+      retryRestoreConnection,
       reloadPage,
       continueFromSolvedPost,
       submitQuizAnswer,

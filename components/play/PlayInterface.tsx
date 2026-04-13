@@ -427,24 +427,58 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
       break;
 
     case "load_error":
+      const isRestoreRecoveryError = screen.loadErrorVariant === "restore_recovery";
       content = (
         <div className="flex h-screen items-center justify-center bg-slate-950 px-6 text-center text-white">
           <div className="max-w-md rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_0_28px_rgba(16,185,129,0.18)] backdrop-blur-xl">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-400/10 text-emerald-200">
-              <Loader2 className="h-6 w-6 animate-spin" />
+              {isRestoreRecoveryError ? (
+                <KeyRound className="h-6 w-6" />
+              ) : (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              )}
             </div>
             <p className="text-[11px] font-semibold tracking-[0.28em] text-emerald-100/70 uppercase">
-              Klargør mission
+              {isRestoreRecoveryError ? "Genskab forbindelse" : "Klargør mission"}
             </p>
-            <h1 className="mt-3 text-2xl font-black text-white">Vi gør løbet klar...</h1>
+            <h1 className="mt-3 text-2xl font-black text-white">
+              {isRestoreRecoveryError
+                ? "Vi prøver at hente dig tilbage i løbet"
+                : "Vi gør løbet klar..."}
+            </h1>
             <p className={`mt-3 text-sm text-white/80 ${wrapTextClass}`}>{screen.loadError}</p>
-            <button
-              type="button"
-              onClick={actions.reloadPage}
-              className="mt-6 rounded-xl border border-emerald-200/30 bg-white/10 px-5 py-3 font-bold text-white transition-colors hover:bg-white/20"
-            >
-              Prøv igen
-            </button>
+            {isRestoreRecoveryError ? (
+              <>
+                <p className="mt-3 text-xs text-white/60">
+                  Din fremdrift bliver ikke nulstillet. Vi forsøger bare at genskabe forbindelsen til din deltager.
+                </p>
+                <div className="mt-6 flex flex-col gap-3">
+                  <button
+                    type="button"
+                    onClick={actions.retryRestoreConnection}
+                    className="rounded-xl border border-emerald-400/60 bg-emerald-500/20 px-5 py-3 font-bold text-white transition-colors hover:bg-emerald-500/30"
+                  >
+                    Genopret forbindelse
+                  </button>
+                  <button
+                    type="button"
+                    onClick={actions.reloadPage}
+                    className="rounded-xl border border-white/10 bg-white/10 px-5 py-3 font-bold text-white transition-colors hover:bg-white/20"
+                  >
+                    Genindlæs siden helt
+                  </button>
+                </div>
+                <WifiConnectionTip className="mt-4 text-left" />
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={actions.reloadPage}
+                className="mt-6 rounded-xl border border-emerald-200/30 bg-white/10 px-5 py-3 font-bold text-white transition-colors hover:bg-white/20"
+              >
+                Prøv igen
+              </button>
+            )}
           </div>
         </div>
       );

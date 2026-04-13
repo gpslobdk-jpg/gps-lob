@@ -294,6 +294,8 @@ export default function LiveLobbyPage() {
             mapKey={live.mapKey}
             runQuestions={live.runQuestions}
             studentLocations={live.studentLocations}
+            liveFeedStatus={live.liveFeedStatus}
+            liveFeedLastSyncedAt={live.liveFeedLastSyncedAt}
             hasParticipantsTable={live.hasParticipantsTable}
             isEndingRun={live.isEndingRun}
             onEndRun={live.endRun}

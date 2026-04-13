@@ -75,7 +75,7 @@ export default function TeacherLiveSidebar({
           </div>
           <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-right shadow-[0_0_30px_rgba(16,185,129,0.16)]">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200/75">
-              Online nu
+              Aktive løbere
             </p>
             <p className="mt-1 text-2xl font-black text-white">{activeStudents.length}</p>
           </div>

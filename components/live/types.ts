@@ -73,6 +73,8 @@ export type LiveAnswer = {
 
 export type LiveModuleId = "leaderboard" | "feed" | "photos";
 
+export type TeacherLiveFeedStatus = "connecting" | "live" | "recovering";
+
 export type TeacherLiveStanding = {
   student: LiveStudentLocation;
   score: number;
@@ -90,6 +92,8 @@ export type TeacherLiveData = {
   joinPin: string;
   students: string[];
   isLoading: boolean;
+  liveFeedStatus: TeacherLiveFeedStatus;
+  liveFeedLastSyncedAt: string | null;
   status: SessionStatus;
   gpsOverride: boolean;
   isUpdatingGpsOverride: boolean;

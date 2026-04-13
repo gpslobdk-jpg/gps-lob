@@ -45,6 +45,8 @@ export type PlayScreenMode =
   | "finished"
   | "active";
 
+export type PlayLoadErrorVariant = "generic" | "restore_recovery";
+
 export type PhotoFeedbackState = {
   key: string;
   tone: FeedbackTone;
@@ -328,6 +330,7 @@ export interface PlayScreenState {
   mode: PlayScreenMode;
   isLoading: boolean;
   loadError: string;
+  loadErrorVariant: PlayLoadErrorVariant;
   isFinished: boolean;
   isKicked: boolean;
   playStartedAtMs: number | null;
@@ -419,6 +422,7 @@ export interface PlayActions {
   unlockCurrentPost: () => void;
   dismissCurrentPost: () => void;
   clearDismissedPost: () => void;
+  retryRestoreConnection: () => void;
   reloadPage: () => void;
   continueFromSolvedPost: () => Promise<boolean>;
   submitQuizAnswer: (selectedIndex: number) => Promise<void>;

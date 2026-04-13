@@ -53,7 +53,17 @@ export function upsertLocation(
   if (index === -1) return [...previous, nextLocation];
 
   const next = [...previous];
-  next[index] = nextLocation;
+  const current = previous[index];
+  next[index] = {
+    ...current,
+    ...nextLocation,
+    // Keep the last known coordinates if a fallback row arrives without location data.
+    lat: nextLocation.lat ?? current.lat,
+    lng: nextLocation.lng ?? current.lng,
+    updated_at: nextLocation.updated_at ?? current.updated_at ?? null,
+    run_started_at: nextLocation.run_started_at ?? current.run_started_at ?? null,
+    finished_at: nextLocation.finished_at ?? current.finished_at ?? null,
+  };
   return next;
 }
 

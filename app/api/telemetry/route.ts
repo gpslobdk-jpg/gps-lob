@@ -10,6 +10,11 @@ const ALLOWED_EVENTS = new Set([
   "gps_warmup_timeout",
   "jwt_refresh_failed",
   "kick_false_positive",
+  "participant_auth_refresh_recovered",
+  "participant_auth_rebind_recovered",
+  "participant_restore_exhausted",
+  "wake_reconnect_recovered",
+  "wake_reconnect_failed",
 ]);
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
