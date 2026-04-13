@@ -128,6 +128,20 @@ type DrilldownGroup = {
   lastSeenAt: string | null;
 };
 
+type GroupedTelemetryLog = {
+  key: string;
+  representative: TelemetryLogItem;
+  items: TelemetryLogItem[];
+  count: number;
+  participantId: string | null;
+  sessionId: string | null;
+  routePath: string | null;
+  status: number | null;
+  eventType: string;
+  startedAt: string | null;
+  lastSeenAt: string | null;
+};
+
 type AdminLogsFeedResponse = {
   telemetryLogs?: TelemetryLogRow[];
   dataSource?: DataSourceMode;
@@ -587,6 +601,135 @@ function getTelemetryTags(log: TelemetryLogItem) {
   if (log.participantId) tags.push(`deltager: ${log.participantId}`);
 
   return tags;
+}
+
+function getTelemetryTimestampValue(value: string | null) {
+  const parsed = Date.parse(value ?? "");
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function getTelemetryGroupActionLabel(log: TelemetryLogItem) {
+  const status = getStatusCode(log);
+  const routePath = getRoutePath(log);
+
+  if (status === 401 && routePath === "/api/play/participant") {
+    return "Adgang afvist";
+  }
+
+  if (status === 404 && routePath === "/api/play/participant") {
+    return "Deltager ikke fundet";
+  }
+
+  if (log.eventType === "participant_auth_refresh_recovered" || log.eventType === "participant_auth_rebind_recovered") {
+    return "Deltager-login genskabt";
+  }
+
+  if (log.eventType === "restore_success" || log.eventType === "wake_reconnect_recovered") {
+    return "Elev genoprettet";
+  }
+
+  return translateTelemetryLog(log).replace(/\.$/, "");
+}
+
+function getTelemetryGroupSummary(group: GroupedTelemetryLog) {
+  const action = getTelemetryGroupActionLabel(group.representative);
+  const countLabel = `${group.count} ${group.count === 1 ? "gang" : "gange"}`;
+
+  if (group.participantId && group.sessionId) {
+    return `${action} ${countLabel} for samme elev i samme session`;
+  }
+
+  if (group.participantId) {
+    return `${action} ${countLabel} for samme elev`;
+  }
+
+  if (group.sessionId) {
+    return `${action} ${countLabel} i samme session`;
+  }
+
+  return `${action} ${countLabel} med samme signal`;
+}
+
+function getTelemetryGroupBadgeLabel(count: number) {
+  return `x${count} ${count === 1 ? "hændelse" : "hændelser"}`;
+}
+
+function getTelemetryGroupContextLine(group: GroupedTelemetryLog) {
+  const parts = [
+    group.routePath ? `Route ${group.routePath}` : "",
+    group.status !== null ? `Status ${group.status}` : `Event ${group.eventType}`,
+    group.sessionId ? `Session ${group.sessionId}` : "",
+    group.participantId ? `Deltager ${group.participantId}` : "",
+    group.startedAt && group.lastSeenAt && group.startedAt !== group.lastSeenAt
+      ? `${formatDateTime(group.startedAt)} til ${formatDateTime(group.lastSeenAt)}`
+      : `Senest ${formatDateTime(group.lastSeenAt)}`,
+  ].filter(Boolean);
+
+  return parts.join(" · ");
+}
+
+function buildGroupedTelemetryLogs(logs: TelemetryLogItem[]) {
+  const groups = new Map<string, GroupedTelemetryLog>();
+
+  for (const log of logs) {
+    const routePath = getRoutePath(log);
+    const status = getStatusCode(log);
+    const signalKey = status !== null ? `status:${status}` : `event:${log.eventType}`;
+    const key = [
+      log.sessionId ?? "__no_session__",
+      log.participantId ?? "__no_participant__",
+      routePath ?? "__no_route__",
+      signalKey,
+    ].join("::");
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.count += 1;
+      existing.items.push(log);
+
+      if (log.createdAt && (!existing.startedAt || getTelemetryTimestampValue(log.createdAt) < getTelemetryTimestampValue(existing.startedAt))) {
+        existing.startedAt = log.createdAt;
+      }
+
+      if (log.createdAt && (!existing.lastSeenAt || getTelemetryTimestampValue(log.createdAt) > getTelemetryTimestampValue(existing.lastSeenAt))) {
+        existing.lastSeenAt = log.createdAt;
+        existing.representative = log;
+      }
+
+      continue;
+    }
+
+    groups.set(key, {
+      key,
+      representative: log,
+      items: [log],
+      count: 1,
+      participantId: log.participantId,
+      sessionId: log.sessionId,
+      routePath,
+      status,
+      eventType: log.eventType,
+      startedAt: log.createdAt,
+      lastSeenAt: log.createdAt,
+    });
+  }
+
+  return Array.from(groups.values())
+    .map((group) => ({
+      ...group,
+      items: [...group.items].sort(
+        (left, right) => getTelemetryTimestampValue(right.createdAt) - getTelemetryTimestampValue(left.createdAt)
+      ),
+    }))
+    .sort((left, right) => {
+      const lastSeenDelta = getTelemetryTimestampValue(right.lastSeenAt) - getTelemetryTimestampValue(left.lastSeenAt);
+
+      if (lastSeenDelta !== 0) {
+        return lastSeenDelta;
+      }
+
+      return right.count - left.count;
+    });
 }
 
 function translateExternalIndicator(indicator: string) {
@@ -1215,8 +1358,15 @@ export default function AdminLogsPage() {
     ]
   );
 
-  const visibleLogs =
-    activeTab === "overview" ? logs.slice(0, 12) : activeTab === "network" ? networkLogs : recoveryLogs;
+  const sourceLogsForActiveTab = useMemo(
+    () => (activeTab === "overview" ? logs : activeTab === "network" ? networkLogs : recoveryLogs),
+    [activeTab, logs, networkLogs, recoveryLogs]
+  );
+  const visibleLogGroups = useMemo(() => {
+    const groupedLogs = buildGroupedTelemetryLogs(sourceLogsForActiveTab);
+
+    return activeTab === "overview" ? groupedLogs.slice(0, 12) : groupedLogs;
+  }, [activeTab, sourceLogsForActiveTab]);
 
   useEffect(() => {
     if (selectedDrilldownGroupKey === "all") {
@@ -2009,7 +2159,7 @@ export default function AdminLogsPage() {
                 title="Indlæser telemetry"
                 body="Vi henter de seneste loglinjer, serverfejl og statusfeeds og bygger et samlet overblik over systemets sundhed."
               />
-            ) : visibleLogs.length === 0 ? (
+            ) : visibleLogGroups.length === 0 ? (
               <EmptyState
                 title="Ingen hændelser at vise"
                 body={
@@ -2022,36 +2172,78 @@ export default function AdminLogsPage() {
               />
             ) : (
               <div className="space-y-4">
-                {visibleLogs.map((log) => (
-                  <article
-                    key={log.id}
-                    className="rounded-[1.5rem] border border-white/10 bg-slate-950/45 p-4 shadow-[0_18px_36px_rgba(15,23,42,0.16)]"
+                {visibleLogGroups.map((group) => (
+                  <details
+                    key={group.key}
+                    className="rounded-3xl border border-white/10 bg-slate-950/45 p-4 shadow-[0_18px_36px_rgba(15,23,42,0.16)]"
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-base font-semibold text-white">{translateTelemetryLog(log)}</p>
-                        <p className="mt-1 text-sm leading-6 text-slate-300/80">{getTelemetryDetail(log)}</p>
+                    <summary className="cursor-pointer list-none focus:outline-none">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-base font-semibold text-white">
+                            {translateTelemetryLog(group.representative)}
+                          </p>
+                          <p className="mt-1 text-sm leading-6 text-slate-300/88">{getTelemetryGroupSummary(group)}</p>
+                          <p className="mt-2 text-sm leading-6 text-slate-400/88">{getTelemetryGroupContextLine(group)}</p>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-2">
+                          <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-50/92">
+                            {getTelemetryGroupBadgeLabel(group.count)}
+                          </span>
+                          <time className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300/85">
+                            {formatDateTime(group.lastSeenAt)}
+                          </time>
+                        </div>
                       </div>
-                      <time className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300/85">
-                        {formatDateTime(log.createdAt)}
-                      </time>
-                    </div>
+                    </summary>
 
                     <div className="mt-4 rounded-[1.25rem] border border-cyan-300/20 bg-cyan-400/10 p-4 text-sm text-cyan-50/92">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100/80">
                         Anbefalet handling
                       </p>
-                      <p className="mt-2 leading-6">{getTelemetryRecommendedAction(log)}</p>
+                      <p className="mt-2 leading-6">{getTelemetryRecommendedAction(group.representative)}</p>
                     </div>
 
                     <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-300/75">
-                      {getTelemetryTags(log).map((tag) => (
-                        <span key={`${log.id}-${tag}`} className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                      {getTelemetryTags(group.representative).map((tag) => (
+                        <span
+                          key={`${group.key}-${tag}`}
+                          className="rounded-full border border-white/10 bg-white/5 px-3 py-1"
+                        >
                           {tag}
                         </span>
                       ))}
                     </div>
-                  </article>
+
+                    <div className="mt-4 rounded-[1.25rem] border border-white/10 bg-white/3 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300/78">
+                          Rå loglinjer
+                        </p>
+                        <p className="text-xs text-slate-400/80">Klik igen for at folde sammen</p>
+                      </div>
+
+                      <div className="mt-3 space-y-3">
+                        {group.items.map((log) => (
+                          <div
+                            key={log.id}
+                            className="rounded-2xl border border-white/8 bg-slate-950/55 p-3 text-sm text-slate-200/88"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-2 text-xs text-slate-400/82">
+                              <span className="font-semibold uppercase tracking-[0.12em] text-slate-300/82">
+                                {log.eventType}
+                              </span>
+                              <time>{formatDateTime(log.createdAt)}</time>
+                            </div>
+                            <p className="mt-2 wrap-break-word font-mono text-xs leading-6 text-slate-200/88">
+                              {log.message || "Ingen rå loglinje"}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </details>
                 ))}
               </div>
             )}
