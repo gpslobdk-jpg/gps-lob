@@ -1,3 +1,5 @@
+"use client";
+
 function renderPostPage(
   styles: PdfStyles,
   template: PdfTemplate,
@@ -17,7 +19,6 @@ function renderPostPage(
       return renderClassicPostPage(styles, template, run, post, totalPosts, imageUrl);
   }
 }
-"use client";
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
