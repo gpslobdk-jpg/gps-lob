@@ -44,9 +44,11 @@ type Post = {
   body_text: string;
   image_url: string;
   image_prompt: string;
-  question: string;
-  options: [string, string, string, string];
-  correct_index: number;
+  question?: string;
+  options?: [string, string, string, string];
+  correct_index?: number;
+  hint?: string;
+  answer_word?: string;
 };
 
 type StjernelobData = {
@@ -1176,10 +1178,17 @@ function getDisplayGradeLevel(gradeLevel: string) {
 }
 
 function getCorrectAnswer(post: Post) {
-  const letter = LETTER_LABELS[post.correct_index] ?? "?";
-  const option = post.options[post.correct_index] ?? "Ukendt svar";
-
-  return { letter, option };
+  if (
+    typeof post.correct_index === "number" &&
+    Array.isArray(post.options) &&
+    post.options[post.correct_index]
+  ) {
+    return {
+      letter: LETTER_LABELS[post.correct_index] ?? "?",
+      option: post.options[post.correct_index] ?? "Ukendt svar",
+    };
+  }
+  return { letter: "?", option: "Ukendt svar" };
 }
 
 function renderMetaChips(styles: PdfStyles, values: string[]) {
@@ -1357,6 +1366,21 @@ function renderPosterAside(styles: PdfStyles) {
 }
 
 function renderQuestionSection(styles: PdfStyles, template: PdfTemplate, post: Post) {
+  // Crossword: vis hint og antal bogstaver, skjul options
+  if (post.answer_word) {
+    return (
+      <View style={styles.questionCard}>
+        <Text style={styles.sectionLabel}>Ledetråd</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
+          <Text style={styles.questionText}>{post.hint}</Text>
+          <Text style={{ fontSize: 10, color: "#64748b", marginLeft: 10 }}>
+            ({post.answer_word.length} bogstaver)
+          </Text>
+        </View>
+      </View>
+    );
+  }
+  // Classic: som før
   const optionsContainerStyle =
     template.optionMode === "stacked" ? styles.optionStack : styles.optionGrid;
   const optionItemStyle =
@@ -1366,16 +1390,18 @@ function renderQuestionSection(styles: PdfStyles, template: PdfTemplate, post: P
     <View style={styles.questionCard}>
       <Text style={styles.sectionLabel}>{template.questionLabel}</Text>
       <Text style={styles.questionText}>{post.question}</Text>
-      <View style={optionsContainerStyle}>
-        {post.options.map((option, index) => (
-          <View key={`${post.number}-${index}`} style={optionItemStyle}>
-            <View style={styles.optionAccent}>
-              <Text style={styles.optionLetter}>{LETTER_LABELS[index]}</Text>
+      {post.options && (
+        <View style={optionsContainerStyle}>
+          {post.options.map((option, index) => (
+            <View key={`${post.number}-${index}`} style={optionItemStyle}>
+              <View style={styles.optionAccent}>
+                <Text style={styles.optionLetter}>{LETTER_LABELS[index]}</Text>
+              </View>
+              <Text style={styles.optionCopy}>{option}</Text>
             </View>
-            <Text style={styles.optionCopy}>{option}</Text>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -1543,7 +1569,21 @@ function renderAnswerSheetPage(styles: PdfStyles, template: PdfTemplate, run: St
                 <Text style={styles.answerItemNumberValue}>{post.number}</Text>
               </View>
               <View style={styles.answerBox}>
-                <View style={styles.answerBoxInner} />
+                {post.answer_word ? (
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    {Array.from({ length: post.answer_word.length }).map((_, i) => (
+                      <View
+                        key={i}
+                        style={[
+                          styles.answerBoxInner,
+                          { width: 30, marginRight: 6 },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.answerBoxInner} />
+                )}
               </View>
             </View>
           ))}
@@ -1568,8 +1608,21 @@ function renderAnswerKeyPage(styles: PdfStyles, template: PdfTemplate, run: Stje
 
         <View style={styles.answerKeyBody}>
           {run.posts.map((post) => {
+            if (post.answer_word) {
+              return (
+                <View key={`key-${post.number}`} style={styles.answerKeyRow}>
+                  <View style={styles.answerKeyNumber}>
+                    <Text style={styles.answerKeyNumberText}>{post.number}</Text>
+                  </View>
+                  <View style={styles.answerKeyContent}>
+                    <Text style={styles.answerKeyTitle}>{post.title}</Text>
+                    <Text style={styles.answerKeyQuestion}>{post.hint}</Text>
+                    <Text style={styles.answerKeyAnswer}>{post.answer_word.toUpperCase()}</Text>
+                  </View>
+                </View>
+              );
+            }
             const correctAnswer = getCorrectAnswer(post);
-
             return (
               <View key={`key-${post.number}`} style={styles.answerKeyRow}>
                 <View style={styles.answerKeyNumber}>
@@ -1578,10 +1631,12 @@ function renderAnswerKeyPage(styles: PdfStyles, template: PdfTemplate, run: Stje
                 <View style={styles.answerKeyContent}>
                   <Text style={styles.answerKeyTitle}>{post.title}</Text>
                   <Text style={styles.answerKeyQuestion}>{post.question}</Text>
-                  <Text style={styles.answerKeyAnswer}>
-                    <Text style={styles.answerKeyLetter}>{correctAnswer.letter}</Text>
-                    {` — ${correctAnswer.option}`}
-                  </Text>
+                  {post.options && (
+                    <Text style={styles.answerKeyAnswer}>
+                      <Text style={styles.answerKeyLetter}>{correctAnswer.letter}</Text>
+                      {` — ${correctAnswer.option}`}
+                    </Text>
+                  )}
                 </View>
               </View>
             );
