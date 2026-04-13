@@ -23,24 +23,40 @@ type GeneratePayload = {
   subject?: unknown;
   gradeLevel?: unknown;
   count?: unknown;
+  raceType?: unknown;
 };
 
-const postSchema = z
+const postSchemaClassic = z
   .object({
     title: z.string().trim().min(1),
     body_text: z.string().trim().min(1),
     image_prompt: z.string().trim().min(1),
-    question: z.string().trim().min(1),
-    options: z.array(z.string().trim().min(1)).length(4),
-    correct_index: z.number().int().min(0).max(3),
+    question: z.string().trim().min(1).optional(),
+    options: z.array(z.string().trim().min(1)).length(4).optional(),
+    correct_index: z.number().int().min(0).max(3).optional(),
+    hint: z.string().trim().optional(),
+    answer_word: z.string().trim().max(12).regex(/^[A-ZÆØÅ0-9]+$/).optional(),
   })
   .strict();
 
-function createSchema(count: number) {
+const postSchemaCrossword = z
+  .object({
+    title: z.string().trim().min(1),
+    body_text: z.string().trim().min(1),
+    image_prompt: z.string().trim().min(1),
+    hint: z.string().trim().min(1),
+    answer_word: z.string().trim().max(12).regex(/^[A-ZÆØÅ0-9]+$/),
+    question: z.string().trim().optional(),
+    options: z.array(z.string().trim().min(1)).length(4).optional(),
+    correct_index: z.number().int().min(0).max(3).optional(),
+  })
+  .strict();
+
+function createSchema(count: number, raceType: "classic" | "crossword") {
   return z
     .object({
       title: z.string().trim().min(1),
-      posts: z.array(postSchema).length(count),
+      posts: z.array(raceType === "crossword" ? postSchemaCrossword : postSchemaClassic).length(count),
     })
     .strict();
 }
@@ -150,7 +166,9 @@ export async function POST(req: Request) {
     const topic = asTrimmedString(payload.topic);
     const subject = asTrimmedString(payload.subject);
     const gradeLevel = asTrimmedString(payload.gradeLevel);
+
     const count = asCount(payload.count);
+    const raceType = (typeof payload.raceType === "string" && (payload.raceType === "crossword" || payload.raceType === "classic")) ? payload.raceType : "classic";
 
     if (!topic) {
       return NextResponse.json(
@@ -171,15 +189,36 @@ export async function POST(req: Request) {
       );
     }
 
+
     const gradeLine = gradeLevel ? `- Sproglig sværhedsgrad og ordvalg skal passe til ${gradeLevel}.` : "";
-    const subjectLine = subject ? `- Brug faget "${subject}" som faglig ramme for alle poster.` : "";
+    const subjectLine = subject ? `- Brug faget \"${subject}\" som faglig ramme for alle poster.` : "";
     const imageArtDirection = resolveImageArtDirection(subject);
     const imageDirectionLine =
-      `- Alle billedprompts skal følge layout-retningen "${imageArtDirection.label}": ${imageArtDirection.promptRule}.`;
+      `- Alle billedprompts skal følge layout-retningen \"${imageArtDirection.label}\": ${imageArtDirection.promptRule}.`;
     const imagePurposeLine =
       `- Billedprompts skal især fremhæve ${imageArtDirection.emphasis}.`;
 
-    const systemPrompt = `Du er en dansk lærer, der laver et analogt stjerneløb til udendørs undervisning.
+    let systemPrompt = "";
+    if (raceType === "crossword") {
+      systemPrompt = `Du er en dansk lærer, der laver et analogt stjerneløb som krydsordsløb til udendørs undervisning.
+Et stjerneløb er en serie af laminerede A4-post-kort, der hænges rundt i skolegården.
+Elever vandrer fra post til post, læser teksten, ser på billedet og skal gætte et ord ud fra en ledetråd.
+
+Vigtige regler:
+- Alt indhold skal være på dansk.
+- Lav præcis ${count} poster.
+- Hver post skal have: en kort overskrift, en læsbar brødtekst (3-5 sætninger der fortæller noget fagligt interessant), et billedprompt på ENGELSK til en AI-billedgenerator, et answer_word (et kort, logisk ord uden specialtegn, der relaterer til postens tekst, max 12 tegn, store bogstaver, ingen mellemrum) og et hint (en kort ledetråd til ordet).
+- answer_word skal være på formatet: kun store bogstaver og tal, ingen mellemrum eller specialtegn, max 12 tegn.
+- hint skal være en kort, præcis ledetråd til answer_word.
+- Må IKKE generere options eller correct_index.
+- Billedprompt på engelsk: én enkel prompt på naturligt engelsk, uden citationstegn eller punktform, og den skal passe direkte til posten.
+${imageDirectionLine}
+${imagePurposeLine}
+- Giv løbet en samlet titel.
+${subjectLine}
+${gradeLine}`;
+    } else {
+      systemPrompt = `Du er en dansk lærer, der laver et analogt stjerneløb til udendørs undervisning.
 Et stjerneløb er en serie af laminerede A4-post-kort, der hænges rundt i skolegården.
 Elever vandrer fra post til post, læser teksten, ser på billedet og besvarer spørgsmålet.
 
@@ -195,13 +234,14 @@ ${imagePurposeLine}
 - Giv løbet en samlet titel.
 ${subjectLine}
 ${gradeLine}`;
+    }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
 
     let result: z.infer<ReturnType<typeof createSchema>>;
     try {
-      const schema = createSchema(count);
+      const schema = createSchema(count, raceType);
       const response = await generateObject({
         model: openai("gpt-4o-mini"),
         schema,
@@ -227,16 +267,29 @@ ${gradeLine}`;
     }
 
     // Attach Pollinations image URLs
-    const posts = result.posts.map((post, i) => ({
-      number: i + 1,
-      title: post.title,
-      body_text: post.body_text,
-      image_prompt: post.image_prompt,
-      image_url: buildPollinationsUrl(post.image_prompt),
-      question: post.question,
-      options: post.options,
-      correct_index: post.correct_index,
-    }));
+    const posts = result.posts.map((post, i) => {
+      const base = {
+        number: i + 1,
+        title: post.title,
+        body_text: post.body_text,
+        image_prompt: post.image_prompt,
+        image_url: buildPollinationsUrl(post.image_prompt),
+      };
+      if (raceType === "crossword") {
+        return {
+          ...base,
+          hint: post.hint,
+          answer_word: post.answer_word,
+        };
+      } else {
+        return {
+          ...base,
+          question: post.question,
+          options: post.options,
+          correct_index: post.correct_index,
+        };
+      }
+    });
 
     const { data: savedRun, error: insertError } = await supabase
       .from("stjerneloeb")
