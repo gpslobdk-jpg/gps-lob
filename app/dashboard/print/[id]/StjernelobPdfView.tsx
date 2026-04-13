@@ -1066,14 +1066,14 @@ function createStyles(template: PdfTemplate) {
       paddingVertical: 10,
     },
     answerItemNumberLabel: {
-      fontSize: 5.5,
+      fontSize: 9,
       textTransform: "uppercase",
       letterSpacing: 1.8,
       color: t.optionAccentText,
       marginBottom: 1,
     },
     answerItemNumberValue: {
-      fontSize: 16,
+      fontSize: 28,
       fontWeight: 700,
       color: t.optionAccentText,
     },
@@ -1520,20 +1520,7 @@ function renderAnswerSheetPage(styles: PdfStyles, template: PdfTemplate, run: St
       <View style={styles.frame} />
       <View style={styles.summaryPageInner}>
         <View style={styles.summaryHeader}>
-          <View style={styles.eyebrowRow}>
-            <Text style={styles.eyebrow}>Holdets svarark</Text>
-            <Text style={styles.motif}>{template.motif}</Text>
-          </View>
           <Text style={styles.summaryTitle}>Svarark</Text>
-          <Text style={styles.summarySubtitle}>
-            {run.title}. Skriv ét bogstav pr. post, når holdet er enige om svaret, og behold arket ved
-            samlingspunktet eller hos holdlederen.
-          </Text>
-          {renderMetaChips(styles, [
-            `Fag: ${getDisplaySubject(run.subject)}`,
-            `Klassetrin: ${getDisplayGradeLevel(run.grade_level)}`,
-            `Layout: ${template.label}`,
-          ])}
         </View>
 
         <View style={styles.teamRow}>
@@ -1546,21 +1533,7 @@ function renderAnswerSheetPage(styles: PdfStyles, template: PdfTemplate, run: St
           når hele holdet er enige.
         </Text>
 
-        <View style={styles.guidanceRow}>
-          <View style={styles.guidanceCard}>
-            <Text style={styles.guidanceCardTitle}>Sådan bruges arket</Text>
-            <Text style={styles.guidanceCardBody}>
-              Tag arket med rundt, eller lad én elev stå for noteringen. Ét bogstav pr. boks gør
-              hurtig efterretning nemmere bagefter.
-            </Text>
-          </View>
-          <View style={styles.guidanceCard}>
-            <Text style={styles.guidanceCardTitle}>Placering</Text>
-            <Text style={styles.guidanceCardBody}>
-              Hvis holdene afleverer centralt, så print ekstra svarark og læg dem ved startområdet.
-            </Text>
-          </View>
-        </View>
+
 
         <View style={styles.answerGrid}>
           {run.posts.map((post) => (
@@ -1590,20 +1563,7 @@ function renderAnswerKeyPage(styles: PdfStyles, template: PdfTemplate, run: Stje
       <View style={styles.frame} />
       <View style={styles.summaryPageInner}>
         <View style={styles.summaryHeader}>
-          <View style={styles.eyebrowRow}>
-            <Text style={styles.eyebrow}>Kun til lærerens brug</Text>
-            <Text style={styles.motif}>{template.motif}</Text>
-          </View>
           <Text style={styles.summaryTitle}>Facitliste</Text>
-          <Text style={styles.summarySubtitle}>
-            Brug facitlisten som intern læreroversigt. Den er farvet i samme familie som posterne,
-            men skal ikke hænge ude ved posterne.
-          </Text>
-          {renderMetaChips(styles, [
-            `Fag: ${getDisplaySubject(run.subject)}`,
-            `Klassetrin: ${getDisplayGradeLevel(run.grade_level)}`,
-            `Layout: ${template.label}`,
-          ])}
         </View>
 
         <View style={styles.answerKeyBody}>
