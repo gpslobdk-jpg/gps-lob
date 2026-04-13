@@ -3,9 +3,11 @@
 import Link from "next/link";
 import {
   Activity,
+  CheckCircle2,
   ChevronLeft,
   Database,
   Globe,
+  Info,
   RefreshCw,
   ShieldAlert,
   TriangleAlert,
@@ -1358,6 +1360,52 @@ export default function AdminLogsPage() {
     ]
   );
 
+  const statusCards = useMemo(
+    () => [
+      {
+        label: "Kritiske",
+        count: criticalAlarmCount,
+        detail:
+          criticalAlarmCount === 0
+            ? "Ingen kritiske alarmer"
+            : `${criticalAlarmCount} kræver hurtig handling`,
+        isHealthy: criticalAlarmCount === 0,
+      },
+      {
+        label: "Route-loops",
+        count: routeLoopAlarmCount,
+        detail:
+          routeLoopAlarmCount === 0
+            ? "Ingen route-loops registreret"
+            : `${routeLoopAlarmCount} routes er i fejl-loop`,
+        isHealthy: routeLoopAlarmCount === 0,
+      },
+      {
+        label: "Eksterne signaler",
+        count: degradedExternalCount,
+        detail:
+          degradedExternalCount === 0
+            ? "Ingen aktive leverandørsignaler"
+            : `${degradedExternalCount} leverandørsignaler kræver tjek`,
+        isHealthy: degradedExternalCount === 0,
+      },
+    ],
+    [criticalAlarmCount, degradedExternalCount, routeLoopAlarmCount]
+  );
+
+  const compactSystemInfo = useMemo(
+    () => [
+      { label: "Feed", value: dataSource === "live" ? "Live" : "Fallback" },
+      { label: "Senest", value: formatDateTime(generatedAt) },
+      {
+        label: "Auto-refresh",
+        value: autoRefreshEnabled ? formatCountdown(refreshCountdownMs) : "Pauset",
+      },
+      { label: "Browseralarmer", value: getNotificationStatusLabel(notificationPermission) },
+    ],
+    [autoRefreshEnabled, dataSource, generatedAt, notificationPermission, refreshCountdownMs]
+  );
+
   const sourceLogsForActiveTab = useMemo(
     () => (activeTab === "overview" ? logs : activeTab === "network" ? networkLogs : recoveryLogs),
     [activeTab, logs, networkLogs, recoveryLogs]
@@ -1514,58 +1562,67 @@ export default function AdminLogsPage() {
             <div className="flex items-start gap-3">
               <TriangleAlert className="mt-1 h-5 w-5 text-rose-200" />
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-rose-100/70">Alarmfase</p>
-                <h2 className={`mt-2 text-2xl font-black text-white ${rubik.className}`}>Aktive alarmer lige nu</h2>
-                <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-300/80">
-                  Serveren gennemgår de seneste {alarmWindowMinutes} minutter og løfter kun de mønstre frem, der
-                  ligner reel driftsstøj: mange elever med samme reconnect-fejl, vigtige routes i 500-loop og åbne
-                  eksterne incidents.
-                </p>
+                <h2 className={`text-2xl font-black text-white ${rubik.className}`}>Status</h2>
+                <p className="mt-2 text-sm text-slate-300/78">Senest opdateret {formatDateTime(generatedAt)}</p>
               </div>
             </div>
 
-            <div className="rounded-[1.35rem] border border-white/10 bg-slate-950/45 px-4 py-3 text-sm text-slate-300/85">
-              <p className="font-semibold text-white">Alarmmotor status</p>
-              <p className="mt-2">Senest kørt {formatDateTime(generatedAt)}</p>
-              <p className="mt-1">{getNotificationStatusLabel(notificationPermission)}</p>
+            <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-300/82">
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">Aktive alarmer {activeAlarms.length}</span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">
+                {dataSource === "live" ? "Live feed" : "Fallback"}
+              </span>
             </div>
           </div>
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-[1.6rem] border border-white/10 bg-slate-950/45 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/75">Aktive alarmer</p>
-              <p className={`mt-3 text-3xl font-black text-white ${rubik.className}`}>{activeAlarms.length}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-300/78">Alarmmotoren ser {alarmWindowMinutes} minutter tilbage.</p>
-            </div>
-            <div className="rounded-[1.6rem] border border-white/10 bg-slate-950/45 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/75">Kritiske</p>
-              <p className={`mt-3 text-3xl font-black text-white ${rubik.className}`}>{criticalAlarmCount}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-300/78">Kræver typisk lærerinformation eller akut driftstjek.</p>
-            </div>
-            <div className="rounded-[1.6rem] border border-white/10 bg-slate-950/45 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/75">Route-loops</p>
-              <p className={`mt-3 text-3xl font-black text-white ${rubik.className}`}>{routeLoopAlarmCount}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-300/78">Server-routes med 500/502/504-bølger på kort tid.</p>
-            </div>
-            <div className="rounded-[1.6rem] border border-white/10 bg-slate-950/45 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/75">Eksterne signaler</p>
-              <p className={`mt-3 text-3xl font-black text-white ${rubik.className}`}>{externalAlarmCount}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-300/78">Driftsproblemer eller utilgængelige statusfeeds hos leverandører.</p>
-            </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            {statusCards.map((card) => {
+              const cardTone = card.isHealthy
+                ? {
+                    card: "border-emerald-300/30 bg-emerald-500/12",
+                    badge: "border-emerald-300/30 bg-emerald-400/15 text-emerald-50",
+                    label: "text-emerald-100/80",
+                    value: "text-emerald-50",
+                    detail: "text-emerald-50/88",
+                  }
+                : {
+                    card: "border-rose-300/30 bg-rose-500/12",
+                    badge: "border-rose-300/30 bg-rose-400/15 text-rose-50",
+                    label: "text-rose-100/80",
+                    value: "text-rose-50",
+                    detail: "text-rose-50/88",
+                  };
+
+              return (
+                <article key={card.label} className={`rounded-[1.8rem] border p-5 shadow-[0_22px_48px_rgba(15,23,42,0.16)] ${cardTone.card}`}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${cardTone.label}`}>{card.label}</p>
+                      <p className={`mt-3 text-5xl font-black ${rubik.className} ${cardTone.value}`}>{card.count}</p>
+                      <p className={`mt-3 text-sm leading-6 ${cardTone.detail}`}>{card.detail}</p>
+                    </div>
+
+                    <span className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl border ${cardTone.badge}`}>
+                      {card.isHealthy ? <CheckCircle2 className="h-6 w-6" /> : <TriangleAlert className="h-6 w-6" />}
+                    </span>
+                  </div>
+                </article>
+              );
+            })}
           </div>
 
           {isLoading ? (
             <div className="mt-5">
               <EmptyState
                 title="Beregner alarmer"
-                body="Vi samler telemetry, eksterne incidents og serverfejl til aktive alarmer med severity og anbefalet handling."
+                body="Vi opdaterer statuskort og alarmer med de seneste driftssignaler."
               />
             </div>
           ) : activeAlarms.length === 0 ? (
             <div className="mt-5">
               <EmptyState
                 title="Ingen aktive alarmer"
-                body="Der er ikke fundet mønstre i de seneste minutter, som tyder på bred driftspåvirkning lige nu."
+                body="Der er ikke fundet mønstre, som kræver handling lige nu."
               />
             </div>
           ) : (
@@ -1668,19 +1725,14 @@ export default function AdminLogsPage() {
             <div className="flex items-start gap-3">
               <Activity className="mt-1 h-5 w-5 text-cyan-300" />
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200/70">Fase 3</p>
-                <h2 className={`mt-2 text-2xl font-black text-white ${rubik.className}`}>Korrelationslag</h2>
-                <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-300/80">
-                  Her bliver mange loglinjer samlet til færre driftshændelser, så du hurtigere kan se forskel på et
-                  enkelt problem-løb og et fejlmønster, der går igen på tværs af sessioner.
-                </p>
+                <h2 className={`text-2xl font-black text-white ${rubik.className}`}>Korrelationslag</h2>
+                <p className="mt-2 text-sm text-slate-300/78">{correlatedIncidents.length} aktive spor</p>
               </div>
             </div>
 
-            <div className="rounded-[1.35rem] border border-white/10 bg-slate-950/45 px-4 py-3 text-sm text-slate-300/85">
-              <p className="font-semibold text-white">Korrelationsvindue</p>
-              <p className="mt-2">Ser {correlationWindowMinutes} minutter tilbage fra seneste feed</p>
-              <p className="mt-1">Genereret {formatDateTime(generatedAt)}</p>
+            <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-300/82">
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">{correlationWindowMinutes} min vindue</span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">Genereret {formatDateTime(generatedAt)}</span>
             </div>
           </div>
 
@@ -1797,18 +1849,16 @@ export default function AdminLogsPage() {
             <div className="flex items-start gap-3">
               <Database className="mt-1 h-5 w-5 text-cyan-300" />
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200/70">Fase 4</p>
-                <h2 className={`mt-2 text-2xl font-black text-white ${rubik.className}`}>Drilldown og tidslinje</h2>
-                <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-300/80">
-                  Filtrer direkte på route, session, status og fritekst, og gå fra overblik til konkrete loglinjer med rå teknisk kontekst.
-                </p>
+                <h2 className={`text-2xl font-black text-white ${rubik.className}`}>Drilldown og tidslinje</h2>
+                <p className="mt-2 text-sm text-slate-300/78">{filteredDrilldownLogs.length} loglinjer matcher aktuelle filtre</p>
               </div>
             </div>
 
-            <div className="rounded-[1.35rem] border border-white/10 bg-slate-950/45 px-4 py-3 text-sm text-slate-300/85">
-              <p className="font-semibold text-white">Drilldown-status</p>
-              <p className="mt-2">{filteredDrilldownLogs.length} loglinjer matcher aktuelle filtre</p>
-              <p className="mt-1">Grupperet efter {drilldownGroupBy === "route" ? "route" : drilldownGroupBy === "session" ? "session" : "hændelsestype"}</p>
+            <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-300/82">
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">
+                {drilldownGroupBy === "route" ? "Grupperet efter route" : drilldownGroupBy === "session" ? "Grupperet efter session" : "Grupperet efter hændelse"}
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">Senest {formatDateTime(generatedAt)}</span>
             </div>
           </div>
 
@@ -1992,9 +2042,7 @@ export default function AdminLogsPage() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-white">Tidslinje</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-300/80">
-                        {activeDrilldownLogs.length} loglinjer i denne visning. Klik på en linje for at se rå teknisk kontekst.
-                      </p>
+                      <p className="mt-1 text-sm leading-6 text-slate-300/80">{activeDrilldownLogs.length} loglinjer i denne visning. Vælg en linje for detaljer.</p>
                     </div>
                     <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300/85">
                       {selectedDrilldownGroupKey === "all" ? "Alle grupper" : "Filtreret gruppe"}
@@ -2031,12 +2079,12 @@ export default function AdminLogsPage() {
                   </div>
                 </div>
 
-                <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/45 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+                <details className="rounded-[1.4rem] border border-white/10 bg-slate-950/45 p-4">
+                  <summary className="flex cursor-pointer list-none flex-wrap items-start justify-between gap-3 focus:outline-none">
                     <div>
                       <p className="text-sm font-semibold text-white">Rå teknisk kontekst</p>
                       <p className="mt-1 text-sm leading-6 text-slate-300/80">
-                        Parsebare felter fra structured metadata samt den oprindelige logbesked.
+                        {selectedDrilldownLog ? "Skjult som standard. Fold ud for metadata og rå besked." : "Vælg en loglinje for tekniske detaljer."}
                       </p>
                     </div>
                     {selectedDrilldownLog ? (
@@ -2044,14 +2092,11 @@ export default function AdminLogsPage() {
                         {formatDateTime(selectedDrilldownLog.createdAt)}
                       </span>
                     ) : null}
-                  </div>
+                  </summary>
 
                   {!selectedDrilldownLog ? (
                     <div className="mt-4">
-                      <EmptyState
-                        title="Vælg en loglinje"
-                        body="Klik på en hændelse i tidslinjen for at se de parsebare metadata og den rå besked." 
-                      />
+                      <EmptyState title="Vælg en loglinje" body="Klik på en hændelse i tidslinjen for at se de tekniske detaljer." />
                     </div>
                   ) : (
                     <div className="mt-4 space-y-4">
@@ -2088,24 +2133,36 @@ export default function AdminLogsPage() {
                       </div>
                     </div>
                   )}
-                </div>
+                </details>
               </div>
             </div>
           )}
         </section>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-          {overviewCards.map((card) => (
-            <div
-              key={card.label}
-              className="rounded-[1.9rem] border border-white/10 bg-white/6 p-5 shadow-[0_24px_55px_rgba(15,23,42,0.18)] backdrop-blur-xl"
-            >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/75">{card.label}</p>
-              <p className={`mt-3 text-3xl font-black text-white ${rubik.className}`}>{card.value}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-300/80">{card.detail}</p>
+        <details className="mt-6 rounded-[2rem] border border-white/10 bg-white/5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+          <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 p-5 sm:p-6">
+            <div>
+              <p className="text-sm font-semibold text-white">Øvrige nøgletal</p>
+              <p className="mt-1 text-sm text-slate-300/75">Skjult som standard for at holde overblikket rent.</p>
             </div>
-          ))}
-        </div>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300/85">
+              {overviewCards.length} kort
+            </span>
+          </summary>
+
+          <div className="grid gap-4 px-5 pb-5 sm:grid-cols-2 sm:px-6 sm:pb-6 xl:grid-cols-3 2xl:grid-cols-6">
+            {overviewCards.map((card) => (
+              <div
+                key={card.label}
+                className="rounded-[1.9rem] border border-white/10 bg-white/6 p-5 shadow-[0_24px_55px_rgba(15,23,42,0.18)] backdrop-blur-xl"
+              >
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/75">{card.label}</p>
+                <p className={`mt-3 text-3xl font-black text-white ${rubik.className}`}>{card.value}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-300/80">{card.detail}</p>
+              </div>
+            ))}
+          </div>
+        </details>
 
         <div className="mt-6 rounded-[2rem] border border-white/10 bg-white/5 p-3 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl">
           <div className="flex flex-wrap gap-2">
@@ -2145,11 +2202,7 @@ export default function AdminLogsPage() {
                   {tabs.find((tab) => tab.id === activeTab)?.label}
                 </h2>
                 <p className="text-sm text-slate-300/75">
-                  {activeTab === "overview"
-                    ? "Seneste hændelser med driftstolkning, serverkontekst og anbefalet handling."
-                    : activeTab === "network"
-                      ? "401/404-fejl, oversat til det konkrete elev- eller sessionproblem de typisk betyder."
-                      : "Gendannelser og reconnects, hvor systemet hentede sig selv tilbage uden fuldt nedbrud."}
+                  {activeTab === "overview" ? "Grupperet feed" : activeTab === "network" ? "401/404-fejl" : "Genoprettelser"}
                 </p>
               </div>
             </div>
@@ -2173,30 +2226,23 @@ export default function AdminLogsPage() {
             ) : (
               <div className="space-y-4">
                 {visibleLogGroups.map((group) => (
-                  <details
+                  <article
                     key={group.key}
                     className="rounded-3xl border border-white/10 bg-slate-950/45 p-4 shadow-[0_18px_36px_rgba(15,23,42,0.16)]"
                   >
-                    <summary className="cursor-pointer list-none focus:outline-none">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="text-base font-semibold text-white">
-                            {translateTelemetryLog(group.representative)}
-                          </p>
-                          <p className="mt-1 text-sm leading-6 text-slate-300/88">{getTelemetryGroupSummary(group)}</p>
-                          <p className="mt-2 text-sm leading-6 text-slate-400/88">{getTelemetryGroupContextLine(group)}</p>
-                        </div>
-
-                        <div className="flex flex-col items-end gap-2">
-                          <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-50/92">
-                            {getTelemetryGroupBadgeLabel(group.count)}
-                          </span>
-                          <time className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300/85">
-                            {formatDateTime(group.lastSeenAt)}
-                          </time>
-                        </div>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-base font-semibold text-white">{translateTelemetryLog(group.representative)}</p>
+                        <p className="mt-1 text-sm leading-6 text-slate-300/88">{getTelemetryGroupSummary(group)}</p>
                       </div>
-                    </summary>
+
+                      <div className="flex flex-col items-end gap-2">
+                        <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-50/92">
+                          {getTelemetryGroupBadgeLabel(group.count)}
+                        </span>
+                        <time className="text-xs font-medium text-slate-400/85">{formatDateTime(group.lastSeenAt)}</time>
+                      </div>
+                    </div>
 
                     <div className="mt-4 rounded-[1.25rem] border border-cyan-300/20 bg-cyan-400/10 p-4 text-sm text-cyan-50/92">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100/80">
@@ -2205,119 +2251,80 @@ export default function AdminLogsPage() {
                       <p className="mt-2 leading-6">{getTelemetryRecommendedAction(group.representative)}</p>
                     </div>
 
-                    <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-300/75">
-                      {getTelemetryTags(group.representative).map((tag) => (
-                        <span
-                          key={`${group.key}-${tag}`}
-                          className="rounded-full border border-white/10 bg-white/5 px-3 py-1"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
+                    <details className="mt-4 rounded-[1.25rem] border border-white/10 bg-white/3 p-4">
+                      <summary className="cursor-pointer list-none focus:outline-none">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300/78">
+                            Teknisk kontekst og rå loglinjer
+                          </p>
+                          <p className="text-xs text-slate-400/80">Fold ud ved behov</p>
+                        </div>
+                      </summary>
 
-                    <div className="mt-4 rounded-[1.25rem] border border-white/10 bg-white/3 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300/78">
-                          Rå loglinjer
-                        </p>
-                        <p className="text-xs text-slate-400/80">Klik igen for at folde sammen</p>
-                      </div>
+                      <div className="mt-4">
+                        <p className="text-xs leading-6 text-slate-400/88">{getTelemetryGroupContextLine(group)}</p>
 
-                      <div className="mt-3 space-y-3">
-                        {group.items.map((log) => (
-                          <div
-                            key={log.id}
-                            className="rounded-2xl border border-white/8 bg-slate-950/55 p-3 text-sm text-slate-200/88"
-                          >
-                            <div className="flex flex-wrap items-start justify-between gap-2 text-xs text-slate-400/82">
-                              <span className="font-semibold uppercase tracking-[0.12em] text-slate-300/82">
-                                {log.eventType}
-                              </span>
-                              <time>{formatDateTime(log.createdAt)}</time>
+                        <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-300/75">
+                          {getTelemetryTags(group.representative).map((tag) => (
+                            <span
+                              key={`${group.key}-${tag}`}
+                              className="rounded-full border border-white/10 bg-white/5 px-3 py-1"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+
+                        <div className="mt-4 space-y-3">
+                          {group.items.map((log) => (
+                            <div
+                              key={log.id}
+                              className="rounded-2xl border border-white/8 bg-slate-950/55 p-3 text-sm text-slate-200/88"
+                            >
+                              <div className="flex flex-wrap items-start justify-between gap-2 text-xs text-slate-400/82">
+                                <span className="font-semibold uppercase tracking-[0.12em] text-slate-300/82">
+                                  {log.eventType}
+                                </span>
+                                <time>{formatDateTime(log.createdAt)}</time>
+                              </div>
+                              <p className="mt-2 wrap-break-word font-mono text-xs leading-6 text-slate-200/88">
+                                {log.message || "Ingen rå loglinje"}
+                              </p>
                             </div>
-                            <p className="mt-2 wrap-break-word font-mono text-xs leading-6 text-slate-200/88">
-                              {log.message || "Ingen rå loglinje"}
-                            </p>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  </details>
+                    </details>
+                  </article>
                 ))}
               </div>
             )}
           </section>
 
           <aside className="space-y-6">
-            <section className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-6">
-              <div className="flex items-center gap-3">
-                <Database className="h-5 w-5 text-cyan-300" />
-                <div>
-                  <h2 className={`text-lg font-black text-white ${rubik.className}`}>Alarmmotor & datakilde</h2>
-                  <p className="text-sm text-slate-300/75">Hvordan siden holder sig opdateret og hvorfor den alarmerer.</p>
+            <details className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-6">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 focus:outline-none">
+                <div className="flex items-center gap-3">
+                  <Info className="h-5 w-5 text-cyan-300" />
+                  <div>
+                    <h2 className={`text-lg font-black text-white ${rubik.className}`}>Systeminfo</h2>
+                    <p className="text-sm text-slate-300/75">Skjult som standard</p>
+                  </div>
                 </div>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300/85">
+                  {compactSystemInfo.length} felter
+                </span>
+              </summary>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {compactSystemInfo.map((item) => (
+                  <div key={item.label} className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">{item.label}</p>
+                    <p className="mt-2 text-base font-semibold text-white">{item.value}</p>
+                  </div>
+                ))}
               </div>
-
-              <div className="mt-4 space-y-3 text-sm text-slate-300/85">
-                <div className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">Feedstatus</p>
-                  <p className="mt-2 text-base font-semibold text-white">
-                    {dataSource === "live" ? "Live data fra telemetry_logs" : "Skaldata med fallback"}
-                  </p>
-                  <p className="mt-2 leading-6 text-slate-300/82">
-                    {dataSource === "live"
-                      ? "Serverfeeden læser telemetry_logs med service-role adgang, udleder aktive alarmer server-side og sender dem færdige til klienten."
-                      : "Serverfeeden faldt tilbage til skaldata, så visningen stadig kan vise kendte fejlmønstre og playbooks."}
-                  </p>
-                </div>
-
-                <div className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">Auto-refresh</p>
-                  <p className="mt-2 text-base font-semibold text-white">
-                    {autoRefreshEnabled ? `Næste opdatering om ${formatCountdown(refreshCountdownMs)}` : "Pause aktiveret"}
-                  </p>
-                  <p className="mt-2 leading-6 text-slate-300/82">
-                    Siden opdaterer automatisk hvert 30. sekund og markerer nye alarmer, så driftssignaler ikke gemmer sig i gammel historik.
-                  </p>
-                </div>
-
-                <div className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">Browseralarmer</p>
-                  <p className="mt-2 text-base font-semibold text-white">{getNotificationStatusLabel(notificationPermission)}</p>
-                  <p className="mt-2 leading-6 text-slate-300/82">
-                    Når browseralarmer er tilladt, kan siden sende native notifikationer ved nye alarmer, hvis fanen ikke er aktiv.
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            <section className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-6">
-              <h2 className={`text-lg font-black text-white ${rubik.className}`}>Kendte playbooks</h2>
-              <div className="mt-4 space-y-3 text-sm text-slate-300/85">
-                <div className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 p-4">
-                  <p className="font-semibold text-white">401 på /api/play/participant</p>
-                  <p className="mt-1 leading-6">Vises som: Elev-adgang afvist (Muligvis dvale)</p>
-                  <p className="mt-2 leading-6 text-cyan-100/85">
-                    Handling: Bed eleven bruge Genopret forbindelse, og genindlæs løbet fra samme enhed, hvis 401 fortsat vender tilbage.
-                  </p>
-                </div>
-                <div className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 p-4">
-                  <p className="font-semibold text-white">Route-loop på /api/join</p>
-                  <p className="mt-1 leading-6">Vises som: join-flow fejler gentagne gange</p>
-                  <p className="mt-2 leading-6 text-cyan-100/85">
-                    Handling: Tjek auth-binding, service-role adgang og participant-oprettelse før nye elever forsøger at joine igen.
-                  </p>
-                </div>
-                <div className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 p-4">
-                  <p className="font-semibold text-white">Eksterne incidents hos Vercel/Supabase</p>
-                  <p className="mt-1 leading-6">Vises som: leverandøren melder driftsproblemer</p>
-                  <p className="mt-2 leading-6 text-cyan-100/85">
-                    Handling: Tjek leverandørens statusside først og undgå at sende lærere ud i lokal fejlsøgning, hvis problemet allerede er eksternt.
-                  </p>
-                </div>
-              </div>
-            </section>
+            </details>
           </aside>
         </div>
 
@@ -2326,9 +2333,7 @@ export default function AdminLogsPage() {
             <Globe className="h-5 w-5 text-cyan-300" />
             <div>
               <h2 className={`text-xl font-black text-white ${rubik.className}`}>Eksterne driftsfejl</h2>
-              <p className="text-sm text-slate-300/75">
-                Separat sektion for leverandørstatus, så Vercel- og Supabase-problemer ikke forveksles med egne fejl.
-              </p>
+              <p className="text-sm text-slate-300/75">Vercel og Supabase</p>
             </div>
           </div>
 
