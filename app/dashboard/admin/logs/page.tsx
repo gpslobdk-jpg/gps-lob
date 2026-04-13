@@ -1406,15 +1406,7 @@ export default function AdminLogsPage() {
     [autoRefreshEnabled, dataSource, generatedAt, notificationPermission, refreshCountdownMs]
   );
 
-  const sourceLogsForActiveTab = useMemo(
-    () => (activeTab === "overview" ? logs : activeTab === "network" ? networkLogs : recoveryLogs),
-    [activeTab, logs, networkLogs, recoveryLogs]
-  );
-  const visibleLogGroups = useMemo(() => {
-    const groupedLogs = buildGroupedTelemetryLogs(sourceLogsForActiveTab);
-
-    return activeTab === "overview" ? groupedLogs.slice(0, 12) : groupedLogs;
-  }, [activeTab, sourceLogsForActiveTab]);
+  const visibleLogGroups = useMemo(() => buildGroupedTelemetryLogs(logs), [logs]);
 
   useEffect(() => {
     if (selectedDrilldownGroupKey === "all") {
@@ -1472,948 +1464,118 @@ export default function AdminLogsPage() {
 
   return (
     <div className={`min-h-screen bg-slate-950 px-4 py-8 text-white sm:px-6 lg:px-8 ${poppins.className}`}>
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Tilbage til dashboard
-            </Link>
-            <p className="mt-5 text-xs font-semibold uppercase tracking-[0.32em] text-cyan-300/75">
-              Internt Fejl & Log-dashboard
-            </p>
-            <h1 className={`mt-3 text-3xl font-black tracking-[0.04em] text-white sm:text-4xl ${rubik.className}`}>
-              Alarmmotor for drift og fejl
-            </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300/85 sm:text-base">
-              Siden ligger bag dashboard-login og reagerer nu aktivt på tre typer problemer: mange elevfejl på kort
-              tid, server-routes der går i 500-loop, og eksterne driftsproblemer hos Vercel eller Supabase.
-            </p>
-          </div>
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-4 text-right text-sm text-slate-300/78">Opdateret {formatDateTime(generatedAt)}</div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setAutoRefreshEnabled((current) => !current)}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                autoRefreshEnabled
-                  ? "border border-emerald-300/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/16"
-                  : "border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              {autoRefreshEnabled ? `Auto-refresh: ${formatCountdown(refreshCountdownMs)}` : "Auto-refresh er pauset"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                void requestBrowserAlerts();
-              }}
-              disabled={notificationPermission === "unsupported" || notificationPermission === "granted"}
-              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {notificationPermission === "granted"
-                ? "Browseralarmer er aktive"
-                : notificationPermission === "denied"
-                  ? "Browseralarmer er blokeret"
-                  : notificationPermission === "unsupported"
-                    ? "Browseralarmer understøttes ikke"
-                    : "Aktivér browseralarmer"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setRefreshNonce((current) => current + 1)}
-              className="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/16"
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-              Opdater nu
-            </button>
-          </div>
-        </div>
-
-        {newAlarmMessage ? (
-          <div className="mb-6 rounded-[1.8rem] border border-rose-300/30 bg-rose-500/10 p-5 shadow-[0_22px_48px_rgba(159,18,57,0.18)] backdrop-blur-xl">
-            <div className="flex flex-wrap items-start gap-3">
-              <TriangleAlert className="mt-0.5 h-5 w-5 text-rose-200" />
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-rose-100/80">Ny alarm opdaget</p>
-                <p className="mt-2 text-base font-semibold text-white">{newAlarmMessage}</p>
-                {highlightedAlarmTitles.length > 0 ? (
-                  <p className="mt-2 text-sm leading-6 text-rose-50/90">{highlightedAlarmTitles.join(" · ")}</p>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {fallbackMessage ? (
-          <div className="mb-6 rounded-[1.75rem] border border-amber-300/30 bg-amber-400/10 p-5 text-sm text-amber-50 shadow-[0_22px_48px_rgba(120,53,15,0.18)] backdrop-blur-xl">
-            <p className="font-semibold text-amber-100">Live telemetry er ikke fuldt tilgængelig lige nu.</p>
-            <p className="mt-2 leading-6 text-amber-50/90">{fallbackMessage}</p>
-          </div>
-        ) : null}
-
-        <section className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <TriangleAlert className="mt-1 h-5 w-5 text-rose-200" />
-              <div>
-                <h2 className={`text-2xl font-black text-white ${rubik.className}`}>Status</h2>
-                <p className="mt-2 text-sm text-slate-300/78">Senest opdateret {formatDateTime(generatedAt)}</p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-300/82">
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">Aktive alarmer {activeAlarms.length}</span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">
-                {dataSource === "live" ? "Live feed" : "Fallback"}
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-4 md:grid-cols-3">
-            {statusCards.map((card) => {
-              const cardTone = card.isHealthy
-                ? {
-                    card: "border-emerald-300/30 bg-emerald-500/12",
-                    badge: "border-emerald-300/30 bg-emerald-400/15 text-emerald-50",
-                    label: "text-emerald-100/80",
-                    value: "text-emerald-50",
-                    detail: "text-emerald-50/88",
-                  }
-                : {
-                    card: "border-rose-300/30 bg-rose-500/12",
-                    badge: "border-rose-300/30 bg-rose-400/15 text-rose-50",
-                    label: "text-rose-100/80",
-                    value: "text-rose-50",
-                    detail: "text-rose-50/88",
-                  };
-
-              return (
-                <article key={card.label} className={`rounded-[1.8rem] border p-5 shadow-[0_22px_48px_rgba(15,23,42,0.16)] ${cardTone.card}`}>
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${cardTone.label}`}>{card.label}</p>
-                      <p className={`mt-3 text-5xl font-black ${rubik.className} ${cardTone.value}`}>{card.count}</p>
-                      <p className={`mt-3 text-sm leading-6 ${cardTone.detail}`}>{card.detail}</p>
-                    </div>
-
-                    <span className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl border ${cardTone.badge}`}>
-                      {card.isHealthy ? <CheckCircle2 className="h-6 w-6" /> : <TriangleAlert className="h-6 w-6" />}
-                    </span>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-
-          {isLoading ? (
-            <div className="mt-5">
-              <EmptyState
-                title="Beregner alarmer"
-                body="Vi opdaterer statuskort og alarmer med de seneste driftssignaler."
-              />
-            </div>
-          ) : activeAlarms.length === 0 ? (
-            <div className="mt-5">
-              <EmptyState
-                title="Ingen aktive alarmer"
-                body="Der er ikke fundet mønstre, som kræver handling lige nu."
-              />
-            </div>
-          ) : (
-            <div className="mt-5 grid gap-4 xl:grid-cols-2">
-              {activeAlarms.map((alarm) => {
-                const tone = getAlarmTone(alarm);
-                const isNewAlarm = newAlarmIds.includes(alarm.id);
-
-                return (
-                  <article
-                    key={alarm.id}
-                    className={`rounded-[1.6rem] border p-5 shadow-[0_20px_40px_rgba(15,23,42,0.16)] ${tone.card} ${
-                      isNewAlarm ? "ring-2 ring-cyan-300/40" : ""
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-base font-semibold text-white">{alarm.title}</p>
-                        <p className="mt-2 text-sm leading-6 text-slate-200/85">{alarm.summary}</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${tone.pill}`}>
-                          {getAlarmSeverityLabel(alarm.severity)}
-                        </span>
-                        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200/85">
-                          {getAlarmCategoryLabel(alarm)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-[1.1rem] border border-white/10 bg-black/15 p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200/65">Senest set</p>
-                        <p className={`mt-2 text-sm font-semibold ${tone.accent}`}>{formatDateTime(alarm.lastSeenAt)}</p>
-                      </div>
-                      <div className="rounded-[1.1rem] border border-white/10 bg-black/15 p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200/65">Volumen</p>
-                        <p className={`mt-2 text-sm font-semibold ${tone.accent}`}>{alarm.count} hændelser</p>
-                      </div>
-                      <div className="rounded-[1.1rem] border border-white/10 bg-black/15 p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200/65">Berøring</p>
-                        <p className={`mt-2 text-sm font-semibold ${tone.accent}`}>
-                          {alarm.uniqueParticipants > 0 ? `${alarm.uniqueParticipants} elever` : "0 elever"}
-                          {alarm.uniqueSessions > 0 ? ` · ${alarm.uniqueSessions} sessioner` : ""}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className={`mt-4 rounded-[1.25rem] border p-4 text-sm ${tone.action}`}>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">Anbefalet handling</p>
-                      <p className="mt-2 leading-6">{alarm.recommendedAction}</p>
-                    </div>
-
-                    {alarm.evidence.length > 0 ? (
-                      <div className="mt-4">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300/70">Bevislinjer</p>
-                        <ul className="mt-2 space-y-2 text-sm leading-6 text-slate-200/82">
-                          {alarm.evidence.slice(0, 3).map((line) => (
-                            <li key={`${alarm.id}-${line}`} className="rounded-[1rem] border border-white/10 bg-black/15 px-3 py-2">
-                              {line}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-
-                    {alarm.source === "telemetry" ? (
-                      <div className="mt-4">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            focusDrilldown({
-                              route: alarm.route,
-                              status: alarm.status,
-                            });
-                          }}
-                          className="rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/20 hover:bg-white/15"
-                        >
-                          Åbn i drilldown
-                        </button>
-                      </div>
-                    ) : null}
-
-                    <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-200/75">
-                      {getAlarmMetaTags(alarm).map((tag) => (
-                        <span key={`${alarm.id}-${tag}`} className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        <section className="mt-6 rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <Activity className="mt-1 h-5 w-5 text-cyan-300" />
-              <div>
-                <h2 className={`text-2xl font-black text-white ${rubik.className}`}>Korrelationslag</h2>
-                <p className="mt-2 text-sm text-slate-300/78">{correlatedIncidents.length} aktive spor</p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-300/82">
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">{correlationWindowMinutes} min vindue</span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">Genereret {formatDateTime(generatedAt)}</span>
-            </div>
-          </div>
-
-          {isLoading ? (
-            <div className="mt-5">
-              <EmptyState
-                title="Samler mønstre"
-                body="Vi grupperer logs pr. session, route, status og reconnect-signal for at finde de hændelser, der hænger sammen."
-              />
-            </div>
-          ) : correlatedIncidents.length === 0 ? (
-            <div className="mt-5">
-              <EmptyState
-                title="Ingen tydelige korrelationsspor"
-                body="Der blev ikke fundet gentagne mønstre i de seneste minutter, som peger på session-specifikke eller tværgående hændelser."
-              />
-            </div>
-          ) : (
-            <div className="mt-5 grid gap-4 xl:grid-cols-2">
-              {correlatedIncidents.map((incident) => {
-                const tone = getSeverityTone(incident.severity);
-
-                return (
-                  <article
-                    key={incident.id}
-                    className={`rounded-[1.6rem] border p-5 shadow-[0_20px_40px_rgba(15,23,42,0.16)] ${tone.card}`}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-base font-semibold text-white">{incident.title}</p>
-                        <p className="mt-2 text-sm leading-6 text-slate-200/85">{incident.summary}</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${tone.pill}`}>
-                          {getAlarmSeverityLabel(incident.severity)}
-                        </span>
-                        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200/85">
-                          {getCorrelationKindLabel(incident.kind)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-[1.1rem] border border-white/10 bg-black/15 p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200/65">Senest set</p>
-                        <p className={`mt-2 text-sm font-semibold ${tone.accent}`}>{formatDateTime(incident.lastSeenAt)}</p>
-                      </div>
-                      <div className="rounded-[1.1rem] border border-white/10 bg-black/15 p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200/65">Volumen</p>
-                        <p className={`mt-2 text-sm font-semibold ${tone.accent}`}>{incident.count} hændelser</p>
-                      </div>
-                      <div className="rounded-[1.1rem] border border-white/10 bg-black/15 p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200/65">Berøring</p>
-                        <p className={`mt-2 text-sm font-semibold ${tone.accent}`}>
-                          {incident.uniqueParticipants > 0 ? `${incident.uniqueParticipants} elever` : "0 elever"}
-                          {incident.uniqueSessions > 0 ? ` · ${incident.uniqueSessions} sessioner` : ""}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className={`mt-4 rounded-[1.25rem] border p-4 text-sm ${tone.action}`}>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">Anbefalet handling</p>
-                      <p className="mt-2 leading-6">{incident.recommendedAction}</p>
-                    </div>
-
-                    {incident.evidence.length > 0 ? (
-                      <div className="mt-4">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300/70">Sammenhæng</p>
-                        <ul className="mt-2 space-y-2 text-sm leading-6 text-slate-200/82">
-                          {incident.evidence.slice(0, 3).map((line) => (
-                            <li key={`${incident.id}-${line}`} className="rounded-[1rem] border border-white/10 bg-black/15 px-3 py-2">
-                              {line}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-
-                    <div className="mt-4">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          focusDrilldown({
-                            route: incident.route,
-                            sessionId: incident.sessionId,
-                            status: incident.status,
-                          });
-                        }}
-                        className="rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/20 hover:bg-white/15"
-                      >
-                        Åbn i drilldown
-                      </button>
-                    </div>
-
-                    <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-200/75">
-                      {getCorrelationMetaTags(incident).map((tag) => (
-                        <span key={`${incident.id}-${tag}`} className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        <section
-          id="drilldown-section"
-          className="mt-6 rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-6"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <Database className="mt-1 h-5 w-5 text-cyan-300" />
-              <div>
-                <h2 className={`text-2xl font-black text-white ${rubik.className}`}>Drilldown og tidslinje</h2>
-                <p className="mt-2 text-sm text-slate-300/78">{filteredDrilldownLogs.length} loglinjer matcher aktuelle filtre</p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-300/82">
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">
-                {drilldownGroupBy === "route" ? "Grupperet efter route" : drilldownGroupBy === "session" ? "Grupperet efter session" : "Grupperet efter hændelse"}
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">Senest {formatDateTime(generatedAt)}</span>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-3 lg:grid-cols-5">
-            <div className="lg:col-span-2">
-              <label
-                htmlFor="drilldown-query"
-                className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75"
-              >
-                Søg
-              </label>
-              <input
-                id="drilldown-query"
-                type="search"
-                value={drilldownQuery}
-                onChange={(event) => setDrilldownQuery(event.target.value)}
-                placeholder="Route, statuskode, session, deltager eller fejltekst"
-                className="w-full rounded-[1.1rem] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300/40"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="drilldown-route"
-                className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75"
-              >
-                Route
-              </label>
-              <select
-                id="drilldown-route"
-                value={drilldownRoute}
-                onChange={(event) => {
-                  setDrilldownRoute(event.target.value);
-                  setSelectedDrilldownGroupKey("all");
-                }}
-                className="w-full rounded-[1.1rem] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40"
-              >
-                <option value="all">Alle routes</option>
-                {drilldownRouteOptions.map((route) => (
-                  <option key={route} value={route}>
-                    {formatRouteLabel(route)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label
-                htmlFor="drilldown-session"
-                className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75"
-              >
-                Session
-              </label>
-              <select
-                id="drilldown-session"
-                value={drilldownSession}
-                onChange={(event) => {
-                  setDrilldownSession(event.target.value);
-                  setSelectedDrilldownGroupKey("all");
-                }}
-                className="w-full rounded-[1.1rem] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40"
-              >
-                <option value="all">Alle sessioner</option>
-                {drilldownSessionOptions.map((sessionId) => (
-                  <option key={sessionId} value={sessionId}>
-                    {sessionId}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <p className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">
-                Status / gruppering
-              </p>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                <select
-                  id="drilldown-status"
-                  aria-label="Status"
-                  value={drilldownStatus}
-                  onChange={(event) => {
-                    setDrilldownStatus(event.target.value);
-                    setSelectedDrilldownGroupKey("all");
-                  }}
-                  className="w-full rounded-[1.1rem] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40"
-                >
-                  <option value="all">Alle statusser</option>
-                  {drilldownStatusOptions.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  id="drilldown-group-by"
-                  aria-label="Gruppering"
-                  value={drilldownGroupBy}
-                  onChange={(event) => {
-                    setDrilldownGroupBy(event.target.value as DrilldownGroupBy);
-                    setSelectedDrilldownGroupKey("all");
-                  }}
-                  className="w-full rounded-[1.1rem] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/40"
-                >
-                  <option value="route">Grupper efter route</option>
-                  <option value="session">Grupper efter session</option>
-                  <option value="event">Grupper efter hændelsestype</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={clearDrilldownFilters}
-              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
-            >
-              Nulstil filtre
-            </button>
-            <span className="rounded-full border border-white/10 bg-slate-950/45 px-4 py-2 text-sm text-slate-300/85">
-              Seneste feed {formatDateTime(generatedAt)}
-            </span>
-          </div>
-
-          {filteredDrilldownLogs.length === 0 ? (
-            <div className="mt-5">
-              <EmptyState
-                title="Ingen loglinjer matcher filtrene"
-                body="Udvid søgningen eller nulstil filtrene for at se flere hændelser i tidslinjen."
-              />
-            </div>
-          ) : (
-            <div className="mt-5 grid gap-6 xl:grid-cols-[minmax(280px,0.62fr)_minmax(0,1.38fr)]">
-              <aside className="space-y-4">
-                <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/45 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-white">Grupper</p>
-                    <span className="text-xs uppercase tracking-[0.16em] text-slate-400">{drilldownGroups.length} grupper</span>
-                  </div>
-                  <div className="mt-3 space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDrilldownGroupKey("all")}
-                      className={`w-full rounded-[1rem] border px-3 py-3 text-left text-sm transition ${
-                        selectedDrilldownGroupKey === "all"
-                          ? "border-cyan-300/30 bg-cyan-400/10 text-white"
-                          : "border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      <p className="font-semibold">Alle matchende loglinjer</p>
-                      <p className="mt-1 text-xs text-slate-300/80">{filteredDrilldownLogs.length} hændelser i tidslinjen</p>
-                    </button>
-
-                    {drilldownGroups.slice(0, 12).map((group) => (
-                      <button
-                        key={group.key}
-                        type="button"
-                        onClick={() => setSelectedDrilldownGroupKey(group.key)}
-                        className={`w-full rounded-[1rem] border px-3 py-3 text-left text-sm transition ${
-                          selectedDrilldownGroupKey === group.key
-                            ? "border-cyan-300/30 bg-cyan-400/10 text-white"
-                            : "border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:bg-white/10 hover:text-white"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="font-semibold">{group.label}</p>
-                          <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-xs">{group.count}</span>
-                        </div>
-                        <p className="mt-1 text-xs text-slate-300/80">
-                          {group.uniqueParticipants} elever · {group.uniqueSessions} sessioner · senest {formatDateTime(group.lastSeenAt)}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </aside>
-
-              <div className="space-y-4">
-                <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/45 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-white">Tidslinje</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-300/80">{activeDrilldownLogs.length} loglinjer i denne visning. Vælg en linje for detaljer.</p>
-                    </div>
-                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300/85">
-                      {selectedDrilldownGroupKey === "all" ? "Alle grupper" : "Filtreret gruppe"}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 space-y-2">
-                    {activeDrilldownLogs.slice(0, 18).map((log) => {
-                      const isSelected = selectedDrilldownLog?.id === log.id;
-
-                      return (
-                        <button
-                          key={log.id}
-                          type="button"
-                          onClick={() => setSelectedDrilldownLogId(log.id)}
-                          className={`w-full rounded-[1rem] border px-3 py-3 text-left transition ${
-                            isSelected
-                              ? "border-cyan-300/30 bg-cyan-400/10"
-                              : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10"
-                          }`}
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-semibold text-white">{translateTelemetryLog(log)}</p>
-                              <p className="mt-1 text-sm leading-6 text-slate-300/80">{getTelemetryDetail(log)}</p>
-                            </div>
-                            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-slate-300/85">
-                              {formatDateTime(log.createdAt)}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <details className="rounded-[1.4rem] border border-white/10 bg-slate-950/45 p-4">
-                  <summary className="flex cursor-pointer list-none flex-wrap items-start justify-between gap-3 focus:outline-none">
-                    <div>
-                      <p className="text-sm font-semibold text-white">Rå teknisk kontekst</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-300/80">
-                        {selectedDrilldownLog ? "Skjult som standard. Fold ud for metadata og rå besked." : "Vælg en loglinje for tekniske detaljer."}
-                      </p>
-                    </div>
-                    {selectedDrilldownLog ? (
-                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300/85">
-                        {formatDateTime(selectedDrilldownLog.createdAt)}
-                      </span>
-                    ) : null}
-                  </summary>
-
-                  {!selectedDrilldownLog ? (
-                    <div className="mt-4">
-                      <EmptyState title="Vælg en loglinje" body="Klik på en hændelse i tidslinjen for at se de tekniske detaljer." />
-                    </div>
-                  ) : (
-                    <div className="mt-4 space-y-4">
-                      <div>
-                        <p className="text-base font-semibold text-white">{translateTelemetryLog(selectedDrilldownLog)}</p>
-                        <p className="mt-1 text-sm leading-6 text-slate-300/80">{getTelemetryDetail(selectedDrilldownLog)}</p>
-                      </div>
-
-                      <div className="rounded-[1.25rem] border border-cyan-300/20 bg-cyan-400/10 p-4 text-sm text-cyan-50/92">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100/80">Anbefalet handling</p>
-                        <p className="mt-2 leading-6">{getTelemetryRecommendedAction(selectedDrilldownLog)}</p>
-                      </div>
-
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {getLogMetaEntries(selectedDrilldownLog).length > 0 ? (
-                          getLogMetaEntries(selectedDrilldownLog).map(([key, value]) => (
-                            <div key={`${selectedDrilldownLog.id}-${key}`} className="rounded-[1rem] border border-white/10 bg-white/5 p-3">
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{key}</p>
-                              <p className="mt-2 break-words text-sm leading-6 text-white">{value}</p>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="rounded-[1rem] border border-white/10 bg-white/5 p-3 text-sm text-slate-300/80 sm:col-span-2">
-                            Denne loglinje indeholder ikke structured metadata og vises derfor kun med rå besked.
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="rounded-[1.2rem] border border-white/10 bg-black/20 p-4">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Rå besked</p>
-                        <pre className="mt-3 whitespace-pre-wrap break-words font-mono text-xs leading-6 text-slate-200">
-                          {selectedDrilldownLog.message || "Ingen rå besked"}
-                        </pre>
-                      </div>
-                    </div>
-                  )}
-                </details>
-              </div>
-            </div>
-          )}
-        </section>
-
-        <details className="mt-6 rounded-[2rem] border border-white/10 bg-white/5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl">
-          <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 p-5 sm:p-6">
-            <div>
-              <p className="text-sm font-semibold text-white">Øvrige nøgletal</p>
-              <p className="mt-1 text-sm text-slate-300/75">Skjult som standard for at holde overblikket rent.</p>
-            </div>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300/85">
-              {overviewCards.length} kort
-            </span>
-          </summary>
-
-          <div className="grid gap-4 px-5 pb-5 sm:grid-cols-2 sm:px-6 sm:pb-6 xl:grid-cols-3 2xl:grid-cols-6">
-            {overviewCards.map((card) => (
-              <div
-                key={card.label}
-                className="rounded-[1.9rem] border border-white/10 bg-white/6 p-5 shadow-[0_24px_55px_rgba(15,23,42,0.18)] backdrop-blur-xl"
-              >
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/75">{card.label}</p>
-                <p className={`mt-3 text-3xl font-black text-white ${rubik.className}`}>{card.value}</p>
-                <p className="mt-2 text-sm leading-6 text-slate-300/80">{card.detail}</p>
-              </div>
-            ))}
-          </div>
-        </details>
-
-        <div className="mt-6 rounded-[2rem] border border-white/10 bg-white/5 p-3 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl">
-          <div className="flex flex-wrap gap-2">
-            {tabs.map((tab) => {
-              const isActive = tab.id === activeTab;
-
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    isActive
-                      ? "bg-cyan-400 text-slate-950 shadow-[0_14px_28px_rgba(34,211,238,0.28)]"
-                      : "bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]">
-          <section className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-6">
-            <div className="mb-5 flex items-center gap-3">
-              {activeTab === "overview" ? (
-                <Activity className="h-5 w-5 text-cyan-300" />
-              ) : activeTab === "network" ? (
-                <ShieldAlert className="h-5 w-5 text-amber-300" />
-              ) : (
-                <Waves className="h-5 w-5 text-emerald-300" />
-              )}
-              <div>
-                <h2 className={`text-xl font-black text-white ${rubik.className}`}>
-                  {tabs.find((tab) => tab.id === activeTab)?.label}
-                </h2>
-                <p className="text-sm text-slate-300/75">
-                  {activeTab === "overview" ? "Grupperet feed" : activeTab === "network" ? "401/404-fejl" : "Genoprettelser"}
-                </p>
-              </div>
-            </div>
-
-            {isLoading ? (
-              <EmptyState
-                title="Indlæser telemetry"
-                body="Vi henter de seneste loglinjer, serverfejl og statusfeeds og bygger et samlet overblik over systemets sundhed."
-              />
-            ) : visibleLogGroups.length === 0 ? (
-              <EmptyState
-                title="Ingen hændelser at vise"
-                body={
-                  activeTab === "overview"
-                    ? "Der ligger ingen telemetry-hændelser i de seneste 24 timer."
-                    : activeTab === "network"
-                      ? "Der blev ikke fundet 401/404-hændelser i perioden."
-                      : "Der blev ikke fundet kendte genoprettelser i perioden."
+        <div className="grid gap-4 md:grid-cols-3">
+          {statusCards.map((card) => {
+            const cardTone = card.isHealthy
+              ? {
+                  card: "border-emerald-300/30 bg-emerald-500/12",
+                  badge: "border-emerald-300/30 bg-emerald-400/15 text-emerald-50",
+                  label: "text-emerald-100/80",
+                  value: "text-emerald-50",
+                  detail: "text-emerald-50/88",
                 }
-              />
-            ) : (
-              <div className="space-y-4">
-                {visibleLogGroups.map((group) => (
-                  <article
-                    key={group.key}
-                    className="rounded-3xl border border-white/10 bg-slate-950/45 p-4 shadow-[0_18px_36px_rgba(15,23,42,0.16)]"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-base font-semibold text-white">{translateTelemetryLog(group.representative)}</p>
-                        <p className="mt-1 text-sm leading-6 text-slate-300/88">{getTelemetryGroupSummary(group)}</p>
-                      </div>
+              : {
+                  card: "border-rose-300/30 bg-rose-500/12",
+                  badge: "border-rose-300/30 bg-rose-400/15 text-rose-50",
+                  label: "text-rose-100/80",
+                  value: "text-rose-50",
+                  detail: "text-rose-50/88",
+                };
 
-                      <div className="flex flex-col items-end gap-2">
-                        <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-50/92">
-                          {getTelemetryGroupBadgeLabel(group.count)}
-                        </span>
-                        <time className="text-xs font-medium text-slate-400/85">{formatDateTime(group.lastSeenAt)}</time>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 rounded-[1.25rem] border border-cyan-300/20 bg-cyan-400/10 p-4 text-sm text-cyan-50/92">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100/80">
-                        Anbefalet handling
-                      </p>
-                      <p className="mt-2 leading-6">{getTelemetryRecommendedAction(group.representative)}</p>
-                    </div>
-
-                    <details className="mt-4 rounded-[1.25rem] border border-white/10 bg-white/3 p-4">
-                      <summary className="cursor-pointer list-none focus:outline-none">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300/78">
-                            Teknisk kontekst og rå loglinjer
-                          </p>
-                          <p className="text-xs text-slate-400/80">Fold ud ved behov</p>
-                        </div>
-                      </summary>
-
-                      <div className="mt-4">
-                        <p className="text-xs leading-6 text-slate-400/88">{getTelemetryGroupContextLine(group)}</p>
-
-                        <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-300/75">
-                          {getTelemetryTags(group.representative).map((tag) => (
-                            <span
-                              key={`${group.key}-${tag}`}
-                              className="rounded-full border border-white/10 bg-white/5 px-3 py-1"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-
-                        <div className="mt-4 space-y-3">
-                          {group.items.map((log) => (
-                            <div
-                              key={log.id}
-                              className="rounded-2xl border border-white/8 bg-slate-950/55 p-3 text-sm text-slate-200/88"
-                            >
-                              <div className="flex flex-wrap items-start justify-between gap-2 text-xs text-slate-400/82">
-                                <span className="font-semibold uppercase tracking-[0.12em] text-slate-300/82">
-                                  {log.eventType}
-                                </span>
-                                <time>{formatDateTime(log.createdAt)}</time>
-                              </div>
-                              <p className="mt-2 wrap-break-word font-mono text-xs leading-6 text-slate-200/88">
-                                {log.message || "Ingen rå loglinje"}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </details>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <aside className="space-y-6">
-            <details className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-6">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 focus:outline-none">
-                <div className="flex items-center gap-3">
-                  <Info className="h-5 w-5 text-cyan-300" />
+            return (
+              <article key={card.label} className={`rounded-[1.8rem] border p-5 shadow-[0_22px_48px_rgba(15,23,42,0.16)] ${cardTone.card}`}>
+                <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h2 className={`text-lg font-black text-white ${rubik.className}`}>Systeminfo</h2>
-                    <p className="text-sm text-slate-300/75">Skjult som standard</p>
+                    <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${cardTone.label}`}>{card.label}</p>
+                    <p className={`mt-3 text-5xl font-black ${rubik.className} ${cardTone.value}`}>{card.count}</p>
+                    <p className={`mt-3 text-sm leading-6 ${cardTone.detail}`}>{card.detail}</p>
                   </div>
-                </div>
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300/85">
-                  {compactSystemInfo.length} felter
-                </span>
-              </summary>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {compactSystemInfo.map((item) => (
-                  <div key={item.label} className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">{item.label}</p>
-                    <p className="mt-2 text-base font-semibold text-white">{item.value}</p>
-                  </div>
-                ))}
-              </div>
-            </details>
-          </aside>
-        </div>
-
-        <section className="mt-6 rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-6">
-          <div className="flex items-center gap-3">
-            <Globe className="h-5 w-5 text-cyan-300" />
-            <div>
-              <h2 className={`text-xl font-black text-white ${rubik.className}`}>Eksterne driftsfejl</h2>
-              <p className="text-sm text-slate-300/75">Vercel og Supabase</p>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-4 xl:grid-cols-2">
-            {externalServices.map((service) => (
-              <article
-                key={service.provider}
-                className="rounded-[1.6rem] border border-white/10 bg-slate-950/45 p-5 shadow-[0_18px_36px_rgba(15,23,42,0.16)]"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-semibold text-white">{service.name}</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-300/80">{service.description}</p>
-                  </div>
-                  <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${getExternalStatusTone(service)}`}>
-                    {translateExternalIndicator(service.indicator)}
+                  <span className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl border ${cardTone.badge}`}>
+                    {card.isHealthy ? <CheckCircle2 className="h-6 w-6" /> : <TriangleAlert className="h-6 w-6" />}
                   </span>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-300/75">
-                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">kilde: {service.source}</span>
-                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                    opdateret: {formatDateTime(service.updatedAt)}
-                  </span>
-                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                    incidents: {service.incidents.length}
-                  </span>
-                </div>
-
-                {service.errorMessage ? (
-                  <div className="mt-4 rounded-[1.2rem] border border-amber-300/25 bg-amber-400/10 p-4 text-sm leading-6 text-amber-50/90">
-                    {service.errorMessage}
-                  </div>
-                ) : null}
-
-                {service.incidents.length === 0 ? (
-                  <div className="mt-4 rounded-[1.2rem] border border-white/10 bg-white/5 p-4 text-sm leading-6 text-slate-300/82">
-                    Ingen åbne incidents registreret i statusfeeden lige nu.
-                  </div>
-                ) : (
-                  <div className="mt-4 space-y-3">
-                    {service.incidents.map((incident) => (
-                      <div
-                        key={incident.id}
-                        className="rounded-[1.2rem] border border-rose-300/20 bg-rose-400/10 p-4 text-sm text-rose-50/92"
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <p className="font-semibold text-white">{incident.title}</p>
-                          <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.12em] text-rose-50/85">
-                            {incident.impact} · {incident.status}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-sm leading-6 text-rose-50/80">
-                          Oprettet {formatDateTime(incident.createdAt)} · sidst opdateret {formatDateTime(incident.updatedAt)}
-                        </p>
-                        {incident.shortLink ? (
-                          <a
-                            href={incident.shortLink}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-3 inline-flex text-sm font-semibold text-cyan-200 transition hover:text-cyan-100"
-                          >
-                            Åbn incident hos {service.name}
-                          </a>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="mt-4 rounded-[1.25rem] border border-cyan-300/20 bg-cyan-400/10 p-4 text-sm text-cyan-50/92">
-                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100/80">
-                    <TriangleAlert className="h-4 w-4" />
-                    Anbefalet handling
-                  </div>
-                  <p className="mt-2 leading-6">{getExternalRecommendedAction(service)}</p>
                 </div>
               </article>
-            ))}
+            );
+          })}
+        </div>
+
+        <section className="mt-6 rounded-4xl border border-white/10 bg-white/5 p-5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-6">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <h2 className={`text-xl font-black text-white ${rubik.className}`}>Overblik / Grupperet feed</h2>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300/85">
+              {visibleLogGroups.length} grupper
+            </span>
           </div>
+
+          {isLoading ? (
+            <EmptyState title="Indlæser telemetry" body="Henter seneste hændelser." />
+          ) : visibleLogGroups.length === 0 ? (
+            <EmptyState title="Ingen hændelser at vise" body="Der ligger ingen telemetry-hændelser i perioden." />
+          ) : (
+            <div className="space-y-4">
+              {visibleLogGroups.map((group) => (
+                <article
+                  key={group.key}
+                  className="rounded-3xl border border-white/10 bg-slate-950/45 p-4 shadow-[0_18px_36px_rgba(15,23,42,0.16)]"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <p className="text-base font-semibold text-white">{translateTelemetryLog(group.representative)}</p>
+
+                    <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-50/92">
+                      {getTelemetryGroupBadgeLabel(group.count)}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 rounded-[1.25rem] border border-cyan-300/20 bg-cyan-400/10 p-4 text-sm text-cyan-50/92">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100/80">Anbefalet handling</p>
+                    <p className="mt-2 leading-6">{getTelemetryRecommendedAction(group.representative)}</p>
+                  </div>
+
+                  <details className="mt-4 rounded-[1.25rem] border border-white/10 bg-white/3 p-4">
+                    <summary className="cursor-pointer list-none focus:outline-none">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300/78">Teknisk kontekst</p>
+                        <p className="text-xs text-slate-400/80">Fold ud ved behov</p>
+                      </div>
+                    </summary>
+
+                    <div className="mt-4">
+                      <p className="text-xs leading-6 text-slate-400/88">{getTelemetryGroupContextLine(group)}</p>
+
+                      <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-300/75">
+                        {getTelemetryTags(group.representative).map((tag) => (
+                          <span key={`${group.key}-${tag}`} className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="mt-4 space-y-3">
+                        {group.items.map((log) => (
+                          <div
+                            key={log.id}
+                            className="rounded-2xl border border-white/8 bg-slate-950/55 p-3 text-sm text-slate-200/88"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-2 text-xs text-slate-400/82">
+                              <span className="font-semibold uppercase tracking-[0.12em] text-slate-300/82">{log.eventType}</span>
+                              <time>{formatDateTime(log.createdAt)}</time>
+                            </div>
+                            <p className="mt-2 wrap-break-word font-mono text-xs leading-6 text-slate-200/88">
+                              {log.message || "Ingen rå loglinje"}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </details>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </div>
