@@ -9,11 +9,13 @@ import {
   sanitizeQuestionForPlay,
 } from "@/app/api/play/_shared";
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const runtime = "edge";
 
 export async function GET(request: NextRequest) {
   const sessionId = asTrimmedString(request.nextUrl.searchParams.get("sessionId"));
+  const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
 
   if (!sessionId) {
     return NextResponse.json({ error: "Session-id mangler." }, { status: 400 });
@@ -75,6 +77,15 @@ export async function GET(request: NextRequest) {
     }
 
     console.error("Kunne ikke hente play-data:", error);
+    await logHandledServerError({
+      route: "/api/play/session",
+      method: "GET",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+      sessionId,
+    });
     return NextResponse.json({ error: "Kunne ikke hente løbet." }, { status: 500 });
   }
 }

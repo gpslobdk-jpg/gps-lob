@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { createAdminClient } from "@/utils/supabase/admin";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 const BETA_PLAN = "beta";
 const BETA_ACCESS_EXPIRES_AT = "2026-08-01T00:00:00.000Z";
@@ -215,6 +216,14 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${safeOrigin}${nextPath}`);
   } catch (error) {
     console.error("OAuth callback crashede:", error);
+    await logHandledServerError({
+      route: "/api/auth/callback",
+      method: "GET",
+      status: 500,
+      error,
+      requestPath: requestUrl.pathname,
+      routeType: "route",
+    });
     return redirectToLogin(safeOrigin, "oauth_callback_failed");
   }
 }

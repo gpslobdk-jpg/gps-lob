@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createClient } from "@/utils/supabase/server";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const maxDuration = 300;
 
@@ -155,8 +156,18 @@ function isTimeoutError(error: unknown) {
 }
 
 export async function POST(req: Request) {
+  const requestPath = new URL(req.url).pathname;
+
   try {
     if (!process.env.OPENAI_API_KEY) {
+      await logHandledServerError({
+        requestPath,
+        route: requestPath,
+        method: "POST",
+        context: "generate_run_missing_openai_key",
+        status: 500,
+        error: "OPENAI_API_KEY mangler i miljøet.",
+      });
       return NextResponse.json(
         { error: "OPENAI_API_KEY mangler i miljøet." },
         { status: 500 }
@@ -381,6 +392,16 @@ ${subject ? `Fag: ${subject}\n` : ""}Husk at returnere præcis ${count} spørgsm
     });
   } catch (error) {
     console.error("Fejl i generate-run:", error);
+
+    const status = isTimeoutError(error) ? 504 : 500;
+    await logHandledServerError({
+      route: "/api/generate-run",
+      method: "POST",
+      status,
+      error,
+      requestPath,
+      routeType: "route",
+    });
 
     if (isTimeoutError(error)) {
       return NextResponse.json(

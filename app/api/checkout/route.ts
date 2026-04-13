@@ -3,6 +3,7 @@ import Stripe from "stripe";
 
 import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const runtime = "nodejs";
 
@@ -39,6 +40,8 @@ function getStripeClient() {
 }
 
 export async function POST(req: Request) {
+  const requestPath = new URL(req.url).pathname;
+
   try {
     const siteUrl = getSiteUrl();
     const successUrl = `${siteUrl}/dashboard?success=true`;
@@ -125,6 +128,14 @@ export async function POST(req: Request) {
 
     const stripe = getStripeClient();
     if (!stripe) {
+      await logHandledServerError({
+        route: "/api/checkout",
+        method: "POST",
+        status: 500,
+        error: "Stripe er ikke sat korrekt op endnu.",
+        requestPath,
+        routeType: "route",
+      });
       return NextResponse.json(
         { error: "Stripe er ikke sat korrekt op endnu." },
         { status: 500 }
@@ -168,6 +179,14 @@ export async function POST(req: Request) {
       });
     } catch (error) {
       console.error("CHECKOUT STRIPE SESSION ERROR:", error);
+      await logHandledServerError({
+        route: "/api/checkout",
+        method: "POST",
+        status: 500,
+        error,
+        requestPath,
+        routeType: "route",
+      });
       return NextResponse.json(
         { error: "Kunne ikke oprette betalingssiden lige nu. Proev igen om lidt." },
         { status: 500 }
@@ -179,6 +198,14 @@ export async function POST(req: Request) {
         sessionId: session.id,
         priceId,
         userId: user.id,
+      });
+      await logHandledServerError({
+        route: "/api/checkout",
+        method: "POST",
+        status: 500,
+        error: "Stripe returnerede ingen session URL.",
+        requestPath,
+        routeType: "route",
       });
       return NextResponse.json(
         { error: "Kunne ikke oprette betalingslinket lige nu." },
@@ -198,6 +225,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("CHECKOUT UNHANDLED ERROR:", error);
+    await logHandledServerError({
+      route: "/api/checkout",
+      method: "POST",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+    });
     return NextResponse.json(
       { error: "Kunne ikke oprette betalingssiden lige nu. Proev igen om lidt." },
       { status: 500 }

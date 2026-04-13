@@ -1,3 +1,5 @@
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
+
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
@@ -22,7 +24,8 @@ function buildSvgPlaceholder(message: string): string {
 }
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
+  const { pathname, search, searchParams } = new URL(request.url);
+  const requestPath = `${pathname}${search}`;
   const prompt = searchParams.get("prompt")?.trim() ?? "";
 
   if (!prompt) {
@@ -62,6 +65,14 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Netværksfejl ved hentning af illustration";
+    await logHandledServerError({
+      route: "/api/pollinations-image",
+      method: "GET",
+      status: 502,
+      error,
+      requestPath,
+      routeType: "route",
+    });
 
     return new Response(buildSvgPlaceholder(message), {
       status: 502,

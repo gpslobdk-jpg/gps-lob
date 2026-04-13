@@ -10,6 +10,7 @@ import {
   resolveQuestionVariant,
 } from "@/app/api/play/_shared";
 import { ADMIN_ACCESS_MISSING_MESSAGE } from "@/utils/supabase/admin";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 import { resolveParticipantRequestContext } from "@/utils/supabase/participantServer";
 
 export const runtime = "edge";
@@ -40,6 +41,7 @@ function asSelectedIndex(value: unknown) {
 
 export async function POST(request: NextRequest) {
   let payload: ValidateAnswerPayload;
+  const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
 
   try {
     payload = (await request.json()) as ValidateAnswerPayload;
@@ -115,6 +117,16 @@ export async function POST(request: NextRequest) {
     }
 
     console.error("Kunne ikke validere gådesvar:", error);
+    await logHandledServerError({
+      route: "/api/play/validate-answer",
+      method: "POST",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+      participantId: claimedParticipantId || null,
+      sessionId: claimedSessionId || null,
+    });
     return NextResponse.json({ error: "Kunne ikke tjekke svaret." }, { status: 500 });
   }
 }

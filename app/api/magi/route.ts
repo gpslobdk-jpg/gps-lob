@@ -3,6 +3,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { NextResponse } from "next/server";
 
 import type { Post } from "@/components/play/types";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const maxDuration = 300;
 
@@ -158,6 +159,8 @@ function normalizeMagicPosts(posts: RawMagicPost[]): MagicPost[] {
 }
 
 export async function POST(req: Request) {
+  const requestPath = new URL(req.url).pathname;
+
   try {
     const { prompt } = (await req.json()) as { prompt?: string };
     const trimmedPrompt = typeof prompt === "string" ? prompt.trim() : "";
@@ -167,6 +170,14 @@ export async function POST(req: Request) {
     }
 
     if (!process.env.OPENAI_API_KEY) {
+      await logHandledServerError({
+        requestPath,
+        route: requestPath,
+        method: "POST",
+        context: "magi_missing_openai_key",
+        status: 500,
+        error: "OPENAI_API_KEY mangler i miljoet.",
+      });
       return NextResponse.json({ error: "OPENAI_API_KEY mangler i miljoet." }, { status: 500 });
     }
 
@@ -235,6 +246,14 @@ Undgaa meta-kommentarer, forklaringer og markdown.`,
     return NextResponse.json(normalizedPosts);
   } catch (error) {
     console.error("Magi API-fejl:", error);
+    await logHandledServerError({
+      route: "/api/magi",
+      method: "POST",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+    });
     return NextResponse.json({ error: "Kunne ikke generere loebet lige nu." }, { status: 500 });
   }
 }

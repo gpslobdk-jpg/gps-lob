@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
 import { createAdminClient } from "@/utils/supabase/admin";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const runtime = "nodejs";
 
@@ -174,9 +175,18 @@ async function findProfileIdByStripeSubscription(
 }
 
 export async function POST(req: Request) {
+  const requestPath = new URL(req.url).pathname;
   const stripe = getStripeClient();
   if (!stripe) {
     console.error("Stripe webhook mangler STRIPE_SECRET_KEY.");
+    await logHandledServerError({
+      route: "/api/webhook/stripe",
+      method: "POST",
+      status: 500,
+      error: "Stripe webhook mangler STRIPE_SECRET_KEY.",
+      requestPath,
+      routeType: "route",
+    });
     return NextResponse.json(
       { error: "Stripe webhook er ikke sat korrekt op." },
       { status: 500 }
@@ -186,6 +196,14 @@ export async function POST(req: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
   if (!webhookSecret) {
     console.error("Stripe webhook mangler STRIPE_WEBHOOK_SECRET.");
+    await logHandledServerError({
+      route: "/api/webhook/stripe",
+      method: "POST",
+      status: 500,
+      error: "Stripe webhook mangler STRIPE_WEBHOOK_SECRET.",
+      requestPath,
+      routeType: "route",
+    });
     return NextResponse.json(
       { error: "Stripe webhook er ikke sat korrekt op." },
       { status: 500 }
@@ -195,6 +213,14 @@ export async function POST(req: Request) {
   const adminSupabase = createAdminClient();
   if (!adminSupabase) {
     console.error("Stripe webhook mangler Supabase admin-klient.");
+    await logHandledServerError({
+      route: "/api/webhook/stripe",
+      method: "POST",
+      status: 500,
+      error: "Stripe webhook mangler Supabase admin-klient.",
+      requestPath,
+      routeType: "route",
+    });
     return NextResponse.json(
       { error: "Supabase admin-klienten er ikke sat korrekt op." },
       { status: 500 }
@@ -267,6 +293,14 @@ export async function POST(req: Request) {
 
           if (error) {
             console.error("Kunne ikke opdatere profiles efter Stripe subscription-checkout:", error);
+            await logHandledServerError({
+              route: "/api/webhook/stripe",
+              method: "POST",
+              status: 500,
+              error,
+              requestPath,
+              routeType: "route",
+            });
             return NextResponse.json(
               { error: "Kunne ikke gemme abonnementsadgangen i databasen." },
               { status: 500 }
@@ -305,6 +339,14 @@ export async function POST(req: Request) {
 
         if (error) {
           console.error("Kunne ikke opdatere profiles efter Stripe-betaling:", error);
+          await logHandledServerError({
+            route: "/api/webhook/stripe",
+            method: "POST",
+            status: 500,
+            error,
+            requestPath,
+            routeType: "route",
+          });
           return NextResponse.json(
             { error: "Kunne ikke gemme betalingsadgangen i databasen." },
             { status: 500 }
@@ -342,6 +384,14 @@ export async function POST(req: Request) {
 
         if (error) {
           console.error("Kunne ikke opdatere profiles efter Stripe subscription-event:", error);
+          await logHandledServerError({
+            route: "/api/webhook/stripe",
+            method: "POST",
+            status: 500,
+            error,
+            requestPath,
+            routeType: "route",
+          });
           return NextResponse.json(
             { error: "Kunne ikke opdatere abonnementsstatus i databasen." },
             { status: 500 }
@@ -358,6 +408,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("Fejl ved behandling af Stripe-webhook:", error);
+    await logHandledServerError({
+      route: "/api/webhook/stripe",
+      method: "POST",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+    });
     return NextResponse.json(
       { error: "Stripe-webhooken kunne ikke behandles." },
       { status: 500 }

@@ -1,11 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { Activity, ChevronLeft, Database, RefreshCw, ShieldAlert, Waves } from "lucide-react";
+import {
+  Activity,
+  ChevronLeft,
+  Database,
+  Globe,
+  RefreshCw,
+  ShieldAlert,
+  TriangleAlert,
+  Waves,
+} from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useMemo, useState } from "react";
-
-import { createClient } from "@/utils/supabase/client";
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -38,54 +45,107 @@ type TelemetryLogItem = {
   createdAt: string | null;
 };
 
-type SupabaseErrorLike = {
-  code?: string;
-  message?: string;
-  details?: string;
+type ExternalIncident = {
+  id: string;
+  title: string;
+  status: string;
+  impact: string;
+  shortLink: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
 };
 
-const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+type ExternalServiceStatus = {
+  provider: string;
+  name: string;
+  source: "live" | "unavailable";
+  statusUrl: string;
+  indicator: string;
+  description: string;
+  updatedAt: string | null;
+  incidents: ExternalIncident[];
+  errorMessage: string;
+};
 
-const mockTelemetryLogs: TelemetryLogItem[] = [
-  {
-    id: "mock-restore-success",
-    eventType: "restore_success",
-    participantId: "demo-participant-1",
-    sessionId: "demo-session-1",
-    message: "restore_success after wake-up recovery",
-    createdAt: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "mock-401-participant",
-    eventType: "auth_error",
-    participantId: "demo-participant-2",
-    sessionId: "demo-session-2",
-    message: "GET /api/play/participant returned 401 during wake-up restore",
-    createdAt: new Date(Date.now() - 28 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "mock-404-participant",
-    eventType: "participant_lookup_failed",
-    participantId: "demo-participant-3",
-    sessionId: "demo-session-3",
-    message: "GET /api/play/participant returned 404 after reconnect check",
-    createdAt: new Date(Date.now() - 56 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "mock-rebind",
-    eventType: "participant_auth_rebind_recovered",
-    participantId: "demo-participant-4",
-    sessionId: "demo-session-4",
-    message: "reason=wake_reconnect:status_channel_error",
-    createdAt: new Date(Date.now() - 78 * 60 * 1000).toISOString(),
-  },
-];
+type AdminLogsFeedResponse = {
+  telemetryLogs?: TelemetryLogRow[];
+  dataSource?: DataSourceMode;
+  fallbackMessage?: string;
+  externalServices?: ExternalServiceStatus[];
+};
+
+type StructuredLogMeta = Record<string, string>;
 
 const tabs: Array<{ id: AdminLogsTab; label: string }> = [
   { id: "overview", label: "Overblik" },
   { id: "network", label: "Netværksfejl (401/404)" },
   { id: "recoveries", label: "Genoprettelser (Telemetry)" },
 ];
+
+const fallbackFeed: Required<AdminLogsFeedResponse> = {
+  telemetryLogs: [
+    {
+      id: "mock-restore-success",
+      event_type: "restore_success",
+      participant_id: "demo-participant-1",
+      session_id: "demo-session-1",
+      message: "restore_success after wake-up recovery",
+      created_at: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+    },
+    {
+      id: "mock-401-participant",
+      event_type: "server_response_error",
+      participant_id: "demo-participant-2",
+      session_id: "demo-session-2",
+      message:
+        "meta:kind=response|route=/api/play/participant|path=/api/play/participant?sessionId=demo|method=GET|status=401|msg=Unauthorized",
+      created_at: new Date(Date.now() - 28 * 60 * 1000).toISOString(),
+    },
+    {
+      id: "mock-server-error",
+      event_type: "server_handled_error",
+      participant_id: null,
+      session_id: "demo-session-3",
+      message:
+        "meta:kind=handled|route=/api/join|path=/api/join|method=POST|status=500|type=route|msg=Kunne ikke registrere deltageren.",
+      created_at: new Date(Date.now() - 56 * 60 * 1000).toISOString(),
+    },
+    {
+      id: "mock-rebind",
+      event_type: "participant_auth_rebind_recovered",
+      participant_id: "demo-participant-4",
+      session_id: "demo-session-4",
+      message: "reason=wake_reconnect:status_channel_error",
+      created_at: new Date(Date.now() - 78 * 60 * 1000).toISOString(),
+    },
+  ],
+  dataSource: "mock",
+  fallbackMessage: "Admin-feed kunne ikke hentes live. Siden viser en lokal skal, indtil API'et svarer igen.",
+  externalServices: [
+    {
+      provider: "vercel",
+      name: "Vercel",
+      source: "unavailable",
+      statusUrl: "https://www.vercel-status.com",
+      indicator: "unknown",
+      description: "Kunne ikke hente ekstern driftsstatus lige nu",
+      updatedAt: null,
+      incidents: [],
+      errorMessage: "Live statusfeed er utilgængeligt i fallback-visning.",
+    },
+    {
+      provider: "supabase",
+      name: "Supabase",
+      source: "unavailable",
+      statusUrl: "https://status.supabase.com",
+      indicator: "unknown",
+      description: "Kunne ikke hente ekstern driftsstatus lige nu",
+      updatedAt: null,
+      incidents: [],
+      errorMessage: "Live statusfeed er utilgængeligt i fallback-visning.",
+    },
+  ],
+};
 
 function normalizeTelemetryLog(row: TelemetryLogRow, index: number): TelemetryLogItem {
   return {
@@ -114,11 +174,85 @@ function formatDateTime(value: string | null) {
   }).format(date);
 }
 
+function parseStructuredMeta(message: string): StructuredLogMeta | null {
+  if (!message.startsWith("meta:")) {
+    return null;
+  }
+
+  return message
+    .slice(5)
+    .split("|")
+    .reduce<StructuredLogMeta>((result, segment) => {
+      const separatorIndex = segment.indexOf("=");
+      if (separatorIndex <= 0) {
+        return result;
+      }
+
+      const key = segment.slice(0, separatorIndex).trim();
+      const value = segment.slice(separatorIndex + 1).trim();
+      if (!key || !value) {
+        return result;
+      }
+
+      result[key] = value;
+      return result;
+    }, {});
+}
+
 function getCombinedLogText(log: TelemetryLogItem) {
   return `${log.eventType} ${log.message}`.toLocaleLowerCase("da-DK");
 }
 
+function getStatusCode(log: TelemetryLogItem) {
+  const meta = parseStructuredMeta(log.message);
+  const fromMeta = Number(meta?.status ?? "");
+  if (Number.isFinite(fromMeta) && fromMeta > 0) {
+    return fromMeta;
+  }
+
+  const match = getCombinedLogText(log).match(/\b(401|404|429|500|503)\b/);
+  return match ? Number(match[1]) : null;
+}
+
+function getRoutePath(log: TelemetryLogItem) {
+  const meta = parseStructuredMeta(log.message);
+  if (meta?.route) {
+    return meta.route;
+  }
+
+  const routeMatch = log.message.match(/\/api\/[A-Za-z0-9\-/]+/);
+  return routeMatch ? routeMatch[0] : null;
+}
+
+function formatRouteLabel(routePath: string | null) {
+  if (!routePath) return "ukendt route";
+
+  switch (routePath) {
+    case "/api/play/participant":
+      return "elev-genopkobling";
+    case "/api/play/status":
+      return "sessionstatus";
+    case "/api/play/session":
+      return "play-data";
+    case "/api/play/location":
+      return "positionssynk";
+    case "/api/play/submit-answer":
+      return "svar-upload";
+    case "/api/play/submit-photo":
+      return "foto-upload";
+    case "/api/join":
+      return "join-flow";
+    default:
+      return routePath;
+  }
+}
+
 function isNetworkErrorLog(log: TelemetryLogItem) {
+  const status = getStatusCode(log);
+  if (status === 401 || status === 404) {
+    return true;
+  }
+
   const combined = getCombinedLogText(log);
   return combined.includes("401") || combined.includes("404");
 }
@@ -133,11 +267,26 @@ function isRecoveryLog(log: TelemetryLogItem) {
   );
 }
 
+function isServerErrorLog(log: TelemetryLogItem) {
+  if (log.eventType === "server_exception" || log.eventType === "server_handled_error") {
+    return true;
+  }
+
+  const status = getStatusCode(log);
+  return status !== null && status >= 500;
+}
+
 function translateTelemetryLog(log: TelemetryLogItem) {
   const combined = getCombinedLogText(log);
+  const status = getStatusCode(log);
+  const routePath = getRoutePath(log);
 
-  if (combined.includes("401") && combined.includes("/api/play/participant")) {
+  if (status === 401 && routePath === "/api/play/participant") {
     return "Elev-adgang afvist (Muligvis dvale)";
+  }
+
+  if (status === 404 && routePath === "/api/play/participant") {
+    return "Deltager blev ikke fundet ved genopkobling";
   }
 
   if (combined.includes("restore_success") || log.eventType === "wake_reconnect_recovered") {
@@ -155,31 +304,134 @@ function translateTelemetryLog(log: TelemetryLogItem) {
       return "Genopretning efter dvale mislykkedes";
     case "auth_error":
       return "401 opdaget under elevsynkronisering";
-    case "session_drop":
-      return "Deltager blev fjernet fra sessionen";
     case "gps_died":
       return "GPS-watcher stoppede og blev genstartet";
+    case "server_response_error":
+      return `Serveren svarede ${status ?? "med fejl"} i ${formatRouteLabel(routePath)}`;
+    case "server_handled_error":
+      return `Håndteret serverfejl i ${formatRouteLabel(routePath)}`;
+    case "server_exception":
+      return `Ufanget serverfejl i ${formatRouteLabel(routePath)}`;
     default:
       return log.eventType.replace(/_/g, " ");
   }
 }
 
-function getLiveFallbackMessage(error: SupabaseErrorLike | null) {
-  if (!error) {
-    return "Live telemetry kunne ikke læses. Siden viser en skal, indtil databasen svarer igen.";
+function getTelemetryDetail(log: TelemetryLogItem) {
+  const meta = parseStructuredMeta(log.message);
+  if (!meta) {
+    return log.message || "Ingen ekstra besked";
   }
 
-  const combined = `${error.code ?? ""} ${error.message ?? ""} ${error.details ?? ""}`.toLocaleLowerCase("da-DK");
+  const parts = [
+    meta.route ? `Route ${meta.route}` : "",
+    meta.status ? `Status ${meta.status}` : "",
+    meta.msg ? meta.msg : "",
+    meta.code ? `Kode ${meta.code}` : "",
+    meta.details ? meta.details : "",
+  ].filter(Boolean);
 
-  if (combined.includes("telemetry_logs") && (combined.includes("does not exist") || combined.includes("pgrst205"))) {
-    return "telemetry_logs kunne ikke findes. Siden viser en skal, indtil tabellen er tilgængelig.";
+  return parts.join(" · ") || "Ingen ekstra besked";
+}
+
+function getTelemetryRecommendedAction(log: TelemetryLogItem) {
+  const status = getStatusCode(log);
+  const routePath = getRoutePath(log);
+
+  if (status === 401 && routePath === "/api/play/participant") {
+    return "Bed eleven trykke Genopret forbindelse. Hvis 401 gentager sig, genindlæs løbet fra samme enhed, så deltager-login kan bindes igen.";
   }
 
-  if (combined.includes("42501") || combined.includes("permission") || combined.includes("policy")) {
-    return "telemetry_logs findes, men klienten har ikke læseadgang. Siden viser en skal i stedet for live-data.";
+  if (status === 404 && routePath === "/api/play/participant") {
+    return "Kontroller om deltageren stadig findes i sessionen. Hvis eleven er faldet helt ud, lad eleven åbne samme løb igen eller join på ny.";
   }
 
-  return "Live telemetry kunne ikke læses. Siden viser en skal, indtil tabellen eller læseadgangen er på plads.";
+  switch (log.eventType) {
+    case "participant_restore_exhausted":
+    case "wake_reconnect_failed":
+      return "Få eleven tilbage på netværk og brug Genopret forbindelse. Hvis det stadig fejler, genindlæs siden og kontroller at samme enhed bruges.";
+    case "participant_auth_refresh_recovered":
+    case "participant_auth_rebind_recovered":
+    case "wake_reconnect_recovered":
+      return "Ingen akut handling. Hold øje med gentagne gendannelser for samme deltager og tjek netværk, hvis de kommer i bølger.";
+    case "server_exception":
+    case "server_handled_error":
+    case "server_response_error":
+      if (routePath === "/api/join") {
+        return "Tjek deltager-oprettelse, service-role adgang og auth-binding. Fejl her blokerer nye elever fra at komme ind i løbet.";
+      }
+
+      if (routePath === "/api/play/location") {
+        return "Tjek at sessionen stadig er aktiv, og at eleven har forbindelse nok til at sende GPS-positioner. Se efter gentagne 500-fejl på positionssynk.";
+      }
+
+      if (routePath === "/api/play/submit-photo") {
+        return "Tjek Storage-adgang, answers-tabellen og om foto-posten stadig findes i løbet. Problemet ligger ofte i upload- eller databaseleddet.";
+      }
+
+      if (routePath === "/api/play/submit-answer") {
+        return "Tjek svar-tabellen og schema-kompatibilitet. Hvis fejlen rammer mange elever samtidigt, er det oftest data- eller adgangslaget og ikke klienten.";
+      }
+
+      if (routePath === "/api/play/status" || routePath === "/api/play/session") {
+        return "Tjek live_sessions, run-data og Supabase-adgang. Hvis denne route fejler, vil elever typisk sidde fast i indlæsning eller mangle missionsdata.";
+      }
+
+      return "Åbn den tekniske loglinje og route-navnet, og verificer om fejlen er lokal for en enkelt elev eller generel for hele sessionen, før du beder klassen reloade.";
+    default:
+      return "Ingen fast playbook endnu. Brug den tekniske loglinje og event-navnet til at afgøre, om fejlen er elevspecifik eller generel for sessionen.";
+  }
+}
+
+function getTelemetryTags(log: TelemetryLogItem) {
+  const meta = parseStructuredMeta(log.message);
+  const tags = [`event: ${log.eventType}`];
+
+  if (meta?.route) tags.push(`route: ${meta.route}`);
+  if (meta?.status) tags.push(`status: ${meta.status}`);
+  if (log.sessionId) tags.push(`session: ${log.sessionId}`);
+  if (log.participantId) tags.push(`deltager: ${log.participantId}`);
+
+  return tags;
+}
+
+function translateExternalIndicator(indicator: string) {
+  switch (indicator) {
+    case "none":
+      return "Alt operativt";
+    case "minor":
+      return "Mindre driftspåvirkning";
+    case "major":
+      return "Større driftspåvirkning";
+    case "critical":
+      return "Kritisk driftspåvirkning";
+    default:
+      return "Status ukendt";
+  }
+}
+
+function getExternalStatusTone(service: ExternalServiceStatus) {
+  if (service.source === "unavailable") {
+    return "border-amber-300/30 bg-amber-400/10 text-amber-50";
+  }
+
+  if (service.indicator !== "none" || service.incidents.length > 0) {
+    return "border-rose-300/30 bg-rose-400/10 text-rose-50";
+  }
+
+  return "border-emerald-300/30 bg-emerald-400/10 text-emerald-50";
+}
+
+function getExternalRecommendedAction(service: ExternalServiceStatus) {
+  if (service.source === "unavailable") {
+    return "Statusfeeden kunne ikke hentes. Verificer leverandørens status-side manuelt, før du konkluderer at problemet ligger i vores egen kode.";
+  }
+
+  if (service.indicator !== "none" || service.incidents.length > 0) {
+    return `Tjek ${service.name}-statussiden først. Informer lærere om ekstern driftspåvirkning og undgå at bruge tid på klientfejlsøgning, mens leverandøren er gul eller rød.`;
+  }
+
+  return "Ingen ekstern driftspåvirkning registreret lige nu. Fejl skal derfor sandsynligvis findes i vores egne routes, realtime eller klient-flow.";
 }
 
 function EmptyState({ title, body }: { title: string; body: string }) {
@@ -193,73 +445,90 @@ function EmptyState({ title, body }: { title: string; body: string }) {
 
 export default function AdminLogsPage() {
   const [activeTab, setActiveTab] = useState<AdminLogsTab>("overview");
-  const [logs, setLogs] = useState<TelemetryLogItem[]>([]);
-  const [dataSource, setDataSource] = useState<DataSourceMode>("live");
+  const [logs, setLogs] = useState<TelemetryLogItem[]>(fallbackFeed.telemetryLogs.map(normalizeTelemetryLog));
+  const [externalServices, setExternalServices] = useState<ExternalServiceStatus[]>(fallbackFeed.externalServices);
+  const [dataSource, setDataSource] = useState<DataSourceMode>(fallbackFeed.dataSource);
   const [isLoading, setIsLoading] = useState(true);
-  const [fallbackMessage, setFallbackMessage] = useState("");
+  const [fallbackMessage, setFallbackMessage] = useState(fallbackFeed.fallbackMessage);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
-    const supabase = createClient();
+    const controller = new AbortController();
 
-    const loadTelemetry = async () => {
+    const loadAdminFeed = async () => {
       setIsLoading(true);
-      setFallbackMessage("");
 
-      const since = new Date(Date.now() - TWENTY_FOUR_HOURS_MS).toISOString();
+      try {
+        const response = await fetch("/api/admin/logs", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
 
-      const { data, error } = await supabase
-        .from("telemetry_logs")
-        .select("id,event_type,participant_id,session_id,message,created_at")
-        .gte("created_at", since)
-        .order("created_at", { ascending: false })
-        .limit(250);
+        if (!response.ok) {
+          throw new Error(`Admin-feed svarede med ${response.status}`);
+        }
 
-      if (!isMounted) {
-        return;
-      }
+        const payload = (await response.json()) as AdminLogsFeedResponse;
+        if (!isMounted) return;
 
-      if (error) {
-        console.error("Kunne ikke hente telemetry_logs live:", error);
-        setLogs(mockTelemetryLogs);
+        setLogs((payload.telemetryLogs ?? fallbackFeed.telemetryLogs).map(normalizeTelemetryLog));
+        setExternalServices(payload.externalServices ?? fallbackFeed.externalServices);
+        setDataSource(payload.dataSource ?? "mock");
+        setFallbackMessage(payload.fallbackMessage ?? "");
+      } catch {
+        if (!isMounted || controller.signal.aborted) return;
+
+        setLogs(fallbackFeed.telemetryLogs.map(normalizeTelemetryLog));
+        setExternalServices(fallbackFeed.externalServices);
         setDataSource("mock");
-        setFallbackMessage(getLiveFallbackMessage(error as SupabaseErrorLike));
-        setIsLoading(false);
-        return;
+        setFallbackMessage(fallbackFeed.fallbackMessage);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-
-      setLogs(((data as TelemetryLogRow[] | null) ?? []).map(normalizeTelemetryLog));
-      setDataSource("live");
-      setIsLoading(false);
     };
 
-    void loadTelemetry();
+    void loadAdminFeed();
 
     return () => {
       isMounted = false;
+      controller.abort();
     };
   }, [refreshNonce]);
 
   const networkLogs = useMemo(() => logs.filter(isNetworkErrorLog), [logs]);
   const recoveryLogs = useMemo(() => logs.filter(isRecoveryLog), [logs]);
+  const serverErrorLogs = useMemo(() => logs.filter(isServerErrorLog), [logs]);
   const uniqueSessionCount = useMemo(
     () => new Set(logs.map((log) => log.sessionId).filter((value): value is string => Boolean(value))).size,
     [logs]
   );
   const lastEventAt = logs[0]?.createdAt ?? null;
+  const degradedExternalCount = useMemo(
+    () =>
+      externalServices.filter(
+        (service) => service.source === "unavailable" || service.indicator !== "none" || service.incidents.length > 0
+      ).length,
+    [externalServices]
+  );
+  const unresolvedExternalIncidentCount = useMemo(
+    () => externalServices.reduce((sum, service) => sum + service.incidents.length, 0),
+    [externalServices]
+  );
 
   const overviewCards = useMemo(
     () => [
       {
         label: "Hændelser seneste 24 timer",
         value: String(logs.length),
-        detail: dataSource === "live" ? "Live fra telemetry_logs" : "Skaldata vises",
+        detail: dataSource === "live" ? "Live fra telemetry_logs via serverfeed" : "Skaldata vises",
       },
       {
         label: "Netværksfejl 401/404",
         value: String(networkLogs.length),
-        detail: "Hændelser der typisk rammer genopkobling og dvale",
+        detail: "Fejl der typisk rammer genopkobling, auth og dvale",
       },
       {
         label: "Genoprettelser",
@@ -267,16 +536,36 @@ export default function AdminLogsPage() {
         detail: "Succesfulde reconnects og auth-gendannelser",
       },
       {
-        label: "Berørte sessioner",
-        value: String(uniqueSessionCount),
-        detail: lastEventAt ? `Seneste hændelse ${formatDateTime(lastEventAt)}` : "Ingen hændelser endnu",
+        label: "Serverfejl",
+        value: String(serverErrorLogs.length),
+        detail: lastEventAt
+          ? `Berørte sessioner ${uniqueSessionCount} · seneste ${formatDateTime(lastEventAt)}`
+          : `Berørte sessioner ${uniqueSessionCount}`,
+      },
+      {
+        label: "Eksterne driftssignaler",
+        value: String(degradedExternalCount),
+        detail:
+          unresolvedExternalIncidentCount > 0
+            ? `${unresolvedExternalIncidentCount} åbne incidents hos Vercel/Supabase`
+            : "Ingen åbne incidents i de eksterne statusfeeds",
       },
     ],
-    [dataSource, lastEventAt, logs.length, networkLogs.length, recoveryLogs.length, uniqueSessionCount]
+    [
+      dataSource,
+      degradedExternalCount,
+      lastEventAt,
+      logs.length,
+      networkLogs.length,
+      recoveryLogs.length,
+      serverErrorLogs.length,
+      uniqueSessionCount,
+      unresolvedExternalIncidentCount,
+    ]
   );
 
   const visibleLogs =
-    activeTab === "overview" ? logs.slice(0, 10) : activeTab === "network" ? networkLogs : recoveryLogs;
+    activeTab === "overview" ? logs.slice(0, 12) : activeTab === "network" ? networkLogs : recoveryLogs;
 
   return (
     <div className={`min-h-screen bg-slate-950 px-4 py-8 text-white sm:px-6 lg:px-8 ${poppins.className}`}>
@@ -297,8 +586,9 @@ export default function AdminLogsPage() {
               Systemets sundhed, samlet ét sted
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300/85 sm:text-base">
-              Siden ligger bag dashboard-login og viser de seneste 24 timers telemetry, når tabellen er tilgængelig.
-              Hvis live-data ikke kan læses, falder visningen tilbage til en skal, så UI og tolkninger stadig kan gennemgås.
+              Siden ligger bag dashboard-login og samler tre spor: app-telemetry, server-fejl og ekstern
+              driftsstatus fra Vercel og Supabase. Kendte fejltyper bliver oversat til driftssprog og får en
+              anbefalet handling direkte i UI&apos;et.
             </p>
           </div>
 
@@ -314,12 +604,12 @@ export default function AdminLogsPage() {
 
         {fallbackMessage ? (
           <div className="mb-6 rounded-[1.75rem] border border-amber-300/30 bg-amber-400/10 p-5 text-sm text-amber-50 shadow-[0_22px_48px_rgba(120,53,15,0.18)] backdrop-blur-xl">
-            <p className="font-semibold text-amber-100">Live telemetry er ikke tilgængelig lige nu.</p>
+            <p className="font-semibold text-amber-100">Live telemetry er ikke fuldt tilgængelig lige nu.</p>
             <p className="mt-2 leading-6 text-amber-50/90">{fallbackMessage}</p>
           </div>
         ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           {overviewCards.map((card) => (
             <div
               key={card.label}
@@ -371,10 +661,10 @@ export default function AdminLogsPage() {
                 </h2>
                 <p className="text-sm text-slate-300/75">
                   {activeTab === "overview"
-                    ? "Seneste hændelser og deres tolkede status."
+                    ? "Seneste hændelser med driftstolkning, serverkontekst og anbefalet handling."
                     : activeTab === "network"
-                      ? "Fejl med 401/404, oversat til driftssprog."
-                      : "Gendannelser og reconnects, hvor systemet hentede sig selv tilbage."}
+                      ? "401/404-fejl, oversat til det konkrete elev- eller sessionproblem de typisk betyder."
+                      : "Gendannelser og reconnects, hvor systemet hentede sig selv tilbage uden fuldt nedbrud."}
                 </p>
               </div>
             </div>
@@ -382,7 +672,7 @@ export default function AdminLogsPage() {
             {isLoading ? (
               <EmptyState
                 title="Indlæser telemetry"
-                body="Vi henter de seneste loglinjer og bygger et overblik over systemets sundhed."
+                body="Vi henter de seneste loglinjer, serverfejl og statusfeeds og bygger et samlet overblik over systemets sundhed."
               />
             ) : visibleLogs.length === 0 ? (
               <EmptyState
@@ -405,27 +695,26 @@ export default function AdminLogsPage() {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="text-base font-semibold text-white">{translateTelemetryLog(log)}</p>
-                        <p className="mt-1 text-sm leading-6 text-slate-300/80">{log.message || "Ingen ekstra besked"}</p>
+                        <p className="mt-1 text-sm leading-6 text-slate-300/80">{getTelemetryDetail(log)}</p>
                       </div>
                       <time className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300/85">
                         {formatDateTime(log.createdAt)}
                       </time>
                     </div>
 
+                    <div className="mt-4 rounded-[1.25rem] border border-cyan-300/20 bg-cyan-400/10 p-4 text-sm text-cyan-50/92">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100/80">
+                        Anbefalet handling
+                      </p>
+                      <p className="mt-2 leading-6">{getTelemetryRecommendedAction(log)}</p>
+                    </div>
+
                     <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-300/75">
-                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                        event: {log.eventType}
-                      </span>
-                      {log.sessionId ? (
-                        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                          session: {log.sessionId}
+                      {getTelemetryTags(log).map((tag) => (
+                        <span key={`${log.id}-${tag}`} className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                          {tag}
                         </span>
-                      ) : null}
-                      {log.participantId ? (
-                        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                          deltager: {log.participantId}
-                        </span>
-                      ) : null}
+                      ))}
                     </div>
                   </article>
                 ))}
@@ -450,27 +739,130 @@ export default function AdminLogsPage() {
                 </p>
                 <p className="mt-2 text-sm leading-6 text-slate-300/80">
                   {dataSource === "live"
-                    ? "Siden læser de seneste 24 timers logs direkte fra Supabase-tabellen telemetry_logs."
-                    : "Siden kunne ikke læse telemetry_logs live og viser derfor en forudfyldt skal med kendte eksempler."}
+                    ? "Serverfeeden læser de seneste 24 timers logs direkte fra telemetry_logs med service-role adgang."
+                    : "Serverfeeden kunne ikke læse telemetry_logs live og viser derfor en forudfyldt skal med kendte eksempler."}
                 </p>
               </div>
             </section>
 
             <section className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-6">
-              <h2 className={`text-lg font-black text-white ${rubik.className}`}>Kendte oversættelser</h2>
+              <h2 className={`text-lg font-black text-white ${rubik.className}`}>Kendte oversættelser & playbooks</h2>
               <div className="mt-4 space-y-3 text-sm text-slate-300/85">
                 <div className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 p-4">
                   <p className="font-semibold text-white">401 på /api/play/participant</p>
                   <p className="mt-1 leading-6">Vises som: Elev-adgang afvist (Muligvis dvale)</p>
+                  <p className="mt-2 leading-6 text-cyan-100/85">
+                    Handling: Bed eleven bruge Genopret forbindelse, og genindlæs løbet fra samme enhed, hvis 401 fortsat vender tilbage.
+                  </p>
                 </div>
                 <div className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 p-4">
                   <p className="font-semibold text-white">restore_success</p>
                   <p className="mt-1 leading-6">Vises som: Elev genoprettet succesfuldt</p>
+                  <p className="mt-2 leading-6 text-cyan-100/85">
+                    Handling: Ingen akut handling, men hold øje med hvis samme elev bliver genoprettet igen og igen.
+                  </p>
+                </div>
+                <div className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 p-4">
+                  <p className="font-semibold text-white">server_handled_error i /api/join</p>
+                  <p className="mt-1 leading-6">Vises som: Håndteret serverfejl i join-flow</p>
+                  <p className="mt-2 leading-6 text-cyan-100/85">
+                    Handling: Tjek deltager-oprettelse, auth-binding og service-role adgang før nye elever slippes ind i sessionen.
+                  </p>
                 </div>
               </div>
             </section>
           </aside>
         </div>
+
+        <section className="mt-6 rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-6">
+          <div className="flex items-center gap-3">
+            <Globe className="h-5 w-5 text-cyan-300" />
+            <div>
+              <h2 className={`text-xl font-black text-white ${rubik.className}`}>Eksterne driftsfejl</h2>
+              <p className="text-sm text-slate-300/75">
+                Separat sektion for leverandørstatus, så Vercel- og Supabase-problemer ikke forveksles med egne fejl.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 xl:grid-cols-2">
+            {externalServices.map((service) => (
+              <article
+                key={service.provider}
+                className="rounded-[1.6rem] border border-white/10 bg-slate-950/45 p-5 shadow-[0_18px_36px_rgba(15,23,42,0.16)]"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-semibold text-white">{service.name}</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-300/80">{service.description}</p>
+                  </div>
+                  <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${getExternalStatusTone(service)}`}>
+                    {translateExternalIndicator(service.indicator)}
+                  </span>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-300/75">
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">kilde: {service.source}</span>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                    opdateret: {formatDateTime(service.updatedAt)}
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                    incidents: {service.incidents.length}
+                  </span>
+                </div>
+
+                {service.errorMessage ? (
+                  <div className="mt-4 rounded-[1.2rem] border border-amber-300/25 bg-amber-400/10 p-4 text-sm leading-6 text-amber-50/90">
+                    {service.errorMessage}
+                  </div>
+                ) : null}
+
+                {service.incidents.length === 0 ? (
+                  <div className="mt-4 rounded-[1.2rem] border border-white/10 bg-white/5 p-4 text-sm leading-6 text-slate-300/82">
+                    Ingen åbne incidents registreret i statusfeeden lige nu.
+                  </div>
+                ) : (
+                  <div className="mt-4 space-y-3">
+                    {service.incidents.map((incident) => (
+                      <div
+                        key={incident.id}
+                        className="rounded-[1.2rem] border border-rose-300/20 bg-rose-400/10 p-4 text-sm text-rose-50/92"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <p className="font-semibold text-white">{incident.title}</p>
+                          <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.12em] text-rose-50/85">
+                            {incident.impact} · {incident.status}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-rose-50/80">
+                          Oprettet {formatDateTime(incident.createdAt)} · sidst opdateret {formatDateTime(incident.updatedAt)}
+                        </p>
+                        {incident.shortLink ? (
+                          <a
+                            href={incident.shortLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-3 inline-flex text-sm font-semibold text-cyan-200 transition hover:text-cyan-100"
+                          >
+                            Åbn incident hos {service.name}
+                          </a>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-4 rounded-[1.25rem] border border-cyan-300/20 bg-cyan-400/10 p-4 text-sm text-cyan-50/92">
+                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100/80">
+                    <TriangleAlert className="h-4 w-4" />
+                    Anbefalet handling
+                  </div>
+                  <p className="mt-2 leading-6">{getExternalRecommendedAction(service)}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   );

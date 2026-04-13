@@ -6,6 +6,7 @@ import {
   createAdminClient,
 } from "@/utils/supabase/admin";
 import { normalizeRaceType, RACE_TYPES } from "@/utils/gpsRuns";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const runtime = "edge";
 
@@ -152,6 +153,7 @@ function createAssignments(
 
 export async function POST(request: NextRequest) {
   let payload: ProvisionPayload;
+  const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
 
   try {
     payload = (await request.json()) as ProvisionPayload;
@@ -291,6 +293,15 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Kunne ikke provisionere Stratego-spillere:", error);
+    await logHandledServerError({
+      route: "/api/stratego/provision",
+      method: "POST",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+      sessionId,
+    });
     return NextResponse.json(
       { error: "Kunne ikke klargøre hold og roller til Live Stratego." },
       { status: 500 }

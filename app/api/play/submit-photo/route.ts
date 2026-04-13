@@ -4,6 +4,7 @@ import {
   ADMIN_ACCESS_MISSING_MESSAGE,
   createAdminClient,
 } from "@/utils/supabase/admin";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 import { getAwardedPoints } from "@/utils/questionPoints";
 import { resolveParticipantRequestContext } from "@/utils/supabase/participantServer";
 import {
@@ -235,6 +236,7 @@ async function maybeStampRunStartedAt(
 
 export async function POST(request: Request) {
   let formData: FormData;
+  const requestPath = new URL(request.url).pathname;
 
   try {
     formData = await request.formData();
@@ -336,6 +338,16 @@ export async function POST(request: Request) {
 
       if (error) {
         console.error("Kunne ikke gemme foto-upload i answers:", error);
+        await logHandledServerError({
+          route: "/api/play/submit-photo",
+          method: "POST",
+          status: 500,
+          error,
+          requestPath,
+          routeType: "route",
+          participantId,
+          sessionId,
+        });
         return NextResponse.json({ error: error.message ?? "Kunne ikke gemme fotoet." }, { status: 500 });
       }
 
@@ -362,6 +374,14 @@ export async function POST(request: Request) {
     }
 
     console.error("Foto-upload fejlede:", error);
+    await logHandledServerError({
+      route: "/api/play/submit-photo",
+      method: "POST",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+    });
     return NextResponse.json({ error: "Foto-upload fejlede." }, { status: 500 });
   }
 }

@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const maxDuration = 300;
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(req: Request) {
+  const requestPath = new URL(req.url).pathname;
+
   try {
     const { questionText, subject, topic } = await req.json();
     
@@ -32,6 +35,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ imageUrl });
   } catch (error) {
     console.error("Image AI Error:", error);
+    await logHandledServerError({
+      route: "/api/generate-image",
+      method: "POST",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+    });
     return NextResponse.json({ error: "Fejl ved generering af billede" }, { status: 500 });
   }
 }

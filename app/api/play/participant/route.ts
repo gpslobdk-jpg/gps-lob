@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { createAdminClient } from "@/utils/supabase/admin";
+import { logServerResponseError } from "@/utils/telemetry/serverLogs";
 import { resolveParticipantRequestContext } from "@/utils/supabase/participantServer";
 
 export const runtime = "edge";
@@ -70,6 +71,7 @@ async function fetchParticipantSnapshot(
 export async function GET(request: NextRequest) {
   const claimedSessionId = asTrimmedString(request.nextUrl.searchParams.get("sessionId"));
   const claimedParticipantId = asTrimmedString(request.nextUrl.searchParams.get("participantId"));
+  const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
 
   if (!claimedSessionId || !claimedParticipantId) {
     return NextResponse.json({ error: "Session-id eller deltager-id mangler." }, { status: 400 });
@@ -81,6 +83,18 @@ export async function GET(request: NextRequest) {
   });
 
   if (!participantContext.ok) {
+    if (participantContext.status >= 401) {
+      await logServerResponseError({
+        route: "/api/play/participant",
+        method: "GET",
+        status: participantContext.status,
+        error: participantContext.error,
+        requestPath,
+        participantId: claimedParticipantId || null,
+        sessionId: claimedSessionId || null,
+      });
+    }
+
     return NextResponse.json({ error: participantContext.error }, { status: participantContext.status });
   }
 
@@ -89,10 +103,28 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error("Kunne ikke hente deltager-snapshot:", error);
+    await logServerResponseError({
+      route: "/api/play/participant",
+      method: "GET",
+      status: 500,
+      error,
+      requestPath,
+      participantId,
+      sessionId,
+    });
     return NextResponse.json({ error: "Kunne ikke hente deltageren." }, { status: 500 });
   }
 
   if (!data) {
+    await logServerResponseError({
+      route: "/api/play/participant",
+      method: "GET",
+      status: 404,
+      error: "Deltageren findes ikke længere.",
+      requestPath,
+      participantId,
+      sessionId,
+    });
     return NextResponse.json({ error: "Deltageren findes ikke længere." }, { status: 404 });
   }
 

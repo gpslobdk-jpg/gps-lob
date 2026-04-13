@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createClient } from "@/utils/supabase/server";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const maxDuration = 300;
 
@@ -69,8 +70,18 @@ function isTimeoutError(error: unknown) {
 }
 
 export async function POST(req: Request) {
+  const requestPath = new URL(req.url).pathname;
+
   try {
     if (!process.env.OPENAI_API_KEY) {
+      await logHandledServerError({
+        requestPath,
+        route: requestPath,
+        method: "POST",
+        context: "roleplay_builder_missing_openai_key",
+        status: 500,
+        error: "OPENAI_API_KEY mangler i miljøet.",
+      });
       return NextResponse.json({ error: "OPENAI_API_KEY mangler i miljøet." }, { status: 500 });
     }
 
@@ -235,6 +246,16 @@ KRITISK: Følg disse regler strengt. Post 1 = jeg-fortæller med fakta. Post 2+ 
     });
   } catch (error) {
     console.error("Fejl i rollespil-builder/interview:", error);
+
+    const status = isTimeoutError(error) ? 504 : 500;
+    await logHandledServerError({
+      route: "/api/rollespil-builder/interview",
+      method: "POST",
+      status,
+      error,
+      requestPath,
+      routeType: "route",
+    });
 
     if (isTimeoutError(error)) {
       return NextResponse.json(

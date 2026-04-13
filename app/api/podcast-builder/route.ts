@@ -2,6 +2,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const maxDuration = 120;
 
@@ -34,6 +35,7 @@ const podcastRunSchema = z.object({
 
 export async function POST(request: NextRequest) {
   let payload: PodcastBuilderPayload;
+  const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
 
   try {
     payload = (await request.json()) as PodcastBuilderPayload;
@@ -53,6 +55,14 @@ export async function POST(request: NextRequest) {
   }
 
   if (!process.env.OPENAI_API_KEY) {
+    await logHandledServerError({
+      requestPath,
+      route: requestPath,
+      method: "POST",
+      context: "podcast_builder_missing_openai_key",
+      status: 500,
+      error: "OPENAI_API_KEY mangler i miljøet.",
+    });
     return NextResponse.json(
       { success: false, error: "OPENAI_API_KEY mangler i miljøet." },
       { status: 500 }
@@ -103,6 +113,14 @@ Regler:
       error instanceof Error && error.message.includes("timed out")
         ? "AI'en var for længe om at svare. Prøv igen."
         : "Kunne ikke bygge løbet lige nu. Prøv igen om et øjeblik.";
+    await logHandledServerError({
+      route: "/api/podcast-builder",
+      method: "POST",
+      status: error instanceof Error && error.message.includes("timed out") ? 504 : 500,
+      error,
+      requestPath,
+      routeType: "route",
+    });
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

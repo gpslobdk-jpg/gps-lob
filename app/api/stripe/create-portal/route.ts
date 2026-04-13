@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
 import { createClient } from "@/utils/supabase/server";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const runtime = "nodejs";
 
@@ -23,7 +24,9 @@ function getStripeClient() {
   return new Stripe(secretKey);
 }
 
-export async function POST() {
+export async function POST(request: Request) {
+  const requestPath = new URL(request.url).pathname;
+
   try {
     const supabase = await createClient();
     const {
@@ -43,6 +46,14 @@ export async function POST() {
 
     if (profileError) {
       console.error("Kunne ikke hente Stripe-kunde fra profiles:", profileError);
+      await logHandledServerError({
+        route: "/api/stripe/create-portal",
+        method: "POST",
+        status: 500,
+        error: profileError,
+        requestPath,
+        routeType: "route",
+      });
       return NextResponse.json(
         { error: "Kunne ikke hente abonnementsoplysninger." },
         { status: 500 }
@@ -62,6 +73,14 @@ export async function POST() {
     const stripe = getStripeClient();
     if (!stripe) {
       console.error("Stripe portal mangler STRIPE_SECRET_KEY.");
+      await logHandledServerError({
+        route: "/api/stripe/create-portal",
+        method: "POST",
+        status: 500,
+        error: "Stripe portal mangler STRIPE_SECRET_KEY.",
+        requestPath,
+        routeType: "route",
+      });
       return NextResponse.json(
         { error: "Stripe er ikke sat korrekt op endnu." },
         { status: 500 }
@@ -76,6 +95,14 @@ export async function POST() {
     return NextResponse.json({ url: portalSession.url });
   } catch (error) {
     console.error("Kunne ikke oprette Stripe Billing Portal-session:", error);
+    await logHandledServerError({
+      route: "/api/stripe/create-portal",
+      method: "POST",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+    });
     return NextResponse.json(
       { error: "Kunne ikke åbne abonnementsportalen lige nu." },
       { status: 500 }

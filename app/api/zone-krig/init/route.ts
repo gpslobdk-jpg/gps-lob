@@ -15,6 +15,7 @@ import {
   initializeZoneKrigZones,
   isZoneKrigRaceType,
 } from "@/app/api/zone-krig/_shared";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const runtime = "edge";
 
@@ -60,6 +61,7 @@ async function markFreeTrialAsUsed(userId: string, supabase: Awaited<ReturnType<
 
 export async function POST(request: NextRequest) {
   let payload: InitZoneKrigPayload;
+  const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
 
   try {
     payload = (await request.json()) as InitZoneKrigPayload;
@@ -164,6 +166,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
     console.error("Kunne ikke initialisere Zone Krig-zoner:", error);
+    await logHandledServerError({
+      route: "/api/zone-krig/init",
+      method: "POST",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+      sessionId,
+    });
     return NextResponse.json(
       { error: "Kunne ikke initialisere Zone Krig-zoner." },
       { status: 500 }

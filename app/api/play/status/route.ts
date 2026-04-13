@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const runtime = "edge";
 
@@ -10,6 +11,7 @@ function asTrimmedString(value: string | null) {
 
 export async function GET(request: NextRequest) {
   const sessionId = asTrimmedString(request.nextUrl.searchParams.get("sessionId"));
+  const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
 
   if (!sessionId) {
     return NextResponse.json({ error: "Session-id mangler." }, { status: 400 });
@@ -52,6 +54,15 @@ export async function GET(request: NextRequest) {
     }
 
     console.error("Kunne ikke hente play-status:", error);
+    await logHandledServerError({
+      route: "/api/play/status",
+      method: "GET",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+      sessionId,
+    });
     return NextResponse.json({ error: "Kunne ikke hente sessionstatus." }, { status: 500 });
   }
 }

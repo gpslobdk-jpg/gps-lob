@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { load } from "cheerio";
 import { YoutubeTranscript } from "youtube-transcript";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const runtime = "nodejs";
 
@@ -101,6 +102,7 @@ async function scrapeYouTube(
 
 export async function POST(request: NextRequest) {
   let payload: ScraperPayload;
+  const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
 
   try {
     payload = (await request.json()) as ScraperPayload;
@@ -136,6 +138,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error("Podcast-scraper fejl:", error);
+    await logHandledServerError({
+      route: "/api/podcast-scraper",
+      method: "POST",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+    });
     const message = error instanceof Error ? error.message : "Ukendt fejl.";
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }

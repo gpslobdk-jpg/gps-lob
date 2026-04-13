@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@/utils/supabase/server";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const maxDuration = 300;
 
@@ -20,8 +21,18 @@ function asTrimmedString(value: unknown) {
 }
 
 export async function POST(req: Request) {
+  const requestPath = new URL(req.url).pathname;
+
   try {
     if (!process.env.OPENAI_API_KEY) {
+      await logHandledServerError({
+        requestPath,
+        route: requestPath,
+        method: "POST",
+        context: "roleplay_response_missing_openai_key",
+        status: 500,
+        error: "OPENAI_API_KEY mangler i miljøet.",
+      });
       return NextResponse.json(
         { error: "OPENAI_API_KEY mangler i miljøet." },
         { status: 500 }
@@ -128,6 +139,20 @@ Vigtige regler:
     return NextResponse.json({ message });
   } catch (error) {
     console.error("Fejl i roleplay-response:", error);
+    const status =
+      error instanceof OpenAI.APIConnectionTimeoutError ||
+      error instanceof OpenAI.APIUserAbortError ||
+      (error instanceof Error && error.name === "AbortError")
+        ? 504
+        : 500;
+    await logHandledServerError({
+      route: "/api/roleplay-response",
+      method: "POST",
+      status,
+      error,
+      requestPath,
+      routeType: "route",
+    });
     if (
       error instanceof OpenAI.APIConnectionTimeoutError ||
       error instanceof OpenAI.APIUserAbortError ||

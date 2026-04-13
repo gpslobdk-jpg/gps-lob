@@ -4,6 +4,7 @@ import {
   ADMIN_ACCESS_MISSING_MESSAGE,
   createAdminClient,
 } from "@/utils/supabase/admin";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 import { resolveParticipantRequestContext } from "@/utils/supabase/participantServer";
 
 export const runtime = "edge";
@@ -27,6 +28,7 @@ function toTimestamp(value: string | null | undefined) {
 export async function GET(request: NextRequest) {
   const claimedSessionId = asTrimmedString(request.nextUrl.searchParams.get("sessionId"));
   const claimedParticipantId = asTrimmedString(request.nextUrl.searchParams.get("participantId"));
+  const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
 
   const adminSupabase = createAdminClient();
   if (!adminSupabase) {
@@ -63,6 +65,15 @@ export async function GET(request: NextRequest) {
 
   if (result.error) {
     console.error("Kunne ikke hente play-placeringer:", result.error);
+    await logHandledServerError({
+      route: "/api/play/placements",
+      method: "GET",
+      status: 500,
+      error: result.error,
+      requestPath,
+      routeType: "route",
+      sessionId,
+    });
     return NextResponse.json({ error: "Placeringerne kunne ikke hentes." }, { status: 500 });
   }
 

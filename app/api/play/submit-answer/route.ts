@@ -9,6 +9,7 @@ import {
 } from "@/app/api/play/_shared";
 import { getAwardedPoints } from "@/utils/questionPoints";
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 import type { ParticipantRequestContext } from "@/utils/supabase/participantServer";
 import { resolveParticipantRequestContext } from "@/utils/supabase/participantServer";
 
@@ -393,6 +394,7 @@ async function maybeCaptureZone(
 
 export async function POST(request: NextRequest) {
   let body: SubmitAnswerPayload;
+  const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
   try {
     body = (await request.json()) as SubmitAnswerPayload;
   } catch {
@@ -465,6 +467,16 @@ export async function POST(request: NextRequest) {
         }
 
         // If we hit a non-recoverable error, return it so the client can log it
+        await logHandledServerError({
+          route: "/api/play/submit-answer",
+          method: "POST",
+          status: 500,
+          error,
+          requestPath,
+          routeType: "route",
+          participantId: participantContext.data.participantId,
+          sessionId: participantContext.data.sessionId,
+        });
         return NextResponse.json({ error: error.message ?? "Kunne ikke gemme svar." }, { status: 500 });
       } catch (inner) {
         // Unexpected insert error for this payload, try next or return
@@ -479,6 +491,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: ADMIN_ACCESS_MISSING_MESSAGE }, { status: 503 });
     }
     console.error("Kunne ikke gemme svar via admin-klient:", error);
+    await logHandledServerError({
+      route: "/api/play/submit-answer",
+      method: "POST",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+      participantId: claimedParticipantIds[0] ?? null,
+      sessionId: claimedSessionIds[0] ?? null,
+    });
     return NextResponse.json({ error: "Kunne ikke gemme svar." }, { status: 500 });
   }
 }

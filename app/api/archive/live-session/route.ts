@@ -9,6 +9,7 @@ import {
 import { getNormalizedRunRaceType, RACE_TYPES, type StoredRunRecord } from "@/utils/gpsRuns";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 const ACTIVE_SESSION_STATUSES = ["waiting", "running"] as const;
 
@@ -225,6 +226,8 @@ async function finishLiveSessions(runId: string, teacherId: string, supabase: Aw
 }
 
 export async function POST(request: Request) {
+  const requestPath = new URL(request.url).pathname;
+
   try {
     const payload = (await request.json()) as ArchiveLiveSessionPayload;
     const action = payload.action;
@@ -285,6 +288,14 @@ export async function POST(request: Request) {
     return NextResponse.json(result);
   } catch (error) {
     console.error("Arkiv live-session mutation fejlede:", error);
+    await logHandledServerError({
+      route: "/api/archive/live-session",
+      method: "POST",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+    });
     return NextResponse.json({ error: "Kunne ikke opdatere løbets lobby-status." }, { status: 500 });
   }
 }

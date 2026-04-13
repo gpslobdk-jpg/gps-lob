@@ -2,6 +2,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const maxDuration = 300;
 
@@ -97,8 +98,18 @@ function isTimeoutError(error: unknown) {
 }
 
 export async function POST(req: Request) {
+  const requestPath = new URL(req.url).pathname;
+
   try {
     if (!process.env.OPENAI_API_KEY) {
+      await logHandledServerError({
+        requestPath,
+        route: requestPath,
+        method: "POST",
+        context: "generate_missing_openai_key",
+        status: 500,
+        error: "OPENAI_API_KEY mangler i miljøet.",
+      });
       return NextResponse.json({ error: "OPENAI_API_KEY mangler i miljøet." }, { status: 500 });
     }
 
@@ -188,6 +199,16 @@ Aktiv niveautolkning til dette kald: ${levelInstruction}`;
     });
   } catch (error) {
     console.error("AI Error:", error);
+
+    const status = isTimeoutError(error) ? 504 : 500;
+    await logHandledServerError({
+      route: "/api/generate",
+      method: "POST",
+      status,
+      error,
+      requestPath,
+      routeType: "route",
+    });
 
     if (isTimeoutError(error)) {
       return NextResponse.json(

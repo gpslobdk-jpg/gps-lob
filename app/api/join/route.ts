@@ -16,6 +16,7 @@ import {
   initializeZoneKrigZones,
   isZoneKrigRaceType,
 } from "@/app/api/zone-krig/_shared";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const runtime = "edge";
 const CACHE_CONTROL = "no-store";
@@ -732,6 +733,7 @@ function getRequiredAdminClient() {
 }
 
 export async function GET(request: NextRequest) {
+  const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
   const rawPin = request.nextUrl.searchParams.get("pin") ?? "";
   const pin = rawPin.replace(/\D/g, "").slice(0, 6);
 
@@ -785,6 +787,14 @@ export async function GET(request: NextRequest) {
     }
 
     console.error("Kunne ikke hente join-data:", error);
+    await logHandledServerError({
+      route: "/api/join",
+      method: "GET",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+    });
     return NextResponse.json(
       { error: "Kunne ikke hente sessionen." },
       { status: 500, headers: { "Cache-Control": "no-store" } }
@@ -795,6 +805,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   let payload: JoinParticipantRequest;
   let participantAuthClient: ParticipantServerClient | null = null;
+  const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
 
   try {
     payload = (await request.json()) as JoinParticipantRequest;
@@ -1027,6 +1038,16 @@ export async function POST(request: NextRequest) {
     }
 
     console.error("Kunne ikke registrere deltageren:", error);
+    await logHandledServerError({
+      route: "/api/join",
+      method: "POST",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+      sessionId,
+      participantId: preferredParticipantId || null,
+    });
     return NextResponse.json(
       { error: "Kunne ikke registrere deltageren." },
       { status: 500, headers: { "Cache-Control": "no-store" } }

@@ -7,6 +7,7 @@ import {
   normalizeMasterCode,
 } from "@/app/api/play/_shared";
 import { ADMIN_ACCESS_MISSING_MESSAGE } from "@/utils/supabase/admin";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const runtime = "edge";
 
@@ -17,6 +18,7 @@ type ValidateMasterPayload = {
 
 export async function POST(request: NextRequest) {
   let payload: ValidateMasterPayload;
+  const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
 
   try {
     payload = (await request.json()) as ValidateMasterPayload;
@@ -51,6 +53,15 @@ export async function POST(request: NextRequest) {
     }
 
     console.error("Kunne ikke validere master-kode:", error);
+    await logHandledServerError({
+      route: "/api/play/validate-master",
+      method: "POST",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+      sessionId,
+    });
     return NextResponse.json({ error: "Kunne ikke tjekke master-koden." }, { status: 500 });
   }
 }

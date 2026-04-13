@@ -1,6 +1,7 @@
 import { openai } from "@ai-sdk/openai";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { NextResponse } from "next/server";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const maxDuration = 60;
 
@@ -217,8 +218,18 @@ SVARSTIL
 `;
 
 export async function POST(req: Request) {
+  const requestPath = new URL(req.url).pathname;
+
   try {
     if (!process.env.OPENAI_API_KEY) {
+      await logHandledServerError({
+        requestPath,
+        route: requestPath,
+        method: "POST",
+        context: "chat_missing_openai_key",
+        status: 500,
+        error: "OPENAI_API_KEY mangler i miljøet.",
+      });
       return NextResponse.json(
         { error: "OPENAI_API_KEY mangler i milj\u00f8et." },
         { status: 500 }
@@ -246,6 +257,14 @@ export async function POST(req: Request) {
     return result.toUIMessageStreamResponse();
   } catch (error) {
     console.error("Chat API-fejl:", error);
+    await logHandledServerError({
+      route: "/api/chat",
+      method: "POST",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+    });
     return NextResponse.json(
       { error: "Kunne ikke hente svar fra AI-guiden." },
       { status: 500 }

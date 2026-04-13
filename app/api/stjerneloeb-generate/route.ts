@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createClient } from "@/utils/supabase/server";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const maxDuration = 120;
 
@@ -105,8 +106,18 @@ function resolveImageArtDirection(subject: string): ImageArtDirection {
 }
 
 export async function POST(req: Request) {
+  const requestPath = new URL(req.url).pathname;
+
   try {
     if (!process.env.OPENAI_API_KEY) {
+      await logHandledServerError({
+        requestPath,
+        route: requestPath,
+        method: "POST",
+        context: "stjerneloeb_generate_missing_openai_key",
+        status: 500,
+        error: "OPENAI_API_KEY mangler i miljøet.",
+      });
       return NextResponse.json(
         { error: "OPENAI_API_KEY mangler i miljøet." },
         { status: 500 }
@@ -241,6 +252,14 @@ ${gradeLine}`;
 
     if (insertError || !savedRun) {
       console.error("Supabase insert error:", insertError);
+      await logHandledServerError({
+        route: "/api/stjerneloeb-generate",
+        method: "POST",
+        status: 500,
+        error: insertError ?? "Kunne ikke gemme stjerneløbet i databasen.",
+        requestPath,
+        routeType: "route",
+      });
       return NextResponse.json(
         { error: "Kunne ikke gemme stjerneløbet i databasen." },
         { status: 500 }
@@ -250,6 +269,14 @@ ${gradeLine}`;
     return NextResponse.json({ id: savedRun.id });
   } catch (err) {
     console.error("Uventet fejl i /api/stjerneloeb-generate:", err);
+    await logHandledServerError({
+      route: "/api/stjerneloeb-generate",
+      method: "POST",
+      status: 500,
+      error: err,
+      requestPath,
+      routeType: "route",
+    });
     return NextResponse.json(
       { error: "Der skete en uventet fejl. Prøv igen." },
       { status: 500 }

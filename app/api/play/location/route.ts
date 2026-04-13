@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import type { ParticipantRequestContext } from "@/utils/supabase/participantServer";
+import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 import { resolveParticipantRequestContext } from "@/utils/supabase/participantServer";
 
 export const runtime = "edge";
@@ -151,6 +152,7 @@ async function fetchActiveParticipant(
 
 export async function POST(request: NextRequest) {
   let payload: LocationPayload;
+  const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
 
   try {
     payload = (await request.json()) as LocationPayload;
@@ -185,6 +187,16 @@ export async function POST(request: NextRequest) {
         "Kunne ikke validere deltageren for positionsopdatering:",
         validationResult.error
       );
+      await logHandledServerError({
+        route: "/api/play/location",
+        method: "POST",
+        status: 500,
+        error: validationResult.error,
+        requestPath,
+        routeType: "route",
+        participantId,
+        sessionId,
+      });
       return NextResponse.json(
         { error: "Kunne ikke validere deltageren." },
         { status: 500 }
@@ -210,6 +222,16 @@ export async function POST(request: NextRequest) {
 
     if (updateResult.error) {
       console.error("Kunne ikke opdatere participant via id:", updateResult.error);
+      await logHandledServerError({
+        route: "/api/play/location",
+        method: "POST",
+        status: 500,
+        error: updateResult.error,
+        requestPath,
+        routeType: "route",
+        participantId,
+        sessionId,
+      });
       return NextResponse.json({ error: "Kunne ikke gemme positionen." }, { status: 500 });
     }
 
@@ -224,6 +246,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, participantId });
   } catch (error) {
     console.error("Kunne ikke synkronisere elevposition:", error);
+    await logHandledServerError({
+      route: "/api/play/location",
+      method: "POST",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+      participantId,
+      sessionId,
+    });
     return NextResponse.json({ error: "Kunne ikke gemme positionen." }, { status: 500 });
   }
 }

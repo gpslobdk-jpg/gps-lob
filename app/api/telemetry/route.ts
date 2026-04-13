@@ -1,21 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { PUBLIC_TELEMETRY_EVENT_SET, writeTelemetryLog } from "@/utils/telemetry/serverLogs";
 
 export const runtime = "edge";
-
-const ALLOWED_EVENTS = new Set([
-  "session_drop",
-  "auth_error",
-  "gps_died",
-  "gps_warmup_timeout",
-  "jwt_refresh_failed",
-  "kick_false_positive",
-  "participant_auth_refresh_recovered",
-  "participant_auth_rebind_recovered",
-  "participant_restore_exhausted",
-  "wake_reconnect_recovered",
-  "wake_reconnect_failed",
-]);
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -28,26 +14,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const { event_type, participant_id, session_id, message } = body;
 
-    if (typeof event_type !== "string" || !ALLOWED_EVENTS.has(event_type)) {
+    if (typeof event_type !== "string" || !PUBLIC_TELEMETRY_EVENT_SET.has(event_type)) {
       return NextResponse.json({ error: "invalid event_type" }, { status: 400 });
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    const { error } = await supabase.from("telemetry_logs").insert({
-      event_type,
-      participant_id: typeof participant_id === "string" ? participant_id : null,
-      session_id: typeof session_id === "string" ? session_id : null,
-      message: typeof message === "string" ? message.slice(0, 500) : null,
+    await writeTelemetryLog({
+      eventType: event_type,
+      participantId: typeof participant_id === "string" ? participant_id : null,
+      sessionId: typeof session_id === "string" ? session_id : null,
+      message: typeof message === "string" ? message : null,
     });
-
-    if (error) {
-      // Table may not exist yet — log info, never error, so server logs stay clean
-      console.info("[telemetry] telemetry_logs not writable:", event_type, error.message);
-    }
   } catch {
     // Swallow all errors — always respond 204 so clients never retry
   }
