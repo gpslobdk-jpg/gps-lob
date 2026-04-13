@@ -486,6 +486,57 @@ function isServerErrorLog(log: TelemetryLogItem) {
   return status !== null && status >= 500;
 }
 
+function isRunCompletionLog(log: TelemetryLogItem) {
+  const combined = getCombinedLogText(log);
+
+  return (
+    combined.includes("finished") ||
+    combined.includes("completed") ||
+    combined.includes("afsluttet") ||
+    combined.includes("session_finished") ||
+    combined.includes("run_finished")
+  );
+}
+
+function isBuilderActivityLog(log: TelemetryLogItem) {
+  const routePath = getRoutePath(log) ?? "";
+  const combined = getCombinedLogText(log);
+
+  return (
+    routePath.includes("builder") ||
+    routePath.includes("generate") ||
+    routePath.includes("podcast-scraper") ||
+    combined.includes("builder") ||
+    combined.includes("generate")
+  );
+}
+
+function isCriticalSystemLog(log: TelemetryLogItem) {
+  const routePath = getRoutePath(log) ?? "";
+  const combined = getCombinedLogText(log);
+
+  return (
+    isServerErrorLog(log) ||
+    routePath === "/api/checkout" ||
+    routePath === "/api/webhook/stripe" ||
+    combined.includes("stripe")
+  );
+}
+
+function isNetworkSleepLog(log: TelemetryLogItem) {
+  const combined = getCombinedLogText(log);
+
+  return (
+    isNetworkErrorLog(log) ||
+    combined.includes("wake_reconnect") ||
+    combined.includes("participant_restore_exhausted") ||
+    combined.includes("auth_error") ||
+    combined.includes("restore_success") ||
+    combined.includes("rebind") ||
+    combined.includes("dvale")
+  );
+}
+
 function translateTelemetryLog(log: TelemetryLogItem) {
   const combined = getCombinedLogText(log);
   const status = getStatusCode(log);
@@ -1004,6 +1055,7 @@ export default function AdminLogsPage() {
   const [drilldownGroupBy, setDrilldownGroupBy] = useState<DrilldownGroupBy>("route");
   const [selectedDrilldownGroupKey, setSelectedDrilldownGroupKey] = useState<string>("all");
   const [selectedDrilldownLogId, setSelectedDrilldownLogId] = useState<string | null>(null);
+  const [selectedAlarmPanel, setSelectedAlarmPanel] = useState<"critical" | "network" | null>(null);
 
   const previousAlarmIdsRef = useRef<string[]>([]);
   const deferredDrilldownQuery = useDeferredValue(drilldownQuery);
@@ -1393,6 +1445,84 @@ export default function AdminLogsPage() {
     [criticalAlarmCount, degradedExternalCount, routeLoopAlarmCount]
   );
 
+  const activeRunCount = useMemo(
+    () =>
+      new Set(
+        logs
+          .filter((log) => !isBuilderActivityLog(log))
+          .map((log) => log.sessionId)
+          .filter((value): value is string => Boolean(value))
+      ).size,
+    [logs]
+  );
+  const onlineParticipantCount = useMemo(
+    () => new Set(logs.map((log) => log.participantId).filter((value): value is string => Boolean(value))).size,
+    [logs]
+  );
+  const completedRunCount = useMemo(
+    () =>
+      new Set(
+        logs
+          .filter(isRunCompletionLog)
+          .map((log) => log.sessionId)
+          .filter((value): value is string => Boolean(value))
+      ).size,
+    [logs]
+  );
+  const builderActivityCount = useMemo(() => logs.filter(isBuilderActivityLog).length, [logs]);
+  const criticalSystemLogs = useMemo(() => logs.filter(isCriticalSystemLog), [logs]);
+  const networkSleepLogs = useMemo(() => logs.filter(isNetworkSleepLog), [logs]);
+  const criticalSystemGroups = useMemo(() => buildGroupedTelemetryLogs(criticalSystemLogs), [criticalSystemLogs]);
+  const networkSleepGroups = useMemo(() => buildGroupedTelemetryLogs(networkSleepLogs), [networkSleepLogs]);
+  const selectedAlarmGroups = useMemo(
+    () => (selectedAlarmPanel === "critical" ? criticalSystemGroups : selectedAlarmPanel === "network" ? networkSleepGroups : []),
+    [criticalSystemGroups, networkSleepGroups, selectedAlarmPanel]
+  );
+  const selectedAlarmTitle = selectedAlarmPanel === "critical" ? "Kritiske systemfejl" : "Netværk & Dvale";
+  const pulseCards = useMemo(
+    () => [
+      {
+        key: "active",
+        label: "Aktive løb / Elever online",
+        tone: "border-cyan-300/25 bg-cyan-500/10",
+      },
+      {
+        key: "finished",
+        label: "Afsluttede løb",
+        value: completedRunCount,
+        detail: completedRunCount === 0 ? "Ingen afslutninger registreret" : "Registreret i feedet",
+        tone: "border-emerald-300/25 bg-emerald-500/10",
+      },
+      {
+        key: "builder",
+        label: "I byggerummet",
+        value: builderActivityCount,
+        detail: builderActivityCount === 0 ? "Ingen byggeaktivitet" : "Builder- og genereringskald",
+        tone: "border-amber-300/25 bg-amber-500/10",
+      },
+    ],
+    [builderActivityCount, completedRunCount]
+  );
+  const errorCards = useMemo(
+    () => [
+      {
+        key: "critical" as const,
+        label: "Kritiske systemfejl",
+        count: criticalSystemGroups.length,
+        eventCount: criticalSystemLogs.length,
+        isHealthy: criticalSystemGroups.length === 0,
+      },
+      {
+        key: "network" as const,
+        label: "Netværk & Dvale",
+        count: networkSleepGroups.length,
+        eventCount: networkSleepLogs.length,
+        isHealthy: networkSleepGroups.length === 0,
+      },
+    ],
+    [criticalSystemGroups.length, criticalSystemLogs.length, networkSleepGroups.length, networkSleepLogs.length]
+  );
+
   const compactSystemInfo = useMemo(
     () => [
       { label: "Feed", value: dataSource === "live" ? "Live" : "Fallback" },
@@ -1407,6 +1537,17 @@ export default function AdminLogsPage() {
   );
 
   const visibleLogGroups = useMemo(() => buildGroupedTelemetryLogs(logs), [logs]);
+
+  useEffect(() => {
+    if (selectedAlarmPanel === "critical" && criticalSystemGroups.length === 0) {
+      setSelectedAlarmPanel(null);
+      return;
+    }
+
+    if (selectedAlarmPanel === "network" && networkSleepGroups.length === 0) {
+      setSelectedAlarmPanel(null);
+    }
+  }, [criticalSystemGroups.length, networkSleepGroups.length, selectedAlarmPanel]);
 
   useEffect(() => {
     if (selectedDrilldownGroupKey === "all") {
@@ -1467,57 +1608,125 @@ export default function AdminLogsPage() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-4 text-right text-sm text-slate-300/78">Opdateret {formatDateTime(generatedAt)}</div>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          {statusCards.map((card) => {
-            const cardTone = card.isHealthy
-              ? {
-                  card: "border-emerald-300/30 bg-emerald-500/12",
-                  badge: "border-emerald-300/30 bg-emerald-400/15 text-emerald-50",
-                  label: "text-emerald-100/80",
-                  value: "text-emerald-50",
-                  detail: "text-emerald-50/88",
-                }
-              : {
-                  card: "border-rose-300/30 bg-rose-500/12",
-                  badge: "border-rose-300/30 bg-rose-400/15 text-rose-50",
-                  label: "text-rose-100/80",
-                  value: "text-rose-50",
-                  detail: "text-rose-50/88",
-                };
+        <div className="grid gap-4 xl:grid-cols-3">
+          <article className={`rounded-[1.8rem] border p-5 shadow-[0_22px_48px_rgba(15,23,42,0.16)] ${pulseCards[0].tone}`}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100/80">
+                  {pulseCards[0].label}
+                </p>
+                <div className="mt-5 grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.16em] text-cyan-100/70">Løb</p>
+                    <p className={`mt-2 text-5xl font-black text-cyan-50 ${rubik.className}`}>{activeRunCount}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.16em] text-cyan-100/70">Elever</p>
+                    <p className={`mt-2 text-5xl font-black text-cyan-50 ${rubik.className}`}>{onlineParticipantCount}</p>
+                  </div>
+                </div>
+              </div>
+
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-300/30 bg-cyan-400/15 text-cyan-50">
+                <Activity className="h-6 w-6" />
+              </span>
+            </div>
+          </article>
+
+          {pulseCards.slice(1).map((card) => (
+            <article key={card.key} className={`rounded-[1.8rem] border p-5 shadow-[0_22px_48px_rgba(15,23,42,0.16)] ${card.tone}`}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/80">{card.label}</p>
+                  <p className={`mt-3 text-5xl font-black text-white ${rubik.className}`}>{card.value}</p>
+                  <p className="mt-3 text-sm leading-6 text-white/82">{card.detail}</p>
+                </div>
+
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-white">
+                  {card.key === "finished" ? <CheckCircle2 className="h-6 w-6" /> : <Database className="h-6 w-6" />}
+                </span>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          {errorCards.map((card) => {
+            const tone =
+              card.key === "critical"
+                ? card.isHealthy
+                  ? {
+                      card: "border-emerald-300/25 bg-emerald-500/10",
+                      label: "text-emerald-100/80",
+                      value: "text-emerald-50",
+                      detail: "text-emerald-50/84",
+                      badge: "border-emerald-300/30 bg-emerald-400/15 text-emerald-50",
+                    }
+                  : {
+                      card: "border-rose-300/25 bg-rose-500/10",
+                      label: "text-rose-100/80",
+                      value: "text-rose-50",
+                      detail: "text-rose-50/84",
+                      badge: "border-rose-300/30 bg-rose-400/15 text-rose-50",
+                    }
+                : card.isHealthy
+                  ? {
+                      card: "border-emerald-300/25 bg-emerald-500/10",
+                      label: "text-emerald-100/80",
+                      value: "text-emerald-50",
+                      detail: "text-emerald-50/84",
+                      badge: "border-emerald-300/30 bg-emerald-400/15 text-emerald-50",
+                    }
+                  : {
+                      card: "border-amber-300/25 bg-amber-500/10",
+                      label: "text-amber-100/80",
+                      value: "text-amber-50",
+                      detail: "text-amber-50/84",
+                      badge: "border-amber-300/30 bg-amber-400/15 text-amber-50",
+                    };
+
+            const isSelected = selectedAlarmPanel === card.key;
 
             return (
-              <article key={card.label} className={`rounded-[1.8rem] border p-5 shadow-[0_22px_48px_rgba(15,23,42,0.16)] ${cardTone.card}`}>
+              <button
+                key={card.key}
+                type="button"
+                disabled={card.count === 0}
+                onClick={() => setSelectedAlarmPanel((current) => (current === card.key ? null : card.key))}
+                className={`rounded-[1.8rem] border p-5 text-left shadow-[0_22px_48px_rgba(15,23,42,0.16)] transition ${tone.card} ${
+                  isSelected ? "ring-2 ring-white/25" : ""
+                } disabled:cursor-default disabled:opacity-100`}
+                aria-expanded={isSelected}
+              >
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${cardTone.label}`}>{card.label}</p>
-                    <p className={`mt-3 text-5xl font-black ${rubik.className} ${cardTone.value}`}>{card.count}</p>
-                    <p className={`mt-3 text-sm leading-6 ${cardTone.detail}`}>{card.detail}</p>
+                    <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${tone.label}`}>{card.label}</p>
+                    <p className={`mt-3 text-5xl font-black ${rubik.className} ${tone.value}`}>{card.count}</p>
+                    <p className={`mt-3 text-sm leading-6 ${tone.detail}`}>
+                      {card.count === 0 ? "Ingen signaler" : `${card.eventCount} hændelser i feedet`}
+                    </p>
                   </div>
 
-                  <span className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl border ${cardTone.badge}`}>
-                    {card.isHealthy ? <CheckCircle2 className="h-6 w-6" /> : <TriangleAlert className="h-6 w-6" />}
+                  <span className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl border ${tone.badge}`}>
+                    {card.key === "critical" ? <TriangleAlert className="h-6 w-6" /> : <ShieldAlert className="h-6 w-6" />}
                   </span>
                 </div>
-              </article>
+              </button>
             );
           })}
         </div>
 
-        <section className="mt-6 rounded-4xl border border-white/10 bg-white/5 p-5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-6">
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <h2 className={`text-xl font-black text-white ${rubik.className}`}>Overblik / Grupperet feed</h2>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300/85">
-              {visibleLogGroups.length} grupper
-            </span>
-          </div>
+        {selectedAlarmPanel && selectedAlarmGroups.length > 0 ? (
+          <section className="mt-6 rounded-4xl border border-white/10 bg-white/5 p-5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-6">
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <h2 className={`text-xl font-black text-white ${rubik.className}`}>{selectedAlarmTitle}</h2>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300/85">
+                {selectedAlarmGroups.length} grupper
+              </span>
+            </div>
 
-          {isLoading ? (
-            <EmptyState title="Indlæser telemetry" body="Henter seneste hændelser." />
-          ) : visibleLogGroups.length === 0 ? (
-            <EmptyState title="Ingen hændelser at vise" body="Der ligger ingen telemetry-hændelser i perioden." />
-          ) : (
             <div className="space-y-4">
-              {visibleLogGroups.map((group) => (
+              {selectedAlarmGroups.map((group) => (
                 <article
                   key={group.key}
                   className="rounded-3xl border border-white/10 bg-slate-950/45 p-4 shadow-[0_18px_36px_rgba(15,23,42,0.16)]"
@@ -1575,8 +1784,8 @@ export default function AdminLogsPage() {
                 </article>
               ))}
             </div>
-          )}
-        </section>
+          </section>
+        ) : null}
       </div>
     </div>
   );
