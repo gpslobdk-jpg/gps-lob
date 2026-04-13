@@ -1,3 +1,22 @@
+function renderPostPage(
+  styles: PdfStyles,
+  template: PdfTemplate,
+  run: StjernelobData,
+  post: Post,
+  totalPosts: number,
+  imageUrl: string
+) {
+  switch (template.variant) {
+    case "editorial":
+      return renderEditorialPostPage(styles, template, run, post, totalPosts, imageUrl);
+    case "grid":
+      return renderGridPostPage(styles, template, run, post, totalPosts, imageUrl);
+    case "poster":
+      return renderPosterPostPage(styles, template, run, post, totalPosts, imageUrl);
+    default:
+      return renderClassicPostPage(styles, template, run, post, totalPosts, imageUrl);
+  }
+}
 "use client";
 
 import dynamic from "next/dynamic";
@@ -1174,29 +1193,6 @@ function renderMetaChips(styles: PdfStyles, values: string[]) {
   );
 }
 
-function renderPostHeader(
-  styles: PdfStyles,
-  template: PdfTemplate,
-  run: StjernelobData,
-  post: Post
-) {
-  return (
-    <View style={styles.header}>
-      <View style={styles.eyebrowRow}>
-        <Text style={styles.eyebrow}>{template.eyebrow}</Text>
-        <Text style={styles.motif}>{template.motif}</Text>
-      </View>
-      <Text style={styles.runTitle}>{run.title}</Text>
-      <View style={styles.badgeRow}>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>Post {post.number}</Text>
-        </View>
-        <Text style={styles.templateLabel}>{template.footerLabel}</Text>
-      </View>
-      <Text style={styles.title}>{post.title}</Text>
-    </View>
-  );
-}
 
 function renderHero(
   styles: PdfStyles,
@@ -1224,11 +1220,6 @@ function renderHero(
           {renderSubjectIconGraphic(styles, subject)}
         </View>
       )}
-      <View style={styles.heroCaptionWrap}>
-        <Text style={styles.heroCaption}>
-          {isHeroImage ? template.heroCaption : `Fagikon til ${getDisplaySubject(subject)}`}: {post.title}
-        </Text>
-      </View>
     </View>
   );
 }
@@ -1394,8 +1385,7 @@ function renderPostFooter(styles: PdfStyles, template: PdfTemplate, post: Post, 
       <Text style={styles.footerText}>
         Post {post.number} / {totalPosts}
       </Text>
-      <Text style={styles.footerText}>{template.footerLabel}</Text>
-      <Text style={styles.footerText}>gpsloeb.dk</Text>
+      <Text style={styles.footerText}>gpslob.dk</Text>
     </View>
   );
 }
@@ -1509,24 +1499,18 @@ function renderPosterPostPage(
   );
 }
 
-function renderPostPage(
+function renderPostHeader(
   styles: PdfStyles,
   template: PdfTemplate,
   run: StjernelobData,
-  post: Post,
-  totalPosts: number,
-  imageUrl: string
+  post: Post
 ) {
-  switch (template.variant) {
-    case "editorial":
-      return renderEditorialPostPage(styles, template, run, post, totalPosts, imageUrl);
-    case "grid":
-      return renderGridPostPage(styles, template, run, post, totalPosts, imageUrl);
-    case "poster":
-      return renderPosterPostPage(styles, template, run, post, totalPosts, imageUrl);
-    default:
-      return renderClassicPostPage(styles, template, run, post, totalPosts, imageUrl);
-  }
+  return (
+    <View style={styles.header}>
+      <Text style={styles.title}>POST {post.number}</Text>
+      <Text style={styles.runTitle}>{post.title}</Text>
+    </View>
+  );
 }
 
 function renderAnswerSheetPage(styles: PdfStyles, template: PdfTemplate, run: StjernelobData) {
@@ -1593,8 +1577,7 @@ function renderAnswerSheetPage(styles: PdfStyles, template: PdfTemplate, run: St
       </View>
       <View style={styles.footer}>
         <Text style={styles.footerText}>Elevsvarark</Text>
-        <Text style={styles.footerText}>{template.footerLabel}</Text>
-        <Text style={styles.footerText}>gpsloeb.dk</Text>
+        <Text style={styles.footerText}>gpslob.dk</Text>
       </View>
     </Page>
   );
@@ -1654,8 +1637,7 @@ function renderAnswerKeyPage(styles: PdfStyles, template: PdfTemplate, run: Stje
       </View>
       <View style={styles.footer}>
         <Text style={styles.footerText}>Facitliste</Text>
-        <Text style={styles.footerText}>{template.footerLabel}</Text>
-        <Text style={styles.footerText}>gpsloeb.dk</Text>
+        <Text style={styles.footerText}>gpslob.dk</Text>
       </View>
     </Page>
   );
