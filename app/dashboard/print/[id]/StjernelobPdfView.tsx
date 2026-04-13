@@ -796,7 +796,7 @@ function createStyles(template: PdfTemplate) {
       marginBottom: 4,
     },
     bodyText: {
-      fontSize: 9.4,
+      fontSize: 11.5,
       lineHeight: isPoster ? 1.55 : 1.65,
       color: t.bodyText,
     },
@@ -838,7 +838,7 @@ function createStyles(template: PdfTemplate) {
       paddingBottom: 12,
     },
     questionText: {
-      fontSize: isPoster ? 13 : isGrid ? 12.5 : 12,
+      fontSize: isPoster ? 15.5 : isGrid ? 15 : 14.5,
       fontWeight: 700,
       color: t.questionText,
       lineHeight: 1.3,
@@ -882,7 +882,7 @@ function createStyles(template: PdfTemplate) {
       paddingVertical: 8,
     },
     optionLetter: {
-      fontSize: 12,
+      fontSize: 14,
       fontWeight: 700,
       color: t.optionAccentText,
     },
@@ -890,7 +890,7 @@ function createStyles(template: PdfTemplate) {
       flex: 1,
       paddingHorizontal: 10,
       paddingVertical: 8,
-      fontSize: 8.5,
+      fontSize: 10.5,
       lineHeight: 1.4,
       color: t.optionText,
     },
@@ -1073,7 +1073,7 @@ function createStyles(template: PdfTemplate) {
       marginBottom: 1,
     },
     answerItemNumberValue: {
-      fontSize: 28,
+      fontSize: 36,
       fontWeight: 700,
       color: t.optionAccentText,
     },
