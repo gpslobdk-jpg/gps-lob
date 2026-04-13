@@ -12,7 +12,7 @@ import {
   Waves,
 } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -24,8 +24,11 @@ const poppins = Poppins({
   weight: ["400", "500", "600", "700"],
 });
 
+const AUTO_REFRESH_MS = 30_000;
+
 type AdminLogsTab = "overview" | "network" | "recoveries";
 type DataSourceMode = "live" | "mock";
+type ActiveAlarmSeverity = "critical" | "high" | "warning";
 
 type TelemetryLogRow = {
   id?: string | number | null;
@@ -67,11 +70,34 @@ type ExternalServiceStatus = {
   errorMessage: string;
 };
 
+type ActiveAlarm = {
+  id: string;
+  severity: ActiveAlarmSeverity;
+  category: "student-spike" | "route-loop" | "external";
+  source: "telemetry" | "external";
+  signal: string;
+  title: string;
+  summary: string;
+  recommendedAction: string;
+  evidence: string[];
+  count: number;
+  uniqueParticipants: number;
+  uniqueSessions: number;
+  route: string | null;
+  provider: string | null;
+  status: number | null;
+  startedAt: string | null;
+  lastSeenAt: string | null;
+};
+
 type AdminLogsFeedResponse = {
   telemetryLogs?: TelemetryLogRow[];
   dataSource?: DataSourceMode;
   fallbackMessage?: string;
   externalServices?: ExternalServiceStatus[];
+  activeAlarms?: ActiveAlarm[];
+  generatedAt?: string;
+  alarmWindowMinutes?: number;
 };
 
 type StructuredLogMeta = Record<string, string>;
@@ -82,7 +108,7 @@ const tabs: Array<{ id: AdminLogsTab; label: string }> = [
   { id: "recoveries", label: "Genoprettelser (Telemetry)" },
 ];
 
-const fallbackFeed: Required<AdminLogsFeedResponse> = {
+const fallbackFeed = {
   telemetryLogs: [
     {
       id: "mock-restore-success",
@@ -118,8 +144,8 @@ const fallbackFeed: Required<AdminLogsFeedResponse> = {
       message: "reason=wake_reconnect:status_channel_error",
       created_at: new Date(Date.now() - 78 * 60 * 1000).toISOString(),
     },
-  ],
-  dataSource: "mock",
+  ] satisfies TelemetryLogRow[],
+  dataSource: "mock" as DataSourceMode,
   fallbackMessage: "Admin-feed kunne ikke hentes live. Siden viser en lokal skal, indtil API'et svarer igen.",
   externalServices: [
     {
@@ -144,7 +170,54 @@ const fallbackFeed: Required<AdminLogsFeedResponse> = {
       incidents: [],
       errorMessage: "Live statusfeed er utilgængeligt i fallback-visning.",
     },
-  ],
+  ] satisfies ExternalServiceStatus[],
+  activeAlarms: [
+    {
+      id: "mock-student-spike",
+      severity: "high",
+      category: "student-spike",
+      source: "telemetry",
+      signal: "student_reconnect_spike",
+      title: "Mange elever rammes af genopkoblingsfejl",
+      summary: "6 reconnect-relaterede fejl på 15 minutter for 4 elever i 2 sessioner.",
+      recommendedAction:
+        "Tjek om auth- eller restore-flowet fejler bredt lige nu, og bed lærere holde eleverne på samme enhed, mens genopkoblingen afprøves.",
+      evidence: [
+        "Signaler: /api/play/participant:401 x4 · participant_restore_exhausted x2",
+        "4 elever berørt · 2 sessioner berørt",
+      ],
+      count: 6,
+      uniqueParticipants: 4,
+      uniqueSessions: 2,
+      route: "/api/play/participant",
+      provider: null,
+      status: 401,
+      startedAt: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+      lastSeenAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+    },
+    {
+      id: "mock-route-loop",
+      severity: "critical",
+      category: "route-loop",
+      source: "telemetry",
+      signal: "route_loop:/api/join",
+      title: "join-flow fejler gentagne gange",
+      summary: "5 serverfejl på join-flow inden for 15 minutter.",
+      recommendedAction:
+        "Tjek deltager-oprettelse, auth-binding og service-role adgang straks. Når join-flowet fejler i bølger, kan nye elever ikke komme ind i løbet.",
+      evidence: ["Statusmønster: 500 x5", "Kontekster: join x5", "0 deltagere · 3 sessioner berørt"],
+      count: 5,
+      uniqueParticipants: 0,
+      uniqueSessions: 3,
+      route: "/api/join",
+      provider: null,
+      status: 500,
+      startedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+      lastSeenAt: new Date(Date.now() - 1 * 60 * 1000).toISOString(),
+    },
+  ] satisfies ActiveAlarm[],
+  generatedAt: new Date().toISOString(),
+  alarmWindowMinutes: 15,
 };
 
 function normalizeTelemetryLog(row: TelemetryLogRow, index: number): TelemetryLogItem {
@@ -172,6 +245,41 @@ function formatDateTime(value: string | null) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function formatRelativeTime(value: string | null) {
+  if (!value) {
+    return "ukendt";
+  }
+
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    return "ukendt";
+  }
+
+  const deltaMs = Date.now() - timestamp;
+  const minutes = Math.max(0, Math.round(deltaMs / 60_000));
+  if (minutes < 1) {
+    return "lige nu";
+  }
+
+  if (minutes < 60) {
+    return `${minutes} min siden`;
+  }
+
+  const hours = Math.round(minutes / 60);
+  return `${hours} t siden`;
+}
+
+function formatCountdown(ms: number) {
+  const seconds = Math.max(0, Math.ceil(ms / 1000));
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `${minutes}m ${String(remainder).padStart(2, "0")}s`;
 }
 
 function parseStructuredMeta(message: string): StructuredLogMeta | null {
@@ -210,7 +318,7 @@ function getStatusCode(log: TelemetryLogItem) {
     return fromMeta;
   }
 
-  const match = getCombinedLogText(log).match(/\b(401|404|429|500|503)\b/);
+  const match = getCombinedLogText(log).match(/\b(401|404|429|500|502|503|504)\b/);
   return match ? Number(match[1]) : null;
 }
 
@@ -242,6 +350,10 @@ function formatRouteLabel(routePath: string | null) {
       return "foto-upload";
     case "/api/join":
       return "join-flow";
+    case "/api/checkout":
+      return "checkout";
+    case "/api/webhook/stripe":
+      return "Stripe-webhook";
     default:
       return routePath;
   }
@@ -434,6 +546,79 @@ function getExternalRecommendedAction(service: ExternalServiceStatus) {
   return "Ingen ekstern driftspåvirkning registreret lige nu. Fejl skal derfor sandsynligvis findes i vores egne routes, realtime eller klient-flow.";
 }
 
+function getAlarmSeverityLabel(severity: ActiveAlarmSeverity) {
+  switch (severity) {
+    case "critical":
+      return "Kritisk";
+    case "high":
+      return "Høj";
+    default:
+      return "Advarsel";
+  }
+}
+
+function getAlarmTone(alarm: ActiveAlarm) {
+  switch (alarm.severity) {
+    case "critical":
+      return {
+        card: "border-rose-300/30 bg-rose-500/10",
+        pill: "border-rose-300/30 bg-rose-400/15 text-rose-50",
+        accent: "text-rose-100",
+        action: "border-rose-300/20 bg-rose-400/10 text-rose-50/92",
+      };
+    case "high":
+      return {
+        card: "border-amber-300/30 bg-amber-500/10",
+        pill: "border-amber-300/30 bg-amber-400/15 text-amber-50",
+        accent: "text-amber-100",
+        action: "border-amber-300/20 bg-amber-400/10 text-amber-50/92",
+      };
+    default:
+      return {
+        card: "border-cyan-300/25 bg-cyan-500/8",
+        pill: "border-cyan-300/30 bg-cyan-400/15 text-cyan-50",
+        accent: "text-cyan-100",
+        action: "border-cyan-300/20 bg-cyan-400/10 text-cyan-50/92",
+      };
+  }
+}
+
+function getAlarmCategoryLabel(alarm: ActiveAlarm) {
+  switch (alarm.category) {
+    case "student-spike":
+      return "Elevspike";
+    case "route-loop":
+      return "Route-loop";
+    default:
+      return alarm.provider ? `${alarm.provider}-drift` : "Ekstern drift";
+  }
+}
+
+function getAlarmMetaTags(alarm: ActiveAlarm) {
+  const tags = [`kategori: ${getAlarmCategoryLabel(alarm)}`, `signal: ${alarm.signal}`];
+
+  if (alarm.route) tags.push(`route: ${alarm.route}`);
+  if (alarm.provider) tags.push(`leverandør: ${alarm.provider}`);
+  if (alarm.status) tags.push(`status: ${alarm.status}`);
+  if (alarm.uniqueParticipants > 0) tags.push(`elever: ${alarm.uniqueParticipants}`);
+  if (alarm.uniqueSessions > 0) tags.push(`sessioner: ${alarm.uniqueSessions}`);
+
+  return tags;
+}
+
+function getNotificationStatusLabel(permission: NotificationPermission | "unsupported") {
+  switch (permission) {
+    case "granted":
+      return "Browseralarmer er slået til";
+    case "denied":
+      return "Browseralarmer er blokeret";
+    case "unsupported":
+      return "Browseralarmer understøttes ikke her";
+    default:
+      return "Browseralarmer er ikke slået til";
+  }
+}
+
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-[1.75rem] border border-white/10 bg-white/6 p-6 text-sm text-slate-300 shadow-[0_20px_45px_rgba(15,23,42,0.16)] backdrop-blur-xl">
@@ -447,10 +632,67 @@ export default function AdminLogsPage() {
   const [activeTab, setActiveTab] = useState<AdminLogsTab>("overview");
   const [logs, setLogs] = useState<TelemetryLogItem[]>(fallbackFeed.telemetryLogs.map(normalizeTelemetryLog));
   const [externalServices, setExternalServices] = useState<ExternalServiceStatus[]>(fallbackFeed.externalServices);
+  const [activeAlarms, setActiveAlarms] = useState<ActiveAlarm[]>(fallbackFeed.activeAlarms);
   const [dataSource, setDataSource] = useState<DataSourceMode>(fallbackFeed.dataSource);
   const [isLoading, setIsLoading] = useState(true);
   const [fallbackMessage, setFallbackMessage] = useState(fallbackFeed.fallbackMessage);
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [generatedAt, setGeneratedAt] = useState<string>(fallbackFeed.generatedAt);
+  const [alarmWindowMinutes, setAlarmWindowMinutes] = useState<number>(fallbackFeed.alarmWindowMinutes);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const [nextRefreshAt, setNextRefreshAt] = useState<number | null>(Date.now() + AUTO_REFRESH_MS);
+  const [refreshCountdownMs, setRefreshCountdownMs] = useState(AUTO_REFRESH_MS);
+  const [newAlarmIds, setNewAlarmIds] = useState<string[]>([]);
+  const [newAlarmMessage, setNewAlarmMessage] = useState("");
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">(
+    "default"
+  );
+
+  const previousAlarmIdsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+
+    setNotificationPermission(window.Notification.permission);
+  }, []);
+
+  useEffect(() => {
+    if (!autoRefreshEnabled) {
+      setNextRefreshAt(null);
+      return;
+    }
+
+    const scheduledAt = Date.now() + AUTO_REFRESH_MS;
+    setNextRefreshAt(scheduledAt);
+    const timeout = window.setTimeout(() => {
+      setRefreshNonce((current) => current + 1);
+    }, AUTO_REFRESH_MS);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [autoRefreshEnabled, refreshNonce]);
+
+  useEffect(() => {
+    if (!autoRefreshEnabled || nextRefreshAt === null) {
+      setRefreshCountdownMs(0);
+      return;
+    }
+
+    const syncCountdown = () => {
+      setRefreshCountdownMs(Math.max(nextRefreshAt - Date.now(), 0));
+    };
+
+    syncCountdown();
+    const interval = window.setInterval(syncCountdown, 1000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [autoRefreshEnabled, nextRefreshAt]);
 
   useEffect(() => {
     let isMounted = true;
@@ -470,19 +712,62 @@ export default function AdminLogsPage() {
         }
 
         const payload = (await response.json()) as AdminLogsFeedResponse;
-        if (!isMounted) return;
+        if (!isMounted) {
+          return;
+        }
 
-        setLogs((payload.telemetryLogs ?? fallbackFeed.telemetryLogs).map(normalizeTelemetryLog));
-        setExternalServices(payload.externalServices ?? fallbackFeed.externalServices);
+        const nextLogs = (payload.telemetryLogs ?? fallbackFeed.telemetryLogs).map(normalizeTelemetryLog);
+        const nextExternalServices = payload.externalServices ?? fallbackFeed.externalServices;
+        const nextActiveAlarms = payload.activeAlarms ?? fallbackFeed.activeAlarms;
+        const previousAlarmIds = previousAlarmIdsRef.current;
+        const incomingAlarmIds = nextActiveAlarms.map((alarm) => alarm.id);
+        const detectedNewAlarms =
+          previousAlarmIds.length === 0
+            ? []
+            : nextActiveAlarms.filter((alarm) => !previousAlarmIds.includes(alarm.id));
+
+        previousAlarmIdsRef.current = incomingAlarmIds;
+
+        setLogs(nextLogs);
+        setExternalServices(nextExternalServices);
+        setActiveAlarms(nextActiveAlarms);
         setDataSource(payload.dataSource ?? "mock");
         setFallbackMessage(payload.fallbackMessage ?? "");
-      } catch {
-        if (!isMounted || controller.signal.aborted) return;
+        setGeneratedAt(payload.generatedAt ?? new Date().toISOString());
+        setAlarmWindowMinutes(payload.alarmWindowMinutes ?? fallbackFeed.alarmWindowMinutes);
 
+        if (detectedNewAlarms.length > 0) {
+          setNewAlarmIds(detectedNewAlarms.map((alarm) => alarm.id));
+          setNewAlarmMessage(
+            `${detectedNewAlarms.length} ny${detectedNewAlarms.length > 1 ? "e" : ""} alarm${detectedNewAlarms.length > 1 ? "er" : ""} opdaget.`
+          );
+
+          if (
+            typeof window !== "undefined" &&
+            "Notification" in window &&
+            window.Notification.permission === "granted" &&
+            document.visibilityState !== "visible"
+          ) {
+            detectedNewAlarms.slice(0, 3).forEach((alarm) => {
+              new window.Notification(`GPSlob alarm: ${alarm.title}`, {
+                body: alarm.summary,
+              });
+            });
+          }
+        }
+      } catch {
+        if (!isMounted || controller.signal.aborted) {
+          return;
+        }
+
+        previousAlarmIdsRef.current = fallbackFeed.activeAlarms.map((alarm) => alarm.id);
         setLogs(fallbackFeed.telemetryLogs.map(normalizeTelemetryLog));
         setExternalServices(fallbackFeed.externalServices);
+        setActiveAlarms(fallbackFeed.activeAlarms);
         setDataSource("mock");
         setFallbackMessage(fallbackFeed.fallbackMessage);
+        setGeneratedAt(new Date().toISOString());
+        setAlarmWindowMinutes(fallbackFeed.alarmWindowMinutes);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -498,9 +783,55 @@ export default function AdminLogsPage() {
     };
   }, [refreshNonce]);
 
+  useEffect(() => {
+    if (!newAlarmMessage) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setNewAlarmMessage("");
+      setNewAlarmIds([]);
+    }, 12_000);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [newAlarmMessage]);
+
+  useEffect(() => {
+    const baseTitle = "Fejl & Log";
+    document.title = activeAlarms.length > 0 ? `(${activeAlarms.length}) ${baseTitle}` : baseTitle;
+
+    return () => {
+      document.title = baseTitle;
+    };
+  }, [activeAlarms.length]);
+
+  const requestBrowserAlerts = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+
+    const permission = await window.Notification.requestPermission();
+    setNotificationPermission(permission);
+  };
+
   const networkLogs = useMemo(() => logs.filter(isNetworkErrorLog), [logs]);
   const recoveryLogs = useMemo(() => logs.filter(isRecoveryLog), [logs]);
   const serverErrorLogs = useMemo(() => logs.filter(isServerErrorLog), [logs]);
+  const criticalAlarmCount = useMemo(
+    () => activeAlarms.filter((alarm) => alarm.severity === "critical").length,
+    [activeAlarms]
+  );
+  const routeLoopAlarmCount = useMemo(
+    () => activeAlarms.filter((alarm) => alarm.category === "route-loop").length,
+    [activeAlarms]
+  );
+  const externalAlarmCount = useMemo(
+    () => activeAlarms.filter((alarm) => alarm.category === "external").length,
+    [activeAlarms]
+  );
   const uniqueSessionCount = useMemo(
     () => new Set(logs.map((log) => log.sessionId).filter((value): value is string => Boolean(value))).size,
     [logs]
@@ -517,13 +848,27 @@ export default function AdminLogsPage() {
     () => externalServices.reduce((sum, service) => sum + service.incidents.length, 0),
     [externalServices]
   );
+  const highlightedAlarmTitles = useMemo(
+    () => activeAlarms.filter((alarm) => newAlarmIds.includes(alarm.id)).map((alarm) => alarm.title),
+    [activeAlarms, newAlarmIds]
+  );
 
   const overviewCards = useMemo(
     () => [
       {
-        label: "Hændelser seneste 24 timer",
-        value: String(logs.length),
-        detail: dataSource === "live" ? "Live fra telemetry_logs via serverfeed" : "Skaldata vises",
+        label: "Aktive alarmer",
+        value: String(activeAlarms.length),
+        detail:
+          activeAlarms.length > 0
+            ? `${criticalAlarmCount} kritiske · ${routeLoopAlarmCount} route-loops`
+            : `Ingen aktive alarmer i de seneste ${alarmWindowMinutes} min`,
+      },
+      {
+        label: "Serverfejl seneste 24 timer",
+        value: String(serverErrorLogs.length),
+        detail: lastEventAt
+          ? `Berørte sessioner ${uniqueSessionCount} · seneste ${formatDateTime(lastEventAt)}`
+          : `Berørte sessioner ${uniqueSessionCount}`,
       },
       {
         label: "Netværksfejl 401/404",
@@ -536,28 +881,30 @@ export default function AdminLogsPage() {
         detail: "Succesfulde reconnects og auth-gendannelser",
       },
       {
-        label: "Serverfejl",
-        value: String(serverErrorLogs.length),
-        detail: lastEventAt
-          ? `Berørte sessioner ${uniqueSessionCount} · seneste ${formatDateTime(lastEventAt)}`
-          : `Berørte sessioner ${uniqueSessionCount}`,
-      },
-      {
         label: "Eksterne driftssignaler",
         value: String(degradedExternalCount),
         detail:
           unresolvedExternalIncidentCount > 0
             ? `${unresolvedExternalIncidentCount} åbne incidents hos Vercel/Supabase`
-            : "Ingen åbne incidents i de eksterne statusfeeds",
+            : `${externalAlarmCount} aktive eksterne alarmer`,
+      },
+      {
+        label: "Sidst genereret",
+        value: formatRelativeTime(generatedAt),
+        detail: `Alarmmotoren kører på serveren hvert opslag og ser ${alarmWindowMinutes} min tilbage`,
       },
     ],
     [
-      dataSource,
+      activeAlarms.length,
+      alarmWindowMinutes,
+      criticalAlarmCount,
       degradedExternalCount,
+      externalAlarmCount,
+      generatedAt,
       lastEventAt,
-      logs.length,
       networkLogs.length,
       recoveryLogs.length,
+      routeLoopAlarmCount,
       serverErrorLogs.length,
       uniqueSessionCount,
       unresolvedExternalIncidentCount,
@@ -583,24 +930,69 @@ export default function AdminLogsPage() {
               Internt Fejl & Log-dashboard
             </p>
             <h1 className={`mt-3 text-3xl font-black tracking-[0.04em] text-white sm:text-4xl ${rubik.className}`}>
-              Systemets sundhed, samlet ét sted
+              Alarmmotor for drift og fejl
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300/85 sm:text-base">
-              Siden ligger bag dashboard-login og samler tre spor: app-telemetry, server-fejl og ekstern
-              driftsstatus fra Vercel og Supabase. Kendte fejltyper bliver oversat til driftssprog og får en
-              anbefalet handling direkte i UI&apos;et.
+              Siden ligger bag dashboard-login og reagerer nu aktivt på tre typer problemer: mange elevfejl på kort
+              tid, server-routes der går i 500-loop, og eksterne driftsproblemer hos Vercel eller Supabase.
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setRefreshNonce((current) => current + 1)}
-            className="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/16"
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-            Opdater visning
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setAutoRefreshEnabled((current) => !current)}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                autoRefreshEnabled
+                  ? "border border-emerald-300/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/16"
+                  : "border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              {autoRefreshEnabled ? `Auto-refresh: ${formatCountdown(refreshCountdownMs)}` : "Auto-refresh er pauset"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                void requestBrowserAlerts();
+              }}
+              disabled={notificationPermission === "unsupported" || notificationPermission === "granted"}
+              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {notificationPermission === "granted"
+                ? "Browseralarmer er aktive"
+                : notificationPermission === "denied"
+                  ? "Browseralarmer er blokeret"
+                  : notificationPermission === "unsupported"
+                    ? "Browseralarmer understøttes ikke"
+                    : "Aktivér browseralarmer"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setRefreshNonce((current) => current + 1)}
+              className="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/16"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+              Opdater nu
+            </button>
+          </div>
         </div>
+
+        {newAlarmMessage ? (
+          <div className="mb-6 rounded-[1.8rem] border border-rose-300/30 bg-rose-500/10 p-5 shadow-[0_22px_48px_rgba(159,18,57,0.18)] backdrop-blur-xl">
+            <div className="flex flex-wrap items-start gap-3">
+              <TriangleAlert className="mt-0.5 h-5 w-5 text-rose-200" />
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-rose-100/80">Ny alarm opdaget</p>
+                <p className="mt-2 text-base font-semibold text-white">{newAlarmMessage}</p>
+                {highlightedAlarmTitles.length > 0 ? (
+                  <p className="mt-2 text-sm leading-6 text-rose-50/90">{highlightedAlarmTitles.join(" · ")}</p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {fallbackMessage ? (
           <div className="mb-6 rounded-[1.75rem] border border-amber-300/30 bg-amber-400/10 p-5 text-sm text-amber-50 shadow-[0_22px_48px_rgba(120,53,15,0.18)] backdrop-blur-xl">
@@ -609,7 +1001,144 @@ export default function AdminLogsPage() {
           </div>
         ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <section className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <TriangleAlert className="mt-1 h-5 w-5 text-rose-200" />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-rose-100/70">Alarmfase</p>
+                <h2 className={`mt-2 text-2xl font-black text-white ${rubik.className}`}>Aktive alarmer lige nu</h2>
+                <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-300/80">
+                  Serveren gennemgår de seneste {alarmWindowMinutes} minutter og løfter kun de mønstre frem, der
+                  ligner reel driftsstøj: mange elever med samme reconnect-fejl, vigtige routes i 500-loop og åbne
+                  eksterne incidents.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-[1.35rem] border border-white/10 bg-slate-950/45 px-4 py-3 text-sm text-slate-300/85">
+              <p className="font-semibold text-white">Alarmmotor status</p>
+              <p className="mt-2">Senest kørt {formatDateTime(generatedAt)}</p>
+              <p className="mt-1">{getNotificationStatusLabel(notificationPermission)}</p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-[1.6rem] border border-white/10 bg-slate-950/45 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/75">Aktive alarmer</p>
+              <p className={`mt-3 text-3xl font-black text-white ${rubik.className}`}>{activeAlarms.length}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-300/78">Alarmmotoren ser {alarmWindowMinutes} minutter tilbage.</p>
+            </div>
+            <div className="rounded-[1.6rem] border border-white/10 bg-slate-950/45 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/75">Kritiske</p>
+              <p className={`mt-3 text-3xl font-black text-white ${rubik.className}`}>{criticalAlarmCount}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-300/78">Kræver typisk lærerinformation eller akut driftstjek.</p>
+            </div>
+            <div className="rounded-[1.6rem] border border-white/10 bg-slate-950/45 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/75">Route-loops</p>
+              <p className={`mt-3 text-3xl font-black text-white ${rubik.className}`}>{routeLoopAlarmCount}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-300/78">Server-routes med 500/502/504-bølger på kort tid.</p>
+            </div>
+            <div className="rounded-[1.6rem] border border-white/10 bg-slate-950/45 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/75">Eksterne signaler</p>
+              <p className={`mt-3 text-3xl font-black text-white ${rubik.className}`}>{externalAlarmCount}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-300/78">Driftsproblemer eller utilgængelige statusfeeds hos leverandører.</p>
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="mt-5">
+              <EmptyState
+                title="Beregner alarmer"
+                body="Vi samler telemetry, eksterne incidents og serverfejl til aktive alarmer med severity og anbefalet handling."
+              />
+            </div>
+          ) : activeAlarms.length === 0 ? (
+            <div className="mt-5">
+              <EmptyState
+                title="Ingen aktive alarmer"
+                body="Der er ikke fundet mønstre i de seneste minutter, som tyder på bred driftspåvirkning lige nu."
+              />
+            </div>
+          ) : (
+            <div className="mt-5 grid gap-4 xl:grid-cols-2">
+              {activeAlarms.map((alarm) => {
+                const tone = getAlarmTone(alarm);
+                const isNewAlarm = newAlarmIds.includes(alarm.id);
+
+                return (
+                  <article
+                    key={alarm.id}
+                    className={`rounded-[1.6rem] border p-5 shadow-[0_20px_40px_rgba(15,23,42,0.16)] ${tone.card} ${
+                      isNewAlarm ? "ring-2 ring-cyan-300/40" : ""
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-base font-semibold text-white">{alarm.title}</p>
+                        <p className="mt-2 text-sm leading-6 text-slate-200/85">{alarm.summary}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${tone.pill}`}>
+                          {getAlarmSeverityLabel(alarm.severity)}
+                        </span>
+                        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200/85">
+                          {getAlarmCategoryLabel(alarm)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-[1.1rem] border border-white/10 bg-black/15 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200/65">Senest set</p>
+                        <p className={`mt-2 text-sm font-semibold ${tone.accent}`}>{formatDateTime(alarm.lastSeenAt)}</p>
+                      </div>
+                      <div className="rounded-[1.1rem] border border-white/10 bg-black/15 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200/65">Volumen</p>
+                        <p className={`mt-2 text-sm font-semibold ${tone.accent}`}>{alarm.count} hændelser</p>
+                      </div>
+                      <div className="rounded-[1.1rem] border border-white/10 bg-black/15 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200/65">Berøring</p>
+                        <p className={`mt-2 text-sm font-semibold ${tone.accent}`}>
+                          {alarm.uniqueParticipants > 0 ? `${alarm.uniqueParticipants} elever` : "0 elever"}
+                          {alarm.uniqueSessions > 0 ? ` · ${alarm.uniqueSessions} sessioner` : ""}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className={`mt-4 rounded-[1.25rem] border p-4 text-sm ${tone.action}`}>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">Anbefalet handling</p>
+                      <p className="mt-2 leading-6">{alarm.recommendedAction}</p>
+                    </div>
+
+                    {alarm.evidence.length > 0 ? (
+                      <div className="mt-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300/70">Bevislinjer</p>
+                        <ul className="mt-2 space-y-2 text-sm leading-6 text-slate-200/82">
+                          {alarm.evidence.slice(0, 3).map((line) => (
+                            <li key={`${alarm.id}-${line}`} className="rounded-[1rem] border border-white/10 bg-black/15 px-3 py-2">
+                              {line}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-200/75">
+                      {getAlarmMetaTags(alarm).map((tag) => (
+                        <span key={`${alarm.id}-${tag}`} className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           {overviewCards.map((card) => (
             <div
               key={card.label}
@@ -727,26 +1256,46 @@ export default function AdminLogsPage() {
               <div className="flex items-center gap-3">
                 <Database className="h-5 w-5 text-cyan-300" />
                 <div>
-                  <h2 className={`text-lg font-black text-white ${rubik.className}`}>Datakilde</h2>
-                  <p className="text-sm text-slate-300/75">Hvor visningen får sine hændelser fra lige nu.</p>
+                  <h2 className={`text-lg font-black text-white ${rubik.className}`}>Alarmmotor & datakilde</h2>
+                  <p className="text-sm text-slate-300/75">Hvordan siden holder sig opdateret og hvorfor den alarmerer.</p>
                 </div>
               </div>
 
-              <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-slate-950/45 p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/75">Status</p>
-                <p className="mt-3 text-base font-semibold text-white">
-                  {dataSource === "live" ? "Live data fra telemetry_logs" : "Skaldata med fallback"}
-                </p>
-                <p className="mt-2 text-sm leading-6 text-slate-300/80">
-                  {dataSource === "live"
-                    ? "Serverfeeden læser de seneste 24 timers logs direkte fra telemetry_logs med service-role adgang."
-                    : "Serverfeeden kunne ikke læse telemetry_logs live og viser derfor en forudfyldt skal med kendte eksempler."}
-                </p>
+              <div className="mt-4 space-y-3 text-sm text-slate-300/85">
+                <div className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">Feedstatus</p>
+                  <p className="mt-2 text-base font-semibold text-white">
+                    {dataSource === "live" ? "Live data fra telemetry_logs" : "Skaldata med fallback"}
+                  </p>
+                  <p className="mt-2 leading-6 text-slate-300/82">
+                    {dataSource === "live"
+                      ? "Serverfeeden læser telemetry_logs med service-role adgang, udleder aktive alarmer server-side og sender dem færdige til klienten."
+                      : "Serverfeeden faldt tilbage til skaldata, så visningen stadig kan vise kendte fejlmønstre og playbooks."}
+                  </p>
+                </div>
+
+                <div className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">Auto-refresh</p>
+                  <p className="mt-2 text-base font-semibold text-white">
+                    {autoRefreshEnabled ? `Næste opdatering om ${formatCountdown(refreshCountdownMs)}` : "Pause aktiveret"}
+                  </p>
+                  <p className="mt-2 leading-6 text-slate-300/82">
+                    Siden opdaterer automatisk hvert 30. sekund og markerer nye alarmer, så driftssignaler ikke gemmer sig i gammel historik.
+                  </p>
+                </div>
+
+                <div className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">Browseralarmer</p>
+                  <p className="mt-2 text-base font-semibold text-white">{getNotificationStatusLabel(notificationPermission)}</p>
+                  <p className="mt-2 leading-6 text-slate-300/82">
+                    Når browseralarmer er tilladt, kan siden sende native notifikationer ved nye alarmer, hvis fanen ikke er aktiv.
+                  </p>
+                </div>
               </div>
             </section>
 
             <section className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-6">
-              <h2 className={`text-lg font-black text-white ${rubik.className}`}>Kendte oversættelser & playbooks</h2>
+              <h2 className={`text-lg font-black text-white ${rubik.className}`}>Kendte playbooks</h2>
               <div className="mt-4 space-y-3 text-sm text-slate-300/85">
                 <div className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 p-4">
                   <p className="font-semibold text-white">401 på /api/play/participant</p>
@@ -756,17 +1305,17 @@ export default function AdminLogsPage() {
                   </p>
                 </div>
                 <div className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 p-4">
-                  <p className="font-semibold text-white">restore_success</p>
-                  <p className="mt-1 leading-6">Vises som: Elev genoprettet succesfuldt</p>
+                  <p className="font-semibold text-white">Route-loop på /api/join</p>
+                  <p className="mt-1 leading-6">Vises som: join-flow fejler gentagne gange</p>
                   <p className="mt-2 leading-6 text-cyan-100/85">
-                    Handling: Ingen akut handling, men hold øje med hvis samme elev bliver genoprettet igen og igen.
+                    Handling: Tjek auth-binding, service-role adgang og participant-oprettelse før nye elever forsøger at joine igen.
                   </p>
                 </div>
                 <div className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 p-4">
-                  <p className="font-semibold text-white">server_handled_error i /api/join</p>
-                  <p className="mt-1 leading-6">Vises som: Håndteret serverfejl i join-flow</p>
+                  <p className="font-semibold text-white">Eksterne incidents hos Vercel/Supabase</p>
+                  <p className="mt-1 leading-6">Vises som: leverandøren melder driftsproblemer</p>
                   <p className="mt-2 leading-6 text-cyan-100/85">
-                    Handling: Tjek deltager-oprettelse, auth-binding og service-role adgang før nye elever slippes ind i sessionen.
+                    Handling: Tjek leverandørens statusside først og undgå at sende lærere ud i lokal fejlsøgning, hvis problemet allerede er eksternt.
                   </p>
                 </div>
               </div>
