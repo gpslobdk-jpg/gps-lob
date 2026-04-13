@@ -18,6 +18,24 @@ interface Entry {
 
 const entries: Entry[] = [
   {
+    date: "13. april 2026",
+    title: "Opdatering 13. april: Selv-helende GPS-løb og øget stabilitet",
+    tag: "Ny opdatering",
+    showTitleIcon: false,
+    items: [
+      {
+        icon: <Wifi className="h-4 w-4 text-emerald-400" />,
+        heading: "GPS-løb",
+        body: "Problemet med at skærmen sad fast på 'Indlæser mission' efter inaktivitet er løst. Systemet genopretter nu automatisk forbindelsen til løbet, selv hvis telefonen har været låst i et helt frikvarter.",
+      },
+      {
+        icon: <Sparkles className="h-4 w-4 text-amber-400" />,
+        heading: "Stabilitet",
+        body: "Vi har indbygget overvågning i koden, der fanger og advarer os om netværksudfald, så driften fremadrettet er endnu mere sikker.",
+      },
+    ],
+  },
+  {
     date: "12. april 2026",
     title: "Midt-April",
     tag: "Ny opdatering",

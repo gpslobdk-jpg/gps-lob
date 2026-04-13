@@ -423,7 +423,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
                   <span
                     className={`h-1.5 w-1.5 rounded-full bg-emerald-400 ${shouldReduceMotion ? "" : "animate-pulse"}`}
                   />
-                  <span>NYT 12. april 2026</span>
+                  <span>13. april</span>
                 </span>
               </Link>
             </div>
