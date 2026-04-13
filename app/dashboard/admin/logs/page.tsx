@@ -25,6 +25,12 @@ const poppins = Poppins({
 });
 
 const AUTO_REFRESH_MS = 30_000;
+const DISPLAY_TIME_ZONE = "Europe/Copenhagen";
+const FALLBACK_BASE_TIMESTAMP = Date.parse("2026-04-13T10:00:00.000Z");
+
+function getStaticFallbackTimestamp(minutesAgo = 0) {
+  return new Date(FALLBACK_BASE_TIMESTAMP - minutesAgo * 60_000).toISOString();
+}
 
 type AdminLogsTab = "overview" | "network" | "recoveries";
 type DataSourceMode = "live" | "mock";
@@ -150,7 +156,7 @@ const fallbackFeed = {
       participant_id: "demo-participant-1",
       session_id: "demo-session-1",
       message: "restore_success after wake-up recovery",
-      created_at: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+      created_at: getStaticFallbackTimestamp(12),
     },
     {
       id: "mock-401-participant",
@@ -159,7 +165,7 @@ const fallbackFeed = {
       session_id: "demo-session-2",
       message:
         "meta:kind=response|route=/api/play/participant|path=/api/play/participant?sessionId=demo|method=GET|status=401|msg=Unauthorized",
-      created_at: new Date(Date.now() - 28 * 60 * 1000).toISOString(),
+      created_at: getStaticFallbackTimestamp(28),
     },
     {
       id: "mock-server-error",
@@ -168,7 +174,7 @@ const fallbackFeed = {
       session_id: "demo-session-3",
       message:
         "meta:kind=handled|route=/api/join|path=/api/join|method=POST|status=500|type=route|msg=Kunne ikke registrere deltageren.",
-      created_at: new Date(Date.now() - 56 * 60 * 1000).toISOString(),
+      created_at: getStaticFallbackTimestamp(56),
     },
     {
       id: "mock-rebind",
@@ -176,7 +182,7 @@ const fallbackFeed = {
       participant_id: "demo-participant-4",
       session_id: "demo-session-4",
       message: "reason=wake_reconnect:status_channel_error",
-      created_at: new Date(Date.now() - 78 * 60 * 1000).toISOString(),
+      created_at: getStaticFallbackTimestamp(78),
     },
   ] satisfies TelemetryLogRow[],
   dataSource: "mock" as DataSourceMode,
@@ -226,8 +232,8 @@ const fallbackFeed = {
       route: "/api/play/participant",
       provider: null,
       status: 401,
-      startedAt: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
-      lastSeenAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+      startedAt: getStaticFallbackTimestamp(12),
+      lastSeenAt: getStaticFallbackTimestamp(2),
     },
     {
       id: "mock-route-loop",
@@ -246,8 +252,8 @@ const fallbackFeed = {
       route: "/api/join",
       provider: null,
       status: 500,
-      startedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-      lastSeenAt: new Date(Date.now() - 1 * 60 * 1000).toISOString(),
+      startedAt: getStaticFallbackTimestamp(10),
+      lastSeenAt: getStaticFallbackTimestamp(1),
     },
   ] satisfies ActiveAlarm[],
   correlatedIncidents: [
@@ -267,8 +273,8 @@ const fallbackFeed = {
       count: 3,
       uniqueParticipants: 2,
       uniqueSessions: 1,
-      startedAt: new Date(Date.now() - 32 * 60 * 1000).toISOString(),
-      lastSeenAt: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
+      startedAt: getStaticFallbackTimestamp(32),
+      lastSeenAt: getStaticFallbackTimestamp(4),
     },
     {
       id: "mock-correlation-cross-session",
@@ -286,11 +292,11 @@ const fallbackFeed = {
       count: 6,
       uniqueParticipants: 5,
       uniqueSessions: 3,
-      startedAt: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
-      lastSeenAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+      startedAt: getStaticFallbackTimestamp(40),
+      lastSeenAt: getStaticFallbackTimestamp(2),
     },
   ] satisfies CorrelatedIncident[],
-  generatedAt: new Date().toISOString(),
+  generatedAt: getStaticFallbackTimestamp(),
   alarmWindowMinutes: 15,
   correlationWindowMinutes: 45,
 };
@@ -319,6 +325,7 @@ function formatDateTime(value: string | null) {
     month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: DISPLAY_TIME_ZONE,
   }).format(date);
 }
 
@@ -1656,20 +1663,32 @@ export default function AdminLogsPage() {
           </div>
 
           <div className="mt-5 grid gap-3 lg:grid-cols-5">
-            <label className="lg:col-span-2">
-              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">Søg</span>
+            <div className="lg:col-span-2">
+              <label
+                htmlFor="drilldown-query"
+                className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75"
+              >
+                Søg
+              </label>
               <input
+                id="drilldown-query"
                 type="search"
                 value={drilldownQuery}
                 onChange={(event) => setDrilldownQuery(event.target.value)}
                 placeholder="Route, statuskode, session, deltager eller fejltekst"
                 className="w-full rounded-[1.1rem] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300/40"
               />
-            </label>
+            </div>
 
-            <label>
-              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">Route</span>
+            <div>
+              <label
+                htmlFor="drilldown-route"
+                className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75"
+              >
+                Route
+              </label>
               <select
+                id="drilldown-route"
                 value={drilldownRoute}
                 onChange={(event) => {
                   setDrilldownRoute(event.target.value);
@@ -1684,11 +1703,17 @@ export default function AdminLogsPage() {
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
 
-            <label>
-              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">Session</span>
+            <div>
+              <label
+                htmlFor="drilldown-session"
+                className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75"
+              >
+                Session
+              </label>
               <select
+                id="drilldown-session"
                 value={drilldownSession}
                 onChange={(event) => {
                   setDrilldownSession(event.target.value);
@@ -1703,12 +1728,16 @@ export default function AdminLogsPage() {
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
 
-            <label>
-              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">Status / gruppering</span>
+            <div>
+              <p className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">
+                Status / gruppering
+              </p>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                 <select
+                  id="drilldown-status"
+                  aria-label="Status"
                   value={drilldownStatus}
                   onChange={(event) => {
                     setDrilldownStatus(event.target.value);
@@ -1725,6 +1754,8 @@ export default function AdminLogsPage() {
                 </select>
 
                 <select
+                  id="drilldown-group-by"
+                  aria-label="Gruppering"
                   value={drilldownGroupBy}
                   onChange={(event) => {
                     setDrilldownGroupBy(event.target.value as DrilldownGroupBy);
@@ -1737,7 +1768,7 @@ export default function AdminLogsPage() {
                   <option value="event">Grupper efter hændelsestype</option>
                 </select>
               </div>
-            </label>
+            </div>
           </div>
 
           <div className="mt-4 flex flex-wrap gap-3">
