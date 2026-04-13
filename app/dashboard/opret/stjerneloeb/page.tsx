@@ -11,15 +11,16 @@ import { GRADE_LEVEL_OPTIONS } from "@/utils/gradeLevels";
 const rubik = Rubik({ subsets: ["latin"], weight: ["700", "800", "900"] });
 const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
+
 const POST_COUNTS = [4, 6, 8, 10] as const;
 
 export default function StjerneloebPage() {
   const router = useRouter();
-
   const [topic, setTopic] = useState("");
   const [subject, setSubject] = useState("");
   const [gradeLevel, setGradeLevel] = useState("");
   const [count, setCount] = useState<number>(6);
+  const [raceType, setRaceType] = useState<"classic" | "crossword">("classic");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,7 +35,7 @@ export default function StjerneloebPage() {
       const res = await fetch("/api/stjerneloeb-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: topic.trim(), subject, gradeLevel, count }),
+        body: JSON.stringify({ topic: topic.trim(), subject, gradeLevel, count, raceType }),
       });
       const data = (await res.json()) as { id?: string; error?: string };
       if (!res.ok || !data.id) {
@@ -127,6 +128,38 @@ export default function StjerneloebPage() {
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+
+
+          {/* Løbstype vælger */}
+          <div className="mb-8">
+            <label className="mb-3 block text-sm font-semibold text-slate-300">Løbstype</label>
+            <div className="flex gap-4">
+              <button
+                type="button"
+                onClick={() => setRaceType("classic")}
+                className={`flex-1 rounded-xl border px-5 py-4 text-base font-semibold transition-all text-left ${
+                  raceType === "classic"
+                    ? "border-violet-500 bg-violet-600 text-white shadow-lg shadow-violet-500/30"
+                    : "border-white/10 bg-white/5 text-slate-300 hover:border-violet-500/50 hover:bg-white/10"
+                }`}
+              >
+                <div className="font-bold mb-1">Klassisk</div>
+                <div className="text-xs opacity-80">4 svarmuligheder (A, B, C, D)</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setRaceType("crossword")}
+                className={`flex-1 rounded-xl border px-5 py-4 text-base font-semibold transition-all text-left ${
+                  raceType === "crossword"
+                    ? "border-violet-500 bg-violet-600 text-white shadow-lg shadow-violet-500/30"
+                    : "border-white/10 bg-white/5 text-slate-300 hover:border-violet-500/50 hover:bg-white/10"
+                }`}
+              >
+                <div className="font-bold mb-1">Krydsord</div>
+                <div className="text-xs opacity-80">Eleverne skal gætte ét ord</div>
+              </button>
             </div>
           </div>
 
