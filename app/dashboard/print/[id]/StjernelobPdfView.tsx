@@ -554,14 +554,6 @@ async function preparePdfImages(
       throw new DOMException("Aborted", "AbortError");
     }
 
-    if (post.number !== 1) {
-      return {
-        number: post.number,
-        source: "",
-        usedFallback: false,
-      } satisfies PreparedPdfImageResult;
-    }
-
     const { url } = getPdfImageRequest(post);
 
     if (!url) {
