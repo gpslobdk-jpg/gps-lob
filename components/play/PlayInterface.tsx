@@ -235,6 +235,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     activePostVariant === "quiz" && isAnswerSubmissionPending && !activeQuizAnswerFeedback;
   const avatarPreviewUrl = pendingAvatarUrl ?? avatarUrl;
   const shouldQueryCameraPermission = screen.mode === "avatar_gate" || activePostVariant === "photo";
+  const isParticipantAuthExpired = screen.loadErrorVariant === "participant_auth_expired";
+  const isJoinSessionMissing = screen.loadErrorVariant === "join_session_missing";
 
   const clearPendingPhotoPickerState = useCallback(() => {
     photoPickerPendingRef.current = false;
@@ -250,6 +252,12 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
       message,
     });
   }, [activeTypedAnswerKey]);
+
+  const returnToJoin = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.location.assign("/join");
+    }
+  }, []);
 
   
   const handleMasterLockSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -432,22 +440,72 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
         <div className="flex h-screen items-center justify-center bg-slate-950 px-6 text-center text-white">
           <div className="max-w-md rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_0_28px_rgba(16,185,129,0.18)] backdrop-blur-xl">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-400/10 text-emerald-200">
-              {isRestoreRecoveryError ? (
+              {isParticipantAuthExpired ? (
+                <KeyRound className="h-6 w-6" />
+              ) : isJoinSessionMissing ? (
+                <XCircle className="h-6 w-6" />
+              ) : isRestoreRecoveryError ? (
                 <KeyRound className="h-6 w-6" />
               ) : (
                 <Loader2 className="h-6 w-6 animate-spin" />
               )}
             </div>
             <p className="text-[11px] font-semibold tracking-[0.28em] text-emerald-100/70 uppercase">
-              {isRestoreRecoveryError ? "Genskab forbindelse" : "Klargør mission"}
+              {isParticipantAuthExpired
+                ? "Adgangskort udløbet"
+                : isJoinSessionMissing
+                  ? "Løbet er lukket"
+                  : isRestoreRecoveryError
+                    ? "Genskab forbindelse"
+                    : "Klargør mission"}
             </p>
             <h1 className="mt-3 text-2xl font-black text-white">
-              {isRestoreRecoveryError
-                ? "Vi prøver at hente dig tilbage i løbet"
-                : "Vi gør løbet klar..."}
+              {isParticipantAuthExpired
+                ? "Hov, du har været væk lidt længe!"
+                : isJoinSessionMissing
+                  ? "Løbet er muligvis afsluttet"
+                  : isRestoreRecoveryError
+                    ? "Vi prøver at hente dig tilbage i løbet"
+                    : "Vi gør løbet klar..."}
             </h1>
             <p className={`mt-3 text-sm text-white/80 ${wrapTextClass}`}>{screen.loadError}</p>
-            {isRestoreRecoveryError ? (
+            {isParticipantAuthExpired ? (
+              <>
+                <p className="mt-3 text-xs text-white/60">
+                  Pollingen er stoppet helt, indtil du selv genopretter forbindelsen.
+                </p>
+                <button
+                  type="button"
+                  onClick={actions.reloadPage}
+                  className="mt-6 rounded-xl border border-emerald-400/60 bg-emerald-500/20 px-5 py-3 font-bold text-white transition-colors hover:bg-emerald-500/30"
+                >
+                  Genopret forbindelse
+                </button>
+                <WifiConnectionTip className="mt-4 text-left" />
+              </>
+            ) : isJoinSessionMissing ? (
+              <>
+                <p className="mt-3 text-xs text-white/60">
+                  Vi prøver ikke automatisk igen. Gå tilbage til join-skærmen for at hente en ny kode eller vente på læreren.
+                </p>
+                <div className="mt-6 flex flex-col gap-3">
+                  <button
+                    type="button"
+                    onClick={returnToJoin}
+                    className="rounded-xl border border-emerald-400/60 bg-emerald-500/20 px-5 py-3 font-bold text-white transition-colors hover:bg-emerald-500/30"
+                  >
+                    Gå til join
+                  </button>
+                  <button
+                    type="button"
+                    onClick={actions.reloadPage}
+                    className="rounded-xl border border-white/10 bg-white/10 px-5 py-3 font-bold text-white transition-colors hover:bg-white/20"
+                  >
+                    Prøv igen
+                  </button>
+                </div>
+              </>
+            ) : isRestoreRecoveryError ? (
               <>
                 <p className="mt-3 text-xs text-white/60">
                   Din fremdrift bliver ikke nulstillet. Vi forsøger bare at genskabe forbindelsen til din deltager.

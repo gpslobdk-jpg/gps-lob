@@ -95,6 +95,11 @@ type PlaySessionStatusSnapshot = {
   error?: string;
 };
 
+type ParticipantSnapshotFetchResult = {
+  data: ParticipantRow | null;
+  error: { status?: number; code?: string; message?: string } | null;
+};
+
 type ParticipantAuthRecoveryMethod = "refresh" | "rebind";
 
 type WakeReconnectTrigger =
@@ -113,6 +118,10 @@ const PLAY_LOAD_RETRY_MESSAGE = "Vi gør løbet klar. Prøv igen om et øjeblik.
 const PLAY_SETUP_PENDING_MESSAGE = "Løbet bliver gjort klar lige nu. Prøv igen om et øjeblik.";
 const PLAY_RESTORE_RETRY_MESSAGE =
   "Vi kunne ikke genskabe din deltager automatisk. Tryk på Prøv igen for at genindlæse missionen.";
+const PLAY_PARTICIPANT_AUTH_EXPIRED_MESSAGE =
+  "Hov, du har været væk lidt længe! Dit adgangskort er udløbet.";
+const PLAY_JOIN_SESSION_MISSING_MESSAGE =
+  "Løbet er muligvis afsluttet af læreren.";
 const RESTORE_RETRY_DELAY_MS = 2500;
 const RESTORE_AUTH_RECOVERY_DELAY_MS = 350;
 const MAX_RESTORE_RETRIES = 6;
@@ -125,6 +134,10 @@ type ZoneKrigCaptureApiResult = {
   status?: ZoneKrigCaptureStatus;
   shieldRemainingSeconds?: number | null;
 } | null;
+
+function isCircuitBreakerLoadErrorVariant(variant: PlayLoadErrorVariant) {
+  return variant === "participant_auth_expired" || variant === "join_session_missing";
+}
 
 type InsertAnswerResult = {
   didPersist: boolean;
@@ -286,6 +299,8 @@ export function usePlayGameState({
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [loadErrorVariant, setLoadErrorVariant] = useState<PlayLoadErrorVariant>("generic");
+  const circuitBreakerActive =
+    loadError.trim().length > 0 && isCircuitBreakerLoadErrorVariant(loadErrorVariant);
   const [nameError, setNameError] = useState<string | null>(null);
   const [isKicked, setIsKicked] = useState(false);
   const [latestMessage, setLatestMessage] = useState<TeacherBroadcastMessage | null>(null);
@@ -358,10 +373,12 @@ export function usePlayGameState({
   const sessionStatusResubscribeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messageResubscribeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restoreRetryCountRef = useRef(0);
+  const restoreInFlightRef = useRef(false);
   const reconnectInFlightRef = useRef(false);
   const kickConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const submissionLockRef = useRef(false);
   const isMountedRef = useRef(true);
+  const circuitBreakerTrippedRef = useRef(false);
   const solvedPostIndexesRef = useRef<number[]>([]);
   const pendingLocalAnswersRef = useRef<StoredPendingAnswer[]>(pendingLocalAnswers);
   const pendingAnswerReplayInFlightRef = useRef(false);
@@ -369,6 +386,10 @@ export function usePlayGameState({
   const locationSyncSuspendedRef = useRef(false);
   const locationSyncRecoveryCheckInFlightRef = useRef(false);
   const locationSyncRecoveryCheckCooldownUntilRef = useRef(0);
+  const participantSnapshotRequestRef = useRef<{
+    participantId: string;
+    promise: Promise<ParticipantSnapshotFetchResult>;
+  } | null>(null);
   const clearRoleplayInputErrorTone = useCallback(() => {
     if (roleplayInputErrorTimerRef.current) {
       clearTimeout(roleplayInputErrorTimerRef.current);
@@ -542,7 +563,7 @@ export function usePlayGameState({
     async (nextStudentName: string) => {
       const normalizedName = nextStudentName.trim();
       const preferredParticipantId = storedParticipantOnLoad?.participantId?.trim() || null;
-      if (!sessionId || !normalizedName || isProvisioningParticipant) {
+      if (!sessionId || !normalizedName || isProvisioningParticipant || circuitBreakerActive) {
         return false;
       }
 
@@ -573,6 +594,11 @@ export function usePlayGameState({
               error?: string;
             }
           | null;
+
+        if (response.status === 404 || response.status === 410) {
+          tripPlayCircuitBreaker(PLAY_JOIN_SESSION_MISSING_MESSAGE, "join_session_missing");
+          return false;
+        }
 
         if (!response.ok || !payload?.participantId) {
           throw new Error(payload?.error || "Kunne ikke klargøre deltageren.");
@@ -634,6 +660,7 @@ export function usePlayGameState({
       }
     },
     [
+      circuitBreakerActive,
       isProvisioningParticipant,
       questions.length,
       raceMode,
@@ -721,54 +748,6 @@ export function usePlayGameState({
   const hasAllEscapeBricks =
     isEscapeRace && questions.length > 0 && collectedEscapeRewardsCount >= questions.length;
 
-  const fetchParticipantSnapshot = useCallback(
-    async (targetParticipantId: string) => {
-      if (!sessionId) {
-        return {
-          data: null as ParticipantRow | null,
-          error: null as { status?: number; code?: string; message?: string } | null,
-        };
-      }
-
-      try {
-        const response = await fetch(
-          `/api/play/participant?sessionId=${encodeURIComponent(sessionId)}&participantId=${encodeURIComponent(targetParticipantId)}`,
-          {
-            cache: "no-store",
-          }
-        );
-        const payload = (await response.json().catch(() => null)) as
-          | { participant?: ParticipantRow | null; error?: string }
-          | null;
-
-        if (!response.ok) {
-          return {
-            data: null as ParticipantRow | null,
-            error: {
-              status: response.status,
-              code: String(response.status),
-              message: payload?.error ?? response.statusText,
-            },
-          };
-        }
-
-        return {
-          data: (payload?.participant ?? null) as ParticipantRow | null,
-          error: null,
-        };
-      } catch (error) {
-        return {
-          data: null as ParticipantRow | null,
-          error: {
-            code: "FETCH_FAILED",
-            message: error instanceof Error ? error.message : "Kunne ikke hente deltager-snapshot.",
-          },
-        };
-      }
-    },
-    [sessionId]
-  );
-
   const resetLocationSyncRecovery = useCallback(() => {
     locationSyncErrorsRef.current = 0;
     locationSyncSuspendedRef.current = false;
@@ -812,6 +791,10 @@ export function usePlayGameState({
       storedName: string,
       telemetryReason?: string
     ): Promise<ParticipantAuthRecoveryMethod | null> => {
+      if (circuitBreakerActive) {
+        return null;
+      }
+
       try {
         const { data, error } = await supabase.auth.refreshSession();
         const refreshedUserId = data.user?.id ?? data.session?.user?.id ?? null;
@@ -852,7 +835,14 @@ export function usePlayGameState({
       await waitForNetworkRetry(RESTORE_AUTH_RECOVERY_DELAY_MS);
       return "rebind";
     },
-    [participantId, registerParticipantIdentity, sessionId, supabase, waitForNetworkRetry]
+    [
+      circuitBreakerActive,
+      participantId,
+      registerParticipantIdentity,
+      sessionId,
+      supabase,
+      waitForNetworkRetry,
+    ]
   );
 
   const clearRestoreRetryTimer = useCallback(() => {
@@ -876,8 +866,145 @@ export function usePlayGameState({
     }
   }, []);
 
+  const tripPlayCircuitBreaker = useCallback(
+    (
+      message: string,
+      variant: Extract<PlayLoadErrorVariant, "participant_auth_expired" | "join_session_missing">
+    ) => {
+      circuitBreakerTrippedRef.current = true;
+      clearRestoreRetryTimer();
+      clearSessionStatusResubscribeTimer();
+      clearMessageResubscribeTimer();
+      restoreRetryCountRef.current = 0;
+      reconnectInFlightRef.current = false;
+      submissionLockRef.current = false;
+      locationSyncErrorsRef.current = 0;
+      locationSyncSuspendedRef.current = true;
+      locationSyncRecoveryCheckInFlightRef.current = false;
+      locationSyncRecoveryCheckCooldownUntilRef.current = Number.MAX_SAFE_INTEGER;
+
+      setLocationSyncErrors(0);
+      setResumeMessage(null);
+      setShowQuestion(false);
+      setIsLoading(false);
+      setIsRestoringParticipant(false);
+      setIsProvisioningParticipant(false);
+      setIsSubmitting(false);
+      setIsSubmittingAnswer(false);
+
+      if (sessionStatusChannelRef.current) {
+        void supabase.removeChannel(sessionStatusChannelRef.current);
+        sessionStatusChannelRef.current = null;
+      }
+
+      if (messageChannelRef.current) {
+        void supabase.removeChannel(messageChannelRef.current);
+        messageChannelRef.current = null;
+      }
+
+      setPlayLoadError(message, variant);
+    },
+    [
+      clearMessageResubscribeTimer,
+      clearRestoreRetryTimer,
+      clearSessionStatusResubscribeTimer,
+      setPlayLoadError,
+      supabase,
+    ]
+  );
+
+  const fetchParticipantSnapshot = useCallback(
+    async (targetParticipantId: string) => {
+      if (!sessionId) {
+        return {
+          data: null as ParticipantRow | null,
+          error: null as { status?: number; code?: string; message?: string } | null,
+        };
+      }
+
+      if (circuitBreakerTrippedRef.current) {
+        return {
+          data: null,
+          error: {
+            status: 401,
+            code: "CIRCUIT_BREAKER",
+            message: PLAY_PARTICIPANT_AUTH_EXPIRED_MESSAGE,
+          },
+        } satisfies ParticipantSnapshotFetchResult;
+      }
+
+      const existingRequest = participantSnapshotRequestRef.current;
+      if (existingRequest?.participantId === targetParticipantId) {
+        return existingRequest.promise;
+      }
+
+      const requestPromise: Promise<ParticipantSnapshotFetchResult> = (async () => {
+        try {
+          const response = await fetch(
+            `/api/play/participant?sessionId=${encodeURIComponent(sessionId)}&participantId=${encodeURIComponent(targetParticipantId)}`,
+            {
+              cache: "no-store",
+            }
+          );
+          const payload = (await response.json().catch(() => null)) as
+            | { participant?: ParticipantRow | null; error?: string }
+            | null;
+
+          if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+              tripPlayCircuitBreaker(
+                PLAY_PARTICIPANT_AUTH_EXPIRED_MESSAGE,
+                "participant_auth_expired"
+              );
+            }
+
+            return {
+              data: null,
+              error: {
+                status: response.status,
+                code: String(response.status),
+                message: payload?.error ?? response.statusText,
+              },
+            };
+          }
+
+          return {
+            data: (payload?.participant ?? null) as ParticipantRow | null,
+            error: null,
+          };
+        } catch (error) {
+          return {
+            data: null,
+            error: {
+              code: "FETCH_FAILED",
+              message: error instanceof Error ? error.message : "Kunne ikke hente deltager-snapshot.",
+            },
+          };
+        }
+      })();
+
+      participantSnapshotRequestRef.current = {
+        participantId: targetParticipantId,
+        promise: requestPromise,
+      };
+
+      try {
+        return await requestPromise;
+      } finally {
+        if (participantSnapshotRequestRef.current?.promise === requestPromise) {
+          participantSnapshotRequestRef.current = null;
+        }
+      }
+    },
+    [sessionId, tripPlayCircuitBreaker]
+  );
+
   const scheduleRestoreRetry = useCallback(
     () => {
+      if (circuitBreakerActive || circuitBreakerTrippedRef.current) {
+        return;
+      }
+
       if (restoreRetryTimerRef.current !== null) {
         return;
       }
@@ -904,7 +1031,7 @@ export function usePlayGameState({
         setRestoreRetryNonce((current) => current + 1);
       }, RESTORE_RETRY_DELAY_MS);
     },
-    [participantId, sessionId, setPlayLoadError]
+    [circuitBreakerActive, participantId, sessionId, setPlayLoadError]
   );
 
   const markPlayAsFinished = useCallback(() => {
@@ -945,7 +1072,14 @@ export function usePlayGameState({
   }, [sessionId]);
 
   const runAuthoritativeLocationSyncCheck = useCallback(async () => {
-    if (!sessionId || !participantId || locationSyncRecoveryCheckInFlightRef.current) {
+    if (
+      !sessionId ||
+      !participantId ||
+      circuitBreakerActive ||
+      restoreInFlightRef.current ||
+      !hasRestoredRef.current ||
+      locationSyncRecoveryCheckInFlightRef.current
+    ) {
       return;
     }
 
@@ -1006,6 +1140,10 @@ export function usePlayGameState({
         await fetchParticipantSnapshot(participantId);
 
       if (participantSnapshotError) {
+        if (participantSnapshotError.status === 401 || participantSnapshotError.status === 403) {
+          return;
+        }
+
         console.error(
           "Kunne ikke verificere deltageren efter positionsfejl:",
           participantSnapshotError
@@ -1034,6 +1172,7 @@ export function usePlayGameState({
   }, [
     fetchSessionStatusSnapshot,
     fetchParticipantSnapshot,
+    circuitBreakerActive,
     pendingPlayerName,
     playerName,
     recoverParticipantAuthSession,
@@ -1047,7 +1186,13 @@ export function usePlayGameState({
   ]);
 
   const recoverWakeUpState = useCallback(async (trigger: WakeReconnectTrigger = "visibility_resume") => {
-    if (!sessionId || reconnectInFlightRef.current) {
+    if (
+      !sessionId ||
+      reconnectInFlightRef.current ||
+      circuitBreakerActive ||
+      restoreInFlightRef.current ||
+      (participantId && !hasRestoredRef.current)
+    ) {
       return;
     }
 
@@ -1169,8 +1314,13 @@ export function usePlayGameState({
               reconnectOutcomeLogged = true;
             }
           } else if (
+            participantSnapshotError?.status === 401 ||
+            participantSnapshotError?.status === 403
+          ) {
+            return;
+          } else if (
             participantSnapshotError?.status &&
-            ![401, 403, 404].includes(participantSnapshotError.status)
+            participantSnapshotError.status !== 404
           ) {
             console.error(
               "Kunne ikke genskabe deltager under wake/reconnect:",
@@ -1210,6 +1360,7 @@ export function usePlayGameState({
     }
   }, [
     clearRestoreRetryTimer,
+    circuitBreakerActive,
     fetchParticipantSnapshot,
     fetchSessionStatusSnapshot,
     isFinished,
@@ -1246,6 +1397,10 @@ export function usePlayGameState({
   }, [locationSyncErrors]);
 
   useEffect(() => {
+    circuitBreakerTrippedRef.current = circuitBreakerActive;
+  }, [circuitBreakerActive]);
+
+  useEffect(() => {
     restoreRetryCountRef.current = 0;
     resetLocationSyncRecovery();
   }, [participantId, resetLocationSyncRecovery, sessionId]);
@@ -1266,7 +1421,7 @@ export function usePlayGameState({
   }, [correctAnswersCount, isFinished, questions.length, routeOrder]);
 
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId || circuitBreakerActive) return;
     let mounted = true;
     const pollIntervalMs = sessionStatus === "running"
       ? ACTIVE_SESSION_STATUS_POLL_INTERVAL_MS
@@ -1382,6 +1537,7 @@ export function usePlayGameState({
       removeStatusChannel();
     };
   }, [
+    circuitBreakerActive,
     clearSessionStatusResubscribeTimer,
     fetchSessionStatusSnapshot,
     markPlayAsFinished,
@@ -1601,7 +1757,7 @@ export function usePlayGameState({
 
   const syncParticipantLocation = useCallback(
     async (lat: number, lng: number, accuracy: number | null) => {
-      if (!sessionId || !participantId) return;
+      if (!sessionId || !participantId || circuitBreakerActive) return;
 
       if (locationSyncSuspendedRef.current) {
         if (
@@ -1675,6 +1831,7 @@ export function usePlayGameState({
       }
     },
     [
+      circuitBreakerActive,
       participantId,
       pendingPlayerName,
       playerName,
@@ -1708,6 +1865,9 @@ export function usePlayGameState({
     if (
       !sessionId ||
       !participantId ||
+      circuitBreakerActive ||
+      restoreInFlightRef.current ||
+      isRestoringParticipant ||
       (questions.length === 0 && !isStrategoRace) ||
       hasRestoredRef.current
     ) {
@@ -1715,63 +1875,48 @@ export function usePlayGameState({
     }
 
     let isActive = true;
+    restoreInFlightRef.current = true;
     setIsRestoringParticipant(true);
     clearRestoreRetryTimer();
 
     const restoreFromStorage = async () => {
-      const storedProgressSnapshot = getStoredPlaySnapshotForParticipant(participantId);
-      const storedPendingAnswers =
-        storedProgressSnapshot?.pendingAnswers ?? pendingLocalAnswersRef.current;
-      const storedName = storedParticipantOnLoad?.studentName?.trim() || playerName || initialStudentName;
-      const storedStartOffset = storedParticipantOnLoad?.startOffset ?? 0;
-      if (storedName) {
-        setPlayerName(storedName);
-        setPendingPlayerNameState(storedName);
-        setHasConfirmedName(true);
-        setNameError(null);
-        rememberActiveParticipant(participantId, storedName, storedStartOffset);
-      }
-
-      const attemptParticipantRestore = async () => {
-        let snapshotResult = await fetchParticipantSnapshot(participantId);
-
-        if (
-          snapshotResult.error?.status === 401 ||
-          snapshotResult.error?.status === 403
-        ) {
-          const authRecoveryMethod = await recoverParticipantAuthSession(
-            storedName,
-            "restore_snapshot_auth_error"
-          );
-          if (!isActive) {
-            return snapshotResult;
-          }
-
-          if (!authRecoveryMethod) {
-            return snapshotResult;
-          }
-
-          snapshotResult = await fetchParticipantSnapshot(participantId);
+      try {
+        const storedProgressSnapshot = getStoredPlaySnapshotForParticipant(participantId);
+        const storedPendingAnswers =
+          storedProgressSnapshot?.pendingAnswers ?? pendingLocalAnswersRef.current;
+        const storedName = storedParticipantOnLoad?.studentName?.trim() || playerName || initialStudentName;
+        const storedStartOffset = storedParticipantOnLoad?.startOffset ?? 0;
+        if (storedName) {
+          setPlayerName(storedName);
+          setPendingPlayerNameState(storedName);
+          setHasConfirmedName(true);
+          setNameError(null);
+          rememberActiveParticipant(participantId, storedName, storedStartOffset);
         }
 
-        return snapshotResult;
-      };
+        const attemptParticipantRestore = async () => {
+          return await fetchParticipantSnapshot(participantId);
+        };
 
-      let participantData: ParticipantRow | null = null;
-      let didResolveParticipant = false;
+        let participantData: ParticipantRow | null = null;
+        let didResolveParticipant = false;
 
-      const { data, error: participantError } = await attemptParticipantRestore();
+        const { data, error: participantError } = await attemptParticipantRestore();
 
-      if (!isActive) return;
+        if (!isActive) return;
 
-      if (participantError) {
-        console.error("Kunne ikke genskabe deltagerdata fra participants:", participantError);
-        scheduleRestoreRetry();
-        return;
-      } else {
-        didResolveParticipant = true;
-        participantData = data ?? null;
-      }
+        if (participantError) {
+          if (participantError.status === 401 || participantError.status === 403) {
+            return;
+          }
+
+          console.error("Kunne ikke genskabe deltagerdata fra participants:", participantError);
+          scheduleRestoreRetry();
+          return;
+        } else {
+          didResolveParticipant = true;
+          participantData = data ?? null;
+        }
 
       if (didResolveParticipant && !participantData) {
         // Defensive restoration: DB reported "not found" — don't kick immediately.
@@ -1799,6 +1944,10 @@ export function usePlayGameState({
           if (!isActive) break;
 
           if (retryError) {
+            if (retryError.status === 401 || retryError.status === 403) {
+              return;
+            }
+
             console.error("Fejl ved retry af participants-forespørgsel:", retryError);
             // continue retrying on transient errors
             continue;
@@ -2117,14 +2266,17 @@ export function usePlayGameState({
         setDistanceState(null);
       }
 
-      if (resolvedName) {
-        showResumeNotice(`Velkommen tilbage, ${resolvedName}! Genoptager løbet...`);
-      }
+        if (resolvedName) {
+          showResumeNotice(`Velkommen tilbage, ${resolvedName}! Genoptager løbet...`);
+        }
 
-      clearRestoreRetryTimer();
-      restoreRetryCountRef.current = 0;
-      setIsRestoringParticipant(false);
-      hasRestoredRef.current = true;
+        clearRestoreRetryTimer();
+        restoreRetryCountRef.current = 0;
+        setIsRestoringParticipant(false);
+        hasRestoredRef.current = true;
+      } finally {
+        restoreInFlightRef.current = false;
+      }
     };
 
     void restoreFromStorage();
@@ -2136,6 +2288,7 @@ export function usePlayGameState({
     clearRestoreRetryTimer,
       clearStoredPlayRecoveryState,
     fetchParticipantSnapshot,
+    isRestoringParticipant,
     sessionId,
     participantId,
     questions,
@@ -2578,7 +2731,7 @@ export function usePlayGameState({
   }, [loadLatestTeacherMessage, sessionId]);
 
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId || circuitBreakerActive) return;
 
     const createSubscription = () => {
       // remove existing channel if present
@@ -2711,6 +2864,7 @@ export function usePlayGameState({
     };
   }, [
     applyLatestTeacherMessage,
+    circuitBreakerActive,
     clearRestoreRetryTimer,
     clearStoredPlayRecoveryState,
     clearMessageResubscribeTimer,
@@ -2722,7 +2876,7 @@ export function usePlayGameState({
   ]);
 
   useEffect(() => {
-    if (!sessionId) {
+    if (!sessionId || circuitBreakerActive) {
       return;
     }
 
@@ -2737,7 +2891,7 @@ export function usePlayGameState({
     return () => {
       subscription.unsubscribe();
     };
-  }, [recoverWakeUpState, sessionId, supabase]);
+  }, [circuitBreakerActive, recoverWakeUpState, sessionId, supabase]);
 
   const handleWrongQuizAnswer = useCallback((selectedIndex: number, feedbackKey: string) => {
     if (quizAnswerFeedbackTimerRef.current) {

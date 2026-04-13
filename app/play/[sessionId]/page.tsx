@@ -28,6 +28,7 @@ function PlayScreen() {
     (game.progress.questions.length > 0 || game.flags.isStrategoRace) &&
     !game.progress.screen.isFinished &&
     !game.progress.screen.isKicked &&
+    game.progress.screen.mode !== "load_error" &&
     game.player.hasConfirmedName &&
     game.player.hasCompletedAvatarGate &&
     Boolean(game.player.participantId);

@@ -5,12 +5,14 @@ import Image from "next/image";
 import {
   AlertTriangle,
   Crown,
+  KeyRound,
   Loader2,
   Radio,
   Shield,
   Swords,
   Target,
   Users,
+  XCircle,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -212,6 +214,14 @@ export default function StrategoElevInterface({
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const [isManualRespawnLoading, setIsManualRespawnLoading] = useState(false);
   const avatarPreviewUrl = player.pendingAvatarUrl ?? player.avatarUrl;
+  const isParticipantAuthExpired = progress.screen.loadErrorVariant === "participant_auth_expired";
+  const isJoinSessionMissing = progress.screen.loadErrorVariant === "join_session_missing";
+
+  const returnToJoin = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.location.assign("/join");
+    }
+  }, []);
 
   const handleManualRespawn = useCallback(async () => {
     if (!sessionId || !player.participantId || isManualRespawnLoading) {
@@ -238,7 +248,12 @@ export default function StrategoElevInterface({
   const allyIdsKey = allyIds.join(",");
 
   useEffect(() => {
-    if (!sessionId || !player.participantId || !player.hasCompletedAvatarGate) {
+    if (
+      progress.screen.mode === "load_error" ||
+      !sessionId ||
+      !player.participantId ||
+      !player.hasCompletedAvatarGate
+    ) {
       return;
     }
 
@@ -301,10 +316,16 @@ export default function StrategoElevInterface({
       isActive = false;
       void supabase.removeChannel(gameChannel);
     };
-  }, [player.hasCompletedAvatarGate, player.participantId, sessionId]);
+  }, [player.hasCompletedAvatarGate, player.participantId, progress.screen.mode, sessionId]);
 
   useEffect(() => {
-    if (!sessionId || !player.participantId || !player.hasCompletedAvatarGate || allyIds.length === 0) {
+    if (
+      progress.screen.mode === "load_error" ||
+      !sessionId ||
+      !player.participantId ||
+      !player.hasCompletedAvatarGate ||
+      allyIds.length === 0
+    ) {
       return;
     }
 
@@ -343,7 +364,7 @@ export default function StrategoElevInterface({
     return () => {
       isActive = false;
     };
-  }, [allyIdsKey, allyIds, player.hasCompletedAvatarGate, player.participantId, sessionId]);
+  }, [allyIdsKey, allyIds, player.hasCompletedAvatarGate, player.participantId, progress.screen.mode, sessionId]);
 
   const baseMarkers = useMemo(() => {
     const nextMarkers: Array<{ teamCode: "red" | "blue"; lat: number; lng: number }> = [];
@@ -425,16 +446,61 @@ export default function StrategoElevInterface({
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
         <div className="w-full max-w-md rounded-[2rem] border border-rose-400/30 bg-rose-950/60 p-8 text-center shadow-2xl">
-          <AlertTriangle className="mx-auto h-10 w-10 text-rose-200" />
-          <h1 className="mt-4 text-2xl font-black">Stratego kunne ikke indlæses</h1>
+          {isParticipantAuthExpired ? (
+            <KeyRound className="mx-auto h-10 w-10 text-rose-200" />
+          ) : isJoinSessionMissing ? (
+            <XCircle className="mx-auto h-10 w-10 text-rose-200" />
+          ) : (
+            <AlertTriangle className="mx-auto h-10 w-10 text-rose-200" />
+          )}
+          <h1 className="mt-4 text-2xl font-black">
+            {isParticipantAuthExpired
+              ? "Hov, du har været væk lidt længe!"
+              : isJoinSessionMissing
+                ? "Løbet er muligvis afsluttet"
+                : "Stratego kunne ikke indlæses"}
+          </h1>
           <p className="mt-3 text-sm text-rose-100/75">{progress.screen.loadError}</p>
-          <button
-            type="button"
-            onClick={actions.reloadPage}
-            className="mt-6 inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white"
-          >
-            Prøv igen
-          </button>
+          {isParticipantAuthExpired ? (
+            <>
+              <p className="mt-3 text-xs text-rose-100/60">
+                Stratego er sat på pause på denne enhed, indtil du selv genopretter forbindelsen.
+              </p>
+              <button
+                type="button"
+                onClick={actions.reloadPage}
+                className="mt-6 inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white"
+              >
+                Genopret forbindelse
+              </button>
+              <WifiConnectionTip className="mt-6 text-left" />
+            </>
+          ) : isJoinSessionMissing ? (
+            <div className="mt-6 flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={returnToJoin}
+                className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white"
+              >
+                Gå til join
+              </button>
+              <button
+                type="button"
+                onClick={actions.reloadPage}
+                className="inline-flex items-center justify-center rounded-full border border-white/10 bg-transparent px-5 py-3 text-sm font-bold text-white/80"
+              >
+                Prøv igen
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={actions.reloadPage}
+              className="mt-6 inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white"
+            >
+              Prøv igen
+            </button>
+          )}
         </div>
       </div>
     );

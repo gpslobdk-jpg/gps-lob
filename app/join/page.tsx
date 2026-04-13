@@ -129,6 +129,7 @@ function JoinForm() {
   const [runTitle, setRunTitle] = useState("");
   const [schedule, setSchedule] = useState<RunSchedule | null>(null);
   const [raceType, setRaceType] = useState<string | null>(null);
+  const [expiredMessage, setExpiredMessage] = useState("Dette løb er desværre slut. Kontakt din arrangør.");
   const [assignedTeamName, setAssignedTeamName] = useState<string | null>(null);
   const [assignedTeamColor, setAssignedTeamColor] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
@@ -242,6 +243,7 @@ function JoinForm() {
     setRunTitle("");
     setSchedule(null);
     setRaceType(null);
+    setExpiredMessage("Dette løb er desværre slut. Kontakt din arrangør.");
     setAssignedTeamName(null);
     setAssignedTeamColor(null);
   };
@@ -292,6 +294,7 @@ function JoinForm() {
       if (joinData.kind === "finished") {
         setRunTitle(joinData.runTitle);
         setSchedule(joinData.schedule);
+        setExpiredMessage("Dette løb er desværre slut. Kontakt din arrangør.");
         setView(joinData.scheduleGate === "error" ? "scheduleError" : "expired");
         return;
       }
@@ -306,6 +309,7 @@ function JoinForm() {
       }
 
       if (joinData.scheduleGate === "expired") {
+        setExpiredMessage("Dette løb er desværre slut. Kontakt din arrangør.");
         setView("expired");
         return;
       }
@@ -331,6 +335,12 @@ function JoinForm() {
         | JoinParticipantResponse
         | JoinLookupErrorResponse
         | null;
+
+      if (registerResponse.status === 404 || registerResponse.status === 410) {
+        setExpiredMessage("Løbet er muligvis afsluttet af læreren.");
+        setView("expired");
+        return;
+      }
 
       if (!registerResponse.ok || !registerData || !("participantId" in registerData)) {
         const errorMessage =
@@ -587,7 +597,7 @@ function JoinForm() {
               Dette løb er desværre slut
             </h1>
             <p className="mx-auto mt-4 max-w-lg text-base leading-7 text-amber-50/80 sm:text-lg">
-              Dette løb er desværre slut. Kontakt din arrangør.
+              {expiredMessage}
             </p>
 
             {runTitle ? (

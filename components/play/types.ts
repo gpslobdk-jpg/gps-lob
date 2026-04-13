@@ -45,7 +45,11 @@ export type PlayScreenMode =
   | "finished"
   | "active";
 
-export type PlayLoadErrorVariant = "generic" | "restore_recovery";
+export type PlayLoadErrorVariant =
+  | "generic"
+  | "restore_recovery"
+  | "participant_auth_expired"
+  | "join_session_missing";
 
 export type PhotoFeedbackState = {
   key: string;

@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { AlertCircle, CheckCircle2, Loader2, Radio, Shield, Swords, Target, Timer } from "lucide-react";
+import { AlertCircle, CheckCircle2, KeyRound, Loader2, Radio, Shield, Swords, Target, Timer, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import StudentRulesSheet from "./StudentRulesSheet";
@@ -158,9 +158,23 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
     progress.screen.mode === "finished" ||
     sessionStatus === "finished" ||
     (remainingMs !== null && remainingMs <= 0);
+  const isParticipantAuthExpired = progress.screen.loadErrorVariant === "participant_auth_expired";
+  const isJoinSessionMissing = progress.screen.loadErrorVariant === "join_session_missing";
+
+  const returnToJoin = () => {
+    if (typeof window !== "undefined") {
+      window.location.assign("/join");
+    }
+  };
 
   useEffect(() => {
-    if (!sessionId || !player.hasConfirmedName || !player.hasCompletedAvatarGate || !player.participantId) {
+    if (
+      progress.screen.mode === "load_error" ||
+      !sessionId ||
+      !player.hasConfirmedName ||
+      !player.hasCompletedAvatarGate ||
+      !player.participantId
+    ) {
       return;
     }
 
@@ -273,10 +287,10 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
       void supabase.removeChannel(zonesChannel);
       void supabase.removeChannel(sessionChannel);
     };
-  }, [player.hasCompletedAvatarGate, player.hasConfirmedName, player.participantId, sessionId]);
+  }, [player.hasCompletedAvatarGate, player.hasConfirmedName, player.participantId, progress.screen.mode, sessionId]);
 
   useEffect(() => {
-    if (!endsAt || sessionStatus === "finished") {
+    if (progress.screen.mode === "load_error" || !endsAt || sessionStatus === "finished") {
       return;
     }
 
@@ -288,7 +302,7 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [endsAt, sessionStatus]);
+  }, [endsAt, progress.screen.mode, sessionStatus]);
 
   if (progress.screen.mode === "loading") {
     return (
@@ -305,16 +319,61 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
         <div className="w-full max-w-md rounded-4xl border border-rose-400/30 bg-rose-950/60 p-8 text-center shadow-2xl">
-          <AlertCircle className="mx-auto h-10 w-10 text-rose-200" />
-          <h1 className="mt-4 text-2xl font-black">Slagmarken kunne ikke indlæses</h1>
+          {isParticipantAuthExpired ? (
+            <KeyRound className="mx-auto h-10 w-10 text-rose-200" />
+          ) : isJoinSessionMissing ? (
+            <XCircle className="mx-auto h-10 w-10 text-rose-200" />
+          ) : (
+            <AlertCircle className="mx-auto h-10 w-10 text-rose-200" />
+          )}
+          <h1 className="mt-4 text-2xl font-black">
+            {isParticipantAuthExpired
+              ? "Hov, du har været væk lidt længe!"
+              : isJoinSessionMissing
+                ? "Løbet er muligvis afsluttet"
+                : "Slagmarken kunne ikke indlæses"}
+          </h1>
           <p className="mt-3 text-sm text-rose-100/75">{progress.screen.loadError}</p>
-          <button
-            type="button"
-            onClick={actions.reloadPage}
-            className="mt-6 inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white"
-          >
-            Prøv igen
-          </button>
+          {isParticipantAuthExpired ? (
+            <>
+              <p className="mt-3 text-xs text-rose-100/60">
+                Zone Krig er sat på pause på denne enhed, indtil du selv genopretter forbindelsen.
+              </p>
+              <button
+                type="button"
+                onClick={actions.reloadPage}
+                className="mt-6 inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white"
+              >
+                Genopret forbindelse
+              </button>
+              <WifiConnectionTip className="mt-6 text-left" />
+            </>
+          ) : isJoinSessionMissing ? (
+            <div className="mt-6 flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={returnToJoin}
+                className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white"
+              >
+                Gå til join
+              </button>
+              <button
+                type="button"
+                onClick={actions.reloadPage}
+                className="inline-flex items-center justify-center rounded-full border border-white/10 bg-transparent px-5 py-3 text-sm font-bold text-white/80"
+              >
+                Prøv igen
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={actions.reloadPage}
+              className="mt-6 inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white"
+            >
+              Prøv igen
+            </button>
+          )}
         </div>
       </div>
     );
