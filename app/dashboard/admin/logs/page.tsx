@@ -90,14 +90,37 @@ type ActiveAlarm = {
   lastSeenAt: string | null;
 };
 
+type CorrelatedIncidentKind = "session-cluster" | "cross-session-pattern" | "reconnect-pattern";
+
+type CorrelatedIncident = {
+  id: string;
+  severity: ActiveAlarmSeverity;
+  kind: CorrelatedIncidentKind;
+  signal: string;
+  title: string;
+  summary: string;
+  recommendedAction: string;
+  evidence: string[];
+  route: string | null;
+  sessionId: string | null;
+  status: number | null;
+  count: number;
+  uniqueParticipants: number;
+  uniqueSessions: number;
+  startedAt: string | null;
+  lastSeenAt: string | null;
+};
+
 type AdminLogsFeedResponse = {
   telemetryLogs?: TelemetryLogRow[];
   dataSource?: DataSourceMode;
   fallbackMessage?: string;
   externalServices?: ExternalServiceStatus[];
   activeAlarms?: ActiveAlarm[];
+  correlatedIncidents?: CorrelatedIncident[];
   generatedAt?: string;
   alarmWindowMinutes?: number;
+  correlationWindowMinutes?: number;
 };
 
 type StructuredLogMeta = Record<string, string>;
@@ -216,8 +239,49 @@ const fallbackFeed = {
       lastSeenAt: new Date(Date.now() - 1 * 60 * 1000).toISOString(),
     },
   ] satisfies ActiveAlarm[],
+  correlatedIncidents: [
+    {
+      id: "mock-correlation-session",
+      severity: "high",
+      kind: "session-cluster",
+      signal: "/api/play/submit-photo",
+      title: "foto-upload er koncentreret i én session",
+      summary: "3 foto-fejl i samme session inden for 45 minutter. Det ligner et løbsspecifikt problem og ikke bred platformstøj.",
+      recommendedAction:
+        "Fokuser først på den berørte session og tjek foto-post, storage-adgang og answers-flow, før du behandler det som global platformfejl.",
+      evidence: ["Session demo-session-3", "Statusmønster: 500 x3", "Kontekster: submit_photo x3"],
+      route: "/api/play/submit-photo",
+      sessionId: "demo-session-3",
+      status: 500,
+      count: 3,
+      uniqueParticipants: 2,
+      uniqueSessions: 1,
+      startedAt: new Date(Date.now() - 32 * 60 * 1000).toISOString(),
+      lastSeenAt: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
+    },
+    {
+      id: "mock-correlation-cross-session",
+      severity: "critical",
+      kind: "cross-session-pattern",
+      signal: "/api/join:500:join_error",
+      title: "join-flow viser samme fejlmønster på tværs af sessioner",
+      summary: "6 hændelser med samme route, status og fejlkontekst fordelt på 3 sessioner inden for 45 minutter.",
+      recommendedAction:
+        "Behandl dette som en fælles systemfejl og tjek auth-binding, participant-oprettelse og service-role adgang på tværs af løb.",
+      evidence: ["Status 500 · kontekst join_error", "3 sessioner berørt · 5 deltagere berørt"],
+      route: "/api/join",
+      sessionId: null,
+      status: 500,
+      count: 6,
+      uniqueParticipants: 5,
+      uniqueSessions: 3,
+      startedAt: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
+      lastSeenAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+    },
+  ] satisfies CorrelatedIncident[],
   generatedAt: new Date().toISOString(),
   alarmWindowMinutes: 15,
+  correlationWindowMinutes: 45,
 };
 
 function normalizeTelemetryLog(row: TelemetryLogRow, index: number): TelemetryLogItem {
@@ -546,19 +610,8 @@ function getExternalRecommendedAction(service: ExternalServiceStatus) {
   return "Ingen ekstern driftspåvirkning registreret lige nu. Fejl skal derfor sandsynligvis findes i vores egne routes, realtime eller klient-flow.";
 }
 
-function getAlarmSeverityLabel(severity: ActiveAlarmSeverity) {
+function getSeverityTone(severity: ActiveAlarmSeverity) {
   switch (severity) {
-    case "critical":
-      return "Kritisk";
-    case "high":
-      return "Høj";
-    default:
-      return "Advarsel";
-  }
-}
-
-function getAlarmTone(alarm: ActiveAlarm) {
-  switch (alarm.severity) {
     case "critical":
       return {
         card: "border-rose-300/30 bg-rose-500/10",
@@ -583,6 +636,21 @@ function getAlarmTone(alarm: ActiveAlarm) {
   }
 }
 
+function getAlarmSeverityLabel(severity: ActiveAlarmSeverity) {
+  switch (severity) {
+    case "critical":
+      return "Kritisk";
+    case "high":
+      return "Høj";
+    default:
+      return "Advarsel";
+  }
+}
+
+function getAlarmTone(alarm: ActiveAlarm) {
+  return getSeverityTone(alarm.severity);
+}
+
 function getAlarmCategoryLabel(alarm: ActiveAlarm) {
   switch (alarm.category) {
     case "student-spike":
@@ -602,6 +670,29 @@ function getAlarmMetaTags(alarm: ActiveAlarm) {
   if (alarm.status) tags.push(`status: ${alarm.status}`);
   if (alarm.uniqueParticipants > 0) tags.push(`elever: ${alarm.uniqueParticipants}`);
   if (alarm.uniqueSessions > 0) tags.push(`sessioner: ${alarm.uniqueSessions}`);
+
+  return tags;
+}
+
+function getCorrelationKindLabel(kind: CorrelatedIncidentKind) {
+  switch (kind) {
+    case "session-cluster":
+      return "Session-kluster";
+    case "cross-session-pattern":
+      return "Tværgående mønster";
+    default:
+      return "Reconnect-mønster";
+  }
+}
+
+function getCorrelationMetaTags(incident: CorrelatedIncident) {
+  const tags = [`type: ${getCorrelationKindLabel(incident.kind)}`, `signal: ${incident.signal}`];
+
+  if (incident.route) tags.push(`route: ${incident.route}`);
+  if (incident.sessionId) tags.push(`session: ${incident.sessionId}`);
+  if (incident.status) tags.push(`status: ${incident.status}`);
+  if (incident.uniqueParticipants > 0) tags.push(`elever: ${incident.uniqueParticipants}`);
+  if (incident.uniqueSessions > 0) tags.push(`sessioner: ${incident.uniqueSessions}`);
 
   return tags;
 }
@@ -633,12 +724,14 @@ export default function AdminLogsPage() {
   const [logs, setLogs] = useState<TelemetryLogItem[]>(fallbackFeed.telemetryLogs.map(normalizeTelemetryLog));
   const [externalServices, setExternalServices] = useState<ExternalServiceStatus[]>(fallbackFeed.externalServices);
   const [activeAlarms, setActiveAlarms] = useState<ActiveAlarm[]>(fallbackFeed.activeAlarms);
+  const [correlatedIncidents, setCorrelatedIncidents] = useState<CorrelatedIncident[]>(fallbackFeed.correlatedIncidents);
   const [dataSource, setDataSource] = useState<DataSourceMode>(fallbackFeed.dataSource);
   const [isLoading, setIsLoading] = useState(true);
   const [fallbackMessage, setFallbackMessage] = useState(fallbackFeed.fallbackMessage);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [generatedAt, setGeneratedAt] = useState<string>(fallbackFeed.generatedAt);
   const [alarmWindowMinutes, setAlarmWindowMinutes] = useState<number>(fallbackFeed.alarmWindowMinutes);
+  const [correlationWindowMinutes, setCorrelationWindowMinutes] = useState<number>(fallbackFeed.correlationWindowMinutes);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const [nextRefreshAt, setNextRefreshAt] = useState<number | null>(Date.now() + AUTO_REFRESH_MS);
   const [refreshCountdownMs, setRefreshCountdownMs] = useState(AUTO_REFRESH_MS);
@@ -719,6 +812,7 @@ export default function AdminLogsPage() {
         const nextLogs = (payload.telemetryLogs ?? fallbackFeed.telemetryLogs).map(normalizeTelemetryLog);
         const nextExternalServices = payload.externalServices ?? fallbackFeed.externalServices;
         const nextActiveAlarms = payload.activeAlarms ?? fallbackFeed.activeAlarms;
+        const nextCorrelatedIncidents = payload.correlatedIncidents ?? fallbackFeed.correlatedIncidents;
         const previousAlarmIds = previousAlarmIdsRef.current;
         const incomingAlarmIds = nextActiveAlarms.map((alarm) => alarm.id);
         const detectedNewAlarms =
@@ -731,10 +825,12 @@ export default function AdminLogsPage() {
         setLogs(nextLogs);
         setExternalServices(nextExternalServices);
         setActiveAlarms(nextActiveAlarms);
+        setCorrelatedIncidents(nextCorrelatedIncidents);
         setDataSource(payload.dataSource ?? "mock");
         setFallbackMessage(payload.fallbackMessage ?? "");
         setGeneratedAt(payload.generatedAt ?? new Date().toISOString());
         setAlarmWindowMinutes(payload.alarmWindowMinutes ?? fallbackFeed.alarmWindowMinutes);
+        setCorrelationWindowMinutes(payload.correlationWindowMinutes ?? fallbackFeed.correlationWindowMinutes);
 
         if (detectedNewAlarms.length > 0) {
           setNewAlarmIds(detectedNewAlarms.map((alarm) => alarm.id));
@@ -764,10 +860,12 @@ export default function AdminLogsPage() {
         setLogs(fallbackFeed.telemetryLogs.map(normalizeTelemetryLog));
         setExternalServices(fallbackFeed.externalServices);
         setActiveAlarms(fallbackFeed.activeAlarms);
+        setCorrelatedIncidents(fallbackFeed.correlatedIncidents);
         setDataSource("mock");
         setFallbackMessage(fallbackFeed.fallbackMessage);
         setGeneratedAt(new Date().toISOString());
         setAlarmWindowMinutes(fallbackFeed.alarmWindowMinutes);
+        setCorrelationWindowMinutes(fallbackFeed.correlationWindowMinutes);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -832,6 +930,14 @@ export default function AdminLogsPage() {
     () => activeAlarms.filter((alarm) => alarm.category === "external").length,
     [activeAlarms]
   );
+  const sessionCorrelationCount = useMemo(
+    () => correlatedIncidents.filter((incident) => incident.kind === "session-cluster").length,
+    [correlatedIncidents]
+  );
+  const crossSessionCorrelationCount = useMemo(
+    () => correlatedIncidents.filter((incident) => incident.kind === "cross-session-pattern").length,
+    [correlatedIncidents]
+  );
   const uniqueSessionCount = useMemo(
     () => new Set(logs.map((log) => log.sessionId).filter((value): value is string => Boolean(value))).size,
     [logs]
@@ -889,22 +995,28 @@ export default function AdminLogsPage() {
             : `${externalAlarmCount} aktive eksterne alarmer`,
       },
       {
-        label: "Sidst genereret",
-        value: formatRelativeTime(generatedAt),
-        detail: `Alarmmotoren kører på serveren hvert opslag og ser ${alarmWindowMinutes} min tilbage`,
+        label: "Korrelationsspor",
+        value: String(correlatedIncidents.length),
+        detail:
+          correlatedIncidents.length > 0
+            ? `${sessionCorrelationCount} sessionspecifikke · ${crossSessionCorrelationCount} tværgående mønstre`
+            : `Ingen tydelige korrelationsspor i de seneste ${correlationWindowMinutes} min`,
       },
     ],
     [
       activeAlarms.length,
       alarmWindowMinutes,
+      correlatedIncidents.length,
+      correlationWindowMinutes,
       criticalAlarmCount,
+      crossSessionCorrelationCount,
       degradedExternalCount,
       externalAlarmCount,
-      generatedAt,
       lastEventAt,
       networkLogs.length,
       recoveryLogs.length,
       routeLoopAlarmCount,
+      sessionCorrelationCount,
       serverErrorLogs.length,
       uniqueSessionCount,
       unresolvedExternalIncidentCount,
@@ -1127,6 +1239,116 @@ export default function AdminLogsPage() {
                     <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-200/75">
                       {getAlarmMetaTags(alarm).map((tag) => (
                         <span key={`${alarm.id}-${tag}`} className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <section className="mt-6 rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-[0_30px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <Activity className="mt-1 h-5 w-5 text-cyan-300" />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200/70">Fase 3</p>
+                <h2 className={`mt-2 text-2xl font-black text-white ${rubik.className}`}>Korrelationslag</h2>
+                <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-300/80">
+                  Her bliver mange loglinjer samlet til færre driftshændelser, så du hurtigere kan se forskel på et
+                  enkelt problem-løb og et fejlmønster, der går igen på tværs af sessioner.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-[1.35rem] border border-white/10 bg-slate-950/45 px-4 py-3 text-sm text-slate-300/85">
+              <p className="font-semibold text-white">Korrelationsvindue</p>
+              <p className="mt-2">Ser {correlationWindowMinutes} minutter tilbage fra seneste feed</p>
+              <p className="mt-1">Genereret {formatDateTime(generatedAt)}</p>
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="mt-5">
+              <EmptyState
+                title="Samler mønstre"
+                body="Vi grupperer logs pr. session, route, status og reconnect-signal for at finde de hændelser, der hænger sammen."
+              />
+            </div>
+          ) : correlatedIncidents.length === 0 ? (
+            <div className="mt-5">
+              <EmptyState
+                title="Ingen tydelige korrelationsspor"
+                body="Der blev ikke fundet gentagne mønstre i de seneste minutter, som peger på session-specifikke eller tværgående hændelser."
+              />
+            </div>
+          ) : (
+            <div className="mt-5 grid gap-4 xl:grid-cols-2">
+              {correlatedIncidents.map((incident) => {
+                const tone = getSeverityTone(incident.severity);
+
+                return (
+                  <article
+                    key={incident.id}
+                    className={`rounded-[1.6rem] border p-5 shadow-[0_20px_40px_rgba(15,23,42,0.16)] ${tone.card}`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-base font-semibold text-white">{incident.title}</p>
+                        <p className="mt-2 text-sm leading-6 text-slate-200/85">{incident.summary}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${tone.pill}`}>
+                          {getAlarmSeverityLabel(incident.severity)}
+                        </span>
+                        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200/85">
+                          {getCorrelationKindLabel(incident.kind)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-[1.1rem] border border-white/10 bg-black/15 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200/65">Senest set</p>
+                        <p className={`mt-2 text-sm font-semibold ${tone.accent}`}>{formatDateTime(incident.lastSeenAt)}</p>
+                      </div>
+                      <div className="rounded-[1.1rem] border border-white/10 bg-black/15 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200/65">Volumen</p>
+                        <p className={`mt-2 text-sm font-semibold ${tone.accent}`}>{incident.count} hændelser</p>
+                      </div>
+                      <div className="rounded-[1.1rem] border border-white/10 bg-black/15 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200/65">Berøring</p>
+                        <p className={`mt-2 text-sm font-semibold ${tone.accent}`}>
+                          {incident.uniqueParticipants > 0 ? `${incident.uniqueParticipants} elever` : "0 elever"}
+                          {incident.uniqueSessions > 0 ? ` · ${incident.uniqueSessions} sessioner` : ""}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className={`mt-4 rounded-[1.25rem] border p-4 text-sm ${tone.action}`}>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">Anbefalet handling</p>
+                      <p className="mt-2 leading-6">{incident.recommendedAction}</p>
+                    </div>
+
+                    {incident.evidence.length > 0 ? (
+                      <div className="mt-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300/70">Sammenhæng</p>
+                        <ul className="mt-2 space-y-2 text-sm leading-6 text-slate-200/82">
+                          {incident.evidence.slice(0, 3).map((line) => (
+                            <li key={`${incident.id}-${line}`} className="rounded-[1rem] border border-white/10 bg-black/15 px-3 py-2">
+                              {line}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-200/75">
+                      {getCorrelationMetaTags(incident).map((tag) => (
+                        <span key={`${incident.id}-${tag}`} className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
                           {tag}
                         </span>
                       ))}

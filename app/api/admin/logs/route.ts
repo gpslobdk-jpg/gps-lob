@@ -63,6 +63,27 @@ type ActiveAlarm = {
   lastSeenAt: string | null;
 };
 
+type CorrelatedIncidentKind = "session-cluster" | "cross-session-pattern" | "reconnect-pattern";
+
+type CorrelatedIncident = {
+  id: string;
+  severity: ActiveAlarmSeverity;
+  kind: CorrelatedIncidentKind;
+  signal: string;
+  title: string;
+  summary: string;
+  recommendedAction: string;
+  evidence: string[];
+  route: string | null;
+  sessionId: string | null;
+  status: number | null;
+  count: number;
+  uniqueParticipants: number;
+  uniqueSessions: number;
+  startedAt: string | null;
+  lastSeenAt: string | null;
+};
+
 type StatuspageStatusResponse = {
   page?: {
     name?: string;
@@ -100,9 +121,49 @@ type RouteAlarmBucket = {
   lastSeenAt: number | null;
 };
 
+type SessionCorrelationBucket = {
+  sessionId: string;
+  route: string | null;
+  signal: string;
+  count: number;
+  uniqueParticipants: Set<string>;
+  statusCounts: Map<string, number>;
+  contextCounts: Map<string, number>;
+  startedAt: number | null;
+  lastSeenAt: number | null;
+};
+
+type CrossSessionPatternBucket = {
+  route: string;
+  status: number | null;
+  context: string;
+  count: number;
+  uniqueParticipants: Set<string>;
+  uniqueSessions: Set<string>;
+  startedAt: number | null;
+  lastSeenAt: number | null;
+};
+
+type ReconnectCorrelationBucket = {
+  signal: string;
+  count: number;
+  uniqueParticipants: Set<string>;
+  uniqueSessions: Set<string>;
+  startedAt: number | null;
+  lastSeenAt: number | null;
+};
+
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 const ACTIVE_ALARM_WINDOW_MINUTES = 15;
 const ACTIVE_ALARM_WINDOW_MS = ACTIVE_ALARM_WINDOW_MINUTES * 60 * 1000;
+const CORRELATION_WINDOW_MINUTES = 45;
+const CORRELATION_WINDOW_MS = CORRELATION_WINDOW_MINUTES * 60 * 1000;
+
+const RECONNECT_EVENT_SET = new Set([
+  "participant_restore_exhausted",
+  "wake_reconnect_failed",
+  "auth_error",
+]);
 
 const CRITICAL_ROUTES = new Set([
   "/api/join",
@@ -416,6 +477,238 @@ function severityWeight(severity: ActiveAlarmSeverity) {
   }
 }
 
+function deriveCorrelatedIncidents(telemetryLogs: TelemetryLogRow[]) {
+  const now = Date.now();
+  const recentLogs = telemetryLogs.filter((log) => {
+    const timestamp = toTimestamp(log.created_at);
+    return timestamp !== null && timestamp >= now - CORRELATION_WINDOW_MS;
+  });
+
+  const incidents: CorrelatedIncident[] = [];
+  const sessionBuckets = new Map<string, SessionCorrelationBucket>();
+  const crossSessionBuckets = new Map<string, CrossSessionPatternBucket>();
+  const reconnectBuckets = new Map<string, ReconnectCorrelationBucket>();
+
+  for (const log of recentLogs) {
+    const status = getStatusCode(log);
+    const route = getRoutePath(log);
+    const context = getContext(log) ?? "ukendt_kontekst";
+    const isReconnectSignal = RECONNECT_EVENT_SET.has(log.event_type ?? "") || (route === "/api/play/participant" && (status === 401 || status === 404));
+    const isErrorSignal = status !== null && (status >= 500 || (route === "/api/play/participant" && (status === 401 || status === 404)));
+    const timestamp = toTimestamp(log.created_at);
+
+    if (isReconnectSignal) {
+      const reconnectSignal = route === "/api/play/participant" && status ? `${route}:${status}` : context;
+      const reconnectBucket =
+        reconnectBuckets.get(reconnectSignal) ??
+        {
+          signal: reconnectSignal,
+          count: 0,
+          uniqueParticipants: new Set<string>(),
+          uniqueSessions: new Set<string>(),
+          startedAt: null,
+          lastSeenAt: null,
+        };
+
+      reconnectBucket.count += 1;
+      if (log.participant_id) {
+        reconnectBucket.uniqueParticipants.add(log.participant_id);
+      }
+      if (log.session_id) {
+        reconnectBucket.uniqueSessions.add(log.session_id);
+      }
+      if (timestamp !== null) {
+        reconnectBucket.startedAt = reconnectBucket.startedAt === null ? timestamp : Math.min(reconnectBucket.startedAt, timestamp);
+        reconnectBucket.lastSeenAt = reconnectBucket.lastSeenAt === null ? timestamp : Math.max(reconnectBucket.lastSeenAt, timestamp);
+      }
+
+      reconnectBuckets.set(reconnectSignal, reconnectBucket);
+    }
+
+    if (log.session_id && (isErrorSignal || isReconnectSignal)) {
+      const sessionSignal = route ?? (isReconnectSignal ? context : "ukendt_signal");
+      const sessionBucketKey = `${log.session_id}|${sessionSignal}`;
+      const sessionBucket =
+        sessionBuckets.get(sessionBucketKey) ??
+        {
+          sessionId: log.session_id,
+          route,
+          signal: sessionSignal,
+          count: 0,
+          uniqueParticipants: new Set<string>(),
+          statusCounts: new Map<string, number>(),
+          contextCounts: new Map<string, number>(),
+          startedAt: null,
+          lastSeenAt: null,
+        };
+
+      sessionBucket.count += 1;
+      if (log.participant_id) {
+        sessionBucket.uniqueParticipants.add(log.participant_id);
+      }
+      if (status !== null) {
+        addToCountMap(sessionBucket.statusCounts, String(status));
+      }
+      addToCountMap(sessionBucket.contextCounts, context);
+      if (timestamp !== null) {
+        sessionBucket.startedAt = sessionBucket.startedAt === null ? timestamp : Math.min(sessionBucket.startedAt, timestamp);
+        sessionBucket.lastSeenAt = sessionBucket.lastSeenAt === null ? timestamp : Math.max(sessionBucket.lastSeenAt, timestamp);
+      }
+
+      sessionBuckets.set(sessionBucketKey, sessionBucket);
+    }
+
+    if (route && isErrorSignal) {
+      const crossSessionKey = `${route}|${status ?? "none"}|${context}`;
+      const crossSessionBucket =
+        crossSessionBuckets.get(crossSessionKey) ??
+        {
+          route,
+          status,
+          context,
+          count: 0,
+          uniqueParticipants: new Set<string>(),
+          uniqueSessions: new Set<string>(),
+          startedAt: null,
+          lastSeenAt: null,
+        };
+
+      crossSessionBucket.count += 1;
+      if (log.participant_id) {
+        crossSessionBucket.uniqueParticipants.add(log.participant_id);
+      }
+      if (log.session_id) {
+        crossSessionBucket.uniqueSessions.add(log.session_id);
+      }
+      if (timestamp !== null) {
+        crossSessionBucket.startedAt = crossSessionBucket.startedAt === null ? timestamp : Math.min(crossSessionBucket.startedAt, timestamp);
+        crossSessionBucket.lastSeenAt = crossSessionBucket.lastSeenAt === null ? timestamp : Math.max(crossSessionBucket.lastSeenAt, timestamp);
+      }
+
+      crossSessionBuckets.set(crossSessionKey, crossSessionBucket);
+    }
+  }
+
+  for (const bucket of sessionBuckets.values()) {
+    if (bucket.count < 2) {
+      continue;
+    }
+
+    const dominantStatus = Array.from(bucket.statusCounts.entries()).sort((left, right) => right[1] - left[1])[0]?.[0] ?? null;
+    const severity: ActiveAlarmSeverity =
+      bucket.count >= 5 || bucket.uniqueParticipants.size >= 4
+        ? "critical"
+        : bucket.count >= 3 || bucket.uniqueParticipants.size >= 2
+          ? "high"
+          : "warning";
+    const routeLabel = bucket.route ? formatRouteLabel(bucket.route) : "reconnect-flow";
+
+    incidents.push({
+      id: createAlarmId("correlation", "session", bucket.sessionId, bucket.signal),
+      severity,
+      kind: "session-cluster",
+      signal: bucket.signal,
+      title: `${routeLabel} er koncentreret i én session`,
+      summary: `${bucket.count} hændelser i samme session inden for ${CORRELATION_WINDOW_MINUTES} minutter. Det peger på et problem, der er samlet i ét løb frem for bred platformstøj.`,
+      recommendedAction: `${getRouteRecommendedAction(bucket.route)} Fokuser først på den berørte session, fordi mønsteret er koncentreret dér.`,
+      evidence: [
+        `Session ${bucket.sessionId}`,
+        `Statusmønster: ${formatStatusBreakdown(bucket.statusCounts)}`,
+        `Kontekster: ${formatContextBreakdown(bucket.contextCounts)}`,
+      ],
+      route: bucket.route,
+      sessionId: bucket.sessionId,
+      status: dominantStatus ? Number(dominantStatus) : null,
+      count: bucket.count,
+      uniqueParticipants: bucket.uniqueParticipants.size,
+      uniqueSessions: 1,
+      startedAt: toIsoString(bucket.startedAt),
+      lastSeenAt: toIsoString(bucket.lastSeenAt),
+    });
+  }
+
+  for (const bucket of crossSessionBuckets.values()) {
+    if (bucket.count < 3 || (bucket.uniqueSessions.size < 2 && bucket.uniqueParticipants.size < 4)) {
+      continue;
+    }
+
+    const severity: ActiveAlarmSeverity =
+      (CRITICAL_ROUTES.has(bucket.route) && bucket.uniqueSessions.size >= 3) || bucket.count >= 6
+        ? "critical"
+        : bucket.count >= 4 || bucket.uniqueSessions.size >= 2
+          ? "high"
+          : "warning";
+
+    incidents.push({
+      id: createAlarmId("correlation", "cross-session", bucket.route, bucket.status, bucket.context),
+      severity,
+      kind: "cross-session-pattern",
+      signal: `${bucket.route}:${bucket.status ?? "none"}:${bucket.context}`,
+      title: `${formatRouteLabel(bucket.route)} viser samme fejlmønster på tværs af sessioner`,
+      summary: `${bucket.count} hændelser med samme route, status og fejlkontekst fordelt på ${bucket.uniqueSessions.size} sessioner inden for ${CORRELATION_WINDOW_MINUTES} minutter.`,
+      recommendedAction: `${getRouteRecommendedAction(bucket.route)} Fordi mønsteret går på tværs af sessioner, bør det behandles som en fælles systemfejl og ikke kun som et enkelt løb.`,
+      evidence: [
+        `Status ${bucket.status ?? "ukendt"} · kontekst ${bucket.context}`,
+        `${bucket.uniqueSessions.size} sessioner berørt · ${bucket.uniqueParticipants.size} deltagere berørt`,
+      ],
+      route: bucket.route,
+      sessionId: null,
+      status: bucket.status,
+      count: bucket.count,
+      uniqueParticipants: bucket.uniqueParticipants.size,
+      uniqueSessions: bucket.uniqueSessions.size,
+      startedAt: toIsoString(bucket.startedAt),
+      lastSeenAt: toIsoString(bucket.lastSeenAt),
+    });
+  }
+
+  for (const bucket of reconnectBuckets.values()) {
+    if (bucket.count < 4 || (bucket.uniqueParticipants.size < 3 && bucket.uniqueSessions.size < 2)) {
+      continue;
+    }
+
+    const severity: ActiveAlarmSeverity =
+      bucket.count >= 8 || bucket.uniqueParticipants.size >= 5 ? "critical" : "high";
+
+    incidents.push({
+      id: createAlarmId("correlation", "reconnect", bucket.signal),
+      severity,
+      kind: "reconnect-pattern",
+      signal: bucket.signal,
+      title: "Samme reconnect-signal rammer flere elever",
+      summary: `${bucket.count} reconnect-relaterede hændelser med samme signal fordelt på ${bucket.uniqueParticipants.size} elever i ${bucket.uniqueSessions.size} sessioner inden for ${CORRELATION_WINDOW_MINUTES} minutter.`,
+      recommendedAction:
+        "Behandl dette som et fælles reconnect-mønster. Sammenlign de berørte sessioner for at afgøre, om problemet ligger i auth, restore-flow eller i /api/play/participant-svaret.",
+      evidence: [
+        `Signal ${bucket.signal}`,
+        `${bucket.uniqueParticipants.size} elever berørt · ${bucket.uniqueSessions.size} sessioner berørt`,
+      ],
+      route: bucket.signal.startsWith("/api/") ? bucket.signal.split(":")[0] : "/api/play/participant",
+      sessionId: null,
+      status: bucket.signal.includes(":401") ? 401 : bucket.signal.includes(":404") ? 404 : null,
+      count: bucket.count,
+      uniqueParticipants: bucket.uniqueParticipants.size,
+      uniqueSessions: bucket.uniqueSessions.size,
+      startedAt: toIsoString(bucket.startedAt),
+      lastSeenAt: toIsoString(bucket.lastSeenAt),
+    });
+  }
+
+  return incidents.sort((left, right) => {
+    const severityDelta = severityWeight(right.severity) - severityWeight(left.severity);
+    if (severityDelta !== 0) {
+      return severityDelta;
+    }
+
+    const lastSeenDelta = (toTimestamp(right.lastSeenAt) ?? 0) - (toTimestamp(left.lastSeenAt) ?? 0);
+    if (lastSeenDelta !== 0) {
+      return lastSeenDelta;
+    }
+
+    return right.count - left.count;
+  });
+}
+
 function deriveActiveAlarms(telemetryLogs: TelemetryLogRow[], externalServices: ExternalServiceStatus[]) {
   const now = Date.now();
   const recentLogs = telemetryLogs.filter((log) => {
@@ -726,6 +1019,7 @@ export async function GET() {
 
     const externalServices = await Promise.all(externalProviders.map(fetchExternalProviderSnapshot));
     const activeAlarms = deriveActiveAlarms(telemetryLogs, externalServices);
+    const correlatedIncidents = deriveCorrelatedIncidents(telemetryLogs);
     const generatedAt = new Date().toISOString();
 
     return NextResponse.json(
@@ -735,8 +1029,10 @@ export async function GET() {
         fallbackMessage,
         externalServices,
         activeAlarms,
+        correlatedIncidents,
         generatedAt,
         alarmWindowMinutes: ACTIVE_ALARM_WINDOW_MINUTES,
+        correlationWindowMinutes: CORRELATION_WINDOW_MINUTES,
       },
       {
         headers: {
@@ -761,8 +1057,10 @@ export async function GET() {
         fallbackMessage: "Admin-logfeed kunne ikke bygges live. Siden viser en skal med kendte eksempler.",
         externalServices: fallbackExternalServices,
         activeAlarms: deriveActiveAlarms(mockTelemetryLogs, fallbackExternalServices),
+        correlatedIncidents: deriveCorrelatedIncidents(mockTelemetryLogs),
         generatedAt: new Date().toISOString(),
         alarmWindowMinutes: ACTIVE_ALARM_WINDOW_MINUTES,
+        correlationWindowMinutes: CORRELATION_WINDOW_MINUTES,
       },
       {
         headers: {
