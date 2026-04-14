@@ -33,7 +33,7 @@ type AcceptedGpsLocation = Location & {
   timestampMs: number;
 };
 
-const MOVEMENT_SYNC_MIN_INTERVAL_MS = 2000;
+  const MOVEMENT_SYNC_MIN_INTERVAL_MS = 10000; // Throttle: minimum 10s between syncs
 const GPS_HEARTBEAT_INTERVAL_MS = 20_000;
 const GPS_HEARTBEAT_STALE_THRESHOLD_MS = 15_000;
 const LIVE_TRACKING_MAX_ACCURACY_METERS = 250;

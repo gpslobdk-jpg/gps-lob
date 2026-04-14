@@ -24,7 +24,7 @@ import { normalizeRaceType, RACE_TYPES } from "@/utils/gpsRuns";
 import { createClient } from "@/utils/supabase/client";
 
 const DEFAULT_ZONE_KRIG_DURATION_MINUTES = 15;
-const TEACHER_LIVE_REFRESH_INTERVAL_MS = 15_000;
+const TEACHER_LIVE_REFRESH_INTERVAL_MS = 5000;
 
 type LiveFeedRecoveryReason =
   | "init"
@@ -66,43 +66,9 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     const supabase = createClient();
     let isActive = true;
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    let refreshTimer: number | null = null;
 
-    const removeStudentLocation = (studentId: string | null | undefined) => {
-      if (!studentId) return;
-
-      setStudentLocations((previous) => previous.filter((item) => item.id !== studentId));
-    };
-
-    const addStudentName = (rawName: unknown) => {
-      const name = normalizeName(rawName);
-      if (!name) return;
-      setStudents((previous) => (previous.includes(name) ? previous : [...previous, name]));
-    };
-
-    const addStudentLocation = (row: StudentRow) => {
-      const location = toLocation(row);
-      if (!location) return;
-
-      setStudentLocations((previous) => upsertLocation(previous, location));
-      addStudentName(location.name);
-    };
-
-      const addLiveAnswer = (row: AnswerRow) => {
-        const parsed = toLiveAnswer(row);
-        if (!parsed) return;
-
-        setSessionAnswers((previous) =>
-          [...previous.filter((item) => item.id !== parsed.id), parsed].sort((a, b) => {
-            const aTs = toTimestamp(a.createdAt) ?? 0;
-            const bTs = toTimestamp(b.createdAt) ?? 0;
-            return aTs - bTs;
-          })
-        );
-
-        if (parsed.isCorrect !== true && !parsed.image_url) return;
-
-        setLiveAnswers((previous) => prependAnswer(previous, parsed));
-      };
+    // --- helpers ---
 
     const fetchLobbyData = async (options?: { showLoading?: boolean }) => {
       const shouldShowLoading = options?.showLoading !== false;
@@ -282,17 +248,14 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       return { supportsParticipants, supportsAnswers };
     };
 
-    const removeChannel = () => {
-      if (!channel) return;
-      void supabase.removeChannel(channel);
-      channel = null;
-    };
-
     const createRealtimeChannel = (
       supportsParticipants: boolean,
       supportsAnswers: boolean
     ) => {
-      removeChannel();
+      if (channel) {
+        void supabase.removeChannel(channel);
+        channel = null;
+      }
 
       let nextChannel = supabase
         .channel(`teacher-live-${sessionId}`)
@@ -306,8 +269,12 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
           },
           (payload) => {
             const row = payload.new as StudentRow;
-            addStudentName(row.student_name);
-            if (!supportsParticipants) addStudentLocation(row);
+            const name = normalizeName(row.student_name);
+            if (name) setStudents((prev) => (prev.includes(name) ? prev : [...prev, name]));
+            if (!supportsParticipants) {
+              const loc = toLocation(row);
+              if (loc) setStudentLocations((prev) => upsertLocation(prev, loc));
+            }
           }
         )
         .on(
@@ -349,7 +316,8 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
               filter: `session_id=eq.${sessionId}`,
             },
             (payload) => {
-              addStudentLocation(payload.new as StudentRow);
+              const loc = toLocation(payload.new as StudentRow);
+              if (loc) setStudentLocations((prev) => upsertLocation(prev, loc));
             }
           )
           .on(
@@ -363,7 +331,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
             (payload) => {
               const deletedId = (payload.old as { id?: string | number | null })?.id;
               if (!deletedId) return;
-              removeStudentLocation(String(deletedId));
+              setStudentLocations((prev) => prev.filter((item) => item.id !== String(deletedId)));
             }
           )
           .on(
@@ -375,7 +343,8 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
               filter: `session_id=eq.${sessionId}`,
             },
             (payload) => {
-              addStudentLocation(payload.new as StudentRow);
+              const loc = toLocation(payload.new as StudentRow);
+              if (loc) setStudentLocations((prev) => upsertLocation(prev, loc));
             }
           );
       } else {
@@ -388,7 +357,8 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
             filter: `session_id=eq.${sessionId}`,
           },
           (payload) => {
-            addStudentLocation(payload.new as StudentRow);
+            const loc = toLocation(payload.new as StudentRow);
+            if (loc) setStudentLocations((prev) => upsertLocation(prev, loc));
           }
         );
       }
@@ -403,20 +373,28 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
             filter: `session_id=eq.${sessionId}`,
           },
           (payload) => {
-            addLiveAnswer(payload.new as AnswerRow);
+            const parsed = toLiveAnswer(payload.new as AnswerRow);
+            if (!parsed) return;
+            setSessionAnswers((previous) =>
+              [...previous.filter((item) => item.id !== parsed.id), parsed].sort((a, b) => {
+                const aTs = toTimestamp(a.createdAt) ?? 0;
+                const bTs = toTimestamp(b.createdAt) ?? 0;
+                return aTs - bTs;
+              })
+            );
+            if (parsed.isCorrect !== true && !parsed.image_url) return;
+            setLiveAnswers((previous) => prependAnswer(previous, parsed));
           }
         );
       }
 
       channel = nextChannel.subscribe((status) => {
         if (!isActive) return;
-
         if (status === "SUBSCRIBED") {
           setLiveFeedStatus("live");
           void fetchLobbyData({ showLoading: false });
           return;
         }
-
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
           setLiveFeedStatus("recovering");
           void recoverLiveState("channel_error");
@@ -428,12 +406,8 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       if (reason !== "interval_refresh") {
         setLiveFeedStatus("recovering");
       }
-
       try {
-        const { supportsParticipants, supportsAnswers } = await fetchLobbyData({
-          showLoading: false,
-        });
-
+        const { supportsParticipants, supportsAnswers } = await fetchLobbyData({ showLoading: false });
         if (!isActive) return;
         createRealtimeChannel(supportsParticipants, supportsAnswers);
       } catch (error) {
@@ -441,24 +415,18 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       }
     };
 
-    const initRealtime = async () => {
-      try {
-        setLiveFeedStatus("connecting");
-        const { supportsParticipants, supportsAnswers } = await fetchLobbyData();
-        if (!isActive) return;
-        createRealtimeChannel(supportsParticipants, supportsAnswers);
-      } catch (error) {
-        console.error("Kunne ikke initialisere lærerens live-data:", error);
-        if (isActive) {
-          setLiveFeedStatus("recovering");
-          setIsLoading(false);
-        }
-      }
-    };
+    // --- init ---
+    void (async () => {
+      setLiveFeedStatus("connecting");
+      const { supportsParticipants, supportsAnswers } = await fetchLobbyData();
+      if (!isActive) return;
+      createRealtimeChannel(supportsParticipants, supportsAnswers);
+    })();
 
-    void initRealtime();
-
-    const refreshTimer = window.setInterval(() => {
+    if (refreshTimer) {
+      window.clearInterval(refreshTimer);
+    }
+    refreshTimer = window.setInterval(() => {
       void recoverLiveState("interval_refresh");
     }, TEACHER_LIVE_REFRESH_INTERVAL_MS);
 
@@ -477,10 +445,13 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
 
     return () => {
       isActive = false;
-      window.clearInterval(refreshTimer);
+      if (refreshTimer) window.clearInterval(refreshTimer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("online", handleOnline);
-      removeChannel();
+      if (channel) {
+        void supabase.removeChannel(channel);
+        channel = null;
+      }
     };
   }, [sessionId]);
 
