@@ -24,14 +24,12 @@ import { normalizeRaceType, RACE_TYPES } from "@/utils/gpsRuns";
 import { createClient } from "@/utils/supabase/client";
 
 const DEFAULT_ZONE_KRIG_DURATION_MINUTES = 15;
-const TEACHER_LIVE_REFRESH_INTERVAL_MS = 5000;
 
 type LiveFeedRecoveryReason =
   | "init"
   | "channel_error"
   | "visibility_resume"
-  | "online_resume"
-  | "interval_refresh";
+  | "online_resume";
 
 function toTimestamp(value: string | null | undefined) {
   if (!value) return null;
@@ -66,7 +64,6 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     const supabase = createClient();
     let isActive = true;
     let channel: ReturnType<typeof supabase.channel> | null = null;
-    let refreshTimer: number | null = null;
 
     // --- helpers ---
 
@@ -402,10 +399,8 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       });
     };
 
-    const recoverLiveState = async (reason: LiveFeedRecoveryReason) => {
-      if (reason !== "interval_refresh") {
-        setLiveFeedStatus("recovering");
-      }
+    const recoverLiveState = async (_reason: LiveFeedRecoveryReason) => {
+      setLiveFeedStatus("recovering");
       try {
         const { supportsParticipants, supportsAnswers } = await fetchLobbyData({ showLoading: false });
         if (!isActive) return;
@@ -423,13 +418,6 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       createRealtimeChannel(supportsParticipants, supportsAnswers);
     })();
 
-    if (refreshTimer) {
-      window.clearInterval(refreshTimer);
-    }
-    refreshTimer = window.setInterval(() => {
-      void recoverLiveState("interval_refresh");
-    }, TEACHER_LIVE_REFRESH_INTERVAL_MS);
-
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         void recoverLiveState("visibility_resume");
@@ -445,7 +433,6 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
 
     return () => {
       isActive = false;
-      if (refreshTimer) window.clearInterval(refreshTimer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("online", handleOnline);
       if (channel) {
