@@ -17,7 +17,6 @@ import {
 } from "./playUtils";
 import QuestionTtsButton from "./QuestionTtsButton";
 import TeacherBroadcastModal from "./TeacherBroadcastModal";
-import StudentAvatarGateView from "./shared/StudentAvatarGateView";
 import StudentNameGateView from "./shared/StudentNameGateView";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 import trophyAnimation from "@/public/trophy.json";
@@ -129,7 +128,6 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const { player, gps, progress, flags } = ui;
   const {
     pendingPlayerName,
-    pendingAvatarUrl,
     playerName,
     avatarUrl,
     nameError,
@@ -233,8 +231,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const isAnswerSubmissionPending = isSubmittingAnswer || isSubmitting;
   const isQuizSubmissionPending =
     activePostVariant === "quiz" && isAnswerSubmissionPending && !activeQuizAnswerFeedback;
-  const avatarPreviewUrl = pendingAvatarUrl ?? avatarUrl;
-  const shouldQueryCameraPermission = screen.mode === "avatar_gate" || activePostVariant === "photo";
+  const shouldQueryCameraPermission = activePostVariant === "photo";
   const isParticipantAuthExpired = screen.loadErrorVariant === "participant_auth_expired";
   const isJoinSessionMissing = screen.loadErrorVariant === "join_session_missing";
 
@@ -571,28 +568,6 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
             submittingLabel="Klargør hold..."
             onChange={actions.setPendingPlayerName}
             onSubmit={actions.confirmName}
-          />
-        </div>
-      );
-      break;
-
-    case "avatar_gate":
-      content = (
-        <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
-          <StudentAvatarGateView
-            tone="emerald"
-            title="Tilføj en hold-selfie"
-            description="Vælg et frivilligt billede til kortet. I kan også springe over og gå direkte videre."
-            playerName={playerName || pendingPlayerName || "Jeres hold"}
-            avatarPreviewUrl={avatarPreviewUrl}
-            previewAlt="Preview af hold-selfie"
-            helperText="Selfien bliver kun gemt lokalt pa enheden og bruges som jeres runde markor under løbet."
-            captureLabel="Tag en hold-selfie"
-            replaceLabel="Tag et nyt billede"
-            confirmLabel="Brug dette billede"
-            skipLabel="Spring over uden billede"
-            onPreviewChange={actions.setPendingAvatarUrl}
-            onComplete={actions.completeAvatarSetup}
           />
         </div>
       );

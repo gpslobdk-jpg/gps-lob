@@ -287,7 +287,7 @@ export function usePlayGameState({
     () => Boolean(storedParticipantOnLoad?.studentName)
   );
   const [hasCompletedAvatarGate, setHasCompletedAvatarGate] = useState(
-    () => storedParticipantOnLoad?.hasCompletedAvatarGate ?? false
+    () => storedParticipantOnLoad?.hasCompletedAvatarGate ?? true
   );
   const [questions, setQuestions] = useState<Question[]>([]);
   const [raceMode, setRaceMode] = useState<RaceMode>("unknown");
@@ -615,14 +615,12 @@ export function usePlayGameState({
         const preservedAvatarUrl = didRebindStoredParticipant
           ? storedParticipantOnLoad?.avatarUrl ?? undefined
           : undefined;
-        const hasRecoveredAvatarGate =
-          didRebindStoredParticipant && storedParticipantOnLoad?.hasCompletedAvatarGate === true;
         setPendingPlayerNameState(resolvedName);
         setPlayerName(resolvedName);
         setHasConfirmedName(true);
         setAvatarUrl(preservedAvatarUrl);
         setPendingAvatarUrlState(undefined);
-        setHasCompletedAvatarGate(hasRecoveredAvatarGate);
+        setHasCompletedAvatarGate(true);
         setNameError(null);
         setSessionStatus(resolvedSessionStatus);
         setTeamId(resolvedTeamId);
@@ -3713,7 +3711,7 @@ export function usePlayGameState({
   };
 
   const shouldShowNameGate = !hasConfirmedName || isProvisioningParticipant;
-  const shouldShowAvatarGate = hasConfirmedName && !hasCompletedAvatarGate && !isProvisioningParticipant;
+  const shouldShowAvatarGate = false;
   const isSessionWaiting =
     sessionStatus === "waiting" ||
     sessionStatus === "scheduled" ||
