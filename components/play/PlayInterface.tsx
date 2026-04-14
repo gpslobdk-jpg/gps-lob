@@ -129,7 +129,6 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const {
     pendingPlayerName,
     playerName,
-    avatarUrl,
     nameError,
     activeDisplayName,
     celebrationName,
@@ -564,7 +563,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
             value={pendingPlayerName}
             error={nameError}
             isSubmitting={isProvisioningParticipant}
-            submitLabel="Videre til avatar"
+            submitLabel="Klar"
             submittingLabel="Klargør hold..."
             onChange={actions.setPendingPlayerName}
             onSubmit={actions.confirmName}
@@ -933,34 +932,6 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
               </div>
               <h1 className="text-2xl font-black">Gør jer klar!</h1>
               <p className="mt-3 text-sm text-white/90">Venter på at læreren starter løbet...</p>
-
-              <div className="mt-6 rounded-[1.7rem] border border-emerald-300/16 bg-emerald-500/10 px-5 py-5 text-left shadow-[0_18px_40px_rgba(16,185,129,0.12)]">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-100/70">Hold registreret</p>
-                <div className="mt-4 flex items-center gap-4">
-                  <div className="relative h-16 w-16 overflow-hidden rounded-full border border-emerald-200/30 bg-slate-950 shadow-[0_0_0_4px_rgba(16,185,129,0.12)]">
-                    {avatarUrl ? (
-                      <Image
-                        src={avatarUrl}
-                        alt="Hold-avatar"
-                        fill
-                        className="object-cover"
-                        unoptimized
-                        loader={({ src }) => src}
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(52,211,153,0.22),transparent_55%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,1))] text-xl">
-                        <span aria-hidden="true">🏁</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className={`text-lg font-black text-white ${wrapTextClass}`}>{activeDisplayName}</p>
-                    <p className="mt-1 text-sm text-white/65">
-                      {avatarUrl ? "Avatar klar til kortet" : "Ingen avatar valgt endnu"}
-                    </p>
-                  </div>
-                </div>
-              </div>
 
               <WifiConnectionTip className="mt-6" />
             </div>

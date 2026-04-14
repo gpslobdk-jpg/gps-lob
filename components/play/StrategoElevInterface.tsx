@@ -587,7 +587,7 @@ export default function StrategoElevInterface({
           value={player.pendingPlayerName}
           error={player.nameError}
           isSubmitting={flags.isProvisioningParticipant}
-          submitLabel="Videre til avatar"
+          submitLabel="Klar"
           submittingLabel="Forbinder til slagmarken..."
           onChange={actions.setPendingPlayerName}
           onSubmit={actions.confirmName}

@@ -3,7 +3,6 @@
 import "leaflet/dist/leaflet.css";
 
 import L from "leaflet";
-import { ArrowUp } from "lucide-react";
 import type { LatLngBoundsExpression } from "leaflet";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
@@ -17,24 +16,6 @@ type MapViewportSyncProps = {
 };
 
 const DEFAULT_MAP_CENTER: [number, number] = [55.6761, 12.5683];
-
-function getTargetHeadingDegrees(from: Location | null, to: Location | null) {
-  if (!from || !to) {
-    return null;
-  }
-
-  const fromLatRadians = (from.lat * Math.PI) / 180;
-  const toLatRadians = (to.lat * Math.PI) / 180;
-  const deltaLongitudeRadians = ((to.lng - from.lng) * Math.PI) / 180;
-
-  const y = Math.sin(deltaLongitudeRadians) * Math.cos(toLatRadians);
-  const x =
-    Math.cos(fromLatRadians) * Math.sin(toLatRadians) -
-    Math.sin(fromLatRadians) * Math.cos(toLatRadians) * Math.cos(deltaLongitudeRadians);
-  const headingDegrees = (Math.atan2(y, x) * 180) / Math.PI;
-
-  return (headingDegrees + 360) % 360;
-}
 
 function createTargetIcon(targetNumber: number | null, isNearTarget: boolean) {
   const label = Number.isFinite(targetNumber) ? String(targetNumber) : "?";
@@ -189,10 +170,6 @@ export default function MapDisplay({
     () => createTargetIcon(targetNumber, isNearTarget),
     [isNearTarget, targetNumber]
   );
-  const targetHeading = useMemo(
-    () => getTargetHeadingDegrees(playerLocation, targetLocation),
-    [playerLocation, targetLocation]
-  );
 
   const mapCenter = useMemo<[number, number]>(() => {
     if (playerLocation) {
@@ -294,32 +271,6 @@ export default function MapDisplay({
           </div>
         </div>
       ) : null}
-
-      {/* compact indicator for mobile */}
-      {targetLocation ? (
-        <div className="pointer-events-none absolute right-4 bottom-6 left-4 z-900 flex justify-center sm:hidden">
-          <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-slate-900/88 px-3 py-2 shadow-[0_18px_30px_rgba(15,23,42,0.4)] backdrop-blur-md" aria-hidden="true">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-slate-800/90 text-slate-100 shadow-inner shadow-black/20">
-              <ArrowUp
-                className="h-5 w-5 transition-transform duration-300"
-                style={{ transform: `rotate(${targetHeading ?? 0}deg)` }}
-              />
-            </div>
-            <div className="text-left">
-              <div className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Retning</div>
-              <div className="text-xs font-semibold text-slate-100">Mod næste post</div>
-            </div>
-          </div>
-          <span className="sr-only">Retningspil mod næste post</span>
-        </div>
-      ) : null}
-
-      {/* full hint visible on tablet+ */}
-      <div className="pointer-events-none absolute right-4 bottom-6 left-4 z-900 hidden sm:flex justify-center">
-        <div className="rounded-full border border-white/10 bg-slate-900/78 px-3 py-2 text-xs text-emerald-100/80 shadow-[0_18px_30px_rgba(15,23,42,0.4)] backdrop-blur-md">
-          Hold kursen mod den ravgule markør
-        </div>
-      </div>
     </div>
   );
 }

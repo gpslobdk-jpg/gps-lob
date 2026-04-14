@@ -511,7 +511,7 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
           value={player.pendingPlayerName}
           error={player.nameError}
           isSubmitting={flags.isProvisioningParticipant}
-          submitLabel="Videre til avatar"
+          submitLabel="Klar"
           submittingLabel="Forbinder til slagmarken..."
           onChange={actions.setPendingPlayerName}
           onSubmit={actions.confirmName}
