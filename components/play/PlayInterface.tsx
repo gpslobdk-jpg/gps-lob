@@ -115,6 +115,60 @@ function MobileHudComponent({
 }
 
 export default function PlayInterface({ ui, actions, children }: PlayInterfaceProps) {
+      // --- DEV-ONLY DEBUG PANEL ---
+      const [showDebug, setShowDebug] = useState(false);
+      const debugVars = {
+        sessionStatus: progress?.screen?.sessionStatus ?? "",
+        hasConfirmedName: flags?.hasConfirmedName ?? false,
+        hasCompletedAvatarGate: flags?.hasCompletedAvatarGate ?? false,
+        isProvisioningParticipant: flags?.isProvisioningParticipant ?? false,
+        participantId: player?.participantId ?? "",
+        screenMode: progress?.screen?.mode ?? "",
+        questions: questions?.length ?? 0,
+        currentPostIndex,
+        isEscapeRace: flags?.isEscapeRace ?? false,
+        isStrategoRace: flags?.isStrategoRace ?? false,
+        isFinished: progress?.isFinished ?? false,
+        isKicked: progress?.isKicked ?? false,
+      };
+      const DebugPanel = isDev && showDebug ? (
+        <div style={{ position: "fixed", bottom: 12, left: 12, zIndex: 9999, background: "#1e293b", color: "#fff", padding: 16, borderRadius: 10, fontSize: 13, minWidth: 320, boxShadow: "0 2px 12px #0008" }}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>Elev Debug Info</div>
+          <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{JSON.stringify(debugVars, null, 2)}</pre>
+          <button onClick={() => setShowDebug(false)} style={{ marginTop: 8, background: "#334155", color: "#fff", border: "none", borderRadius: 6, padding: "6px 12px", cursor: "pointer" }}>Luk</button>
+        </div>
+      ) : null;
+      // --- END DEV-ONLY DEBUG PANEL ---
+    // --- DEV-ONLY: Simulate 30 students button ---
+    const [simulateStatus, setSimulateStatus] = useState<string | null>(null);
+    const handleSimulateStudents = async () => {
+      setSimulateStatus("Kører...");
+      try {
+        // Try to extract sessionId from ui or window.location
+        let sessionId = ui?.sessionId;
+        if (!sessionId && typeof window !== "undefined") {
+          const match = window.location.pathname.match(/\/play\/([a-zA-Z0-9_-]+)/);
+          if (match) sessionId = match[1];
+        }
+        if (!sessionId) {
+          setSimulateStatus("Kunne ikke finde sessionId");
+          return;
+        }
+        const res = await fetch(`/api/dev/simulate-students?sessionId=${sessionId}`);
+        if (res.ok) {
+          setSimulateStatus("Simulering startet!");
+        } else {
+          setSimulateStatus("Fejl: " + (await res.text()));
+        }
+      } catch (err: any) {
+        setSimulateStatus("Fejl: " + (err?.message || err));
+      }
+      setTimeout(() => setSimulateStatus(null), 5000);
+    };
+
+    // Only show in development
+    const isDev = typeof process !== "undefined" && process.env.NODE_ENV === "development";
+    // --- END DEV-ONLY ---
   const typedAnswerInputRef = useRef<HTMLInputElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const photoPickerPendingRef = useRef(false);
@@ -1668,6 +1722,35 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
   return (
     <>
+      {/* DEV-ONLY Simulate Students Button */}
+      {isDev && (
+        <button onClick={() => setShowDebug((v) => !v)} style={{ position: "fixed", bottom: 12, left: 12, zIndex: 9999, background: "#059669", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 15, boxShadow: "0 2px 8px rgba(0,0,0,0.12)", cursor: "pointer" }}>Debug</button>
+      )}
+      {DebugPanel}
+        <div style={{ position: "fixed", top: 12, right: 12, zIndex: 9999 }}>
+          <button
+            onClick={handleSimulateStudents}
+            style={{
+              background: "#059669",
+              color: "white",
+              border: "none",
+              borderRadius: 8,
+              padding: "10px 18px",
+              fontWeight: 700,
+              fontSize: 16,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+              cursor: "pointer",
+            }}
+          >
+            Simulér 30 elever
+          </button>
+          {simulateStatus && (
+            <div style={{ marginTop: 8, color: "#fff", background: "#334155", borderRadius: 6, padding: "6px 12px", fontSize: 14 }}>
+              {simulateStatus}
+            </div>
+          )}
+        </div>
+      )}
       {content}
       <style jsx global>{`
         @keyframes master-lock-shake {

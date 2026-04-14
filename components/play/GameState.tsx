@@ -286,9 +286,26 @@ export function usePlayGameState({
   const [hasConfirmedName, setHasConfirmedName] = useState(
     () => Boolean(storedParticipantOnLoad?.studentName)
   );
-  const [hasCompletedAvatarGate, setHasCompletedAvatarGate] = useState(
+  // Robust avatar gate completion: persist in sessionStorage
+  // SSR-safe: Only read sessionStorage after mount
+  const [hasCompletedAvatarGate, setHasCompletedAvatarGateState] = useState<boolean>(
     () => storedParticipantOnLoad?.hasCompletedAvatarGate ?? false
   );
+  // Always sync to sessionStorage
+  const setHasCompletedAvatarGate = (val: boolean) => {
+    setHasCompletedAvatarGateState(val);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("avatarCompleted", val ? "true" : "false");
+    }
+  };
+
+  // On mount, hydrate from sessionStorage if present
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const v = sessionStorage.getItem("avatarCompleted");
+      if (v === "true") setHasCompletedAvatarGateState(true);
+    }
+  }, []);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [raceMode, setRaceMode] = useState<RaceMode>("unknown");
   const [currentPostIndex, setCurrentPostIndex] = useState(0);
@@ -3263,7 +3280,7 @@ export function usePlayGameState({
 
       setAvatarUrl(resolvedAvatarUrl);
       setPendingAvatarUrlState(undefined);
-      setHasCompletedAvatarGate(true);
+      setHasCompletedAvatarGate(true); // This now persists in sessionStorage
 
       if (participantId && resolvedPlayerName) {
         rememberActiveParticipant(
