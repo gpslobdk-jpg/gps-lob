@@ -140,6 +140,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const {
     questions,
     currentPostIndex,
+    solvedPostIndexes,
+    answeredPostIndexes,
     displayPostNumber,
     progressPercent,
     score,
@@ -159,6 +161,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     activePostActionError,
     activePhotoFeedback,
     activeQuizAnswerFeedback,
+    activeQuizPostBurned,
     activeEscapeReward,
     activeEscapeHint,
     activeRoleplayReply,
@@ -180,7 +183,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     showMasterVictory,
     myEscapePlacement,
   } = escape;
-  const { latestMessage, resumeMessage } = feedback;
+  const { latestMessage, resumeMessage, wrongAnswerFeedback } = feedback;
   const {
     canManualUnlock,
     gpsOverrideEnabled,
@@ -192,6 +195,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     isEscapeRace,
     isRoleplayImmersed,
     isSelfiePhotoTask,
+    isClosing,
     isSubmitting,
     isSubmittingAnswer,
     isAnalyzingPhoto,
@@ -233,6 +237,21 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const shouldQueryCameraPermission = activePostVariant === "photo";
   const isParticipantAuthExpired = screen.loadErrorVariant === "participant_auth_expired";
   const isJoinSessionMissing = screen.loadErrorVariant === "join_session_missing";
+  const isQuizPostBurned = activePostVariant === "quiz" && activeQuizPostBurned;
+  // Check BOTH arrays — solvedPostIndexes (correct answers) and answeredPostIndexes
+  // (wrong answers). Either being true means the post is done and buttons must not render.
+  const isCurrentPostAnswered =
+    solvedPostIndexes.includes(currentPostIndex) ||
+    answeredPostIndexes.includes(currentPostIndex);
+  const answeredPostLockMessage = isQuizPostBurned
+    ? "Allerede besvaret."
+    : "Besvaret. Videre til næste post.";
+
+  useEffect(() => {
+    if (showQuestion && isCurrentPostAnswered) {
+      actions.dismissCurrentPost();
+    }
+  }, [showQuestion, isCurrentPostAnswered, actions]);
 
   const clearPendingPhotoPickerState = useCallback(() => {
     photoPickerPendingRef.current = false;
@@ -1068,7 +1087,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       </div>
                     ) : null}
 
-                    {canManualUnlock ? (
+                    {canManualUnlock && !isCurrentPostAnswered ? (
                       <button
                         type="button"
                         onClick={actions.unlockCurrentPost}
@@ -1093,6 +1112,17 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                     <CheckCircle2 className="h-4 w-4" />
                   </div>
                   <div className={`text-sm font-medium text-white ${wrapTextClass}`}>{resumeMessage}</div>
+                </div>
+              </div>
+            ) : null}
+
+            {wrongAnswerFeedback ? (
+              <div className="animate-in slide-in-from-top fade-in duration-500">
+                <div className="flex items-start gap-3 rounded-[1.5rem] border border-red-300/30 bg-red-900/60 p-4 shadow-lg">
+                  <div className="mt-0.5 rounded-full border border-red-300/30 bg-red-500/30 p-2 text-red-200">
+                    <XCircle className="h-4 w-4" />
+                  </div>
+                  <div className={`text-sm font-semibold text-red-100 ${wrapTextClass}`}>{wrongAnswerFeedback}</div>
                 </div>
               </div>
             ) : null}
@@ -1175,47 +1205,15 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       <QuestionTtsButton question={activeQuestion.text} answers={activeQuestion.answers} />
                     </div>
 
-                    <div className="space-y-3">
-                      {activeQuestion.answers.map((answer, idx) => {
-                        const isSelectedFeedback = activeQuizAnswerFeedback?.selectedIndex === idx;
-                        const isSuccessAnswer =
-                          isSelectedFeedback && activeQuizAnswerFeedback?.tone === "success";
-                        const isErrorAnswer =
-                          isSelectedFeedback && activeQuizAnswerFeedback?.tone === "error";
-                        const isAnswerDimmed = Boolean(activeQuizAnswerFeedback) && !isSelectedFeedback;
-
-                        return (
-                          <button
-                            key={idx}
-                            type="button"
-                            disabled={Boolean(activeQuizAnswerFeedback) || isAnswerSubmissionPending}
-                            onClick={() => void actions.submitQuizAnswer(idx)}
-                            className={`flex min-h-[56px] w-full items-center justify-between gap-3 overflow-hidden rounded-[1.35rem] border p-4 text-left text-base font-black uppercase tracking-[0.2em] transition-all sm:text-lg ${wrapTextClass} ${rubik.className} ${
-                              isSuccessAnswer
-                                ? "border-emerald-300 bg-emerald-500 text-white shadow-[0_18px_38px_rgba(16,185,129,0.32)]"
-                              : isErrorAnswer
-                                  ? "border-red-300 bg-red-500 text-white shadow-[0_18px_38px_rgba(239,68,68,0.28)]"
-                                  : isAnswerDimmed
-                                      ? "border-white/10 bg-slate-900/55 text-white/55 opacity-50"
-                                      : "border-slate-500 bg-slate-800 text-white shadow-[0_12px_28px_rgba(15,23,42,0.5)] hover:-translate-y-0.5 hover:border-emerald-400 hover:bg-slate-700"
-                            } disabled:cursor-default disabled:hover:translate-y-0`}
-                          >
-                            <span className="flex-1">{answer}</span>
-                            {isSuccessAnswer ? <CheckCircle2 className="h-5 w-5 shrink-0" /> : null}
-                            {isErrorAnswer ? <XCircle className="h-5 w-5 shrink-0" /> : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {isQuizSubmissionPending ? (
-                      <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-100">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Sender svar...
-                      </div>
+                    {/* PRIMITIVE GUARD: if post is answered (correct OR wrong), kill all buttons */}
+                    {isCurrentPostAnswered ? (
+                      <p className="rounded-[1.35rem] border border-white/10 bg-white/5 px-4 py-4 text-sm text-white/80">
+                        {answeredPostLockMessage}
+                      </p>
                     ) : null}
 
-                    {hasActiveQuizSuccess ? (
+                    {/* Continue button after a correct answer (quiz success state) */}
+                    {!isCurrentPostAnswered && hasActiveQuizSuccess ? (
                       <div className="mt-5">
                         <button
                           type="button"
@@ -1227,7 +1225,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
                         {activePostActionError ? (
                           <div
-                            className={`rounded-2xl border border-red-300/30 bg-red-500/12 px-4 py-3 text-sm font-semibold text-red-50 ${wrapTextClass}`}
+                            className={`mt-3 rounded-2xl border border-red-300/30 bg-red-500/12 px-4 py-3 text-sm font-semibold text-red-50 ${wrapTextClass}`}
                           >
                             {activePostActionError}
                           </div>
@@ -1235,12 +1233,65 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       </div>
                     ) : null}
 
-                    {activeTypedAnswerError ? (
-                      <div
-                        className={`mt-4 rounded-2xl border border-red-300/30 bg-red-500/12 px-4 py-3 text-sm font-semibold text-red-50 ${wrapTextClass}`}
-                      >
-                        {activeTypedAnswerError}
-                      </div>
+                    {/* Answer buttons — only rendered when post is genuinely unanswered */}
+                    {!isCurrentPostAnswered && !hasActiveQuizSuccess ? (
+                      <>
+                        {isQuizPostBurned ? (
+                          <div className="rounded-[1.35rem] border border-red-300/30 bg-red-500/12 px-4 py-4 text-sm font-semibold text-red-50">
+                            {answeredPostLockMessage}
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {activeQuestion.answers.map((answer, idx) => {
+                              const isSelectedFeedback = activeQuizAnswerFeedback?.selectedIndex === idx;
+                              const isSuccessAnswer =
+                                isSelectedFeedback && activeQuizAnswerFeedback?.tone === "success";
+                              const isErrorAnswer =
+                                isSelectedFeedback && activeQuizAnswerFeedback?.tone === "error";
+                              const isAnswerDimmed = Boolean(activeQuizAnswerFeedback) && !isSelectedFeedback;
+
+                              return (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  disabled={
+                                    isClosing || isQuizPostBurned || Boolean(activeQuizAnswerFeedback) || isAnswerSubmissionPending
+                                  }
+                                  onClick={() => void actions.submitQuizAnswer(idx)}
+                                  className={`flex min-h-[56px] w-full items-center justify-between gap-3 overflow-hidden rounded-[1.35rem] border p-4 text-left text-base font-black uppercase tracking-[0.2em] transition-all sm:text-lg ${wrapTextClass} ${rubik.className} ${
+                                    isSuccessAnswer
+                                      ? "border-emerald-300 bg-emerald-500 text-white shadow-[0_18px_38px_rgba(16,185,129,0.32)]"
+                                    : isErrorAnswer
+                                        ? "border-red-300 bg-red-500 text-white shadow-[0_18px_38px_rgba(239,68,68,0.28)]"
+                                        : isAnswerDimmed
+                                            ? "border-white/10 bg-slate-900/55 text-white/55 opacity-50"
+                                            : "border-slate-500 bg-slate-800 text-white shadow-[0_12px_28px_rgba(15,23,42,0.5)] hover:-translate-y-0.5 hover:border-emerald-400 hover:bg-slate-700"
+                                  } disabled:cursor-default disabled:hover:translate-y-0`}
+                                >
+                                  <span className="flex-1">{answer}</span>
+                                  {isSuccessAnswer ? <CheckCircle2 className="h-5 w-5 shrink-0" /> : null}
+                                  {isErrorAnswer ? <XCircle className="h-5 w-5 shrink-0" /> : null}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {!isQuizPostBurned && isQuizSubmissionPending ? (
+                          <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-100">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Sender svar...
+                          </div>
+                        ) : null}
+
+                        {!isQuizPostBurned && activeTypedAnswerError ? (
+                          <div
+                            className={`mt-4 rounded-2xl border border-red-300/30 bg-red-500/12 px-4 py-3 text-sm font-semibold text-red-50 ${wrapTextClass}`}
+                          >
+                            {activeTypedAnswerError}
+                          </div>
+                        ) : null}
+                      </>
                     ) : null}
                   </>
                 ) : null}
@@ -1259,7 +1310,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       className="hidden"
                     />
 
-                    {!hasActivePhotoSuccess ? (
+                    {!hasActivePhotoSuccess && !isCurrentPostAnswered ? (
                       <button
                         type="button"
                         onClick={handlePhotoButtonClick}
@@ -1280,9 +1331,25 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       </button>
                     ) : null}
 
-                    {cameraError && !activePhotoFeedback ? (
+                    {cameraError && !activePhotoFeedback && !isCurrentPostAnswered ? (
                       <div className="overflow-hidden rounded-2xl border border-amber-300/35 bg-amber-500/12 px-4 py-4 text-sm text-amber-50 shadow-[0_18px_40px_rgba(245,158,11,0.16)] backdrop-blur-md">
                         <p className={`font-semibold ${wrapTextClass}`}>{cameraError}</p>
+                      </div>
+                    ) : null}
+
+                    {!hasActivePhotoSuccess && isCurrentPostAnswered ? (
+                      <div className="space-y-4">
+                        <div className="rounded-[1.6rem] border border-white/10 bg-white/5 px-4 py-4 text-sm text-white/80">
+                          <p className={wrapTextClass}>{answeredPostLockMessage}</p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => void actions.continueFromSolvedPost()}
+                          className={tacticalPrimaryButtonClass}
+                        >
+                          Gå videre
+                        </button>
                       </div>
                     ) : null}
 
@@ -1369,6 +1436,12 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                           </div>
                         ) : null}
                       </div>
+                    ) : isCurrentPostAnswered ? (
+                      <div>
+                        <div className="rounded-[1.6rem] border border-white/10 bg-white/5 px-4 py-4 text-sm text-white/80">
+                          <p className={wrapTextClass}>{answeredPostLockMessage}</p>
+                        </div>
+                      </div>
                     ) : (
                       <form
                         onSubmit={handleTypedAnswerSubmit}
@@ -1446,13 +1519,28 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                           <h2 className={`mb-4 text-2xl font-black ${wrapTextClass}`}>Tidsmaskinen</h2>
                           <p className={`mb-6 text-lg leading-relaxed ${wrapTextClass}`}>{getRoleplayMessage(activeQuestion)}</p>
                           <div className="mt-2">
-                            <button
-                              type="button"
-                              onClick={() => void actions.submitTypedAnswer("[LÆST]")}
-                              className={`${tacticalPrimaryButtonClass} max-w-xs mx-auto`}
-                            >
-                              Gå videre
-                            </button>
+                            {!isCurrentPostAnswered ? (
+                              <button
+                                type="button"
+                                onClick={() => void actions.submitTypedAnswer("[LÆST]")}
+                                className={`${tacticalPrimaryButtonClass} max-w-xs mx-auto`}
+                              >
+                                Gå videre
+                              </button>
+                            ) : (
+                              <div className="space-y-4">
+                                <div className="rounded-[1.6rem] border border-white/10 bg-white/5 px-4 py-4 text-sm text-white/80">
+                                  <p className={wrapTextClass}>{answeredPostLockMessage}</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => void actions.continueFromSolvedPost()}
+                                  className={tacticalPrimaryButtonClass}
+                                >
+                                  Fortsæt rejsen
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1539,48 +1627,70 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       ) : null}
 
                       {!activeRoleplayReply?.canContinue ? (
-                        <form
-                          onSubmit={handleTypedAnswerSubmit}
-                          className={`overflow-hidden rounded-[1.75rem] border bg-slate-950/80 p-4 shadow-[0_18px_38px_rgba(16,185,129,0.14)] backdrop-blur-xl transition-all ${
-                            hasRoleplayInputErrorTone ? "border-rose-300/45 shadow-[0_20px_45px_rgba(244,63,94,0.18)]" : "border-emerald-500/20"
-                          }`}
-                          style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}
-                        >
-                          <div className="flex items-end gap-3">
-                            <input
-                              key={`roleplay-input-${activeTypedAnswerKey}`}
-                              ref={typedAnswerInputRef}
-                              type="text"
-                              disabled={isSubmittingAnswer || isSubmitting}
-                              onChange={() => {
-                                actions.clearRoleplayInputErrorTone();
-                                actions.clearTypedAnswerError();
-                                actions.clearPostActionError();
-                              }}
-                              onFocus={(event) => {
-                                event.currentTarget.scrollIntoView({ behavior: "smooth", block: "center" });
-                              }}
-                              placeholder={`Skriv dit svar til ${roleplayCharacterName}...`}
-                              className={`min-w-0 flex-1 rounded-[1.35rem] border bg-slate-950 px-4 py-3 text-base text-emerald-50 outline-none transition placeholder:text-white/40 focus:ring-2 ${
-                                hasRoleplayInputErrorTone ? "border-rose-300/45 focus:border-rose-300/55 focus:ring-rose-300/20" : "border-emerald-500/50 focus:border-emerald-400 focus:ring-emerald-400/20"
-                              } disabled:cursor-not-allowed disabled:opacity-70`}
-                            />
-                            <button type="submit" disabled={isAnswerSubmissionPending} className={`${tacticalPrimaryButtonClass} min-w-[11rem] shrink-0`}>
-                              {isAnswerSubmissionPending ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                  Sender...
-                                </>
-                              ) : (
-                                "Send besked"
-                              )}
+                        isCurrentPostAnswered ? (
+                          <div className="space-y-4">
+                            {activeTypedAnswerError ? (
+                              <p className={`text-sm text-emerald-200/85 ${wrapTextClass}`}>
+                                {activeTypedAnswerError}
+                              </p>
+                            ) : null}
+
+                            <div className="rounded-[1.6rem] border border-white/10 bg-white/5 px-4 py-4 text-sm text-white/80">
+                              <p className={wrapTextClass}>{answeredPostLockMessage}</p>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => void actions.continueFromSolvedPost()}
+                              className={tacticalPrimaryButtonClass}
+                            >
+                              Fortsæt rejsen -&gt;
                             </button>
                           </div>
+                        ) : (
+                          <form
+                            onSubmit={handleTypedAnswerSubmit}
+                            className={`overflow-hidden rounded-[1.75rem] border bg-slate-950/80 p-4 shadow-[0_18px_38px_rgba(16,185,129,0.14)] backdrop-blur-xl transition-all ${
+                              hasRoleplayInputErrorTone ? "border-rose-300/45 shadow-[0_20px_45px_rgba(244,63,94,0.18)]" : "border-emerald-500/20"
+                            }`}
+                            style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}
+                          >
+                            <div className="flex items-end gap-3">
+                              <input
+                                key={`roleplay-input-${activeTypedAnswerKey}`}
+                                ref={typedAnswerInputRef}
+                                type="text"
+                                disabled={isSubmittingAnswer || isSubmitting}
+                                onChange={() => {
+                                  actions.clearRoleplayInputErrorTone();
+                                  actions.clearTypedAnswerError();
+                                  actions.clearPostActionError();
+                                }}
+                                onFocus={(event) => {
+                                  event.currentTarget.scrollIntoView({ behavior: "smooth", block: "center" });
+                                }}
+                                placeholder={`Skriv dit svar til ${roleplayCharacterName}...`}
+                                className={`min-w-0 flex-1 rounded-[1.35rem] border bg-slate-950 px-4 py-3 text-base text-emerald-50 outline-none transition placeholder:text-white/40 focus:ring-2 ${
+                                  hasRoleplayInputErrorTone ? "border-rose-300/45 focus:border-rose-300/55 focus:ring-rose-300/20" : "border-emerald-500/50 focus:border-emerald-400 focus:ring-emerald-400/20"
+                                } disabled:cursor-not-allowed disabled:opacity-70`}
+                              />
+                              <button type="submit" disabled={isAnswerSubmissionPending} className={`${tacticalPrimaryButtonClass} min-w-[11rem] shrink-0`}>
+                                {isAnswerSubmissionPending ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Sender...
+                                  </>
+                                ) : (
+                                  "Send besked"
+                                )}
+                              </button>
+                            </div>
 
-                          {activeTypedAnswerError ? (
-                            <p className={`mt-3 text-sm text-emerald-200/85 ${wrapTextClass}`}>{activeTypedAnswerError}</p>
-                          ) : null}
-                        </form>
+                            {activeTypedAnswerError ? (
+                              <p className={`mt-3 text-sm text-emerald-200/85 ${wrapTextClass}`}>{activeTypedAnswerError}</p>
+                            ) : null}
+                          </form>
+                        )
                       ) : null}
                     </div>
                   )
@@ -1614,6 +1724,9 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
   return (
     <>
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 99999, backgroundColor: 'red', color: 'white', fontWeight: '900', textAlign: 'center', padding: '20px', fontSize: '20px' }}>
+        SYSTEM LOCKED - V.6 - HVIS DU SER DETTE, ER KODEN LIVE!
+      </div>
       {content}
       <style jsx global>{`
         @keyframes master-lock-shake {

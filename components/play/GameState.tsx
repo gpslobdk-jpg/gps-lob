@@ -64,7 +64,6 @@ import {
   parseQuestion,
   readStoredActiveParticipant,
   readStoredPlaySnapshot,
-  reloadPage,
   resolvePostVariant,
   saveStoredActiveParticipant,
   saveStoredPlaySnapshot,
@@ -204,6 +203,10 @@ function buildZoneKrigCaptureFeedback(
   }
 }
 
+function sortUniquePostIndexes(values: number[]) {
+  return Array.from(new Set(values)).sort((left, right) => left - right);
+}
+
 function createTeacherBroadcastMessage(
   row: SessionTeacherMessageRow
 ): TeacherBroadcastMessage | null {
@@ -305,6 +308,7 @@ export function usePlayGameState({
   const [isKicked, setIsKicked] = useState(false);
   const [latestMessage, setLatestMessage] = useState<TeacherBroadcastMessage | null>(null);
   const [resumeMessage, setResumeMessage] = useState<string | null>(null);
+  const [wrongAnswerFeedback, setWrongAnswerFeedback] = useState<string | null>(null);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
   const [photoFeedback, setPhotoFeedback] = useState<PhotoFeedbackState>(null);
@@ -340,9 +344,17 @@ export function usePlayGameState({
   const [teamColor, setTeamColor] = useState<string | null>(() => storedParticipantOnLoad?.teamColor ?? null);
   const supabase = useMemo(() => createClient({ authScope: "participant" }), []);
   const [isProvisioningParticipant, setIsProvisioningParticipant] = useState(false);
-  const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
-  const [score, setScore] = useState(0);
-  const [solvedPostIndexes, setSolvedPostIndexes] = useState<number[]>([]);
+  const [isClosing, setIsClosing] = useState(false);
+  const [correctAnswersCount, setCorrectAnswersCount] = useState(
+    () => storedPlaySnapshotOnLoad?.correctAnswersCount ?? 0
+  );
+  const [score, setScore] = useState(() => storedPlaySnapshotOnLoad?.score ?? 0);
+  const [solvedPostIndexes, setSolvedPostIndexes] = useState<number[]>(
+    () => storedPlaySnapshotOnLoad?.solvedPostIndexes ?? []
+  );
+  const [answeredPostIndexes, setAnsweredPostIndexes] = useState<number[]>(
+    () => storedPlaySnapshotOnLoad?.answeredPostIndexes ?? []
+  );
   const [sessionStatus, setSessionStatus] = useState<string | null>(
     () => storedParticipantOnLoad?.sessionStatus ?? null
   );
@@ -363,6 +375,7 @@ export function usePlayGameState({
   );
   const [playFinishedAtMs, setPlayFinishedAtMs] = useState<number | null>(null);
   const quizAnswerFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrongAnswerFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roleplayInputErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wakeLockSentinelRef = useRef<WakeLockSentinelLike | null>(null);
   const sessionStatusChannelRef = useRef<RealtimeChannel | null>(null);
@@ -380,12 +393,17 @@ export function usePlayGameState({
   const isMountedRef = useRef(true);
   const circuitBreakerTrippedRef = useRef(false);
   const solvedPostIndexesRef = useRef<number[]>([]);
+  const answeredPostIndexesRef = useRef<number[]>(answeredPostIndexes);
   const pendingLocalAnswersRef = useRef<StoredPendingAnswer[]>(pendingLocalAnswers);
   const pendingAnswerReplayInFlightRef = useRef(false);
   const locationSyncErrorsRef = useRef(0);
   const locationSyncSuspendedRef = useRef(false);
   const locationSyncRecoveryCheckInFlightRef = useRef(false);
   const locationSyncRecoveryCheckCooldownUntilRef = useRef(0);
+  const [burnedPosts, setBurnedPosts] = useState<Set<number>>(
+    () => new Set(storedPlaySnapshotOnLoad?.burnedPosts ?? [])
+  );
+  const burnedPostsRef = useRef<Set<number>>(new Set(storedPlaySnapshotOnLoad?.burnedPosts ?? []));
   const participantSnapshotRequestRef = useRef<{
     participantId: string;
     promise: Promise<ParticipantSnapshotFetchResult>;
@@ -474,6 +492,14 @@ export function usePlayGameState({
   useEffect(() => {
     solvedPostIndexesRef.current = solvedPostIndexes;
   }, [solvedPostIndexes]);
+
+  useEffect(() => {
+    answeredPostIndexesRef.current = answeredPostIndexes;
+  }, [answeredPostIndexes]);
+
+  useEffect(() => {
+    burnedPostsRef.current = burnedPosts;
+  }, [burnedPosts]);
 
   useEffect(() => {
     pendingLocalAnswersRef.current = pendingLocalAnswers;
@@ -730,6 +756,9 @@ export function usePlayGameState({
   const activePhotoFeedback = photoFeedback?.key === activeTypedAnswerKey ? photoFeedback : null;
   const activeQuizAnswerFeedback =
     quizAnswerFeedback?.key === activeTypedAnswerKey ? quizAnswerFeedback : null;
+  const activeQuizPostBurned =
+    activePostVariant === "quiz" &&
+    (burnedPosts.has(currentPostIndex) || burnedPostsRef.current.has(currentPostIndex));
   const activeZoneKrigCaptureFeedback =
     zoneKrigCaptureFeedback?.key === activeTypedAnswerKey ? zoneKrigCaptureFeedback : null;
   const hasActiveQuizSuccess = activePostVariant === "quiz" && activeQuizAnswerFeedback?.tone === "success";
@@ -1412,11 +1441,19 @@ export function usePlayGameState({
   }, [clearMessageResubscribeTimer, clearRestoreRetryTimer, clearSessionStatusResubscribeTimer]);
 
   useEffect(() => {
-    if (questions.length === 0 || isFinished || correctAnswersCount > 0 || routeOrder.length === 0) return;
+    if (
+      questions.length === 0 ||
+      isFinished ||
+      correctAnswersCount > 0 ||
+      answeredPostIndexes.length > 0 ||
+      routeOrder.length === 0
+    ) {
+      return;
+    }
 
     const firstRoutePostIndex = routeOrder[0] ?? 0;
     setCurrentPostIndex((current) => (current === firstRoutePostIndex ? current : firstRoutePostIndex));
-  }, [correctAnswersCount, isFinished, questions.length, routeOrder]);
+  }, [answeredPostIndexes.length, correctAnswersCount, isFinished, questions.length, routeOrder]);
 
   useEffect(() => {
     if (!sessionId || circuitBreakerActive) return;
@@ -1574,6 +1611,8 @@ export function usePlayGameState({
       sessionId,
       currentPostIndex,
       solvedPostIndexes,
+      answeredPostIndexes,
+      burnedPosts: Array.from(burnedPosts),
       correctAnswersCount,
       score,
       showQuestion,
@@ -1594,6 +1633,8 @@ export function usePlayGameState({
     score,
     sessionId,
     showQuestion,
+    answeredPostIndexes,
+    burnedPosts,
     solvedPostIndexes,
   ]);
 
@@ -1701,8 +1742,12 @@ export function usePlayGameState({
     autoUnlockRadius !== null ? Math.max(autoUnlockRadius, TARGET_VISUAL_RADIUS_METERS) : null;
   const targetClickBufferRadius =
     autoUnlockRadius !== null ? Math.max(autoUnlockRadius, TARGET_CLICK_BUFFER_METERS) : null;
+  const currentPostIsHardLocked =
+    answeredPostIndexesRef.current.includes(currentPostIndex) ||
+    burnedPostsRef.current.has(currentPostIndex);
   const canOpenCurrentPost =
     !showQuestion &&
+    !currentPostIsHardLocked &&
     (gpsOverride ||
       dismissedPostIndex === currentPostIndex ||
       (distance !== null &&
@@ -1710,6 +1755,7 @@ export function usePlayGameState({
         distance <= targetClickBufferRadius));
   const canManualUnlock =
     !showQuestion &&
+    !currentPostIsHardLocked &&
     (gpsOverride ||
       dismissedPostIndex === currentPostIndex ||
       (distance !== null &&
@@ -1726,11 +1772,58 @@ export function usePlayGameState({
     setPostActionError(null);
   }, []);
 
-  const unlockCurrentPost = useCallback(() => {
-    if (!canOpenCurrentPost) {
+  const markAnsweredPostIndex = useCallback((postIndex: number) => {
+    if (!Number.isInteger(postIndex) || postIndex < 0) {
       return;
     }
 
+    if (answeredPostIndexesRef.current.includes(postIndex)) {
+      return;
+    }
+
+    const nextAnsweredPostIndexes = sortUniquePostIndexes([
+      ...answeredPostIndexesRef.current,
+      postIndex,
+    ]);
+    answeredPostIndexesRef.current = nextAnsweredPostIndexes;
+    setAnsweredPostIndexes(nextAnsweredPostIndexes);
+  }, []);
+
+  const markBurnedPostIndex = useCallback((postIndex: number) => {
+    if (!Number.isInteger(postIndex) || postIndex < 0) {
+      return;
+    }
+
+    if (burnedPostsRef.current.has(postIndex)) {
+      return;
+    }
+
+    const nextBurnedPosts = new Set(burnedPostsRef.current);
+    nextBurnedPosts.add(postIndex);
+    burnedPostsRef.current = nextBurnedPosts;
+    setBurnedPosts(nextBurnedPosts);
+  }, []);
+
+  const unlockCurrentPost = useCallback(() => {
+    const currentPostIsHardLocked =
+      answeredPostIndexesRef.current.includes(currentPostIndex) ||
+      burnedPostsRef.current.has(currentPostIndex);
+    const canOpenPost =
+      !showQuestion &&
+      !currentPostIsHardLocked &&
+      (gpsOverride ||
+        dismissedPostIndex === currentPostIndex ||
+        (distance !== null &&
+          autoUnlockRadius !== null &&
+          targetClickBufferRadius !== null &&
+          distance > autoUnlockRadius &&
+          distance <= targetClickBufferRadius));
+
+    if (!canOpenPost) {
+      return;
+    }
+
+    setIsClosing(false);
     clearRoleplayInputErrorTone();
     setDismissedPostIndex(null);
     setPhotoFeedback(null);
@@ -1739,8 +1832,22 @@ export function usePlayGameState({
     setZoneKrigCaptureFeedback(null);
     setEscapeReward(null);
     setRoleplayReply(null);
+    if (wrongAnswerFeedbackTimerRef.current) {
+      clearTimeout(wrongAnswerFeedbackTimerRef.current);
+      wrongAnswerFeedbackTimerRef.current = null;
+    }
+    setWrongAnswerFeedback(null);
     setShowQuestion(true);
-  }, [canOpenCurrentPost, clearRoleplayInputErrorTone]);
+  }, [
+    autoUnlockRadius,
+    currentPostIndex,
+    dismissedPostIndex,
+    distance,
+    gpsOverride,
+    showQuestion,
+    targetClickBufferRadius,
+    clearRoleplayInputErrorTone,
+  ]);
 
   const dismissCurrentPost = useCallback(() => {
     clearRoleplayInputErrorTone();
@@ -1850,6 +1957,9 @@ export function usePlayGameState({
       if (quizAnswerFeedbackTimerRef.current) {
         clearTimeout(quizAnswerFeedbackTimerRef.current);
       }
+      if (wrongAnswerFeedbackTimerRef.current) {
+        clearTimeout(wrongAnswerFeedbackTimerRef.current);
+      }
       if (roleplayInputErrorTimerRef.current) {
         clearTimeout(roleplayInputErrorTimerRef.current);
       }
@@ -1880,6 +1990,9 @@ export function usePlayGameState({
     const restoreFromStorage = async () => {
       try {
         const storedProgressSnapshot = getStoredPlaySnapshotForParticipant(participantId);
+        const restoredBurnedPosts = new Set<number>(storedProgressSnapshot?.burnedPosts ?? []);
+        burnedPostsRef.current = restoredBurnedPosts;
+        setBurnedPosts(new Set(restoredBurnedPosts));
         const storedPendingAnswers =
           storedProgressSnapshot?.pendingAnswers ?? pendingLocalAnswersRef.current;
         const storedName = storedParticipantOnLoad?.studentName?.trim() || playerName || initialStudentName;
@@ -2018,17 +2131,25 @@ export function usePlayGameState({
       }
 
       if (resolvedName) {
+        const baseAnsweredPosts = new Set<number>(storedProgressSnapshot?.answeredPostIndexes ?? []);
+        const baseSolvedPosts = new Set<number>(storedProgressSnapshot?.solvedPostIndexes ?? []);
+        const baseScore = storedProgressSnapshot?.score ?? 0;
         let nextPostIndex = firstRoutePostIndex;
         let answersData: AnswerProgressRow[] | null = null;
         let answersError: { code?: string; message?: string } | null = null;
         let restoredAnswerRows: AnswerProgressRow[] = [];
         const pendingSolvedPosts = new Set<number>();
+        const newlySolvedPosts = new Set<number>();
         const scoreByPostIndex = new Map<number, number>();
         const pendingEscapeRewards: EscapeCodeEntry[] = [];
 
         for (const pendingAnswer of storedPendingAnswers) {
           if (!questions[pendingAnswer.solvedPostIndex]) continue;
           pendingSolvedPosts.add(pendingAnswer.solvedPostIndex);
+          baseAnsweredPosts.add(pendingAnswer.solvedPostIndex);
+          if (!baseSolvedPosts.has(pendingAnswer.solvedPostIndex)) {
+            newlySolvedPosts.add(pendingAnswer.solvedPostIndex);
+          }
           if (!scoreByPostIndex.has(pendingAnswer.solvedPostIndex)) {
             scoreByPostIndex.set(
               pendingAnswer.solvedPostIndex,
@@ -2045,18 +2166,21 @@ export function usePlayGameState({
           }
         }
 
+        const restoredAnswerLookupColumn = resolvedName ? "student_name" : "participant_id";
+        const restoredAnswerLookupValue = resolvedName || participantId;
+
         const answersWithPointsResult = await supabase
           .from("answers")
-          .select("post_index,question_index,is_correct,awarded_points")
-          .eq("participant_id", participantId)
-          .eq("session_id", sessionId);
+          .select("post_index,question_index,is_correct,awarded_points,student_name")
+          .eq("session_id", sessionId)
+          .eq(restoredAnswerLookupColumn, restoredAnswerLookupValue);
 
         if (answersWithPointsResult.error && isMissingColumnError(answersWithPointsResult.error)) {
           const fallbackAnswersResult = await supabase
             .from("answers")
-            .select("post_index,question_index,is_correct")
-            .eq("participant_id", participantId)
-            .eq("session_id", sessionId);
+            .select("post_index,question_index,is_correct,student_name")
+            .eq("session_id", sessionId)
+            .eq(restoredAnswerLookupColumn, restoredAnswerLookupValue);
 
           answersData = (fallbackAnswersResult.data as AnswerProgressRow[] | null) ?? null;
           answersError = fallbackAnswersResult.error;
@@ -2067,8 +2191,6 @@ export function usePlayGameState({
 
         if (!isActive) return;
 
-        const confirmedCorrectPosts = new Set<number>();
-
         if (answersError) {
           if (answersError.code === "PGRST205") {
             answersTableMissingRef.current = true;
@@ -2076,20 +2198,27 @@ export function usePlayGameState({
             console.error("Kunde ikke hente deltagerens tidligere svar:", answersError);
           }
 
-          if (pendingSolvedPosts.size > 0) {
-            const restoredSolvedPostIndexes = [...pendingSolvedPosts].sort((a, b) => a - b);
-            const restoredScore = restoredSolvedPostIndexes.reduce((total, postIndex) => {
-              const awardedPoints = scoreByPostIndex.get(postIndex);
-              return total + (awardedPoints ?? questions[postIndex]?.points ?? DEFAULT_QUESTION_POINTS);
-            }, 0);
+          const restoredAnsweredPostIndexes = sortUniquePostIndexes([...baseAnsweredPosts]);
+          const restoredSolvedPostIndexes = sortUniquePostIndexes([
+            ...baseSolvedPosts,
+            ...newlySolvedPosts,
+          ]);
+          const restoredScore = [...newlySolvedPosts].reduce((total, postIndex) => {
+            const awardedPoints = scoreByPostIndex.get(postIndex);
+            return total + (awardedPoints ?? questions[postIndex]?.points ?? DEFAULT_QUESTION_POINTS);
+          }, 0);
 
-            setSolvedPostIndexes(restoredSolvedPostIndexes);
-            setCorrectAnswersCount(restoredSolvedPostIndexes.length);
-            setScore(restoredScore);
-            setCollectedEscapeRewards(
-              pendingEscapeRewards.sort((a, b) => a.postIndex - b.postIndex)
-            );
-          }
+          burnedPostsRef.current = restoredBurnedPosts;
+          setBurnedPosts(new Set(restoredBurnedPosts));
+
+          setSolvedPostIndexes(restoredSolvedPostIndexes);
+          setCorrectAnswersCount(restoredSolvedPostIndexes.length);
+          setScore(baseScore + restoredScore);
+
+          setAnsweredPostIndexes(restoredAnsweredPostIndexes);
+          setCollectedEscapeRewards(
+            pendingEscapeRewards.sort((a, b) => a.postIndex - b.postIndex)
+          );
 
           const snapshotCurrentPostIndex = storedProgressSnapshot?.currentPostIndex;
           const canResumeSnapshotPost =
@@ -2097,18 +2226,27 @@ export function usePlayGameState({
             Number.isInteger(snapshotCurrentPostIndex) &&
             snapshotCurrentPostIndex >= 0 &&
             snapshotCurrentPostIndex < questions.length &&
-            !pendingSolvedPosts.has(snapshotCurrentPostIndex);
+            !restoredAnsweredPostIndexes.includes(snapshotCurrentPostIndex);
 
           nextPostIndex = canResumeSnapshotPost
             ? snapshotCurrentPostIndex
-            : getNextRoutePostIndex(restoredRouteOrder, pendingSolvedPosts) ?? firstRoutePostIndex;
+            : getNextRoutePostIndex(restoredRouteOrder, new Set(restoredAnsweredPostIndexes)) ?? firstRoutePostIndex;
         } else if (answersData) {
           restoredAnswerRows = answersData as AnswerProgressRow[];
+          const confirmedAnsweredPosts = new Set<number>(baseAnsweredPosts);
           for (const row of restoredAnswerRows) {
-            if (row.is_correct !== true) continue;
             const normalizedPostIndex = getNormalizedAnsweredPostIndex(row);
             if (normalizedPostIndex === null || normalizedPostIndex < 0) continue;
-            confirmedCorrectPosts.add(normalizedPostIndex);
+            confirmedAnsweredPosts.add(normalizedPostIndex);
+
+            if (row.is_correct !== true) {
+              restoredBurnedPosts.add(normalizedPostIndex);
+              continue;
+            }
+
+            if (!baseSolvedPosts.has(normalizedPostIndex)) {
+              newlySolvedPosts.add(normalizedPostIndex);
+            }
 
             const storedAwardedPoints = toFiniteNumber(row.awarded_points);
             scoreByPostIndex.set(
@@ -2119,19 +2257,27 @@ export function usePlayGameState({
             );
           }
 
-          const combinedSolvedPosts = new Set<number>([
-            ...confirmedCorrectPosts,
-            ...pendingSolvedPosts,
+          for (const pendingAnsweredPost of pendingSolvedPosts) {
+            confirmedAnsweredPosts.add(pendingAnsweredPost);
+          }
+
+          const restoredAnsweredPostIndexes = sortUniquePostIndexes([...confirmedAnsweredPosts]);
+          const restoredSolvedPostIndexes = sortUniquePostIndexes([
+            ...baseSolvedPosts,
+            ...newlySolvedPosts,
           ]);
-          const restoredSolvedPostIndexes = [...combinedSolvedPosts].sort((a, b) => a - b);
-          const restoredScore = restoredSolvedPostIndexes.reduce((total, postIndex) => {
+          const restoredScore = [...newlySolvedPosts].reduce((total, postIndex) => {
             const awardedPoints = scoreByPostIndex.get(postIndex);
             return total + (awardedPoints ?? questions[postIndex]?.points ?? DEFAULT_QUESTION_POINTS);
           }, 0);
 
+          burnedPostsRef.current = restoredBurnedPosts;
+          setBurnedPosts(new Set(restoredBurnedPosts));
+
+          setAnsweredPostIndexes(restoredAnsweredPostIndexes);
           setSolvedPostIndexes(restoredSolvedPostIndexes);
           setCorrectAnswersCount(restoredSolvedPostIndexes.length);
-          setScore(restoredScore);
+          setScore(baseScore + restoredScore);
 
           const restoredEscapeRewards = getEscapeCodeEntriesFromRows(restoredAnswerRows, questions);
           const mergedEscapeRewards = [...restoredEscapeRewards];
@@ -2142,12 +2288,11 @@ export function usePlayGameState({
           }
           setCollectedEscapeRewards(mergedEscapeRewards.sort((a, b) => a.postIndex - b.postIndex));
 
-          if (
-            !isStrategoRace &&
-            questions.length > 0 &&
-            raceMode !== "zone_krig" &&
-            combinedSolvedPosts.size >= questions.length
-          ) {
+          const hasCompletedRestore = isEscapeRace
+            ? restoredSolvedPostIndexes.length >= questions.length
+            : restoredAnsweredPostIndexes.length >= questions.length;
+
+          if (!isStrategoRace && questions.length > 0 && raceMode !== "zone_krig" && hasCompletedRestore) {
             setShowQuestion(false);
             setDistanceState(null);
             setEscapeReward(null);
@@ -2168,32 +2313,39 @@ export function usePlayGameState({
             Number.isInteger(snapshotCurrentPostIndex) &&
             snapshotCurrentPostIndex >= 0 &&
             snapshotCurrentPostIndex < questions.length &&
-            !combinedSolvedPosts.has(snapshotCurrentPostIndex);
+            !restoredAnsweredPostIndexes.includes(snapshotCurrentPostIndex);
 
           nextPostIndex =
             raceMode === "zone_krig"
               ? canResumeSnapshotPost
                 ? snapshotCurrentPostIndex
-                : (questions[currentPostIndex] ? currentPostIndex : firstRoutePostIndex)
+                : getNextRoutePostIndex(restoredRouteOrder, new Set(restoredAnsweredPostIndexes)) ??
+                  firstRoutePostIndex
               : canResumeSnapshotPost
                 ? snapshotCurrentPostIndex
-                : getNextRoutePostIndex(restoredRouteOrder, combinedSolvedPosts) ?? firstRoutePostIndex;
+                : getNextRoutePostIndex(restoredRouteOrder, new Set(restoredAnsweredPostIndexes)) ??
+                  firstRoutePostIndex;
         } else {
-          const combinedSolvedPosts = new Set<number>(pendingSolvedPosts);
-          if (combinedSolvedPosts.size > 0) {
-            const restoredSolvedPostIndexes = [...combinedSolvedPosts].sort((a, b) => a - b);
-            const restoredScore = restoredSolvedPostIndexes.reduce((total, postIndex) => {
-              const awardedPoints = scoreByPostIndex.get(postIndex);
-              return total + (awardedPoints ?? questions[postIndex]?.points ?? DEFAULT_QUESTION_POINTS);
-            }, 0);
+          const restoredAnsweredPostIndexes = sortUniquePostIndexes([...baseAnsweredPosts]);
+          const restoredSolvedPostIndexes = sortUniquePostIndexes([
+            ...baseSolvedPosts,
+            ...newlySolvedPosts,
+          ]);
+          const restoredScore = [...newlySolvedPosts].reduce((total, postIndex) => {
+            const awardedPoints = scoreByPostIndex.get(postIndex);
+            return total + (awardedPoints ?? questions[postIndex]?.points ?? DEFAULT_QUESTION_POINTS);
+          }, 0);
 
-            setSolvedPostIndexes(restoredSolvedPostIndexes);
-            setCorrectAnswersCount(restoredSolvedPostIndexes.length);
-            setScore(restoredScore);
-            setCollectedEscapeRewards(
-              pendingEscapeRewards.sort((a, b) => a.postIndex - b.postIndex)
-            );
-          }
+          burnedPostsRef.current = restoredBurnedPosts;
+          setBurnedPosts(new Set(restoredBurnedPosts));
+
+          setAnsweredPostIndexes(restoredAnsweredPostIndexes);
+          setSolvedPostIndexes(restoredSolvedPostIndexes);
+          setCorrectAnswersCount(restoredSolvedPostIndexes.length);
+          setScore(baseScore + restoredScore);
+          setCollectedEscapeRewards(
+            pendingEscapeRewards.sort((a, b) => a.postIndex - b.postIndex)
+          );
 
           const snapshotCurrentPostIndex = storedProgressSnapshot?.currentPostIndex;
           const canResumeSnapshotPost =
@@ -2201,11 +2353,12 @@ export function usePlayGameState({
             Number.isInteger(snapshotCurrentPostIndex) &&
             snapshotCurrentPostIndex >= 0 &&
             snapshotCurrentPostIndex < questions.length &&
-            !combinedSolvedPosts.has(snapshotCurrentPostIndex);
+            !restoredAnsweredPostIndexes.includes(snapshotCurrentPostIndex);
 
           nextPostIndex = canResumeSnapshotPost
             ? snapshotCurrentPostIndex
-            : getNextRoutePostIndex(restoredRouteOrder, combinedSolvedPosts) ?? firstRoutePostIndex;
+            : getNextRoutePostIndex(restoredRouteOrder, new Set(restoredAnsweredPostIndexes)) ??
+              firstRoutePostIndex;
         }
 
         const restoreTargetQuestion = questions[nextPostIndex];
@@ -2282,30 +2435,7 @@ export function usePlayGameState({
     return () => {
       isActive = false;
     };
-    }, [
-    clearRestoreRetryTimer,
-      clearStoredPlayRecoveryState,
-    fetchParticipantSnapshot,
-    isRestoringParticipant,
-    sessionId,
-    participantId,
-    questions,
-    questions.length,
-    raceMode,
-    isStrategoRace,
-    autoUnlockRadius,
-    recoverParticipantAuthSession,
-    restoreRetryNonce,
-    scheduleRestoreRetry,
-    supabase,
-    playerName,
-    currentPostIndex,
-    initialStudentName,
-    storedParticipantOnLoad,
-    getStoredPlaySnapshotForParticipant,
-    rememberActiveParticipant,
-    showResumeNotice,
-  ]);
+  }, [participantId, questions.length, sessionId]);
 
   const markParticipantFinished = useCallback(async () => {
     if (!sessionId || !participantId) return false;
@@ -2364,12 +2494,20 @@ export function usePlayGameState({
       questionText: string,
       questionPoints: number,
       lat: number | null,
-      lng: number | null
+      lng: number | null,
+      options?: { forcedAwardedPoints?: number }
     ): Promise<InsertAnswerResult> => {
       const activeName = playerName.trim();
+      const forcedAwardedPoints = options?.forcedAwardedPoints;
+      const shouldForceAwardedPoints = typeof forcedAwardedPoints === "number";
+      const resolvedAwardedPoints = shouldForceAwardedPoints
+        ? Math.max(0, Math.round(forcedAwardedPoints))
+        : isCorrect
+          ? questionPoints
+          : 0;
       const fallbackResult: InsertAnswerResult = {
         didPersist: false,
-        awardedPoints: isCorrect ? questionPoints : 0,
+        awardedPoints: resolvedAwardedPoints,
         zoneKrigCapture: null,
       };
 
@@ -2393,7 +2531,7 @@ export function usePlayGameState({
           selected_index: selectedIndex,
           answer_index: selectedIndex,
           is_correct: isCorrect,
-          awarded_points: isCorrect ? questionPoints : 0,
+          awarded_points: resolvedAwardedPoints,
           question_text: questionText,
           lat,
           lng,
@@ -2407,7 +2545,7 @@ export function usePlayGameState({
           post_index: postNumber,
           selected_index: selectedIndex,
           is_correct: isCorrect,
-          awarded_points: isCorrect ? questionPoints : 0,
+          awarded_points: resolvedAwardedPoints,
           answered_at: timestamp,
         },
         {
@@ -2417,7 +2555,7 @@ export function usePlayGameState({
           question_index: postNumber - 1,
           answer_index: selectedIndex,
           is_correct: isCorrect,
-          awarded_points: isCorrect ? questionPoints : 0,
+          awarded_points: resolvedAwardedPoints,
           created_at: timestamp,
         },
         {
@@ -2426,7 +2564,7 @@ export function usePlayGameState({
           student_name: activeName,
           selected_index: selectedIndex,
           is_correct: isCorrect,
-          awarded_points: isCorrect ? questionPoints : 0,
+          awarded_points: resolvedAwardedPoints,
         },
       ];
       const pendingAnswerId = `${sessionId}:${participantId}:${postNumber - 1}:${selectedIndex}:${timestamp}`;
@@ -2435,7 +2573,7 @@ export function usePlayGameState({
             id: pendingAnswerId,
             payloads,
             solvedPostIndex: postNumber - 1,
-            awardedPoints: questionPoints,
+            awardedPoints: resolvedAwardedPoints,
           }
         : null;
 
@@ -2476,12 +2614,11 @@ export function usePlayGameState({
 
             return {
               didPersist: true,
-              awardedPoints:
-                typeof body.awardedPoints === "number" && Number.isFinite(body.awardedPoints)
+              awardedPoints: shouldForceAwardedPoints
+                ? resolvedAwardedPoints
+                : typeof body.awardedPoints === "number" && Number.isFinite(body.awardedPoints)
                   ? Math.max(0, Math.round(body.awardedPoints))
-                  : isCorrect
-                    ? questionPoints
-                    : 0,
+                  : resolvedAwardedPoints,
               zoneKrigCapture: body.zoneKrigCapture ?? null,
             };
           }
@@ -2562,10 +2699,12 @@ export function usePlayGameState({
           setCorrectAnswersCount(0);
           setScore(0);
           setSolvedPostIndexes([]);
+          setAnsweredPostIndexes([]);
           setCollectedEscapeRewards([]);
           setEscapeReward(null);
           setPostActionError(null);
           setDismissedPostIndex(null);
+          setBurnedPosts(new Set());
           submissionLockRef.current = false;
           setIsSubmitting(false);
           setIsSubmittingAnswer(false);
@@ -2909,7 +3048,7 @@ export function usePlayGameState({
           : currentFeedback
       );
       quizAnswerFeedbackTimerRef.current = null;
-    }, 900);
+    }, 400);
   }, []);
 
   const requestRoleplayWrongAnswerResponse = useCallback(
@@ -3059,7 +3198,7 @@ export function usePlayGameState({
   const handleAnswer = async (
     selectedIndex: number,
     escapeBrick?: string | null,
-    options?: { skipAnswerPersist?: boolean; awardedPoints?: number }
+    options?: { skipAnswerPersist?: boolean; awardedPoints?: number; zoneKrigCapture?: ZoneKrigCaptureApiResult }
   ) => {
     const current = questions[currentPostIndex];
     if (!current) return false;
@@ -3079,12 +3218,14 @@ export function usePlayGameState({
     setZoneKrigCaptureFeedback(null);
     setTypedAnswerError(null);
     setPostActionError(null);
+    const isBurnedQuizPost = currentVariant === "quiz" && burnedPostsRef.current.has(currentPostIndex);
+    markAnsweredPostIndex(currentPostIndex);
 
     const answerInsertResult = options?.skipAnswerPersist
       ? {
           didPersist: true,
-          awardedPoints: options.awardedPoints ?? current.points,
-          zoneKrigCapture: null,
+          awardedPoints: options.awardedPoints ?? 0,
+          zoneKrigCapture: options.zoneKrigCapture ?? null,
         }
       : await insertAnswerRecord(
           selectedIndex,
@@ -3093,7 +3234,8 @@ export function usePlayGameState({
           currentVariant === "roleplay" ? getRoleplayMessage(current) : current.text,
           current.points,
           myLoc?.lat ?? null,
-          myLoc?.lng ?? null
+          myLoc?.lng ?? null,
+          isBurnedQuizPost ? { forcedAwardedPoints: 0 } : undefined
         );
 
     if (!solvedPostIndexesRef.current.includes(currentPostIndex)) {
@@ -3195,7 +3337,6 @@ export function usePlayGameState({
 
   const retryRestoreConnection = useCallback(() => {
     if (!sessionId || !participantId) {
-      reloadPage();
       return;
     }
 
@@ -3279,35 +3420,21 @@ export function usePlayGameState({
   );
 
   const submitQuizAnswer = async (selectedIndex: number) => {
-    const current = questions[currentPostIndex];
-    if (!current || resolvePostVariant(raceMode, current) !== "quiz") return;
-    if (isSubmitting || submissionLockRef.current) return;
-    if (!beginSubmission()) return;
+    // 1. Force close UI
+    setShowQuestion(false);
+    setDismissedPostIndex(currentPostIndex);
 
-    const feedbackKey = `${currentPostIndex}-quiz`;
-    setTypedAnswerError(null);
-    setPostActionError(null);
-    setZoneKrigCaptureFeedback(null);
-    setIsSubmittingAnswer(true);
-
-    try {
-      const payload = await validateAnswerOnServer({ selectedIndex });
-      if (payload?.isCorrect === true) {
-        await handleAnswer(selectedIndex);
-      } else {
-        handleWrongQuizAnswer(selectedIndex, feedbackKey);
-      }
-    } catch (error) {
-      console.error("Kunne ikke validere quiz-svar:", error);
-      const msg = getAnswerValidationErrorMessage(error);
-      setTypedAnswerError({
-        key: feedbackKey,
-        message: msg,
-      });
-    } finally {
-      setIsSubmittingAnswer(false);
-      endSubmission();
+    // 2. Mark as burned instantly
+    if (typeof burnedPostsRef !== 'undefined') {
+      burnedPostsRef.current.add(currentPostIndex);
+      setBurnedPosts(new Set(burnedPostsRef.current));
     }
+
+    // 3. Browser Alarm
+    alert('V.6 - SYSTEM LOCKDOWN AKTIVERET!');
+
+    // 4. Kill execution
+    return;
   };
 
   const submitMasterCode = async (code: string) => {
@@ -3407,6 +3534,7 @@ export function usePlayGameState({
 
   const submitTypedAnswer = async (answer: string) => {
     if (!activeQuestion || activePostVariant === "photo" || activePostVariant === "quiz") return;
+    if (answeredPostIndexesRef.current.includes(currentPostIndex)) return;
     if (isSubmitting || submissionLockRef.current) return;
 
     if (!answer.trim()) {
@@ -3437,8 +3565,26 @@ export function usePlayGameState({
     try {
       const payload = await validateAnswerOnServer({ answer });
 
+      if (payload?.isLocked === true) {
+        markAnsweredPostIndex(currentPostIndex);
+        return;
+      }
+
       if (payload?.isCorrect !== true) {
+        markAnsweredPostIndex(currentPostIndex);
+
+        await insertAnswerRecord(
+          0,
+          false,
+          currentPostIndex + 1,
+          activePostVariant === "roleplay" ? getRoleplayMessage(activeQuestion) : activeQuestion.text,
+          activeQuestion.points,
+          myLoc?.lat ?? null,
+          myLoc?.lng ?? null
+        );
+
         if (activePostVariant === "roleplay") {
+          // Roleplay: show AI character wrong-answer response, keep overlay open
           triggerRoleplayInputError();
           setRoleplayReply({
             key: activeTypedAnswerKey,
@@ -3447,12 +3593,7 @@ export function usePlayGameState({
             canContinue: false,
             isLoading: true,
           });
-        }
-        if (activePostVariant === "escape") {
-          setWrongAttempts((current) => current + 1);
-        }
 
-        if (activePostVariant === "roleplay") {
           const roleplayMessage = await requestRoleplayWrongAnswerResponse({
             characterName: roleplayCharacterName || "Karakteren",
             characterPersonality: getRoleplayCharacterPersonality(activeQuestion),
@@ -3468,21 +3609,29 @@ export function usePlayGameState({
               tone: "hint",
               canContinue: false,
             });
-            return;
+          } else {
+            setRoleplayReply(null);
+            setTypedAnswerError({
+              key: activeTypedAnswerKey,
+              message: "Forkert svar, prøv igen",
+            });
           }
-
-          setRoleplayReply(null);
-          setTypedAnswerError({
-            key: activeTypedAnswerKey,
-            message: "Forkert svar, prøv igen",
-          });
           return;
         }
 
-        setTypedAnswerError({
-          key: activeTypedAnswerKey,
-          message: "Svaret passer ikke endnu. Prøv igen.",
-        });
+        // All other variants (escape, typed): close overlay immediately
+        const lockedPostIndex = currentPostIndex;
+        setShowQuestion(false);
+        setDismissedPostIndex(lockedPostIndex);
+        setTypedAnswerError(null);
+        if (wrongAnswerFeedbackTimerRef.current) {
+          clearTimeout(wrongAnswerFeedbackTimerRef.current);
+        }
+        setWrongAnswerFeedback("Desværre, forkert svar! Du får 0 point. Find næste post.");
+        wrongAnswerFeedbackTimerRef.current = setTimeout(() => {
+          setWrongAnswerFeedback(null);
+          wrongAnswerFeedbackTimerRef.current = null;
+        }, 4000);
         return;
       }
 
@@ -3519,6 +3668,7 @@ export function usePlayGameState({
     ) {
       return;
     }
+    if (answeredPostIndexesRef.current.includes(currentPostIndex)) return;
     if (isSubmitting || submissionLockRef.current) return;
     if (!beginSubmission()) return;
     const isSelfie = activeQuestion.isSelfie === true;
@@ -3670,6 +3820,7 @@ export function usePlayGameState({
     activePostActionError,
     activePhotoFeedback,
     activeQuizAnswerFeedback,
+    activeQuizPostBurned,
     activeZoneKrigCaptureFeedback,
     activeEscapeReward,
     activeEscapeHint,
@@ -3708,6 +3859,7 @@ export function usePlayGameState({
     typedAnswerError,
     latestMessage,
     resumeMessage,
+    wrongAnswerFeedback,
   };
 
   const shouldShowNameGate = !hasConfirmedName || isProvisioningParticipant;
@@ -3787,6 +3939,7 @@ export function usePlayGameState({
     raceMode,
     currentPostIndex,
     solvedPostIndexes,
+    answeredPostIndexes,
     displayPostNumber,
     totalQuestions: questions.length,
     progressPercent,
@@ -3813,6 +3966,7 @@ export function usePlayGameState({
     isStrategoRace,
     isRoleplayImmersed,
     isSelfiePhotoTask,
+    isClosing,
     isSubmitting,
     isSubmittingAnswer,
     isAnalyzingPhoto,
@@ -3845,7 +3999,7 @@ export function usePlayGameState({
       dismissCurrentPost,
       clearDismissedPost,
       retryRestoreConnection,
-      reloadPage,
+      reloadPage: () => {},
       continueFromSolvedPost,
       submitQuizAnswer,
       submitTypedAnswer,

@@ -75,6 +75,11 @@ export type ZoneKrigCaptureStatus =
   | "zone_missing"
   | "game_over";
 
+export type ZoneKrigCaptureApiResult = {
+  status?: ZoneKrigCaptureStatus;
+  shieldRemainingSeconds?: number | null;
+} | null;
+
 export type ZoneKrigCaptureFeedbackState = {
   key: string;
   status: ZoneKrigCaptureStatus;
@@ -143,6 +148,8 @@ export type StoredPlaySnapshot = {
   sessionId: string;
   currentPostIndex: number;
   solvedPostIndexes: number[];
+  answeredPostIndexes: number[];
+  burnedPosts: number[];
   correctAnswersCount: number;
   score: number;
   showQuestion: boolean;
@@ -223,7 +230,10 @@ export type AnswerProgressRow = {
 
 export type ValidateAnswerPayload = {
   isCorrect?: boolean;
+  isLocked?: boolean;
   brick?: string | null;
+  awardedPoints?: number;
+  zoneKrigCapture?: ZoneKrigCaptureApiResult;
   error?: string;
 };
 
@@ -264,6 +274,7 @@ export interface PlayProgressState {
   raceMode: RaceMode;
   currentPostIndex: number;
   solvedPostIndexes: number[];
+  answeredPostIndexes: number[];
   displayPostNumber: number;
   totalQuestions: number;
   progressPercent: number;
@@ -287,6 +298,7 @@ export interface PlayCurrentPostState {
   activePostActionError: string | null;
   activePhotoFeedback: PhotoFeedbackState;
   activeQuizAnswerFeedback: QuizAnswerFeedbackState;
+  activeQuizPostBurned: boolean;
   activeZoneKrigCaptureFeedback: ZoneKrigCaptureFeedbackState;
   activeEscapeReward: string | null;
   activeEscapeHint: string;
@@ -328,6 +340,7 @@ export interface PlayFeedbackState {
   } | null;
   latestMessage: TeacherBroadcastMessage | null;
   resumeMessage: string | null;
+  wrongAnswerFeedback: string | null;
 }
 
 export interface PlayScreenState {
@@ -375,6 +388,7 @@ export interface PlayUiFlags {
   isStrategoRace: boolean;
   isRoleplayImmersed: boolean;
   isSelfiePhotoTask: boolean;
+  isClosing: boolean;
   isSubmitting: boolean;
   isSubmittingAnswer: boolean;
   isAnalyzingPhoto: boolean;

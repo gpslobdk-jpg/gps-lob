@@ -226,6 +226,8 @@ export function readStoredPlaySnapshot(): StoredPlaySnapshot | null {
       sessionId,
       currentPostIndex: Math.max(0, currentPostIndex),
       solvedPostIndexes: normalizeStoredIntegerList(parsed.solvedPostIndexes),
+      answeredPostIndexes: normalizeStoredIntegerList(parsed.answeredPostIndexes),
+      burnedPosts: normalizeStoredIntegerList(parsed.burnedPosts),
       correctAnswersCount:
         correctAnswersCount !== null && Number.isInteger(correctAnswersCount) && correctAnswersCount >= 0
           ? correctAnswersCount
@@ -267,12 +269,6 @@ export function clearStoredPlaySnapshot() {
     window.localStorage.removeItem(ACTIVE_PLAY_SNAPSHOT_STORAGE_KEY);
   } catch (error) {
     console.warn("Kunne ikke rydde play-snapshot lokalt:", error);
-  }
-}
-
-export function reloadPage() {
-  if (typeof window !== "undefined") {
-    window.location.reload();
   }
 }
 

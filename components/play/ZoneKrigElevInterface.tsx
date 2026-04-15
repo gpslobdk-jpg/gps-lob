@@ -134,6 +134,7 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
     [gps.myLoc, zones]
   );
   const selectedZoneSolved = progress.solvedPostIndexes.includes(progress.currentPostIndex);
+  const selectedZoneAnswered = progress.answeredPostIndexes.includes(progress.currentPostIndex);
   const zoneCaptureFeedback = progress.currentPost.activeZoneKrigCaptureFeedback;
   const distanceToSelectedZone = formatDistance(gps.distance);
   const isAnswerSubmissionPending =
@@ -681,31 +682,37 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
                 <p className="text-xs font-black uppercase tracking-[0.24em] text-cyan-300">Spørgsmål</p>
                 <h3 className="mt-3 text-lg font-black leading-7">{selectedQuestion?.text ?? "Spørgsmålet mangler."}</h3>
 
-                <div className="mt-4 grid gap-3">
-                  {(selectedQuestion?.answers ?? []).map((answer, index) => {
-                    const feedback = progress.currentPost.activeQuizAnswerFeedback;
-                    const isSuccess = feedback?.tone === "success" && feedback.selectedIndex === index;
-                    const isError = feedback?.tone === "error" && feedback.selectedIndex === index;
+                {!selectedZoneAnswered ? (
+                  <div className="mt-4 grid gap-3">
+                    {(selectedQuestion?.answers ?? []).map((answer, index) => {
+                      const feedback = progress.currentPost.activeQuizAnswerFeedback;
+                      const isSuccess = feedback?.tone === "success" && feedback.selectedIndex === index;
+                      const isError = feedback?.tone === "error" && feedback.selectedIndex === index;
 
-                    return (
-                      <button
-                        key={`${progress.currentPostIndex}-${index}`}
-                        type="button"
-                        disabled={flags.isSubmittingAnswer || flags.isSubmitting || progress.currentPost.activeQuizAnswerFeedback?.tone === "success"}
-                        onClick={() => void actions.submitQuizAnswer(index)}
-                        className={`rounded-3xl border px-4 py-4 text-left text-sm font-semibold transition ${
-                          isSuccess
-                            ? "border-emerald-300/40 bg-emerald-500/20 text-emerald-100"
-                            : isError
-                              ? "border-rose-300/35 bg-rose-500/15 text-rose-50"
-                              : "border-white/10 bg-slate-950/70 text-white hover:border-cyan-400/40 hover:bg-slate-900"
-                        }`}
-                      >
-                        {answer}
-                      </button>
-                    );
-                  })}
-                </div>
+                      return (
+                        <button
+                          key={`${progress.currentPostIndex}-${index}`}
+                          type="button"
+                          disabled={flags.isSubmittingAnswer || flags.isSubmitting || progress.currentPost.activeQuizAnswerFeedback?.tone === "success"}
+                          onClick={() => void actions.submitQuizAnswer(index)}
+                          className={`rounded-3xl border px-4 py-4 text-left text-sm font-semibold transition ${
+                            isSuccess
+                              ? "border-emerald-300/40 bg-emerald-500/20 text-emerald-100"
+                              : isError
+                                ? "border-rose-300/35 bg-rose-500/15 text-rose-50"
+                                : "border-white/10 bg-slate-950/70 text-white hover:border-cyan-400/40 hover:bg-slate-900"
+                          }`}
+                        >
+                          {answer}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-3xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-white/80">
+                    <p>Du har besvaret denne post. Gå videre til næste post på kortet.</p>
+                  </div>
+                )}
 
                 {isAnswerSubmissionPending ? (
                   <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-100">
@@ -725,7 +732,7 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
                   </div>
                 ) : null}
 
-                {progress.currentPost.activeQuizAnswerFeedback?.tone === "success" ? (
+                {progress.currentPost.activeQuizAnswerFeedback?.tone === "success" || selectedZoneAnswered ? (
                   <button
                     type="button"
                     onClick={() => void actions.continueFromSolvedPost()}

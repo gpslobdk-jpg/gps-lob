@@ -61,44 +61,43 @@ function sanitizeAnswerPayload(
 
 type ExistingAnswerRow = {
   id: string;
+  awarded_points?: number | string | null;
+  is_correct?: boolean | null;
 };
 
-async function hasExistingAnswerRecord(
+async function findExistingAnswerRecord(
   payload: Record<string, unknown>,
   admin: NonNullable<ReturnType<typeof createAdminClient>>
-) {
+): Promise<ExistingAnswerRow | null> {
   const sessionId = asTrimmedString(payload.session_id);
-  const participantId = asTrimmedString(payload.participant_id);
   const studentName = asTrimmedString(payload.student_name);
-  const answeredAt = asTrimmedString(payload.answered_at);
-  const createdAt = asTrimmedString(payload.created_at);
+  const participantId = asTrimmedString(payload.participant_id);
+  const answeredPostIndex = getAnsweredPostIndex(payload);
 
-  if (!sessionId) {
-    return false;
+  if (!sessionId || answeredPostIndex === null) {
+    return null;
   }
 
-  const identityFilters = [
-    participantId ? { column: "participant_id", value: participantId } : null,
-    studentName ? { column: "student_name", value: studentName } : null,
-  ].filter((value): value is { column: string; value: string } => value !== null);
+  const lookupCandidates = [
+    studentName ? { column: "student_name" as const, value: studentName } : null,
+    !studentName && participantId ? { column: "participant_id" as const, value: participantId } : null,
+  ].filter((candidate): candidate is { column: "student_name" | "participant_id"; value: string } =>
+    candidate !== null
+  );
 
-  const timestampFilters = [
-    answeredAt ? { column: "answered_at", value: answeredAt } : null,
-    createdAt ? { column: "created_at", value: createdAt } : null,
-  ].filter((value): value is { column: string; value: string } => value !== null);
-
-  if (identityFilters.length === 0 || timestampFilters.length === 0) {
-    return false;
+  if (lookupCandidates.length === 0) {
+    return null;
   }
 
-  for (const identity of identityFilters) {
-    for (const timestamp of timestampFilters) {
+  for (const lookup of lookupCandidates) {
+    for (const column of ["question_index", "post_index"] as const) {
+      const value = column === "question_index" ? answeredPostIndex : answeredPostIndex + 1;
       const { data, error } = await admin
         .from("answers")
-        .select("id")
+        .select("id,is_correct,awarded_points")
         .eq("session_id", sessionId)
-        .eq(identity.column, identity.value)
-        .eq(timestamp.column, timestamp.value)
+        .eq(lookup.column, lookup.value)
+        .eq(column, value)
         .limit(1);
 
       if (error) {
@@ -109,13 +108,14 @@ async function hasExistingAnswerRecord(
         throw new Error(error.message ?? "Kunne ikke tjekke eksisterende svar.");
       }
 
-      if (Array.isArray(data) && (data as ExistingAnswerRow[]).length > 0) {
-        return true;
+      const existingRow = Array.isArray(data) ? (data as ExistingAnswerRow[])[0] ?? null : null;
+      if (existingRow) {
+        return existingRow;
       }
     }
   }
 
-  return false;
+  return null;
 }
 
 async function maybeStampRunStartedAt(
@@ -447,18 +447,34 @@ export async function POST(request: NextRequest) {
       try {
         const enrichedPayload = await withAwardedPoints(payload, runCache);
         const awardedPoints = Number(enrichedPayload.awarded_points) || 0;
-        const existingAnswer = await hasExistingAnswerRecord(enrichedPayload, admin);
+        const incomingIsCorrect = isCorrectAnswerPayload(enrichedPayload);
+        const existingAnswer = await findExistingAnswerRecord(enrichedPayload, admin);
         if (existingAnswer) {
           await maybeStampRunStartedAt(enrichedPayload, admin);
-          const zoneKrigCapture = await maybeCaptureZone(enrichedPayload, admin, awardedPoints, runCache);
-          return NextResponse.json({ inserted: true, awardedPoints, zoneKrigCapture });
+          const existingAwardedPoints = Number(existingAnswer.awarded_points);
+          const responseAwardedPoints =
+            existingAnswer.is_correct === true && incomingIsCorrect && Number.isFinite(existingAwardedPoints)
+              ? Math.max(0, Math.round(existingAwardedPoints))
+              : existingAnswer.is_correct === true && incomingIsCorrect
+                ? awardedPoints
+                : 0;
+          const zoneKrigCapture =
+            existingAnswer.is_correct === true && incomingIsCorrect
+              ? await maybeCaptureZone(enrichedPayload, admin, responseAwardedPoints, runCache)
+              : null;
+          return NextResponse.json({
+            inserted: true,
+            awardedPoints: responseAwardedPoints,
+            zoneKrigCapture,
+            isLocked: true,
+          });
         }
 
         const { error } = await admin.from("answers").insert(enrichedPayload);
         if (!error) {
           await maybeStampRunStartedAt(enrichedPayload, admin);
           const zoneKrigCapture = await maybeCaptureZone(enrichedPayload, admin, awardedPoints, runCache);
-          return NextResponse.json({ inserted: true, awardedPoints, zoneKrigCapture });
+          return NextResponse.json({ inserted: true, awardedPoints, zoneKrigCapture, isLocked: true });
         }
 
         if (isMissingColumnError(error)) {

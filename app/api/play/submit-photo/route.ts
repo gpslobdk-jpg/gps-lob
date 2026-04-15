@@ -31,6 +31,8 @@ type ActiveSessionRow = {
 type ExistingPhotoAnswerRow = {
   id?: string | null;
   image_url?: string | null;
+  awarded_points?: number | string | null;
+  is_correct?: boolean | null;
 };
 
 type SupabaseLikeError = {
@@ -175,27 +177,51 @@ async function fetchActiveSession(
 
 async function findExistingPhotoAnswer(
   sessionId: string,
+  studentName: string,
   participantId: string,
-  answeredAt: string,
+  postIndex: number,
   adminSupabase: AdminSupabaseClient
-) {
-  const { data, error } = await adminSupabase
-    .from("answers")
-    .select("id,image_url")
-    .eq("session_id", sessionId)
-    .eq("participant_id", participantId)
-    .eq("answered_at", answeredAt)
-    .maybeSingle<ExistingPhotoAnswerRow>();
+): Promise<ExistingPhotoAnswerRow | null> {
+  const normalizedStudentName = asTrimmedString(studentName);
+  const lookupCandidates = [
+    normalizedStudentName ? { column: "student_name" as const, value: normalizedStudentName } : null,
+    !normalizedStudentName && asTrimmedString(participantId)
+      ? { column: "participant_id" as const, value: asTrimmedString(participantId) }
+      : null,
+  ].filter((candidate): candidate is { column: "student_name" | "participant_id"; value: string } =>
+    candidate !== null
+  );
 
-  if (error) {
-    if (isMissingColumnError(error)) {
-      return null;
-    }
-
-    throw new Error(error.message ?? "Kunne ikke tjekke eksisterende foto-svar.");
+  if (lookupCandidates.length === 0) {
+    return null;
   }
 
-  return data ?? null;
+  for (const lookup of lookupCandidates) {
+    for (const column of ["question_index", "post_index"] as const) {
+      const value = column === "question_index" ? postIndex : postIndex + 1;
+      const { data, error } = await adminSupabase
+        .from("answers")
+        .select("id,image_url,awarded_points,is_correct")
+        .eq("session_id", sessionId)
+        .eq(lookup.column, lookup.value)
+        .eq(column, value)
+        .maybeSingle<ExistingPhotoAnswerRow>();
+
+      if (error) {
+        if (isMissingColumnError(error)) {
+          continue;
+        }
+
+        throw new Error(error.message ?? "Kunne ikke tjekke eksisterende foto-svar.");
+      }
+
+      if (data) {
+        return data;
+      }
+    }
+  }
+
+  return null;
 }
 
 async function maybeStampRunStartedAt(
@@ -298,6 +324,39 @@ export async function POST(request: Request) {
       );
     }
 
+    const existingAnswer = await findExistingPhotoAnswer(
+      sessionId,
+      studentName,
+      participantId,
+      postIndex,
+      adminSupabase
+    );
+    const awardedPoints = getAwardedPoints(rawQuestion, true);
+
+    if (existingAnswer) {
+      await maybeStampRunStartedAt(
+        sessionId,
+        participantId,
+        postIndex,
+        run.raceType ?? run.race_type,
+        run.questions.length,
+        adminSupabase,
+        answeredAt
+      );
+
+      const existingAwardedPoints = Number(existingAnswer.awarded_points);
+      const responseAwardedPoints =
+        Number.isFinite(existingAwardedPoints) ? Math.max(0, Math.round(existingAwardedPoints)) : awardedPoints;
+
+      return NextResponse.json({
+        storedAnswer: true,
+        awardedPoints: responseAwardedPoints,
+        imageUrl: existingAnswer.image_url ?? null,
+        message: "Billedet er uploadet til laererens foto-stroem.",
+        isLocked: true,
+      });
+    }
+
     const uploadedPhoto = await uploadPhotoToStorage(
       image,
       sessionId,
@@ -311,62 +370,53 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Billedet kunne ikke uploades." }, { status: 500 });
     }
 
-    const existingAnswer = await findExistingPhotoAnswer(
+    const { error } = await adminSupabase.from("answers").insert({
+      session_id: sessionId,
+      participant_id: participantId,
+      student_name: studentName.trim(),
+      post_index: postIndex + 1,
+      question_index: postIndex,
+      selected_index: 0,
+      answer_index: 0,
+      is_correct: true,
+      awarded_points: awardedPoints,
+      question_text: getQuestionText(rawQuestion),
+      image_url: uploadedPhoto.imageUrl,
+      answered_at: answeredAt,
+      created_at: answeredAt,
+    });
+
+    if (error) {
+      console.error("Kunne ikke gemme foto-upload i answers:", error);
+      await logHandledServerError({
+        route: "/api/play/submit-photo",
+        method: "POST",
+        status: 500,
+        error,
+        requestPath,
+        routeType: "route",
+        participantId,
+        sessionId,
+      });
+      return NextResponse.json({ error: error.message ?? "Kunne ikke gemme fotoet." }, { status: 500 });
+    }
+
+    await maybeStampRunStartedAt(
       sessionId,
       participantId,
-      answeredAt,
-      adminSupabase
+      postIndex,
+      run.raceType ?? run.race_type,
+      run.questions.length,
+      adminSupabase,
+      answeredAt
     );
-    const awardedPoints = getAwardedPoints(rawQuestion, true);
-
-    if (!existingAnswer?.id) {
-      const { error } = await adminSupabase.from("answers").insert({
-        session_id: sessionId,
-        participant_id: participantId,
-        student_name: studentName.trim(),
-        post_index: postIndex + 1,
-        question_index: postIndex,
-        selected_index: 0,
-        answer_index: 0,
-        is_correct: true,
-        awarded_points: awardedPoints,
-        question_text: getQuestionText(rawQuestion),
-        image_url: uploadedPhoto.imageUrl,
-        answered_at: answeredAt,
-        created_at: answeredAt,
-      });
-
-      if (error) {
-        console.error("Kunne ikke gemme foto-upload i answers:", error);
-        await logHandledServerError({
-          route: "/api/play/submit-photo",
-          method: "POST",
-          status: 500,
-          error,
-          requestPath,
-          routeType: "route",
-          participantId,
-          sessionId,
-        });
-        return NextResponse.json({ error: error.message ?? "Kunne ikke gemme fotoet." }, { status: 500 });
-      }
-
-      await maybeStampRunStartedAt(
-        sessionId,
-        participantId,
-        postIndex,
-        run.raceType ?? run.race_type,
-        run.questions.length,
-        adminSupabase,
-        answeredAt
-      );
-    }
 
     return NextResponse.json({
       storedAnswer: true,
       awardedPoints,
       imageUrl: uploadedPhoto.imageUrl,
       message: "Billedet er uploadet til laererens foto-stroem.",
+      isLocked: true,
     });
   } catch (error) {
     if (error instanceof Error && error.message === ADMIN_ACCESS_MISSING_MESSAGE) {
