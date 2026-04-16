@@ -1,12 +1,15 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { Loader2, Printer, Sparkles } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { BUILDER_SUBJECTS } from "@/utils/subjects";
-import { GRADE_LEVEL_OPTIONS } from "@/utils/gradeLevels";
+import { DEFAULT_SELECTED_GRADE_LEVELS, type GradeLevel } from "@/utils/gradeLevels";
+import GradeLevelMultiSelect from "@/components/builders/GradeLevelMultiSelect";
 
 const rubik = Rubik({ subsets: ["latin"], weight: ["700", "800", "900"] });
 const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -18,7 +21,7 @@ export default function StjerneloebPage() {
   const router = useRouter();
   const [topic, setTopic] = useState("");
   const [subject, setSubject] = useState("");
-  const [gradeLevel, setGradeLevel] = useState("");
+  const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>(DEFAULT_SELECTED_GRADE_LEVELS);
   const [count, setCount] = useState<number>(6);
   const [raceType, setRaceType] = useState<"classic" | "crossword">("classic");
   const [loading, setLoading] = useState(false);
@@ -35,7 +38,7 @@ export default function StjerneloebPage() {
       const res = await fetch("/api/stjerneloeb-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: topic.trim(), subject, gradeLevel, count, raceType }),
+        body: JSON.stringify({ topic: topic.trim(), subject, gradeLevels: gradeLevels.length > 0 ? gradeLevels : undefined, count, raceType }),
       });
       const data = (await res.json()) as { id?: string; error?: string };
       if (!res.ok || !data.id) {
@@ -116,18 +119,11 @@ export default function StjerneloebPage() {
               <label className="mb-2 block text-sm font-semibold text-slate-300">
                 Klassetrin
               </label>
-              <select
-                value={gradeLevel}
-                onChange={(e) => setGradeLevel(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none transition focus:border-violet-500/60 focus:ring-2 focus:ring-violet-500/20"
-              >
-                <option value="">Vælg klassetrin (valgfrit)</option>
-                {GRADE_LEVEL_OPTIONS.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
+              <GradeLevelMultiSelect
+                selectedGradeLevels={gradeLevels}
+                onChange={setGradeLevels}
+                tone="indigo"
+              />
             </div>
           </div>
 
