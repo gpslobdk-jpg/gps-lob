@@ -4,6 +4,11 @@ import { NextResponse } from "next/server";
 
 import type { Post } from "@/components/play/types";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
+import {
+  formatGradeLevelsForPrompt,
+  getGradeLevelRange,
+  normalizeGradeLevels,
+} from "@/utils/gradeLevels";
 
 export const maxDuration = 300;
 
@@ -41,13 +46,14 @@ function getRequestedPostCount(prompt: string) {
 const magicPostSchema = jsonSchema<RawMagicPost>({
   type: "object",
   additionalProperties: false,
+  required: ["id", "type", "lat", "lng", "question", "options", "answer", "mission", "unlockRange"],
   properties: {
     id: {
       type: "integer",
       minimum: 1,
     },
     type: {
-      anyOf: [{ type: "string" }, { type: "null" }],
+      type: "string",
     },
     lat: {
       type: "number",
@@ -68,7 +74,7 @@ const magicPostSchema = jsonSchema<RawMagicPost>({
       type: "string",
     },
     mission: {
-      anyOf: [{ type: "string" }, { type: "null" }],
+      type: "string",
     },
     unlockRange: {
       type: "integer",
@@ -80,6 +86,34 @@ const magicPostSchema = jsonSchema<RawMagicPost>({
 
 function getTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function resolveMagiGradeLevelGuidance(gradeLevels: readonly string[]): string {
+  const { lowestGrade, highestGrade } = getGradeLevelRange(gradeLevels);
+
+  if (lowestGrade !== null && highestGrade !== null && lowestGrade !== highestGrade) {
+    return `Tilpas sproget saa det er tilgaengeligt for ${lowestGrade}. klasse, men byg faglig progression ind til ${highestGrade}. klasse. Varier svaerhedsgraden paa tvaers af posterne.`;
+  }
+
+  const gradeNumber = highestGrade;
+
+  if (gradeNumber !== null && gradeNumber <= 2) {
+    return "Brug meget enkelt, kort og konkret sprog. Korte saetninger, dagligdags ord, ingen fagtermer. Svarmulighederne skal vaere korte (1-3 ord). Spoergsmaalene skal vaere meget konkrete og lette at afkode.";
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 4) {
+    return "Brug klart, overskueligt sprog med korte saetninger og velkendte situationer. Enkle fagbegreber er okay, men de skal forklares kort. Spoergsmaalene skal kraeve simpel forstaaelse.";
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 6) {
+    return "Brug klart og alderssvarende sprog med lidt mere variation og faglig dybde. Fagbegreber maa bruges. Spoergsmaalene skal kraeve let logisk taenkning og refleksion.";
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 9) {
+    return "Brug praecist, udfordrende sprog med fagtermer og komplekse saetninger. Spoergsmaalene maa gerne kraeve analyse, perspektivering og kildekritisk taenkning. Hoejt fagligt niveau.";
+  }
+
+  return "Brug klart og alderssvarende sprog med lidt mere variation og faglig dybde.";
 }
 
 function getFallbackOption(index: number, existingOptions: string[]) {
@@ -162,12 +196,16 @@ export async function POST(req: Request) {
   const requestPath = new URL(req.url).pathname;
 
   try {
-    const { prompt } = (await req.json()) as { prompt?: string };
+    const { prompt, gradeLevels: rawGradeLevels } = (await req.json()) as { prompt?: string; gradeLevels?: unknown };
     const trimmedPrompt = typeof prompt === "string" ? prompt.trim() : "";
 
     if (!trimmedPrompt) {
       return NextResponse.json({ error: "Prompt mangler." }, { status: 400 });
     }
+
+    const gradeLevels = normalizeGradeLevels(rawGradeLevels);
+    const gradeLevelLabel = gradeLevels.length > 0 ? formatGradeLevelsForPrompt(gradeLevels) : "Mellemtrin (4.–6. klasse)";
+    const gradeLevelGuidance = resolveMagiGradeLevelGuidance(gradeLevels);
 
     if (!process.env.OPENAI_API_KEY) {
       await logHandledServerError({
@@ -195,6 +233,9 @@ export async function POST(req: Request) {
 Du SKAL returnere praecis ${requestedPostCount} poster.
 DU SKAL GENERERE PRAECIS ${requestedPostCount} POSTER. DETTE ER ET ABSOLUT KRAV.
 Svar kun med strukturerede objekter, der matcher schemaet.
+
+Klasetrin: ${gradeLevelLabel}.
+${gradeLevelGuidance}
 
 Regler:
 - Lav poster, der passer direkte til brugerens emne.
