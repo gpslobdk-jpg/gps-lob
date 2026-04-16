@@ -5,6 +5,12 @@ import { z } from "zod";
 
 import { createClient } from "@/utils/supabase/server";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
+import {
+  formatGradeLevelsForPrompt,
+  GRADE_LEVEL_OPTIONS,
+  getGradeLevelRange,
+  normalizeGradeLevels,
+} from "@/utils/gradeLevels";
 
 export const maxDuration = 120;
 
@@ -21,7 +27,7 @@ const MAX_SUBJECT_LENGTH = 80;
 type GeneratePayload = {
   topic?: unknown;
   subject?: unknown;
-  gradeLevel?: unknown;
+  gradeLevels?: unknown;
   count?: unknown;
   raceType?: unknown;
 };
@@ -31,11 +37,9 @@ const postSchemaClassic = z
     title: z.string().trim().min(1),
     body_text: z.string().trim().min(1),
     image_prompt: z.string().trim().min(1),
-    question: z.string().trim().min(1).optional(),
-    options: z.array(z.string().trim().min(1)).length(4).optional(),
-    correct_index: z.number().int().min(0).max(3).optional(),
-    hint: z.string().trim().optional(),
-    answer_word: z.string().trim().max(12).regex(/^[A-ZÆØÅ0-9]+$/).optional(),
+    question: z.string().trim().min(1),
+    options: z.array(z.string().trim().min(1)).length(4),
+    correct_index: z.number().int().min(0).max(3),
   })
   .strict();
 
@@ -46,9 +50,6 @@ const postSchemaCrossword = z
     image_prompt: z.string().trim().min(1),
     hint: z.string().trim().min(1),
     answer_word: z.string().trim().max(12).regex(/^[A-ZÆØÅ0-9]+$/),
-    question: z.string().trim().optional(),
-    options: z.array(z.string().trim().min(1)).length(4).optional(),
-    correct_index: z.number().int().min(0).max(3).optional(),
   })
   .strict();
 
@@ -121,6 +122,71 @@ function resolveImageArtDirection(subject: string): ImageArtDirection {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Pedagogical grade-band router (Gold Standard)
+// ---------------------------------------------------------------------------
+
+function resolveStjerneloebGradeLevelGuidance(gradeLevels: readonly string[]): string {
+  const { lowestGrade, highestGrade } = getGradeLevelRange(gradeLevels);
+  const gradeLevelLabel = formatGradeLevelsForPrompt(gradeLevels);
+
+  if (lowestGrade !== null && highestGrade !== null && lowestGrade !== highestGrade) {
+    return `Målgruppe: ${gradeLevelLabel} (flere klassetrin, ${lowestGrade}.-${highestGrade}. klasse).
+Pædagogiske regler — SKAL overholdes strengt:
+- Hold sproget tilgængeligt nok til de yngste, men byg faglig progression og udfordring ind til de ældste.
+- Brødteksten skal være kort nok til at de yngste kan læse den, men fagligt stærk nok til at de ældste får udbytte.
+- Spørgsmålene skal variere i sværhedsgrad, så der er noget for alle niveauer.
+- Tonen skal være engageret, klar og alderssvarende for den brede gruppe.`;
+  }
+
+  const gradeNumber = highestGrade;
+
+  if (gradeNumber !== null && gradeNumber <= 2) {
+    return `Målgruppe: Indskoling (${gradeLevelLabel}, 6-8 år).
+Pædagogiske regler — SKAL overholdes strengt:
+- Brødteksten skal være meget kort med korte, enkle sætninger. Brug kun hovedsætninger, ingen bisætninger.
+- Brug kun dagligdags, konkrete ord som barnet kender fra hverdagen. Undgå alle fremmedord, fagtermer og abstrakte begreber.
+- Spørgsmålene skal være meget konkrete, enkle og lette at afkode. Svarmulighederne skal være korte (1-3 ord).
+- Tonen skal være varm, nysgerrig og opmuntrende, som en venlig voksen der fortæller.`;
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 4) {
+    return `Målgruppe: Begyndende mellemtrin (${gradeLevelLabel}, 9-10 år).
+Pædagogiske regler — SKAL overholdes strengt:
+- Brødteksten skal være kort og overskuelig med tydelige sætninger.
+- Brug velkendte situationer, korte cases og tydelige formuleringer.
+- Du må gerne bruge enkle fagbegreber, men de skal forklares kort i selve teksten.
+- Spørgsmålene skal kræve simpel forståelse og genkendelse. Svarmulighederne skal være korte og realistiske.
+- Tonen skal være engageret og informativ.`;
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 6) {
+    return `Målgruppe: Mellemtrin (${gradeLevelLabel}, 10-12 år).
+Pædagogiske regler — SKAL overholdes strengt:
+- Brødteksten skal være informativ med klare sætninger og lidt mere faglig dybde.
+- Du må gerne bruge fagbegreber, men de skal forklares kort i selve teksten første gang de bruges.
+- Spørgsmålene skal kræve let logisk tænkning — ikke bare direkte aflæsning, men kort refleksion over teksten.
+- Tonen skal være engageret og informativ, som en god lærebog.`;
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 9) {
+    return `Målgruppe: Udskoling (${gradeLevelLabel}, 13-16 år).
+Pædagogiske regler — SKAL overholdes strengt:
+- Brødteksten skal have et højt fagligt niveau med præcise, sammensatte sætninger.
+- Brug præcise fagtermer, videnskabelige begreber og abstrakte koncepter frit uden at forklare dem.
+- Spørgsmålene må gerne kræve analyse, perspektivering, sammenligning eller kildekritisk tænkning.
+- Tonen skal være saglig, akademisk og udfordrende, som et fagligt opslagsværk.`;
+  }
+
+  // Fallback: default to mellemtrin rules
+  return `Målgruppe: Mellemtrin (generelt niveau, 10-12 år).
+Pædagogiske regler — SKAL overholdes strengt:
+- Brødteksten skal være informativ med klare sætninger og lidt mere faglig dybde.
+- Du må gerne bruge fagbegreber, men de skal forklares kort i selve teksten første gang de bruges.
+- Spørgsmålene skal kræve let logisk tænkning — ikke bare direkte aflæsning, men kort refleksion over teksten.
+- Tonen skal være engageret og informativ, som en god lærebog.`;
+}
+
 export async function POST(req: Request) {
   const requestPath = new URL(req.url).pathname;
 
@@ -165,7 +231,10 @@ export async function POST(req: Request) {
 
     const topic = asTrimmedString(payload.topic);
     const subject = asTrimmedString(payload.subject);
-    const gradeLevel = asTrimmedString(payload.gradeLevel);
+    const gradeLevels = normalizeGradeLevels(
+      Array.isArray(payload.gradeLevels) ? payload.gradeLevels : []
+    );
+    const gradeLevelLabel = formatGradeLevelsForPrompt(gradeLevels);
 
     const count = asCount(payload.count);
     const raceType = (typeof payload.raceType === "string" && (payload.raceType === "crossword" || payload.raceType === "classic")) ? payload.raceType : "classic";
@@ -190,7 +259,7 @@ export async function POST(req: Request) {
     }
 
 
-    const gradeLine = gradeLevel ? `- Sproglig sværhedsgrad og ordvalg skal passe til ${gradeLevel}.` : "";
+    const pedagogicalRules = resolveStjerneloebGradeLevelGuidance(gradeLevels);
     const subjectLine = subject ? `- Brug faget \"${subject}\" som faglig ramme for alle poster.` : "";
     const imageArtDirection = resolveImageArtDirection(subject);
     const imageDirectionLine =
@@ -204,10 +273,12 @@ export async function POST(req: Request) {
 Et stjerneløb er en serie af laminerede A4-post-kort, der hænges rundt i skolegården.
 Elever vandrer fra post til post, læser teksten, ser på billedet og skal gætte et ord ud fra en ledetråd.
 
+${pedagogicalRules}
+
 Vigtige regler:
 - Alt indhold skal være på dansk.
 - Lav præcis ${count} poster.
-- Hver post skal have: en kort overskrift, en læsbar brødtekst (3-5 sætninger der fortæller noget fagligt interessant), et billedprompt på ENGELSK til en AI-billedgenerator, et answer_word (et kort, logisk ord uden specialtegn, der relaterer til postens tekst, max 12 tegn, store bogstaver, ingen mellemrum) og et hint (en kort ledetråd til ordet).
+- Hver post skal have: en kort overskrift, en læsbar brødtekst (se sætningskrav ovenfor), et billedprompt på ENGELSK til en AI-billedgenerator, et answer_word (et kort, logisk ord uden specialtegn, der relaterer til postens tekst, max 12 tegn, store bogstaver, ingen mellemrum) og et hint (en kort ledetråd til ordet).
 - answer_word skal være på formatet: kun store bogstaver og tal, ingen mellemrum eller specialtegn, max 12 tegn.
 - hint skal være en kort, præcis ledetråd til answer_word.
 - Må IKKE generere options eller correct_index.
@@ -215,25 +286,25 @@ Vigtige regler:
 ${imageDirectionLine}
 ${imagePurposeLine}
 - Giv løbet en samlet titel.
-${subjectLine}
-${gradeLine}`;
+${subjectLine}`;
     } else {
       systemPrompt = `Du er en dansk lærer, der laver et analogt stjerneløb til udendørs undervisning.
 Et stjerneløb er en serie af laminerede A4-post-kort, der hænges rundt i skolegården.
 Elever vandrer fra post til post, læser teksten, ser på billedet og besvarer spørgsmålet.
 
+${pedagogicalRules}
+
 Vigtige regler:
 - Alt indhold skal være på dansk.
 - Lav præcis ${count} poster.
-- Hver post skal have: en kort overskrift, en læsbar brødtekst (3-5 sætninger der fortæller noget fagligt interessant), et billedprompt på ENGELSK til en AI-billedgenerator, et fagligt spørgsmål og præcis 4 svarmuligheder.
+- Hver post skal have: en kort overskrift, en læsbar brødtekst (se sætningskrav ovenfor), et billedprompt på ENGELSK til en AI-billedgenerator, et fagligt spørgsmål og præcis 4 svarmuligheder.
 - Kun ét svar er korrekt (correct_index 0-3).
 - Brødteksten skal indeholde svaret på spørgsmålet, så elever kan finde det ved at læse.
 - Billedprompt på engelsk: én enkel prompt på naturligt engelsk, uden citationstegn eller punktform, og den skal passe direkte til posten.
 ${imageDirectionLine}
 ${imagePurposeLine}
 - Giv løbet en samlet titel.
-${subjectLine}
-${gradeLine}`;
+${subjectLine}`;
     }
 
     const controller = new AbortController();
@@ -267,6 +338,9 @@ ${gradeLine}`;
     }
 
     // Attach Pollinations image URLs
+    type ClassicPost = z.infer<typeof postSchemaClassic>;
+    type CrosswordPost = z.infer<typeof postSchemaCrossword>;
+
     const posts = result.posts.map((post, i) => {
       const base = {
         number: i + 1,
@@ -276,17 +350,19 @@ ${gradeLine}`;
         image_url: buildPollinationsUrl(post.image_prompt),
       };
       if (raceType === "crossword") {
+        const p = post as CrosswordPost;
         return {
           ...base,
-          hint: post.hint,
-          answer_word: post.answer_word,
+          hint: p.hint,
+          answer_word: p.answer_word,
         };
       } else {
+        const p = post as ClassicPost;
         return {
           ...base,
-          question: post.question,
-          options: post.options,
-          correct_index: post.correct_index,
+          question: p.question,
+          options: p.options,
+          correct_index: p.correct_index,
         };
       }
     });
@@ -297,7 +373,7 @@ ${gradeLine}`;
         user_id: user.id,
         title: result.title,
         subject: subject || "Ikke angivet",
-        grade_level: gradeLevel || "Ikke angivet",
+        grade_level: gradeLevelLabel || "Ikke angivet",
         posts,
       })
       .select("id")
