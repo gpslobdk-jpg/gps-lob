@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, KeyRound, LayoutDashboard, Sun, Sparkles, Wifi } from "lucide-react";
+import { ArrowLeft, KeyRound, LayoutDashboard, Leaf, Palette, Rocket, ShieldCheck, SmartphoneNfc, Sun, Sparkles, Wifi, WifiOff } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -17,6 +17,39 @@ interface Entry {
 }
 
 const entries: Entry[] = [
+  {
+    date: "16. april 2026",
+    title: "GPSløb Version 2.0",
+    tag: "Stor udgivelse",
+    showTitleIcon: false,
+    items: [
+      {
+        icon: <Palette className="h-4 w-4 text-emerald-400" />,
+        heading: "Nyt 'Nature-Glass' Design",
+        body: "En smukkere og mere flydende brugeroplevelse.",
+      },
+      {
+        icon: <Sparkles className="h-4 w-4 text-amber-400" />,
+        heading: "Pædagogisk AI 2.0",
+        body: "Præcis differentiering til alle klassetrin (1.-9. klasse).",
+      },
+      {
+        icon: <WifiOff className="h-4 w-4 text-emerald-400" />,
+        heading: "Offline-Overlevelse",
+        body: "Appen gemmer data lokalt, hvis forbindelsen ryger i skoven.",
+      },
+      {
+        icon: <SmartphoneNfc className="h-4 w-4 text-emerald-400" />,
+        heading: "Apple & Safari Optimeret",
+        body: "Testet og sikret til iPhone-brugere.",
+      },
+      {
+        icon: <Leaf className="h-4 w-4 text-amber-400" />,
+        heading: "Fysisk Stjerneløb",
+        body: "Nu som selvstændigt værktøj til analoge løb.",
+      },
+    ],
+  },
   {
     date: "13. april 2026",
     title: "Opdatering 13. april: Selv-helende GPS-løb og øget stabilitet",

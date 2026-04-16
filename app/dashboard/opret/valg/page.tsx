@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowLeft, CircleHelp, Shield } from "lucide-react";
+import { ArrowLeft, CircleHelp, Printer, Shield } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
@@ -443,6 +443,48 @@ export default function ValgHubPage() {
           {aiCards.map((card, index) => (
             <BuilderCard key={`${card.title}-${index}`} card={card} index={index} />
           ))}
+        </div>
+
+        <div className="w-full h-px bg-white/10 my-12" />
+
+        <h2 className={`text-2xl font-black tracking-[0.18em] text-white drop-shadow-md uppercase mb-3 ${rubik.className}`}>
+          Analoge Værktøjer
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
+          <Link href="/dashboard/opret/stjerneloeb" className="block w-full text-left">
+            <motion.article
+              whileHover={{ y: -4, scale: 1.012 }}
+              className={`${cardBaseClass} cursor-pointer border-lime-500/75 bg-lime-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(132,204,22,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]`}
+            >
+              <div className={cardBackgroundShellClass}>
+                <div className="absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(132,204,22,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(132,204,22,0.24)]" />
+                <div className="absolute inset-[1px] rounded-[1.95rem]" />
+              </div>
+
+              <div className="absolute top-4 right-4 z-20">
+                <span className="inline-flex items-center rounded-full border border-lime-300/40 bg-lime-400/20 px-3 py-1 text-[0.58rem] font-bold tracking-[0.18em] text-white uppercase shadow-[0_10px_22px_rgba(132,204,22,0.18)] backdrop-blur-md">
+                  ANALOGT
+                </span>
+              </div>
+
+              <div className={`${cardPanelClass} text-slate-950`}>
+                <div className="relative z-10 flex h-full w-full flex-col items-center justify-center text-center">
+                  <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full border border-lime-300/35 bg-lime-500/18 shadow-[0_10px_30px_rgba(132,204,22,0.22)]">
+                    <Printer className="h-6 w-6 text-lime-200" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <h2 className={`text-[1.4rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
+                      Fysisk Stjerneløb
+                    </h2>
+                    <p className="mx-auto max-w-[15rem] text-xs leading-tight text-white/84">
+                      Opret analoge stjerneløb til print, hvor posterne findes fysisk i terrænet uden brug af GPS. Perfekt som backup eller til kortere aktiviteter.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.article>
+          </Link>
         </div>
 
         <div className="w-full h-px bg-white/10 my-12" />
