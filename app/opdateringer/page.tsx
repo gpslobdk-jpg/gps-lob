@@ -13,6 +13,7 @@ interface Entry {
   title: string;
   tag: string;
   showTitleIcon?: boolean;
+  intro?: string;
   items: { icon: React.ReactNode; heading: string; body: string }[];
 }
 
@@ -22,6 +23,7 @@ const entries: Entry[] = [
     title: "GPSløb Version 2.0",
     tag: "Stor udgivelse",
     showTitleIcon: false,
+    intro: "Kære lærere. Tak for jeres store tålmodighed! Vi ved, at det kan være frustrerende at møde en lukket dør, når man har planlagt undervisning. Vi var desværre nødt til at lukke platformen midlertidigt ned, fordi vi skulle udskifte hele 'motoren' under systemet. Det var nødvendigt for at sikre, at GPSløb fremover er lynhurtigt, aldrig mister jeres data i skoven, og virker fejlfrit på alle telefoner. Nu er dørene åbne igen, og vi er utroligt stolte af at præsentere resultatet!",
     items: [
       {
         icon: <Palette className="h-4 w-4 text-emerald-400" />,
@@ -217,6 +219,12 @@ export default function OpdateringerPage() {
                   <h2 className="mb-5 text-lg font-bold leading-snug text-white">
                     {entry.showTitleIcon === false ? entry.title : `✨ ${entry.title}`}
                   </h2>
+
+                  {entry.intro ? (
+                    <p className="mb-6 text-sm leading-7 text-slate-400">
+                      {entry.intro}
+                    </p>
+                  ) : null}
 
                   <ul className="space-y-5">
                     {entry.items.map((item, j) => (
