@@ -1,13 +1,18 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   Activity,
   BarChart3,
+  ChevronDown,
   ChevronLeft,
+  ChevronUp,
   Clock,
   Heart,
+  Info,
   RefreshCw,
+  Star,
   Target,
   TreePine,
   Users,
@@ -15,6 +20,15 @@ import {
 } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
 import { useCallback, useEffect, useRef, useState } from "react";
+
+const AdminLogsFeed = dynamic(() => import("./logs/page"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center py-16">
+      <RefreshCw className="h-6 w-6 animate-spin text-emerald-400/40" />
+    </div>
+  ),
+});
 
 const rubik = Rubik({ subsets: ["latin"], weight: ["700", "800", "900"] });
 const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -45,6 +59,7 @@ const RACE_TYPE_LABELS: Record<string, { label: string; icon: string }> = {
 };
 
 type RaceTypeCount = { race_type: string; count: number };
+type TopUser = { name: string; runsCreated: number };
 
 type HealthData = {
   activeSessions: number;
@@ -54,6 +69,7 @@ type HealthData = {
   correctAnswerRate: number | null;
   totalAnswersToday: number;
   raceTypes: RaceTypeCount[];
+  topUsers: TopUser[];
   generatedAt: string;
   hours: number;
 };
@@ -76,6 +92,7 @@ export default function HealthDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hours, setHours] = useState(24);
+  const [showLogs, setShowLogs] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -227,6 +244,7 @@ export default function HealthDashboardPage() {
                 value={data.runsCreated + data.stjerneloebCreated}
                 sublabel={`seneste ${data.hours === 1 ? "time" : `${data.hours} timer`}`}
                 accent="emerald"
+                info="Samlet antal GPS-løb og Stjerneløb oprettet af lærere i den valgte tidsperiode. Viser hvor aktivt platformen bruges til at oprette nye læringsforløb."
               />
               <MetricCard
                 icon={<Users className="h-5 w-5" />}
@@ -235,6 +253,7 @@ export default function HealthDashboardPage() {
                 sublabel="seneste 5 minutter"
                 accent="teal"
                 pulse
+                info="Antal unikke elever der har deres telefon fremme og deltager i et løb inden for de sidste 5 minutter. En høj værdi indikerer aktiv brug i undervisningen lige nu."
               />
               <MetricCard
                 icon={<Activity className="h-5 w-5" />}
@@ -242,6 +261,7 @@ export default function HealthDashboardPage() {
                 value={data.activeSessions}
                 sublabel="kører lige nu"
                 accent="green"
+                info="Antal live-sessioner der kører lige nu (venter, aktive eller i gang). Hver session repræsenterer en lærer der har startet et løb med elever."
               />
             </div>
 
@@ -364,15 +384,66 @@ export default function HealthDashboardPage() {
               </div>
             )}
 
-            {/* Footer link to technical logs */}
-            <footer className="mt-12 border-t border-white/5 pt-6 text-center">
-              <Link
-                href="/dashboard/admin/logs"
-                className="inline-flex items-center gap-2 text-sm text-emerald-300/40 transition hover:text-emerald-300/70"
+            {/* Top 5 users */}
+            {data.topUsers.length > 0 && (
+              <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-400/20 bg-amber-500/10">
+                    <Star className="h-5 w-5 text-amber-400" />
+                  </div>
+                  <h2 className={`${rubik.className} text-lg font-bold text-white`}>
+                    Top 5 mest aktive lærere
+                  </h2>
+                  <span className="ml-auto text-xs text-emerald-200/40">
+                    seneste {data.hours === 1 ? "time" : `${data.hours} timer`}
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  {data.topUsers.map((user, i) => {
+                    const medals = ["🥇", "🥈", "🥉"];
+                    const maxCount = data.topUsers[0]?.runsCreated ?? 1;
+                    const pct = Math.round((user.runsCreated / maxCount) * 100);
+                    return (
+                      <div key={i}>
+                        <div className="mb-1 flex items-center justify-between">
+                          <span className="flex items-center gap-2 text-sm text-white/80 min-w-0">
+                            <span className="shrink-0 w-5 text-center">{medals[i] ?? `${i + 1}.`}</span>
+                            <span className="truncate">{user.name}</span>
+                          </span>
+                          <span className="text-sm font-semibold text-amber-300">
+                            {user.runsCreated} løb
+                          </span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 transition-all duration-500"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Embedded logs section */}
+            <section className="mt-10">
+              <button
+                onClick={() => setShowLogs((v) => !v)}
+                className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-6 py-4 text-sm font-medium text-emerald-200/70 backdrop-blur-md transition hover:bg-white/10 hover:text-emerald-200 min-h-[44px]"
+                data-testid="toggle-logs"
               >
-                Se teknisk log (Kun for udviklere) →
-              </Link>
-            </footer>
+                {showLogs ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                {showLogs ? "Skjul teknisk log" : "Vis teknisk log (Kun for udviklere)"}
+              </button>
+
+              {showLogs && (
+                <div className="rounded-2xl border border-white/10 overflow-hidden">
+                  <AdminLogsFeed />
+                </div>
+              )}
+            </section>
           </>
         )}
       </div>
@@ -389,6 +460,7 @@ type MetricCardProps = {
   sublabel: string;
   accent: "emerald" | "teal" | "green";
   pulse?: boolean;
+  info?: string;
 };
 
 const accentMap = {
@@ -412,7 +484,8 @@ const accentMap = {
   },
 };
 
-function MetricCard({ icon, label, value, sublabel, accent, pulse }: MetricCardProps) {
+function MetricCard({ icon, label, value, sublabel, accent, pulse, info }: MetricCardProps) {
+  const [showInfo, setShowInfo] = useState(false);
   const a = accentMap[accent];
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md transition hover:bg-white/[0.07]">
@@ -421,7 +494,17 @@ function MetricCard({ icon, label, value, sublabel, accent, pulse }: MetricCardP
           <span className={a.text}>{icon}</span>
         </div>
         <span className="text-sm font-medium text-white/70">{label}</span>
-        {pulse && (
+        {info && (
+          <button
+            onClick={() => setShowInfo((v) => !v)}
+            className="ml-auto flex h-7 w-7 items-center justify-center rounded-full text-white/30 transition hover:bg-white/10 hover:text-white/60"
+            aria-label="Vis forklaring"
+            data-testid="metric-info-toggle"
+          >
+            <Info className="h-4 w-4" />
+          </button>
+        )}
+        {pulse && !info && (
           <span className="relative ml-auto flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-teal-400" />
@@ -432,6 +515,11 @@ function MetricCard({ icon, label, value, sublabel, accent, pulse }: MetricCardP
         {value.toLocaleString("da-DK")}
       </p>
       <p className="mt-1 text-xs text-white/40">{sublabel}</p>
+      {info && showInfo && (
+        <p className="mt-3 rounded-xl bg-white/5 p-3 text-xs leading-relaxed text-emerald-200/70" data-testid="metric-info-text">
+          {info}
+        </p>
+      )}
     </div>
   );
 }

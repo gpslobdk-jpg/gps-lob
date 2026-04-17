@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/server";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 type RaceTypeCount = { race_type: string; count: number };
+type TopUser = { name: string; runsCreated: number };
 
 type HealthPayload = {
   activeSessions: number;
@@ -14,6 +15,7 @@ type HealthPayload = {
   correctAnswerRate: number | null;
   totalAnswersToday: number;
   raceTypes: RaceTypeCount[];
+  topUsers: TopUser[];
   generatedAt: string;
   hours: number;
 };
@@ -55,6 +57,7 @@ export async function GET(request: NextRequest) {
       stjerneloebResult,
       answersResult,
       raceTypesResult,
+      topUserRunsResult,
     ] = await Promise.all([
       // Active sessions
       adminSupabase
@@ -89,6 +92,12 @@ export async function GET(request: NextRequest) {
         .from("gps_runs")
         .select("race_type")
         .gte("created_at", todaySince),
+
+      // Top users by runs created in time window
+      adminSupabase
+        .from("gps_runs")
+        .select("user_id")
+        .gte("created_at", since),
     ]);
 
     // -- Active sessions --
@@ -137,6 +146,45 @@ export async function GET(request: NextRequest) {
       raceTypes.sort((a, b) => b.count - a.count);
     }
 
+    // -- Top 5 users by runs created --
+    const topUsers: TopUser[] = [];
+    if (!topUserRunsResult.error && topUserRunsResult.data) {
+      const userCounts = new Map<string, number>();
+      for (const row of topUserRunsResult.data as { user_id: string | null }[]) {
+        if (row.user_id) {
+          userCounts.set(row.user_id, (userCounts.get(row.user_id) ?? 0) + 1);
+        }
+      }
+      const sorted = [...userCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+      if (sorted.length > 0) {
+        const userIds = sorted.map(([id]) => id);
+        const { data: usersData } = await adminSupabase.auth.admin.listUsers({
+          perPage: 50,
+        });
+        const userMap = new Map<string, string>();
+        if (usersData?.users) {
+          for (const u of usersData.users) {
+            if (userIds.includes(u.id)) {
+              const name =
+                (u.user_metadata?.full_name as string) ||
+                u.email?.split("@")[0] ||
+                u.id.slice(0, 8);
+              userMap.set(u.id, name);
+            }
+          }
+        }
+        for (const [userId, count] of sorted) {
+          topUsers.push({
+            name: userMap.get(userId) ?? userId.slice(0, 8),
+            runsCreated: count,
+          });
+        }
+      }
+    }
+
     const payload: HealthPayload = {
       activeSessions,
       liveStudents,
@@ -145,6 +193,7 @@ export async function GET(request: NextRequest) {
       correctAnswerRate,
       totalAnswersToday,
       raceTypes,
+      topUsers,
       generatedAt: new Date().toISOString(),
       hours,
     };

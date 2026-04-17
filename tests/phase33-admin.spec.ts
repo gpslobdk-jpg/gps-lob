@@ -28,6 +28,11 @@ const HEALTH_PAYLOAD = {
     { race_type: "matematik", count: 4 },
     { race_type: "foto", count: 2 },
   ],
+  topUsers: [
+    { name: "Anna Lærer", runsCreated: 8 },
+    { name: "Bo Pedersen", runsCreated: 5 },
+    { name: "Clara Jensen", runsCreated: 3 },
+  ],
   generatedAt: new Date().toISOString(),
   hours: 24,
 };
@@ -226,6 +231,7 @@ test.describe("Phase 33 — Health Dashboard", () => {
   test("renders positive metrics and time-filter buttons from mocked API", async ({
     page,
   }) => {
+    test.setTimeout(60_000);
     await setupMocks(page);
 
     // Mock the health API
@@ -245,8 +251,8 @@ test.describe("Phase 33 — Health Dashboard", () => {
     });
     await dismissOverlay(page);
 
-    // Title
-    await expect(page.locator("text=Systemets Sundhed")).toBeVisible({ timeout: 30_000 });
+    // Title (allow extra time for initial Next.js dev compilation)
+    await expect(page.locator("text=Systemets Sundhed")).toBeVisible({ timeout: 60_000 });
 
     // Metric cards — "Elever aktive LIGE NU" label and value
     await expect(page.getByText("Elever aktive LIGE NU")).toBeVisible();
@@ -265,11 +271,18 @@ test.describe("Phase 33 — Health Dashboard", () => {
     // Status indicator shows healthy
     await expect(page.getByText("Alt kører fint")).toBeVisible();
 
-    // Footer link to logs
-    await expect(page.getByText("Se teknisk log")).toBeVisible();
+    // Top 5 users
+    await expect(page.getByText("Top 5 mest aktive lærere")).toBeVisible();
+    await expect(page.getByText("Anna Lærer")).toBeVisible();
+    await expect(page.getByText("Bo Pedersen")).toBeVisible();
+
+    // Toggle logs button (replaces the old footer link)
+    await expect(page.getByTestId("toggle-logs")).toBeVisible();
+    await expect(page.getByText("Vis teknisk log")).toBeVisible();
   });
 
   test("time-filter buttons have adequate touch targets", async ({ page }) => {
+    test.setTimeout(60_000);
     await setupMocks(page);
 
     await page.route("**/api/admin/health**", async (route: Route) => {
@@ -288,7 +301,7 @@ test.describe("Phase 33 — Health Dashboard", () => {
     });
     await dismissOverlay(page);
 
-    await expect(page.locator("text=Systemets Sundhed")).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator("text=Systemets Sundhed")).toBeVisible({ timeout: 60_000 });
 
     // Check that the first time-filter button meets the 44px touch target
     const btn = page.getByRole("button", { name: "1 time" });
@@ -297,6 +310,88 @@ test.describe("Phase 33 — Health Dashboard", () => {
     expect(box).not.toBeNull();
     expect(box!.height).toBeGreaterThanOrEqual(44);
     expect(box!.width).toBeGreaterThanOrEqual(44);
+  });
+
+  test("clicking info icon reveals pedagogical explanation", async ({ page }) => {
+    test.setTimeout(60_000);
+    await setupMocks(page);
+
+    await page.route("**/api/admin/health**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(HEALTH_PAYLOAD),
+      });
+    });
+
+    await unlockAdminGate(page);
+
+    await page.goto("/dashboard/admin", {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
+    await dismissOverlay(page);
+
+    await expect(page.locator("text=Systemets Sundhed")).toBeVisible({ timeout: 60_000 });
+
+    // Info toggle buttons should be present
+    const infoButtons = page.getByTestId("metric-info-toggle");
+    await expect(infoButtons.first()).toBeVisible();
+
+    // Initially no info text visible
+    await expect(page.getByTestId("metric-info-text")).toHaveCount(0);
+
+    // Click the first info button
+    await infoButtons.first().click();
+
+    // Pedagogical explanation should now be visible
+    await expect(page.getByTestId("metric-info-text").first()).toBeVisible();
+  });
+
+  test("embedded logs expand when toggle button clicked", async ({ page }) => {
+    test.setTimeout(120_000);
+    await setupMocks(page);
+
+    await page.route("**/api/admin/health**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(HEALTH_PAYLOAD),
+      });
+    });
+
+    // Mock logs API for the embedded logs feed
+    await page.context().route("**/api/admin/logs*", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(LOGS_PAYLOAD),
+      });
+    });
+
+    await unlockAdminGate(page);
+
+    await page.goto("/dashboard/admin", {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
+    await dismissOverlay(page);
+
+    await expect(page.locator("text=Systemets Sundhed")).toBeVisible({ timeout: 60_000 });
+
+    // Logs should NOT be visible initially
+    const toggleBtn = page.getByTestId("toggle-logs");
+    await expect(toggleBtn).toBeVisible();
+    await expect(page.getByText("Vis teknisk log")).toBeVisible();
+
+    // Click to expand
+    await toggleBtn.click();
+
+    // Button text should update
+    await expect(page.getByText("Skjul teknisk log")).toBeVisible();
+
+    // The embedded logs feed should render (wait for it to compile/load)
+    await expect(page.getByText(/Aktive løb/)).toBeVisible({ timeout: 90_000 });
   });
 });
 
