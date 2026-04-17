@@ -624,13 +624,15 @@ function createStyles(template: PdfTemplate) {
     },
     header: {
       backgroundColor: t.headerBg,
-      borderWidth: 2,
-      borderColor: t.panelBorder,
-      borderRadius: 18,
-      paddingHorizontal: isPoster ? 22 : 20,
-      paddingTop: isPoster ? 20 : 18,
-      paddingBottom: 16,
+      borderWidth: 0,
+      borderRadius: 0,
+      marginHorizontal: -28,
+      paddingHorizontal: 28,
+      paddingTop: 24,
+      paddingBottom: 20,
       marginBottom: 14,
+      borderBottomWidth: 4,
+      borderBottomColor: t.headerAccent,
     },
     eyebrowRow: {
       flexDirection: "row",
@@ -651,9 +653,10 @@ function createStyles(template: PdfTemplate) {
       color: t.headerAccent,
     },
     runTitle: {
-      fontSize: 8.5,
+      fontSize: 10,
       color: t.headerSubtitle,
-      marginBottom: 8,
+      textAlign: "center",
+      marginBottom: 4,
     },
     badgeRow: {
       flexDirection: "row",
@@ -683,11 +686,13 @@ function createStyles(template: PdfTemplate) {
       letterSpacing: 1.5,
     },
     title: {
-      fontSize: isPoster ? 23 : isEditorial ? 21 : isGrid ? 20 : 19,
+      fontSize: isPoster ? 56 : isEditorial ? 52 : isGrid ? 50 : 48,
       fontWeight: 700,
       color: t.titleText,
-      lineHeight: 1.15,
-      marginBottom: 8,
+      textAlign: "center",
+      letterSpacing: 6,
+      lineHeight: 1.1,
+      marginBottom: 6,
     },
     strapline: {
       fontSize: isPoster ? 8.8 : 7.8,
@@ -773,6 +778,8 @@ function createStyles(template: PdfTemplate) {
       backgroundColor: t.panelBg,
       borderWidth: 1.5,
       borderColor: t.panelBorder,
+      borderLeftWidth: 4,
+      borderLeftColor: t.headerAccent,
       borderRadius: 16,
       paddingHorizontal: 14,
       paddingTop: 12,
@@ -834,6 +841,8 @@ function createStyles(template: PdfTemplate) {
       backgroundColor: t.panelBg,
       borderWidth: 1.5,
       borderColor: t.optionBorder,
+      borderLeftWidth: 4,
+      borderLeftColor: t.headerAccent,
       borderRadius: 16,
       paddingHorizontal: 14,
       paddingTop: 12,
@@ -882,6 +891,8 @@ function createStyles(template: PdfTemplate) {
       justifyContent: "center",
       backgroundColor: t.optionAccentBg,
       paddingVertical: 8,
+      borderTopRightRadius: 999,
+      borderBottomRightRadius: 999,
     },
     optionLetter: {
       fontSize: 14,
@@ -907,6 +918,8 @@ function createStyles(template: PdfTemplate) {
       backgroundColor: t.footerBg,
       borderWidth: 1.5,
       borderColor: t.footerBorder,
+      borderTopWidth: 2.5,
+      borderTopColor: t.headerAccent,
       borderRadius: 999,
       paddingHorizontal: 14,
       paddingVertical: 7,
@@ -1529,6 +1542,9 @@ function renderPostHeader(
 ) {
   return (
     <View style={styles.header}>
+      <Text style={{ fontSize: 72, fontWeight: 700, color: template.theme.headerAccent, opacity: 0.12, position: "absolute", right: 28, top: 8 }}>
+        {template.motif}
+      </Text>
       <Text style={styles.title}>POST {post.number}</Text>
       <Text style={styles.runTitle}>{post.title}</Text>
     </View>

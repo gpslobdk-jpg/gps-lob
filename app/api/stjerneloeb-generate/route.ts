@@ -123,6 +123,127 @@ function resolveImageArtDirection(subject: string): ImageArtDirection {
 }
 
 // ---------------------------------------------------------------------------
+// Subject-aware content rules
+// ---------------------------------------------------------------------------
+
+type SubjectContentRules = {
+  contentDirective: string;
+  questionFormat: string;
+  forbiddenPatterns: string;
+};
+
+function resolveSubjectContentRules(subject: string, raceType: "classic" | "crossword"): SubjectContentRules {
+  const key = subject.trim().toLowerCase();
+
+  if (key.includes("matematik")) {
+    return raceType === "crossword"
+      ? {
+          contentDirective:
+            "Brødteksten skal beskrive et matematisk scenarie med konkrete tal, mål eller geometriske figurer. Inkludér en beregning eller et regnestykke, som eleven skal løse for at finde svaret.",
+          questionFormat:
+            "answer_word SKAL være resultatet af en beregning (fx et tal eller en matematisk term som AREAL, RADIUS). hint skal indeholde selve regnestykket eller den matematiske opgave.",
+          forbiddenPatterns:
+            "Generér ALDRIG generelle vidensspørgsmål om matematik (fx 'Hvad hedder…'). Alle poster SKAL indeholde et konkret regnestykke eller en talbaseret opgave, som eleven skal løse.",
+        }
+      : {
+          contentDirective:
+            "Brødteksten skal beskrive et matematisk scenarie med konkrete tal, mål, formler eller geometriske figurer. Inkludér altid mindst ét regnestykke, en ligning eller en talrelation i teksten.",
+          questionFormat:
+            "Spørgsmålet SKAL være en regneopgave eller et matematisk problem med ét korrekt numerisk eller formelbaseret svar. Alle fire svarmuligheder SKAL være tal, mål eller matematiske udtryk — IKKE tekst-svar. Eksempel: '12 cm²', '3/4', '56', '2π'.",
+          forbiddenPatterns:
+            "Generér ALDRIG spørgsmål som 'Hvad hedder denne form?' eller 'Hvem opfandt…'. Alle poster SKAL have et konkret regnestykke, og svarmulighederne SKAL være numeriske eller formelbaserede.",
+        };
+  }
+
+  if (key.includes("fysik") || key.includes("kemi") || key.includes("natur")) {
+    return raceType === "crossword"
+      ? {
+          contentDirective:
+            "Brødteksten skal beskrive et eksperiment, en fysisk/kemisk proces eller et naturfænomen med rigtige enheder og størrelser (fx Newton, mol, gram, Celsius).",
+          questionFormat:
+            "answer_word SKAL være en fagterm, en enhed eller et resultat relateret til eksperimentet (fx NEWTON, OXYGEN, CELSIUS). hint skal beskrive den videnskabelige sammenhæng.",
+          forbiddenPatterns:
+            "Undgå ren trivia. Posterne SKAL involvere konkret videnskabelig ræsonnering, enheder eller eksperimentelle observationer.",
+        }
+      : {
+          contentDirective:
+            "Brødteksten skal beskrive et eksperiment, en fysisk/kemisk proces eller et naturfænomen med rigtige enheder og størrelser. Inkludér formler, enheder eller målbare observationer.",
+          questionFormat:
+            "Spørgsmålet SKAL teste forståelse af formler, enhedsomregninger, årsag-virkning i eksperimenter eller observationer. Svarmulighederne skal indeholde enheder, tal eller præcise fagtermer.",
+          forbiddenPatterns:
+            "Undgå ren trivia eller 'hvem opdagede…'-spørgsmål. Fokusér på videnskabelig forståelse, beregninger og eksperimentelle resultater.",
+        };
+  }
+
+  if (key.includes("dansk")) {
+    return {
+      contentDirective:
+        "Brødteksten skal være et litterært uddrag, en læsepassage eller en sproglig tekst med tydelig opbygning og klart sprog.",
+      questionFormat: raceType === "crossword"
+        ? "answer_word SKAL være et ord relateret til tekstens indhold, sprog eller analyse (fx METAFOR, TEMA, FORTÆLLER). hint skal pege på en sproglig eller indholdsmæssig detalje i teksten."
+        : "Spørgsmålet skal teste læseforståelse, ordkendskab, tekstanalyse eller sproglig bevidsthed baseret på brødteksten.",
+      forbiddenPatterns:
+        "Undgå matematik- eller naturfagsspørgsmål. Hold fokus på læsning, sprog og tekstforståelse.",
+    };
+  }
+
+  if (key.includes("engelsk")) {
+    return {
+      contentDirective:
+        "Brødteksten skal være på dansk men relatere til engelsk sprogindlæring. Inkludér engelske ord, udtryk eller sætninger, som eleven skal arbejde med.",
+      questionFormat: raceType === "crossword"
+        ? "answer_word SKAL være et engelsk ord (fx LIBRARY, PRESENT, COULD). hint skal være en dansk beskrivelse eller oversættelsesopgave."
+        : "Spørgsmålet skal involvere oversættelse, ordforråd, grammatik eller udfyldningsopgaver mellem dansk og engelsk. Mindst én svarmulighed skal indeholde engelske ord.",
+      forbiddenPatterns:
+        "Alt indhold skal have en klar sproglig dimension. Undgå rene faktaspørgsmål uden sprogligt element.",
+    };
+  }
+
+  if (key.includes("historie")) {
+    return {
+      contentDirective:
+        "Brødteksten skal beskrive en historisk begivenhed, periode eller person med konkrete årstal, steder og kontekst.",
+      questionFormat: raceType === "crossword"
+        ? "answer_word SKAL være et historisk nøgleord (fx REFORM, VIKING, REVOLUTION). hint skal referere til en specifik historisk kontekst."
+        : "Spørgsmålet skal teste kronologisk forståelse, årsag-virkning, kildeanalyse eller perspektivering af historiske begivenheder.",
+      forbiddenPatterns:
+        "Undgå anakronismer. Alle årstal og fakta SKAL være historisk korrekte.",
+    };
+  }
+
+  if (key.includes("geografi") || key.includes("samfund")) {
+    return {
+      contentDirective:
+        "Brødteksten skal beskrive geografiske, samfundsmæssige eller kulturelle forhold med konkrete data, steder eller statistikker.",
+      questionFormat: raceType === "crossword"
+        ? "answer_word SKAL være et geografisk eller samfundsfagligt begreb (fx KLIMA, DEMOKRATI, EXPORT). hint skal relatere til konkrete data eller steder."
+        : "Spørgsmålet skal teste forståelse af geografiske sammenhænge, samfundsstrukturer eller dataanalyse.",
+      forbiddenPatterns:
+        "Undgå upræcise eller forældede statistikker. Fokusér på verificerbare fakta.",
+    };
+  }
+
+  // Default: no extra subject rules
+  return {
+    contentDirective: "",
+    questionFormat: "",
+    forbiddenPatterns: "",
+  };
+}
+
+function buildSubjectContentBlock(rules: SubjectContentRules): string {
+  if (!rules.contentDirective && !rules.questionFormat && !rules.forbiddenPatterns) {
+    return "";
+  }
+
+  const lines: string[] = ["\nFagregler — SKAL overholdes strengt:"];
+  if (rules.contentDirective) lines.push(`- ${rules.contentDirective}`);
+  if (rules.questionFormat) lines.push(`- ${rules.questionFormat}`);
+  if (rules.forbiddenPatterns) lines.push(`- ${rules.forbiddenPatterns}`);
+  return lines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
 // Pedagogical grade-band router (Gold Standard)
 // ---------------------------------------------------------------------------
 
@@ -260,6 +381,8 @@ export async function POST(req: Request) {
 
 
     const pedagogicalRules = resolveStjerneloebGradeLevelGuidance(gradeLevels);
+    const subjectContentRules = resolveSubjectContentRules(subject, raceType);
+    const subjectContentBlock = buildSubjectContentBlock(subjectContentRules);
     const subjectLine = subject ? `- Brug faget \"${subject}\" som faglig ramme for alle poster.` : "";
     const imageArtDirection = resolveImageArtDirection(subject);
     const imageDirectionLine =
@@ -274,6 +397,7 @@ Et stjerneløb er en serie af laminerede A4-post-kort, der hænges rundt i skole
 Elever vandrer fra post til post, læser teksten, ser på billedet og skal gætte et ord ud fra en ledetråd.
 
 ${pedagogicalRules}
+${subjectContentBlock}
 
 Vigtige regler:
 - Alt indhold skal være på dansk.
@@ -293,6 +417,7 @@ Et stjerneløb er en serie af laminerede A4-post-kort, der hænges rundt i skole
 Elever vandrer fra post til post, læser teksten, ser på billedet og besvarer spørgsmålet.
 
 ${pedagogicalRules}
+${subjectContentBlock}
 
 Vigtige regler:
 - Alt indhold skal være på dansk.
