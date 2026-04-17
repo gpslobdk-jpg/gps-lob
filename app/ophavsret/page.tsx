@@ -91,6 +91,19 @@ export default function OphavsretPage() {
                 i skoleg&aring;rden &ndash; hurtigt, sjovt og sikkert.
               </p>
             </section>
+
+            <section className="rounded-[1.75rem] border border-amber-400/15 bg-amber-400/5 p-6 text-center">
+              <p className="text-slate-300 leading-relaxed">
+                Leder du efter den tekniske og juridiske ansvarsfraskrivelse?{" "}
+                <Link
+                  href="/ophavsret/jura"
+                  className="font-semibold text-amber-300 hover:underline"
+                >
+                  L&aelig;s den fulde juridiske uddybning her
+                </Link>
+                .
+              </p>
+            </section>
           </article>
         </section>
       </div>
