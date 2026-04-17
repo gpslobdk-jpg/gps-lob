@@ -370,7 +370,7 @@ export default function HealthDashboardPage() {
                 href="/dashboard/admin/logs"
                 className="inline-flex items-center gap-2 text-sm text-emerald-300/40 transition hover:text-emerald-300/70"
               >
-                Se teknisk log →
+                Se teknisk log (Kun for udviklere) →
               </Link>
             </footer>
           </>

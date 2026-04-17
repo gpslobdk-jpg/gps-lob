@@ -5,6 +5,7 @@ import {
   Activity,
   CheckCircle2,
   ChevronLeft,
+  ClipboardCopy,
   Database,
   Globe,
   Info,
@@ -1056,6 +1057,17 @@ export default function AdminLogsPage() {
   const [selectedDrilldownGroupKey, setSelectedDrilldownGroupKey] = useState<string>("all");
   const [selectedDrilldownLogId, setSelectedDrilldownLogId] = useState<string | null>(null);
   const [selectedAlarmPanel, setSelectedAlarmPanel] = useState<"critical" | "network" | null>(null);
+  const [copyToast, setCopyToast] = useState<string | null>(null);
+  const copyToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleCopyForAI = (log: TelemetryLogItem) => {
+    const text = `[${log.createdAt ?? "?"}] ${log.eventType}: ${log.message}`;
+    navigator.clipboard.writeText(text).then(() => {
+      if (copyToastTimerRef.current) clearTimeout(copyToastTimerRef.current);
+      setCopyToast("Kopieret til udklipsholder ✓");
+      copyToastTimerRef.current = setTimeout(() => setCopyToast(null), 2500);
+    });
+  };
 
   const previousAlarmIdsRef = useRef<string[]>([]);
   const deferredDrilldownQuery = useDeferredValue(drilldownQuery);
@@ -1771,7 +1783,18 @@ export default function AdminLogsPage() {
                           >
                             <div className="flex flex-wrap items-start justify-between gap-2 text-xs text-slate-400/82">
                               <span className="font-semibold uppercase tracking-[0.12em] text-slate-300/82">{log.eventType}</span>
-                              <time>{formatDateTime(log.createdAt)}</time>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyForAI(log)}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium text-slate-300/80 transition hover:bg-white/10 hover:text-white"
+                                  title="Kopiér til AI"
+                                >
+                                  <ClipboardCopy className="h-3 w-3" />
+                                  Kopiér til AI
+                                </button>
+                                <time>{formatDateTime(log.createdAt)}</time>
+                              </div>
                             </div>
                             <p className="mt-2 wrap-break-word font-mono text-xs leading-6 text-slate-200/88">
                               {log.message || "Ingen rå loglinje"}
@@ -1787,6 +1810,13 @@ export default function AdminLogsPage() {
           </section>
         ) : null}
       </div>
+
+      {/* Copy-to-AI toast */}
+      {copyToast && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 animate-[fadeInUp_0.25s_ease-out] rounded-xl border border-emerald-400/30 bg-emerald-500/20 px-5 py-3 text-sm font-medium text-emerald-100 shadow-lg backdrop-blur-md">
+          {copyToast}
+        </div>
+      )}
     </div>
   );
 }
