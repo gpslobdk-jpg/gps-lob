@@ -164,16 +164,16 @@ export default function HealthDashboardPage() {
 
             <div className="flex items-center gap-3">
               {/* Status indicator */}
-              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 backdrop-blur-sm">
-                <span className="relative flex h-3 w-3">
+              <div className="flex items-center gap-2.5 rounded-full border border-white/10 bg-white/5 px-4 py-2.5 backdrop-blur-sm min-h-[44px]">
+                <span className="relative flex h-3.5 w-3.5 shrink-0">
                   {statusConfig.pulse && (
                     <span
                       className={`absolute inline-flex h-full w-full animate-ping rounded-full ${statusConfig.color} opacity-75`}
                     />
                   )}
-                  <span className={`relative inline-flex h-3 w-3 rounded-full ${statusConfig.color}`} />
+                  <span className={`relative inline-flex h-3.5 w-3.5 rounded-full ${statusConfig.color}`} />
                 </span>
-                <span className="text-sm font-medium text-white">{statusConfig.text}</span>
+                <span className="text-sm font-semibold text-white">{statusConfig.text}</span>
               </div>
 
               {/* Refresh button */}
@@ -254,7 +254,7 @@ export default function HealthDashboardPage() {
                   <button
                     key={opt.hours}
                     onClick={() => handleTimeFilter(opt.hours)}
-                    className={`rounded-xl px-3 py-1.5 text-sm font-medium transition ${
+                    className={`flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium transition min-h-[44px] min-w-[44px] ${
                       hours === opt.hours
                         ? "bg-emerald-500/20 text-emerald-200 shadow-lg shadow-emerald-500/10"
                         : "text-white/60 hover:bg-white/10 hover:text-white"
@@ -325,9 +325,9 @@ export default function HealthDashboardPage() {
                       return (
                         <div key={rt.race_type}>
                           <div className="mb-1 flex items-center justify-between">
-                            <span className="flex items-center gap-2 text-sm text-white/80">
-                              <span>{info.icon}</span>
-                              <span>{info.label}</span>
+                            <span className="flex items-center gap-2 text-sm text-white/80 min-w-0">
+                              <span className="shrink-0">{info.icon}</span>
+                              <span className="truncate">{info.label}</span>
                             </span>
                             <span className="text-sm font-semibold text-emerald-300">
                               {rt.count}
