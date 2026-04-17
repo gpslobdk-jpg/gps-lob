@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { Camera, ChevronDown, Loader2, Plus, Ruler, Sparkles, Wrench } from "lucide-react";
+import { Camera, ChevronDown, Loader2, Plus, Ruler, Sparkles, Trash2, Wrench } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -1122,17 +1122,16 @@ function FotoMissionBuilderPageContent() {
                             </label>
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span
-                              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold backdrop-blur-xl ${
-                                isSaving
-                                  ? "border-sky-300/35 bg-sky-400/10 text-sky-50"
-                                  : "border-sky-500/20 bg-sky-950/30 text-sky-100/72"
-                              }`}
+                          <div className="flex flex-wrap items-center gap-2 print:hidden">
+                            <button
+                              type="button"
+                              onClick={openAiInterviewModal}
+                              disabled={isEditorBusy}
+                              className="inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-500/15 px-4 py-2 text-sm font-bold text-sky-50 shadow-[0_0_24px_rgba(14,165,233,0.15)] backdrop-blur-xl transition-all hover:bg-sky-500/25 hover:shadow-[0_0_32px_rgba(14,165,233,0.25)] disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="h-2 w-2 rounded-full bg-sky-300/70" />}
-                              {builderStatusLabel}
-                            </span>
+                              <Sparkles className="h-4 w-4" />
+                              Foto Assistenten
+                            </button>
 
                             <div ref={toolsMenuAnchorRef} className="inline-flex max-w-full flex-col items-end">
                               <button
@@ -1158,85 +1157,75 @@ function FotoMissionBuilderPageContent() {
                           placeholder="F.eks. Foto-eventyr i Vordingborg"
                           className="w-full rounded-[1.6rem] border border-sky-500/30 bg-sky-950/20 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                         />
-
-                        <p className="text-sm leading-6 text-sky-100/68">{builderStatusDescription}</p>
                       </div>
                     </div>
 
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      <div className="rounded-3xl border border-sky-500/30 bg-sky-950/20 p-4 backdrop-blur-xl">
-                        <div className="mb-3 flex items-start gap-3">
-                          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sky-400/20 bg-sky-400/10 text-sky-200">
-                            <Sparkles className="h-4.5 w-4.5" />
-                          </span>
-                          <div>
-                            <label className="block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
+                    <div className="relative z-0 rounded-3xl border border-sky-500/30 bg-sky-950/20 p-4 backdrop-blur-xl">
+                      <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+                        <div>
+                          <div className="mb-3 flex items-center gap-3">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-sky-400/20 bg-sky-400/10 text-sky-200">
+                              <Sparkles className="h-4 w-4" />
+                            </span>
+                            <label className="text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
                               Emne
                             </label>
-                            <p className="mt-1 text-sm leading-6 text-sky-100/75">
-                              Vælg et emne til arkiv og smart-assistent, så udkastet rammer den rigtige retning.
-                            </p>
                           </div>
+
+                          <select
+                            value={subject}
+                            onChange={(event) => {
+                              const nextSubject = event.target.value;
+                              setSubject(nextSubject);
+                              setShowTeacherField(Boolean(nextSubject.trim()));
+                            }}
+                            disabled={isEditorBusy}
+                            className="w-full rounded-[1.35rem] border border-sky-500/30 bg-sky-950/20 px-4 py-3 text-sm font-semibold text-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-400/40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                          >
+                            <option value="" className="bg-slate-900 text-white">
+                              Vælg et fag til arkivet...
+                            </option>
+                            {Object.keys(SUBJECT_TOPICS).map((subjectOption) => (
+                              <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
+                                {subjectOption}
+                              </option>
+                            ))}
+                          </select>
+
+                          <p className="mt-3 text-sm text-sky-100/70">
+                            {subject.trim()
+                              ? `Valgt: ${subject.trim()}`
+                              : "Intet emne valgt endnu. Du kan stadig bygge løbet videre og vælge senere."}
+                          </p>
                         </div>
 
-                        <select
-                          value={subject}
-                          onChange={(event) => {
-                            const nextSubject = event.target.value;
-                            setSubject(nextSubject);
-                            setShowTeacherField(Boolean(nextSubject.trim()));
-                          }}
-                          disabled={isEditorBusy}
-                          className="w-full rounded-[1.35rem] border border-sky-500/30 bg-sky-950/20 px-4 py-3 text-sm font-semibold text-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-400/40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                        >
-                          <option value="" className="bg-slate-900 text-white">
-                            Vælg et fag til arkivet...
-                          </option>
-                          {Object.keys(SUBJECT_TOPICS).map((subjectOption) => (
-                            <option key={subjectOption} value={subjectOption} className="bg-slate-900 text-white">
-                              {subjectOption}
-                            </option>
-                          ))}
-                        </select>
-
-                        <p className="mt-3 text-sm text-sky-100/70">
-                          {subject.trim()
-                            ? `Valgt: ${subject.trim()}`
-                            : "Intet emne valgt endnu. Du kan stadig bygge løbet videre og vælge senere."}
-                        </p>
-                      </div>
-
-                      <div className="rounded-3xl border border-sky-500/30 bg-sky-950/20 p-4 backdrop-blur-xl">
-                        <div className="mb-3 flex items-start gap-3">
-                          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sky-400/20 bg-sky-400/10 text-sky-200">
-                            <Ruler className="h-4.5 w-4.5" />
-                          </span>
-                          <div>
-                            <label className="block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
+                        <div>
+                          <div className="mb-3 flex items-center gap-3">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-sky-400/20 bg-sky-400/10 text-sky-200">
+                              <Ruler className="h-4 w-4" />
+                            </span>
+                            <label className="text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
                               GPS-radius
                             </label>
-                            <p className="mt-1 text-sm leading-6 text-sky-100/75">
-                              Vælg hvor tæt eleverne skal være på posten, før GPS-låsen åbner på ruten.
-                            </p>
                           </div>
+
+                          <select
+                            value={radius}
+                            onChange={(event) => setRadius(normalizeRunRadius(event.target.value))}
+                            disabled={isEditorBusy}
+                            className="w-full rounded-[1.35rem] border border-sky-500/30 bg-sky-950/20 px-4 py-3 text-sm font-semibold text-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-400/40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                          >
+                            {RUN_RADIUS_OPTIONS.map((radiusOption) => (
+                              <option key={radiusOption} value={radiusOption} className="bg-slate-900 text-white">
+                                {radiusOption} meter
+                              </option>
+                            ))}
+                          </select>
+
+                          <p className="mt-3 text-sm text-sky-100/70">
+                            Eleverne skal være inden for {radius} meter, før posten åbner.
+                          </p>
                         </div>
-
-                        <select
-                          value={radius}
-                          onChange={(event) => setRadius(normalizeRunRadius(event.target.value))}
-                          disabled={isEditorBusy}
-                          className="w-full rounded-[1.35rem] border border-sky-500/30 bg-sky-950/20 px-4 py-3 text-sm font-semibold text-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-400/40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                        >
-                          {RUN_RADIUS_OPTIONS.map((radiusOption) => (
-                            <option key={radiusOption} value={radiusOption} className="bg-slate-900 text-white">
-                              {radiusOption} meter
-                            </option>
-                          ))}
-                        </select>
-
-                        <p className="mt-3 text-sm text-sky-100/70">
-                          Eleverne skal være inden for {radius} meter, før posten åbner.
-                        </p>
                       </div>
                     </div>
                   </div>
@@ -1259,32 +1248,44 @@ function FotoMissionBuilderPageContent() {
                 <article
                   key={question.id}
                   id={`foto-post-${question.id}`}
-                  className="rounded-[2rem] border border-sky-500/30 bg-sky-950/20 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6"
+                  className="relative z-0 rounded-[1.8rem] border border-sky-500/30 bg-sky-950/20 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-sky-500/30 bg-sky-950/20 text-sm font-bold text-sky-100">
-                        {index + 1}
-                      </div>
-                      <div>
-                        <h3 className={`text-xl font-bold text-sky-100 ${rubik.className}`}>
-                          Mission {index + 1}
-                        </h3>
-                        <p className="text-xs text-sky-100/65">
-                          {question.lat !== null && question.lng !== null
-                            ? "Pin er valgt på kortet"
-                            : "Ingen pin valgt endnu"}
-                        </p>
-                      </div>
+                    <h3 className={`text-lg font-bold text-sky-100 ${rubik.className}`}>
+                      Mission {index + 1}
+                    </h3>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <label className="flex items-center gap-2 rounded-full border border-sky-500/30 bg-sky-950/20 px-3 py-1 text-[10px] font-semibold tracking-[0.18em] text-sky-100/75 uppercase backdrop-blur-xl">
+                        Point
+                        <input
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={question.points}
+                          onChange={(event) =>
+                            updateQuestion(question.id, {
+                              points: normalizeQuestionPoints(event.target.value),
+                            })
+                          }
+                          disabled={isEditorBusy}
+                          className="w-16 bg-transparent text-right text-sm font-semibold tracking-normal text-sky-50 focus:outline-none"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setQuestions((prev) => prev.filter((_, i) => i !== index))}
+                        disabled={isEditorBusy || questions.length <= 1}
+                        aria-label={`Slet mission ${index + 1}`}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-sky-500/30 bg-sky-950/20 text-sky-100/75 transition hover:border-rose-300/40 hover:bg-rose-500/10 hover:text-rose-200 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
-                    <span className="rounded-full border border-sky-500/30 bg-sky-950/20 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-sky-100/75 uppercase backdrop-blur-xl">
-                      Foto med billedtjek
-                    </span>
                   </div>
 
-                  <div className="mt-5">
-                    <label className="mb-2 block text-xs font-semibold tracking-[0.12em] text-sky-100/65">
-                      Hvad skal de finde?
+                  <div className="mt-4">
+                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
+                      Hvad skal AI&apos;en lede efter?
                     </label>
                     <input
                       value={question.aiPrompt}
@@ -1296,7 +1297,7 @@ function FotoMissionBuilderPageContent() {
                     />
                   </div>
 
-                  <div className="mt-5">
+                  <div className="mt-4">
                     <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
                       Instruktion
                     </label>
@@ -1312,7 +1313,8 @@ function FotoMissionBuilderPageContent() {
                   <button
                     type="button"
                     onClick={() => assignPinFromCenter(question.id)}
-                    className="mt-5 w-full rounded-[1.4rem] border border-sky-500/30 bg-sky-500 px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-sky-500/20 transition-all hover:bg-sky-400"
+                    disabled={isEditorBusy}
+                    className="mt-4 w-full rounded-[1.35rem] border border-sky-500/30 bg-sky-500 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-sky-500/20 transition-all hover:bg-sky-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                   >
                     Hent pin til kortet
                   </button>
@@ -1325,7 +1327,7 @@ function FotoMissionBuilderPageContent() {
                 </article>
               ))}
 
-                <div className="rounded-[2rem] border border-sky-500/30 bg-sky-950/20 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+                <div className="relative z-0 rounded-[1.8rem] border border-sky-500/30 bg-sky-950/20 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl">
                   <button
                     type="button"
                     onClick={addQuestion}
