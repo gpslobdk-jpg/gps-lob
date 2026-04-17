@@ -1073,7 +1073,7 @@ function FotoMissionBuilderPageContent() {
 
   return (
     <>
-      <div className={`relative min-h-screen overflow-x-hidden bg-sky-950 text-sky-100 ${poppins.className}`}>
+      <div className={`relative min-h-screen bg-sky-950 text-sky-100 ${poppins.className}`}>
         <div className="fixed inset-0 -z-10 bg-linear-to-br from-sky-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row">
           <MobileBuilderWarning />
@@ -1161,7 +1161,6 @@ function FotoMissionBuilderPageContent() {
                     </div>
 
                     <div className="relative z-0 rounded-3xl border border-sky-500/30 bg-sky-950/20 p-4 backdrop-blur-xl">
-                      <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
                         <div>
                           <div className="mb-3 flex items-center gap-3">
                             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-sky-400/20 bg-sky-400/10 text-sky-200">
@@ -1198,39 +1197,11 @@ function FotoMissionBuilderPageContent() {
                               : "Intet emne valgt endnu. Du kan stadig bygge løbet videre og vælge senere."}
                           </p>
                         </div>
-
-                        <div>
-                          <div className="mb-3 flex items-center gap-3">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-sky-400/20 bg-sky-400/10 text-sky-200">
-                              <Ruler className="h-4 w-4" />
-                            </span>
-                            <label className="text-xs font-semibold tracking-[0.22em] text-sky-100/65 uppercase">
-                              GPS-radius
-                            </label>
-                          </div>
-
-                          <select
-                            value={radius}
-                            onChange={(event) => setRadius(normalizeRunRadius(event.target.value))}
-                            disabled={isEditorBusy}
-                            className="w-full rounded-[1.35rem] border border-sky-500/30 bg-sky-950/20 px-4 py-3 text-sm font-semibold text-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-400/40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
-                          >
-                            {RUN_RADIUS_OPTIONS.map((radiusOption) => (
-                              <option key={radiusOption} value={radiusOption} className="bg-slate-900 text-white">
-                                {radiusOption} meter
-                              </option>
-                            ))}
-                          </select>
-
-                          <p className="mt-3 text-sm text-sky-100/70">
-                            Eleverne skal være inden for {radius} meter, før posten åbner.
-                          </p>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </div>
 
+              <div className="relative z-0 space-y-5 lg:pr-2">
               <div className="space-y-4 px-1">
                 <div className="flex items-end justify-between gap-4">
                   <p className="text-xs font-semibold tracking-[0.24em] text-sky-100/65 uppercase">
@@ -1353,13 +1324,14 @@ function FotoMissionBuilderPageContent() {
                     </button>
                   </div>
                 </div>
+              </div>
               </fieldset>
             </div>
           </section>
 
           <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:p-8 lg:pl-0 print:hidden">
             <div className="lg:sticky lg:top-20">
-              <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-4xl border border-sky-500/20 bg-slate-900/60 shadow-[0_0_0_1px_rgba(14,165,233,0.08),0_0_36px_rgba(14,165,233,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-(--spacing(28)))]">
+              <div className="h-[42vh] min-h-80 w-full overflow-hidden rounded-4xl border border-sky-500/20 bg-slate-900/60 shadow-[0_0_0_1px_rgba(14,165,233,0.08),0_0_36px_rgba(14,165,233,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-(--spacing(28)))]">
                 <MapPicker
                   center={mapCenter}
                   pins={pins}
@@ -1404,34 +1376,41 @@ function FotoMissionBuilderPageContent() {
             <div className="mx-2 my-2 h-px bg-sky-400/10" />
 
             <div className="px-4 pb-2 pt-1">
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-sky-100/45">Overblik</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-sky-100/45">Avanceret</p>
             </div>
 
             <div className="space-y-4 px-4 py-3">
-              <div className="flex items-start gap-3 rounded-[1.25rem] text-left text-sky-50/90">
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-400/20 bg-sky-400/10 text-sky-200">
-                  <Ruler className="h-4 w-4" />
-                </span>
-                <span>
-                  <span className="block text-sm font-black uppercase tracking-[0.16em]">Aktiv GPS-radius</span>
-                  <span className="mt-1 block text-sm leading-6 text-sky-100/68">
-                    Builderen er sat til {radius} meter. Du kan justere den direkte i arbejdsfladen, mens du placerer posterne.
-                  </span>
-                </span>
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-[0.18em] text-sky-100/58">
+                  GPS-radius
+                </label>
+                <select
+                  value={radius}
+                  onChange={(event) => setRadius(normalizeRunRadius(event.target.value))}
+                  disabled={isEditorBusy}
+                  className="mt-2 w-full rounded-[1.15rem] border border-sky-400/20 bg-sky-950/35 px-4 py-3 text-sm font-semibold text-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-400/40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                >
+                  {RUN_RADIUS_OPTIONS.map((radiusOption) => (
+                    <option key={radiusOption} value={radiusOption} className="bg-slate-900 text-white">
+                      {radiusOption} meter
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-sm leading-6 text-sky-100/68">
+                  Vælg hvor tæt eleven skal være på posten, før GPS-låsen åbner under spillet.
+                </p>
               </div>
 
               <div className="h-px bg-sky-400/10" />
 
               <div className="flex items-start gap-3 rounded-[1.25rem] text-left text-sky-50/90">
                 <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-400/20 bg-sky-400/10 text-sky-200">
-                  <Camera className="h-4 w-4" />
+                  <Ruler className="h-4 w-4" />
                 </span>
                 <span>
-                  <span className="block text-sm font-black uppercase tracking-[0.16em]">Emne til arkiv</span>
+                  <span className="block text-sm font-black uppercase tracking-[0.16em]">Builder-status</span>
                   <span className="mt-1 block text-sm leading-6 text-sky-100/68">
-                    {subject.trim()
-                      ? `Fotoløbet står til ${subject.trim()}, så det er nemt at genfinde og genbruge senere.`
-                      : "Du kan vælge emne direkte i arbejdsfladen, når du er klar til at placere løbet i arkivet."}
+                    {builderStatusDescription}
                   </span>
                 </span>
               </div>
