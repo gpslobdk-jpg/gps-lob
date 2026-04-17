@@ -1074,15 +1074,15 @@ function FotoMissionBuilderPageContent() {
   return (
     <>
       <div className={`relative min-h-screen overflow-x-hidden bg-sky-950 text-sky-100 ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-sky-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
-        <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
+        <div className="fixed inset-0 -z-10 bg-linear-to-br from-sky-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
+        <div className="relative flex min-h-screen flex-col lg:flex-row">
           <MobileBuilderWarning />
-          <section className="hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
-            <div className="mx-auto max-w-3xl">
+          <section className="relative hidden w-full overflow-visible px-4 py-4 sm:px-6 sm:py-6 lg:block lg:w-[52%] lg:overflow-visible lg:px-8 lg:py-8 print:hidden">
+            <div className="relative z-10 mx-auto max-w-3xl">
               <fieldset
                 disabled={isEditorBusy}
                 aria-busy={isEditorBusy}
-                className={`min-w-0 space-y-6 border-0 p-0 ${editorLockClass}`}
+                className={`min-w-0 space-y-5 border-0 p-0 ${editorLockClass}`}
               >
                 <div className="px-1 pt-1">
                   {isEditMode ? (
@@ -1355,7 +1355,7 @@ function FotoMissionBuilderPageContent() {
             </div>
           </section>
 
-          <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
+          <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:p-8 lg:pl-0 print:hidden">
             <div className="lg:sticky lg:top-20">
               <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-4xl border border-sky-500/20 bg-slate-900/60 shadow-[0_0_0_1px_rgba(14,165,233,0.08),0_0_36px_rgba(14,165,233,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-(--spacing(28)))]">
                 <MapPicker
