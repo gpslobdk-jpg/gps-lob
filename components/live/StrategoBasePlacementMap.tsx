@@ -10,6 +10,7 @@ import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-lea
 import { DEFAULT_MAP_CENTER, type BaseLocation } from "@/utils/gpsRuns";
 
 const DEFAULT_MAP_CENTER_TUPLE: [number, number] = [DEFAULT_MAP_CENTER.lat, DEFAULT_MAP_CENTER.lng];
+const GEOLOCATION_ZOOM = 17;
 
 function createBaseIcon(teamCode: "red" | "blue") {
   const background = teamCode === "blue" ? "#0ea5e9" : "#f43f5e";
@@ -32,6 +33,30 @@ function createBaseIcon(teamCode: "red" | "blue") {
   });
 }
 
+function AutoLocate() {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        map.setView(
+          [position.coords.latitude, position.coords.longitude],
+          GEOLOCATION_ZOOM,
+          { animate: true }
+        );
+      },
+      () => {
+        // Geolocation denied or unavailable — keep default center
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+    );
+  }, [map]);
+
+  return null;
+}
+
 function MapViewportSync({
   redBase,
   blueBase,
@@ -47,7 +72,6 @@ function MapViewportSync({
       .map((value) => [value.lat, value.lng] as [number, number]);
 
     if (points.length === 0) {
-      map.setView(DEFAULT_MAP_CENTER_TUPLE, 16, { animate: true });
       return;
     }
 
@@ -130,6 +154,7 @@ export default function StrategoBasePlacementMap({
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
+          <AutoLocate />
           <MapViewportSync redBase={redBase} blueBase={blueBase} />
           <SetupMapClicks onPick={onPick} />
 

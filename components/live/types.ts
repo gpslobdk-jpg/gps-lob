@@ -104,6 +104,7 @@ export type TeacherLiveData = {
   studentLocations: LiveStudentLocation[];
   runQuestions: RunQuestion[];
   liveAnswers: LiveAnswer[];
+  sessionAnswers: LiveAnswer[];
   photoAnswers: LiveAnswer[];
   hasParticipantsTable: boolean;
   hasAnswersTable: boolean;

@@ -14,7 +14,13 @@ import {
 } from "react";
 
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
+import GradeLevelMultiSelect from "@/components/builders/GradeLevelMultiSelect";
 import { RACE_TYPES } from "@/utils/gpsRuns";
+import {
+  DEFAULT_SELECTED_GRADE_LEVELS,
+  normalizeGradeLevels,
+  type GradeLevel,
+} from "@/utils/gradeLevels";
 import {
   clearRunDraft,
   clearSessionDraft,
@@ -68,18 +74,10 @@ const SUBJECT_TOPICS: Record<string, string[]> = {
   Musik: [],
 };
 
-const AUDIENCE_OPTIONS = [
-  { value: "Indskoling", label: "Indskoling" },
-  { value: "Mellemtrin", label: "Mellemtrin" },
-  { value: "Udskoling", label: "Udskoling" },
-  { value: "Voksne", label: "Voksen" },
-] as const;
-
 const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
 
 type Step = 1 | 2 | 3 | 4;
 type SourceMode = "camera" | "upload" | "text";
-type Audience = (typeof AUDIENCE_OPTIONS)[number]["value"];
 type QuestionCount = (typeof QUESTION_COUNT_OPTIONS)[number];
 
 type GeneratedQuestion = {
@@ -125,7 +123,7 @@ type ScannerDraftState = {
   step: Step;
   sourceMode: SourceMode | null;
   subject: string;
-  audience: Audience;
+  gradeLevels: GradeLevel[];
   questionCount: QuestionCount;
   sourceText: string;
   selectedImageLabels: string[];
@@ -146,10 +144,6 @@ function restoreStringArray(value: unknown): string[] {
 
 function restoreSourceMode(value: unknown): SourceMode | null {
   return value === "camera" || value === "upload" || value === "text" ? value : null;
-}
-
-function restoreAudience(value: unknown): Audience {
-  return AUDIENCE_OPTIONS.some((option) => option.value === value) ? (value as Audience) : "Mellemtrin";
 }
 
 function restoreQuestionCount(value: unknown): QuestionCount {
@@ -234,7 +228,7 @@ function toManualDraft(
   run: GeneratedRunPayload,
   _sourceSummary: string,
   subject: string,
-  _audience: Audience
+  _gradeLevels: GradeLevel[]
 ): ManualBuilderDraftState {
   const questions = toQuestions(run.questions);
   const normalizedSubject = subject.trim();
@@ -279,7 +273,7 @@ export default function ScannerPortalPage() {
   const [step, setStep] = useState<Step>(1);
   const [sourceMode, setSourceMode] = useState<SourceMode | null>(null);
   const [subject, setSubject] = useState("");
-  const [audience, setAudience] = useState<Audience>("Mellemtrin");
+  const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>(DEFAULT_SELECTED_GRADE_LEVELS);
   const [questionCount, setQuestionCount] = useState<QuestionCount>(10);
   const [sourceText, setSourceText] = useState("");
   const [selectedImageLabels, setSelectedImageLabels] = useState<string[]>([]);
@@ -413,7 +407,7 @@ export default function ScannerPortalPage() {
 
       setSourceMode(restoredMode);
       setSubject(restoredSubject);
-      setAudience(restoreAudience(restoredDraft.audience));
+      setGradeLevels(normalizeGradeLevels(restoredDraft.gradeLevels));
       setQuestionCount(restoreQuestionCount(restoredDraft.questionCount));
       setSourceText(restoredSourceText);
       setSelectedImageLabels(restoreStringArray(restoredDraft.selectedImageLabels));
@@ -433,12 +427,12 @@ export default function ScannerPortalPage() {
       step,
       sourceMode,
       subject,
-      audience,
+      gradeLevels,
       questionCount,
       sourceText,
       selectedImageLabels,
     } satisfies ScannerDraftState);
-  }, [audience, questionCount, selectedImageLabels, sourceMode, sourceText, step, subject]);
+  }, [gradeLevels, questionCount, selectedImageLabels, sourceMode, sourceText, step, subject]);
 
   useEffect(() => {
     if (!hasInitializedDraftRef.current) return;
@@ -772,7 +766,7 @@ export default function ScannerPortalPage() {
           sourceText: trimmedSourceText || undefined,
           imageBase64List: compressedImages.length > 0 ? compressedImages : undefined,
           subject: trimmedSubject,
-          audience,
+          gradeLevels: gradeLevels.length > 0 ? gradeLevels : undefined,
           count: questionCount,
         }),
       });
@@ -804,7 +798,7 @@ export default function ScannerPortalPage() {
             ? "Billede af bogside taget med kameraet"
             : `${compressedImages.length} uploadede billeder af bogsider`;
 
-      const draft = toManualDraft(payload, sourceSummary, trimmedSubject, audience);
+      const draft = toManualDraft(payload, sourceSummary, trimmedSubject, gradeLevels);
       stopCameraStream();
       clearRunDraft(SCANNER_DRAFT_STORAGE_KEY);
       clearSessionDraft(SCANNER_IMAGE_SESSION_KEY);
@@ -1230,27 +1224,13 @@ export default function ScannerPortalPage() {
 
                     <div className="space-y-3">
                       <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-white/45">
-                        Målgruppe
+                        Klassetrin
                       </p>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {AUDIENCE_OPTIONS.map((option) => {
-                          const isSelected = audience === option.value;
-                          return (
-                            <button
-                              key={option.value}
-                              type="button"
-                              onClick={() => setAudience(option.value)}
-                              className={`min-h-19 rounded-3xl border px-5 py-4 text-left text-base font-semibold backdrop-blur-md transition ${
-                                isSelected
-                                  ? "border-fuchsia-200/35 bg-fuchsia-300/12 text-white shadow-[0_16px_34px_rgba(168,85,247,0.12)]"
-                                  : "border-white/15 bg-white/5 text-white/75 hover:border-white/25 hover:bg-white/8 hover:text-white"
-                              }`}
-                            >
-                              {option.label}
-                            </button>
-                          );
-                        })}
-                      </div>
+                      <GradeLevelMultiSelect
+                        selectedGradeLevels={gradeLevels}
+                        onChange={setGradeLevels}
+                        tone="rose"
+                      />
                     </div>
 
                     <div className="space-y-3">
@@ -1314,7 +1294,7 @@ export default function ScannerPortalPage() {
                       Fag: {subject}
                     </span>
                     <span className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/70 backdrop-blur-md">
-                      Målgruppe: {AUDIENCE_OPTIONS.find((option) => option.value === audience)?.label}
+                      Klassetrin: {gradeLevels.length > 0 ? gradeLevels.join(", ") : "Ikke valgt"}
                     </span>
                     <span className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/70 backdrop-blur-md">
                       Antal poster: {questionCount}

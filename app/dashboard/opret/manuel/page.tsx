@@ -14,6 +14,7 @@ import ManualReuseModal, {
   type ManualReuseQuestion,
 } from "@/components/builders/manual/ManualReuseModal";
 import AiReviewDraftModal from "@/components/builders/AiReviewDraftModal";
+import InkSaverPrintLayout from "@/components/builders/InkSaverPrintLayout";
 import GradeLevelMultiSelect from "@/components/builders/GradeLevelMultiSelect";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import { useBuilderSaveGuidance } from "@/components/builders/useBuilderSaveGuidance";
@@ -343,7 +344,6 @@ function normalizePendingManualAiReviewDraft(value: unknown): PendingManualAiRev
   const title = asTrimmedString(value.title);
   const subject = asTrimmedString(value.subject);
   const topic = asTrimmedString(value.topic);
-  const tone = asTrimmedString(value.tone);
   const gradeLevels = normalizeGradeLevels(value.gradeLevels);
   const questionCandidates = Array.isArray(value.questions) ? value.questions : [];
   const questions = questionCandidates
@@ -376,7 +376,6 @@ function normalizePendingManualAiReviewDraft(value: unknown): PendingManualAiRev
     questions,
     gradeLevels,
     topic,
-    tone,
     replacesExistingContent: Boolean(value.replacesExistingContent),
   };
 }
@@ -642,10 +641,6 @@ function OpretLoebPageContent() {
   const printClassLevel = gradeLevels.length > 0 ? formatGradeLevelsForPrompt(gradeLevels) : "Ikke angivet";
   const normalizedBuilderRaceType = normalizeRaceType(overrideRaceType) ?? RACE_TYPES.MANUEL;
   const currentRaceTypeLabel = RACE_TYPE_LABELS[normalizedBuilderRaceType] ?? "Generel Quiz";
-  const builderStatusLabel = isSaving ? "Gemmer..." : "Gemmes lokalt";
-  const builderStatusDescription = isSaving
-    ? "Vi sender dine seneste ændringer til arkivet nu."
-    : "Din titel og dine poster bliver gemt lokalt undervejs, indtil du trykker på Gem.";
   const gradeLevelSummary =
     gradeLevels.length > 0 ? `Valgt: ${formatGradeLevelsForPrompt(gradeLevels)}` : "Ingen klassetrin valgt endnu.";
   const advancedStatusDescription =
@@ -1276,7 +1271,6 @@ function OpretLoebPageContent() {
 
   const openAiInterviewModal = () => {
     setNotice(null);
-    setShowToolsMenu(false);
     setShowAiInterviewModal(true);
   };
 
@@ -1303,7 +1297,6 @@ function OpretLoebPageContent() {
     const nextSubject = draft.subject.trim();
     const nextGradeLevels = normalizeGradeLevels(draft.gradeLevels);
     const nextTopic = draft.topic.trim();
-    const nextTone = draft.tone.trim();
 
     if (!nextTitle || nextQuestions.length === 0) {
       setNotice({
@@ -1325,7 +1318,6 @@ function OpretLoebPageContent() {
       questions: draft.questions,
       gradeLevels: nextGradeLevels,
       topic: nextTopic,
-      tone: nextTone,
       replacesExistingContent: hasExistingContent,
     });
   };
@@ -1564,10 +1556,7 @@ function OpretLoebPageContent() {
                         </span>
                       </div>
                       <div>
-                        <h3 className="text-xl font-semibold text-emerald-50">Velkommen til Generel Quiz</h3>
-                        <p className="mt-1 text-sm text-emerald-100/80">
-                          Byg et fleksibelt quizløb til ethvert fag. Vælg klassetrin og kategori i toppen, placer posterne på kortet, og fyld hver post med quizspørgsmål eller foto-opgaver i dit eget tempo.
-                        </p>
+                        <h3 className="text-xl font-semibold text-emerald-50">Generel Quiz</h3>
                       </div>
                     </div>
 
@@ -1581,16 +1570,15 @@ function OpretLoebPageContent() {
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2 print:hidden">
-                            <span
-                              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold backdrop-blur-xl ${
-                                isSaving
-                                  ? "border-emerald-300/35 bg-emerald-400/10 text-emerald-50"
-                                  : "border-emerald-500/20 bg-emerald-950/30 text-emerald-100/72"
-                              }`}
+                            <button
+                              type="button"
+                              onClick={openAiInterviewModal}
+                              disabled={isEditorBusy}
+                              className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/15 px-4 py-2 text-sm font-bold text-emerald-50 shadow-[0_0_24px_rgba(16,185,129,0.15)] backdrop-blur-xl transition-all hover:bg-emerald-500/25 hover:shadow-[0_0_32px_rgba(16,185,129,0.25)] disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="h-2 w-2 rounded-full bg-emerald-300/70" />}
-                              {builderStatusLabel}
-                            </span>
+                              <Sparkles className="h-4 w-4" />
+                              Quiz Assistenten
+                            </button>
 
                             <div ref={toolsMenuAnchorRef} className="inline-flex max-w-full flex-col items-end">
                               <button
@@ -1617,27 +1605,20 @@ function OpretLoebPageContent() {
                           className="w-full rounded-[1.6rem] border border-emerald-500/30 bg-emerald-950/20 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                         />
 
-                        <p className="text-sm leading-6 text-emerald-100/68">
-                          {builderStatusDescription}
-                        </p>
+
                       </div>
                     </div>
 
                     <div className="relative z-0 rounded-3xl border border-emerald-500/30 bg-emerald-950/20 p-4 backdrop-blur-xl">
                       <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
                         <div>
-                          <div className="mb-3 flex items-start gap-3">
-                            <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
-                              <GraduationCap className="h-4.5 w-4.5" />
+                          <div className="mb-3 flex items-center gap-3">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
+                              <GraduationCap className="h-4 w-4" />
                             </span>
-                            <div>
-                              <label className="block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
-                                Klassetrin
-                              </label>
-                              <p className="mt-1 text-sm leading-6 text-emerald-100/75">
-                                Vælg et eller flere klassetrin. Valget gemmes på løbet og vises også i print og arkiv.
-                              </p>
-                            </div>
+                            <label className="text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                              Klassetrin
+                            </label>
                           </div>
 
                           <GradeLevelMultiSelect
@@ -1652,18 +1633,13 @@ function OpretLoebPageContent() {
                         </div>
 
                         <div>
-                          <div className="mb-3 flex items-start gap-3">
-                            <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
-                              <BookOpenText className="h-4.5 w-4.5" />
+                          <div className="mb-3 flex items-center gap-3">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
+                              <BookOpenText className="h-4 w-4" />
                             </span>
-                            <div>
-                              <label className="block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
-                                Fag / kategori
-                              </label>
-                              <p className="mt-1 text-sm leading-6 text-emerald-100/75">
-                                Brug fagvalget til arkiv, print og genbrug, så løbet er let at finde igen senere.
-                              </p>
-                            </div>
+                            <label className="text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                              Fag / kategori
+                            </label>
                           </div>
 
                           <select
@@ -1886,7 +1862,7 @@ function OpretLoebPageContent() {
                       disabled={isEditorBusy}
                       className="mt-4 w-full rounded-[1.35rem] border border-emerald-500/30 bg-emerald-500 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                     >
-                      Hent pin fra kortet
+                      Hent pin til kortet
                     </button>
 
                     {question.lat !== null && question.lng !== null ? (
@@ -1959,31 +1935,6 @@ function OpretLoebPageContent() {
           className="w-[min(26rem,calc(100vw-2rem))] max-h-[min(32rem,calc(100vh-2rem))] overflow-x-hidden overflow-y-auto rounded-[1.6rem] border border-emerald-400/20 bg-slate-950/96 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl overscroll-contain"
         >
           <div className="px-4 pb-2 pt-2">
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-100/45">
-              Opret hurtigt
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={openAiInterviewModal}
-            disabled={isEditorBusy}
-            className={toolsMenuItemClass}
-          >
-            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
-              <BookOpenText className="h-4 w-4" />
-            </span>
-            <span>
-              <span className="block text-sm font-black uppercase tracking-[0.16em]">Quiz-assistent</span>
-              <span className="mt-1 block text-sm leading-6 text-emerald-100/72">
-                Lad assistenten spørge ind til temaet og klargøre et komplet quizudkast, som du kan tilpasse videre herfra.
-              </span>
-            </span>
-          </button>
-
-          <div className="mx-2 my-2 h-px bg-emerald-400/10" />
-
-          <div className="px-4 pb-2 pt-1">
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-100/45">
               Output
             </p>
@@ -2100,132 +2051,13 @@ function OpretLoebPageContent() {
           </button>
         </PortalMenu>
 
-        <section className="hidden print:block print:bg-white print:px-0 print:py-0 print:text-black">
-          <div className="mx-auto w-full max-w-none space-y-6 print:space-y-4">
-            <header className="rounded-none border-2 border-slate-900 bg-white p-8 text-black shadow-none print:break-after-page print:[page-break-after:always]">
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-600">
-                Printvenligt udkast
-              </p>
-              <h1 className={`mt-4 text-4xl font-black tracking-tight text-black ${rubik.className}`}>
-                {printTitle}
-              </h1>
-              <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                <div className="border border-slate-300 px-4 py-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                    Klassetrin
-                  </p>
-                  <p className="mt-3 text-2xl font-black text-black">{printClassLevel}</p>
-                </div>
-                <div className="border border-slate-300 px-4 py-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                    Fag / kategori
-                  </p>
-                  <p className="mt-3 text-2xl font-black text-black">{printSubject}</p>
-                </div>
-                <div className="border border-slate-300 px-4 py-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                    Antal poster
-                  </p>
-                  <p className="mt-3 text-2xl font-black text-black">{questions.length}</p>
-                </div>
-              </div>
-            </header>
-
-            {questions.map((question, questionIndex) => {
-              const isPhotoMission = question.type === "ai_image";
-              const promptText = question.aiPrompt.trim() || "Ikke angivet endnu";
-              const questionText = question.text.trim() || "Ikke udfyldt endnu";
-
-              return (
-                <article
-                  key={`print-${question.id}`}
-                  className="rounded-none border border-slate-900 bg-white p-6 text-black shadow-none print:break-inside-avoid print:[page-break-inside:avoid]"
-                >
-                  <div className="flex items-start justify-between gap-4 border-b border-slate-300 pb-4">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                        Post {questionIndex + 1}
-                      </p>
-                      <h2 className={`mt-2 text-2xl font-black text-black ${rubik.className}`}>
-                        {isPhotoMission ? "Foto-opgave" : "Quiz-opgave"}
-                      </h2>
-                    </div>
-                    <div className="text-right text-sm text-slate-600">
-                      <p>{isPhotoMission ? "Billedtjek" : "Multiple choice"}</p>
-                    </div>
-                  </div>
-
-                  {isPhotoMission ? (
-                    <div className="mt-6 rounded-none border-2 border-dashed border-slate-400 p-5">
-                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                        Foto-opgave
-                      </p>
-                      <div className="mt-4 space-y-4">
-                        <div>
-                          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
-                            Motiv
-                          </p>
-                          <p className="mt-2 text-lg font-bold text-black">{promptText}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
-                            Instruktion
-                          </p>
-                          <p className="mt-2 text-base leading-7 text-black">{questionText}</p>
-                        </div>
-                        <div className="mt-6 min-h-32 rounded-none border-2 border-dashed border-slate-300 p-4">
-                          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
-                            Foto-opgave
-                          </p>
-                          <p className="mt-3 text-sm leading-6 text-slate-700">
-                            Her kan læreren hurtigt se, at posten kræver et foto af motivet ovenfor.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="mt-6">
-                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                          Spørgsmål
-                        </p>
-                        <p className="mt-3 text-lg leading-8 text-black">{questionText}</p>
-                      </div>
-
-                      <ol className="mt-6 space-y-3">
-                        {question.answers.map((answer, answerIndex) => {
-                          const isCorrectAnswer = question.correctIndex === answerIndex;
-                          const answerText = answer.trim() || "Tom svarmulighed";
-
-                          return (
-                            <li
-                              key={`print-${question.id}-${answerIndex}`}
-                              className={`flex items-start gap-3 border px-4 py-3 ${
-                                isCorrectAnswer ? "border-slate-900 bg-slate-100" : "border-slate-300 bg-white"
-                              }`}
-                            >
-                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-500 text-sm font-bold text-black">
-                                {ANSWER_LABELS[answerIndex]}
-                              </span>
-                              <div className="min-w-0 flex-1 text-base leading-7 text-black">
-                                <span className={isCorrectAnswer ? "font-black" : "font-medium"}>{answerText}</span>
-                                {isCorrectAnswer ? (
-                                  <span className="ml-2 text-sm font-bold uppercase tracking-[0.16em] text-slate-700">
-                                    (Korrekt svar)
-                                  </span>
-                                ) : null}
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ol>
-                    </>
-                  )}
-                </article>
-              );
-            })}
-          </div>
-        </section>
+        <InkSaverPrintLayout
+          title={printTitle}
+          subject={printSubject}
+          classLevel={printClassLevel}
+          questions={questions}
+          fontClassName={rubik.className}
+        />
       </div>
       </div>
 
@@ -2278,7 +2110,6 @@ function OpretLoebPageContent() {
           ]}
           detailItems={[
             { label: "Emne", value: pendingAiReviewDraft.topic || "Ikke angivet" },
-            { label: "Stil", value: pendingAiReviewDraft.tone || "Balanceret" },
           ]}
           cancelLabel="Annuller"
           applyLabel="Anvend kladde"

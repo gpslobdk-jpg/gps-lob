@@ -5,6 +5,12 @@ import { z } from "zod";
 
 import { createClient } from "@/utils/supabase/server";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
+import {
+  formatGradeLevelsForPrompt,
+  GRADE_LEVEL_OPTIONS,
+  getGradeLevelRange,
+  normalizeGradeLevels,
+} from "@/utils/gradeLevels";
 
 export const maxDuration = 300;
 
@@ -19,7 +25,7 @@ const interviewPayloadSchema = z
   .object({
     topic: z.string().trim().min(1).max(180),
     subject: z.string().trim().max(80).optional().default(""),
-    audience: z.string().trim().min(1).max(80),
+    gradeLevels: z.array(z.string()).optional().default([]),
     tone: z.string().trim().min(1).max(80),
     count: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(20)]).optional().default(DEFAULT_COUNT),
   })
@@ -32,6 +38,34 @@ function createGeneratedRunSchema(desiredCount: number) {
       missions: z.array(z.string().trim().min(1)).length(desiredCount),
     })
     .strict();
+}
+
+function resolveFotoGradeLevelGuidance(gradeLevels: readonly string[]): string {
+  const { lowestGrade, highestGrade } = getGradeLevelRange(gradeLevels);
+
+  if (lowestGrade !== null && highestGrade !== null && lowestGrade !== highestGrade) {
+    return `  Klassetrinsspænd ${lowestGrade}.–${highestGrade}. klasse: variér sværhedsgraden, så de yngste kan klare de enkleste missioner, mens de ældste udfordres fagligt.`;
+  }
+
+  const gradeNumber = highestGrade;
+
+  if (gradeNumber !== null && gradeNumber <= 2) {
+    return "  Indskoling: brug meget konkrete ting, farver, former, materialer eller tydelige hverdagsobjekter.";
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 4) {
+    return "  Mellemtrin (tidligt): brug konkrete observationer med enkle faglige begreber og genkendeligt indhold.";
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 6) {
+    return "  Mellemtrin: brug konkrete observationer med lidt mere fagligt indhold og variation.";
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 9) {
+    return "  Udskoling: brug synlige tegn på begreber, strukturer, mønstre eller fænomener, som skal bevises visuelt.";
+  }
+
+  return "  Mellemtrin: brug konkrete observationer med lidt mere fagligt indhold og variation.";
 }
 
 function isTimeoutError(error: unknown) {
@@ -78,7 +112,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const { topic, subject, audience, tone, count } = parsedPayload.data;
+    const { topic, subject, gradeLevels: rawGradeLevels, tone, count } = parsedPayload.data;
+    const gradeLevels = normalizeGradeLevels(rawGradeLevels);
+    const gradeLevelLabel = gradeLevels.length > 0 ? formatGradeLevelsForPrompt(gradeLevels) : "Mellemtrin (4.–6. klasse)";
     const schema = createGeneratedRunSchema(count);
     const subjectLine = subject ? `Fag eller kategori: ${subject}.` : "Fag eller kategori: Ikke angivet.";
 
@@ -102,16 +138,13 @@ Du SKAL altid følge disse regler:
 - Tonen skal afspejle brugerens valg uden at gøre missionerne uklare eller useriøse.
 - Hvis tonen er "Faglig", skal missionerne tænke ud af boksen og pege på synlige beviser for faglige begreber.
 - Ved faglig tone er "Find et eksempel på oxidation eller rust" bedre end "Find noget brunt".
-- Tag målgruppen seriøst:
-  - Indskoling: brug meget konkrete ting, farver, former, materialer eller tydelige hverdagsobjekter.
-  - Mellemtrin: brug konkrete observationer med lidt mere fagligt indhold og variation.
-  - Udskoling: brug synlige tegn på begreber, strukturer, mønstre eller fænomener, som skal bevises visuelt.
-  - Voksne: brug præcise, udfordrende og reflekterede missioner med tydelig faglig eller tematisk skarphed.`;
+- Tag klassetrinnet seriøst og tilpas sprog, kompleksitet og fagligt niveau:
+${resolveFotoGradeLevelGuidance(gradeLevels)}`;
 
     const prompt = [
       `Tema: ${topic}.`,
       subjectLine,
-      `Målgruppe: ${audience}.`,
+      `Klassetrin: ${gradeLevelLabel}.`,
       `Tone: ${tone}.`,
       `Antal missioner: ${count}.`,
       `KRITISK: Returner præcis ${count} missioner. Ikke flere og ikke færre.`,

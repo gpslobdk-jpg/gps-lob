@@ -116,6 +116,7 @@ export default function LiveLobbyPage() {
   const [activeModule, setActiveModule] = useState<"none" | LiveModuleId>("none");
   const [selectedPhoto, setSelectedPhoto] = useState<LiveAnswer | null>(null);
   const [isAccessOverlayOpen, setIsAccessOverlayOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [didCopyJoinAccess, setDidCopyJoinAccess] = useState(false);
   const previousStatusRef = useRef(live.status);
   const isStrategoRace =
@@ -287,7 +288,7 @@ export default function LiveLobbyPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -16 }}
           transition={{ duration: 0.35 }}
-          className={`relative flex h-screen overflow-hidden bg-linear-to-b from-indigo-950 via-blue-900 to-cyan-800 p-4 text-white ${poppins.className}`}
+          className={`relative flex h-screen overflow-hidden bg-linear-to-b from-slate-950 via-emerald-950 to-teal-950 p-4 text-white ${poppins.className}`}
         >
           <TeacherLiveMap
             mapCenter={live.mapCenter}
@@ -299,8 +300,10 @@ export default function LiveLobbyPage() {
             hasParticipantsTable={live.hasParticipantsTable}
             isEndingRun={live.isEndingRun}
             onEndRun={live.endRun}
+            sidebarCollapsed={sidebarCollapsed}
+            onToggleSidebar={() => setSidebarCollapsed((prev) => !prev)}
           />
-          <TeacherLiveSidebar
+          {!sidebarCollapsed && <TeacherLiveSidebar
             activeStudents={live.activeStudents}
             joinPin={live.joinPin}
             hasParticipantsTable={live.hasParticipantsTable}
@@ -312,7 +315,7 @@ export default function LiveLobbyPage() {
             onSendMessage={live.sendMessage}
             onToggleGpsOverride={live.toggleGpsOverride}
             onModuleSelect={handleModuleSelect}
-          />
+          />}
         </motion.div>
       )}
       </AnimatePresence>

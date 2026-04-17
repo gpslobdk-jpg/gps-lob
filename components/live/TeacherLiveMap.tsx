@@ -3,11 +3,13 @@
 import "leaflet/dist/leaflet.css";
 
 import L from "leaflet";
+import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
 import { escapeHtml, toFiniteNumber } from "@/components/live/liveUtils";
+import { getStudentInitials } from "@/components/live/liveDashboardUtils";
 import type {
   LiveStudentLocation,
   RunQuestion,
@@ -34,6 +36,8 @@ type TeacherLiveMapProps = {
   hasParticipantsTable: boolean;
   isEndingRun: boolean;
   onEndRun: () => Promise<void>;
+  sidebarCollapsed: boolean;
+  onToggleSidebar: () => void;
 };
 
 const LIVE_STATUS_WINDOW_MS = 30_000;
@@ -104,8 +108,8 @@ function getLiveFeedIndicatorCopy(
     case "live":
       return {
         label: "Live-feed aktiv",
-        shellClass: "border-emerald-300/40 bg-emerald-500/10 text-emerald-900",
-        dotClass: "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.55)]",
+        shellClass: "border-emerald-400/25 bg-emerald-500/15 text-emerald-200",
+        dotClass: "bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.55)]",
         detail: formattedSyncTime
           ? `Sidst synkroniseret ${formattedSyncTime}.`
           : "Live-feedet er forbundet nu.",
@@ -113,8 +117,8 @@ function getLiveFeedIndicatorCopy(
     case "recovering":
       return {
         label: "Genopretter live-feed",
-        shellClass: "border-amber-300/45 bg-amber-400/12 text-amber-950",
-        dotClass: "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]",
+        shellClass: "border-amber-400/25 bg-amber-500/15 text-amber-200",
+        dotClass: "bg-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.5)]",
         detail: formattedSyncTime
           ? `Viser sidste kendte data fra ${formattedSyncTime}.`
           : "Henter forbindelse og opdateringer igen.",
@@ -122,8 +126,8 @@ function getLiveFeedIndicatorCopy(
     default:
       return {
         label: "Kobler på live-feed",
-        shellClass: "border-slate-300/50 bg-white/80 text-slate-700",
-        dotClass: "bg-slate-400 shadow-[0_0_8px_rgba(148,163,184,0.45)]",
+        shellClass: "border-white/15 bg-white/10 text-slate-300",
+        dotClass: "bg-slate-400 shadow-[0_0_8px_rgba(148,163,184,0.35)]",
         detail: formattedSyncTime
           ? `Opkobler igen. Sidste synk var ${formattedSyncTime}.`
           : "Venter på første live-forbindelse.",
@@ -131,24 +135,37 @@ function getLiveFeedIndicatorCopy(
   }
 }
 
-function createStudentIcon(name: string, isLive: boolean) {
-  const initial = escapeHtml(name.trim().charAt(0).toUpperCase() || "?");
-  const safeName = escapeHtml(name);
-  const statusMarkup = isLive
-    ? `<span class="absolute inline-flex h-3.5 w-3.5 animate-ping rounded-full bg-orange-400 opacity-75"></span><span class="relative inline-flex h-3 w-3 rounded-full border border-orange-100/80 bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.8)]"></span>`
-    : `<span class="relative inline-flex h-3 w-3 rounded-full border border-slate-300/60 bg-slate-400 shadow-[0_0_6px_rgba(100,116,139,0.5)]"></span>`;
+const MARKER_COLORS = [
+  "#10b981", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6",
+  "#ec4899", "#14b8a6", "#f97316", "#06b6d4", "#84cc16",
+  "#6366f1", "#d946ef", "#0ea5e9", "#22c55e", "#e11d48",
+];
+
+function getMarkerColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return MARKER_COLORS[Math.abs(hash) % MARKER_COLORS.length];
+}
+
+function createStudentIcon(id: string, name: string, isLive: boolean) {
+  const initials = escapeHtml(getStudentInitials(name));
+  const bgColor = getMarkerColor(id);
+  const statusDotColor = isLive ? "#22c55e" : "#ef4444";
+  const statusGlow = isLive
+    ? "box-shadow:0 0 6px 2px rgba(34,197,94,0.6)"
+    : "box-shadow:0 0 4px 1px rgba(239,68,68,0.5)";
+  const opacityStyle = isLive ? "" : "opacity:0.55;";
 
   return L.divIcon({
-    className: "bg-transparent border-none w-auto",
-    html: `<div class="relative flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-slate-800 shadow-md whitespace-nowrap ${isLive ? "" : "opacity-50"}">
-      <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-[11px] font-black uppercase text-slate-700 shadow-inner shadow-slate-200">${initial}</span>
-      <span class="text-xs font-bold tracking-wide text-slate-800">${safeName}</span>
-      <span class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center">
-        ${statusMarkup}
-      </span>
+    className: "bg-transparent border-none",
+    html: `<div style="position:relative;width:40px;height:40px;${opacityStyle}">
+      <div style="width:40px;height:40px;border-radius:50%;background:${bgColor};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:12px;letter-spacing:0.04em;border:2.5px solid rgba(255,255,255,0.85);box-shadow:0 2px 10px rgba(0,0,0,0.25);font-family:inherit;">${initials}</div>
+      <span style="position:absolute;bottom:-2px;right:-2px;width:12px;height:12px;border-radius:50%;background:${statusDotColor};border:2px solid #fff;${statusGlow}"></span>
     </div>`,
-    iconSize: [0, 0],
-    iconAnchor: [-8, 12],
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
   });
 }
 
@@ -190,6 +207,8 @@ export default function TeacherLiveMap({
   hasParticipantsTable,
   isEndingRun,
   onEndRun,
+  sidebarCollapsed,
+  onToggleSidebar,
 }: TeacherLiveMapProps) {
   const recentActiveCount = studentLocations.filter((student) => isStudentRecentlyActive(student)).length;
   const staleCount = Math.max(0, studentLocations.length - recentActiveCount);
@@ -197,16 +216,19 @@ export default function TeacherLiveMap({
 
   return (
     <div
-      className={`relative z-0 h-full w-2/3 overflow-hidden rounded-[2rem] border-4 border-white/20 shadow-2xl ${poppins.className}`}
+      className={`relative z-0 h-full overflow-hidden rounded-4xl border border-white/15 shadow-2xl transition-all duration-500 ease-in-out ${
+        sidebarCollapsed ? "w-full" : "w-2/3"
+      } ${poppins.className}`}
     >
-      <div className="absolute left-6 top-6 z-[1000] rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-xl backdrop-blur-md">
+      {/* Nature-Glass info overlay */}
+      <div className="absolute left-5 top-5 z-1000 max-w-xs rounded-2xl border border-white/20 bg-slate-900/60 p-5 shadow-[0_16px_48px_rgba(0,0,0,0.3)] backdrop-blur-xl">
         <h2
-          className={`text-xl font-black tracking-widest text-slate-800 uppercase ${rubik.className}`}
+          className={`text-lg font-black tracking-widest text-white/90 uppercase ${rubik.className}`}
         >
           Live Overvågning
         </h2>
-        <p className="text-sm text-slate-500">
-          {studentLocations.length} deltagere registreret · {recentActiveCount} live nu
+        <p className="mt-1 text-sm text-white/50">
+          {studentLocations.length} deltagere · {recentActiveCount} live
         </p>
         <div
           className={`mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] ${liveFeedIndicator.shellClass}`}
@@ -214,24 +236,38 @@ export default function TeacherLiveMap({
           <span className={`h-2.5 w-2.5 rounded-full ${liveFeedIndicator.dotClass}`} />
           <span>{liveFeedIndicator.label}</span>
         </div>
-        <p className="mt-2 text-xs text-slate-500">{liveFeedIndicator.detail}</p>
+        <p className="mt-2 text-[11px] text-white/40">{liveFeedIndicator.detail}</p>
         {staleCount > 0 ? (
-          <p className="mt-1 text-xs text-slate-400">
-            {staleCount} vises som sidst set, indtil næste ping kommer ind.
+          <p className="mt-1 text-[11px] text-white/30">
+            {staleCount} sidst set — venter på ping.
           </p>
         ) : null}
         {!hasParticipantsTable ? (
-          <p className="mt-1 text-xs text-slate-400">`participants` mangler - bruger fallback.</p>
+          <p className="mt-1 text-[11px] text-white/30">`participants` mangler — fallback.</p>
         ) : null}
         <button
           type="button"
           onClick={() => void onEndRun()}
           disabled={isEndingRun}
-          className="mt-4 rounded-xl border border-teal-400/50 bg-teal-600 px-4 py-2 text-xs font-bold tracking-widest text-white uppercase shadow-lg transition-colors hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-4 rounded-xl border border-red-400/30 bg-red-500/80 px-4 py-2 text-xs font-bold tracking-widest text-white uppercase shadow-lg backdrop-blur-sm transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isEndingRun ? "Afslutter løb..." : "Afslut Løb 🛑"}
         </button>
       </div>
+
+      {/* Focus toggle button */}
+      <button
+        type="button"
+        onClick={onToggleSidebar}
+        className="absolute right-5 top-5 z-1000 inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-slate-900/60 px-4 py-3 text-sm font-semibold text-white/90 shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-xl transition-all hover:bg-slate-900/80"
+        title={sidebarCollapsed ? "Vis sidepanel" : "Skjul sidepanel – fuld fokus"}
+      >
+        {sidebarCollapsed ? (
+          <><PanelRightOpen className="h-4 w-4" /> Panel</>
+        ) : (
+          <><PanelRightClose className="h-4 w-4" /> Fokus</>
+        )}
+      </button>
 
       <MapContainer
         key={mapKey}
@@ -277,7 +313,7 @@ export default function TeacherLiveMap({
               <Marker
                 key={student.id}
                 position={[student.lat, student.lng]}
-                icon={createStudentIcon(student.name, isStudentRecentlyActive(student))}
+                icon={createStudentIcon(student.id, student.name, isStudentRecentlyActive(student))}
               />
             )
         )}

@@ -101,10 +101,16 @@ const getQuickActions = (pathname: string) => {
     .filter((action): action is QuickAction => Boolean(action));
 };
 
+const HIDDEN_PATHNAMES = ["/opret/zone-krig"];
+
 export default function AIChatButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const pathname = usePathname();
+
+  if (HIDDEN_PATHNAMES.some((hidden) => pathname.includes(hidden))) {
+    return null;
+  }
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   const quickActions = useMemo(() => getQuickActions(pathname), [pathname]);
   const welcomeMessage = useMemo(() => getWelcomeMessage(pathname), [pathname]);

@@ -1435,7 +1435,7 @@ function FotoMissionBuilderPageContent() {
                     onClick={() => assignPinFromCenter(question.id)}
                     className="mt-5 w-full rounded-[1.4rem] border border-sky-500/30 bg-sky-500 px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-sky-500/20 transition-all hover:bg-sky-400"
                   >
-                    Hent pin fra kortet
+                    Hent pin til kortet
                   </button>
 
                   {question.lat !== null && question.lng !== null ? (

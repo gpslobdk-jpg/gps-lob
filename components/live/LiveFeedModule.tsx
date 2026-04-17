@@ -92,25 +92,47 @@ export default function LiveFeedModule({
               item.type === "answer" ? (
                 <div
                   key={item.id}
-                  className="rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-4 shadow-[0_12px_30px_rgba(16,185,129,0.12)]"
+                  className={`rounded-3xl border p-4 ${
+                    item.answer.isCorrect === false
+                      ? "border-red-500/25 bg-red-500/10 shadow-[0_12px_30px_rgba(239,68,68,0.10)]"
+                      : "border-emerald-500/20 bg-emerald-500/10 shadow-[0_12px_30px_rgba(16,185,129,0.12)]"
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200/75">
-                        {item.answer.image_url ? "Foto uploadet" : "Korrekt svar"}
+                      <p className={`text-[11px] font-semibold uppercase tracking-[0.24em] ${
+                        item.answer.isCorrect === false
+                          ? "text-red-300/80"
+                          : "text-emerald-200/75"
+                      }`}>
+                        {item.answer.isCorrect === false
+                          ? "Forkert svar"
+                          : item.answer.image_url
+                            ? "Foto uploadet"
+                            : "Korrekt svar"}
                       </p>
                       <p className="mt-2 truncate text-sm font-semibold text-white">
                         {item.answer.studentName}
                       </p>
                     </div>
-                    <span className="text-xs text-emerald-100/80">
+                    <span className={`text-xs ${
+                      item.answer.isCorrect === false ? "text-red-200/70" : "text-emerald-100/80"
+                    }`}>
                       {formatFeedTime(item.answer.createdAt)}
                     </span>
                   </div>
-                  <div className="mt-3 rounded-2xl border border-emerald-500/15 bg-slate-950/35 px-4 py-3 text-sm text-slate-200">
-                    {item.answer.postNumber !== null
-                      ? `Løste post ${item.answer.postNumber}`
-                      : "Løste en post"}
+                  <div className={`mt-3 rounded-2xl border px-4 py-3 text-sm ${
+                    item.answer.isCorrect === false
+                      ? "border-red-500/15 bg-slate-950/35 text-red-100/90"
+                      : "border-emerald-500/15 bg-slate-950/35 text-slate-200"
+                  }`}>
+                    {item.answer.isCorrect === false
+                      ? item.answer.postNumber !== null
+                        ? `Svarede forkert ved Post ${item.answer.postNumber} — 0 point`
+                        : "Svarede forkert — 0 point"
+                      : item.answer.postNumber !== null
+                        ? `Løste post ${item.answer.postNumber}`
+                        : "Løste en post"}
                   </div>
                   {item.answer.image_url ? (
                     <button

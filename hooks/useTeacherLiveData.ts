@@ -221,13 +221,11 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
 
         setSessionAnswers(parsed);
         setLiveAnswers(
-          parsed
-            .filter((row) => row.isCorrect === true || Boolean(row.image_url))
-            .sort((a, b) => {
-              const aTs = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-              const bTs = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-              return bTs - aTs;
-            })
+          [...parsed].sort((a, b) => {
+            const aTs = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bTs = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return bTs - aTs;
+          })
         );
       }
 
@@ -379,7 +377,6 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
                 return aTs - bTs;
               })
             );
-            if (parsed.isCorrect !== true && !parsed.image_url) return;
             setLiveAnswers((previous) => prependAnswer(previous, parsed));
           }
         );
@@ -688,9 +685,9 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         | null;
 
       if (!provisionResponse.ok) {
-        console.error("Kunne ikke klargøre Stratego-spillere:", provisionPayload?.error);
-        alert(provisionPayload?.error || "Kunne ikke klargøre Stratego-holdene.");
-        return;
+        const errorMessage = provisionPayload?.error || "Kunne ikke klargøre Stratego-holdene.";
+        console.error("Kunne ikke klargøre Stratego-spillere:", errorMessage);
+        throw new Error(errorMessage);
       }
     }
 
@@ -841,6 +838,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     newMessage,
     runQuestions,
     liveAnswers,
+    sessionAnswers,
     photoAnswers,
     hasParticipantsTable,
     hasAnswersTable,

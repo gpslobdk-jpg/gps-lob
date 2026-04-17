@@ -5,6 +5,12 @@ import { z } from "zod";
 
 import { createClient } from "@/utils/supabase/server";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
+import {
+  formatGradeLevelsForPrompt,
+  GRADE_LEVEL_OPTIONS,
+  getGradeLevelRange,
+  normalizeGradeLevels,
+} from "@/utils/gradeLevels";
 
 export const maxDuration = 300;
 
@@ -19,7 +25,7 @@ const interviewPayloadSchema = z
   .object({
     topic: z.string().trim().min(1).max(180),
     subject: z.string().trim().max(80).optional().default(""),
-    audience: z.string().trim().min(1).max(80),
+    gradeLevels: z.array(z.string()).optional().default([]),
     tone: z.string().trim().min(1).max(80),
     count: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(20)]).optional().default(DEFAULT_COUNT),
   })
@@ -44,6 +50,34 @@ function createGeneratedRunSchema(desiredCount: number) {
 
 function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function resolveSelfieGradeLevelGuidance(gradeLevels: readonly string[]): string {
+  const { lowestGrade, highestGrade } = getGradeLevelRange(gradeLevels);
+
+  if (lowestGrade !== null && highestGrade !== null && lowestGrade !== highestGrade) {
+    return `  Klassetrinsspænd ${lowestGrade}.–${highestGrade}. klasse: variér sværhedsgraden, så de yngste får korte og legende missioner, mens de ældste får mere kreative og selvstændige opgaver.`;
+  }
+
+  const gradeNumber = highestGrade;
+
+  if (gradeNumber !== null && gradeNumber <= 2) {
+    return "  Indskoling: korte, tydelige og legende missioner med meget konkrete steder eller motiver.";
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 4) {
+    return "  Mellemtrin (tidligt): sjove og klare missioner med enkle steder og motiver, der er lette at genkende.";
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 6) {
+    return "  Mellemtrin: sjove og klare missioner med lidt mere variation og samarbejde.";
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 9) {
+    return "  Udskoling: mere kreative og selvsikre missioner med tydelig stemning og mere selvstændig fortolkning.";
+  }
+
+  return "  Mellemtrin: sjove og klare missioner med lidt mere variation og samarbejde.";
 }
 
 function isTimeoutError(error: unknown) {
@@ -90,7 +124,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const { topic, subject, audience, tone, count } = parsedPayload.data;
+    const { topic, subject, gradeLevels: rawGradeLevels, tone, count } = parsedPayload.data;
+    const gradeLevels = normalizeGradeLevels(rawGradeLevels);
+    const gradeLevelLabel = gradeLevels.length > 0 ? formatGradeLevelsForPrompt(gradeLevels) : "Mellemtrin (4.–6. klasse)";
     const schema = createGeneratedRunSchema(count);
     const subjectLine = subject ? `Fag eller kategori: ${subject}.` : "Fag eller kategori: Ikke angivet.";
 
@@ -119,17 +155,14 @@ Du SKAL altid følge disse regler:
 - Titel skal være fængende, motiverende og brugbar i arkivet.
 - Beskrivelse skal være engagerende, indbydende og forklare løbets idé i 1-2 sætninger.
 - GEOGRAFISK FORSTÅELSE: Du har en dyb geografisk og rumlig viden. Når brugeren angiver et startsted, et tema eller et område (f.eks. Thorvaldsens Museum), skal du automatisk vide, hvilke andre markante bygninger, pladser eller vartegn der ligger i umiddelbar gåafstand (f.eks. ved du, at Christiansborg og Slotskirken ligger lige ved siden af Thorvaldsens Museum). Brug denne sande geografiske viden til at foreslå en rute af selfie-spots og opgaver, der giver logisk mening at gå i virkeligheden.
-- Tag målgruppen seriøst:
-  - Indskoling: korte, tydelige og legende missioner med meget konkrete steder eller motiver.
-  - Mellemtrin: sjove og klare missioner med lidt mere variation og samarbejde.
-  - Udskoling: mere kreative og selvsikre missioner med tydelig stemning og mere selvstændig fortolkning.
-  - Voksne: mere elegante, skarpe og stemningsfulde missioner uden at blive for interne eller pinlige.
+- Tag klassetrinnet seriøst og tilpas sprog, kompleksitet og fagligt niveau:
+${resolveSelfieGradeLevelGuidance(gradeLevels)}
 - Tonen skal afspejle brugerens valg uden at gøre missionerne uklare eller svære at udføre.`;
 
     const prompt = [
       `Tema: ${topic}.`,
       subjectLine,
-      `Målgruppe: ${audience}.`,
+      `Klassetrin: ${gradeLevelLabel}.`,
       `Tone: ${tone}.`,
       `Antal missioner: ${count}.`,
       `KRITISK: Returner præcis ${count} missioner. Ikke flere og ikke færre.`,

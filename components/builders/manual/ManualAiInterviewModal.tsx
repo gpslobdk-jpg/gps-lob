@@ -27,16 +27,8 @@ const poppins = Poppins({
   weight: ["400", "500", "600", "700"],
 });
 
-const TONE_OPTIONS = [
-  { value: "balanceret", label: "Balanceret" },
-  { value: "faglig", label: "Faglig" },
-  { value: "legende", label: "Legende" },
-  { value: "mystisk", label: "Mystisk" },
-] as const;
-
 const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
 const DEFAULT_QUESTION_COUNT: (typeof QUESTION_COUNT_OPTIONS)[number] = 10;
-const DEFAULT_TONE: (typeof TONE_OPTIONS)[number]["value"] = "balanceret";
 const MANUAL_AI_INTERVIEW_SESSION_KEY = "manual_ai_interview_state";
 
 type Step = 1 | 2 | 3 | 4;
@@ -46,7 +38,6 @@ type SessionDraftState = {
   gradeLevels?: unknown;
   subject?: unknown;
   topic?: unknown;
-  tone?: unknown;
   questionCount?: unknown;
 };
 
@@ -62,7 +53,6 @@ export type ManualAiInterviewDraft = {
   questions: ManualAiInterviewQuestion[];
   gradeLevels: GradeLevel[];
   topic: string;
-  tone: string;
 };
 
 type ApiSuccessResponse = {
@@ -85,12 +75,6 @@ type Props = {
 
 function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function normalizeTone(value: unknown): (typeof TONE_OPTIONS)[number]["value"] {
-  return TONE_OPTIONS.some((option) => option.value === value)
-    ? (value as (typeof TONE_OPTIONS)[number]["value"])
-    : DEFAULT_TONE;
 }
 
 function normalizeQuestionCount(value: unknown): (typeof QUESTION_COUNT_OPTIONS)[number] {
@@ -157,7 +141,6 @@ export default function ManualAiInterviewModal({
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>(DEFAULT_SELECTED_GRADE_LEVELS);
   const [subject, setSubject] = useState("");
   const [topic, setTopic] = useState("");
-  const [tone, setTone] = useState<(typeof TONE_OPTIONS)[number]["value"]>(DEFAULT_TONE);
   const [questionCount, setQuestionCount] =
     useState<(typeof QUESTION_COUNT_OPTIONS)[number]>(DEFAULT_QUESTION_COUNT);
   const [error, setError] = useState<string | null>(null);
@@ -182,7 +165,6 @@ export default function ManualAiInterviewModal({
     );
     setSubject(asTrimmedString(restoredDraft?.subject) || initialSubject.trim());
     setTopic(asTrimmedString(restoredDraft?.topic));
-    setTone(normalizeTone(restoredDraft?.tone));
     setQuestionCount(normalizeQuestionCount(restoredDraft?.questionCount));
     setError(null);
     setIsGenerating(false);
@@ -196,10 +178,9 @@ export default function ManualAiInterviewModal({
       gradeLevels,
       subject,
       topic,
-      tone,
       questionCount,
     } satisfies SessionDraftState);
-  }, [gradeLevels, open, questionCount, step, subject, tone, topic]);
+  }, [gradeLevels, open, questionCount, step, subject, topic]);
 
   useEffect(() => {
     if (!open || step !== 2) return;
@@ -283,7 +264,6 @@ export default function ManualAiInterviewModal({
           subject: trimmedSubject || undefined,
           gradeLevels,
           manualTopic: trimmedTopic,
-          tone,
           count: selectedCount,
         }),
       });
@@ -320,7 +300,6 @@ export default function ManualAiInterviewModal({
         }),
         gradeLevels,
         topic: trimmedTopic,
-        tone,
       };
 
       clearSessionDraft(MANUAL_AI_INTERVIEW_SESSION_KEY);
@@ -443,70 +422,25 @@ export default function ManualAiInterviewModal({
                   Vælg gerne en kategori som hurtig start, og beskriv derefter temaet mere konkret, så udkastet bliver skarpt og brugbart.
                 </p>
 
-                <div className="mt-8 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-                  <div className="rounded-[1.9rem] border border-white/10 bg-slate-950/65 p-5 text-left shadow-[0_22px_52px_rgba(0,0,0,0.24)]">
-                    <div className="flex items-start gap-3">
-                      <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
-                        <BookOpenText className="h-4.5 w-4.5" />
-                      </span>
-                      <div>
-                        <p className="text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">Fag / kategori</p>
-                        <p className="mt-1 text-sm leading-6 text-slate-300">
-                          Klik på en kategori for at bruge den som udgangspunkt for emnet og arkivtitlen.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-5 flex flex-wrap gap-3">
-                      {subjectSuggestions.map((suggestion) => {
-                        const isSelected = suggestion === trimmedSubject;
-
-                        return (
-                          <button
-                            key={suggestion}
-                            type="button"
-                            onClick={() => setSubject(suggestion)}
-                            className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                              isSelected
-                                ? "border-emerald-200/65 bg-emerald-400/18 text-emerald-50 shadow-[0_16px_34px_rgba(16,185,129,0.18)]"
-                                : "border-white/10 bg-white/4 text-slate-200 hover:border-emerald-300/40 hover:bg-emerald-400/10"
-                            }`}
-                          >
-                            {suggestion}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <p className="mt-4 text-sm text-emerald-100/72">
-                      {trimmedSubject ? `Valgt kategori: ${trimmedSubject}` : "Ingen kategori valgt endnu. Du kan stadig beskrive emnet frit."}
-                    </p>
-                  </div>
-
-                  <div className="rounded-[1.9rem] border border-white/10 bg-slate-950/65 p-5 text-left shadow-[0_22px_52px_rgba(0,0,0,0.24)]">
-                    <label className="block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
-                      Stil
-                    </label>
-                    <p className="mt-1 text-sm leading-6 text-slate-300">
-                      Vælg en let retning for sproget. Niveauet styres stadig primært af klassetrinnet.
-                    </p>
-                    <select
-                      value={tone}
-                      onChange={(event) => setTone(normalizeTone(event.target.value))}
-                      disabled={isGenerating}
-                      className="mt-4 w-full rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {TONE_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value} className="bg-slate-900 text-white">
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-
-                    <p className="mt-4 text-sm text-emerald-100/72">
-                      Klassetrin: {selectedGradeLevelLabel}
-                    </p>
-                  </div>
+                <div className="mt-8 rounded-[1.9rem] border border-white/10 bg-slate-950/65 p-5 text-left shadow-[0_22px_52px_rgba(0,0,0,0.24)]">
+                  <label className="block text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">
+                    Fag / kategori
+                  </label>
+                  <select
+                    value={subject}
+                    onChange={(event) => setSubject(event.target.value)}
+                    disabled={isGenerating}
+                    className="mt-3 w-full rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="" className="bg-slate-900 text-white">
+                      Vælg fag eller kategori...
+                    </option>
+                    {subjectSuggestions.map((suggestion) => (
+                      <option key={suggestion} value={suggestion} className="bg-slate-900 text-white">
+                        {suggestion}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <textarea
@@ -551,7 +485,7 @@ export default function ManualAiInterviewModal({
                   Vælg længden på løbet. Assistensen bygger derefter et komplet sæt multiple-choice poster med ét tydeligt korrekt svar pr. post.
                 </p>
 
-                <div className="mx-auto mt-8 grid w-full gap-4 rounded-[1.9rem] border border-white/10 bg-slate-950/55 p-5 text-left shadow-[0_22px_52px_rgba(0,0,0,0.24)] sm:grid-cols-3">
+                <div className="mx-auto mt-8 grid w-full gap-4 rounded-[1.9rem] border border-white/10 bg-slate-950/55 p-5 text-left shadow-[0_22px_52px_rgba(0,0,0,0.24)] sm:grid-cols-2">
                   <div>
                     <p className="text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">Klassetrin</p>
                     <p className="mt-2 text-sm font-semibold text-white">{selectedGradeLevelLabel}</p>
@@ -559,12 +493,6 @@ export default function ManualAiInterviewModal({
                   <div>
                     <p className="text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">Kategori</p>
                     <p className="mt-2 text-sm font-semibold text-white">{trimmedSubject || "Generel quiz"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold tracking-[0.22em] text-emerald-100/65 uppercase">Stil</p>
-                    <p className="mt-2 text-sm font-semibold text-white">
-                      {TONE_OPTIONS.find((option) => option.value === tone)?.label ?? "Balanceret"}
-                    </p>
                   </div>
                 </div>
 

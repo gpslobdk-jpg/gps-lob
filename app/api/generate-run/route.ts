@@ -5,6 +5,12 @@ import { z } from "zod";
 
 import { createClient } from "@/utils/supabase/server";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
+import {
+  formatGradeLevelsForPrompt,
+  GRADE_LEVEL_OPTIONS,
+  getGradeLevelRange,
+  normalizeGradeLevels,
+} from "@/utils/gradeLevels";
 
 export const maxDuration = 300;
 
@@ -14,8 +20,6 @@ const openai = createOpenAI({
 
 const ALLOWED_COUNTS = [5, 10, 15, 20] as const;
 const DEFAULT_COUNT = 10;
-const ALLOWED_AUDIENCES = ["Indskoling", "Mellemtrin", "Udskoling", "Voksne"] as const;
-const DEFAULT_AUDIENCE = "Mellemtrin";
 const OPENAI_TIMEOUT_MS = 45_000;
 const MAX_TOPIC_LENGTH = 150;
 const MAX_SUBJECT_LENGTH = 80;
@@ -29,11 +33,9 @@ type GenerateRunPayload = {
   sourceText?: unknown;
   imageBase64List?: unknown;
   subject?: unknown;
-  audience?: unknown;
+  gradeLevels?: unknown;
   count?: unknown;
 };
-
-type Audience = (typeof ALLOWED_AUDIENCES)[number];
 
 type NormalizedQuestion = {
   question: string;
@@ -87,25 +89,32 @@ function asCount(value: unknown): number {
   return DEFAULT_COUNT;
 }
 
-function asAudience(value: unknown): Audience {
-  if (typeof value === "string" && ALLOWED_AUDIENCES.includes(value as Audience)) {
-    return value as Audience;
+function resolveGenerateRunGradeLevelGuidance(gradeLevels: readonly string[]): string {
+  const { lowestGrade, highestGrade } = getGradeLevelRange(gradeLevels);
+
+  if (lowestGrade !== null && highestGrade !== null && lowestGrade !== highestGrade) {
+    return `Hold sproget tilgængeligt nok til de yngste (${lowestGrade}. klasse), men byg faglig progression og udfordring ind til de ældste (${highestGrade}. klasse). Variér sværhedsgraden, så der er noget for alle niveauer.`;
   }
 
-  return DEFAULT_AUDIENCE;
-}
+  const gradeNumber = highestGrade;
 
-function getAudienceGuidance(audience: Audience) {
-  switch (audience) {
-    case "Indskoling":
-      return "Brug meget enkelt, tydeligt og konkret sprog, men gør stadig spørgsmålene meningsfulde og lærerige.";
-    case "Mellemtrin":
-      return "Brug klart og alderssvarende sprog med lidt mere variation og faglig dybde.";
-    case "Udskoling":
-      return "Brug mere præcist og udfordrende sprog, som kræver opmærksom læsning og sikker forståelse.";
-    case "Voksne":
-      return "Brug et modent, præcist og fagligt skarpt sprog med højere krav til forståelse og refleksion.";
+  if (gradeNumber !== null && gradeNumber <= 2) {
+    return "Brug meget enkelt, kort og konkret sprog. Korte sætninger, dagligdags ord, ingen fagtermer. Spørgsmålene skal være meget konkrete og lette at afkode. Svarmulighederne skal være korte (1-3 ord).";
   }
+
+  if (gradeNumber !== null && gradeNumber <= 4) {
+    return "Brug klart, overskueligt sprog med korte sætninger og velkendte situationer. Du må bruge enkle fagbegreber, der forklares kort. Spørgsmålene skal kræve simpel forståelse og genkendelse.";
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 6) {
+    return "Brug klart og alderssvarende sprog med lidt mere variation og faglig dybde. Fagbegreber må bruges, men skal forklares kort. Spørgsmålene skal kræve let logisk tænkning og refleksion.";
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 9) {
+    return "Brug præcist, udfordrende sprog med fagtermer og komplekse sætninger. Spørgsmålene må gerne kræve analyse, perspektivering og kildekritisk tænkning. Højt fagligt niveau.";
+  }
+
+  return "Brug klart og alderssvarende sprog med lidt mere variation og faglig dybde.";
 }
 
 function getContentLength(request: Request): number | null {
@@ -217,7 +226,9 @@ export async function POST(req: Request) {
     const sourceText = asTrimmedString(payload.sourceText);
     const imageBase64List = asTrimmedStringArray(payload.imageBase64List);
     const subject = asTrimmedString(payload.subject);
-    const audience = asAudience(payload.audience);
+    const gradeLevels = normalizeGradeLevels(payload.gradeLevels);
+    const gradeLevelLabel = gradeLevels.length > 0 ? formatGradeLevelsForPrompt(gradeLevels) : "Mellemtrin (4.–6. klasse)";
+    const gradeLevelGuidance = resolveGenerateRunGradeLevelGuidance(gradeLevels);
     const hasMaterial = sourceText.length > 0 || imageBase64List.length > 0;
     const count = asCount(payload.count);
 
@@ -272,7 +283,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const audienceGuidance = getAudienceGuidance(audience);
+    const audienceGuidance = gradeLevelGuidance;
     const subjectLine = subject
       ? `- Brug faget "${subject}" som tydelig faglig ramme for spørgsmålene.`
       : "- Hold spørgsmålene fagligt relevante for undervisning.";
@@ -298,7 +309,7 @@ Vigtige regler:
 - Sørg for, at de rigtige svar giver mening ud fra teksten og materialet.
 - Spørgsmålene må gerne omformulere materialet, men de skal stadig føles tydeligt forankret i det, eleverne har læst.
 - Hvis materialet er uklart et sted, så vælg hellere tydelige og sikre spor fra teksten eller billederne.
-- Sprog og sværhedsgrad skal passe præcist til målgruppen "${audience}".
+- Sprog og sværhedsgrad skal passe præcist til klassetrin: ${gradeLevelLabel}.
 - ${audienceGuidance}
 ${subjectLine}`
       : `Du er en dansk AI-løbsbygger til GPSLØB.
@@ -313,7 +324,7 @@ Vigtige regler:
 - correctIndex skal være et heltal fra 0 til 3.
 - lat og lng skal altid være null.
 - Titel og beskrivelse skal være korte, tydelige og brugbare i builderen.
-- Sprog og sværhedsgrad skal passe præcist til målgruppen "${audience}".
+- Sprog og sværhedsgrad skal passe præcist til klassetrin: ${gradeLevelLabel}.
 - ${audienceGuidance}
 ${subjectLine}`;
 
@@ -349,7 +360,7 @@ ${subjectLine}`;
                     type: "text" as const,
                     text:
                       `Læs materialet grundigt og lav nu et GPS-løb med præcis ${count} spørgsmål.` +
-                      `\n\nMålgruppe: ${audience}` +
+                      `\n\nKlasetrin: ${gradeLevelLabel}` +
                       (subject ? `\nFag: ${subject}` : "") +
                       "\nTag stærkest muligt udgangspunkt i materialet og lav spørgsmål, der tester læseforståelse." +
                       "\nLad spørgsmål og rigtige svar give tydelig mening ud fra det, der står på siderne eller kan ses på billederne." +
@@ -373,7 +384,7 @@ ${subjectLine}`;
         : {
             prompt: `Lav nu et komplet GPS-løb om dette emne: ${topic}
 
-Målgruppe: ${audience}
+Klasetrin: ${gradeLevelLabel}
 ${subject ? `Fag: ${subject}\n` : ""}Husk at returnere præcis ${count} spørgsmål og kun det strukturerede output.`,
             temperature: 0.7,
           }),

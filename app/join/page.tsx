@@ -141,6 +141,18 @@ function JoinForm() {
   const trimmedPin = pin.trim();
   const canSubmit = trimmedPin.length === JOIN_PIN_LENGTH && trimmedName.length > 0;
 
+  // ── Auto-resume: redirect to active game on cold start ──────────────
+  useEffect(() => {
+    const stored = readStoredActiveParticipant();
+    if (!stored?.sessionId || !stored?.participantId) return;
+    // Only auto-resume if the saved session is < 6 hours old
+    const ageMs = Date.now() - new Date(stored.savedAt).getTime();
+    if (!Number.isFinite(ageMs) || ageMs > 6 * 60 * 60 * 1000) return;
+    router.replace(
+      `/play/${stored.sessionId}?name=${encodeURIComponent(stored.studentName ?? "")}`,
+    );
+  }, [router]);
+
   useEffect(() => {
     if (!sessionId || (view !== "waiting" && view !== "scheduled")) return;
 

@@ -105,8 +105,16 @@ export default function LeaderboardModule({
                         </p>
                         <p className="text-lg font-black text-white">{entry.score}</p>
                         <p className="mt-1 text-[11px] text-emerald-100/70">
-                          {entry.correctAnswers} rigtige svar
+                          {entry.correctAnswers} rigtige
+                          {entry.wrongAnswers > 0 ? (
+                            <span className="text-red-300/70"> · {entry.wrongAnswers} forkerte</span>
+                          ) : null}
                         </p>
+                        {entry.elapsedTimeMs !== null ? (
+                          <p className="mt-0.5 text-[10px] text-slate-400">
+                            {Math.floor(entry.elapsedTimeMs / 60_000)}m {Math.floor((entry.elapsedTimeMs % 60_000) / 1_000)}s
+                          </p>
+                        ) : null}
                       </div>
                     </div>
 

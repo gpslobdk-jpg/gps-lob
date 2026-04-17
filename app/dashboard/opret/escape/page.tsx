@@ -1157,7 +1157,7 @@ function EscapeBuilderPageContent() {
                     onClick={() => assignPinFromCenter(question.id)}
                     className="mt-4 w-full rounded-[1.2rem] border border-amber-500/30 bg-amber-500 px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-amber-500/20 transition-all hover:bg-amber-400"
                   >
-                    Hent pin fra kortet
+                    Hent pin til kortet
                   </button>
 
                   {question.lat !== null && question.lng !== null ? (

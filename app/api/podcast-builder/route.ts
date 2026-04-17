@@ -3,6 +3,11 @@ import { generateObject } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
+import {
+  formatGradeLevelsForPrompt,
+  getGradeLevelRange,
+  normalizeGradeLevels,
+} from "@/utils/gradeLevels";
 
 export const maxDuration = 120;
 
@@ -17,10 +22,39 @@ type PodcastBuilderPayload = {
   title?: unknown;
   description?: unknown;
   transcript?: unknown;
+  gradeLevels?: unknown;
 };
 
 function asTrimmedString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function resolvePodcastGradeLevelGuidance(gradeLevels: readonly string[]): string {
+  const { lowestGrade, highestGrade } = getGradeLevelRange(gradeLevels);
+
+  if (lowestGrade !== null && highestGrade !== null && lowestGrade !== highestGrade) {
+    return `Tilpas sprogligt niveau så det er tilgængeligt for ${lowestGrade}. klasse, men byg faglig progression ind til ${highestGrade}. klasse. Variér sværhedsgraden.`;
+  }
+
+  const gradeNumber = highestGrade;
+
+  if (gradeNumber !== null && gradeNumber <= 2) {
+    return "Brug meget enkelt, kort og konkret sprog. Korte sætninger, dagligdags ord, ingen fagtermer. Svarmulighederne skal være korte (1-3 ord). Spørgsmålene skal være meget konkrete.";
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 4) {
+    return "Brug klart, overskueligt sprog med korte sætninger. Enkle fagbegreber er okay. Spørgsmålene skal kræve simpel forståelse og genkendelse.";
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 6) {
+    return "Brug klart og alderssvarende sprog med lidt mere variation og faglig dybde. Spørgsmålene skal kræve let logisk tænkning og refleksion.";
+  }
+
+  if (gradeNumber !== null && gradeNumber <= 9) {
+    return "Brug præcist, udfordrende sprog med fagtermer. Spørgsmålene må gerne kræve analyse, perspektivering og kildekritisk tænkning. Højt fagligt niveau.";
+  }
+
+  return "Brug klart og alderssvarende sprog med lidt mere variation og faglig dybde.";
 }
 
 const podcastQuestionSchema = z.object({
@@ -46,6 +80,9 @@ export async function POST(request: NextRequest) {
   const title = asTrimmedString(payload.title);
   const description = asTrimmedString(payload.description);
   const transcript = asTrimmedString(payload.transcript);
+  const gradeLevels = normalizeGradeLevels(payload.gradeLevels);
+  const gradeLevelLabel = gradeLevels.length > 0 ? formatGradeLevelsForPrompt(gradeLevels) : "Mellemtrin (4.–6. klasse)";
+  const gradeLevelGuidance = resolvePodcastGradeLevelGuidance(gradeLevels);
 
   if (!title && !description && !transcript) {
     return NextResponse.json(
@@ -87,6 +124,8 @@ Regler:
 - Feltet "answer" skal indeholde den præcis korrekte svarmulighed – ordret som den optræder i "options".
 - Spørgsmålene skal teste forståelse og nysgerrighed, ikke blot hukommelse.
 - Skriv på dansk, medmindre podcasten er på et andet sprog.
+- Klassetrin: ${gradeLevelLabel}.
+- ${gradeLevelGuidance}
 - Returner KUN det valide JSON-objekt. Ingen forklaringer.`;
 
   const prompt = `Her er podcast-informationen:\n\n${contentBlock}\n\nByg nu ${QUESTION_COUNT} spørgsmål.`;

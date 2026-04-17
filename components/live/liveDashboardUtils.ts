@@ -8,7 +8,9 @@ export type LeaderboardEntry = {
   student: LiveStudentLocation;
   score: number;
   correctAnswers: number;
+  wrongAnswers: number;
   progressPercent: number;
+  elapsedTimeMs: number | null;
 };
 
 export type FeedItem =
@@ -58,20 +60,45 @@ export function getPhotoAltText(answer: LiveAnswer) {
   return `${answer.studentName} - ${getPhotoLabel(answer)}`;
 }
 
+function toTimestamp(value: string | null | undefined) {
+  if (!value) return null;
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
 export function buildLeaderboardEntries(
   activeStudents: LiveStudentLocation[],
   allParticipants: LiveStudentLocation[] | undefined,
-  liveAnswers: LiveAnswer[]
+  sessionAnswers: LiveAnswer[]
 ): LeaderboardEntry[] {
   const participants = allParticipants ?? activeStudents;
   const scores = new Map<string, number>();
   const correctAnswers = new Map<string, number>();
+  const wrongAnswers = new Map<string, number>();
+  const firstAnswerAt = new Map<string, string | null>();
+  const lastAnswerAt = new Map<string, string | null>();
 
-  for (const answer of liveAnswers) {
-    if (answer.isCorrect !== true) continue;
+  for (const answer of sessionAnswers) {
     const scoreKey = answer.participantId ?? answer.studentName;
-    scores.set(scoreKey, (scores.get(scoreKey) ?? 0) + answer.awardedPoints);
-    correctAnswers.set(scoreKey, (correctAnswers.get(scoreKey) ?? 0) + 1);
+
+    if (answer.isCorrect === true) {
+      scores.set(scoreKey, (scores.get(scoreKey) ?? 0) + answer.awardedPoints);
+      correctAnswers.set(scoreKey, (correctAnswers.get(scoreKey) ?? 0) + 1);
+    } else if (answer.isCorrect === false) {
+      wrongAnswers.set(scoreKey, (wrongAnswers.get(scoreKey) ?? 0) + 1);
+    }
+
+    const answerTs = toTimestamp(answer.createdAt);
+    if (answerTs !== null) {
+      const existingFirst = toTimestamp(firstAnswerAt.get(scoreKey));
+      if (existingFirst === null || answerTs < existingFirst) {
+        firstAnswerAt.set(scoreKey, answer.createdAt);
+      }
+      const existingLast = toTimestamp(lastAnswerAt.get(scoreKey));
+      if (existingLast === null || answerTs > existingLast) {
+        lastAnswerAt.set(scoreKey, answer.createdAt);
+      }
+    }
   }
 
   const highestScore = Math.max(1, ...participants.map((student) => scores.get(student.id) ?? 0));
@@ -79,18 +106,31 @@ export function buildLeaderboardEntries(
   return [...participants]
     .map((student) => {
       const score = scores.get(student.id) ?? scores.get(student.name) ?? 0;
+      const startTs = toTimestamp(student.run_started_at) ?? toTimestamp(firstAnswerAt.get(student.id) ?? firstAnswerAt.get(student.name));
+      const endTs = toTimestamp(student.finished_at) ?? toTimestamp(lastAnswerAt.get(student.id) ?? lastAnswerAt.get(student.name));
+      const elapsedTimeMs =
+        startTs !== null && endTs !== null && endTs >= startTs ? endTs - startTs : null;
 
       return {
         student,
         score,
         correctAnswers:
           correctAnswers.get(student.id) ?? correctAnswers.get(student.name) ?? 0,
+        wrongAnswers:
+          wrongAnswers.get(student.id) ?? wrongAnswers.get(student.name) ?? 0,
         progressPercent: Math.max(8, Math.round((score / highestScore) * 100)),
+        elapsedTimeMs,
       };
     })
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
       if (b.correctAnswers !== a.correctAnswers) return b.correctAnswers - a.correctAnswers;
+
+      // Tie-break by total elapsed time (faster wins)
+      const aTime = a.elapsedTimeMs ?? Number.POSITIVE_INFINITY;
+      const bTime = b.elapsedTimeMs ?? Number.POSITIVE_INFINITY;
+      if (aTime !== bTime) return aTime - bTime;
+
       return a.student.name.localeCompare(b.student.name, "da");
     });
 }

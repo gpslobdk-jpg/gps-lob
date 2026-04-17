@@ -59,7 +59,7 @@ type StrategoPlayerInsertRow = {
   updated_at: string;
 };
 
-const MIN_PARTICIPANTS = 4;
+const MIN_PARTICIPANTS = 2;
 const MAX_TEAM_SIZE = 30;
 
 // Prioritet: altid flag + spy, derefter mobile/taktiske roller først,
@@ -120,8 +120,8 @@ function shuffleArray<T>(items: T[]) {
 }
 
 function buildRolePool(teamSize: number) {
-  if (teamSize < 2) {
-    throw new Error("Hvert hold skal have mindst 2 spillere for at få både fane og spion.");
+  if (teamSize < 1) {
+    throw new Error("Hvert hold skal have mindst 1 spiller.");
   }
 
   if (teamSize > ROLE_PRIORITY_SEQUENCE.length) {
@@ -234,7 +234,7 @@ export async function POST(request: NextRequest) {
 
     if (participants.length < MIN_PARTICIPANTS) {
       return NextResponse.json(
-        { error: "Der skal være mindst 4 deltagere, før Live Stratego kan starte." },
+        { error: "Der skal være mindst 2 deltagere, før Live Stratego kan starte." },
         { status: 400 }
       );
     }
@@ -252,9 +252,9 @@ export async function POST(request: NextRequest) {
     const redTeam = shuffledParticipants.slice(0, redTeamSize);
     const blueTeam = shuffledParticipants.slice(redTeamSize);
 
-    if (redTeam.length < 2 || blueTeam.length < 2) {
+    if (redTeam.length < 1 || blueTeam.length < 1) {
       return NextResponse.json(
-        { error: "Begge hold skal kunne få både en fane og en spion. Tilføj flere deltagere." },
+        { error: "Begge hold skal have mindst 1 spiller. Tilføj flere deltagere." },
         { status: 400 }
       );
     }

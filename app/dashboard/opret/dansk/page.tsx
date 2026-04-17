@@ -11,6 +11,7 @@ import DanskAiInterviewModal, {
   type DanskAiInterviewDraft,
 } from "@/components/builders/dansk/DanskAiInterviewModal";
 import AiReviewDraftModal from "@/components/builders/AiReviewDraftModal";
+import InkSaverPrintLayout from "@/components/builders/InkSaverPrintLayout";
 import ManualReuseModal, {
   type ManualReuseQuestion,
 } from "@/components/builders/manual/ManualReuseModal";
@@ -525,10 +526,6 @@ function OpretDanskLoebPageContent() {
   const printSubject = DANISH_SUBJECT;
   const printClassLevel =
     gradeLevels.length > 0 ? formatGradeLevelsForPrompt(gradeLevels) : "Ikke angivet";
-  const builderStatusLabel = isSaving ? "Gemmer..." : "Gemmes lokalt";
-  const builderStatusDescription = isSaving
-    ? "Vi sender dine seneste ændringer til arkivet nu."
-    : "Titel og spørgsmål bliver gemt lokalt undervejs, indtil du trykker på Gem.";
   const pendingAiReviewGradeLabel = pendingAiReviewDraft
     ? pendingAiReviewDraft.gradeLevels.length > 0
       ? formatGradeLevelsForPrompt(pendingAiReviewDraft.gradeLevels)
@@ -1084,7 +1081,6 @@ function OpretDanskLoebPageContent() {
 
   const openAiInterviewModal = () => {
     setNotice(null);
-    setShowToolsMenu(false);
     setShowAiInterviewModal(true);
   };
 
@@ -1363,10 +1359,7 @@ function OpretDanskLoebPageContent() {
                         <img src="/danskikon1.svg" alt="Dansk" className="h-full w-full object-contain drop-shadow-[0_10px_18px_rgba(136,19,55,0.18)]" />
                       </div>
                       <div>
-                        <h3 className="text-xl font-semibold text-rose-50">Velkommen til Dansk-løbet</h3>
-                        <p className="mt-1 text-sm text-rose-100/80">
-                          Giv danskundervisningen nyt liv ved at rykke læsning, sprog og analyse ud i den friske luft. Placer posterne på kortet, og indtast danskfaglige spørgsmål med fire svarmuligheder. Du kan skrive dem selv, eller lade vores smarte assistent bygge et skræddersyet løb til dit klassetrin på få sekunder.
-                        </p>
+                        <h3 className="text-xl font-semibold text-rose-50">Dansk</h3>
                       </div>
                     </div>
 
@@ -1380,16 +1373,15 @@ function OpretDanskLoebPageContent() {
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2 print:hidden">
-                            <span
-                              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold backdrop-blur-xl ${
-                                isSaving
-                                  ? "border-rose-300/35 bg-rose-400/10 text-rose-50"
-                                  : "border-rose-500/20 bg-rose-950/30 text-rose-100/72"
-                              }`}
+                            <button
+                              type="button"
+                              onClick={openAiInterviewModal}
+                              disabled={isEditorBusy}
+                              className="inline-flex items-center gap-2 rounded-full border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-bold text-rose-50 shadow-[0_0_24px_rgba(244,63,94,0.15)] backdrop-blur-xl transition-all hover:bg-rose-500/25 hover:shadow-[0_0_32px_rgba(244,63,94,0.25)] disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="h-2 w-2 rounded-full bg-rose-300/70" />}
-                              {builderStatusLabel}
-                            </span>
+                              <Sparkles className="h-4 w-4" />
+                              Quiz Assistenten
+                            </button>
 
                             <div ref={toolsMenuAnchorRef} className="inline-flex max-w-full flex-col items-end">
                               <button
@@ -1416,7 +1408,7 @@ function OpretDanskLoebPageContent() {
                           className="w-full rounded-[1.6rem] border border-rose-500/30 bg-rose-950/20 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                         />
 
-                        <p className="text-sm leading-6 text-rose-100/68">{builderStatusDescription}</p>
+
                       </div>
                     </div>
                   </div>
@@ -1425,9 +1417,6 @@ function OpretDanskLoebPageContent() {
                     <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-rose-100/65 uppercase">
                       Klassetrin
                     </label>
-                    <p className="mb-4 text-sm text-rose-100/75">
-                      Vælg et eller flere klassetrin. Valget gemmes på løbet og bruges også af assistenten.
-                    </p>
                     <GradeLevelMultiSelect
                       selectedGradeLevels={gradeLevels}
                       onChange={setGradeLevels}
@@ -1611,7 +1600,7 @@ function OpretDanskLoebPageContent() {
                         className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[1.35rem] border border-rose-500/30 bg-rose-600 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-rose-500/20 transition-all hover:bg-rose-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                       >
                         <Ruler className="h-4 w-4" />
-                        Hent pin fra kortet
+                        Hent pin til kortet
                       </button>
 
                       {question.lat !== null && question.lng !== null ? (
@@ -1683,27 +1672,6 @@ function OpretDanskLoebPageContent() {
             className="w-[min(26rem,calc(100vw-2rem))] max-h-[min(32rem,calc(100vh-2rem))] overflow-x-hidden overflow-y-auto rounded-[1.6rem] border border-rose-400/20 bg-slate-950/96 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl overscroll-contain"
           >
             <div className="px-4 pb-2 pt-2">
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-rose-100/45">Opret hurtigt</p>
-            </div>
-
-            <button
-              type="button"
-              onClick={openAiInterviewModal}
-              disabled={isEditorBusy}
-              className={toolsMenuItemClass}
-            >
-              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-rose-400/20 bg-rose-400/10 text-rose-200">
-                <BookOpenText className="h-4 w-4" />
-              </span>
-              <span>
-                <span className="block text-sm font-black uppercase tracking-[0.16em]">Dansk-assistent (Læsning og Analyse)</span>
-                <span className="mt-1 block text-sm leading-6 text-rose-100/72">Byg et danskloeb med laesning, sprog og analyse til de valgte klassetrin.</span>
-              </span>
-            </button>
-
-            <div className="mx-2 my-2 h-px bg-rose-400/10" />
-
-            <div className="px-4 pb-2 pt-1">
               <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-rose-100/45">Output</p>
             </div>
 
@@ -1808,132 +1776,13 @@ function OpretDanskLoebPageContent() {
             </button>
           </PortalMenu>
 
-          <section className="hidden print:block print:bg-white print:px-0 print:py-0 print:text-black">
-            <div className="mx-auto w-full max-w-none space-y-6 print:space-y-4">
-              <header className="rounded-none border-2 border-slate-900 bg-white p-8 text-black shadow-none print:break-after-page print:[page-break-after:always]">
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-600">
-                  Printvenligt udkast
-                </p>
-                <h1 className={`mt-4 text-4xl font-black tracking-tight text-black ${rubik.className}`}>
-                  {printTitle}
-                </h1>
-                <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                  <div className="border border-slate-300 px-4 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                      Klassetrin
-                    </p>
-                    <p className="mt-3 text-2xl font-black text-black">{printClassLevel}</p>
-                  </div>
-                  <div className="border border-slate-300 px-4 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                      Fag
-                    </p>
-                    <p className="mt-3 text-2xl font-black text-black">{printSubject}</p>
-                  </div>
-                  <div className="border border-slate-300 px-4 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                      Antal poster
-                    </p>
-                    <p className="mt-3 text-2xl font-black text-black">{questions.length}</p>
-                  </div>
-                </div>
-              </header>
-
-              {questions.map((question, questionIndex) => {
-                const isPhotoMission = question.type === "ai_image";
-                const promptText = question.aiPrompt.trim() || "Ikke angivet endnu";
-                const questionText = question.text.trim() || "Ikke udfyldt endnu";
-
-                return (
-                  <article
-                    key={`print-${question.id}`}
-                    className="rounded-none border border-slate-900 bg-white p-6 text-black shadow-none print:break-inside-avoid print:[page-break-inside:avoid]"
-                  >
-                    <div className="flex items-start justify-between gap-4 border-b border-slate-300 pb-4">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                          Post {questionIndex + 1}
-                        </p>
-                        <h2 className={`mt-2 text-2xl font-black text-black ${rubik.className}`}>
-                          {isPhotoMission ? "Foto-opgave" : "Quiz-opgave"}
-                        </h2>
-                      </div>
-                      <div className="text-right text-sm text-slate-600">
-                        <p>{isPhotoMission ? "Billedtjek" : "Multiple choice"}</p>
-                      </div>
-                    </div>
-
-                    {isPhotoMission ? (
-                      <div className="mt-6 rounded-none border-2 border-dashed border-slate-400 p-5">
-                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                          Foto-opgave
-                        </p>
-                        <div className="mt-4 space-y-4">
-                          <div>
-                            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
-                              Motiv
-                            </p>
-                            <p className="mt-2 text-lg font-bold text-black">{promptText}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
-                              Instruktion
-                            </p>
-                            <p className="mt-2 text-base leading-7 text-black">{questionText}</p>
-                          </div>
-                          <div className="mt-6 min-h-32 rounded-none border-2 border-dashed border-slate-300 p-4">
-                            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
-                              Foto-opgave
-                            </p>
-                            <p className="mt-3 text-sm leading-6 text-slate-700">
-                              Her kan læreren hurtigt se, at posten kræver et foto af motivet ovenfor.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="mt-6">
-                          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                            Spørgsmål
-                          </p>
-                          <p className="mt-3 text-lg leading-8 text-black">{questionText}</p>
-                        </div>
-
-                        <ol className="mt-6 space-y-3">
-                          {question.answers.map((answer, answerIndex) => {
-                            const isCorrectAnswer = question.correctIndex === answerIndex;
-                            const answerText = answer.trim() || "Tom svarmulighed";
-
-                            return (
-                              <li
-                                key={`print-${question.id}-${answerIndex}`}
-                                className={`flex items-start gap-3 border px-4 py-3 ${
-                                  isCorrectAnswer ? "border-slate-900 bg-slate-100" : "border-slate-300 bg-white"
-                                }`}
-                              >
-                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-500 text-sm font-bold text-black">
-                                  {ANSWER_LABELS[answerIndex]}
-                                </span>
-                                <div className="min-w-0 flex-1 text-base leading-7 text-black">
-                                  <span className={isCorrectAnswer ? "font-black" : "font-medium"}>{answerText}</span>
-                                  {isCorrectAnswer ? (
-                                    <span className="ml-2 text-sm font-bold uppercase tracking-[0.16em] text-slate-700">
-                                      (Korrekt svar)
-                                    </span>
-                                  ) : null}
-                                </div>
-                              </li>
-                            );
-                          })}
-                        </ol>
-                      </>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-          </section>
+          <InkSaverPrintLayout
+            title={printTitle}
+            subject={printSubject}
+            classLevel={printClassLevel}
+            questions={questions}
+            fontClassName={rubik.className}
+          />
         </div>
       </div>
 

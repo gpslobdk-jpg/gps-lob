@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { Poppins, Rubik } from "next/font/google";
 import { ArrowLeft } from "lucide-react";
 
@@ -23,7 +24,7 @@ type LivePhotosModuleProps = {
   onClose: () => void;
 };
 
-export default function LivePhotosModule({
+export default memo(function LivePhotosModule({
   photoAnswers,
   hasAnswersTable,
   onSelectPhoto,
@@ -108,4 +109,4 @@ export default function LivePhotosModule({
       </div>
     </section>
   );
-}
+});

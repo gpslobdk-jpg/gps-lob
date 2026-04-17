@@ -948,7 +948,7 @@ export default function SelfieBuilderClient() {
                       onClick={() => assignPinFromCenter(question.id)}
                       className="mt-4 inline-flex w-full items-center justify-center rounded-[1.2rem] border border-rose-500/30 bg-rose-500 px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-rose-500/20 transition-all hover:bg-rose-400"
                     >
-                      Hent pin fra kortet
+                      Hent pin til kortet
                     </button>
 
                     {question.lat !== null && question.lng !== null ? (

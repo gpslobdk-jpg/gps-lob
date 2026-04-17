@@ -1331,7 +1331,7 @@ function RollespilBuilderPageContent() {
                             : "border border-violet-500/30 bg-violet-950/20 text-violet-100 hover:bg-violet-500/15"
                         } ${activePinQuestionId === question.id ? "ring-2 ring-violet-500/70" : ""}`}
                       >
-                        {activePinQuestionId === question.id ? "Klar til kort-klik" : "Hent pin fra kortet"}
+                        {activePinQuestionId === question.id ? "Klar til kort-klik" : "Hent pin til kortet"}
                       </button>
                     </div>
                   </div>

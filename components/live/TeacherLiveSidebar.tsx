@@ -56,9 +56,9 @@ export default function TeacherLiveSidebar({
 
   return (
     <aside
-      className={`ml-4 flex h-full w-1/3 flex-col overflow-hidden rounded-4xl border border-slate-500/30 bg-slate-900/80 shadow-[0_30px_80px_rgba(15,23,42,0.58)] backdrop-blur-xl ${poppins.className}`}
+      className={`ml-4 flex h-full w-1/3 flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900/50 shadow-[0_24px_64px_rgba(0,0,0,0.35)] backdrop-blur-2xl ${poppins.className}`}
     >
-      <div className="border-b border-slate-500/30 px-6 pb-5 pt-6">
+      <div className="flex-1 overflow-y-auto border-b border-white/10 px-6 pb-5 pt-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.32em] text-emerald-300/70">

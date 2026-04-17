@@ -9,6 +9,12 @@ import {
   readSessionDraft,
   writeSessionDraft,
 } from "@/utils/runDrafts";
+import GradeLevelMultiSelect from "@/components/builders/GradeLevelMultiSelect";
+import {
+  DEFAULT_SELECTED_GRADE_LEVELS,
+  normalizeGradeLevels,
+  type GradeLevel,
+} from "@/utils/gradeLevels";
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -19,13 +25,6 @@ const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
-
-const AUDIENCE_OPTIONS = [
-  { value: "Indskoling", label: "Indskoling" },
-  { value: "Mellemtrin", label: "Mellemtrin" },
-  { value: "Udskoling", label: "Udskoling" },
-  { value: "Voksne", label: "Voksne" },
-] as const;
 
 const TONE_OPTIONS = [
   { value: "sjov", label: "Sjov" },
@@ -43,7 +42,7 @@ type RestorableStep = 1 | 2 | 3 | 4;
 type SessionDraftState = {
   step?: unknown;
   topic?: unknown;
-  audience?: unknown;
+  gradeLevels?: unknown;
   tone?: unknown;
   missionCount?: unknown;
 };
@@ -76,10 +75,9 @@ function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function normalizeAudience(value: unknown): (typeof AUDIENCE_OPTIONS)[number]["value"] {
-  return AUDIENCE_OPTIONS.some((option) => option.value === value)
-    ? (value as (typeof AUDIENCE_OPTIONS)[number]["value"])
-    : "Mellemtrin";
+function normalizeGradeLevelsFromDraft(value: unknown): GradeLevel[] {
+  const result = normalizeGradeLevels(value);
+  return result.length > 0 ? result : DEFAULT_SELECTED_GRADE_LEVELS;
 }
 
 function normalizeTone(value: unknown): (typeof TONE_OPTIONS)[number]["value"] {
@@ -133,7 +131,7 @@ export default function SelfieAiInterviewModal({
 }: Props) {
   const [step, setStep] = useState<Step>(1);
   const [topic, setTopic] = useState("");
-  const [audience, setAudience] = useState<(typeof AUDIENCE_OPTIONS)[number]["value"]>("Mellemtrin");
+  const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>(DEFAULT_SELECTED_GRADE_LEVELS);
   const [tone, setTone] = useState<(typeof TONE_OPTIONS)[number]["value"]>("sjov");
   const [missionCount, setMissionCount] =
     useState<(typeof QUESTION_COUNT_OPTIONS)[number]>(DEFAULT_QUESTION_COUNT);
@@ -149,7 +147,7 @@ export default function SelfieAiInterviewModal({
 
     setStep(normalizeStep(restoredDraft?.step));
     setTopic(asTrimmedString(restoredDraft?.topic));
-    setAudience(normalizeAudience(restoredDraft?.audience));
+    setGradeLevels(normalizeGradeLevelsFromDraft(restoredDraft?.gradeLevels));
     setTone(normalizeTone(restoredDraft?.tone));
     setMissionCount(normalizeMissionCount(restoredDraft?.missionCount));
     setError(null);
@@ -162,11 +160,11 @@ export default function SelfieAiInterviewModal({
     writeSessionDraft(SELFIE_AI_INTERVIEW_SESSION_KEY, {
       step: step === 5 ? 4 : step,
       topic,
-      audience,
+      gradeLevels,
       tone,
       missionCount,
     } satisfies SessionDraftState);
-  }, [audience, missionCount, open, step, tone, topic]);
+  }, [gradeLevels, missionCount, open, step, tone, topic]);
 
   useEffect(() => {
     if (!open || step !== 1) return;
@@ -215,10 +213,8 @@ export default function SelfieAiInterviewModal({
     setStep(2);
   };
 
-  const handleAudienceSelect = (selectedAudience: (typeof AUDIENCE_OPTIONS)[number]["value"]) => {
+  const handleGradeLevelContinue = () => {
     if (isGenerating) return;
-
-    setAudience(selectedAudience);
     setError(null);
     setStep(3);
   };
@@ -252,7 +248,7 @@ export default function SelfieAiInterviewModal({
         body: JSON.stringify({
           topic: trimmedTopic,
           subject: trimmedSubject || undefined,
-          audience,
+          gradeLevels: gradeLevels.length > 0 ? gradeLevels : undefined,
           tone,
           count: selectedCount,
         }),
@@ -395,24 +391,25 @@ export default function SelfieAiInterviewModal({
                   id="selfie-ai-interview-title"
                   className={`mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl ${rubik.className}`}
                 >
-                  Hvem er målgruppen?
+                  Hvilke klassetrin?
                 </h2>
                 <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
-                  Vælg den gruppe, som selfie-posterne skal passe til. Klik på en mulighed for at
-                  fortsætte.
+                  Vælg de klassetrin, som selfie-posterne skal passe til.
                 </p>
 
-                <div className="mx-auto mt-10 flex max-w-xl flex-col gap-4">
-                  {AUDIENCE_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => handleAudienceSelect(option.value)}
-                      className="w-full rounded-[1.6rem] border border-white/10 bg-white/[0.04] px-6 py-5 text-lg font-semibold text-white transition hover:border-rose-300/40 hover:bg-rose-400/10"
-                    >
-                      {option.label}
-                    </button>
-                  ))}
+                <div className="mx-auto mt-10 flex max-w-xl flex-col gap-6">
+                  <GradeLevelMultiSelect
+                    selectedGradeLevels={gradeLevels}
+                    onChange={setGradeLevels}
+                    tone="rose"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleGradeLevelContinue}
+                    className="inline-flex min-w-[220px] items-center justify-center rounded-[1.4rem] border border-rose-300/30 bg-rose-400 px-8 py-4 text-lg font-bold text-slate-950 transition hover:bg-rose-300"
+                  >
+                    Næste
+                  </button>
                 </div>
 
                 <div className="mt-10">
