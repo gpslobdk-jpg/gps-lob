@@ -207,6 +207,15 @@ async function dismissOverlay(page: Page) {
   });
 }
 
+/** Unlock the Admin PIN gate by pre-setting sessionStorage before navigating */
+async function unlockAdminGate(page: Page) {
+  // Must be on the same origin to set sessionStorage
+  await page.goto("/", { waitUntil: "commit", timeout: 15_000 });
+  await page.evaluate(() => {
+    sessionStorage.setItem("admin_unlocked", "true");
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Test 1: Health Dashboard
 // ---------------------------------------------------------------------------
@@ -227,6 +236,8 @@ test.describe("Phase 33 — Health Dashboard", () => {
         body: JSON.stringify(HEALTH_PAYLOAD),
       });
     });
+
+    await unlockAdminGate(page);
 
     await page.goto("/dashboard/admin", {
       waitUntil: "domcontentloaded",
@@ -269,6 +280,8 @@ test.describe("Phase 33 — Health Dashboard", () => {
       });
     });
 
+    await unlockAdminGate(page);
+
     await page.goto("/dashboard/admin", {
       waitUntil: "domcontentloaded",
       timeout: 30_000,
@@ -308,6 +321,8 @@ test.describe("Phase 33 — Logs Basement", () => {
         body: JSON.stringify(LOGS_PAYLOAD),
       });
     });
+
+    await unlockAdminGate(page);
 
     await page.goto("/dashboard/admin/logs", {
       waitUntil: "load",
@@ -363,6 +378,8 @@ test.describe("Phase 33 — Logs Basement", () => {
         }),
       });
     });
+
+    await unlockAdminGate(page);
 
     await page.goto("/dashboard/admin/logs", {
       waitUntil: "load",
