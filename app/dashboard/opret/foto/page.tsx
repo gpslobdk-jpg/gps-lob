@@ -53,102 +53,22 @@ const poppins = Poppins({
 });
 
 const SUBJECT_TOPICS: Record<string, string[]> = {
-  Dansk: [
-    "Læsning & Forståelse",
-    "Stavning & Grammatik",
-    "Nordisk Mytologi",
-    "H.C. Andersen & Eventyr",
-    "Analyse af kortfilm/reklamer",
-  ],
-  Matematik: [
-    "Geometri & Figurer",
-    "Brøker & Procenter",
-    "Algebra & Ligninger",
-    "Sandsynlighed & Statistik",
-    "Praktisk regning i hverdagen",
-  ],
-  Engelsk: [
-    "Grammatik & Bøjninger",
-    "Hverdagsordforråd",
-    "Britisk kultur",
-    "Amerikansk kultur",
-    "Reading Comprehension",
-  ],
-  "Natur/Teknologi": [
-    "Solsystemet",
-    "Menneskekroppen",
-    "Vejr & Klima",
-    "Vandets kredsløb",
-    "Dyr & Planter i Danmark",
-  ],
-  Historie: [
-    "Vikingetiden",
-    "Middelalderen",
-    "2. Verdenskrig",
-    "Den Kolde Krig",
-    "Danmarks kongerække",
-  ],
-  Idræt: [
-    "Boldspil & Regler",
-    "Anatomi & Puls",
-    "De Olympiske Lege",
-    "Sundhed & Kost",
-  ],
-  Kristendomskundskab: [
-    "Bibelske fortællinger",
-    "Verdensreligioner (Islam, Jødedom m.fl.)",
-    "Etik, moral & filosofi",
-  ],
-  Tysk: [
-    "Ordforråd (Hverdag)",
-    "Grammatik (Der/die/das)",
-    "Tysk geografi & kultur",
-  ],
-  Fransk: [
-    "Ordforråd & Udtale",
-    "Fransk kultur & geografi",
-    "Grundlæggende grammatik",
-  ],
-  Geografi: [
-    "Jordens opbygning & pladetektonik",
-    "Klima & Plantebælter",
-    "Demografi & Befolkning",
-    "Bæredygtighed & Energi",
-  ],
-  Biologi: [
-    "Økosystemer & Fødekæder",
-    "Celler & Mikroorganismer",
-    "Genetik & DNA",
-    "Evolution",
-  ],
-  "Fysik/Kemi": [
-    "Det periodiske system",
-    "Energi & Kræfter",
-    "Atomer & Molekyler",
-    "Elektricitet & Magnetisme",
-  ],
-  Samfundsfag: [
-    "Demokrati & Politik",
-    "Velfærdssamfundet",
-    "Økonomi",
-    "EU & Internationale forhold",
-  ],
-  "Håndværk/Design": [
-    "Materialekendskab (Træ/Metal)",
-    "Værktøj & Sikkerhed",
-    "Designprocessen",
-  ],
-  Billedkunst: [
-    "Kunsthistorie & Epoker",
-    "Farvelære & Komposition",
-    "Kendte kunstnere (Picasso, Monet m.fl.)",
-  ],
-  Madkundskab: [
-    "Hygiejne i køkkenet",
-    "Ernæring & Madpyramiden",
-    "Råvarekendskab",
-    "Grundtilberedning",
-  ],
+  Dansk: ["Læsning & Forståelse", "Stavning & Grammatik", "Nordisk Mytologi", "H.C. Andersen & Eventyr", "Analyse af kortfilm/reklamer"],
+  Matematik: ["Geometri & Figurer", "Brøker & Procenter", "Algebra & Ligninger", "Sandsynlighed & Statistik", "Praktisk regning i hverdagen"],
+  Engelsk: ["Grammatik & Bøjninger", "Hverdagsordforråd", "Britisk kultur", "Amerikansk kultur", "Reading Comprehension"],
+  "Natur/Teknologi": ["Solsystemet", "Menneskekroppen", "Vejr & Klima", "Vandets kredsløb", "Dyr & Planter i Danmark"],
+  Historie: ["Vikingetiden", "Middelalderen", "2. Verdenskrig", "Den Kolde Krig", "Danmarks kongerække"],
+  Idræt: ["Boldspil & Regler", "Anatomi & Puls", "De Olympiske Lege", "Sundhed & Kost"],
+  Kristendomskundskab: ["Bibelske fortællinger", "Verdensreligioner (Islam, Jødedom m.fl.)", "Etik, moral & filosofi"],
+  Tysk: ["Ordforråd (Hverdag)", "Grammatik (Der/die/das)", "Tysk geografi & kultur"],
+  Fransk: ["Ordforråd & Udtale", "Fransk kultur & geografi", "Grundlæggende grammatik"],
+  Geografi: ["Jordens opbygning & pladetektonik", "Klima & Plantebælter", "Demografi & Befolkning", "Bæredygtighed & Energi"],
+  Biologi: ["Økosystemer & Fødekæder", "Celler & Mikroorganismer", "Genetik & DNA", "Evolution"],
+  "Fysik/Kemi": ["Det periodiske system", "Energi & Kræfter", "Atomer & Molekyler", "Elektricitet & Magnetisme"],
+  Samfundsfag: ["Demokrati & Politik", "Velfærdssamfundet", "Økonomi", "EU & Internationale forhold"],
+  "Håndværk/Design": ["Materialekendskab (Træ/Metal)", "Værktøj & Sikkerhed", "Designprocessen"],
+  Billedkunst: ["Kunsthistorie & Epoker", "Farvelære & Komposition", "Kendte kunstnere (Picasso, Monet m.fl.)"],
+  Madkundskab: ["Hygiejne i køkkenet", "Ernæring & Madpyramiden", "Råvarekendskab", "Grundtilberedning"],
   Musik: ["Nodelære & Rytmik", "Instrumentkendskab", "Musikhistorie & Genrer"],
 };
 
@@ -183,114 +103,6 @@ type StoredPhotoQuestionRecord = {
   lat?: unknown;
   lng?: unknown;
 };
-
-type BuilderNotice = {
-  tone: "success" | "error";
-  message: string;
-};
-
-type PendingFotoAiReviewDraft = FotoAiInterviewDraft & {
-  subject: string;
-  replacesExistingContent: boolean;
-};
-
-const FOTO_DRAFT_STORAGE_KEY = "draft_run_foto";
-const DEFAULT_QUESTION_POINTS = 10;
-
-type FotoBuilderDraftState = {
-  title?: unknown;
-  subject?: unknown;
-  radius?: unknown;
-  showTeacherField?: unknown;
-  showAiInterviewModal?: unknown;
-  pendingAiReviewDraft?: unknown;
-  questions?: unknown;
-  mapCenter?: unknown;
-};
-
-const DEFAULT_RUN_RADIUS = 15;
-const RUN_RADIUS_OPTIONS = [15, 30, 50] as const;
-const PHOTO_SUBJECT_FALLBACK = "Generelt";
-
-const createQuestion = (): Question => ({
-  id: Date.now() + Math.floor(Math.random() * 100000),
-  type: "ai_image",
-  text: "",
-  aiPrompt: "",
-  mediaUrl: "",
-  answers: ["", "", "", ""],
-  correctIndex: 0,
-  points: DEFAULT_QUESTION_POINTS,
-  lat: null,
-  lng: null,
-});
-
-function normalizeQuestionPoints(value: unknown) {
-  const parsed = asNumberOrNull(value);
-  return parsed !== null ? Math.max(0, Math.round(parsed)) : DEFAULT_QUESTION_POINTS;
-}
-
-const buildPhotoAnswers = (targetObject: string): [string, string, string, string] => [
-  targetObject.trim(),
-  "",
-  "",
-  "",
-];
-
-function getStoredPhotoTarget(candidate: StoredPhotoQuestionRecord) {
-  const normalizedPrompt = asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt);
-  if (normalizedPrompt) return normalizedPrompt;
-
-  if (Array.isArray(candidate.answers)) {
-    const firstAnswer = candidate.answers.find((answer): answer is string => typeof answer === "string");
-    return asTrimmedString(firstAnswer);
-  }
-
-  return "";
-}
-
-function normalizeRunRadius(value: unknown) {
-  const parsed = asNumberOrNull(value);
-  return parsed !== null && RUN_RADIUS_OPTIONS.includes(parsed as (typeof RUN_RADIUS_OPTIONS)[number])
-    ? parsed
-    : DEFAULT_RUN_RADIUS;
-}
-
-const textInputClass =
-  "w-full rounded-2xl border border-sky-500/30 bg-sky-950/20 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
-
-const textareaClass =
-  "w-full rounded-2xl border border-sky-500/30 bg-sky-950/20 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
-
-const toolsTriggerButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-[1.2rem] border border-sky-500/25 bg-sky-950/30 px-4 py-2.5 text-sm font-semibold text-sky-50 transition hover:bg-sky-900/35 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
-
-const toolsMenuItemClass =
-  "flex w-full items-start gap-3 rounded-[1.25rem] px-4 py-3 text-left text-sky-50 transition hover:bg-sky-400/10 disabled:cursor-not-allowed disabled:opacity-50";
-
-const PORTAL_MENU_GAP = 12;
-const PORTAL_MENU_MARGIN = 16;
-
-function normalizePendingFotoAiReviewDraft(value: unknown): PendingFotoAiReviewDraft | null {
-  if (!isRecord(value)) return null;
-
-  const title = asTrimmedString(value.title);
-  const subject = asTrimmedString(value.subject) || PHOTO_SUBJECT_FALLBACK;
-  const missions = (Array.isArray(value.missions) ? value.missions : [])
-    .map((mission) => asTrimmedString(mission))
-    .filter((mission): mission is string => mission.length > 0);
-
-  if (!title || missions.length === 0) {
-    return null;
-  }
-
-  return {
-    title,
-    subject,
-    missions,
-    replacesExistingContent: Boolean(value.replacesExistingContent),
-  };
-}
 
 type PortalMenuProps = {
   open: boolean;
@@ -392,6 +204,111 @@ function PortalMenu({ open, anchorRef, menuRef, align = "start", className, chil
     document.body
   );
 }
+function normalizePendingFotoAiReviewDraft(value: unknown): PendingFotoAiReviewDraft | null {
+  if (!isRecord(value)) return null;
+
+  const title = asTrimmedString(value.title);
+  const subject = asTrimmedString(value.subject) || PHOTO_SUBJECT_FALLBACK;
+  const missions = (Array.isArray(value.missions) ? value.missions : [])
+    .map((mission) => asTrimmedString(mission))
+    .filter((mission): mission is string => mission.length > 0);
+
+  if (!title || missions.length === 0) {
+    return null;
+  }
+
+  return {
+    title,
+    subject,
+    missions,
+    replacesExistingContent: Boolean(value.replacesExistingContent),
+  };
+}
+const buildPhotoAnswers = (targetObject: string): [string, string, string, string] => [
+  targetObject.trim(),
+  "",
+  "",
+  "",
+];
+
+function getStoredPhotoTarget(candidate: StoredPhotoQuestionRecord) {
+  const normalizedPrompt = asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt);
+  if (normalizedPrompt) return normalizedPrompt;
+
+  if (Array.isArray(candidate.answers)) {
+    const firstAnswer = candidate.answers.find((answer): answer is string => typeof answer === "string");
+    return asTrimmedString(firstAnswer);
+  }
+
+  return "";
+}
+
+function normalizeRunRadius(value: unknown) {
+  const parsed = asNumberOrNull(value);
+  return parsed !== null && RUN_RADIUS_OPTIONS.includes(parsed as (typeof RUN_RADIUS_OPTIONS)[number])
+    ? parsed
+    : DEFAULT_RUN_RADIUS;
+}
+
+const textInputClass =
+  "w-full rounded-2xl border border-sky-500/30 bg-sky-950/20 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+
+const textareaClass =
+  "w-full rounded-2xl border border-sky-500/30 bg-sky-950/20 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+
+const toolsTriggerButtonClass =
+  "inline-flex items-center justify-center gap-2 rounded-[1.2rem] border border-sky-500/25 bg-sky-950/30 px-4 py-2.5 text-sm font-semibold text-sky-50 transition hover:bg-sky-900/35 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+
+const toolsMenuItemClass =
+  "flex w-full items-start gap-3 rounded-[1.25rem] px-4 py-3 text-left text-sky-50 transition hover:bg-sky-400/10 disabled:cursor-not-allowed disabled:opacity-50";
+
+const PORTAL_MENU_GAP = 12;
+const PORTAL_MENU_MARGIN = 16;
+function normalizeQuestionPoints(value: unknown) {
+  const parsed = asNumberOrNull(value);
+  return parsed !== null ? Math.max(0, Math.round(parsed)) : DEFAULT_QUESTION_POINTS;
+}
+// Place constants and helper functions after type definitions
+const DEFAULT_RUN_RADIUS = 15;
+const RUN_RADIUS_OPTIONS = [15, 30, 50] as const;
+const PHOTO_SUBJECT_FALLBACK = "Generelt";
+
+const createQuestion = (): Question => ({
+  id: Date.now() + Math.floor(Math.random() * 100000),
+  type: "ai_image",
+  text: "",
+  aiPrompt: "",
+  mediaUrl: "",
+  answers: ["", "", "", ""],
+  correctIndex: 0,
+  points: DEFAULT_QUESTION_POINTS,
+  lat: null,
+  lng: null,
+});
+// Place type and constant definitions after SUBJECT_TOPICS
+type BuilderNotice = {
+  tone: "success" | "error";
+  message: string;
+};
+
+type PendingFotoAiReviewDraft = FotoAiInterviewDraft & {
+  subject: string;
+  replacesExistingContent: boolean;
+};
+
+const FOTO_DRAFT_STORAGE_KEY = "draft_run_foto";
+const DEFAULT_QUESTION_POINTS = 10;
+
+type FotoBuilderDraftState = {
+  title?: unknown;
+  subject?: unknown;
+  radius?: unknown;
+  showTeacherField?: unknown;
+  showAiInterviewModal?: unknown;
+  pendingAiReviewDraft?: unknown;
+  questions?: unknown;
+  mapCenter?: unknown;
+};
 
 function toPhotoQuestions(value: unknown): Question[] {
   if (!Array.isArray(value)) return [];
@@ -532,36 +449,11 @@ export default function FotoMissionBuilderPage() {
         </div>
       }
     >
-      <PremiumFotoBuilderSplitPane />
+      <FotoMissionBuilderPageContent />
     </Suspense>
   );
 }
 
-function PremiumFotoBuilderSplitPane() {
-  // ...existing FotoMissionBuilderPageContent logic...
-  // Only the render/layout is changed below
-  const content = FotoMissionBuilderPageContent();
-  return (
-    <div className={`min-h-screen bg-sky-950/95 ${poppins.className} flex flex-col md:flex-row gap-0 md:gap-8 px-0 md:px-8 py-0 md:py-10`}>
-      {/* Left: Scrollable Builder Panel */}
-      <div className="w-full md:w-1/2 xl:w-2/5 flex flex-col h-[calc(100vh-4rem)] md:h-[calc(100vh-8rem)] rounded-3xl bg-sky-950/60 border border-sky-500/20 shadow-[0_24px_60px_rgba(0,0,0,0.22)] backdrop-blur-2xl overflow-y-auto px-4 md:px-8 py-6 md:py-10">
-        {/* Title */}
-        {/* ...insert title/description/subject fields from FotoMissionBuilderPageContent... */}
-        {/* Missions List */}
-        {/* ...insert mission cards, add pendingScrollTargetId logic for smooth scroll... */}
-        {/* Add/Remove mission buttons, Save button, AI modal triggers, etc. */}
-        {/* ...existing logic... */}
-      </div>
-      {/* Right: Sticky Map Panel */}
-      <div className="hidden md:block w-full md:w-1/2 xl:w-3/5 pl-0 md:pl-4">
-        <div className="sticky top-24 h-[calc(100vh-8rem)]">
-          {/* MapPicker with pins/zones/center logic as before */}
-          {/* ...existing MapPicker usage from FotoMissionBuilderPageContent... */}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function FotoMissionBuilderPageContent() {
   const router = useRouter();
@@ -594,7 +486,6 @@ function FotoMissionBuilderPageContent() {
   const pendingAiReviewPreviewMission =
     pendingAiReviewDraft?.missions.find((mission) => mission.trim().length > 0) ?? "";
 
-  // ...existing code...
   const saveFeedbackRef = useRef<HTMLDivElement | null>(null);
   const toolsMenuAnchorRef = useRef<HTMLDivElement | null>(null);
   const toolsMenuPortalRef = useRef<HTMLDivElement | null>(null);
@@ -947,17 +838,50 @@ function FotoMissionBuilderPageContent() {
     [pins, radius]
   );
 
-  // ...existing code...
+  const renderNotice = (className = "") =>
+    notice ? (
+      <div
+        className={`rounded-[1.4rem] border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
+          notice.tone === "success"
+            ? "border-sky-300/30 bg-sky-500/10 text-sky-50"
+            : "border-red-300/30 bg-red-500/10 text-red-100"
+        } ${className}`}
+      >
+        {notice.message}
+      </div>
+    ) : null;
 
-  // ...existing code...
+  const addQuestion = () => {
+    setQuestions((current) => [...current, createQuestion()]);
+  };
 
-  // ...existing code...
+  const updateQuestion = (id: number, updates: Partial<Question>) => {
+    setQuestions((current) =>
+      current.map((question) => (question.id === id ? { ...question, ...updates } : question))
+    );
+  };
 
-  // ...existing code...
+  const assignPinFromCenter = (id: number) => {
+    updateQuestion(id, { lat: mapCenter.lat, lng: mapCenter.lng });
+  };
 
-  // ...existing code...
+  const openAiInterviewModal = () => {
+    setNotice(null);
+    setShowAiInterviewModal(true);
+  };
 
-  // ...existing code...
+  const closeAiInterviewModal = () => {
+    setNotice(null);
+    setShowAiInterviewModal(false);
+  };
+
+  const handleAiInterviewComplete = (draft: FotoAiInterviewDraft) => {
+    const nextTitle = draft.title.trim();
+    const hasExistingContent =
+      title.trim().length > 0 ||
+      subject.trim().length > 0 ||
+      questions.some((question) => !isQuestionEmpty(question));
+
     setPendingAiReviewDraft({
       title: nextTitle,
       subject: subject.trim() || PHOTO_SUBJECT_FALLBACK,
@@ -1005,6 +929,7 @@ function FotoMissionBuilderPageContent() {
 
   const handleSaveRun = async () => {
     setNotice(null);
+    let shouldReturn = false;
 
     if (isEditMode && loadedRunId !== editRunId) {
       setNotice({
@@ -1012,38 +937,32 @@ function FotoMissionBuilderPageContent() {
         message: "Løbet er ikke indlæst endnu. Vent et øjeblik og prøv igen.",
       });
       scrollToSaveFeedback();
-      return;
-    }
-
-    if (!title.trim()) {
+      shouldReturn = true;
+    } else if (!title.trim()) {
       setNotice({ tone: "error", message: "Udfyld venligst løbets titel." });
       scrollToSaveFeedback();
-      return;
-    }
-
-    if (normalizedQuestionsForSave.length === 0) {
+      shouldReturn = true;
+    } else if (normalizedQuestionsForSave.length === 0) {
       setNotice({ tone: "error", message: "Tilføj mindst én udfyldt mission." });
       scrollToSaveFeedback();
-      return;
-    }
-
-    if (hasIncompleteQuestions) {
+      shouldReturn = true;
+    } else if (hasIncompleteQuestions) {
       setNotice({
         tone: "error",
         message: "Udfyld både hvad de skal finde og instruktionen på hver mission.",
       });
       scrollToSaveFeedback();
-      return;
-    }
-
-    if (hasMissingCoordinates) {
+      shouldReturn = true;
+    } else if (hasMissingCoordinates) {
       setNotice({
         tone: "error",
         message: "Du mangler at placere alle poster på kortet.",
       });
       scrollToSaveFeedback();
-      return;
+      shouldReturn = true;
     }
+
+    if (shouldReturn) return;
 
     setIsSaving(true);
 
