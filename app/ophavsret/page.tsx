@@ -45,9 +45,9 @@ export default function OphavsretPage() {
                 Klare rammer for sikker databehandling og ansvarlig brug af tekster
               </p>
               <p className="text-slate-200 leading-relaxed md:text-lg">
-                N&aring;r du bruger vores {"'"}Scan tekst{"'"}-funktion til at bygge stjernel&oslash;b, er det vigtigt,
-                at vi passer p&aring; forfatternes rettigheder. Derfor har vi bygget GPS L&oslash;b med to klare
-                principper:
+                N&aring;r du bruger vores {"'"}Scan tekst{"'"}-funktion til at bygge stjernel&oslash;b (og vores
+                &oslash;vrige kreative AI-v&aelig;rkt&oslash;jer), er det vigtigt, at vi passer p&aring; forfatternes
+                rettigheder. Derfor har vi bygget GPS L&oslash;b med to klare principper:
               </p>
             </div>
 
