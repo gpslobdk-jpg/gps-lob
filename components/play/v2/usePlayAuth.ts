@@ -274,7 +274,7 @@ export function usePlayAuth(params: {
         if (!res.ok) {
           if (res.status === 401 || res.status === 403) {
             tripCircuitBreaker(
-              "Din session er udløbet. Genindlæs siden for at deltage igen.",
+              "Hov! Forbindelsen blev afbrudt. Bare rolig, alt dit fremskridt er gemt.",
               "participant_auth_expired",
             );
           }
@@ -678,7 +678,7 @@ export function usePlayAuth(params: {
   }, []);
 
   const retry = useCallback(() => {
-    if (circuitBreakerRef.current) return;
+    circuitBreakerRef.current = false;
     setErrorMessage(null);
     setErrorVariant("generic");
     if (storedOnLoad) {

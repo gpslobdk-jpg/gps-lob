@@ -596,7 +596,7 @@ function LoadingScreen() {
   );
 }
 
-function ErrorScreen({ message, onRetry }: { message: string | null; onRetry?: () => void }) {
+function ErrorScreen({ message, onRetry, buttonLabel }: { message: string | null; onRetry?: () => void; buttonLabel?: string }) {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-slate-950 px-5">
       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-500/15 ring-1 ring-red-400/30">
@@ -610,7 +610,7 @@ function ErrorScreen({ message, onRetry }: { message: string | null; onRetry?: (
           onClick={onRetry}
           className="mt-5 rounded-2xl bg-emerald-500/15 px-6 py-3 text-sm font-bold text-emerald-300 ring-1 ring-emerald-400/25 transition hover:bg-emerald-500/25"
         >
-          Prøv igen
+          {buttonLabel ?? "Prøv igen"}
         </button>
       )}
     </div>
@@ -833,7 +833,13 @@ export default function PlayInterfaceV2(props: PlayInterfaceV2Props) {
       return <LoadingScreen />;
 
     case "error":
-      return <ErrorScreen message={displayError} onRetry={handleRetry} />;
+      return (
+        <ErrorScreen
+          message={displayError}
+          onRetry={handleRetry}
+          buttonLabel={auth.errorVariant === "participant_auth_expired" ? "Fortsæt spillet" : undefined}
+        />
+      );
 
     case "waiting":
       return <WaitingScreen />;
