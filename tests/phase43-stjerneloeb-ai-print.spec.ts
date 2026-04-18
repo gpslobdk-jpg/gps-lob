@@ -177,7 +177,7 @@ test.describe("Phase 43/44 Grand Finale", () => {
       await route.fulfill({ status: 200, contentType: "image/png", body: TINY_PNG });
     });
 
-    await ctx.route("**/oaidalleapiprodscus.blob.core.windows.net/**", async (route: Route) => {
+    await ctx.route("**/api/proxy-image**", async (route: Route) => {
       await route.fulfill({ status: 200, contentType: "image/png", body: TINY_PNG });
     });
 
@@ -299,7 +299,7 @@ test.describe("Phase 43/44 Grand Finale", () => {
       await route.fulfill({ status: 200, contentType: "image/png", body: TINY_PNG });
     });
 
-    await ctx.route("**/oaidalleapiprodscus.blob.core.windows.net/**", async (route: Route) => {
+    await ctx.route("**/api/proxy-image**", async (route: Route) => {
       await route.fulfill({ status: 200, contentType: "image/png", body: TINY_PNG });
     });
 

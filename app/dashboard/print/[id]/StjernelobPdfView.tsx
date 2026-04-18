@@ -599,10 +599,14 @@ function isDalleImageUrl(url: string): boolean {
 }
 
 function getPdfImageRequest(post: Post): { url: string; isPollinations: boolean } {
-  // Prefer DALL-E CDN URL directly (no proxy needed)
   const rawUrl = typeof post.image_url === "string" ? post.image_url.trim() : "";
+
+  // Route DALL-E CDN URLs through our server-side proxy to bypass CORS
   if (rawUrl && isDalleImageUrl(rawUrl)) {
-    return { url: rawUrl, isPollinations: false };
+    return {
+      url: `/api/proxy-image?url=${encodeURIComponent(rawUrl)}`,
+      isPollinations: false,
+    };
   }
 
   // Fall back to Pollinations proxy if we have an image_prompt

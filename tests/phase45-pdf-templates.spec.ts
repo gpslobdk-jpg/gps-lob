@@ -246,8 +246,8 @@ test.describe("Phase 45: PDF Template Stress Test", () => {
         });
       });
 
-      // Mock DALL-E CDN URLs
-      await ctx.route("**/oaidalleapiprodscus.blob.core.windows.net/**", async (route: Route) => {
+      // Mock image proxy for DALL-E URLs
+      await ctx.route("**/api/proxy-image**", async (route: Route) => {
         await route.fulfill({
           status: 200,
           contentType: "image/png",
@@ -371,7 +371,7 @@ test.describe("Phase 45: PDF Template Stress Test", () => {
       });
     });
 
-    await ctx.route("**/oaidalleapiprodscus.blob.core.windows.net/**", async (route: Route) => {
+    await ctx.route("**/api/proxy-image**", async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: "image/png",
