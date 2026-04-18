@@ -114,6 +114,42 @@ function resolveImageArtDirection(subject: string): ImageArtDirection {
     };
   }
 
+  if (normalizedSubject.includes("tysk")) {
+    return {
+      label: "Deutsch Klassisch",
+      promptRule:
+        "clean structured educational illustration, warm amber tones, Central European setting, school-safe, no text overlay, no watermark",
+      emphasis: "tydelige hverdagssituationer og genstande, der understøtter sprogindlæring",
+    };
+  }
+
+  if (normalizedSubject.includes("fysik") || normalizedSubject.includes("kemi")) {
+    return {
+      label: "Fysik/Kemi Grid",
+      promptRule:
+        "scientific laboratory illustration, clean composition, visible apparatus or chemical structures, violet and indigo tones, school-safe, no text overlay, no watermark",
+      emphasis: "eksperimenter, laboratorieudstyr, kemiske strukturer eller fysiske fænomener",
+    };
+  }
+
+  if (normalizedSubject.includes("geografi")) {
+    return {
+      label: "Geografi Klassisk",
+      promptRule:
+        "geographic illustration, aerial or landscape perspective, natural greens and earth tones, maps or terrain features, school-safe, no text overlay, no watermark",
+      emphasis: "landskaber, kort, klimazoner eller geografiske fænomener",
+    };
+  }
+
+  if (normalizedSubject.includes("biologi")) {
+    return {
+      label: "Biologi Editorial",
+      promptRule:
+        "natural science illustration, detailed botanical or biological subject, fresh greens, scientific observation style, school-safe, no text overlay, no watermark",
+      emphasis: "organismer, cellestrukturer, økosystemer eller biologiske processer",
+    };
+  }
+
   return {
     label: "Standard",
     promptRule:
@@ -123,13 +159,58 @@ function resolveImageArtDirection(subject: string): ImageArtDirection {
 }
 
 // ---------------------------------------------------------------------------
-// Subject-aware content rules
+// Content mode system — three fundamental archetypes
+// ---------------------------------------------------------------------------
+
+type SubjectContentMode = "task" | "passage" | "inquiry";
+
+function resolveSubjectContentMode(subject: string): SubjectContentMode {
+  const key = subject.trim().toLowerCase();
+
+  // TASK mode: body_text IS the problem, not an explanatory passage
+  if (key.includes("matematik")) return "task";
+  if (key.includes("fysik") || key.includes("kemi")) return "task";
+
+  // PASSAGE mode: body_text is a reading passage, question tests comprehension
+  if (key.includes("dansk")) return "passage";
+  if (key.includes("engelsk")) return "passage";
+  if (key.includes("tysk")) return "passage";
+  if (key.includes("historie")) return "passage";
+
+  // INQUIRY mode: body_text describes a phenomenon, question tests reasoning
+  if (key.includes("geografi") || key.includes("samfund")) return "inquiry";
+  if (key.includes("biologi") || key.includes("natur")) return "inquiry";
+
+  return "passage";
+}
+
+function buildContentModeBlock(mode: SubjectContentMode): string {
+  switch (mode) {
+    case "task":
+      return `INDHOLDSTILSTAND: OPGAVE
+body_text er OPGAVEN — et kort scenarie, et regnestykke eller en eksperimentbeskrivelse. IKKE en forklarende tekst.
+body_text skal være 1-3 sætninger. Start direkte med problemet. Ingen indledning.`;
+    case "inquiry":
+      return `INDHOLDSTILSTAND: UNDERSØGELSE
+body_text beskriver et konkret fænomen, en observation eller et datasæt med fakta, enheder eller målbare størrelser.
+Start direkte med fænomenet. Ingen generel introduktion til faget.`;
+    case "passage":
+    default:
+      return `INDHOLDSTILSTAND: LÆSEPASSAGE
+body_text er en selvstændig tekst, der kan læses og forstås. Spørgsmålet tester forståelse af teksten.
+Start direkte med indholdet. Ingen meta-kommentarer om faget.`;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Subject-aware content rules (with hard anti-fluff blocks)
 // ---------------------------------------------------------------------------
 
 type SubjectContentRules = {
   contentDirective: string;
   questionFormat: string;
   forbiddenPatterns: string;
+  antiFluff: string;
 };
 
 function resolveSubjectContentRules(subject: string, raceType: "classic" | "crossword"): SubjectContentRules {
@@ -139,19 +220,28 @@ function resolveSubjectContentRules(subject: string, raceType: "classic" | "cros
     return raceType === "crossword"
       ? {
           contentDirective:
-            "Brødteksten skal beskrive et matematisk scenarie med konkrete tal, mål eller geometriske figurer. Inkludér en beregning eller et regnestykke, som eleven skal løse for at finde svaret.",
+            "body_text skal være et kort matematisk scenarie med konkrete tal (1-3 sætninger). Inkludér beregningen direkte i teksten.",
           questionFormat:
-            "answer_word SKAL være resultatet af en beregning (fx et tal eller en matematisk term som AREAL, RADIUS). hint skal indeholde selve regnestykket eller den matematiske opgave.",
+            "answer_word SKAL være resultatet af en beregning (fx et tal eller en matematisk term som AREAL, RADIUS). hint skal indeholde selve regnestykket.",
           forbiddenPatterns:
-            "Generér ALDRIG generelle vidensspørgsmål om matematik (fx 'Hvad hedder…'). Alle poster SKAL indeholde et konkret regnestykke eller en talbaseret opgave, som eleven skal løse.",
+            "Generér ALDRIG generelle vidensspørgsmål om matematik. Alle poster SKAL indeholde et konkret regnestykke, som eleven løser for at finde answer_word.",
+          antiFluff:
+            `Det er FORBUDT at skrive indledende sætninger som "I matematik arbejder vi med…", "Multiplikation betyder…", "I dette regnestykke skal du…" eller "Matematik handler om…".
+body_text SKAL starte direkte med scenariet eller regnestykket. Maks 2-3 sætninger.
+Hvis læreren beder om "rene regnestykker", skal body_text KUN indeholde selve regnestykket (fx "15 × 4 + 23 = ?") — INGEN indpakning overhovedet.`,
         }
       : {
           contentDirective:
-            "Brødteksten skal beskrive et matematisk scenarie med konkrete tal, mål, formler eller geometriske figurer. Inkludér altid mindst ét regnestykke, en ligning eller en talrelation i teksten.",
+            "body_text skal være et kort matematisk scenarie med konkrete tal, mål eller geometriske figurer (1-3 sætninger). Inkludér altid mindst ét regnestykke, en ligning eller en talrelation.",
           questionFormat:
-            "Spørgsmålet SKAL være en regneopgave eller et matematisk problem med ét korrekt numerisk eller formelbaseret svar. Alle fire svarmuligheder SKAL være tal, mål eller matematiske udtryk — IKKE tekst-svar. Eksempel: '12 cm²', '3/4', '56', '2π'.",
+            "Spørgsmålet SKAL være en regneopgave med ét korrekt numerisk svar. Alle fire svarmuligheder SKAL være tal, mål eller matematiske udtryk — ALDRIG prosasvar. Eksempel: '12 cm²', '3/4', '56', '2π'.",
           forbiddenPatterns:
-            "Generér ALDRIG spørgsmål som 'Hvad hedder denne form?' eller 'Hvem opfandt…'. Alle poster SKAL have et konkret regnestykke, og svarmulighederne SKAL være numeriske eller formelbaserede.",
+            "Generér ALDRIG spørgsmål som 'Hvad hedder denne form?', 'Hvem opfandt…' eller 'Hvad er forskellen mellem…'. Alle poster SKAL have et konkret regnestykke, og svarmulighederne SKAL være numeriske eller formelbaserede.",
+          antiFluff:
+            `Det er FORBUDT at skrive indledende sætninger som "I matematik arbejder vi med…", "Multiplikation betyder…", "I dette regnestykke skal du…" eller "Matematik handler om…".
+body_text SKAL starte direkte med scenariet eller regnestykket. Maks 2-3 sætninger.
+Hvis læreren beder om "rene regnestykker", skal body_text KUN indeholde selve regnestykket (fx "15 × 4 + 23 = ?") — INGEN indpakning overhovedet.
+Alle 4 svarmuligheder SKAL være tal, enheder eller formler — ALDRIG tekst-svar som "Det ved man ikke" eller "Alle de ovenstående".`,
         };
   }
 
@@ -159,67 +249,118 @@ function resolveSubjectContentRules(subject: string, raceType: "classic" | "cros
     return raceType === "crossword"
       ? {
           contentDirective:
-            "Brødteksten skal beskrive et eksperiment, en fysisk/kemisk proces eller et naturfænomen med rigtige enheder og størrelser (fx Newton, mol, gram, Celsius).",
+            "body_text skal kort beskrive et eksperiment eller en fysisk/kemisk proces med rigtige enheder og størrelser (1-3 sætninger). Start direkte med eksperimentet.",
           questionFormat:
-            "answer_word SKAL være en fagterm, en enhed eller et resultat relateret til eksperimentet (fx NEWTON, OXYGEN, CELSIUS). hint skal beskrive den videnskabelige sammenhæng.",
+            "answer_word SKAL være en fagterm, en enhed eller et resultat (fx NEWTON, OXYGEN, CELSIUS). hint skal beskrive den videnskabelige sammenhæng.",
           forbiddenPatterns:
             "Undgå ren trivia. Posterne SKAL involvere konkret videnskabelig ræsonnering, enheder eller eksperimentelle observationer.",
+          antiFluff:
+            `Det er FORBUDT at skrive "Fysik handler om…", "I kemi lærer vi om…", "Videnskab er…" eller lignende indledninger.
+body_text SKAL starte direkte med eksperimentet, processen eller beregningen. Maks 2-3 sætninger.
+Fokusér på formler, enheder, målinger og observationer — ikke på at forklare, hvad faget er.`,
         }
       : {
           contentDirective:
-            "Brødteksten skal beskrive et eksperiment, en fysisk/kemisk proces eller et naturfænomen med rigtige enheder og størrelser. Inkludér formler, enheder eller målbare observationer.",
+            "body_text skal kort beskrive et eksperiment, en fysisk/kemisk proces eller et naturfænomen med rigtige enheder og størrelser (1-3 sætninger). Inkludér formler, enheder eller målbare observationer.",
           questionFormat:
-            "Spørgsmålet SKAL teste forståelse af formler, enhedsomregninger, årsag-virkning i eksperimenter eller observationer. Svarmulighederne skal indeholde enheder, tal eller præcise fagtermer.",
+            "Spørgsmålet SKAL teste forståelse af formler, enhedsomregninger, årsag-virkning eller observationer. Svarmulighederne skal indeholde enheder, tal eller præcise fagtermer.",
           forbiddenPatterns:
             "Undgå ren trivia eller 'hvem opdagede…'-spørgsmål. Fokusér på videnskabelig forståelse, beregninger og eksperimentelle resultater.",
+          antiFluff:
+            `Det er FORBUDT at skrive "Fysik handler om…", "I kemi lærer vi om…", "Videnskab er…" eller lignende indledninger.
+body_text SKAL starte direkte med eksperimentet, processen eller beregningen. Maks 2-3 sætninger.
+Fokusér på formler, enheder, målinger og observationer — ikke på at forklare, hvad faget er.
+Svarmulighederne SKAL indeholde enheder, tal eller fagtermer — ikke vage prosasvar.`,
         };
   }
 
   if (key.includes("dansk")) {
     return {
       contentDirective:
-        "Brødteksten skal være et litterært uddrag, en læsepassage eller en sproglig tekst med tydelig opbygning og klart sprog.",
+        "body_text skal være et litterært uddrag, en læsepassage eller en sproglig tekst med tydelig opbygning og klart sprog. Teksten skal være lang nok til at give mening som læseoplevelse.",
       questionFormat: raceType === "crossword"
-        ? "answer_word SKAL være et ord relateret til tekstens indhold, sprog eller analyse (fx METAFOR, TEMA, FORTÆLLER). hint skal pege på en sproglig eller indholdsmæssig detalje i teksten."
-        : "Spørgsmålet skal teste læseforståelse, ordkendskab, tekstanalyse eller sproglig bevidsthed baseret på brødteksten.",
+        ? "answer_word SKAL være et ord relateret til tekstens indhold, sprog eller analyse (fx METAFOR, TEMA, FORTÆLLER). hint skal pege på en sproglig eller indholdsmæssig detalje."
+        : "Spørgsmålet skal teste læseforståelse, ordkendskab, tekstanalyse eller sproglig bevidsthed baseret på body_text.",
       forbiddenPatterns:
         "Undgå matematik- eller naturfagsspørgsmål. Hold fokus på læsning, sprog og tekstforståelse.",
+      antiFluff:
+        `Det er FORBUDT at skrive "Dansk er et fag hvor vi læser…", "Sprog handler om…" eller lignende meta-kommentarer.
+Start direkte med teksten/uddraget. body_text ER læsepassagen — ikke en forklaring af, hvad eleven skal gøre.`,
     };
   }
 
   if (key.includes("engelsk")) {
     return {
       contentDirective:
-        "Brødteksten skal være på dansk men relatere til engelsk sprogindlæring. Inkludér engelske ord, udtryk eller sætninger, som eleven skal arbejde med.",
+        "body_text skal være på dansk men relatere til engelsk sprogindlæring. Inkludér engelske ord, udtryk eller sætninger, som eleven skal arbejde med.",
       questionFormat: raceType === "crossword"
         ? "answer_word SKAL være et engelsk ord (fx LIBRARY, PRESENT, COULD). hint skal være en dansk beskrivelse eller oversættelsesopgave."
         : "Spørgsmålet skal involvere oversættelse, ordforråd, grammatik eller udfyldningsopgaver mellem dansk og engelsk. Mindst én svarmulighed skal indeholde engelske ord.",
       forbiddenPatterns:
         "Alt indhold skal have en klar sproglig dimension. Undgå rene faktaspørgsmål uden sprogligt element.",
+      antiFluff:
+        `Det er FORBUDT at skrive "Engelsk er et vigtigt sprog…", "I engelsk lærer vi…" eller lignende.
+Start direkte med den sproglige opgave eller tekst. Fokusér på konkret sprogarbejde.`,
+    };
+  }
+
+  if (key.includes("tysk")) {
+    return {
+      contentDirective:
+        "body_text skal være på dansk men relatere til tysk sprogindlæring. Inkludér tyske ord, udtryk, sætninger eller grammatiske strukturer, som eleven skal arbejde med.",
+      questionFormat: raceType === "crossword"
+        ? "answer_word SKAL være et tysk ord (fx SCHULE, BRUDER, KAUFEN). hint skal være en dansk beskrivelse eller oversættelsesopgave."
+        : "Spørgsmålet skal involvere oversættelse, ordforråd, grammatik (fx kasus, verbøjning) eller udfyldningsopgaver mellem dansk og tysk. Mindst én svarmulighed skal indeholde tyske ord.",
+      forbiddenPatterns:
+        "Alt indhold skal have en klar sproglig dimension. Undgå rene faktaspørgsmål om Tyskland uden sprogligt element.",
+      antiFluff:
+        `Det er FORBUDT at skrive "Tysk er et sprog der tales i…", "I tyskundervisningen lærer vi…" eller lignende.
+Start direkte med den sproglige opgave eller tekst. Fokusér på konkret sprogarbejde.`,
     };
   }
 
   if (key.includes("historie")) {
     return {
       contentDirective:
-        "Brødteksten skal beskrive en historisk begivenhed, periode eller person med konkrete årstal, steder og kontekst.",
+        "body_text skal beskrive en historisk begivenhed, periode eller person med konkrete årstal, steder og kontekst.",
       questionFormat: raceType === "crossword"
         ? "answer_word SKAL være et historisk nøgleord (fx REFORM, VIKING, REVOLUTION). hint skal referere til en specifik historisk kontekst."
         : "Spørgsmålet skal teste kronologisk forståelse, årsag-virkning, kildeanalyse eller perspektivering af historiske begivenheder.",
       forbiddenPatterns:
         "Undgå anakronismer. Alle årstal og fakta SKAL være historisk korrekte.",
+      antiFluff:
+        `Det er FORBUDT at skrive "Historie handler om…" eller "I fortiden…" som generelle indledninger.
+Start direkte med den historiske begivenhed eller kontekst.`,
     };
   }
 
   if (key.includes("geografi") || key.includes("samfund")) {
     return {
       contentDirective:
-        "Brødteksten skal beskrive geografiske, samfundsmæssige eller kulturelle forhold med konkrete data, steder eller statistikker.",
+        "body_text skal beskrive geografiske, samfundsmæssige eller kulturelle forhold med konkrete data, steder, koordinater eller statistikker. Start direkte med fænomenet.",
       questionFormat: raceType === "crossword"
-        ? "answer_word SKAL være et geografisk eller samfundsfagligt begreb (fx KLIMA, DEMOKRATI, EXPORT). hint skal relatere til konkrete data eller steder."
+        ? "answer_word SKAL være et geografisk eller samfundsfagligt begreb (fx KLIMA, DEMOKRATI, EKSPORT). hint skal relatere til konkrete data eller steder."
         : "Spørgsmålet skal teste forståelse af geografiske sammenhænge, samfundsstrukturer eller dataanalyse.",
       forbiddenPatterns:
         "Undgå upræcise eller forældede statistikker. Fokusér på verificerbare fakta.",
+      antiFluff:
+        `Det er FORBUDT at skrive "Geografi handler om…", "Verden er stor…" eller lignende generelle indledninger.
+Start direkte med det konkrete fænomen, stedet eller datasættet. Fokusér på fakta og data.`,
+    };
+  }
+
+  if (key.includes("biologi")) {
+    return {
+      contentDirective:
+        "body_text skal beskrive en biologisk proces, en organisme, et økosystem eller et eksperiment med konkrete fagtermer, enheder eller observationer. Start direkte med fænomenet.",
+      questionFormat: raceType === "crossword"
+        ? "answer_word SKAL være en biologisk fagterm (fx FOTOSYNTESE, CELLEDELING, HABITAT). hint skal beskrive den biologiske sammenhæng."
+        : "Spørgsmålet skal teste forståelse af biologiske processer, klassifikation, årsag-virkning eller observationer.",
+      forbiddenPatterns:
+        "Undgå ren trivia. Fokusér på biologisk forståelse, processer og fagtermer.",
+      antiFluff:
+        `Det er FORBUDT at skrive "Biologi handler om…", "Naturen er fantastisk…" eller lignende.
+Start direkte med organismen, processen eller eksperimentet. Fokusér på faglige observationer.`,
     };
   }
 
@@ -228,6 +369,7 @@ function resolveSubjectContentRules(subject: string, raceType: "classic" | "cros
     contentDirective: "",
     questionFormat: "",
     forbiddenPatterns: "",
+    antiFluff: "",
   };
 }
 
@@ -241,6 +383,153 @@ function buildSubjectContentBlock(rules: SubjectContentRules): string {
   if (rules.questionFormat) lines.push(`- ${rules.questionFormat}`);
   if (rules.forbiddenPatterns) lines.push(`- ${rules.forbiddenPatterns}`);
   return lines.join("\n");
+}
+
+function buildAntiFluffBlock(rules: SubjectContentRules): string {
+  if (!rules.antiFluff) return "";
+  return `\nANTI-FLUFF REGLER — KRITISK, OVERHOLD ALTID:\n${rules.antiFluff}`;
+}
+
+// ---------------------------------------------------------------------------
+// Grade × Subject cross-rules
+// ---------------------------------------------------------------------------
+
+function resolveGradeSubjectCrossRules(subject: string, gradeLevels: readonly string[]): string {
+  const { highestGrade } = getGradeLevelRange(gradeLevels);
+  const key = subject.trim().toLowerCase();
+
+  if (key.includes("matematik")) {
+    if (highestGrade !== null && highestGrade <= 2) {
+      return `Matematik × Indskoling (1.-2. klasse):
+- Kun addition og subtraktion med tal under 20.
+- Ingen brøker, decimaler eller multiplikation.
+- Opgaverne skal handle om tælbare, konkrete ting (æbler, bolde, fingre).
+- Eksempel: "Anna har 8 æbler. Hun spiser 3. Hvor mange har hun?"`;
+    }
+    if (highestGrade !== null && highestGrade <= 4) {
+      return `Matematik × Begyndende mellemtrin (3.-4. klasse):
+- Addition, subtraktion, multiplikation og enkel division.
+- Tal under 1000. Ingen brøker eller decimaler endnu.
+- Brug hverdagsscenarier (køb, antal, længder i hele tal).
+- Eksempel: "Købmanden har 15 kasser med 6 flasker i hver. Hvor mange flasker er der i alt?"`;
+    }
+    if (highestGrade !== null && highestGrade <= 6) {
+      return `Matematik × Mellemtrin (5.-6. klasse):
+- Brøker, decimaler, procentregning, areal og omkreds.
+- Tal op til 100.000. Enkel geometri (rektangel, trekant, cirkel).
+- Brug målbare situationer (afstande, priser, arealer).
+- Eksempel: "Et rektangulært bord er 1,2 m langt og 0,8 m bredt. Hvad er arealet?"`;
+    }
+    if (highestGrade !== null && highestGrade <= 9) {
+      return `Matematik × Udskoling (7.-9. klasse):
+- Algebra, ligninger, funktioner, geometri, proportioner, statistik.
+- Brug variabler (x, y), formler og abstrakte problemer.
+- Eksempel: "Løs ligningen: 3x + 7 = 22. Hvad er x?"`;
+    }
+    return "";
+  }
+
+  if (key.includes("fysik") || key.includes("kemi")) {
+    if (highestGrade !== null && highestGrade <= 6) {
+      return `Fysik/Kemi × Mellemtrin (5.-6. klasse):
+- Simple eksperimenter og observationer.
+- Grundlæggende enheder: gram (g), liter (L), grader Celsius (°C).
+- Stofskifte, tilstandsformer (fast, flydende, gas), simple kredsløb.
+- Ingen komplekse formler — fokusér på observation og beskrivelse.`;
+    }
+    if (highestGrade !== null && highestGrade <= 8) {
+      return `Fysik/Kemi × Udskoling (7.-8. klasse):
+- Formler som F = m·a, densitet = m/V, Ohms lov.
+- Kemiske symboler, periodiske system, pH-skala.
+- Enhedsomregninger og simple beregninger med formler.`;
+    }
+    if (highestGrade !== null && highestGrade <= 9) {
+      return `Fysik/Kemi × Udskoling (9. klasse):
+- Balancerede kemiske reaktionsskemaer, energiberegninger, mol-begrebet.
+- Atomstruktur, bølger, elektromagnetisme.
+- Avancerede beregninger med flere trin.`;
+    }
+    return "";
+  }
+
+  if (key.includes("tysk")) {
+    if (highestGrade !== null && highestGrade <= 6) {
+      return `Tysk × Mellemtrin (5.-6. klasse):
+- Grundlæggende ordforråd: tal, farver, dyr, familie, mad, skole.
+- Simple sætninger og hilsner. Ingen kasus eller avanceret grammatik.
+- Oversættelsesopgaver med enkle, velkendte ord.`;
+    }
+    if (highestGrade !== null && highestGrade <= 9) {
+      return `Tysk × Udskoling (7.-9. klasse):
+- Udvidet ordforråd, verbbøjning (præsens, perfektum), kasus (nominativ, akkusativ, dativ).
+- Sammensatte sætninger, præpositioner, modalverber.
+- Korte tyske tekster med forståelsesspørgsmål.`;
+    }
+    return "";
+  }
+
+  if (key.includes("engelsk")) {
+    if (highestGrade !== null && highestGrade <= 4) {
+      return `Engelsk × Begyndende mellemtrin (3.-4. klasse):
+- Grundlæggende ordforråd: farver, dyr, tal, kroppen, familien.
+- Simple sætninger. Ingen grammatisk analyse.
+- Oversættelsesopgaver med billedstøtte og velkendte ord.`;
+    }
+    if (highestGrade !== null && highestGrade <= 6) {
+      return `Engelsk × Mellemtrin (5.-6. klasse):
+- Udvidet ordforråd, simple verbtider (present, past), spørgeord.
+- Korte engelske sætninger og dialoger. Udfyldningsopgaver.`;
+    }
+    if (highestGrade !== null && highestGrade <= 9) {
+      return `Engelsk × Udskoling (7.-9. klasse):
+- Avanceret grammatik (tider, passiv, reported speech), idiomer.
+- Længere engelske tekster, læseforståelse, skriftlig produktion.`;
+    }
+    return "";
+  }
+
+  if (key.includes("biologi")) {
+    if (highestGrade !== null && highestGrade <= 6) {
+      return `Biologi × Mellemtrin (5.-6. klasse):
+- Dyr, planter, menneskekroppen, sanser, simple økosystemer.
+- Konkrete observationer og beskrivelser. Ingen komplekse fagtermer.`;
+    }
+    if (highestGrade !== null && highestGrade <= 9) {
+      return `Biologi × Udskoling (7.-9. klasse):
+- Cellebiologi, fotosyntese, genetik, evolution, økologi.
+- Fagtermer bruges frit (DNA, mitose, habitat, fødekæde).`;
+    }
+    return "";
+  }
+
+  if (key.includes("geografi")) {
+    if (highestGrade !== null && highestGrade <= 6) {
+      return `Geografi × Mellemtrin (5.-6. klasse):
+- Danmarks geografi, verdensdele, klimazoner, vejr.
+- Konkrete steder og simple kort. Ingen avanceret statistik.`;
+    }
+    if (highestGrade !== null && highestGrade <= 9) {
+      return `Geografi × Udskoling (7.-9. klasse):
+- Globalisering, befolkning, ressourcer, bæredygtighed, tektoniske plader.
+- Brug data, statistikker og fagtermer frit.`;
+    }
+    return "";
+  }
+
+  return "";
+}
+
+// ---------------------------------------------------------------------------
+// Teacher override block
+// ---------------------------------------------------------------------------
+
+function buildTeacherOverrideBlock(topic: string): string {
+  return `LÆRERENS INSTRUKTION ER LOV:
+- Lærerens emne-beskrivelse ("${topic}") er den øverste autoritet.
+- Hvis læreren beder om et specifikt format (fx "rene regnestykker", "ligninger", "oversættelsesopgaver"), skal ALLE poster følge det format uden undtagelse.
+- Hvis læreren specificerer et emne (fx "brøker", "2. verdenskrig", "fotosyntese"), skal ALLE poster handle om præcis det emne.
+- Lærerens instruktion overskriver alle andre regler om body_text-længde, stil og format.
+- Tænk på lærerens emne-beskrivelse som et direkte svar på spørgsmålet: "Hvad præcis skal eleverne træne?"`;
 }
 
 // ---------------------------------------------------------------------------
@@ -380,9 +669,14 @@ export async function POST(req: Request) {
     }
 
 
+    const contentMode = resolveSubjectContentMode(subject);
+    const contentModeBlock = buildContentModeBlock(contentMode);
     const pedagogicalRules = resolveStjerneloebGradeLevelGuidance(gradeLevels);
+    const gradeSubjectCrossRules = resolveGradeSubjectCrossRules(subject, gradeLevels);
     const subjectContentRules = resolveSubjectContentRules(subject, raceType);
     const subjectContentBlock = buildSubjectContentBlock(subjectContentRules);
+    const antiFluffBlock = buildAntiFluffBlock(subjectContentRules);
+    const teacherOverrideBlock = buildTeacherOverrideBlock(topic);
     const subjectLine = subject ? `- Brug faget \"${subject}\" som faglig ramme for alle poster.` : "";
     const imageArtDirection = resolveImageArtDirection(subject);
     const imageDirectionLine =
@@ -390,19 +684,31 @@ export async function POST(req: Request) {
     const imagePurposeLine =
       `- Billedprompts skal især fremhæve ${imageArtDirection.emphasis}.`;
 
+    const bodyTextDescription = contentMode === "task"
+      ? "en kort opgavetekst eller et scenarie (1-3 sætninger, start direkte med opgaven)"
+      : contentMode === "inquiry"
+        ? "en kort faglig beskrivelse af et fænomen eller en observation med konkrete data"
+        : "en læsbar brødtekst (se sætningskrav ovenfor)";
+
     let systemPrompt = "";
     if (raceType === "crossword") {
       systemPrompt = `Du er en dansk lærer, der laver et analogt stjerneløb som krydsordsløb til udendørs undervisning.
 Et stjerneløb er en serie af laminerede A4-post-kort, der hænges rundt i skolegården.
 Elever vandrer fra post til post, læser teksten, ser på billedet og skal gætte et ord ud fra en ledetråd.
 
+${contentModeBlock}
+
 ${pedagogicalRules}
+${gradeSubjectCrossRules ? `\n${gradeSubjectCrossRules}` : ""}
 ${subjectContentBlock}
+${antiFluffBlock}
+
+${teacherOverrideBlock}
 
 Vigtige regler:
 - Alt indhold skal være på dansk.
 - Lav præcis ${count} poster.
-- Hver post skal have: en kort overskrift, en læsbar brødtekst (se sætningskrav ovenfor), et billedprompt på ENGELSK til en AI-billedgenerator, et answer_word (et kort, logisk ord uden specialtegn, der relaterer til postens tekst, max 12 tegn, store bogstaver, ingen mellemrum) og et hint (en kort ledetråd til ordet).
+- Hver post skal have: en kort overskrift, ${bodyTextDescription}, et billedprompt på ENGELSK til en AI-billedgenerator, et answer_word (et kort, logisk ord uden specialtegn, der relaterer til postens tekst, max 12 tegn, store bogstaver, ingen mellemrum) og et hint (en kort ledetråd til ordet).
 - answer_word skal være på formatet: kun store bogstaver og tal, ingen mellemrum eller specialtegn, max 12 tegn.
 - hint skal være en kort, præcis ledetråd til answer_word.
 - Må IKKE generere options eller correct_index.
@@ -416,15 +722,21 @@ ${subjectLine}`;
 Et stjerneløb er en serie af laminerede A4-post-kort, der hænges rundt i skolegården.
 Elever vandrer fra post til post, læser teksten, ser på billedet og besvarer spørgsmålet.
 
+${contentModeBlock}
+
 ${pedagogicalRules}
+${gradeSubjectCrossRules ? `\n${gradeSubjectCrossRules}` : ""}
 ${subjectContentBlock}
+${antiFluffBlock}
+
+${teacherOverrideBlock}
 
 Vigtige regler:
 - Alt indhold skal være på dansk.
 - Lav præcis ${count} poster.
-- Hver post skal have: en kort overskrift, en læsbar brødtekst (se sætningskrav ovenfor), et billedprompt på ENGELSK til en AI-billedgenerator, et fagligt spørgsmål og præcis 4 svarmuligheder.
+- Hver post skal have: en kort overskrift, ${bodyTextDescription}, et billedprompt på ENGELSK til en AI-billedgenerator, et fagligt spørgsmål og præcis 4 svarmuligheder.
 - Kun ét svar er korrekt (correct_index 0-3).
-- Brødteksten skal indeholde svaret på spørgsmålet, så elever kan finde det ved at læse.
+- body_text skal indeholde den information eleven behøver for at besvare spørgsmålet.
 - Billedprompt på engelsk: én enkel prompt på naturligt engelsk, uden citationstegn eller punktform, og den skal passe direkte til posten.
 ${imageDirectionLine}
 ${imagePurposeLine}
