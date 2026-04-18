@@ -75,7 +75,8 @@ function asCount(value: unknown): number {
 }
 
 function buildPollinationsUrl(prompt: string): string {
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true`;
+  const encoded = encodeURIComponent(prompt);
+  return `https://image.pollinations.ai/prompt/${encoded}?nologo=true&model=flux&width=768&height=512&quality=high&enhance=false&nofeed=true`;
 }
 
 type ImageArtDirection = {
@@ -91,8 +92,8 @@ function resolveImageArtDirection(subject: string): ImageArtDirection {
     return {
       label: "Dansk Editorial",
       promptRule:
-        "editorial literary illustration, warm Nordic tones, tactile paper feel, subtle symbolism, school-safe scene, no text overlay, no watermark",
-      emphasis: "læsescener, stemning og fortællende detaljer",
+        "editorial literary illustration, warm Nordic tones, tactile paper feel, subtle symbolism, school-safe scene, no text overlay, no watermark, no text, no numbers, no captions, no chalkboards, no letters, no handwriting",
+      emphasis: "læsescener, stemning og fortællende detaljer — ingen tekst i billedet",
     };
   }
 
@@ -100,8 +101,8 @@ function resolveImageArtDirection(subject: string): ImageArtDirection {
     return {
       label: "Matematik Grid",
       promptRule:
-        "clean educational illustration, geometric clarity, structured composition, clear quantities or shapes, high contrast, school-safe, no text overlay, no watermark",
-      emphasis: "mønstre, former, størrelser eller relationer, der understøtter problemløsning",
+        "abstract 3D geometric composition, crystalline structures, architectural minimalism, soft color gradients, depth of field, clean studio lighting, school-safe, no text, no numbers, no captions, no chalkboards, no letters, no handwriting, no clipart, no watermark",
+      emphasis: "abstrakte geometriske former i rum — ingen tal, ingen tekst, ingen tavle, ingen tegneserie-stil",
     };
   }
 
@@ -109,8 +110,8 @@ function resolveImageArtDirection(subject: string): ImageArtDirection {
     return {
       label: "English Poster",
       promptRule:
-        "bold classroom poster illustration, cinematic composition, energetic but school-safe, contemporary everyday scene, no text overlay, no watermark",
-      emphasis: "tydelige situationer, karakterer og handlingsøjeblikke, der giver mission-følelse",
+        "bold classroom poster illustration, cinematic composition, energetic but school-safe, contemporary everyday scene, no text overlay, no watermark, no text, no numbers, no captions, no chalkboards, no letters, no handwriting",
+      emphasis: "tydelige situationer, karakterer og handlingsøjeblikke, der giver mission-følelse — ingen tekst i billedet",
     };
   }
 
@@ -118,8 +119,8 @@ function resolveImageArtDirection(subject: string): ImageArtDirection {
     return {
       label: "Deutsch Klassisch",
       promptRule:
-        "clean structured educational illustration, warm amber tones, Central European setting, school-safe, no text overlay, no watermark",
-      emphasis: "tydelige hverdagssituationer og genstande, der understøtter sprogindlæring",
+        "clean structured educational illustration, warm amber tones, Central European setting, school-safe, no text overlay, no watermark, no text, no numbers, no captions, no chalkboards, no letters, no handwriting",
+      emphasis: "tydelige hverdagssituationer og genstande, der understøtter sprogindlæring — ingen tekst i billedet",
     };
   }
 
@@ -127,8 +128,8 @@ function resolveImageArtDirection(subject: string): ImageArtDirection {
     return {
       label: "Fysik/Kemi Grid",
       promptRule:
-        "scientific laboratory illustration, clean composition, visible apparatus or chemical structures, violet and indigo tones, school-safe, no text overlay, no watermark",
-      emphasis: "eksperimenter, laboratorieudstyr, kemiske strukturer eller fysiske fænomener",
+        "scientific laboratory illustration, clean composition, visible apparatus or chemical structures, violet and indigo tones, school-safe, no text overlay, no watermark, no text, no numbers, no captions, no chalkboards, no letters, no handwriting",
+      emphasis: "eksperimenter, laboratorieudstyr, kemiske strukturer eller fysiske fænomener — ingen tekst i billedet",
     };
   }
 
@@ -136,8 +137,8 @@ function resolveImageArtDirection(subject: string): ImageArtDirection {
     return {
       label: "Geografi Klassisk",
       promptRule:
-        "geographic illustration, aerial or landscape perspective, natural greens and earth tones, maps or terrain features, school-safe, no text overlay, no watermark",
-      emphasis: "landskaber, kort, klimazoner eller geografiske fænomener",
+        "geographic illustration, aerial or landscape perspective, natural greens and earth tones, maps or terrain features, school-safe, no text overlay, no watermark, no text, no numbers, no captions, no chalkboards, no letters, no handwriting",
+      emphasis: "landskaber, kort, klimazoner eller geografiske fænomener — ingen tekst i billedet",
     };
   }
 
@@ -145,16 +146,16 @@ function resolveImageArtDirection(subject: string): ImageArtDirection {
     return {
       label: "Biologi Editorial",
       promptRule:
-        "natural science illustration, detailed botanical or biological subject, fresh greens, scientific observation style, school-safe, no text overlay, no watermark",
-      emphasis: "organismer, cellestrukturer, økosystemer eller biologiske processer",
+        "natural science illustration, detailed botanical or biological subject, fresh greens, scientific observation style, school-safe, no text overlay, no watermark, no text, no numbers, no captions, no chalkboards, no letters, no handwriting",
+      emphasis: "organismer, cellestrukturer, økosystemer eller biologiske processer — ingen tekst i billedet",
     };
   }
 
   return {
     label: "Standard",
     promptRule:
-      "clear educational illustration, friendly realistic detail, readable composition, school-safe, no text overlay, no watermark",
-    emphasis: "en umiddelbart forståelig scene, der hjælper eleverne ind i emnet",
+      "clear educational illustration, friendly realistic detail, readable composition, school-safe, no text overlay, no watermark, no text, no numbers, no captions, no chalkboards, no letters, no handwriting",
+    emphasis: "en umiddelbart forståelig scene, der hjælper eleverne ind i emnet — ingen tekst i billedet",
   };
 }
 

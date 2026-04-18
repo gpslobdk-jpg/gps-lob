@@ -113,7 +113,6 @@ type PdfTemplate = {
   strapline: string;
   bodyLabel: string;
   questionLabel: string;
-  heroCaption: string;
   footerLabel: string;
   motif: string;
   optionMode: "grid" | "stacked";
@@ -429,7 +428,6 @@ const DEFAULT_TEMPLATE: PdfTemplate = {
   strapline: "En robust standard-skabelon til alle fag, der ikke har deres egen specialudgave endnu.",
   bodyLabel: "Faglig tekst",
   questionLabel: "Spørgsmål",
-  heroCaption: "Illustration til posten",
   footerLabel: "Analog post",
   motif: "✦",
   optionMode: "grid",
@@ -449,7 +447,6 @@ const SUBJECT_TEMPLATES: Record<string, PdfTemplate> = {
     strapline: "Boglig og redaktionel post med tydelig læserytme, varm typografi og plads til fordybelse.",
     bodyLabel: "Tekstuddrag",
     questionLabel: "Læseopgave",
-    heroCaption: "Stemningsbillede til teksten",
     footerLabel: "Dansk · analog post",
     motif: "✒",
     optionMode: "stacked",
@@ -468,7 +465,6 @@ const SUBJECT_TEMPLATES: Record<string, PdfTemplate> = {
     strapline: "Geometrisk og præcis post med stærkt overblik, hurtig scanning og tydelige svarfelter.",
     bodyLabel: "Problemfelt",
     questionLabel: "Løsningsvalg",
-    heroCaption: "Visuel nøgle til opgaven",
     footerLabel: "Matematik · analog post",
     motif: "∑",
     optionMode: "grid",
@@ -486,7 +482,6 @@ const SUBJECT_TEMPLATES: Record<string, PdfTemplate> = {
     strapline: "Plakatagtig post med klar energi, høj læsbarhed og en stærk mission-følelse.",
     bodyLabel: "Mission briefing",
     questionLabel: "Choose the best answer",
-    heroCaption: "Scene setter",
     footerLabel: "English · analog post",
     motif: "★",
     optionMode: "grid",
@@ -504,7 +499,6 @@ const SUBJECT_TEMPLATES: Record<string, PdfTemplate> = {
     strapline: "Klar og struktureret post med tydelig formidling og præcis sproglig tone.",
     bodyLabel: "Tekst og opgave",
     questionLabel: "Aufgabe",
-    heroCaption: "Illustration til posten",
     footerLabel: "Tysk · analog post",
     motif: "✦",
     optionMode: "grid",
@@ -522,7 +516,6 @@ const SUBJECT_TEMPLATES: Record<string, PdfTemplate> = {
     strapline: "Datadrevet og eksperimentel post med laboratorietone og tydelig vidensoverblik.",
     bodyLabel: "Fagligt felt",
     questionLabel: "Analyseopgave",
-    heroCaption: "Visuel nøgle til opgaven",
     footerLabel: "Fysik/Kemi · analog post",
     motif: "⚛",
     optionMode: "grid",
@@ -540,7 +533,6 @@ const SUBJECT_TEMPLATES: Record<string, PdfTemplate> = {
     strapline: "Åben og kortvenlig post med plads til rumlig tænkning og geografisk nysgerrighed.",
     bodyLabel: "Faglig tekst",
     questionLabel: "Spørgsmål",
-    heroCaption: "Illustration til posten",
     footerLabel: "Geografi · analog post",
     motif: "◎",
     optionMode: "grid",
@@ -558,7 +550,6 @@ const SUBJECT_TEMPLATES: Record<string, PdfTemplate> = {
     strapline: "Naturvidenskabelig post med plads til observation, terminologi og faglig fordybelse.",
     bodyLabel: "Fagligt felt",
     questionLabel: "Biologiopgave",
-    heroCaption: "Illustration til posten",
     footerLabel: "Biologi · analog post",
     motif: "❋",
     optionMode: "stacked",
@@ -1026,17 +1017,6 @@ function createStyles(template: PdfTemplate) {
       color: t.bodyMutedText,
       textAlign: "center",
       maxWidth: 280,
-    },
-    heroCaptionWrap: {
-      paddingHorizontal: 12,
-      paddingTop: 8,
-      paddingBottom: 10,
-      backgroundColor: t.panelMutedBg,
-    },
-    heroCaption: {
-      fontSize: 7.2,
-      color: t.bodyMutedText,
-      lineHeight: 1.4,
     },
     bodyCard: {
       backgroundColor: t.panelBg,
