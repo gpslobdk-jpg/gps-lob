@@ -118,6 +118,11 @@ type PdfTemplate = {
   motif: string;
   optionMode: "grid" | "stacked";
   theme: PdfTheme;
+  watermarkGlyphs: string[];
+  subjectBadge: string;
+  cornerMark: string;
+  footerIcon: string;
+  bodyLineHeight?: number;
 };
 
 const STANDARD_THEME: PdfTheme = {
@@ -268,6 +273,154 @@ const ENGLISH_THEME: PdfTheme = {
   imageFrameBorder: "#fdba74",
 };
 
+const GERMAN_THEME: PdfTheme = {
+  pageBg: "#fffbeb",
+  panelBg: "#fffdf7",
+  panelBorder: "#fbbf24",
+  panelMutedBg: "#fef9c3",
+  headerBg: "#422006",
+  headerAccent: "#facc15",
+  headerSubtitle: "#fde68a",
+  badgeBg: "#78350f",
+  badgeText: "#fefce8",
+  badgeBorder: "#fbbf24",
+  titleText: "#fefce8",
+  bodyText: "#422006",
+  bodyMutedText: "#78350f",
+  questionText: "#1c1917",
+  optionBorder: "#b45309",
+  optionBg: "#fffbeb",
+  optionAccentBg: "#78350f",
+  optionAccentText: "#fef3c7",
+  optionText: "#422006",
+  footerBg: "#422006",
+  footerBorder: "#78350f",
+  footerText: "#fde68a",
+  outerBorder: "#78350f",
+  answerSheetBg: "#fffbeb",
+  answerKeyBg: "#fef9c3",
+  guideLine: "#fbbf24",
+  noteBg: "#fef3c7",
+  noteBorder: "#fbbf24",
+  noteText: "#422006",
+  chipBg: "#fefce8",
+  chipBorder: "#fbbf24",
+  chipText: "#78350f",
+  imageFrameBg: "#fffdf7",
+  imageFrameBorder: "#fbbf24",
+};
+
+const PHYSICS_THEME: PdfTheme = {
+  pageBg: "#f5f3ff",
+  panelBg: "#ffffff",
+  panelBorder: "#c4b5fd",
+  panelMutedBg: "#ede9fe",
+  headerBg: "#1e1b4b",
+  headerAccent: "#a78bfa",
+  headerSubtitle: "#c4b5fd",
+  badgeBg: "#5b21b6",
+  badgeText: "#f5f3ff",
+  badgeBorder: "#a78bfa",
+  titleText: "#f5f3ff",
+  bodyText: "#3730a3",
+  bodyMutedText: "#6366f1",
+  questionText: "#0f172a",
+  optionBorder: "#7c3aed",
+  optionBg: "#f5f3ff",
+  optionAccentBg: "#5b21b6",
+  optionAccentText: "#ede9fe",
+  optionText: "#1e1b4b",
+  footerBg: "#1e1b4b",
+  footerBorder: "#5b21b6",
+  footerText: "#c4b5fd",
+  outerBorder: "#5b21b6",
+  answerSheetBg: "#f5f3ff",
+  answerKeyBg: "#ede9fe",
+  guideLine: "#a78bfa",
+  noteBg: "#ede9fe",
+  noteBorder: "#a78bfa",
+  noteText: "#1e1b4b",
+  chipBg: "#f5f3ff",
+  chipBorder: "#a78bfa",
+  chipText: "#5b21b6",
+  imageFrameBg: "#ffffff",
+  imageFrameBorder: "#a78bfa",
+};
+
+const GEOGRAPHY_THEME: PdfTheme = {
+  pageBg: "#ecfdf5",
+  panelBg: "#ffffff",
+  panelBorder: "#6ee7b7",
+  panelMutedBg: "#d1fae5",
+  headerBg: "#064e3b",
+  headerAccent: "#34d399",
+  headerSubtitle: "#a7f3d0",
+  badgeBg: "#047857",
+  badgeText: "#ecfdf5",
+  badgeBorder: "#34d399",
+  titleText: "#ecfdf5",
+  bodyText: "#064e3b",
+  bodyMutedText: "#047857",
+  questionText: "#0f172a",
+  optionBorder: "#059669",
+  optionBg: "#ecfdf5",
+  optionAccentBg: "#047857",
+  optionAccentText: "#d1fae5",
+  optionText: "#064e3b",
+  footerBg: "#064e3b",
+  footerBorder: "#047857",
+  footerText: "#a7f3d0",
+  outerBorder: "#047857",
+  answerSheetBg: "#ecfdf5",
+  answerKeyBg: "#d1fae5",
+  guideLine: "#6ee7b7",
+  noteBg: "#d1fae5",
+  noteBorder: "#34d399",
+  noteText: "#064e3b",
+  chipBg: "#ecfdf5",
+  chipBorder: "#34d399",
+  chipText: "#047857",
+  imageFrameBg: "#ffffff",
+  imageFrameBorder: "#34d399",
+};
+
+const BIOLOGY_THEME: PdfTheme = {
+  pageBg: "#f0fdf4",
+  panelBg: "#ffffff",
+  panelBorder: "#86efac",
+  panelMutedBg: "#dcfce7",
+  headerBg: "#14532d",
+  headerAccent: "#4ade80",
+  headerSubtitle: "#bbf7d0",
+  badgeBg: "#166534",
+  badgeText: "#f0fdf4",
+  badgeBorder: "#4ade80",
+  titleText: "#f0fdf4",
+  bodyText: "#14532d",
+  bodyMutedText: "#166534",
+  questionText: "#0f172a",
+  optionBorder: "#16a34a",
+  optionBg: "#f0fdf4",
+  optionAccentBg: "#166534",
+  optionAccentText: "#dcfce7",
+  optionText: "#14532d",
+  footerBg: "#14532d",
+  footerBorder: "#166534",
+  footerText: "#bbf7d0",
+  outerBorder: "#166534",
+  answerSheetBg: "#f0fdf4",
+  answerKeyBg: "#dcfce7",
+  guideLine: "#86efac",
+  noteBg: "#dcfce7",
+  noteBorder: "#4ade80",
+  noteText: "#14532d",
+  chipBg: "#f0fdf4",
+  chipBorder: "#4ade80",
+  chipText: "#166534",
+  imageFrameBg: "#ffffff",
+  imageFrameBorder: "#4ade80",
+};
+
 const DEFAULT_TEMPLATE: PdfTemplate = {
   key: "standard",
   label: "Standard",
@@ -281,6 +434,10 @@ const DEFAULT_TEMPLATE: PdfTemplate = {
   motif: "✦",
   optionMode: "grid",
   theme: STANDARD_THEME,
+  watermarkGlyphs: ["✦"],
+  subjectBadge: "",
+  cornerMark: "✦",
+  footerIcon: "✦",
 };
 
 const SUBJECT_TEMPLATES: Record<string, PdfTemplate> = {
@@ -297,6 +454,11 @@ const SUBJECT_TEMPLATES: Record<string, PdfTemplate> = {
     motif: "✒",
     optionMode: "stacked",
     theme: DANISH_THEME,
+    watermarkGlyphs: ["✒", "§"],
+    subjectBadge: "DANSK",
+    cornerMark: "✒",
+    footerIcon: "✒",
+    bodyLineHeight: 1.75,
   },
   matematik: {
     key: "matematik-grid",
@@ -311,6 +473,10 @@ const SUBJECT_TEMPLATES: Record<string, PdfTemplate> = {
     motif: "∑",
     optionMode: "grid",
     theme: MATH_THEME,
+    watermarkGlyphs: ["∑", "π", "∞"],
+    subjectBadge: "MATEMATIK",
+    cornerMark: "∑",
+    footerIcon: "∑",
   },
   engelsk: {
     key: "english-poster",
@@ -325,6 +491,83 @@ const SUBJECT_TEMPLATES: Record<string, PdfTemplate> = {
     motif: "★",
     optionMode: "grid",
     theme: ENGLISH_THEME,
+    watermarkGlyphs: ["★", "A"],
+    subjectBadge: "ENGLISH",
+    cornerMark: "★",
+    footerIcon: "★",
+  },
+  tysk: {
+    key: "tysk-classic",
+    label: "Deutsch Klassisch",
+    variant: "classic",
+    eyebrow: "Lies, verstehe und antworte",
+    strapline: "Klar og struktureret post med tydelig formidling og præcis sproglig tone.",
+    bodyLabel: "Tekst og opgave",
+    questionLabel: "Aufgabe",
+    heroCaption: "Illustration til posten",
+    footerLabel: "Tysk · analog post",
+    motif: "✦",
+    optionMode: "grid",
+    theme: GERMAN_THEME,
+    watermarkGlyphs: ["Ä", "ß"],
+    subjectBadge: "DEUTSCH",
+    cornerMark: "✦",
+    footerIcon: "✦",
+  },
+  "fysik/kemi": {
+    key: "fysik-kemi-grid",
+    label: "Fysik/Kemi Grid",
+    variant: "grid",
+    eyebrow: "Observer, analyser og svar",
+    strapline: "Datadrevet og eksperimentel post med laboratorietone og tydelig vidensoverblik.",
+    bodyLabel: "Fagligt felt",
+    questionLabel: "Analyseopgave",
+    heroCaption: "Visuel nøgle til opgaven",
+    footerLabel: "Fysik/Kemi · analog post",
+    motif: "⚛",
+    optionMode: "grid",
+    theme: PHYSICS_THEME,
+    watermarkGlyphs: ["⚛", "⚡"],
+    subjectBadge: "FYSIK/KEMI",
+    cornerMark: "⚛",
+    footerIcon: "⚛",
+  },
+  geografi: {
+    key: "geografi-classic",
+    label: "Geografi Klassisk",
+    variant: "classic",
+    eyebrow: "Udforsk, kortlæg og svar",
+    strapline: "Åben og kortvenlig post med plads til rumlig tænkning og geografisk nysgerrighed.",
+    bodyLabel: "Faglig tekst",
+    questionLabel: "Spørgsmål",
+    heroCaption: "Illustration til posten",
+    footerLabel: "Geografi · analog post",
+    motif: "◎",
+    optionMode: "grid",
+    theme: GEOGRAPHY_THEME,
+    watermarkGlyphs: ["◎", "◉"],
+    subjectBadge: "GEOGRAFI",
+    cornerMark: "◎",
+    footerIcon: "◎",
+  },
+  biologi: {
+    key: "biologi-editorial",
+    label: "Biologi Editorial",
+    variant: "editorial",
+    eyebrow: "Observer, beskriv og svar",
+    strapline: "Naturvidenskabelig post med plads til observation, terminologi og faglig fordybelse.",
+    bodyLabel: "Fagligt felt",
+    questionLabel: "Biologiopgave",
+    heroCaption: "Illustration til posten",
+    footerLabel: "Biologi · analog post",
+    motif: "❋",
+    optionMode: "stacked",
+    theme: BIOLOGY_THEME,
+    watermarkGlyphs: ["❋", "❊"],
+    subjectBadge: "BIOLOGI",
+    cornerMark: "❋",
+    footerIcon: "❋",
+    bodyLineHeight: 1.70,
   },
 };
 
@@ -334,6 +577,11 @@ function resolveTemplate(subject: string): PdfTemplate {
     if (key === mapKey || key.includes(mapKey) || mapKey.includes(key)) {
       return template;
     }
+  }
+
+  // Handle partial matches for compound subjects like "fysik" or "kemi"
+  if (key.includes("fysik") || key.includes("kemi")) {
+    return SUBJECT_TEMPLATES["fysik/kemi"]!;
   }
 
   return DEFAULT_TEMPLATE;
@@ -384,7 +632,7 @@ function waitForPdfImageDelay(delayMs: number) {
   });
 }
 
-type PdfSubjectIconVariant = "standard" | "dansk" | "matematik" | "engelsk";
+type PdfSubjectIconVariant = "standard" | "dansk" | "matematik" | "engelsk" | "tysk" | "fysik-kemi" | "geografi" | "biologi";
 
 function resolveSubjectIconVariant(subject: string): PdfSubjectIconVariant {
   const normalizedSubject = subject.trim().toLowerCase();
@@ -399,6 +647,22 @@ function resolveSubjectIconVariant(subject: string): PdfSubjectIconVariant {
 
   if (normalizedSubject.includes("engelsk")) {
     return "engelsk";
+  }
+
+  if (normalizedSubject.includes("tysk")) {
+    return "tysk";
+  }
+
+  if (normalizedSubject.includes("fysik") || normalizedSubject.includes("kemi")) {
+    return "fysik-kemi";
+  }
+
+  if (normalizedSubject.includes("geografi")) {
+    return "geografi";
+  }
+
+  if (normalizedSubject.includes("biologi")) {
+    return "biologi";
   }
 
   return "standard";
@@ -806,7 +1070,7 @@ function createStyles(template: PdfTemplate) {
     },
     bodyText: {
       fontSize: 11.5,
-      lineHeight: isPoster ? 1.55 : 1.65,
+      lineHeight: template.bodyLineHeight ?? (isPoster ? 1.55 : 1.65),
       color: t.bodyText,
     },
     mutedText: {
@@ -1211,6 +1475,132 @@ function renderMetaChips(styles: PdfStyles, values: string[]) {
   );
 }
 
+/* ── Watermark Layer ───────────────────────────────────────────────── */
+function renderWatermarkLayer(template: PdfTemplate) {
+  const glyphs = template.watermarkGlyphs;
+  if (!glyphs.length) return null;
+
+  const positions: { top: number; left: number; fontSize: number; rotate: string; glyph: string }[] = [
+    { top: 180, left: 20, fontSize: 180, rotate: "-22deg", glyph: glyphs[0]! },
+    { top: 500, left: 280, fontSize: 120, rotate: "15deg", glyph: glyphs[glyphs.length > 1 ? 1 : 0]! },
+    { top: 350, left: 60, fontSize: 90, rotate: "-35deg", glyph: glyphs[glyphs.length > 2 ? 2 : 0]! },
+  ];
+
+  return (
+    <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
+      {positions.map((p, i) => (
+        <Text
+          key={`wm-${i}`}
+          style={{
+            position: "absolute",
+            top: p.top,
+            left: p.left,
+            fontSize: p.fontSize,
+            fontWeight: 700,
+            color: template.theme.headerAccent,
+            opacity: 0.045,
+            transform: `rotate(${p.rotate})`,
+          }}
+        >
+          {p.glyph}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+/* ── Corner Marks ──────────────────────────────────────────────────── */
+function renderCornerMarks(template: PdfTemplate) {
+  const mark = template.cornerMark;
+  if (!mark) return null;
+
+  return (
+    <>
+      <Text
+        style={{
+          position: "absolute",
+          top: 14,
+          left: 14,
+          fontSize: 9,
+          fontWeight: 700,
+          color: template.theme.headerAccent,
+          opacity: 0.15,
+        }}
+      >
+        {mark}
+      </Text>
+      <Text
+        style={{
+          position: "absolute",
+          bottom: 14,
+          right: 14,
+          fontSize: 9,
+          fontWeight: 700,
+          color: template.theme.headerAccent,
+          opacity: 0.15,
+        }}
+      >
+        {mark}
+      </Text>
+    </>
+  );
+}
+
+/* ── Watermark SVG Fallbacks ───────────────────────────────────────── */
+function renderWatermarkSvgLayer(template: PdfTemplate) {
+  const variant = template.key;
+
+  if (variant === "fysik-kemi-grid") {
+    return (
+      <View style={{ position: "absolute", top: 160, left: 30, width: 200, height: 200 }}>
+        <Svg viewBox="0 0 200 200" style={{ width: 200, height: 200 }}>
+          {/* Atom ring */}
+          <Circle cx={100} cy={100} r={50} fill="none" stroke={template.theme.headerAccent} strokeWidth={2} opacity={0.05} />
+          <Circle cx={100} cy={100} r={4} fill={template.theme.headerAccent} opacity={0.05} />
+          <Path d="M100 50 Q140 75 100 100 Q60 125 100 150" fill="none" stroke={template.theme.headerAccent} strokeWidth={1.5} opacity={0.04} />
+          <Path d="M50 100 Q75 60 100 100 Q125 140 150 100" fill="none" stroke={template.theme.headerAccent} strokeWidth={1.5} opacity={0.04} />
+        </Svg>
+      </View>
+    );
+  }
+
+  if (variant === "geografi-classic") {
+    return (
+      <View style={{ position: "absolute", top: 280, left: 200, width: 160, height: 160 }}>
+        <Svg viewBox="0 0 160 160" style={{ width: 160, height: 160 }}>
+          {/* Compass rose */}
+          <Circle cx={80} cy={80} r={60} fill="none" stroke={template.theme.headerAccent} strokeWidth={1.5} opacity={0.05} />
+          <Circle cx={80} cy={80} r={40} fill="none" stroke={template.theme.headerAccent} strokeWidth={1} opacity={0.04} />
+          <Line x1={80} y1={15} x2={80} y2={145} stroke={template.theme.headerAccent} strokeWidth={1.5} opacity={0.05} />
+          <Line x1={15} y1={80} x2={145} y2={80} stroke={template.theme.headerAccent} strokeWidth={1.5} opacity={0.05} />
+          <Path d="M80 20L86 70H94L80 80L66 70H74Z" fill={template.theme.headerAccent} opacity={0.04} />
+        </Svg>
+      </View>
+    );
+  }
+
+  if (variant === "biologi-editorial") {
+    return (
+      <View style={{ position: "absolute", top: 200, left: 50, width: 140, height: 280 }}>
+        <Svg viewBox="0 0 140 280" style={{ width: 140, height: 280 }}>
+          {/* DNA helix */}
+          <Path d="M40 20 Q100 60 40 100 Q-20 140 40 180 Q100 220 40 260" fill="none" stroke={template.theme.headerAccent} strokeWidth={2} opacity={0.04} />
+          <Path d="M100 20 Q40 60 100 100 Q160 140 100 180 Q40 220 100 260" fill="none" stroke={template.theme.headerAccent} strokeWidth={2} opacity={0.04} />
+          {/* Rungs */}
+          <Line x1={50} y1={40} x2={90} y2={40} stroke={template.theme.headerAccent} strokeWidth={1.5} opacity={0.04} />
+          <Line x1={35} y1={80} x2={105} y2={80} stroke={template.theme.headerAccent} strokeWidth={1.5} opacity={0.04} />
+          <Line x1={50} y1={120} x2={90} y2={120} stroke={template.theme.headerAccent} strokeWidth={1.5} opacity={0.04} />
+          <Line x1={35} y1={160} x2={105} y2={160} stroke={template.theme.headerAccent} strokeWidth={1.5} opacity={0.04} />
+          <Line x1={50} y1={200} x2={90} y2={200} stroke={template.theme.headerAccent} strokeWidth={1.5} opacity={0.04} />
+          <Line x1={35} y1={240} x2={105} y2={240} stroke={template.theme.headerAccent} strokeWidth={1.5} opacity={0.04} />
+        </Svg>
+      </View>
+    );
+  }
+
+  return null;
+}
+
 
 function renderHero(
   styles: PdfStyles,
@@ -1285,6 +1675,67 @@ function renderSubjectIconGraphic(styles: PdfStyles, subject: string) {
           <Line x1={72} y1={28} x2={94} y2={28} stroke="#102347" strokeWidth={3.6} />
           <Line x1={70} y1={38} x2={96} y2={38} stroke="#102347" strokeWidth={3.6} />
           <Line x1={72} y1={48} x2={94} y2={48} stroke="#102347" strokeWidth={3.6} />
+        </Svg>
+      );
+    case "tysk":
+      return (
+        <Svg viewBox="0 0 120 80" style={styles.heroIcon}>
+          <Rect x={14} y={12} width={92} height={56} rx={10} fill="#fffdf7" stroke="#fbbf24" strokeWidth={2.4} />
+          {/* German flag stripes */}
+          <Rect x={24} y={20} width={72} height={10} rx={2} fill="#1c1917" />
+          <Rect x={24} y={32} width={72} height={10} rx={2} fill="#dc2626" />
+          <Rect x={24} y={44} width={72} height={10} rx={2} fill="#facc15" />
+          {/* Gothic letter */}
+          <Rect x={50} y={58} width={20} height={8} rx={2} fill="#422006" opacity={0.4} />
+        </Svg>
+      );
+    case "fysik-kemi":
+      return (
+        <Svg viewBox="0 0 120 80" style={styles.heroIcon}>
+          <Rect x={14} y={12} width={92} height={56} rx={10} fill="#f5f3ff" stroke="#a78bfa" strokeWidth={2.4} />
+          {/* Atom */}
+          <Circle cx={60} cy={40} r={5} fill="#5b21b6" />
+          <Circle cx={60} cy={40} r={20} fill="none" stroke="#a78bfa" strokeWidth={2} />
+          <Path d="M40 40 Q50 20 60 40 Q70 60 80 40" fill="none" stroke="#7c3aed" strokeWidth={2} />
+          <Path d="M60 20 Q80 30 60 40 Q40 50 60 60" fill="none" stroke="#7c3aed" strokeWidth={2} />
+          {/* Flask */}
+          <Path d="M88 24V36L98 56H78L88 36Z" fill="#ede9fe" stroke="#5b21b6" strokeWidth={2} />
+          <Rect x={84} y={20} width={8} height={6} rx={1} fill="#5b21b6" />
+        </Svg>
+      );
+    case "geografi":
+      return (
+        <Svg viewBox="0 0 120 80" style={styles.heroIcon}>
+          <Rect x={14} y={12} width={92} height={56} rx={10} fill="#ecfdf5" stroke="#34d399" strokeWidth={2.4} />
+          {/* Globe */}
+          <Circle cx={60} cy={40} r={22} fill="#d1fae5" stroke="#047857" strokeWidth={2.2} />
+          <Path d="M60 18C52 24 48 32 48 40C48 48 52 56 60 62" fill="none" stroke="#047857" strokeWidth={1.6} />
+          <Path d="M60 18C68 24 72 32 72 40C72 48 68 56 60 62" fill="none" stroke="#047857" strokeWidth={1.6} />
+          <Line x1={38} y1={32} x2={82} y2={32} stroke="#047857" strokeWidth={1.4} />
+          <Line x1={38} y1={48} x2={82} y2={48} stroke="#047857" strokeWidth={1.4} />
+          <Line x1={60} y1={18} x2={60} y2={62} stroke="#047857" strokeWidth={1.4} />
+          {/* Compass needle */}
+          <Path d="M92 20L96 28L88 28Z" fill="#059669" />
+          <Path d="M92 36L96 28L88 28Z" fill="#d1fae5" stroke="#059669" strokeWidth={1} />
+        </Svg>
+      );
+    case "biologi":
+      return (
+        <Svg viewBox="0 0 120 80" style={styles.heroIcon}>
+          <Rect x={14} y={12} width={92} height={56} rx={10} fill="#f0fdf4" stroke="#4ade80" strokeWidth={2.4} />
+          {/* DNA helix */}
+          <Path d="M36 20 Q56 30 36 40 Q16 50 36 60" fill="none" stroke="#16a34a" strokeWidth={2.2} />
+          <Path d="M56 20 Q36 30 56 40 Q76 50 56 60" fill="none" stroke="#16a34a" strokeWidth={2.2} />
+          <Line x1={38} y1={25} x2={54} y2={25} stroke="#4ade80" strokeWidth={1.6} />
+          <Line x1={32} y1={35} x2={60} y2={35} stroke="#4ade80" strokeWidth={1.6} />
+          <Line x1={38} y1={45} x2={54} y2={45} stroke="#4ade80" strokeWidth={1.6} />
+          <Line x1={32} y1={55} x2={60} y2={55} stroke="#4ade80" strokeWidth={1.6} />
+          {/* Leaf */}
+          <Path d="M82 56C72 46 72 30 82 20C92 30 92 46 82 56Z" fill="#dcfce7" stroke="#166534" strokeWidth={2} />
+          <Line x1={82} y1={22} x2={82} y2={54} stroke="#166534" strokeWidth={1.4} />
+          <Line x1={76} y1={32} x2={82} y2={28} stroke="#166534" strokeWidth={1} />
+          <Line x1={88} y1={38} x2={82} y2={34} stroke="#166534" strokeWidth={1} />
+          <Line x1={76} y1={44} x2={82} y2={40} stroke="#166534" strokeWidth={1} />
         </Svg>
       );
     default:
@@ -1418,8 +1869,9 @@ function renderPostFooter(styles: PdfStyles, template: PdfTemplate, post: Post, 
   return (
     <View style={styles.footer}>
       <Text style={styles.footerText}>
-        Post {post.number} / {totalPosts}
+        {template.footerIcon} Post {post.number} / {totalPosts}
       </Text>
+      <Text style={styles.footerText}>{template.footerLabel}</Text>
       <Text style={styles.footerText}>gpslob.dk</Text>
     </View>
   );
@@ -1435,6 +1887,9 @@ function renderClassicPostPage(
 ) {
   return (
     <Page key={`post-${post.number}`} size="A4" style={styles.page}>
+      {renderWatermarkLayer(template)}
+      {renderWatermarkSvgLayer(template)}
+      {renderCornerMarks(template)}
       <View style={styles.frame} />
       <View style={styles.pageInner}>
         {renderPostHeader(styles, template, run, post)}
@@ -1459,6 +1914,9 @@ function renderEditorialPostPage(
 ) {
   return (
     <Page key={`post-${post.number}`} size="A4" style={styles.page}>
+      {renderWatermarkLayer(template)}
+      {renderWatermarkSvgLayer(template)}
+      {renderCornerMarks(template)}
       <View style={styles.frame} />
       <View style={styles.pageInner}>
         {renderPostHeader(styles, template, run, post)}
@@ -1486,6 +1944,9 @@ function renderGridPostPage(
 ) {
   return (
     <Page key={`post-${post.number}`} size="A4" style={styles.page}>
+      {renderWatermarkLayer(template)}
+      {renderWatermarkSvgLayer(template)}
+      {renderCornerMarks(template)}
       <View style={styles.frame} />
       <View style={styles.pageInner}>
         {renderPostHeader(styles, template, run, post)}
@@ -1515,6 +1976,9 @@ function renderPosterPostPage(
 ) {
   return (
     <Page key={`post-${post.number}`} size="A4" style={styles.page}>
+      {renderWatermarkLayer(template)}
+      {renderWatermarkSvgLayer(template)}
+      {renderCornerMarks(template)}
       <View style={styles.frame} />
       <View style={styles.pageInner}>
         {renderPostHeader(styles, template, run, post)}
@@ -1545,6 +2009,33 @@ function renderPostHeader(
       <Text style={{ fontSize: 72, fontWeight: 700, color: template.theme.headerAccent, opacity: 0.12, position: "absolute", right: 28, top: 8 }}>
         {template.motif}
       </Text>
+      {template.subjectBadge ? (
+        <View
+          style={{
+            position: "absolute",
+            right: 16,
+            bottom: 10,
+            backgroundColor: template.theme.badgeBg,
+            borderWidth: 1.5,
+            borderColor: template.theme.badgeBorder,
+            borderRadius: 999,
+            paddingHorizontal: 10,
+            paddingVertical: 3,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 6,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: 2,
+              color: template.theme.badgeText,
+            }}
+          >
+            {template.subjectBadge}
+          </Text>
+        </View>
+      ) : null}
       <Text style={styles.title}>POST {post.number}</Text>
       <Text style={styles.runTitle}>{post.title}</Text>
     </View>
