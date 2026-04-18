@@ -12,7 +12,7 @@ const MOCK_POSTS = Array.from({ length: 6 }, (_, i) => ({
   title: `Post ${i + 1}: Fysisk eksperiment`,
   body_text: `Et objekt med masse ${(i + 1) * 2} kg accelererer med ${i + 1} m/s2.`,
   image_prompt: "physics experiment with force measurement apparatus on lab bench",
-  image_url: "",
+  image_url: `https://oaidalleapiprodscus.blob.core.windows.net/private/mock-image-${i + 1}.png`,
   question: "Hvad er kraften i Newton?",
   options: [
     `${(i + 1) * 2 * (i + 1)} N`,
@@ -177,6 +177,10 @@ test.describe("Phase 43/44 Grand Finale", () => {
       await route.fulfill({ status: 200, contentType: "image/png", body: TINY_PNG });
     });
 
+    await ctx.route("**/oaidalleapiprodscus.blob.core.windows.net/**", async (route: Route) => {
+      await route.fulfill({ status: 200, contentType: "image/png", body: TINY_PNG });
+    });
+
     // Mock the AI generation endpoint (browser POST)
     await page.route("**/api/stjerneloeb-generate", async (route: Route) => {
       if (route.request().method() === "POST") {
@@ -292,6 +296,10 @@ test.describe("Phase 43/44 Grand Finale", () => {
     });
 
     await ctx.route("**/image.pollinations.ai/**", async (route: Route) => {
+      await route.fulfill({ status: 200, contentType: "image/png", body: TINY_PNG });
+    });
+
+    await ctx.route("**/oaidalleapiprodscus.blob.core.windows.net/**", async (route: Route) => {
       await route.fulfill({ status: 200, contentType: "image/png", body: TINY_PNG });
     });
 

@@ -1,7 +1,7 @@
 // phase45-pdf-templates.spec.ts - Phase 45 Final QA
 //
 // Comprehensive stress test: all 4 layout engines (Classic, Grid, Editorial, Poster)
-// with 7 bespoke subject themes and new Pollinations Flux image URLs.
+// with 7 bespoke subject themes and DALL-E 3
 // Verifies @react-pdf/renderer does not crash for any template variant.
 
 import { test, expect, type Page, type Route } from "@playwright/test";
@@ -75,7 +75,7 @@ function buildMockPosts(scenario: Scenario, count = 6) {
     title: `Post ${i + 1}: ${scenario.title}`,
     body_text: `Faglig tekst til post ${i + 1} om ${scenario.title.toLowerCase()}. Her er en beskrivelse af emnet med detaljer.`,
     image_prompt: scenario.imagePrompt,
-    image_url: `https://image.pollinations.ai/prompt/${encodeURIComponent(scenario.imagePrompt)}?nologo=true&model=flux&width=768&height=512&quality=high&enhance=false&nofeed=true`,
+    image_url: `https://oaidalleapiprodscus.blob.core.windows.net/private/mock-${scenario.id}-${i + 1}.png`,
     question: `Hvad er svaret til opgave ${i + 1}?`,
     options: ["Svar A", "Svar B", "Svar C", "Svar D"],
     correct_index: i % 4,
@@ -246,6 +246,15 @@ test.describe("Phase 45: PDF Template Stress Test", () => {
         });
       });
 
+      // Mock DALL-E CDN URLs
+      await ctx.route("**/oaidalleapiprodscus.blob.core.windows.net/**", async (route: Route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "image/png",
+          body: TINY_PNG,
+        });
+      });
+
       // Navigate to print page
       const response = await page.goto(`/dashboard/print/${scenario.id}`, {
         waitUntil: "domcontentloaded",
@@ -355,6 +364,14 @@ test.describe("Phase 45: PDF Template Stress Test", () => {
     });
 
     await ctx.route("**/image.pollinations.ai/**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "image/png",
+        body: TINY_PNG,
+      });
+    });
+
+    await ctx.route("**/oaidalleapiprodscus.blob.core.windows.net/**", async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: "image/png",

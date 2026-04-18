@@ -584,12 +584,28 @@ const PDF_IMAGE_FETCH_TIMEOUT_MS = 10_000;
 const PDF_IMAGE_MAX_RETRY_ATTEMPTS = 2;
 const PDF_IMAGE_RETRY_DELAY_MS = 800;
 const POLLINATIONS_HOSTNAME = "image.pollinations.ai";
+const DALLE_CDN_HOSTNAME = "oaidalleapiprodscus.blob.core.windows.net";
 
 function getPdfImagePrompt(post: Post): string {
   return typeof post.image_prompt === "string" ? post.image_prompt.trim() : "";
 }
 
+function isDalleImageUrl(url: string): boolean {
+  try {
+    return new URL(url).hostname === DALLE_CDN_HOSTNAME;
+  } catch {
+    return false;
+  }
+}
+
 function getPdfImageRequest(post: Post): { url: string; isPollinations: boolean } {
+  // Prefer DALL-E CDN URL directly (no proxy needed)
+  const rawUrl = typeof post.image_url === "string" ? post.image_url.trim() : "";
+  if (rawUrl && isDalleImageUrl(rawUrl)) {
+    return { url: rawUrl, isPollinations: false };
+  }
+
+  // Fall back to Pollinations proxy if we have an image_prompt
   const prompt = getPdfImagePrompt(post);
   if (prompt) {
     return {
@@ -598,7 +614,7 @@ function getPdfImageRequest(post: Post): { url: string; isPollinations: boolean 
     };
   }
 
-  const rawUrl = typeof post.image_url === "string" ? post.image_url.trim() : "";
+  // Last resort: use raw image_url as-is
   return {
     url: rawUrl,
     isPollinations: isPollinationsImageUrl(rawUrl),

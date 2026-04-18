@@ -1,6 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { NextResponse } from "next/server";
+import OpenAI from "openai";
 import { z } from "zod";
 
 import { createClient } from "@/utils/supabase/server";
@@ -17,6 +18,8 @@ export const maxDuration = 120;
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const ALLOWED_COUNTS = [4, 6, 8, 10] as const;
 const DEFAULT_COUNT = 6;
@@ -77,6 +80,42 @@ function asCount(value: unknown): number {
 function buildPollinationsUrl(prompt: string): string {
   const encoded = encodeURIComponent(prompt);
   return `https://image.pollinations.ai/prompt/${encoded}?nologo=true&model=flux&width=768&height=512&quality=high&enhance=false&nofeed=true`;
+}
+
+function composeDallePrompt(imagePrompt: string, artDirection: ImageArtDirection): string {
+  return `${artDirection.promptRule}. ${imagePrompt}. I NEED to test how the tool works with extremely simple prompts. DO NOT add any text, letters, numbers, words, labels, captions, or watermarks to the image.`;
+}
+
+async function generateDalleImage(
+  imagePrompt: string,
+  artDirection: ImageArtDirection,
+): Promise<string> {
+  const response = await openaiClient.images.generate({
+    model: "dall-e-3",
+    prompt: composeDallePrompt(imagePrompt, artDirection),
+    n: 1,
+    size: "1024x1024",
+    quality: "standard",
+    style: "natural",
+  });
+  const url = response.data?.[0]?.url;
+  if (!url) throw new Error("No image URL returned from DALL-E 3");
+  return url;
+}
+
+async function generateImageUrl(
+  imagePrompt: string,
+  artDirection: ImageArtDirection,
+): Promise<string> {
+  try {
+    return await generateDalleImage(imagePrompt, artDirection);
+  } catch (err) {
+    console.warn(
+      "DALL-E 3 failed, falling back to Pollinations:",
+      err instanceof Error ? err.message : err,
+    );
+    return buildPollinationsUrl(imagePrompt);
+  }
 }
 
 type ImageArtDirection = {
@@ -775,9 +814,14 @@ ${subjectLine}`;
       clearTimeout(timeoutId);
     }
 
-    // Attach Pollinations image URLs
+    // Generate DALL-E 3 images in parallel (fall back to Pollinations on failure)
     type ClassicPost = z.infer<typeof postSchemaClassic>;
     type CrosswordPost = z.infer<typeof postSchemaCrossword>;
+
+    const imageArtDir = resolveImageArtDirection(subject);
+    const imageUrls = await Promise.all(
+      result.posts.map((post) => generateImageUrl(post.image_prompt, imageArtDir)),
+    );
 
     const posts = result.posts.map((post, i) => {
       const base = {
@@ -785,7 +829,7 @@ ${subjectLine}`;
         title: post.title,
         body_text: post.body_text,
         image_prompt: post.image_prompt,
-        image_url: buildPollinationsUrl(post.image_prompt),
+        image_url: imageUrls[i],
       };
       if (raceType === "crossword") {
         const p = post as CrosswordPost;
