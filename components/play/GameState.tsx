@@ -3420,21 +3420,35 @@ export function usePlayGameState({
   );
 
   const submitQuizAnswer = async (selectedIndex: number) => {
-    // 1. Force close UI
-    setShowQuestion(false);
-    setDismissedPostIndex(currentPostIndex);
+    if (!activeQuestion || activePostVariant !== "quiz") return;
+    if (answeredPostIndexesRef.current.includes(currentPostIndex)) return;
+    if (!beginSubmission()) return;
 
-    // 2. Mark as burned instantly
-    if (typeof burnedPostsRef !== 'undefined') {
-      burnedPostsRef.current.add(currentPostIndex);
-      setBurnedPosts(new Set(burnedPostsRef.current));
+    const feedbackKey = `${currentPostIndex}-quiz`;
+    const isCorrect = selectedIndex === activeQuestion.correctIndex;
+
+    try {
+      if (isCorrect) {
+        await handleAnswer(selectedIndex, null);
+      } else {
+        handleWrongQuizAnswer(selectedIndex, feedbackKey);
+        await insertAnswerRecord(
+          selectedIndex,
+          false,
+          currentPostIndex + 1,
+          activeQuestion.text,
+          activeQuestion.points,
+          myLoc?.lat ?? null,
+          myLoc?.lng ?? null
+        );
+        if (raceMode !== "zone_krig") {
+          markAnsweredPostIndex(currentPostIndex);
+          markBurnedPostIndex(currentPostIndex);
+        }
+      }
+    } finally {
+      endSubmission();
     }
-
-    // 3. Browser Alarm
-    alert('V.6 - SYSTEM LOCKDOWN AKTIVERET!');
-
-    // 4. Kill execution
-    return;
   };
 
   const submitMasterCode = async (code: string) => {

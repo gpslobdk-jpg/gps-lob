@@ -1724,9 +1724,6 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
   return (
     <>
-      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 99999, backgroundColor: 'red', color: 'white', fontWeight: '900', textAlign: 'center', padding: '20px', fontSize: '20px' }}>
-        SYSTEM LOCKED - V.6 - HVIS DU SER DETTE, ER KODEN LIVE!
-      </div>
       {content}
       <style jsx global>{`
         @keyframes master-lock-shake {
