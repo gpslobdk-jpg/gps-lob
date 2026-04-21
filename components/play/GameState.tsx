@@ -3234,19 +3234,34 @@ export function usePlayGameState({
       quizAnswerFeedbackTimerRef.current = null;
     }
 
-    if (currentVariant === "quiz") {
-      setQuizAnswerFeedback(null);
-    }
     setZoneKrigCaptureFeedback(null);
     setTypedAnswerError(null);
     setPostActionError(null);
     const isBurnedQuizPost = currentVariant === "quiz" && burnedPostsRef.current.has(currentPostIndex);
-    markAnsweredPostIndex(currentPostIndex);
+
+    // Sæt quiz-succès-feedback STRAKS (optimistisk) – selv mens netværket er nede.
+    // Dermed kan "Gå til næste post"-knappen vises INDEN insertAnswerRecord returnerer,
+    // og brugeren kan fortsætte selvom WiFi er slukket under besvarelsen.
+    // For Zone Krig venter vi dog for at sikre, at brugeren ser om zonen blev erobret.
+    if (currentVariant === "quiz" && raceMode !== "zone_krig") {
+      setQuizAnswerFeedback({ key: feedbackKey, selectedIndex, tone: "success" });
+    }
+
+      const wasAlreadySolved = solvedPostIndexesRef.current.includes(currentPostIndex);
+      const expectedPoints = options?.awardedPoints ?? (isBurnedQuizPost ? 0 : current.points);
+
+      markAnsweredPostIndex(currentPostIndex);
+
+      if (!wasAlreadySolved) {
+        setSolvedPostIndexes((prev) => [...prev, currentPostIndex].sort((a, b) => a - b));
+        setCorrectAnswersCount((prev) => prev + 1);
+        setScore((prev) => prev + expectedPoints);
+      }
 
     const answerInsertResult = options?.skipAnswerPersist
       ? {
           didPersist: true,
-          awardedPoints: options.awardedPoints ?? 0,
+            awardedPoints: expectedPoints,
           zoneKrigCapture: options.zoneKrigCapture ?? null,
         }
       : await insertAnswerRecord(
@@ -3260,11 +3275,9 @@ export function usePlayGameState({
           isBurnedQuizPost ? { forcedAwardedPoints: 0 } : undefined
         );
 
-    if (!solvedPostIndexesRef.current.includes(currentPostIndex)) {
-      setSolvedPostIndexes((prev) => [...prev, currentPostIndex].sort((a, b) => a - b));
-      setCorrectAnswersCount((prev) => prev + 1);
-      setScore((prev) => prev + answerInsertResult.awardedPoints);
-    }
+      if (!wasAlreadySolved && answerInsertResult.awardedPoints !== expectedPoints) {
+        setScore((prev) => prev - expectedPoints + answerInsertResult.awardedPoints);
+      }
 
     if (currentVariant === "escape") {
       const codeBrick = escapeBrick?.trim() || getEscapeCodeBrick(current, currentPostIndex);
@@ -3285,12 +3298,9 @@ export function usePlayGameState({
     if (currentVariant === "quiz") {
       if (raceMode === "zone_krig") {
         setZoneKrigCaptureFeedback(buildZoneKrigCaptureFeedback(answerInsertResult.zoneKrigCapture, feedbackKey));
+        // Nu hvor vi har serverens svar, kan vi vise success-knappen
+        setQuizAnswerFeedback({ key: feedbackKey, selectedIndex, tone: "success" });
       }
-      setQuizAnswerFeedback({
-        key: feedbackKey,
-        selectedIndex,
-        tone: "success",
-      });
       return true;
     }
 

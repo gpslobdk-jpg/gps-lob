@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Camera, CheckCircle2, KeyRound, Loader2, XCircle } from "lucide-react";
+import { Camera, CheckCircle2, Cloud, CloudOff, KeyRound, Loader2, XCircle } from "lucide-react";
 import Image from "next/image";
 import { Poppins, Rubik } from "next/font/google";
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
@@ -124,6 +124,9 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     message: null,
   });
   const [cameraPermissionState, setCameraPermissionState] = useState<PermissionState | "unknown">("unknown");
+  const [isOffline, setIsOffline] = useState(() => (typeof navigator !== "undefined" ? !navigator.onLine : false));
+  const [showCloudSyncSuccess, setShowCloudSyncSuccess] = useState(false);
+  const cloudSyncSuccessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { player, gps, progress, flags } = ui;
   const {
@@ -248,10 +251,52 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     : "Besvaret. Videre til næste post.";
 
   useEffect(() => {
-    if (showQuestion && isCurrentPostAnswered) {
+    // Afvis IKKE spørgsmålet automatisk, hvis quiz-succès-feedback er aktiv:
+    // brugeren skal selv klikke "Gå til næste post" – selv hvis netværket var nede under besvarelsen.
+    if (showQuestion && isCurrentPostAnswered && !hasActiveQuizSuccess) {
       actions.dismissCurrentPost();
     }
-  }, [showQuestion, isCurrentPostAnswered, actions]);
+  }, [showQuestion, isCurrentPostAnswered, hasActiveQuizSuccess, actions]);
+
+  useEffect(() => {
+    const updateOfflineState = () => {
+      setIsOffline(typeof navigator !== "undefined" ? !navigator.onLine : false);
+    };
+
+    updateOfflineState();
+    window.addEventListener("online", updateOfflineState);
+    window.addEventListener("offline", updateOfflineState);
+
+    return () => {
+      window.removeEventListener("online", updateOfflineState);
+      window.removeEventListener("offline", updateOfflineState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasActiveQuizSuccess) {
+      return;
+    }
+
+    setShowCloudSyncSuccess(true);
+    if (cloudSyncSuccessTimerRef.current) {
+      clearTimeout(cloudSyncSuccessTimerRef.current);
+    }
+
+    cloudSyncSuccessTimerRef.current = window.setTimeout(() => {
+      setShowCloudSyncSuccess(false);
+      cloudSyncSuccessTimerRef.current = null;
+    }, 2000);
+  }, [hasActiveQuizSuccess]);
+
+  useEffect(() => {
+    return () => {
+      if (cloudSyncSuccessTimerRef.current) {
+        clearTimeout(cloudSyncSuccessTimerRef.current);
+        cloudSyncSuccessTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const clearPendingPhotoPickerState = useCallback(() => {
     photoPickerPendingRef.current = false;
@@ -1073,7 +1118,26 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                             <p className="font-mono text-[10px] uppercase tracking-widest text-white/70">
                               Point
                             </p>
-                            <p className="text-2xl md:text-3xl font-black text-white">{score}</p>
+                              <div className="mt-1 flex items-center justify-center gap-2">
+                                <p className="text-2xl font-black text-white md:text-3xl">{score}</p>
+
+                                {isAnswerSubmissionPending ? (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-amber-100 shadow-[0_0_0_1px_rgba(251,191,36,0.12)] animate-pulse">
+                                    <Cloud className="h-3.5 w-3.5 shrink-0" />
+                                    <span>Gemmer i skyen...</span>
+                                  </span>
+                                ) : isOffline ? (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-white/55">
+                                    <CloudOff className="h-3.5 w-3.5 shrink-0" />
+                                    <span>Gemt lokalt</span>
+                                  </span>
+                                ) : showCloudSyncSuccess ? (
+                                  <span className="inline-flex items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-500/10 p-1.5 text-emerald-200 shadow-[0_0_0_1px_rgba(16,185,129,0.12)]">
+                                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                                    <span className="sr-only">Synkroniseret</span>
+                                  </span>
+                                ) : null}
+                              </div>
                           </div>
                         </div>
                         <div>
@@ -1205,15 +1269,15 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       <QuestionTtsButton question={activeQuestion.text} answers={activeQuestion.answers} />
                     </div>
 
-                    {/* PRIMITIVE GUARD: if post is answered (correct OR wrong), kill all buttons */}
-                    {isCurrentPostAnswered ? (
+                    {/* PRIMITIVE GUARD: if post is answered (correct OR wrong) and no active success feedback, show lock message */}
+                    {isCurrentPostAnswered && !hasActiveQuizSuccess ? (
                       <p className="rounded-[1.35rem] border border-white/10 bg-white/5 px-4 py-4 text-sm text-white/80">
                         {answeredPostLockMessage}
                       </p>
                     ) : null}
 
                     {/* Continue button after a correct answer (quiz success state) */}
-                    {!isCurrentPostAnswered && hasActiveQuizSuccess ? (
+                    {hasActiveQuizSuccess ? (
                       <div className="mt-5">
                         <button
                           type="button"
