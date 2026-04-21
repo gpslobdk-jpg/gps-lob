@@ -64,6 +64,27 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     const supabase = createClient();
     let isActive = true;
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    // Timer der forsinker visningen af "Genopretter live-feed" med 2 s.
+    // Hvis kanalen abonnerer inden timeren udløber, annulleres timeren og
+    // læreren ser aldrig advarslen (typisk ved kort WiFi-reconnect).
+    let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleRecovery = (reason: LiveFeedRecoveryReason) => {
+      if (recoveryTimer !== null) return; // debounce: én ventende timer ad gangen
+      recoveryTimer = setTimeout(() => {
+        recoveryTimer = null;
+        if (!isActive) return;
+        setLiveFeedStatus("recovering");
+        void recoverLiveState(reason);
+      }, 2_000);
+    };
+
+    const cancelRecovery = () => {
+      if (recoveryTimer !== null) {
+        clearTimeout(recoveryTimer);
+        recoveryTimer = null;
+      }
+    };
 
     // --- helpers ---
 
@@ -385,19 +406,23 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       channel = nextChannel.subscribe((status) => {
         if (!isActive) return;
         if (status === "SUBSCRIBED") {
+          cancelRecovery(); // annullér eventuel ventende "recovering"-advarsel
           setLiveFeedStatus("live");
           void fetchLobbyData({ showLoading: false });
           return;
         }
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-          setLiveFeedStatus("recovering");
-          void recoverLiveState("channel_error");
+          // Vent 2 s inden advarslen vises — normale WebSocket-reconnects løses
+          // typisk inden for dette vindue og læreren ser ingen blink.
+          scheduleRecovery("channel_error");
         }
       });
     };
 
     const recoverLiveState = async (_reason: LiveFeedRecoveryReason) => {
-      setLiveFeedStatus("recovering");
+      // Status er allerede sat til "recovering" af scheduleRecovery eller
+      // fetchLobbyData (ved initial fetch-fejl) — sæt ikke her igen for at
+      // undgå dobbelt render.
       try {
         const { supportsParticipants, supportsAnswers } = await fetchLobbyData({ showLoading: false });
         if (!isActive) return;
@@ -417,12 +442,13 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        void recoverLiveState("visibility_resume");
+        // Giv kanalen 2 s til at genoprette selv før vi tvinger en recovery.
+        scheduleRecovery("visibility_resume");
       }
     };
 
     const handleOnline = () => {
-      void recoverLiveState("online_resume");
+      scheduleRecovery("online_resume");
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -430,6 +456,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
 
     return () => {
       isActive = false;
+      cancelRecovery();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("online", handleOnline);
       if (channel) {

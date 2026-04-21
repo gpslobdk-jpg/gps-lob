@@ -37,6 +37,10 @@ type AcceptedGpsLocation = Location & {
 const GPS_HEARTBEAT_INTERVAL_MS = 20_000;
 const GPS_HEARTBEAT_STALE_THRESHOLD_MS = 15_000;
 const LIVE_TRACKING_MAX_ACCURACY_METERS = 250;
+// Fallback: if no position has been accepted for this long (e.g. WiFi→4G switch),
+// temporarily allow readings up to the fallback ceiling so the user isn't stuck.
+const GPS_ACCURACY_FALLBACK_AFTER_MS = 10_000;
+const GPS_ACCURACY_FALLBACK_MAX_METERS = 500;
 
 function getRoundedAccuracyMeters(rawAccuracy: number) {
   return Number.isFinite(rawAccuracy) ? Math.max(0, Math.round(rawAccuracy)) : null;
@@ -63,6 +67,7 @@ export default function GPSManager({
   const targetLng = target?.lng ?? null;
   const autoUnlockConfirmationRef = useRef(0);
   const lastAcceptedLocationRef = useRef<AcceptedGpsLocation | null>(null);
+  const lastAcceptedAtMsRef = useRef(0);
   const lastLocationSyncRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
   const isLocationSyncInFlightRef = useRef(false);
   const lastPositionTimestampRef = useRef(0);
@@ -77,6 +82,7 @@ export default function GPSManager({
 
     autoUnlockConfirmationRef.current = 0;
     lastAcceptedLocationRef.current = null;
+    lastAcceptedAtMsRef.current = 0;
     lastLocationSyncRef.current = null;
   }, [enabled]);
 
@@ -103,9 +109,30 @@ export default function GPSManager({
 
       const accuracy = getRoundedAccuracyMeters(position.coords.accuracy);
 
-      if (accuracy === null || accuracy > LIVE_TRACKING_MAX_ACCURACY_METERS) {
+      // Determine the effective accuracy ceiling for this reading.
+      // After GPS_ACCURACY_FALLBACK_AFTER_MS without any accepted position
+      // (typical during WiFi→4G network switch), temporarily raise the ceiling
+      // so the user is not left without a location entirely.
+      const msSinceLastAccepted = lastAcceptedAtMsRef.current > 0
+        ? Date.now() - lastAcceptedAtMsRef.current
+        : Number.MAX_SAFE_INTEGER;
+      const isPositionStale = msSinceLastAccepted >= GPS_ACCURACY_FALLBACK_AFTER_MS;
+      const effectiveMaxAccuracy = isPositionStale
+        ? GPS_ACCURACY_FALLBACK_MAX_METERS
+        : LIVE_TRACKING_MAX_ACCURACY_METERS;
+
+      if (accuracy === null || accuracy > effectiveMaxAccuracy) {
         autoUnlockConfirmationRef.current = 0;
         return;
+      }
+
+      // A degraded-accuracy fallback reading must not trigger auto-unlock —
+      // it only keeps the location indicator alive during a network transition.
+      const isDegradedFallback = accuracy > LIVE_TRACKING_MAX_ACCURACY_METERS;
+      if (isDegradedFallback) {
+        sendTelemetry("gps_fallback_activated", {
+          message: `accuracy=${accuracy}m msSinceLastAccepted=${msSinceLastAccepted}`,
+        });
       }
 
       const lat = position.coords.latitude;
@@ -143,6 +170,7 @@ export default function GPSManager({
       };
 
       lastAcceptedLocationRef.current = acceptedLocation;
+      lastAcceptedAtMsRef.current = Date.now();
       onLocationChange(acceptedLocation);
 
       if (targetLat !== null && targetLng !== null) {
@@ -150,6 +178,7 @@ export default function GPSManager({
         onDistanceChange(nextDistance);
 
         if (
+          !isDegradedFallback &&
           autoUnlockRadius !== null &&
           nextDistance <= autoUnlockRadius &&
           !showQuestion &&

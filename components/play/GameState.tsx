@@ -126,6 +126,10 @@ const RESTORE_AUTH_RECOVERY_DELAY_MS = 350;
 const MAX_RESTORE_RETRIES = 6;
 const CHANNEL_RESUBSCRIBE_DELAY_MS = 1000;
 const NETWORK_RETRY_DELAY_MS = 3000;
+// Max transient-network retries for answer validation. After this many failures
+// the function throws so the caller's finally block releases the submission lock
+// and the answer button becomes clickable again.
+const VALIDATE_ANSWER_MAX_RETRIES = 3;
 const WAITING_SESSION_STATUS_POLL_INTERVAL_MS = 4000;
 const ACTIVE_SESSION_STATUS_POLL_INTERVAL_MS = 15000;
 
@@ -3101,7 +3105,14 @@ export function usePlayGameState({
         throw new Error("Deltageren er ikke klar endnu. Prøv igen om et øjeblik.");
       }
 
+      let retryCount = 0;
+
       while (isMountedRef.current) {
+        // If we are already offline, fail fast instead of spinning
+        if (typeof navigator !== "undefined" && navigator.onLine === false) {
+          throw new Error(OFFLINE_VALIDATION_MESSAGE);
+        }
+
         try {
           const response = await fetch("/api/play/validate-answer", {
             method: "POST",
@@ -3126,6 +3137,17 @@ export function usePlayGameState({
         } catch (error) {
           if (!isTransientNetworkError(error)) {
             throw error;
+          }
+
+          retryCount++;
+          if (retryCount >= VALIDATE_ANSWER_MAX_RETRIES) {
+            // Give up — throw so the finally block in the caller unlocks the button
+            sendTelemetry("answer_submission_max_retries", {
+              participant_id: participantId,
+              session_id: sessionId,
+              message: `postIndex=${currentPostIndex} online=${typeof navigator !== "undefined" ? String(navigator.onLine) : "unknown"}`,
+            });
+            throw new Error(OFFLINE_VALIDATION_MESSAGE);
           }
 
           await waitForNetworkRetry();
