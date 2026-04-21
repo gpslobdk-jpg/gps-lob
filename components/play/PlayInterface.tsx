@@ -286,7 +286,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     cloudSyncSuccessTimerRef.current = window.setTimeout(() => {
       setShowCloudSyncSuccess(false);
       cloudSyncSuccessTimerRef.current = null;
-    }, 2000);
+    }, 2000) as any;
   }, [hasActiveQuizSuccess]);
 
   useEffect(() => {
