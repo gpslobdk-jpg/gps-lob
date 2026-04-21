@@ -7,6 +7,7 @@ export const PUBLIC_TELEMETRY_EVENTS = [
   "auth_error",
   "gps_died",
   "gps_warmup_timeout",
+  "gps_fallback_activated",
   "jwt_refresh_failed",
   "kick_false_positive",
   "participant_auth_refresh_recovered",
@@ -14,6 +15,7 @@ export const PUBLIC_TELEMETRY_EVENTS = [
   "participant_restore_exhausted",
   "wake_reconnect_recovered",
   "wake_reconnect_failed",
+  "answer_submission_max_retries",
 ] as const;
 
 export const PUBLIC_TELEMETRY_EVENT_SET = new Set<string>(PUBLIC_TELEMETRY_EVENTS);
