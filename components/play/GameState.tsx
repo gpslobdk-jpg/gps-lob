@@ -3888,6 +3888,7 @@ export function usePlayGameState({
       // best-effort
     }
 
+    let retryCount = 0;
     try {
       const image = await compressImageForUpload(file);
       const answeredAt = new Date().toISOString();
@@ -3901,7 +3902,6 @@ export function usePlayGameState({
           }
         | null = null;
 
-      let retryCount = 0;
       while (isMountedRef.current) {
         try {
           const formData = new FormData();
