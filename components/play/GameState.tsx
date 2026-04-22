@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { sendTelemetry } from "@/utils/telemetry";
+import * as Sentry from "@sentry/nextjs";
 
 import type {
   AnswerProgressRow,
@@ -634,6 +635,23 @@ export function usePlayGameState({
           | null;
 
         if (response.status === 404 || response.status === 410) {
+          try {
+            Sentry.addBreadcrumb({
+              category: "join",
+              message: "register_participant_session_missing",
+              data: { sessionId },
+            });
+            Sentry.withScope((scope) => {
+              scope.setExtra("sessionId", sessionId);
+              Sentry.captureMessage(
+                "Register participant failed: session missing (404/410)",
+                Sentry.Severity.Warning
+              );
+            });
+          } catch (err) {
+            // best-effort
+          }
+
           tripPlayCircuitBreaker(PLAY_JOIN_SESSION_MISSING_MESSAGE, "join_session_missing");
           return false;
         }
@@ -680,6 +698,15 @@ export function usePlayGameState({
           preservedAvatarUrl,
           resolvedSessionStatus
         );
+        try {
+          Sentry.addBreadcrumb({
+            category: "auth",
+            message: "participant_registered",
+            data: { sessionId, participantId: payload.participantId, studentName: resolvedName },
+          });
+        } catch (err) {
+          // best-effort
+        }
         return true;
       } catch (error) {
         console.error("Kunne ikke registrere deltageridentitet:", error);
@@ -1096,6 +1123,24 @@ export function usePlayGameState({
       });
       if (!response.ok) {
         if (response.status === 404 || response.status === 410) {
+          try {
+            Sentry.addBreadcrumb({
+              category: "session",
+              message: "session_status_missing",
+              data: { sessionId },
+            });
+            Sentry.withScope((scope) => {
+              scope.setExtra("sessionId", sessionId);
+              scope.setTag("play.event", "session_status_404");
+              Sentry.captureMessage(
+                "Session status endpoint returned 404/410 - session missing",
+                Sentry.Severity.Warning
+              );
+            });
+          } catch (err) {
+            // best-effort
+          }
+
           clearStoredPlayRecoveryState();
           router.replace("/join");
           return null;
@@ -1157,6 +1202,24 @@ export function usePlayGameState({
 
       if (sessionResponse.status === 404 || sessionResponse.status === 410) {
         // Definitive: session / run deleted or expired — clear local recovery state and send user to /join
+        try {
+          Sentry.addBreadcrumb({
+            category: "session",
+            message: "session_missing_on_authoritative_check",
+            data: { sessionId, participantId },
+          });
+          Sentry.withScope((scope) => {
+            scope.setExtras({ sessionId, participantId });
+            scope.setTag("play.event", "session_missing_authoritative_check");
+            Sentry.captureMessage(
+              "Authoritative session check returned 404/410 - session missing",
+              Sentry.Severity.Warning
+            );
+          });
+        } catch (err) {
+          // best-effort
+        }
+
         clearStoredPlayRecoveryState();
         router.replace("/join");
         return;
@@ -2668,6 +2731,26 @@ export function usePlayGameState({
               removePendingLocalAnswer(pendingAnswerId);
             }
 
+            try {
+              Sentry.addBreadcrumb({
+                category: "answer",
+                message: "answer_persisted",
+                data: {
+                  sessionId,
+                  participantId,
+                  postNumber,
+                  selectedIndex,
+                  awardedPoints: shouldForceAwardedPoints
+                    ? resolvedAwardedPoints
+                    : typeof body.awardedPoints === "number" && Number.isFinite(body.awardedPoints)
+                    ? Math.max(0, Math.round(body.awardedPoints))
+                    : resolvedAwardedPoints,
+                },
+              });
+            } catch (err) {
+              // best-effort
+            }
+
             return {
               didPersist: true,
               awardedPoints: shouldForceAwardedPoints
@@ -3221,6 +3304,19 @@ export function usePlayGameState({
   useEffect(() => {
     setWrongAttempts(0);
   }, [currentPostIndex]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    try {
+      Sentry.addBreadcrumb({
+        category: "navigation",
+        message: "reach_post",
+        data: { sessionId, participantId, postIndex: currentPostIndex },
+      });
+    } catch (err) {
+      // best-effort
+    }
+  }, [currentPostIndex, sessionId, participantId]);
 
   const continueFromSolvedPost = async () => {
     clearRoleplayInputErrorTone();
@@ -3783,6 +3879,16 @@ export function usePlayGameState({
     setIsAnalyzingPhoto(true);
 
     try {
+      Sentry.addBreadcrumb({
+        category: "photo",
+        message: "photo_upload_start",
+        data: { sessionId, participantId, postIndex: currentPostIndex, isSelfie },
+      });
+    } catch (err) {
+      // best-effort
+    }
+
+    try {
       const image = await compressImageForUpload(file);
       const answeredAt = new Date().toISOString();
       let payload:
@@ -3830,6 +3936,16 @@ export function usePlayGameState({
           }
 
           retryCount++;
+          try {
+            Sentry.addBreadcrumb({
+              category: "photo",
+              message: "photo_upload_retry",
+              data: { sessionId, participantId, postIndex: currentPostIndex, retryCount },
+            });
+          } catch (err) {
+            // best-effort
+          }
+
           if (retryCount >= PHOTO_UPLOAD_MAX_RETRIES) {
             // surface a clear network error so outer catch shows a helpful message
             throw new Error("Netværksfejl: Prøv igen senere");
@@ -3865,6 +3981,20 @@ export function usePlayGameState({
     } catch (error) {
       console.error("Foto-upload fejlede:", error);
       if (!isMountedRef.current) return;
+
+      try {
+        Sentry.withScope((scope) => {
+          scope.setExtras({
+            sessionId,
+            participantId,
+            postIndex: currentPostIndex,
+            retryCount,
+          });
+          Sentry.captureException(error);
+        });
+      } catch (err) {
+        // best-effort
+      }
 
       const networkMsg = "Netværksfejl: Prøv igen senere";
       const message = error instanceof Error && error.message === networkMsg

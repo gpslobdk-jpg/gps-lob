@@ -9,6 +9,7 @@ import {
   type RunScheduleGate,
   type RunSchedule,
 } from "@/utils/runSchedule";
+import * as Sentry from "@sentry/nextjs";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 import {
   readStoredActiveParticipant,
@@ -289,6 +290,16 @@ function JoinForm() {
     let shouldReleaseLock = true;
 
     try {
+      Sentry.addBreadcrumb({
+        category: "join",
+        message: "join_attempt",
+        data: { pin: trimmedPin, name: trimmedName },
+      });
+    } catch (err) {
+      // best-effort
+    }
+
+    try {
       const response = await fetchWithRetry(`/api/join?pin=${encodeURIComponent(trimmedPin)}`);
 
       if (response.status === 429 || response.status === 503) {
@@ -299,6 +310,15 @@ function JoinForm() {
       const joinData = (await response.json()) as JoinLookupResponse | JoinLookupErrorResponse;
 
       if (response.status === 404 || ("kind" in joinData && joinData.kind === "invalid")) {
+        try {
+          Sentry.withScope((scope) => {
+            scope.setExtra("enteredPin", trimmedPin);
+            scope.setExtra("enteredName", trimmedName);
+            Sentry.captureMessage("Join lookup invalid or 404", Sentry.Severity.Info);
+          });
+        } catch (err) {
+          // best-effort
+        }
         setError("Ugyldig pinkode.");
         return;
       }
@@ -354,6 +374,14 @@ function JoinForm() {
         | null;
 
       if (registerResponse.status === 404 || registerResponse.status === 410) {
+        try {
+          Sentry.withScope((scope) => {
+            scope.setExtras({ enteredPin: trimmedPin, sessionId: joinData.sessionId });
+            Sentry.captureMessage("Join register returned 404/410 - expired/removed", Sentry.Severity.Warning);
+          });
+        } catch (err) {
+          // best-effort
+        }
         setExpiredMessage("Løbet er muligvis afsluttet af læreren.");
         setView("expired");
         return;
@@ -373,6 +401,19 @@ function JoinForm() {
 
       // If joining a different session/participant, clear any stale stored state
       if (existingParticipant && !shouldPreserveExistingParticipant) {
+        try {
+          Sentry.withScope((scope) => {
+            scope.setExtras({
+              enteredPin: trimmedPin,
+              existingSessionId: existingParticipant.sessionId,
+              existingParticipantId: existingParticipant.participantId,
+              newSessionId: registerData.sessionId,
+            });
+            Sentry.captureMessage("Clearing stored participant state due to different session/participant", Sentry.Severity.Info);
+          });
+        } catch (err) {
+          // best-effort
+        }
         clearStoredActiveParticipant();
         clearStoredPlaySnapshot();
       }
@@ -390,6 +431,16 @@ function JoinForm() {
           ? existingParticipant?.hasCompletedAvatarGate ?? true
           : false,
       });
+
+      try {
+        Sentry.addBreadcrumb({
+          category: "join",
+          message: "join_success",
+          data: { sessionId: registerData.sessionId, participantId: registerData.participantId },
+        });
+      } catch (err) {
+        // best-effort
+      }
 
       setName(registerData.studentName);
       setSessionId(joinData.sessionId);
