@@ -74,15 +74,29 @@ function CenterReporter({
 
   useEffect(() => {
     const report = () => {
-      const current = map.getCenter();
-      onCenterChange?.({ lat: current.lat, lng: current.lng });
+      try {
+        const current = map.getCenter();
+        onCenterChange?.({ lat: current.lat, lng: current.lng });
+      } catch (err) {
+        // map may have been destroyed/unmounted
+        console.warn("CenterReporter: failed to read center:", err);
+      }
     };
 
-    report();
-    map.on("moveend", report);
+    try {
+      if (!map || !map.getContainer()) return;
+      report();
+      map.on("moveend", report);
+    } catch (err) {
+      console.warn("CenterReporter: failed to attach moveend:", err);
+    }
 
     return () => {
-      map.off("moveend", report);
+      try {
+        if (map && typeof map.off === "function") map.off("moveend", report);
+      } catch (err) {
+        // ignore
+      }
     };
   }, [map, onCenterChange]);
 
@@ -93,8 +107,13 @@ function FocusController({ request }: { request: FocusRequest | null }) {
   const map = useMap();
 
   useEffect(() => {
-    if (request) {
+    if (!request) return;
+
+    try {
+      if (!map || !map.getContainer()) return;
       map.flyTo(request.coords, request.zoom ?? map.getZoom(), { animate: true, duration: 1.2 });
+    } catch (err) {
+      console.warn("FocusController: failed to flyTo:", err);
     }
   }, [map, request]);
 
@@ -109,12 +128,17 @@ function ExternalCenterController({ center }: { center: MapCenter }) {
   const map = useMap();
 
   useEffect(() => {
-    const current = map.getCenter();
-    if (centersMatch({ lat: current.lat, lng: current.lng }, center)) {
-      return;
-    }
+    try {
+      if (!map || !map.getContainer()) return;
+      const current = map.getCenter();
+      if (centersMatch({ lat: current.lat, lng: current.lng }, center)) {
+        return;
+      }
 
-    map.flyTo([center.lat, center.lng], map.getZoom(), { animate: true, duration: 1.2 });
+      map.flyTo([center.lat, center.lng], map.getZoom(), { animate: true, duration: 1.2 });
+    } catch (err) {
+      console.warn("ExternalCenterController: failed to flyTo:", err);
+    }
   }, [center, map]);
 
   return null;

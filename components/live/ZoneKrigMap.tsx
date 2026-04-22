@@ -49,15 +49,20 @@ function MapAutoFit({ zones }: { zones: GameZone[] }) {
         z.center_lng !== 0
     );
     if (valid.length === 0) return;
+    try {
+      if (!map || !map.getContainer()) return;
 
-    if (valid.length === 1) {
-      map.setView([valid[0].center_lat, valid[0].center_lng], 17, { animate: true });
-    } else {
-      const bounds = L.latLngBounds(valid.map((z) => [z.center_lat, z.center_lng] as [number, number]));
-      map.fitBounds(bounds, { padding: [60, 60], animate: true });
+      if (valid.length === 1) {
+        map.setView([valid[0].center_lat, valid[0].center_lng], 17, { animate: true });
+      } else {
+        const bounds = L.latLngBounds(valid.map((z) => [z.center_lat, z.center_lng] as [number, number]));
+        map.fitBounds(bounds, { padding: [60, 60], animate: true });
+      }
+
+      hasFittedRef.current = true;
+    } catch (err) {
+      console.warn("ZoneKrigMap: failed to auto-fit map view:", err);
     }
-
-    hasFittedRef.current = true;
   }, [map, zones]);
 
   return null;

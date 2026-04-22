@@ -23,16 +23,22 @@ function FitToLocations({ locations }: { locations: LiveStudentLocation[] }) {
   useEffect(() => {
     if (locations.length === 0) return;
 
-    if (locations.length === 1) {
-      map.flyTo([locations[0].lat, locations[0].lng], 15, {
-        animate: true,
-        duration: 1.2,
-      });
-      return;
-    }
+    try {
+      if (!map || !map.getContainer()) return;
 
-    const bounds = L.latLngBounds(locations.map((loc) => [loc.lat, loc.lng] as [number, number]));
-    map.fitBounds(bounds, { padding: [50, 50] });
+      if (locations.length === 1) {
+        map.flyTo([locations[0].lat, locations[0].lng], 15, {
+          animate: true,
+          duration: 1.2,
+        });
+        return;
+      }
+
+      const bounds = L.latLngBounds(locations.map((loc) => [loc.lat, loc.lng] as [number, number]));
+      map.fitBounds(bounds, { padding: [50, 50] });
+    } catch (err) {
+      console.warn("LiveStudentsMap: failed to fit map to locations:", err);
+    }
   }, [locations, map]);
 
   return null;

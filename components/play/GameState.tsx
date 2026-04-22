@@ -130,6 +130,10 @@ const NETWORK_RETRY_DELAY_MS = 3000;
 // the function throws so the caller's finally block releases the submission lock
 // and the answer button becomes clickable again.
 const VALIDATE_ANSWER_MAX_RETRIES = 3;
+// Max transient-network retries for photo uploads. After this many failures
+// we surface an error to the user and release the submission lock so the
+// UI doesn't remain permanently disabled.
+const PHOTO_UPLOAD_MAX_RETRIES = 5;
 const WAITING_SESSION_STATUS_POLL_INTERVAL_MS = 4000;
 const ACTIVE_SESSION_STATUS_POLL_INTERVAL_MS = 15000;
 
@@ -3738,6 +3742,7 @@ export function usePlayGameState({
           }
         | null = null;
 
+      let retryCount = 0;
       while (isMountedRef.current) {
         try {
           const formData = new FormData();
@@ -3752,22 +3757,29 @@ export function usePlayGameState({
             body: formData,
           });
 
-          payload = (await response.json()) as {
+          payload = (await response.json().catch(() => null)) as {
             message?: string;
             awardedPoints?: number;
             imageUrl?: string | null;
             storedAnswer?: boolean;
             error?: string;
-          };
+          } | null;
 
-          if (!response.ok || typeof payload.message !== "string") {
-            throw new Error(payload.error || "Ugyldigt svar fra foto-upload.");
+          if (!response.ok || typeof payload?.message !== "string") {
+            throw new Error(payload?.error || "Ugyldigt svar fra foto-upload.");
           }
 
+          // success
           break;
         } catch (error) {
           if (!isTransientNetworkError(error)) {
             throw error;
+          }
+
+          retryCount++;
+          if (retryCount >= PHOTO_UPLOAD_MAX_RETRIES) {
+            // surface a clear network error so outer catch shows a helpful message
+            throw new Error("Netværksfejl: Prøv igen senere");
           }
 
           await waitForNetworkRetry();
@@ -3776,8 +3788,6 @@ export function usePlayGameState({
 
       if (!payload || !isMountedRef.current) return;
 
-      if (!isMountedRef.current) return;
-
       const didSaveAnswer = await handleAnswer(0, null, {
         awardedPoints:
           typeof payload.awardedPoints === "number" && Number.isFinite(payload.awardedPoints)
@@ -3785,7 +3795,9 @@ export function usePlayGameState({
             : activeQuestion.points,
         skipAnswerPersist: payload.storedAnswer === true,
       });
+
       if (!didSaveAnswer) {
+        // handleAnswer already updated UI; just ensure we clear analysis flag
         setIsAnalyzingPhoto(false);
         return;
       }
@@ -3800,13 +3812,18 @@ export function usePlayGameState({
     } catch (error) {
       console.error("Foto-upload fejlede:", error);
       if (!isMountedRef.current) return;
-      setIsAnalyzingPhoto(false);
+
+      const networkMsg = "Netværksfejl: Prøv igen senere";
+      const message = error instanceof Error && error.message === networkMsg
+        ? networkMsg
+        : isSelfie
+          ? "Vi kunne ikke uploade selfien endnu. Prøv igen med en stabil forbindelse."
+          : "Billedet kunne ikke uploades endnu. Prøv igen.";
+
       setPhotoFeedback({
         key: activeTypedAnswerKey,
         tone: "error",
-        message: isSelfie
-          ? "Vi kunne ikke uploade selfien endnu. Prøv igen med en stabil forbindelse."
-          : "Billedet kunne ikke uploades endnu. Prøv igen.",
+        message,
       });
     } finally {
       setIsAnalyzingPhoto(false);
