@@ -100,7 +100,7 @@ export default function GPSManager({
     const gpsOptions: PositionOptions = {
       enableHighAccuracy: true,
       maximumAge: 0,
-      timeout: 10000,
+      timeout: 30000,
     };
 
     const successHandler = async (position: GeolocationPosition) => {
@@ -250,7 +250,7 @@ export default function GPSManager({
       }
 
       if (error.code === error.TIMEOUT || error.code === 3) {
-        return;
+        lastPositionTimestampRef.current = 1;
       }
     };
 
@@ -275,7 +275,6 @@ export default function GPSManager({
     // Heartbeat: if no GPS update in 15s, force a watcher restart
     const heartbeatId = setInterval(() => {
       const stale =
-        lastPositionTimestampRef.current > 0 &&
         Date.now() - lastPositionTimestampRef.current > GPS_HEARTBEAT_STALE_THRESHOLD_MS;
       if (stale) {
         console.debug("GPS heartbeat: ingen opdatering i >15s, genstarter watcher");

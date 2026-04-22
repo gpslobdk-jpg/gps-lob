@@ -256,7 +256,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     if (showQuestion && isCurrentPostAnswered && !hasActiveQuizSuccess) {
       actions.dismissCurrentPost();
     }
-  }, [showQuestion, isCurrentPostAnswered, hasActiveQuizSuccess, actions]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showQuestion, isCurrentPostAnswered, hasActiveQuizSuccess]);
 
   useEffect(() => {
     const updateOfflineState = () => {

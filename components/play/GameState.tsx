@@ -2590,7 +2590,8 @@ export function usePlayGameState({
         return fallbackResult;
       }
 
-      while (isMountedRef.current) {
+      let retryCount = 0;
+      while (isMountedRef.current && retryCount < 3) {
         try {
           const response = await fetch("/api/play/submit-answer", {
             method: "POST",
@@ -2635,6 +2636,7 @@ export function usePlayGameState({
             return fallbackResult;
           }
 
+          retryCount++;
           await waitForNetworkRetry();
         }
       }
