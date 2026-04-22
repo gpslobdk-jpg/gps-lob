@@ -2,6 +2,7 @@
 
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { sendTelemetry } from "@/utils/telemetry";
 
@@ -91,6 +92,7 @@ type LiveSessionStatusRow = {
 type PlaySessionStatusSnapshot = {
   sessionStatus?: string | null;
   gpsOverride?: boolean;
+  teacherGuided?: boolean;
   error?: string;
 };
 
@@ -367,6 +369,8 @@ export function usePlayGameState({
     () => storedParticipantOnLoad?.sessionStatus ?? null
   );
   const [gpsOverride, setGpsOverride] = useState(false);
+  const router = useRouter();
+  const [isTeacherGuided, setIsTeacherGuided] = useState(false);
   const [autoUnlockRadius, setAutoUnlockRadius] = useState<number | null>(null);
   const [locationSyncErrors, setLocationSyncErrors] = useState(0);
   const [restoreRetryNonce, setRestoreRetryNonce] = useState(0);
@@ -1090,15 +1094,33 @@ export function usePlayGameState({
       const response = await fetch(`/api/play/status?sessionId=${encodeURIComponent(sessionId)}`, {
         cache: "no-store",
       });
-      const payload = (await response.json().catch(() => null)) as PlaySessionStatusSnapshot | null;
+      if (!response.ok) {
+        if (response.status === 404 || response.status === 410) {
+          clearStoredPlayRecoveryState();
+          router.replace("/join");
+          return null;
+        }
 
-      if (!response.ok || !payload) {
         return null;
       }
+
+      const payload = (await response.json().catch(() => null)) as PlaySessionStatusSnapshot | null;
+      if (!payload) return null;
+
+      const teacherGuided = Boolean(
+        (payload as any).teacherGuided ??
+          (payload as any).isTeacherGuided ??
+          (payload as any).guidedMode ??
+          (payload as any).is_guided ??
+          (payload as any).is_sequential ??
+          (payload as any).sequential ??
+          false
+      );
 
       return {
         sessionStatus: typeof payload.sessionStatus === "string" ? payload.sessionStatus : null,
         gpsOverride: Boolean(payload.gpsOverride),
+        teacherGuided,
       };
     } catch (error) {
       console.error("Kunne ikke hente sessionstatus via API:", error);
@@ -1134,8 +1156,9 @@ export function usePlayGameState({
       );
 
       if (sessionResponse.status === 404 || sessionResponse.status === 410) {
-        console.warn("Session-check returnerede midlertidigt 404/410. Bevarer lokal deltagerstate.");
-        scheduleRestoreRetry();
+        // Definitive: session / run deleted or expired — clear local recovery state and send user to /join
+        clearStoredPlayRecoveryState();
+        router.replace("/join");
         return;
       }
 
@@ -1154,6 +1177,7 @@ export function usePlayGameState({
       if (sessionStatusSnapshot) {
         setSessionStatus(nextSessionStatus);
         setGpsOverride(sessionStatusSnapshot.gpsOverride);
+        setIsTeacherGuided(Boolean(sessionStatusSnapshot.teacherGuided));
       }
 
       if (nextSessionStatus === "finished") {
@@ -1260,6 +1284,7 @@ export function usePlayGameState({
       if (sessionStatusSnapshot) {
         setSessionStatus(nextSessionStatus);
         setGpsOverride(sessionStatusSnapshot.gpsOverride);
+        setIsTeacherGuided(Boolean(sessionStatusSnapshot.teacherGuided));
       }
 
       if (nextSessionStatus === "finished") {
@@ -1474,16 +1499,17 @@ export function usePlayGameState({
       const sessionStatusSnapshot = await fetchSessionStatusSnapshot();
 
       if (!mounted || !sessionStatusSnapshot) {
-          return;
+        return;
       }
 
       const nextStatus = sessionStatusSnapshot.sessionStatus ?? null;
-        setSessionStatus(nextStatus);
-        setGpsOverride(sessionStatusSnapshot.gpsOverride);
+      setSessionStatus(nextStatus);
+      setGpsOverride(sessionStatusSnapshot.gpsOverride);
+      setIsTeacherGuided(Boolean(sessionStatusSnapshot.teacherGuided));
 
-        if (nextStatus === "finished") {
-          markPlayAsFinished();
-        }
+      if (nextStatus === "finished") {
+        markPlayAsFinished();
+      }
     };
 
     const removeStatusChannel = () => {
@@ -1521,6 +1547,16 @@ export function usePlayGameState({
               const nextStatus = nextRow?.status ?? null;
               setSessionStatus(nextStatus);
               setGpsOverride(Boolean(nextRow?.gps_override));
+              const teacherGuidedFromRow = Boolean(
+                (nextRow as any)?.teacher_guided ??
+                  (nextRow as any)?.isTeacherGuided ??
+                  (nextRow as any)?.teacherGuided ??
+                  (nextRow as any)?.guided ??
+                  (nextRow as any)?.is_sequential ??
+                  (nextRow as any)?.sequential ??
+                  false
+              );
+              setIsTeacherGuided(teacherGuidedFromRow);
 
               if (nextStatus === "finished") {
                 markPlayAsFinished();
@@ -1756,6 +1792,7 @@ export function usePlayGameState({
   const canOpenCurrentPost =
     !showQuestion &&
     !currentPostIsHardLocked &&
+    !isTeacherGuided &&
     (gpsOverride ||
       dismissedPostIndex === currentPostIndex ||
       (distance !== null &&
@@ -1764,6 +1801,7 @@ export function usePlayGameState({
   const canManualUnlock =
     !showQuestion &&
     !currentPostIsHardLocked &&
+    !isTeacherGuided &&
     (gpsOverride ||
       dismissedPostIndex === currentPostIndex ||
       (distance !== null &&
@@ -1813,6 +1851,7 @@ export function usePlayGameState({
   }, []);
 
   const unlockCurrentPost = useCallback(() => {
+    if (isTeacherGuided) return;
     const currentPostIsHardLocked =
       answeredPostIndexesRef.current.includes(currentPostIndex) ||
       burnedPostsRef.current.has(currentPostIndex);
@@ -2387,7 +2426,11 @@ export function usePlayGameState({
         setCurrentPostIndex(nextPostIndex);
         if (shouldResumeOpenQuestion) {
           setDismissedPostIndex(null);
-          setShowQuestion(true);
+          if (!isTeacherGuided) {
+            setShowQuestion(true);
+          } else {
+            setShowQuestion(false);
+          }
           setDistanceState(restoredDistanceToNextPost);
         } else if (
           autoUnlockRadius !== null &&
@@ -2395,7 +2438,11 @@ export function usePlayGameState({
           restoredDistanceToNextPost <= autoUnlockRadius
         ) {
           setDismissedPostIndex(null);
-          setShowQuestion(true);
+          if (!isTeacherGuided) {
+            setShowQuestion(true);
+          } else {
+            setShowQuestion(false);
+          }
           setDistanceState(restoredDistanceToNextPost);
         } else {
           setDismissedPostIndex(shouldRestoreDismissedPost);
@@ -2680,6 +2727,12 @@ export function usePlayGameState({
           if (!isActive) return;
 
           if (!response.ok) {
+            if (response.status === 404 || response.status === 410) {
+              clearStoredPlayRecoveryState();
+              router.replace("/join");
+              return;
+            }
+
             setPlayLoadError(PLAY_LOAD_RETRY_MESSAGE);
             setIsLoading(false);
             return;

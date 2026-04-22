@@ -10,7 +10,12 @@ import {
   type RunSchedule,
 } from "@/utils/runSchedule";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
-import { readStoredActiveParticipant, saveStoredActiveParticipant } from "@/components/play/playUtils";
+import {
+  readStoredActiveParticipant,
+  saveStoredActiveParticipant,
+  clearStoredActiveParticipant,
+  clearStoredPlaySnapshot,
+} from "@/components/play/playUtils";
 import { createClient } from "@/utils/supabase/client";
 
 const rubik = Rubik({
@@ -365,6 +370,12 @@ function JoinForm() {
       const shouldPreserveExistingParticipant =
         existingParticipant?.sessionId === registerData.sessionId &&
         existingParticipant?.participantId === registerData.participantId;
+
+      // If joining a different session/participant, clear any stale stored state
+      if (existingParticipant && !shouldPreserveExistingParticipant) {
+        clearStoredActiveParticipant();
+        clearStoredPlaySnapshot();
+      }
 
       saveStoredActiveParticipant({
         participantId: registerData.participantId,
