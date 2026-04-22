@@ -44,7 +44,7 @@ const categories = [
 
 function CategoryCard({ cat }: { cat: (typeof categories)[0] }) {
   return (
-    <Link href={`/dashboard/opret/stjerneloeb/${cat.key}`} className="block w-full text-left">
+    <Link href={`/dashboard/opret/stjerneloeb/bibliotek/${cat.key}`} className="block w-full text-left">
       <article className={`${cardBaseClass} ${cat.accentClass} cursor-pointer`}>
         <div className={cardBackgroundShellClass}>
           <div className={`absolute inset-0 rounded-[2rem] ${cat.accentGlowClass}`} />
