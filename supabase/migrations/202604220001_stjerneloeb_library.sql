@@ -23,7 +23,7 @@ values (
   'stjerneloeb_pdfs',
   true,
   null,
-  'application/pdf',
+  ARRAY['application/pdf'],
   'STANDARD'
 )
 on conflict (id) do update
