@@ -17,6 +17,7 @@ import {
   isZoneKrigRaceType,
 } from "@/app/api/zone-krig/_shared";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
+import { sendDiscordWebhook } from "@/lib/discord";
 
 export const runtime = "edge";
 const CACHE_CONTROL = "no-store";
@@ -1027,6 +1028,13 @@ export async function POST(request: NextRequest) {
         },
       }
     );
+    // Notify Discord in a best-effort, non-blocking way
+    try {
+      void sendDiscordWebhook(`🚀 Nyt hold er netop trådt ind i skoven: ${normalizedStudentName}!`);
+    } catch (e) {
+      // The helper already swallows errors; this is just extra safety
+      console.error("Discord notification failed:", e);
+    }
   } catch (error) {
     await clearParticipantAuthSession(participantAuthClient);
 
