@@ -222,18 +222,24 @@ function FitStrategoBattlefield({
       return;
     }
 
-    if (points.length === 1) {
-      map.setView(points[0] ?? DEFAULT_CENTER, 17, { animate: true });
-      hasFittedRef.current = true;
-      return;
-    }
+    try {
+      if (!map || !map.getContainer()) return;
 
-    map.fitBounds(L.latLngBounds(points), {
-      padding: [42, 42],
-      maxZoom: 17,
-      animate: true,
-    });
-    hasFittedRef.current = true;
+      if (points.length === 1) {
+        map.setView(points[0] ?? DEFAULT_CENTER, 17, { animate: true });
+        hasFittedRef.current = true;
+        return;
+      }
+
+      map.fitBounds(L.latLngBounds(points), {
+        padding: [42, 42],
+        maxZoom: 17,
+        animate: true,
+      });
+      hasFittedRef.current = true;
+    } catch (err) {
+      console.warn("FitStrategoBattlefield: failed to fit map view:", err);
+    }
   }, [allyMarkers, baseMarkers, enemyMarkers, map, playerLocation]);
 
   return null;

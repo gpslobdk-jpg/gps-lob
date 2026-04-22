@@ -39,19 +39,31 @@ function AutoLocate() {
   useEffect(() => {
     if (!navigator.geolocation) return;
 
+    let isActive = true;
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        map.setView(
-          [position.coords.latitude, position.coords.longitude],
-          GEOLOCATION_ZOOM,
-          { animate: true }
-        );
+        if (!isActive) return;
+        try {
+          if (!map || !map.getContainer()) return;
+          map.setView(
+            [position.coords.latitude, position.coords.longitude],
+            GEOLOCATION_ZOOM,
+            { animate: true }
+          );
+        } catch (err) {
+          console.warn("AutoLocate: failed to setView:", err);
+        }
       },
       () => {
         // Geolocation denied or unavailable — keep default center
       },
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
     );
+
+    return () => {
+      isActive = false;
+    };
   }, [map]);
 
   return null;
@@ -70,21 +82,26 @@ function MapViewportSync({
     const points = [redBase, blueBase]
       .filter((value): value is BaseLocation => value !== null)
       .map((value) => [value.lat, value.lng] as [number, number]);
-
     if (points.length === 0) {
       return;
     }
 
-    if (points.length === 1) {
-      map.setView(points[0] ?? DEFAULT_MAP_CENTER_TUPLE, 17, { animate: true });
-      return;
-    }
+    try {
+      if (!map || !map.getContainer()) return;
 
-    map.fitBounds(L.latLngBounds(points), {
-      padding: [64, 64],
-      maxZoom: 17,
-      animate: true,
-    });
+      if (points.length === 1) {
+        map.setView(points[0] ?? DEFAULT_MAP_CENTER_TUPLE, 17, { animate: true });
+        return;
+      }
+
+      map.fitBounds(L.latLngBounds(points), {
+        padding: [64, 64],
+        maxZoom: 17,
+        animate: true,
+      });
+    } catch (err) {
+      console.warn("MapViewportSync: failed to adjust viewport:", err);
+    }
   }, [blueBase, map, redBase]);
 
   return null;

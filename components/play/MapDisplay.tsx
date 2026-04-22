@@ -47,18 +47,26 @@ function MapViewportSync({ center, dimmed }: MapViewportSyncProps) {
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => {
-      map.invalidateSize();
+      try {
+        if (!map || !map.getContainer()) return;
 
-      if (!hasCenteredRef.current) {
-        map.setView(center, map.getZoom(), { animate: false });
-        hasCenteredRef.current = true;
-        return;
+        map.invalidateSize();
+
+        if (!hasCenteredRef.current) {
+          map.setView(center, map.getZoom(), { animate: false });
+          hasCenteredRef.current = true;
+          return;
+        }
+
+        if (typeof map.panTo === "function") {
+          map.panTo(center, {
+            animate: true,
+            duration: 0.75,
+          });
+        }
+      } catch (err) {
+        console.warn("MapViewportSync: map operation failed:", err);
       }
-
-      map.panTo(center, {
-        animate: true,
-        duration: 0.75,
-      });
     });
 
     return () => {
@@ -68,7 +76,12 @@ function MapViewportSync({ center, dimmed }: MapViewportSyncProps) {
 
   useEffect(() => {
     const handleResize = () => {
-      map.invalidateSize();
+      try {
+        if (!map || !map.getContainer()) return;
+        map.invalidateSize();
+      } catch (err) {
+        console.warn("MapViewportSync resize handler failed:", err);
+      }
     };
 
     const timeoutId = window.setTimeout(handleResize, 180);
@@ -104,6 +117,7 @@ function FitBoundsSync({
     ];
 
     try {
+      if (!map || !map.getContainer()) return;
       map.fitBounds(bounds as LatLngBoundsExpression, { padding: [80, 80], maxZoom: 17, animate: true });
       hasFittedInitialRef.current = true;
       prevTargetKeyRef.current = `${targetLocation.lat},${targetLocation.lng}`;
@@ -115,8 +129,8 @@ function FitBoundsSync({
       } catch {
         /* no-op */
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      console.warn("FitBoundsSync initial fit failed:", err);
     }
   }, [map, playerLocation, targetLocation]);
 
@@ -133,6 +147,7 @@ function FitBoundsSync({
       ];
 
       try {
+        if (!map || !map.getContainer()) return;
         map.fitBounds(bounds as LatLngBoundsExpression, { padding: [80, 80], maxZoom: 17, animate: true });
         prevTargetKeyRef.current = targetKey;
         try {
@@ -143,8 +158,8 @@ function FitBoundsSync({
         } catch {
           /* no-op */
         }
-      } catch {
-        // ignore
+      } catch (err) {
+        console.warn("FitBoundsSync target change fit failed:", err);
       }
     }
   }, [map, playerLocation, targetLocation]);

@@ -183,15 +183,21 @@ function MapController({
   useEffect(() => {
     const points = getMapPoints(runQuestions, studentLocations);
 
-    if (points.length <= 1) {
-      map.setView(mapCenter, 16, { animate: true });
-      return;
-    }
+    try {
+      if (!map || !map.getContainer()) return;
 
-    map.fitBounds(L.latLngBounds(points), {
-      padding: [50, 50],
-      animate: true,
-    });
+      if (points.length <= 1) {
+        map.setView(mapCenter, 16, { animate: true });
+        return;
+      }
+
+      map.fitBounds(L.latLngBounds(points), {
+        padding: [50, 50],
+        animate: true,
+      });
+    } catch (err) {
+      console.warn("MapController: failed to update viewport:", err);
+    }
   }, [map, mapCenter, runQuestions, studentLocations]);
 
   return null;

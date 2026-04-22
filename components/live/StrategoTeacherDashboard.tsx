@@ -269,17 +269,23 @@ function MapAutoFit({
       return;
     }
 
-    if (points.length === 1) {
-      map.setView(points[0] ?? fallbackCenter, 17, { animate: false });
-    } else {
-      map.fitBounds(L.latLngBounds(points), {
-        padding: [56, 56],
-        maxZoom: 17,
-        animate: false,
-      });
-    }
+    try {
+      if (!map || !map.getContainer()) return;
 
-    hasInitialFitRef.current = true;
+      if (points.length === 1) {
+        map.setView(points[0] ?? fallbackCenter, 17, { animate: false });
+      } else {
+        map.fitBounds(L.latLngBounds(points), {
+          padding: [56, 56],
+          maxZoom: 17,
+          animate: false,
+        });
+      }
+
+      hasInitialFitRef.current = true;
+    } catch (err) {
+      console.warn("MapAutoFit: failed to fit map:", err);
+    }
   }, [fallbackCenter, map, points]);
 
   return null;
