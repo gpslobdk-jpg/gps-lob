@@ -311,10 +311,10 @@ function JoinForm() {
 
       if (response.status === 404 || ("kind" in joinData && joinData.kind === "invalid")) {
         try {
-          Sentry.withScope((scope) => {
+            Sentry.withScope((scope) => {
             scope.setExtra("enteredPin", trimmedPin);
             scope.setExtra("enteredName", trimmedName);
-            Sentry.captureMessage("Join lookup invalid or 404", Sentry.Severity.Info);
+            Sentry.captureMessage("Join lookup invalid or 404", "info");
           });
         } catch (err) {
           // best-effort
@@ -377,7 +377,7 @@ function JoinForm() {
         try {
           Sentry.withScope((scope) => {
             scope.setExtras({ enteredPin: trimmedPin, sessionId: joinData.sessionId });
-            Sentry.captureMessage("Join register returned 404/410 - expired/removed", Sentry.Severity.Warning);
+            Sentry.captureMessage("Join register returned 404/410 - expired/removed", "warning");
           });
         } catch (err) {
           // best-effort
@@ -409,7 +409,7 @@ function JoinForm() {
               existingParticipantId: existingParticipant.participantId,
               newSessionId: registerData.sessionId,
             });
-            Sentry.captureMessage("Clearing stored participant state due to different session/participant", Sentry.Severity.Info);
+            Sentry.captureMessage("Clearing stored participant state due to different session/participant", "info");
           });
         } catch (err) {
           // best-effort

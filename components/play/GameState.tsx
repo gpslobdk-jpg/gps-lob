@@ -645,7 +645,7 @@ export function usePlayGameState({
               scope.setExtra("sessionId", sessionId);
               Sentry.captureMessage(
                 "Register participant failed: session missing (404/410)",
-                Sentry.Severity.Warning
+                "warning"
               );
             });
           } catch (err) {
@@ -1134,7 +1134,7 @@ export function usePlayGameState({
               scope.setTag("play.event", "session_status_404");
               Sentry.captureMessage(
                 "Session status endpoint returned 404/410 - session missing",
-                Sentry.Severity.Warning
+                "warning"
               );
             });
           } catch (err) {
@@ -1213,7 +1213,7 @@ export function usePlayGameState({
             scope.setTag("play.event", "session_missing_authoritative_check");
             Sentry.captureMessage(
               "Authoritative session check returned 404/410 - session missing",
-              Sentry.Severity.Warning
+              "warning"
             );
           });
         } catch (err) {
