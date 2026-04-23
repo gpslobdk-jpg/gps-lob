@@ -111,7 +111,11 @@ function FocusController({ request }: { request: FocusRequest | null }) {
 
     try {
       if (!map || !map.getContainer()) return;
-      map.flyTo(request.coords, request.zoom ?? map.getZoom(), { animate: true, duration: 1.2 });
+      const coords = request.coords;
+      if (!Array.isArray(coords) || coords.length < 2) return;
+      const [lat, lng] = coords;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      map.flyTo([lat, lng], request.zoom ?? map.getZoom(), { animate: true, duration: 1.2 });
     } catch (err) {
       console.warn("FocusController: failed to flyTo:", err);
     }
@@ -130,6 +134,7 @@ function ExternalCenterController({ center }: { center: MapCenter }) {
   useEffect(() => {
     try {
       if (!map || !map.getContainer()) return;
+      if (!Number.isFinite(center.lat) || !Number.isFinite(center.lng)) return;
       const current = map.getCenter();
       if (centersMatch({ lat: current.lat, lng: current.lng }, center)) {
         return;
