@@ -123,6 +123,19 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     key: "",
     message: null,
   });
+  const rageClickRef = useRef<{
+    count: number;
+    lastTs: number;
+    resetTimer: ReturnType<typeof setTimeout> | null;
+  }>({
+    count: 0,
+    lastTs: 0,
+    resetTimer: null,
+  });
+  const [showRageModal, setShowRageModal] = useState(false);
+  const RAGE_THRESHOLD = 3;
+  const RAGE_WINDOW_MS = 2000;
+  const prevOverflowRef = useRef<string | null>(null);
   const [cameraPermissionState, setCameraPermissionState] = useState<PermissionState | "unknown">("unknown");
   const [isOffline, setIsOffline] = useState(() => (typeof navigator !== "undefined" ? !navigator.onLine : false));
   const [showCloudSyncSuccess, setShowCloudSyncSuccess] = useState(false);
@@ -303,6 +316,26 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
       cloudSyncSuccessTimerRef.current = null;
     }, 2000) as any;
   }, [hasActiveQuizSuccess]);
+
+  useEffect(() => {
+    if (showRageModal) {
+      // prevent background scroll while modal is open
+      prevOverflowRef.current = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+    } else {
+      if (prevOverflowRef.current !== null) {
+        document.body.style.overflow = prevOverflowRef.current;
+        prevOverflowRef.current = null;
+      }
+    }
+
+    return () => {
+      if (prevOverflowRef.current !== null) {
+        document.body.style.overflow = prevOverflowRef.current;
+        prevOverflowRef.current = null;
+      }
+    };
+  }, [showRageModal]);
 
   useEffect(() => {
     return () => {
@@ -1167,28 +1200,91 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                     ) : null}
 
                     {hasActiveUnlockTarget ? (
-                      <button
-                        type="button"
-                        onClick={canManualUnlock ? actions.unlockCurrentPost : undefined}
-                        disabled={!canManualUnlock}
-                        className={
-                          canManualUnlock
-                            ? "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[1.35rem] border border-emerald-300/45 bg-linear-to-r from-emerald-500 to-teal-400 px-5 py-4 text-base font-black normal-case text-slate-950 shadow-[0_18px_40px_rgba(16,185,129,0.28)] transition-all hover:brightness-110 active:scale-[0.99]"
-                            : distance !== null
-                              ? "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[1.35rem] border border-rose-300/25 bg-rose-500/10 px-5 py-4 text-base font-black normal-case text-rose-50/90 shadow-[0_0_0_1px_rgba(244,63,94,0.12)] transition-all disabled:cursor-not-allowed disabled:opacity-100"
-                              : "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[1.35rem] border border-slate-600 bg-slate-800 px-5 py-4 text-base font-black normal-case text-white/70 shadow-none transition-all disabled:cursor-not-allowed disabled:opacity-100"
-                        }
+                      <div
+                        role="button"
+                        aria-disabled={!canManualUnlock}
+                        onClick={(e) => {
+                          if (canManualUnlock) return;
+                          // handle desktop click on disabled area
+                          const now = Date.now();
+                          const r = rageClickRef.current;
+                          if (now - r.lastTs > RAGE_WINDOW_MS) {
+                            r.count = 0;
+                            if (r.resetTimer) {
+                              clearTimeout(r.resetTimer);
+                              r.resetTimer = null;
+                            }
+                          }
+                          r.count += 1;
+                          r.lastTs = now;
+                          if (r.resetTimer) clearTimeout(r.resetTimer);
+                          r.resetTimer = window.setTimeout(() => {
+                            r.count = 0;
+                            r.resetTimer = null;
+                          }, RAGE_WINDOW_MS) as any;
+                          if (r.count >= RAGE_THRESHOLD) {
+                            // trigger modal
+                            setShowRageModal(true);
+                            r.count = 0;
+                            if (r.resetTimer) {
+                              clearTimeout(r.resetTimer);
+                              r.resetTimer = null;
+                            }
+                          }
+                        }}
+                        onTouchEnd={(e) => {
+                          if (canManualUnlock) return;
+                          // mirror the same logic for touch
+                          const now = Date.now();
+                          const r = rageClickRef.current;
+                          if (now - r.lastTs > RAGE_WINDOW_MS) {
+                            r.count = 0;
+                            if (r.resetTimer) {
+                              clearTimeout(r.resetTimer);
+                              r.resetTimer = null;
+                            }
+                          }
+                          r.count += 1;
+                          r.lastTs = now;
+                          if (r.resetTimer) clearTimeout(r.resetTimer);
+                          r.resetTimer = window.setTimeout(() => {
+                            r.count = 0;
+                            r.resetTimer = null;
+                          }, RAGE_WINDOW_MS) as any;
+                          if (r.count >= RAGE_THRESHOLD) {
+                            setShowRageModal(true);
+                            r.count = 0;
+                            if (r.resetTimer) {
+                              clearTimeout(r.resetTimer);
+                              r.resetTimer = null;
+                            }
+                          }
+                        }}
+                        className="w-full"
                       >
-                        {gpsOverrideEnabled
-                          ? "Åbn post (God Mode)"
-                          : dismissedPostIndex === currentPostIndex
-                            ? "Åbn gåden igen"
-                            : canManualUnlock
-                              ? "Åbn post"
-                              : distance === null
-                                ? "Søger GPS..."
-                                : `Gå ${manualUnlockDistanceToGo ?? 1}m tættere på for at åbne`}
-                      </button>
+                        <button
+                          type="button"
+                          onClick={canManualUnlock ? actions.unlockCurrentPost : undefined}
+                          disabled={!canManualUnlock}
+                          className={
+                            canManualUnlock
+                              ? "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[1.35rem] border border-emerald-300/45 bg-linear-to-r from-emerald-500 to-teal-400 px-5 py-4 text-base font-black normal-case text-slate-950 shadow-[0_18px_40px_rgba(16,185,129,0.28)] transition-all hover:brightness-110 active:scale-[0.99]"
+                              : distance !== null
+                                ? "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[1.35rem] border border-rose-300/25 bg-rose-500/10 px-5 py-4 text-base font-black normal-case text-rose-50/90 shadow-[0_0_0_1px_rgba(244,63,94,0.12)] transition-all disabled:cursor-not-allowed disabled:opacity-100"
+                                : "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[1.35rem] border border-slate-600 bg-slate-800 px-5 py-4 text-base font-black normal-case text-white/70 shadow-none transition-all disabled:cursor-not-allowed disabled:opacity-100"
+                          }
+                        >
+                          {gpsOverrideEnabled
+                            ? "Åbn post (God Mode)"
+                            : dismissedPostIndex === currentPostIndex
+                              ? "Åbn gåden igen"
+                              : canManualUnlock
+                                ? "Åbn post"
+                                : distance === null
+                                  ? "Søger GPS..."
+                                  : `Gå ${manualUnlockDistanceToGo ?? 1}m tættere på for at åbne`}
+                        </button>
+                      </div>
                     ) : null}
                   </div>
                 </div>
@@ -1249,6 +1345,30 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
             message={latestMessage}
             onDismiss={actions.dismissLatestMessage}
           />
+
+          {showRageModal ? (
+            <div className="fixed inset-0 z-[2300] flex items-center justify-center bg-slate-950/82 px-4 py-6 backdrop-blur-md">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.06),transparent_32%),radial-gradient(circle_at_bottom,rgba(34,197,94,0.06),transparent_30%)]" />
+              <div className="relative w-full max-w-md overflow-hidden rounded-[1.6rem] border border-emerald-400/30 bg-gradient-to-br from-slate-900/60 to-slate-950/80 p-6 text-white shadow-[0_40px_120px_rgba(2,6,23,0.75)]">
+                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(145deg,rgba(255,255,255,0.03),transparent_34%)]" />
+
+                <div className="relative flex flex-col items-center text-center">
+                  <h2 className="text-2xl font-black">Rolig nu, hurtigløber! 🏃💨</h2>
+                  <p className={`mt-4 text-sm leading-relaxed text-white/90 ${wrapTextClass}`}>
+                    Knappen er rød, fordi du stadig er lidt for langt væk fra posten. Gå lidt tættere på, indtil knappen lyser GRØN! 🟢
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowRageModal(false)}
+                    className="mt-6 inline-flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[1.35rem] border border-emerald-300 bg-emerald-600 px-5 py-4 text-sm font-black uppercase tracking-[0.12em] text-slate-950 shadow-md transition hover:bg-emerald-500"
+                  >
+                    Okay, jeg går tættere på!
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           <div className="absolute inset-0 z-[1] h-full w-full">
             {children}
