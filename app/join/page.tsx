@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { Poppins, Rubik } from "next/font/google";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, ArrowLeft, KeyRound, Leaf, Loader2, Timer, User } from "lucide-react";
 
@@ -141,6 +142,7 @@ function JoinForm() {
   const [isJoining, setIsJoining] = useState(false);
   const [showInAppWarning, setShowInAppWarning] = useState(false);
   const joinLockRef = useRef(false);
+  const isMissingSessionNotice = searchParams.get("missingSession") === "1";
 
   const isZoneKrig = raceType === "zone_krig";
   const trimmedName = name.trim();
@@ -149,6 +151,8 @@ function JoinForm() {
 
   // ── Auto-resume: redirect to active game on cold start ──────────────
   useEffect(() => {
+    if (isMissingSessionNotice) return;
+
     const stored = readStoredActiveParticipant();
     if (!stored?.sessionId || !stored?.participantId) return;
     // Only auto-resume if the saved session is < 6 hours old
@@ -157,7 +161,7 @@ function JoinForm() {
     router.replace(
       `/play/${stored.sessionId}?name=${encodeURIComponent(stored.studentName ?? "")}`,
     );
-  }, [router]);
+  }, [isMissingSessionNotice, router]);
 
   useEffect(() => {
     if (!sessionId || (view !== "waiting" && view !== "scheduled")) return;
@@ -694,6 +698,38 @@ function JoinForm() {
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
+      {isMissingSessionNotice ? (
+        <div className="relative mb-5 w-full overflow-hidden rounded-[2rem] border border-emerald-300/25 bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(15,23,42,0.96))] p-5 text-white shadow-[0_28px_70px_rgba(2,6,23,0.5)] backdrop-blur-2xl sm:p-6">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.22),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.12),transparent_36%)]" />
+          <div className="pointer-events-none absolute inset-0 rounded-[2rem] ring-1 ring-white/5" />
+
+          <div className="relative z-10">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-400/12 text-emerald-200 shadow-[0_0_24px_rgba(16,185,129,0.18)]">
+              <Leaf className="h-6 w-6" />
+            </div>
+
+            <p className="text-[11px] font-semibold tracking-[0.32em] text-emerald-200/70 uppercase">
+              Løb ikke fundet
+            </p>
+            <h1 className={`mt-3 text-2xl font-black text-white sm:text-3xl ${rubik.className}`}>
+              Hov! Vi kan ikke finde dette løb 🏁
+            </h1>
+            <p className="mt-4 text-sm leading-6 text-white/80 sm:text-base">
+              Det ser ud til, at linket er blevet for gammelt, eller at din lærer har afsluttet løbet. Tjek med din lærer, om du har fået det rigtige link eller den rigtige PIN-kode.
+            </p>
+
+            <div className="mt-6">
+              <Link
+                href="/"
+                className="inline-flex min-h-[52px] w-full items-center justify-center rounded-[1.2rem] border border-emerald-300/30 bg-gradient-to-r from-emerald-500 to-teal-400 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-[0_18px_38px_rgba(16,185,129,0.24)] transition hover:brightness-110 active:scale-[0.99]"
+              >
+                Gå til forsiden
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/20 bg-slate-900/60 p-5 text-white shadow-[0_36px_100px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:p-8">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.12),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_42%)]" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/15" />

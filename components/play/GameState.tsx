@@ -1142,7 +1142,7 @@ export function usePlayGameState({
           }
 
           clearStoredPlayRecoveryState();
-          router.replace("/join");
+          router.replace("/join?missingSession=1");
           return null;
         }
 
@@ -1221,7 +1221,7 @@ export function usePlayGameState({
         }
 
         clearStoredPlayRecoveryState();
-        router.replace("/join");
+        router.replace("/join?missingSession=1");
         return;
       }
 
@@ -2812,7 +2812,7 @@ export function usePlayGameState({
           if (!response.ok) {
             if (response.status === 404 || response.status === 410) {
               clearStoredPlayRecoveryState();
-              router.replace("/join");
+              router.replace("/join?missingSession=1");
               return;
             }
 
