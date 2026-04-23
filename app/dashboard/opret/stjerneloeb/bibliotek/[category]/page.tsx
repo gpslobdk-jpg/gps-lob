@@ -8,8 +8,9 @@ const allowed = ["indskoling", "mellemtrin", "udskoling"];
 const cardBaseClass =
   "group relative z-0 mx-auto flex h-[12rem] w-full flex-col overflow-hidden rounded-[1rem] border bg-white/6 p-0 text-left shadow-[0_18px_40px_rgba(15,23,42,0.12),0_8px_18px_rgba(15,23,42,0.06)] backdrop-blur-lg transition-all duration-300";
 
-export default async function CategoryPage({ params }: { params: { category: string } }) {
-  const category = (params?.category ?? "").toLowerCase();
+export default async function CategoryPage({ params }: { params: Promise<{ category: string }> }) {
+  const resolved = await params;
+  const category = (resolved?.category ?? "").toLowerCase();
   if (!allowed.includes(category)) {
     notFound();
   }

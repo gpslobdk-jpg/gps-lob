@@ -936,7 +936,7 @@ async function submitPhotoAtCurrentPost(page: Page, student?: { id: string; name
     fileChooserWorked = true;
     console.log("submitPhotoAtCurrentPost: fileChooser.setFiles succeeded");
   } catch (err) {
-    console.log("submitPhotoAtCurrentPost: fileChooser approach failed:", err?.message ?? err);
+    console.log("submitPhotoAtCurrentPost: fileChooser approach failed:", (err as any)?.message ?? err);
   }
 
   if (!fileChooserWorked) {
@@ -1272,7 +1272,7 @@ test.describe("Phase 48 — Fotoløb Chaos: The Real School Stress Test", () => 
     try {
       await expect(offlinePage.locator("body")).toBeVisible();
     } catch (err) {
-      console.log("offlinePage visibility check failed (tolerated):", err?.message ?? err);
+      console.log("offlinePage visibility check failed (tolerated):", (err as any)?.message ?? err);
     }
 
     // Student 2 submits a photo now that they're back online
