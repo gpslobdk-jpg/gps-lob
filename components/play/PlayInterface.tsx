@@ -209,6 +209,20 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     autoUnlockRadius !== null &&
     distance !== null &&
     distance <= autoUnlockRadius;
+  const manualUnlockBufferMeters = 20;
+  const manualUnlockBufferRadius =
+    autoUnlockRadius !== null ? autoUnlockRadius + manualUnlockBufferMeters : null;
+  const hasActiveUnlockTarget =
+    Boolean(activeQuestion) &&
+    !showQuestion &&
+    !solvedPostIndexes.includes(currentPostIndex) &&
+    !answeredPostIndexes.includes(currentPostIndex);
+  const manualUnlockDistanceToGo =
+    distance !== null &&
+    manualUnlockBufferRadius !== null &&
+    !canManualUnlock
+      ? Math.max(1, Math.ceil(distance - manualUnlockBufferRadius))
+      : null;
   const normalizedActiveDisplayName = activeDisplayName.trim().toLocaleLowerCase("da-DK");
   const tacticalHudShellClass =
     "overflow-hidden rounded-[2rem] border border-white/30 bg-slate-800 p-4 shadow-lg md:p-5";
@@ -1152,17 +1166,28 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       </div>
                     ) : null}
 
-                    {canManualUnlock && !isCurrentPostAnswered ? (
+                    {hasActiveUnlockTarget ? (
                       <button
                         type="button"
-                        onClick={actions.unlockCurrentPost}
-                        className={tacticalPrimaryButtonClass}
+                        onClick={canManualUnlock ? actions.unlockCurrentPost : undefined}
+                        disabled={!canManualUnlock}
+                        className={
+                          canManualUnlock
+                            ? "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[1.35rem] border border-emerald-300/45 bg-linear-to-r from-emerald-500 to-teal-400 px-5 py-4 text-base font-black normal-case text-slate-950 shadow-[0_18px_40px_rgba(16,185,129,0.28)] transition-all hover:brightness-110 active:scale-[0.99]"
+                            : distance !== null
+                              ? "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[1.35rem] border border-rose-300/25 bg-rose-500/10 px-5 py-4 text-base font-black normal-case text-rose-50/90 shadow-[0_0_0_1px_rgba(244,63,94,0.12)] transition-all disabled:cursor-not-allowed disabled:opacity-100"
+                              : "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[1.35rem] border border-slate-600 bg-slate-800 px-5 py-4 text-base font-black normal-case text-white/70 shadow-none transition-all disabled:cursor-not-allowed disabled:opacity-100"
+                        }
                       >
                         {gpsOverrideEnabled
-                          ? "Åbn posten (God Mode)"
+                          ? "Åbn post (God Mode)"
                           : dismissedPostIndex === currentPostIndex
-                          ? "Åbn gåden igen"
-                          : "📍 Står du ved posten? Lås op manuelt"}
+                            ? "Åbn gåden igen"
+                            : canManualUnlock
+                              ? "Åbn post"
+                              : distance === null
+                                ? "Søger GPS..."
+                                : `Gå ${manualUnlockDistanceToGo ?? 1}m tættere på for at åbne`}
                       </button>
                     ) : null}
                   </div>

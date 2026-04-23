@@ -1847,8 +1847,8 @@ export function usePlayGameState({
     (questions.length > 0 || isStrategoRace);
   const targetVisualRadius =
     autoUnlockRadius !== null ? Math.max(autoUnlockRadius, TARGET_VISUAL_RADIUS_METERS) : null;
-  const targetClickBufferRadius =
-    autoUnlockRadius !== null ? Math.max(autoUnlockRadius, TARGET_CLICK_BUFFER_METERS) : null;
+  const manualUnlockBufferRadius =
+    autoUnlockRadius !== null ? autoUnlockRadius + TARGET_CLICK_BUFFER_METERS : null;
   const currentPostIsHardLocked =
     answeredPostIndexesRef.current.includes(currentPostIndex) ||
     burnedPostsRef.current.has(currentPostIndex);
@@ -1859,8 +1859,8 @@ export function usePlayGameState({
     (gpsOverride ||
       dismissedPostIndex === currentPostIndex ||
       (distance !== null &&
-        targetClickBufferRadius !== null &&
-        distance <= targetClickBufferRadius));
+        manualUnlockBufferRadius !== null &&
+        distance <= manualUnlockBufferRadius));
   const canManualUnlock =
     !showQuestion &&
     !currentPostIsHardLocked &&
@@ -1868,10 +1868,8 @@ export function usePlayGameState({
     (gpsOverride ||
       dismissedPostIndex === currentPostIndex ||
       (distance !== null &&
-        autoUnlockRadius !== null &&
-        targetClickBufferRadius !== null &&
-        distance > autoUnlockRadius &&
-        distance <= targetClickBufferRadius));
+        manualUnlockBufferRadius !== null &&
+        distance <= manualUnlockBufferRadius));
 
   const clearTypedAnswerError = useCallback(() => {
     setTypedAnswerError(null);
@@ -1924,10 +1922,8 @@ export function usePlayGameState({
       (gpsOverride ||
         dismissedPostIndex === currentPostIndex ||
         (distance !== null &&
-          autoUnlockRadius !== null &&
-          targetClickBufferRadius !== null &&
-          distance > autoUnlockRadius &&
-          distance <= targetClickBufferRadius));
+          manualUnlockBufferRadius !== null &&
+          distance <= manualUnlockBufferRadius));
 
     if (!canOpenPost) {
       return;
@@ -1955,7 +1951,7 @@ export function usePlayGameState({
     distance,
     gpsOverride,
     showQuestion,
-    targetClickBufferRadius,
+    manualUnlockBufferRadius,
     clearRoleplayInputErrorTone,
   ]);
 

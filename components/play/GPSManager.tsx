@@ -39,6 +39,7 @@ type AcceptedGpsLocation = Location & {
 const GPS_HEARTBEAT_INTERVAL_MS = 20_000;
 const GPS_HEARTBEAT_STALE_THRESHOLD_MS = 15_000;
 const LIVE_TRACKING_MAX_ACCURACY_METERS = 250;
+const AUTO_UNLOCK_CONFIRMATION_GRACE_MS = 4_000;
 // Fallback: if no position has been accepted for this long (e.g. WiFi→4G switch),
 // temporarily allow readings up to the fallback ceiling so the user isn't stuck.
 const GPS_ACCURACY_FALLBACK_AFTER_MS = 10_000;
@@ -70,6 +71,7 @@ export default function GPSManager({
   const targetLat = target?.lat ?? null;
   const targetLng = target?.lng ?? null;
   const autoUnlockConfirmationRef = useRef(0);
+  const lastAutoUnlockInRangeAtMsRef = useRef(0);
   const lastAcceptedLocationRef = useRef<AcceptedGpsLocation | null>(null);
   const lastAcceptedAtMsRef = useRef(0);
   const lastLocationSyncRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
@@ -79,6 +81,7 @@ export default function GPSManager({
 
   useEffect(() => {
     autoUnlockConfirmationRef.current = 0;
+    lastAutoUnlockInRangeAtMsRef.current = 0;
   }, [currentPostIndex, showQuestion]);
 
   useEffect(() => {
@@ -91,6 +94,7 @@ export default function GPSManager({
     if (enabled) return;
 
     autoUnlockConfirmationRef.current = 0;
+    lastAutoUnlockInRangeAtMsRef.current = 0;
     lastAcceptedLocationRef.current = null;
     lastAcceptedAtMsRef.current = 0;
     lastLocationSyncRef.current = null;
@@ -115,9 +119,21 @@ export default function GPSManager({
       timeout: 30000,
     };
 
+    const resetAutoUnlockConfirmationIfGraceExpired = (nowMs: number) => {
+      if (
+        lastAutoUnlockInRangeAtMsRef.current > 0 &&
+        nowMs - lastAutoUnlockInRangeAtMsRef.current <= AUTO_UNLOCK_CONFIRMATION_GRACE_MS
+      ) {
+        return;
+      }
+
+      autoUnlockConfirmationRef.current = 0;
+    };
+
     const successHandler = async (position: GeolocationPosition) => {
       // Track that the watcher is alive (used by heartbeat)
       lastPositionTimestampRef.current = Date.now();
+      const nowMs = Date.now();
 
       const accuracy = getRoundedAccuracyMeters(position.coords.accuracy);
 
@@ -134,7 +150,7 @@ export default function GPSManager({
         : LIVE_TRACKING_MAX_ACCURACY_METERS;
 
       if (accuracy === null || accuracy > effectiveMaxAccuracy) {
-        autoUnlockConfirmationRef.current = 0;
+        resetAutoUnlockConfirmationIfGraceExpired(nowMs);
         return;
       }
 
@@ -170,7 +186,7 @@ export default function GPSManager({
         speedMetersPerSecond !== null &&
         speedMetersPerSecond > GPS_JUMP_FILTER_MAX_SPEED_METERS_PER_SECOND
       ) {
-        autoUnlockConfirmationRef.current = 0;
+        resetAutoUnlockConfirmationIfGraceExpired(nowMs);
         return;
       }
 
@@ -197,13 +213,15 @@ export default function GPSManager({
           !showQuestion &&
           dismissedPostIndex !== currentPostIndex
         ) {
+          lastAutoUnlockInRangeAtMsRef.current = nowMs;
           autoUnlockConfirmationRef.current += 1;
           if (autoUnlockConfirmationRef.current >= AUTO_UNLOCK_CONFIRMATION_HITS) {
             autoUnlockConfirmationRef.current = 0;
+            lastAutoUnlockInRangeAtMsRef.current = 0;
             onAutoUnlock();
           }
         } else {
-          autoUnlockConfirmationRef.current = 0;
+          resetAutoUnlockConfirmationIfGraceExpired(nowMs);
         }
 
         if (
@@ -214,20 +232,20 @@ export default function GPSManager({
           onDismissedReset();
         }
       } else {
-        autoUnlockConfirmationRef.current = 0;
+        resetAutoUnlockConfirmationIfGraceExpired(nowMs);
         onDistanceChange(null);
       }
 
-      const nowMs = Date.now();
+      const syncNowMs = Date.now();
       const lastLocationSync = lastLocationSyncRef.current;
       const waitedLongEnough =
-        !lastLocationSync || nowMs - lastLocationSync.at >= LOCATION_SYNC_INTERVAL_MS;
+        !lastLocationSync || syncNowMs - lastLocationSync.at >= LOCATION_SYNC_INTERVAL_MS;
       const movedFarEnoughToSync =
         !lastLocationSync ||
         getDistance(lastLocationSync.lat, lastLocationSync.lng, lat, lng) >=
           LOCATION_SYNC_DISTANCE_METERS;
       const canEarlySyncOnMovement =
-        Boolean(lastLocationSync) && nowMs - (lastLocationSync?.at ?? 0) >= MOVEMENT_SYNC_MIN_INTERVAL_MS;
+        Boolean(lastLocationSync) && syncNowMs - (lastLocationSync?.at ?? 0) >= MOVEMENT_SYNC_MIN_INTERVAL_MS;
       const shouldSyncLocation =
         !lastLocationSync ||
         waitedLongEnough ||
@@ -251,7 +269,7 @@ export default function GPSManager({
 
     const errorHandler = (error: GeolocationPositionError) => {
       console.error("GPS Error:", error);
-      autoUnlockConfirmationRef.current = 0;
+      resetAutoUnlockConfirmationIfGraceExpired(Date.now());
       onDistanceChange(null);
       onGpsErrorChange?.(true);
 

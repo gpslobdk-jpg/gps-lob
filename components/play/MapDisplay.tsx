@@ -181,6 +181,7 @@ export default function MapDisplay({
   onTargetClick,
 }: MapDisplayProps) {
   const [targetClickHint, setTargetClickHint] = useState<string | null>(null);
+  const lastTouchActivationAtRef = useRef(0);
   const targetIcon = useMemo(
     () => createTargetIcon(targetNumber, isNearTarget),
     [isNearTarget, targetNumber]
@@ -198,7 +199,16 @@ export default function MapDisplay({
     return DEFAULT_MAP_CENTER;
   }, [playerLocation, targetLocation]);
 
-  const handleTargetMarkerClick = useCallback(() => {
+  const handleTargetMarkerActivate = useCallback((source: "click" | "touchend") => {
+    const now = Date.now();
+    if (source === "click" && now - lastTouchActivationAtRef.current < 450) {
+      return;
+    }
+
+    if (source === "touchend") {
+      lastTouchActivationAtRef.current = now;
+    }
+
     if (canOpenTarget) {
       setTargetClickHint(null);
       onTargetClick?.();
@@ -266,7 +276,10 @@ export default function MapDisplay({
                 ? targetLabel || (targetNumber !== null ? `Post ${targetNumber}` : "Næste post")
                 : "Gå tættere på for at åbne posten"
             }
-            eventHandlers={{ click: handleTargetMarkerClick }}
+            eventHandlers={{
+              click: () => handleTargetMarkerActivate("click"),
+              touchend: () => handleTargetMarkerActivate("touchend"),
+            } as any}
           />
         ) : null}
 
