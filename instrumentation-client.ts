@@ -26,6 +26,11 @@ Sentry.init({
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: true,
+  // Ignore noisy Leaflet runtime errors reported from some browsers/clients
+  ignoreErrors: [
+    "undefined is not an object (evaluating 't._leaflet_pos')",
+    "Cannot read properties of undefined (reading '_leaflet_pos')",
+  ],
 });
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
