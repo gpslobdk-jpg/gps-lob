@@ -26,6 +26,8 @@ type GPSManagerProps = {
   onAutoUnlock: () => void;
   onDismissedReset: () => void;
   onSyncLocation: (lat: number, lng: number, accuracy: number | null) => Promise<void>;
+  onGpsErrorChange?: (hasError: boolean) => void;
+  restartNonce?: number;
 };
 
 type AcceptedGpsLocation = Location & {
@@ -62,6 +64,8 @@ export default function GPSManager({
   onAutoUnlock,
   onDismissedReset,
   onSyncLocation,
+  onGpsErrorChange,
+  restartNonce = 0,
 }: GPSManagerProps) {
   const targetLat = target?.lat ?? null;
   const targetLng = target?.lng ?? null;
@@ -78,6 +82,12 @@ export default function GPSManager({
   }, [currentPostIndex, showQuestion]);
 
   useEffect(() => {
+    if (!enabled) {
+      onGpsErrorChange?.(false);
+    }
+  }, [enabled, onGpsErrorChange]);
+
+  useEffect(() => {
     if (enabled) return;
 
     autoUnlockConfirmationRef.current = 0;
@@ -92,6 +102,8 @@ export default function GPSManager({
     }
 
     if (typeof navigator === "undefined" || !navigator.geolocation) {
+      onGpsErrorChange?.(true);
+      onDistanceChange(null);
       return;
     }
 
@@ -171,6 +183,7 @@ export default function GPSManager({
 
       lastAcceptedLocationRef.current = acceptedLocation;
       lastAcceptedAtMsRef.current = Date.now();
+  onGpsErrorChange?.(false);
       onLocationChange(acceptedLocation);
 
       if (targetLat !== null && targetLng !== null) {
@@ -240,6 +253,7 @@ export default function GPSManager({
       console.error("GPS Error:", error);
       autoUnlockConfirmationRef.current = 0;
       onDistanceChange(null);
+      onGpsErrorChange?.(true);
 
       if (error.code === error.PERMISSION_DENIED || error.code === 1) {
         return;
@@ -267,6 +281,7 @@ export default function GPSManager({
         );
       } catch (e) {
         console.warn("Failed to start geolocation watch:", e);
+        onGpsErrorChange?.(true);
       }
     };
 
@@ -339,12 +354,14 @@ export default function GPSManager({
     onAutoUnlock,
     onDismissedReset,
     onDistanceChange,
+    onGpsErrorChange,
     onLocationChange,
     onSyncLocation,
     showQuestion,
     targetLat,
     targetLng,
     autoUnlockRadius,
+    restartNonce,
   ]);
 
   return null;
