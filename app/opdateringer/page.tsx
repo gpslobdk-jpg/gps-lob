@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, KeyRound, LayoutDashboard, Leaf, Palette, Rocket, ShieldCheck, SmartphoneNfc, Sun, Sparkles, Wifi, WifiOff } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -8,166 +8,210 @@ export const metadata: Metadata = {
     "Følg med i de seneste forbedringer og opdateringer til GPSLØB-platformen.",
 };
 
-interface Entry {
+type ChangelogEntry = {
+  version: string;
   date: string;
+  type: "major" | "minor" | "fix";
   title: string;
-  tag: string;
-  showTitleIcon?: boolean;
-  intro?: string;
-  items: { icon: React.ReactNode; heading: string; body: string }[];
+  summary: string;
+  items: {
+    title: string;
+    description: string;
+  }[];
+};
+
+const TYPE_LABELS: Record<ChangelogEntry["type"], string> = {
+  major: "Stor udgivelse",
+  minor: "Opdatering",
+  fix: "Fejlrettelse",
+};
+
+const TYPE_LABEL_CLASSES: Record<ChangelogEntry["type"], string> = {
+  major: "text-amber-300",
+  minor: "text-cyan-300",
+  fix: "text-rose-300",
+};
+
+const TYPE_DOT_CLASSES: Record<ChangelogEntry["type"], string> = {
+  major: "bg-amber-300",
+  minor: "bg-cyan-300",
+  fix: "bg-rose-300",
+};
+
+function formatDisplayDate(isoDate: string) {
+  const [yearString, monthString, dayString] = isoDate.split("-");
+  const year = Number(yearString);
+  const month = Number(monthString);
+  const day = Number(dayString);
+
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return isoDate;
+  }
+
+  return new Intl.DateTimeFormat("da-DK", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(year, month - 1, day));
 }
 
-const entries: Entry[] = [
+const entries: ChangelogEntry[] = [
   {
-    date: "16. april 2026",
-    title: "GPSløb Version 2.0",
-    tag: "Stor udgivelse",
-    showTitleIcon: false,
-    intro: "Kære lærere. Tak for jeres store tålmodighed! Vi ved, at det kan være frustrerende at møde en lukket dør, når man har planlagt undervisning. Vi var desværre nødt til at lukke platformen midlertidigt ned, fordi vi skulle udskifte hele 'motoren' under systemet. Det var nødvendigt for at sikre, at GPSløb fremover er lynhurtigt, aldrig mister jeres data i skoven, og virker fejlfrit på alle telefoner. Nu er dørene åbne igen, og vi er utroligt stolte af at præsentere resultatet!",
+    version: "3.0",
+    date: "2026-04-27",
+    type: "major",
+    title: "GPSLØB Version 3.0",
+    summary: "Større forbedring af GPS-oplevelsen og nyt kort-interface.",
     items: [
       {
-        icon: <Palette className="h-4 w-4 text-emerald-400" />,
-        heading: "Nyt 'Nature-Glass' Design",
-        body: "En smukkere og mere flydende brugeroplevelse.",
+        title: "Mere præcis GPS",
+        description: "Glidende bevægelse og adaptiv smoothing giver mere stabile positioner.",
       },
       {
-        icon: <Sparkles className="h-4 w-4 text-amber-400" />,
-        heading: "Pædagogisk AI 2.0",
-        body: "Præcis differentiering til alle klassetrin (1.-9. klasse).",
+        title: "Mindre lag",
+        description: "Kortet føles hurtigere og mere responsivt i brug.",
       },
       {
-        icon: <WifiOff className="h-4 w-4 text-emerald-400" />,
-        heading: "Offline-Overlevelse",
-        body: "Appen gemmer data lokalt, hvis forbindelsen ryger i skoven.",
+        title: "Stabilitet uden signal",
+        description: "Dead reckoning hjælper, når GPS-signalet kortvarigt forsvinder.",
       },
       {
-        icon: <SmartphoneNfc className="h-4 w-4 text-emerald-400" />,
-        heading: "Apple & Safari Optimeret",
-        body: "Testet og sikret til iPhone-brugere.",
+        title: "Nyt kortvalg",
+        description: "Skift let mellem standardkort og satellitvisning.",
       },
       {
-        icon: <Leaf className="h-4 w-4 text-amber-400" />,
-        heading: "Fysisk Stjerneløb",
-        body: "Nu som selvstændigt værktøj til analoge løb.",
+        title: "Forbedret brugeroplevelse",
+        description: "Mere overskuelig UI og bedre interaktioner hele vejen rundt.",
       },
     ],
   },
   {
-    date: "13. april 2026",
-    title: "Opdatering 13. april: Selv-helende GPS-løb og øget stabilitet",
-    tag: "Ny opdatering",
-    showTitleIcon: false,
+    version: "2.5",
+    date: "2026-04-16",
+    type: "major",
+    title: "Platformgenstart og ny motor",
+    summary: "Platformen blev genopbygget med nyt design, bedre offline-adfærd og et stærkere AI-flow.",
     items: [
       {
-        icon: <Wifi className="h-4 w-4 text-emerald-400" />,
-        heading: "GPS-løb",
-        body: "Problemet med at skærmen sad fast på 'Indlæser mission' efter inaktivitet er løst. Systemet genopretter nu automatisk forbindelsen til løbet, selv hvis telefonen har været låst i et helt frikvarter.",
+        title: "Nyt Nature-Glass design",
+        description: "En smukkere og mere flydende brugeroplevelse.",
       },
       {
-        icon: <Sparkles className="h-4 w-4 text-amber-400" />,
-        heading: "Stabilitet",
-        body: "Vi har indbygget overvågning i koden, der fanger og advarer os om netværksudfald, så driften fremadrettet er endnu mere sikker.",
+        title: "Pædagogisk AI 2.0",
+        description: "Præcis differentiering til alle klassetrin (1.-9. klasse).",
+      },
+      {
+        title: "Offline-overlevelse",
+        description: "Appen gemmer data lokalt, hvis forbindelsen ryger i skoven.",
+      },
+      {
+        title: "Apple og Safari-optimering",
+        description: "Testet og sikret til iPhone-brugere.",
+      },
+      {
+        title: "Fysisk stjerneløb",
+        description: "Nu som selvstændigt værktøj til analoge løb.",
       },
     ],
   },
   {
-    date: "12. april 2026",
-    title: "Midt-April",
-    tag: "Ny opdatering",
-    showTitleIcon: false,
+    version: "2.4",
+    date: "2026-04-13",
+    type: "minor",
+    title: "Selv-heling og stabilitet",
+    summary: "GPS-løbet genopretter nu forbindelsen automatisk efter inaktivitet.",
     items: [
       {
-        icon: <Wifi className="h-4 w-4 text-emerald-400" />,
-        heading: "Skarpere GPS-præcision på ruten",
-        body: "Elevens position (GPS-'prikken') opdaterer nu hurtigere og med langt større præcision ude i terrænet.",
+        title: "GPS-løb",
+        description: "Skærmen hænger ikke længere fast på indlæsningsstatus efter inaktivitet.",
       },
       {
-        icon: <LayoutDashboard className="h-4 w-4 text-emerald-400" />,
-        heading: "Fotoløb er nu lynhurtigt (og live!)",
-        body: "Den automatiske AI-vurdering er fjernet. Billeder lander nu øjeblikkeligt i lærerens fotostrøm på live-dashboardet, og eleverne kan løbe videre med det samme.",
-      },
-      {
-        icon: <Sparkles className="h-4 w-4 text-amber-400" />,
-        heading: "Kæmpe designløft til alle Byggere",
-        body: "Quiz-byggerne har fået et moderne look med dedikerede indstillingskort, og AI-assistenten har fået et flot nyt 'Review & Confirm'-flow.",
+        title: "Stabilitet",
+        description: "Overvågning fanger netværksudfald og hjælper driften videre.",
       },
     ],
   },
   {
-    date: "10. april 2026",
-    title: "Kritisk driftsstatus: GPS-stabilitet genoprettet",
-    tag: "Driftsstatus",
+    version: "2.3",
+    date: "2026-04-12",
+    type: "minor",
+    title: "GPS-præcision og builder-løft",
+    summary: "Positionerne blev skarpere, fotoløbet hurtigere og byggerne fik et moderniseret udtryk.",
     items: [
       {
-        icon: <Wifi className="h-4 w-4 text-emerald-400" />,
-        heading: "Driftsmeddelelse",
-        body: "Vi har her til morgen udrullet et akut hotfix. En teknisk fejl i vores synkroniserings-motor kunne under visse omstændigheder skabe et forbindelses-loop, der fik spillet til at fryse for nogle brugere. Vi har rullet de berørte funktioner tilbage, og systemet kører nu igen med 100% stabilitet. Vi beklager de gener, det har givet i skolegården!",
+        title: "Skarpere GPS-præcision",
+        description: "Elevens position opdaterer hurtigere og mere præcist ude i terrænet.",
+      },
+      {
+        title: "Fotoløb er nu lynhurtigt",
+        description: "Billeder lander direkte i lærerens live-stream, så eleverne kan løbe videre.",
+      },
+      {
+        title: "Kæmpe designløft til alle byggere",
+        description: "Moderne settings-kort og et mere strømlinet AI-reviewflow.",
       },
     ],
   },
   {
-    date: "9. april 2026",
-    title: "Bedre håndtering af GPS og efternølere",
-    tag: "Ny opdatering",
+    version: "2.2",
+    date: "2026-04-10",
+    type: "fix",
+    title: "Driftsstatus: akut hotfix",
+    summary: "Et forbindelses-loop blev rettet, og den stabile drift blev genoprettet.",
     items: [
       {
-        icon: <KeyRound className="h-4 w-4 text-emerald-400" />,
-        heading: "Slut med pinkode-bøvl",
-        body: "Fejlen, der blokerede for det 6. ciffer i pinkoden på forsiden, er nu rettet. Indtastning spiller nu 100% på alle enheder.",
-      },
-      {
-        icon: <Wifi className="h-4 w-4 text-emerald-400" />,
-        heading: "Manuel GPS-opdatering",
-        body: "Vi har tilføjet en 'Prøv igen'-knap til de elever, hvor telefonen er langsom til at fange lokationen. Det tvinger browseren til at søge på ny.",
-      },
-      {
-        icon: <LayoutDashboard className="h-4 w-4 text-amber-400" />,
-        heading: "Hjælp til forsinkede elever",
-        body: "QR-koden lukker ikke længere automatisk ved start. Læreren har nu altid adgang til pinkode og QR-kode direkte fra toppen af live-dashboardet.",
-      },
-      {
-        icon: <Sparkles className="h-4 w-4 text-amber-400" />,
-        heading: "Smartere navigation",
-        body: "Klik på en markør på kortet i editoren for at hoppe direkte til det tilhørende spørgsmål.",
+        title: "Driftsmeddelelse",
+        description: "Berørte funktioner blev rullet tilbage, og stabiliteten blev genskabt.",
       },
     ],
   },
   {
-    date: "9. april 2026",
-    title: "Markant bedre spilflow og vigtige fejlrettelser",
-    tag: "Ny opdatering",
+    version: "2.1",
+    date: "2026-04-09",
+    type: "minor",
+    title: "Adgang, GPS og navigation",
+    summary: "Bedre pinkode-flow, hurtigere GPS-genfinding og tydeligere adgang til live-data.",
     items: [
       {
-        icon: <Wifi className="h-4 w-4 text-emerald-400" />,
-        heading: "Stødsikker elev-app",
-        body: "Vi har fjernet tekniske fejlbeskeder og indført en kortvarig 'lås' på svarknappen (\"Sender svar...\"). Det sikrer, at eleverne oplever et glidende flow uden afbrydelser, selv hvis netværket driller i skolegården.",
+        title: "Slut med pinkode-bøvl",
+        description: "Det 6. ciffer virker nu på alle enheder.",
       },
       {
-        icon: <Sparkles className="h-4 w-4 text-amber-400" />,
-        heading: "AI-assistent opdateret",
-        body: "Fejlen, hvor dropdown-menuen til 'Klassetrin' gemte sig bag andre elementer, er nu løst på tværs af alle opret-sider (Dansk, Matematik, Engelsk og Stjerneløb).",
+        title: "Manuel GPS-opdatering",
+        description: "Prøv igen-knappen tvinger browseren til at søge efter lokation på ny.",
+      },
+      {
+        title: "Forsinkede elever kan følge med",
+        description: "QR-kode og pinkode er altid synlige i live-dashboardet.",
+      },
+      {
+        title: "Smartere navigation",
+        description: "Klik på en markør for at hoppe direkte til den tilhørende post.",
+      },
+      {
+        title: "AI-assistenten spiller bedre",
+        description: "Klassetrinsmenuen ligger ikke længere bag andre overlays.",
       },
     ],
   },
   {
-    date: "7. april 2026",
-    title: "Stabilt, overskueligt og klar til forårssolen",
-    tag: "Ny opdatering",
+    version: "2.0",
+    date: "2026-04-07",
+    type: "minor",
+    title: "Stabilt forårsflow",
+    summary: "Løbet blev mere robust, overskueligt og bedre at bruge i stærkt lys.",
     items: [
       {
-        icon: <Wifi className="h-4 w-4 text-emerald-400" />,
-        heading: "Elever mister ikke længere forbindelsen",
-        body: "Vi har bygget et helt nyt sikkerhedsnet under løbet. Hvis en elevs telefon mister nettet bag en bygning, går systemet ikke længere i panik. Forbindelsen genoprettes nu usynligt i baggrunden, og eleverne kan roligt spille videre uden at miste deres fremskridt.",
+        title: "Elever mister ikke længere forbindelsen",
+        description: "Baggrundsgenopretning hjælper, når netværket bliver ustabilt.",
       },
       {
-        icon: <LayoutDashboard className="h-4 w-4 text-emerald-400" />,
-        heading: "Nyt, lyst dashboard til lærere",
-        body: "Lærernes kontroltårn er blevet redesignet. Kortene er nu lyse, posterne er firkantede og tydelige, og elevernes markører popper i orange. Det giver et lynhurtigt og professionelt overblik, mens løbet er i gang.",
+        title: "Nyt, lyst dashboard til lærere",
+        description: "Tydeligere kort, poster og elever giver hurtigere overblik.",
       },
       {
-        icon: <Sun className="h-4 w-4 text-amber-400" />,
-        heading: "Outdoor Mode — klar til undervisning i solen",
-        body: "Når eleverne løber udendørs i direkte sollys, kan en mørk mobilskærm være næsten umulig at aflæse. Vi har derfor fjernet gennemsigtige paneler, gjort svarknapperne skarpe og skruet op for kontrasten over hele linjen. Skærmen er nu nem at aflæse, selv når forårssolen bager.",
+        title: "Outdoor mode",
+        description: "Højere kontrast og mindre gennemsigtighed gør skærmen lettere at aflæse i solen.",
       },
     ],
   },
@@ -202,53 +246,53 @@ export default function OpdateringerPage() {
           <div className="absolute top-0 left-2.75 h-full w-px bg-slate-800" />
 
           <div className="space-y-12">
-            {entries.map((entry, i) => (
-              <div key={i} className="relative pl-9">
-                <div className="absolute top-1 left-0 flex h-5.75 w-5.75 items-center justify-center rounded-full border-2 border-emerald-500 bg-slate-950">
-                  <div className="h-2 w-2 rounded-full bg-emerald-400" />
+            {entries.map((entry) => (
+              <article key={entry.version} className="relative pl-9">
+                <div className="absolute top-1 left-0 flex h-5.75 w-5.75 items-center justify-center rounded-full border-2 border-slate-800 bg-slate-950">
+                  <div className={`h-2.5 w-2.5 rounded-full ${TYPE_DOT_CLASSES[entry.type]}`} />
                 </div>
 
                 <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-lg">
-                  <div className="mb-4 flex flex-wrap items-center gap-3">
-                    <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400">
-                      {entry.tag}
-                    </span>
-                    <time className="text-xs text-slate-500">{entry.date}</time>
-                  </div>
-
-                  <h2 className="mb-5 text-lg font-bold leading-snug text-white">
-                    {entry.showTitleIcon === false ? entry.title : `✨ ${entry.title}`}
-                  </h2>
-
-                  {entry.intro ? (
-                    <p className="mb-6 text-sm leading-7 text-slate-400">
-                      {entry.intro}
+                  <header className="mb-5">
+                    <p className="text-sm font-semibold tracking-wide text-cyan-300/90">
+                      🚀 Version {entry.version}
                     </p>
-                  ) : null}
+                    <p className={`mt-1 text-xs font-medium uppercase tracking-[0.18em] ${TYPE_LABEL_CLASSES[entry.type]}`}>
+                      {TYPE_LABELS[entry.type]} · {formatDisplayDate(entry.date)}
+                    </p>
+                    <h2 className="mt-4 text-lg font-bold leading-snug text-white">
+                      {entry.title}
+                    </h2>
+                  </header>
 
-                  <ul className="space-y-5">
-                    {entry.items.map((item, j) => (
-                      <li key={j} className="flex gap-3">
-                        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-700 bg-slate-800">
-                          {item.icon}
-                        </div>
-                        <div>
-                          <p className="mb-1 text-sm font-semibold text-slate-100">
-                            {item.heading}
+                  <p className="mb-6 text-sm leading-7 text-slate-400">
+                    {entry.summary}
+                  </p>
+
+                  <ul className="space-y-3">
+                    {entry.items.map((item) => (
+                      <li
+                        key={item.title}
+                        className="flex gap-3 rounded-xl border border-slate-800/70 bg-slate-950/20 p-4"
+                      >
+                        <div className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${TYPE_DOT_CLASSES[entry.type]}`} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-100">
+                            {item.title}
                           </p>
-                          <p className="text-sm leading-6 text-slate-400">
-                            {item.body}
+                          <p className="mt-1 text-sm leading-6 text-slate-400">
+                            {item.description}
                           </p>
                         </div>
                       </li>
                     ))}
                   </ul>
 
-                  <p className="mt-6 text-right text-xs text-slate-600 italic">
+                  <p className="mt-6 text-right text-xs italic text-slate-600">
                     — Holdet bag GPSLØB
                   </p>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         </div>
