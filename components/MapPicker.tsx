@@ -2,10 +2,11 @@
 
 import "leaflet/dist/leaflet.css";
 
-import { Crosshair, MapPin, Search } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Check, ChevronUp, Crosshair, Layers, MapPin, Search } from "lucide-react";
 import L from "leaflet";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import { Circle, LayersControl, MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { Circle, MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 
 import { createZoneKrigMarkerIcon } from "@/components/play/zoneMarkerHelper";
 
@@ -51,12 +52,44 @@ type FocusRequest = {
 
 type GeolocationState = "idle" | "locating" | "unsupported" | "permission_denied" | "position_unavailable" | "timeout";
 
+type BaseLayerId = "standard" | "satellite";
+
+type BaseLayerOption = {
+  id: BaseLayerId;
+  label: string;
+  description: string;
+  url: string;
+  attribution: string;
+  previewBackground: string;
+  previewAccentClassName: string;
+};
+
 const DEFAULT_SEARCH_ZOOM = 15;
 const DEFAULT_GEOLOCATION_ZOOM = 17;
 const OSM_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 const SATELLITE_TILE_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const SATELLITE_ATTRIBUTION = "Tiles &copy; Esri - Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community";
+const MAP_LAYER_OPTIONS: BaseLayerOption[] = [
+  {
+    id: "standard",
+    label: "Standardkort",
+    description: "Klart kort med veje og byer",
+    url: OSM_TILE_URL,
+    attribution: OSM_ATTRIBUTION,
+    previewBackground: "linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(226, 232, 240, 0.92))",
+    previewAccentClassName: "bg-cyan-400/85",
+  },
+  {
+    id: "satellite",
+    label: "Satellit",
+    description: "Fotolag med detaljer fra luften",
+    url: SATELLITE_TILE_URL,
+    attribution: SATELLITE_ATTRIBUTION,
+    previewBackground: "linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(51, 65, 85, 0.92))",
+    previewAccentClassName: "bg-emerald-400/85",
+  },
+];
 const GEOLOCATION_OPTIONS: PositionOptions = {
   enableHighAccuracy: true,
   maximumAge: 0,
@@ -167,6 +200,24 @@ function MapClickReporter({
   return null;
 }
 
+function LayerPanelCloser({ onClose }: { onClose: () => void }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const handleMapClick = () => {
+      onClose();
+    };
+
+    map.on("click", handleMapClick);
+
+    return () => {
+      map.off("click", handleMapClick);
+    };
+  }, [map, onClose]);
+
+  return null;
+}
+
 function numberedPinIcon(number: number, isDraggable = false) {
   return L.divIcon({
     className: "",
@@ -194,6 +245,8 @@ export default function MapPicker({
   const [isSearching, setIsSearching] = useState(false);
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
   const [geolocationState, setGeolocationState] = useState<GeolocationState>("idle");
+  const [selectedBaseLayerId, setSelectedBaseLayerId] = useState<BaseLayerId>("standard");
+  const [isLayerPanelOpen, setIsLayerPanelOpen] = useState(false);
   const focusRequestIdRef = useRef(0);
   const initialCenterRef = useRef<MapCenter>(center);
   const hasAutoLocateAttemptedRef = useRef(false);
@@ -201,11 +254,21 @@ export default function MapPicker({
   const geolocationRequestIdRef = useRef(0);
   const canDragPins = typeof onPinDragEnd === "function";
   const showPinDragHint = canDragPins && pins.length > 0 && !isAwaitingMapClick;
+  const activeBaseLayer = MAP_LAYER_OPTIONS.find((layer) => layer.id === selectedBaseLayerId) ?? MAP_LAYER_OPTIONS[0];
 
   const queueFocus = useCallback((coords: [number, number], zoom?: number) => {
     focusRequestIdRef.current += 1;
     setFocusRequest({ id: focusRequestIdRef.current, coords, zoom });
   }, []);
+
+  const closeLayerPanel = useCallback(() => {
+    setIsLayerPanelOpen(false);
+  }, []);
+
+  const selectBaseLayer = useCallback((layerId: BaseLayerId) => {
+    setSelectedBaseLayerId(layerId);
+    closeLayerPanel();
+  }, [closeLayerPanel]);
 
   const locateUser = useCallback(
     (source: "auto" | "manual") => {
@@ -396,20 +459,110 @@ export default function MapPicker({
         ) : null}
       </div>
 
+      <div className="pointer-events-none absolute bottom-4 left-4 z-1000 flex flex-col items-start gap-3">
+        <div className="pointer-events-auto relative">
+          <AnimatePresence>
+            {isLayerPanelOpen ? (
+              <motion.div
+                id="map-layer-panel"
+                key="map-layer-panel"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                transition={{ duration: 0.15 }}
+                className="absolute bottom-full left-0 mb-3 w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-[20px] border border-white/10 bg-slate-950/92 p-3 shadow-[0_20px_45px_rgba(0,0,0,0.28)] backdrop-blur-xl"
+              >
+                <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100/60">
+                  Vælg korttype
+                </div>
+
+                <div className="space-y-2">
+                  {MAP_LAYER_OPTIONS.map((layer) => {
+                    const isActive = layer.id === selectedBaseLayerId;
+
+                    return (
+                      <button
+                        key={layer.id}
+                        type="button"
+                        onClick={() => selectBaseLayer(layer.id)}
+                        aria-pressed={isActive}
+                        className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition ${
+                          isActive
+                            ? "border-emerald-300/35 bg-emerald-500/14 text-white shadow-[0_0_0_1px_rgba(110,231,183,0.12)]"
+                            : "border-white/10 bg-white/5 text-slate-100/90 hover:border-white/15 hover:bg-white/10"
+                        }`}
+                      >
+                        <div
+                          className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border ${
+                            isActive ? "border-emerald-200/60" : "border-white/10"
+                          }`}
+                          style={{ backgroundImage: layer.previewBackground }}
+                        >
+                          <div
+                            className="absolute inset-0 opacity-70"
+                            style={{
+                              backgroundImage:
+                                "linear-gradient(rgba(255,255,255,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.18) 1px, transparent 1px)",
+                              backgroundSize: "11px 11px",
+                            }}
+                          />
+                          <div className={`absolute right-1 top-1 h-2.5 w-2.5 rounded-full ${layer.previewAccentClassName}`} />
+                          <div className={`absolute inset-x-2 bottom-2 h-1.5 rounded-full ${isActive ? "bg-emerald-300" : "bg-white/20"}`} />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`truncate text-sm ${isActive ? "font-bold" : "font-semibold"}`}>{layer.label}</span>
+                            {isActive ? (
+                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-400/15 text-emerald-200">
+                                <Check className="h-3.5 w-3.5" />
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className={`mt-0.5 text-xs leading-5 ${isActive ? "text-white/80" : "text-slate-300/70"}`}>
+                            {layer.description}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+
+          <button
+            type="button"
+            onClick={() => setIsLayerPanelOpen((open) => !open)}
+            className="inline-flex min-h-12 items-center gap-3 rounded-[18px] border border-cyan-300/35 bg-slate-950/82 px-4 py-3 text-left text-cyan-50 shadow-[0_16px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl transition hover:bg-slate-900/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
+            aria-expanded={isLayerPanelOpen}
+            aria-controls="map-layer-panel"
+            aria-label="Vælg korttype"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-2xl bg-cyan-300/10 text-cyan-100 shadow-inner shadow-cyan-950/20">
+              <Layers className="h-4 w-4" />
+            </span>
+
+            <span className="min-w-0 flex flex-col items-start leading-tight">
+              <span className="text-sm font-semibold">Kortlag</span>
+              <span className="truncate text-[11px] font-medium uppercase tracking-[0.18em] text-cyan-50/68">
+                {activeBaseLayer.label}
+              </span>
+            </span>
+
+            <ChevronUp className={`ml-1 h-4 w-4 shrink-0 text-cyan-50/72 transition ${isLayerPanelOpen ? "rotate-180" : ""}`} />
+          </button>
+        </div>
+      </div>
+
       <MapContainer
         center={[center.lat, center.lng]}
         zoom={15}
         className={`h-full w-full ${isAwaitingMapClick ? "cursor-crosshair" : ""}`}
         zoomControl
       >
-        <LayersControl position="topright">
-          <LayersControl.BaseLayer checked name="Standardkort">
-            <TileLayer attribution={OSM_ATTRIBUTION} url={OSM_TILE_URL} />
-          </LayersControl.BaseLayer>
-          <LayersControl.BaseLayer name="Satellit">
-            <TileLayer attribution={SATELLITE_ATTRIBUTION} url={SATELLITE_TILE_URL} />
-          </LayersControl.BaseLayer>
-        </LayersControl>
+        <LayerPanelCloser onClose={closeLayerPanel} />
+        <TileLayer attribution={activeBaseLayer.attribution} url={activeBaseLayer.url} />
         <CenterReporter onCenterChange={onCenterChange} />
         <ExternalCenterController center={center} />
         <FocusController request={focusRequest} />
