@@ -53,22 +53,6 @@ function getMeasurementTimestampMs(rawTimestamp: number) {
   return Number.isFinite(rawTimestamp) && rawTimestamp > 0 ? rawTimestamp : Date.now();
 }
 
-function lerp(a: number, b: number, t: number) {
-  return a + (b - a) * t;
-}
-
-function smoothLocation(
-  prev: AcceptedGpsLocation,
-  next: AcceptedGpsLocation,
-  factor: number
-): AcceptedGpsLocation {
-  return {
-    ...next,
-    lat: lerp(prev.lat, next.lat, factor),
-    lng: lerp(prev.lng, next.lng, factor),
-  };
-}
-
 function calculateDistanceMeters(prev: AcceptedGpsLocation, next: AcceptedGpsLocation) {
   return getDistance(prev.lat, prev.lng, next.lat, next.lng);
 }
@@ -95,6 +79,8 @@ export default function GPSManager({
   const lastAcceptedLocationRef = useRef<AcceptedGpsLocation | null>(null);
   const lastAcceptedAtMsRef = useRef(0);
   const displayLocationRef = useRef<AcceptedGpsLocation | null>(null);
+  const targetLocationRef = useRef<AcceptedGpsLocation | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
   const lastLocationSyncRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
   const isLocationSyncInFlightRef = useRef(false);
   const lastPositionTimestampRef = useRef(0);
@@ -109,6 +95,7 @@ export default function GPSManager({
     if (!enabled) {
       onGpsErrorChange?.(false);
       displayLocationRef.current = null;
+      targetLocationRef.current = null;
     }
   }, [enabled, onGpsErrorChange]);
 
@@ -150,6 +137,38 @@ export default function GPSManager({
       }
 
       autoUnlockConfirmationRef.current = 0;
+    };
+
+    const animate = () => {
+      if (!displayLocationRef.current || !targetLocationRef.current) {
+        animationFrameRef.current = null;
+        return;
+      }
+
+      const current = displayLocationRef.current;
+      const target = targetLocationRef.current;
+
+      const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+      const distanceMeters = calculateDistanceMeters(current, target);
+
+      const factor = Math.min(0.5, Math.max(0.15, distanceMeters / 30));
+
+      const next = {
+        ...target,
+        lat: lerp(current.lat, target.lat, factor),
+        lng: lerp(current.lng, target.lng, factor),
+      };
+
+      if (distanceMeters > 0.5) {
+        displayLocationRef.current = next;
+        onLocationChange(next);
+        animationFrameRef.current = requestAnimationFrame(animate);
+      } else {
+        displayLocationRef.current = target;
+        onLocationChange(target);
+        animationFrameRef.current = null;
+      }
     };
 
     const successHandler = async (position: GeolocationPosition) => {
@@ -221,25 +240,20 @@ export default function GPSManager({
 
       lastAcceptedLocationRef.current = acceptedLocation;
       lastAcceptedAtMsRef.current = Date.now();
-  onGpsErrorChange?.(false);
-
-      let displayLocation = acceptedLocation;
+      onGpsErrorChange?.(false);
 
       if (!displayLocationRef.current) {
         displayLocationRef.current = acceptedLocation;
+        targetLocationRef.current = acceptedLocation;
         onLocationChange(acceptedLocation);
         return;
       }
 
-      if (displayLocationRef.current) {
-        const prev = displayLocationRef.current;
-        const distanceMeters = calculateDistanceMeters(prev, acceptedLocation);
-        const factor = Math.min(0.4, Math.max(0.1, distanceMeters / 50));
-        displayLocation = smoothLocation(prev, acceptedLocation, factor);
-      }
+      targetLocationRef.current = acceptedLocation;
 
-      displayLocationRef.current = displayLocation;
-      onLocationChange(displayLocation);
+      if (!animationFrameRef.current) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+      }
 
       if (targetLat !== null && targetLng !== null) {
         const nextDistance = getDistance(lat, lng, targetLat, targetLng);
@@ -396,6 +410,10 @@ export default function GPSManager({
     window.addEventListener("pageshow", handlePageShow);
 
     return () => {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
       clearInterval(heartbeatId);
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
