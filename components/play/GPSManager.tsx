@@ -53,6 +53,17 @@ function getMeasurementTimestampMs(rawTimestamp: number) {
   return Number.isFinite(rawTimestamp) && rawTimestamp > 0 ? rawTimestamp : Date.now();
 }
 
+const toMeters = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+  const R = 6371000;
+  const x = (lng2 - lng1) * Math.cos(((lat1 + lat2) / 2) * Math.PI / 180);
+  const y = lat2 - lat1;
+  return Math.sqrt(x * x + y * y) * Math.PI / 180 * R;
+};
+
+const metersToLat = (m: number) => (m / 6371000) * (180 / Math.PI);
+
+const metersToLng = (m: number, lat: number) => (m / (6371000 * Math.cos(lat * Math.PI / 180))) * (180 / Math.PI);
+
 function calculateDistanceMeters(prev: AcceptedGpsLocation, next: AcceptedGpsLocation) {
   return getDistance(prev.lat, prev.lng, next.lat, next.lng);
 }
@@ -78,8 +89,11 @@ export default function GPSManager({
   const lastAutoUnlockInRangeAtMsRef = useRef(0);
   const lastAcceptedLocationRef = useRef<AcceptedGpsLocation | null>(null);
   const lastAcceptedAtMsRef = useRef(0);
+  const lastAcceptedRef = useRef<AcceptedGpsLocation | null>(null);
+  const lastAcceptedAtRef = useRef<number>(0);
   const displayLocationRef = useRef<AcceptedGpsLocation | null>(null);
   const targetLocationRef = useRef<AcceptedGpsLocation | null>(null);
+  const velocityRef = useRef<{ vx: number; vy: number } | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const lastLocationSyncRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
   const isLocationSyncInFlightRef = useRef(false);
@@ -96,6 +110,7 @@ export default function GPSManager({
       onGpsErrorChange?.(false);
       displayLocationRef.current = null;
       targetLocationRef.current = null;
+      velocityRef.current = null;
     }
   }, [enabled, onGpsErrorChange]);
 
@@ -106,6 +121,9 @@ export default function GPSManager({
     lastAutoUnlockInRangeAtMsRef.current = 0;
     lastAcceptedLocationRef.current = null;
     lastAcceptedAtMsRef.current = 0;
+    lastAcceptedRef.current = null;
+    lastAcceptedAtRef.current = 0;
+    velocityRef.current = null;
     lastLocationSyncRef.current = null;
   }, [enabled]);
 
@@ -148,17 +166,49 @@ export default function GPSManager({
       const current = displayLocationRef.current;
       const target = targetLocationRef.current;
 
-      const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-
       const distanceMeters = calculateDistanceMeters(current, target);
 
-      const factor = Math.min(0.5, Math.max(0.15, distanceMeters / 30));
+      const speed = velocityRef.current
+        ? Math.sqrt(velocityRef.current.vx ** 2 + velocityRef.current.vy ** 2)
+        : 0;
+      const predictionActive = speed > 0.5;
+
+      const base = Math.min(0.5, Math.max(0.15, distanceMeters / 30));
+      const speedBoost = Math.min(0.25, speed / 10);
+      const factor = Math.min(0.6, base + speedBoost);
+
+      let predicted = target;
+
+      if (velocityRef.current) {
+        const lookaheadSec = Math.min(0.6, Math.max(0.1, speed / 5));
+        const dxm = velocityRef.current.vx * lookaheadSec;
+        const dym = velocityRef.current.vy * lookaheadSec;
+
+        predicted = {
+          ...target,
+          lat: target.lat + metersToLat(dym),
+          lng: target.lng + metersToLng(dxm, target.lat),
+        };
+      }
+
+      const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
       const next = {
-        ...target,
-        lat: lerp(current.lat, target.lat, factor),
-        lng: lerp(current.lng, target.lng, factor),
+        ...predicted,
+        lat: lerp(current.lat, predicted.lat, factor),
+        lng: lerp(current.lng, predicted.lng, factor),
       };
+
+      const msSinceLast = Date.now() - lastAcceptedAtRef.current;
+
+      if (msSinceLast > 1200 && velocityRef.current && !predictionActive) {
+        const dt = Math.min(1.0, msSinceLast / 1000);
+        const dxm = velocityRef.current.vx * dt;
+        const dym = velocityRef.current.vy * dt;
+
+        next.lat += metersToLat(dym);
+        next.lng += metersToLng(dxm, next.lat);
+      }
 
       if (distanceMeters > 0.5) {
         displayLocationRef.current = next;
@@ -238,18 +288,41 @@ export default function GPSManager({
         timestampMs,
       };
 
+      const acceptedNow = Date.now();
+
+      if (lastAcceptedRef.current) {
+        const prev = lastAcceptedRef.current;
+        const dt = Math.max(0.016, (acceptedNow - lastAcceptedAtRef.current) / 1000);
+        const dx = toMeters(prev.lat, prev.lng, acceptedLocation.lat, acceptedLocation.lng);
+        const bearingX = acceptedLocation.lng - prev.lng;
+        const bearingY = acceptedLocation.lat - prev.lat;
+
+        const len = Math.sqrt(bearingX * bearingX + bearingY * bearingY) || 1;
+        const dirX = bearingX / len;
+        const dirY = bearingY / len;
+
+        const speed = dx / dt;
+
+        velocityRef.current = {
+          vx: dirX * speed,
+          vy: dirY * speed,
+        };
+      }
+
+      lastAcceptedRef.current = acceptedLocation;
+      lastAcceptedAtRef.current = acceptedNow;
+
       lastAcceptedLocationRef.current = acceptedLocation;
-      lastAcceptedAtMsRef.current = Date.now();
+      lastAcceptedAtMsRef.current = acceptedNow;
       onGpsErrorChange?.(false);
+
+      targetLocationRef.current = acceptedLocation;
 
       if (!displayLocationRef.current) {
         displayLocationRef.current = acceptedLocation;
-        targetLocationRef.current = acceptedLocation;
         onLocationChange(acceptedLocation);
         return;
       }
-
-      targetLocationRef.current = acceptedLocation;
 
       if (!animationFrameRef.current) {
         animationFrameRef.current = requestAnimationFrame(animate);
@@ -414,6 +487,7 @@ export default function GPSManager({
         cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = null;
       }
+      velocityRef.current = null;
       clearInterval(heartbeatId);
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
