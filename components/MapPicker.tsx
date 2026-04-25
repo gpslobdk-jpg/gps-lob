@@ -210,6 +210,10 @@ export default function MapPicker({
         return;
       }
 
+      if (source === "manual") {
+        hasExternalCenterOverrideRef.current = true;
+      }
+
       geolocationRequestIdRef.current += 1;
       const requestId = geolocationRequestIdRef.current;
       setGeolocationState("locating");
@@ -218,16 +222,24 @@ export default function MapPicker({
         (position) => {
           if (geolocationRequestIdRef.current !== requestId) return;
 
+          const nextCenter: MapCenter = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+
           if (source === "auto" && hasExternalCenterOverrideRef.current) {
             setGeolocationState("idle");
             return;
           }
 
           setGeolocationState("idle");
-          queueFocus(
-            [position.coords.latitude, position.coords.longitude],
-            DEFAULT_GEOLOCATION_ZOOM
-          );
+
+          if (source === "manual" && onCenterChange) {
+            onCenterChange(nextCenter);
+            return;
+          }
+
+          queueFocus([nextCenter.lat, nextCenter.lng], DEFAULT_GEOLOCATION_ZOOM);
         },
         (error) => {
           if (geolocationRequestIdRef.current !== requestId) return;
@@ -247,7 +259,7 @@ export default function MapPicker({
         GEOLOCATION_OPTIONS
       );
     },
-    [queueFocus]
+    [onCenterChange, queueFocus]
   );
 
   useEffect(() => {
