@@ -11,6 +11,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import AIChatButton from "@/components/AIChatButton";
 import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
 import QRScannerModal from "@/components/QRScannerModal";
+import { changelogEntries } from "@/lib/changelog";
 import natureAnimation from "@/public/nature.json";
 
 // WelcomeModal removed — onboarding flow deprecated
@@ -32,6 +33,24 @@ type ZenBubble = {
 };
 
 const JOIN_PIN_LENGTH = 6;
+const latest = changelogEntries[0];
+
+function formatDisplayDate(isoDate: string) {
+  const [yearString, monthString, dayString] = isoDate.split("-");
+  const year = Number(yearString);
+  const month = Number(monthString);
+  const day = Number(dayString);
+
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return isoDate;
+  }
+
+  return new Intl.DateTimeFormat("da-DK", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(year, month - 1, day));
+}
 
 const zenBubbles: ZenBubble[] = [
   {
@@ -185,7 +204,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
         {zenBubbles.map((bubble, index) => (
           <motion.div
             key={bubble.name}
-            className={`absolute max-w-[200px] bg-transparent p-4 ${bubble.position}`}
+            className={`absolute max-w-50 bg-transparent p-4 ${bubble.position}`}
             animate={shouldReduceMotion ? undefined : bubble.animation}
             transition={
               shouldReduceMotion
@@ -383,7 +402,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
             <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
               <Link
                 href="/gdpr"
-                className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 transition-all hover:border-white/20 hover:bg-white/5"
+                className="rounded-full border border-white/10 bg-white/4 px-3 py-2 transition-all hover:border-white/20 hover:bg-white/5"
               >
                 <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
                   <ShieldCheck className="h-3.5 w-3.5 text-emerald-300/80" />
@@ -393,7 +412,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
 
               <Link
                 href="/privacy"
-                className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 transition-all hover:border-white/20 hover:bg-white/5"
+                className="rounded-full border border-white/10 bg-white/4 px-3 py-2 transition-all hover:border-white/20 hover:bg-white/5"
               >
                 <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
                   <Lock className="h-3.5 w-3.5 text-emerald-300/80" />
@@ -403,7 +422,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
 
               <Link
                 href="/ophavsret"
-                className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 transition-all hover:border-white/20 hover:bg-white/5"
+                className="rounded-full border border-white/10 bg-white/4 px-3 py-2 transition-all hover:border-white/20 hover:bg-white/5"
               >
                 <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
                   <FileCheck className="h-3.5 w-3.5 text-emerald-300/80" />
@@ -413,18 +432,27 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
 
               <Link
                 href="/opdateringer"
-                className="relative rounded-full border border-amber-400/20 bg-amber-400/6 px-3 py-2 transition-all hover:border-amber-400/30 hover:bg-amber-400/10"
+                className="group relative block rounded-3xl border border-amber-400/20 bg-amber-400/6 px-4 py-3 transition-all hover:border-amber-400/30 hover:bg-amber-400/10"
               >
-                <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-amber-300/80 uppercase sm:text-xs">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-                  <span>SENESTE NYT</span>
-                </span>
-                <span className="pointer-events-none absolute -top-2 -right-2 inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-semibold tracking-[0.08em] text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.18)] backdrop-blur-md sm:text-[10px]">
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full bg-emerald-400 ${shouldReduceMotion ? "" : "animate-pulse"}`}
-                  />
-                  <span>16. april</span>
-                </span>
+                <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.22em] text-amber-200/70 uppercase sm:text-[11px]">
+                  <span className="h-2 w-2 rounded-full bg-amber-300/90" />
+                  <span>Seneste opdatering</span>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-amber-300/20 bg-amber-300/10 text-amber-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                    <Sparkles className="h-4 w-4 text-amber-400" />
+                  </span>
+
+                  <span className="min-w-0 flex-1 text-left">
+                    <span className="block text-sm font-semibold text-white sm:text-[15px]">
+                      🚀 Version {latest.version}
+                    </span>
+                    <span className="mt-1 block text-xs font-medium tracking-wide text-amber-100/70 sm:text-[13px]">
+                      {formatDisplayDate(latest.date)}
+                    </span>
+                  </span>
+                </div>
               </Link>
             </div>
           </div>
