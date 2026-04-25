@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { Crosshair, MapPin, Search } from "lucide-react";
 import L from "leaflet";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import { Circle, MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { Circle, LayersControl, MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 
 import { createZoneKrigMarkerIcon } from "@/components/play/zoneMarkerHelper";
 
@@ -53,6 +53,10 @@ type GeolocationState = "idle" | "locating" | "unsupported" | "permission_denied
 
 const DEFAULT_SEARCH_ZOOM = 15;
 const DEFAULT_GEOLOCATION_ZOOM = 17;
+const OSM_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+const SATELLITE_TILE_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+const SATELLITE_ATTRIBUTION = "Tiles &copy; Esri - Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community";
 const GEOLOCATION_OPTIONS: PositionOptions = {
   enableHighAccuracy: true,
   maximumAge: 0,
@@ -398,10 +402,14 @@ export default function MapPicker({
         className={`h-full w-full ${isAwaitingMapClick ? "cursor-crosshair" : ""}`}
         zoomControl
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <LayersControl position="topright">
+          <LayersControl.BaseLayer checked name="Standardkort">
+            <TileLayer attribution={OSM_ATTRIBUTION} url={OSM_TILE_URL} />
+          </LayersControl.BaseLayer>
+          <LayersControl.BaseLayer name="Satellit">
+            <TileLayer attribution={SATELLITE_ATTRIBUTION} url={SATELLITE_TILE_URL} />
+          </LayersControl.BaseLayer>
+        </LayersControl>
         <CenterReporter onCenterChange={onCenterChange} />
         <ExternalCenterController center={center} />
         <FocusController request={focusRequest} />
