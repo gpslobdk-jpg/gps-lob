@@ -322,13 +322,13 @@ export default function GPSManager({
     }, GPS_HEARTBEAT_INTERVAL_MS);
 
     const restartTracking = () => {
-      // Get a quick cached fix first, then start a fresh high-accuracy watcher.
+      // Refresh the current position, then start a fresh high-accuracy watcher.
       try {
         if (navigator.geolocation.getCurrentPosition) {
           navigator.geolocation.getCurrentPosition(
             (pos) => void successHandler(pos),
             () => undefined,
-            { ...gpsOptions, maximumAge: 10_000 }
+            gpsOptions
           );
         }
       } catch {

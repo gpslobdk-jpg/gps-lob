@@ -429,12 +429,12 @@ export function usePlayGps(params: {
 
     // ---- Visibility / online restart ----
     const restartTracking = () => {
-      // Grab a quick cached fix, then start fresh high-accuracy watcher.
+      // Refresh the current position, then start fresh high-accuracy watcher.
       try {
         navigator.geolocation.getCurrentPosition(
           (p) => handlePosition(p),
           () => undefined,
-          { ...gpsOptions, maximumAge: 10_000 },
+          gpsOptions,
         );
       } catch {
         /* no-op */

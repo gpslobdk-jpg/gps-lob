@@ -11,6 +11,11 @@ import { DEFAULT_MAP_CENTER, type BaseLocation } from "@/utils/gpsRuns";
 
 const DEFAULT_MAP_CENTER_TUPLE: [number, number] = [DEFAULT_MAP_CENTER.lat, DEFAULT_MAP_CENTER.lng];
 const GEOLOCATION_ZOOM = 17;
+const GEOLOCATION_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  timeout: 10000,
+  maximumAge: 0,
+};
 
 function createBaseIcon(teamCode: "red" | "blue") {
   const background = teamCode === "blue" ? "#0ea5e9" : "#f43f5e";
@@ -58,7 +63,7 @@ function AutoLocate() {
       () => {
         // Geolocation denied or unavailable — keep default center
       },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+      GEOLOCATION_OPTIONS
     );
 
     return () => {
