@@ -13,8 +13,6 @@ type GlidingPlayerMarkerProps = {
   popupContent?: ReactNode;
 };
 
-const PLAYER_MARKER_GLIDE_MS = 650;
-
 function escapeAttribute(value: string) {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
@@ -53,17 +51,12 @@ function createPlayerMarkerIcon(avatarUrl?: string) {
   });
 }
 
-function easeOutCubic(progress: number) {
-  return 1 - Math.pow(1 - progress, 3);
-}
-
 export default function GlidingPlayerMarker({
   location,
   avatarUrl,
   popupContent,
 }: GlidingPlayerMarkerProps) {
   const markerRef = useRef<LeafletMarker | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
   const initialPositionRef = useRef<[number, number]>([location.lat, location.lng]);
   const icon = useMemo(() => createPlayerMarkerIcon(avatarUrl), [avatarUrl]);
 
@@ -73,55 +66,8 @@ export default function GlidingPlayerMarker({
       return;
     }
 
-    const from = marker.getLatLng();
-    const to = L.latLng(location.lat, location.lng);
-
-    if (from.lat === to.lat && from.lng === to.lng) {
-      return;
-    }
-
-    if (animationFrameRef.current !== null) {
-      window.cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-
-    const startedAt = window.performance.now();
-    const startLat = from.lat;
-    const startLng = from.lng;
-
-    const animate = (now: number) => {
-      const progress = Math.min(1, (now - startedAt) / PLAYER_MARKER_GLIDE_MS);
-      const eased = easeOutCubic(progress);
-      const nextLat = startLat + (to.lat - startLat) * eased;
-      const nextLng = startLng + (to.lng - startLng) * eased;
-
-      marker.setLatLng([nextLat, nextLng]);
-
-      if (progress < 1) {
-        animationFrameRef.current = window.requestAnimationFrame(animate);
-      } else {
-        animationFrameRef.current = null;
-      }
-    };
-
-    animationFrameRef.current = window.requestAnimationFrame(animate);
-
-    return () => {
-      if (animationFrameRef.current !== null) {
-        window.cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
-    };
+    marker.setLatLng([location.lat, location.lng]);
   }, [location.lat, location.lng]);
-
-  useEffect(() => {
-    return () => {
-      if (animationFrameRef.current !== null) {
-        window.cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
-    };
-  }, []);
 
   return (
     <>

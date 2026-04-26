@@ -11,8 +11,8 @@ import GlidingPlayerMarker from "./GlidingPlayerMarker";
 import type { Location, MapDisplayProps } from "./types";
 
 type MapViewportSyncProps = {
-  center: [number, number];
-  dimmed: boolean;
+  playerLocation: Location | null;
+  targetLocation: Location | null;
 };
 
 const DEFAULT_MAP_CENTER: [number, number] = [55.6761, 12.5683];
@@ -41,7 +41,7 @@ function createTargetIcon(targetNumber: number | null, isNearTarget: boolean) {
   });
 }
 
-function MapViewportSync({ center, dimmed }: MapViewportSyncProps) {
+function MapViewportSync({ playerLocation, targetLocation }: MapViewportSyncProps) {
   const map = useMap();
   const hasCenteredRef = useRef(false);
 
@@ -51,19 +51,6 @@ function MapViewportSync({ center, dimmed }: MapViewportSyncProps) {
         if (!map || !map.getContainer()) return;
 
         map.invalidateSize();
-
-        if (!hasCenteredRef.current) {
-          map.setView(center, map.getZoom(), { animate: false });
-          hasCenteredRef.current = true;
-          return;
-        }
-
-        if (typeof map.panTo === "function") {
-          map.panTo(center, {
-            animate: true,
-            duration: 0.75,
-          });
-        }
       } catch (err) {
         console.warn("MapViewportSync: map operation failed:", err);
       }
@@ -72,7 +59,7 @@ function MapViewportSync({ center, dimmed }: MapViewportSyncProps) {
     return () => {
       window.cancelAnimationFrame(frameId);
     };
-  }, [center, dimmed, map]);
+  }, [map]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -84,14 +71,36 @@ function MapViewportSync({ center, dimmed }: MapViewportSyncProps) {
       }
     };
 
-    const timeoutId = window.setTimeout(handleResize, 180);
+    handleResize();
     window.addEventListener("resize", handleResize);
 
     return () => {
-      window.clearTimeout(timeoutId);
       window.removeEventListener("resize", handleResize);
     };
   }, [map]);
+
+  useEffect(() => {
+    if (hasCenteredRef.current) {
+      return;
+    }
+
+    if (targetLocation) {
+      hasCenteredRef.current = true;
+      return;
+    }
+
+    if (!playerLocation || !Number.isFinite(playerLocation.lat) || !Number.isFinite(playerLocation.lng)) {
+      return;
+    }
+
+    try {
+      if (!map || !map.getContainer()) return;
+      map.setView([playerLocation.lat, playerLocation.lng], map.getZoom(), { animate: false });
+      hasCenteredRef.current = true;
+    } catch (err) {
+      console.warn("MapViewportSync initial center failed:", err);
+    }
+  }, [map, playerLocation, targetLocation]);
 
   return null;
 }
@@ -260,7 +269,7 @@ export default function MapDisplay({
         className="h-full w-full"
         style={{ height: "100%", width: "100%", filter: "none", backgroundColor: "#ffffff" }}
       >
-        <MapViewportSync center={mapCenter} dimmed={dimmed} />
+        <MapViewportSync playerLocation={playerLocation} targetLocation={targetLocation} />
         <FitBoundsSync playerLocation={playerLocation} targetLocation={targetLocation} />
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
