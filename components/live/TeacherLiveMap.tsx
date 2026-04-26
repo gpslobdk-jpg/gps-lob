@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
 import { escapeHtml, toFiniteNumber } from "@/components/live/liveUtils";
@@ -41,6 +41,19 @@ type TeacherLiveMapProps = {
 };
 
 const LIVE_STATUS_WINDOW_MS = 30_000;
+
+const TILE_LAYERS = {
+  default: {
+    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    attribution: "&copy; OpenStreetMap &copy; CARTO",
+  },
+  satellite: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "&copy; Esri",
+  },
+} as const;
+
+type TileLayerKey = keyof typeof TILE_LAYERS;
 
 function createPostIcon(index: number) {
   return L.divIcon({
@@ -220,6 +233,9 @@ export default function TeacherLiveMap({
   const staleCount = Math.max(0, studentLocations.length - recentActiveCount);
   const liveFeedIndicator = getLiveFeedIndicatorCopy(liveFeedStatus, liveFeedLastSyncedAt);
 
+  const [mapStyle, setMapStyle] = useState<TileLayerKey>("default");
+  const [isLoadingTiles, setIsLoadingTiles] = useState(false);
+
   return (
     <div
       className={`relative z-0 h-full overflow-hidden rounded-4xl border border-white/15 shadow-2xl transition-all duration-500 ease-in-out ${
@@ -274,6 +290,27 @@ export default function TeacherLiveMap({
           <><PanelRightClose className="h-4 w-4" /> Fokus</>
         )}
       </button>
+      
+      {isLoadingTiles && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1100] bg-black/70 text-white px-3 py-1 rounded-lg text-sm">
+          Indlæser kort…
+        </div>
+      )}
+
+      <div className="absolute bottom-4 left-4 z-[1000]">
+        <select
+          value={mapStyle}
+          onChange={(e) => {
+            setIsLoadingTiles(true);
+            setMapStyle(e.target.value as TileLayerKey);
+          }}
+          className="rounded-xl border border-slate-200/80 bg-white/95 px-3 py-2 text-sm font-semibold text-slate-900 shadow-lg backdrop-blur"
+          aria-label="Vælg korttype"
+        >
+          <option value="default">🗺 Kort</option>
+          <option value="satellite">🛰 Satellit</option>
+        </select>
+      </div>
 
       <MapContainer
         key={mapKey}
@@ -288,8 +325,13 @@ export default function TeacherLiveMap({
           studentLocations={studentLocations}
         />
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url={TILE_LAYERS[mapStyle].url}
+          attribution={TILE_LAYERS[mapStyle].attribution}
+          updateWhenIdle={true}
+          eventHandlers={{
+            loading: () => setIsLoadingTiles(true),
+            load: () => setIsLoadingTiles(false),
+          }}
         />
 
         {runQuestions.map((question, index) => {
