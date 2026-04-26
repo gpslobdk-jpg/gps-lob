@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import "leaflet/dist/leaflet.css";
 import { Analytics } from "@vercel/analytics/next";
 import { Poppins, Rubik } from "next/font/google";
 import "./globals.css";

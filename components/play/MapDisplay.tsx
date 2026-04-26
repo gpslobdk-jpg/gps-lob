@@ -4,18 +4,45 @@ import "leaflet/dist/leaflet.css";
 
 import L from "leaflet";
 import type { LatLngBoundsExpression } from "leaflet";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 
 import GlidingPlayerMarker from "./GlidingPlayerMarker";
 import type { Location, MapDisplayProps } from "./types";
 
+type TargetClickHintTone = "opening" | "blocked";
+
+type TargetClickHintState = {
+  message: string;
+  tone: TargetClickHintTone;
+} | null;
+
+type ProgrammaticMapMotionRef = MutableRefObject<boolean>;
+
 type MapViewportSyncProps = {
   playerLocation: Location | null;
   targetLocation: Location | null;
+  isFollowingPlayer: boolean;
+  onUserMapInteraction: () => void;
+  programmaticMapMotionRef: ProgrammaticMapMotionRef;
 };
 
 const DEFAULT_MAP_CENTER: [number, number] = [55.6761, 12.5683];
+
+function withProgrammaticMapMotion(
+  programmaticMapMotionRef: ProgrammaticMapMotionRef,
+  motion: () => void
+) {
+  programmaticMapMotionRef.current = true;
+
+  try {
+    motion();
+  } finally {
+    window.requestAnimationFrame(() => {
+      programmaticMapMotionRef.current = false;
+    });
+  }
+}
 
 function createTargetIcon(targetNumber: number | null, isNearTarget: boolean) {
   const label = Number.isFinite(targetNumber) ? String(targetNumber) : "?";
@@ -41,9 +68,14 @@ function createTargetIcon(targetNumber: number | null, isNearTarget: boolean) {
   });
 }
 
-function MapViewportSync({ playerLocation, targetLocation }: MapViewportSyncProps) {
+function MapViewportSync({
+  playerLocation,
+  targetLocation,
+  isFollowingPlayer,
+  onUserMapInteraction,
+  programmaticMapMotionRef,
+}: MapViewportSyncProps) {
   const map = useMap();
-  const hasCenteredRef = useRef(false);
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => {
@@ -80,12 +112,7 @@ function MapViewportSync({ playerLocation, targetLocation }: MapViewportSyncProp
   }, [map]);
 
   useEffect(() => {
-    if (hasCenteredRef.current) {
-      return;
-    }
-
-    if (targetLocation) {
-      hasCenteredRef.current = true;
+    if (!map || !isFollowingPlayer || programmaticMapMotionRef.current) {
       return;
     }
 
@@ -95,12 +122,46 @@ function MapViewportSync({ playerLocation, targetLocation }: MapViewportSyncProp
 
     try {
       if (!map || !map.getContainer()) return;
-      map.setView([playerLocation.lat, playerLocation.lng], map.getZoom(), { animate: false });
-      hasCenteredRef.current = true;
+
+      const nextCenter: [number, number] = [playerLocation.lat, playerLocation.lng];
+      const currentCenter = map.getCenter();
+
+      if (currentCenter.lat === nextCenter[0] && currentCenter.lng === nextCenter[1]) {
+        return;
+      }
+
+      withProgrammaticMapMotion(programmaticMapMotionRef, () => {
+        map.panTo(nextCenter, {
+          animate: true,
+          duration: 0.55,
+        });
+      });
     } catch (err) {
-      console.warn("MapViewportSync initial center failed:", err);
+      console.warn("MapViewportSync follow pan failed:", err);
     }
-  }, [map, playerLocation, targetLocation]);
+  }, [isFollowingPlayer, map, playerLocation?.lat, playerLocation?.lng, programmaticMapMotionRef, targetLocation]);
+
+  useEffect(() => {
+    if (!map) {
+      return;
+    }
+
+    const handleUserMapInteraction = () => {
+      if (programmaticMapMotionRef.current) {
+        return;
+      }
+
+      onUserMapInteraction();
+    };
+
+    map.on("dragstart", handleUserMapInteraction);
+    map.on("zoomstart", handleUserMapInteraction);
+
+    return () => {
+      map.off("dragstart", handleUserMapInteraction);
+      map.off("zoomstart", handleUserMapInteraction);
+    };
+  }, [map, onUserMapInteraction, programmaticMapMotionRef]);
 
   return null;
 }
@@ -108,15 +169,23 @@ function MapViewportSync({ playerLocation, targetLocation }: MapViewportSyncProp
 function FitBoundsSync({
   playerLocation,
   targetLocation,
+  allowAutoFrame,
+  programmaticMapMotionRef,
 }: {
   playerLocation: Location | null;
   targetLocation: Location | null;
+  allowAutoFrame: boolean;
+  programmaticMapMotionRef: ProgrammaticMapMotionRef;
 }) {
   const map = useMap();
   const hasFittedInitialRef = useRef(false);
   const prevTargetKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!allowAutoFrame) {
+      return;
+    }
+
     if (hasFittedInitialRef.current) return;
     if (!targetLocation || !playerLocation) return;
 
@@ -127,7 +196,9 @@ function FitBoundsSync({
 
     try {
       if (!map || !map.getContainer()) return;
-      map.fitBounds(bounds as LatLngBoundsExpression, { padding: [80, 80], maxZoom: 17, animate: true });
+      withProgrammaticMapMotion(programmaticMapMotionRef, () => {
+        map.fitBounds(bounds as LatLngBoundsExpression, { padding: [80, 80], maxZoom: 17, animate: true });
+      });
       hasFittedInitialRef.current = true;
       prevTargetKeyRef.current = `${targetLocation.lat},${targetLocation.lng}`;
       try {
@@ -141,9 +212,13 @@ function FitBoundsSync({
     } catch (err) {
       console.warn("FitBoundsSync initial fit failed:", err);
     }
-  }, [map, playerLocation, targetLocation]);
+  }, [allowAutoFrame, map, playerLocation, programmaticMapMotionRef, targetLocation]);
 
   useEffect(() => {
+    if (!allowAutoFrame) {
+      return;
+    }
+
     if (!targetLocation) return;
     const targetKey = `${targetLocation.lat},${targetLocation.lng}`;
     const hasPlayer = !!playerLocation && Number.isFinite(playerLocation.lat) && Number.isFinite(playerLocation.lng);
@@ -157,7 +232,9 @@ function FitBoundsSync({
 
       try {
         if (!map || !map.getContainer()) return;
-        map.fitBounds(bounds as LatLngBoundsExpression, { padding: [80, 80], maxZoom: 17, animate: true });
+        withProgrammaticMapMotion(programmaticMapMotionRef, () => {
+          map.fitBounds(bounds as LatLngBoundsExpression, { padding: [80, 80], maxZoom: 17, animate: true });
+        });
         prevTargetKeyRef.current = targetKey;
         try {
           console.debug("Map auto-zoomed (fitBounds) triggered by: target_change", {
@@ -171,7 +248,7 @@ function FitBoundsSync({
         console.warn("FitBoundsSync target change fit failed:", err);
       }
     }
-  }, [map, playerLocation, targetLocation]);
+  }, [allowAutoFrame, map, playerLocation, programmaticMapMotionRef, targetLocation]);
 
   return null;
 }
@@ -189,8 +266,14 @@ export default function MapDisplay({
   distanceToTargetMeters,
   onTargetClick,
 }: MapDisplayProps) {
-  const [targetClickHint, setTargetClickHint] = useState<string | null>(null);
+  const [isFollowingPlayer, setIsFollowingPlayer] = useState(true);
+  const [hasManualMapInteraction, setHasManualMapInteraction] = useState(false);
+  const [targetClickHint, setTargetClickHint] = useState<TargetClickHintState>(null);
   const lastTouchActivationAtRef = useRef(0);
+  const isOpeningTargetRef = useRef(false);
+  const targetClickHintTimeoutRef = useRef<number | null>(null);
+  const targetClickOpenTimeoutRef = useRef<number | null>(null);
+  const programmaticMapMotionRef = useRef(false);
   const targetIcon = useMemo(
     () => createTargetIcon(targetNumber, isNearTarget),
     [isNearTarget, targetNumber]
@@ -208,49 +291,90 @@ export default function MapDisplay({
     return DEFAULT_MAP_CENTER;
   }, [playerLocation, targetLocation]);
 
-  const handleTargetMarkerActivate = useCallback((source: "click" | "touchend") => {
-    const now = Date.now();
-    if (source === "click" && now - lastTouchActivationAtRef.current < 450) {
-      return;
+  useEffect(() => {
+    if (!canOpenTarget) {
+      isOpeningTargetRef.current = false;
+    }
+  }, [canOpenTarget]);
+
+  const clearTargetClickTimers = useCallback(() => {
+    if (targetClickHintTimeoutRef.current !== null) {
+      window.clearTimeout(targetClickHintTimeoutRef.current);
+      targetClickHintTimeoutRef.current = null;
     }
 
-    if (source === "touchend") {
-      lastTouchActivationAtRef.current = now;
+    if (targetClickOpenTimeoutRef.current !== null) {
+      window.clearTimeout(targetClickOpenTimeoutRef.current);
+      targetClickOpenTimeoutRef.current = null;
     }
+  }, []);
 
-    if (canOpenTarget) {
-      setTargetClickHint(null);
-      onTargetClick?.();
-      return;
-    }
-
-    if (distanceToTargetMeters !== null && Number.isFinite(distanceToTargetMeters)) {
-      setTargetClickHint(`Du er ${Math.max(1, Math.round(distanceToTargetMeters))} meter fra posten - gå lidt tættere på`);
-      return;
-    }
-
-    setTargetClickHint("Vi finder stadig din position - prøv igen om et øjeblik");
-  }, [canOpenTarget, distanceToTargetMeters, onTargetClick]);
+  const showTargetClickHint = useCallback(
+    (message: string, tone: TargetClickHintTone, durationMs = 2200) => {
+      clearTargetClickTimers();
+      setTargetClickHint({ message, tone });
+      targetClickHintTimeoutRef.current = window.setTimeout(() => {
+        setTargetClickHint(null);
+        targetClickHintTimeoutRef.current = null;
+      }, durationMs);
+    },
+    [clearTargetClickTimers]
+  );
 
   useEffect(() => {
-    if (!targetClickHint) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setTargetClickHint(null);
-    }, 2200);
-
     return () => {
-      window.clearTimeout(timeoutId);
+      clearTargetClickTimers();
     };
-  }, [targetClickHint]);
+  }, [clearTargetClickTimers]);
 
-  useEffect(() => {
-    if (canOpenTarget && targetClickHint) {
-      setTargetClickHint(null);
-    }
-  }, [canOpenTarget, targetClickHint]);
+  const handleTargetMarkerActivate = useCallback(
+    (source: "click" | "touchend") => {
+      const now = Date.now();
+      if (source === "click" && now - lastTouchActivationAtRef.current < 450) {
+        return;
+      }
+
+      if (source === "touchend") {
+        lastTouchActivationAtRef.current = now;
+      }
+
+      if (canOpenTarget) {
+        if (isOpeningTargetRef.current) {
+          return;
+        }
+
+        isOpeningTargetRef.current = true;
+        showTargetClickHint("Åbner post…", "opening", 900);
+        targetClickOpenTimeoutRef.current = window.setTimeout(() => {
+          targetClickOpenTimeoutRef.current = null;
+          onTargetClick?.();
+        }, 120);
+        return;
+      }
+
+      if (distanceToTargetMeters !== null && Number.isFinite(distanceToTargetMeters)) {
+        showTargetClickHint(
+          `Du er stadig ca. ${Math.max(1, Math.round(distanceToTargetMeters))} meter fra posten`,
+          "blocked"
+        );
+        return;
+      }
+
+      showTargetClickHint("Vi finder stadig din position - prøv igen om et øjeblik", "blocked");
+    },
+    [canOpenTarget, distanceToTargetMeters, onTargetClick, showTargetClickHint]
+  );
+
+  const handleUserMapInteraction = useCallback(() => {
+    setIsFollowingPlayer(false);
+    setHasManualMapInteraction(true);
+  }, []);
+
+  const handleFollowToggle = useCallback(() => {
+    setIsFollowingPlayer((current) => !current);
+  }, []);
+
+  const allowAutoFrame = isFollowingPlayer && !hasManualMapInteraction;
 
   return (
     <div
@@ -269,8 +393,19 @@ export default function MapDisplay({
         className="h-full w-full"
         style={{ height: "100%", width: "100%", filter: "none", backgroundColor: "#ffffff" }}
       >
-        <MapViewportSync playerLocation={playerLocation} targetLocation={targetLocation} />
-        <FitBoundsSync playerLocation={playerLocation} targetLocation={targetLocation} />
+        <MapViewportSync
+          playerLocation={playerLocation}
+          targetLocation={targetLocation}
+          isFollowingPlayer={isFollowingPlayer}
+          onUserMapInteraction={handleUserMapInteraction}
+          programmaticMapMotionRef={programmaticMapMotionRef}
+        />
+        <FitBoundsSync
+          playerLocation={playerLocation}
+          targetLocation={targetLocation}
+          allowAutoFrame={allowAutoFrame}
+          programmaticMapMotionRef={programmaticMapMotionRef}
+        />
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -301,13 +436,68 @@ export default function MapDisplay({
         ) : null}
       </MapContainer>
 
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-960 flex items-center pr-4 sm:pr-5">
+        <button
+          type="button"
+          aria-pressed={isFollowingPlayer}
+          onClick={handleFollowToggle}
+          className={`pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full border px-4 py-3 text-xs font-black uppercase tracking-[0.24em] shadow-[0_18px_30px_rgba(2,6,23,0.3)] backdrop-blur-md transition active:scale-[0.99] ${
+            isFollowingPlayer
+              ? "border-emerald-300/30 bg-emerald-500/18 text-emerald-50"
+              : "border-white/12 bg-slate-950/88 text-white/82"
+          }`}
+        >
+          <span
+            className={`h-2.5 w-2.5 rounded-full ${
+              isFollowingPlayer ? "bg-emerald-300 shadow-[0_0_0_4px_rgba(16,185,129,0.18)]" : "bg-white/45"
+            }`}
+          />
+          <span className="flex flex-col items-start leading-none">
+            <span>Følg mig</span>
+            <span className="mt-1 text-[10px] font-semibold tracking-[0.28em] opacity-70">
+              {isFollowingPlayer ? "aktiv" : "slået fra"}
+            </span>
+          </span>
+        </button>
+      </div>
+
       {targetClickHint ? (
         <div className="pointer-events-none absolute inset-x-4 bottom-28 z-950 flex justify-center sm:bottom-24">
-          <div className="max-w-md rounded-full border border-white/12 bg-slate-950/90 px-4 py-2 text-center text-xs font-semibold text-amber-100 shadow-[0_18px_30px_rgba(15,23,42,0.45)] backdrop-blur-md">
-            {targetClickHint}
+          <div
+            className={`max-w-md rounded-[1.4rem] border px-5 py-4 text-center shadow-[0_18px_30px_rgba(15,23,42,0.45)] backdrop-blur-md animate-[map-display-hint-pop_180ms_cubic-bezier(0.22,1,0.36,1)] ${
+              targetClickHint.tone === "opening"
+                ? "border-emerald-300/24 bg-emerald-500/16 text-emerald-50"
+                : "border-white/12 bg-slate-950/92 text-amber-100"
+            }`}
+          >
+            <p className="text-[10px] font-black uppercase tracking-[0.34em] opacity-70">
+              {targetClickHint.tone === "opening" ? "Åbner post" : "Afstand"}
+            </p>
+            <p className="mt-2 text-sm font-extrabold leading-6 sm:text-base">
+              {targetClickHint.message}
+            </p>
+            {targetClickHint.tone === "blocked" ? (
+              <p className="mt-1 text-xs font-semibold leading-5 text-white/72">
+                Gå lidt tættere på og tryk igen.
+              </p>
+            ) : null}
           </div>
         </div>
       ) : null}
+
+      <style jsx global>{`
+        @keyframes map-display-hint-pop {
+          0% {
+            opacity: 0;
+            transform: translateY(8px) scale(0.98);
+          }
+
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+      `}</style>
     </div>
   );
 }
