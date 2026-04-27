@@ -634,7 +634,29 @@ export function usePlayGameState({
             }
           | null;
 
-        if (response.status === 404 || response.status === 410) {
+        if (response.status === 410) {
+          // Session findes, men er afsluttet eller ikke aktiv
+          try {
+            Sentry.addBreadcrumb({
+              category: "join",
+              message: "register_participant_session_ended",
+              data: { sessionId },
+            });
+            Sentry.withScope((scope) => {
+              scope.setExtra("sessionId", sessionId);
+              Sentry.captureMessage(
+                "Register participant failed: session ended (410)",
+                "warning"
+              );
+            });
+          } catch (err) {
+            // best-effort
+          }
+          tripPlayCircuitBreaker("Løbet er afsluttet eller ikke aktivt.", "join_session_missing");
+          return false;
+        }
+        if (response.status === 404) {
+          // Session findes ikke
           try {
             Sentry.addBreadcrumb({
               category: "join",
@@ -644,15 +666,14 @@ export function usePlayGameState({
             Sentry.withScope((scope) => {
               scope.setExtra("sessionId", sessionId);
               Sentry.captureMessage(
-                "Register participant failed: session missing (404/410)",
+                "Register participant failed: session missing (404)",
                 "warning"
               );
             });
           } catch (err) {
             // best-effort
           }
-
-          tripPlayCircuitBreaker(PLAY_JOIN_SESSION_MISSING_MESSAGE, "join_session_missing");
+          tripPlayCircuitBreaker("Løbet findes ikke.", "join_session_missing");
           return false;
         }
 

@@ -34,12 +34,34 @@ export async function GET(request: NextRequest) {
     }
 
     if (!data) {
-      return NextResponse.json({ error: "Kunne ikke finde sessionen." }, { status: 404 });
+      return NextResponse.json({ exists: false, status: null }, { status: 404 });
     }
 
+    const sessionStatus = data.status ?? null;
+    const isActive = sessionStatus === "waiting" || sessionStatus === "running";
+
+    if (!isActive) {
+      // Session findes, men er ikke aktiv
+      return NextResponse.json(
+        {
+          exists: true,
+          status: sessionStatus,
+          gpsOverride: Boolean(data.gps_override),
+        },
+        {
+          status: 410,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        }
+      );
+    }
+
+    // Session findes og er aktiv
     return NextResponse.json(
       {
-        sessionStatus: data.status ?? null,
+        exists: true,
+        status: sessionStatus,
         gpsOverride: Boolean(data.gps_override),
       },
       {

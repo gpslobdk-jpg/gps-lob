@@ -837,14 +837,33 @@ export async function POST(request: NextRequest) {
 
   try {
     const adminSupabase = getRequiredAdminClient();
-    const activeSession = await fetchLiveSessionById(sessionId, ["waiting", "running"], adminSupabase);
+    // Tjek først om session findes uanset status
+    const { data: sessionRow, error: sessionError } = await adminSupabase
+      .from("live_sessions")
+      .select("id,status,run_id")
+      .eq("id", sessionId)
+      .maybeSingle();
 
-    if (!activeSession?.id) {
+    if (sessionError) {
+      throw new Error(sessionError.message);
+    }
+
+    if (!sessionRow) {
       return NextResponse.json(
         { error: "Sessionen findes ikke længere." },
         { status: 404, headers: { "Cache-Control": "no-store" } }
       );
     }
+
+    if (sessionRow.status !== "waiting" && sessionRow.status !== "running") {
+      return NextResponse.json(
+        { error: "Sessionen er afsluttet eller ikke aktiv." },
+        { status: 410, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    // Nu er vi sikre på at session findes og er aktiv
+    const activeSession = sessionRow;
 
     const run = activeSession.run_id ? await fetchRun(String(activeSession.run_id), adminSupabase) : null;
     const isZoneKrig = isZoneKrigRaceType(run?.race_type ?? run?.raceType);
