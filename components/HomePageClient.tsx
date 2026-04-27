@@ -33,7 +33,20 @@ type ZenBubble = {
 };
 
 const JOIN_PIN_LENGTH = 6;
-const latest = changelogEntries[0];
+const latest = {
+  version: "Appstatus 27/04",
+  date: "2026-04-27",
+  type: "minor",
+  title: "App-status 27/04",
+  summary: "GPS Løb arbejder nu på apps til både Google Play og App Store.",
+  items: [
+    {
+      title: "Apps på vej",
+      description:
+        "Vi arbejder på at gøre GPS Løb klar som app til både Android og iPhone. Følg med på opdateringssiden!",
+    },
+  ],
+};
 
 function formatDisplayDate(isoDate: string) {
   const [yearString, monthString, dayString] = isoDate.split("-");
