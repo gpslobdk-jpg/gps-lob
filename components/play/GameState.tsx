@@ -92,6 +92,7 @@ type LiveSessionStatusRow = {
 
 type PlaySessionStatusSnapshot = {
   sessionStatus?: string | null;
+  status?: string | null;
   gpsOverride?: boolean;
   teacherGuided?: boolean;
   error?: string;
@@ -405,6 +406,7 @@ export function usePlayGameState({
   const submissionLockRef = useRef(false);
   const isMountedRef = useRef(true);
   const circuitBreakerTrippedRef = useRef(false);
+  const sessionStatusMissingRef = useRef(false);
   const solvedPostIndexesRef = useRef<number[]>([]);
   const answeredPostIndexesRef = useRef<number[]>(answeredPostIndexes);
   const pendingLocalAnswersRef = useRef<StoredPendingAnswer[]>(pendingLocalAnswers);
@@ -959,6 +961,9 @@ export function usePlayGameState({
       variant: Extract<PlayLoadErrorVariant, "participant_auth_expired" | "join_session_missing">
     ) => {
       circuitBreakerTrippedRef.current = true;
+      if (variant === "join_session_missing") {
+        sessionStatusMissingRef.current = true;
+      }
       clearRestoreRetryTimer();
       clearSessionStatusResubscribeTimer();
       clearMessageResubscribeTimer();
@@ -1134,7 +1139,7 @@ export function usePlayGameState({
   }, [clearRestoreRetryTimer, clearStoredPlayRecoveryState, resetLocationSyncRecovery]);
 
   const fetchSessionStatusSnapshot = useCallback(async () => {
-    if (!sessionId) {
+    if (!sessionId || sessionStatusMissingRef.current) {
       return null;
     }
 
@@ -1144,24 +1149,7 @@ export function usePlayGameState({
       });
       if (!response.ok) {
         if (response.status === 404 || response.status === 410) {
-          try {
-            Sentry.addBreadcrumb({
-              category: "session",
-              message: "session_status_missing",
-              data: { sessionId },
-            });
-            Sentry.withScope((scope) => {
-              scope.setExtra("sessionId", sessionId);
-              scope.setTag("play.event", "session_status_404");
-              Sentry.captureMessage(
-                "Session status endpoint returned 404/410 - session missing",
-                "warning"
-              );
-            });
-          } catch (err) {
-            // best-effort
-          }
-
+          sessionStatusMissingRef.current = true;
           clearStoredPlayRecoveryState();
           router.replace("/join?missingSession=1");
           return null;
@@ -1172,6 +1160,11 @@ export function usePlayGameState({
 
       const payload = (await response.json().catch(() => null)) as PlaySessionStatusSnapshot | null;
       if (!payload) return null;
+
+      const normalizeSessionStatus = (status: string | null | undefined) =>
+        typeof status === "string" ? status : null;
+
+      const nextSessionStatus = normalizeSessionStatus(payload.sessionStatus ?? payload.status);
 
       const teacherGuided = Boolean(
         (payload as any).teacherGuided ??
@@ -1184,7 +1177,7 @@ export function usePlayGameState({
       );
 
       return {
-        sessionStatus: typeof payload.sessionStatus === "string" ? payload.sessionStatus : null,
+        sessionStatus: nextSessionStatus,
         gpsOverride: Boolean(payload.gpsOverride),
         teacherGuided,
       };
@@ -1222,25 +1215,7 @@ export function usePlayGameState({
       );
 
       if (sessionResponse.status === 404 || sessionResponse.status === 410) {
-        // Definitive: session / run deleted or expired — clear local recovery state and send user to /join
-        try {
-          Sentry.addBreadcrumb({
-            category: "session",
-            message: "session_missing_on_authoritative_check",
-            data: { sessionId, participantId },
-          });
-          Sentry.withScope((scope) => {
-            scope.setExtras({ sessionId, participantId });
-            scope.setTag("play.event", "session_missing_authoritative_check");
-            Sentry.captureMessage(
-              "Authoritative session check returned 404/410 - session missing",
-              "warning"
-            );
-          });
-        } catch (err) {
-          // best-effort
-        }
-
+        sessionStatusMissingRef.current = true;
         clearStoredPlayRecoveryState();
         router.replace("/join?missingSession=1");
         return;
@@ -1333,6 +1308,7 @@ export function usePlayGameState({
       !sessionId ||
       reconnectInFlightRef.current ||
       circuitBreakerActive ||
+      sessionStatusMissingRef.current ||
       restoreInFlightRef.current ||
       (participantId && !hasRestoredRef.current)
     ) {

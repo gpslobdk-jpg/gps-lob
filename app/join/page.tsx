@@ -394,14 +394,6 @@ function JoinForm() {
         | null;
 
       if (registerResponse.status === 404 || registerResponse.status === 410) {
-        try {
-          Sentry.withScope((scope) => {
-            scope.setExtras({ enteredPin: trimmedPin, sessionId: joinData.sessionId });
-            Sentry.captureMessage("Join register returned 404/410 - expired/removed", "warning");
-          });
-        } catch (err) {
-          // best-effort
-        }
         setExpiredMessage("Løbet er muligvis afsluttet af læreren.");
         setView("expired");
         return;

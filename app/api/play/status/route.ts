@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!data) {
-      return NextResponse.json({ exists: false, status: null }, { status: 404 });
+      return NextResponse.json({ exists: false, status: null, sessionStatus: null }, { status: 404 });
     }
 
     const sessionStatus = data.status ?? null;
@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
         {
           exists: true,
           status: sessionStatus,
+          sessionStatus: sessionStatus,
           gpsOverride: Boolean(data.gps_override),
         },
         {
@@ -62,6 +63,7 @@ export async function GET(request: NextRequest) {
       {
         exists: true,
         status: sessionStatus,
+        sessionStatus: sessionStatus,
         gpsOverride: Boolean(data.gps_override),
       },
       {
