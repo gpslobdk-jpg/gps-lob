@@ -6,6 +6,15 @@ const withPWA = withPWAInit({
   dest: "public",
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
+  extendDefaultRuntimeCaching: true,
+  workboxOptions: {
+    runtimeCaching: [
+      {
+        urlPattern: /\/api\/.*/i,
+        handler: "NetworkOnly",
+      },
+    ],
+  },
 });
 
 const nextConfig: NextConfig = {
