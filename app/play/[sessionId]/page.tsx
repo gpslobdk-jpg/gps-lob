@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Crosshair, MapPin, RefreshCcw } from "lucide-react";
-import { Suspense, useCallback, useState } from "react";
+import { Suspense, useCallback, useState, useRef, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 
 import { FullscreenWarning } from "@/components/ui/FullscreenWarning";
@@ -14,7 +14,7 @@ import ZoneKrigElevInterface from "@/components/play/ZoneKrigElevInterface";
 
 const MapDisplay = dynamic(() => import("@/components/play/MapDisplay"), { ssr: false });
 
-function GpsGuardOverlay({ visible, onRetry }: { visible: boolean; onRetry: () => void }) {
+function GpsGuardOverlay({ visible, onRetry, isRetrying }: { visible: boolean; onRetry: () => void; isRetrying: boolean }) {
   if (!visible) {
     return null;
   }
@@ -44,10 +44,12 @@ function GpsGuardOverlay({ visible, onRetry }: { visible: boolean; onRetry: () =
             <button
               type="button"
               onClick={onRetry}
-              className="inline-flex min-h-[56px] flex-1 items-center justify-center gap-2 rounded-[1.25rem] border border-emerald-300/30 bg-gradient-to-r from-emerald-500 to-teal-400 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-[0_18px_38px_rgba(16,185,129,0.24)] transition hover:brightness-110 active:scale-[0.99]"
+              disabled={isRetrying}
+              aria-busy={isRetrying}
+              className="inline-flex min-h-[56px] flex-1 items-center justify-center gap-2 rounded-[1.25rem] border border-emerald-300/30 bg-gradient-to-r from-emerald-500 to-teal-400 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-[0_18px_38px_rgba(16,185,129,0.24)] transition hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:brightness-100 disabled:active:scale-100"
             >
-              <RefreshCcw className="h-4 w-4" />
-              Prøv igen
+              <RefreshCcw className={`h-4 w-4 ${isRetrying ? "animate-spin" : ""}`} />
+              {isRetrying ? "Prøver igen..." : "Prøv igen"}
             </button>
           </div>
 
@@ -60,11 +62,15 @@ function GpsGuardOverlay({ visible, onRetry }: { visible: boolean; onRetry: () =
   );
 }
 
+
 function PlayScreen() {
   const params = useParams<{ sessionId: string }>();
   const searchParams = useSearchParams();
   const [gpsGuardVisible, setGpsGuardVisible] = useState(false);
   const [gpsRestartNonce, setGpsRestartNonce] = useState(0);
+  const [isGpsRetrying, setIsGpsRetrying] = useState(false);
+  const gpsRetryLockedRef = useRef(false);
+  const gpsRetryUnlockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rawSessionId = params?.sessionId;
   const sessionId = Array.isArray(rawSessionId) ? rawSessionId[0] : rawSessionId;
   const initialStudentName = searchParams.get("name")?.trim() || "";
@@ -72,7 +78,24 @@ function PlayScreen() {
   const isZoneKrig = game.progress.raceMode === "zone_krig";
   const isStratego = game.progress.raceMode === "stratego";
   const handleGpsRetry = useCallback(() => {
+    if (gpsRetryLockedRef.current) return;
+    gpsRetryLockedRef.current = true;
+    setIsGpsRetrying(true);
     setGpsRestartNonce((current) => current + 1);
+    if (gpsRetryUnlockTimerRef.current) {
+      clearTimeout(gpsRetryUnlockTimerRef.current);
+    }
+    gpsRetryUnlockTimerRef.current = setTimeout(() => {
+      gpsRetryLockedRef.current = false;
+      setIsGpsRetrying(false);
+    }, 3500);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (gpsRetryUnlockTimerRef.current) {
+        clearTimeout(gpsRetryUnlockTimerRef.current);
+      }
+    };
   }, []);
   const isTrackingEnabled =
     Boolean(sessionId) &&
@@ -123,7 +146,7 @@ function PlayScreen() {
           />
         </PlayInterface>
       )}
-      <GpsGuardOverlay visible={isTrackingEnabled && gpsGuardVisible} onRetry={handleGpsRetry} />
+      <GpsGuardOverlay visible={isTrackingEnabled && gpsGuardVisible} onRetry={handleGpsRetry} isRetrying={isGpsRetrying} />
     </>
   );
 }
