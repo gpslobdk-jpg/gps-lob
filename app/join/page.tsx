@@ -141,6 +141,7 @@ function JoinForm() {
   const [assignedTeamColor, setAssignedTeamColor] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [showInAppWarning, setShowInAppWarning] = useState(false);
+  const [showHomescreenTip, setShowHomescreenTip] = useState(false);
   const joinLockRef = useRef(false);
   const isMissingSessionNotice = searchParams.get("missingSession") === "1";
 
@@ -249,13 +250,28 @@ function JoinForm() {
   }, [view, schedule?.endAt]);
 
   useEffect(() => {
+    if (typeof window === "undefined" || typeof navigator === "undefined") {
+      return;
+    }
+
     const ua = navigator.userAgent;
     const isKnownInApp = /FBAN|FBAV|Instagram|Snapchat/i.test(ua);
     const isAndroidWebView = /Android/.test(ua) && /wv/.test(ua);
     const isIosWebView = /iPhone|iPad/.test(ua) && /AppleWebKit/.test(ua) && !/Safari/.test(ua);
+    const navigatorWithStandalone = window.navigator as Navigator & { standalone?: boolean };
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches || Boolean(navigatorWithStandalone.standalone);
+    const isMobileBrowser =
+      /iPad|iPhone|iPod|Android/i.test(ua) ||
+      (window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1);
+
     if (isKnownInApp || isAndroidWebView || isIosWebView) {
       setShowInAppWarning(true);
     }
+
+    setShowHomescreenTip(
+      isMobileBrowser && !isStandalone && !isKnownInApp && !isAndroidWebView && !isIosWebView,
+    );
   }, []);
 
   const resetToForm = () => {
@@ -795,6 +811,22 @@ function JoinForm() {
                 disabled={isJoining}
               />
             </div>
+
+            {showHomescreenTip ? (
+              <div className="rounded-[1.35rem] border border-emerald-300/12 bg-slate-900/45 px-4 py-3 text-left shadow-[0_10px_24px_rgba(2,6,23,0.16)]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200/75">
+                  Tip: Brug som app
+                </p>
+                <p className="mt-1.5 text-sm leading-6 text-slate-200/88">
+                  Tilføj GPS-løbet til hjemmeskærmen. Så fylder spillet mere på skærmen og fungerer ofte bedre.
+                </p>
+                <p className="mt-1 text-xs leading-5 text-slate-400">
+                  iPhone: Del → Føj til hjemmeskærm
+                  <br />
+                  Android: Menu ⋮ → Føj til startskærm
+                </p>
+              </div>
+            ) : null}
 
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-emerald-300/70">
