@@ -144,6 +144,7 @@ function JoinForm() {
   const [showHomescreenTip, setShowHomescreenTip] = useState(false);
   const joinLockRef = useRef(false);
   const isMissingSessionNotice = searchParams.get("missingSession") === "1";
+  const isExpiredNotice = searchParams.get("expired") === "1";
 
   const isZoneKrig = raceType === "zone_krig";
   const trimmedName = name.trim();
@@ -394,7 +395,7 @@ function JoinForm() {
         | null;
 
       if (registerResponse.status === 404 || registerResponse.status === 410) {
-        setExpiredMessage("Løbet er muligvis afsluttet af læreren.");
+        setExpiredMessage("Løbet er afsluttet eller findes ikke længere. Få en ny pinkode fra din lærer.");
         setView("expired");
         return;
       }

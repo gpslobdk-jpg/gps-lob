@@ -648,7 +648,7 @@ export function usePlayGameState({
               scope.setExtra("sessionId", sessionId);
               Sentry.captureMessage(
                 "Register participant failed: session ended (410)",
-                "warning"
+                "info"
               );
             });
           } catch (err) {
@@ -1495,6 +1495,7 @@ export function usePlayGameState({
     rememberActiveParticipant,
     resetLocationSyncRecovery,
     sessionId,
+    sessionStatus,
     storedParticipantOnLoad?.studentName,
     supabase,
   ]);
@@ -2333,7 +2334,8 @@ export function usePlayGameState({
 
           nextPostIndex = canResumeSnapshotPost
             ? snapshotCurrentPostIndex
-            : getNextRoutePostIndex(restoredRouteOrder, new Set(restoredAnsweredPostIndexes)) ?? firstRoutePostIndex;
+            : getNextRoutePostIndex(restoredRouteOrder, new Set(restoredAnsweredPostIndexes)) ??
+              firstRoutePostIndex;
         } else if (answersData) {
           restoredAnswerRows = answersData as AnswerProgressRow[];
           const confirmedAnsweredPosts = new Set<number>(baseAnsweredPosts);
@@ -2804,8 +2806,8 @@ export function usePlayGameState({
 
           if (!response.ok) {
             if (response.status === 404 || response.status === 410) {
-              clearStoredPlayRecoveryState();
-              router.replace("/join?missingSession=1");
+              clearStoredActiveParticipant();
+              router.push("/join?expired=1");
               return;
             }
 
