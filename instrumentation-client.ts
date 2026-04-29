@@ -31,6 +31,28 @@ Sentry.init({
     "undefined is not an object (evaluating 't._leaflet_pos')",
     "Cannot read properties of undefined (reading '_leaflet_pos')",
   ],
+  // Add a beforeSend filter to drop specific Facebook iOS WebView noise
+  beforeSend(event) {
+    // Check if the event contains the specific error message
+    const isWebkitError =
+      event?.exception?.values?.some((exception) =>
+        exception.value?.includes("window.webkit.messageHandlers") ||
+        exception.value?.includes("evaluating 'window.webkit.messageHandlers'")
+      );
+
+    // Check if the browser or user-agent indicates Facebook iOS WebView
+    const isFacebookWebView =
+      event?.contexts?.browser?.name === "Facebook" ||
+      event?.request?.headers?.['User-Agent']?.includes("FBAN/FBIOS") ||
+      event?.request?.headers?.['User-Agent']?.includes("FBAV");
+
+    // Drop the event if both conditions are met
+    if (isWebkitError && isFacebookWebView) {
+      return null;
+    }
+
+    return event;
+  },
 });
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
