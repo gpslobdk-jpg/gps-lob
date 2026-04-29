@@ -213,6 +213,10 @@ export default function StrategoElevInterface({
   const [strategoGame, setStrategoGame] = useState<StrategoGameRow | null>(null);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const [isManualRespawnLoading, setIsManualRespawnLoading] = useState(false);
+  const [isRetryingConnection, setIsRetryingConnection] = useState(false);
+  const [isResettingFromExpired, setIsResettingFromExpired] = useState(false);
+  const [showRetrySlowHint, setShowRetrySlowHint] = useState(false);
+  const retryTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const avatarPreviewUrl = player.pendingAvatarUrl ?? player.avatarUrl;
   const isParticipantAuthExpired = progress.screen.loadErrorVariant === "participant_auth_expired";
   const isJoinSessionMissing = progress.screen.loadErrorVariant === "join_session_missing";
@@ -221,6 +225,35 @@ export default function StrategoElevInterface({
     if (typeof window !== "undefined") {
       window.location.assign("/join");
     }
+  }, []);
+
+  const startConnectionRetry = useCallback(
+    (fn: () => void) => {
+      setIsRetryingConnection(true);
+      setShowRetrySlowHint(false);
+      retryTimersRef.current.forEach(clearTimeout);
+      retryTimersRef.current = [
+        setTimeout(() => setShowRetrySlowHint(true), 2000),
+        setTimeout(() => setIsRetryingConnection(false), 6000),
+      ];
+      fn();
+    },
+    [],
+  );
+
+  const handleRetryConnection = useCallback(() => {
+    startConnectionRetry(actions.reloadPage);
+  }, [startConnectionRetry, actions.reloadPage]);
+
+  const handleResetFromExpiredWithFeedback = useCallback(() => {
+    setIsResettingFromExpired(true);
+    actions.resetFromExpired();
+  }, [actions]);
+
+  useEffect(() => {
+    return () => {
+      retryTimersRef.current.forEach(clearTimeout);
+    };
   }, []);
 
   const handleManualRespawn = useCallback(async () => {
@@ -469,19 +502,35 @@ export default function StrategoElevInterface({
               <div className="mt-6 flex flex-col gap-3">
                 <button
                   type="button"
-                  onClick={actions.resetFromExpired}
-                  className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white"
+                  onClick={handleResetFromExpiredWithFeedback}
+                  disabled={isResettingFromExpired || isRetryingConnection}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white transition-all active:scale-95 active:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Start forfra
+                  {isResettingFromExpired ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Rydder op...</>
+                  ) : "Start forfra"}
                 </button>
                 <button
                   type="button"
-                  onClick={actions.reloadPage}
-                  className="inline-flex items-center justify-center rounded-full border border-white/10 bg-transparent px-5 py-3 text-sm font-bold text-white/80"
+                  onClick={handleRetryConnection}
+                  disabled={isRetryingConnection || isResettingFromExpired}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-transparent px-5 py-3 text-sm font-bold text-white/80 transition-all active:scale-95 active:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Genopret forbindelse
+                  {isRetryingConnection ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Genopretter...</>
+                  ) : "Genopret forbindelse"}
                 </button>
               </div>
+              {showRetrySlowHint && (
+                <div className="mt-3 flex flex-col gap-1">
+                  <p className="text-center text-xs text-rose-100/60">
+                    Vi forsøger at genoprette forbindelsen...
+                  </p>
+                  <p className="text-center text-xs text-rose-100/50">
+                    Prøv at skifte til mobildata og tryk &quot;Genopret forbindelse&quot; igen.
+                  </p>
+                </div>
+              )}
               <WifiConnectionTip className="mt-6 text-left" />
             </>
           ) : isJoinSessionMissing ? (
@@ -489,25 +538,31 @@ export default function StrategoElevInterface({
               <button
                 type="button"
                 onClick={returnToJoin}
-                className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white"
+                className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white transition-all active:scale-95 active:opacity-80"
               >
                 Gå til join
               </button>
               <button
                 type="button"
-                onClick={actions.reloadPage}
-                className="inline-flex items-center justify-center rounded-full border border-white/10 bg-transparent px-5 py-3 text-sm font-bold text-white/80"
+                onClick={handleRetryConnection}
+                disabled={isRetryingConnection}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-transparent px-5 py-3 text-sm font-bold text-white/80 transition-all active:scale-95 active:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Prøv igen
+                {isRetryingConnection ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Genopretter...</>
+                ) : "Prøv igen"}
               </button>
             </div>
           ) : (
             <button
               type="button"
-              onClick={actions.reloadPage}
-              className="mt-6 inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white"
+              onClick={handleRetryConnection}
+              disabled={isRetryingConnection}
+              className="mt-6 inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white transition-all active:scale-95 active:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Prøv igen
+              {isRetryingConnection ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Genopretter...</>
+              ) : "Prøv igen"}
             </button>
           )}
         </div>
