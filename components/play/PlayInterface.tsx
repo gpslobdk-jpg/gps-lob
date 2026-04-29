@@ -580,15 +580,24 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
             {isParticipantAuthExpired ? (
               <>
                 <p className="mt-3 text-xs text-white/60">
-                  Pollingen er stoppet helt, indtil du selv genopretter forbindelsen.
+                  Dit adgangskort er udløbet. Tryk på &quot;Start forfra&quot; for at rydde op og starte en ny session.
                 </p>
-                <button
-                  type="button"
-                  onClick={actions.reloadPage}
-                  className="mt-6 rounded-xl border border-emerald-400/60 bg-emerald-500/20 px-5 py-3 font-bold text-white transition-colors hover:bg-emerald-500/30"
-                >
-                  Genopret forbindelse
-                </button>
+                <div className="mt-6 flex flex-col gap-3">
+                  <button
+                    type="button"
+                    onClick={actions.resetFromExpired}
+                    className="rounded-xl border border-emerald-400/60 bg-emerald-500/20 px-5 py-3 font-bold text-white transition-colors hover:bg-emerald-500/30"
+                  >
+                    Start forfra
+                  </button>
+                  <button
+                    type="button"
+                    onClick={actions.reloadPage}
+                    className="rounded-xl border border-white/10 bg-white/10 px-5 py-3 font-bold text-white transition-colors hover:bg-white/20"
+                  >
+                    Genopret forbindelse
+                  </button>
+                </div>
                 <WifiConnectionTip className="mt-4 text-left" />
               </>
             ) : isJoinSessionMissing ? (

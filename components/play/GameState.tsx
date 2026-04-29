@@ -995,11 +995,23 @@ export function usePlayGameState({
       }
 
       setPlayLoadError(message, variant);
+
+      if (variant === "participant_auth_expired") {
+        try {
+          Sentry.withScope((scope) => {
+            scope.setExtra("sessionId", sessionId);
+            Sentry.captureMessage("play_expired_screen_shown", "info");
+          });
+        } catch (_err) {
+          // best-effort
+        }
+      }
     },
     [
       clearMessageResubscribeTimer,
       clearRestoreRetryTimer,
       clearSessionStatusResubscribeTimer,
+      sessionId,
       setPlayLoadError,
       supabase,
     ]
@@ -1151,6 +1163,15 @@ export function usePlayGameState({
         if (response.status === 404 || response.status === 410) {
           sessionStatusMissingRef.current = true;
           clearStoredPlayRecoveryState();
+          try {
+            Sentry.withScope((scope) => {
+              scope.setExtra("sessionId", sessionId);
+              scope.setExtra("httpStatus", response.status);
+              Sentry.captureMessage("play_status_404_410_reset", "info");
+            });
+          } catch (_err) {
+            // best-effort
+          }
           router.replace("/join?missingSession=1");
           return null;
         }
@@ -4218,6 +4239,21 @@ export function usePlayGameState({
     shouldKeepScreenAwake,
   };
 
+  const resetFromExpired = useCallback(() => {
+    clearStoredPlayRecoveryState();
+    try {
+      Sentry.withScope((scope) => {
+        scope.setExtra("sessionId", sessionId);
+        Sentry.captureMessage("play_reset_from_expired", "info");
+      });
+    } catch (_err) {
+      // best-effort
+    }
+    if (typeof window !== "undefined") {
+      window.location.assign("/join?expired=1");
+    }
+  }, [clearStoredPlayRecoveryState, sessionId]);
+
   return {
     player,
     gps,
@@ -4242,7 +4278,12 @@ export function usePlayGameState({
       dismissCurrentPost,
       clearDismissedPost,
       retryRestoreConnection,
-      reloadPage: () => {},
+      reloadPage: () => {
+        if (typeof window !== "undefined") {
+          window.location.reload();
+        }
+      },
+      resetFromExpired,
       continueFromSolvedPost,
       submitQuizAnswer,
       submitTypedAnswer,

@@ -338,15 +338,24 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
           {isParticipantAuthExpired ? (
             <>
               <p className="mt-3 text-xs text-rose-100/60">
-                Zone Krig er sat på pause på denne enhed, indtil du selv genopretter forbindelsen.
+                Dit adgangskort er udløbet. Tryk på &quot;Start forfra&quot; for at rydde op og starte en ny session.
               </p>
-              <button
-                type="button"
-                onClick={actions.reloadPage}
-                className="mt-6 inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white"
-              >
-                Genopret forbindelse
-              </button>
+              <div className="mt-6 flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={actions.resetFromExpired}
+                  className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white"
+                >
+                  Start forfra
+                </button>
+                <button
+                  type="button"
+                  onClick={actions.reloadPage}
+                  className="inline-flex items-center justify-center rounded-full border border-white/10 bg-transparent px-5 py-3 text-sm font-bold text-white/80"
+                >
+                  Genopret forbindelse
+                </button>
+              </div>
               <WifiConnectionTip className="mt-6 text-left" />
             </>
           ) : isJoinSessionMissing ? (

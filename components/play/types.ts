@@ -442,6 +442,7 @@ export interface PlayActions {
   clearDismissedPost: () => void;
   retryRestoreConnection: () => void;
   reloadPage: () => void;
+  resetFromExpired: () => void;
   continueFromSolvedPost: () => Promise<boolean>;
   submitQuizAnswer: (selectedIndex: number) => Promise<void>;
   submitTypedAnswer: (answer: string) => Promise<void>;
