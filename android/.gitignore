@@ -79,6 +79,11 @@ fastlane/readme.md
 # Version control
 vcs.xml
 
+# Keystore and property files
+keystore.properties
+*.jks
+*.keystore
+
 # lint
 lint/intermediates/
 lint/generated/
