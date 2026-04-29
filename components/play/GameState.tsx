@@ -4254,6 +4254,33 @@ export function usePlayGameState({
     }
   }, [clearStoredPlayRecoveryState, sessionId]);
 
+  const retrySessionStatus = useCallback(async () => {
+    const snapshot = await fetchSessionStatusSnapshot();
+    if (!snapshot) return;
+    const nextStatus = snapshot.sessionStatus ?? null;
+    setSessionStatus(nextStatus);
+    setGpsOverride(snapshot.gpsOverride);
+    setIsTeacherGuided(Boolean(snapshot.teacherGuided));
+    if (nextStatus === "finished") {
+      markPlayAsFinished();
+    }
+  }, [fetchSessionStatusSnapshot, markPlayAsFinished]);
+
+  const startOver = useCallback(() => {
+    clearStoredPlayRecoveryState();
+    try {
+      Sentry.withScope((scope) => {
+        scope.setExtra("sessionId", sessionId);
+        Sentry.captureMessage("play_waiting_start_over", "info");
+      });
+    } catch (_err) {
+      // best-effort
+    }
+    if (typeof window !== "undefined") {
+      window.location.assign("/join");
+    }
+  }, [clearStoredPlayRecoveryState, sessionId]);
+
   return {
     player,
     gps,
@@ -4284,6 +4311,8 @@ export function usePlayGameState({
         }
       },
       resetFromExpired,
+      retrySessionStatus,
+      startOver,
       continueFromSolvedPost,
       submitQuizAnswer,
       submitTypedAnswer,

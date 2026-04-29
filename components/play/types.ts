@@ -443,6 +443,8 @@ export interface PlayActions {
   retryRestoreConnection: () => void;
   reloadPage: () => void;
   resetFromExpired: () => void;
+  retrySessionStatus: () => Promise<void>;
+  startOver: () => void;
   continueFromSolvedPost: () => Promise<boolean>;
   submitQuizAnswer: (selectedIndex: number) => Promise<void>;
   submitTypedAnswer: (answer: string) => Promise<void>;

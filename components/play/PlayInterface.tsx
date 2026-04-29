@@ -1,10 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Camera, CheckCircle2, Cloud, CloudOff, KeyRound, Loader2, XCircle } from "lucide-react";
+import { Camera, CheckCircle2, Cloud, CloudOff, KeyRound, Loader2, RefreshCcw, XCircle } from "lucide-react";
 import Image from "next/image";
 import { Poppins, Rubik } from "next/font/google";
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 import type { PlayActions, PlayUiState } from "./types";
 import {
@@ -109,6 +110,104 @@ function MobileHudComponent({
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+// ============================================================================
+// Waiting screen – shown while teacher hasn't started the run yet.
+// ============================================================================
+
+const STUCK_HELP_DELAY_MS = 35_000;
+
+function WaitingScreenContent({ actions }: { actions: PlayActions }) {
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const hasLoggedShownRef = useRef(false);
+  const stuckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Log once when the waiting screen mounts
+  useEffect(() => {
+    if (hasLoggedShownRef.current) return;
+    hasLoggedShownRef.current = true;
+    try {
+      Sentry.captureMessage("play_waiting_screen_shown", "info");
+    } catch (_err) {
+      // best-effort
+    }
+
+    stuckTimerRef.current = setTimeout(() => {
+      setShowHelp(true);
+      try {
+        Sentry.captureMessage("play_waiting_stuck_timeout", "warning");
+      } catch (_err) {
+        // best-effort
+      }
+    }, STUCK_HELP_DELAY_MS);
+
+    return () => {
+      if (stuckTimerRef.current !== null) {
+        clearTimeout(stuckTimerRef.current);
+        stuckTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleRetry = async () => {
+    if (isRetrying) return;
+    setIsRetrying(true);
+    try {
+      Sentry.captureMessage("play_waiting_manual_retry", "info");
+    } catch (_err) {
+      // best-effort
+    }
+    try {
+      await actions.retrySessionStatus();
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
+  return (
+    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-950 px-6 py-10 text-white">
+      <div className="absolute inset-0 z-[2200] flex items-center justify-center bg-black/70 p-6">
+        <div className="gpslob-waiting-enter w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-8 text-center backdrop-blur-xl">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-400/90">
+            <div className="h-3 w-3 animate-pulse rounded-full bg-white/90" />
+          </div>
+          <h1 className="text-2xl font-black">Gør jer klar!</h1>
+          <p className="mt-3 text-sm text-white/90">Venter på at læreren starter løbet...</p>
+
+          <WifiConnectionTip className="mt-6" />
+
+          {showHelp && (
+            <p className="mt-5 rounded-xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-xs leading-5 text-amber-200">
+              Hvis læreren allerede har startet løbet, så tryk <strong>Tjek igen</strong> eller <strong>Start forfra</strong>.
+            </p>
+          )}
+
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => void handleRetry()}
+              disabled={isRetrying}
+              aria-busy={isRetrying}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-3 text-sm font-bold text-emerald-200 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RefreshCcw className={`h-4 w-4 ${isRetrying ? "animate-spin" : ""}`} />
+              {isRetrying ? "Checker..." : "Tjek igen"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => actions.startOver()}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white"
+            >
+              Start forfra
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1132,21 +1231,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
       break;
 
     case "waiting":
-      content = (
-        <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-950 px-6 py-10 text-white">
-          <div className="absolute inset-0 z-[2200] flex items-center justify-center bg-black/70 p-6">
-            <div className="gpslob-waiting-enter w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-8 text-center backdrop-blur-xl">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-400/90">
-                <div className="h-3 w-3 animate-pulse rounded-full bg-white/90" />
-              </div>
-              <h1 className="text-2xl font-black">Gør jer klar!</h1>
-              <p className="mt-3 text-sm text-white/90">Venter på at læreren starter løbet...</p>
-
-              <WifiConnectionTip className="mt-6" />
-            </div>
-          </div>
-        </div>
-      );
+      content = <WaitingScreenContent actions={actions} />;
       break;
 
     case "active":
