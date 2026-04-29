@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { UserCircle } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Poppins, Rubik } from "next/font/google";
+import { useEffect, useState } from "react";
 import { QRCode } from "react-qrcode-logo";
 
 import WifiConnectionTip from "@/components/WifiConnectionTip";
@@ -36,6 +37,11 @@ export default function TeacherLiveLobby({
   onStartSession,
   startHint = null,
 }: TeacherLiveLobbyProps) {
+  const [origin, setOrigin] = useState("");
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
   return (
     <motion.main
       key="waiting"
@@ -72,7 +78,7 @@ export default function TeacherLiveLobby({
 
           <div className="rounded-3xl bg-white p-4 shadow-[0_0_25px_rgba(255,255,255,0.25)]">
             <QRCode
-              value={`${typeof window !== "undefined" ? window.location.origin : ""}/join?pin=${joinPin}`}
+              value={`${origin}/join?pin=${joinPin}`}
               size={200}
               bgColor="#ffffff"
               fgColor="#050816"

@@ -985,12 +985,12 @@ export function usePlayGameState({
       setIsSubmittingAnswer(false);
 
       if (sessionStatusChannelRef.current) {
-        void supabase.removeChannel(sessionStatusChannelRef.current);
+        void supabase.removeChannel(sessionStatusChannelRef.current).catch(() => undefined);
         sessionStatusChannelRef.current = null;
       }
 
       if (messageChannelRef.current) {
-        void supabase.removeChannel(messageChannelRef.current);
+        void supabase.removeChannel(messageChannelRef.current).catch(() => undefined);
         messageChannelRef.current = null;
       }
 
@@ -1596,7 +1596,7 @@ export function usePlayGameState({
 
     const removeStatusChannel = () => {
       if (!sessionStatusChannelRef.current) return;
-      void supabase.removeChannel(sessionStatusChannelRef.current);
+      void supabase.removeChannel(sessionStatusChannelRef.current).catch(() => undefined);
       sessionStatusChannelRef.current = null;
     };
 
