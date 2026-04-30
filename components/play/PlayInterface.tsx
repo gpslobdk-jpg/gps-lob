@@ -139,7 +139,12 @@ function WaitingScreenContent({ actions }: { actions: PlayActions }) {
     stuckTimerRef.current = setTimeout(() => {
       setShowHelp(true);
       try {
-        Sentry.captureMessage("play_waiting_stuck_timeout", "warning");
+        Sentry.addBreadcrumb({
+          category: "play.waiting",
+          message: "waiting_help_shown",
+          level: "info",
+          data: { delayMs: STUCK_HELP_DELAY_MS },
+        });
       } catch (_err) {
         // best-effort
       }
@@ -1894,7 +1899,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                         </div>
 
                         {activeTypedAnswerError ? (
-                          <p className={`text-sm text-amber-200/85 ${wrapTextClass}`}>
+                          <p className={`text-sm text-emerald-200/85 ${wrapTextClass}`}>
                             {activeTypedAnswerError}
                           </p>
                         ) : null}
@@ -2011,7 +2016,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                           ) : null}
 
                           {activePostActionError ? (
-                            <div className={`rounded-2xl border border-red-300/30 bg-red-500/12 px-4 py-3 text-sm font-semibold text-red-50 ${wrapTextClass}`}>
+                            <div className={`rounded-2xl border border-red-300/30 bg-red-500/12 px-4 py-3 text-sm font-semibold text-red-50 ${wrapTextClass}`}
+                            >
                               {activePostActionError}
                             </div>
                           ) : null}
