@@ -5,6 +5,14 @@ import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const runtime = "edge";
 
+const PLAYABLE_SESSION_STATUSES = new Set([
+  "waiting",
+  "running",
+  "paused",
+  "active",
+  "scheduled",
+]);
+
 function asTrimmedString(value: string | null) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -38,9 +46,9 @@ export async function GET(request: NextRequest) {
     }
 
     const sessionStatus = data.status ?? null;
-    const isActive = sessionStatus === "waiting" || sessionStatus === "running";
+    const isPlayableStatus = typeof sessionStatus === "string" && PLAYABLE_SESSION_STATUSES.has(sessionStatus);
 
-    if (!isActive) {
+    if (!isPlayableStatus) {
       // Session findes, men er ikke aktiv
       return NextResponse.json(
         {
