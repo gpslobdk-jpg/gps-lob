@@ -102,6 +102,42 @@ type SearchResult = {
   display_name: string;
 };
 
+// Helper functions for coordinate validation and normalization
+function toFiniteNumber(value: unknown): number | null {
+  if (value === undefined || value === null) return null;
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === "string") {
+    const s = value.trim();
+    if (s === "") return null;
+    // Accept only full numeric strings (integers, decimals, scientific)
+    const floatRe = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+    if (!floatRe.test(s)) return null;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  return null;
+}
+
+function normalizeLatLng(lat: unknown, lng: unknown): { lat: number; lng: number } | null {
+  const nLat = toFiniteNumber(lat);
+  const nLng = toFiniteNumber(lng);
+  if (nLat === null || nLng === null) return null;
+  if (nLat < -90 || nLat > 90) return null;
+  if (nLng < -180 || nLng > 180) return null;
+  return { lat: nLat, lng: nLng };
+}
+
+function isValidLatLngPair(lat: unknown, lng: unknown): boolean {
+  return normalizeLatLng(lat, lng) !== null;
+}
+
+const FALLBACK_CENTER = { lat: 55.6761, lng: 12.5683 }; // Copenhagen fallback
+
 function CenterReporter({
   onCenterChange,
 }: {
@@ -150,9 +186,10 @@ function FocusController({ request }: { request: FocusRequest | null }) {
       if (!map || !map.getContainer()) return;
       const coords = request.coords;
       if (!Array.isArray(coords) || coords.length < 2) return;
-      const [lat, lng] = coords;
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-      map.flyTo([lat, lng], request.zoom ?? map.getZoom(), { animate: true, duration: 1.2 });
+      const [rawLat, rawLng] = coords;
+      const normalized = normalizeLatLng(rawLat, rawLng);
+      if (!normalized) return;
+      map.flyTo([normalized.lat, normalized.lng], request.zoom ?? map.getZoom(), { animate: true, duration: 1.2 });
     } catch (err) {
       console.warn("FocusController: failed to flyTo:", err);
     }
@@ -171,13 +208,14 @@ function ExternalCenterController({ center }: { center: MapCenter }) {
   useEffect(() => {
     try {
       if (!map || !map.getContainer()) return;
-      if (!Number.isFinite(center.lat) || !Number.isFinite(center.lng)) return;
+      const normalized = normalizeLatLng(center?.lat, center?.lng);
+      if (!normalized) return;
       const current = map.getCenter();
-      if (centersMatch({ lat: current.lat, lng: current.lng }, center)) {
+      if (centersMatch({ lat: current.lat, lng: current.lng }, normalized)) {
         return;
       }
 
-      map.flyTo([center.lat, center.lng], map.getZoom(), { animate: true, duration: 1.2 });
+      map.flyTo([normalized.lat, normalized.lng], map.getZoom(), { animate: true, duration: 1.2 });
     } catch (err) {
       console.warn("ExternalCenterController: failed to flyTo:", err);
     }
@@ -261,6 +299,9 @@ export default function MapPicker({
     setFocusRequest({ id: focusRequestIdRef.current, coords, zoom });
   }, []);
 
+  // Ensure we always pass a safe center into Leaflet
+  const safeCenter = normalizeLatLng(center?.lat, center?.lng) ?? FALLBACK_CENTER;
+
   const closeLayerPanel = useCallback(() => {
     setIsLayerPanelOpen(false);
   }, []);
@@ -289,10 +330,20 @@ export default function MapPicker({
         (position) => {
           if (geolocationRequestIdRef.current !== requestId) return;
 
-          const nextCenter: MapCenter = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          };
+          const normalized = normalizeLatLng(position.coords.latitude, position.coords.longitude);
+
+          // Always stop locating state even if coords invalid
+          if (geolocationRequestIdRef.current !== requestId) {
+            setGeolocationState("idle");
+            return;
+          }
+
+          if (!normalized) {
+            setGeolocationState("idle");
+            return; // invalid coords -> skip
+          }
+
+          const nextCenter: MapCenter = { lat: normalized.lat, lng: normalized.lng };
 
           if (source === "auto" && hasExternalCenterOverrideRef.current) {
             setGeolocationState("idle");
@@ -556,7 +607,7 @@ export default function MapPicker({
       </div>
 
       <MapContainer
-        center={[center.lat, center.lng]}
+        center={[safeCenter.lat, safeCenter.lng]}
         zoom={15}
         className={`h-full w-full ${isAwaitingMapClick ? "cursor-crosshair" : ""}`}
         zoomControl
@@ -568,63 +619,66 @@ export default function MapPicker({
         <FocusController request={focusRequest} />
         <MapClickReporter onMapClick={onMapClick} />
 
-        {pins.map((pin) => (
-          <Marker
-            key={pin.id}
-            position={[pin.lat, pin.lng]}
-            icon={numberedPinIcon(pin.number, canDragPins)}
-            draggable={canDragPins}
-            autoPan={canDragPins}
-            title={canDragPins ? `Post ${pin.number}. Træk for at flytte eller klik for at åbne.` : onPinClick ? `Post ${pin.number}. Klik for at hoppe til posten.` : `Post ${pin.number}`}
-            eventHandlers={{
-              click: () => {
-                onPinClick?.(pin.id);
-              },
-              ...(canDragPins
-                ? {
-                    dragend: (event: L.LeafletEvent) => {
-                      const nextLatLng = (event.target as L.Marker).getLatLng();
-                      onPinDragEnd?.(pin.id, { lat: nextLatLng.lat, lng: nextLatLng.lng });
-                    },
-                  }
-                : {}),
-            }}
-          />
-        ))}
-
-        {zones?.map((zone, index) => {
-          const zoneCircle = (
-            <Circle
-              key={`${zone.id}-circle`}
-              center={[zone.lat, zone.lng]}
-              radius={zone.radius}
-              pathOptions={{
-                color: "#22d3ee",
-                fillColor: "#22d3ee",
-                fillOpacity: 0.18,
-                weight: 2,
+        {pins
+          .map((pin) => ({ pin, n: normalizeLatLng(pin.lat, pin.lng) }))
+          .filter((p): p is { pin: SavedPin; n: { lat: number; lng: number } } => p.n !== null)
+          .map(({ pin, n }) => (
+            <Marker
+              key={pin.id}
+              position={[n.lat, n.lng]}
+              icon={numberedPinIcon(pin.number, canDragPins)}
+              draggable={canDragPins}
+              autoPan={canDragPins}
+              title={
+                canDragPins
+                  ? `Post ${pin.number}. Træk for at flytte eller klik for at åbne.`
+                  : onPinClick
+                  ? `Post ${pin.number}. Klik for at hoppe til posten.`
+                  : `Post ${pin.number}`
+              }
+              eventHandlers={{
+                click: () => {
+                  onPinClick?.(pin.id);
+                },
+                ...(canDragPins
+                  ? {
+                      dragend: (event: L.LeafletEvent) => {
+                        const nextLatLng = (event.target as L.Marker).getLatLng();
+                        onPinDragEnd?.(pin.id, { lat: nextLatLng.lat, lng: nextLatLng.lng });
+                      },
+                    }
+                  : {}),
               }}
             />
-          );
+          ))}
 
-          if (mapMode !== "zone-krig") {
-            return zoneCircle;
-          }
-
-          return (
+        {zones
+          ?.map((zone) => ({ zone, n: normalizeLatLng(zone.lat, zone.lng) }))
+          .filter((z): z is { zone: SavedZone; n: { lat: number; lng: number } } => z.n !== null)
+          .map(({ zone, n }, index) => (
             <Fragment key={zone.id}>
-              {zoneCircle}
-              <Marker
-                position={[zone.lat, zone.lng]}
-                icon={createZoneKrigMarkerIcon({
-                  state: "neutral",
-                  label: zone.label ?? `Zone ${index + 1}`,
-                })}
-                interactive={false}
+              <Circle
+                center={[n.lat, n.lng]}
+                radius={zone.radius}
+                pathOptions={{
+                  color: "#22d3ee",
+                  fillColor: "#22d3ee",
+                  fillOpacity: 0.18,
+                  weight: 2,
+                }}
               />
+              {mapMode === "zone-krig" && (
+                <Marker
+                  position={[n.lat, n.lng]}
+                  icon={createZoneKrigMarkerIcon({
+                    state: "neutral",
+                    label: zone.label ?? `Zone ${index + 1}`,
+                  })}
+                  interactive={false}
+                />
+              )}
             </Fragment>
-          );
-        })}
+          ))}
       </MapContainer>
 
       {showPinDragHint ? (
