@@ -642,19 +642,12 @@ export function usePlayGameState({
             Sentry.addBreadcrumb({
               category: "join",
               message: "register_participant_session_ended",
-              data: { sessionId },
-            });
-            Sentry.withScope((scope) => {
-              scope.setExtra("sessionId", sessionId);
-              Sentry.captureMessage(
-                "Register participant failed: session ended (410)",
-                "info"
-              );
+              data: { sessionId, statusCode: 410 },
             });
           } catch (err) {
             // best-effort
           }
-          tripPlayCircuitBreaker("Løbet er afsluttet eller ikke aktivt.", "join_session_missing");
+          tripPlayCircuitBreaker("Løbet er afsluttet. Bed læreren om en ny kode, hvis I skal prøve igen.", "join_session_missing");
           return false;
         }
         if (response.status === 404) {
@@ -664,13 +657,6 @@ export function usePlayGameState({
               category: "join",
               message: "register_participant_session_missing",
               data: { sessionId },
-            });
-            Sentry.withScope((scope) => {
-              scope.setExtra("sessionId", sessionId);
-              Sentry.captureMessage(
-                "Register participant failed: session missing (404)",
-                "warning"
-              );
             });
           } catch (err) {
             // best-effort
@@ -2441,16 +2427,10 @@ export function usePlayGameState({
             snapshotCurrentPostIndex < questions.length &&
             !restoredAnsweredPostIndexes.includes(snapshotCurrentPostIndex);
 
-          nextPostIndex =
-            raceMode === "zone_krig"
-              ? canResumeSnapshotPost
-                ? snapshotCurrentPostIndex
-                : getNextRoutePostIndex(restoredRouteOrder, new Set(restoredAnsweredPostIndexes)) ??
-                  firstRoutePostIndex
-              : canResumeSnapshotPost
-                ? snapshotCurrentPostIndex
-                : getNextRoutePostIndex(restoredRouteOrder, new Set(restoredAnsweredPostIndexes)) ??
-                  firstRoutePostIndex;
+          nextPostIndex = canResumeSnapshotPost
+            ? snapshotCurrentPostIndex
+            : getNextRoutePostIndex(restoredRouteOrder, new Set(restoredAnsweredPostIndexes)) ??
+              firstRoutePostIndex;
         } else {
           const restoredAnsweredPostIndexes = sortUniquePostIndexes([...baseAnsweredPosts]);
           const restoredSolvedPostIndexes = sortUniquePostIndexes([
