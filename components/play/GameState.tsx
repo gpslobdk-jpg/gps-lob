@@ -3190,7 +3190,7 @@ export function usePlayGameState({
           : currentFeedback
       );
       quizAnswerFeedbackTimerRef.current = null;
-    }, 400);
+      }, 1400);
   }, []);
 
   const requestRoleplayWrongAnswerResponse = useCallback(
@@ -3615,19 +3615,6 @@ export function usePlayGameState({
         await handleAnswer(selectedIndex, null);
       } else {
         handleWrongQuizAnswer(selectedIndex, feedbackKey);
-        await insertAnswerRecord(
-          selectedIndex,
-          false,
-          currentPostIndex + 1,
-          activeQuestion.text,
-          activeQuestion.points,
-          myLoc?.lat ?? null,
-          myLoc?.lng ?? null
-        );
-        if (raceMode !== "zone_krig") {
-          markAnsweredPostIndex(currentPostIndex);
-          markBurnedPostIndex(currentPostIndex);
-        }
       }
     } finally {
       endSubmission();
