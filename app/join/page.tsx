@@ -256,8 +256,15 @@ function JoinForm() {
     }
 
     const ua = navigator.userAgent;
+    // Capacitor-appen har `(wv)` i sin user-agent ligesom andre Android WebViews,
+    // men GPS virker korrekt i Capacitor fordi BridgeActivity håndterer geolocation-
+    // permissions. Vi undgår at vise den vildledende advarsel ved at detektere
+    // window.Capacitor, som altid er til stede i Capacitor-apps (men ikke i browsere).
+    const isCapacitorApp =
+      typeof window !== "undefined" &&
+      typeof (window as any).Capacitor !== "undefined";
     const isKnownInApp = /FBAN|FBAV|Instagram|Snapchat/i.test(ua);
-    const isAndroidWebView = /Android/.test(ua) && /wv/.test(ua);
+    const isAndroidWebView = !isCapacitorApp && /Android/.test(ua) && /wv/.test(ua);
     const isIosWebView = /iPhone|iPad/.test(ua) && /AppleWebKit/.test(ua) && !/Safari/.test(ua);
     const navigatorWithStandalone = window.navigator as Navigator & { standalone?: boolean };
     const isStandalone =
@@ -270,8 +277,9 @@ function JoinForm() {
       setShowInAppWarning(true);
     }
 
+    // Capacitor-appen er allerede en native app — vis ikke "Tilføj til hjemmeskærm"-tipset.
     setShowHomescreenTip(
-      isMobileBrowser && !isStandalone && !isKnownInApp && !isAndroidWebView && !isIosWebView,
+      !isCapacitorApp && isMobileBrowser && !isStandalone && !isKnownInApp && !isAndroidWebView && !isIosWebView,
     );
   }, []);
 
