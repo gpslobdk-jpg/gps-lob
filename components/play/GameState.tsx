@@ -423,6 +423,15 @@ export function usePlayGameState({
     participantId: string;
     promise: Promise<ParticipantSnapshotFetchResult>;
   } | null>(null);
+  // Stable refs so frequently-changing state doesn't recreate heavy callbacks.
+  const sessionStatusRef = useRef<string | null>(sessionStatus);
+  const isFinishedRef = useRef(isFinished);
+  const isKickedRef = useRef(isKicked);
+  const isRestoringParticipantRef = useRef(isRestoringParticipant);
+  const playerNameRef = useRef(playerName);
+  const pendingPlayerNameRef = useRef(pendingPlayerName);
+  // In-flight guard for fetchSessionStatusSnapshot to avoid concurrent fetches.
+  const statusFetchInFlightRef = useRef(false);
   const clearRoleplayInputErrorTone = useCallback(() => {
     if (roleplayInputErrorTimerRef.current) {
       clearTimeout(roleplayInputErrorTimerRef.current);
@@ -520,6 +529,14 @@ export function usePlayGameState({
     pendingLocalAnswersRef.current = pendingLocalAnswers;
   }, [pendingLocalAnswers]);
 
+  // Keep stable refs in sync with their matching state values.
+  useEffect(() => { sessionStatusRef.current = sessionStatus; }, [sessionStatus]);
+  useEffect(() => { isFinishedRef.current = isFinished; }, [isFinished]);
+  useEffect(() => { isKickedRef.current = isKicked; }, [isKicked]);
+  useEffect(() => { isRestoringParticipantRef.current = isRestoringParticipant; }, [isRestoringParticipant]);
+  useEffect(() => { playerNameRef.current = playerName; }, [playerName]);
+  useEffect(() => { pendingPlayerNameRef.current = pendingPlayerName; }, [pendingPlayerName]);
+
   const getStoredPlaySnapshotForParticipant = useCallback(
     (targetParticipantId: string | null | undefined): StoredPlaySnapshot | null => {
       if (!sessionId || !targetParticipantId) return null;
@@ -593,11 +610,13 @@ export function usePlayGameState({
         teamId: nextTeamId ?? existing?.teamId ?? teamId ?? null,
         teamColor: nextTeamColor ?? existing?.teamColor ?? teamColor ?? null,
         avatarUrl: nextAvatarUrl ?? existing?.avatarUrl ?? avatarUrl ?? null,
-        sessionStatus: nextSessionStatus ?? existing?.sessionStatus ?? sessionStatus ?? null,
+        sessionStatus: nextSessionStatus ?? existing?.sessionStatus ?? sessionStatusRef.current ?? null,
         hasCompletedAvatarGate: existing?.hasCompletedAvatarGate ?? hasCompletedAvatarGate,
       });
     },
-    [avatarUrl, hasCompletedAvatarGate, sessionId, sessionStatus, startOffset, teamColor, teamId]
+    // sessionStatus intentionally omitted – read from sessionStatusRef to avoid recreating
+    // this callback (and its dependents) on every status poll.
+    [avatarUrl, hasCompletedAvatarGate, sessionId, startOffset, teamColor, teamId]
   );
 
   const registerParticipantIdentity = useCallback(
@@ -1140,6 +1159,9 @@ export function usePlayGameState({
     if (!sessionId || sessionStatusMissingRef.current) {
       return null;
     }
+    // Deduplicate concurrent fetches — if one is already in-flight, skip.
+    if (statusFetchInFlightRef.current) return null;
+    statusFetchInFlightRef.current = true;
 
     try {
       const response = await fetch(`/api/play/status?sessionId=${encodeURIComponent(sessionId)}`, {
@@ -1191,6 +1213,8 @@ export function usePlayGameState({
     } catch (error) {
       console.error("Kunne ikke hente sessionstatus via API:", error);
       return null;
+    } finally {
+      statusFetchInFlightRef.current = false;
     }
   }, [sessionId]);
 
@@ -1323,19 +1347,20 @@ export function usePlayGameState({
     }
 
     reconnectInFlightRef.current = true;
+    // Read frequently-changing state via refs so this callback stays stable.
     const shouldTrackReconnectOutcome =
-      isRestoringParticipant ||
+      isRestoringParticipantRef.current ||
       trigger === "status_channel_error" ||
       trigger === "message_channel_error";
     let reconnectOutcomeLogged = false;
 
     try {
       const storedName =
-        storedParticipantOnLoad?.studentName?.trim() || playerName || pendingPlayerName;
+        storedParticipantOnLoad?.studentName?.trim() || playerNameRef.current || pendingPlayerNameRef.current;
       let participantAuthRecoveryMethod: ParticipantAuthRecoveryMethod | null = null;
       let hasRecoveredParticipantAuth = true;
 
-      if (participantId && !isFinished && !isKicked) {
+      if (participantId && !isFinishedRef.current && !isKickedRef.current) {
         participantAuthRecoveryMethod = await recoverParticipantAuthSession(
           storedName,
           shouldTrackReconnectOutcome ? `wake_reconnect:${trigger}` : undefined
@@ -1368,7 +1393,7 @@ export function usePlayGameState({
         return;
       }
 
-      if (participantId && !isFinished && !isKicked && !hasRecoveredParticipantAuth) {
+      if (participantId && !isFinishedRef.current && !isKickedRef.current && !hasRecoveredParticipantAuth) {
         if (shouldTrackReconnectOutcome) {
           sendTelemetry("wake_reconnect_failed", {
             participant_id: participantId,
@@ -1379,7 +1404,7 @@ export function usePlayGameState({
         }
       }
 
-      if (participantId && !isFinished && !isKicked && hasRecoveredParticipantAuth) {
+      if (participantId && !isFinishedRef.current && !isKickedRef.current && hasRecoveredParticipantAuth) {
         const refreshedStoredParticipant = readStoredActiveParticipant();
         const activeParticipantId =
           refreshedStoredParticipant?.sessionId === sessionId
@@ -1486,23 +1511,21 @@ export function usePlayGameState({
       reconnectInFlightRef.current = false;
     }
   }, [
+    // isRestoringParticipant, playerName, pendingPlayerName, isFinished, isKicked, sessionStatus
+    // intentionally omitted — read from refs so this callback doesn't recreate on every
+    // restore setState or status poll, which would restart the two long-running effects
+    // that list recoverWakeUpState as a dependency.
     clearRestoreRetryTimer,
     circuitBreakerActive,
     fetchParticipantSnapshot,
     fetchSessionStatusSnapshot,
-    isFinished,
-    isKicked,
-    isRestoringParticipant,
     loadLatestTeacherMessage,
     markPlayAsFinished,
     participantId,
-    pendingPlayerName,
-    playerName,
     recoverParticipantAuthSession,
     rememberActiveParticipant,
     resetLocationSyncRecovery,
     sessionId,
-    sessionStatus,
     storedParticipantOnLoad?.studentName,
     supabase,
   ]);
@@ -1558,15 +1581,15 @@ export function usePlayGameState({
 
   useEffect(() => {
     if (!sessionId || circuitBreakerActive) return;
-    let mounted = true;
-    const pollIntervalMs = sessionStatus === "running"
-      ? ACTIVE_SESSION_STATUS_POLL_INTERVAL_MS
-      : WAITING_SESSION_STATUS_POLL_INTERVAL_MS;
+    let cancelled = false;
+    const pollTimeoutRef: { current: number | null } = {
+      current: null,
+    };
 
     const syncSessionStatus = async () => {
       const sessionStatusSnapshot = await fetchSessionStatusSnapshot();
 
-      if (!mounted || !sessionStatusSnapshot) {
+      if (cancelled || !sessionStatusSnapshot) {
         return;
       }
 
@@ -1586,14 +1609,73 @@ export function usePlayGameState({
       sessionStatusChannelRef.current = null;
     };
 
+    const clearPollTimeout = () => {
+      if (pollTimeoutRef.current === null) {
+        return;
+      }
+
+      window.clearTimeout(pollTimeoutRef.current);
+      pollTimeoutRef.current = null;
+    };
+
+    const shouldStopPolling = () => {
+      if (cancelled || sessionStatusMissingRef.current || isFinishedRef.current || isKickedRef.current) {
+        return true;
+      }
+
+      const currentStatus = sessionStatusRef.current;
+      return currentStatus === "finished" || currentStatus === "expired";
+    };
+
+    const getNextPollDelayMs = () => {
+      const currentStatus = sessionStatusRef.current;
+
+      if (currentStatus === "running" || currentStatus === "active") {
+        return ACTIVE_SESSION_STATUS_POLL_INTERVAL_MS;
+      }
+
+      return WAITING_SESSION_STATUS_POLL_INTERVAL_MS;
+    };
+
+    const scheduleNextPoll = () => {
+      if (shouldStopPolling()) {
+        clearPollTimeout();
+        return;
+      }
+
+      clearPollTimeout();
+      pollTimeoutRef.current = window.setTimeout(() => {
+        pollTimeoutRef.current = null;
+        void pollSessionStatus();
+      }, getNextPollDelayMs());
+    };
+
+    const pollSessionStatus = async () => {
+      if (shouldStopPolling()) {
+        return;
+      }
+
+      try {
+        if (document.hidden) {
+          return;
+        }
+
+        await syncSessionStatus();
+      } finally {
+        if (!shouldStopPolling()) {
+          scheduleNextPoll();
+        }
+      }
+    };
+
     const scheduleStatusResubscribe = () => {
-      if (!mounted || sessionStatusResubscribeTimerRef.current !== null) {
+      if (cancelled || sessionStatusResubscribeTimerRef.current !== null) {
         return;
       }
 
       sessionStatusResubscribeTimerRef.current = setTimeout(() => {
         sessionStatusResubscribeTimerRef.current = null;
-        if (!mounted) {
+        if (cancelled) {
           return;
         }
 
@@ -1635,7 +1717,7 @@ export function usePlayGameState({
           }
         )
         .subscribe((status) => {
-          if (!mounted) {
+          if (cancelled) {
             return;
           }
 
@@ -1655,10 +1737,7 @@ export function usePlayGameState({
     // Fetch initial session status
     void syncSessionStatus();
     createStatusSubscription();
-
-    const pollTimer = window.setInterval(() => {
-      void syncSessionStatus();
-    }, pollIntervalMs);
+    scheduleNextPoll();
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
@@ -1676,14 +1755,17 @@ export function usePlayGameState({
     window.addEventListener("online", handleOnline);
 
     return () => {
-      mounted = false;
-      window.clearInterval(pollTimer);
+      cancelled = true;
+      clearPollTimeout();
       clearSessionStatusResubscribeTimer();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("online", handleOnline);
       removeStatusChannel();
     };
   }, [
+    // sessionStatus intentionally omitted — each timeout reads sessionStatusRef at schedule
+    // time so the polling delay adapts without recreating the whole effect on every status
+    // transition. The ref is kept in sync by a dedicated useEffect above.
     circuitBreakerActive,
     clearSessionStatusResubscribeTimer,
     fetchSessionStatusSnapshot,
@@ -1691,7 +1773,6 @@ export function usePlayGameState({
     participantId,
     recoverWakeUpState,
     sessionId,
-    sessionStatus,
     supabase,
   ]);
 
