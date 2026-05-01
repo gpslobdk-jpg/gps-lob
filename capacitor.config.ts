@@ -6,7 +6,11 @@ const config: CapacitorConfig = {
   webDir: 'public',
   server: {
     url: 'https://gpslob.dk',
-    cleartext: true
+    allowNavigation: [
+      'gpslob.dk',
+      'www.gpslob.dk',
+      '*.gpslob.dk'
+    ]
   }
 };
 
