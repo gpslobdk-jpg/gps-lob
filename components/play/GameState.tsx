@@ -105,6 +105,19 @@ type ParticipantSnapshotFetchResult = {
 
 type ParticipantAuthRecoveryMethod = "refresh" | "rebind";
 
+type SubmitPhotoResponsePayload = {
+  message?: string;
+  awardedPoints?: number;
+  imageUrl?: string | null;
+  storedAnswer?: boolean;
+  error?: string;
+};
+
+type SubmitPhotoRequestError = Error & {
+  status?: number;
+  isParticipantAuthError?: boolean;
+};
+
 type WakeReconnectTrigger =
   | "status_channel_error"
   | "message_channel_error"
@@ -148,6 +161,23 @@ type ZoneKrigCaptureApiResult = {
 
 function isCircuitBreakerLoadErrorVariant(variant: PlayLoadErrorVariant) {
   return variant === "participant_auth_expired" || variant === "join_session_missing";
+}
+
+function isParticipantAuthResponseError(status: number, message: unknown) {
+  if (status !== 401 && status !== 403) {
+    return false;
+  }
+
+  if (typeof message !== "string") {
+    return false;
+  }
+
+  const normalizedMessage = message.trim().toLocaleLowerCase("da-DK");
+  return (
+    normalizedMessage.includes("deltager-login") ||
+    normalizedMessage.includes("aktiv deltager") ||
+    normalizedMessage.includes("aktive deltager-session")
+  );
 }
 
 type InsertAnswerResult = {
@@ -3956,45 +3986,117 @@ export function usePlayGameState({
     try {
       const image = await compressImageForUpload(file);
       const answeredAt = new Date().toISOString();
-      let payload:
-        | {
-            message?: string;
-            awardedPoints?: number;
-            imageUrl?: string | null;
-            storedAnswer?: boolean;
-            error?: string;
-          }
-        | null = null;
+      let authRecoveryAttempted = false;
+      let payload: SubmitPhotoResponsePayload | null = null;
+
+      const getActiveSubmitPhotoParticipantId = () => {
+        const refreshedStoredParticipant = readStoredActiveParticipant();
+        if (refreshedStoredParticipant?.sessionId === sessionId) {
+          return refreshedStoredParticipant.participantId;
+        }
+
+        return participantId;
+      };
+
+      const uploadPhoto = async () => {
+        const activeParticipantId = getActiveSubmitPhotoParticipantId();
+        const formData = new FormData();
+        formData.append("image", image);
+        formData.append("sessionId", sessionId);
+        formData.append("participantId", activeParticipantId);
+        formData.append("postIndex", String(currentPostIndex));
+        formData.append("answeredAt", answeredAt);
+
+        const response = await fetch("/api/play/submit-photo", {
+          method: "POST",
+          body: formData,
+        });
+
+        const nextPayload = (await response.json().catch(() => null)) as SubmitPhotoResponsePayload | null;
+        if (!response.ok || typeof nextPayload?.message !== "string") {
+          const errorMessage = nextPayload?.error || "Ugyldigt svar fra foto-upload.";
+          const uploadError = new Error(errorMessage) as SubmitPhotoRequestError;
+          uploadError.status = response.status;
+          uploadError.isParticipantAuthError = isParticipantAuthResponseError(
+            response.status,
+            errorMessage
+          );
+          throw uploadError;
+        }
+
+        return nextPayload;
+      };
 
       while (isMountedRef.current) {
         try {
-          const formData = new FormData();
-          formData.append("image", image);
-          formData.append("sessionId", sessionId);
-          formData.append("participantId", participantId);
-          formData.append("postIndex", String(currentPostIndex));
-          formData.append("answeredAt", answeredAt);
-
-          const response = await fetch("/api/play/submit-photo", {
-            method: "POST",
-            body: formData,
-          });
-
-          payload = (await response.json().catch(() => null)) as {
-            message?: string;
-            awardedPoints?: number;
-            imageUrl?: string | null;
-            storedAnswer?: boolean;
-            error?: string;
-          } | null;
-
-          if (!response.ok || typeof payload?.message !== "string") {
-            throw new Error(payload?.error || "Ugyldigt svar fra foto-upload.");
-          }
+          payload = await uploadPhoto();
 
           // success
           break;
         } catch (error) {
+          const uploadError = error as SubmitPhotoRequestError;
+
+          if (uploadError.isParticipantAuthError) {
+            if (authRecoveryAttempted) {
+              tripPlayCircuitBreaker(
+                PLAY_PARTICIPANT_AUTH_EXPIRED_MESSAGE,
+                "participant_auth_expired"
+              );
+              return;
+            }
+
+            authRecoveryAttempted = true;
+
+            try {
+              Sentry.addBreadcrumb({
+                category: "photo",
+                message: "photo_upload_auth_recovery_attempt",
+                data: {
+                  sessionId,
+                  participantId: getActiveSubmitPhotoParticipantId(),
+                  postIndex: currentPostIndex,
+                  status: uploadError.status,
+                },
+              });
+            } catch (_err) {
+              // best-effort
+            }
+
+            const storedName =
+              storedParticipantOnLoad?.studentName?.trim() ||
+              playerNameRef.current ||
+              pendingPlayerNameRef.current;
+            const recoveryMethod = await recoverParticipantAuthSession(
+              storedName,
+              "photo_upload_auth"
+            );
+
+            if (!recoveryMethod) {
+              tripPlayCircuitBreaker(
+                PLAY_PARTICIPANT_AUTH_EXPIRED_MESSAGE,
+                "participant_auth_expired"
+              );
+              return;
+            }
+
+            try {
+              Sentry.addBreadcrumb({
+                category: "photo",
+                message: "photo_upload_auth_recovery_success",
+                data: {
+                  sessionId,
+                  participantId: getActiveSubmitPhotoParticipantId(),
+                  postIndex: currentPostIndex,
+                  recoveryMethod,
+                },
+              });
+            } catch (_err) {
+              // best-effort
+            }
+
+            continue;
+          }
+
           if (!isTransientNetworkError(error)) {
             throw error;
           }
