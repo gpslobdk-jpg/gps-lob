@@ -4,13 +4,14 @@ import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { Poppins, Rubik } from "next/font/google";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, ArrowLeft, KeyRound, Leaf, Loader2, MapPinned, Timer, User } from "lucide-react";
+import { AlertCircle, ArrowLeft, KeyRound, Leaf, Loader2, Timer, User } from "lucide-react";
 
 import {
   type RunScheduleGate,
   type RunSchedule,
 } from "@/utils/runSchedule";
 import * as Sentry from "@sentry/nextjs";
+import QRScannerModal from "@/components/QRScannerModal";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 import {
   readStoredActiveParticipant,
@@ -125,10 +126,9 @@ function JoinForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [supabase] = useState(() => createClient());
+  const pinFromQuery = (searchParams.get("pin") || "").replace(/\D/g, "").slice(0, JOIN_PIN_LENGTH);
 
-  const [pin, setPin] = useState(() =>
-    (searchParams.get("pin") || "").replace(/\D/g, "").slice(0, JOIN_PIN_LENGTH)
-  );
+  const [pin, setPin] = useState(pinFromQuery);
   const [name, setName] = useState("");
   const [view, setView] = useState<JoinView>("form");
   const [error, setError] = useState("");
@@ -143,23 +143,15 @@ function JoinForm() {
   const [showInAppWarning, setShowInAppWarning] = useState(false);
   const [showHomescreenTip, setShowHomescreenTip] = useState(false);
   const joinLockRef = useRef(false);
-  const hasPinQuery = searchParams.has("pin");
   const isMissingSessionNotice = searchParams.get("missingSession") === "1";
-  const isExpiredNotice = searchParams.get("expired") === "1";
-  const shouldBypassWelcome = hasPinQuery || isMissingSessionNotice || isExpiredNotice;
-  const [hasUnlockedJoinForm, setHasUnlockedJoinForm] = useState(shouldBypassWelcome);
-
   const isZoneKrig = raceType === "zone_krig";
   const trimmedName = name.trim();
   const trimmedPin = pin.trim();
   const canSubmit = trimmedPin.length === JOIN_PIN_LENGTH && trimmedName.length > 0;
-  const showWelcomeScreen = view === "form" && !hasUnlockedJoinForm && !shouldBypassWelcome;
 
   useEffect(() => {
-    if (shouldBypassWelcome) {
-      setHasUnlockedJoinForm(true);
-    }
-  }, [shouldBypassWelcome]);
+    setPin((current) => (current === pinFromQuery ? current : pinFromQuery));
+  }, [pinFromQuery]);
 
   // ── Auto-resume: redirect to active game on cold start ──────────────
   useEffect(() => {
@@ -593,7 +585,7 @@ function JoinForm() {
           <div className="relative">
             <div className="mx-auto flex max-w-max items-center gap-3 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-[11px] font-bold tracking-[0.34em] text-emerald-300 uppercase shadow-[0_0_24px_rgba(16,185,129,0.16)]">
               <Leaf className="h-4 w-4" />
-              Mission Briefing
+              Klar til start
             </div>
 
             <div className="mt-8">
@@ -606,13 +598,13 @@ function JoinForm() {
               </div>
 
               <p className="mt-6 text-xs font-semibold tracking-[0.42em] text-emerald-300 uppercase">
-                AGENT REGISTRERET
+                Løbet er ikke startet endnu
               </p>
               <h1 className={`mt-4 text-3xl font-black text-white sm:text-5xl ${rubik.className}`}>
-                Mission Briefing aktiv
+                Du er klar
               </h1>
               <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-slate-300 sm:text-base">
-                Venter på at Løbslederen starter missionen...
+                Vent på, at din lærer starter løbet.
               </p>
 
               {isZoneKrig && assignedTeamName ? (
@@ -723,98 +715,6 @@ function JoinForm() {
     );
   }
 
-  if (showWelcomeScreen) {
-    return (
-      <div className="mx-auto flex min-h-screen w-full max-w-5xl items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
-        <div className="relative w-full overflow-hidden rounded-[2.25rem] border border-emerald-300/20 bg-[linear-gradient(155deg,rgba(2,6,23,0.96)_0%,rgba(7,31,45,0.96)_46%,rgba(5,46,49,0.94)_100%)] p-6 text-white shadow-[0_40px_120px_rgba(0,0,0,0.58)] backdrop-blur-2xl sm:p-8 md:p-10">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.22),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.16),transparent_30%),linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[length:auto,auto,26px_26px,26px_26px]" />
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/15" />
-          <div className="pointer-events-none absolute left-[-4rem] top-[-4rem] h-40 w-40 rounded-full bg-emerald-300/16 blur-[110px]" />
-          <div className="pointer-events-none absolute bottom-[-5rem] right-[-3rem] h-48 w-48 rounded-full bg-cyan-300/14 blur-[130px]" />
-
-          <div className="relative grid gap-8 md:grid-cols-[1.15fr_0.85fr] md:items-center">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.32em] text-emerald-200 shadow-[0_0_24px_rgba(16,185,129,0.16)]">
-                <MapPinned className="h-4 w-4" />
-                GPS Mission
-              </div>
-
-              <h1 className={`mt-6 text-4xl font-black text-white sm:text-5xl md:text-6xl ${rubik.className}`}>
-                Velkommen til GPS Løb
-              </h1>
-
-              <p className="mt-5 max-w-2xl text-base leading-8 text-slate-200 sm:text-lg">
-                Glæd dig! Om lidt skal du ud og bevæge dig, finde poster og løse opgaver.
-              </p>
-
-              <p className="mt-4 max-w-xl text-sm leading-7 text-emerald-100/85 sm:text-base">
-                Når din lærer siger til, kan du indtaste løbskoden eller scanne QR-koden.
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-3 text-sm font-semibold text-white/85">
-                <div className="rounded-full border border-white/12 bg-white/8 px-4 py-2 backdrop-blur-md">
-                  Bevæg dig
-                </div>
-                <div className="rounded-full border border-white/12 bg-white/8 px-4 py-2 backdrop-blur-md">
-                  Find poster
-                </div>
-                <div className="rounded-full border border-white/12 bg-white/8 px-4 py-2 backdrop-blur-md">
-                  Løs opgaver
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setHasUnlockedJoinForm(true)}
-                className="mt-8 inline-flex min-h-[58px] w-full items-center justify-center rounded-[1.5rem] border border-emerald-300/35 bg-gradient-to-r from-emerald-400 to-cyan-300 px-6 py-4 text-base font-black text-slate-950 shadow-[0_22px_50px_rgba(16,185,129,0.28)] transition hover:brightness-110 active:scale-[0.99] sm:w-auto sm:min-w-[220px]"
-              >
-                Jeg er klar
-              </button>
-            </div>
-
-            <div className="relative">
-              <div className="relative mx-auto aspect-square w-full max-w-[320px] overflow-hidden rounded-[2rem] border border-white/12 bg-slate-950/35 p-6 shadow-[0_24px_60px_rgba(2,6,23,0.42)] backdrop-blur-xl">
-                <div className="absolute inset-4 rounded-[1.6rem] border border-white/10" />
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.14),transparent_28%),radial-gradient(circle_at_bottom,rgba(34,211,238,0.14),transparent_30%)]" />
-
-                <svg
-                  viewBox="0 0 240 240"
-                  className="absolute inset-0 h-full w-full p-6 text-emerald-200/55"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M34 178C55 158 72 160 92 140C109 123 109 100 129 86C149 72 174 76 206 44"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="7"
-                    strokeLinecap="round"
-                    strokeDasharray="10 14"
-                  />
-                </svg>
-
-                <div className="absolute left-[15%] top-[65%] h-4 w-4 rounded-full border border-white/30 bg-emerald-300 shadow-[0_0_20px_rgba(52,211,153,0.4)]" />
-                <div className="absolute left-[39%] top-[46%] h-4 w-4 rounded-full border border-white/30 bg-cyan-300 shadow-[0_0_20px_rgba(34,211,238,0.4)]" />
-                <div className="absolute right-[17%] top-[17%] h-4 w-4 rounded-full border border-white/30 bg-emerald-200 shadow-[0_0_20px_rgba(167,243,208,0.4)]" />
-
-                <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center">
-                  <span className="absolute h-28 w-28 rounded-full border border-emerald-300/20 bg-emerald-300/10 animate-ping" />
-                  <span className="absolute h-20 w-20 rounded-full border border-emerald-200/25 bg-slate-950/70" />
-                  <div className="relative flex h-16 w-16 items-center justify-center rounded-full border border-emerald-200/30 bg-emerald-400/18 shadow-[0_0_28px_rgba(16,185,129,0.3)] animate-pulse">
-                    <MapPinned className="h-8 w-8 text-emerald-100" />
-                  </div>
-                </div>
-
-                <div className="absolute bottom-5 left-5 right-5 rounded-[1.4rem] border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-slate-200 shadow-[0_14px_35px_rgba(2,6,23,0.28)] backdrop-blur-md">
-                  Start ved koden, følg ruten og vær klar til næste post.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
       {isMissingSessionNotice ? (
@@ -854,20 +754,11 @@ function JoinForm() {
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/15" />
 
         <div className="relative">
-          <div className="mb-8 flex justify-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-[1.75rem] border border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
-              <Leaf className="h-9 w-9 text-emerald-200" />
-            </div>
-          </div>
-
-          <p className="text-center text-xs font-semibold tracking-[0.4em] text-emerald-300 uppercase">
-            Klar til start
-          </p>
-          <h1 className={`mt-4 text-center text-3xl font-black text-white sm:text-4xl ${rubik.className}`}>
-            Skriv din kode
+          <h1 className={`text-center text-3xl font-black text-white sm:text-4xl ${rubik.className}`}>
+            Deltag i løbet
           </h1>
           <p className="mt-3 text-center text-sm leading-6 text-slate-300 sm:text-base">
-            Skriv løbskoden og dit navn. Så gør vi resten klar.
+            Indtast løbskoden eller scan QR-koden. Skriv derefter dit navn.
           </p>
 
           {showInAppWarning ? (
@@ -913,6 +804,8 @@ function JoinForm() {
               />
             </div>
 
+            <QRScannerModal buttonClassName="w-full justify-center" />
+
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-emerald-300/70">
                 <User className="h-5 w-5" />
@@ -926,68 +819,6 @@ function JoinForm() {
                 disabled={isJoining}
               />
             </div>
-
-            {/* legacy manual team picker removed
-              <div className="rounded-[1.7rem] border border-cyan-500/25 bg-cyan-500/5 p-4 backdrop-blur-xl">
-                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.36em] text-cyan-300/70">
-                  Vælg din Fraktion / Farve
-                </p>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-2.5">
-                  {[
-                    { color: "#ef4444", name: "Rød" },
-                    { color: "#3b82f6", name: "Blå" },
-                    { color: "#22c55e", name: "Grøn" },
-                    { color: "#eab308", name: "Gul" },
-                  ].map(({ color, name: factionName }) => {
-                    const isSelected = selectedColor === color;
-                    return (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => setSelectedColor(color)}
-                        aria-label={`Vælg ${factionName} fraktion`}
-                        aria-pressed={isSelected}
-                        disabled={isJoining}
-                        className={`flex flex-col items-center gap-1.5 rounded-[1.2rem] border py-3 px-1 text-xs font-bold transition-all ${
-                          isSelected
-                            ? "border-white/40 scale-105 shadow-lg"
-                            : "border-white/10 bg-white/5 opacity-60 hover:opacity-90"
-                        }`}
-                        style={
-                          isSelected
-                            ? { background: `${color}22`, borderColor: color, boxShadow: `0 0 20px ${color}44` }
-                            : {}
-                        }
-                      >
-                        <span
-                          className={`h-8 w-8 rounded-full border-2 transition-all ${isSelected ? "border-white/80 scale-110" : "border-white/20"}`}
-                          style={{ background: color }}
-                        />
-                        <span className={isSelected ? "text-white" : "text-white/50"}>
-                          {factionName}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {!selectedColor && (
-                  <p className="mt-3 text-center text-xs text-cyan-300/60">
-                    Vælg en fraktion for at fortsætte
-                  </p>
-                )}
-              </div>
-            )} */}
-
-            {isZoneKrig ? (
-              <div className="rounded-[1.7rem] border border-cyan-500/25 bg-cyan-500/5 p-4 text-center backdrop-blur-xl">
-                <p className="text-[10px] font-bold uppercase tracking-[0.36em] text-cyan-300/70">
-                  Zone Krig
-                </p>
-                <p className="mt-3 text-sm leading-6 text-cyan-100/80">
-                  Hold fordeles automatisk, når du joiner. Du skal bare indtaste pinkode og navn.
-                </p>
-              </div>
-            ) : null}
 
             <button
               type="submit"
@@ -1003,25 +834,49 @@ function JoinForm() {
                 "Deltag i løbet"
               )}
             </button>
-
-            {showHomescreenTip ? (
-              <div className="rounded-[1.35rem] border border-emerald-300/12 bg-slate-900/45 px-4 py-3 text-left shadow-[0_10px_24px_rgba(2,6,23,0.16)]">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200/75">
-                  Tip: Brug som app
-                </p>
-                <p className="mt-1.5 text-sm leading-6 text-slate-200/88">
-                  Tilføj GPS-løbet til hjemmeskærmen. Så fylder spillet mere på skærmen og fungerer ofte bedre.
-                </p>
-                <p className="mt-1 text-xs leading-5 text-slate-400">
-                  iPhone: Del → Føj til hjemmeskærm
-                  <br />
-                  Android: Menu ⋮ → Føj til startskærm
-                </p>
-              </div>
-            ) : null}
-
-            <WifiConnectionTip />
           </form>
+
+          <details className="mt-5 rounded-[1.35rem] border border-white/10 bg-slate-950/45 px-4 py-3 text-left shadow-[0_10px_24px_rgba(2,6,23,0.16)]">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-slate-100">
+              <span>Problemer med at deltage?</span>
+              <span className="text-[11px] uppercase tracking-[0.24em] text-emerald-200/70">Vis hjælp</span>
+            </summary>
+
+            <div className="mt-4 space-y-4">
+              <p className="text-sm leading-6 text-slate-300">
+                Hvis koden er forkert eller for gammel, skal din lærer give dig en ny kode eller et nyt link.
+              </p>
+
+              <p className="text-sm leading-6 text-slate-300">
+                Hvis kameraet ikke starter, kan du stadig taste koden manuelt i feltet ovenfor.
+              </p>
+
+              <WifiConnectionTip className="shadow-none" />
+
+              {showHomescreenTip ? (
+                <div className="rounded-[1.2rem] border border-emerald-300/12 bg-slate-900/45 px-4 py-3 shadow-[0_10px_24px_rgba(2,6,23,0.16)]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200/75">
+                    Tip: Brug som app
+                  </p>
+                  <p className="mt-1.5 text-sm leading-6 text-slate-200/88">
+                    Tilføj GPS-løbet til hjemmeskærmen. Så fylder spillet mere på skærmen og fungerer ofte bedre.
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">
+                    iPhone: Del → Føj til hjemmeskærm
+                    <br />
+                    Android: Menu ⋮ → Føj til startskærm
+                  </p>
+                </div>
+              ) : null}
+
+              <Link
+                href="/"
+                className="inline-flex items-center text-sm font-semibold text-emerald-200 transition hover:text-emerald-100"
+              >
+                Tilbage til forsiden
+              </Link>
+            </div>
+          </details>
         </div>
       </div>
     </div>

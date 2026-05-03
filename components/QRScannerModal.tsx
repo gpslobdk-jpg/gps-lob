@@ -15,6 +15,10 @@ type ScanTarget =
       href: string;
     };
 
+type QRScannerModalProps = {
+  buttonClassName?: string;
+};
+
 const qrButtonClassName =
   "inline-flex items-center gap-3 rounded-full border border-emerald-500/30 bg-slate-950/70 px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] text-emerald-300 shadow-[0_0_24px_rgba(16,185,129,0.15)] backdrop-blur-xl transition-all hover:border-emerald-400/60 hover:bg-emerald-500/10 hover:text-emerald-200";
 
@@ -102,7 +106,7 @@ function resolveScanTarget(value: string): ScanTarget | null {
   };
 }
 
-export default function QRScannerModal() {
+export default function QRScannerModal({ buttonClassName = "" }: QRScannerModalProps) {
   const router = useRouter();
   const scannerRegionId = useId().replace(/:/g, "-");
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -255,7 +259,7 @@ export default function QRScannerModal() {
           setScanError(null);
           setIsOpen(true);
         }}
-        className={qrButtonClassName}
+        className={`${qrButtonClassName} ${buttonClassName}`.trim()}
       >
         <Camera className="h-4 w-4" aria-hidden="true" />
         <span>Scan QR</span>
