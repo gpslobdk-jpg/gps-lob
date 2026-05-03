@@ -32,6 +32,11 @@ type ZenBubble = {
   };
 };
 
+type NativeAppWelcomeProps = {
+  onReady: () => void;
+  shouldReduceMotion: boolean;
+};
+
 const JOIN_PIN_LENGTH = 6;
 const latest = {
   version: "Appstatus 27/04",
@@ -138,11 +143,159 @@ function OrganizerHint() {
   );
 }
 
+function NativeAppWelcome({ onReady, shouldReduceMotion }: NativeAppWelcomeProps) {
+  const pulseAnimation = shouldReduceMotion
+    ? undefined
+    : {
+        scale: [1, 1.16, 1],
+        opacity: [0.7, 1, 0.7],
+      };
+
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,#082f49_0%,#0a3b3b_42%,#020617_100%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(45,212,191,0.26),transparent_34%),radial-gradient(circle_at_85%_20%,rgba(14,165,233,0.28),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.18),transparent_34%)]" />
+      <div className="absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(148,163,184,0.14)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.14)_1px,transparent_1px)] [background-size:28px_28px]" />
+      <div className="absolute left-1/2 top-10 h-72 w-72 -translate-x-1/2 rounded-full bg-cyan-300/18 blur-3xl" />
+      <div className="absolute -left-16 bottom-12 h-56 w-56 rounded-full bg-emerald-400/18 blur-3xl" />
+      <div className="absolute right-0 top-24 h-52 w-52 rounded-full bg-sky-400/12 blur-3xl" />
+
+      <motion.div
+        className="absolute left-[12%] top-[14%] h-5 w-5 rounded-full border border-cyan-100/70 bg-cyan-300/30 shadow-[0_0_18px_rgba(103,232,249,0.55)]"
+        animate={pulseAnimation}
+        transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute right-[14%] top-[30%] h-4 w-4 rounded-full border border-emerald-100/60 bg-emerald-300/25 shadow-[0_0_16px_rgba(52,211,153,0.45)]"
+        animate={pulseAnimation}
+        transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
+      />
+      <motion.div
+        className="absolute bottom-[18%] left-[18%] h-3.5 w-3.5 rounded-full border border-sky-100/60 bg-sky-300/25 shadow-[0_0_16px_rgba(56,189,248,0.42)]"
+        animate={pulseAnimation}
+        transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
+      />
+
+      <div className="pointer-events-none absolute inset-x-6 top-[20%] h-56 rounded-[36px] border border-white/10 bg-white/6 backdrop-blur-md sm:inset-x-8">
+        <svg viewBox="0 0 320 180" className="h-full w-full" aria-hidden="true">
+          <path
+            d="M26 132C60 98 102 54 144 82C177 104 185 155 226 137C265 119 280 77 300 40"
+            fill="none"
+            stroke="rgba(186,230,253,0.72)"
+            strokeWidth="4"
+            strokeDasharray="8 10"
+            strokeLinecap="round"
+          />
+          <circle cx="26" cy="132" r="8" fill="rgba(45,212,191,0.95)" />
+          <circle cx="144" cy="82" r="8" fill="rgba(125,211,252,0.95)" />
+          <circle cx="226" cy="137" r="8" fill="rgba(52,211,153,0.95)" />
+          <circle cx="300" cy="40" r="10" fill="rgba(253,224,71,0.95)" />
+        </svg>
+      </div>
+
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-md flex-col justify-between px-6 py-8 sm:px-8">
+        <div className="space-y-6 pt-6">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/8 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-100/85 backdrop-blur-md">
+            Elev-app
+          </div>
+
+          <div className="rounded-[32px] border border-white/12 bg-slate-950/28 p-6 shadow-[0_24px_80px_rgba(2,6,23,0.38)] backdrop-blur-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-100/70">
+                  Mission start
+                </p>
+                <h1 className="mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl">
+                  {"Velkommen til GPS L\u00f8b"}
+                </h1>
+              </div>
+
+              <div className="relative mt-1 h-16 w-16 shrink-0">
+                <motion.div
+                  className="absolute inset-0 rounded-full bg-emerald-300/18 blur-md"
+                  animate={pulseAnimation}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                />
+                <div className="absolute left-1/2 top-[42%] h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/65 bg-emerald-300/22" />
+                <div className="absolute left-1/2 top-[68%] h-4 w-4 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-[4px] border border-white/65 bg-emerald-300/22" />
+                <div className="absolute left-1/2 top-[42%] h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white" />
+              </div>
+            </div>
+
+            <p className="mt-5 text-lg leading-8 text-slate-100/92">
+              {
+                "Gl\u00e6d dig! Om lidt skal du ud og bev\u00e6ge dig, finde poster og l\u00f8se opgaver."
+              }
+            </p>
+            <p className="mt-4 text-sm leading-6 text-emerald-50/82">
+              {
+                "N\u00e5r din l\u00e6rer siger til, kan du indtaste l\u00f8bskoden eller scanne QR-koden."
+              }
+            </p>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <span className="rounded-full border border-cyan-200/18 bg-cyan-200/10 px-3 py-2 text-xs font-semibold tracking-[0.2em] text-cyan-50 uppercase">
+                GPS
+              </span>
+              <span className="rounded-full border border-emerald-200/18 bg-emerald-200/10 px-3 py-2 text-xs font-semibold tracking-[0.2em] text-emerald-50 uppercase">
+                Poster
+              </span>
+              <span className="rounded-full border border-sky-200/18 bg-sky-200/10 px-3 py-2 text-xs font-semibold tracking-[0.2em] text-sky-50 uppercase">
+                Missioner
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4 pb-4">
+          <div className="rounded-[28px] border border-white/10 bg-slate-950/26 p-5 backdrop-blur-md">
+            <div className="flex items-center justify-between text-[11px] font-semibold tracking-[0.24em] text-cyan-100/70 uppercase">
+              <span>Rute klar</span>
+              <span>3 poster</span>
+            </div>
+
+            <div className="mt-4 grid grid-cols-3 gap-3 text-center text-xs font-semibold text-slate-100/88">
+              <div className="rounded-2xl border border-white/10 bg-white/6 px-3 py-3">Find poster</div>
+              <div className="rounded-2xl border border-white/10 bg-white/6 px-3 py-3">Scan QR</div>
+              <div className="rounded-2xl border border-white/10 bg-white/6 px-3 py-3">
+                {"L\u00f8s mission"}
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onReady}
+            className="flex w-full items-center justify-center gap-3 rounded-[28px] bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-300 px-6 py-5 text-lg font-black tracking-[0.08em] text-slate-950 shadow-[0_20px_50px_rgba(20,184,166,0.35)] transition-transform hover:scale-[1.01] active:scale-[0.99]"
+          >
+            <span>Jeg er klar</span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-5 w-5"
+              aria-hidden="true"
+            >
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProps) {
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState("");
   const [isMuted, setIsMuted] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
+  const [isCapacitorApp, setIsCapacitorApp] = useState(isNativeGpslobApp);
   const backgroundVideoRef = useRef<HTMLVideoElement | null>(null);
   const shouldReduceMotion = useReducedMotion();
   const router = useRouter();
@@ -168,6 +321,10 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
     video.volume = isMuted ? 0 : 1;
     void video.play().catch(() => undefined);
   }, [isMuted]);
+
+  useEffect(() => {
+    setIsCapacitorApp(typeof (window as any).Capacitor !== "undefined");
+  }, []);
 
   const toggleBackgroundSound = () => {
     const nextMuted = !isMuted;
@@ -197,6 +354,19 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
     setIsJoining(true);
     router.push(`/join?pin=${cleanedCode}`);
   };
+
+  const handleAppReady = () => {
+    router.push("/join");
+  };
+
+  if (isCapacitorApp) {
+    return (
+      <NativeAppWelcome
+        onReady={handleAppReady}
+        shouldReduceMotion={Boolean(shouldReduceMotion)}
+      />
+    );
+  }
 
   return (
     <div className="relative flex min-h-screen flex-col overflow-x-hidden text-slate-100">
