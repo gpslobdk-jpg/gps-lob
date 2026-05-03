@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import Lottie from "lottie-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import AIChatButton from "@/components/AIChatButton";
 import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
@@ -37,7 +37,6 @@ type NativeAppWelcomeProps = {
   shouldReduceMotion: boolean;
 };
 
-const JOIN_PIN_LENGTH = 6;
 const latest = {
   version: "Appstatus 27/04",
   date: "2026-04-27",
@@ -123,25 +122,6 @@ const zenBubbles: ZenBubble[] = [
     },
   },
 ];
-
-function OrganizerHint() {
-  return (
-    <div className="lg:hidden">
-      <div className="rounded-2xl border border-white/10 bg-slate-900/55 px-4 py-3 text-left shadow-[0_0_24px_rgba(15,23,42,0.22)] backdrop-blur-xl">
-        <p className="flex items-start gap-2 text-xs leading-5 text-slate-200/80 sm:text-sm">
-          <span className="mt-0.5 shrink-0 text-sm text-sky-200" aria-hidden>
-            {"\u2139\uFE0F"}
-          </span>
-          <span>
-            {
-              "Er du arrangør eller lærer, der skal oprette et løb? \u{1F6E0}\uFE0F Så skal du hoppe over på en computer på gpslob.dk. Her på mobilen kan du kun deltage i løb."
-            }
-          </span>
-        </p>
-      </div>
-    </div>
-  );
-}
 
 function NativeAppWelcome({ onReady, shouldReduceMotion }: NativeAppWelcomeProps) {
   const pulseAnimation = shouldReduceMotion
@@ -291,10 +271,7 @@ function NativeAppWelcome({ onReady, shouldReduceMotion }: NativeAppWelcomeProps
 }
 
 export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProps) {
-  const [code, setCode] = useState("");
-  const [codeError, setCodeError] = useState("");
   const [isMuted, setIsMuted] = useState(true);
-  const [isJoining, setIsJoining] = useState(false);
   const [isCapacitorApp, setIsCapacitorApp] = useState(isNativeGpslobApp);
   const backgroundVideoRef = useRef<HTMLVideoElement | null>(null);
   const shouldReduceMotion = useReducedMotion();
@@ -335,24 +312,6 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
     backgroundVideoRef.current.muted = nextMuted;
     backgroundVideoRef.current.volume = nextMuted ? 0 : 1;
     void backgroundVideoRef.current.play().catch(() => undefined);
-  };
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (isJoining) return;
-
-    const cleanedCode = code.replace(/\D/g, "").slice(0, JOIN_PIN_LENGTH);
-    if (cleanedCode.length === 0) {
-      setCodeError("Husk at skrive koden først!");
-      return;
-    }
-    if (cleanedCode.length !== JOIN_PIN_LENGTH) {
-      setCodeError(`Koden skal bestå af ${JOIN_PIN_LENGTH} tal.`);
-      return;
-    }
-    setCodeError("");
-    setIsJoining(true);
-    router.push(`/join?pin=${cleanedCode}`);
   };
 
   const handleAppReady = () => {
@@ -411,7 +370,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
 
       {/* Welcome modal removed; no onboarding modal shown */}
 
-      <div className="relative z-20 mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 md:px-8 md:pt-6">
+      <div className="relative z-20 mx-auto hidden w-full max-w-6xl px-4 pt-4 sm:px-6 md:block md:px-8 md:pt-6">
         <div className="mx-auto max-w-4xl">
           <MobileInSchoolBanner variant="home" />
         </div>
@@ -419,86 +378,51 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
 
       <main className="relative mx-auto flex w-full flex-1 flex-col justify-center px-4 py-8 md:hidden">
         <section className="flex flex-1 items-center justify-center">
-          <div className="w-full max-w-lg space-y-3">
-            <div className="my-4 flex flex-wrap justify-center gap-3">
-              <button
-                type="button"
-                onClick={toggleBackgroundSound}
-                aria-pressed={!isMuted}
-                className="inline-flex items-center gap-3 rounded-full border border-emerald-500/30 bg-slate-950/70 px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] text-emerald-300 shadow-[0_0_24px_rgba(16,185,129,0.15)] backdrop-blur-xl transition-all hover:border-emerald-400/60 hover:bg-emerald-500/10 hover:text-emerald-200"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-4 w-4"
-                  aria-hidden="true"
-                >
-                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                  {isMuted ? (
-                    <>
-                      <line x1="23" y1="9" x2="17" y2="15" />
-                      <line x1="17" y1="9" x2="23" y2="15" />
-                    </>
-                  ) : (
-                    <>
-                      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
-                      <path d="M18.5 5.5a9 9 0 0 1 0 13" />
-                    </>
-                  )}
-                </svg>
-                <span>{isMuted ? "Slå lyd til" : "Slå lyd fra"}</span>
-              </button>
-              <QRScannerModal />
+          <div className="w-full max-w-md space-y-4">
+            <div className="rounded-[2rem] border border-white/10 bg-slate-950/78 p-6 text-center shadow-[0_18px_50px_rgba(2,6,23,0.38)] backdrop-blur-xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300/80">
+                GPS Løb
+              </p>
+              <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">
+                Hvem er du?
+              </h1>
             </div>
-            <div className="rounded-3xl border border-emerald-500/30 bg-slate-950/80 p-5 shadow-[0_0_40px_rgba(16,185,129,0.15)] backdrop-blur-xl">
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <p className="text-center text-sm font-semibold tracking-wide text-slate-200">
+
+            <div className="rounded-[2rem] border border-emerald-400/25 bg-slate-950/82 p-6 shadow-[0_18px_50px_rgba(16,185,129,0.14)] backdrop-blur-xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300/75">
+                Jeg er elev
+              </p>
+              <p className="mt-3 text-base leading-7 text-slate-100/92">
+                Scan QR-koden eller indtast løbskoden for at deltage.
+              </p>
+
+              <div className="mt-5 space-y-3">
+                <QRScannerModal buttonClassName="w-full justify-center py-4 text-sm" />
+
+                <Link
+                  href="/join"
+                  className="flex min-h-[56px] w-full items-center justify-center rounded-[1.4rem] border border-white/12 bg-white/6 px-5 py-4 text-sm font-bold uppercase tracking-[0.18em] text-white transition hover:border-white/20 hover:bg-white/10"
+                >
                   Indtast løbskode
-                </p>
-                <input
-                  value={code}
-                  onChange={(event) => {
-                    setCode(event.target.value.replace(/\D/g, "").slice(0, JOIN_PIN_LENGTH));
-                    if (codeError) setCodeError("");
-                  }}
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={JOIN_PIN_LENGTH}
-                  autoComplete="one-time-code"
-                  placeholder="Indtast 6-cifret pinkode"
-                  className="w-full rounded-3xl border border-slate-700 bg-slate-900 px-4 py-5 text-center font-mono text-base font-black tracking-[0.16em] text-emerald-400 outline-none placeholder:font-sans placeholder:text-sm placeholder:font-semibold placeholder:tracking-normal placeholder:text-slate-500 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/25 sm:px-5 sm:py-6 sm:text-lg sm:placeholder:text-base"
-                />
-                <button
-                  type="submit"
-                  disabled={isJoining}
-                  aria-busy={isJoining}
-                  className="w-full rounded-3xl bg-emerald-500 px-6 py-8 text-3xl font-bold tracking-wide text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.99] disabled:cursor-wait disabled:opacity-70"
-                >
-                  {isJoining ? "Åbner løbet..." : "Deltag"}
-                </button>
-                {codeError ? (
-                  <p className="text-center text-sm font-semibold text-rose-200">{codeError}</p>
-                ) : null}
-              </form>
+                </Link>
+              </div>
             </div>
-            <div className="relative z-20 mt-6 flex flex-wrap justify-center gap-4 text-xs text-white/60 sm:gap-6 sm:text-sm">
-              <Link href="/ophavsret" className="transition-colors hover:text-white">
-                Ophavsret
-              </Link>
-              <Link href="/gdpr" className="transition-colors hover:text-white">
-                GDPR & Privatliv
-              </Link>
-              <Link href="/privacy" className="transition-colors hover:text-white">
-                Databehandling
+
+            <div className="rounded-[2rem] border border-white/10 bg-slate-950/74 p-6 shadow-[0_18px_50px_rgba(2,6,23,0.3)] backdrop-blur-xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-200/75">
+                Jeg er lærer
+              </p>
+              <p className="mt-3 text-sm leading-7 text-slate-200/88">
+                Brug helst GPS Løb fra en computer, når du opretter og styrer løb.
+              </p>
+
+              <Link
+                href="/login"
+                className="mt-5 flex min-h-[52px] w-full items-center justify-center rounded-[1.4rem] border border-sky-200/18 bg-sky-200/8 px-5 py-4 text-sm font-bold uppercase tracking-[0.18em] text-sky-50 transition hover:border-sky-200/28 hover:bg-sky-200/12"
+              >
+                Log ind
               </Link>
             </div>
-            {!isNativeGpslobApp ? <OrganizerHint /> : null}
           </div>
         </section>
       </main>
