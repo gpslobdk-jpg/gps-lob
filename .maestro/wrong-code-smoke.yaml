@@ -1,0 +1,14 @@
+appId: dk.gpslob.testapp
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: "Indtast løbskode"
+    timeout: 10000
+- assertVisible: "Indtast løbskode"
+- tapOn: "Indtast 6-cifret pinkode"
+- inputText: "000000"
+- tapOn: "Deltag"
+- waitForAnimationToEnd
+- assertVisible: "Indtast løbskode"
+- assertVisible: "Deltag"

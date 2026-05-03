@@ -1,0 +1,10 @@
+appId: dk.gpslob.testapp
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: "Indtast løbskode"
+    timeout: 10000
+- assertVisible: "Indtast løbskode"
+- assertVisible: "Deltag"
+- assertNotVisible: "GPS virker ikke i denne browser"
