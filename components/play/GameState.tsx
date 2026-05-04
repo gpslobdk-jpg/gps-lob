@@ -3462,7 +3462,7 @@ export function usePlayGameState({
     }
 
     if (!isEscapeRace) {
-      await finalizeParticipantSilently();
+      void finalizeParticipantSilently();
     }
 
     setDismissedPostIndex(null);
@@ -3814,7 +3814,7 @@ export function usePlayGameState({
         return;
       }
 
-      await finalizeParticipantSilently();
+      void finalizeParticipantSilently();
       setMasterLockStatus("unlocked");
       setMasterLockError(null);
       setShowMasterVictory(true);
@@ -3827,7 +3827,7 @@ export function usePlayGameState({
       }, 2200);
     } catch (error) {
       console.error("Master-lås kunne ikke valideres:", error);
-      await finalizeParticipantSilently();
+      void finalizeParticipantSilently();
       if (!isMountedRef.current) return;
       setMasterLockStatus("unlocked");
       setMasterLockError(null);
@@ -3932,19 +3932,20 @@ export function usePlayGameState({
           return;
         }
 
-        // All other variants (escape, typed): close overlay immediately
-        const lockedPostIndex = currentPostIndex;
+        // All other variants (escape, typed): close overlay, show brief feedback, then advance
         setShowQuestion(false);
-        setDismissedPostIndex(lockedPostIndex);
         setTypedAnswerError(null);
         if (wrongAnswerFeedbackTimerRef.current) {
           clearTimeout(wrongAnswerFeedbackTimerRef.current);
         }
-        setWrongAnswerFeedback("Desværre, forkert svar! Du får 0 point. Find næste post.");
+        setWrongAnswerFeedback("Desværre, forkert svar! Du får 0 point.");
         wrongAnswerFeedbackTimerRef.current = setTimeout(() => {
           setWrongAnswerFeedback(null);
           wrongAnswerFeedbackTimerRef.current = null;
         }, 4000);
+        await new Promise<void>((resolve) => setTimeout(resolve, 1400));
+        if (!isMountedRef.current) return;
+        await continueFromSolvedPost();
         return;
       }
 
