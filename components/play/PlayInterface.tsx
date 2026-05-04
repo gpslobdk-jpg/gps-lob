@@ -1612,6 +1612,9 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                     {/* Continue button after a correct answer (quiz success state) */}
                     {hasActiveQuizSuccess ? (
                       <div className="mt-5">
+                        <div className="mb-3 rounded-2xl border border-emerald-300/30 bg-emerald-500/12 px-4 py-3 text-center text-sm font-semibold text-emerald-100">
+                          Korrekt! Du får point.
+                        </div>
                         <button
                           type="button"
                           onClick={() => void actions.continueFromSolvedPost()}
@@ -1673,6 +1676,12 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                             })}
                           </div>
                         )}
+
+                        {!isQuizPostBurned && activeQuizAnswerFeedback?.tone === "error" ? (
+                          <div className="mt-4 rounded-2xl border border-red-300/30 bg-red-500/12 px-4 py-3 text-center text-sm font-semibold text-red-50">
+                            Desværre forkert. Du får 0 point.
+                          </div>
+                        ) : null}
 
                         {!isQuizPostBurned && isQuizSubmissionPending ? (
                           <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-100">

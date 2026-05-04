@@ -3725,7 +3725,25 @@ export function usePlayGameState({
       if (isCorrect) {
         await handleAnswer(selectedIndex, null);
       } else {
+        // Vis fejl-feedback i 1400 ms
         handleWrongQuizAnswer(selectedIndex, feedbackKey);
+
+        // Gem 0-point svar i databasen (fire-and-forget — blokerer aldrig UI)
+        void insertAnswerRecord(
+          selectedIndex,
+          false,
+          currentPostIndex + 1,
+          activeQuestion.text,
+          activeQuestion.points,
+          myLoc?.lat ?? null,
+          myLoc?.lng ?? null
+        );
+
+        // Vent på at fejl-feedback er vist, marker posten som besvaret og ryk videre
+        await new Promise<void>((resolve) => setTimeout(resolve, 1400));
+        if (!isMountedRef.current) return;
+        markAnsweredPostIndex(currentPostIndex);
+        await continueFromSolvedPost();
       }
     } finally {
       endSubmission();
