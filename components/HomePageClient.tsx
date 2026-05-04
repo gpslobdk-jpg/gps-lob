@@ -37,6 +37,27 @@ type NativeAppWelcomeProps = {
   shouldReduceMotion: boolean;
 };
 
+type CapacitorDebugBridge = {
+  getPlatform?: () => string;
+  isNativePlatform?: () => boolean;
+};
+
+type HomePageWindow = Window & {
+  Capacitor?: CapacitorDebugBridge;
+};
+
+type NativeDebugSnapshot = {
+  isNativeGpslobAppProp: boolean;
+  isCapacitorAppState: boolean;
+  capacitorType: string;
+  hasCapacitor: boolean;
+  capacitorPlatform: string;
+  capacitorIsNativePlatform: string;
+  userAgent: string;
+  isStandaloneDisplayMode: boolean;
+  href: string;
+};
+
 const latest = {
   version: "Appstatus 27/04",
   date: "2026-04-27",
@@ -270,9 +291,41 @@ function NativeAppWelcome({ onReady, shouldReduceMotion }: NativeAppWelcomeProps
   );
 }
 
+function formatDebugBoolean(value: boolean) {
+  return value ? "ja" : "nej";
+}
+
+function NativeDebugPanel({ snapshot }: { snapshot: NativeDebugSnapshot }) {
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[2200] p-3 sm:p-4">
+      <div className="mx-auto max-w-5xl rounded-2xl border border-amber-300/30 bg-slate-950/92 p-4 text-xs text-amber-50 shadow-[0_20px_50px_rgba(2,6,23,0.5)] backdrop-blur-xl">
+        <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.24em] text-amber-200/85">
+          <span>Native debug</span>
+          <span className="rounded-full border border-amber-300/25 bg-amber-400/10 px-2 py-1 text-[10px]">
+            debugNative=1
+          </span>
+        </div>
+
+        <div className="grid gap-2 font-mono text-[11px] leading-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div>isNativeGpslobApp prop: {String(snapshot.isNativeGpslobAppProp)}</div>
+          <div>isCapacitorApp state: {String(snapshot.isCapacitorAppState)}</div>
+          <div>typeof window.Capacitor: {snapshot.capacitorType}</div>
+          <div>window.Capacitor findes: {formatDebugBoolean(snapshot.hasCapacitor)}</div>
+          <div>Capacitor.getPlatform(): {snapshot.capacitorPlatform}</div>
+          <div>Capacitor.isNativePlatform(): {snapshot.capacitorIsNativePlatform}</div>
+          <div>display-mode standalone: {String(snapshot.isStandaloneDisplayMode)}</div>
+          <div className="sm:col-span-2 lg:col-span-3 break-all">navigator.userAgent: {snapshot.userAgent}</div>
+          <div className="sm:col-span-2 lg:col-span-3 break-all">window.location.href: {snapshot.href}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProps) {
   const [isMuted, setIsMuted] = useState(true);
   const [isCapacitorApp, setIsCapacitorApp] = useState(isNativeGpslobApp);
+  const [nativeDebugSnapshot, setNativeDebugSnapshot] = useState<NativeDebugSnapshot | null>(null);
   const backgroundVideoRef = useRef<HTMLVideoElement | null>(null);
   const shouldReduceMotion = useReducedMotion();
   const router = useRouter();
@@ -300,8 +353,48 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
   }, [isMuted]);
 
   useEffect(() => {
-    setIsCapacitorApp(typeof (window as any).Capacitor !== "undefined");
-  }, []);
+    const browserWindow = window as HomePageWindow;
+    const capacitor = browserWindow.Capacitor;
+    const nextIsCapacitorApp = typeof capacitor !== "undefined";
+
+    setIsCapacitorApp(nextIsCapacitorApp);
+
+    const params = new URLSearchParams(browserWindow.location.search);
+    if (params.get("debugNative") !== "1") {
+      setNativeDebugSnapshot(null);
+      return;
+    }
+
+    let capacitorPlatform = "ikke tilgaengelig";
+    if (typeof capacitor?.getPlatform === "function") {
+      try {
+        capacitorPlatform = capacitor.getPlatform();
+      } catch {
+        capacitorPlatform = "fejl";
+      }
+    }
+
+    let capacitorIsNativePlatform = "ikke tilgaengelig";
+    if (typeof capacitor?.isNativePlatform === "function") {
+      try {
+        capacitorIsNativePlatform = String(capacitor.isNativePlatform());
+      } catch {
+        capacitorIsNativePlatform = "fejl";
+      }
+    }
+
+    setNativeDebugSnapshot({
+      isNativeGpslobAppProp: isNativeGpslobApp,
+      isCapacitorAppState: nextIsCapacitorApp,
+      capacitorType: typeof capacitor,
+      hasCapacitor: typeof capacitor !== "undefined",
+      capacitorPlatform,
+      capacitorIsNativePlatform,
+      userAgent: navigator.userAgent,
+      isStandaloneDisplayMode: window.matchMedia("(display-mode: standalone)").matches,
+      href: browserWindow.location.href,
+    });
+  }, [isNativeGpslobApp]);
 
   const toggleBackgroundSound = () => {
     const nextMuted = !isMuted;
@@ -318,16 +411,12 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
     router.push("/join");
   };
 
-  if (isCapacitorApp) {
-    return (
-      <NativeAppWelcome
-        onReady={handleAppReady}
-        shouldReduceMotion={Boolean(shouldReduceMotion)}
-      />
-    );
-  }
-
-  return (
+  const pageContent = isCapacitorApp ? (
+    <NativeAppWelcome
+      onReady={handleAppReady}
+      shouldReduceMotion={Boolean(shouldReduceMotion)}
+    />
+  ) : (
     <div className="relative flex min-h-screen flex-col overflow-x-hidden text-slate-100">
       <video
         ref={backgroundVideoRef}
@@ -570,5 +659,12 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
         <AIChatButton />
       </div>
     </div>
+  );
+
+  return (
+    <>
+      {pageContent}
+      {nativeDebugSnapshot ? <NativeDebugPanel snapshot={nativeDebugSnapshot} /> : null}
+    </>
   );
 }
