@@ -286,7 +286,11 @@ export function parseQuestion(raw: unknown): Question | null {
     : ["", "", "", ""];
   while (answers.length < 4) answers.push("");
 
-  const correctIndex = Number(candidate.correctIndex);
+  // Guard: Number(null) === 0 and Number(undefined) === NaN.
+  // We must NOT treat a missing/null correctIndex as index 0 (answer A).
+  // null in DB means "no correct answer configured" → keep as null on the client.
+  const correctIndex =
+    candidate.correctIndex != null ? Number(candidate.correctIndex) : NaN;
   const rawType = candidate.type;
   const type: Question["type"] =
     rawType === "multiple_choice" || rawType === "ai_image" ? rawType : "unknown";
