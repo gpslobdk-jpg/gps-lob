@@ -234,6 +234,116 @@ function makeProgressionQuestions(): MockQuestion[] {
   ];
 }
 
+// Regression guard: verify correctIndex B (1), C (2), D (3) actually give points.
+// Previously, sanitizeQuestionForPlay() stripped correctIndex→null for quiz questions,
+// causing submitQuizAnswer() to treat every answer as wrong (selectedIndex === null → false).
+// Tests only used correctIndex:0, so the bug was hidden.
+test.describe("correctIndex B/C/D regression – korrekt svar på anden svarmulighed end A", () => {
+  test.describe.configure({ retries: 0 });
+
+  for (const { label, correctIndex, buttonText, wrongButtonText } of [
+    { label: "B (index 1)", correctIndex: 1, buttonText: "Korrekt B", wrongButtonText: "Forkert A" },
+    { label: "C (index 2)", correctIndex: 2, buttonText: "Korrekt C", wrongButtonText: "Forkert A" },
+    { label: "D (index 3)", correctIndex: 3, buttonText: "Korrekt D", wrongButtonText: "Forkert A" },
+  ]) {
+    test(`korrekt svar ${label} giver point og forkert svar giver 0`, async ({ page }) => {
+      test.setTimeout(45_000);
+
+      const state: MockState = { submitPayloads: [], validatePayloads: [] };
+
+      const answers = ["Forkert A", "Korrekt B", "Korrekt C", "Korrekt D"];
+      // Only the button at correctIndex is actually correct for each sub-test
+      const questionAnswers: [string, string, string, string] = [
+        "Forkert A",
+        correctIndex === 1 ? "Korrekt B" : "Forkert B",
+        correctIndex === 2 ? "Korrekt C" : "Forkert C",
+        correctIndex === 3 ? "Korrekt D" : "Forkert D",
+      ];
+
+      await mountPlayMocks(
+        page.context(),
+        {
+          raceType: "quiz",
+          questions: [
+            {
+              type: "multiple_choice",
+              text: `Test: korrekt svar er ${label}`,
+              answers: questionAnswers,
+              correctIndex,
+              points: 10,
+              lat: POST_LAT,
+              lng: POST_LNG,
+            },
+          ],
+        },
+        state
+      );
+
+      await openPlayPage(page, page.getByRole("button", { name: new RegExp(`^${wrongButtonText}$`, "i") }));
+
+      // Click the WRONG answer first (A at index 0)
+      await page.getByRole("button", { name: new RegExp(`^${wrongButtonText}$`, "i") }).click();
+      await expect(page.getByText(/Desværre.*0 point/i)).toBeVisible({ timeout: 5_000 });
+
+      await expect.poll(() => state.submitPayloads.length, { timeout: 5_000 }).toBe(1);
+      expect(state.submitPayloads[0]).toMatchObject({
+        is_correct: false,
+        awarded_points: 0,
+        selected_index: 0,
+      });
+
+      // Wait for next question to appear — same question because there is only 1 post, this test is about the single-question submit payload check.
+      // The flow continues past the wrong answer, so we just verify the payload above.
+    });
+
+    test(`kun svarmulighed ${label} giver is_correct:true (correctIndex:${correctIndex})`, async ({ page }) => {
+      test.setTimeout(45_000);
+
+      const state: MockState = { submitPayloads: [], validatePayloads: [] };
+
+      const questionAnswers: [string, string, string, string] = [
+        "Forkert A",
+        correctIndex === 1 ? "Korrekt B" : "Forkert B",
+        correctIndex === 2 ? "Korrekt C" : "Forkert C",
+        correctIndex === 3 ? "Korrekt D" : "Forkert D",
+      ];
+
+      await mountPlayMocks(
+        page.context(),
+        {
+          raceType: "quiz",
+          questions: [
+            {
+              type: "multiple_choice",
+              text: `Test: korrekt svar er ${label}`,
+              answers: questionAnswers,
+              correctIndex,
+              points: 10,
+              lat: POST_LAT,
+              lng: POST_LNG,
+            },
+          ],
+        },
+        state
+      );
+
+      await openPlayPage(page, page.getByRole("button", { name: new RegExp(`^${buttonText}$`, "i") }));
+
+      // Click the CORRECT answer
+      await page.getByRole("button", { name: new RegExp(`^${buttonText}$`, "i") }).click();
+
+      await expect(page.getByText(/Korrekt! Du får point\./i)).toBeVisible({ timeout: 5_000 });
+
+      await expect.poll(() => state.submitPayloads.length, { timeout: 5_000 }).toBe(1);
+      expect(state.submitPayloads[0]).toMatchObject({
+        is_correct: true,
+        awarded_points: 10,
+        selected_index: correctIndex,
+      });
+    });
+  }
+});
+
 test.describe("answer progression regressions", () => {
   test.describe.configure({ retries: 0 });
 

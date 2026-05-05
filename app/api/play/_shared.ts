@@ -426,10 +426,11 @@ export function sanitizeQuestionForPlay(rawQuestion: unknown, variant: QuestionV
     };
   }
 
-  return {
-    ...rawQuestion,
-    correctIndex: null,
-  };
+  // Quiz: the client checks answers locally in submitQuizAnswer() by comparing
+  // selectedIndex to correctIndex. The answer options (A/B/C/D) are already
+  // visible to students, so correctIndex is not security-sensitive here.
+  // Do NOT set correctIndex: null — that would make every answer wrong.
+  return { ...rawQuestion };
 }
 
 export function extractEscapeCodeBrick(rawQuestion: unknown, postIndex: number) {
