@@ -149,7 +149,15 @@ function CenterReporter({
     const report = () => {
       try {
         const current = map.getCenter();
-        onCenterChange?.({ lat: current.lat, lng: current.lng });
+        // Guard: only propagate if Leaflet gave us finite, in-range coordinates.
+        // map.getCenter() can return NaN when the map container has zero size or
+        // is not yet laid out (e.g. hidden <aside> on mobile). Passing NaN to
+        // parent state would later reach assignPinFromCenter and corrupt question
+        // coordinates, or cause "Invalid LatLng object: (NaN, NaN)" in Leaflet.
+        const normalized = normalizeLatLng(current.lat, current.lng);
+        if (normalized) {
+          onCenterChange?.({ lat: normalized.lat, lng: normalized.lng });
+        }
       } catch (err) {
         // map may have been destroyed/unmounted
         console.warn("CenterReporter: failed to read center:", err);

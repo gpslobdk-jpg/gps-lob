@@ -17,24 +17,30 @@ type LiveStudentsMapProps = {
   locations: LiveStudentLocation[];
 };
 
+function isValidCoord(lat: number, lng: number) {
+  return Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+}
+
 function FitToLocations({ locations }: { locations: LiveStudentLocation[] }) {
   const map = useMap();
 
   useEffect(() => {
-    if (locations.length === 0) return;
+    // Filter to only locations with valid coordinates before touching Leaflet.
+    const valid = locations.filter((loc) => isValidCoord(loc.lat, loc.lng));
+    if (valid.length === 0) return;
 
     try {
       if (!map || !map.getContainer()) return;
 
-      if (locations.length === 1) {
-        map.flyTo([locations[0].lat, locations[0].lng], 15, {
+      if (valid.length === 1) {
+        map.flyTo([valid[0].lat, valid[0].lng], 15, {
           animate: true,
           duration: 1.2,
         });
         return;
       }
 
-      const bounds = L.latLngBounds(locations.map((loc) => [loc.lat, loc.lng] as [number, number]));
+      const bounds = L.latLngBounds(valid.map((loc) => [loc.lat, loc.lng] as [number, number]));
       map.fitBounds(bounds, { padding: [50, 50] });
     } catch (err) {
       console.warn("LiveStudentsMap: failed to fit map to locations:", err);
@@ -65,7 +71,7 @@ export default function LiveStudentsMap({ locations }: LiveStudentsMapProps) {
 
         <FitToLocations locations={locations} />
 
-        {locations.map((loc) => (
+        {locations.filter((loc) => isValidCoord(loc.lat, loc.lng)).map((loc) => (
           <Marker key={loc.id} position={[loc.lat, loc.lng]} icon={studentIcon(loc.name)}>
             <Tooltip direction="top" offset={[0, -16]} opacity={1}>
               {loc.name}
