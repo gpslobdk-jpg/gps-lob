@@ -10,7 +10,8 @@ export type RaceTypeThemeKey =
   | "zone_krig"
   | "stratego"
   | "selfie"
-  | "podcast";
+  | "podcast"
+  | "musikquiz";
 
 export type RaceTypeTheme = {
   key: RaceTypeThemeKey;
@@ -256,6 +257,26 @@ const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
     archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
     archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
   },
+  musikquiz: {
+    key: "musikquiz",
+    label: "Musikquiz",
+    icon: "Music",
+    colorClass: "text-pink-300",
+    selectionCardClass:
+      "border-pink-400/40 bg-gradient-to-br from-pink-950 via-slate-900 to-fuchsia-900 text-white shadow-xl shadow-pink-950/25 hover:border-pink-300/60 hover:shadow-2xl hover:shadow-pink-950/35",
+    archiveCardClass:
+      "border-pink-500/30 shadow-pink-500/10 hover:border-pink-400/50 hover:shadow-pink-500/20",
+    archiveHeaderClass: "bg-gradient-to-r from-pink-950 via-slate-900 to-fuchsia-900 text-white",
+    archiveAccentIconClass: "text-pink-300",
+    archivePrimaryButtonClass:
+      "border border-pink-600 bg-pink-600 text-white shadow-[0_12px_24px_rgba(219,39,119,0.18)] hover:bg-pink-500",
+    archiveGhostButtonClass:
+      "border border-pink-200 bg-white text-pink-900 shadow-sm hover:border-pink-300 hover:bg-pink-50",
+    archiveGhostIconButtonClass:
+      "border border-pink-200 bg-white text-pink-800 shadow-sm hover:border-pink-300 hover:bg-pink-50",
+    archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
+    archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
+  },
 };
 
 export function normalizeRaceTypeThemeKey(value: unknown): RaceTypeThemeKey {
@@ -315,6 +336,10 @@ export function normalizeRaceTypeThemeKey(value: unknown): RaceTypeThemeKey {
       return "selfie";
     case "podcast":
       return "podcast";
+    case "musikquiz":
+    case "musik quiz":
+    case "musik-quiz":
+      return "musikquiz";
     default:
       return "manuel";
   }
