@@ -11,6 +11,7 @@ export const RACE_TYPES = {
   PODCAST: "podcast",
   ZONE_KRIG: "zone_krig",
   STRATEGO: "stratego",
+  MUSIKQUIZ: "musikquiz",
 } as const;
 
 export type RaceType = (typeof RACE_TYPES)[keyof typeof RACE_TYPES];
@@ -28,6 +29,7 @@ export const RACE_TYPE_VALUES = [
   RACE_TYPES.PODCAST,
   RACE_TYPES.ZONE_KRIG,
   RACE_TYPES.STRATEGO,
+  RACE_TYPES.MUSIKQUIZ,
 ] as const;
 
 export const RACE_TYPE_LABELS: Record<RaceType, string> = {
@@ -43,6 +45,7 @@ export const RACE_TYPE_LABELS: Record<RaceType, string> = {
   [RACE_TYPES.PODCAST]: "Podcast-Detektiven",
   [RACE_TYPES.ZONE_KRIG]: "Zone-Krigen",
   [RACE_TYPES.STRATEGO]: "Live Stratego",
+  [RACE_TYPES.MUSIKQUIZ]: "Musikquiz",
 };
 
 export const DEFAULT_MAP_CENTER = {
@@ -178,6 +181,10 @@ export function normalizeRaceType(value: unknown): RaceType | null {
     case "zone krigen":
     case "zonekrig":
       return RACE_TYPES.ZONE_KRIG;
+    case "musikquiz":
+    case "musik quiz":
+    case "musik-quiz":
+      return RACE_TYPES.MUSIKQUIZ;
     default:
       return null;
   }
@@ -216,6 +223,7 @@ export function getBuilderHrefForRaceType(runId: string, raceType: unknown) {
     [RACE_TYPES.PODCAST]: "/dashboard/opret/podcast",
     [RACE_TYPES.ZONE_KRIG]: "/dashboard/opret/zone-krig",
     [RACE_TYPES.STRATEGO]: "/dashboard/opret/stratego",
+    [RACE_TYPES.MUSIKQUIZ]: "/dashboard/opret/musikquiz",
   };
 
   return `${builderPathByRaceType[normalizedRaceType]}?id=${encodeURIComponent(runId)}`;

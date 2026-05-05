@@ -77,6 +77,7 @@ const RACE_TYPE_FILTER_OPTIONS: ReadonlyArray<{ value: RaceTypeFilterValue; labe
   { value: "podcast", label: "Podcast-Detektiven" },
   { value: "zone_krig", label: "Zone-Krigen" },
   { value: "stratego", label: "Live Stratego" },
+  { value: "musikquiz", label: "Musikquiz" },
 ];
 
 const formatDanishDate = (value: string) => {

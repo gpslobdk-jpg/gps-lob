@@ -13,6 +13,16 @@ export type Question = {
   lng: number;
   mediaUrl?: string;
   isSelfie?: boolean;
+  /** Musikquiz: 30s preview-lyd fra iTunes/lignende udbyder */
+  previewUrl?: string;
+  /** Musikquiz: album-artwork thumbnail URL */
+  artworkUrl?: string;
+  /** Musikquiz: kunstnernavn */
+  musicArtist?: string;
+  /** Musikquiz: kilde-udbyder, fx "itunes" */
+  musicProvider?: string;
+  /** Musikquiz: udbyderens unikke track-id */
+  providerTrackId?: string | number;
 };
 
 export type Post = {

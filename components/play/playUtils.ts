@@ -316,6 +316,14 @@ export function parseQuestion(raw: unknown): Question | null {
     lng,
     mediaUrl: typeof candidate.mediaUrl === "string" ? candidate.mediaUrl : "",
     isSelfie: candidate.isSelfie === true || candidate.is_selfie === true,
+    previewUrl: typeof candidate.previewUrl === "string" ? candidate.previewUrl : undefined,
+    artworkUrl: typeof candidate.artworkUrl === "string" ? candidate.artworkUrl : undefined,
+    musicArtist: typeof candidate.musicArtist === "string" ? candidate.musicArtist : undefined,
+    musicProvider: typeof candidate.musicProvider === "string" ? candidate.musicProvider : undefined,
+    providerTrackId:
+      typeof candidate.providerTrackId === "string" || typeof candidate.providerTrackId === "number"
+        ? candidate.providerTrackId
+        : undefined,
   };
 }
 
@@ -374,6 +382,10 @@ export function normalizeRaceMode(value: unknown): RaceMode {
     case "live_stratego":
     case "live-stratego":
       return "stratego";
+    case "musikquiz":
+    case "musik quiz":
+    case "musik-quiz":
+      return "quiz";
     default:
       return "unknown";
   }

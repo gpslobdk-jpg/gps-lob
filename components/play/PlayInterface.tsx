@@ -1595,6 +1595,20 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
                 {activePostVariant === "quiz" ? (
                   <>
+                    {/* Musikquiz: audio-preview — artwork og metadata skjules for eleven */}
+                    {activeQuestion.previewUrl ? (
+                      <div className="mb-5 overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-3">
+                        <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-white/45">
+                          🎵 Lyt til musikklippet
+                        </p>
+                        <audio
+                          controls
+                          src={activeQuestion.previewUrl}
+                          className="w-full"
+                        />
+                      </div>
+                    ) : null}
+
                     <div className="mb-6 flex items-start justify-between gap-3">
                       <p className={`flex-1 text-2xl font-black text-white ${wrapTextClass} ${rubik.className}`}>
                         {activeQuestion.text}
