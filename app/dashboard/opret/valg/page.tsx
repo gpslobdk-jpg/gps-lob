@@ -130,6 +130,18 @@ const fagligeCards: BuilderCard[] = [
     badgeClass:
       "border-rose-300/40 bg-rose-400/20 text-white shadow-[0_10px_22px_rgba(244,63,94,0.18)]",
   },
+  {
+    raceType: "musikquiz",
+    title: "Musikquiz",
+    description: "Lad eleverne lytte til musikklip og gætte sangtitlen ved posterne.",
+    href: "/dashboard/opret/musikquiz",
+    accentClass:
+      "border-pink-500/75 bg-pink-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(236,72,153,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
+    accentGlowClass:
+      "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(236,72,153,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(236,72,153,0.24)]",
+    badgeClass:
+      "border-pink-300/40 bg-pink-400/20 text-white shadow-[0_10px_22px_rgba(236,72,153,0.18)]",
+  },
 ];
 
 const aiCards: BuilderCard[] = [
