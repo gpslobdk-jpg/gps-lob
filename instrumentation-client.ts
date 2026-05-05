@@ -51,6 +51,22 @@ Sentry.init({
       return null;
     }
 
+    // Drop iOS Safari SecurityError from service worker registration.
+    // next-pwa/Workbox injects window.workbox.register() without a .catch(),
+    // so Safari private browsing / MDM restrictions cause an unhandled rejection.
+    // The app continues to work normally (NetworkOnly fallback); this is noise.
+    const isSwLoadFailed = event?.exception?.values?.some(
+      (exception) =>
+        exception.value?.includes("sw.js load failed") ||
+        (exception.type === "SecurityError" &&
+          exception.value?.includes("sw.js"))
+    );
+    const mechanismType =
+      event?.exception?.values?.[0]?.mechanism?.type;
+    if (isSwLoadFailed && mechanismType === "onunhandledrejection") {
+      return null;
+    }
+
     return event;
   },
 });
