@@ -196,8 +196,17 @@ function FitBoundsSync({
 
     try {
       if (!map || !map.getContainer()) return;
+      // Use animate:false for the very first fit so Leaflet does not start an
+      // internal requestAnimationFrame zoom animation during startup.  At game
+      // start, MapViewportSync's panTo(animate:true) fires in the same React
+      // commit phase.  If fitBounds also uses animate:true, Leaflet cancels the
+      // pan mid-flight via _panAnim.stop() but its already-queued RAF callback
+      // can still fire on Mobile Safari (which has slower RAF scheduling),
+      // accessing t.classList on a cleaned-up element → crash.  The map is not
+      // visible to the user yet (tiles are still loading) so the non-animated
+      // jump is imperceptible.
       withProgrammaticMapMotion(programmaticMapMotionRef, () => {
-        map.fitBounds(bounds as LatLngBoundsExpression, { padding: [80, 80], maxZoom: 17, animate: true });
+        map.fitBounds(bounds as LatLngBoundsExpression, { padding: [80, 80], maxZoom: 17, animate: false });
       });
       hasFittedInitialRef.current = true;
       prevTargetKeyRef.current = `${targetLocation.lat},${targetLocation.lng}`;
@@ -393,17 +402,35 @@ export default function MapDisplay({
         className="h-full w-full"
         style={{ height: "100%", width: "100%", filter: "none", backgroundColor: "#ffffff" }}
       >
+        {/*
+         * FitBoundsSync MUST come before MapViewportSync in the JSX so its
+         * useEffect fires first in React's commit phase.
+         *
+         * When the first GPS fix arrives both components want to animate the
+         * map in the same React render.  If MapViewportSync fires first it
+         * calls map.panTo(animate:true), then FitBoundsSync calls
+         * map.fitBounds(animate:true).  Leaflet cancels the pan internally via
+         * _panAnim.stop() but the pan's requestAnimationFrame callback is
+         * already queued.  On Mobile Safari (slower RAF scheduling) that stale
+         * callback fires after Leaflet has cleaned up the animation element,
+         * causing "TypeError: undefined is not an object (evaluating
+         * 't.classList')" inside leaflet-src.js.
+         *
+         * By putting FitBoundsSync first it sets programmaticMapMotionRef to
+         * true before MapViewportSync reads it, so MapViewportSync skips panTo
+         * and only one Leaflet animation is ever in flight at a time.
+         */}
+        <FitBoundsSync
+          playerLocation={playerLocation}
+          targetLocation={targetLocation}
+          allowAutoFrame={allowAutoFrame}
+          programmaticMapMotionRef={programmaticMapMotionRef}
+        />
         <MapViewportSync
           playerLocation={playerLocation}
           targetLocation={targetLocation}
           isFollowingPlayer={isFollowingPlayer}
           onUserMapInteraction={handleUserMapInteraction}
-          programmaticMapMotionRef={programmaticMapMotionRef}
-        />
-        <FitBoundsSync
-          playerLocation={playerLocation}
-          targetLocation={targetLocation}
-          allowAutoFrame={allowAutoFrame}
           programmaticMapMotionRef={programmaticMapMotionRef}
         />
         <TileLayer
