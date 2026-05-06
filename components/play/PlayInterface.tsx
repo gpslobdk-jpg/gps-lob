@@ -131,7 +131,11 @@ function WaitingScreenContent({ actions }: { actions: PlayActions }) {
     if (hasLoggedShownRef.current) return;
     hasLoggedShownRef.current = true;
     try {
-      Sentry.captureMessage("play_waiting_screen_shown", "info");
+      Sentry.addBreadcrumb({
+        category: "play.waiting",
+        message: "play_waiting_screen_shown",
+        level: "info",
+      });
     } catch (_err) {
       // best-effort
     }

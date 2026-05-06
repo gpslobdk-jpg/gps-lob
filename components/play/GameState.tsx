@@ -437,6 +437,7 @@ export function usePlayGameState({
   const isMountedRef = useRef(true);
   const circuitBreakerTrippedRef = useRef(false);
   const sessionStatusMissingRef = useRef(false);
+  const expiredLoggedRef = useRef(false);
   const solvedPostIndexesRef = useRef<number[]>([]);
   const answeredPostIndexesRef = useRef<number[]>(answeredPostIndexes);
   const pendingLocalAnswersRef = useRef<StoredPendingAnswer[]>(pendingLocalAnswers);
@@ -1033,10 +1034,13 @@ export function usePlayGameState({
 
       if (variant === "participant_auth_expired") {
         try {
-          Sentry.withScope((scope) => {
-            scope.setExtra("sessionId", sessionId);
-            Sentry.captureMessage("play_expired_screen_shown", "info");
-          });
+          if (!expiredLoggedRef.current) {
+            expiredLoggedRef.current = true;
+            Sentry.withScope((scope) => {
+              scope.setExtra("sessionId", sessionId);
+              Sentry.captureMessage("play_expired_screen_shown", "info");
+            });
+          }
         } catch (_err) {
           // best-effort
         }
