@@ -24,29 +24,14 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
-import { asTrimmedString, type AdminSupabaseClient } from "@/app/api/bonus/_shared";
+import {
+  asTrimmedString,
+  rankBonusLeaderboard,
+  type AdminSupabaseClient,
+  type BonusLeaderboardRow,
+} from "@/app/api/bonus/_shared";
 
 export const runtime = "edge";
-
-// ============================================================================
-// Typer
-// ============================================================================
-
-type BonusLeaderboardRow = {
-  id: string;
-  student_name: string;
-  score: number;
-  total_questions: number;
-  finished_at: string | null;
-};
-
-type LeaderboardEntry = {
-  rank: number;
-  studentName: string;
-  score: number;
-  totalQuestions: number;
-  finishedAt: string | null;
-};
 
 // ============================================================================
 // DB-hjælpere
@@ -68,25 +53,6 @@ async function fetchBonusLeaderboard(
 
   if (error) throw new Error(error.message);
   return (data ?? []) as BonusLeaderboardRow[];
-}
-
-// ============================================================================
-// Rangliste-hjælper (ren funktion — testbar uden Supabase)
-// ============================================================================
-
-/**
- * Tildeler 1-baserede rang-numre til en liste af bonus-sessions.
- * Forudsætter at arrayet allerede er sorteret (score desc, finished_at asc).
- * Eksporteres til brug i unit-tests.
- */
-export function rankBonusLeaderboard(rows: BonusLeaderboardRow[]): LeaderboardEntry[] {
-  return rows.map((row, idx) => ({
-    rank: idx + 1,
-    studentName: row.student_name,
-    score: row.score,
-    totalQuestions: row.total_questions,
-    finishedAt: row.finished_at ?? null,
-  }));
 }
 
 // ============================================================================

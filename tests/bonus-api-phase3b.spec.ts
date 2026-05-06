@@ -19,7 +19,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { rankBonusLeaderboard } from "@/app/api/bonus/leaderboard/route";
+import { rankBonusLeaderboard } from "@/app/api/bonus/_shared";
 
 // ============================================================================
 // Fixtures

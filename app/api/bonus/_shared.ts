@@ -118,6 +118,43 @@ export function toClientSafeQuestion(row: BonusQuestionRow): BonusQuestionClient
 }
 
 // ============================================================================
+// Leaderboard-typer og ren helper (eksporteres til tests og leaderboard/route.ts)
+// ============================================================================
+
+/** Rå DB-rad fra bonus_sessions til leaderboard */
+export type BonusLeaderboardRow = {
+  id: string;
+  student_name: string;
+  score: number;
+  total_questions: number;
+  finished_at: string | null;
+};
+
+/** Klientsikkert leaderboard-entry (camelCase) */
+export type LeaderboardEntry = {
+  rank: number;
+  studentName: string;
+  score: number;
+  totalQuestions: number;
+  finishedAt: string | null;
+};
+
+/**
+ * Tildeler 1-baserede rang-numre til en liste af bonus-sessions.
+ * Forudsætter at arrayet allerede er sorteret (score desc, finished_at asc).
+ * Ren funktion uden side-effects — testbar uden Supabase.
+ */
+export function rankBonusLeaderboard(rows: BonusLeaderboardRow[]): LeaderboardEntry[] {
+  return rows.map((row, idx) => ({
+    rank: idx + 1,
+    studentName: row.student_name,
+    score: row.score,
+    totalQuestions: row.total_questions,
+    finishedAt: row.finished_at ?? null,
+  }));
+}
+
+// ============================================================================
 // DB-hjælpefunktioner (bruger adminSupabase)
 // ============================================================================
 
