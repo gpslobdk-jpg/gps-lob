@@ -7,6 +7,7 @@ import { Poppins, Rubik } from "next/font/google";
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import * as Sentry from "@sentry/nextjs";
 
+import { useParams } from "next/navigation";
 import type { PlayActions, PlayUiState } from "./types";
 import {
   FIREWORKS_LOTTIE_URL,
@@ -253,6 +254,9 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const [showRetrySlowHint, setShowRetrySlowHint] = useState(false);
   const retryTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
+  const params = useParams<{ sessionId: string }>();
+  const sessionId = params?.sessionId ?? "";
+
   const { player, gps, progress, flags } = ui;
   const {
     pendingPlayerName,
@@ -328,6 +332,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     isSubmittingAnswer,
     isAnalyzingPhoto,
     isCheckingEscapeAnswer,
+    bonusEnabled,
   } = flags;
   const isWithinAutoUnlockRadius =
     !gpsOverrideEnabled &&
@@ -1235,6 +1240,28 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
               Løbet er slut. Kig op på arrangørens skærm og se den store podie-fejring!
             </div>
           </div>
+
+          {/* Bonus CTA — kun synlig hvis bonus_enabled=true på gps_runs */}
+          {bonusEnabled && (
+            <a
+              href={`/play/${sessionId}/bonus?name=${encodeURIComponent(playerName || "")}`}
+              data-testid="bonus-cta"
+              className="relative z-10 mt-4 w-full max-w-lg flex flex-col items-center gap-2 rounded-3xl border border-yellow-400/40 bg-yellow-950/50 px-6 py-5 text-center shadow-[0_0_32px_rgba(251,191,36,0.15)] backdrop-blur-xl transition hover:bg-yellow-950/70 active:scale-[0.99]"
+            >
+              <span className="text-base font-black text-yellow-300">
+                Færdig før de andre? 🏆
+              </span>
+              <span className="text-xs leading-relaxed text-yellow-100/70">
+                Prøv bonusspillet og se, om du kan komme øverst på bonuslisten.
+              </span>
+              <span className="text-[11px] text-yellow-100/40">
+                Bonuspoint tæller ikke med i dit normale løbsresultat.
+              </span>
+              <span className="mt-1 inline-block rounded-xl bg-yellow-400 px-5 py-2 text-xs font-black text-slate-900 shadow-md">
+                Start bonusspil
+              </span>
+            </a>
+          )}
         </div>
       );
       break;

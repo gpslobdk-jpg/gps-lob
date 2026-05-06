@@ -228,6 +228,7 @@ export type PlaySessionPayload = {
   raceType?: unknown;
   radius?: number | null;
   gpsOverride?: boolean;
+  bonusEnabled?: boolean;
   error?: string;
 };
 
@@ -405,6 +406,8 @@ export interface PlayUiFlags {
   isCheckingEscapeAnswer: boolean;
   isSessionPaused: boolean;
   shouldKeepScreenAwake: boolean;
+  /** Feature-flag fra gps_runs.bonus_enabled. false = CTA vises ikke. */
+  bonusEnabled: boolean;
 }
 
 export interface PlayMapState {

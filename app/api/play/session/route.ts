@@ -64,6 +64,7 @@ export async function GET(request: NextRequest) {
         raceType,
         radius: getRunRadiusMeters(run),
         gpsOverride: Boolean(sessionData?.gps_override),
+        bonusEnabled: Boolean(run?.bonus_enabled ?? false),
       },
       {
         headers: {
