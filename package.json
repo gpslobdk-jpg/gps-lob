@@ -8,13 +8,18 @@
     "start": "next start",
     "lint": "eslint",
     "stripe": "stripe listen --forward-to localhost:3000/api/webhook/stripe",
-    "test:ai-grades": "node scripts/ai-grade-check.mjs"
+    "test:ai-grades": "node scripts/ai-grade-check.mjs",
+    "cap:sync": "npx cap sync",
+    "cap:sync:ios": "npx cap sync ios",
+    "cap:copy": "npx cap copy",
+    "cap:doctor": "npx cap doctor"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.41",
     "@ai-sdk/react": "^3.0.118",
     "@capacitor/android": "^8.2.0",
     "@capacitor/core": "^8.2.0",
+    "@capacitor/ios": "^8.3.1",
     "@ducanh2912/next-pwa": "^10.2.9",
     "@lottiefiles/react-lottie-player": "^3.6.0",
     "@react-pdf/renderer": "^4.4.0",
