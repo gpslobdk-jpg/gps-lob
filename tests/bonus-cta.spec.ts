@@ -6,18 +6,19 @@
  * Strategi:
  *   - Mock alle play-API-endepunkter (samme mønster som answer-progression.spec.ts)
  *   - Brug gpsOverride: true for at bypasse GPS-krav
- *   - Kør ét spørgsmål til ende for at nå finished-skærmen
- *   - Verificér at CTA vises/skjules baseret på bonusEnabled
+ *   - Verificér at CTA vises/skjules baseret på bonusAvailable (automatisk beregnet)
  *
  * Kontrakter:
- *   A. CTA vises IKKE når bonusEnabled=false (standard)
- *   B. CTA vises NÅR bonusEnabled=true
- *   C. CTA-link peger på /play/[sessionId]/bonus?name=...
+ *   A. CTA vises IKKE når bonusAvailable=false
+ *   B. Session med bonusAvailable=true indlæses korrekt
+ *   C. Session med bonusAvailable=false indlæses korrekt
+ *   D. CTA-link peger på /play/[sessionId]/bonus?name=...
  *   D. Normal finished-skærmtekst er altid synlig (uanset bonusEnabled)
  *   E. Normal flow/score er upåvirket af bonus
  */
 
 import { test, expect, type BrowserContext, type Page, type Route } from "@playwright/test";
+import { generateBonusQuestions, type SourceQuestion } from "@/utils/bonus/generateBonusQuestions";
 
 // ── Konstanter ────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ async function mountPlayMocks(
     });
   });
 
-  // /api/play/session — inkluderer bonusEnabled
+  // /api/play/session — inkluderer bonusAvailable (automatisk beregnet i prod, mocket her)
   await ctx.route(/\/api\/play\/session/, async (route: Route) => {
     await route.fulfill({
       status: 200,
@@ -77,7 +78,7 @@ async function mountPlayMocks(
         raceType: "quiz",
         radius: 50,
         gpsOverride: opts.gpsOverride ?? true,
-        bonusEnabled: opts.bonusEnabled,
+        bonusAvailable: opts.bonusEnabled,
       }),
     });
   });
@@ -256,17 +257,17 @@ test.describe("Bonus CTA på finished-skærmen", () => {
     // (CTA vises kun på finished-skærmen)
   });
 
-  // ── E. bonusEnabled er et separat felt i session-payload (statisk verifikation) ──
+  // ── E. bonusAvailable er automatisk beregnet og uafhængigt af øvrige felter ──
 
-  test("E. bonusEnabled er separat felt og ændrer ikke raceType eller questions", () => {
-    // Verifikation af payload-strukturen som statisk ren test
-    // (mountPlayMocks sender denne payload til siden — dette er en struktur-kontrakt)
+  test("E. bonusAvailable er separat felt og ændrer ikke raceType eller questions", () => {
+    // Statisk verifikation af session-payload-strukturen
+    // I produktion beregnes bonusAvailable automatisk via generateBonusQuestions()
     const sessionPayloadWithBonus = {
       questions: [MOCK_QUESTION],
       raceType: "quiz",
       radius: 50,
       gpsOverride: true,
-      bonusEnabled: true,
+      bonusAvailable: true,   // ← automatisk beregnet fra questions
     };
 
     const sessionPayloadWithoutBonus = {
@@ -274,19 +275,85 @@ test.describe("Bonus CTA på finished-skærmen", () => {
       raceType: "quiz",
       radius: 50,
       gpsOverride: true,
-      bonusEnabled: false,
+      bonusAvailable: false,  // ← for få/ugyldige questions
     };
 
-    // bonusEnabled er en separat boolean — ændrer ikke raceType eller questions
-    expect(typeof sessionPayloadWithBonus.bonusEnabled).toBe("boolean");
+    // bonusAvailable er en separat boolean — ændrer ikke raceType eller questions
+    expect(typeof sessionPayloadWithBonus.bonusAvailable).toBe("boolean");
     expect(sessionPayloadWithBonus.raceType).toBe("quiz");
     expect(Array.isArray(sessionPayloadWithBonus.questions)).toBe(true);
     expect(sessionPayloadWithBonus.radius).toBe(50);
 
     // Felternes uafhængighed
-    expect(sessionPayloadWithBonus.bonusEnabled).toBe(true);
-    expect(sessionPayloadWithoutBonus.bonusEnabled).toBe(false);
+    expect(sessionPayloadWithBonus.bonusAvailable).toBe(true);
+    expect(sessionPayloadWithoutBonus.bonusAvailable).toBe(false);
     expect(sessionPayloadWithBonus.raceType).toBe(sessionPayloadWithoutBonus.raceType);
     expect(sessionPayloadWithBonus.questions).toEqual(sessionPayloadWithoutBonus.questions);
+  });
+
+  // ── F. Auto-detektion: gyldige spørgsmål → bonusAvailable=true (ren funktion) ──
+
+  test("F. generateBonusQuestions returnerer ok=true for løb med nok gyldige spørgsmål", () => {
+    // Simulér et løb med 3 gyldige quizspørgsmål (minimum for bonusquiz er 3)
+    const validQuestions: SourceQuestion[] = [
+      {
+        text: "Hvad er 1 + 1?",
+        answers: ["1", "2", "3", "4"],
+        correctIndex: 1,
+      },
+      {
+        text: "Hvad er 2 + 2?",
+        answers: ["2", "3", "4", "5"],
+        correctIndex: 2,
+      },
+      {
+        text: "Hvad er 3 + 3?",
+        answers: ["4", "5", "6", "7"],
+        correctIndex: 2,
+      },
+    ];
+
+    const result = generateBonusQuestions(validQuestions, {});
+    // Med 3 gyldige spørgsmål skal bonusAvailable=true
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.questions.length).toBeGreaterThanOrEqual(1);
+      expect(result.questions.length).toBeLessThanOrEqual(15); // default max
+    }
+  });
+
+  // ── G. Auto-detektion: utilstrækkelige spørgsmål → bonusAvailable=false ─────
+
+  test("G. generateBonusQuestions returnerer ok=false for løb med for få gyldige spørgsmål", () => {
+    // Tomt løb — ingen spørgsmål → bonusAvailable=false
+    const emptyResult = generateBonusQuestions([], {});
+    expect(emptyResult.ok).toBe(false);
+
+    // Kun 2 gyldige spørgsmål (minimum er 3) → bonusAvailable=false
+    const twoQuestions: SourceQuestion[] = [
+      {
+        text: "Spørgsmål A?",
+        answers: ["a", "b", "c", "d"],
+        correctIndex: 0,
+      },
+      {
+        text: "Spørgsmål B?",
+        answers: ["a", "b", "c", "d"],
+        correctIndex: 1,
+      },
+    ];
+    const twoResult = generateBonusQuestions(twoQuestions, {});
+    expect(twoResult.ok).toBe(false);
+
+    // Ugyldige spørgsmål (mangler correctIndex eller answers) → bonusAvailable=false
+    const invalidQuestions: SourceQuestion[] = [
+      {
+        text: "Ugyldig?",
+        answers: ["kun", "tre", "svar"], // 3 svar — ugyldig
+        correctIndex: 0,
+      },
+    ];
+    const invalidResult = generateBonusQuestions(invalidQuestions, {});
+    expect(invalidResult.ok).toBe(false);
   });
 });

@@ -401,7 +401,7 @@ export function usePlayGameState({
     () => storedParticipantOnLoad?.sessionStatus ?? null
   );
   const [gpsOverride, setGpsOverride] = useState(false);
-  const [bonusEnabled, setBonusEnabled] = useState(false);
+  const [bonusAvailable, setBonusAvailable] = useState(false);
   const router = useRouter();
   const [isTeacherGuided, setIsTeacherGuided] = useState(false);
   const [autoUnlockRadius, setAutoUnlockRadius] = useState<number | null>(null);
@@ -2954,7 +2954,7 @@ export function usePlayGameState({
           setRaceMode(nextRaceMode);
           setAutoUnlockRadius(Math.round(parsedRadius));
           setGpsOverride(Boolean(payload?.gpsOverride));
-          setBonusEnabled(Boolean(payload?.bonusEnabled));
+          setBonusAvailable(Boolean(payload?.bonusAvailable));
           setCorrectAnswersCount(0);
           setScore(0);
           setSolvedPostIndexes([]);
@@ -4412,7 +4412,7 @@ export function usePlayGameState({
     isCheckingEscapeAnswer,
     isSessionPaused,
     shouldKeepScreenAwake,
-    bonusEnabled,
+    bonusAvailable,
   };
 
   const resetFromExpired = useCallback(() => {

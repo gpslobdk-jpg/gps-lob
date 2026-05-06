@@ -332,7 +332,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     isSubmittingAnswer,
     isAnalyzingPhoto,
     isCheckingEscapeAnswer,
-    bonusEnabled,
+    bonusAvailable,
   } = flags;
   const isWithinAutoUnlockRadius =
     !gpsOverrideEnabled &&
@@ -1241,8 +1241,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
             </div>
           </div>
 
-          {/* Bonus CTA — kun synlig hvis bonus_enabled=true på gps_runs */}
-          {bonusEnabled && (
+          {/* Bonus CTA — kun synlig hvis løbet har nok gyldige quizspørgsmål (bonusAvailable) */}
+          {bonusAvailable && (
             <a
               href={`/play/${sessionId}/bonus?name=${encodeURIComponent(playerName || "")}`}
               data-testid="bonus-cta"

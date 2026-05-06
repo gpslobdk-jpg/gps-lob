@@ -8,6 +8,7 @@ import {
   resolveQuestionVariant,
   sanitizeQuestionForPlay,
 } from "@/app/api/play/_shared";
+import { generateBonusQuestions, type SourceQuestion } from "@/utils/bonus/generateBonusQuestions";
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
@@ -64,7 +65,10 @@ export async function GET(request: NextRequest) {
         raceType,
         radius: getRunRadiusMeters(run),
         gpsOverride: Boolean(sessionData?.gps_override),
-        bonusEnabled: Boolean(run?.bonus_enabled ?? false),
+        bonusAvailable: generateBonusQuestions(
+          Array.isArray(run?.questions) ? (run.questions as SourceQuestion[]) : [],
+          {} // seed not needed for availability check
+        ).ok,
       },
       {
         headers: {

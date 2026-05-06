@@ -228,7 +228,7 @@ export type PlaySessionPayload = {
   raceType?: unknown;
   radius?: number | null;
   gpsOverride?: boolean;
-  bonusEnabled?: boolean;
+  bonusAvailable?: boolean;
   error?: string;
 };
 
@@ -406,8 +406,8 @@ export interface PlayUiFlags {
   isCheckingEscapeAnswer: boolean;
   isSessionPaused: boolean;
   shouldKeepScreenAwake: boolean;
-  /** Feature-flag fra gps_runs.bonus_enabled. false = CTA vises ikke. */
-  bonusEnabled: boolean;
+  /** Automatisk beregnet: true hvis løbet har nok gyldige quizspørgsmål til bonusgenerering. */
+  bonusAvailable: boolean;
 }
 
 export interface PlayMapState {
