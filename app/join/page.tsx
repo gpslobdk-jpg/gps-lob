@@ -68,6 +68,16 @@ type JoinParticipantResponse = {
   teamColor?: string | null;
 };
 
+type JoinBrowserPlatform = "ios" | "android" | "other";
+
+type JoinRequestStage = "lookup" | "register" | "connection_check";
+
+type ConnectionCheckResult = {
+  tone: "success" | "warning";
+  title: string;
+  detail: string;
+};
+
 const formatLongDate = (value: string | null | undefined) => {
   if (!value) return null;
 
@@ -100,27 +110,98 @@ const formatClockTime = (value: string | null | undefined) => {
 const RATE_LIMIT_MESSAGE =
   "Der er lige nu kø i skolegården. Vent 5-10 sekunder og prøv at trykke 'Deltag i løbet' igen.";
 
+const JOIN_TIMEOUT_MESSAGE =
+  "Forbindelsen tager for lang tid. Hvis du er på skolens Wi-Fi, så prøv mobildata. På iPhone: åbn helst linket i Safari.";
+
+const JOIN_NETWORK_ERROR_MESSAGE =
+  "Forbindelsen driller. Prøv igen. Hvis du er på skolens Wi-Fi, så prøv mobildata. På iPhone: åbn helst linket i Safari.";
+
+const JOIN_REQUEST_TIMEOUT_MS = 12_000;
+
+const CONNECTION_CHECK_TIMEOUT_MS = 10_000;
+
+const JOIN_TIMEOUT_ABORT_REASON = "join-request-timeout";
+
 const JOIN_PIN_LENGTH = 6;
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+class JoinRequestTimeoutError extends Error {
+  stage: JoinRequestStage;
+
+  constructor(stage: JoinRequestStage) {
+    super(`${stage}_timeout`);
+    this.name = "JoinRequestTimeoutError";
+    this.stage = stage;
+  }
+}
+
+function trackJoinTelemetry(
+  eventName: string,
+  sessionId: string | null,
+  payload: Record<string, unknown>
+) {
+  try {
+    sendTelemetry(eventName, {
+      session_id: sessionId,
+      message: JSON.stringify(payload),
+    });
+  } catch {
+    // best-effort
+  }
+}
+
 async function fetchWithRetry(
   input: string,
   init?: RequestInit,
-  maxAttempts = 3
+  maxAttempts = 3,
+  timeoutMs = JOIN_REQUEST_TIMEOUT_MS,
+  timeoutStage: JoinRequestStage = "lookup"
 ): Promise<Response> {
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const response = await fetch(input, init);
-    if (response.status !== 429 && response.status !== 503) {
-      return response;
-    }
-    if (attempt < maxAttempts) {
-      await sleep(500);
-    } else {
-      return response;
-    }
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => {
+    timeoutController.abort(JOIN_TIMEOUT_ABORT_REASON);
+  }, timeoutMs);
+  const parentSignal = init?.signal;
+  const handleParentAbort = () => {
+    timeoutController.abort(parentSignal?.reason);
+  };
+
+  if (parentSignal?.aborted) {
+    timeoutController.abort(parentSignal.reason);
+  } else {
+    parentSignal?.addEventListener("abort", handleParentAbort, { once: true });
   }
-  return fetch(input, init);
+
+  try {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const response = await fetch(input, { ...init, signal: timeoutController.signal });
+        if (response.status !== 429 && response.status !== 503) {
+          return response;
+        }
+        if (attempt < maxAttempts) {
+          await sleep(500);
+        } else {
+          return response;
+        }
+      } catch (error) {
+        if (
+          timeoutController.signal.aborted &&
+          timeoutController.signal.reason === JOIN_TIMEOUT_ABORT_REASON
+        ) {
+          throw new JoinRequestTimeoutError(timeoutStage);
+        }
+
+        throw error;
+      }
+    }
+  } finally {
+    clearTimeout(timeoutId);
+    parentSignal?.removeEventListener("abort", handleParentAbort);
+  }
+
+  throw new Error("Join request ended unexpectedly.");
 }
 
 function JoinForm() {
@@ -141,8 +222,11 @@ function JoinForm() {
   const [assignedTeamName, setAssignedTeamName] = useState<string | null>(null);
   const [assignedTeamColor, setAssignedTeamColor] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
+  const [connectionCheckResult, setConnectionCheckResult] = useState<ConnectionCheckResult | null>(null);
   const [showInAppWarning, setShowInAppWarning] = useState(false);
   const [showHomescreenTip, setShowHomescreenTip] = useState(false);
+  const [browserPlatform, setBrowserPlatform] = useState<JoinBrowserPlatform>("other");
   const joinLockRef = useRef(false);
   const isMissingSessionNotice = searchParams.get("missingSession") === "1";
   const isZoneKrig = raceType === "zone_krig";
@@ -275,9 +359,22 @@ function JoinForm() {
     const isMobileBrowser =
       /iPad|iPhone|iPod|Android/i.test(ua) ||
       (window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1);
+    const nextPlatform: JoinBrowserPlatform = /iPad|iPhone|iPod/i.test(ua) ||
+      (window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1)
+      ? "ios"
+      : /Android/i.test(ua)
+        ? "android"
+        : "other";
+
+    setBrowserPlatform(nextPlatform);
 
     if (isKnownInApp || isAndroidWebView || isIosWebView) {
       setShowInAppWarning(true);
+      trackJoinTelemetry("join_webview_detected", null, {
+        platform: nextPlatform,
+        source: isKnownInApp ? "known_in_app" : isIosWebView ? "ios_webview" : "android_webview",
+        standalone: isStandalone,
+      });
     }
 
     // Capacitor-appen er allerede en native app — vis ikke "Tilføj til hjemmeskærm"-tipset.
@@ -285,6 +382,93 @@ function JoinForm() {
       !isCapacitorApp && isMobileBrowser && !isStandalone && !isKnownInApp && !isAndroidWebView && !isIosWebView,
     );
   }, []);
+
+  const handleConnectionCheck = async () => {
+    if (isCheckingConnection) {
+      return;
+    }
+
+    const isOnline = typeof navigator === "undefined" ? null : navigator.onLine;
+    if (isOnline === false) {
+      const offlineResult: ConnectionCheckResult = {
+        tone: "warning",
+        title: "Forbindelsen driller",
+        detail: "Prøv mobildata / Safari.",
+      };
+
+      setConnectionCheckResult(offlineResult);
+      trackJoinTelemetry("join_connection_check", null, {
+        result: "offline",
+        online: false,
+        platform: browserPlatform,
+        show_in_app_warning: showInAppWarning,
+      });
+      return;
+    }
+
+    setIsCheckingConnection(true);
+    setConnectionCheckResult(null);
+
+    const checkStartedAt = Date.now();
+    const pinForCheck = trimmedPin.length === JOIN_PIN_LENGTH ? trimmedPin : "000000";
+
+    try {
+      const response = await fetchWithRetry(
+        `/api/join?pin=${encodeURIComponent(pinForCheck)}`,
+        {
+          cache: "no-store",
+        },
+        1,
+        CONNECTION_CHECK_TIMEOUT_MS,
+        "connection_check"
+      );
+      const result: ConnectionCheckResult = response.ok
+        ? {
+            tone: "success",
+            title: "Appen svarer",
+            detail:
+              browserPlatform === "ios"
+                ? "Forbindelsen ser okay ud. Hvis det stadig driller, så prøv mobildata eller åbn linket i Safari."
+                : "Forbindelsen ser okay ud. Hvis det stadig driller, så prøv mobildata.",
+          }
+        : {
+            tone: "warning",
+            title: "Serveren returnerede en fejl",
+            detail: `Appen svarer, men serveren returnerede en fejl (HTTP ${response.status}). Prøv igen, eller prøv mobildata.`,
+          };
+
+      setConnectionCheckResult(result);
+      trackJoinTelemetry("join_connection_check", null, {
+        result: response.ok ? "ok" : "http_error",
+        ok: response.ok,
+        duration_ms: Date.now() - checkStartedAt,
+        status: response.status,
+        online: isOnline,
+        platform: browserPlatform,
+        show_in_app_warning: showInAppWarning,
+        used_entered_pin: trimmedPin.length === JOIN_PIN_LENGTH,
+      });
+    } catch (error) {
+      const result: ConnectionCheckResult = {
+        tone: "warning",
+        title: "Forbindelsen driller",
+        detail: "Prøv mobildata / Safari.",
+      };
+
+      setConnectionCheckResult(result);
+      trackJoinTelemetry("join_connection_check", null, {
+        result: error instanceof JoinRequestTimeoutError ? "timeout" : "error",
+        ok: false,
+        duration_ms: Date.now() - checkStartedAt,
+        status: null,
+        online: isOnline,
+        platform: browserPlatform,
+        show_in_app_warning: showInAppWarning,
+      });
+    } finally {
+      setIsCheckingConnection(false);
+    }
+  };
 
   const resetToForm = () => {
     setView("form");
@@ -319,13 +503,24 @@ function JoinForm() {
 
     joinLockRef.current = true;
     setIsJoining(true);
+    setConnectionCheckResult(null);
     let shouldReleaseLock = true;
+    let activeSessionId: string | null = null;
+    let currentStage: JoinRequestStage = "lookup";
 
     try {
       Sentry.addBreadcrumb({
         category: "join",
         message: "join_attempt",
-        data: { pin: trimmedPin, name: trimmedName },
+        data: {
+          has_pin: trimmedPin.length > 0,
+          pin_length: trimmedPin.length,
+          has_name: trimmedName.length > 0,
+          name_length: trimmedName.length,
+          online: typeof navigator !== "undefined" ? navigator.onLine : null,
+          platform: browserPlatform,
+          show_in_app_warning: showInAppWarning,
+        },
       });
     } catch (err) {
       // best-effort
@@ -333,17 +528,23 @@ function JoinForm() {
 
     try {
       const lookupStart = Date.now();
-      const response = await fetchWithRetry(`/api/join?pin=${encodeURIComponent(trimmedPin)}`);
+      const response = await fetchWithRetry(
+        `/api/join?pin=${encodeURIComponent(trimmedPin)}`,
+        {
+          cache: "no-store",
+        },
+        3,
+        JOIN_REQUEST_TIMEOUT_MS,
+        "lookup"
+      );
       const lookupDuration = Date.now() - lookupStart;
-      try {
-        const ua = typeof navigator !== "undefined" ? navigator.userAgent : null;
-        sendTelemetry("join_lookup", {
-          session_id: null,
-          message: JSON.stringify({ duration_ms: lookupDuration, status: response.status, stage: "lookup", ua: ua ? String(ua).slice(0, 200) : null }),
-        });
-      } catch {
-        // best-effort
-      }
+      const ua = typeof navigator !== "undefined" ? navigator.userAgent : null;
+      trackJoinTelemetry("join_lookup", null, {
+        duration_ms: lookupDuration,
+        status: response.status,
+        stage: "lookup",
+        ua: ua ? String(ua).slice(0, 200) : null,
+      });
 
       if (response.status === 429 || response.status === 503) {
         setError(RATE_LIMIT_MESSAGE);
@@ -382,6 +583,7 @@ function JoinForm() {
       setRunTitle(joinData.runTitle);
       setSchedule(joinData.schedule);
       setRaceType(joinData.raceType ?? null);
+      activeSessionId = joinData.sessionId;
 
       if (joinData.scheduleGate === "error") {
         setView("scheduleError");
@@ -394,28 +596,32 @@ function JoinForm() {
         return;
       }
 
+      currentStage = "register";
       const registerStart = Date.now();
-      const registerResponse = await fetchWithRetry("/api/join", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const registerResponse = await fetchWithRetry(
+        "/api/join",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+          body: JSON.stringify({
+            sessionId: joinData.sessionId,
+            studentName: trimmedName,
+          }),
         },
-        cache: "no-store",
-        body: JSON.stringify({
-          sessionId: joinData.sessionId,
-          studentName: trimmedName,
-        }),
-      });
+        3,
+        JOIN_REQUEST_TIMEOUT_MS,
+        "register"
+      );
       const registerDuration = Date.now() - registerStart;
-      try {
-        const ua = typeof navigator !== "undefined" ? navigator.userAgent : null;
-        sendTelemetry("join_register", {
-          session_id: joinData.sessionId ?? null,
-          message: JSON.stringify({ duration_ms: registerDuration, status: registerResponse.status, stage: "register", ua: ua ? String(ua).slice(0, 200) : null }),
-        });
-      } catch {
-        // best-effort
-      }
+      trackJoinTelemetry("join_register", joinData.sessionId ?? null, {
+        duration_ms: registerDuration,
+        status: registerResponse.status,
+        stage: "register",
+        ua: ua ? String(ua).slice(0, 200) : null,
+      });
 
       if (registerResponse.status === 429 || registerResponse.status === 503) {
         setError(RATE_LIMIT_MESSAGE);
@@ -497,15 +703,39 @@ function JoinForm() {
       return;
     } catch (err) {
       console.error("Fejl ved deltagelse i løbet:", err);
-      try {
-        const ua = typeof navigator !== "undefined" ? navigator.userAgent : null;
-        sendTelemetry("join_failed", {
-          session_id: null,
-          message: JSON.stringify({ error: err instanceof Error ? err.message : String(err), ua: ua ? String(ua).slice(0, 200) : null }),
-        });
-      } catch {
-        // best-effort
+
+      if (err instanceof JoinRequestTimeoutError) {
+        trackJoinTelemetry(
+          err.stage === "lookup" ? "join_lookup_timeout" : "join_register_timeout",
+          activeSessionId,
+          {
+            stage: err.stage,
+            timeout_ms: JOIN_REQUEST_TIMEOUT_MS,
+            online: typeof navigator !== "undefined" ? navigator.onLine : null,
+            platform: browserPlatform,
+            show_in_app_warning: showInAppWarning,
+          }
+        );
+        setError(JOIN_TIMEOUT_MESSAGE);
+        return;
       }
+
+      if (err instanceof TypeError) {
+        trackJoinTelemetry("join_network_error", activeSessionId, {
+          stage: currentStage,
+          online: typeof navigator !== "undefined" ? navigator.onLine : null,
+          platform: browserPlatform,
+          show_in_app_warning: showInAppWarning,
+        });
+        setError(JOIN_NETWORK_ERROR_MESSAGE);
+        return;
+      }
+
+      const ua = typeof navigator !== "undefined" ? navigator.userAgent : null;
+      trackJoinTelemetry("join_failed", null, {
+        error: err instanceof Error ? err.message : String(err),
+        ua: ua ? String(ua).slice(0, 200) : null,
+      });
 
       setError(
         "Der skete en fejl ved deltagelse. Prøv igen. Hvis du er på skolens Wi‑Fi, så prøv mobildata. På iPhone: åbn helst linket i Safari. Kontakt din lærer, hvis problemet fortsætter."
@@ -796,12 +1026,25 @@ function JoinForm() {
             Indtast løbskoden eller scan QR-koden. Skriv derefter dit navn.
           </p>
 
+          {browserPlatform === "ios" && !showInAppWarning ? (
+            <div className="mt-4 rounded-2xl border border-sky-400/25 bg-sky-400/10 px-4 py-3 text-left text-sm text-sky-100 backdrop-blur-md">
+              <p className="font-bold text-sky-50">Bruger du iPhone?</p>
+              <p className="mt-1 leading-5 text-sky-100/90">
+                Åbn helst linket i Safari. Hvis skolens Wi-Fi driller, så prøv mobildata.
+              </p>
+            </div>
+          ) : null}
+
           {showInAppWarning ? (
             <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200 backdrop-blur-md">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
               <span className="flex-1 leading-5">
-                <strong className="font-bold">GPS virker ikke i denne browser!</strong> Åbn linket i{" "}
-                <strong>Safari</strong> (iPhone) eller <strong>Chrome</strong> (Android) for at GPS virker.
+                <strong className="font-bold">
+                  {browserPlatform === "ios" ? "Åbn linket i Safari" : "Åbn linket i den rigtige browser"}
+                </strong>{" "}
+                {browserPlatform === "ios"
+                  ? "for bedst chance for at GPS og login virker. Hvis skolens Wi-Fi driller, så prøv mobildata."
+                  : "i Chrome på Android for bedst chance for at GPS og login virker."}
               </span>
               <button
                 type="button"
@@ -869,6 +1112,31 @@ function JoinForm() {
                 "Deltag i løbet"
               )}
             </button>
+
+            <div className="-mt-2 flex flex-col items-center gap-2 text-center">
+              <button
+                type="button"
+                onClick={handleConnectionCheck}
+                disabled={isJoining || isCheckingConnection}
+                className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-200 transition hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isCheckingConnection ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Tjek forbindelse
+              </button>
+
+              {connectionCheckResult ? (
+                <div
+                  className={`w-full rounded-2xl border px-4 py-3 text-left text-sm backdrop-blur-md ${
+                    connectionCheckResult.tone === "success"
+                      ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-50"
+                      : "border-amber-400/25 bg-amber-400/10 text-amber-100"
+                  }`}
+                >
+                  <p className="font-bold">{connectionCheckResult.title}</p>
+                  <p className="mt-1 leading-5 opacity-90">{connectionCheckResult.detail}</p>
+                </div>
+              ) : null}
+            </div>
           </form>
 
           <details className="mt-5 rounded-[1.35rem] border border-white/10 bg-slate-950/45 px-4 py-3 text-left shadow-[0_10px_24px_rgba(2,6,23,0.16)]">
@@ -884,6 +1152,11 @@ function JoinForm() {
 
               <p className="text-sm leading-6 text-slate-300">
                 Hvis kameraet ikke starter, kan du stadig taste koden manuelt i feltet ovenfor.
+              </p>
+
+              <p className="text-sm leading-6 text-slate-300">
+                På iPhone virker GPS og login bedst i Safari. Undgå helst at åbne linket direkte i Facebook,
+                Instagram eller andre indbyggede browsere.
               </p>
 
               <WifiConnectionTip className="shadow-none" />
