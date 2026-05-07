@@ -26,6 +26,7 @@ import {
   type GradeLevel,
 } from "@/utils/gradeLevels";
 import { RACE_TYPES } from "@/utils/gpsRuns";
+import { findNearbyPinConflict, findOverlappingPinGroups } from "@/utils/pinProximity";
 import {
   consumeDraftAutoload,
   clearRunDraft,
@@ -583,6 +584,20 @@ function OpretDanskLoebPageContent() {
     () => normalizedQuestionsForSave.some((question) => question.lat === null || question.lng === null),
     [normalizedQuestionsForSave]
   );
+  // Detect stacked pins: show a warning when two or more placed posts share the
+  // same coordinate (within PIN_PROXIMITY_BLOCK_METERS). Computed from the full
+  // questions array so the banner appears even before the run is saved.
+  const overlapWarning = useMemo(() => {
+    const pinsToCheck = questions.map((q, i) => ({
+      id: q.id,
+      number: i + 1,
+      lat: q.lat,
+      lng: q.lng,
+    }));
+    const groups = findOverlappingPinGroups(pinsToCheck);
+    if (groups.length === 0) return null;
+    return groups.map((g) => `Post ${g.postNumbers.join(" og ")}`).join(", ");
+  }, [questions]);
   const isReadyToSave =
     title.trim().length > 0 &&
     normalizedQuestionsForSave.length > 0 &&
@@ -1019,6 +1034,25 @@ function OpretDanskLoebPageContent() {
   };
 
   const assignPinFromCenter = (id: number) => {
+    // Guard: block placement when the new coordinate is within
+    // PIN_PROXIMITY_BLOCK_METERS (5 m) of an already-placed post.
+    // This prevents accidental stacking when the teacher clicks
+    // "Hent pin til kortet" for multiple posts without moving the map.
+    const pinsToCheck = questions.map((q, i) => ({
+      id: q.id,
+      number: i + 1,
+      lat: q.lat,
+      lng: q.lng,
+    }));
+    const conflict = findNearbyPinConflict(pinsToCheck, mapCenter.lat, mapCenter.lng, id);
+    if (conflict) {
+      setNotice({
+        tone: "error",
+        message: `Denne post ligger næsten samme sted som Post ${conflict.conflictingNumber} (${Math.round(conflict.distanceMeters)} m). Flyt kortet lidt, inden du henter pinnen.`,
+      });
+      return;
+    }
+
     const currentIndex = questions.findIndex((question) => question.id === id);
     const nextQuestion = currentIndex >= 0 ? questions[currentIndex + 1] : null;
 
@@ -1446,6 +1480,12 @@ function OpretDanskLoebPageContent() {
                   </div>
 
                   {renderNotice()}
+
+                  {overlapWarning ? (
+                    <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 px-4 py-3 text-sm font-semibold text-amber-200 backdrop-blur-xl">
+                      ⚠️ Poster på samme sted: {overlapWarning}. Brug &quot;Fjern placering&quot; og flyt kortet for at adskille dem.
+                    </div>
+                  ) : null}
                 </div>
 
                 {questions.map((question, questionIndex) => {
@@ -1604,9 +1644,19 @@ function OpretDanskLoebPageContent() {
                       </button>
 
                       {question.lat !== null && question.lng !== null ? (
-                        <p className="mt-2.5 text-xs text-rose-100/70">
-                          Pin gemt: {question.lat.toFixed(5)}, {question.lng.toFixed(5)}
-                        </p>
+                        <div className="mt-2.5 flex items-center justify-between gap-2">
+                          <p className="text-xs text-rose-100/70">
+                            Pin gemt: {question.lat.toFixed(5)}, {question.lng.toFixed(5)}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => updateQuestion(question.id, { lat: null, lng: null })}
+                            disabled={isEditorBusy}
+                            className="shrink-0 text-xs text-rose-300/60 underline underline-offset-2 hover:text-rose-200 disabled:pointer-events-none disabled:opacity-50"
+                          >
+                            Fjern placering
+                          </button>
+                        </div>
                       ) : null}
                     </article>
                   );

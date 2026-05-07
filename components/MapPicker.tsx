@@ -5,10 +5,11 @@ import "leaflet/dist/leaflet.css";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronUp, Crosshair, Layers, MapPin, Search } from "lucide-react";
 import L from "leaflet";
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Circle, MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 
 import { createZoneKrigMarkerIcon } from "@/components/play/zoneMarkerHelper";
+import { findOverlappingPinGroups } from "@/utils/pinProximity";
 
 type MapCenter = {
   lat: number;
@@ -301,6 +302,18 @@ export default function MapPicker({
   const canDragPins = typeof onPinDragEnd === "function";
   const showPinDragHint = canDragPins && pins.length > 0 && !isAwaitingMapClick;
   const activeBaseLayer = MAP_LAYER_OPTIONS.find((layer) => layer.id === selectedBaseLayerId) ?? MAP_LAYER_OPTIONS[0];
+
+  // Detect pins that are stacked on top of each other (within PIN_PROXIMITY_BLOCK_METERS).
+  // When stacking is detected the warning banner takes precedence over the drag hint.
+  const hasStackedPins = useMemo(() => {
+    const pinsToCheck = pins.map((pin, i) => ({
+      id: pin.id,
+      number: i + 1,
+      lat: pin.lat,
+      lng: pin.lng,
+    }));
+    return findOverlappingPinGroups(pinsToCheck).length > 0;
+  }, [pins]);
 
   const queueFocus = useCallback((coords: [number, number], zoom?: number) => {
     focusRequestIdRef.current += 1;
@@ -689,7 +702,11 @@ export default function MapPicker({
           ))}
       </MapContainer>
 
-      {showPinDragHint ? (
+      {hasStackedPins && !activePinLabel ? (
+        <div className="pointer-events-none absolute right-4 bottom-4 left-4 z-1000 rounded-2xl border border-amber-400/40 bg-slate-950/82 px-4 py-3 text-sm font-medium text-amber-100 shadow-[0_16px_32px_rgba(0,0,0,0.22)] backdrop-blur-xl sm:left-auto sm:max-w-80">
+          ⚠️ Mindst to poster overlapper på kortet. Brug &ldquo;Fjern placering&rdquo; i listen for at adskille dem.
+        </div>
+      ) : showPinDragHint ? (
         <div className="pointer-events-none absolute right-4 bottom-4 left-4 z-1000 rounded-2xl border border-cyan-300/35 bg-slate-950/82 px-4 py-3 text-sm font-medium text-cyan-50 shadow-[0_16px_32px_rgba(0,0,0,0.22)] backdrop-blur-xl sm:left-auto sm:max-w-80">
           Tip: Træk i post-ikonet for at flytte det, eller klik på det for at hoppe til posten.
         </div>

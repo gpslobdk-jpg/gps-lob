@@ -868,10 +868,8 @@ function RollespilBuilderPageContent() {
   };
 
   const handleMapClick = useCallback((coords: MapCenter) => {
-    console.error("!!! CLICK REACHED THE PAGE !!!");
     const { lat, lng } = coords;
     const activeQuestionId = activePinQuestionIdRef.current;
-    console.log("Map clicked in Rollespil!", lat, lng, "Active pin index:", activeQuestionId);
 
     if (activeQuestionId === null) return;
 

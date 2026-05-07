@@ -23,6 +23,7 @@ import {
   serializeEscapeDescription,
   toQuestionId,
 } from "@/utils/gpsRuns";
+import { findNearbyPinConflict, findOverlappingPinGroups } from "@/utils/pinProximity";
 import {
   clearRunDraft,
   hasUnsavedDraft,
@@ -457,6 +458,17 @@ function EscapeBuilderPageContent() {
     () => normalizedQuestionsForSave.some((question) => question.lat === null || question.lng === null),
     [normalizedQuestionsForSave]
   );
+  const overlapWarning = useMemo(() => {
+    const pinsToCheck = questions.map((q, i) => ({
+      id: q.id,
+      number: i + 1,
+      lat: q.lat,
+      lng: q.lng,
+    }));
+    const groups = findOverlappingPinGroups(pinsToCheck);
+    if (groups.length === 0) return null;
+    return groups.map((g) => `Post ${g.postNumbers.join(" og ")}`).join(", ");
+  }, [questions]);
   const normalizedMasterCode = useMemo(() => normalizeMasterCode(masterCode), [masterCode]);
   const isReadyToSave =
     title.trim().length > 0 &&
@@ -736,6 +748,20 @@ function EscapeBuilderPageContent() {
   };
 
   const assignPinFromCenter = (id: number) => {
+    const pinsToCheck = questions.map((q, i) => ({
+      id: q.id,
+      number: i + 1,
+      lat: q.lat,
+      lng: q.lng,
+    }));
+    const conflict = findNearbyPinConflict(pinsToCheck, mapCenter.lat, mapCenter.lng, id);
+    if (conflict) {
+      setNotice({
+        tone: "error",
+        message: `Denne post ligger næsten samme sted som Post ${conflict.conflictingNumber} (${Math.round(conflict.distanceMeters)} m). Flyt kortet lidt, inden du henter pinnen.`,
+      });
+      return;
+    }
     updateQuestion(id, { lat: mapCenter.lat, lng: mapCenter.lng });
   };
 
@@ -1077,6 +1103,12 @@ function EscapeBuilderPageContent() {
                 </div>
 
                 {renderNotice()}
+
+                {overlapWarning ? (
+                  <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 px-4 py-3 text-sm font-semibold text-amber-200 backdrop-blur-xl">
+                    ⚠️ Poster på samme sted: {overlapWarning}. Brug &quot;Fjern placering&quot; og flyt kortet for at adskille dem.
+                  </div>
+                ) : null}
               </div>
 
               {questions.map((question, index) => (
@@ -1161,9 +1193,19 @@ function EscapeBuilderPageContent() {
                   </button>
 
                   {question.lat !== null && question.lng !== null ? (
-                    <p className="mt-3 text-xs text-amber-100/70">
-                      Pin gemt: {question.lat.toFixed(5)}, {question.lng.toFixed(5)}
-                    </p>
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <p className="text-xs text-amber-100/70">
+                        Pin gemt: {question.lat.toFixed(5)}, {question.lng.toFixed(5)}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => updateQuestion(question.id, { lat: null, lng: null })}
+                        disabled={isEditorBusy}
+                        className="shrink-0 text-xs text-amber-300/60 underline underline-offset-2 hover:text-amber-200 disabled:pointer-events-none disabled:opacity-50"
+                      >
+                        Fjern placering
+                      </button>
+                    </div>
                   ) : null}
                 </article>
               ))}
