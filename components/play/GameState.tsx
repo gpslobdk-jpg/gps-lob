@@ -1083,48 +1083,123 @@ export function usePlayGameState({
       }
 
       const requestPromise: Promise<ParticipantSnapshotFetchResult> = (async () => {
-        try {
-          const response = await fetch(
-            `/api/play/participant?sessionId=${encodeURIComponent(sessionId)}&participantId=${encodeURIComponent(targetParticipantId)}`,
-            {
-              cache: "no-store",
-            }
-          );
-          const payload = (await response.json().catch(() => null)) as
-            | { participant?: ParticipantRow | null; error?: string }
-            | null;
+        // Allow one controlled recovery attempt for auth failures that occur
+        // immediately after a fresh join (small race window). We avoid
+        // tripping the circuit-breaker / logging Sentry on the first
+        // transient 401/403 right after join.
+        let authRecoveryAttempted = false;
 
-          if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
-              tripPlayCircuitBreaker(
-                PLAY_PARTICIPANT_AUTH_EXPIRED_MESSAGE,
-                "participant_auth_expired"
-              );
+        const doFetch = async () => {
+          try {
+            const response = await fetch(
+              `/api/play/participant?sessionId=${encodeURIComponent(sessionId)}&participantId=${encodeURIComponent(targetParticipantId)}`,
+              {
+                cache: "no-store",
+              }
+            );
+            const payload = (await response.json().catch(() => null)) as
+              | { participant?: ParticipantRow | null; error?: string }
+              | null;
+
+            if (!response.ok) {
+              if (response.status === 401 || response.status === 403) {
+                // Detect an immediate join (short window since savedAt). If so,
+                // attempt one auth-recovery and retry before tripping the
+                // circuit-breaker. This covers the race where the join
+                // response's Set-Cookie hasn't been applied yet.
+                const savedAt = storedParticipantOnLoad?.savedAt;
+                let withinJoinWindow = false;
+                if (savedAt) {
+                  try {
+                    const savedMs = new Date(savedAt).getTime();
+                    const ageMs = Date.now() - savedMs;
+                    // conservative short window — 3s
+                    withinJoinWindow = Number.isFinite(ageMs) && ageMs >= 0 && ageMs < 3000;
+                  } catch {
+                    withinJoinWindow = false;
+                  }
+                }
+
+                if (withinJoinWindow && !authRecoveryAttempted) {
+                  authRecoveryAttempted = true;
+                  try {
+                    const storedName =
+                      storedParticipantOnLoad?.studentName?.trim() || playerName || pendingPlayerName || "";
+                    const recoveryMethod = await recoverParticipantAuthSession(
+                      storedName,
+                      "participant_snapshot_retry"
+                    );
+
+                    if (recoveryMethod) {
+                      // Try again once after recovery
+                      const retryResp = await fetch(
+                        `/api/play/participant?sessionId=${encodeURIComponent(sessionId)}&participantId=${encodeURIComponent(targetParticipantId)}`,
+                        { cache: "no-store" }
+                      );
+                      const retryPayload = (await retryResp.json().catch(() => null)) as
+                        | { participant?: ParticipantRow | null; error?: string }
+                        | null;
+
+                      if (retryResp.ok) {
+                        return {
+                          data: (retryPayload?.participant ?? null) as ParticipantRow | null,
+                          error: null,
+                        };
+                      }
+
+                      // still failing -> treat as auth expired
+                      tripPlayCircuitBreaker(
+                        PLAY_PARTICIPANT_AUTH_EXPIRED_MESSAGE,
+                        "participant_auth_expired"
+                      );
+
+                      return {
+                        data: null,
+                        error: {
+                          status: retryResp.status,
+                          code: String(retryResp.status),
+                          message: retryPayload?.error ?? retryResp.statusText,
+                        },
+                      };
+                    }
+                  } catch {
+                    // recovery attempt failed — fallthrough to normal handling
+                  }
+                }
+
+                // No recovery attempted or recovery didn't help — surface expired.
+                tripPlayCircuitBreaker(
+                  PLAY_PARTICIPANT_AUTH_EXPIRED_MESSAGE,
+                  "participant_auth_expired"
+                );
+              }
+
+              return {
+                data: null,
+                error: {
+                  status: response.status,
+                  code: String(response.status),
+                  message: payload?.error ?? response.statusText,
+                },
+              };
             }
 
             return {
+              data: (payload?.participant ?? null) as ParticipantRow | null,
+              error: null,
+            };
+          } catch (error) {
+            return {
               data: null,
               error: {
-                status: response.status,
-                code: String(response.status),
-                message: payload?.error ?? response.statusText,
+                code: "FETCH_FAILED",
+                message: error instanceof Error ? error.message : "Kunne ikke hente deltager-snapshot.",
               },
             };
           }
+        };
 
-          return {
-            data: (payload?.participant ?? null) as ParticipantRow | null,
-            error: null,
-          };
-        } catch (error) {
-          return {
-            data: null,
-            error: {
-              code: "FETCH_FAILED",
-              message: error instanceof Error ? error.message : "Kunne ikke hente deltager-snapshot.",
-            },
-          };
-        }
+        return await doFetch();
       })();
 
       participantSnapshotRequestRef.current = {
@@ -1140,7 +1215,14 @@ export function usePlayGameState({
         }
       }
     },
-    [sessionId, tripPlayCircuitBreaker]
+    [
+      sessionId,
+      tripPlayCircuitBreaker,
+      recoverParticipantAuthSession,
+      storedParticipantOnLoad,
+      playerName,
+      pendingPlayerName,
+    ]
   );
 
   const scheduleRestoreRetry = useCallback(
