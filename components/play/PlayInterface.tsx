@@ -267,6 +267,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   } = player;
   const {
     distance,
+    accuracy,
     autoUnlockRadius,
   } = gps;
   const {
@@ -353,6 +354,28 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     !canManualUnlock
       ? Math.max(1, Math.ceil(distance - manualUnlockBufferRadius))
       : null;
+  const isGpsAccuracyConcern =
+    accuracy === null || (typeof accuracy === "number" && accuracy > 120);
+  const isNearUnlockRadiusForDiagnostics =
+    distance !== null &&
+    autoUnlockRadius !== null &&
+    distance <= autoUnlockRadius + 30;
+  const showGpsDiagnostics =
+    hasActiveUnlockTarget &&
+    !gpsOverrideEnabled &&
+    !canManualUnlock &&
+    distance !== null &&
+    (isNearUnlockRadiusForDiagnostics || isGpsAccuracyConcern);
+  const distanceDiagnosticsLabel =
+    distance !== null
+      ? distance >= 1000
+        ? `${(distance / 1000).toFixed(1)} km`
+        : `${distance} m`
+      : "ukendt";
+  const accuracyDiagnosticsLabel =
+    accuracy !== null ? `ca. ${accuracy} m` : "ukendt";
+  const unlockRadiusDiagnosticsLabel =
+    autoUnlockRadius !== null ? `${autoUnlockRadius} m` : "ukendt";
   const normalizedActiveDisplayName = activeDisplayName.trim().toLocaleLowerCase("da-DK");
   const tacticalHudShellClass =
     "overflow-hidden rounded-[2rem] border border-white/30 bg-slate-800 p-4 shadow-lg md:p-5";
@@ -1502,6 +1525,56 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                                   ? "Søger GPS..."
                                   : `Gå ${manualUnlockDistanceToGo ?? 1}m tættere på for at åbne`}
                         </button>
+                      </div>
+                    ) : null}
+
+                    {showGpsDiagnostics ? (
+                      <div className="overflow-hidden rounded-[1.6rem] border border-white/20 bg-slate-900/80 p-4 shadow-lg backdrop-blur-xl">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className={tacticalMetaLabelClass}>
+                              GPS-diagnose
+                            </p>
+                            <p className="mt-1 text-sm font-semibold text-white/85">
+                              Ekstra info om hvorfor posten stadig er låst.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                          <div className="rounded-[1.15rem] border border-white/10 bg-white/5 px-3 py-3">
+                            <p className="text-[11px] font-mono uppercase tracking-[0.28em] text-white/55">
+                              Afstand
+                            </p>
+                            <p className="mt-2 text-base font-black text-white">
+                              {distanceDiagnosticsLabel}
+                            </p>
+                          </div>
+
+                          <div className="rounded-[1.15rem] border border-white/10 bg-white/5 px-3 py-3">
+                            <p className="text-[11px] font-mono uppercase tracking-[0.28em] text-white/55">
+                              GPS-præcision
+                            </p>
+                            <p className="mt-2 text-base font-black text-white">
+                              {accuracyDiagnosticsLabel}
+                            </p>
+                          </div>
+
+                          <div className="rounded-[1.15rem] border border-white/10 bg-white/5 px-3 py-3">
+                            <p className="text-[11px] font-mono uppercase tracking-[0.28em] text-white/55">
+                              Låser op inden for
+                            </p>
+                            <p className="mt-2 text-base font-black text-white">
+                              {unlockRadiusDiagnosticsLabel}
+                            </p>
+                          </div>
+                        </div>
+
+                        {isNearUnlockRadiusForDiagnostics && isGpsAccuracyConcern ? (
+                          <p className={`mt-4 text-sm leading-6 text-amber-100/90 ${wrapTextClass}`}>
+                            Du er tæt på posten, men GPS&apos;en er lidt upræcis lige nu. Vent et øjeblik, gå et par meter rundt, eller prøv mobildata.
+                          </p>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>

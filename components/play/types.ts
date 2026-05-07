@@ -277,6 +277,7 @@ export interface PlayPlayerState {
 export interface PlayGpsState {
   myLoc: Location | null;
   distance: number | null;
+  accuracy: number | null;
   autoUnlockRadius: number | null;
 }
 

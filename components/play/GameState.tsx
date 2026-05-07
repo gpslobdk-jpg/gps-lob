@@ -4329,6 +4329,7 @@ export function usePlayGameState({
   const gps: PlayGpsState = {
     myLoc,
     distance,
+    accuracy: myLoc?.accuracy ?? null,
     autoUnlockRadius,
   };
 
