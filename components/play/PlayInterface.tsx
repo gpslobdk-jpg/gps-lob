@@ -46,6 +46,22 @@ type PlayInterfaceProps = {
   children?: ReactNode;
 };
 
+const LOCKED_POST_FEEDBACK_DURATION_MS = 3200;
+const LOCKED_POST_GPS_ACCURACY_MESSAGE =
+  "Du er tæt på posten, men GPS'en er lidt upræcis lige nu. Vent et øjeblik, gå et par meter rundt, eller prøv mobildata.";
+
+function safeVibrate(pattern: number | number[]) {
+  if (typeof navigator === "undefined" || !("vibrate" in navigator)) {
+    return;
+  }
+
+  try {
+    navigator.vibrate(pattern);
+  } catch {
+    // ignore browsers that expose vibrate but still reject the call
+  }
+}
+
 type MobileHudProps = {
   mobileHudOpen: boolean;
   setMobileHudOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -232,6 +248,11 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     key: "",
     message: null,
   });
+  const [lockedPostFeedbackState, setLockedPostFeedbackState] = useState<{
+    key: string;
+    message: string;
+  } | null>(null);
+  const lockedPostFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rageClickRef = useRef<{
     count: number;
     lastTs: number;
@@ -354,6 +375,10 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     !canManualUnlock
       ? Math.max(1, Math.ceil(distance - manualUnlockBufferRadius))
       : null;
+  const isTooFarForManualUnlock =
+    distance !== null &&
+    manualUnlockBufferRadius !== null &&
+    distance > manualUnlockBufferRadius;
   const isGpsAccuracyConcern =
     accuracy === null || (typeof accuracy === "number" && accuracy > 120);
   const isNearUnlockRadiusForDiagnostics =
@@ -401,6 +426,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const cameraRetryHelpMessage =
     "Hvis kameraet ikke åbner, skal du tillade kamera-adgang i dine browser-indstillinger og prøve igen.";
   const cameraError = cameraErrorState.key === activeTypedAnswerKey ? cameraErrorState.message : null;
+  const lockedPostFeedback = lockedPostFeedbackState?.message ?? null;
   const isAnswerSubmissionPending = isSubmittingAnswer || isSubmitting;
   const isQuizSubmissionPending =
     activePostVariant === "quiz" && isAnswerSubmissionPending && !activeQuizAnswerFeedback;
@@ -416,6 +442,100 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const answeredPostLockMessage = isQuizPostBurned
     ? "Allerede besvaret."
     : "Besvaret. Videre til næste post.";
+
+  const clearLockedPostFeedback = useCallback(() => {
+    if (lockedPostFeedbackTimerRef.current !== null) {
+      clearTimeout(lockedPostFeedbackTimerRef.current);
+      lockedPostFeedbackTimerRef.current = null;
+    }
+    setLockedPostFeedbackState(null);
+  }, []);
+
+  const showLockedPostFeedback = useCallback((message: string) => {
+    if (lockedPostFeedbackTimerRef.current !== null) {
+      clearTimeout(lockedPostFeedbackTimerRef.current);
+      lockedPostFeedbackTimerRef.current = null;
+    }
+
+    setLockedPostFeedbackState({
+      key: `${Date.now()}`,
+      message,
+    });
+
+    lockedPostFeedbackTimerRef.current = setTimeout(() => {
+      setLockedPostFeedbackState(null);
+      lockedPostFeedbackTimerRef.current = null;
+    }, LOCKED_POST_FEEDBACK_DURATION_MS);
+  }, []);
+
+  const resetRageClickTracker = useCallback(() => {
+    const tracker = rageClickRef.current;
+    if (tracker.resetTimer) {
+      clearTimeout(tracker.resetTimer);
+      tracker.resetTimer = null;
+    }
+    tracker.count = 0;
+    tracker.lastTs = 0;
+  }, []);
+
+  const registerLockedPostTap = useCallback(() => {
+    const now = Date.now();
+    const tracker = rageClickRef.current;
+
+    if (now - tracker.lastTs > RAGE_WINDOW_MS) {
+      resetRageClickTracker();
+    }
+
+    tracker.count += 1;
+    tracker.lastTs = now;
+    if (tracker.resetTimer) {
+      clearTimeout(tracker.resetTimer);
+    }
+    tracker.resetTimer = setTimeout(() => {
+      resetRageClickTracker();
+    }, RAGE_WINDOW_MS);
+
+    if (tracker.count >= RAGE_THRESHOLD) {
+      setShowRageModal(true);
+      resetRageClickTracker();
+    }
+  }, [RAGE_THRESHOLD, RAGE_WINDOW_MS, resetRageClickTracker]);
+
+  const getLockedPostFeedbackMessage = useCallback(() => {
+    if (distance === null) {
+      return "Vent lidt — vi finder din position.";
+    }
+
+    if (isNearUnlockRadiusForDiagnostics && isGpsAccuracyConcern) {
+      return LOCKED_POST_GPS_ACCURACY_MESSAGE;
+    }
+
+    if (isTooFarForManualUnlock) {
+      return `Du er stadig ca. ${Math.max(1, Math.round(distance))} meter fra posten.`;
+    }
+
+    return "Posten kan ikke åbnes endnu.";
+  }, [distance, isGpsAccuracyConcern, isNearUnlockRadiusForDiagnostics, isTooFarForManualUnlock]);
+
+  const handleUnlockTargetTap = useCallback(() => {
+    if (canManualUnlock) {
+      clearLockedPostFeedback();
+      safeVibrate(40);
+      actions.unlockCurrentPost();
+      return;
+    }
+
+    safeVibrate([20, 40, 20]);
+    showLockedPostFeedback(getLockedPostFeedbackMessage());
+    registerLockedPostTap();
+  }, [
+    actions,
+    canManualUnlock,
+    clearLockedPostFeedback,
+    getLockedPostFeedbackMessage,
+    registerLockedPostTap,
+    showLockedPostFeedback,
+  ]);
 
   useEffect(() => {
     // Afvis IKKE spørgsmålet automatisk, hvis quiz-succès-feedback er aktiv:
@@ -458,6 +578,12 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   }, [hasActiveQuizSuccess]);
 
   useEffect(() => {
+    if (showQuestion || !hasActiveUnlockTarget || canManualUnlock) {
+      clearLockedPostFeedback();
+    }
+  }, [canManualUnlock, clearLockedPostFeedback, currentPostIndex, hasActiveUnlockTarget, showQuestion]);
+
+  useEffect(() => {
     if (showRageModal) {
       // prevent background scroll while modal is open
       prevOverflowRef.current = document.body.style.overflow;
@@ -482,6 +608,14 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
       if (cloudSyncSuccessTimerRef.current) {
         clearTimeout(cloudSyncSuccessTimerRef.current);
         cloudSyncSuccessTimerRef.current = null;
+      }
+      if (lockedPostFeedbackTimerRef.current) {
+        clearTimeout(lockedPostFeedbackTimerRef.current);
+        lockedPostFeedbackTimerRef.current = null;
+      }
+      if (rageClickRef.current.resetTimer) {
+        clearTimeout(rageClickRef.current.resetTimer);
+        rageClickRef.current.resetTimer = null;
       }
     };
   }, []);
@@ -1441,78 +1575,17 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                     ) : null}
 
                     {hasActiveUnlockTarget ? (
-                      <div
-                        role="button"
-                        aria-disabled={!canManualUnlock}
-                        onClick={(e) => {
-                          if (canManualUnlock) return;
-                          // handle desktop click on disabled area
-                          const now = Date.now();
-                          const r = rageClickRef.current;
-                          if (now - r.lastTs > RAGE_WINDOW_MS) {
-                            r.count = 0;
-                            if (r.resetTimer) {
-                              clearTimeout(r.resetTimer);
-                              r.resetTimer = null;
-                            }
-                          }
-                          r.count += 1;
-                          r.lastTs = now;
-                          if (r.resetTimer) clearTimeout(r.resetTimer);
-                          r.resetTimer = window.setTimeout(() => {
-                            r.count = 0;
-                            r.resetTimer = null;
-                          }, RAGE_WINDOW_MS) as any;
-                          if (r.count >= RAGE_THRESHOLD) {
-                            // trigger modal
-                            setShowRageModal(true);
-                            r.count = 0;
-                            if (r.resetTimer) {
-                              clearTimeout(r.resetTimer);
-                              r.resetTimer = null;
-                            }
-                          }
-                        }}
-                        onTouchEnd={(e) => {
-                          if (canManualUnlock) return;
-                          // mirror the same logic for touch
-                          const now = Date.now();
-                          const r = rageClickRef.current;
-                          if (now - r.lastTs > RAGE_WINDOW_MS) {
-                            r.count = 0;
-                            if (r.resetTimer) {
-                              clearTimeout(r.resetTimer);
-                              r.resetTimer = null;
-                            }
-                          }
-                          r.count += 1;
-                          r.lastTs = now;
-                          if (r.resetTimer) clearTimeout(r.resetTimer);
-                          r.resetTimer = window.setTimeout(() => {
-                            r.count = 0;
-                            r.resetTimer = null;
-                          }, RAGE_WINDOW_MS) as any;
-                          if (r.count >= RAGE_THRESHOLD) {
-                            setShowRageModal(true);
-                            r.count = 0;
-                            if (r.resetTimer) {
-                              clearTimeout(r.resetTimer);
-                              r.resetTimer = null;
-                            }
-                          }
-                        }}
-                        className="w-full"
-                      >
+                      <div className="w-full">
                         <button
                           type="button"
-                          onClick={canManualUnlock ? actions.unlockCurrentPost : undefined}
-                          disabled={!canManualUnlock}
+                          aria-disabled={!canManualUnlock}
+                          onClick={handleUnlockTargetTap}
                           className={
                             canManualUnlock
                               ? "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[1.35rem] border border-emerald-300/45 bg-linear-to-r from-emerald-500 to-teal-400 px-5 py-4 text-base font-black normal-case text-slate-950 shadow-[0_18px_40px_rgba(16,185,129,0.28)] transition-all hover:brightness-110 active:scale-[0.99]"
                               : distance !== null
-                                ? "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[1.35rem] border border-rose-300/25 bg-rose-500/10 px-5 py-4 text-base font-black normal-case text-rose-50/90 shadow-[0_0_0_1px_rgba(244,63,94,0.12)] transition-all disabled:cursor-not-allowed disabled:opacity-100"
-                                : "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[1.35rem] border border-slate-600 bg-slate-800 px-5 py-4 text-base font-black normal-case text-white/70 shadow-none transition-all disabled:cursor-not-allowed disabled:opacity-100"
+                                ? "inline-flex min-h-14 w-full cursor-not-allowed items-center justify-center gap-2 rounded-[1.35rem] border border-rose-300/25 bg-rose-500/10 px-5 py-4 text-base font-black normal-case text-rose-50/90 shadow-[0_0_0_1px_rgba(244,63,94,0.12)] transition-all active:scale-[0.99]"
+                                : "inline-flex min-h-14 w-full cursor-not-allowed items-center justify-center gap-2 rounded-[1.35rem] border border-slate-600 bg-slate-800 px-5 py-4 text-base font-black normal-case text-white/70 shadow-none transition-all active:scale-[0.99]"
                           }
                         >
                           {gpsOverrideEnabled
@@ -1525,6 +1598,19 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                                   ? "Søger GPS..."
                                   : `Gå ${manualUnlockDistanceToGo ?? 1}m tættere på for at åbne`}
                         </button>
+
+                        {lockedPostFeedback ? (
+                          <div key={lockedPostFeedbackState?.key} className="mt-3 animate-in slide-in-from-top fade-in duration-300">
+                            <div
+                              role="status"
+                              aria-live="polite"
+                              className="flex items-start gap-3 rounded-[1.35rem] border border-amber-300/30 bg-amber-500/12 px-4 py-3 text-sm text-amber-50 shadow-[0_16px_34px_rgba(245,158,11,0.12)]"
+                            >
+                              <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" />
+                              <p className={`font-semibold ${wrapTextClass}`}>{lockedPostFeedback}</p>
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     ) : null}
 
@@ -1572,7 +1658,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
 
                         {isNearUnlockRadiusForDiagnostics && isGpsAccuracyConcern ? (
                           <p className={`mt-4 text-sm leading-6 text-amber-100/90 ${wrapTextClass}`}>
-                            Du er tæt på posten, men GPS&apos;en er lidt upræcis lige nu. Vent et øjeblik, gå et par meter rundt, eller prøv mobildata.
+                            {LOCKED_POST_GPS_ACCURACY_MESSAGE}
                           </p>
                         ) : null}
                       </div>
