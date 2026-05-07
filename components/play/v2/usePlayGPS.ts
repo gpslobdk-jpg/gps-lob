@@ -48,6 +48,8 @@ export interface PlayGpsState {
   gpsOverrideActive: boolean;
   /** Human-readable error string (null when healthy). */
   gpsError: string | null;
+  /** Current unlock radius in metres (may be default). */
+  unlockRadius: number | null;
 }
 
 export interface PlayGpsActions {
@@ -216,6 +218,7 @@ export function usePlayGps(params: {
   const [isAcquiring, setIsAcquiring] = useState(true);
   const [gpsOverrideActive, setGpsOverrideActive] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
+  const [unlockRadiusState, setUnlockRadiusState] = useState<number | null>(DEFAULT_UNLOCK_RADIUS_M);
 
   // ---- Refs (mutable, not triggering renders) ----
   const targetRef = useRef<GpsTarget | null>(null);
@@ -308,11 +311,49 @@ export function usePlayGps(params: {
       lastPositionTsRef.current = Date.now();
 
       const acc = roundAccuracy(pos.coords.accuracy);
-      if (acc === null || acc > MAX_ACCEPTED_ACCURACY_METERS) return;
+      // Stale timestamp detection (helps diagnose odd device timestamps)
+      const ts = measurementTs(pos.timestamp);
+      if (Date.now() - ts > HEARTBEAT_STALE_MS) {
+        try {
+          const ua = typeof navigator !== "undefined" ? navigator.userAgent : null;
+          sendTelemetry("gps_position_rejected", {
+            participant_id: participantIdRef.current,
+            session_id: sessionIdRef.current,
+            message: JSON.stringify({ reason: "stale_position", timestamp: ts, ua: ua ? String(ua).slice(0, 200) : null }),
+          });
+        } catch {
+          // best-effort
+        }
+      }
+
+      // Report and early-exit on poor accuracy
+      if (acc === null || acc > MAX_ACCEPTED_ACCURACY_METERS) {
+        try {
+          const ua = typeof navigator !== "undefined" ? navigator.userAgent : null;
+          const target = targetRef.current;
+          const distanceToTargetMeters =
+            target && typeof pos.coords.latitude === "number" && typeof pos.coords.longitude === "number"
+              ? haversineDistance(pos.coords.latitude, pos.coords.longitude, target.lat, target.lng)
+              : null;
+          sendTelemetry("gps_position_rejected", {
+            participant_id: participantIdRef.current,
+            session_id: sessionIdRef.current,
+            message: JSON.stringify({
+              reason: "accuracy_too_poor",
+              accuracy: acc,
+              distance_to_target_m: distanceToTargetMeters,
+              unlock_radius_m: unlockRadiusRef.current,
+              ua: ua ? String(ua).slice(0, 200) : null,
+            }),
+          });
+        } catch {
+          // best-effort
+        }
+        return;
+      }
 
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
-      const ts = measurementTs(pos.timestamp);
 
       // ---- Jump filter ----
       const prev = lastAcceptedFixRef.current;
@@ -321,6 +362,22 @@ export function usePlayGps(params: {
         const elapsed = Math.max(1, ts - prev.timestampMs);
         const speed = dist / (elapsed / 1000);
         if (dist >= JUMP_FILTER_MIN_DISTANCE_M && speed > JUMP_FILTER_MAX_SPEED_MPS) {
+          try {
+            const ua = typeof navigator !== "undefined" ? navigator.userAgent : null;
+            sendTelemetry("gps_position_rejected", {
+              participant_id: participantIdRef.current,
+              session_id: sessionIdRef.current,
+              message: JSON.stringify({
+                reason: "jump_filter",
+                distance_m: Math.round(dist),
+                speed_mps: Math.round(speed),
+                unlock_radius_m: unlockRadiusRef.current,
+                ua: ua ? String(ua).slice(0, 200) : null,
+              }),
+            });
+          } catch {
+            // best-effort
+          }
           return; // reject teleport artefact
         }
       }
@@ -588,6 +645,11 @@ export function usePlayGps(params: {
 
   const setUnlockRadius = useCallback((meters: number) => {
     unlockRadiusRef.current = meters;
+    try {
+      setUnlockRadiusState(Math.max(0, Math.round(meters)));
+    } catch {
+      // best-effort
+    }
   }, []);
 
   const setGpsOverride = useCallback((value: boolean) => {
@@ -606,8 +668,9 @@ export function usePlayGps(params: {
       isAcquiring,
       gpsOverrideActive,
       gpsError,
+      unlockRadius: unlockRadiusState,
     }),
-    [location, heading, accuracy, distanceToTarget, isInRange, permission, isAcquiring, gpsOverrideActive, gpsError],
+    [location, heading, accuracy, distanceToTarget, isInRange, permission, isAcquiring, gpsOverrideActive, gpsError, unlockRadiusState],
   );
 
   const actions: PlayGpsActions = useMemo(

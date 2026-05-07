@@ -20,6 +20,7 @@ import {
   clearStoredPlaySnapshot,
 } from "@/components/play/playUtils";
 import { createClient } from "@/utils/supabase/client";
+import { sendTelemetry } from "@/utils/telemetry";
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -331,7 +332,18 @@ function JoinForm() {
     }
 
     try {
+      const lookupStart = Date.now();
       const response = await fetchWithRetry(`/api/join?pin=${encodeURIComponent(trimmedPin)}`);
+      const lookupDuration = Date.now() - lookupStart;
+      try {
+        const ua = typeof navigator !== "undefined" ? navigator.userAgent : null;
+        sendTelemetry("join_lookup", {
+          session_id: null,
+          message: JSON.stringify({ duration_ms: lookupDuration, status: response.status, stage: "lookup", ua: ua ? String(ua).slice(0, 200) : null }),
+        });
+      } catch {
+        // best-effort
+      }
 
       if (response.status === 429 || response.status === 503) {
         setError(RATE_LIMIT_MESSAGE);
@@ -382,6 +394,7 @@ function JoinForm() {
         return;
       }
 
+      const registerStart = Date.now();
       const registerResponse = await fetchWithRetry("/api/join", {
         method: "POST",
         headers: {
@@ -393,6 +406,16 @@ function JoinForm() {
           studentName: trimmedName,
         }),
       });
+      const registerDuration = Date.now() - registerStart;
+      try {
+        const ua = typeof navigator !== "undefined" ? navigator.userAgent : null;
+        sendTelemetry("join_register", {
+          session_id: joinData.sessionId ?? null,
+          message: JSON.stringify({ duration_ms: registerDuration, status: registerResponse.status, stage: "register", ua: ua ? String(ua).slice(0, 200) : null }),
+        });
+      } catch {
+        // best-effort
+      }
 
       if (registerResponse.status === 429 || registerResponse.status === 503) {
         setError(RATE_LIMIT_MESSAGE);
@@ -474,7 +497,19 @@ function JoinForm() {
       return;
     } catch (err) {
       console.error("Fejl ved deltagelse i løbet:", err);
-      setError("Der skete en fejl. Prøv igen.");
+      try {
+        const ua = typeof navigator !== "undefined" ? navigator.userAgent : null;
+        sendTelemetry("join_failed", {
+          session_id: null,
+          message: JSON.stringify({ error: err instanceof Error ? err.message : String(err), ua: ua ? String(ua).slice(0, 200) : null }),
+        });
+      } catch {
+        // best-effort
+      }
+
+      setError(
+        "Der skete en fejl ved deltagelse. Prøv igen. Hvis du er på skolens Wi‑Fi, så prøv mobildata. På iPhone: åbn helst linket i Safari. Kontakt din lærer, hvis problemet fortsætter."
+      );
     } finally {
       if (shouldReleaseLock) {
         joinLockRef.current = false;

@@ -540,6 +540,41 @@ function ActiveGameScreen({
         pendingOfflineCount={engine.pendingOfflineCount}
       />
 
+      {/* Small GPS diagnostic card when a post is LOCKED but player appears nearby */}
+      {engine.postPhase === "LOCKED" &&
+        engine.activeQuestion &&
+        typeof gps.distanceToTarget === "number" &&
+        typeof gps.unlockRadius === "number" &&
+        gps.distanceToTarget <= (gps.unlockRadius + 30) && (
+          <div className="pointer-events-auto absolute left-3 right-3 bottom-32 z-40">
+            <div className="rounded-xl border border-white/8 bg-slate-900/80 p-3 text-xs text-white/80 backdrop-blur-md">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold">GPS‑diagnostic</div>
+                <div className="text-[11px] text-white/50">Status</div>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                <div>
+                  <div className="text-[11px] text-white/50">Afstand</div>
+                  <div className="font-bold">{gps.distanceToTarget ?? "–"} m</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-white/50">GPS‑præcision</div>
+                  <div className="font-bold">{gps.accuracy ?? "–"} m</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-white/50">Unlock‑radius</div>
+                  <div className="font-bold">{gps.unlockRadius ?? "–"} m</div>
+                </div>
+              </div>
+              {(gps.accuracy === null || (typeof gps.accuracy === "number" && gps.accuracy > 120)) && (
+                <p className="mt-2 text-[13px] text-amber-300">
+                  Du er tæt på, men telefonens GPS er usikker lige nu. Prøv at gå lidt rundt, vente et øjeblik eller skifte mellem Wi‑Fi og mobildata.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
       {/* Post overlays based on PostPhase */}
       {engine.postPhase === "OPEN" && engine.activeQuestion && (
         <PostOverlayOpen
