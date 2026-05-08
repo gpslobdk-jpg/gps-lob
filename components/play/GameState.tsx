@@ -4,7 +4,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { sendTelemetry } from "@/utils/telemetry";
+import { createClientTelemetryMessage, sendTelemetry } from "@/utils/telemetry";
 import * as Sentry from "@sentry/nextjs";
 import { authWithLockRetry } from "@/utils/supabase/authWithLockRetry";
 
@@ -933,7 +933,10 @@ export function usePlayGameState({
             sendTelemetry("participant_auth_refresh_recovered", {
               participant_id: participantId,
               session_id: sessionId,
-              message: `reason=${telemetryReason}`,
+              message: createClientTelemetryMessage({
+                reason: telemetryReason,
+                recovery_method: "refresh",
+              }),
             });
           }
 
@@ -957,7 +960,10 @@ export function usePlayGameState({
         sendTelemetry("participant_auth_rebind_recovered", {
           participant_id: participantId,
           session_id: sessionId,
-          message: `reason=${telemetryReason}`,
+          message: createClientTelemetryMessage({
+            reason: telemetryReason,
+            recovery_method: "rebind",
+          }),
         });
       }
 
@@ -1245,7 +1251,11 @@ export function usePlayGameState({
           sendTelemetry("participant_restore_exhausted", {
             participant_id: participantId,
             session_id: sessionId,
-            message: `retries=${nextRetryCount}; state=restore_loading`,
+            message: createClientTelemetryMessage({
+              reason: "restore_exhausted",
+              retries: nextRetryCount,
+              state: "restore_loading",
+            }),
           });
         }
 
@@ -1505,7 +1515,12 @@ export function usePlayGameState({
           sendTelemetry("wake_reconnect_recovered", {
             participant_id: participantId,
             session_id: sessionId,
-            message: `trigger=${trigger}; result=session_finished; auth=${participantAuthRecoveryMethod ?? "none"}`,
+            message: createClientTelemetryMessage({
+              auth_method: participantAuthRecoveryMethod ?? "none",
+              reason: "session_finished",
+              result: "session_finished",
+              trigger,
+            }),
           });
           reconnectOutcomeLogged = true;
         }
@@ -1519,7 +1534,10 @@ export function usePlayGameState({
           sendTelemetry("wake_reconnect_failed", {
             participant_id: participantId,
             session_id: sessionId,
-            message: `trigger=${trigger}; reason=auth_recovery_failed`,
+            message: createClientTelemetryMessage({
+              reason: "auth_recovery_failed",
+              trigger,
+            }),
           });
           reconnectOutcomeLogged = true;
         }
@@ -1582,7 +1600,12 @@ export function usePlayGameState({
               sendTelemetry("wake_reconnect_recovered", {
                 participant_id: activeParticipantId,
                 session_id: sessionId,
-                message: `trigger=${trigger}; result=participant_restored; auth=${participantAuthRecoveryMethod ?? "none"}`,
+                message: createClientTelemetryMessage({
+                  auth_method: participantAuthRecoveryMethod ?? "none",
+                  reason: "participant_restored",
+                  result: "participant_restored",
+                  trigger,
+                }),
               });
               reconnectOutcomeLogged = true;
             }
@@ -1603,7 +1626,11 @@ export function usePlayGameState({
               sendTelemetry("wake_reconnect_failed", {
                 participant_id: activeParticipantId,
                 session_id: sessionId,
-                message: `trigger=${trigger}; reason=snapshot_error; status=${participantSnapshotError.status}`,
+                message: createClientTelemetryMessage({
+                  reason: "snapshot_error",
+                  status_code: participantSnapshotError.status ?? null,
+                  trigger,
+                }),
               });
               reconnectOutcomeLogged = true;
             }
@@ -1611,7 +1638,10 @@ export function usePlayGameState({
             sendTelemetry("wake_reconnect_failed", {
               participant_id: activeParticipantId,
               session_id: sessionId,
-              message: `trigger=${trigger}; reason=participant_missing`,
+              message: createClientTelemetryMessage({
+                reason: "participant_missing",
+                trigger,
+              }),
             });
             reconnectOutcomeLogged = true;
           }
@@ -1625,7 +1655,10 @@ export function usePlayGameState({
         sendTelemetry("wake_reconnect_failed", {
           participant_id: participantId,
           session_id: sessionId,
-          message: `trigger=${trigger}; reason=exception`,
+          message: createClientTelemetryMessage({
+            reason: "exception",
+            trigger,
+          }),
         });
       }
     } finally {

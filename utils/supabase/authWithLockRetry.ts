@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
-import { sendTelemetry } from "@/utils/telemetry";
+import { createClientTelemetryMessage, sendTelemetry } from "@/utils/telemetry";
 import { leaveAppBreadcrumb } from "@/utils/observability";
 
 const LOCK_FINGERPRINT = /lock|stolen|steal/i;
@@ -48,8 +48,11 @@ export async function authWithLockRetry<T>(
 
     // Sanitize error message before sending anywhere
     const sanitized = sanitizeMessage(message);
-    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "unknown";
-    const telemetryMessage = `place=${place}; msg=${sanitized}; ua=${ua}`;
+    const telemetryMessage = createClientTelemetryMessage({
+      ...(metadata ? { metadata } : {}),
+      place,
+      reason: sanitized,
+    });
 
     try {
       sendTelemetry?.("auth_lock_abort", { message: telemetryMessage });
@@ -79,7 +82,13 @@ export async function authWithLockRetry<T>(
     try {
       const result = await fn();
       try {
-        sendTelemetry?.("auth_lock_retry_success", { message: `place=${place}` });
+        sendTelemetry?.("auth_lock_retry_success", {
+          message: createClientTelemetryMessage({
+            ...(metadata ? { metadata } : {}),
+            place,
+            reason: "retry_success",
+          }),
+        });
       } catch (_) {}
       try {
         if (typeof Sentry?.addBreadcrumb === "function") {
@@ -93,7 +102,13 @@ export async function authWithLockRetry<T>(
     } catch (err2: any) {
       try {
         const sanitizedErrMsg = sanitizeMessage(String(err2?.message ?? err2));
-        sendTelemetry?.("auth_lock_retry_failed", { message: `place=${place}; msg=${sanitizedErrMsg}` });
+        sendTelemetry?.("auth_lock_retry_failed", {
+          message: createClientTelemetryMessage({
+            ...(metadata ? { metadata } : {}),
+            place,
+            reason: sanitizedErrMsg,
+          }),
+        });
       } catch (_) {}
       try {
         if (typeof Sentry?.addBreadcrumb === "function") {

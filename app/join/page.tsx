@@ -21,7 +21,7 @@ import {
   clearStoredPlaySnapshot,
 } from "@/components/play/playUtils";
 import { createClient } from "@/utils/supabase/client";
-import { sendTelemetry } from "@/utils/telemetry";
+import { createClientTelemetryMessage, sendTelemetry } from "@/utils/telemetry";
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -145,7 +145,7 @@ function trackJoinTelemetry(
   try {
     sendTelemetry(eventName, {
       session_id: sessionId,
-      message: JSON.stringify(payload),
+      message: createClientTelemetryMessage(payload),
     });
   } catch {
     // best-effort
@@ -373,8 +373,9 @@ function JoinForm() {
       setShowInAppWarning(true);
       trackJoinTelemetry("join_webview_detected", null, {
         platform: nextPlatform,
+        is_standalone: isStandalone,
+        reason: isKnownInApp ? "known_in_app" : isIosWebView ? "ios_webview" : "android_webview",
         source: isKnownInApp ? "known_in_app" : isIosWebView ? "ios_webview" : "android_webview",
-        standalone: isStandalone,
       });
     }
 
@@ -402,6 +403,7 @@ function JoinForm() {
         result: "offline",
         online: false,
         platform: browserPlatform,
+        reason: "offline",
         show_in_app_warning: showInAppWarning,
       });
       return;
@@ -443,9 +445,10 @@ function JoinForm() {
         result: response.ok ? "ok" : "http_error",
         ok: response.ok,
         duration_ms: Date.now() - checkStartedAt,
-        status: response.status,
+        status_code: response.status,
         online: isOnline,
         platform: browserPlatform,
+        reason: response.ok ? "ok" : "http_error",
         show_in_app_warning: showInAppWarning,
         used_entered_pin: trimmedPin.length === JOIN_PIN_LENGTH,
       });
@@ -461,9 +464,10 @@ function JoinForm() {
         result: error instanceof JoinRequestTimeoutError ? "timeout" : "error",
         ok: false,
         duration_ms: Date.now() - checkStartedAt,
-        status: null,
+        status_code: null,
         online: isOnline,
         platform: browserPlatform,
+        reason: error instanceof JoinRequestTimeoutError ? "timeout" : "error",
         show_in_app_warning: showInAppWarning,
       });
     } finally {
@@ -551,12 +555,11 @@ function JoinForm() {
         "lookup"
       );
       const lookupDuration = Date.now() - lookupStart;
-      const ua = typeof navigator !== "undefined" ? navigator.userAgent : null;
       trackJoinTelemetry("join_lookup", null, {
         duration_ms: lookupDuration,
-        status: response.status,
+        status_code: response.status,
         stage: "lookup",
-        ua: ua ? String(ua).slice(0, 200) : null,
+        reason: response.ok ? "ok" : "http_error",
       });
 
       if (response.status === 429 || response.status === 503) {
@@ -637,9 +640,9 @@ function JoinForm() {
       const registerDuration = Date.now() - registerStart;
       trackJoinTelemetry("join_register", joinData.sessionId ?? null, {
         duration_ms: registerDuration,
-        status: registerResponse.status,
+        status_code: registerResponse.status,
         stage: "register",
-        ua: ua ? String(ua).slice(0, 200) : null,
+        reason: registerResponse.ok ? "ok" : "http_error",
       });
 
       if (registerResponse.status === 429 || registerResponse.status === 503) {
@@ -733,6 +736,7 @@ function JoinForm() {
             timeout_ms: JOIN_REQUEST_TIMEOUT_MS,
             online: typeof navigator !== "undefined" ? navigator.onLine : null,
             platform: browserPlatform,
+            reason: "timeout",
             show_in_app_warning: showInAppWarning,
           }
         );
@@ -745,16 +749,19 @@ function JoinForm() {
           stage: currentStage,
           online: typeof navigator !== "undefined" ? navigator.onLine : null,
           platform: browserPlatform,
+          reason: "network_error",
           show_in_app_warning: showInAppWarning,
         });
         setError(JOIN_NETWORK_ERROR_MESSAGE);
         return;
       }
 
-      const ua = typeof navigator !== "undefined" ? navigator.userAgent : null;
-      trackJoinTelemetry("join_failed", null, {
-        error: err instanceof Error ? err.message : String(err),
-        ua: ua ? String(ua).slice(0, 200) : null,
+      trackJoinTelemetry("join_failed", activeSessionId, {
+        stage: currentStage,
+        online: typeof navigator !== "undefined" ? navigator.onLine : null,
+        platform: browserPlatform,
+        reason: err instanceof Error && err.name ? err.name : "unexpected_error",
+        show_in_app_warning: showInAppWarning,
       });
 
       setError(
