@@ -188,20 +188,83 @@ function CenterReporter({
 function FocusController({ request }: { request: FocusRequest | null }) {
   const map = useMap();
 
+  const _focusRetryTimeout = useRef<number | null>(null);
+
   useEffect(() => {
     if (!request) return;
 
-    try {
-      if (!map || !map.getContainer()) return;
-      const coords = request.coords;
-      if (!Array.isArray(coords) || coords.length < 2) return;
-      const [rawLat, rawLng] = coords;
-      const normalized = normalizeLatLng(rawLat, rawLng);
-      if (!normalized) return;
-      map.flyTo([normalized.lat, normalized.lng], request.zoom ?? map.getZoom(), { animate: true, duration: 1.2 });
-    } catch (err) {
-      console.warn("FocusController: failed to flyTo:", err);
-    }
+    let active = true;
+
+    const tryFly = (attempt = 0) => {
+      if (!active) return;
+
+      try {
+        if (!map || !map.getContainer()) return;
+
+        const coords = request.coords;
+        if (!Array.isArray(coords) || coords.length < 2) return;
+        const [rawLat, rawLng] = coords;
+        const normalized = normalizeLatLng(rawLat, rawLng);
+        if (!normalized) return;
+
+        // check container/layout size to avoid Leaflet producing NaN
+        let sizeOk = false;
+        try {
+          const size = map.getSize();
+          const container = map.getContainer();
+          const offsetW = (container && (container as HTMLElement).offsetWidth) || 0;
+          const offsetH = (container && (container as HTMLElement).offsetHeight) || 0;
+          sizeOk = Number.isFinite(size.x) && Number.isFinite(size.y) && size.x > 0 && size.y > 0 && offsetW > 0 && offsetH > 0;
+        } catch (e) {
+          sizeOk = false;
+        }
+
+        if (sizeOk) {
+          try {
+            map.flyTo([normalized.lat, normalized.lng], request.zoom ?? map.getZoom(), { animate: true, duration: 1.2 });
+          } catch (err) {
+            console.warn("FocusController: flyTo failed:", err);
+          }
+          return;
+        }
+
+        // Not ready: try to invalidate size, then retry a few times with delay
+        if (attempt < 4) {
+          try {
+            map.invalidateSize();
+          } catch (err) {
+            // ignore
+          }
+
+          const delay = [120, 220, 360, 600][attempt] ?? 200;
+          _focusRetryTimeout.current = window.setTimeout(() => {
+            _focusRetryTimeout.current = null;
+            tryFly(attempt + 1);
+          }, delay) as unknown as number;
+
+          return;
+        }
+
+        // final fallback: set view without animation if still not sized
+        try {
+          map.setView([normalized.lat, normalized.lng], request.zoom ?? map.getZoom(), { animate: false });
+        } catch (err) {
+          console.warn("FocusController: setView fallback failed:", err);
+        }
+      } catch (err) {
+        console.warn("FocusController: failed to compute flyTo:", err);
+      }
+    };
+
+    tryFly(0);
+
+    return () => {
+      active = false;
+      if (_focusRetryTimeout.current !== null) {
+        window.clearTimeout(_focusRetryTimeout.current);
+        _focusRetryTimeout.current = null;
+      }
+    };
   }, [map, request]);
 
   return null;
@@ -214,20 +277,76 @@ function centersMatch(a: MapCenter, b: MapCenter, tolerance = 0.00005) {
 function ExternalCenterController({ center }: { center: MapCenter }) {
   const map = useMap();
 
-  useEffect(() => {
-    try {
-      if (!map || !map.getContainer()) return;
-      const normalized = normalizeLatLng(center?.lat, center?.lng);
-      if (!normalized) return;
-      const current = map.getCenter();
-      if (centersMatch({ lat: current.lat, lng: current.lng }, normalized)) {
-        return;
-      }
+  const _externalRetryTimeout = useRef<number | null>(null);
 
-      map.flyTo([normalized.lat, normalized.lng], map.getZoom(), { animate: true, duration: 1.2 });
-    } catch (err) {
-      console.warn("ExternalCenterController: failed to flyTo:", err);
-    }
+  useEffect(() => {
+    let active = true;
+
+    const doCenter = (attempt = 0) => {
+      if (!active) return;
+
+      try {
+        if (!map || !map.getContainer()) return;
+        const normalized = normalizeLatLng(center?.lat, center?.lng);
+        if (!normalized) return;
+        const current = map.getCenter();
+        if (centersMatch({ lat: current.lat, lng: current.lng }, normalized)) {
+          return;
+        }
+
+        let sizeOk = false;
+        try {
+          const size = map.getSize();
+          const container = map.getContainer();
+          const offsetW = (container && (container as HTMLElement).offsetWidth) || 0;
+          const offsetH = (container && (container as HTMLElement).offsetHeight) || 0;
+          sizeOk = Number.isFinite(size.x) && Number.isFinite(size.y) && size.x > 0 && size.y > 0 && offsetW > 0 && offsetH > 0;
+        } catch (e) {
+          sizeOk = false;
+        }
+
+        if (sizeOk) {
+          try {
+            map.flyTo([normalized.lat, normalized.lng], map.getZoom(), { animate: true, duration: 1.2 });
+          } catch (err) {
+            console.warn("ExternalCenterController: flyTo failed:", err);
+          }
+          return;
+        }
+
+        if (attempt < 3) {
+          try {
+            map.invalidateSize();
+          } catch (err) {
+            // ignore
+          }
+          const delay = [120, 260, 480][attempt] ?? 200;
+          _externalRetryTimeout.current = window.setTimeout(() => {
+            _externalRetryTimeout.current = null;
+            doCenter(attempt + 1);
+          }, delay) as unknown as number;
+          return;
+        }
+
+        try {
+          map.setView([normalized.lat, normalized.lng], map.getZoom(), { animate: false });
+        } catch (err) {
+          console.warn("ExternalCenterController: setView fallback failed:", err);
+        }
+      } catch (err) {
+        console.warn("ExternalCenterController: failed to apply center:", err);
+      }
+    };
+
+    doCenter(0);
+
+    return () => {
+      active = false;
+      if (_externalRetryTimeout.current !== null) {
+        window.clearTimeout(_externalRetryTimeout.current);
+        _externalRetryTimeout.current = null;
+      }
+    };
   }, [center, map]);
 
   return null;
