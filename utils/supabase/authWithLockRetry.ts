@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 import { sendTelemetry } from "@/utils/telemetry";
+import { leaveAppBreadcrumb } from "@/utils/observability";
 
 const LOCK_FINGERPRINT = /lock|stolen|steal/i;
 
@@ -68,6 +69,10 @@ export async function authWithLockRetry<T>(
       // swallow
     }
 
+    try {
+      leaveAppBreadcrumb("auth_lock_abort", { place, message: sanitized });
+    } catch (_) {}
+
     // Short backoff then retry once
     await new Promise((r) => setTimeout(r, 250));
 
@@ -80,6 +85,9 @@ export async function authWithLockRetry<T>(
         if (typeof Sentry?.addBreadcrumb === "function") {
           Sentry.addBreadcrumb({ category: "auth", message: "auth_lock_retry_success", data: { place } });
         }
+      } catch (_) {}
+      try {
+        leaveAppBreadcrumb("auth_lock_retry_success", { place });
       } catch (_) {}
       return result;
     } catch (err2: any) {
@@ -95,6 +103,10 @@ export async function authWithLockRetry<T>(
             data: { place, message: sanitizeMessage(String(err2?.message ?? err2)) },
           });
         }
+      } catch (_) {}
+
+      try {
+        leaveAppBreadcrumb("auth_lock_retry_failed", { place, message: sanitizeMessage(String(err2?.message ?? err2)) });
       } catch (_) {}
 
       // rethrow so existing fallback logic still runs

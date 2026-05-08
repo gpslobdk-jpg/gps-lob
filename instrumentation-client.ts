@@ -3,6 +3,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import { ensureBugsnag } from "@/utils/observability";
 
 Sentry.init({
   dsn: "https://31175c8fd32fcc439aaa2479b9191608@o4511262707351552.ingest.de.sentry.io/4511262710038608",
@@ -72,3 +73,8 @@ Sentry.init({
 });
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
+
+// Initialize Bugsnag client-side (best-effort). Disabled if no API key.
+try {
+  ensureBugsnag();
+} catch (_) {}

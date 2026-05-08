@@ -11,6 +11,7 @@ import {
   type RunSchedule,
 } from "@/utils/runSchedule";
 import * as Sentry from "@sentry/nextjs";
+import { leaveAppBreadcrumb } from "@/utils/observability";
 import QRScannerModal from "@/components/QRScannerModal";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 import {
@@ -509,6 +510,18 @@ function JoinForm() {
     let currentStage: JoinRequestStage = "lookup";
 
     try {
+      try {
+        leaveAppBreadcrumb("join_attempt", {
+          has_pin: trimmedPin.length > 0,
+          pin_length: trimmedPin.length,
+          has_name: trimmedName.length > 0,
+          name_length: trimmedName.length,
+          online: typeof navigator !== "undefined" ? navigator.onLine : null,
+          platform: browserPlatform,
+          show_in_app_warning: showInAppWarning,
+        });
+      } catch (_) {}
+
       Sentry.addBreadcrumb({
         category: "join",
         message: "join_attempt",
@@ -555,9 +568,15 @@ function JoinForm() {
 
       if (response.status === 404 || ("kind" in joinData && joinData.kind === "invalid")) {
         try {
-            Sentry.withScope((scope) => {
-            scope.setExtra("enteredPin", trimmedPin);
-            scope.setExtra("enteredName", trimmedName);
+          Sentry.withScope((scope) => {
+            scope.setExtras({
+              has_pin: trimmedPin.length > 0,
+              pin_length: trimmedPin.length,
+              has_name: trimmedName.length > 0,
+              name_length: trimmedName.length,
+              platform: browserPlatform,
+              online: typeof navigator !== "undefined" ? navigator.onLine : null,
+            });
             Sentry.captureMessage("Join lookup invalid or 404", "info");
           });
         } catch (err) {
@@ -656,7 +675,8 @@ function JoinForm() {
         try {
           Sentry.withScope((scope) => {
             scope.setExtras({
-              enteredPin: trimmedPin,
+              has_pin: trimmedPin.length > 0,
+              pin_length: trimmedPin.length,
               existingSessionId: existingParticipant.sessionId,
               existingParticipantId: existingParticipant.participantId,
               newSessionId: registerData.sessionId,
