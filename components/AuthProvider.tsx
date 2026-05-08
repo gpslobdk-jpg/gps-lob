@@ -11,6 +11,7 @@ import {
 import type { Session, User } from "@supabase/supabase-js";
 
 import { createClient } from "@/utils/supabase/client";
+import { authWithLockRetry } from "@/utils/supabase/authWithLockRetry";
 
 type AuthContextValue = {
   session: Session | null;
@@ -35,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const {
           data: { session: activeSession },
-        } = await supabase.auth.getSession();
+        } = await authWithLockRetry(() => supabase.auth.getSession(), "AuthProvider.hydrateAuth");
 
         if (!isMounted) return;
 

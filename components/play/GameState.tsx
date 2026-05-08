@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { sendTelemetry } from "@/utils/telemetry";
 import * as Sentry from "@sentry/nextjs";
+import { authWithLockRetry } from "@/utils/supabase/authWithLockRetry";
 
 import type {
   AnswerProgressRow,
@@ -922,7 +923,10 @@ export function usePlayGameState({
       }
 
       try {
-        const { data, error } = await supabase.auth.refreshSession();
+        const { data, error } = await authWithLockRetry(
+          () => supabase.auth.refreshSession(),
+          "GameState.recoverParticipantAuthSession"
+        );
         const refreshedUserId = data.user?.id ?? data.session?.user?.id ?? null;
         if (!error && refreshedUserId) {
           if (telemetryReason && sessionId) {
@@ -1484,7 +1488,7 @@ export function usePlayGameState({
         );
         hasRecoveredParticipantAuth = participantAuthRecoveryMethod !== null;
       } else {
-        void supabase.auth.refreshSession().catch(() => undefined);
+        void authWithLockRetry(() => supabase.auth.refreshSession(), "GameState.backgroundRefresh").catch(() => undefined);
       }
 
       const sessionStatusSnapshot = await fetchSessionStatusSnapshot();
@@ -2219,7 +2223,7 @@ export function usePlayGameState({
 
           if (response.status === 401) {
             // JWT may have expired — attempt a silent refresh so the next sync succeeds
-            void supabase.auth.refreshSession().catch(() => undefined);
+            void authWithLockRetry(() => supabase.auth.refreshSession(), "GameState.backgroundRefresh").catch(() => undefined);
             sendTelemetry("auth_error", {
               participant_id: participantId,
               session_id: sessionId,
