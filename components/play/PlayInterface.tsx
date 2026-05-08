@@ -140,12 +140,19 @@ const STUCK_HELP_DELAY_MS = 35_000;
 function WaitingScreenContent({ actions }: { actions: PlayActions }) {
   const [isRetrying, setIsRetrying] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showStillWaiting, setShowStillWaiting] = useState(false);
   const hasLoggedShownRef = useRef(false);
   const stuckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stillWaitingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
 
   // Log once when the waiting screen mounts
   useEffect(() => {
-    if (hasLoggedShownRef.current) return;
+    mountedRef.current = true;
+    if (hasLoggedShownRef.current) return () => {
+      mountedRef.current = false;
+    };
+
     hasLoggedShownRef.current = true;
     try {
       Sentry.addBreadcrumb({
@@ -172,16 +179,25 @@ function WaitingScreenContent({ actions }: { actions: PlayActions }) {
     }, STUCK_HELP_DELAY_MS);
 
     return () => {
+      mountedRef.current = false;
       if (stuckTimerRef.current !== null) {
         clearTimeout(stuckTimerRef.current);
         stuckTimerRef.current = null;
+      }
+      if (stillWaitingTimerRef.current !== null) {
+        clearTimeout(stillWaitingTimerRef.current);
+        stillWaitingTimerRef.current = null;
       }
     };
   }, []);
 
   const handleRetry = async () => {
     if (isRetrying) return;
+    // Clear previous helper message
+    setShowStillWaiting(false);
     setIsRetrying(true);
+    // best-effort tactile feedback
+    safeVibrate(40);
     try {
       Sentry.captureMessage("play_waiting_manual_retry", "info");
     } catch (_err) {
@@ -190,8 +206,19 @@ function WaitingScreenContent({ actions }: { actions: PlayActions }) {
     try {
       await actions.retrySessionStatus();
     } finally {
-      setIsRetrying(false);
+      if (mountedRef.current) setIsRetrying(false);
     }
+
+    // If component is still mounted after retry, show a short inline note
+    if (!mountedRef.current) return;
+    setShowStillWaiting(true);
+    if (stillWaitingTimerRef.current !== null) {
+      clearTimeout(stillWaitingTimerRef.current);
+    }
+    stillWaitingTimerRef.current = setTimeout(() => {
+      if (mountedRef.current) setShowStillWaiting(false);
+      stillWaitingTimerRef.current = null;
+    }, 6000);
   };
 
   return (
@@ -201,14 +228,14 @@ function WaitingScreenContent({ actions }: { actions: PlayActions }) {
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-400/90">
             <div className="h-3 w-3 animate-pulse rounded-full bg-white/90" />
           </div>
-          <h1 className="text-2xl font-black">Gør jer klar!</h1>
-          <p className="mt-3 text-sm text-white/90">Venter på at læreren starter løbet...</p>
+          <h1 className="text-2xl font-black">Løbet er ikke startet endnu</h1>
+          <p className="mt-3 text-sm text-white/90">Vi tjekker automatisk. Du behøver ikke trykke flere gange.</p>
 
           <WifiConnectionTip className="mt-6" />
 
           {showHelp && (
             <p className="mt-5 rounded-xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-xs leading-5 text-amber-200">
-              Hvis læreren allerede har startet løbet, så tryk <strong>Tjek igen</strong> eller <strong>Start forfra</strong>.
+              Hvis læreren allerede har startet løbet, så tryk <strong>Tjek nu</strong> eller <strong>Start forfra</strong>.
             </p>
           )}
 
@@ -221,7 +248,7 @@ function WaitingScreenContent({ actions }: { actions: PlayActions }) {
               className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-3 text-sm font-bold text-emerald-200 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <RefreshCcw className={`h-4 w-4 ${isRetrying ? "animate-spin" : ""}`} />
-              {isRetrying ? "Checker..." : "Tjek igen"}
+              {isRetrying ? "Tjekker status…" : "Tjek nu"}
             </button>
 
             <button
@@ -232,6 +259,12 @@ function WaitingScreenContent({ actions }: { actions: PlayActions }) {
               Start forfra
             </button>
           </div>
+
+          {showStillWaiting && (
+            <p className="mt-3 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80">
+              Løbet er stadig ikke startet. Vent på læreren.
+            </p>
+          )}
         </div>
       </div>
     </div>
