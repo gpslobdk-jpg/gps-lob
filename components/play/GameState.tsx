@@ -85,7 +85,6 @@ type UsePlayGameStateParams = {
   sessionId?: string;
   initialStudentName?: string;
 };
-
 type LiveSessionStatusRow = {
   status?: string | null;
   gps_override?: boolean | null;
@@ -137,6 +136,7 @@ const PLAY_RESTORE_RETRY_MESSAGE =
   "Vi kunne ikke genskabe din deltager automatisk. Tryk på Prøv igen for at genindlæse missionen.";
 const PLAY_PARTICIPANT_AUTH_EXPIRED_MESSAGE =
   "Hov, du har været væk lidt længe! Dit adgangskort er udløbet.";
+const PLAY_PARTICIPANT_UNAUTHORIZED_REJOIN_MESSAGE = "Du skal tilmelde dig løbet igen.";
 const PLAY_JOIN_SESSION_MISSING_MESSAGE =
   "Løbet er muligvis afsluttet af læreren.";
 const RESTORE_RETRY_DELAY_MS = 2500;
@@ -1114,8 +1114,8 @@ export function usePlayGameState({
             if (!response.ok) {
               if (response.status === 401 || response.status === 403) {
                 // Detect an immediate join (short window since savedAt). If so,
-                // attempt one auth-recovery and retry before tripping the
-                // circuit-breaker. This covers the race where the join
+                // attempt one auth-recovery and retry before deciding how to
+                // surface the failure. This covers the race where the join
                 // response's Set-Cookie hasn't been applied yet.
                 const savedAt = storedParticipantOnLoad?.savedAt;
                 let withinJoinWindow = false;
@@ -1157,18 +1157,45 @@ export function usePlayGameState({
                         };
                       }
 
-                      // still failing -> treat as auth expired
-                      tripPlayCircuitBreaker(
-                        PLAY_PARTICIPANT_AUTH_EXPIRED_MESSAGE,
-                        "participant_auth_expired"
+                      // Still failing after a recovery attempt — classify the failure.
+                      const retryMessage = retryPayload?.error ?? retryResp.statusText;
+                      const retryIsAuthExpired = isParticipantAuthResponseError(
+                        retryResp.status,
+                        retryMessage
                       );
+
+                      if (!retryIsAuthExpired) {
+                        try {
+                          clearStoredPlayRecoveryState();
+                        } catch (_err) {
+                          // best-effort
+                        }
+
+                        if (sessionId) {
+                          sendTelemetry("play_participant_unauthorized_rejoin_shown", {
+                            participant_id: participantId,
+                            session_id: sessionId,
+                            message: createClientTelemetryMessage({
+                              reason: "participant_snapshot_401_retry",
+                              httpStatus: retryResp.status,
+                            }),
+                          });
+                        }
+
+                        setPlayLoadError(PLAY_PARTICIPANT_UNAUTHORIZED_REJOIN_MESSAGE, "participant_unauthorized_rejoin");
+                      } else {
+                        tripPlayCircuitBreaker(
+                          PLAY_PARTICIPANT_AUTH_EXPIRED_MESSAGE,
+                          "participant_auth_expired"
+                        );
+                      }
 
                       return {
                         data: null,
                         error: {
                           status: retryResp.status,
                           code: String(retryResp.status),
-                          message: retryPayload?.error ?? retryResp.statusText,
+                          message: retryMessage,
                         },
                       };
                     }
@@ -1177,11 +1204,35 @@ export function usePlayGameState({
                   }
                 }
 
-                // No recovery attempted or recovery didn't help — surface expired.
-                tripPlayCircuitBreaker(
-                  PLAY_PARTICIPANT_AUTH_EXPIRED_MESSAGE,
-                  "participant_auth_expired"
-                );
+                // No recovery attempted or recovery didn't help — classify response
+                const msg = payload?.error ?? response.statusText;
+                const isAuthExpired = isParticipantAuthResponseError(response.status, msg);
+
+                if (!isAuthExpired) {
+                  try {
+                    clearStoredPlayRecoveryState();
+                  } catch (_err) {
+                    // best-effort
+                  }
+
+                  if (sessionId) {
+                    sendTelemetry("play_participant_unauthorized_rejoin_shown", {
+                      participant_id: participantId,
+                      session_id: sessionId,
+                      message: createClientTelemetryMessage({
+                        reason: "participant_snapshot_401",
+                        httpStatus: response.status,
+                      }),
+                    });
+                  }
+
+                  setPlayLoadError(PLAY_PARTICIPANT_UNAUTHORIZED_REJOIN_MESSAGE, "participant_unauthorized_rejoin");
+                } else {
+                  tripPlayCircuitBreaker(
+                    PLAY_PARTICIPANT_AUTH_EXPIRED_MESSAGE,
+                    "participant_auth_expired"
+                  );
+                }
               }
 
               return {

@@ -59,6 +59,7 @@ export type PlayLoadErrorVariant =
   | "generic"
   | "restore_recovery"
   | "participant_auth_expired"
+  | "participant_unauthorized_rejoin"
   | "join_session_missing";
 
 export type PhotoFeedbackState = {

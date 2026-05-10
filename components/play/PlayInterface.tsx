@@ -466,6 +466,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const shouldQueryCameraPermission = activePostVariant === "photo";
   const isParticipantAuthExpired = screen.loadErrorVariant === "participant_auth_expired";
   const isJoinSessionMissing = screen.loadErrorVariant === "join_session_missing";
+  const isParticipantUnauthorizedRejoin =
+    screen.loadErrorVariant === "participant_unauthorized_rejoin";
   const isQuizPostBurned = activePostVariant === "quiz" && activeQuizPostBurned;
   // Check BOTH arrays — solvedPostIndexes (correct answers) and answeredPostIndexes
   // (wrong answers). Either being true means the post is done and buttons must not render.
@@ -893,6 +895,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                 <KeyRound className="h-6 w-6" />
               ) : isJoinSessionMissing ? (
                 <XCircle className="h-6 w-6" />
+              ) : isParticipantUnauthorizedRejoin ? (
+                <XCircle className="h-6 w-6" />
               ) : isRestoreRecoveryError ? (
                 <KeyRound className="h-6 w-6" />
               ) : (
@@ -904,18 +908,22 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                 ? "Adgangskort udløbet"
                 : isJoinSessionMissing
                   ? "Løbet er lukket"
-                  : isRestoreRecoveryError
-                    ? "Genskab forbindelse"
-                    : "Klargør mission"}
+                  : isParticipantUnauthorizedRejoin
+                    ? "Tilmeld igen"
+                    : isRestoreRecoveryError
+                      ? "Genskab forbindelse"
+                      : "Klargør mission"}
             </p>
             <h1 className="mt-3 text-2xl font-black text-white">
               {isParticipantAuthExpired
                 ? "Hov, du har været væk lidt længe!"
                 : isJoinSessionMissing
                   ? "Løbet er muligvis afsluttet"
-                  : isRestoreRecoveryError
-                    ? "Vi prøver at hente dig tilbage i løbet"
-                    : "Vi gør løbet klar..."}
+                  : isParticipantUnauthorizedRejoin
+                    ? "Du skal tilmelde dig løbet igen."
+                    : isRestoreRecoveryError
+                      ? "Vi prøver at hente dig tilbage i løbet"
+                      : "Vi gør løbet klar..."}
             </h1>
             <p className={`mt-3 text-sm text-white/80 ${wrapTextClass}`}>{screen.loadError}</p>
             {isParticipantAuthExpired ? (
@@ -986,6 +994,21 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                     Vi forsøger at genoprette forbindelsen...
                   </p>
                 )}
+              </>
+            ) : isParticipantUnauthorizedRejoin ? (
+              <>
+                <p className="mt-3 text-xs text-white/60">
+                  {screen.loadError}
+                </p>
+                <div className="mt-6 flex flex-col gap-3">
+                  <button
+                    type="button"
+                    onClick={returnToJoin}
+                    className="inline-flex items-center justify-center rounded-xl border border-emerald-400/60 bg-emerald-500/20 px-5 py-3 font-bold text-white transition-all active:scale-95 active:opacity-80 hover:bg-emerald-500/30"
+                  >
+                    Gå til join
+                  </button>
+                </div>
               </>
             ) : isRestoreRecoveryError ? (
               <>
