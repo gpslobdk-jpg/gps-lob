@@ -36,11 +36,30 @@ const MOCK_QUESTION = {
   lng: 12.568,
 };
 
+// Sample of 3 valid questions for tests that need bonusAvailable=true
+const VALID_QUESTIONS_3: SourceQuestion[] = [
+  {
+    text: "Hvad er 1 + 1?",
+    answers: ["1", "2", "3", "4"],
+    correctIndex: 1,
+  },
+  {
+    text: "Hvad er 2 + 2?",
+    answers: ["2", "3", "4", "5"],
+    correctIndex: 2,
+  },
+  {
+    text: "Hvad er 3 + 3?",
+    answers: ["4", "5", "6", "7"],
+    correctIndex: 2,
+  },
+];
+
 // ── Mock-setup ────────────────────────────────────────────────────────────────
 
 async function mountPlayMocks(
   ctx: BrowserContext,
-  opts: { bonusEnabled: boolean; gpsOverride?: boolean }
+  opts: { bonusEnabled: boolean; gpsOverride?: boolean; questions?: SourceQuestion[] }
 ) {
   // Afvis WebSocket-forbindelser for at undgå Supabase realtime/HMR støj
   await ctx.routeWebSocket(/webpack-hmr/, (ws) => ws.close());
@@ -68,17 +87,19 @@ async function mountPlayMocks(
     });
   });
 
-  // /api/play/session — inkluderer bonusAvailable (automatisk beregnet i prod, mocket her)
+  // /api/play/session — include bonusAvailable (server semantics: bonus_enabled && generated.ok)
+  const questionList = Array.isArray(opts.questions) ? opts.questions : [MOCK_QUESTION];
   await ctx.route(/\/api\/play\/session/, async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        questions: [MOCK_QUESTION],
+        questions: questionList,
         raceType: "quiz",
         radius: 50,
         gpsOverride: opts.gpsOverride ?? true,
-        bonusAvailable: opts.bonusEnabled,
+        // Mirror server semantics in the mock: only true when bonusEnabled AND enough questions
+        bonusAvailable: Boolean(opts.bonusEnabled) && Array.isArray(questionList) && questionList.length >= 3,
       }),
     });
   });
@@ -241,7 +262,8 @@ test.describe("Bonus CTA på finished-skærmen", () => {
     page,
     context,
   }) => {
-    await mountPlayMocks(context, { bonusEnabled: true });
+    // Use 3 valid questions so the mock reports bonusAvailable=true when bonusEnabled=true
+    await mountPlayMocks(context, { bonusEnabled: true, questions: VALID_QUESTIONS_3 });
     await joinAndConfirmName(page);
 
     // Verificér at CTA-linket (hvis det vises) har korrekt href-format

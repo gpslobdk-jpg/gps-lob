@@ -59,16 +59,21 @@ export async function GET(request: NextRequest) {
       sanitizeQuestionForPlay(question, resolveQuestionVariant(raceType, question))
     );
 
+    // Determine bonus availability: only when the run explicitly has bonus_enabled
+    // AND the generated bonus-questions algorithm reports ok.
+    const sourceQuestions: SourceQuestion[] = Array.isArray(run?.questions)
+      ? (run.questions as SourceQuestion[])
+      : [];
+    const generatedForAvailability = generateBonusQuestions(sourceQuestions, {}); // seed not needed for availability check
+    const bonusAvailable = Boolean(run?.bonus_enabled) && generatedForAvailability.ok;
+
     return NextResponse.json(
       {
         questions,
         raceType,
         radius: getRunRadiusMeters(run),
         gpsOverride: Boolean(sessionData?.gps_override),
-        bonusAvailable: generateBonusQuestions(
-          Array.isArray(run?.questions) ? (run.questions as SourceQuestion[]) : [],
-          {} // seed not needed for availability check
-        ).ok,
+        bonusAvailable,
       },
       {
         headers: {
