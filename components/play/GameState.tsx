@@ -4609,18 +4609,10 @@ export function usePlayGameState({
 
   const startOver = useCallback(() => {
     clearStoredPlayRecoveryState();
-    try {
-      Sentry.withScope((scope) => {
-        scope.setExtra("sessionId", sessionId);
-        Sentry.captureMessage("play_waiting_start_over", "info");
-      });
-    } catch (_err) {
-      // best-effort
-    }
     if (typeof window !== "undefined") {
       window.location.assign("/join");
     }
-  }, [clearStoredPlayRecoveryState, sessionId]);
+  }, [clearStoredPlayRecoveryState]);
 
   return {
     player,
