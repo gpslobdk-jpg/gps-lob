@@ -4,14 +4,29 @@ import withPWAInit from "@ducanh2912/next-pwa";
 
 const withPWA = withPWAInit({
   dest: "public",
-  cacheOnFrontEndNav: true,
-  aggressiveFrontEndNavCaching: true,
+  cacheOnFrontEndNav: false,
+  aggressiveFrontEndNavCaching: false,
   extendDefaultRuntimeCaching: true,
   workboxOptions: {
     runtimeCaching: [
       {
         urlPattern: /\/api\/.*/i,
         handler: "NetworkOnly",
+      },
+      {
+        urlPattern: ({ request, url, sameOrigin }) =>
+          sameOrigin &&
+          (url.pathname === "/join" || url.pathname.startsWith("/play/")) &&
+          request.headers.get("RSC") === "1",
+        handler: "NetworkOnly",
+        method: "GET",
+      },
+      {
+        urlPattern: ({ url, sameOrigin }) =>
+          sameOrigin &&
+          (url.pathname === "/join" || url.pathname.startsWith("/play/")),
+        handler: "NetworkOnly",
+        method: "GET",
       },
     ],
   },
