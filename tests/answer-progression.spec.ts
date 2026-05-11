@@ -440,3 +440,137 @@ test.describe("answer progression regressions", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Regression guard: auth-rebind MUST NOT reset currentPostIndex to post 1
+// ---------------------------------------------------------------------------
+//
+// Root cause (Failure Point A from audit):
+//   registerParticipantIdentity() — called during auth-rebind (visibility_resume
+//   → recoverWakeUpState → recoverParticipantAuthSession → rebind path) — contained
+//   an unconditional setCurrentPostIndex(initialRouteOrder[0] ?? 0) that reset
+//   every student's UI to post 1 whenever their phone screen was woken between posts.
+//
+// Fix: guard with answeredPostIndexesRef.current.length === 0 so only a genuine
+//   first join (no answers yet) sets the initial post; auth-rebind during active
+//   play is ignored.
+//
+// Trigger mechanism in test:
+//   In the test browser context there is no real Supabase auth session, so
+//   supabase.auth.refreshSession() immediately returns no user. This causes
+//   recoverParticipantAuthSession() to fall through to the rebind path and call
+//   registerParticipantIdentity() — exactly the production failure scenario.
+//   Dispatching a 'visibilitychange' event fires the recoverWakeUpState handler
+//   and kicks off the chain.
+
+test.describe("auth-rebind resetter ikke currentPostIndex under aktiv session", () => {
+  test.describe.configure({ retries: 0 });
+
+  test(
+    "currentPostIndex forbliver 1 (post 2) efter visibility-resume auth-rebind — regression for Failure Point A",
+    async ({ page }) => {
+      test.setTimeout(60_000);
+
+      const state: MockState = { submitPayloads: [], validatePayloads: [] };
+
+      await mountPlayMocks(
+        page.context(),
+        {
+          raceType: "quiz",
+          questions: [
+            {
+              type: "multiple_choice",
+              text: "Post 1: Hvad er 1+1?",
+              answers: ["Korrekt post1", "Forkert B1", "Forkert C1", "Forkert D1"],
+              correctIndex: 0,
+              points: 10,
+              lat: POST_LAT,
+              lng: POST_LNG,
+            },
+            {
+              type: "multiple_choice",
+              text: "Post 2: Hvad er 2+2?",
+              answers: ["Korrekt post2", "Forkert B2", "Forkert C2", "Forkert D2"],
+              correctIndex: 0,
+              points: 10,
+              lat: POST_LAT,
+              lng: POST_LNG,
+            },
+          ],
+        },
+        state
+      );
+
+      // GPS sættes til postens koordinater → auto-unlock åbner spørgsmål automatisk
+      await openPlayPage(page, page.getByRole("button", { name: /^Korrekt post1$/i }));
+
+      // Besvar post 1 korrekt
+      await page.getByRole("button", { name: /^Korrekt post1$/i }).click();
+      await expect(page.getByText(/Korrekt! Du får point\./i)).toBeVisible({ timeout: 5_000 });
+
+      // Naviger til post 2
+      await page
+        .getByRole("button", { name: /gå til næste post/i })
+        .click();
+
+      // Vent på at React gemmer snapshot med currentPostIndex: 1 i localStorage.
+      // Det bekræfter at staten faktisk er nået til post 2 inden vi trigrer rebind.
+      await expect
+        .poll(
+          async () => {
+            const raw = await page.evaluate(() =>
+              localStorage.getItem("gpslob_active_play_snapshot")
+            );
+            if (!raw) return null;
+            try {
+              return (JSON.parse(raw) as { currentPostIndex?: number })
+                .currentPostIndex;
+            } catch {
+              return null;
+            }
+          },
+          { timeout: 8_000 }
+        )
+        .toBe(1);
+
+      // Trigger auth-rebind:
+      // Promise.all starter lytteren FØR eventen dispatches, så vi ikke misser svaret.
+      // I test-browseren er der ingen Supabase-auth-session, så refreshSession() fejler
+      // øjeblikkeligt → registerParticipantIdentity() → ny /api/join-request.
+      const [_rebindResponse] = await Promise.all([
+        page.waitForResponse(
+          (resp) =>
+            resp.url().includes("/api/join") &&
+            resp.request().method() === "POST",
+          { timeout: 15_000 }
+        ),
+        page.evaluate(() => {
+          document.dispatchEvent(new Event("visibilitychange"));
+        }),
+      ]);
+
+      // Giv React tid til at behandle eventuelle state-opdateringer fra rebind
+      await page.waitForTimeout(500);
+
+      // ── KRITISK ASSERTION ──────────────────────────────────────────────────
+      // currentPostIndex MÅ IKKE resettes til 0 (post 1).
+      // Før fix: registerParticipantIdentity() kaldte setCurrentPostIndex(0)
+      //           → snapshot gemte currentPostIndex: 0 → eleven returnerede til post 1.
+      // Efter fix: answeredPostIndexesRef.current.length === 1 → guard blokerer → ingen reset.
+      const snapshotAfterRebind = await page.evaluate(() => {
+        const raw = localStorage.getItem("gpslob_active_play_snapshot");
+        if (!raw) return null;
+        try {
+          return JSON.parse(raw) as { currentPostIndex?: number };
+        } catch {
+          return null;
+        }
+      });
+
+      expect(
+        snapshotAfterRebind?.currentPostIndex,
+        "currentPostIndex must remain 1 (post 2) after auth-rebind — must not reset to 0 (post 1)"
+      ).toBe(1);
+    }
+  );
+});

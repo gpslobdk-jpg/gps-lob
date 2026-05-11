@@ -750,7 +750,13 @@ export function usePlayGameState({
           resolvedStartOffset,
           supportsStaggeredStart(raceMode)
         );
-        if (initialRouteOrder.length > 0) {
+        // Only set the initial post when no posts have been answered yet.
+        // During an auth-rebind (recoverParticipantAuthSession → rebind path),
+        // this function is called again while the student is mid-run. Without
+        // this guard, setCurrentPostIndex resets the student to post 1 even
+        // when they are already on post 2 or beyond.
+        // answeredPostIndexesRef is a stable ref — always current, no deps needed.
+        if (initialRouteOrder.length > 0 && answeredPostIndexesRef.current.length === 0) {
           setCurrentPostIndex(initialRouteOrder[0] ?? 0);
         }
         rememberActiveParticipant(
