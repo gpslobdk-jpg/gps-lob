@@ -198,11 +198,7 @@ function WaitingScreenContent({ actions }: { actions: PlayActions }) {
     setIsRetrying(true);
     // best-effort tactile feedback
     safeVibrate(40);
-    try {
-      Sentry.captureMessage("play_waiting_manual_retry", "info");
-    } catch (_err) {
-      // best-effort
-    }
+    // Do not send a Sentry event for manual retry — it generated noise.
     try {
       await actions.retrySessionStatus();
     } finally {
@@ -262,7 +258,7 @@ function WaitingScreenContent({ actions }: { actions: PlayActions }) {
 
           {showStillWaiting && (
             <p className="mt-3 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80">
-              Løbet er stadig ikke startet. Vent på læreren.
+              Tjekket lige nu. Vent på læreren.
             </p>
           )}
         </div>
