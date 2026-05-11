@@ -19,6 +19,25 @@ export function ensureBugsnag(): void {
           apiKey: key,
           appVersion: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
           releaseStage: process.env.NODE_ENV || "development",
+          onError(event: any) {
+            // Drop unhandled SW registration rejections.
+            // @ducanh2912/next-pwa injects navigator.serviceWorker.register()
+            // without a .catch(), so iOS private browsing, MDM restrictions,
+            // storage quota errors etc. surface as unhandled promise rejections.
+            // The app works normally (NetworkOnly fallback); this is pure noise.
+            // Mirrors the equivalent beforeSend filter in instrumentation-client.ts.
+            if (event.unhandledRejection === true) {
+              const isSwRejection = (event.errors ?? []).some(
+                (e: any) =>
+                  e.errorMessage?.includes("serviceWorker") ||
+                  e.errorMessage?.includes("sw.js") ||
+                  (e.errorClass === "SecurityError" &&
+                    (e.errorMessage?.includes("sw") ||
+                      e.errorMessage?.includes("register")))
+              );
+              if (isSwRejection) return false;
+            }
+          },
         });
       } catch (_) {
         // best-effort
