@@ -14,10 +14,56 @@ import ZoneKrigElevInterface from "@/components/play/ZoneKrigElevInterface";
 
 const MapDisplay = dynamic(() => import("@/components/play/MapDisplay"), { ssr: false });
 
-function GpsGuardOverlay({ visible, onRetry, isRetrying }: { visible: boolean; onRetry: () => void; isRetrying: boolean }) {
+type GpsGuardErrorType =
+  | "permission_denied"
+  | "position_unavailable"
+  | "timeout"
+  | "unknown";
+
+function getGpsGuardCopy(errorType: GpsGuardErrorType | null) {
+  switch (errorType) {
+    case "permission_denied":
+      return {
+        title: "GPS er blokeret",
+        description:
+          "Giv GPS Løb adgang til placering i dine iPhone- eller browserindstillinger, og prøv igen.",
+      };
+    case "position_unavailable":
+      return {
+        title: "Vi kan ikke finde dit GPS-signal",
+        description:
+          "Gå gerne udenfor eller tættere på et vindue. Vi prøver igen automatisk.",
+      };
+    case "timeout":
+      return {
+        title: "GPS bruger lidt tid",
+        description: "Bliv på siden. Vi prøver igen automatisk.",
+      };
+    default:
+      return {
+        title: "Din GPS holder en lille pause",
+        description:
+          "Vi har problemer med at finde din placering. Tjek GPS og internet, og prøv igen.",
+      };
+  }
+}
+
+function GpsGuardOverlay({
+  visible,
+  errorType,
+  onRetry,
+  isRetrying,
+}: {
+  visible: boolean;
+  errorType: GpsGuardErrorType | null;
+  onRetry: () => void;
+  isRetrying: boolean;
+}) {
   if (!visible) {
     return null;
   }
+
+  const copy = getGpsGuardCopy(errorType);
 
   return (
     <div className="fixed inset-0 z-[2200] flex items-center justify-center bg-slate-950/65 px-5 backdrop-blur-xl">
@@ -34,10 +80,10 @@ function GpsGuardOverlay({ visible, onRetry, isRetrying }: { visible: boolean; o
             GPS-guide
           </p>
           <h2 className="mt-3 text-2xl font-black text-white sm:text-3xl">
-            Hov! Din GPS holder en lille pause 📍
+            {copy.title}
           </h2>
           <p className="mt-4 max-w-lg text-sm leading-6 text-white/80 sm:text-base">
-            Vi kan ikke helt finde dig lige nu. Prøv at gå lidt væk fra store bygninger eller træer, tjek om din telefon har givet lov til at bruge din placering, og tryk så på knappen herunder.
+            {copy.description}
           </p>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -67,6 +113,7 @@ function PlayScreen() {
   const params = useParams<{ sessionId: string }>();
   const searchParams = useSearchParams();
   const [gpsGuardVisible, setGpsGuardVisible] = useState(false);
+  const [gpsGuardErrorType, setGpsGuardErrorType] = useState<GpsGuardErrorType | null>(null);
   const [gpsRestartNonce, setGpsRestartNonce] = useState(0);
   const [isGpsRetrying, setIsGpsRetrying] = useState(false);
   const gpsRetryLockedRef = useRef(false);
@@ -123,6 +170,7 @@ function PlayScreen() {
         onDismissedReset={game.actions.clearDismissedPost}
         onSyncLocation={game.actions.syncParticipantLocation}
         onGpsErrorChange={setGpsGuardVisible}
+        onGpsErrorTypeChange={setGpsGuardErrorType}
         restartNonce={gpsRestartNonce}
       />
       {isZoneKrig ? (
@@ -146,7 +194,12 @@ function PlayScreen() {
           />
         </PlayInterface>
       )}
-      <GpsGuardOverlay visible={isTrackingEnabled && gpsGuardVisible} onRetry={handleGpsRetry} isRetrying={isGpsRetrying} />
+      <GpsGuardOverlay
+        visible={isTrackingEnabled && gpsGuardVisible}
+        errorType={gpsGuardErrorType}
+        onRetry={handleGpsRetry}
+        isRetrying={isGpsRetrying}
+      />
     </>
   );
 }

@@ -14,6 +14,12 @@ import {
   getDistance,
 } from "./playUtils";
 
+type GpsErrorType =
+  | "permission_denied"
+  | "position_unavailable"
+  | "timeout"
+  | "unknown";
+
 type GPSManagerProps = {
   enabled: boolean;
   target: Location | null;
@@ -27,6 +33,7 @@ type GPSManagerProps = {
   onDismissedReset: () => void;
   onSyncLocation: (lat: number, lng: number, accuracy: number | null) => Promise<void>;
   onGpsErrorChange?: (hasError: boolean) => void;
+  onGpsErrorTypeChange?: (errorType: GpsErrorType | null) => void;
   restartNonce?: number;
 };
 
@@ -81,6 +88,7 @@ export default function GPSManager({
   onDismissedReset,
   onSyncLocation,
   onGpsErrorChange,
+  onGpsErrorTypeChange,
   restartNonce = 0,
 }: GPSManagerProps) {
   const targetLat = target?.lat ?? null;
@@ -108,11 +116,12 @@ export default function GPSManager({
   useEffect(() => {
     if (!enabled) {
       onGpsErrorChange?.(false);
+      onGpsErrorTypeChange?.(null);
       displayLocationRef.current = null;
       targetLocationRef.current = null;
       velocityRef.current = null;
     }
-  }, [enabled, onGpsErrorChange]);
+  }, [enabled, onGpsErrorChange, onGpsErrorTypeChange]);
 
   useEffect(() => {
     if (enabled) return;
@@ -134,6 +143,7 @@ export default function GPSManager({
 
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       onGpsErrorChange?.(true);
+      onGpsErrorTypeChange?.("unknown");
       onDistanceChange(null);
       return;
     }
@@ -315,6 +325,7 @@ export default function GPSManager({
       lastAcceptedLocationRef.current = acceptedLocation;
       lastAcceptedAtMsRef.current = acceptedNow;
       onGpsErrorChange?.(false);
+      onGpsErrorTypeChange?.(null);
 
       targetLocationRef.current = acceptedLocation;
 
@@ -400,16 +411,22 @@ export default function GPSManager({
       onGpsErrorChange?.(true);
 
       if (error.code === error.PERMISSION_DENIED || error.code === 1) {
+        onGpsErrorTypeChange?.("permission_denied");
         return;
       }
 
       if (error.code === error.POSITION_UNAVAILABLE || error.code === 2) {
+        onGpsErrorTypeChange?.("position_unavailable");
         return;
       }
 
       if (error.code === error.TIMEOUT || error.code === 3) {
+        onGpsErrorTypeChange?.("timeout");
         lastPositionTimestampRef.current = 1;
+        return;
       }
+
+      onGpsErrorTypeChange?.("unknown");
     };
 
     const startWatch = () => {
@@ -426,6 +443,7 @@ export default function GPSManager({
       } catch (e) {
         console.warn("Failed to start geolocation watch:", e);
         onGpsErrorChange?.(true);
+        onGpsErrorTypeChange?.("unknown");
       }
     };
 
@@ -504,6 +522,7 @@ export default function GPSManager({
     onDismissedReset,
     onDistanceChange,
     onGpsErrorChange,
+    onGpsErrorTypeChange,
     onLocationChange,
     onSyncLocation,
     showQuestion,
