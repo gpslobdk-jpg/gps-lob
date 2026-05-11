@@ -455,6 +455,9 @@ export function usePlayGameState({
     () => new Set(storedPlaySnapshotOnLoad?.burnedPosts ?? [])
   );
   const burnedPostsRef = useRef<Set<number>>(new Set(storedPlaySnapshotOnLoad?.burnedPosts ?? []));
+  // Tracks which post indexes have already triggered a play_progress_inconsistent_state
+  // event this session, so we don't re-report the same post twice.
+  const inconsistentStateReportedPostsRef = useRef<Set<number>>(new Set());
   const participantSnapshotRequestRef = useRef<{
     participantId: string;
     promise: Promise<ParticipantSnapshotFetchResult>;
@@ -1761,6 +1764,11 @@ export function usePlayGameState({
     resetLocationSyncRecovery();
   }, [participantId, resetLocationSyncRecovery, sessionId]);
 
+  // Reset the inconsistent-state reporting set whenever participant or session changes.
+  useEffect(() => {
+    inconsistentStateReportedPostsRef.current = new Set();
+  }, [participantId, sessionId]);
+
   useEffect(() => {
     return () => {
       clearRestoreRetryTimer();
@@ -2035,6 +2043,81 @@ export function usePlayGameState({
     burnedPosts,
     solvedPostIndexes,
   ]);
+
+  // ─── Inconsistent-state detection ──────────────────────────────────────────
+  // Fires play_progress_inconsistent_state when:
+  //   • the current post is already in answeredPostIndexes (student has answered it)
+  //   • but the run is not finished and there is still an unanswered post in the route
+  // This should NEVER persist for more than a few hundred milliseconds in normal
+  // flow (continueFromSolvedPost advances currentPostIndex within the same user
+  // interaction).  A 15-second debounce filters out transient React render-batching
+  // and normal "looking at success feedback" time.  The ref guard prevents the same
+  // post from being reported twice per session.
+  useEffect(() => {
+    if (
+      !participantId ||
+      !sessionId ||
+      isFinished ||
+      questions.length <= 1 ||
+      answeredPostIndexes.length === 0 ||
+      !answeredPostIndexes.includes(currentPostIndex) ||
+      inconsistentStateReportedPostsRef.current.has(currentPostIndex)
+    ) {
+      return;
+    }
+
+    // Only relevant if there is still at least one unanswered post to go to.
+    const answeredSet = new Set(answeredPostIndexes);
+    const hasNextUnanswered = routeOrder.some((idx) => !answeredSet.has(idx));
+    if (!hasNextUnanswered) {
+      return;
+    }
+
+    const INCONSISTENT_DEBOUNCE_MS = 15_000;
+
+    const timer = setTimeout(() => {
+      // Re-check via refs so we use the freshest values at fire time.
+      if (isFinishedRef.current) return;
+      if (inconsistentStateReportedPostsRef.current.has(currentPostIndex)) return;
+      if (!answeredPostIndexesRef.current.includes(currentPostIndex)) return;
+
+      // Verify there is still an unanswered post using the current ref value.
+      const currentAnsweredSet = new Set(answeredPostIndexesRef.current);
+      if (!routeOrder.some((idx) => !currentAnsweredSet.has(idx))) return;
+
+      inconsistentStateReportedPostsRef.current.add(currentPostIndex);
+
+      sendTelemetry("play_progress_inconsistent_state", {
+        participant_id: participantId,
+        session_id: sessionId,
+        message: createClientTelemetryMessage({
+          current_post_index: currentPostIndex,
+          answered_count: answeredPostIndexesRef.current.length,
+          total_posts: questions.length,
+          route_step: currentRouteStepIndex,
+          has_next_unanswered_post: true,
+          show_question: showQuestion,
+          has_distance: distance !== null,
+          race_mode: raceMode,
+        }),
+      });
+    }, INCONSISTENT_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [
+    answeredPostIndexes,
+    currentPostIndex,
+    currentRouteStepIndex,
+    distance,
+    isFinished,
+    participantId,
+    questions.length,
+    raceMode,
+    routeOrder,
+    sessionId,
+    showQuestion,
+  ]);
+  // ───────────────────────────────────────────────────────────────────────────
 
   const replayPendingLocalAnswers = useCallback(async () => {
     if (!sessionId || !participantId || pendingAnswerReplayInFlightRef.current) {

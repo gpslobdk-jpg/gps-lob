@@ -3,7 +3,7 @@
 //   Klippekort — max SESSION_LIMIT calls per browser session (across all event types)
 //   Karantæne  — same event_type can only be sent once per QUARANTINE_MS
 
-const SESSION_LIMIT = 8;
+const SESSION_LIMIT = 20;
 const QUARANTINE_MS = 60_000;
 
 const TELEMETRY_MESSAGE_MAX_STRING_LENGTH = 120;
