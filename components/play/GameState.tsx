@@ -1353,15 +1353,6 @@ export function usePlayGameState({
         if (response.status === 404 || response.status === 410) {
           sessionStatusMissingRef.current = true;
           clearStoredPlayRecoveryState();
-          try {
-            Sentry.withScope((scope) => {
-              scope.setExtra("sessionId", sessionId);
-              scope.setExtra("httpStatus", response.status);
-              Sentry.captureMessage("play_status_404_410_reset", "info");
-            });
-          } catch (_err) {
-            // best-effort
-          }
           router.replace("/join?missingSession=1");
           return null;
         }
