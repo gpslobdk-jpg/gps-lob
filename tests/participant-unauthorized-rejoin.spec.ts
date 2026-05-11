@@ -21,7 +21,11 @@ async function setupMocks(page: Page) {
     await route.fulfill({
       status: 401,
       contentType: "application/json",
-      body: JSON.stringify({ error: "Unauthorized" }),
+      // Use a realistic server message from participantServer.ts — the stale-participant
+      // scenario where the JWT is valid but not linked to any participant row.
+      // This must NOT trigger the expired-screen ("mangler"/"udløbet"); it must
+      // route to the rejoin-screen instead.
+      body: JSON.stringify({ error: "Deltager-login er ikke knyttet til en aktiv deltager." }),
     });
   });
 
@@ -111,7 +115,7 @@ test("401 from /api/play/participant shows Danish rejoin message and join button
 
   // Expect the new rejoin message and a button back to /join
   const rejoinLocator = page.locator("text=Du skal tilmelde dig løbet igen.").first();
-  await expect(rejoinLocator, { timeout: 30000 }).toBeVisible();
+  await expect(rejoinLocator).toBeVisible({ timeout: 30000 });
   await expect(page.getByRole("button", { name: /Gå til join/i })).toBeVisible();
 
   // Ensure the session-missing text is NOT shown in this case

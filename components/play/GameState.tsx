@@ -173,12 +173,15 @@ function isParticipantAuthResponseError(status: number, message: unknown) {
     return false;
   }
 
+  // Only treat as "auth expired" (expired-screen) when the JWT/cookie itself is
+  // gone or explicitly expired — i.e. the server says the login is missing or
+  // has timed out.  Messages about a stale/mismatched participant record
+  // ("ikke knyttet til en aktiv deltager", "matcher ikke den aktive deltager-session")
+  // indicate a stale localStorage entry for an otherwise-active session; those
+  // should route the user to the rejoin-screen, not the "you've been away too
+  // long" expired-screen.
   const normalizedMessage = message.trim().toLocaleLowerCase("da-DK");
-  return (
-    normalizedMessage.includes("deltager-login") ||
-    normalizedMessage.includes("aktiv deltager") ||
-    normalizedMessage.includes("aktive deltager-session")
-  );
+  return normalizedMessage.includes("mangler") || normalizedMessage.includes("udløbet");
 }
 
 type InsertAnswerResult = {
