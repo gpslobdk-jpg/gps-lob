@@ -22,6 +22,15 @@ export default defineConfig({
       use: { ...devices["iPhone 14"] },
       testMatch: /apple-webkit\.spec\.ts$/,
     },
+    // Separate project for new iOS-readiness tests (ios-*.spec.ts).
+    // Uses the same WebKit / iPhone 14 device profile as the webkit project
+    // but matches a different set of files so both can coexist and be run
+    // independently with --project=ios or --project=webkit.
+    {
+      name: "ios",
+      use: { ...devices["iPhone 14"] },
+      testMatch: /ios-.*\.spec\.ts$/,
+    },
   ],
   webServer: {
     command: "npm run dev",
