@@ -47,6 +47,41 @@ function formatDisplayDate(isoDate: string) {
 
 const entries = [
   {
+    version: "Appstatus 12/05",
+    date: "2026-05-12",
+    type: "minor" as const,
+    title: "Appstatus 12/05",
+    summary:
+      "Android-testforløbet er godt i gang, og iOS testes nu via TestFlight. Målet er en mere stabil og app-lignende oplevelse for elever, især omkring GPS, tilladelser, skærm og elevflow.",
+    items: [
+      {
+        title: "Android",
+        description:
+          "Testforløbet via Google Play er langt fremme, og appen skal give bedre GPS-adfærd end almindelig mobilbrowser.",
+      },
+      {
+        title: "iOS",
+        description:
+          "TestFlight er åbnet for testere, så vi kan afprøve elevflowet på rigtige iPhones før App Store-udgivelse.",
+      },
+      {
+        title: "Elevflow",
+        description:
+          "Der er lavet målrettede WebKit/iPhone-tests af join, waiting screen, GPS-blokering og gennemførsel af flere poster.",
+      },
+      {
+        title: "Stabilitet",
+        description:
+          "App-versionerne skal på sigt gøre det nemmere at undgå elever, der sidder fast på grund af GPS, netværk eller mobilbrowserens begrænsninger.",
+      },
+      {
+        title: "Hjælp os gerne",
+        description:
+          "Hvis I tester og oplever problemer, så send gerne besked med mobiltype, browser/app og hvad der skete.",
+      },
+    ],
+  },
+  {
     version: "Appstatus 27/04",
     date: "2026-04-27",
     type: "minor" as const,
@@ -96,7 +131,7 @@ export default function OpdateringerPage() {
                 <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-lg">
                   <header className="mb-5">
                     <p className="text-sm font-semibold tracking-wide text-cyan-300/90">
-                      🚀 Version {entry.version}
+                      Version {entry.version}
                     </p>
                     <p className={`mt-1 text-xs font-medium uppercase tracking-[0.18em] ${TYPE_LABEL_CLASSES[entry.type]}`}>
                       {TYPE_LABELS[entry.type]} · {formatDisplayDate(entry.date)}

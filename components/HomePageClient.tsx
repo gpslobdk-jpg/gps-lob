@@ -59,11 +59,12 @@ type NativeDebugSnapshot = {
 };
 
 const latest = {
-  version: "Appstatus 27/04",
-  date: "2026-04-27",
+  version: "Appstatus 12/05",
+  date: "2026-05-12",
   type: "minor",
-  title: "App-status 27/04",
-  summary: "GPS Løb arbejder nu på apps til både Google Play og App Store.",
+  title: "Appstatus 12/05",
+  summary:
+    "Android-testforløbet er godt i gang, og iOS testes nu via TestFlight. App-udgaverne forventes at give en mere stabil GPS-oplevelse og et tryggere elevflow på mobil.",
   items: [
     {
       title: "Apps på vej",
@@ -642,7 +643,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
 
                   <span className="min-w-0 flex-1 text-left">
                     <span className="block text-sm font-semibold text-white sm:text-[15px]">
-                      🚀 Version {latest.version}
+                      Version {latest.version}
                     </span>
                     <span className="mt-1 block text-xs font-medium tracking-wide text-amber-100/70 sm:text-[13px]">
                       {formatDisplayDate(latest.date)}
