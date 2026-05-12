@@ -217,6 +217,9 @@ export default function StrategoElevInterface({
   const [isResettingFromExpired, setIsResettingFromExpired] = useState(false);
   const [showRetrySlowHint, setShowRetrySlowHint] = useState(false);
   const retryTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // One stable participant client per mount – avoids creating new GoTrueClient
+  // instances inside effects/callbacks, which compete for the same navigator.locks entry.
+  const supabase = useMemo(() => createClient({ authScope: "participant" }), []);
   const avatarPreviewUrl = player.pendingAvatarUrl ?? player.avatarUrl;
   const isParticipantAuthExpired = progress.screen.loadErrorVariant === "participant_auth_expired";
   const isJoinSessionMissing = progress.screen.loadErrorVariant === "join_session_missing";
@@ -262,7 +265,6 @@ export default function StrategoElevInterface({
     }
     setIsManualRespawnLoading(true);
     try {
-      const supabase = createClient({ authScope: "participant" });
       await supabase.rpc("respawn_stratego_player", {
         p_player_id: player.participantId,
         p_session_id: sessionId,
@@ -290,7 +292,6 @@ export default function StrategoElevInterface({
       return;
     }
 
-    const supabase = createClient({ authScope: "participant" });
     let isActive = true;
 
     const loadStrategoMeta = async () => {
@@ -362,7 +363,6 @@ export default function StrategoElevInterface({
       return;
     }
 
-    const supabase = createClient({ authScope: "participant" });
     let isActive = true;
 
     const loadAllyNames = async () => {

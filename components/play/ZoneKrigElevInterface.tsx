@@ -125,6 +125,9 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
   const [isResettingFromExpired, setIsResettingFromExpired] = useState(false);
   const [showRetrySlowHint, setShowRetrySlowHint] = useState(false);
   const retryTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // One stable participant client per mount – avoids creating new GoTrueClient
+  // instances inside effects, which compete for the same navigator.locks entry.
+  const supabase = useMemo(() => createClient({ authScope: "participant" }), []);
   const avatarPreviewUrl = player.pendingAvatarUrl ?? player.avatarUrl;
 
   const selectedZone = zones.find((zone) => zone.zone_index === progress.currentPostIndex) ?? null;
@@ -212,7 +215,6 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
       return;
     }
 
-    const supabase = createClient({ authScope: "participant" });
     let isActive = true;
 
     const loadBattlefield = async () => {

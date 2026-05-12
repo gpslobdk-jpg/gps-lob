@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/utils/supabase/client";
 
@@ -20,6 +20,8 @@ export default function AntiCheat({
   onDismiss,
 }: AntiCheatProps) {
   const [showWarning, setShowWarning] = useState(false);
+  // One stable participant client per mount – avoids competing for navigator.locks.
+  const supabase = useMemo(() => createClient({ authScope: "participant" }), []);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -27,7 +29,7 @@ export default function AntiCheat({
       setShowWarning(true);
       onCheatDetected?.();
       if (zoneId && participantId) {
-        void lockZone(sessionId, zoneId, participantId);
+        void lockZone(supabase, sessionId, zoneId, participantId);
       }
     };
 
@@ -35,7 +37,7 @@ export default function AntiCheat({
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [participantId, sessionId, zoneId, onCheatDetected]);
+  }, [supabase, participantId, sessionId, zoneId, onCheatDetected]);
 
   if (!showWarning) return null;
 
@@ -69,8 +71,12 @@ export default function AntiCheat({
   );
 }
 
-async function lockZone(sessionId: string, zoneId: string, participantId: string): Promise<void> {
-  const supabase = createClient({ authScope: "participant" });
+async function lockZone(
+  supabase: ReturnType<typeof createClient>,
+  sessionId: string,
+  zoneId: string,
+  participantId: string,
+): Promise<void> {
   const shieldUntil = new Date(Date.now() + 60_000).toISOString();
 
   await supabase.rpc("lock_zone_krig_zone", {

@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { createClient } from "@/utils/supabase/client";
+import { authWithLockRetry } from "@/utils/supabase/authWithLockRetry";
 import { sendTelemetry } from "@/utils/telemetry";
 
 import type {
@@ -364,9 +365,12 @@ export function usePlayAuth(params: {
     async (storedName: string): Promise<boolean> => {
       if (circuitBreakerRef.current) return false;
 
-      // Try Supabase token refresh first.
+      // Try Supabase token refresh first (with lock-abort retry for iOS Safari).
       try {
-        const { data, error } = await supabase.auth.refreshSession();
+        const { data, error } = await authWithLockRetry(
+          () => supabase.auth.refreshSession(),
+          "usePlayAuth.recoverAuth",
+        );
         const userId = data.user?.id ?? data.session?.user?.id ?? null;
         if (!error && userId) return true;
       } catch {

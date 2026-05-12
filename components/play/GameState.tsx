@@ -530,8 +530,7 @@ export function usePlayGameState({
       return;
     }
 
-    const messageClient = createClient({ authScope: "participant" });
-    const { data, error } = await messageClient
+    const { data, error } = await supabase
       .from("session_messages")
       .select("message,is_teacher,created_at")
       .eq("session_id", sessionId)
