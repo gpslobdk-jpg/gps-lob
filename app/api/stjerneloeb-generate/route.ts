@@ -21,6 +21,9 @@ const openai = createOpenAI({
 
 const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+// Image model can be configured via env; default to gpt-image-2
+const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
+
 const ALLOWED_COUNTS = [4, 6, 8, 10] as const;
 const DEFAULT_COUNT = 6;
 const OPENAI_TIMEOUT_MS = 60_000;
@@ -91,15 +94,16 @@ async function generateDalleImage(
   artDirection: ImageArtDirection,
 ): Promise<string> {
   const response = await openaiClient.images.generate({
-    model: "dall-e-3",
+    model: IMAGE_MODEL,
     prompt: composeDallePrompt(imagePrompt, artDirection),
     n: 1,
     size: "1024x1024",
     quality: "standard",
     style: "natural",
   });
-  const url = response.data?.[0]?.url;
-  if (!url) throw new Error("No image URL returned from DALL-E 3");
+  const data0 = response.data?.[0];
+  const url = data0?.url ?? (data0?.b64_json ? `data:image/png;base64,${data0.b64_json}` : undefined);
+  if (!url) throw new Error(`No image URL returned from OpenAI image model (${IMAGE_MODEL})`);
   return url;
 }
 
