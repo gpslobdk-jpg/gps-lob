@@ -4,6 +4,8 @@ import withPWAInit from "@ducanh2912/next-pwa";
 
 const withPWA = withPWAInit({
   dest: "public",
+  // Disable automatic SW registration; we'll register manually client-side
+  register: false,
   cacheOnFrontEndNav: false,
   aggressiveFrontEndNavCaching: false,
   extendDefaultRuntimeCaching: true,
