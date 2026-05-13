@@ -111,11 +111,25 @@ type SubmitPhotoResponsePayload = {
   imageUrl?: string | null;
   storedAnswer?: boolean;
   error?: string;
+  code?: string;
+  postIndex?: number;
+  questionCount?: number;
 };
 
 type SubmitPhotoRequestError = Error & {
   status?: number;
   isParticipantAuthError?: boolean;
+  code?: string;
+  postIndex?: number;
+  questionCount?: number;
+};
+
+type FetchedPlaySessionSnapshot = {
+  questions: Question[];
+  raceMode: RaceMode;
+  radius: number;
+  gpsOverride: boolean;
+  bonusAvailable: boolean;
 };
 
 type WakeReconnectTrigger =
@@ -154,6 +168,9 @@ const VALIDATE_ANSWER_MAX_RETRIES = 3;
 const PHOTO_UPLOAD_MAX_RETRIES = 5;
 const WAITING_SESSION_STATUS_POLL_INTERVAL_MS = 4000;
 const ACTIVE_SESSION_STATUS_POLL_INTERVAL_MS = 15000;
+const PHOTO_UPLOAD_RUN_OUT_OF_SYNC_MESSAGE =
+  "Foto-posten blev opdateret imens du var i gang. Vi har hentet den nyeste rute - proev billedet igen.";
+const RUN_OUT_OF_SYNC_ERROR_CODE = "RUN_OUT_OF_SYNC";
 
 type ZoneKrigCaptureApiResult = {
   status?: ZoneKrigCaptureStatus;
@@ -915,6 +932,131 @@ export function usePlayGameState({
       setTimeout(resolve, delayMs);
     });
   }, []);
+
+  const fetchPlaySessionSnapshot = useCallback(async () => {
+    if (!sessionId) {
+      return null;
+    }
+
+    const response = await fetch(`/api/play/session?sessionId=${encodeURIComponent(sessionId)}`, {
+      cache: "no-store",
+    });
+    const payload = (await response.json().catch(() => null)) as PlaySessionPayload | null;
+
+    if (!response.ok) {
+      if (response.status === 404 || response.status === 410) {
+        clearStoredActiveParticipant();
+        router.push("/join?expired=1");
+        return null;
+      }
+
+      throw new Error(payload?.error || PLAY_LOAD_RETRY_MESSAGE);
+    }
+
+    const parsedRadius = toFiniteNumber(payload?.radius);
+    if (parsedRadius === null || parsedRadius <= 0) {
+      throw new Error(PLAY_SETUP_PENDING_MESSAGE);
+    }
+
+    const parsedQuestions = Array.isArray(payload?.questions)
+      ? payload.questions.map(parseQuestion).filter((q): q is Question => q !== null)
+      : [];
+    const nextRaceMode = normalizeRaceMode(payload?.raceType);
+
+    if (parsedQuestions.length === 0 && nextRaceMode !== "stratego") {
+      throw new Error(PLAY_SETUP_PENDING_MESSAGE);
+    }
+
+    return {
+      questions: parsedQuestions,
+      raceMode: nextRaceMode,
+      radius: Math.round(parsedRadius),
+      gpsOverride: Boolean(payload?.gpsOverride),
+      bonusAvailable: Boolean(payload?.bonusAvailable),
+    } satisfies FetchedPlaySessionSnapshot;
+  }, [router, sessionId]);
+
+  const recoverPhotoUploadRunOutOfSync = useCallback(
+    async (uploadError: SubmitPhotoRequestError) => {
+      const snapshot = await fetchPlaySessionSnapshot();
+      if (!snapshot || !isMountedRef.current) {
+        return false;
+      }
+
+      const nextQuestions = snapshot.questions;
+      const questionCount = nextQuestions.length;
+      if (questionCount === 0) {
+        throw new Error(PLAY_SETUP_PENDING_MESSAGE);
+      }
+
+      const nextRaceMode = snapshot.raceMode;
+      const nextAnsweredPostIndexes = answeredPostIndexesRef.current.filter(
+        (index) => index >= 0 && index < questionCount
+      );
+      const nextSolvedPostIndexes = solvedPostIndexesRef.current.filter(
+        (index) => index >= 0 && index < questionCount
+      );
+      const nextBurnedPosts = new Set<number>();
+      for (const postIndex of burnedPostsRef.current) {
+        if (postIndex >= 0 && postIndex < questionCount) {
+          nextBurnedPosts.add(postIndex);
+        }
+      }
+
+      const nextPendingLocalAnswers = pendingLocalAnswersRef.current.filter(
+        (entry) => entry.solvedPostIndex >= 0 && entry.solvedPostIndex < questionCount
+      );
+      const nextRouteOrder = buildRouteOrder(
+        questionCount,
+        startOffset,
+        supportsStaggeredStart(nextRaceMode)
+      );
+      const preferredPostIndex =
+        typeof uploadError.postIndex === "number" &&
+        Number.isInteger(uploadError.postIndex) &&
+        uploadError.postIndex >= 0 &&
+        uploadError.postIndex < questionCount
+          ? uploadError.postIndex
+          : currentPostIndex >= 0 && currentPostIndex < questionCount
+            ? currentPostIndex
+            : null;
+      const answeredSet = new Set(nextAnsweredPostIndexes);
+      const fallbackRoutePostIndex =
+        getNextRoutePostIndex(nextRouteOrder, answeredSet) ?? nextRouteOrder[0] ?? 0;
+      const nextCurrentPostIndex =
+        preferredPostIndex !== null && !answeredSet.has(preferredPostIndex)
+          ? preferredPostIndex
+          : fallbackRoutePostIndex;
+
+      setQuestions(nextQuestions);
+      setRaceMode(nextRaceMode);
+      setAutoUnlockRadius(snapshot.radius);
+      setGpsOverride(snapshot.gpsOverride);
+      setBonusAvailable(snapshot.bonusAvailable);
+      setAnsweredPostIndexes(nextAnsweredPostIndexes);
+      setSolvedPostIndexes(nextSolvedPostIndexes);
+      setCorrectAnswersCount(nextSolvedPostIndexes.length);
+      burnedPostsRef.current = nextBurnedPosts;
+      setBurnedPosts(new Set(nextBurnedPosts));
+      pendingLocalAnswersRef.current = nextPendingLocalAnswers;
+      setPendingLocalAnswers(nextPendingLocalAnswers);
+      setCurrentPostIndex(nextCurrentPostIndex);
+      setShowQuestion(false);
+      setDismissedPostIndex(null);
+      setDistanceState(null);
+
+      showResumeNotice(PHOTO_UPLOAD_RUN_OUT_OF_SYNC_MESSAGE);
+
+      return true;
+    },
+    [
+      currentPostIndex,
+      fetchPlaySessionSnapshot,
+      setPendingLocalAnswers,
+      showResumeNotice,
+      startOffset,
+    ]
+  );
 
   const setPlayLoadError = useCallback(
     (message: string, variant: PlayLoadErrorVariant = "generic") => {
@@ -3244,7 +3386,7 @@ export function usePlayGameState({
     return () => {
       isActive = false;
     };
-  }, [isTransientNetworkError, sessionId, setPlayLoadError, waitForNetworkRetry]);
+  }, [isTransientNetworkError, router, sessionId, setPlayLoadError, waitForNetworkRetry]);
 
   useEffect(() => {
     if (!showEscapeResults || !isEscapeRace || !sessionId || !participantId) return;
@@ -4294,6 +4436,11 @@ export function usePlayGameState({
           const errorMessage = nextPayload?.error || "Ugyldigt svar fra foto-upload.";
           const uploadError = new Error(errorMessage) as SubmitPhotoRequestError;
           uploadError.status = response.status;
+          uploadError.code = nextPayload?.code;
+          uploadError.postIndex =
+            typeof nextPayload?.postIndex === "number" ? nextPayload.postIndex : undefined;
+          uploadError.questionCount =
+            typeof nextPayload?.questionCount === "number" ? nextPayload.questionCount : undefined;
           uploadError.isParticipantAuthError = isParticipantAuthResponseError(
             response.status,
             errorMessage
@@ -4374,6 +4521,16 @@ export function usePlayGameState({
             continue;
           }
 
+          if (
+            uploadError.status === 409 &&
+            uploadError.code === RUN_OUT_OF_SYNC_ERROR_CODE
+          ) {
+            const recovered = await recoverPhotoUploadRunOutOfSync(uploadError);
+            if (recovered) {
+              return;
+            }
+          }
+
           if (!isTransientNetworkError(error)) {
             throw error;
           }
@@ -4422,29 +4579,38 @@ export function usePlayGameState({
       });
       setIsAnalyzingPhoto(false);
     } catch (error) {
-      console.error("Foto-upload fejlede:", error);
       if (!isMountedRef.current) return;
 
-      try {
-        Sentry.withScope((scope) => {
-          scope.setExtras({
-            sessionId,
-            participantId,
-            postIndex: currentPostIndex,
-            retryCount,
+      const uploadError = error as SubmitPhotoRequestError;
+      const isRunOutOfSyncError =
+        uploadError?.status === 409 && uploadError?.code === RUN_OUT_OF_SYNC_ERROR_CODE;
+
+      if (!isRunOutOfSyncError) {
+        console.error("Foto-upload fejlede:", error);
+
+        try {
+          Sentry.withScope((scope) => {
+            scope.setExtras({
+              sessionId,
+              participantId,
+              postIndex: currentPostIndex,
+              retryCount,
+            });
+            Sentry.captureException(error);
           });
-          Sentry.captureException(error);
-        });
-      } catch (err) {
-        // best-effort
+        } catch (err) {
+          // best-effort
+        }
       }
 
       const networkMsg = "Netværksfejl: Prøv igen senere";
-      const message = error instanceof Error && error.message === networkMsg
-        ? networkMsg
-        : isSelfie
-          ? "Vi kunne ikke uploade selfien endnu. Prøv igen med en stabil forbindelse."
-          : "Billedet kunne ikke uploades endnu. Prøv igen.";
+      const message = isRunOutOfSyncError
+        ? PHOTO_UPLOAD_RUN_OUT_OF_SYNC_MESSAGE
+        : error instanceof Error && error.message === networkMsg
+          ? networkMsg
+          : isSelfie
+            ? "Vi kunne ikke uploade selfien endnu. Prøv igen med en stabil forbindelse."
+            : "Billedet kunne ikke uploades endnu. Prøv igen.";
 
       setPhotoFeedback({
         key: activeTypedAnswerKey,

@@ -17,6 +17,8 @@ import {
 
 export const maxDuration = 60;
 
+const RUN_OUT_OF_SYNC_ERROR_CODE = "RUN_OUT_OF_SYNC";
+
 type AdminSupabaseClient = NonNullable<ReturnType<typeof createAdminClient>>;
 
 type UploadedPhotoInput = {
@@ -307,8 +309,21 @@ export async function POST(request: Request) {
     }
 
     const run = await fetchRunForSession(sessionId);
-    if (!run || !Array.isArray(run.questions) || postIndex >= run.questions.length) {
+    if (!run || !Array.isArray(run.questions)) {
       return NextResponse.json({ error: "Foto-posten kunne ikke findes." }, { status: 404 });
+    }
+
+    const questionCount = run.questions.length;
+    if (postIndex >= questionCount) {
+      return NextResponse.json(
+        {
+          error: "Foto-posten er ikke laengere synkron med loebet.",
+          code: RUN_OUT_OF_SYNC_ERROR_CODE,
+          postIndex,
+          questionCount,
+        },
+        { status: 409 }
+      );
     }
 
     if (!studentName.trim()) {
