@@ -136,6 +136,7 @@ function MobileHudComponent({
 // ============================================================================
 
 const STUCK_HELP_DELAY_MS = 35_000;
+const LOADING_STUCK_DELAY_MS = 20_000;
 
 function WaitingScreenContent({ actions }: { actions: PlayActions }) {
   const [isRetrying, setIsRetrying] = useState(false);
@@ -303,6 +304,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const [isResettingFromExpired, setIsResettingFromExpired] = useState(false);
   const [showRetrySlowHint, setShowRetrySlowHint] = useState(false);
   const retryTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const [showLoadingStuckHelp, setShowLoadingStuckHelp] = useState(false);
+  const loadingStuckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const params = useParams<{ sessionId: string }>();
   const sessionId = params?.sessionId ?? "";
@@ -648,8 +651,33 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
         clearTimeout(rageClickRef.current.resetTimer);
         rageClickRef.current.resetTimer = null;
       }
+      if (loadingStuckTimerRef.current !== null) {
+        clearTimeout(loadingStuckTimerRef.current);
+        loadingStuckTimerRef.current = null;
+      }
     };
   }, []);
+
+  // Show "Hjælp, jeg sidder fast" after LOADING_STUCK_DELAY_MS when loading screen is active.
+  useEffect(() => {
+    if (screen.mode !== "loading") {
+      setShowLoadingStuckHelp(false);
+      if (loadingStuckTimerRef.current !== null) {
+        clearTimeout(loadingStuckTimerRef.current);
+        loadingStuckTimerRef.current = null;
+      }
+      return;
+    }
+    loadingStuckTimerRef.current = setTimeout(() => {
+      setShowLoadingStuckHelp(true);
+    }, LOADING_STUCK_DELAY_MS);
+    return () => {
+      if (loadingStuckTimerRef.current !== null) {
+        clearTimeout(loadingStuckTimerRef.current);
+        loadingStuckTimerRef.current = null;
+      }
+    };
+  }, [screen.mode]);
 
   const clearPendingPhotoPickerState = useCallback(() => {
     photoPickerPendingRef.current = false;
@@ -876,6 +904,21 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
               </svg>
             </div>
             <p className="text-sm uppercase tracking-widest">Indlæser mission...</p>
+            {showLoadingStuckHelp && (
+              <div className="mt-6">
+                <p className="mb-3 text-xs text-emerald-200/70">Det tager lidt længere end normalt...</p>
+                <button
+                  type="button"
+                  onClick={handleRetryRestoreConnectionLocal}
+                  disabled={isRetryingConnection}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-400/60 bg-emerald-500/20 px-5 py-3 font-bold text-white transition-all active:scale-95 active:opacity-80 hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isRetryingConnection ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Genopretter...</>
+                  ) : "Hjælp, jeg sidder fast"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       );
