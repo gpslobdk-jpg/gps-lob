@@ -1,10 +1,18 @@
+import { headers } from "next/headers";
 import type { MetadataRoute } from "next";
 
-export default function manifest(): MetadataRoute.Manifest {
+import { getSiteCopy } from "@/lib/siteCopy";
+import { resolveSiteVariantFromHeaders } from "@/lib/siteVariant";
+
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const requestHeaders = await headers();
+  const siteVariant = resolveSiteVariantFromHeaders(requestHeaders);
+  const siteCopy = getSiteCopy(siteVariant.key);
+
   return {
-    name: "GPS Løb",
-    short_name: "GPS Løb",
-    description: "Interaktive GPS-missioner",
+    name: siteCopy.metadata.manifestName,
+    short_name: siteCopy.metadata.manifestName,
+    description: siteCopy.metadata.manifestDescription,
     start_url: "/",
     display: "standalone",
     background_color: "#020617",

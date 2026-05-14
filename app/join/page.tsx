@@ -14,6 +14,8 @@ import * as Sentry from "@sentry/nextjs";
 import { leaveAppBreadcrumb } from "@/utils/observability";
 import QRScannerModal from "@/components/QRScannerModal";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
+import { getSiteCopy } from "@/lib/siteCopy";
+import { DEFAULT_SITE_VARIANT, resolveSiteVariantFromHost, type SiteVariantKey } from "@/lib/siteVariant";
 import {
   readStoredActiveParticipant,
   saveStoredActiveParticipant,
@@ -79,7 +81,7 @@ type ConnectionCheckResult = {
   detail: string;
 };
 
-const formatLongDate = (value: string | null | undefined) => {
+const formatLongDate = (value: string | null | undefined, localeTag: string) => {
   if (!value) return null;
 
   const date = new Date(value);
@@ -87,14 +89,14 @@ const formatLongDate = (value: string | null | undefined) => {
     return null;
   }
 
-  return new Intl.DateTimeFormat("da-DK", {
+  return new Intl.DateTimeFormat(localeTag, {
     day: "numeric",
     month: "long",
     year: "numeric",
   }).format(date);
 };
 
-const formatClockTime = (value: string | null | undefined) => {
+const formatClockTime = (value: string | null | undefined, localeTag: string) => {
   if (!value) return null;
 
   const date = new Date(value);
@@ -102,20 +104,11 @@ const formatClockTime = (value: string | null | undefined) => {
     return null;
   }
 
-  return new Intl.DateTimeFormat("da-DK", {
+  return new Intl.DateTimeFormat(localeTag, {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
 };
-
-const RATE_LIMIT_MESSAGE =
-  "Der er lige nu kø i skolegården. Vent 5-10 sekunder og prøv at trykke 'Deltag i løbet' igen.";
-
-const JOIN_TIMEOUT_MESSAGE =
-  "Forbindelsen tager for lang tid. Hvis du er på skolens Wi-Fi, så prøv mobildata. På iPhone: åbn helst linket i Safari.";
-
-const JOIN_NETWORK_ERROR_MESSAGE =
-  "Forbindelsen driller. Prøv igen. Hvis du er på skolens Wi-Fi, så prøv mobildata. På iPhone: åbn helst linket i Safari.";
 
 const JOIN_REQUEST_TIMEOUT_MS = 12_000;
 
@@ -205,11 +198,18 @@ async function fetchWithRetry(
   throw new Error("Join request ended unexpectedly.");
 }
 
-function JoinForm() {
+type JoinFormProps = {
+  initialSiteVariantKey: SiteVariantKey;
+};
+
+function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [supabase] = useState(() => createClient());
   const pinFromQuery = (searchParams.get("pin") || "").replace(/\D/g, "").slice(0, JOIN_PIN_LENGTH);
+  const [siteVariantKey, setSiteVariantKey] = useState<SiteVariantKey>(initialSiteVariantKey);
+  const siteCopy = getSiteCopy(siteVariantKey);
+  const joinCopy = siteCopy.join;
 
   const [pin, setPin] = useState(pinFromQuery);
   const [name, setName] = useState("");
@@ -219,7 +219,7 @@ function JoinForm() {
   const [runTitle, setRunTitle] = useState("");
   const [schedule, setSchedule] = useState<RunSchedule | null>(null);
   const [raceType, setRaceType] = useState<string | null>(null);
-  const [expiredMessage, setExpiredMessage] = useState("Dette løb er desværre slut. Kontakt din arrangør.");
+  const [expiredMessage, setExpiredMessage] = useState(joinCopy.defaultExpiredMessage);
   const [assignedTeamName, setAssignedTeamName] = useState<string | null>(null);
   const [assignedTeamColor, setAssignedTeamColor] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
@@ -234,6 +234,19 @@ function JoinForm() {
   const trimmedName = name.trim();
   const trimmedPin = pin.trim();
   const canSubmit = trimmedPin.length === JOIN_PIN_LENGTH && trimmedName.length > 0;
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const nextSiteVariantKey = resolveSiteVariantFromHost(window.location.host).key;
+    setSiteVariantKey((current) => (current === nextSiteVariantKey ? current : nextSiteVariantKey));
+  }, []);
+
+  useEffect(() => {
+    setExpiredMessage(joinCopy.defaultExpiredMessage);
+  }, [joinCopy.defaultExpiredMessage]);
 
   useEffect(() => {
     setPin((current) => (current === pinFromQuery ? current : pinFromQuery));
@@ -394,8 +407,8 @@ function JoinForm() {
     if (isOnline === false) {
       const offlineResult: ConnectionCheckResult = {
         tone: "warning",
-        title: "Forbindelsen driller",
-        detail: "Prøv mobildata / Safari.",
+        title: joinCopy.connectionCheck.offlineTitle,
+        detail: joinCopy.connectionCheck.offlineDetail,
       };
 
       setConnectionCheckResult(offlineResult);
@@ -428,16 +441,16 @@ function JoinForm() {
       const result: ConnectionCheckResult = response.ok
         ? {
             tone: "success",
-            title: "Appen svarer",
+            title: joinCopy.connectionCheck.okTitle,
             detail:
               browserPlatform === "ios"
-                ? "Forbindelsen ser okay ud. Hvis det stadig driller, så prøv mobildata eller åbn linket i Safari."
-                : "Forbindelsen ser okay ud. Hvis det stadig driller, så prøv mobildata.",
+                ? joinCopy.connectionCheck.okDetailIos
+                : joinCopy.connectionCheck.okDetailDefault,
           }
         : {
             tone: "warning",
-            title: "Serveren returnerede en fejl",
-            detail: `Appen svarer, men serveren returnerede en fejl (HTTP ${response.status}). Prøv igen, eller prøv mobildata.`,
+            title: joinCopy.connectionCheck.serverErrorTitle,
+            detail: joinCopy.connectionCheck.serverErrorDetail(response.status),
           };
 
       setConnectionCheckResult(result);
@@ -455,8 +468,8 @@ function JoinForm() {
     } catch (error) {
       const result: ConnectionCheckResult = {
         tone: "warning",
-        title: "Forbindelsen driller",
-        detail: "Prøv mobildata / Safari.",
+        title: joinCopy.connectionCheck.offlineTitle,
+        detail: joinCopy.connectionCheck.offlineDetail,
       };
 
       setConnectionCheckResult(result);
@@ -482,7 +495,7 @@ function JoinForm() {
     setRunTitle("");
     setSchedule(null);
     setRaceType(null);
-    setExpiredMessage("Dette løb er desværre slut. Kontakt din arrangør.");
+    setExpiredMessage(joinCopy.defaultExpiredMessage);
     setAssignedTeamName(null);
     setAssignedTeamColor(null);
   };
@@ -497,12 +510,12 @@ function JoinForm() {
     setError("");
 
     if (!trimmedPin || !trimmedName) {
-      setError("Udfyld venligst både pinkode og navn.");
+      setError(joinCopy.fillPinAndName);
       return;
     }
 
     if (trimmedPin.length !== JOIN_PIN_LENGTH) {
-      setError(`Pinkoden skal bestå af ${JOIN_PIN_LENGTH} tal.`);
+      setError(joinCopy.pinLength(JOIN_PIN_LENGTH));
       return;
     }
 
@@ -563,7 +576,7 @@ function JoinForm() {
       });
 
       if (response.status === 429 || response.status === 503) {
-        setError(RATE_LIMIT_MESSAGE);
+        setError(joinCopy.rateLimit);
         return;
       }
 
@@ -585,7 +598,7 @@ function JoinForm() {
         } catch (err) {
           // best-effort
         }
-        setError("Ugyldig pinkode.");
+        setError(joinCopy.invalidPin);
         return;
       }
 
@@ -597,7 +610,7 @@ function JoinForm() {
       if (joinData.kind === "finished") {
         setRunTitle(joinData.runTitle);
         setSchedule(joinData.schedule);
-        setExpiredMessage("Dette løb er desværre slut. Kontakt din arrangør.");
+        setExpiredMessage(joinCopy.defaultExpiredMessage);
         setView(joinData.scheduleGate === "error" ? "scheduleError" : "expired");
         return;
       }
@@ -613,7 +626,7 @@ function JoinForm() {
       }
 
       if (joinData.scheduleGate === "expired") {
-        setExpiredMessage("Dette løb er desværre slut. Kontakt din arrangør.");
+        setExpiredMessage(joinCopy.defaultExpiredMessage);
         setView("expired");
         return;
       }
@@ -646,7 +659,7 @@ function JoinForm() {
       });
 
       if (registerResponse.status === 429 || registerResponse.status === 503) {
-        setError(RATE_LIMIT_MESSAGE);
+        setError(joinCopy.rateLimit);
         return;
       }
 
@@ -656,7 +669,7 @@ function JoinForm() {
         | null;
 
       if (registerResponse.status === 404 || registerResponse.status === 410) {
-        setExpiredMessage("Løbet er afsluttet eller findes ikke længere. Få en ny pinkode fra din lærer.");
+        setExpiredMessage(joinCopy.finishedOrMissing);
         setView("expired");
         return;
       }
@@ -740,7 +753,7 @@ function JoinForm() {
             show_in_app_warning: showInAppWarning,
           }
         );
-        setError(JOIN_TIMEOUT_MESSAGE);
+        setError(joinCopy.timeout);
         return;
       }
 
@@ -752,7 +765,7 @@ function JoinForm() {
           reason: "network_error",
           show_in_app_warning: showInAppWarning,
         });
-        setError(JOIN_NETWORK_ERROR_MESSAGE);
+        setError(joinCopy.networkError);
         return;
       }
 
@@ -764,9 +777,7 @@ function JoinForm() {
         show_in_app_warning: showInAppWarning,
       });
 
-      setError(
-        "Der skete en fejl ved deltagelse. Prøv igen. Hvis du er på skolens Wi‑Fi, så prøv mobildata. På iPhone: åbn helst linket i Safari. Kontakt din lærer, hvis problemet fortsætter."
-      );
+      setError(joinCopy.genericJoinError);
     } finally {
       if (shouldReleaseLock) {
         joinLockRef.current = false;
@@ -775,10 +786,10 @@ function JoinForm() {
     }
   };
 
-  const scheduledDate = formatLongDate(schedule?.startAt);
-  const scheduledTime = formatClockTime(schedule?.startAt);
-  const endDate = formatLongDate(schedule?.endAt);
-  const endTime = formatClockTime(schedule?.endAt);
+  const scheduledDate = formatLongDate(schedule?.startAt, siteCopy.localeTag);
+  const scheduledTime = formatClockTime(schedule?.startAt, siteCopy.localeTag);
+  const endDate = formatLongDate(schedule?.endAt, siteCopy.localeTag);
+  const endTime = formatClockTime(schedule?.endAt, siteCopy.localeTag);
 
   if (view === "scheduled") {
     return (
@@ -790,7 +801,7 @@ function JoinForm() {
           <div className="relative">
             <div className="mx-auto flex max-w-max items-center gap-3 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-[11px] font-bold tracking-[0.34em] text-emerald-300 uppercase shadow-[0_0_24px_rgba(16,185,129,0.16)]">
               <Timer className="h-4 w-4" />
-              Mission Briefing
+              {joinCopy.scheduled.eyebrow}
             </div>
 
             <div className="mt-8 text-center">
@@ -803,14 +814,13 @@ function JoinForm() {
               </div>
 
               <p className="mt-6 text-xs font-semibold tracking-[0.42em] text-emerald-300 uppercase">
-                Planlagt Mission
+                {joinCopy.scheduled.statusLabel}
               </p>
               <h1 className={`mt-4 text-3xl font-black text-white sm:text-5xl ${rubik.className}`}>
-                Missionen er låst og klar
+                {joinCopy.scheduled.title}
               </h1>
               <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-                Missionen starter automatisk d. {scheduledDate ?? "ukendt dato"} kl.{" "}
-                {scheduledTime ?? "ukendt tid"}. Hold agentudstyret klar.
+                {joinCopy.scheduled.description(scheduledDate, scheduledTime)}
               </p>
 
               {isZoneKrig && assignedTeamName ? (
@@ -825,7 +835,7 @@ function JoinForm() {
                     className="h-2.5 w-2.5 rounded-full"
                     style={{ backgroundColor: assignedTeamColor ?? "#22d3ee" }}
                   />
-                  Du er på {assignedTeamName} hold!
+                  {joinCopy.teamBadge(assignedTeamName)}
                 </div>
               ) : null}
 
@@ -839,25 +849,25 @@ function JoinForm() {
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
               <div className="rounded-[1.7rem] border border-white/10 bg-white/5 p-5 text-left shadow-[0_18px_45px_rgba(15,23,42,0.28)] backdrop-blur-md">
                 <p className="text-xs font-semibold tracking-[0.26em] text-emerald-200/60 uppercase">
-                  Startvindue
+                  {joinCopy.scheduled.startWindowLabel}
                 </p>
                 <p className="mt-4 text-sm font-medium text-slate-300">
-                  {scheduledDate ?? "Tid ikke sat"}
+                  {scheduledDate ?? joinCopy.scheduled.unknownDate}
                 </p>
                 <p className="mt-3 font-mono text-4xl font-black tracking-[0.18em] text-emerald-300 sm:text-5xl">
-                  {scheduledTime ?? "--:--"}
+                  {scheduledTime ?? joinCopy.scheduled.unknownTime}
                 </p>
               </div>
 
               <div className="rounded-[1.7rem] border border-white/10 bg-white/5 p-5 text-left shadow-[0_18px_45px_rgba(15,23,42,0.28)] backdrop-blur-md">
                 <p className="text-xs font-semibold tracking-[0.26em] text-emerald-200/60 uppercase">
-                  Mission slutter
+                  {joinCopy.scheduled.endWindowLabel}
                 </p>
                 <p className="mt-4 text-sm font-medium text-slate-300">
-                  {endDate ?? "Når arrangøren lukker"}
+                  {endDate ?? joinCopy.scheduled.endFallback}
                 </p>
                 <p className="mt-3 font-mono text-4xl font-black tracking-[0.18em] text-white sm:text-5xl">
-                  {endTime ?? "--:--"}
+                  {endTime ?? joinCopy.scheduled.unknownTime}
                 </p>
               </div>
             </div>
@@ -877,7 +887,7 @@ function JoinForm() {
           <div className="relative">
             <div className="mx-auto flex max-w-max items-center gap-3 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-[11px] font-bold tracking-[0.34em] text-emerald-300 uppercase shadow-[0_0_24px_rgba(16,185,129,0.16)]">
               <Leaf className="h-4 w-4" />
-              Klar til start
+              {joinCopy.waiting.eyebrow}
             </div>
 
             <div className="mt-8">
@@ -890,13 +900,13 @@ function JoinForm() {
               </div>
 
               <p className="mt-6 text-xs font-semibold tracking-[0.42em] text-emerald-300 uppercase">
-                Løbet er ikke startet endnu
+                {joinCopy.waiting.statusLabel}
               </p>
               <h1 className={`mt-4 text-3xl font-black text-white sm:text-5xl ${rubik.className}`}>
-                Du er klar
+                {joinCopy.waiting.title}
               </h1>
               <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-slate-300 sm:text-base">
-                Vent på, at din lærer starter løbet.
+                {joinCopy.waiting.description}
               </p>
 
               {isZoneKrig && assignedTeamName ? (
@@ -911,12 +921,12 @@ function JoinForm() {
                     className="h-2.5 w-2.5 rounded-full"
                     style={{ backgroundColor: assignedTeamColor ?? "#22d3ee" }}
                   />
-                  Du er på {assignedTeamName} hold!
+                  {joinCopy.teamBadge(assignedTeamName)}
                 </div>
               ) : null}
             </div>
 
-            <WifiConnectionTip className="mx-auto mt-6 max-w-2xl" />
+            <WifiConnectionTip className="mx-auto mt-6 max-w-2xl" text={siteCopy.wifiTip} />
 
             {runTitle ? (
               <div className="mt-6 inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-emerald-50/90 backdrop-blur-md">
@@ -941,13 +951,13 @@ function JoinForm() {
             </div>
 
             <p className="mt-6 text-xs font-semibold tracking-[0.38em] text-rose-100/55 uppercase">
-              Tidsplan utilgængelig
+              {joinCopy.scheduleError.eyebrow}
             </p>
             <h1 className={`mt-4 text-3xl font-black text-white sm:text-4xl ${rubik.className}`}>
-              Kunne ikke læse tidsplanen
+              {joinCopy.scheduleError.title}
             </h1>
             <p className="mx-auto mt-4 max-w-lg text-base leading-7 text-rose-50/80 sm:text-lg">
-              Kunne ikke læse tidsplanen. Kontakt arrangøren.
+              {joinCopy.scheduleError.description}
             </p>
 
             {runTitle ? (
@@ -960,7 +970,7 @@ function JoinForm() {
               className="mx-auto mt-8 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.08] px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/12"
             >
               <ArrowLeft className="h-4 w-4" />
-              Prøv en anden kode
+              {joinCopy.scheduleError.retryButton}
             </button>
           </div>
         </div>
@@ -980,10 +990,10 @@ function JoinForm() {
             </div>
 
             <p className="mt-6 text-xs font-semibold tracking-[0.38em] text-amber-100/55 uppercase">
-              Løbet er lukket
+              {joinCopy.expired.eyebrow}
             </p>
             <h1 className={`mt-4 text-3xl font-black text-white sm:text-4xl ${rubik.className}`}>
-              Dette løb er desværre slut
+              {joinCopy.expired.title}
             </h1>
             <p className="mx-auto mt-4 max-w-lg text-base leading-7 text-amber-50/80 sm:text-lg">
               {expiredMessage}
@@ -999,7 +1009,7 @@ function JoinForm() {
               className="mx-auto mt-8 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.08] px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/12"
             >
               <ArrowLeft className="h-4 w-4" />
-              Prøv en anden kode
+              {joinCopy.expired.retryButton}
             </button>
           </div>
         </div>
@@ -1020,13 +1030,13 @@ function JoinForm() {
             </div>
 
             <p className="text-[11px] font-semibold tracking-[0.32em] text-emerald-200/70 uppercase">
-              Løb ikke fundet
+              {joinCopy.missingSession.eyebrow}
             </p>
             <h1 className={`mt-3 text-2xl font-black text-white sm:text-3xl ${rubik.className}`}>
-              Hov! Vi kan ikke finde dette løb 🏁
+              {joinCopy.missingSession.title}
             </h1>
             <p className="mt-4 text-sm leading-6 text-white/80 sm:text-base">
-              Det ser ud til, at linket er blevet for gammelt, eller at din lærer har afsluttet løbet. Tjek med din lærer, om du har fået det rigtige link eller den rigtige PIN-kode.
+              {joinCopy.missingSession.description}
             </p>
 
             <div className="mt-6">
@@ -1034,7 +1044,7 @@ function JoinForm() {
                 href="/"
                 className="inline-flex min-h-[52px] w-full items-center justify-center rounded-[1.2rem] border border-emerald-300/30 bg-gradient-to-r from-emerald-500 to-teal-400 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-[0_18px_38px_rgba(16,185,129,0.24)] transition hover:brightness-110 active:scale-[0.99]"
               >
-                Gå til forsiden
+                {joinCopy.missingSession.homeButton}
               </Link>
             </div>
           </div>
@@ -1047,17 +1057,17 @@ function JoinForm() {
 
         <div className="relative">
           <h1 className={`text-center text-3xl font-black text-white sm:text-4xl ${rubik.className}`}>
-            Deltag i løbet
+            {joinCopy.form.title}
           </h1>
           <p className="mt-3 text-center text-sm leading-6 text-slate-300 sm:text-base">
-            Indtast løbskoden eller scan QR-koden. Skriv derefter dit navn.
+            {joinCopy.form.description}
           </p>
 
           {browserPlatform === "ios" && !showInAppWarning ? (
             <div className="mt-4 rounded-2xl border border-sky-400/25 bg-sky-400/10 px-4 py-3 text-left text-sm text-sky-100 backdrop-blur-md">
-              <p className="font-bold text-sky-50">Bruger du iPhone?</p>
+              <p className="font-bold text-sky-50">{joinCopy.form.iosHintTitle}</p>
               <p className="mt-1 leading-5 text-sky-100/90">
-                Åbn helst linket i Safari. Hvis skolens Wi-Fi driller, så prøv mobildata.
+                {joinCopy.form.iosHintDescription}
               </p>
             </div>
           ) : null}
@@ -1067,17 +1077,19 @@ function JoinForm() {
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
               <span className="flex-1 leading-5">
                 <strong className="font-bold">
-                  {browserPlatform === "ios" ? "Åbn linket i Safari" : "Åbn linket i den rigtige browser"}
+                  {browserPlatform === "ios"
+                    ? joinCopy.form.inAppWarningIosStrong
+                    : joinCopy.form.inAppWarningAndroidStrong}
                 </strong>{" "}
                 {browserPlatform === "ios"
-                  ? "for bedst chance for at GPS og login virker. Hvis skolens Wi-Fi driller, så prøv mobildata."
-                  : "i Chrome på Android for bedst chance for at GPS og login virker."}
+                  ? joinCopy.form.inAppWarningIosBody
+                  : joinCopy.form.inAppWarningAndroidBody}
               </span>
               <button
                 type="button"
                 className="shrink-0 text-amber-300/70 hover:text-amber-200"
                 onClick={() => setShowInAppWarning(false)}
-                aria-label="Luk advarsel"
+                aria-label={joinCopy.form.dismissWarningLabel}
               >
                 ×
               </button>
@@ -1097,7 +1109,7 @@ function JoinForm() {
               </div>
               <input
                 type="text"
-                placeholder="Løbskode, f.eks. 492173"
+                placeholder={joinCopy.form.codePlaceholder}
                 value={pin}
                 onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, JOIN_PIN_LENGTH))}
                 className="w-full rounded-[1.75rem] border border-emerald-500/50 bg-slate-950 py-5 pr-6 pl-12 text-center font-mono text-3xl font-black tracking-[0.35em] text-white shadow-[0_0_24px_rgba(16,185,129,0.12)] shadow-inner outline-none transition placeholder:text-emerald-500/30 focus:border-emerald-400 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-400/20"
@@ -1109,7 +1121,7 @@ function JoinForm() {
               />
             </div>
 
-            <QRScannerModal buttonClassName="w-full justify-center" />
+            <QRScannerModal buttonClassName="w-full justify-center" copy={siteCopy.qrScanner} />
 
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-emerald-300/70">
@@ -1117,7 +1129,7 @@ function JoinForm() {
               </div>
               <input
                 type="text"
-                placeholder="Dit navn"
+                placeholder={joinCopy.form.namePlaceholder}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 className="w-full rounded-[1.6rem] border border-white/20 bg-slate-950 py-4 pr-4 pl-12 text-lg font-semibold text-white shadow-inner outline-none backdrop-blur-md transition placeholder:text-slate-500 focus:border-emerald-400 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-400/20"
@@ -1133,10 +1145,10 @@ function JoinForm() {
               {isJoining ? (
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Gør klar...
+                  {joinCopy.form.submitPending}
                 </span>
               ) : (
-                "Deltag i løbet"
+                joinCopy.form.submitButton
               )}
             </button>
 
@@ -1148,7 +1160,7 @@ function JoinForm() {
                 className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-200 transition hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isCheckingConnection ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Tjek forbindelse
+                {isCheckingConnection ? joinCopy.form.checkConnectionPending : joinCopy.form.checkConnectionButton}
               </button>
 
               {connectionCheckResult ? (
@@ -1168,38 +1180,37 @@ function JoinForm() {
 
           <details className="mt-5 rounded-[1.35rem] border border-white/10 bg-slate-950/45 px-4 py-3 text-left shadow-[0_10px_24px_rgba(2,6,23,0.16)]">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-slate-100">
-              <span>Problemer med at deltage?</span>
-              <span className="text-[11px] uppercase tracking-[0.24em] text-emerald-200/70">Vis hjælp</span>
+              <span>{joinCopy.form.troubleshootingTitle}</span>
+              <span className="text-[11px] uppercase tracking-[0.24em] text-emerald-200/70">{joinCopy.form.troubleshootingToggle}</span>
             </summary>
 
             <div className="mt-4 space-y-4">
               <p className="text-sm leading-6 text-slate-300">
-                Hvis koden er forkert eller for gammel, skal din lærer give dig en ny kode eller et nyt link.
+                {joinCopy.form.troubleshootingParagraphs[0]}
               </p>
 
               <p className="text-sm leading-6 text-slate-300">
-                Hvis kameraet ikke starter, kan du stadig taste koden manuelt i feltet ovenfor.
+                {joinCopy.form.troubleshootingParagraphs[1]}
               </p>
 
               <p className="text-sm leading-6 text-slate-300">
-                På iPhone virker GPS og login bedst i Safari. Undgå helst at åbne linket direkte i Facebook,
-                Instagram eller andre indbyggede browsere.
+                {joinCopy.form.troubleshootingParagraphs[2]}
               </p>
 
-              <WifiConnectionTip className="shadow-none" />
+              <WifiConnectionTip className="shadow-none" text={siteCopy.wifiTip} />
 
               {showHomescreenTip ? (
                 <div className="rounded-[1.2rem] border border-emerald-300/12 bg-slate-900/45 px-4 py-3 shadow-[0_10px_24px_rgba(2,6,23,0.16)]">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200/75">
-                    Tip: Brug som app
+                    {joinCopy.form.homescreenTitle}
                   </p>
                   <p className="mt-1.5 text-sm leading-6 text-slate-200/88">
-                    Tilføj GPS-løbet til hjemmeskærmen. Så fylder spillet mere på skærmen og fungerer ofte bedre.
+                    {joinCopy.form.homescreenBody}
                   </p>
                   <p className="mt-1 text-xs leading-5 text-slate-400">
-                    iPhone: Del → Føj til hjemmeskærm
+                    {joinCopy.form.homescreenIos}
                     <br />
-                    Android: Menu ⋮ → Føj til startskærm
+                    {joinCopy.form.homescreenAndroid}
                   </p>
                 </div>
               ) : null}
@@ -1208,7 +1219,7 @@ function JoinForm() {
                 href="/"
                 className="inline-flex items-center text-sm font-semibold text-emerald-200 transition hover:text-emerald-100"
               >
-                Tilbage til forsiden
+                {joinCopy.form.homeButton}
               </Link>
             </div>
           </details>
@@ -1218,7 +1229,13 @@ function JoinForm() {
   );
 }
 
-export default function JoinPage() {
+type JoinPageProps = {
+  initialSiteVariantKey?: SiteVariantKey;
+};
+
+export default function JoinPage(props: any) {
+  const { initialSiteVariantKey = DEFAULT_SITE_VARIANT.key } = (props ?? {}) as JoinPageProps;
+
   return (
     <div className={`relative flex min-h-svh items-start justify-center overflow-y-auto bg-slate-950 pb-20 text-white sm:items-center ${poppins.className}`}>
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#020617_0%,#020b16_42%,#01040a_100%)]" />
@@ -1233,7 +1250,7 @@ export default function JoinPage() {
           </div>
         }
       >
-        <JoinForm />
+        <JoinForm initialSiteVariantKey={initialSiteVariantKey} />
       </Suspense>
     </div>
   );

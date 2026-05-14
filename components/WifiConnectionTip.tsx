@@ -1,6 +1,7 @@
 type WifiConnectionTipProps = {
   tone?: "dark" | "light";
   className?: string;
+  text?: string;
 };
 
 const WIFI_CONNECTION_TIP_TEXT =
@@ -9,6 +10,7 @@ const WIFI_CONNECTION_TIP_TEXT =
 export default function WifiConnectionTip({
   tone = "dark",
   className = "",
+  text = WIFI_CONNECTION_TIP_TEXT,
 }: WifiConnectionTipProps) {
   const tones =
     tone === "light"
@@ -27,7 +29,7 @@ export default function WifiConnectionTip({
     <aside
       className={`rounded-[1.5rem] border px-5 py-4 text-left backdrop-blur-md ${tones.shell} ${className}`.trim()}
     >
-      <p className={`text-sm font-semibold leading-6 sm:text-base ${tones.text}`}>{WIFI_CONNECTION_TIP_TEXT}</p>
+      <p className={`text-sm font-semibold leading-6 sm:text-base ${tones.text}`}>{text}</p>
     </aside>
   );
 }

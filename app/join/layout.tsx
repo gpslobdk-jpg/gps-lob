@@ -1,32 +1,23 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 
-import HomePageClient from "@/components/HomePageClient";
+import JoinPage from "@/app/join/page";
 import { getSiteCopy } from "@/lib/siteCopy";
 import { resolveSiteVariantFromHeaders } from "@/lib/siteVariant";
-
-export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
   const siteVariant = resolveSiteVariantFromHeaders(requestHeaders);
   const siteCopy = getSiteCopy(siteVariant.key);
-
   return {
-    title: siteCopy.metadata.homeTitle,
-    description: siteCopy.metadata.homeDescription,
+    title: siteCopy.metadata.joinTitle,
+    description: siteCopy.metadata.joinDescription,
   };
 }
 
-export default async function Home() {
+export default async function JoinLayout({ children: _children }: { children: React.ReactNode }) {
   const requestHeaders = await headers();
-  const userAgent = requestHeaders.get("user-agent") ?? "";
   const siteVariant = resolveSiteVariantFromHeaders(requestHeaders);
 
-  return (
-    <HomePageClient
-      isNativeGpslobApp={userAgent.includes("GPSLobApp")}
-      siteVariantKey={siteVariant.key}
-    />
-  );
+  return <JoinPage initialSiteVariantKey={siteVariant.key} />;
 }

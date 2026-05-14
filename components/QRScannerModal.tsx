@@ -5,6 +5,9 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Html5Qrcode, Html5QrcodeCameraScanConfig, Html5QrcodeFullConfig } from "html5-qrcode";
 
+import { getSiteCopy, type QrScannerCopy } from "@/lib/siteCopy";
+import { DEFAULT_SITE_VARIANT } from "@/lib/siteVariant";
+
 type ScanTarget =
   | {
       kind: "internal";
@@ -17,7 +20,10 @@ type ScanTarget =
 
 type QRScannerModalProps = {
   buttonClassName?: string;
+  copy?: QrScannerCopy;
 };
+
+const defaultQrScannerCopy = getSiteCopy(DEFAULT_SITE_VARIANT.key).qrScanner;
 
 const qrButtonClassName =
   "inline-flex items-center gap-3 rounded-full border border-emerald-500/30 bg-slate-950/70 px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] text-emerald-300 shadow-[0_0_24px_rgba(16,185,129,0.15)] backdrop-blur-xl transition-all hover:border-emerald-400/60 hover:bg-emerald-500/10 hover:text-emerald-200";
@@ -44,22 +50,22 @@ async function disposeScanner(scanner: Html5Qrcode | null) {
   }
 }
 
-function getCameraErrorMessage(error: unknown) {
+function getCameraErrorMessage(error: unknown, copy: QrScannerCopy) {
   if (error instanceof DOMException) {
     if (error.name === "NotAllowedError" || error.name === "SecurityError") {
-      return "Kamera-adgang naegtet. For at bruge scanneren skal du tillade kamera i din browsers indstillinger (ofte oppe i adressebaren). Ellers kan du lukke denne boks og taste pinkoden manuelt.";
+      return copy.errors.permissionDenied;
     }
 
     if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
-      return "Vi kunne ikke finde et kamera paa denne enhed. Du kan lukke denne boks og taste pinkoden manuelt.";
+      return copy.errors.noCamera;
     }
 
     if (error.name === "NotReadableError" || error.name === "TrackStartError") {
-      return "Kameraet er allerede i brug af en anden app eller browser-fane. Luk denne boks og proev igen, eller tast pinkoden manuelt.";
+      return copy.errors.busy;
     }
   }
 
-  return "Kameraet kunne ikke startes lige nu. Du kan proeve igen eller lukke denne boks og taste pinkoden manuelt.";
+  return copy.errors.generic;
 }
 
 function resolveScanTarget(value: string): ScanTarget | null {
@@ -106,7 +112,7 @@ function resolveScanTarget(value: string): ScanTarget | null {
   };
 }
 
-export default function QRScannerModal({ buttonClassName = "" }: QRScannerModalProps) {
+export default function QRScannerModal({ buttonClassName = "", copy = defaultQrScannerCopy }: QRScannerModalProps) {
   const router = useRouter();
   const scannerRegionId = useId().replace(/:/g, "-");
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -152,7 +158,7 @@ export default function QRScannerModal({ buttonClassName = "" }: QRScannerModalP
         typeof navigator.mediaDevices.getUserMedia !== "function"
       ) {
         setCameraError(
-          "Din browser understotter ikke kameraadgang til QR-scanning. Du kan lukke denne boks og taste pinkoden manuelt."
+          copy.errors.unsupported
         );
         return;
       }
@@ -208,7 +214,7 @@ export default function QRScannerModal({ buttonClassName = "" }: QRScannerModalP
 
             const target = resolveScanTarget(decodedText);
             if (!target) {
-              setScanError("QR-koden kunne ikke forstaas. Proev en anden kode.");
+              setScanError(copy.scanFailed);
               return;
             }
 
@@ -233,7 +239,7 @@ export default function QRScannerModal({ buttonClassName = "" }: QRScannerModalP
         console.error("Fejl ved start af QR-scanner:", error);
         if (!isActive) return;
 
-        setCameraError(getCameraErrorMessage(error));
+        setCameraError(getCameraErrorMessage(error, copy));
         await stopScanner();
       } finally {
         if (isActive) {
@@ -248,7 +254,7 @@ export default function QRScannerModal({ buttonClassName = "" }: QRScannerModalP
       isActive = false;
       void stopScanner();
     };
-  }, [isOpen, router, scannerRegionId]);
+  }, [copy, isOpen, router, scannerRegionId]);
 
   return (
     <>
@@ -262,7 +268,7 @@ export default function QRScannerModal({ buttonClassName = "" }: QRScannerModalP
         className={`${qrButtonClassName} ${buttonClassName}`.trim()}
       >
         <Camera className="h-4 w-4" aria-hidden="true" />
-        <span>Scan QR</span>
+        <span>{copy.buttonLabel}</span>
       </button>
 
       {isOpen ? (
@@ -276,7 +282,7 @@ export default function QRScannerModal({ buttonClassName = "" }: QRScannerModalP
           >
             <button
               type="button"
-              aria-label="Luk QR-scanner"
+              aria-label={copy.closeAriaLabel}
               onClick={closeModal}
               className="absolute top-4 right-4 rounded-full border border-white/10 bg-white/5 p-2 text-white/70 transition hover:text-white"
             >
@@ -284,11 +290,10 @@ export default function QRScannerModal({ buttonClassName = "" }: QRScannerModalP
             </button>
 
             <div className="pr-12">
-              <p className="text-xs font-semibold tracking-[0.24em] text-emerald-300 uppercase">Scan dig ind</p>
-              <h2 className="mt-2 text-2xl font-black tracking-tight text-white">Ret kameraet mod QR-koden</h2>
+              <p className="text-xs font-semibold tracking-[0.24em] text-emerald-300 uppercase">{copy.eyebrow}</p>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-white">{copy.title}</h2>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Tillad kameraadgang, og hold QR-koden foran kameraet. Vi sender dig direkte videre til loebet, saa
-                snart koden er laest.
+                {copy.description}
               </p>
             </div>
 
@@ -302,10 +307,10 @@ export default function QRScannerModal({ buttonClassName = "" }: QRScannerModalP
             <div className="mt-4 flex items-center justify-between gap-3 text-sm text-slate-300">
               <span>
                 {isStarting
-                  ? "Starter kamera..."
+                  ? copy.startingCamera
                   : cameraError
-                    ? "Kameraet kunne ikke startes."
-                    : "QR-scanneren er klar."}
+                    ? copy.failed
+                    : copy.ready}
               </span>
               {isStarting ? <Loader2 className="h-4 w-4 animate-spin text-emerald-300" aria-hidden="true" /> : null}
             </div>

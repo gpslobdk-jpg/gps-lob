@@ -11,6 +11,8 @@ import { useEffect, useRef, useState } from "react";
 import AIChatButton from "@/components/AIChatButton";
 import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
 import QRScannerModal from "@/components/QRScannerModal";
+import { getSiteCopy } from "@/lib/siteCopy";
+import type { SiteVariantKey } from "@/lib/siteVariant";
 import { changelogEntries } from "@/lib/changelog";
 import natureAnimation from "@/public/nature.json";
 
@@ -18,6 +20,7 @@ import natureAnimation from "@/public/nature.json";
 
 type HomePageClientProps = {
   isNativeGpslobApp: boolean;
+  siteVariantKey: SiteVariantKey;
 };
 
 type ZenBubble = {
@@ -323,7 +326,9 @@ function NativeDebugPanel({ snapshot }: { snapshot: NativeDebugSnapshot }) {
   );
 }
 
-export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProps) {
+export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: HomePageClientProps) {
+  const siteCopy = getSiteCopy(siteVariantKey);
+  const homeCopy = siteCopy.home;
   const [isMuted, setIsMuted] = useState(true);
   const [isCapacitorApp, setIsCapacitorApp] = useState(isNativeGpslobApp);
   const [nativeDebugSnapshot, setNativeDebugSnapshot] = useState<NativeDebugSnapshot | null>(null);
@@ -433,7 +438,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
       <div className="fixed inset-0 -z-10 bg-slate-950/70 backdrop-blur-[2px]" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(16,185,129,0.16),transparent_35%),radial-gradient(circle_at_85%_95%,rgba(14,165,233,0.1),transparent_40%),radial-gradient(rgba(148,163,184,0.08)_1px,transparent_1px)] bg-size-[100%_100%,100%_100%,20px_20px] lg:hidden" />
       <div className="pointer-events-none fixed inset-0 -z-10 hidden lg:block">
-        {zenBubbles.map((bubble, index) => (
+        {homeCopy.showTestimonials ? zenBubbles.map((bubble, index) => (
           <motion.div
             key={bubble.name}
             className={`absolute max-w-50 bg-transparent p-4 ${bubble.position}`}
@@ -455,62 +460,64 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
               {bubble.label ?? `${bubble.name.toUpperCase()} - Lærer`}
             </p>
           </motion.div>
-        ))}
+        )) : null}
       </div>
 
       {/* Welcome modal removed; no onboarding modal shown */}
 
-      <div className="relative z-20 mx-auto hidden w-full max-w-6xl px-4 pt-4 sm:px-6 md:block md:px-8 md:pt-6">
-        <div className="mx-auto max-w-4xl">
-          <MobileInSchoolBanner variant="home" />
+      {homeCopy.showDanishOnlyExtras ? (
+        <div className="relative z-20 mx-auto hidden w-full max-w-6xl px-4 pt-4 sm:px-6 md:block md:px-8 md:pt-6">
+          <div className="mx-auto max-w-4xl">
+            <MobileInSchoolBanner variant="home" />
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <main className="relative mx-auto flex w-full flex-1 flex-col justify-center px-4 py-8 md:hidden">
         <section className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-md space-y-4">
             <div className="rounded-[2rem] border border-white/10 bg-slate-950/78 p-6 text-center shadow-[0_18px_50px_rgba(2,6,23,0.38)] backdrop-blur-xl">
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300/80">
-                GPS Løb
+                {homeCopy.brandLabel}
               </p>
               <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">
-                Hvem er du?
+                {homeCopy.mobile.title}
               </h1>
             </div>
 
             <div className="rounded-[2rem] border border-emerald-400/25 bg-slate-950/82 p-6 shadow-[0_18px_50px_rgba(16,185,129,0.14)] backdrop-blur-xl">
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300/75">
-                Jeg er elev
+                {homeCopy.mobile.studentEyebrow}
               </p>
               <p className="mt-3 text-base leading-7 text-slate-100/92">
-                Scan QR-koden eller indtast løbskoden for at deltage.
+                {homeCopy.mobile.studentDescription}
               </p>
 
               <div className="mt-5 space-y-3">
-                <QRScannerModal buttonClassName="w-full justify-center py-4 text-sm" />
+                <QRScannerModal buttonClassName="w-full justify-center py-4 text-sm" copy={siteCopy.qrScanner} />
 
                 <Link
                   href="/join"
                   className="flex min-h-[56px] w-full items-center justify-center rounded-[1.4rem] border border-white/12 bg-white/6 px-5 py-4 text-sm font-bold uppercase tracking-[0.18em] text-white transition hover:border-white/20 hover:bg-white/10"
                 >
-                  Indtast løbskode
+                    {homeCopy.mobile.joinCodeButton}
                 </Link>
               </div>
             </div>
 
             <div className="rounded-[2rem] border border-white/10 bg-slate-950/74 p-6 shadow-[0_18px_50px_rgba(2,6,23,0.3)] backdrop-blur-xl">
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-200/75">
-                Jeg er lærer
+                {homeCopy.mobile.teacherEyebrow}
               </p>
               <p className="mt-3 text-sm leading-7 text-slate-200/88">
-                Brug helst GPS Løb fra en computer, når du opretter og styrer løb.
+                {homeCopy.mobile.teacherDescription}
               </p>
 
               <Link
                 href="/login"
                 className="mt-5 flex min-h-[52px] w-full items-center justify-center rounded-[1.4rem] border border-sky-200/18 bg-sky-200/8 px-5 py-4 text-sm font-bold uppercase tracking-[0.18em] text-sky-50 transition hover:border-sky-200/28 hover:bg-sky-200/12"
               >
-                Log ind
+                {homeCopy.mobile.loginButton}
               </Link>
             </div>
           </div>
@@ -532,7 +539,7 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
               <div className="relative z-20 flex h-full items-center justify-center">
                 <Image
                   src="/gpslogo.png"
-                  alt={"GPSLØB.DK logo"}
+                  alt={homeCopy.logoAlt}
                   width={320}
                   height={140}
                   priority
@@ -573,19 +580,19 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
                   </>
                 )}
               </svg>
-              <span>{isMuted ? "Slå lyd til" : "Slå lyd fra"}</span>
+              <span>{isMuted ? homeCopy.soundOn : homeCopy.soundOff}</span>
             </button>
           </div>
 
           <div className="rounded-3xl border border-emerald-500/30 bg-slate-950/80 p-8 text-center shadow-[0_0_40px_rgba(16,185,129,0.15)] backdrop-blur-xl">
             <p className="text-xs font-semibold uppercase tracking-[0.34em] text-emerald-400">
-              Til arrangører & lærere
+              {homeCopy.desktop.organizerEyebrow}
             </p>
             <h1 className="mt-3 text-2xl font-black tracking-tight text-white">
-              Byg aktive GPS-løb på minutter
+              {homeCopy.desktop.organizerTitle}
             </h1>
             <p className="mx-auto mt-3 max-w-xs text-sm leading-6 text-slate-300">
-              Log ind for at oprette løb, hente resultater og styre klassen live. Elever deltager fra mobilen.
+              {homeCopy.desktop.organizerDescription}
             </p>
 
             <Link
@@ -593,10 +600,11 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
               data-tour="home-organizer-login"
               className="mt-6 block w-full rounded-2xl bg-emerald-500 px-4 py-4 text-base font-black tracking-[0.08em] text-slate-950 shadow-[0_0_32px_rgba(16,185,129,0.28)] transition-all hover:bg-emerald-400 hover:shadow-[0_0_44px_rgba(16,185,129,0.38)]"
             >
-              Log ind
+              {homeCopy.desktop.loginButton}
             </Link>
 
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
+            {homeCopy.showDanishOnlyExtras ? (
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
               <Link
                 href="/gdpr"
                 className="rounded-full border border-white/10 bg-white/4 px-3 py-2 transition-all hover:border-white/20 hover:bg-white/5"
@@ -651,14 +659,17 @@ export default function HomePageClient({ isNativeGpslobApp }: HomePageClientProp
                   </span>
                 </div>
               </Link>
-            </div>
+              </div>
+            ) : null}
           </div>
         </section>
       </main>
 
-      <div className="hidden md:block">
-        <AIChatButton />
-      </div>
+      {homeCopy.showDanishOnlyExtras ? (
+        <div className="hidden md:block">
+          <AIChatButton />
+        </div>
+      ) : null}
     </div>
   );
 
