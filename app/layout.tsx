@@ -50,9 +50,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="da">
-      <head>
-        <link rel="preload" href="/introvideo.mp4" as="video" type="video/mp4" />
-      </head>
+      <head />
       <body className={`${poppins.variable} ${rubik.variable} font-sans antialiased bg-[#0a1128]`}>
         <ErrorBoundary>
           <AuthProvider>

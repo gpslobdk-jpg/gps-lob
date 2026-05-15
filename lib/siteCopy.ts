@@ -336,9 +336,9 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       },
       desktop: {
         organizerEyebrow: "For lærere og arrangører",
-        organizerTitle: "Lag aktive løp på få minutter",
+        organizerTitle: "Lag aktive læringsløp på få minutter",
         organizerDescription:
-          "Logg inn for å lage løp, hente resultater og følge klassen live. Elevene deltar fra mobilen.",
+          "Logg inn for å lage løp, hente resultater og følge deltakerne live. Elever og deltakere blir med via mobil, nettbrett eller nettleser.",
         loginButton: "Logg inn",
       },
     },

@@ -424,17 +424,24 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
     />
   ) : (
     <div className="relative flex min-h-screen flex-col overflow-x-hidden text-slate-100">
-      <video
-        ref={backgroundVideoRef}
-        src="/introvideo.mp4"
-        autoPlay
-        loop
-        muted={isMuted}
-        playsInline
-        controls={false}
-        preload="auto"
-        className="fixed top-0 left-0 h-full w-full object-cover -z-20"
-      />
+        {siteVariantKey !== "postlob" ? (
+          <video
+            ref={backgroundVideoRef}
+            src="/introvideo.mp4"
+            autoPlay
+            loop
+            muted={isMuted}
+            playsInline
+            controls={false}
+            preload="auto"
+            className="fixed top-0 left-0 h-full w-full object-cover -z-20"
+          />
+        ) : (
+          <div
+            aria-hidden="true"
+            className="fixed top-0 left-0 h-full w-full -z-20 bg-cover bg-center bg-[url('/intro-poster.jpg')]"
+          />
+        )}
       <div className="fixed inset-0 -z-10 bg-slate-950/70 backdrop-blur-[2px]" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(16,185,129,0.16),transparent_35%),radial-gradient(circle_at_85%_95%,rgba(14,165,233,0.1),transparent_40%),radial-gradient(rgba(148,163,184,0.08)_1px,transparent_1px)] bg-size-[100%_100%,100%_100%,20px_20px] lg:hidden" />
       <div className="pointer-events-none fixed inset-0 -z-10 hidden lg:block">
@@ -538,7 +545,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
               </div>
               <div className="relative z-20 flex h-full items-center justify-center">
                 <Image
-                  src="/gpslogo.png"
+                  src={siteVariantKey === "postlob" ? "/postlob-logo.png" : "/gpslogo.png"}
                   alt={homeCopy.logoAlt}
                   width={320}
                   height={140}
