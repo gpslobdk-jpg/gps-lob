@@ -1,13 +1,22 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { ArrowLeft, Scale } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
 
-export const metadata: Metadata = {
-  title: "Podcast-Detektiven & Ophavsret | GPSLØB",
-  description:
-    "Podcast-Detektiven i GPSLØB er 100% lovlig at bruge i undervisningen. Vi arbejder inden for citatretten og bruger kun offentligt tilgængeligt indhold.",
-};
+import { getLegalCopy } from "@/lib/legalCopy";
+import { resolveSiteVariantFromHeaders } from "@/lib/siteVariant";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const requestHeaders = await headers();
+  const siteVariant = resolveSiteVariantFromHeaders(requestHeaders);
+  const copy = getLegalCopy(siteVariant.key).ophavsretPodcast;
+
+  return {
+    title: copy.metadata.title,
+    description: copy.metadata.description,
+  };
+}
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -19,7 +28,11 @@ const poppins = Poppins({
   weight: ["400", "500", "600", "700"],
 });
 
-export default function OphavsretPodcastPage() {
+export default async function OphavsretPodcastPage() {
+  const requestHeaders = await headers();
+  const siteVariant = resolveSiteVariantFromHeaders(requestHeaders);
+  const copy = getLegalCopy(siteVariant.key).ophavsretPodcast;
+
   return (
     <main
       className={`relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#04110f_0%,#071d1a_35%,#0d1f2e_100%)] p-10 text-white md:p-20 ${poppins.className}`}
@@ -33,7 +46,7 @@ export default function OphavsretPodcastPage() {
             className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-white/10"
           >
             <ArrowLeft className="h-4 w-4" />
-            Tilbage til Podcast-Detektiven
+            {copy.backToPodcastLabel}
           </Link>
         </div>
 
@@ -45,73 +58,34 @@ export default function OphavsretPodcastPage() {
                   <Scale className="h-7 w-7 text-purple-300" />
                 </div>
                 <h1 className={`text-3xl font-black tracking-tight text-white md:text-5xl ${rubik.className}`}>
-                  Podcast-Detektiven og Ophavsret ⚖️
+                  {copy.title}
                 </h1>
               </div>
-              <p className="text-lg font-semibold text-purple-200">
-                100% lovligt at bruge i undervisningen
-              </p>
-              <p className="leading-relaxed text-slate-200 md:text-lg">
-                Når du bruger Podcast-Detektiven til at bygge GPS-løb, kan du have fuldstændig ro i
-                maven. Værktøjet er bygget med dyb respekt for skabernes ophavsret og er 100% lovligt
-                at bruge i undervisningen.
-              </p>
+              <p className="text-lg font-semibold text-purple-200">{copy.heroEyebrow}</p>
+              <p className="leading-relaxed text-slate-200 md:text-lg">{copy.intro}</p>
             </div>
 
             <section className="space-y-4">
-              <h2 className={`text-xl font-bold text-white ${rubik.className}`}>
-                Sådan fungerer det i praksis
-              </h2>
+              <h2 className={`text-xl font-bold text-white ${rubik.className}`}>{copy.rulesTitle}</h2>
 
-              <div className="rounded-[1.9rem] border border-purple-400/20 bg-purple-400/8 p-6 shadow-[0_20px_50px_rgba(147,51,234,0.08)]">
-                <p className="text-sm font-semibold uppercase tracking-[0.28em] text-purple-300">
-                  Regel 1
-                </p>
-                <h3 className={`mt-3 text-xl font-bold text-white ${rubik.className}`}>
-                  Ingen lagring af lyd
-                </h3>
-                <p className="mt-3 leading-relaxed text-slate-200 md:text-base">
-                  Vi downloader, kopierer eller gemmer aldrig selve lyd- eller videofilerne på vores
-                  servere. Din skole betaler ikke for noget, du ikke burde have.
-                </p>
-              </div>
-
-              <div className="rounded-[1.9rem] border border-sky-400/20 bg-sky-400/8 p-6 shadow-[0_20px_50px_rgba(56,189,248,0.08)]">
-                <p className="text-sm font-semibold uppercase tracking-[0.28em] text-sky-300">
-                  Regel 2
-                </p>
-                <h3 className={`mt-3 text-xl font-bold text-white ${rubik.className}`}>
-                  Støt skaberne – lyt via originalkilden
-                </h3>
-                <p className="mt-3 leading-relaxed text-slate-200 md:text-base">
-                  Når dine elever skal lytte til udsendelsen under løbet, bliver de dirigeret direkte
-                  til originalkilden (f.eks. DR Lyd, Apple Podcasts eller YouTube). Det betyder, at
-                  skaberne bag podcasten stadig får deres lyttertal og anerkendelse.
-                </p>
-              </div>
-
-              <div className="rounded-[1.9rem] border border-emerald-400/20 bg-emerald-400/8 p-6 shadow-[0_20px_50px_rgba(16,185,129,0.08)]">
-                <p className="text-sm font-semibold uppercase tracking-[0.28em] text-emerald-300">
-                  Regel 3
-                </p>
-                <h3 className={`mt-3 text-xl font-bold text-white ${rubik.className}`}>
-                  Læsning af offentlig data
-                </h3>
-                <p className="mt-3 leading-relaxed text-slate-200 md:text-base">
-                  For at bygge spørgsmålene læser vores system udelukkende de offentligt tilgængelige
-                  tekster (som &ldquo;show notes&rdquo;, resuméer og åbne undertekster), der allerede ligger
-                  frit fremme på nettet. Vi bygger blot et fagligt lag ovenpå.
-                </p>
-              </div>
+              {copy.rules.map((rule) => (
+                <div
+                  key={rule.title}
+                  className={`rounded-[1.9rem] border p-6 shadow-[0_20px_50px_rgba(147,51,234,0.08)] ${getToneClasses(rule.tone)}`}
+                >
+                  <p className="text-sm font-semibold uppercase tracking-[0.28em]">{rule.eyebrow}</p>
+                  <h3 className={`mt-3 text-xl font-bold text-white ${rubik.className}`}>{rule.title}</h3>
+                  {rule.paragraphs.map((paragraph) => (
+                    <p key={paragraph} className="mt-3 leading-relaxed text-slate-200 md:text-base">
+                      {paragraph}
+                    </p>
+                  ))}
+                </div>
+              ))}
             </section>
 
             <section className="rounded-[1.75rem] border border-white/10 bg-white/5 p-6">
-              <p className="leading-relaxed text-slate-100 md:text-lg">
-                Du kan derfor trygt bruge funktionen til at bringe fantastiske lydfortællinger ud på
-                stierne – uden at bekymre dig om{" "}
-                <span className="font-semibold text-white">Copydan</span> eller brud på{" "}
-                <span className="font-semibold text-white">åndsværksloven</span>.
-              </p>
+              <p className="leading-relaxed text-slate-100 md:text-lg">{copy.summary}</p>
             </section>
 
             <div className="flex justify-center pt-2">
@@ -120,7 +94,7 @@ export default function OphavsretPodcastPage() {
                 className="inline-flex items-center gap-2 rounded-full border border-purple-400/30 bg-purple-500/10 px-6 py-3 text-sm font-semibold text-purple-200 shadow-[0_0_20px_rgba(147,51,234,0.14)] transition hover:bg-purple-500/20"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Tilbage til Podcast-Detektiven
+                {copy.backToPodcastLabel}
               </Link>
             </div>
           </article>
@@ -128,4 +102,19 @@ export default function OphavsretPodcastPage() {
       </div>
     </main>
   );
+}
+
+function getToneClasses(tone: "emerald" | "sky" | "amber" | "violet" | "purple") {
+  switch (tone) {
+    case "sky":
+      return "border-sky-400/20 bg-sky-400/8 text-sky-300";
+    case "amber":
+      return "border-amber-400/20 bg-amber-400/8 text-amber-300";
+    case "emerald":
+      return "border-emerald-400/20 bg-emerald-400/8 text-emerald-300";
+    case "violet":
+      return "border-violet-400/20 bg-violet-400/8 text-violet-300";
+    default:
+      return "border-purple-400/20 bg-purple-400/8 text-purple-300";
+  }
 }

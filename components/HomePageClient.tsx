@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import AIChatButton from "@/components/AIChatButton";
 import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
 import QRScannerModal from "@/components/QRScannerModal";
+import { getLegalCopy } from "@/lib/legalCopy";
 import { getSiteCopy } from "@/lib/siteCopy";
 import type { SiteVariantKey } from "@/lib/siteVariant";
 import { changelogEntries } from "@/lib/changelog";
@@ -328,6 +329,7 @@ function NativeDebugPanel({ snapshot }: { snapshot: NativeDebugSnapshot }) {
 
 export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: HomePageClientProps) {
   const siteCopy = getSiteCopy(siteVariantKey);
+  const legalCopy = getLegalCopy(siteVariantKey);
   const homeCopy = siteCopy.home;
   const [isMuted, setIsMuted] = useState(true);
   const [isCapacitorApp, setIsCapacitorApp] = useState(isNativeGpslobApp);
@@ -603,15 +605,14 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
               {homeCopy.desktop.loginButton}
             </Link>
 
-            {homeCopy.showDanishOnlyExtras ? (
-              <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
               <Link
                 href="/gdpr"
                 className="rounded-full border border-white/10 bg-white/4 px-3 py-2 transition-all hover:border-white/20 hover:bg-white/5"
               >
                 <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
                   <ShieldCheck className="h-3.5 w-3.5 text-emerald-300/80" />
-                  <span>PRIVACY BY DESIGN</span>
+                  <span>{legalCopy.homeLinkLabels.gdpr}</span>
                 </span>
               </Link>
 
@@ -621,7 +622,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
               >
                 <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
                   <Lock className="h-3.5 w-3.5 text-emerald-300/80" />
-                  <span>SIKKER DATABEHANDLING</span>
+                  <span>{legalCopy.homeLinkLabels.privacy}</span>
                 </span>
               </Link>
 
@@ -631,10 +632,11 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
               >
                 <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
                   <FileCheck className="h-3.5 w-3.5 text-emerald-300/80" />
-                  <span>COPYDAN-PARAT</span>
+                  <span>{legalCopy.homeLinkLabels.ophavsret}</span>
                 </span>
               </Link>
 
+              {homeCopy.showDanishOnlyExtras ? (
               <Link
                 href="/opdateringer"
                 className="group relative block rounded-3xl border border-amber-400/20 bg-amber-400/6 px-4 py-3 transition-all hover:border-amber-400/30 hover:bg-amber-400/10"
@@ -659,8 +661,8 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
                   </span>
                 </div>
               </Link>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </div>
         </section>
       </main>
