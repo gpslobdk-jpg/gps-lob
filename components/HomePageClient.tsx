@@ -11,7 +11,6 @@ import { useEffect, useRef, useState } from "react";
 import AIChatButton from "@/components/AIChatButton";
 import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
 import QRScannerModal from "@/components/QRScannerModal";
-import { getLegalCopy } from "@/lib/legalCopy";
 import { getSiteCopy } from "@/lib/siteCopy";
 import type { SiteVariantKey } from "@/lib/siteVariant";
 import { changelogEntries } from "@/lib/changelog";
@@ -329,7 +328,6 @@ function NativeDebugPanel({ snapshot }: { snapshot: NativeDebugSnapshot }) {
 
 export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: HomePageClientProps) {
   const siteCopy = getSiteCopy(siteVariantKey);
-  const legalCopy = getLegalCopy(siteVariantKey);
   const homeCopy = siteCopy.home;
   const [isMuted, setIsMuted] = useState(true);
   const [isCapacitorApp, setIsCapacitorApp] = useState(isNativeGpslobApp);
@@ -612,7 +610,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
               >
                 <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
                   <ShieldCheck className="h-3.5 w-3.5 text-emerald-300/80" />
-                  <span>{legalCopy.homeLinkLabels.gdpr}</span>
+                  <span>{homeCopy.legalLinks.gdpr}</span>
                 </span>
               </Link>
 
@@ -622,7 +620,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
               >
                 <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
                   <Lock className="h-3.5 w-3.5 text-emerald-300/80" />
-                  <span>{legalCopy.homeLinkLabels.privacy}</span>
+                  <span>{homeCopy.legalLinks.privacy}</span>
                 </span>
               </Link>
 
@@ -632,7 +630,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
               >
                 <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
                   <FileCheck className="h-3.5 w-3.5 text-emerald-300/80" />
-                  <span>{legalCopy.homeLinkLabels.ophavsret}</span>
+                  <span>{homeCopy.legalLinks.ophavsret}</span>
                 </span>
               </Link>
 

@@ -83,11 +83,6 @@ type PodcastRightsPageCopy = {
 };
 
 type LegalCopy = {
-  homeLinkLabels: {
-    gdpr: string;
-    privacy: string;
-    ophavsret: string;
-  };
   gdpr: GdprPageCopy;
   privacy: PrivacyPageCopy;
   ophavsret: OphavsretPageCopy;
@@ -97,11 +92,6 @@ type LegalCopy = {
 
 const legalCopies: Record<SiteVariantKey, LegalCopy> = {
   gpslob: {
-    homeLinkLabels: {
-      gdpr: "Privacy by Design",
-      privacy: "Sikker databehandling",
-      ophavsret: "Copydan-parat",
-    },
     gdpr: {
       metadata: {
         title: "Privatlivspolitik & GDPR | GPSLØB",
@@ -401,11 +391,6 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
     },
   },
   postlob: {
-    homeLinkLabels: {
-      gdpr: "Personvern & databehandling",
-      privacy: "Personvernerklæring",
-      ophavsret: "Opphavsrett & KI",
-    },
     gdpr: {
       metadata: {
         title: "Personvern og databehandling | Postløp",

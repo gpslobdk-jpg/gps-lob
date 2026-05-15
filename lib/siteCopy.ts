@@ -34,6 +34,11 @@ type SiteCopy = {
     logoAlt: string;
     soundOn: string;
     soundOff: string;
+    legalLinks: {
+      gdpr: string;
+      privacy: string;
+      ophavsret: string;
+    };
     showTestimonials: boolean;
     showDanishOnlyExtras: boolean;
     mobile: {
@@ -152,6 +157,11 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       logoAlt: "GPSLØB.DK logo",
       soundOn: "Slå lyd til",
       soundOff: "Slå lyd fra",
+      legalLinks: {
+        gdpr: "Privacy by Design",
+        privacy: "Sikker databehandling",
+        ophavsret: "Copydan-parat",
+      },
       showTestimonials: true,
       showDanishOnlyExtras: true,
       mobile: {
@@ -308,6 +318,11 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       logoAlt: "Postløp logo",
       soundOn: "Slå på lyd",
       soundOff: "Slå av lyd",
+      legalLinks: {
+        gdpr: "Personvern & databehandling",
+        privacy: "Personvernerklæring",
+        ophavsret: "Opphavsrett & KI",
+      },
       showTestimonials: false,
       showDanishOnlyExtras: false,
       mobile: {
