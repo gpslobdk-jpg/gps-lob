@@ -24,9 +24,9 @@ Sentry.init({
   // Define how likely Replay events are sampled when an error occurs.
   replaysOnErrorSampleRate: 1.0,
 
-  // Enable sending user PII (Personally Identifiable Information)
+  // Avoid automatic request/IP/header enrichment in browser events.
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
-  sendDefaultPii: true,
+  sendDefaultPii: false,
   // Ignore noisy Leaflet runtime errors reported from some browsers/clients
   ignoreErrors: [
     "undefined is not an object (evaluating 't._leaflet_pos')",
@@ -34,6 +34,21 @@ Sentry.init({
   ],
   // Add a beforeSend filter to drop specific Facebook iOS WebView noise
   beforeSend(event) {
+    if (event.request?.url) {
+      try {
+        const url = new URL(event.request.url);
+        url.search = "";
+        event.request.url = url.toString();
+      } catch {
+        event.request.url = event.request.url.split("?")[0] ?? event.request.url;
+      }
+    }
+
+    const userAgentHeader =
+      event?.request?.headers?.["User-Agent"] ??
+      event?.request?.headers?.["user-agent"] ??
+      (typeof navigator !== "undefined" ? navigator.userAgent : undefined);
+
     // Check if the event contains the specific error message
     const isWebkitError =
       event?.exception?.values?.some((exception) =>
@@ -44,8 +59,8 @@ Sentry.init({
     // Check if the browser or user-agent indicates Facebook iOS WebView
     const isFacebookWebView =
       event?.contexts?.browser?.name === "Facebook" ||
-      event?.request?.headers?.['User-Agent']?.includes("FBAN/FBIOS") ||
-      event?.request?.headers?.['User-Agent']?.includes("FBAV");
+      userAgentHeader?.includes("FBAN/FBIOS") ||
+      userAgentHeader?.includes("FBAV");
 
     // Drop the event if both conditions are met
     if (isWebkitError && isFacebookWebView) {
