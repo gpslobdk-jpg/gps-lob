@@ -1,17 +1,13 @@
-import type { Instrumentation } from "next";
+import * as Sentry from "@sentry/nextjs";
 
-import { logInstrumentationException } from "@/utils/telemetry/serverLogs";
+export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    await import("./sentry.server.config");
+  }
 
-export const onRequestError: Instrumentation.onRequestError = async (error, request, context) => {
-  const errorWithDigest = error as { digest?: unknown };
+  if (process.env.NEXT_RUNTIME === "edge") {
+    await import("./sentry.edge.config");
+  }
+}
 
-  await logInstrumentationException({
-    route: context.routePath,
-    method: request.method,
-    status: 500,
-    error,
-    requestPath: request.path,
-    routeType: context.routeType,
-    digest: typeof errorWithDigest.digest === "string" ? errorWithDigest.digest : null,
-  });
-};
+export const onRequestError = Sentry.captureRequestError;
