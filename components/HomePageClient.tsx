@@ -437,10 +437,68 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
             className="fixed top-0 left-0 h-full w-full object-cover -z-20"
           />
         ) : (
-          <div
-            aria-hidden="true"
-            className="fixed top-0 left-0 h-full w-full -z-20 bg-cover bg-center bg-[url('/intro-poster.jpg')]"
-          />
+          <>
+            <div
+              aria-hidden="true"
+              className="fixed inset-0 -z-20 hidden lg:block pointer-events-none"
+            >
+              <div className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-sky-900/60 to-slate-950/90" />
+
+              <svg
+                viewBox="0 0 1200 600"
+                preserveAspectRatio="xMidYMid slice"
+                className="w-full h-full"
+                xmlns="http://www.w3.org/2000/svg"
+                role="img"
+                aria-hidden="true"
+              >
+                <path
+                  d="M100 480 C 300 380 500 300 700 260 C 880 230 1000 160 1100 120"
+                  fill="none"
+                  stroke="rgba(148,163,184,0.12)"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                />
+              </svg>
+
+              <div className="absolute left-[12%] top-[72%] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-300/90 shadow-[0_0_14px_rgba(45,212,191,0.4)] animate-pulse" />
+              <div className="absolute left-[40%] top-[60%] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-300/90 shadow-[0_0_14px_rgba(125,211,252,0.4)] animate-pulse" />
+              <div className="absolute left-[65%] top-[45%] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-300/90 shadow-[0_0_14px_rgba(253,224,71,0.4)] animate-pulse" />
+              <div className="absolute left-[82%] top-[30%] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-300/90 shadow-[0_0_14px_rgba(103,232,249,0.4)] animate-pulse" />
+
+              <div className="postlob-moving-dot" />
+
+              <style>{`
+                .postlob-moving-dot{
+                  position:absolute;
+                  left:12%;
+                  top:72%;
+                  width:10px;
+                  height:10px;
+                  border-radius:9999px;
+                  transform:translate(-50%,-50%);
+                  background:linear-gradient(90deg,#7ee3d3,#60a5fa);
+                  box-shadow:0 0 18px rgba(96,165,250,0.35);
+                  animation:postlob-move 5s linear infinite;
+                }
+                @keyframes postlob-move {
+                  0% { left:12%; top:72% }
+                  25% { left:40%; top:60% }
+                  50% { left:65%; top:45% }
+                  75% { left:82%; top:30% }
+                  100% { left:12%; top:72% }
+                }
+                @media (prefers-reduced-motion: reduce) {
+                  .postlob-moving-dot, .animate-pulse { animation: none !important; }
+                }
+              `}</style>
+            </div>
+
+            <div
+              aria-hidden="true"
+              className="fixed top-0 left-0 h-full w-full -z-20 bg-cover bg-center bg-[url('/intro-poster.jpg')] lg:hidden"
+            />
+          </>
         )}
       <div className="fixed inset-0 -z-10 bg-slate-950/70 backdrop-blur-[2px]" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(16,185,129,0.16),transparent_35%),radial-gradient(circle_at_85%_95%,rgba(14,165,233,0.1),transparent_40%),radial-gradient(rgba(148,163,184,0.08)_1px,transparent_1px)] bg-size-[100%_100%,100%_100%,20px_20px] lg:hidden" />
