@@ -52,7 +52,11 @@ export default function ServiceWorkerRegister(): null {
       }
     };
 
-    void tryRegister();
+    tryRegister().catch((error: unknown) => {
+      // Swallow to avoid unhandled promise rejection noise.
+      // eslint-disable-next-line no-console
+      console.warn("Service worker registration failed (handled):", error);
+    });
   }, []);
 
   return null;
