@@ -584,20 +584,40 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
 
       if (response.status === 404 || ("kind" in joinData && joinData.kind === "invalid")) {
         try {
-          Sentry.withScope((scope) => {
-            scope.setExtras({
+          // Do not create a Sentry issue for expected/normal join failures.
+          // Replace captureMessage with a breadcrumb and telemetry so we keep
+          // observability without generating Sentry issues.
+          Sentry.addBreadcrumb({
+            category: "join",
+            message: "join_lookup_invalid_or_404",
+            data: {
               has_pin: trimmedPin.length > 0,
               pin_length: trimmedPin.length,
               has_name: trimmedName.length > 0,
               name_length: trimmedName.length,
               platform: browserPlatform,
               online: typeof navigator !== "undefined" ? navigator.onLine : null,
-            });
-            Sentry.captureMessage("Join lookup invalid or 404", "info");
+              status_code: response.status,
+            },
           });
         } catch (err) {
           // best-effort
         }
+
+        try {
+          trackJoinTelemetry("join_lookup_invalid_or_404", null, {
+            has_pin: trimmedPin.length > 0,
+            pin_length: trimmedPin.length,
+            has_name: trimmedName.length > 0,
+            name_length: trimmedName.length,
+            platform: browserPlatform,
+            online: typeof navigator !== "undefined" ? navigator.onLine : null,
+            status_code: response.status,
+          });
+        } catch (_) {
+          // best-effort
+        }
+
         setError(joinCopy.invalidPin);
         return;
       }
