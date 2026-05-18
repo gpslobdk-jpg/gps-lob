@@ -1200,10 +1200,26 @@ export function usePlayGameState({
         try {
           if (!expiredLoggedRef.current) {
             expiredLoggedRef.current = true;
-            Sentry.withScope((scope) => {
-              scope.setExtra("sessionId", sessionId);
-              Sentry.captureMessage("play_expired_screen_shown", "info");
-            });
+            try {
+              Sentry.addBreadcrumb({
+                category: "play",
+                message: "play_expired_screen_shown",
+                data: { sessionId, participantId, variant, message },
+                level: "info",
+              });
+            } catch (_err) {
+              // best-effort
+            }
+
+            try {
+              sendTelemetry("play_expired_screen_shown", {
+                participant_id: participantId ?? null,
+                session_id: sessionId ?? null,
+                message: createClientTelemetryMessage({ reason: variant, msg: message }),
+              });
+            } catch (_err) {
+              // best-effort
+            }
           }
         } catch (_err) {
           // best-effort
