@@ -689,16 +689,25 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
       // If joining a different session/participant, clear any stale stored state
       if (existingParticipant && !shouldPreserveExistingParticipant) {
         try {
-          Sentry.withScope((scope) => {
-            scope.setExtras({
-              has_pin: trimmedPin.length > 0,
-              pin_length: trimmedPin.length,
-              existingSessionId: existingParticipant.sessionId,
-              existingParticipantId: existingParticipant.participantId,
-              newSessionId: registerData.sessionId,
-            });
-            Sentry.captureMessage("Clearing stored participant state due to different session/participant", "info");
-          });
+          const _telemetryPayload = {
+            has_pin: trimmedPin.length > 0,
+            pin_length: trimmedPin.length,
+            existingSessionId: existingParticipant.sessionId,
+            existingParticipantId: existingParticipant.participantId,
+            newSessionId: registerData.sessionId,
+          };
+
+          try {
+            trackJoinTelemetry(
+              "clearing_stored_participant_due_to_session_mismatch",
+              registerData.sessionId ?? null,
+              _telemetryPayload
+            );
+          } catch (_) {}
+
+          try {
+            leaveAppBreadcrumb("clearing_stored_participant_due_to_session_mismatch", _telemetryPayload);
+          } catch (_) {}
         } catch (err) {
           // best-effort
         }
