@@ -132,7 +132,7 @@ function MapViewportSync({
 
       withProgrammaticMapMotion(programmaticMapMotionRef, () => {
         map.panTo(nextCenter, {
-          animate: true,
+          animate: false,
           duration: 0.55,
         });
       });
