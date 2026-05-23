@@ -30,6 +30,8 @@ export const PUBLIC_TELEMETRY_EVENTS = [
   // Play-flow observability events
   "play_participant_unauthorized_rejoin_shown",
   "play_progress_inconsistent_state",
+  "play_emergency_skip_succeeded",
+  "play_emergency_skip_failed",
 ] as const;
 
 export const PUBLIC_TELEMETRY_EVENT_SET = new Set<string>(PUBLIC_TELEMETRY_EVENTS);

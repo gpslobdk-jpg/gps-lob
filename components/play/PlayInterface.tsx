@@ -306,6 +306,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const retryTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [showLoadingStuckHelp, setShowLoadingStuckHelp] = useState(false);
   const loadingStuckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [skipConfirm, setSkipConfirm] = useState<{ key: string } | null>(null);
 
   const params = useParams<{ sessionId: string }>();
   const sessionId = params?.sessionId ?? "";
@@ -338,6 +339,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     escape,
     feedback,
     screen,
+    raceMode,
   } = progress;
   const {
     activeQuestion,
@@ -2413,6 +2415,54 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                     <p className={`text-sm leading-relaxed text-white/90 ${wrapTextClass}`}>
                       Vent et øjeblik og prøv igen. Hvis den ikke åbner, så kig op på arrangørens skærm.
                     </p>
+                  </div>
+                ) : null}
+
+                {/* Emergency skip — kun quiz/photo, kun efter post-action-fejl, ikke selfie, ikke allerede besvaret */}
+                {activePostActionError &&
+                  (activePostVariant === "quiz" || activePostVariant === "photo") &&
+                  raceMode !== "zone_krig" &&
+                  !isSelfiePhotoTask &&
+                  !isCurrentPostAnswered &&
+                  !hasActivePhotoSuccess &&
+                  !hasActiveQuizSuccess ? (
+                  <div className="mt-6 text-center">
+                    {skipConfirm?.key !== activeTypedAnswerKey ? (
+                      <button
+                        type="button"
+                        onClick={() => setSkipConfirm({ key: activeTypedAnswerKey })}
+                        className="text-xs text-white/40 underline underline-offset-2 transition-colors hover:text-white/65"
+                      >
+                        Stadig låst?
+                      </button>
+                    ) : (
+                      <div className="overflow-hidden rounded-[1.6rem] border border-amber-400/20 bg-amber-500/10 p-5 text-left">
+                        <p className={`mb-4 text-sm leading-relaxed text-amber-50/85 ${wrapTextClass}`}>
+                          Som nødvej kan I springe posten over. I får 0 point for posten.
+                        </p>
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setSkipConfirm(null)}
+                            disabled={isAnswerSubmissionPending || isAnalyzingPhoto}
+                            className={tacticalSecondaryButtonClass}
+                          >
+                            Bliv på posten
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isAnswerSubmissionPending || isAnalyzingPhoto}
+                            onClick={() => {
+                              setSkipConfirm(null);
+                              void actions.skipCurrentPostAsEmergency();
+                            }}
+                            className={`inline-flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[1.35rem] border border-amber-400/40 bg-amber-600 px-5 py-4 text-sm font-black uppercase tracking-[0.2em] text-white shadow-md transition-all hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60 ${rubik.className}`}
+                          >
+                            Ja, spring posten over
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : null}
               </div>

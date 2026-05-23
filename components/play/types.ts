@@ -461,6 +461,7 @@ export interface PlayActions {
   retrySessionStatus: () => Promise<void>;
   startOver: () => void;
   continueFromSolvedPost: () => Promise<boolean>;
+  skipCurrentPostAsEmergency: () => Promise<void>;
   submitQuizAnswer: (selectedIndex: number) => Promise<void>;
   submitTypedAnswer: (answer: string) => Promise<void>;
   submitPhoto: (file: File) => Promise<void>;

@@ -116,6 +116,14 @@ type SubmitPhotoResponsePayload = {
   questionCount?: number;
 };
 
+type SkipPostResponsePayload = {
+  skipped?: boolean;
+  postIndex?: number;
+  awardedPoints?: number;
+  expectedPostIndex?: number | null;
+  error?: string;
+};
+
 type SubmitPhotoRequestError = Error & {
   status?: number;
   isParticipantAuthError?: boolean;
@@ -4877,6 +4885,112 @@ export function usePlayGameState({
     }
   }, [fetchSessionStatusSnapshot, markPlayAsFinished]);
 
+  const skipCurrentPostAsEmergency = async () => {
+    if (
+      screenMode !== "active" ||
+      !sessionId ||
+      !participantId ||
+      !activeQuestion ||
+      !Number.isInteger(currentPostIndex) ||
+      answeredPostIndexesRef.current.includes(currentPostIndex) ||
+      burnedPostsRef.current.has(currentPostIndex) ||
+      isSelfiePhotoTask ||
+      isStrategoRace ||
+      raceMode === "zone_krig" ||
+      isEscapeRace ||
+      (activePostVariant !== "quiz" && activePostVariant !== "photo") ||
+      isSubmitting ||
+      submissionLockRef.current ||
+      isSubmittingAnswer ||
+      isAnalyzingPhoto ||
+      isRestoringParticipant ||
+      restoreInFlightRef.current
+    ) {
+      return;
+    }
+
+    if (!beginSubmission()) return;
+
+    setPostActionError(null);
+
+    try {
+      const response = await fetch("/api/play/skip-post", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify({
+          sessionId,
+          participantId,
+          postIndex: currentPostIndex,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as SkipPostResponsePayload | null;
+      const errorMessage = payload?.error || "Vi kunne ikke springe posten over endnu. Prøv igen om et øjeblik.";
+
+      if (!response.ok) {
+        if (response.status === 409) {
+          setPostActionError({
+            key: activeTypedAnswerKey,
+            message: "Ruten blev opdateret. Prøv at hente posten igen.",
+          });
+          return;
+        }
+
+        if (response.status === 401 || response.status === 403) {
+          if (isParticipantAuthResponseError(response.status, errorMessage)) {
+            tripPlayCircuitBreaker(
+              PLAY_PARTICIPANT_AUTH_EXPIRED_MESSAGE,
+              "participant_auth_expired"
+            );
+          } else {
+            setPlayLoadError(
+              PLAY_PARTICIPANT_UNAUTHORIZED_REJOIN_MESSAGE,
+              "participant_unauthorized_rejoin"
+            );
+          }
+          return;
+        }
+
+        if (response.status === 404 || response.status === 410) {
+          tripPlayCircuitBreaker(PLAY_JOIN_SESSION_MISSING_MESSAGE, "join_session_missing");
+          return;
+        }
+
+        setPostActionError({
+          key: activeTypedAnswerKey,
+          message: errorMessage,
+        });
+        return;
+      }
+
+      if (payload?.skipped !== true) {
+        setPostActionError({
+          key: activeTypedAnswerKey,
+          message: "Vi kunne ikke springe posten over endnu. Prøv igen om et øjeblik.",
+        });
+        return;
+      }
+
+      markAnsweredPostIndex(currentPostIndex);
+      markBurnedPostIndex(currentPostIndex);
+      await continueFromSolvedPost();
+    } catch (error) {
+      if (!isMountedRef.current) return;
+
+      setPostActionError({
+        key: activeTypedAnswerKey,
+        message: isTransientNetworkError(error)
+          ? "Netværksfejl: Prøv igen senere."
+          : "Vi kunne ikke springe posten over endnu. Prøv igen om et øjeblik.",
+      });
+    } finally {
+      endSubmission();
+    }
+  };
+
   const startOver = useCallback(() => {
     clearStoredPlayRecoveryState();
     if (typeof window !== "undefined") {
@@ -4917,6 +5031,7 @@ export function usePlayGameState({
       retrySessionStatus,
       startOver,
       continueFromSolvedPost,
+      skipCurrentPostAsEmergency,
       submitQuizAnswer,
       submitTypedAnswer,
       submitPhoto,
