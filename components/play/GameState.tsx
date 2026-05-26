@@ -3867,8 +3867,26 @@ export function usePlayGameState({
       return true;
     }
 
-    const nextRoutePostIndex =
+    const nextByLinearStep =
       currentRouteStepIndex + 1 < routeOrder.length ? routeOrder[currentRouteStepIndex + 1] : null;
+
+    const nextRoutePostIndex = (() => {
+      if (nextByLinearStep !== null) return nextByLinearStep;
+
+      const answeredSet = new Set(answeredPostIndexesRef.current);
+
+      // Posten er ikke besvaret (fx forkert svar på escape/typed der bare rykker videre).
+      // Lineær "færdig" er korrekt her – returnér null.
+      if (!answeredSet.has(currentPostIndex)) return null;
+
+      // Posten ER besvaret. Tjek om alle poster i ruten faktisk er besvaret.
+      // Hvis ja → ægte færdig. Hvis nej → routeOrder var formentlig forkert (start_offset-bug).
+      if (routeOrder.every((idx) => answeredSet.has(idx))) return null;
+
+      // Safety net: lineær step sagde færdig, men ikke alle poster er besvaret.
+      // Find næste ubesvarede post i ruten.
+      return getNextRoutePostIndex(routeOrder, answeredSet);
+    })();
 
     if (nextRoutePostIndex !== null) {
       setDismissedPostIndex(null);
