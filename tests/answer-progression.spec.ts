@@ -574,3 +574,138 @@ test.describe("auth-rebind resetter ikke currentPostIndex under aktiv session", 
     }
   );
 });
+
+// ---------------------------------------------------------------------------
+// Regression guard: start_offset = sidst mulige postindex må IKKE give
+// for-tidlig færdigskærm (continueFromSolvedPost-bug)
+// ---------------------------------------------------------------------------
+//
+// Bug: Med start_offset=3 og 4 poster er routeOrder=[3,0,1,2].
+//      Eleven starter på post index 3. I den buggede version markerede
+//      continueFromSolvedPost eleven færdig straks efter besvarelse af post 3,
+//      fordi routeOrder (eller currentRouteStepIndex) ikke korrekt
+//      afspejlede startOffset, og nextByLinearStep blev null.
+//
+// Fix: Safety net i continueFromSolvedPost tjekker nu, om alle poster i
+//      routeOrder faktisk er besvaret, inden isFinished sættes til true.
+//      Er de ikke alle besvaret, finder den næste ubesvarede post.
+//
+// Test-flow:
+//   4 quiz-spørgsmål, start_offset=3 → routeOrder=[3,0,1,2]
+//   1. Løs post 3 → IKKE færdig, næste = post 0
+//   2. Løs post 0 → IKKE færdig, næste = post 1
+//   3. Løs post 1 → IKKE færdig, næste = post 2
+//   4. Løs post 2 → alle 4 besvaret → "Løbet er slut." vises
+test.describe("start_offset=3 – sidst mulige startpost må ikke give for-tidlig færdigskærm", () => {
+  test.describe.configure({ retries: 0 });
+
+  test(
+    "4 poster, start_offset=3: rute 3→0→1→2→færdig (regression: continueFromSolvedPost)",
+    async ({ page }) => {
+      test.setTimeout(90_000);
+
+      const state: MockState = { submitPayloads: [], validatePayloads: [] };
+
+      const questions: MockQuestion[] = [
+        {
+          type: "multiple_choice",
+          text: "S3-Post0 er aktiv",
+          answers: ["S3P0-Korrekt", "S3P0-F", "S3P0-G", "S3P0-H"],
+          correctIndex: 0,
+          points: 10,
+          lat: POST_LAT,
+          lng: POST_LNG,
+        },
+        {
+          type: "multiple_choice",
+          text: "S3-Post1 er aktiv",
+          answers: ["S3P1-Korrekt", "S3P1-F", "S3P1-G", "S3P1-H"],
+          correctIndex: 0,
+          points: 10,
+          lat: POST_LAT,
+          lng: POST_LNG,
+        },
+        {
+          type: "multiple_choice",
+          text: "S3-Post2 er aktiv",
+          answers: ["S3P2-Korrekt", "S3P2-F", "S3P2-G", "S3P2-H"],
+          correctIndex: 0,
+          points: 10,
+          lat: POST_LAT,
+          lng: POST_LNG,
+        },
+        {
+          type: "multiple_choice",
+          text: "S3-Post3 starter her",
+          answers: ["S3P3-Korrekt", "S3P3-F", "S3P3-G", "S3P3-H"],
+          correctIndex: 0,
+          points: 10,
+          lat: POST_LAT,
+          lng: POST_LNG,
+        },
+      ];
+
+      await mountPlayMocks(page.context(), { raceType: "quiz", questions }, state);
+
+      // Override join-svar til start_offset=3.
+      // Registreret EFTER mountPlayMocks → har forrang (Playwright LIFO-rækkefølge).
+      await page.context().route(/\/api\/join/, async (route) => {
+        if (route.request().method() !== "POST") {
+          await route.continue();
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            participantId: PARTICIPANT_ID,
+            studentName: TEAM_NAME,
+            startOffset: 3,
+            sessionStatus: "running",
+            teamId: null,
+            teamColor: null,
+          }),
+        });
+      });
+
+      // routeOrder=[3,0,1,2] → startes på post index 3
+      await openPlayPage(page, page.getByRole("button", { name: /^S3P3-Korrekt$/i }));
+
+      await test.step("1: Løs post 3 → næste er post 0, IKKE færdigskærm", async () => {
+        await page.getByRole("button", { name: /^S3P3-Korrekt$/i }).click();
+        await expect(page.getByText(/Korrekt! Du får point\./i)).toBeVisible({ timeout: 5_000 });
+        await page.getByRole("button", { name: /gå til næste post/i }).click();
+        // Kritisk assertion: post 0 vises – IKKE "Løbet er slut."
+        await expect(page.getByText("S3-Post0 er aktiv")).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByText(/Løbet er slut\./i)).not.toBeVisible();
+      });
+
+      await test.step("2: Løs post 0 → næste er post 1, stadig ikke færdig", async () => {
+        await page.getByRole("button", { name: /^S3P0-Korrekt$/i }).click();
+        await expect(page.getByText(/Korrekt! Du får point\./i)).toBeVisible({ timeout: 5_000 });
+        await page.getByRole("button", { name: /gå til næste post/i }).click();
+        await expect(page.getByText("S3-Post1 er aktiv")).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByText(/Løbet er slut\./i)).not.toBeVisible();
+      });
+
+      await test.step("3: Løs post 1 → næste er post 2, stadig ikke færdig", async () => {
+        await page.getByRole("button", { name: /^S3P1-Korrekt$/i }).click();
+        await expect(page.getByText(/Korrekt! Du får point\./i)).toBeVisible({ timeout: 5_000 });
+        await page.getByRole("button", { name: /gå til næste post/i }).click();
+        await expect(page.getByText("S3-Post2 er aktiv")).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByText(/Løbet er slut\./i)).not.toBeVisible();
+      });
+
+      await test.step("4: Løs post 2 → alle 4 besvaret → færdigskærm vises", async () => {
+        await page.getByRole("button", { name: /^S3P2-Korrekt$/i }).click();
+        await expect(page.getByText(/Korrekt! Du får point\./i)).toBeVisible({ timeout: 5_000 });
+        const resultButton = page.getByRole("button", { name: /gå til næste post|se resultat/i });
+        await expect(resultButton).toBeVisible({ timeout: 5_000 });
+        await resultButton.evaluate((button) => {
+          (button as HTMLButtonElement).click();
+        });
+        await expect(page.getByText(/Løbet er slut\./i)).toBeVisible({ timeout: 10_000 });
+      });
+    }
+  );
+});
