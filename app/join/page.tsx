@@ -69,6 +69,7 @@ type JoinParticipantResponse = {
   teamId?: string | null;
   teamName?: string | null;
   teamColor?: string | null;
+  startOffset?: number | null;
 };
 
 type JoinBrowserPlatform = "ios" | "android" | "other";
@@ -222,6 +223,7 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
   const [expiredMessage, setExpiredMessage] = useState(joinCopy.defaultExpiredMessage);
   const [assignedTeamName, setAssignedTeamName] = useState<string | null>(null);
   const [assignedTeamColor, setAssignedTeamColor] = useState<string | null>(null);
+  const [assignedStartOffset, setAssignedStartOffset] = useState<number | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
   const [connectionCheckResult, setConnectionCheckResult] = useState<ConnectionCheckResult | null>(null);
@@ -231,6 +233,7 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
   const joinLockRef = useRef(false);
   const isMissingSessionNotice = searchParams.get("missingSession") === "1";
   const isZoneKrig = raceType === "zone_krig";
+  const isStaggeredRace = raceType === "quiz" || raceType === "photo";
   const trimmedName = name.trim();
   const trimmedPin = pin.trim();
   const canSubmit = trimmedPin.length === JOIN_PIN_LENGTH && trimmedName.length > 0;
@@ -498,6 +501,7 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
     setExpiredMessage(joinCopy.defaultExpiredMessage);
     setAssignedTeamName(null);
     setAssignedTeamColor(null);
+    setAssignedStartOffset(null);
   };
 
   const handleJoin = async (event: FormEvent) => {
@@ -763,6 +767,7 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
       setSessionId(joinData.sessionId);
       setAssignedTeamName(registerData.teamName ?? null);
       setAssignedTeamColor(registerData.teamColor ?? null);
+      setAssignedStartOffset(typeof registerData.startOffset === "number" ? registerData.startOffset : null);
       shouldReleaseLock = false;
       router.push(`/play/${joinData.sessionId}?name=${encodeURIComponent(registerData.studentName)}`);
       return;
@@ -868,6 +873,12 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
                 </div>
               ) : null}
 
+              {isStaggeredRace && typeof assignedStartOffset === "number" ? (
+                <p className="mx-auto mt-4 max-w-xs text-sm font-semibold text-emerald-200">
+                  Jeres første post er post {assignedStartOffset + 1}.
+                </p>
+              ) : null}
+
               {runTitle ? (
                 <div className="mt-6 inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-emerald-50/90 backdrop-blur-md">
                   {runTitle}
@@ -952,6 +963,12 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
                   />
                   {joinCopy.teamBadge(assignedTeamName)}
                 </div>
+              ) : null}
+
+              {isStaggeredRace && typeof assignedStartOffset === "number" ? (
+                <p className="mx-auto mt-4 max-w-xs text-sm font-semibold text-emerald-200">
+                  Jeres første post er post {assignedStartOffset + 1}.
+                </p>
               ) : null}
             </div>
 
