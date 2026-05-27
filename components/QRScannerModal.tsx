@@ -151,6 +151,27 @@ export default function QRScannerModal({ buttonClassName = "", copy = defaultQrS
       await disposeScanner(scanner);
     };
 
+    // Narrow guard: html5-qrcode may call video.play() in a separate async
+    // context after scanner.start() resolves, so NotAllowedError can escape
+    // our try/catch as an unhandled rejection on iOS/WKWebView.
+    // Only active while this modal instance is mounted (isActive flag).
+    const handlePlayRejection = (event: PromiseRejectionEvent) => {
+      if (!isActive) return;
+      const reason = event.reason;
+      const isMediaNotAllowed =
+        (reason instanceof DOMException &&
+          (reason.name === "NotAllowedError" || reason.name === "SecurityError")) ||
+        (typeof (reason as { message?: unknown })?.message === "string" &&
+          /not allowed|permission/i.test((reason as { message: string }).message));
+      if (!isMediaNotAllowed) return;
+      event.preventDefault();
+      setCameraError(copy.errors.permissionDenied);
+      setIsStarting(false);
+      void stopScanner();
+    };
+
+    window.addEventListener("unhandledrejection", handlePlayRejection);
+
     const startScanner = async () => {
       if (
         typeof navigator === "undefined" ||
@@ -252,6 +273,7 @@ export default function QRScannerModal({ buttonClassName = "", copy = defaultQrS
 
     return () => {
       isActive = false;
+      window.removeEventListener("unhandledrejection", handlePlayRejection);
       void stopScanner();
     };
   }, [copy, isOpen, router, scannerRegionId]);
