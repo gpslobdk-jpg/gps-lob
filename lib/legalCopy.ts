@@ -186,6 +186,14 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
             "GPSLØB er designet til undervisningsbrug i folkeskolen og lignende institutioner. Systemet indsamler ikke unødige personoplysninger om elever.",
           ],
         },
+        {
+          title: "12. Nyheder og opdateringer",
+          paragraphs: [
+            "Du modtager kun nyheder og opdateringer om GPS Løb på e-mail, hvis du aktivt har givet samtykke. Du kan til enhver tid trække samtykket tilbage under dine indstillinger eller ved at kontakte os.",
+          ],
+          email: "gpslobdk@gmail.com",
+          emailLabel: "Kontakt",
+        },
       ],
       schoolCallout: {
         title: "For skoler og kommuner",
@@ -195,7 +203,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         email: "gpslobdk@gmail.com",
         emailLabel: "Kontakt",
       },
-      updatedAt: "Senest opdateret: 29. april 2026.",
+      updatedAt: "Senest opdateret: 27. maj 2026.",
     },
     privacy: {
       metadata: {

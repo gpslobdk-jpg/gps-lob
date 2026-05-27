@@ -16,6 +16,7 @@ type ProfileBillingRow = {
   plan_type?: string | null;
   cancel_at_period_end?: boolean | null;
   stripe_current_period_end?: string | null;
+  marketing_consent?: boolean | null;
 };
 
 function getSchoolFromMetadata(metadata: UserMetadata) {
@@ -75,6 +76,10 @@ export default function IndstillingerPage() {
   const [adgangskodeBesked, setAdgangskodeBesked] = useState("");
   const [adgangskodeFejl, setAdgangskodeFejl] = useState("");
   const [billingError, setBillingError] = useState("");
+  const [marketingConsent, setMarketingConsent] = useState(false);
+  const [isSavingConsent, setIsSavingConsent] = useState(false);
+  const [consentBesked, setConsentBesked] = useState("");
+  const [consentFejl, setConsentFejl] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -100,7 +105,7 @@ export default function IndstillingerPage() {
 
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
-          .select("stripe_customer_id, plan_type, cancel_at_period_end, stripe_current_period_end")
+          .select("stripe_customer_id, plan_type, cancel_at_period_end, stripe_current_period_end, marketing_consent")
           .eq("id", user.id)
           .maybeSingle<ProfileBillingRow>();
 
@@ -115,6 +120,7 @@ export default function IndstillingerPage() {
           setNavn(metadata.full_name ?? metadata.name ?? "");
           setSkoleOrganisation(getSchoolFromMetadata(metadata));
           setBillingProfile(profile ?? null);
+          setMarketingConsent(profile?.marketing_consent === true);
         }
       } finally {
         if (isMounted) {
@@ -191,6 +197,46 @@ export default function IndstillingerPage() {
       setAdgangskodeBesked("Adgangskode opdateret.");
     } finally {
       setIsUpdatingPassword(false);
+    }
+  };
+
+  const handleGemKommunikation = async (nyVaerdi: boolean) => {
+    setConsentBesked("");
+    setConsentFejl("");
+    setIsSavingConsent(true);
+
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setConsentFejl("Kunne ikke gemme indstillingen. Prøv at opdatere siden.");
+        return;
+      }
+
+      const consentUpdate: Record<string, unknown> = {
+        id: user.id,
+        marketing_consent: nyVaerdi,
+        marketing_consent_at: nyVaerdi ? new Date().toISOString() : null,
+        marketing_consent_source: "settings",
+      };
+      if (nyVaerdi) {
+        consentUpdate.marketing_consent_text =
+          "v1: Ja tak, jeg vil gerne modtage nyheder og opdateringer om GPS Løb på mail. Jeg kan altid afmelde mig igen.";
+      }
+      const { error } = await supabase.from("profiles").upsert(consentUpdate);
+
+      if (error) {
+        setConsentFejl("Kunne ikke gemme indstillingen. Prøv igen.");
+        return;
+      }
+
+      setMarketingConsent(nyVaerdi);
+      setConsentBesked(nyVaerdi ? "Du er tilmeldt nyheder." : "Du er frammeldt nyheder.");
+    } finally {
+      setIsSavingConsent(false);
     }
   };
 
@@ -388,6 +434,39 @@ export default function IndstillingerPage() {
             </button>
           </section>
         ) : null}
+
+        <section className="rounded-3xl border border-white/60 bg-white/80 p-8 shadow-xl backdrop-blur-md">
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-emerald-950">Nyheder og opdateringer</h2>
+            <p className="mt-2 text-sm text-emerald-800">
+              Du kan altid ændre dette igen. Vi sender kun få relevante opdateringer.
+            </p>
+          </div>
+
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={marketingConsent}
+              disabled={isSavingConsent || isLoading}
+              onChange={(event) => void handleGemKommunikation(event.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-emerald-600 disabled:cursor-not-allowed"
+            />
+            <span className="text-sm leading-relaxed text-emerald-900">
+              Jeg vil gerne modtage nyheder og opdateringer om GPS Løb på mail.
+            </span>
+          </label>
+
+          {consentFejl ? (
+            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {consentFejl}
+            </div>
+          ) : null}
+          {consentBesked ? (
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              {consentBesked}
+            </div>
+          ) : null}
+        </section>
       </div>
     </main>
   );

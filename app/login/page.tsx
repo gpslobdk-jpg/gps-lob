@@ -36,6 +36,7 @@ function LoginPageContent() {
   const [password, setPassword] = useState("");
   const [isEmailLoading, setIsEmailLoading] = useState(false);
   const [emailError, setEmailError] = useState("");
+  const [marketingConsent, setMarketingConsent] = useState(false);
 
   const searchParamsString = searchParams.toString();
   const hasCodeParam = searchParams.has("code");
@@ -169,6 +170,21 @@ function LoginPageContent() {
       }
 
       if (signUpData.session) {
+        if (marketingConsent && signUpData.user) {
+          const { error: consentError } = await supabase
+            .from("profiles")
+            .upsert({
+              id: signUpData.user.id,
+              marketing_consent: true,
+              marketing_consent_at: new Date().toISOString(),
+              marketing_consent_text:
+                "v1: Ja tak, jeg vil gerne modtage nyheder og opdateringer om GPS Løb på mail. Jeg kan altid afmelde mig igen.",
+              marketing_consent_source: "signup",
+            });
+          if (consentError) {
+            console.warn("Kunne ikke gemme marketing-samtykke:", consentError);
+          }
+        }
         shouldKeepLoading = false;
         setIsRedirecting(true);
         router.replace(safeNextPath);
@@ -322,6 +338,24 @@ function LoginPageContent() {
                 autoComplete="current-password"
               />
               <p className="mt-2 text-xs text-stone-400/70">Mindst 6 tegn.</p>
+            </div>
+
+            <div className="rounded-xl border border-emerald-500/15 bg-slate-900/60 px-4 py-3 text-left">
+              <p className="mb-2 text-xs font-bold uppercase tracking-[0.15em] text-emerald-400/70">
+                Kun ved oprettelse af ny konto
+              </p>
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={marketingConsent}
+                  onChange={(event) => setMarketingConsent(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-emerald-500"
+                />
+                <span className="text-sm leading-relaxed text-slate-300">
+                  Ja tak, jeg vil gerne modtage nyheder og opdateringer om GPS Løb på mail. Jeg kan
+                  altid afmelde mig igen.
+                </span>
+              </label>
             </div>
 
             <motion.button
