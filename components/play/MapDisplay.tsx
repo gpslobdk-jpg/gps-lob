@@ -241,8 +241,10 @@ function FitBoundsSync({
 
       try {
         if (!map || !map.getContainer()) return;
+        // Keep animate:false to avoid Leaflet transition callbacks firing after
+        // React unmounts the map on network/status changes (Sentry JAVASCRIPT-NEXTJS-2G).
         withProgrammaticMapMotion(programmaticMapMotionRef, () => {
-          map.fitBounds(bounds as LatLngBoundsExpression, { padding: [80, 80], maxZoom: 17, animate: true });
+          map.fitBounds(bounds as LatLngBoundsExpression, { padding: [80, 80], maxZoom: 17, animate: false });
         });
         prevTargetKeyRef.current = targetKey;
         try {
