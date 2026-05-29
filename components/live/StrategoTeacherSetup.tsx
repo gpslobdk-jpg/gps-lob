@@ -417,7 +417,11 @@ export default function StrategoTeacherSetup({
       await onStartSession();
     } catch (error) {
       console.error("Kunne ikke gemme Stratego-baser:", error);
-      setSaveError("Kunne ikke gemme baserne endnu. Prøv igen.");
+      const userMessage =
+        error instanceof Error && error.message
+          ? error.message
+          : "Stratego kunne ikke starte. Tjek at mindst to elever er med, og prøv igen.";
+      setSaveError(userMessage);
       setIsSaving(false);
       return;
     }
