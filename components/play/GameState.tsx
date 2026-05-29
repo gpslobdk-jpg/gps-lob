@@ -4879,17 +4879,28 @@ export function usePlayGameState({
   const resetFromExpired = useCallback(() => {
     clearStoredPlayRecoveryState();
     try {
-      Sentry.withScope((scope) => {
-        scope.setExtra("sessionId", sessionId);
-        Sentry.captureMessage("play_reset_from_expired", "info");
+      Sentry.addBreadcrumb({
+        category: "play",
+        message: "play_reset_from_expired",
+        level: "info",
+        data: { sessionId },
       });
-    } catch (_err) {
+    } catch {
+      // best-effort
+    }
+    try {
+      sendTelemetry("play_reset_from_expired", {
+        participant_id: participantId ?? null,
+        session_id: sessionId ?? null,
+        message: createClientTelemetryMessage({ reason: "participant_auth_expired" }),
+      });
+    } catch {
       // best-effort
     }
     if (typeof window !== "undefined") {
       window.location.assign("/join?expired=1");
     }
-  }, [clearStoredPlayRecoveryState, sessionId]);
+  }, [clearStoredPlayRecoveryState, participantId, sessionId]);
 
   const retrySessionStatus = useCallback(async () => {
     const snapshot = await fetchSessionStatusSnapshot();
