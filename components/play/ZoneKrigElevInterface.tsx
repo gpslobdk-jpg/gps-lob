@@ -116,6 +116,8 @@ function deriveZoneKrigWinner(teams: ZoneKrigGameTeam[], zones: ZoneKrigGameZone
 
 export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKrigElevInterfaceProps) {
   const { player, gps, progress, flags } = ui;
+  const [isRetryingCapture, setIsRetryingCapture] = useState(false);
+  const [retryCaptureFeedback, setRetryCaptureFeedback] = useState<ZoneKrigCaptureFeedbackState | null>(null);
   const [zones, setZones] = useState<ZoneKrigGameZone[]>([]);
   const [teams, setTeams] = useState<ZoneKrigGameTeam[]>([]);
   const [isBattlefieldLoading, setIsBattlefieldLoading] = useState(true);
@@ -719,6 +721,95 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
                     Du har allerede besvaret denne post, men zonen er ikke erobret endnu. Gå tættere på zonen og prøv igen, eller bed læreren om hjælp.
                   </>
                 )}
+              </div>
+            ) : null}
+
+            {/* Zone Krig: retry capture button for neutral zones when the post is already solved */}
+            {progress.raceMode === "zone_krig" &&
+            selectedZoneSolved &&
+            !selectedZoneOwner &&
+            canUnlockSelectedZone ? (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  disabled={isRetryingCapture}
+                  onClick={async () => {
+                    if (!sessionId || !player.participantId) return;
+                    setIsRetryingCapture(true);
+                    setRetryCaptureFeedback(null);
+                    try {
+                      const payload = {
+                        session_id: sessionId,
+                        participant_id: player.participantId,
+                        student_name: (player.pendingPlayerName as string) || (player.playerName as string) || "",
+                        post_index: progress.currentPostIndex + 1,
+                        question_index: progress.currentPostIndex,
+                        selected_index: 0,
+                        answer_index: 0,
+                        is_correct: true,
+                        awarded_points: 0,
+                        question_text: selectedQuestion?.text ?? "",
+                        lat: gps.myLoc?.lat ?? null,
+                        lng: gps.myLoc?.lng ?? null,
+                        answered_at: new Date().toISOString(),
+                        ...(player.teamId ? { zone_krig_team_id: player.teamId } : {}),
+                      };
+
+                      const response = await fetch("/api/play/submit-answer", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ payloads: [payload] }),
+                      });
+
+                      const body = await response.json().catch(() => null);
+                      const capture: { status?: string; shieldRemainingSeconds?: number } | null =
+                        body?.zoneKrigCapture ?? null;
+
+                      // Map server status to user-visible feedback (keeps messages aligned with GameState)
+                      switch (capture?.status) {
+                        case "captured":
+                          setRetryCaptureFeedback({ key: `${Date.now()}`, status: "captured", message: "Fantastisk! I har erobret zonen!" });
+                          break;
+                        case "blocked_by_shield":
+                          setRetryCaptureFeedback({ key: `${Date.now()}`, status: "blocked_by_shield", message: `Korrekt svar! Men zonen er beskyttet i få sekunder endnu. Prøv igen senere.`, shieldRemainingSeconds: capture.shieldRemainingSeconds });
+                          break;
+                        case "already_owned":
+                          setRetryCaptureFeedback({ key: `${Date.now()}`, status: "already_owned", message: "I ejer allerede denne zone. Godt forsvaret!" });
+                          break;
+                        case "zone_missing":
+                          setRetryCaptureFeedback({ key: `${Date.now()}`, status: "zone_missing", message: "Korrekt svar, men zonen kunne ikke opdateres endnu. Prøv igen om lidt." });
+                          break;
+                        case "game_over":
+                          setRetryCaptureFeedback({ key: `${Date.now()}`, status: "game_over", message: "Spillet er slut! Flere zoner kan ikke overtages nu." });
+                          break;
+                        case "capture_failed":
+                        default:
+                          setRetryCaptureFeedback({ key: `${Date.now()}`, status: "capture_failed", message: "Zonen kunne ikke opdateres. Prøv igen om lidt." });
+                          break;
+                      }
+                    } catch {
+                      setRetryCaptureFeedback({ key: `${Date.now()}`, status: "capture_failed", message: "Zonen kunne ikke opdateres. Prøv igen om lidt." });
+                    } finally {
+                      setIsRetryingCapture(false);
+                    }
+                  }}
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-3xl bg-amber-500 px-5 py-4 text-sm font-black uppercase tracking-[0.24em] text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-white/40"
+                >
+                  {isRetryingCapture ? <Loader2 className="h-4 w-4 animate-spin" /> : <Swords className="h-5 w-5" />}
+                  Prøv at erobre zonen igen
+                </button>
+
+                {retryCaptureFeedback ? (
+                  <div className={`mt-3 rounded-xl border px-4 py-3 text-sm ${
+                    retryCaptureFeedback.status === "captured"
+                      ? "border-emerald-300/30 bg-emerald-500/15 text-emerald-100"
+                      : retryCaptureFeedback.status === "blocked_by_shield"
+                        ? "border-amber-300/30 bg-amber-500/15 text-amber-100"
+                        : "border-white/10 bg-white/5 text-white"
+                  }`}>
+                    {retryCaptureFeedback.message}
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
