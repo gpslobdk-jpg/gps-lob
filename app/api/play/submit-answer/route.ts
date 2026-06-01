@@ -194,7 +194,8 @@ type ZoneKrigCaptureStatus =
   | "blocked_by_shield"
   | "already_owned"
   | "zone_missing"
-  | "game_over";
+  | "game_over"
+  | "capture_failed";
 
 type ZoneKrigCaptureResponse = {
   status: ZoneKrigCaptureStatus;
@@ -388,7 +389,7 @@ async function maybeCaptureZone(
     return { status: "captured" };
   } catch (err) {
     console.error("[zone-krig] maybeCaptureZone failed silently:", err);
-    return null;
+    return { status: "capture_failed" };
   }
 }
 

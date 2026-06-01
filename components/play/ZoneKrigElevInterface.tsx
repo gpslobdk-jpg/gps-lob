@@ -59,6 +59,8 @@ function getZoneCaptureFeedbackClasses(status: NonNullable<PlayUiState["progress
       return "border-rose-300/30 bg-rose-500/15 text-rose-100";
     case "game_over":
       return "border-amber-300/30 bg-amber-500/15 text-amber-100";
+    case "capture_failed":
+      return "border-rose-300/30 bg-rose-500/15 text-rose-100";
     default:
       return "border-white/10 bg-white/5 text-white";
   }

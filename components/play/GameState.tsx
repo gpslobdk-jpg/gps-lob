@@ -269,6 +269,12 @@ function buildZoneKrigCaptureFeedback(
         status: "game_over",
         message: "Spillet er slut! Flere zoner kan ikke overtages nu.",
       };
+    case "capture_failed":
+      return {
+        key,
+        status: "capture_failed",
+        message: "Zonen kunne ikke opdateres. Prøv igen om lidt.",
+      };
     default:
       return null;
   }

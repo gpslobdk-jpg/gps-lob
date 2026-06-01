@@ -84,7 +84,8 @@ export type ZoneKrigCaptureStatus =
   | "blocked_by_shield"
   | "already_owned"
   | "zone_missing"
-  | "game_over";
+  | "game_over"
+  | "capture_failed";
 
 export type ZoneKrigCaptureApiResult = {
   status?: ZoneKrigCaptureStatus;
