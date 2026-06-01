@@ -710,7 +710,15 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
 
             {selectedZoneSolved ? (
               <div className="mt-4 rounded-3xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-                Denne zone er allerede løst af dig tidligere. Du kan stadig angribe den igen, hvis kampen kræver det.
+                {selectedZoneOwner ? (
+                  <>
+                    Du har allerede besvaret denne post. Hold øje med zonens status og gå tættere på, hvis du vil forsøge igen.
+                  </>
+                ) : (
+                  <>
+                    Du har allerede besvaret denne post, men zonen er ikke erobret endnu. Gå tættere på zonen og prøv igen, eller bed læreren om hjælp.
+                  </>
+                )}
               </div>
             ) : null}
 
