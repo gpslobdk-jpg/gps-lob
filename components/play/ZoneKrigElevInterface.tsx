@@ -6,7 +6,7 @@ import { AlertCircle, CheckCircle2, KeyRound, Loader2, Radio, Shield, Swords, Ta
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import StudentRulesSheet from "./StudentRulesSheet";
-import type { PlayActions, PlayUiState } from "./types";
+import type { PlayActions, PlayUiState, ZoneKrigCaptureFeedbackState } from "./types";
 import TeacherBroadcastModal from "./TeacherBroadcastModal";
 import type { ZoneKrigGameTeam, ZoneKrigGameZone } from "./ZoneKrigElevMap";
 import StudentAvatarGateView from "./shared/StudentAvatarGateView";
