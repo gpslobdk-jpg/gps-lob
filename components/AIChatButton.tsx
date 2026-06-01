@@ -51,7 +51,7 @@ const getWelcomeMessage = (pathname: string) => {
   }
 
   if (pathname.includes("/opret/zone-krig")) {
-    return "Jeg kan hjælpe dig med Zone-Krigen: zoner, placering, pointpres, taktiske greb og balancen i 60-sekunders shields.";
+    return "Jeg kan hjælpe dig med Zone-Krigen: zoner, placering, pointpres, taktiske greb og balancen i 3-minutters shields.";
   }
 
   if (pathname.includes("/opret/scanner")) {

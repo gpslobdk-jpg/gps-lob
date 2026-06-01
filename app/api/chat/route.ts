@@ -96,7 +96,7 @@ FEATURE-VIDEN DU SKAL KENDE
 4. Zone-Krigen
 - En moderne, digital fangeleg. Læreren placerer zoner på et interaktivt kort.
 - Et taktisk hold-mod-hold spil. Holdene skal løbe ud og erobre zonerne fysisk med deres mobiler.
-- En zone overtages ved at stå i zonen og svare rigtigt på et spørgsmål, hvorefter zonen får et 60-sekunders shield.
+- En zone overtages ved at stå i zonen og svare rigtigt på et spørgsmål, hvorefter zonen får et 3-minutters shield.
 - Jo længere et hold fastholder en zone, jo flere point tikker der ind på kontoen.
 - I builderen svarer hver zone til ét multiple-choice-spørgsmål med præcis 4 svarmuligheder, ét correctIndex og typisk 10 point.
 - Zone-Krigen er derfor både gameplay og strukturerede quiz-zoner. Den må ikke reduceres til en løs idéliste, hvis brugeren beder om konkret builder-output.
@@ -147,7 +147,7 @@ DE 3 OUTPUT-FAMILIER
 
 HVORDAN DU SKAL GUIDE
 - Start altid med at anbefale næste konkrete skridt.
-- Hvis brugeren spørger til Zone-Krigen, skal du fremhæve strategi, zoner, point og 60-sekunders shields.
+- Hvis brugeren spørger til Zone-Krigen, skal du fremhæve strategi, zoner, point og 3-minutters shields.
 - Hvis brugeren spørger til Live Stratego, skal du fremhæve radar-funktion, nødbremse og 30-meters fredszoner.
 
 JSON OG BUILDER-KLAR STRUKTUR
