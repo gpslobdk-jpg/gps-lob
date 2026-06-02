@@ -108,10 +108,10 @@ function getRoleGlyph(rankKey: string | null | undefined) {
 
 function getRoleName(rankKey: string | null | undefined, roleNamesByKey: Map<string, string>) {
   if (!rankKey) {
-    return "Ukendt rang";
+    return "Afventer rolle";
   }
 
-  return roleNamesByKey.get(rankKey) ?? FALLBACK_ROLE_NAMES[rankKey] ?? rankKey;
+  return roleNamesByKey.get(rankKey) ?? FALLBACK_ROLE_NAMES[rankKey] ?? "Afventer rolle";
 }
 
 function getTeamTheme(teamCode: string | null | undefined) {
@@ -125,12 +125,22 @@ function getTeamTheme(teamCode: string | null | undefined) {
     };
   }
 
+  if (teamCode === "red") {
+    return {
+      label: "Hold Rød",
+      accent: "text-rose-200",
+      pill: "border-rose-300/25 bg-rose-500/12 text-rose-100",
+      surface:
+        "border-rose-300/18 bg-[linear-gradient(145deg,rgba(244,63,94,0.14),rgba(2,6,23,0.74))]",
+    };
+  }
+
   return {
-    label: "Hold Rød",
-    accent: "text-rose-200",
-    pill: "border-rose-300/25 bg-rose-500/12 text-rose-100",
+    label: "Afventer hold",
+    accent: "text-slate-200",
+    pill: "border-white/12 bg-white/6 text-white/72",
     surface:
-      "border-rose-300/18 bg-[linear-gradient(145deg,rgba(244,63,94,0.14),rgba(2,6,23,0.74))]",
+      "border-white/12 bg-[linear-gradient(145deg,rgba(148,163,184,0.12),rgba(2,6,23,0.74))]",
   };
 }
 
@@ -428,8 +438,16 @@ export default function StrategoElevInterface({
     }));
   }, [allyMetaById, stratego.allyPresence]);
 
-  const myRoleName = getRoleName(stratego.selfPlayer?.rankKey, roleNamesByKey);
-  const myRoleGlyph = getRoleGlyph(stratego.selfPlayer?.rankKey);
+  const selfRankKey = stratego.selfPlayer?.rankKey ?? null;
+  const myRoleName = getRoleName(selfRankKey, roleNamesByKey);
+  const isAwaitingTeam = selfTeamCode !== "red" && selfTeamCode !== "blue";
+  const isAwaitingRole = myRoleName === "Afventer rolle";
+  const myRoleGlyph = isAwaitingRole ? "..." : getRoleGlyph(selfRankKey);
+  const roleAccentClass = isAwaitingRole ? "text-slate-200" : teamTheme.accent;
+  const roleSurfaceClass = isAwaitingRole
+    ? "border-white/12 bg-[linear-gradient(145deg,rgba(148,163,184,0.12),rgba(2,6,23,0.74))] text-white/72"
+    : teamTheme.surface;
+  const showIdentityLoadingHint = isAwaitingTeam && isAwaitingRole;
   const isReturningToBase = stratego.selfPlayer?.state === "returning_to_base";
   const winnerTeam = strategoGame?.winner_team ?? null;
   const showGameOverOverlay = Boolean(winnerTeam) && progress.screen.mode !== "finished";
@@ -731,17 +749,23 @@ export default function StrategoElevInterface({
                 </div>
 
                 <div className="mt-4 flex items-center gap-4">
-                  <div className={`flex h-16 w-16 items-center justify-center rounded-[1.4rem] border text-2xl font-black ${teamTheme.surface}`}>
+                  <div className={`flex h-16 w-16 items-center justify-center rounded-[1.4rem] border text-2xl font-black ${roleSurfaceClass}`}>
                     {myRoleGlyph}
                   </div>
                   <div className="min-w-0">
                     <h1 className="truncate text-2xl font-black sm:text-3xl">{player.activeDisplayName}</h1>
-                    <p className={`mt-1 text-sm font-semibold ${teamTheme.accent}`}>{myRoleName}</p>
+                    <p className={`mt-1 text-sm font-semibold ${roleAccentClass}`}>{myRoleName}</p>
                     <p className="mt-1 text-sm text-white/50">
                       {isReturningToBase ? "På vej tilbage til basen" : "Klar på slagmarken"}
                     </p>
                   </div>
                 </div>
+
+                {showIdentityLoadingHint ? (
+                  <p className="mt-4 rounded-[1rem] border border-white/10 bg-white/6 px-4 py-3 text-sm text-white/70">
+                    Vi henter dit hold og din rolle. Vent et øjeblik.
+                  </p>
+                ) : null}
               </div>
 
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -837,7 +861,7 @@ export default function StrategoElevInterface({
                   <div className="rounded-[1.4rem] border border-white/10 bg-white/6 px-4 py-4">
                     <p className="text-[10px] uppercase tracking-[0.24em] text-white/45">Rang</p>
                     <div className="mt-3 flex items-center gap-3">
-                      <div className={`flex h-12 w-12 items-center justify-center rounded-[1rem] border text-lg font-black ${teamTheme.surface}`}>
+                      <div className={`flex h-12 w-12 items-center justify-center rounded-[1rem] border text-lg font-black ${roleSurfaceClass}`}>
                         {myRoleGlyph}
                       </div>
                       <div>
