@@ -33,6 +33,7 @@ export const PUBLIC_TELEMETRY_EVENTS = [
   "play_emergency_skip_succeeded",
   "play_emergency_skip_failed",
   "play_reset_from_expired",
+  "stratego_player_identity_missing",
 ] as const;
 
 export const PUBLIC_TELEMETRY_EVENT_SET = new Set<string>(PUBLIC_TELEMETRY_EVENTS);

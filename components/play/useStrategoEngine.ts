@@ -12,9 +12,12 @@ import type {
 import {
   getDistance,
   isMissingColumnError,
+  readStoredActiveParticipant,
   toFiniteNumber,
 } from "./playUtils";
+import { createClientTelemetryMessage, sendTelemetry } from "@/utils/telemetry";
 import { createClient } from "@/utils/supabase/client";
+import { PARTICIPANT_AUTH_STORAGE_KEY } from "@/utils/supabase/participantAuth";
 
 const STRATEGO_TARGET_IN_SIGHT_DISTANCE_METERS = 20;
 const STRATEGO_SAFE_ZONE_DISTANCE_METERS = 30;
@@ -99,6 +102,18 @@ type UseStrategoEngineParams = {
 type UseStrategoEngineResult = PlayStrategoState & {
   clearDuelEvent: () => void;
   triggerDuel: (targetId: string) => Promise<void>;
+};
+
+type StrategoSelfPlayerDiagnostics = {
+  hasQueryRow: boolean;
+  hasTeamCode: boolean;
+  hasRankKey: boolean;
+};
+
+const EMPTY_SELF_PLAYER_DIAGNOSTICS: StrategoSelfPlayerDiagnostics = {
+  hasQueryRow: false,
+  hasTeamCode: false,
+  hasRankKey: false,
 };
 
 type StrategoEnemySignalBand = PlayStrategoState["nearestEnemySignalBand"];
@@ -418,10 +433,19 @@ export function useStrategoEngine({
   const respawnInFlightRef = useRef(false);
   const respawnCooldownUntilRef = useRef(0);
   const respawnZoneLockRef = useRef(false);
+  const selfPlayerDiagnosticsRef = useRef<StrategoSelfPlayerDiagnostics>(
+    EMPTY_SELF_PLAYER_DIAGNOSTICS
+  );
+  const missingIdentityTelemetryKeysRef = useRef<Set<string>>(new Set());
   const realtimeSubscriptionStateRef = useRef({
     presence: false,
     duel: false,
   });
+
+  useEffect(() => {
+    selfPlayerDiagnosticsRef.current = EMPTY_SELF_PLAYER_DIAGNOSTICS;
+    missingIdentityTelemetryKeysRef.current.clear();
+  }, [enabled, participantId, sessionId]);
 
   useEffect(() => {
     presenceEntriesRef.current = presenceEntries;
@@ -587,6 +611,7 @@ export function useStrategoEngine({
 
   const refreshSelfPlayer = useCallback(async () => {
     if (!enabled || !sessionId || !participantId) {
+      selfPlayerDiagnosticsRef.current = EMPTY_SELF_PLAYER_DIAGNOSTICS;
       setSelfPlayer(null);
       return;
     }
@@ -602,6 +627,12 @@ export function useStrategoEngine({
       setError(playerError.message ?? "Kunne ikke hente din Stratego-spiller.");
       return;
     }
+
+    selfPlayerDiagnosticsRef.current = {
+      hasQueryRow: Boolean(data),
+      hasTeamCode: typeof data?.team_code === "string" && data.team_code.trim().length > 0,
+      hasRankKey: typeof data?.rank_key === "string" && data.rank_key.trim().length > 0,
+    };
 
     setSelfPlayer(normalizeSelfPlayer(data));
     setError(null);
@@ -1037,6 +1068,101 @@ export function useStrategoEngine({
             lastDuelAt: null,
           }
         : null;
+
+  useEffect(() => {
+    if (!enabled || !sessionId || !participantId || isLoading || error) {
+      return;
+    }
+
+    const diagnostics = selfPlayerDiagnosticsRef.current;
+    const hasSelfPlayer = Boolean(selfPlayer);
+    const hasSelfPresence = Boolean(selfPresence);
+    const hasTeamCode = Boolean(effectiveSelfPlayer?.teamCode);
+    const hasRankKey = diagnostics.hasRankKey;
+    const shouldLogMissingIdentity =
+      !diagnostics.hasQueryRow || !diagnostics.hasTeamCode || !diagnostics.hasRankKey || (!hasSelfPlayer && !hasSelfPresence);
+
+    if (!shouldLogMissingIdentity) {
+      return;
+    }
+
+    const reason = !hasSelfPlayer && !hasSelfPresence
+      ? "missing_self_player_and_presence"
+      : !diagnostics.hasQueryRow
+        ? "missing_self_player"
+        : !diagnostics.hasTeamCode
+          ? "missing_team_code"
+          : !diagnostics.hasRankKey
+            ? "missing_rank_key"
+            : "missing_presence";
+
+    const phase = isRealtimeRecovering ? "realtime_recovering" : "post_initial_load";
+    const storedActiveParticipant = readStoredActiveParticipant();
+    let localAuthPresent = false;
+
+    try {
+      localAuthPresent = Boolean(window.localStorage.getItem(PARTICIPANT_AUTH_STORAGE_KEY));
+    } catch {
+      localAuthPresent = false;
+    }
+
+    const localActivePresent = Boolean(storedActiveParticipant);
+    const localActivePidMatches = storedActiveParticipant
+      ? storedActiveParticipant.participantId === participantId
+      : null;
+    const localActiveSidMatches = storedActiveParticipant
+      ? storedActiveParticipant.sessionId === sessionId
+      : null;
+    const telemetryKey = [
+      sessionId,
+      participantId,
+      reason,
+      hasSelfPlayer ? "player" : "no-player",
+      hasSelfPresence ? "presence" : "no-presence",
+      hasTeamCode ? "team" : "no-team",
+      hasRankKey ? "rank" : "no-rank",
+      phase,
+      localActivePidMatches === null ? "pid-unknown" : localActivePidMatches ? "pid-match" : "pid-mismatch",
+      localActiveSidMatches === null ? "sid-unknown" : localActiveSidMatches ? "sid-match" : "sid-mismatch",
+      localAuthPresent ? "auth-present" : "auth-missing",
+    ].join(":");
+
+    if (missingIdentityTelemetryKeysRef.current.has(telemetryKey)) {
+      return;
+    }
+
+    missingIdentityTelemetryKeysRef.current.add(telemetryKey);
+    sendTelemetry("stratego_player_identity_missing", {
+      participant_id: participantId,
+      session_id: sessionId,
+      message: createClientTelemetryMessage({
+        source: "useStrategoEngine",
+        race_mode: "stratego",
+        reason,
+        phase,
+        has_self_player: hasSelfPlayer,
+        has_self_player_row: diagnostics.hasQueryRow,
+        has_self_presence: hasSelfPresence,
+        has_team_code: hasTeamCode,
+        has_rank_key: hasRankKey,
+        local_active_present: localActivePresent,
+        local_active_pid_matches: localActivePidMatches,
+        local_active_sid_matches: localActiveSidMatches,
+        local_auth_present: localAuthPresent,
+        is_realtime_recovering: isRealtimeRecovering,
+      }),
+    });
+  }, [
+    effectiveSelfPlayer?.teamCode,
+    enabled,
+    error,
+    isLoading,
+    isRealtimeRecovering,
+    participantId,
+    selfPlayer,
+    selfPresence,
+    sessionId,
+  ]);
 
   const enemyPresence = useMemo(() => {
     if (!participantId || !effectiveSelfPlayer?.teamCode) {
