@@ -226,15 +226,19 @@ function FitStrategoBattlefield({
       if (!map || !map.getContainer()) return;
 
       if (points.length === 1) {
-        map.setView(points[0] ?? DEFAULT_CENTER, 17, { animate: true });
+        // Disable Leaflet animation on mobile/iOS to avoid rAF race with
+        // unmounted marker DOM (see Sentry JAVASCRIPT-NEXTJS-28).
+        map.setView(points[0] ?? DEFAULT_CENTER, 17, { animate: false });
         hasFittedRef.current = true;
         return;
       }
 
+      // Disable Leaflet animation on mobile/iOS to avoid rAF race with
+      // unmounted marker DOM (see Sentry JAVASCRIPT-NEXTJS-28).
       map.fitBounds(L.latLngBounds(points), {
         padding: [42, 42],
         maxZoom: 17,
-        animate: true,
+        animate: false,
       });
       hasFittedRef.current = true;
     } catch (err) {
