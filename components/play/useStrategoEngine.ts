@@ -27,6 +27,7 @@ const STRATEGO_DUEL_TRIGGER_COOLDOWN_MS = 5000;
 const STRATEGO_DUEL_ERROR_TIMEOUT_MS = 3000;
 const STRATEGO_RESPAWN_RETRY_COOLDOWN_MS = 5000;
 const STRATEGO_RESPAWN_FEEDBACK_TIMEOUT_MS = 4000;
+const STRATEGO_IDENTITY_FALLBACK_RETRY_MS = 5000;
 const STRATEGO_PRESENCE_REFRESH_THROTTLE_MS = 1000;
 const STRATEGO_PRESENCE_STALE_MS = 10000;
 const STRATEGO_PRESENCE_STALE_TICK_MS = 1000;
@@ -53,6 +54,7 @@ type StrategoPlayerRow = {
   state?: string | null;
   rank_key?: string | null;
   last_duel_at?: string | null;
+  updated_at?: string | null;
 };
 
 type ParticipantRealtimeRow = {
@@ -104,6 +106,12 @@ type UseStrategoEngineResult = PlayStrategoState & {
   triggerDuel: (targetId: string) => Promise<void>;
 };
 
+type StrategoPlayerMeResponse = {
+  player?: StrategoPlayerRow | null;
+  error?: string;
+  reason?: string;
+};
+
 type StrategoSelfPlayerDiagnostics = {
   hasQueryRow: boolean;
   hasTeamCode: boolean;
@@ -116,7 +124,45 @@ const EMPTY_SELF_PLAYER_DIAGNOSTICS: StrategoSelfPlayerDiagnostics = {
   hasRankKey: false,
 };
 
+type StrategoMissingIdentityReason =
+  | "missing_self_player_and_presence"
+  | "missing_self_player"
+  | "missing_team_code"
+  | "missing_rank_key";
+
+type StrategoFallbackOutcome = "succeeded" | "partial" | "not_resolved";
+
 type StrategoEnemySignalBand = PlayStrategoState["nearestEnemySignalBand"];
+
+function getStrategoIdentityMissingReason({
+  hasSelfPlayer,
+  hasSelfPresence,
+  hasTeamCode,
+  hasRankKey,
+}: {
+  hasSelfPlayer: boolean;
+  hasSelfPresence: boolean;
+  hasTeamCode: boolean;
+  hasRankKey: boolean;
+}): StrategoMissingIdentityReason | null {
+  if (!hasSelfPlayer && !hasSelfPresence) {
+    return "missing_self_player_and_presence";
+  }
+
+  if (!hasSelfPlayer) {
+    return "missing_self_player";
+  }
+
+  if (!hasTeamCode) {
+    return "missing_team_code";
+  }
+
+  if (!hasRankKey) {
+    return "missing_rank_key";
+  }
+
+  return null;
+}
 
 function normalizePresenceEntry(row: StrategoPresenceRow | null | undefined): StrategoPresenceEntry | null {
   const participantId = typeof row?.participant_id === "string" ? row.participant_id : "";
@@ -433,6 +479,9 @@ export function useStrategoEngine({
   const respawnInFlightRef = useRef(false);
   const respawnCooldownUntilRef = useRef(0);
   const respawnZoneLockRef = useRef(false);
+  const selfPlayerUpdatedAtRef = useRef<string | null>(null);
+  const identityFallbackAttemptedKeysRef = useRef<Set<string>>(new Set());
+  const identityFallbackRetryAtRef = useRef<Map<string, number>>(new Map());
   const selfPlayerDiagnosticsRef = useRef<StrategoSelfPlayerDiagnostics>(
     EMPTY_SELF_PLAYER_DIAGNOSTICS
   );
@@ -443,6 +492,9 @@ export function useStrategoEngine({
   });
 
   useEffect(() => {
+    selfPlayerUpdatedAtRef.current = null;
+    identityFallbackAttemptedKeysRef.current.clear();
+    identityFallbackRetryAtRef.current.clear();
     selfPlayerDiagnosticsRef.current = EMPTY_SELF_PLAYER_DIAGNOSTICS;
     missingIdentityTelemetryKeysRef.current.clear();
   }, [enabled, participantId, sessionId]);
@@ -611,6 +663,7 @@ export function useStrategoEngine({
 
   const refreshSelfPlayer = useCallback(async () => {
     if (!enabled || !sessionId || !participantId) {
+      selfPlayerUpdatedAtRef.current = null;
       selfPlayerDiagnosticsRef.current = EMPTY_SELF_PLAYER_DIAGNOSTICS;
       setSelfPlayer(null);
       return;
@@ -618,7 +671,7 @@ export function useStrategoEngine({
 
     const { data, error: playerError } = await supabase
       .from("stratego_players")
-      .select("participant_id,session_id,team_code,state,rank_key,last_duel_at")
+      .select("participant_id,session_id,team_code,state,rank_key,last_duel_at,updated_at")
       .eq("participant_id", participantId)
       .eq("session_id", sessionId)
       .maybeSingle<StrategoPlayerRow>();
@@ -634,6 +687,8 @@ export function useStrategoEngine({
       hasRankKey: typeof data?.rank_key === "string" && data.rank_key.trim().length > 0,
     };
 
+    selfPlayerUpdatedAtRef.current =
+      typeof data?.updated_at === "string" ? data.updated_at : null;
     setSelfPlayer(normalizeSelfPlayer(data));
     setError(null);
   }, [enabled, participantId, sessionId, supabase]);
@@ -742,6 +797,7 @@ export function useStrategoEngine({
       respawnInFlightRef.current = false;
       respawnCooldownUntilRef.current = 0;
       respawnZoneLockRef.current = false;
+      selfPlayerUpdatedAtRef.current = null;
       lastDuelEventIdRef.current = null;
       realtimeSubscriptionStateRef.current = {
         presence: false,
@@ -873,6 +929,7 @@ export function useStrategoEngine({
             );
 
             if (changedParticipantId === participantId) {
+              selfPlayerUpdatedAtRef.current = null;
               setSelfPlayer(null);
             }
 
@@ -881,6 +938,8 @@ export function useStrategoEngine({
           }
 
           if (changedParticipantId === participantId) {
+            selfPlayerUpdatedAtRef.current =
+              typeof nextRow?.updated_at === "string" ? nextRow.updated_at : null;
             setSelfPlayer(normalizeSelfPlayer(nextRow));
           }
 
@@ -1070,6 +1129,280 @@ export function useStrategoEngine({
         : null;
 
   useEffect(() => {
+    if (!enabled || !sessionId || !participantId || isLoading) {
+      return;
+    }
+
+    const hasSelfPlayer = Boolean(selfPlayer);
+    const hasSelfPresence = Boolean(selfPresence);
+    const hasTeamCode = Boolean(effectiveSelfPlayer?.teamCode);
+    const hasRankKey = Boolean(selfPlayer?.rankKey);
+    const reason = getStrategoIdentityMissingReason({
+      hasSelfPlayer,
+      hasSelfPresence,
+      hasTeamCode,
+      hasRankKey,
+    });
+
+    if (!reason) {
+      return;
+    }
+
+    const fallbackAttemptKey = [
+      sessionId,
+      participantId,
+      reason,
+      hasSelfPresence ? "presence" : "no-presence",
+      hasTeamCode ? "team" : "no-team",
+      hasRankKey ? "rank" : "no-rank",
+    ].join(":");
+
+    const retryAt = identityFallbackRetryAtRef.current.get(fallbackAttemptKey) ?? 0;
+    if (retryAt > presenceFreshnessTick) {
+      return;
+    }
+
+    if (retryAt > 0) {
+      identityFallbackRetryAtRef.current.delete(fallbackAttemptKey);
+      identityFallbackAttemptedKeysRef.current.delete(fallbackAttemptKey);
+    }
+
+    if (identityFallbackAttemptedKeysRef.current.has(fallbackAttemptKey)) {
+      return;
+    }
+
+    identityFallbackAttemptedKeysRef.current.add(fallbackAttemptKey);
+
+    let isCancelled = false;
+    const controller = new AbortController();
+
+    const fetchStrategoIdentityFallback = async () => {
+      try {
+        const response = await fetch("/api/stratego/player/me", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ sessionId, participantId }),
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        let payload: StrategoPlayerMeResponse | null = null;
+        try {
+          payload = (await response.json()) as StrategoPlayerMeResponse;
+        } catch {
+          payload = null;
+        }
+
+        if (
+          response.status === 425 ||
+          payload?.reason === "stratego_player_not_ready"
+        ) {
+          if (isCancelled) {
+            return;
+          }
+
+          identityFallbackRetryAtRef.current.set(
+            fallbackAttemptKey,
+            Date.now() + STRATEGO_IDENTITY_FALLBACK_RETRY_MS
+          );
+          return;
+        }
+
+        const playerRow = payload?.player ?? null;
+        const fallbackHasTeamCode =
+          typeof playerRow?.team_code === "string" && playerRow.team_code.trim().length > 0;
+        const fallbackHasRankKey =
+          typeof playerRow?.rank_key === "string" && playerRow.rank_key.trim().length > 0;
+
+        if (!response.ok || !playerRow) {
+          if (isCancelled) {
+            return;
+          }
+
+          sendTelemetry("stratego_player_identity_fallback_result", {
+            participant_id: participantId,
+            session_id: sessionId,
+            message: createClientTelemetryMessage({
+              source: "useStrategoEngine",
+              race_mode: "stratego",
+              reason,
+              outcome: "failed",
+              fallback_status: response.ok ? "empty_payload" : String(response.status),
+              has_team_code: fallbackHasTeamCode,
+              has_rank_key: fallbackHasRankKey,
+              is_realtime_recovering: isRealtimeRecovering,
+            }),
+          });
+          return;
+        }
+
+        const normalizedFallbackPlayer = normalizeSelfPlayer(playerRow);
+        if (!normalizedFallbackPlayer) {
+          if (isCancelled) {
+            return;
+          }
+
+          sendTelemetry("stratego_player_identity_fallback_result", {
+            participant_id: participantId,
+            session_id: sessionId,
+            message: createClientTelemetryMessage({
+              source: "useStrategoEngine",
+              race_mode: "stratego",
+              reason,
+              outcome: "failed",
+              fallback_status: "unprocessable_payload",
+              has_team_code: fallbackHasTeamCode,
+              has_rank_key: fallbackHasRankKey,
+              is_realtime_recovering: isRealtimeRecovering,
+            }),
+          });
+          return;
+        }
+
+        const fallbackUpdatedAt =
+          typeof playerRow?.updated_at === "string" ? playerRow.updated_at : null;
+        const fallbackUpdatedAtMs = getFutureTimestampMs(fallbackUpdatedAt);
+        const currentSelfPlayerUpdatedAtMs = getFutureTimestampMs(
+          selfPlayerUpdatedAtRef.current
+        );
+
+        if (
+          currentSelfPlayerUpdatedAtMs > 0 &&
+          fallbackUpdatedAtMs > 0 &&
+          fallbackUpdatedAtMs < currentSelfPlayerUpdatedAtMs
+        ) {
+          if (isCancelled) {
+            return;
+          }
+
+          identityFallbackRetryAtRef.current.set(
+            fallbackAttemptKey,
+            Date.now() + STRATEGO_IDENTITY_FALLBACK_RETRY_MS
+          );
+
+          sendTelemetry("stratego_player_identity_fallback_result", {
+            participant_id: participantId,
+            session_id: sessionId,
+            message: createClientTelemetryMessage({
+              source: "useStrategoEngine",
+              race_mode: "stratego",
+              reason,
+              outcome: "not_resolved",
+              fallback_status: "stale_snapshot",
+              has_team_code: fallbackHasTeamCode,
+              has_rank_key: fallbackHasRankKey,
+              is_realtime_recovering: isRealtimeRecovering,
+            }),
+          });
+          return;
+        }
+
+        const didResolveReason =
+          reason === "missing_team_code"
+            ? fallbackHasTeamCode
+            : reason === "missing_rank_key"
+              ? fallbackHasRankKey
+              : true;
+        const fallbackOutcome: StrategoFallbackOutcome = !didResolveReason
+          ? "not_resolved"
+          : fallbackHasTeamCode && fallbackHasRankKey
+            ? "succeeded"
+            : "partial";
+
+        if (!didResolveReason) {
+          if (isCancelled) {
+            return;
+          }
+
+          sendTelemetry("stratego_player_identity_fallback_result", {
+            participant_id: participantId,
+            session_id: sessionId,
+            message: createClientTelemetryMessage({
+              source: "useStrategoEngine",
+              race_mode: "stratego",
+              reason,
+              outcome: fallbackOutcome,
+              fallback_status: String(response.status),
+              has_team_code: fallbackHasTeamCode,
+              has_rank_key: fallbackHasRankKey,
+              is_realtime_recovering: isRealtimeRecovering,
+            }),
+          });
+          return;
+        }
+
+        if (isCancelled) {
+          return;
+        }
+
+        selfPlayerDiagnosticsRef.current = {
+          hasQueryRow: true,
+          hasTeamCode:
+            typeof normalizedFallbackPlayer.teamCode === "string" &&
+            normalizedFallbackPlayer.teamCode.trim().length > 0,
+          hasRankKey:
+            typeof normalizedFallbackPlayer.rankKey === "string" &&
+            normalizedFallbackPlayer.rankKey.trim().length > 0,
+        };
+        selfPlayerUpdatedAtRef.current = fallbackUpdatedAt;
+        setSelfPlayer(normalizedFallbackPlayer);
+        setError(null);
+
+        sendTelemetry("stratego_player_identity_fallback_result", {
+          participant_id: participantId,
+          session_id: sessionId,
+          message: createClientTelemetryMessage({
+            source: "useStrategoEngine",
+            race_mode: "stratego",
+            reason,
+            outcome: fallbackOutcome,
+            fallback_status: String(response.status),
+            has_team_code: fallbackHasTeamCode,
+            has_rank_key: fallbackHasRankKey,
+            is_realtime_recovering: isRealtimeRecovering,
+          }),
+        });
+      } catch {
+        if (isCancelled || controller.signal.aborted) {
+          return;
+        }
+
+        sendTelemetry("stratego_player_identity_fallback_result", {
+          participant_id: participantId,
+          session_id: sessionId,
+          message: createClientTelemetryMessage({
+            source: "useStrategoEngine",
+            race_mode: "stratego",
+            reason,
+            outcome: "failed",
+            fallback_status: "network_error",
+            is_realtime_recovering: isRealtimeRecovering,
+          }),
+        });
+      }
+    };
+
+    void fetchStrategoIdentityFallback();
+
+    return () => {
+      isCancelled = true;
+      controller.abort();
+    };
+  }, [
+    effectiveSelfPlayer?.teamCode,
+    enabled,
+    isLoading,
+    isRealtimeRecovering,
+    participantId,
+    presenceFreshnessTick,
+    selfPlayer,
+    selfPresence,
+    sessionId,
+  ]);
+
+  useEffect(() => {
     if (!enabled || !sessionId || !participantId || isLoading || error) {
       return;
     }
@@ -1078,23 +1411,17 @@ export function useStrategoEngine({
     const hasSelfPlayer = Boolean(selfPlayer);
     const hasSelfPresence = Boolean(selfPresence);
     const hasTeamCode = Boolean(effectiveSelfPlayer?.teamCode);
-    const hasRankKey = diagnostics.hasRankKey;
-    const shouldLogMissingIdentity =
-      !diagnostics.hasQueryRow || !diagnostics.hasTeamCode || !diagnostics.hasRankKey || (!hasSelfPlayer && !hasSelfPresence);
+    const hasRankKey = Boolean(selfPlayer?.rankKey);
+    const reason = getStrategoIdentityMissingReason({
+      hasSelfPlayer,
+      hasSelfPresence,
+      hasTeamCode,
+      hasRankKey,
+    });
 
-    if (!shouldLogMissingIdentity) {
+    if (!reason) {
       return;
     }
-
-    const reason = !hasSelfPlayer && !hasSelfPresence
-      ? "missing_self_player_and_presence"
-      : !diagnostics.hasQueryRow
-        ? "missing_self_player"
-        : !diagnostics.hasTeamCode
-          ? "missing_team_code"
-          : !diagnostics.hasRankKey
-            ? "missing_rank_key"
-            : "missing_presence";
 
     const phase = isRealtimeRecovering ? "realtime_recovering" : "post_initial_load";
     const storedActiveParticipant = readStoredActiveParticipant();
