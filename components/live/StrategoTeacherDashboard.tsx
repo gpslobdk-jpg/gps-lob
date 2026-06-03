@@ -80,6 +80,7 @@ type TeacherStrategoPlayer = {
   lat: number | null;
   lng: number | null;
   updatedAt: string | null;
+  hasStrategoPlayer: boolean;
   teamCode: "red" | "blue" | null;
   rankKey: string | null;
   state: string;
@@ -183,7 +184,41 @@ function getRoleGlyph(rankKey: string | null | undefined) {
 }
 
 function getTeamHex(teamCode: string | null | undefined) {
-  return teamCode === "blue" ? "#38bdf8" : "#f43f5e";
+  if (teamCode === "blue") return "#38bdf8";
+  if (teamCode === "red") return "#f43f5e";
+  return "#94a3b8";
+}
+
+function getTeamGlow(teamCode: string | null | undefined) {
+  if (teamCode === "blue") return "rgba(56,189,248,0.35)";
+  if (teamCode === "red") return "rgba(244,63,94,0.35)";
+  return "rgba(148,163,184,0.28)";
+}
+
+function getTeacherTeamLabel(teamCode: string | null | undefined) {
+  if (teamCode === "blue") return "Hold Blå";
+  if (teamCode === "red") return "Hold Rød";
+  return "Afventer hold";
+}
+
+function getTeacherRoleName(
+  rankKey: string | null | undefined,
+  roleNamesByKey: Map<string, string>
+) {
+  if (!rankKey) return "Afventer rolle";
+  return roleNamesByKey.get(rankKey) ?? rankKey;
+}
+
+function getTeacherRoleGlyph(rankKey: string | null | undefined) {
+  if (!rankKey) return "...";
+  return getRoleGlyph(rankKey);
+}
+
+function getTeacherPlayerStateLabel(player: TeacherStrategoPlayer, compact = false) {
+  if (!player.hasStrategoPlayer) return "Afventer spillerdata";
+  if (player.state === "returning_to_base") return compact ? "Til base" : "På vej til basen";
+  if (player.state === "alive") return "I live";
+  return "Status ukendt";
 }
 
 function createPlayerIcon(player: TeacherStrategoPlayer, roleName: string) {
@@ -196,8 +231,8 @@ function createPlayerIcon(player: TeacherStrategoPlayer, roleName: string) {
     className: "stratego-teacher-player-icon",
     html: `
       <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:18px;border:1px solid rgba(255,255,255,0.12);background:rgba(2,6,23,0.92);box-shadow:0 18px 38px rgba(2,6,23,0.45);backdrop-filter:blur(18px);${isReturning ? "opacity:0.58;" : ""}">
-        <div style="display:flex;height:36px;width:36px;align-items:center;justify-content:center;border-radius:14px;background:${color};color:white;font-size:12px;font-weight:900;box-shadow:0 0 18px ${player.teamCode === "blue" ? "rgba(56,189,248,0.35)" : "rgba(244,63,94,0.35)"};">
-          ${getRoleGlyph(player.rankKey)}
+        <div style="display:flex;height:36px;width:36px;align-items:center;justify-content:center;border-radius:14px;background:${color};color:white;font-size:12px;font-weight:900;box-shadow:0 0 18px ${getTeamGlow(player.teamCode)};">
+          ${getTeacherRoleGlyph(player.rankKey)}
         </div>
         <div style="display:flex;flex-direction:column;min-width:0;max-width:120px;">
           <span style="display:block;font-size:12px;font-weight:800;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(player.name)}</span>
@@ -553,9 +588,10 @@ export default function StrategoTeacherDashboard({
           lat: toFiniteNumber(participant?.lat),
           lng: toFiniteNumber(participant?.lng),
           updatedAt: typeof participant?.updated_at === "string" ? participant.updated_at : null,
+          hasStrategoPlayer: Boolean(strategoPlayer),
           teamCode,
           rankKey: typeof strategoPlayer?.rank_key === "string" ? strategoPlayer.rank_key : null,
-          state: typeof strategoPlayer?.state === "string" ? strategoPlayer.state : "alive",
+          state: typeof strategoPlayer?.state === "string" ? strategoPlayer.state : "",
           eliminatedByParticipantId:
             typeof strategoPlayer?.eliminated_by_participant_id === "string"
               ? strategoPlayer.eliminated_by_participant_id
@@ -587,13 +623,46 @@ export default function StrategoTeacherDashboard({
       initialStats[player.teamCode].total += 1;
       if (player.state === "returning_to_base") {
         initialStats[player.teamCode].returning += 1;
-      } else {
+      } else if (player.state === "alive") {
         initialStats[player.teamCode].alive += 1;
       }
     }
 
     return initialStats;
   }, [players]);
+
+  const readinessStats = useMemo(() => {
+    const initialStats = {
+      totalPlayers: players.length,
+      readyPlayers: 0,
+      missingStrategoPlayerCount: 0,
+      missingTeamCount: 0,
+      missingRankCount: 0,
+    };
+
+    for (const player of players) {
+      if (player.teamCode && player.rankKey) {
+        initialStats.readyPlayers += 1;
+      }
+
+      if (!playersById.has(player.participantId)) {
+        initialStats.missingStrategoPlayerCount += 1;
+      }
+
+      if (!player.teamCode) {
+        initialStats.missingTeamCount += 1;
+      }
+
+      if (!player.rankKey) {
+        initialStats.missingRankCount += 1;
+      }
+    }
+
+    return initialStats;
+  }, [players, playersById]);
+  const hasReadinessData = readinessStats.totalPlayers > 0;
+  const hasReadinessIssues =
+    hasReadinessData && readinessStats.readyPlayers < readinessStats.totalPlayers;
 
   const renderedDuelEvents = useMemo(() => {
     return duelEvents.map((event) => {
@@ -675,10 +744,11 @@ export default function StrategoTeacherDashboard({
         return [];
       }
 
-      const roleName = roleNamesByKey.get(player.rankKey ?? "") ?? player.rankKey ?? "Ukendt";
+      const roleName = getTeacherRoleName(player.rankKey, roleNamesByKey);
       const visualSignature = [
         player.participantId,
         player.name,
+        player.hasStrategoPlayer ? "has-player" : "missing-player",
         player.teamCode ?? "unknown",
         player.rankKey ?? "unknown",
         player.state,
@@ -692,13 +762,8 @@ export default function StrategoTeacherDashboard({
           name: player.name,
           position: [player.lat, player.lng] as [number, number],
           roleName,
-          teamLabel:
-            player.teamCode === "blue"
-              ? "Hold Blå"
-              : player.teamCode === "red"
-                ? "Hold Rød"
-                : "Ukendt hold",
-          stateLabel: player.state === "returning_to_base" ? "På vej til basen" : "I live",
+          teamLabel: getTeacherTeamLabel(player.teamCode),
+          stateLabel: getTeacherPlayerStateLabel(player),
           updatedLabel: formatRelativeTimestamp(player.updatedAt),
           iconSource: player,
           visualSignature,
@@ -935,6 +1000,41 @@ export default function StrategoTeacherDashboard({
                 </p>
               </div>
             </div>
+            <div
+              className={`mt-4 rounded-[1.2rem] border px-4 py-3 ${
+                !hasReadinessData
+                  ? "border-white/10 bg-white/6 text-white/70"
+                  : hasReadinessIssues
+                  ? "border-amber-300/22 bg-amber-500/10 text-amber-100"
+                  : "border-emerald-300/18 bg-emerald-500/8 text-emerald-100"
+              }`}
+            >
+              <p className="text-sm font-bold">
+                {hasReadinessData
+                  ? `Stratego klar: ${readinessStats.readyPlayers}/${readinessStats.totalPlayers} elever har hold og rolle`
+                  : isLoading
+                    ? "Stratego-status indlæses..."
+                    : "Afventer elever..."}
+              </p>
+              {hasReadinessIssues ? (
+                <>
+                  <p className="mt-2 text-xs leading-5 text-amber-100/78">
+                    Nogle elever mangler hold/rolle endnu. Vent et øjeblik eller prøv at genindlæse/klargøre Stratego igen.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-amber-100/70">
+                    {readinessStats.missingStrategoPlayerCount > 0 ? (
+                      <span>mangler spillerdata: {readinessStats.missingStrategoPlayerCount}</span>
+                    ) : null}
+                    {readinessStats.missingTeamCount > 0 ? (
+                      <span>mangler hold: {readinessStats.missingTeamCount}</span>
+                    ) : null}
+                    {readinessStats.missingRankCount > 0 ? (
+                      <span>mangler rolle: {readinessStats.missingRankCount}</span>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
+            </div>
           </section>
 
           <section className="rounded-[1.7rem] border border-white/10 bg-slate-900/60 p-5 shadow-[0_24px_60px_rgba(2,6,23,0.34)] backdrop-blur-xl">
@@ -976,20 +1076,22 @@ export default function StrategoTeacherDashboard({
                     className={`rounded-[1.2rem] border px-4 py-3 ${
                       player.teamCode === "blue"
                         ? "border-sky-300/18 bg-sky-500/10"
-                        : "border-rose-300/18 bg-rose-500/10"
+                        : player.teamCode === "red"
+                          ? "border-rose-300/18 bg-rose-500/10"
+                          : "border-amber-300/18 bg-amber-500/10"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-bold text-white">{player.name}</p>
                         <p className="mt-1 text-xs text-white/60">
-                          {(player.teamCode === "blue" ? "Hold Blå" : "Hold Rød")} •{" "}
-                          {roleNamesByKey.get(player.rankKey ?? "") ?? player.rankKey ?? "Ukendt"}
+                          {getTeacherTeamLabel(player.teamCode)} •{" "}
+                          {getTeacherRoleName(player.rankKey, roleNamesByKey)}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs font-black uppercase tracking-[0.18em] text-white/65">
-                          {player.state === "returning_to_base" ? "Til base" : "I live"}
+                          {getTeacherPlayerStateLabel(player, true)}
                         </p>
                         <p className="mt-1 text-[11px] text-white/45">{formatRelativeTimestamp(player.updatedAt)}</p>
                       </div>
