@@ -50,11 +50,7 @@ function sanitizeAnswerPayload(
     student_name: participantContext.studentName,
   };
 
-  if (participantContext.teamId) {
-    sanitizedPayload.zone_krig_team_id = participantContext.teamId;
-  } else {
-    delete sanitizedPayload.zone_krig_team_id;
-  }
+  delete sanitizedPayload.zone_krig_team_id;
 
   return sanitizedPayload;
 }
