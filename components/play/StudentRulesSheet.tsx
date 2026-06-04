@@ -52,11 +52,15 @@ const RULES_CONTENT: Record<
       },
       {
         kind: "card",
+        text: "🎟️ Forsøg: Du har ét forsøg pr. zone. Når dit forsøg er brugt, må en anden spiller på holdet tage et senere angreb.",
+      },
+      {
+        kind: "card",
         text: "🛡️ Skjold (3 min): Når I overtager en zone, får den et 3-minutters skjold mod fjender.",
       },
       {
         kind: "card",
-        text: "🔄 Fornyelse: Svarer I rigtigt på jeres egen zone, får I ikke nye point, men I fornyer jeres eget skjold!",
+        text: "🔄 Egen zone: Et korrekt svar kan forny holdets skjold, men du har stadig kun ét forsøg på zonen.",
       },
     ],
   },

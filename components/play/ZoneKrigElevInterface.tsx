@@ -6,7 +6,7 @@ import { AlertCircle, CheckCircle2, KeyRound, Loader2, Radio, Shield, Swords, Ta
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import StudentRulesSheet from "./StudentRulesSheet";
-import type { PlayActions, PlayUiState, ZoneKrigCaptureFeedbackState } from "./types";
+import type { PlayActions, PlayUiState } from "./types";
 import TeacherBroadcastModal from "./TeacherBroadcastModal";
 import type { ZoneKrigGameTeam, ZoneKrigGameZone } from "./ZoneKrigElevMap";
 import StudentAvatarGateView from "./shared/StudentAvatarGateView";
@@ -41,10 +41,37 @@ function formatDistance(distance: number | null) {
   return `${distance} m`;
 }
 
-function getZoneStatusLabel(zone: ZoneKrigGameZone | null, owner: ZoneKrigGameTeam | null) {
+function formatShieldCountdown(shieldUntil: string | null, nowMs: number) {
+  if (!shieldUntil) return null;
+  const shieldUntilMs = new Date(shieldUntil).getTime();
+  if (!Number.isFinite(shieldUntilMs) || shieldUntilMs <= nowMs) return null;
+
+  const totalSeconds = Math.ceil((shieldUntilMs - nowMs) / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function getZoneStatusMessage(
+  zone: ZoneKrigGameZone | null,
+  owner: ZoneKrigGameTeam | null,
+  myTeamId: string | null,
+  nowMs: number
+) {
   if (!zone) return "Ingen zone valgt";
-  if (!owner) return "Neutral zone";
-  return `Ejes af ${owner.team_name}`;
+  if (!zone.owner_team_id) return "Neutral zone. Svar korrekt for at overtage den.";
+
+  const shieldCountdown = formatShieldCountdown(zone.shield_until, nowMs);
+  if (myTeamId && zone.owner_team_id === myTeamId) {
+    return shieldCountdown
+      ? `I ejer denne zone. Zonen er beskyttet i ${shieldCountdown}.`
+      : "I ejer denne zone.";
+  }
+
+  const ownerLabel = owner?.team_name ?? "et andet hold";
+  return shieldCountdown
+    ? `Zonen ejes af ${ownerLabel} og er beskyttet i ${shieldCountdown}.`
+    : `Zonen ejes af ${ownerLabel}. Svar korrekt for at overtage den.`;
 }
 
 function getZoneCaptureFeedbackClasses(status: NonNullable<PlayUiState["progress"]["currentPost"]["activeZoneKrigCaptureFeedback"]>["status"]) {
@@ -116,8 +143,6 @@ function deriveZoneKrigWinner(teams: ZoneKrigGameTeam[], zones: ZoneKrigGameZone
 
 export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKrigElevInterfaceProps) {
   const { player, gps, progress, flags } = ui;
-  const [isRetryingCapture, setIsRetryingCapture] = useState(false);
-  const [retryCaptureFeedback, setRetryCaptureFeedback] = useState<ZoneKrigCaptureFeedbackState | null>(null);
   const [zones, setZones] = useState<ZoneKrigGameZone[]>([]);
   const [teams, setTeams] = useState<ZoneKrigGameTeam[]>([]);
   const [isBattlefieldLoading, setIsBattlefieldLoading] = useState(true);
@@ -144,7 +169,6 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
     () => deriveMapCenter(zones, gps.myLoc),
     [gps.myLoc, zones]
   );
-  const selectedZoneSolved = progress.solvedPostIndexes.includes(progress.currentPostIndex);
   const selectedZoneAnswered = progress.answeredPostIndexes.includes(progress.currentPostIndex);
   const zoneCaptureFeedback = progress.currentPost.activeZoneKrigCaptureFeedback;
   const distanceToSelectedZone = formatDistance(gps.distance);
@@ -166,6 +190,12 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
     return Math.max(0, endsAtMs - countdownNowMs);
   }, [countdownNowMs, endsAt]);
   const countdownLabel = formatMatchCountdown(remainingMs);
+  const selectedZoneStatusMessage = getZoneStatusMessage(
+    selectedZone,
+    selectedZoneOwner,
+    player.teamId,
+    countdownNowMs
+  );
   const isMatchOver =
     progress.screen.mode === "finished" ||
     sessionStatus === "finished" ||
@@ -330,7 +360,11 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
   }, [player.hasCompletedAvatarGate, player.hasConfirmedName, player.participantId, progress.screen.mode, sessionId]);
 
   useEffect(() => {
-    if (progress.screen.mode === "load_error" || !endsAt || sessionStatus === "finished") {
+    if (
+      progress.screen.mode === "load_error" ||
+      sessionStatus === "finished" ||
+      (!endsAt && !selectedZone?.shield_until)
+    ) {
       return;
     }
 
@@ -342,7 +376,7 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [endsAt, progress.screen.mode, sessionStatus]);
+  }, [endsAt, progress.screen.mode, selectedZone?.shield_until, sessionStatus]);
 
   if (progress.screen.mode === "loading") {
     return (
@@ -703,113 +737,16 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.24em] text-cyan-300">Valgt zone</p>
                 <h2 className="mt-2 text-2xl font-black">{selectedZone ? `Zone ${selectedZone.zone_index + 1}` : "Ingen zone"}</h2>
-                <p className="mt-2 text-sm text-white/65">{getZoneStatusLabel(selectedZone, selectedZoneOwner)}</p>
+                <p className="mt-2 text-sm leading-6 text-white/65">{selectedZoneStatusMessage}</p>
               </div>
               <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/60">
                 {selectedZone ? `${selectedZone.radius_m} m` : "-"}
               </div>
             </div>
 
-            {selectedZoneSolved ? (
-              <div className="mt-4 rounded-3xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-                {selectedZoneOwner ? (
-                  <>
-                    Du har allerede besvaret denne post. Hold øje med zonens status og gå tættere på, hvis du vil forsøge igen.
-                  </>
-                ) : (
-                  <>
-                    Du har allerede besvaret denne post, men zonen er ikke erobret endnu. Gå tættere på zonen og prøv igen, eller bed læreren om hjælp.
-                  </>
-                )}
-              </div>
-            ) : null}
-
-            {/* Zone Krig: retry capture button for neutral zones when the post is already solved */}
-            {progress.raceMode === "zone_krig" &&
-            selectedZoneSolved &&
-            !selectedZoneOwner &&
-            canUnlockSelectedZone ? (
-              <div className="mt-4">
-                <button
-                  type="button"
-                  disabled={isRetryingCapture}
-                  onClick={async () => {
-                    if (!sessionId || !player.participantId) return;
-                    setIsRetryingCapture(true);
-                    setRetryCaptureFeedback(null);
-                    try {
-                      const payload = {
-                        session_id: sessionId,
-                        participant_id: player.participantId,
-                        student_name: (player.pendingPlayerName as string) || (player.playerName as string) || "",
-                        post_index: progress.currentPostIndex + 1,
-                        question_index: progress.currentPostIndex,
-                        selected_index: 0,
-                        answer_index: 0,
-                        is_correct: true,
-                        awarded_points: 0,
-                        question_text: selectedQuestion?.text ?? "",
-                        lat: gps.myLoc?.lat ?? null,
-                        lng: gps.myLoc?.lng ?? null,
-                        answered_at: new Date().toISOString(),
-                        ...(player.teamId ? { zone_krig_team_id: player.teamId } : {}),
-                      };
-
-                      const response = await fetch("/api/play/submit-answer", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ payloads: [payload] }),
-                      });
-
-                      const body = await response.json().catch(() => null);
-                      const capture: { status?: string; shieldRemainingSeconds?: number } | null =
-                        body?.zoneKrigCapture ?? null;
-
-                      // Map server status to user-visible feedback (keeps messages aligned with GameState)
-                      switch (capture?.status) {
-                        case "captured":
-                          setRetryCaptureFeedback({ key: `${Date.now()}`, status: "captured", message: "Fantastisk! I har erobret zonen!" });
-                          break;
-                        case "blocked_by_shield":
-                          setRetryCaptureFeedback({ key: `${Date.now()}`, status: "blocked_by_shield", message: `Korrekt svar! Men zonen er beskyttet i få sekunder endnu. Prøv igen senere.`, shieldRemainingSeconds: capture.shieldRemainingSeconds });
-                          break;
-                        case "already_owned":
-                          setRetryCaptureFeedback({ key: `${Date.now()}`, status: "already_owned", message: "I ejer allerede denne zone. Godt forsvaret!" });
-                          break;
-                        case "zone_missing":
-                          setRetryCaptureFeedback({ key: `${Date.now()}`, status: "zone_missing", message: "Korrekt svar, men zonen kunne ikke opdateres endnu. Prøv igen om lidt." });
-                          break;
-                        case "game_over":
-                          setRetryCaptureFeedback({ key: `${Date.now()}`, status: "game_over", message: "Spillet er slut! Flere zoner kan ikke overtages nu." });
-                          break;
-                        case "capture_failed":
-                        default:
-                          setRetryCaptureFeedback({ key: `${Date.now()}`, status: "capture_failed", message: "Zonen kunne ikke opdateres. Prøv igen om lidt." });
-                          break;
-                      }
-                    } catch {
-                      setRetryCaptureFeedback({ key: `${Date.now()}`, status: "capture_failed", message: "Zonen kunne ikke opdateres. Prøv igen om lidt." });
-                    } finally {
-                      setIsRetryingCapture(false);
-                    }
-                  }}
-                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-3xl bg-amber-500 px-5 py-4 text-sm font-black uppercase tracking-[0.24em] text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-white/40"
-                >
-                  {isRetryingCapture ? <Loader2 className="h-4 w-4 animate-spin" /> : <Swords className="h-5 w-5" />}
-                  Prøv at erobre zonen igen
-                </button>
-
-                {retryCaptureFeedback ? (
-                  <div className={`mt-3 rounded-xl border px-4 py-3 text-sm ${
-                    retryCaptureFeedback.status === "captured"
-                      ? "border-emerald-300/30 bg-emerald-500/15 text-emerald-100"
-                      : retryCaptureFeedback.status === "blocked_by_shield"
-                        ? "border-amber-300/30 bg-amber-500/15 text-amber-100"
-                        : "border-white/10 bg-white/5 text-white"
-                  }`}>
-                    {retryCaptureFeedback.message}
-                  </div>
-                ) : null}
+            {selectedZoneAnswered ? (
+              <div className="mt-4 rounded-3xl border border-amber-300/25 bg-amber-500/10 px-4 py-3 text-sm leading-6 text-amber-100">
+                Dit forsøg på denne zone er brugt. En anden spiller på holdet kan angribe en zone senere.
               </div>
             ) : null}
 
@@ -828,17 +765,23 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
 
                 <button
                   type="button"
-                  disabled={!selectedZone || !canUnlockSelectedZone}
+                  disabled={!selectedZone || !canUnlockSelectedZone || selectedZoneAnswered}
                   onClick={actions.unlockCurrentPost}
                   className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-3xl bg-cyan-500 px-5 py-4 text-sm font-black uppercase tracking-[0.24em] text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-white/40"
                 >
                   <Target className="h-5 w-5" />
-                  {flags.canManualUnlock && !flags.gpsOverrideEnabled && !canUnlockSelectedZone
+                  {selectedZoneAnswered
+                    ? "Forsøg brugt"
+                    : flags.canManualUnlock && !flags.gpsOverrideEnabled && !canUnlockSelectedZone
                     ? "Manuel åbning"
                     : "Åbn zone-spørgsmål"}
                 </button>
 
-                {!canUnlockSelectedZone ? (
+                {progress.currentPost.activePostActionError ? (
+                  <p className="mt-3 text-sm leading-6 text-rose-300">
+                    {progress.currentPost.activePostActionError}
+                  </p>
+                ) : !selectedZoneAnswered && !canUnlockSelectedZone ? (
                   <p className="mt-3 text-sm text-white/50">
                     Gå tættere på den valgte zone for at låse spørgsmålet op.
                   </p>
@@ -877,7 +820,7 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
                   </div>
                 ) : (
                   <div className="mt-4 rounded-3xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-white/80">
-                    <p>Du har besvaret denne post. Gå videre til næste post på kortet.</p>
+                    <p>Dit forsøg på denne zone er brugt. Gå tilbage til kortet.</p>
                   </div>
                 )}
 

@@ -248,20 +248,20 @@ function buildZoneKrigCaptureFeedback(
       return {
         key,
         status: "blocked_by_shield",
-        message: `Korrekt svar! Men zonen er beskyttet i ${formatShieldRemainingTime(captureResult.shieldRemainingSeconds)} endnu. Prøv igen senere.`,
+        message: `Korrekt svar! Men zonen er beskyttet i ${formatShieldRemainingTime(captureResult.shieldRemainingSeconds)} endnu. Dit forsøg på denne zone er brugt.`,
         shieldRemainingSeconds: captureResult.shieldRemainingSeconds ?? undefined,
       };
     case "already_owned":
       return {
         key,
         status: "already_owned",
-        message: "I ejer allerede denne zone. Godt forsvaret!",
+        message: "I ejer allerede denne zone. Dit forsøg på denne zone er brugt.",
       };
     case "zone_missing":
       return {
         key,
         status: "zone_missing",
-        message: "Korrekt svar, men zonen kunne ikke opdateres endnu. Prøv igen om lidt.",
+        message: "Korrekt svar, men zonen kunne ikke opdateres. Dit forsøg på denne zone er brugt.",
       };
     case "game_over":
       return {
@@ -273,7 +273,7 @@ function buildZoneKrigCaptureFeedback(
       return {
         key,
         status: "capture_failed",
-        message: "Zonen kunne ikke opdateres. Prøv igen om lidt.",
+        message: "Zonen kunne ikke opdateres. Dit forsøg på denne zone er brugt.",
       };
     default:
       return null;
@@ -2457,13 +2457,13 @@ export function usePlayGameState({
   }, []);
 
   const unlockCurrentPost = useCallback(() => {
-    if (isTeacherGuided) return;
+    const isCurrentPostAnswered = answeredPostIndexesRef.current.includes(currentPostIndex);
     const currentPostIsHardLocked =
-      answeredPostIndexesRef.current.includes(currentPostIndex) ||
-      burnedPostsRef.current.has(currentPostIndex);
+      isCurrentPostAnswered || burnedPostsRef.current.has(currentPostIndex);
     const canOpenPost =
       !showQuestion &&
       !currentPostIsHardLocked &&
+      !isTeacherGuided &&
       (gpsOverride ||
         dismissedPostIndex === currentPostIndex ||
         (distance !== null &&
@@ -2471,6 +2471,16 @@ export function usePlayGameState({
           distance <= manualUnlockBufferRadius));
 
     if (!canOpenPost) {
+      if (raceMode === "zone_krig") {
+        const message = currentPostIsHardLocked
+          ? "Dit forsøg på denne zone er brugt. En anden spiller på holdet kan angribe en zone senere."
+          : showQuestion
+            ? "Zone-spørgsmålet er allerede åbent."
+            : isTeacherGuided
+              ? "Zonen kan ikke åbnes, mens læreren styrer spillet."
+              : "Zonen kan ikke åbnes endnu. Gå tættere på den valgte zone.";
+        setPostActionError({ key: activeTypedAnswerKey, message });
+      }
       return;
     }
 
@@ -2490,11 +2500,13 @@ export function usePlayGameState({
     setWrongAnswerFeedback(null);
     setShowQuestion(true);
   }, [
-    autoUnlockRadius,
+    activeTypedAnswerKey,
     currentPostIndex,
     dismissedPostIndex,
     distance,
     gpsOverride,
+    isTeacherGuided,
+    raceMode,
     showQuestion,
     manualUnlockBufferRadius,
     clearRoleplayInputErrorTone,
