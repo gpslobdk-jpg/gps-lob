@@ -27,6 +27,7 @@ const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700
 const rubik = Rubik({ subsets: ["latin"], weight: ["700", "800", "900"] });
 
 const DEFAULT_MAP_CENTER: [number, number] = [55.3959, 10.3883];
+const ZONE_KRIG_RECONCILE_INTERVAL_MS = 30_000;
 
 type LogEntry = {
   id: string;
@@ -89,12 +90,82 @@ export default function ZoneKrigCommandCenter() {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [isEndingMatch, setIsEndingMatch] = useState(false);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
+  const isMountedRef = useRef(true);
+  const activeSessionIdRef = useRef(sessionId);
+  const supabase = useMemo(() => createClient(), []);
 
   // Keep a stable ref to teams for use inside realtime callbacks
   const teamsRef = useRef<GameTeam[]>([]);
   useEffect(() => {
     teamsRef.current = teams;
   }, [teams]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    activeSessionIdRef.current = sessionId;
+  }, [sessionId]);
+
+  const reconcileCommandCenter = useCallback(
+    async (options?: { refreshMapKey?: boolean; showLoading?: boolean }) => {
+      if (!sessionId) {
+        return;
+      }
+
+      if (options?.showLoading) {
+        setIsLoading(true);
+      }
+
+      try {
+        const [teamsRes, zonesRes, sessionRes] = await Promise.all([
+          supabase.from("game_teams").select("*").eq("session_id", sessionId),
+          supabase
+            .from("game_zones")
+            .select("*")
+            .eq("session_id", sessionId)
+            .order("zone_index"),
+          supabase
+            .from("live_sessions")
+            .select("status,ends_at")
+            .eq("id", sessionId)
+            .maybeSingle<LiveSessionStateRow>(),
+        ]);
+
+        if (
+          !isMountedRef.current ||
+          activeSessionIdRef.current !== sessionId ||
+          teamsRes.error ||
+          zonesRes.error ||
+          sessionRes.error
+        ) {
+          return;
+        }
+
+        if (teamsRes.data) setTeams(teamsRes.data as GameTeam[]);
+        if (zonesRes.data) {
+          setZones(zonesRes.data as GameZone[]);
+          if (options?.refreshMapKey) {
+            setMapKey(`loaded-${Date.now()}`);
+          }
+        }
+        setSessionStatus(sessionRes.data?.status ?? null);
+        setEndsAt(sessionRes.data?.ends_at ?? null);
+      } catch (error) {
+        console.error("Kunne ikke afstemme Zone Krig-kommandocentralen:", error);
+      } finally {
+        if (isMountedRef.current && activeSessionIdRef.current === sessionId && options?.showLoading) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [sessionId, supabase]
+  );
 
   const finishMatch = useCallback(
     async (mode: "manual" | "timer") => {
@@ -151,10 +222,11 @@ export default function ZoneKrigCommandCenter() {
   useEffect(() => {
     if (!sessionId) return;
 
-    const supabase = createClient();
     let isActive = true;
 
     const loadInitial = async () => {
+      setIsLoading(true);
+
       try {
         const initResponse = await fetch("/api/zone-krig/init", {
           method: "POST",
@@ -168,28 +240,8 @@ export default function ZoneKrigCommandCenter() {
           console.error("Kunne ikke initialisere neutrale Zone Krig-zoner.");
         }
 
-        const [teamsRes, zonesRes, sessionRes] = await Promise.all([
-          supabase.from("game_teams").select("*").eq("session_id", sessionId),
-          supabase
-            .from("game_zones")
-            .select("*")
-            .eq("session_id", sessionId)
-            .order("zone_index"),
-          supabase
-            .from("live_sessions")
-            .select("status,ends_at")
-            .eq("id", sessionId)
-            .maybeSingle<LiveSessionStateRow>(),
-        ]);
-
         if (!isActive) return;
-        if (teamsRes.data) setTeams(teamsRes.data as GameTeam[]);
-        if (zonesRes.data) {
-          setZones(zonesRes.data as GameZone[]);
-          setMapKey(`loaded-${Date.now()}`);
-        }
-        setSessionStatus(sessionRes.data?.status ?? null);
-        setEndsAt(sessionRes.data?.ends_at ?? null);
+        await reconcileCommandCenter({ refreshMapKey: true });
       } catch (error) {
         console.error("Kunne ikke indlæse Zone Krig-kommandocentralen:", error);
       } finally {
@@ -302,7 +354,51 @@ export default function ZoneKrigCommandCenter() {
       void supabase.removeChannel(zonesChannel);
       void supabase.removeChannel(sessionChannel);
     };
-  }, [sessionId]);
+  }, [reconcileCommandCenter, sessionId, supabase]);
+
+  const shouldRunCommandCenterFallback = Boolean(sessionId) && sessionStatus !== "finished";
+
+  useEffect(() => {
+    if (!shouldRunCommandCenterFallback) {
+      return;
+    }
+
+    const reconcileIfVisible = () => {
+      if (document.visibilityState === "visible") {
+        void reconcileCommandCenter();
+      }
+    };
+
+    const reconcileOnFocus = () => {
+      if (document.visibilityState !== "hidden") {
+        void reconcileCommandCenter();
+      }
+    };
+
+    document.addEventListener("visibilitychange", reconcileIfVisible);
+    window.addEventListener("focus", reconcileOnFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", reconcileIfVisible);
+      window.removeEventListener("focus", reconcileOnFocus);
+    };
+  }, [reconcileCommandCenter, shouldRunCommandCenterFallback]);
+
+  useEffect(() => {
+    if (!shouldRunCommandCenterFallback) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void reconcileCommandCenter();
+      }
+    }, ZONE_KRIG_RECONCILE_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [reconcileCommandCenter, shouldRunCommandCenterFallback]);
 
   useEffect(() => {
     if (!endsAt || sessionStatus === "finished") {

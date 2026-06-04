@@ -135,6 +135,9 @@ function requireAdminClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
   test.skip(!supabaseUrl || !serviceRoleKey, "Supabase admin env vars are required for production smoke setup.");
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Supabase admin env vars are required for production smoke setup.");
+  }
 
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: {

@@ -35,6 +35,7 @@ type ZoneKrigSessionRow = {
 };
 
 const DEFAULT_MAP_CENTER: [number, number] = [55.6761, 12.5683];
+const ZONE_KRIG_RECONCILE_INTERVAL_MS = 30_000;
 
 function formatDistance(distance: number | null) {
   if (distance === null) return "GPS måler...";
@@ -154,6 +155,9 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
   const [isResettingFromExpired, setIsResettingFromExpired] = useState(false);
   const [showRetrySlowHint, setShowRetrySlowHint] = useState(false);
   const retryTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const isMountedRef = useRef(true);
+  const activeSessionIdRef = useRef(sessionId);
+  const lastReconciledFeedbackRef = useRef<string | null>(null);
   // One stable participant client per mount – avoids creating new GoTrueClient
   // instances inside effects, which compete for the same navigator.locks entry.
   const supabase = useMemo(() => createClient({ authScope: "participant" }), []);
@@ -202,6 +206,11 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
     (remainingMs !== null && remainingMs <= 0);
   const isParticipantAuthExpired = progress.screen.loadErrorVariant === "participant_auth_expired";
   const isJoinSessionMissing = progress.screen.loadErrorVariant === "join_session_missing";
+  const canReconcileBattlefield =
+    progress.screen.mode !== "load_error" &&
+    Boolean(sessionId && player.hasConfirmedName && player.hasCompletedAvatarGate && player.participantId);
+  const shouldRunBattlefieldFallback =
+    canReconcileBattlefield && progress.screen.mode === "active" && sessionStatus !== "finished";
 
   const returnToJoin = useCallback(() => {
     if (typeof window !== "undefined") {
@@ -233,25 +242,28 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
   }, [actions]);
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
+      isMountedRef.current = false;
       retryTimersRef.current.forEach(clearTimeout);
     };
   }, []);
 
   useEffect(() => {
-    if (
-      progress.screen.mode === "load_error" ||
-      !sessionId ||
-      !player.hasConfirmedName ||
-      !player.hasCompletedAvatarGate ||
-      !player.participantId
-    ) {
-      return;
-    }
+    activeSessionIdRef.current = sessionId;
+  }, [sessionId]);
 
-    let isActive = true;
+  const reconcileBattlefield = useCallback(
+    async (options?: { showLoading?: boolean }) => {
+      if (!canReconcileBattlefield || !sessionId) {
+        return;
+      }
 
-    const loadBattlefield = async () => {
+      if (options?.showLoading) {
+        setIsBattlefieldLoading(true);
+      }
+
       try {
         const [teamsRes, zonesRes, sessionRes] = await Promise.all([
           supabase.from("game_teams").select("id,team_name,color,score").eq("session_id", sessionId),
@@ -267,20 +279,39 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
             .maybeSingle<ZoneKrigSessionRow>(),
         ]);
 
-        if (!isActive) return;
+        if (
+          !isMountedRef.current ||
+          activeSessionIdRef.current !== sessionId ||
+          teamsRes.error ||
+          zonesRes.error ||
+          sessionRes.error
+        ) {
+          return;
+        }
 
         setTeams((teamsRes.data ?? []) as ZoneKrigGameTeam[]);
         setZones((zonesRes.data ?? []) as ZoneKrigGameZone[]);
         setSessionStatus(sessionRes.data?.status ?? null);
         setEndsAt(sessionRes.data?.ends_at ?? null);
+      } catch {
+        // Realtime remains primary; transient reconcile failures should not interrupt pupils.
       } finally {
-        if (isActive) {
+        if (isMountedRef.current && activeSessionIdRef.current === sessionId && options?.showLoading) {
           setIsBattlefieldLoading(false);
         }
       }
-    };
+    },
+    [canReconcileBattlefield, sessionId, supabase]
+  );
 
-    void loadBattlefield();
+  useEffect(() => {
+    if (!canReconcileBattlefield || !sessionId) {
+      return;
+    }
+
+    let isActive = true;
+
+    void reconcileBattlefield({ showLoading: true });
 
     const teamsChannel = supabase
       .channel(`zone-krig-elev-teams-${sessionId}`)
@@ -357,7 +388,63 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
       void supabase.removeChannel(zonesChannel);
       void supabase.removeChannel(sessionChannel);
     };
-  }, [player.hasCompletedAvatarGate, player.hasConfirmedName, player.participantId, progress.screen.mode, sessionId]);
+  }, [canReconcileBattlefield, reconcileBattlefield, sessionId, supabase]);
+
+  useEffect(() => {
+    if (!canReconcileBattlefield || !zoneCaptureFeedback) {
+      return;
+    }
+
+    const feedbackKey = `${zoneCaptureFeedback.key}:${zoneCaptureFeedback.status}`;
+    if (lastReconciledFeedbackRef.current === feedbackKey) {
+      return;
+    }
+
+    lastReconciledFeedbackRef.current = feedbackKey;
+    void reconcileBattlefield();
+  }, [canReconcileBattlefield, reconcileBattlefield, zoneCaptureFeedback]);
+
+  useEffect(() => {
+    if (!shouldRunBattlefieldFallback) {
+      return;
+    }
+
+    const reconcileIfVisible = () => {
+      if (document.visibilityState === "visible") {
+        void reconcileBattlefield();
+      }
+    };
+
+    const reconcileOnFocus = () => {
+      if (document.visibilityState !== "hidden") {
+        void reconcileBattlefield();
+      }
+    };
+
+    document.addEventListener("visibilitychange", reconcileIfVisible);
+    window.addEventListener("focus", reconcileOnFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", reconcileIfVisible);
+      window.removeEventListener("focus", reconcileOnFocus);
+    };
+  }, [reconcileBattlefield, shouldRunBattlefieldFallback]);
+
+  useEffect(() => {
+    if (!shouldRunBattlefieldFallback) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void reconcileBattlefield();
+      }
+    }, ZONE_KRIG_RECONCILE_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [reconcileBattlefield, shouldRunBattlefieldFallback]);
 
   useEffect(() => {
     if (
