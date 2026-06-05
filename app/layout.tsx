@@ -1,11 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "leaflet/dist/leaflet.css";
-import dynamic from "next/dynamic";
 import { Analytics } from "@vercel/analytics/next";
 import { Poppins, Rubik } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/components/AuthProvider";
-import OnboardingTour from "@/components/OnboardingTour";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
@@ -53,12 +50,9 @@ export default function RootLayout({
       <head />
       <body className={`${poppins.variable} ${rubik.variable} font-sans antialiased bg-[#0a1128]`}>
         <ErrorBoundary>
-          <AuthProvider>
-            {children}
-            <OnboardingTour />
-            <ServiceWorkerRegister />
-            <Analytics />
-          </AuthProvider>
+          {children}
+          <ServiceWorkerRegister />
+          <Analytics />
         </ErrorBoundary>
       </body>
     </html>
