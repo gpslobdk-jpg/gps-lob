@@ -9,10 +9,26 @@ import { FullscreenWarning } from "@/components/ui/FullscreenWarning";
 import GPSManager from "@/components/play/GPSManager";
 import { usePlayGameState } from "@/components/play/GameState";
 import PlayInterface from "@/components/play/PlayInterface";
-import StrategoElevInterface from "@/components/play/StrategoElevInterface";
-import ZoneKrigElevInterface from "@/components/play/ZoneKrigElevInterface";
 
 const MapDisplay = dynamic(() => import("@/components/play/MapDisplay"), { ssr: false });
+
+function ModeLoadingState() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-center text-sm text-emerald-200">
+      Indlæser spiltilstand...
+    </div>
+  );
+}
+
+const StrategoElevInterface = dynamic(() => import("@/components/play/StrategoElevInterface"), {
+  ssr: false,
+  loading: () => <ModeLoadingState />,
+});
+
+const ZoneKrigElevInterface = dynamic(() => import("@/components/play/ZoneKrigElevInterface"), {
+  ssr: false,
+  loading: () => <ModeLoadingState />,
+});
 
 type GpsGuardErrorType =
   | "permission_denied"
