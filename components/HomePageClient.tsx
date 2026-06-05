@@ -299,6 +299,34 @@ function formatDebugBoolean(value: boolean) {
   return value ? "ja" : "nej";
 }
 
+function shouldRedirectMobileRootToJoin(
+  browserWindow: HomePageWindow,
+  isNativeGpslobApp: boolean
+) {
+  if (browserWindow.location.pathname !== "/") {
+    return false;
+  }
+
+  const params = new URLSearchParams(browserWindow.location.search);
+  if (params.has("code")) {
+    return false;
+  }
+
+  const userAgent = browserWindow.navigator.userAgent;
+  const isCapacitorApp = typeof browserWindow.Capacitor !== "undefined";
+  const isMobileBrowser =
+    /iPad|iPhone|iPod|Android/i.test(userAgent) ||
+    (browserWindow.navigator.platform === "MacIntel" &&
+      browserWindow.navigator.maxTouchPoints > 1);
+
+  return (
+    isMobileBrowser &&
+    !isNativeGpslobApp &&
+    !isCapacitorApp &&
+    !userAgent.includes("GPSLobApp")
+  );
+}
+
 function NativeDebugPanel({ snapshot }: { snapshot: NativeDebugSnapshot }) {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[2200] p-3 sm:p-4">
@@ -331,6 +359,9 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
   const homeCopy = siteCopy.home;
   const [isMuted, setIsMuted] = useState(true);
   const [isCapacitorApp, setIsCapacitorApp] = useState(isNativeGpslobApp);
+  const [shouldUseLightMobileRoot, setShouldUseLightMobileRoot] = useState<boolean | null>(
+    isNativeGpslobApp ? false : null
+  );
   const [nativeDebugSnapshot, setNativeDebugSnapshot] = useState<NativeDebugSnapshot | null>(null);
   const backgroundVideoRef = useRef<HTMLVideoElement | null>(null);
   const shouldReduceMotion = useReducedMotion();
@@ -340,6 +371,10 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
     const params = new URLSearchParams(window.location.search);
     if (!params.get("code")) return;
 
+    const fallbackId = window.setTimeout(() => {
+      setShouldUseLightMobileRoot(false);
+    }, 500);
+
     const callbackUrl = new URL("/api/auth/callback", window.location.origin);
     callbackUrl.search = params.toString();
     if (!callbackUrl.searchParams.get("next")) {
@@ -347,16 +382,39 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
     }
 
     window.location.replace(callbackUrl.toString());
+
+    return () => window.clearTimeout(fallbackId);
   }, []);
 
   useEffect(() => {
+    const browserWindow = window as HomePageWindow;
+    const nextShouldUseLightMobileRoot = shouldRedirectMobileRootToJoin(
+      browserWindow,
+      isNativeGpslobApp
+    );
+
+    if (nextShouldUseLightMobileRoot) {
+      router.replace("/join");
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setShouldUseLightMobileRoot(false);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isNativeGpslobApp, router]);
+
+  useEffect(() => {
+    if (shouldUseLightMobileRoot !== false) return;
+
     const video = backgroundVideoRef.current;
     if (!video) return;
 
     video.muted = isMuted;
     video.volume = isMuted ? 0 : 1;
     void video.play().catch(() => undefined);
-  }, [isMuted]);
+  }, [isMuted, shouldUseLightMobileRoot]);
 
   useEffect(() => {
     const browserWindow = window as HomePageWindow;
@@ -416,6 +474,17 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
   const handleAppReady = () => {
     router.push("/join");
   };
+
+  if (shouldUseLightMobileRoot !== false) {
+    return (
+      <>
+        <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-center text-sm font-semibold tracking-[0.18em] text-emerald-100 uppercase">
+          Aabner elevstart...
+        </div>
+        {nativeDebugSnapshot ? <NativeDebugPanel snapshot={nativeDebugSnapshot} /> : null}
+      </>
+    );
+  }
 
   const pageContent = isCapacitorApp ? (
     <NativeAppWelcome
