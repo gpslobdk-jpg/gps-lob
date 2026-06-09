@@ -430,7 +430,7 @@ export default function ZoneKrigCommandCenter() {
     const aZ = zonesOwnedByTeam.get(a.id) ?? 0;
     const bZ = zonesOwnedByTeam.get(b.id) ?? 0;
     if (bZ !== aZ) return bZ - aZ;
-    return b.score - a.score;
+    return a.team_name.localeCompare(b.team_name, "da");
   });
 
   const leader = sortedTeams[0] ?? null;

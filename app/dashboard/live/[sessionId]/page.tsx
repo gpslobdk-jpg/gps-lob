@@ -15,6 +15,7 @@ import TeacherLiveLobby from "@/components/live/TeacherLiveLobby";
 import LivePhotoLightbox from "@/components/live/LivePhotoLightbox";
 import LivePhotosModule from "@/components/live/LivePhotosModule";
 import TeacherLiveResults from "@/components/live/TeacherLiveResults";
+import ZoneKrigFinalResults from "@/components/live/ZoneKrigFinalResults";
 import TeacherLiveSidebar from "@/components/live/TeacherLiveSidebar";
 import type { LiveAnswer, LiveModuleId } from "@/components/live/types";
 import { useTeacherLiveData } from "@/hooks/useTeacherLiveData";
@@ -239,13 +240,17 @@ export default function LiveLobbyPage() {
           onEndRun={live.endRun}
         />
       ) : live.status === "finished" ? (
-        <TeacherLiveResults
-          standings={live.finalStandings}
-          totalPosts={live.totalPosts}
-          winnerCelebrationName={live.winnerCelebrationName}
-          photoAnswers={live.photoAnswers}
-          isPhotoMission={live.isPhotoMission}
-        />
+        isZoneKrigRace ? (
+          <ZoneKrigFinalResults sessionId={sessionId} />
+        ) : (
+          <TeacherLiveResults
+            standings={live.finalStandings}
+            totalPosts={live.totalPosts}
+            winnerCelebrationName={live.winnerCelebrationName}
+            photoAnswers={live.photoAnswers}
+            isPhotoMission={live.isPhotoMission}
+          />
+        )
       ) : visibleActiveModule !== "none" ? (
         <motion.div
           key={`module-${visibleActiveModule}`}
