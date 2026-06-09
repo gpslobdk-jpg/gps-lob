@@ -364,6 +364,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
   );
   const [nativeDebugSnapshot, setNativeDebugSnapshot] = useState<NativeDebugSnapshot | null>(null);
   const backgroundVideoRef = useRef<HTMLVideoElement | null>(null);
+  const mobileRootRedirectStartedRef = useRef(false);
   const shouldReduceMotion = useReducedMotion();
   const router = useRouter();
 
@@ -394,7 +395,10 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
     );
 
     if (nextShouldUseLightMobileRoot) {
-      router.replace("/join");
+      if (!mobileRootRedirectStartedRef.current) {
+        mobileRootRedirectStartedRef.current = true;
+        window.location.replace("/join");
+      }
       return;
     }
 
@@ -403,7 +407,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [isNativeGpslobApp, router]);
+  }, [isNativeGpslobApp]);
 
   useEffect(() => {
     if (shouldUseLightMobileRoot !== false) return;
