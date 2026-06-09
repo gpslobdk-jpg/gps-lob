@@ -189,6 +189,31 @@ function isCircuitBreakerLoadErrorVariant(variant: PlayLoadErrorVariant) {
   return variant === "participant_auth_expired" || variant === "join_session_missing";
 }
 
+type ParticipantAuthRecoveryReason =
+  | "participant_not_bound"
+  | "auth_missing"
+  | "auth_expired"
+  | "unknown_auth_error";
+
+function determineParticipantAuthRecoveryReason(status: number, message: unknown): ParticipantAuthRecoveryReason {
+  if (typeof message !== "string") return "unknown_auth_error";
+  const normalized = message.trim().toLocaleLowerCase("da-DK");
+
+  if (status === 401 && normalized.includes("ikke knyttet til en aktiv deltager")) {
+    return "participant_not_bound";
+  }
+
+  if (normalized.includes("udløbet")) {
+    return "auth_expired";
+  }
+
+  if (normalized.includes("mangler")) {
+    return "auth_missing";
+  }
+
+  return "unknown_auth_error";
+}
+
 function isParticipantAuthResponseError(status: number, message: unknown) {
   if (status !== 401 && status !== 403) {
     return false;
@@ -198,15 +223,21 @@ function isParticipantAuthResponseError(status: number, message: unknown) {
     return false;
   }
 
-  // Only treat as "auth expired" (expired-screen) when the JWT/cookie itself is
-  // gone or explicitly expired — i.e. the server says the login is missing or
-  // has timed out.  Messages about a stale/mismatched participant record
-  // ("ikke knyttet til en aktiv deltager", "matcher ikke den aktive deltager-session")
-  // indicate a stale localStorage entry for an otherwise-active session; those
-  // should route the user to the rejoin-screen, not the "you've been away too
-  // long" expired-screen.
+  // Treat as "auth expired" when the JWT/cookie itself is missing or expired.
+  // Also treat the precise server message "ikke knyttet til en aktiv deltager"
+  // as a recoverable auth state — this indicates the anonymous auth user exists
+  // but is not bound to an active participant, and the client may rebind.
+  // Keep matching narrow to avoid false positives.
   const normalizedMessage = message.trim().toLocaleLowerCase("da-DK");
-  return normalizedMessage.includes("mangler") || normalizedMessage.includes("udløbet");
+  if (normalizedMessage.includes("mangler") || normalizedMessage.includes("udløbet")) {
+    return true;
+  }
+
+  if (status === 401 && normalizedMessage.includes("ikke knyttet til en aktiv deltager")) {
+    return true;
+  }
+
+  return false;
 }
 
 type InsertAnswerResult = {
@@ -4466,6 +4497,7 @@ export function usePlayGameState({
       const image = await compressImageForUpload(file);
       const answeredAt = new Date().toISOString();
       let authRecoveryAttempted = false;
+      let authRecoveryAttempts = 0;
       let payload: SubmitPhotoResponsePayload | null = null;
 
       const getActiveSubmitPhotoParticipantId = () => {
@@ -4530,12 +4562,20 @@ export function usePlayGameState({
             }
 
             authRecoveryAttempted = true;
+            authRecoveryAttempts++;
 
             try {
+              const recoveryReason = determineParticipantAuthRecoveryReason(
+                uploadError.status ?? 0,
+                uploadError.message
+              );
+
               Sentry.addBreadcrumb({
                 category: "photo",
                 message: "photo_upload_auth_recovery_attempt",
                 data: {
+                  reason: recoveryReason,
+                  retryCount: authRecoveryAttempts,
                   sessionId,
                   participantId: getActiveSubmitPhotoParticipantId(),
                   postIndex: currentPostIndex,
@@ -4564,10 +4604,17 @@ export function usePlayGameState({
             }
 
             try {
+              const recoveryReason = determineParticipantAuthRecoveryReason(
+                uploadError.status ?? 0,
+                uploadError.message
+              );
+
               Sentry.addBreadcrumb({
                 category: "photo",
                 message: "photo_upload_auth_recovery_success",
                 data: {
+                  reason: recoveryReason,
+                  retryCount: authRecoveryAttempts,
                   sessionId,
                   participantId: getActiveSubmitPhotoParticipantId(),
                   postIndex: currentPostIndex,
