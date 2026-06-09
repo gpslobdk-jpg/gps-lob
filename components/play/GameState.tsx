@@ -4679,11 +4679,11 @@ export function usePlayGameState({
       }
       if (!isMountedRef.current) return;
 
-      setPhotoFeedback({
-        key: activeTypedAnswerKey,
-        tone: "success",
-        message: isSelfie ? `Selfie sendt! ${payload.message ?? ""}` : payload.message ?? "",
-      });
+      const photoSuccessMessage = isSelfie
+        ? `Selfie sendt! ${payload.message ?? ""}`
+        : payload.message ?? "";
+      await continueFromSolvedPost();
+      showResumeNotice(photoSuccessMessage);
       setIsAnalyzingPhoto(false);
     } catch (error) {
       if (!isMountedRef.current) return;
