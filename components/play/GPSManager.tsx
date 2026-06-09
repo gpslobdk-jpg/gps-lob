@@ -107,6 +107,40 @@ export default function GPSManager({
   const isLocationSyncInFlightRef = useRef(false);
   const lastPositionTimestampRef = useRef(0);
   const heartbeatRestartCountRef = useRef(0);
+  const currentPostIndexRef = useRef(currentPostIndex);
+  const showQuestionRef = useRef(showQuestion);
+  const dismissedPostIndexRef = useRef(dismissedPostIndex);
+  const onLocationChangeRef = useRef(onLocationChange);
+  const onDistanceChangeRef = useRef(onDistanceChange);
+  const onAutoUnlockRef = useRef(onAutoUnlock);
+  const onDismissedResetRef = useRef(onDismissedReset);
+  const onSyncLocationRef = useRef(onSyncLocation);
+  const onGpsErrorChangeRef = useRef(onGpsErrorChange);
+  const onGpsErrorTypeChangeRef = useRef(onGpsErrorTypeChange);
+
+  useEffect(() => {
+    currentPostIndexRef.current = currentPostIndex;
+    showQuestionRef.current = showQuestion;
+    dismissedPostIndexRef.current = dismissedPostIndex;
+    onLocationChangeRef.current = onLocationChange;
+    onDistanceChangeRef.current = onDistanceChange;
+    onAutoUnlockRef.current = onAutoUnlock;
+    onDismissedResetRef.current = onDismissedReset;
+    onSyncLocationRef.current = onSyncLocation;
+    onGpsErrorChangeRef.current = onGpsErrorChange;
+    onGpsErrorTypeChangeRef.current = onGpsErrorTypeChange;
+  }, [
+    currentPostIndex,
+    dismissedPostIndex,
+    onAutoUnlock,
+    onDismissedReset,
+    onDistanceChange,
+    onGpsErrorChange,
+    onGpsErrorTypeChange,
+    onLocationChange,
+    onSyncLocation,
+    showQuestion,
+  ]);
 
   useEffect(() => {
     autoUnlockConfirmationRef.current = 0;
@@ -115,13 +149,13 @@ export default function GPSManager({
 
   useEffect(() => {
     if (!enabled) {
-      onGpsErrorChange?.(false);
-      onGpsErrorTypeChange?.(null);
+      onGpsErrorChangeRef.current?.(false);
+      onGpsErrorTypeChangeRef.current?.(null);
       displayLocationRef.current = null;
       targetLocationRef.current = null;
       velocityRef.current = null;
     }
-  }, [enabled, onGpsErrorChange, onGpsErrorTypeChange]);
+  }, [enabled]);
 
   useEffect(() => {
     if (enabled) return;
@@ -142,9 +176,9 @@ export default function GPSManager({
     }
 
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      onGpsErrorChange?.(true);
-      onGpsErrorTypeChange?.("unknown");
-      onDistanceChange(null);
+      onGpsErrorChangeRef.current?.(true);
+      onGpsErrorTypeChangeRef.current?.("unknown");
+      onDistanceChangeRef.current(null);
       return;
     }
 
@@ -222,11 +256,11 @@ export default function GPSManager({
 
       if (distanceMeters > 0.5) {
         displayLocationRef.current = next;
-        onLocationChange(next);
+        onLocationChangeRef.current(next);
         animationFrameRef.current = requestAnimationFrame(animate);
       } else {
         displayLocationRef.current = target;
-        onLocationChange(target);
+        onLocationChangeRef.current(target);
         animationFrameRef.current = null;
       }
     };
@@ -324,14 +358,14 @@ export default function GPSManager({
 
       lastAcceptedLocationRef.current = acceptedLocation;
       lastAcceptedAtMsRef.current = acceptedNow;
-      onGpsErrorChange?.(false);
-      onGpsErrorTypeChange?.(null);
+      onGpsErrorChangeRef.current?.(false);
+      onGpsErrorTypeChangeRef.current?.(null);
 
       targetLocationRef.current = acceptedLocation;
 
       if (!displayLocationRef.current) {
         displayLocationRef.current = acceptedLocation;
-        onLocationChange(acceptedLocation);
+        onLocationChangeRef.current(acceptedLocation);
         return;
       }
 
@@ -341,21 +375,21 @@ export default function GPSManager({
 
       if (targetLat !== null && targetLng !== null) {
         const nextDistance = getDistance(lat, lng, targetLat, targetLng);
-        onDistanceChange(nextDistance);
+        onDistanceChangeRef.current(nextDistance);
 
         if (
           !isDegradedFallback &&
           autoUnlockRadius !== null &&
           nextDistance <= autoUnlockRadius &&
-          !showQuestion &&
-          dismissedPostIndex !== currentPostIndex
+          !showQuestionRef.current &&
+          dismissedPostIndexRef.current !== currentPostIndexRef.current
         ) {
           lastAutoUnlockInRangeAtMsRef.current = nowMs;
           autoUnlockConfirmationRef.current += 1;
           if (autoUnlockConfirmationRef.current >= AUTO_UNLOCK_CONFIRMATION_HITS) {
             autoUnlockConfirmationRef.current = 0;
             lastAutoUnlockInRangeAtMsRef.current = 0;
-            onAutoUnlock();
+            onAutoUnlockRef.current();
           }
         } else {
           resetAutoUnlockConfirmationIfGraceExpired(nowMs);
@@ -364,13 +398,13 @@ export default function GPSManager({
         if (
           autoUnlockRadius !== null &&
           nextDistance > autoUnlockRadius &&
-          dismissedPostIndex === currentPostIndex
+          dismissedPostIndexRef.current === currentPostIndexRef.current
         ) {
-          onDismissedReset();
+          onDismissedResetRef.current();
         }
       } else {
         resetAutoUnlockConfirmationIfGraceExpired(nowMs);
-        onDistanceChange(null);
+        onDistanceChangeRef.current(null);
       }
 
       const syncNowMs = Date.now();
@@ -397,7 +431,7 @@ export default function GPSManager({
         };
 
         try {
-          await onSyncLocation(lat, lng, accuracy);
+          await onSyncLocationRef.current(lat, lng, accuracy);
         } finally {
           isLocationSyncInFlightRef.current = false;
         }
@@ -407,26 +441,26 @@ export default function GPSManager({
     const errorHandler = (error: GeolocationPositionError) => {
       console.error("GPS Error:", error);
       resetAutoUnlockConfirmationIfGraceExpired(Date.now());
-      onDistanceChange(null);
-      onGpsErrorChange?.(true);
+      onDistanceChangeRef.current(null);
+      onGpsErrorChangeRef.current?.(true);
 
       if (error.code === error.PERMISSION_DENIED || error.code === 1) {
-        onGpsErrorTypeChange?.("permission_denied");
+        onGpsErrorTypeChangeRef.current?.("permission_denied");
         return;
       }
 
       if (error.code === error.POSITION_UNAVAILABLE || error.code === 2) {
-        onGpsErrorTypeChange?.("position_unavailable");
+        onGpsErrorTypeChangeRef.current?.("position_unavailable");
         return;
       }
 
       if (error.code === error.TIMEOUT || error.code === 3) {
-        onGpsErrorTypeChange?.("timeout");
+        onGpsErrorTypeChangeRef.current?.("timeout");
         lastPositionTimestampRef.current = 1;
         return;
       }
 
-      onGpsErrorTypeChange?.("unknown");
+      onGpsErrorTypeChangeRef.current?.("unknown");
     };
 
     const startWatch = () => {
@@ -442,8 +476,8 @@ export default function GPSManager({
         );
       } catch (e) {
         console.warn("Failed to start geolocation watch:", e);
-        onGpsErrorChange?.(true);
-        onGpsErrorTypeChange?.("unknown");
+        onGpsErrorChangeRef.current?.(true);
+        onGpsErrorTypeChangeRef.current?.("unknown");
       }
     };
 
@@ -515,17 +549,7 @@ export default function GPSManager({
       window.removeEventListener("pageshow", handlePageShow);
     };
   }, [
-    currentPostIndex,
-    dismissedPostIndex,
     enabled,
-    onAutoUnlock,
-    onDismissedReset,
-    onDistanceChange,
-    onGpsErrorChange,
-    onGpsErrorTypeChange,
-    onLocationChange,
-    onSyncLocation,
-    showQuestion,
     targetLat,
     targetLng,
     autoUnlockRadius,
