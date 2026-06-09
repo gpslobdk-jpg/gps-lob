@@ -61,6 +61,10 @@ type ExistingAnswerRow = {
   is_correct?: boolean | null;
 };
 
+type InsertedAnswerRow = {
+  id: string;
+};
+
 async function findExistingAnswerRecord(
   payload: Record<string, unknown>,
   admin: NonNullable<ReturnType<typeof createAdminClient>>
@@ -389,6 +393,60 @@ async function maybeCaptureZone(
   }
 }
 
+async function resolveEffectiveAwardedPointsAfterCapture({
+  answerId,
+  awardedPoints,
+  zoneKrigCapture,
+  admin,
+  requestPath,
+  participantId,
+  sessionId,
+}: {
+  answerId: string;
+  awardedPoints: number;
+  zoneKrigCapture: ZoneKrigCaptureResponse | null;
+  admin: NonNullable<ReturnType<typeof createAdminClient>>;
+  requestPath: string;
+  participantId: string | null;
+  sessionId: string | null;
+}) {
+  if (zoneKrigCapture?.status !== "blocked_by_shield") {
+    return awardedPoints;
+  }
+
+  const { error } = await admin
+    .from("answers")
+    .update({ awarded_points: 0 })
+    .eq("id", answerId)
+    .select("id")
+    .single<InsertedAnswerRow>();
+
+  if (error) {
+    console.error("[zone-krig] Could not reset shield-blocked answer points:", {
+      answerId,
+      sessionId,
+      status: zoneKrigCapture.status,
+      message: error.message,
+    });
+
+    await logHandledServerError({
+      route: "/api/play/submit-answer",
+      method: "POST",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+      context: `zone_krig_shield_points_reset_failed:${answerId}:${zoneKrigCapture.status}`,
+      participantId,
+      sessionId,
+    });
+
+    return null;
+  }
+
+  return 0;
+}
+
 export async function POST(request: NextRequest) {
   let body: SubmitAnswerPayload;
   const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
@@ -459,19 +517,74 @@ export async function POST(request: NextRequest) {
             existingAnswer.is_correct === true && incomingIsCorrect
               ? await maybeCaptureZone(enrichedPayload, admin, responseAwardedPoints, runCache)
               : null;
+          const effectiveAwardedPoints = await resolveEffectiveAwardedPointsAfterCapture({
+            answerId: existingAnswer.id,
+            awardedPoints: responseAwardedPoints,
+            zoneKrigCapture,
+            admin,
+            requestPath,
+            participantId: participantContext.data.participantId,
+            sessionId: participantContext.data.sessionId,
+          });
+          if (effectiveAwardedPoints === null) {
+            return NextResponse.json(
+              { error: "Kunne ikke gemme shield-blokerede point.", zoneKrigCapture },
+              { status: 500 }
+            );
+          }
           return NextResponse.json({
             inserted: true,
-            awardedPoints: responseAwardedPoints,
+            awardedPoints: effectiveAwardedPoints,
             zoneKrigCapture,
             isLocked: true,
           });
         }
 
-        const { error } = await admin.from("answers").insert(enrichedPayload);
+        const { data: insertedAnswer, error } = await admin
+          .from("answers")
+          .insert(enrichedPayload)
+          .select("id")
+          .single<InsertedAnswerRow>();
         if (!error) {
+          if (!insertedAnswer?.id) {
+            const missingAnswerIdError = new Error("Answer insert succeeded without returning an id.");
+            await logHandledServerError({
+              route: "/api/play/submit-answer",
+              method: "POST",
+              status: 500,
+              error: missingAnswerIdError,
+              requestPath,
+              routeType: "route",
+              context: "zone_krig_answer_id_missing",
+              participantId: participantContext.data.participantId,
+              sessionId: participantContext.data.sessionId,
+            });
+            return NextResponse.json({ error: "Kunne ikke gemme svar." }, { status: 500 });
+          }
+
           await maybeStampRunStartedAt(enrichedPayload, admin);
           const zoneKrigCapture = await maybeCaptureZone(enrichedPayload, admin, awardedPoints, runCache);
-          return NextResponse.json({ inserted: true, awardedPoints, zoneKrigCapture, isLocked: true });
+          const effectiveAwardedPoints = await resolveEffectiveAwardedPointsAfterCapture({
+            answerId: insertedAnswer.id,
+            awardedPoints,
+            zoneKrigCapture,
+            admin,
+            requestPath,
+            participantId: participantContext.data.participantId,
+            sessionId: participantContext.data.sessionId,
+          });
+          if (effectiveAwardedPoints === null) {
+            return NextResponse.json(
+              { error: "Kunne ikke gemme shield-blokerede point.", zoneKrigCapture },
+              { status: 500 }
+            );
+          }
+          return NextResponse.json({
+            inserted: true,
+            awardedPoints: effectiveAwardedPoints,
+            zoneKrigCapture,
+            isLocked: true,
+          });
         }
 
         if (isMissingColumnError(error)) {
