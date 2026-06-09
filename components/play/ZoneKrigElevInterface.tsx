@@ -12,6 +12,7 @@ import type { ZoneKrigGameTeam, ZoneKrigGameZone } from "./ZoneKrigElevMap";
 import StudentAvatarGateView from "./shared/StudentAvatarGateView";
 import StudentNameGateView from "./shared/StudentNameGateView";
 import { createClient } from "@/utils/supabase/client";
+import { formatZoneKrigShieldCountdown } from "@/utils/zoneKrigShield";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 
 const ZoneKrigElevMap = dynamic(() => import("./ZoneKrigElevMap"), {
@@ -42,17 +43,6 @@ function formatDistance(distance: number | null) {
   return `${distance} m`;
 }
 
-function formatShieldCountdown(shieldUntil: string | null, nowMs: number) {
-  if (!shieldUntil) return null;
-  const shieldUntilMs = new Date(shieldUntil).getTime();
-  if (!Number.isFinite(shieldUntilMs) || shieldUntilMs <= nowMs) return null;
-
-  const totalSeconds = Math.ceil((shieldUntilMs - nowMs) / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
 function getZoneStatusMessage(
   zone: ZoneKrigGameZone | null,
   owner: ZoneKrigGameTeam | null,
@@ -62,7 +52,7 @@ function getZoneStatusMessage(
   if (!zone) return "Ingen zone valgt";
   if (!zone.owner_team_id) return "Neutral zone. Svar korrekt for at overtage den.";
 
-  const shieldCountdown = formatShieldCountdown(zone.shield_until, nowMs);
+  const shieldCountdown = formatZoneKrigShieldCountdown(zone.shield_until, nowMs);
   if (myTeamId && zone.owner_team_id === myTeamId) {
     return shieldCountdown
       ? `I ejer denne zone. Zonen er beskyttet i ${shieldCountdown}.`

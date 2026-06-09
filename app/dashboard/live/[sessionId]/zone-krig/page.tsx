@@ -450,6 +450,10 @@ export default function ZoneKrigCommandCenter() {
     return Math.max(0, endsAtMs - nowMs);
   }, [endsAt, nowMs]);
   const countdownLabel = formatCountdown(remainingMs);
+  const matchTimerLabel =
+    remainingMs !== null && remainingMs <= 0
+      ? "Tiden er udl\u00F8bet"
+      : `Tid tilbage: ${countdownLabel}`;
   const isMatchOver = sessionStatus === "finished" || (remainingMs !== null && remainingMs <= 0);
 
   useEffect(() => {
@@ -492,7 +496,7 @@ export default function ZoneKrigCommandCenter() {
           </span>
           <span className="flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-100">
             <Timer className="h-3.5 w-3.5 text-amber-300" />
-            {countdownLabel}
+            {matchTimerLabel}
           </span>
           <span className="flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-bold text-cyan-300">
             <Wifi className="h-3 w-3" />

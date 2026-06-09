@@ -4,9 +4,10 @@ import "leaflet/dist/leaflet.css";
 
 import L from "leaflet";
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Circle, MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
+import { Circle, MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
 import { createZoneKrigMarkerIcon } from "@/components/play/zoneMarkerHelper";
+import { formatZoneKrigShieldCountdown } from "@/utils/zoneKrigShield";
 
 export type GameTeam = {
   id: string;
@@ -99,9 +100,8 @@ export default function ZoneKrigMap({ center, zones, teams }: ZoneKrigMapProps) 
       {zones.map((zone) => {
         const team = zone.owner_team_id ? teamMap.get(zone.owner_team_id) : null;
         const color = team?.color ?? "#475569";
-        const isShielded = Boolean(
-          zone.shield_until && new Date(zone.shield_until).getTime() > nowMs
-        );
+        const shieldCountdown = team ? formatZoneKrigShieldCountdown(zone.shield_until, nowMs) : null;
+        const isShielded = Boolean(shieldCountdown);
         const fillOpacity = team ? (isShielded ? 0.38 : 0.22) : 0.07;
 
         return (
@@ -116,7 +116,15 @@ export default function ZoneKrigMap({ center, zones, teams }: ZoneKrigMapProps) 
                 weight: isShielded ? 3 : 2,
                 dashArray: isShielded ? "7 5" : undefined,
               }}
-            />
+            >
+              <Popup>
+                <div className="text-sm text-slate-900">
+                  <div className="font-black">Zone {zone.zone_index + 1}</div>
+                  <div>{team ? `Ejes af ${team.team_name}` : "Neutral zone"}</div>
+                  {shieldCountdown ? <div>Skjold: {shieldCountdown}</div> : null}
+                </div>
+              </Popup>
+            </Circle>
             <Marker
               position={[zone.center_lat, zone.center_lng]}
               icon={createZoneKrigMarkerIcon({
