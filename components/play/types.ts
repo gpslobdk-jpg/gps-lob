@@ -79,6 +79,16 @@ export type QuizAnswerFeedbackState = {
   tone: FeedbackTone;
 } | null;
 
+export type SubmitAnswerServerCorrectness = {
+  checked: true;
+  isCorrect: boolean;
+};
+
+export type Vm26GoalFeedbackState = {
+  id: number;
+  message: string;
+} | null;
+
 export type ZoneKrigCaptureStatus =
   | "captured"
   | "blocked_by_shield"
@@ -355,6 +365,7 @@ export interface PlayFeedbackState {
   photoFeedback: PhotoFeedbackState;
   postActionError: PostActionErrorState;
   quizAnswerFeedback: QuizAnswerFeedbackState;
+  vm26GoalFeedback: Vm26GoalFeedbackState;
   zoneKrigCaptureFeedback: ZoneKrigCaptureFeedbackState;
   escapeReward: EscapeRewardState;
   roleplayReply: RoleplayReplyState;

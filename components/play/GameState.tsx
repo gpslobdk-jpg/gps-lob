@@ -38,8 +38,10 @@ import type {
   RoleplayReplyState,
   StoredPendingAnswer,
   StoredPlaySnapshot,
+  SubmitAnswerServerCorrectness,
   TeacherBroadcastMessage,
   ValidateAnswerPayload,
+  Vm26GoalFeedbackState,
   WakeLockSentinelLike,
   ZoneKrigCaptureFeedbackState,
   ZoneKrigCaptureStatus,
@@ -165,6 +167,8 @@ const PLAY_JOIN_SESSION_MISSING_MESSAGE =
   "Løbet er muligvis afsluttet af læreren.";
 const RESTORE_RETRY_DELAY_MS = 2500;
 const RESTORE_AUTH_RECOVERY_DELAY_MS = 350;
+const VM26_GOAL_FEEDBACK_DURATION_MS = 1600;
+const VM26_GOAL_FEEDBACK_MESSAGE = "MÅÅÅL! ⚽";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -187,6 +191,16 @@ function normalizePlayTheme(value: unknown): PlayThemeState | undefined {
       templateId,
       version,
     },
+  };
+}
+
+function normalizeSubmitAnswerServerCorrectness(value: unknown): SubmitAnswerServerCorrectness | undefined {
+  if (!isRecord(value)) return undefined;
+  if (value.checked !== true || typeof value.isCorrect !== "boolean") return undefined;
+
+  return {
+    checked: true,
+    isCorrect: value.isCorrect,
   };
 }
 const MAX_RESTORE_RETRIES = 6;
@@ -270,6 +284,7 @@ type InsertAnswerResult = {
   didPersist: boolean;
   awardedPoints: number;
   zoneKrigCapture: ZoneKrigCaptureApiResult;
+  serverCorrectness?: SubmitAnswerServerCorrectness;
 };
 
 type SessionTeacherMessageRow = {
@@ -449,6 +464,7 @@ export function usePlayGameState({
   const [photoFeedback, setPhotoFeedback] = useState<PhotoFeedbackState>(null);
   const [postActionError, setPostActionError] = useState<PostActionErrorState>(null);
   const [quizAnswerFeedback, setQuizAnswerFeedback] = useState<QuizAnswerFeedbackState>(null);
+  const [vm26GoalFeedback, setVm26GoalFeedback] = useState<Vm26GoalFeedbackState>(null);
   const [zoneKrigCaptureFeedback, setZoneKrigCaptureFeedback] = useState<ZoneKrigCaptureFeedbackState>(null);
   const [escapeReward, setEscapeReward] = useState<EscapeRewardState>(null);
   const [collectedEscapeRewards, setCollectedEscapeRewards] = useState<EscapeCodeEntry[]>([]);
@@ -513,6 +529,8 @@ export function usePlayGameState({
   );
   const [playFinishedAtMs, setPlayFinishedAtMs] = useState<number | null>(null);
   const quizAnswerFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const vm26GoalFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const vm26GoalFeedbackIdRef = useRef(0);
   const wrongAnswerFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roleplayInputErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wakeLockSentinelRef = useRef<WakeLockSentinelLike | null>(null);
@@ -586,6 +604,27 @@ export function usePlayGameState({
       setResumeMessage(null);
       resumeMessageTimerRef.current = null;
     }, 5000);
+  }, []);
+
+  const triggerVm26GoalFeedback = useCallback(() => {
+    if (vm26GoalFeedbackTimerRef.current) {
+      clearTimeout(vm26GoalFeedbackTimerRef.current);
+      vm26GoalFeedbackTimerRef.current = null;
+    }
+
+    const id = vm26GoalFeedbackIdRef.current + 1;
+    vm26GoalFeedbackIdRef.current = id;
+    setVm26GoalFeedback({
+      id,
+      message: VM26_GOAL_FEEDBACK_MESSAGE,
+    });
+
+    vm26GoalFeedbackTimerRef.current = setTimeout(() => {
+      setVm26GoalFeedback((currentFeedback) =>
+        currentFeedback?.id === id ? null : currentFeedback
+      );
+      vm26GoalFeedbackTimerRef.current = null;
+    }, VM26_GOAL_FEEDBACK_DURATION_MS);
   }, []);
 
   const applyLatestTeacherMessage = useCallback((row: SessionTeacherMessageRow | null) => {
@@ -2680,6 +2719,9 @@ export function usePlayGameState({
       if (quizAnswerFeedbackTimerRef.current) {
         clearTimeout(quizAnswerFeedbackTimerRef.current);
       }
+      if (vm26GoalFeedbackTimerRef.current) {
+        clearTimeout(vm26GoalFeedbackTimerRef.current);
+      }
       if (wrongAnswerFeedbackTimerRef.current) {
         clearTimeout(wrongAnswerFeedbackTimerRef.current);
       }
@@ -3326,6 +3368,7 @@ export function usePlayGameState({
             awardedPoints?: number;
             error?: string;
             zoneKrigCapture?: ZoneKrigCaptureApiResult;
+            serverCorrectness?: unknown;
           } | null;
 
           if (!response.ok) {
@@ -3367,6 +3410,7 @@ export function usePlayGameState({
                   ? Math.max(0, Math.round(body.awardedPoints))
                   : resolvedAwardedPoints,
               zoneKrigCapture: body.zoneKrigCapture ?? null,
+              serverCorrectness: normalizeSubmitAnswerServerCorrectness(body.serverCorrectness),
             };
           }
 
@@ -4042,10 +4086,10 @@ export function usePlayGameState({
         setScore((prev) => prev + expectedPoints);
       }
 
-    const answerInsertResult = options?.skipAnswerPersist
+    const answerInsertResult: InsertAnswerResult = options?.skipAnswerPersist
       ? {
           didPersist: true,
-            awardedPoints: expectedPoints,
+          awardedPoints: expectedPoints,
           zoneKrigCapture: options.zoneKrigCapture ?? null,
         }
       : await insertAnswerRecord(
@@ -4062,6 +4106,19 @@ export function usePlayGameState({
       if (!wasAlreadySolved && answerInsertResult.awardedPoints !== expectedPoints) {
         setScore((prev) => prev - expectedPoints + answerInsertResult.awardedPoints);
       }
+
+    if (
+      currentVariant === "quiz" &&
+      raceMode !== "zone_krig" &&
+      raceMode !== "stratego" &&
+      raceMode !== "escape" &&
+      theme?.vm26?.enabled === true &&
+      answerInsertResult.didPersist &&
+      answerInsertResult.serverCorrectness?.checked === true &&
+      answerInsertResult.serverCorrectness.isCorrect === true
+    ) {
+      triggerVm26GoalFeedback();
+    }
 
     if (currentVariant === "escape") {
       const codeBrick = escapeBrick?.trim() || getEscapeCodeBrick(current, currentPostIndex);
@@ -4849,6 +4906,7 @@ export function usePlayGameState({
     photoFeedback,
     postActionError,
     quizAnswerFeedback,
+    vm26GoalFeedback,
     zoneKrigCaptureFeedback,
     escapeReward,
     roleplayReply,

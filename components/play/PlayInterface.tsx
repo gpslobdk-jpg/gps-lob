@@ -389,7 +389,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     showMasterVictory,
     myEscapePlacement,
   } = escape;
-  const { latestMessage, resumeMessage, wrongAnswerFeedback } = feedback;
+  const { latestMessage, resumeMessage, vm26GoalFeedback, wrongAnswerFeedback } = feedback;
   const {
     canManualUnlock,
     gpsOverrideEnabled,
@@ -1554,6 +1554,22 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
           {showVm26Badge && !isRoleplayImmersed ? (
             <div className="pointer-events-none absolute inset-x-4 top-4 z-[900] sm:hidden">
               <Vm26PlayBadge compact />
+            </div>
+          ) : null}
+
+          {vm26GoalFeedback ? (
+            <div className="pointer-events-none fixed inset-x-4 top-20 z-[2400] flex justify-center sm:top-6">
+              <div
+                key={vm26GoalFeedback.id}
+                className="animate-in fade-in zoom-in-95 rounded-[1.35rem] border border-amber-200/55 bg-emerald-950/92 px-6 py-4 text-center shadow-[0_20px_60px_rgba(16,185,129,0.32)] backdrop-blur-2xl duration-200"
+              >
+                <p className={`text-2xl font-black text-amber-100 sm:text-3xl ${rubik.className}`}>
+                  {vm26GoalFeedback.message}
+                </p>
+                <p className="mt-1 text-xs font-bold uppercase tracking-[0.22em] text-emerald-100/85">
+                  Pokaljagten fortsætter
+                </p>
+              </div>
             </div>
           ) : null}
 
