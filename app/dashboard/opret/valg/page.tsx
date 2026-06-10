@@ -492,7 +492,6 @@ export default function ValgHubPage() {
           Faglige Værktøjer
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
-          <Vm26TemplateCard onCreate={handleCreateVm26Run} />
           {fagligeCards.map((card, index) => (
             <BuilderCard key={`${card.title}-${index}`} card={card} index={index} />
           ))}
@@ -632,6 +631,8 @@ export default function ValgHubPage() {
               </div>
             </motion.article>
           </PremiumGameCardWrapper>
+
+          <Vm26TemplateCard onCreate={handleCreateVm26Run} />
         </div>
       </section>
 
