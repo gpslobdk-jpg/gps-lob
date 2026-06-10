@@ -22,6 +22,10 @@ export type Vm26GameConfig = Record<string, unknown> & {
   };
 };
 
+export type Vm26PublicTheme = {
+  vm26: Vm26GameConfig["vm26"];
+};
+
 export type Vm26TemplateQuestion = {
   id: number;
   type: "multiple_choice";
@@ -162,6 +166,18 @@ export function isVm26GameConfig(value: unknown) {
     vm26.templateId === VM26_TEMPLATE_ID &&
     vm26.version === VM26_TEMPLATE_VERSION
   );
+}
+
+export function buildVm26PublicTheme(value: unknown): Vm26PublicTheme | undefined {
+  if (!isVm26GameConfig(value)) return undefined;
+
+  return {
+    vm26: {
+      enabled: true,
+      templateId: VM26_TEMPLATE_ID,
+      version: VM26_TEMPLATE_VERSION,
+    },
+  };
 }
 
 export function buildVm26Template(): Vm26Template {

@@ -11,6 +11,7 @@ import {
 import { generateBonusQuestions, type SourceQuestion } from "@/utils/bonus/generateBonusQuestions";
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
+import { buildVm26PublicTheme } from "@/utils/vm26Template";
 
 export const runtime = "edge";
 
@@ -66,6 +67,7 @@ export async function GET(request: NextRequest) {
       : [];
     const generatedForAvailability = generateBonusQuestions(sourceQuestions, {}); // seed not needed for availability check
     const bonusAvailable = Boolean(run?.bonus_enabled) && generatedForAvailability.ok;
+    const theme = buildVm26PublicTheme(run);
 
     return NextResponse.json(
       {
@@ -74,6 +76,7 @@ export async function GET(request: NextRequest) {
         radius: getRunRadiusMeters(run),
         gpsOverride: Boolean(sessionData?.gps_override),
         bonusAvailable,
+        ...(theme ? { theme } : {}),
       },
       {
         headers: {

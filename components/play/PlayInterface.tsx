@@ -46,6 +46,23 @@ type PlayInterfaceProps = {
   children?: ReactNode;
 };
 
+function Vm26PlayBadge({ compact = false }: { compact?: boolean }) {
+  return (
+    <div
+      className={`rounded-[1.25rem] border border-amber-300/35 bg-amber-300/12 shadow-[0_16px_34px_rgba(251,191,36,0.14)] backdrop-blur-2xl ${
+        compact ? "px-4 py-3 text-center" : "px-4 py-3"
+      }`}
+    >
+      <p className={`font-black text-amber-50 ${compact ? "text-sm" : "text-base"} ${wrapTextClass}`}>
+        <span aria-hidden="true">⚽</span> VM26 – Jagten på pokalen
+      </p>
+      <p className="mt-1 text-xs font-semibold text-amber-100/82">
+        Pokaljagten er i gang
+      </p>
+    </div>
+  );
+}
+
 const LOCKED_POST_FEEDBACK_DURATION_MS = 3200;
 const LOCKED_POST_GPS_ACCURACY_MESSAGE =
   "Du er tæt på posten, men GPS'en er lidt upræcis lige nu. Vent et øjeblik, gå et par meter rundt, eller prøv mobildata.";
@@ -340,6 +357,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     feedback,
     screen,
     raceMode,
+    theme,
   } = progress;
   const {
     activeQuestion,
@@ -395,6 +413,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     autoUnlockRadius !== null &&
     distance !== null &&
     distance <= autoUnlockRadius;
+  const showVm26Badge = theme?.vm26?.enabled === true;
   const manualUnlockBufferMeters = 20;
   const manualUnlockBufferRadius =
     autoUnlockRadius !== null ? autoUnlockRadius + manualUnlockBufferMeters : null;
@@ -1532,9 +1551,16 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_28%),radial-gradient(circle_at_20%_18%,rgba(56,189,248,0.12),transparent_24%),radial-gradient(circle_at_80%_8%,rgba(34,197,94,0.1),transparent_22%),linear-gradient(180deg,rgba(2,6,23,0.78)_0%,rgba(2,6,23,0.92)_52%,rgba(2,6,23,1)_100%)]" />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_60%)]" />
 
+          {showVm26Badge && !isRoleplayImmersed ? (
+            <div className="pointer-events-none absolute inset-x-4 top-4 z-[900] sm:hidden">
+              <Vm26PlayBadge compact />
+            </div>
+          ) : null}
+
           <div
             className={`hidden sm:block absolute inset-x-4 top-4 z-[1000] space-y-4 transition-all duration-300 ${isRoleplayImmersed ? "pointer-events-none opacity-0 blur-md" : "opacity-100"}`}
           >
+            {showVm26Badge ? <Vm26PlayBadge /> : null}
             <div className={tacticalHudShellClass}>
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.08),transparent_30%)]" />
               <div className="relative flex flex-col gap-5">

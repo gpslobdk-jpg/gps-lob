@@ -231,7 +231,16 @@ export type PlaySessionPayload = {
   radius?: number | null;
   gpsOverride?: boolean;
   bonusAvailable?: boolean;
+  theme?: PlayThemeState;
   error?: string;
+};
+
+export type PlayThemeState = {
+  vm26?: {
+    enabled: true;
+    templateId: string;
+    version: number;
+  };
 };
 
 export type AnswerProgressRow = {
@@ -286,6 +295,7 @@ export interface PlayGpsState {
 export interface PlayProgressState {
   questions: Question[];
   raceMode: RaceMode;
+  theme?: PlayThemeState;
   currentPostIndex: number;
   solvedPostIndexes: number[];
   answeredPostIndexes: number[];

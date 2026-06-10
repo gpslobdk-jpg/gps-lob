@@ -14,6 +14,8 @@ type RunRow = {
   race_type?: unknown;
   radius?: unknown;
   bonus_enabled?: boolean | null;
+  game_config?: unknown;
+  gameConfig?: unknown;
 };
 
 type GameZoneRow = {

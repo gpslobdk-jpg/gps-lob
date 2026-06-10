@@ -29,6 +29,7 @@ import type {
   PlayProgressState,
   PlayScreenState,
   PlaySessionPayload,
+  PlayThemeState,
   PlayUiFlags,
   PostActionErrorState,
   Question,
@@ -138,6 +139,7 @@ type FetchedPlaySessionSnapshot = {
   radius: number;
   gpsOverride: boolean;
   bonusAvailable: boolean;
+  theme?: PlayThemeState;
 };
 
 type WakeReconnectTrigger =
@@ -163,6 +165,30 @@ const PLAY_JOIN_SESSION_MISSING_MESSAGE =
   "Løbet er muligvis afsluttet af læreren.";
 const RESTORE_RETRY_DELAY_MS = 2500;
 const RESTORE_AUTH_RECOVERY_DELAY_MS = 350;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizePlayTheme(value: unknown): PlayThemeState | undefined {
+  if (!isRecord(value)) return undefined;
+
+  const vm26 = isRecord(value.vm26) ? value.vm26 : null;
+  if (vm26?.enabled !== true) return undefined;
+
+  const templateId = typeof vm26.templateId === "string" ? vm26.templateId : "";
+  const version = typeof vm26.version === "number" && Number.isFinite(vm26.version) ? vm26.version : null;
+
+  if (!templateId || version === null) return undefined;
+
+  return {
+    vm26: {
+      enabled: true,
+      templateId,
+      version,
+    },
+  };
+}
 const MAX_RESTORE_RETRIES = 6;
 const CHANNEL_RESUBSCRIBE_DELAY_MS = 1000;
 const NETWORK_RETRY_DELAY_MS = 3000;
@@ -402,6 +428,7 @@ export function usePlayGameState({
   );
   const [questions, setQuestions] = useState<Question[]>([]);
   const [raceMode, setRaceMode] = useState<RaceMode>("unknown");
+  const [theme, setTheme] = useState<PlayThemeState | undefined>(undefined);
   const [currentPostIndex, setCurrentPostIndex] = useState(0);
   const [myLoc, setMyLoc] = useState<Location | null>(null);
   const [distance, setDistanceState] = useState<number | null>(null);
@@ -1018,6 +1045,7 @@ export function usePlayGameState({
       radius: Math.round(parsedRadius),
       gpsOverride: Boolean(payload?.gpsOverride),
       bonusAvailable: Boolean(payload?.bonusAvailable),
+      theme: normalizePlayTheme(payload?.theme),
     } satisfies FetchedPlaySessionSnapshot;
   }, [router, sessionId]);
 
@@ -1075,6 +1103,7 @@ export function usePlayGameState({
 
       setQuestions(nextQuestions);
       setRaceMode(nextRaceMode);
+      setTheme(snapshot.theme);
       setAutoUnlockRadius(snapshot.radius);
       setGpsOverride(snapshot.gpsOverride);
       setBonusAvailable(snapshot.bonusAvailable);
@@ -3411,6 +3440,7 @@ export function usePlayGameState({
             ? payload.questions.map(parseQuestion).filter((q): q is Question => q !== null)
             : [];
           const nextRaceMode = normalizeRaceMode(payload?.raceType);
+          const nextTheme = normalizePlayTheme(payload?.theme);
 
           if (parsedQuestions.length === 0 && nextRaceMode !== "stratego") {
             setPlayLoadError(PLAY_SETUP_PENDING_MESSAGE);
@@ -3419,6 +3449,7 @@ export function usePlayGameState({
           }
 
           setRaceMode(nextRaceMode);
+          setTheme(nextTheme);
           setAutoUnlockRadius(Math.round(parsedRadius));
           setGpsOverride(Boolean(payload?.gpsOverride));
           setBonusAvailable(Boolean(payload?.bonusAvailable));
@@ -4902,6 +4933,7 @@ export function usePlayGameState({
   const progress: PlayProgressState = {
     questions,
     raceMode,
+    theme,
     currentPostIndex,
     solvedPostIndexes,
     answeredPostIndexes,
