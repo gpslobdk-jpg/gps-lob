@@ -4,8 +4,10 @@ import {
   fetchParticipantStartState,
   fetchRunForSession,
   getAnsweredPostIndex,
+  getCorrectIndex,
   getFirstRoutePostIndexForParticipant,
   isZoneKrigRaceType,
+  resolveQuestionVariant,
 } from "@/app/api/play/_shared";
 import { getAwardedPoints } from "@/utils/questionPoints";
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
@@ -64,6 +66,13 @@ type ExistingAnswerRow = {
 type InsertedAnswerRow = {
   id: string;
 };
+
+type ServerCorrectnessResult =
+  | {
+      checked: true;
+      isCorrect: boolean;
+    }
+  | undefined;
 
 async function findExistingAnswerRecord(
   payload: Record<string, unknown>,
@@ -246,6 +255,54 @@ async function withAwardedPoints(payload: Record<string, unknown>, runCache: Run
   return {
     ...payload,
     awarded_points: await resolveAwardedPoints(payload, runCache),
+  };
+}
+
+function getSelectedIndex(payload: Record<string, unknown>) {
+  const rawValue = payload.selected_index ?? payload.answer_index;
+  const selectedIndex =
+    typeof rawValue === "number"
+      ? rawValue
+      : typeof rawValue === "string"
+        ? rawValue.trim()
+          ? Number(rawValue.trim())
+          : null
+        : null;
+
+  if (selectedIndex === null || !Number.isInteger(selectedIndex)) return null;
+  if (selectedIndex < 0 || selectedIndex > 3) return null;
+  return selectedIndex;
+}
+
+async function resolveServerCorrectness(
+  payload: Record<string, unknown>,
+  runCache: RunCache
+): Promise<ServerCorrectnessResult> {
+  const selectedIndex = getSelectedIndex(payload);
+  if (selectedIndex === null) return undefined;
+
+  const sessionId = asTrimmedString(payload.session_id);
+  if (!sessionId) return undefined;
+
+  const postIndex = getAnsweredPostIndex(payload);
+  if (postIndex === null) return undefined;
+
+  const run = await getRunForSessionCached(sessionId, runCache);
+  const rawQuestion =
+    Array.isArray(run?.questions) && postIndex >= 0 && postIndex < run.questions.length
+      ? run.questions[postIndex]
+      : null;
+  if (!rawQuestion) return undefined;
+
+  const variant = resolveQuestionVariant(run?.raceType ?? run?.race_type, rawQuestion);
+  if (variant !== "quiz") return undefined;
+
+  const correctIndex = getCorrectIndex(rawQuestion);
+  if (correctIndex === null) return undefined;
+
+  return {
+    checked: true,
+    isCorrect: selectedIndex === correctIndex,
   };
 }
 
@@ -501,6 +558,7 @@ export async function POST(request: NextRequest) {
     for (const payload of sanitizedPayloads) {
       try {
         const enrichedPayload = await withAwardedPoints(payload, runCache);
+        const serverCorrectness = await resolveServerCorrectness(enrichedPayload, runCache);
         const awardedPoints = Number(enrichedPayload.awarded_points) || 0;
         const incomingIsCorrect = isCorrectAnswerPayload(enrichedPayload);
         const existingAnswer = await findExistingAnswerRecord(enrichedPayload, admin);
@@ -537,6 +595,7 @@ export async function POST(request: NextRequest) {
             awardedPoints: effectiveAwardedPoints,
             zoneKrigCapture,
             isLocked: true,
+            ...(serverCorrectness ? { serverCorrectness } : {}),
           });
         }
 
@@ -584,6 +643,7 @@ export async function POST(request: NextRequest) {
             awardedPoints: effectiveAwardedPoints,
             zoneKrigCapture,
             isLocked: true,
+            ...(serverCorrectness ? { serverCorrectness } : {}),
           });
         }
 
