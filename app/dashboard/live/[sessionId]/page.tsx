@@ -109,6 +109,19 @@ function TeacherAccessOverlay({ joinPin, open, didCopy, onCopy, onClose }: Teach
   );
 }
 
+function TeacherVm26Badge() {
+  return (
+    <div className="pointer-events-none rounded-[1.35rem] border border-amber-300/35 bg-slate-950/72 px-5 py-4 text-center shadow-[0_20px_60px_rgba(251,191,36,0.18)] backdrop-blur-2xl">
+      <p className="text-sm font-black text-amber-50">
+        <span aria-hidden="true">⚽</span> VM26 – Jagten på pokalen
+      </p>
+      <p className="mt-1 text-xs font-semibold text-amber-100/80">
+        Dette er et almindeligt GPS-løb med VM-tema.
+      </p>
+    </div>
+  );
+}
+
 export default function LiveLobbyPage() {
   const params = useParams<{ sessionId: string }>();
   const rawSessionId = params?.sessionId;
@@ -132,6 +145,8 @@ export default function LiveLobbyPage() {
     live.joinPin !== "----";
   const isStandardRunningView =
     !isStrategoRace && live.status !== "waiting" && live.status !== "finished";
+  const showTeacherVm26Badge =
+    live.theme?.vm26?.enabled === true && isStandardRunningView && !isZoneKrigRace;
 
   const openAccessOverlay = () => {
     setDidCopyJoinAccess(false);
@@ -295,6 +310,11 @@ export default function LiveLobbyPage() {
           transition={{ duration: 0.35 }}
           className={`relative flex h-screen overflow-hidden bg-linear-to-b from-slate-950 via-emerald-950 to-teal-950 p-4 text-white ${poppins.className}`}
         >
+          {showTeacherVm26Badge ? (
+            <div className="absolute left-1/2 top-6 z-[1050] w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2">
+              <TeacherVm26Badge />
+            </div>
+          ) : null}
           <TeacherLiveMap
             mapCenter={live.mapCenter}
             mapKey={live.mapKey}

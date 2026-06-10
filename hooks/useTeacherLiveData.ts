@@ -37,6 +37,33 @@ function toTimestamp(value: string | null | undefined) {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeTeacherLiveTheme(value: unknown): TeacherLiveData["theme"] {
+  if (!isRecord(value)) return undefined;
+
+  const vm26 = isRecord(value.vm26) ? value.vm26 : null;
+  if (vm26?.enabled !== true) return undefined;
+
+  const templateId = typeof vm26.templateId === "string" ? vm26.templateId : "";
+  const version =
+    typeof vm26.version === "number" && Number.isFinite(vm26.version)
+      ? vm26.version
+      : null;
+
+  if (!templateId || version === null) return undefined;
+
+  return {
+    vm26: {
+      enabled: true,
+      templateId,
+      version,
+    },
+  };
+}
+
 export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   const [pin, setPin] = useState("");
   const [students, setStudents] = useState<string[]>([]);
@@ -47,6 +74,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   const [gpsOverride, setGpsOverride] = useState(false);
   const [isUpdatingGpsOverride, setIsUpdatingGpsOverride] = useState(false);
   const [runRaceType, setRunRaceType] = useState<string | null>(null);
+  const [theme, setTheme] = useState<TeacherLiveData["theme"]>(undefined);
   const [messages, setMessages] = useState<SessionMessage[]>([]);
   const [newMessage, setNewMessageState] = useState("");
   const [studentLocations, setStudentLocations] = useState<LiveStudentLocation[]>([]);
@@ -57,6 +85,47 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   const [hasAnswersTable, setHasAnswersTable] = useState(true);
   const [isEndingRun, setIsEndingRun] = useState(false);
   const [isUpdatingPause, setIsUpdatingPause] = useState(false);
+
+  useEffect(() => {
+    if (!sessionId) {
+      setTheme(undefined);
+      return;
+    }
+
+    let isActive = true;
+    setTheme(undefined);
+
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/dashboard/live/theme?sessionId=${encodeURIComponent(sessionId)}`,
+          { cache: "no-store" }
+        );
+
+        if (!isActive) return;
+
+        if (!response.ok) {
+          setTheme(undefined);
+          return;
+        }
+
+        const payload = (await response.json().catch(() => null)) as
+          | { theme?: unknown }
+          | null;
+
+        if (!isActive) return;
+        setTheme(normalizeTeacherLiveTheme(payload?.theme));
+      } catch {
+        if (isActive) {
+          setTheme(undefined);
+        }
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [sessionId]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -860,6 +929,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     gpsOverride,
     isUpdatingGpsOverride,
     runRaceType,
+    theme,
     isPhotoMission,
     messages,
     newMessage,

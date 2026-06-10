@@ -75,6 +75,14 @@ export type LiveModuleId = "leaderboard" | "feed" | "photos";
 
 export type TeacherLiveFeedStatus = "connecting" | "live" | "recovering";
 
+export type TeacherLiveTheme = {
+  vm26?: {
+    enabled: true;
+    templateId: string;
+    version: number;
+  };
+};
+
 export type TeacherLiveStanding = {
   student: LiveStudentLocation;
   score: number;
@@ -98,6 +106,7 @@ export type TeacherLiveData = {
   gpsOverride: boolean;
   isUpdatingGpsOverride: boolean;
   runRaceType: string | null;
+  theme?: TeacherLiveTheme;
   isPhotoMission: boolean;
   messages: SessionMessage[];
   newMessage: string;
