@@ -25,7 +25,7 @@ import {
   normalizeGradeLevels,
   type GradeLevel,
 } from "@/utils/gradeLevels";
-import { normalizeRaceType, RACE_TYPE_LABELS, RACE_TYPES } from "@/utils/gpsRuns";
+import { normalizeRaceType, RACE_TYPE_LABELS, RACE_TYPES, readRunGameConfig } from "@/utils/gpsRuns";
 import { findNearbyPinConflict, findOverlappingPinGroups } from "@/utils/pinProximity";
 import {
   consumeDraftAutoload,
@@ -39,6 +39,7 @@ import {
   writeRunDraft,
 } from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
+import { buildVm26GameConfig, isVm26GameConfig } from "@/utils/vm26Template";
 
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ssr: false,
@@ -183,6 +184,8 @@ type StoredRunRecord = {
   grade_levels?: string[] | null;
   radius?: number | null;
   race_type?: string | null;
+  game_config?: unknown;
+  gameConfig?: unknown;
 };
 
 type StoredQuestionRecord = {
@@ -248,6 +251,8 @@ type ManualBuilderDraftState = {
   questions?: unknown;
   mapCenter?: unknown;
   overrideRaceType?: unknown;
+  game_config?: unknown;
+  gameConfig?: unknown;
 };
 
 const DEFAULT_RUN_RADIUS = 15;
@@ -634,6 +639,7 @@ function OpretLoebPageContent() {
   const [mapCenter, setMapCenter] = useState<MapCenter>(DEFAULT_MAP_CENTER);
   const [showDraftRecoveryPrompt, setShowDraftRecoveryPrompt] = useState(false);
   const [overrideRaceType, setOverrideRaceType] = useState<string | null>(null);
+  const [runGameConfig, setRunGameConfig] = useState<Record<string, unknown> | null>(null);
   const [pendingAiReviewDraft, setPendingAiReviewDraft] = useState<PendingManualAiReviewDraft | null>(null);
   const isEditorBusy = isSaving || showDraftRecoveryPrompt;
   const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
@@ -748,6 +754,7 @@ function OpretLoebPageContent() {
     setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion(defaultQuestionType)]);
     setMapCenter(restoreDraftMapCenter(draft.mapCenter, DEFAULT_MAP_CENTER));
     setOverrideRaceType(restoredRaceType);
+    setRunGameConfig(readRunGameConfig(draft));
   };
 
   const scrollToSaveFeedback = () => {
@@ -870,6 +877,7 @@ function OpretLoebPageContent() {
       if (mappedQuestions.length > 0) {
         setQuestions(mappedQuestions);
       }
+      setRunGameConfig(null);
     } catch (error) {
       console.error("Kunne ikke indlæse magisk kladde:", error);
     } finally {
@@ -923,6 +931,7 @@ function OpretLoebPageContent() {
       if (draftTitle) setTitle(draftTitle);
       if (mappedQuestions.length > 0) setQuestions(mappedQuestions);
       setOverrideRaceType(RACE_TYPES.PODCAST);
+      setRunGameConfig(null);
     } catch (err) {
       console.error("Podcast-kladde kunne ikke indlæses:", err);
     }
@@ -964,7 +973,7 @@ function OpretLoebPageContent() {
 
         const { data: run, error } = await supabase
           .from("gps_runs")
-          .select("id,user_id,title,subject,description,topic,questions,grade_levels,radius,race_type")
+          .select("id,user_id,title,subject,description,topic,questions,grade_levels,radius,race_type,game_config,gameConfig:game_config")
           .eq("id", editRunId)
           .eq("user_id", user.id)
           .maybeSingle<StoredRunRecord>();
@@ -1009,6 +1018,7 @@ function OpretLoebPageContent() {
         );
         setRadius(normalizeRunRadius(run.radius));
         setOverrideRaceType(normalizeRaceType(run.race_type));
+        setRunGameConfig(readRunGameConfig(run));
         setShowTeacherField(Boolean(asTrimmedString(run.subject)));
         setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion(defaultQuestionType)]);
         setShowAiInterviewModal(false);
@@ -1084,6 +1094,8 @@ function OpretLoebPageContent() {
     if (!hasInitializedDraftRef.current) return;
     if (showDraftRecoveryPrompt) return;
 
+    const draftGameConfig = isVm26GameConfig(runGameConfig) ? buildVm26GameConfig(runGameConfig) : null;
+
     writeRunDraft(MANUEL_DRAFT_STORAGE_KEY, editRunId, {
       title,
       description,
@@ -1096,6 +1108,7 @@ function OpretLoebPageContent() {
       questions,
       mapCenter,
       overrideRaceType,
+      ...(draftGameConfig ? { game_config: draftGameConfig } : {}),
     } satisfies ManualBuilderDraftState);
   }, [
     description,
@@ -1106,6 +1119,7 @@ function OpretLoebPageContent() {
     pendingAiReviewDraft,
     questions,
     radius,
+    runGameConfig,
     showAiInterviewModal,
     showTeacherField,
     showDraftRecoveryPrompt,
@@ -1464,6 +1478,9 @@ function OpretLoebPageContent() {
         grade_levels: gradeLevels.length > 0 ? gradeLevels : null,
         radius,
         race_type: overrideRaceType ?? RACE_TYPES.MANUEL,
+        ...(isVm26GameConfig(runGameConfig)
+          ? { game_config: buildVm26GameConfig(runGameConfig) }
+          : {}),
       };
 
       if (isEditMode) {
@@ -1511,6 +1528,7 @@ function OpretLoebPageContent() {
         setRadius(DEFAULT_RUN_RADIUS);
         setShowTeacherField(false);
         setPendingAiReviewDraft(null);
+        setRunGameConfig(null);
         setQuestions([createQuestion(defaultQuestionType)]);
       }
 

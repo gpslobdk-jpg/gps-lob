@@ -1,11 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowLeft, CircleHelp, Printer, Shield } from "lucide-react";
+import { ArrowLeft, CircleHelp, Printer, Shield, Trophy } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 import PwaInstallTip from "@/components/PwaInstallTip";
 import {
@@ -14,7 +15,9 @@ import {
   type AccessProfile,
 } from "@/utils/accessControl";
 import { type RaceTypeThemeKey } from "@/utils/raceTypeTheme";
+import { markDraftForAutoload, writeRunDraft } from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
+import { buildVm26Template } from "@/utils/vm26Template";
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -36,6 +39,7 @@ const cardPanelClass =
   "relative flex h-full flex-col items-center justify-center rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.05))] px-4 py-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-16px_24px_rgba(15,23,42,0.07)]";
 
 const IS_PAYWALL_ENABLED = process.env.NEXT_PUBLIC_PAYWALL_ENABLED === "true";
+const MANUEL_DRAFT_STORAGE_KEY = "draft_run_manuel";
 
 type BuilderCard = {
   raceType: RaceTypeThemeKey;
@@ -235,6 +239,47 @@ function BuilderCard({ card, index }: { card: BuilderCard; index: number }) {
   );
 }
 
+function Vm26TemplateCard({ onCreate }: { onCreate: () => void }) {
+  return (
+    <motion.button
+      type="button"
+      whileHover={{ y: -4, scale: 1.012 }}
+      onClick={onCreate}
+      className={`${cardBaseClass} cursor-pointer border-sky-500/75 bg-sky-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(14,165,233,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]`}
+    >
+      <div className={cardBackgroundShellClass}>
+        <div className="absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(14,165,233,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(14,165,233,0.22)]" />
+        <div className="absolute inset-[1px] rounded-[1.95rem]" />
+      </div>
+
+      <div className="absolute top-4 right-4 z-20">
+        <span className="inline-flex items-center rounded-full border border-sky-300/40 bg-sky-400/20 px-3 py-1 text-[0.58rem] font-bold tracking-[0.18em] text-white uppercase shadow-[0_10px_22px_rgba(14,165,233,0.18)] backdrop-blur-md">
+          VM26
+        </span>
+      </div>
+
+      <div className={`${cardPanelClass} text-slate-950`}>
+        <div className="relative z-10 flex h-full w-full flex-col items-center justify-center text-center">
+          <div className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full border border-sky-300/35 bg-sky-500/18 shadow-[0_10px_30px_rgba(14,165,233,0.22)]">
+            <Trophy className="h-5 w-5 text-sky-100" />
+          </div>
+          <div className="space-y-1">
+            <h2 className={`text-[1.25rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
+              VM26 – Jagten på pokalen
+            </h2>
+            <p className="mx-auto max-w-[16.5rem] text-[0.68rem] leading-tight text-white/84">
+              Lav et fodboldløb med 8 færdige poster om fairplay, lande, taktik og finalens straffespark. Bygget som et almindeligt GPS-løb.
+            </p>
+            <span className="mt-2 inline-flex rounded-full border border-white/18 bg-white/12 px-3 py-1 text-[0.58rem] font-black tracking-[0.18em] text-white uppercase">
+              Opret VM26-løb
+            </span>
+          </div>
+        </div>
+      </div>
+    </motion.button>
+  );
+}
+
 function PremiumGameCardWrapper({
   href,
   children,
@@ -285,6 +330,7 @@ function GameInfoButton({
 }
 
 export default function ValgHubPage() {
+  const router = useRouter();
   const [premiumAccessState, setPremiumAccessState] = useState<PremiumCardAccessState>(() =>
     IS_PAYWALL_ENABLED ? "loading" : "premium"
   );
@@ -379,6 +425,11 @@ export default function ValgHubPage() {
   const handleInfoToggle = (gameType: GameType) => {
     setSelectedInfo((current) => (current === gameType ? null : gameType));
   };
+  const handleCreateVm26Run = useCallback(() => {
+    writeRunDraft(MANUEL_DRAFT_STORAGE_KEY, null, buildVm26Template());
+    markDraftForAutoload(MANUEL_DRAFT_STORAGE_KEY);
+    router.push("/dashboard/opret/manuel");
+  }, [router]);
   const strategoCardHref = premiumCardsAreLocked
     ? "/priser"
     : premiumCardsAreLoading
@@ -441,6 +492,7 @@ export default function ValgHubPage() {
           Faglige Værktøjer
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
+          <Vm26TemplateCard onCreate={handleCreateVm26Run} />
           {fagligeCards.map((card, index) => (
             <BuilderCard key={`${card.title}-${index}`} card={card} index={index} />
           ))}
