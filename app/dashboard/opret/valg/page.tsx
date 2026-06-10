@@ -254,21 +254,21 @@ function Vm26TemplateCard({ onCreate }: { onCreate: () => void }) {
 
       <div className="absolute top-4 right-4 z-20">
         <span className="inline-flex items-center rounded-full border border-sky-300/40 bg-sky-400/20 px-3 py-1 text-[0.58rem] font-bold tracking-[0.18em] text-white uppercase shadow-[0_10px_22px_rgba(14,165,233,0.18)] backdrop-blur-md">
-          VM26
+          ⚽ VM26
         </span>
       </div>
 
       <div className={`${cardPanelClass} text-slate-950`}>
         <div className="relative z-10 flex h-full w-full flex-col items-center justify-center text-center">
-          <div className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full border border-sky-300/35 bg-sky-500/18 shadow-[0_10px_30px_rgba(14,165,233,0.22)]">
+          <div className="mb-2 inline-flex h-11 w-11 items-center justify-center rounded-full border border-amber-200/45 bg-amber-300/18 shadow-[0_10px_30px_rgba(251,191,36,0.24)]">
             <Trophy className="h-5 w-5 text-sky-100" />
           </div>
           <div className="space-y-1">
             <h2 className={`text-[1.25rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
-              VM26 – Jagten på pokalen
+              🏆 VM26 – Jagten på pokalen
             </h2>
             <p className="mx-auto max-w-[16.5rem] text-[0.68rem] leading-tight text-white/84">
-              Lav et fodboldløb med 8 færdige poster om fairplay, lande, taktik og finalens straffespark. Bygget som et almindeligt GPS-løb.
+              Et sikkert almindeligt GPS-løb med 8 færdige fodboldposter. Ingen ny motor, bare VM-stemning i den kendte builder.
             </p>
             <span className="mt-2 inline-flex rounded-full border border-white/18 bg-white/12 px-3 py-1 text-[0.58rem] font-black tracking-[0.18em] text-white uppercase">
               Opret VM26-løb

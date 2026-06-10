@@ -58,6 +58,17 @@ const poppins = Poppins({
   weight: ["400", "500", "600", "700"],
 });
 
+const VM26_POST_LABELS = [
+  "Kickoff",
+  "Gruppespil",
+  "Taktik",
+  "Stadionbrøl",
+  "Dommer",
+  "Landsholdsånd",
+  "VAR",
+  "Finalen",
+] as const;
+
 const SUBJECT_TOPICS: Record<string, string[]> = {
   Dansk: [
     "Læsning & Forståelse",
@@ -647,6 +658,7 @@ function OpretLoebPageContent() {
   const printSubject = subject.trim() || "Ikke angivet";
   const printClassLevel = gradeLevels.length > 0 ? formatGradeLevelsForPrompt(gradeLevels) : "Ikke angivet";
   const normalizedBuilderRaceType = normalizeRaceType(overrideRaceType) ?? RACE_TYPES.MANUEL;
+  const isVm26Run = isVm26GameConfig(runGameConfig);
   const currentRaceTypeLabel = RACE_TYPE_LABELS[normalizedBuilderRaceType] ?? "Generel Quiz";
   const gradeLevelSummary =
     gradeLevels.length > 0 ? `Valgt: ${formatGradeLevelsForPrompt(gradeLevels)}` : "Ingen klassetrin valgt endnu.";
@@ -1586,6 +1598,25 @@ function OpretLoebPageContent() {
                     </div>
                   ) : null}
 
+                  {isVm26Run ? (
+                    <div className="mb-5 rounded-[1.6rem] border border-amber-300/35 bg-[linear-gradient(135deg,rgba(6,95,70,0.46),rgba(217,119,6,0.20))] px-5 py-4 shadow-[0_18px_42px_rgba(15,23,42,0.26),inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-2xl">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className={`text-xl font-black tracking-tight text-amber-50 ${rubik.className}`}>
+                            <span aria-hidden="true">⚽</span> VM26 – Jagten på pokalen
+                          </p>
+                          <p className="mt-1 max-w-2xl text-sm leading-6 text-amber-50/82">
+                            Et almindeligt GPS-løb med fodboldtema. Redigér posterne som normalt.
+                          </p>
+                        </div>
+                        <span className="inline-flex w-fit items-center rounded-full border border-amber-200/35 bg-amber-300/15 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-50">
+                          <span aria-hidden="true" className="mr-1.5">🏆</span>
+                          Standardløb
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="relative z-40 mb-8 space-y-5">
                     <div className="flex items-center gap-3">
                       <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-[1.55rem] border border-white/80 bg-white px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),inset_0_-6px_12px_rgba(6,95,70,0.08),0_18px_38px_rgba(255,255,255,0.16),0_14px_28px_rgba(16,185,129,0.18)] ring-1 ring-emerald-200/55">
@@ -1741,6 +1772,7 @@ function OpretLoebPageContent() {
 
               {questions.map((question, questionIndex) => {
                 const isPhotoMission = question.type === "ai_image";
+                const vm26PostLabel = isVm26Run ? VM26_POST_LABELS[questionIndex] : null;
 
                 return (
                   <article
@@ -1749,9 +1781,16 @@ function OpretLoebPageContent() {
                     className="relative z-0 rounded-[1.8rem] border border-emerald-500/30 bg-emerald-950/20 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <h3 className={`text-lg font-bold text-emerald-100 ${rubik.className}`}>
-                        Post {questionIndex + 1}
-                      </h3>
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <h3 className={`text-lg font-bold text-emerald-100 ${rubik.className}`}>
+                          Post {questionIndex + 1}
+                        </h3>
+                        {vm26PostLabel ? (
+                          <span className="inline-flex items-center rounded-full border border-amber-300/35 bg-amber-300/12 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-amber-100">
+                            {vm26PostLabel}
+                          </span>
+                        ) : null}
+                      </div>
                       <div className="flex flex-wrap items-center justify-end gap-2">
                         <label className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-950/20 px-3 py-1 text-[10px] font-semibold tracking-[0.18em] text-emerald-100/75 uppercase backdrop-blur-xl">
                           Point
