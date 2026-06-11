@@ -17,7 +17,7 @@ import LivePhotosModule from "@/components/live/LivePhotosModule";
 import TeacherLiveResults from "@/components/live/TeacherLiveResults";
 import ZoneKrigFinalResults from "@/components/live/ZoneKrigFinalResults";
 import TeacherLiveSidebar from "@/components/live/TeacherLiveSidebar";
-import type { LiveAnswer, LiveModuleId } from "@/components/live/types";
+import type { LiveAnswer, LiveModuleId, TeacherLiveStanding } from "@/components/live/types";
 import { useTeacherLiveData } from "@/hooks/useTeacherLiveData";
 import { normalizeRaceType, RACE_TYPES } from "@/utils/gpsRuns";
 
@@ -122,6 +122,62 @@ function TeacherVm26Badge() {
   );
 }
 
+function formatVm26Goals(score: number) {
+  const goals = Math.max(0, Math.floor(score / 10));
+  if (goals <= 0) return "0";
+  if (goals <= 6) return "⚽".repeat(goals);
+  return `⚽ x ${goals}`;
+}
+
+function TeacherVm26Scoreboard({ standings }: { standings: TeacherLiveStanding[] }) {
+  const visibleStandings = standings.slice(0, 5);
+
+  return (
+    <aside className="pointer-events-none w-[min(24rem,calc(100vw-2rem))] rounded-[1.35rem] border border-emerald-300/30 bg-slate-950/82 p-4 text-white shadow-[0_22px_70px_rgba(2,6,23,0.5)] backdrop-blur-2xl">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.26em] text-emerald-100/72">
+            VM-stilling
+          </p>
+          <h2 className="mt-1 text-lg font-black text-amber-50">Jagten på pokalen</h2>
+        </div>
+        <div className="rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-xs font-black text-amber-100">
+          ⚽
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-2">
+        {visibleStandings.length === 0 ? (
+          <div className="rounded-[1rem] border border-white/10 bg-white/5 px-3 py-3 text-sm font-semibold text-white/75">
+            Venter på første svar.
+          </div>
+        ) : (
+          visibleStandings.map((entry, index) => (
+            <div
+              key={`vm26-score-${entry.student.id}`}
+              className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 rounded-[1rem] border border-white/10 bg-white/7 px-3 py-2.5"
+            >
+              <span className="text-center text-xs font-black text-emerald-100">#{index + 1}</span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-white">
+                  {entry.student.name || entry.student.student_name}
+                </p>
+                <p className="mt-0.5 text-[11px] font-semibold text-emerald-100/70">
+                  {entry.correctAnswers} rigtige
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-black text-amber-100">{formatVm26Goals(entry.score)}</p>
+                <p className="mt-0.5 text-[11px] font-semibold text-white/62">{entry.score} point</p>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </aside>
+  );
+}
+
 export default function LiveLobbyPage() {
   const params = useParams<{ sessionId: string }>();
   const rawSessionId = params?.sessionId;
@@ -147,6 +203,7 @@ export default function LiveLobbyPage() {
     !isStrategoRace && live.status !== "waiting" && live.status !== "finished";
   const showTeacherVm26Badge =
     live.theme?.vm26?.enabled === true && isStandardRunningView && !isZoneKrigRace;
+  const showTeacherVm26Scoreboard = showTeacherVm26Badge;
 
   const openAccessOverlay = () => {
     setDidCopyJoinAccess(false);
@@ -313,6 +370,11 @@ export default function LiveLobbyPage() {
           {showTeacherVm26Badge ? (
             <div className="absolute left-1/2 top-6 z-[1050] w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2">
               <TeacherVm26Badge />
+            </div>
+          ) : null}
+          {showTeacherVm26Scoreboard ? (
+            <div className="absolute bottom-6 left-6 z-[1040] hidden xl:block">
+              <TeacherVm26Scoreboard standings={live.finalStandings} />
             </div>
           ) : null}
           <TeacherLiveMap
