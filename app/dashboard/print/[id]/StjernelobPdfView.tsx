@@ -609,7 +609,15 @@ function getPdfImageRequest(post: Post): { url: string; isPollinations: boolean 
     };
   }
 
-  // Fall back to Pollinations proxy if we have an image_prompt
+  // Prefer stored images from OpenAI data URLs or persisted public URLs.
+  if (rawUrl) {
+    return {
+      url: rawUrl,
+      isPollinations: isPollinationsImageUrl(rawUrl),
+    };
+  }
+
+  // Fall back to Pollinations proxy only when no stored image exists.
   const prompt = getPdfImagePrompt(post);
   if (prompt) {
     return {
@@ -618,10 +626,9 @@ function getPdfImageRequest(post: Post): { url: string; isPollinations: boolean 
     };
   }
 
-  // Last resort: use raw image_url as-is
   return {
-    url: rawUrl,
-    isPollinations: isPollinationsImageUrl(rawUrl),
+    url: "",
+    isPollinations: false,
   };
 }
 
