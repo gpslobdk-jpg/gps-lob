@@ -66,7 +66,7 @@ const VM26_POST_LABELS = [
   "Dommer",
   "Landsholdsånd",
   "VAR",
-  "Finalen",
+  "Straffespark",
 ] as const;
 
 const SUBJECT_TOPICS: Record<string, string[]> = {

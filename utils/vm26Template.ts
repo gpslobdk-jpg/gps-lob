@@ -108,7 +108,7 @@ const VM26_QUESTION_SEEDS: Vm26QuestionSeed[] = [
     ],
   },
   {
-    text: "Finalen: Hvad er klogt før et straffespark?",
+    text: "Straffesparksfinalen: Hvad er klogt før det afgørende spark?",
     answers: [
       "Fokuser, vælg placering og spark kontrolleret",
       "Luk øjnene og håb",
