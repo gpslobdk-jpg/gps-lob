@@ -129,6 +129,21 @@ function formatVm26Goals(score: number) {
   return `⚽ x ${goals}`;
 }
 
+const VM26_COUNTRY_STYLING = [
+  { flag: "🇩🇰", name: "Danmark" },
+  { flag: "🇯🇵", name: "Japan" },
+  { flag: "🇧🇷", name: "Brasilien" },
+  { flag: "🇲🇽", name: "Mexico" },
+  { flag: "🇨🇦", name: "Canada" },
+  { flag: "🇲🇦", name: "Marokko" },
+  { flag: "🇦🇺", name: "Australien" },
+  { flag: "🇫🇷", name: "Frankrig" },
+] as const;
+
+function getVm26CountryDisplay(index: number) {
+  return VM26_COUNTRY_STYLING[index % VM26_COUNTRY_STYLING.length];
+}
+
 function TeacherVm26Scoreboard({ standings }: { standings: TeacherLiveStanding[] }) {
   const visibleStandings = standings.slice(0, 5);
 
@@ -152,26 +167,35 @@ function TeacherVm26Scoreboard({ standings }: { standings: TeacherLiveStanding[]
             Venter på første svar.
           </div>
         ) : (
-          visibleStandings.map((entry, index) => (
-            <div
-              key={`vm26-score-${entry.student.id}`}
-              className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 rounded-[1rem] border border-white/10 bg-white/7 px-3 py-2.5"
-            >
-              <span className="text-center text-xs font-black text-emerald-100">#{index + 1}</span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-black text-white">
-                  {entry.student.name || entry.student.student_name}
-                </p>
-                <p className="mt-0.5 text-[11px] font-semibold text-emerald-100/70">
-                  {entry.correctAnswers} rigtige
-                </p>
+          visibleStandings.map((entry, index) => {
+            const country = getVm26CountryDisplay(index);
+
+            return (
+              <div
+                key={`vm26-score-${entry.student.id}`}
+                className="grid grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-3 rounded-[1rem] border border-white/10 bg-white/5 px-3 py-2.5"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-amber-200/25 bg-amber-200/10 text-xl shadow-inner shadow-black/30">
+                  <span aria-hidden="true">{country.flag}</span>
+                </div>
+                <div className="min-w-0">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="shrink-0 text-[11px] font-black text-emerald-100/80">#{index + 1}</span>
+                    <p className="truncate text-sm font-black text-white">
+                      {country.name}
+                    </p>
+                  </div>
+                  <p className="mt-0.5 truncate text-[11px] font-semibold text-emerald-100/70">
+                    {entry.student.name || entry.student.student_name} · {entry.correctAnswers} rigtige
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-black text-amber-100">{formatVm26Goals(entry.score)}</p>
+                  <p className="mt-0.5 text-[11px] font-semibold text-white/62">{entry.score} point</p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm font-black text-amber-100">{formatVm26Goals(entry.score)}</p>
-                <p className="mt-0.5 text-[11px] font-semibold text-white/62">{entry.score} point</p>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </aside>
