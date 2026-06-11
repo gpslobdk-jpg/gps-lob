@@ -2,13 +2,13 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import type { ImageGenerateParamsNonStreaming } from "openai/resources/images";
 import { z } from "zod";
 
 import { createClient } from "@/utils/supabase/server";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 import {
   formatGradeLevelsForPrompt,
-  GRADE_LEVEL_OPTIONS,
   getGradeLevelRange,
   normalizeGradeLevels,
 } from "@/utils/gradeLevels";
@@ -89,18 +89,45 @@ function composeDallePrompt(imagePrompt: string, artDirection: ImageArtDirection
   return `${artDirection.promptRule}. ${imagePrompt}. I NEED to test how the tool works with extremely simple prompts. DO NOT add any text, letters, numbers, words, labels, captions, or watermarks to the image.`;
 }
 
+function buildImageGenerationParams(
+  model: string,
+  prompt: string,
+): ImageGenerateParamsNonStreaming {
+  const baseParams = {
+    model,
+    prompt,
+    n: 1,
+    size: "1024x1024" as const,
+  };
+
+  if (model === "dall-e-3") {
+    return {
+      ...baseParams,
+      quality: "standard",
+      style: "natural",
+    };
+  }
+
+  if (model.startsWith("gpt-image")) {
+    return {
+      ...baseParams,
+      quality: "medium",
+    };
+  }
+
+  return {
+    ...baseParams,
+    quality: "auto",
+  };
+}
+
 async function generateDalleImage(
   imagePrompt: string,
   artDirection: ImageArtDirection,
 ): Promise<string> {
-  const response = await openaiClient.images.generate({
-    model: IMAGE_MODEL,
-    prompt: composeDallePrompt(imagePrompt, artDirection),
-    n: 1,
-    size: "1024x1024",
-    quality: "standard",
-    style: "natural",
-  });
+  const response = await openaiClient.images.generate(
+    buildImageGenerationParams(IMAGE_MODEL, composeDallePrompt(imagePrompt, artDirection)),
+  );
   const data0 = response.data?.[0];
   const url = data0?.url ?? (data0?.b64_json ? `data:image/png;base64,${data0.b64_json}` : undefined);
   if (!url) throw new Error(`No image URL returned from OpenAI image model (${IMAGE_MODEL})`);
@@ -115,7 +142,7 @@ async function generateImageUrl(
     return await generateDalleImage(imagePrompt, artDirection);
   } catch (err) {
     console.warn(
-      "DALL-E 3 failed, falling back to Pollinations:",
+      "OpenAI image generation failed, falling back to Pollinations:",
       err instanceof Error ? err.message : err,
     );
     return buildPollinationsUrl(imagePrompt);
