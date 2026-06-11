@@ -47,6 +47,41 @@ function formatDisplayDate(isoDate: string) {
 
 const entries = [
   {
+    version: "11/6",
+    date: "2026-06-11",
+    type: "major" as const,
+    title: "VM26 – Jagten på pokalen er landet",
+    summary:
+      "Vi har åbnet for VM26 – Jagten på pokalen: et færdigt fodboldinspireret GPS-løb, som du finder under Spil, når du opretter et nyt løb.\n\nVM26 er bygget som et almindeligt GPS-løb med VM-stemning. Du får 8 færdige fodboldposter, et særligt VM-look i builderen, VM-badge hos elever og lærer, \"MÅÅÅL!\" ved korrekt svar og en enkel VM-stilling i lærervisningen. Du kan stadig redigere poster, svar, point og placeringer på den velkendte måde.\n\nZone-Krig har også fået en tydeligere afslutning: vinderen findes nu ud fra de zoner, holdene ejer, når kampen slutter. Skjolde og kamptid vises mere klart, så både lærer og elever lettere kan forstå, hvad der sker undervejs.\n\nFotoløb er blevet mere glidende. Når et billede er uploadet, sendes eleverne videre til næste post uden at skulle genindlæse browseren mellem fotoposter.\n\nDerudover er elevstart, PWA/browser-start og GPS-oplevelsen på mobil gjort lettere og mere stabil.",
+    items: [
+      {
+        title: "Nyt VM26-spil under Spil",
+        description:
+          "Start et færdigt VM-løb med 8 fodboldposter og rediger det bagefter som et almindeligt GPS-løb.",
+      },
+      {
+        title: "VM-stemning i elev- og lærervisningen",
+        description:
+          "Elever og lærer får VM-badge, “MÅÅÅL!”-feedback ved korrekt svar og en enkel read-only VM-stilling.",
+      },
+      {
+        title: "Zone-Krig er tydeligere",
+        description:
+          "Vinderen findes nu ud fra ejede zoner ved slut, og både skjoldtimer og kamptimer er lettere at følge.",
+      },
+      {
+        title: "Fotoløb glider bedre",
+        description:
+          "Efter upload går eleverne videre til næste post uden normalt at skulle genindlæse browseren.",
+      },
+      {
+        title: "Mere stabil elevoplevelse",
+        description:
+          "Elevstart, PWA/browser-start og GPS-oplevelsen på mobil er gjort lettere og mere robust.",
+      },
+    ],
+  },
+  {
     version: "Appstatus 12/05",
     date: "2026-05-12",
     type: "minor" as const,

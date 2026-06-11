@@ -77,7 +77,7 @@ const GAME_INFO_COPY: Record<GameType, GameInfoCopy> = {
   "zone-krig": {
     title: "Zone-Krigen",
     purpose: "Gør skolegården eller lokalområdet til en levende spilleplade. Her handler det om strategi, udholdenhed og at løfte i flok som hold.",
-    flow: "Spillet fungerer som en moderne, digital fangeleg. Læreren placerer en række \"zoner\" på kortet (eller henter dem fra Arkivet). Holdene skal nu løbe ud og stille sig ind i zonerne for at erobre dem. Jo længere et hold kan fastholde en zone uden at blive jagtet væk af de andre, jo flere point tikker der ind på kontoen. Det hold, der har samlet flest point, når tiden rinder ud, vinder. En intens og sjov hold-dyst, hvor alle kan være med!",
+    flow: "Spillet fungerer som en moderne, digital fangeleg. Læreren placerer en række \"zoner\" på kortet (eller henter dem fra Arkivet). Holdene skal nu løbe ud, stille sig ind i zonerne og svare rigtigt for at erobre dem. Vinderen findes ud fra de zoner, holdet ejer, når kampen slutter. En intens og sjov hold-dyst, hvor alle kan være med!",
     toneClassName:
       "border-orange-300/28 bg-[linear-gradient(145deg,rgba(154,52,18,0.94),rgba(194,65,12,0.9))] text-white shadow-[0_24px_60px_rgba(194,65,12,0.28)]",
     iconToneClassName:

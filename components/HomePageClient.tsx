@@ -62,17 +62,18 @@ type NativeDebugSnapshot = {
 };
 
 const latest = {
-  version: "Appstatus 12/05",
-  date: "2026-05-12",
+  version: "11/6",
+  date: "2026-06-11",
+  dateLabel: "11/6",
   type: "minor",
-  title: "Appstatus 12/05",
+  title: "VM26 – Jagten på pokalen er landet",
   summary:
-    "Android-testforløbet er godt i gang, og iOS testes nu via TestFlight. App-udgaverne forventes at give en mere stabil GPS-oplevelse og et tryggere elevflow på mobil.",
+    "Et nyt VM26-løb er klar under Spil. Samtidig er Zone-Krig blevet tydeligere, Fotoløb glider bedre mellem posterne, og elevoplevelsen på mobil er gjort mere stabil.",
   items: [
     {
-      title: "Apps på vej",
+      title: "VM26 under Spil",
       description:
-        "Vi arbejder på at gøre GPS Løb klar som app til både Android og iPhone. Følg med på opdateringssiden!",
+        "Et færdigt fodboldinspireret GPS-løb med VM-stemning er klar til redigering.",
     },
   ],
 };
@@ -792,7 +793,13 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
                       Version {latest.version}
                     </span>
                     <span className="mt-1 block text-xs font-medium tracking-wide text-amber-100/70 sm:text-[13px]">
-                      {formatDisplayDate(latest.date)}
+                      {latest.dateLabel ?? formatDisplayDate(latest.date)}
+                    </span>
+                    <span className="mt-2 block text-xs font-semibold leading-5 text-white/90 sm:text-sm">
+                      {latest.title}
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-amber-100/70">
+                      {latest.summary}
                     </span>
                   </span>
                 </div>

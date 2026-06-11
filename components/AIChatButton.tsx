@@ -24,6 +24,11 @@ const QUICK_ACTIONS: readonly QuickAction[] = [
     prompt: "Vis mig, hvordan man vinder i Zone-Krigen.",
   },
   {
+    id: "vm26",
+    label: "Hjælp med VM26-løb",
+    prompt: "Hvad er VM26 – Jagten på pokalen, og hvordan kommer jeg i gang?",
+  },
+  {
     id: "scanner",
     label: "Lav et løb ud fra min bogtekst",
     prompt: "Lav et løb ud fra min bogtekst.",
@@ -78,6 +83,7 @@ const getQuickActions = (pathname: string) => {
   let prioritizedIds: string[] = [
     "stratego",
     "zone-krig",
+    "vm26",
     "scanner",
     "podcast",
     "manual",
@@ -85,15 +91,15 @@ const getQuickActions = (pathname: string) => {
   ];
 
   if (pathname.includes("/opret/stratego")) {
-    prioritizedIds = ["stratego", "zone-krig", "manual", "scanner", "podcast", "start"];
+    prioritizedIds = ["stratego", "zone-krig", "vm26", "manual", "scanner", "podcast", "start"];
   } else if (pathname.includes("/opret/zone-krig")) {
-    prioritizedIds = ["zone-krig", "stratego", "manual", "scanner", "podcast", "start"];
+    prioritizedIds = ["zone-krig", "stratego", "vm26", "manual", "scanner", "podcast", "start"];
   } else if (pathname.includes("/opret/scanner")) {
-    prioritizedIds = ["scanner", "manual", "podcast", "stratego", "zone-krig", "start"];
+    prioritizedIds = ["scanner", "manual", "podcast", "vm26", "stratego", "zone-krig", "start"];
   } else if (pathname.includes("/opret/podcast")) {
-    prioritizedIds = ["podcast", "scanner", "manual", "stratego", "zone-krig", "start"];
+    prioritizedIds = ["podcast", "scanner", "manual", "vm26", "stratego", "zone-krig", "start"];
   } else if (pathname.includes("/opret/manuel")) {
-    prioritizedIds = ["manual", "scanner", "podcast", "stratego", "zone-krig", "start"];
+    prioritizedIds = ["manual", "vm26", "scanner", "podcast", "stratego", "zone-krig", "start"];
   }
 
   return prioritizedIds
