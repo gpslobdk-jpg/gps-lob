@@ -34,7 +34,14 @@ const poppins = Poppins({
   weight: ["400", "500", "600", "700"],
 });
 
-const SUBJECT_OPTIONS = ["Generelt", "Tysk", "Engelsk", "Historie", "Samfundsfag"] as const;
+const SUBJECT_OPTIONS = ["Generelt", "Dansk", "Tysk", "Engelsk", "Historie", "Samfundsfag", "Naturfag", "Matematik"] as const;
+const GRADE_LEVEL_OPTIONS = [
+  "3.-4. klasse",
+  "5.-6. klasse",
+  "7.-9. klasse",
+  "Gymnasium",
+  "Voksne",
+] as const;
 const GAME_CHIPS = ["Hemmeligt ord", "Private roller", "Klassehints", "Mundtlig debat"] as const;
 const SECRET_WORD_IDEAS = ["Demokrati", "Vulkan", "Procent", "Viking", "Fotosyntese", "Eventyr"] as const;
 const BUILDER_PROGRESS_STEPS = [
@@ -88,6 +95,8 @@ const BUILDER_PROGRESS_STEPS = [
   },
 ] as const;
 
+const AI_UNAVAILABLE_MESSAGE = "AI-forslag er ikke tilgængelige lige nu. Du kan stadig oprette spillet manuelt.";
+
 type Notice = {
   tone: "success" | "error";
   message: string;
@@ -104,6 +113,15 @@ type CreateFindBedragerenSessionResponse = {
     pin?: string | null;
     status?: string | null;
   } | null;
+  error?: string;
+};
+
+type FindBedragerenSuggestion = {
+  title: string;
+  category: (typeof SUBJECT_OPTIONS)[number];
+  secretWord: string;
+  teacherNote: string;
+  alternatives: string[];
   error?: string;
 };
 
@@ -150,6 +168,12 @@ function FindBedragerenBuilderContent() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [createdRunId, setCreatedRunId] = useState<string | null>(null);
   const [createdTitle, setCreatedTitle] = useState("");
+  const [suggestTopic, setSuggestTopic] = useState("");
+  const [suggestGradeLevel, setSuggestGradeLevel] = useState<(typeof GRADE_LEVEL_OPTIONS)[number]>("5.-6. klasse");
+  const [suggestExtraWish, setSuggestExtraWish] = useState("");
+  const [suggestion, setSuggestion] = useState<FindBedragerenSuggestion | null>(null);
+  const [suggestionError, setSuggestionError] = useState("");
+  const [isSuggesting, setIsSuggesting] = useState(false);
 
   const isEditMode = editRunId.length > 0;
 
@@ -157,6 +181,53 @@ function FindBedragerenBuilderContent() {
     () => title.trim().length > 0 && secretWord.trim().length > 0 && impostorCount >= 1,
     [impostorCount, secretWord, title]
   );
+  const canRequestSuggestion = suggestTopic.trim().length > 0;
+
+  const handleSuggestContent = async () => {
+    const topic = suggestTopic.trim();
+
+    if (!topic) {
+      setSuggestionError("Skriv et fag eller emne først.");
+      return;
+    }
+
+    setIsSuggesting(true);
+    setSuggestionError("");
+    setSuggestion(null);
+
+    try {
+      const response = await fetch("/api/find-bedrageren/suggest", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          topic,
+          gradeLevel: suggestGradeLevel,
+          extraWish: suggestExtraWish.trim(),
+        }),
+      });
+
+      const body = (await response.json()) as FindBedragerenSuggestion;
+
+      if (!response.ok || !body.title || !body.secretWord) {
+        throw new Error(body.error || AI_UNAVAILABLE_MESSAGE);
+      }
+
+      setSuggestion(body);
+    } catch (error) {
+      setSuggestionError(error instanceof Error ? error.message : AI_UNAVAILABLE_MESSAGE);
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
+
+  const applySuggestion = (nextSuggestion: FindBedragerenSuggestion) => {
+    setTitle(nextSuggestion.title);
+    setSubject(nextSuggestion.category);
+    setSecretWord(nextSuggestion.secretWord);
+    setNotice(null);
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -537,6 +608,148 @@ function FindBedragerenBuilderContent() {
                     {word}
                   </button>
                 ))}
+              </div>
+            </section>
+
+            <section className="rounded-[1.75rem] border border-violet-200 bg-white p-6 text-slate-950 shadow-xl sm:p-7">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+                  <Sparkles className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-black uppercase tracking-[0.16em] text-violet-700">
+                    AI-hjælp
+                  </p>
+                  <h2 className={`mt-2 text-2xl font-black text-slate-950 ${rubik.className}`}>
+                    Få hjælp til spillet
+                  </h2>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                    Skriv et fag eller emne, så foreslår AI en titel, et hemmeligt ord og en kort ramme for spillet.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                <div>
+                  <label htmlFor="find-bedrageren-ai-topic" className={labelClass}>
+                    Fag eller emne
+                  </label>
+                  <input
+                    id="find-bedrageren-ai-topic"
+                    value={suggestTopic}
+                    onChange={(event) => setSuggestTopic(event.target.value)}
+                    disabled={isSuggesting}
+                    maxLength={120}
+                    className={`${inputClass} mt-2`}
+                    placeholder="Fx vulkaner, demokrati eller brøker"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="find-bedrageren-ai-grade" className={labelClass}>
+                    Klassetrin
+                  </label>
+                  <select
+                    id="find-bedrageren-ai-grade"
+                    value={suggestGradeLevel}
+                    onChange={(event) => setSuggestGradeLevel(event.target.value as (typeof GRADE_LEVEL_OPTIONS)[number])}
+                    disabled={isSuggesting}
+                    className={`${inputClass} mt-2`}
+                  >
+                    {GRADE_LEVEL_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="find-bedrageren-ai-extra" className={labelClass}>
+                    Ekstra ønske
+                  </label>
+                  <textarea
+                    id="find-bedrageren-ai-extra"
+                    value={suggestExtraWish}
+                    onChange={(event) => setSuggestExtraWish(event.target.value)}
+                    disabled={isSuggesting}
+                    maxLength={220}
+                    rows={3}
+                    className={`${inputClass} mt-2 resize-none`}
+                    placeholder="Fx gør det let at forklare på 5 minutter"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void handleSuggestContent()}
+                  disabled={isSuggesting || !canRequestSuggestion}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-4 text-base font-black text-white shadow-sm transition hover:bg-violet-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-200 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                >
+                  {isSuggesting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
+                  {isSuggesting ? "Finder forslag..." : "Foreslå spilindhold"}
+                </button>
+
+                {suggestionError ? (
+                  <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">
+                    {suggestionError}
+                  </p>
+                ) : null}
+
+                {suggestion ? (
+                  <div className="rounded-[1.5rem] border border-violet-200 bg-violet-50 p-5">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-violet-700">
+                      Forslag
+                    </p>
+                    <h3 className={`mt-2 text-2xl font-black text-slate-950 ${rubik.className}`}>
+                      {suggestion.title}
+                    </h3>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl border border-white bg-white px-4 py-3">
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                          Hemmeligt ord
+                        </p>
+                        <p className="mt-2 text-lg font-black text-slate-950">{suggestion.secretWord}</p>
+                      </div>
+                      <div className="rounded-2xl border border-white bg-white px-4 py-3">
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                          Kategori
+                        </p>
+                        <p className="mt-2 text-lg font-black text-slate-950">{suggestion.category}</p>
+                      </div>
+                    </div>
+                    <p className="mt-4 rounded-2xl border border-white bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-700">
+                      {suggestion.teacherNote}
+                    </p>
+                    {suggestion.alternatives.length > 0 ? (
+                      <div className="mt-4">
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                          Flere ord
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {suggestion.alternatives.map((word) => (
+                            <button
+                              key={word}
+                              type="button"
+                              onClick={() => setSecretWord(word)}
+                              className="rounded-full border border-violet-200 bg-white px-3 py-2 text-sm font-black text-violet-800 transition hover:border-violet-400 hover:text-slate-950"
+                            >
+                              {word}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => applySuggestion(suggestion)}
+                      className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-violet-700 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-violet-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-200"
+                    >
+                      <CheckCircle2 className="h-5 w-5" />
+                      Brug dette forslag
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </section>
           </aside>
