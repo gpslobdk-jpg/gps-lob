@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import "leaflet/dist/leaflet.css";
 import { Analytics } from "@vercel/analytics/next";
+import { headers } from "next/headers";
 import { Poppins, Rubik } from "next/font/google";
 import "./globals.css";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import { getSiteCopy } from "@/lib/siteCopy";
+import { resolveSiteVariantFromHeaders } from "@/lib/siteVariant";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -19,19 +22,25 @@ const rubik = Rubik({
   variable: "--font-rubik",
 });
 
-export const metadata: Metadata = {
-  title: "GPSLOB.DK - Stjerneløb for hele klassen",
-  description: "Byg, del og følg med live.",
-  icons: {
-    apple: "/logomobil1.png",
-    icon: "/mobillogo2.png",
-  },
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "GPS Løb",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const requestHeaders = await headers();
+  const siteVariant = resolveSiteVariantFromHeaders(requestHeaders);
+  const siteCopy = getSiteCopy(siteVariant.key);
+
+  return {
+    title: siteCopy.metadata.homeTitle,
+    description: siteCopy.metadata.homeDescription,
+    icons: {
+      apple: "/logomobil1.png",
+      icon: "/mobillogo2.png",
+    },
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "black-translucent",
+      title: siteCopy.metadata.manifestName,
+    },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#020617",
@@ -40,13 +49,16 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const requestHeaders = await headers();
+  const siteVariant = resolveSiteVariantFromHeaders(requestHeaders);
+
   return (
-    <html lang="da">
+    <html lang={siteVariant.htmlLang}>
       <head />
       <body className={`${poppins.variable} ${rubik.variable} font-sans antialiased bg-[#0a1128]`}>
         <ErrorBoundary>

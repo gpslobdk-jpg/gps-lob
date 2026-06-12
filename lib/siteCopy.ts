@@ -26,6 +26,8 @@ type SiteCopy = {
     homeDescription: string;
     joinTitle: string;
     joinDescription: string;
+    loginTitle: string;
+    loginDescription: string;
     manifestName: string;
     manifestDescription: string;
   };
@@ -55,6 +57,38 @@ type SiteCopy = {
       organizerTitle: string;
       organizerDescription: string;
       loginButton: string;
+    };
+  };
+  login: {
+    preparingTitle: string;
+    preparingDescription: string;
+    redirectTitle: string;
+    redirectDescription: string;
+    logoAlt: string;
+    welcomeTitle: string;
+    subtitle: string;
+    organizerEyebrow: string;
+    organizerDescription: string;
+    googleButton: string;
+    microsoftButton: string;
+    emailDivider: string;
+    emailLabel: string;
+    emailPlaceholder: string;
+    passwordLabel: string;
+    passwordPlaceholder: string;
+    passwordHint: string;
+    signupConsentEyebrow: string;
+    marketingConsentText: string;
+    marketingConsentStorageText: string;
+    submitButton: string;
+    submitPending: string;
+    backToHome: string;
+    errors: {
+      missingCredentials: string;
+      invalidCredentials: string;
+      invalidEmail: string;
+      passwordRequirements: string;
+      genericEmailAuth: string;
     };
   };
   join: {
@@ -149,6 +183,9 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       homeDescription: "Byg, del og følg med live.",
       joinTitle: "Deltag i løbet | GPS Løb",
       joinDescription: "Indtast pinkode eller scan QR-koden for at deltage i løbet.",
+      loginTitle: "Login | GPS Løb",
+      loginDescription:
+        "Log ind på GPSLØB.DK for at oprette løb, følge klassen live og hente resultater.",
       manifestName: "GPS Løb",
       manifestDescription: "Interaktive GPS-missioner",
     },
@@ -179,6 +216,42 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
         organizerDescription:
           "Log ind for at oprette løb, hente resultater og styre klassen live. Elever deltager fra mobilen.",
         loginButton: "Log ind",
+      },
+    },
+    login: {
+      preparingTitle: "Gør login klar",
+      preparingDescription: "Vi læser din session, så du ikke bliver sendt rundt unødigt.",
+      redirectTitle: "Logger dig ind",
+      redirectDescription:
+        "Vi læser din session og sender dig videre til dashboardet uden auth-flicker.",
+      logoAlt: "GPSLØB.DK logo",
+      welcomeTitle: "Velkommen til gpsløb.dk",
+      subtitle: "",
+      organizerEyebrow: "Log ind for arrangører",
+      organizerDescription:
+        "Brug en af disse login-metoder for at åbne dashboardet og styre dine løb.",
+      googleButton: "Log ind med Google",
+      microsoftButton: "Log ind med Microsoft",
+      emailDivider: "eller log ind med e-mail",
+      emailLabel: "Email",
+      emailPlaceholder: "Email",
+      passwordLabel: "Adgangskode",
+      passwordPlaceholder: "Adgangskode",
+      passwordHint: "Mindst 6 tegn.",
+      signupConsentEyebrow: "Kun ved oprettelse af ny konto",
+      marketingConsentText:
+        "Ja tak, jeg vil gerne modtage nyheder og opdateringer om GPS Løb på mail. Jeg kan altid afmelde mig igen.",
+      marketingConsentStorageText:
+        "v1: Ja tak, jeg vil gerne modtage nyheder og opdateringer om GPS Løb på mail. Jeg kan altid afmelde mig igen.",
+      submitButton: "Log ind / Opret",
+      submitPending: "Logger ind...",
+      backToHome: "Tilbage til forsiden",
+      errors: {
+        missingCredentials: "Skriv både e-mail og adgangskode.",
+        invalidCredentials: "Forkert adgangskode eller e-mail.",
+        invalidEmail: "Skriv en gyldig e-mailadresse.",
+        passwordRequirements: "Adgangskoden skal opfylde kravene for at kunne bruges.",
+        genericEmailAuth: "Vi kunne ikke logge dig ind lige nu. Prøv igen.",
       },
     },
     join: {
@@ -310,6 +383,8 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       homeDescription: "Lag, del og følg løpet live.",
       joinTitle: "Bli med i løpet | Postløp",
       joinDescription: "Skriv inn pinkode eller skann QR-koden for å bli med i løpet.",
+      loginTitle: "Logg inn | Postløp",
+      loginDescription: "Logg inn på Postløp for å lage og styre GPS-løp for klassen.",
       manifestName: "Postløp",
       manifestDescription: "Interaktive skoleløp med poster",
     },
@@ -340,6 +415,41 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
         organizerDescription:
           "Logg inn for å lage løp, hente resultater og følge deltakerne live. Elever og deltakere blir med via mobil, nettbrett eller nettleser.",
         loginButton: "Logg inn",
+      },
+    },
+    login: {
+      preparingTitle: "Gjør innlogging klar",
+      preparingDescription: "Vi leser økten din, slik at du ikke sendes rundt unødvendig.",
+      redirectTitle: "Logger deg inn",
+      redirectDescription: "Vi leser økten din og sender deg videre til dashbordet.",
+      logoAlt: "Postløp logo",
+      welcomeTitle: "Velkommen til Postløp",
+      subtitle: "Logg inn for å lage og styre GPS-løp for klassen.",
+      organizerEyebrow: "Logg inn for arrangører",
+      organizerDescription:
+        "Bruk en av disse innloggingsmetodene for å åpne dashbordet og styre løpene dine.",
+      googleButton: "Logg inn med Google",
+      microsoftButton: "Logg inn med Microsoft",
+      emailDivider: "eller logg inn med e-post",
+      emailLabel: "E-post",
+      emailPlaceholder: "E-post",
+      passwordLabel: "Passord",
+      passwordPlaceholder: "Passord",
+      passwordHint: "Minst 6 tegn.",
+      signupConsentEyebrow: "Kun ved opprettelse av ny konto",
+      marketingConsentText:
+        "Jeg samtykker til at Postløp kan sende meg praktisk informasjon om kontoen min og tjenesten.",
+      marketingConsentStorageText:
+        "v1: Jeg samtykker til at Postløp kan sende meg praktisk informasjon om kontoen min og tjenesten.",
+      submitButton: "Logg inn / Opprett",
+      submitPending: "Logger inn...",
+      backToHome: "Tilbake til forsiden",
+      errors: {
+        missingCredentials: "Skriv både e-post og passord.",
+        invalidCredentials: "Feil passord eller e-post.",
+        invalidEmail: "Skriv inn en gyldig e-postadresse.",
+        passwordRequirements: "Passordet må oppfylle kravene for å kunne brukes.",
+        genericEmailAuth: "Vi kunne ikke logge deg inn akkurat nå. Prøv igjen.",
       },
     },
     join: {
