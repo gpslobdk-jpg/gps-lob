@@ -1,6 +1,16 @@
 "use client";
 
-import { AlertCircle, Eye, EyeOff, Loader2, RefreshCw, UserSearch } from "lucide-react";
+import {
+  AlertCircle,
+  BadgeCheck,
+  Eye,
+  EyeOff,
+  Loader2,
+  RefreshCw,
+  Shield,
+  UserCheck,
+  UserSearch,
+} from "lucide-react";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
 import { useParams } from "next/navigation";
@@ -57,6 +67,20 @@ const phaseLabels: Record<string, string> = {
   finished: "Afsluttet",
 };
 
+const civilianRules = [
+  "Giv hints",
+  "Lyt til de andre",
+  "Prøv at afsløre hvem der bluffer",
+  "Sig ikke ordet direkte, hvis læreren beder jer undgå det",
+];
+
+const impostorRules = [
+  "Lyt til de andres hints",
+  "Prøv at virke som om du kender ordet",
+  "Stil spørgsmål forsigtigt",
+  "Undgå at blive afsløret",
+];
+
 function storageKey(sessionId: string) {
   return `find_bedrageren_participant_${sessionId}`;
 }
@@ -100,22 +124,29 @@ function saveStoredParticipant(sessionId: string, participantId: string, student
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <main className={`min-h-screen bg-slate-100 px-6 py-8 text-slate-950 ${poppins.className}`}>
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-2xl items-center justify-center">
-        <section className="w-full rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-800">
-            <AlertCircle className="h-7 w-7" />
+    <main className={`min-h-screen bg-[#f5f3ef] px-5 py-7 text-slate-950 sm:px-6 sm:py-8 ${poppins.className}`}>
+      <div className="mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-2xl items-center justify-center">
+        <section className="w-full overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-xl">
+          <div className="bg-slate-950 px-6 py-8 text-center text-white sm:px-8">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-300/15 text-amber-200">
+              <AlertCircle className="h-7 w-7" />
+            </div>
+            <p className="mt-5 text-sm font-black uppercase tracking-[0.18em] text-amber-100">
+              Find Bedrageren
+            </p>
+            <h1 className={`mt-3 text-3xl font-black ${rubik.className}`}>
+              Vi kunne ikke finde dit spil
+            </h1>
           </div>
-          <h1 className={`mt-5 text-3xl font-black text-slate-950 ${rubik.className}`}>
-            Vi kunne ikke finde dit spil
-          </h1>
-          <p className="mx-auto mt-4 max-w-lg text-base leading-7 text-slate-600">{message}</p>
-          <Link
-            href="/find-bedrageren/join"
-            className="mt-6 inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-slate-800"
-          >
-            Tilbage til join
-          </Link>
+          <div className="px-6 py-7 text-center sm:px-8">
+            <p className="mx-auto max-w-lg text-base font-semibold leading-7 text-slate-600">{message}</p>
+            <Link
+              href="/find-bedrageren/join"
+              className="mt-6 inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-slate-800"
+            >
+              Tilbage til join
+            </Link>
+          </div>
         </section>
       </div>
     </main>
@@ -262,11 +293,14 @@ export default function FindBedragerenStudentLobbyPage() {
 
   if (isLoading) {
     return (
-      <main className={`min-h-screen bg-slate-100 px-6 py-8 text-slate-950 ${poppins.className}`}>
-        <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-2xl items-center justify-center">
-          <div className="text-center">
-            <Loader2 className="mx-auto h-9 w-9 animate-spin text-amber-600" />
-            <p className="mt-4 text-sm font-semibold text-slate-600">Henter spillet...</p>
+      <main className={`min-h-screen bg-[#f5f3ef] px-5 py-7 text-slate-950 sm:px-6 sm:py-8 ${poppins.className}`}>
+        <div className="mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-2xl items-center justify-center">
+          <div className="w-full rounded-[1.75rem] border border-slate-200 bg-white p-8 text-center shadow-xl">
+            <Loader2 className="mx-auto h-10 w-10 animate-spin text-violet-700" />
+            <p className="mt-5 text-sm font-black uppercase tracking-[0.18em] text-slate-500">
+              Find Bedrageren
+            </p>
+            <p className="mt-3 text-lg font-black text-slate-950">Henter spillet...</p>
           </div>
         </div>
       </main>
@@ -277,108 +311,174 @@ export default function FindBedragerenStudentLobbyPage() {
     return <ErrorState message={error} />;
   }
 
+  const showWaitingForTeacher = phase === "lobby";
+  const showRoleNotReady = !showWaitingForTeacher && (waitingForTeacher || !canRevealRole);
+  const statusTitle = showWaitingForTeacher
+    ? "Vent på læreren"
+    : showRoleNotReady
+      ? "Din rolle er ikke klar endnu"
+      : "Din rolle er klar";
+  const statusDescription = showWaitingForTeacher
+    ? "Når læreren starter spillet, får du din rolle her."
+    : showRoleNotReady
+      ? "Vent på læreren. Læreren kan fordele roller igen, hvis du er kommet sent ind."
+      : "Kig for dig selv. Din rolle er privat.";
+
   return (
-    <main className={`min-h-screen bg-slate-100 px-6 py-8 text-slate-950 ${poppins.className}`}>
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl items-center justify-center">
-        <section className="w-full rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-800">
-            <UserSearch className="h-7 w-7" />
-          </div>
-          <p className="mt-5 text-sm font-black uppercase tracking-[0.18em] text-amber-700">
-            Find Bedrageren
-          </p>
-          <h1 className={`mt-3 text-4xl font-black text-slate-950 ${rubik.className}`}>
-            Du er med i spillet.
-          </h1>
-
-          {phase === "lobby" ? (
-            <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-slate-600">
-              Vent på, at læreren starter.
-            </p>
-          ) : waitingForTeacher || !canRevealRole ? (
-            <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-slate-600">
-              Din rolle er ikke klar endnu. Vent på læreren.
-            </p>
-          ) : (
-            <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-slate-600">
-              Læreren har startet rollevisningen. Kig kun på din egen skærm.
-            </p>
-          )}
-
-          <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Navn</p>
-              <p className="mt-2 text-xl font-black text-slate-950">{studentName}</p>
+    <main className={`min-h-screen bg-[#f5f3ef] px-5 py-7 text-slate-950 sm:px-6 sm:py-8 ${poppins.className}`}>
+      <div className="mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-3xl items-center justify-center">
+        <section className="w-full overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-xl">
+          <div className="bg-slate-950 px-6 py-8 text-center text-white sm:px-8 sm:py-10">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-300/15 text-amber-200">
+              <UserSearch className="h-7 w-7" />
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Status</p>
-              <p className="mt-2 text-xl font-black text-slate-950">{phaseLabel}</p>
-            </div>
+            <p className="mt-5 text-sm font-black uppercase tracking-[0.18em] text-amber-100">
+              Find Bedrageren
+            </p>
+            <h1 className={`mt-3 text-4xl font-black leading-tight sm:text-5xl ${rubik.className}`}>
+              {statusTitle}
+            </h1>
+            <p className="mx-auto mt-4 max-w-xl text-base font-semibold leading-7 text-slate-200">
+              {statusDescription}
+            </p>
           </div>
 
-          {canRevealRole ? (
-            <section className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-5">
-              {!isRoleVisible ? (
-                <button
-                  type="button"
-                  onClick={() => void handleRevealRole()}
-                  disabled={isRevealing}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-4 text-lg font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-wait disabled:bg-slate-300"
-                >
-                  {isRevealing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Eye className="h-5 w-5" />}
-                  {isRevealing ? "Henter rolle..." : "Se min rolle"}
-                </button>
-              ) : roleView?.role === "impostor" ? (
+          <div className="px-5 py-6 sm:px-8 sm:py-8">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Navn</p>
+                <p className="mt-2 truncate text-xl font-black text-slate-950">{studentName}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Status</p>
+                <p className="mt-2 text-xl font-black text-slate-950">{phaseLabel}</p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white">
+                  <BadgeCheck className="h-5 w-5" />
+                </div>
                 <div>
-                  <h2 className={`text-3xl font-black text-slate-950 ${rubik.className}`}>
-                    Du er bedrageren.
-                  </h2>
-                  <p className="mx-auto mt-4 max-w-xl text-base font-semibold leading-7 text-slate-700">
-                    Du kender ikke det hemmelige ord. Lyt godt efter og prøv at blende ind.
+                  <p className="text-sm font-black text-emerald-950">Du er med i spillet</p>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-emerald-800">
+                    Bliv på siden, så er du klar, når læreren går videre.
                   </p>
                 </div>
-              ) : (
-                <div>
-                  <p className="text-sm font-black uppercase tracking-[0.18em] text-amber-800">
-                    Dit hemmelige ord er
+              </div>
+            </div>
+
+            {canRevealRole ? (
+              <section className="mt-6 rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5 sm:p-6">
+                {!isRoleVisible ? (
+                  <div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-amber-200">
+                        <Shield className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-800">
+                          Rolle klar
+                        </p>
+                        <p className="mt-2 text-base font-semibold leading-7 text-slate-700">
+                          Kig for dig selv. Din rolle er privat.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleRevealRole()}
+                      disabled={isRevealing}
+                      className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-4 text-lg font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-wait disabled:bg-slate-300"
+                    >
+                      {isRevealing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Eye className="h-5 w-5" />}
+                      {isRevealing ? "Henter rolle..." : "Se min rolle"}
+                    </button>
+                  </div>
+                ) : roleView?.role === "impostor" ? (
+                  <div>
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-amber-200">
+                      <UserSearch className="h-7 w-7" />
+                    </div>
+                    <h2 className={`mt-5 text-center text-3xl font-black text-slate-950 ${rubik.className}`}>
+                      Du er bedrageren
+                    </h2>
+                    <p className="mx-auto mt-4 max-w-xl text-center text-base font-semibold leading-7 text-slate-700">
+                      Du kender ikke ordet. Lyt godt efter, bluff roligt og prøv ikke at blive afsløret.
+                    </p>
+                    <ul className="mt-5 grid gap-3 text-left sm:grid-cols-2">
+                      {impostorRules.map((rule) => (
+                        <li
+                          key={rule}
+                          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold leading-6 text-slate-700"
+                        >
+                          {rule}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white">
+                      <UserCheck className="h-7 w-7" />
+                    </div>
+                    <h2 className={`mt-5 text-center text-3xl font-black text-slate-950 ${rubik.className}`}>
+                      Du kender ordet
+                    </h2>
+                    <div className="mx-auto mt-5 max-w-xl rounded-[1.5rem] border border-slate-200 bg-white p-5 text-center shadow-sm">
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                        Det hemmelige ord
+                      </p>
+                      <p className={`mt-3 text-4xl font-black text-slate-950 ${rubik.className}`}>
+                        {roleView?.secretWord}
+                      </p>
+                    </div>
+                    <p className="mx-auto mt-5 max-w-xl text-center text-base font-semibold leading-7 text-slate-700">
+                      Du skal hjælpe med at finde bedrageren uden at gøre det for nemt.
+                    </p>
+                    <ul className="mt-5 grid gap-3 text-left sm:grid-cols-2">
+                      {civilianRules.map((rule) => (
+                        <li
+                          key={rule}
+                          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold leading-6 text-slate-700"
+                        >
+                          {rule}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {isRoleVisible ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsRoleVisible(false)}
+                    className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-4 text-base font-black text-slate-900 shadow-sm transition hover:border-slate-500"
+                  >
+                    <EyeOff className="h-5 w-5" />
+                    Skjul igen
+                  </button>
+                ) : null}
+
+                {revealError ? (
+                  <p className="mt-4 rounded-2xl border border-amber-300 bg-white px-4 py-3 text-sm font-bold leading-6 text-amber-900">
+                    {revealError}
                   </p>
-                  <h2 className={`mt-3 text-4xl font-black text-slate-950 ${rubik.className}`}>
-                    {roleView?.secretWord}
-                  </h2>
-                  <p className="mx-auto mt-4 max-w-xl text-base font-semibold leading-7 text-slate-700">
-                    Giv et hint uden at afsløre ordet direkte.
-                  </p>
-                </div>
-              )}
+                ) : null}
+              </section>
+            ) : null}
 
-              {isRoleVisible ? (
-                <button
-                  type="button"
-                  onClick={() => setIsRoleVisible(false)}
-                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-4 text-base font-black text-slate-900 shadow-sm transition hover:border-slate-500"
-                >
-                  <EyeOff className="h-5 w-5" />
-                  Skjul igen
-                </button>
-              ) : null}
-
-              {revealError ? (
-                <p className="mt-4 rounded-2xl border border-amber-300 bg-white px-4 py-3 text-sm font-bold leading-6 text-amber-900">
-                  {revealError}
-                </p>
-              ) : null}
-            </section>
-          ) : null}
-
-          <button
-            type="button"
-            onClick={() => void loadSession("refresh")}
-            disabled={isRefreshing}
-            className="mt-8 inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-800 shadow-sm transition hover:border-amber-400 hover:text-slate-950 disabled:cursor-wait disabled:opacity-60"
-          >
-            {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            {isRefreshing ? "Opdaterer..." : "Opdater"}
-          </button>
+            <button
+              type="button"
+              onClick={() => void loadSession("refresh")}
+              disabled={isRefreshing}
+              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-800 shadow-sm transition hover:border-violet-400 hover:text-slate-950 disabled:cursor-wait disabled:opacity-60 sm:w-auto"
+            >
+              {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {isRefreshing ? "Opdaterer..." : "Opdater"}
+            </button>
+          </div>
         </section>
       </div>
     </main>
