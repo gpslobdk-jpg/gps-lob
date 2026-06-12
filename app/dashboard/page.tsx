@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { UserSearch } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
@@ -449,6 +450,39 @@ export default function DashboardPage() {
             </div>
           </motion.article>
         </motion.button>
+      </section>
+
+      <section className="mx-auto mt-7 w-full max-w-5xl">
+        <Link href="/dashboard/opret/find-bedrageren" className="block">
+          <motion.article
+            whileHover={{ y: -3, scale: 1.006 }}
+            className="group relative overflow-hidden rounded-[2rem] border border-violet-300/32 bg-slate-950/62 p-5 text-left shadow-[0_24px_64px_rgba(15,23,42,0.24),0_14px_30px_rgba(124,58,237,0.16)] backdrop-blur-xl transition sm:p-6"
+          >
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.18),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.32),transparent_44%),linear-gradient(135deg,rgba(15,23,42,0.78),rgba(49,46,129,0.62))]" />
+            <div className="relative flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+              <div className="flex min-w-0 gap-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-amber-200/24 bg-amber-200/12 text-amber-100 shadow-[0_14px_34px_rgba(251,191,36,0.13)]">
+                  <UserSearch className="h-6 w-6" />
+                </div>
+                <div className="min-w-0">
+                  <span className="inline-flex rounded-full border border-amber-200/34 bg-amber-200/12 px-3 py-1 text-[0.62rem] font-black uppercase tracking-[0.18em] text-amber-100">
+                    NYT SPIL
+                  </span>
+                  <h2 className={`mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl ${rubik.className}`}>
+                    Find Bedrageren
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/78 sm:text-base">
+                    Start et socialt bluff-spil med roller, hemmeligt ord og klassediskussion.
+                  </p>
+                </div>
+              </div>
+
+              <span className="inline-flex w-full items-center justify-center rounded-2xl border border-white/14 bg-white/12 px-5 py-3 text-sm font-black text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] transition group-hover:bg-white/18 md:w-auto">
+                Opret spil
+              </span>
+            </div>
+          </motion.article>
+        </Link>
       </section>
 
       <section className="mx-auto mt-7 w-full max-w-4xl">

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowLeft, CircleHelp, Printer, Shield, Trophy } from "lucide-react";
+import { ArrowLeft, CircleHelp, Printer, Shield, Trophy, UserSearch } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -555,7 +555,45 @@ export default function ValgHubPage() {
         <h2 className={`text-2xl font-black tracking-[0.18em] text-white drop-shadow-md uppercase mb-3 ${rubik.className}`}>
           Spil
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 justify-items-center gap-8">
+          <Link href="/dashboard/opret/find-bedrageren" className="block w-full text-left">
+            <motion.article
+              whileHover={{ y: -4, scale: 1.012 }}
+              className={`${cardBaseClass} cursor-pointer border-violet-400/75 bg-slate-950/40 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(124,58,237,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]`}
+            >
+              <div className={cardBackgroundShellClass}>
+                <div className="absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.28),transparent_36%),radial-gradient(circle_at_bottom,rgba(124,58,237,0.34),transparent_62%),linear-gradient(135deg,rgba(15,23,42,0.92),rgba(49,46,129,0.86),rgba(113,63,18,0.72))] shadow-[inset_0_0_58px_rgba(124,58,237,0.22)]" />
+                <div className="absolute inset-[1px] rounded-[1.95rem]" />
+              </div>
+
+              <div className="absolute top-4 right-4 z-20">
+                <span className="inline-flex items-center rounded-full border border-amber-200/45 bg-amber-300/18 px-3 py-1 text-[0.58rem] font-bold tracking-[0.18em] text-amber-50 uppercase shadow-[0_10px_22px_rgba(251,191,36,0.2)] backdrop-blur-md">
+                  NYT SPIL
+                </span>
+              </div>
+
+              <div className={`${cardPanelClass} text-slate-950`}>
+                <div className="relative z-10 flex h-full w-full flex-col items-center justify-center text-center">
+                  <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full border border-amber-200/40 bg-slate-950/34 shadow-[0_10px_30px_rgba(124,58,237,0.26)]">
+                    <UserSearch className="h-6 w-6 text-amber-100" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <h2 className={`text-[1.22rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.32)] ${rubik.className}`}>
+                      Find Bedrageren
+                    </h2>
+                    <p className="mx-auto max-w-[15.5rem] text-[0.68rem] leading-tight text-white/84">
+                      Et socialt bluff-spil, hvor eleverne får roller, et hemmeligt ord og skal afsløre bedrageren.
+                    </p>
+                    <span className="mt-2 inline-flex rounded-full border border-white/18 bg-white/12 px-3 py-1 text-[0.58rem] font-black tracking-[0.16em] text-white uppercase">
+                      Opret Find Bedrageren
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </motion.article>
+          </Link>
+
           <PremiumGameCardWrapper href={strategoCardHref}>
             <motion.article
               whileHover={strategoCardHref ? { y: -4, scale: 1.012 } : undefined}
