@@ -11,7 +11,8 @@ export type RaceTypeThemeKey =
   | "stratego"
   | "selfie"
   | "podcast"
-  | "musikquiz";
+  | "musikquiz"
+  | "find_bedrageren";
 
 export type RaceTypeTheme = {
   key: RaceTypeThemeKey;
@@ -277,6 +278,26 @@ const RACE_TYPE_THEMES: Record<RaceTypeThemeKey, RaceTypeTheme> = {
     archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
     archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
   },
+  find_bedrageren: {
+    key: "find_bedrageren",
+    label: "Find Bedrageren",
+    icon: "UserSearch",
+    colorClass: "text-amber-300",
+    selectionCardClass:
+      "border-amber-400/40 bg-gradient-to-br from-zinc-950 via-slate-900 to-amber-950 text-white shadow-xl shadow-zinc-950/25 hover:border-amber-300/60 hover:shadow-2xl hover:shadow-zinc-950/35",
+    archiveCardClass:
+      "border-amber-500/30 shadow-amber-500/10 hover:border-amber-400/50 hover:shadow-amber-500/20",
+    archiveHeaderClass: "bg-gradient-to-r from-zinc-950 via-slate-900 to-amber-950 text-white",
+    archiveAccentIconClass: "text-amber-300",
+    archivePrimaryButtonClass:
+      "border border-amber-600 bg-amber-600 text-slate-950 shadow-[0_12px_24px_rgba(217,119,6,0.18)] hover:bg-amber-500",
+    archiveGhostButtonClass:
+      "border border-amber-200 bg-white text-amber-900 shadow-sm hover:border-amber-300 hover:bg-amber-50",
+    archiveGhostIconButtonClass:
+      "border border-amber-200 bg-white text-amber-800 shadow-sm hover:border-amber-300 hover:bg-amber-50",
+    archiveDangerIconButtonClass: ARCHIVE_DANGER_ICON_BUTTON_CLASS,
+    archiveStatusBadgeClass: ARCHIVE_STATUS_BADGE_CLASS,
+  },
 };
 
 export function normalizeRaceTypeThemeKey(value: unknown): RaceTypeThemeKey {
@@ -340,6 +361,13 @@ export function normalizeRaceTypeThemeKey(value: unknown): RaceTypeThemeKey {
     case "musik quiz":
     case "musik-quiz":
       return "musikquiz";
+    case "find_bedrageren":
+    case "find-bedrageren":
+    case "find bedrageren":
+    case "bedrageren":
+    case "impostor":
+    case "find impostor":
+      return "find_bedrageren";
     default:
       return "manuel";
   }

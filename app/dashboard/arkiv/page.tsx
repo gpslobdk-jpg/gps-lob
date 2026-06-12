@@ -123,6 +123,13 @@ const getArchiveContentSummary = (run: Run) => {
     };
   }
 
+  if (normalizedRaceType === RACE_TYPES.FIND_BEDRAGEREN) {
+    return {
+      label: "Hemmeligt ord gemt",
+      Icon: Shield,
+    };
+  }
+
   const questionCount = getQuestionCount(run.questions);
   return {
     label: `${questionCount} poster`,
@@ -130,7 +137,8 @@ const getArchiveContentSummary = (run: Run) => {
   };
 };
 
-const QUICK_TOGGLE_EXCLUDED_RACE_TYPES = new Set<RaceType>(["zone_krig", "scanner"]);
+const QUICK_TOGGLE_EXCLUDED_RACE_TYPES = new Set<RaceType>(["zone_krig", "scanner", RACE_TYPES.FIND_BEDRAGEREN]);
+const ARCHIVE_SCHEDULE_EXCLUDED_RACE_TYPES = new Set<RaceType>([RACE_TYPES.FIND_BEDRAGEREN]);
 
 const normalizeArchivedRun = (run: ArchivedRunRow): Run => {
   const normalizedRaceType = getNormalizedRunRaceType(run);
@@ -152,9 +160,21 @@ const canQuickToggleRun = (run: Run) => {
   return Boolean(raceType && !QUICK_TOGGLE_EXCLUDED_RACE_TYPES.has(raceType));
 };
 
+const isFindBedragerenRun = (run: Run) => getNormalizedRunRaceType(run) === RACE_TYPES.FIND_BEDRAGEREN;
+
+const canStartRunFromArchive = (run: Run) => {
+  const raceType = getNormalizedRunRaceType(run);
+  return Boolean(raceType);
+};
+
+const canScheduleRunFromArchive = (run: Run) => {
+  const raceType = getNormalizedRunRaceType(run);
+  return Boolean(raceType && !ARCHIVE_SCHEDULE_EXCLUDED_RACE_TYPES.has(raceType));
+};
+
 const isLobbyOpen = (run: Run) => {
   const status = run.liveSession?.status ?? null;
-  return status === "waiting" || status === "running";
+  return status === "waiting" || status === "running" || status === "active";
 };
 
 const padNumber = (value: number) => value.toString().padStart(2, "0");
@@ -271,6 +291,33 @@ async function requestArchiveLiveSessionMutation(
   };
 }
 
+async function requestFindBedragerenSessionMutation(runId: string): Promise<ArchiveLiveSessionMutationResult> {
+  const response = await fetch("/api/find-bedrageren/sessions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ runId }),
+  });
+
+  let body: { error?: string; session?: LiveSession | null; source?: "created" | "reused" | null } | null = null;
+
+  try {
+    body = (await response.json()) as { error?: string; session?: LiveSession | null; source?: "created" | "reused" | null };
+  } catch {
+    body = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(body?.error ?? "Kunne ikke åbne Find Bedrageren-lobbyen.");
+  }
+
+  return {
+    session: body?.session ?? null,
+    source: body?.source ?? null,
+  };
+}
+
 type ArchivedRunCardProps = {
   run: Run;
   isStarting: boolean;
@@ -304,14 +351,25 @@ function ArchivedRunCard({
   const [pendingChecked, setPendingChecked] = useState<boolean | null>(null);
 
   const showQuickToggle = canQuickToggleRun(run);
+  const showLiveControls = canStartRunFromArchive(run);
+  const showScheduleControls = canScheduleRunFromArchive(run);
+  const isFindBedrageren = isFindBedragerenRun(run);
   const lobbyIsOpen = isLobbyOpen(run);
   const switchChecked = pendingChecked ?? lobbyIsOpen;
   const quickToggleLabel = isToggling ? (switchChecked ? "Åbner..." : "Lukker...") : switchChecked ? "Åben" : "Lukket";
-  const primaryButtonLabel = lobbyIsOpen
-    ? run.liveSession?.pin
-      ? `PIN: ${run.liveSession.pin} (Åbn Lobby)`
-      : "Åbn Lobby"
-    : "Sæt i gang";
+  const primaryButtonLabel = isFindBedrageren
+    ? lobbyIsOpen
+      ? run.liveSession?.pin
+        ? `PIN: ${run.liveSession.pin} (Åbn Lobby)`
+        : "Åbn Lobby"
+      : "Start lobby"
+    : showLiveControls
+      ? lobbyIsOpen
+        ? run.liveSession?.pin
+          ? `PIN: ${run.liveSession.pin} (Åbn Lobby)`
+          : "Åbn Lobby"
+        : "Sæt i gang"
+      : "Kan startes senere";
 
   const handleToggle = async (nextEnabled: boolean) => {
     setPendingChecked(nextEnabled);
@@ -418,8 +476,12 @@ function ArchivedRunCard({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button
             type="button"
-            onClick={() => void onStartRun(run)}
-            disabled={isStarting || isToggling}
+            onClick={() => {
+              if (showLiveControls) {
+                void onStartRun(run);
+              }
+            }}
+            disabled={!showLiveControls || isStarting || isToggling}
             className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black tracking-[0.08em] transition disabled:cursor-wait disabled:opacity-70 sm:w-auto sm:min-w-44 ${theme.archivePrimaryButtonClass}`}
           >
             {isStarting ? (
@@ -433,14 +495,16 @@ function ArchivedRunCard({
           </button>
 
           <div className="flex flex-wrap items-center gap-2 sm:flex-1 sm:justify-end">
-            <button
-              type="button"
-              onClick={() => onOpenSchedule(run)}
-              className={`inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-full px-3.5 text-xs font-semibold transition ${theme.archiveGhostButtonClass}`}
-            >
-              <Calendar className="h-3.5 w-3.5" />
-              Planlæg
-            </button>
+            {showScheduleControls ? (
+              <button
+                type="button"
+                onClick={() => onOpenSchedule(run)}
+                className={`inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-full px-3.5 text-xs font-semibold transition ${theme.archiveGhostButtonClass}`}
+              >
+                <Calendar className="h-3.5 w-3.5" />
+                Planlæg
+              </button>
+            ) : null}
 
             <button
               type="button"
@@ -670,6 +734,36 @@ export default function ArkivPage() {
   };
 
   const handleStartRun = async (run: Run) => {
+    if (isFindBedragerenRun(run)) {
+      if (run.liveSession?.id && isLobbyOpen(run)) {
+        router.push(`/dashboard/live/${run.liveSession.id}/find-bedrageren`);
+        return;
+      }
+
+      setStartingRunId(run.id);
+
+      try {
+        const result = await requestFindBedragerenSessionMutation(run.id);
+        updateRunLiveSession(run.id, result.session);
+
+        if (result.session?.id) {
+          router.push(`/dashboard/live/${result.session.id}/find-bedrageren`);
+        }
+      } catch (error) {
+        console.error("Kunne ikke åbne Find Bedrageren-lobbyen fra arkivet:", error);
+        alert(error instanceof Error ? error.message : "Der skete en fejl. Prøv igen.");
+      } finally {
+        setStartingRunId(null);
+      }
+
+      return;
+    }
+
+    if (!canStartRunFromArchive(run)) {
+      alert("Denne aktivitet kan ikke startes her.");
+      return;
+    }
+
     if (run.liveSession?.id && isLobbyOpen(run)) {
       router.push(`/dashboard/live/${run.liveSession.id}`);
       return;
@@ -693,6 +787,11 @@ export default function ArkivPage() {
   };
 
   const openScheduleModal = (run: Run) => {
+    if (!canScheduleRunFromArchive(run)) {
+      alert("Find Bedrageren kan planlægges senere.");
+      return;
+    }
+
     const schedule = getRunSchedule(run);
     resetScheduleAccessDetails();
     setScheduleRun(run);
