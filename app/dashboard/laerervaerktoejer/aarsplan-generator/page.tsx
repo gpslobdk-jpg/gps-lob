@@ -791,6 +791,19 @@ function AnnualPlanPreview({ plan }: { plan: AnnualPlanDraft }) {
           </div>
         </div>
 
+        <div className="mt-5 rounded-lg border border-emerald-100 bg-emerald-50 p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <School className="h-5 w-5 text-emerald-800" />
+            <h4 className="text-base font-black text-slate-950">Faglig planmotor</h4>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <QualityChip label="Fagprofil" value={plan.profileName} />
+            <QualityChip label="Niveau" value={plan.gradeBandLabel} />
+            <QualityChip label="Planmotor" value="Lokal prototype" />
+            <QualityChip label="Ferieplan" value="Demo" />
+          </div>
+        </div>
+
         <div className="mt-5 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="rounded-lg border border-emerald-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
@@ -886,6 +899,14 @@ function AnnualPlanPreview({ plan }: { plan: AnnualPlanDraft }) {
         </div>
       </section>
     </div>
+  );
+}
+
+function QualityChip({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-950">
+      {label}: {value}
+    </span>
   );
 }
 
