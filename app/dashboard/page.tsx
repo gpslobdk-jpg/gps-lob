@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { UserSearch } from "lucide-react";
+import { Gamepad2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
@@ -38,6 +38,9 @@ const liveCardEnabledClass =
 const archiveCardClass =
   "border-fuchsia-400/60 bg-fuchsia-500/10 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(217,70,239,0.16),inset_0_1px_0_rgba(255,255,255,0.18)]";
 
+const mobileGamesCardClass =
+  "border-cyan-400/60 bg-cyan-500/10 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(34,211,238,0.16),inset_0_1px_0_rgba(255,255,255,0.18)]";
+
 type ActiveSessionRow = {
   id: string;
 };
@@ -62,6 +65,7 @@ export default function DashboardPage() {
   const [dashboardRetryKey, setDashboardRetryKey] = useState(0);
   const [isNavigatingCreate, setIsNavigatingCreate] = useState(false);
   const [isNavigatingArchive, setIsNavigatingArchive] = useState(false);
+  const [isNavigatingMobileGames, setIsNavigatingMobileGames] = useState(false);
   const [, setIsNavigatingLive] = useState(false);
 
   useEffect(() => {
@@ -236,7 +240,8 @@ export default function DashboardPage() {
                 <div className="h-4 max-w-xl rounded-full border border-emerald-500/20 bg-slate-800/70" />
               </div>
 
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="h-[300px] rounded-3xl border border-emerald-500/20 bg-slate-800/70" />
                 <div className="h-[300px] rounded-3xl border border-emerald-500/20 bg-slate-800/70" />
                 <div className="h-[300px] rounded-3xl border border-emerald-500/20 bg-slate-800/70" />
                 <div className="h-[300px] rounded-3xl border border-emerald-500/20 bg-slate-800/70" />
@@ -331,7 +336,7 @@ export default function DashboardPage() {
         <MobileInSchoolBanner variant="dashboard" />
       </section>
 
-      <section className="mx-auto mt-10 grid w-full max-w-5xl grid-cols-1 justify-items-center gap-5 md:mt-14 md:grid-cols-3 md:gap-4">
+      <section className="mx-auto mt-10 grid w-full max-w-4xl grid-cols-1 justify-items-center gap-5 md:mt-14 md:grid-cols-2 md:gap-5">
         <motion.button
           type="button"
           onClick={() => {
@@ -450,39 +455,44 @@ export default function DashboardPage() {
             </div>
           </motion.article>
         </motion.button>
-      </section>
 
-      <section className="mx-auto mt-7 w-full max-w-5xl">
-        <Link href="/dashboard/opret/find-bedrageren" className="block">
+        <motion.button
+          type="button"
+          onClick={() => {
+            if (isNavigatingMobileGames) return;
+            setIsNavigatingMobileGames(true);
+            void router.push("/dashboard/mobilspil");
+          }}
+          className="flex h-full w-full flex-col justify-center text-left"
+          aria-busy={isNavigatingMobileGames}
+          aria-disabled={isNavigatingMobileGames}
+        >
           <motion.article
-            whileHover={{ y: -3, scale: 1.006 }}
-            className="group relative overflow-hidden rounded-[2rem] border border-violet-300/32 bg-slate-950/62 p-5 text-left shadow-[0_24px_64px_rgba(15,23,42,0.24),0_14px_30px_rgba(124,58,237,0.16)] backdrop-blur-xl transition sm:p-6"
+            whileHover={isNavigatingMobileGames ? undefined : { y: -4, scale: 1.012 }}
+            className={`${cardBaseClass} ${mobileGamesCardClass} ${isNavigatingMobileGames ? "cursor-progress opacity-85" : "cursor-pointer"}`}
           >
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.18),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.32),transparent_44%),linear-gradient(135deg,rgba(15,23,42,0.78),rgba(49,46,129,0.62))]" />
-            <div className="relative flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-              <div className="flex min-w-0 gap-4">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-amber-200/24 bg-amber-200/12 text-amber-100 shadow-[0_14px_34px_rgba(251,191,36,0.13)]">
-                  <UserSearch className="h-6 w-6" />
+            <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_34%),radial-gradient(circle_at_bottom,rgba(34,211,238,0.22),transparent_58%)]" />
+            <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(34,211,238,0.16)]" />
+            <div className={`${cardPanelClass} text-cyan-950`}>
+              <div className="relative z-10 flex w-full flex-col items-center justify-center text-center">
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/18 bg-white/12 text-white shadow-[0_14px_34px_rgba(34,211,238,0.14)]">
+                  <Gamepad2 className="h-6 w-6" />
                 </div>
-                <div className="min-w-0">
-                  <span className="inline-flex rounded-full border border-amber-200/34 bg-amber-200/12 px-3 py-1 text-[0.62rem] font-black uppercase tracking-[0.18em] text-amber-100">
-                    NYT SPIL
-                  </span>
-                  <h2 className={`mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl ${rubik.className}`}>
-                    Find Bedrageren
+                <div className="space-y-3">
+                  <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
+                    Mobilspil
                   </h2>
-                  <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/78 sm:text-base">
-                    Start et socialt bluff-spil med roller, hemmeligt ord og klassediskussion.
+                  <p className="text-[0.7rem] font-semibold tracking-[0.18em] text-white/70 uppercase">
+                    Spil designet til elevernes telefoner.
+                  </p>
+                  <p className="mx-auto max-w-62 text-sm leading-6 text-white/84">
+                    Vælg mobile spilformater, og start en klasseaktivitet med klare roller, tempo og fælles opsamling.
                   </p>
                 </div>
               </div>
-
-              <span className="inline-flex w-full items-center justify-center rounded-2xl border border-white/14 bg-white/12 px-5 py-3 text-sm font-black text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] transition group-hover:bg-white/18 md:w-auto">
-                Opret spil
-              </span>
             </div>
           </motion.article>
-        </Link>
+        </motion.button>
       </section>
 
       <section className="mx-auto mt-7 w-full max-w-4xl">
