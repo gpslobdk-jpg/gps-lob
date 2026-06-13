@@ -156,9 +156,9 @@ const buttonBaseClassName =
 
 const generationSteps = [
   "Læser dine valg",
-  "Finder relevant fagprofil og Fælles Mål-fokus",
   "Låser skoleår, ferieuger og perioder",
-  "Forbereder AI-forslag (lokal demo)",
+  "Sender den faste årsplanstruktur til AI",
+  "Forbedrer mål, aktiviteter og evaluering",
   "Bygger årsplanen i 4 kolonner",
   "Klargør billedidéer til senere",
 ] as const;
@@ -169,6 +169,7 @@ export default function AarsplanGeneratorPage() {
   const [generatedPlan, setGeneratedPlan] = useState<AnnualPlanDraft | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStepIndex, setGenerationStepIndex] = useState(0);
+  const [aiSource, setAiSource] = useState<"local" | "api">("local");
   const generationTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
@@ -277,61 +278,93 @@ export default function AarsplanGeneratorPage() {
     });
 
     const finishTimer = setTimeout(() => {
-      // Apply local mock-AI enhancement on top of the structural draft
-      const structural = createStructuralCoursesForAi({
-        subject: input.subject,
-        grade: input.gradeLevel,
-        schoolYear: input.schoolYear,
-        municipality: input.municipality,
-        lessonsPerWeek: Number(input.lessonsPerWeek),
-        courseCount: Number(input.courseCount),
-        wishes: input.specialThemes,
-        notes: input.aiNotes,
-      });
+      (async () => {
+        try {
+          const structural = createStructuralCoursesForAi({
+            subject: input.subject,
+            grade: input.gradeLevel,
+            schoolYear: input.schoolYear,
+            municipality: input.municipality,
+            lessonsPerWeek: Number(input.lessonsPerWeek),
+            courseCount: Number(input.courseCount),
+            wishes: input.specialThemes,
+            notes: input.aiNotes,
+          });
 
-      const aiInput: AnnualPlanAiInput = {
-        subject: input.subject,
-        grade: input.gradeLevel,
-        gradeBand: getGradeBand(input.gradeLevel),
-        schoolYear: input.schoolYear,
-        municipality: input.municipality,
-        lessonsPerWeek: Number(input.lessonsPerWeek),
-        courseCount: Number(input.courseCount),
-        wishes: input.specialThemes,
-        commonGoalsIntro: getCommonGoalsIntro(input.subject),
-        holidaySummary: getHolidayWeeks(input.schoolYear, input.municipality).map((h) => h.label),
-        structuralCourses: structural,
-      };
-
-      const aiOutput: AnnualPlanAiOutput = createMockAiAnnualPlanEnhancement(aiInput);
-
-      // Merge AI-enhancements into the draft (only text fields, preserving structure)
-      const enhanced = {
-        ...draft,
-        courses: draft.courses.map((course, idx) => {
-          const aiCourse = aiOutput.courses.find((c) => c.id === `${idx + 1}`);
-          if (!aiCourse) return course;
-
-          return {
-            ...course,
-            title: aiCourse.improvedTitle ?? course.title,
-            description: aiCourse.commonGoalsFocus ?? course.description,
-            activities: aiCourse.contentAndActivities ?? course.activities,
-            product: aiCourse.evaluation ?? course.product,
-            imagePrompt: aiCourse.imageIdea ?? course.imagePrompt,
+          const aiInput: AnnualPlanAiInput = {
+            subject: input.subject,
+            grade: input.gradeLevel,
+            gradeBand: getGradeBand(input.gradeLevel),
+            schoolYear: input.schoolYear,
+            municipality: input.municipality,
+            lessonsPerWeek: Number(input.lessonsPerWeek),
+            courseCount: Number(input.courseCount),
+            wishes: input.specialThemes,
+            commonGoalsIntro: getCommonGoalsIntro(input.subject),
+            holidaySummary: getHolidayWeeks(input.schoolYear, input.municipality).map((h) => h.label),
+            structuralCourses: structural,
           };
-        }),
-        // attach teacher note to draft summary (rendered in preview)
-        summary: {
-          ...draft.summary,
-          teacherNote: aiOutput.teacherNote,
-        },
-      };
 
-      setGeneratedPlan(enhanced);
-      setCurrentStep(4);
-      setIsGenerating(false);
-      generationTimersRef.current = [];
+          let aiOutput: AnnualPlanAiOutput | null = null;
+          let usedApi = false;
+
+          try {
+            const resp = await fetch("/api/laerervaerktoejer/aarsplan-generator", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(aiInput),
+            });
+
+            if (resp.ok) {
+              const json = await resp.json();
+              // Basic validation: must have courses array same length and matching ids
+              if (json && Array.isArray(json.courses) && json.courses.length === structural.length) {
+                const idsMatch = structural.every((c, idx) => String(c.id) === String(json.courses[idx].id));
+                if (idsMatch) {
+                  aiOutput = json as AnnualPlanAiOutput;
+                  usedApi = true;
+                }
+              }
+            }
+          } catch {
+            // network or other error -> fallback
+            aiOutput = null;
+          }
+
+          if (!aiOutput) {
+            aiOutput = createMockAiAnnualPlanEnhancement(aiInput);
+            usedApi = false;
+          }
+
+          const enhanced = {
+            ...draft,
+            courses: draft.courses.map((course, idx) => {
+              const aiCourse = aiOutput!.courses.find((c) => String(c.id) === `${idx + 1}`);
+              if (!aiCourse) return course;
+
+              return {
+                ...course,
+                title: aiCourse.improvedTitle ?? course.title,
+                description: aiCourse.commonGoalsFocus ?? course.description,
+                activities: aiCourse.contentAndActivities ?? course.activities,
+                product: aiCourse.evaluation ?? course.product,
+                imagePrompt: aiCourse.imageIdea ?? course.imagePrompt,
+              };
+            }),
+            summary: {
+              ...draft.summary,
+              teacherNote: aiOutput.teacherNote,
+            },
+          };
+
+          setAiSource(usedApi ? "api" : "local");
+          setGeneratedPlan(enhanced);
+          setCurrentStep(4);
+        } finally {
+          setIsGenerating(false);
+          generationTimersRef.current = [];
+        }
+      })();
     }, generationSteps.length * 560 + 420);
 
     generationTimersRef.current.push(finishTimer);
@@ -699,7 +732,7 @@ export default function AarsplanGeneratorPage() {
                 </div>
 
                 {generatedPlan ? (
-                  <AnnualPlanPreview plan={generatedPlan} />
+                  <AnnualPlanPreview plan={generatedPlan} aiSource={aiSource} />
                 ) : (
                   <div className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm font-bold leading-7 text-amber-950">
                     Generér en demo-årsplan i trin 4 for at se previewet.
@@ -836,7 +869,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function AnnualPlanPreview({ plan }: { plan: AnnualPlanDraft }) {
+function AnnualPlanPreview({ plan, aiSource }: { plan: AnnualPlanDraft; aiSource?: "local" | "api" }) {
   return (
     <div className="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-[#fbfaf6] shadow-[0_24px_70px_rgba(15,23,42,0.10)]">
       <section className="relative border-b border-slate-200 bg-[linear-gradient(135deg,#064e3b_0%,#0f766e_48%,#f59e0b_100%)] p-7 text-white md:p-9">
@@ -855,7 +888,9 @@ function AnnualPlanPreview({ plan }: { plan: AnnualPlanDraft }) {
               {chip}
             </span>
           ))}
-          <span className="rounded-lg border border-white/20 bg-white/12 px-3 py-2 text-xs font-black">AI-forslag: Lokal demo</span>
+          <span className="rounded-lg border border-white/20 bg-white/12 px-3 py-2 text-xs font-black">
+            {aiSource === "api" ? "AI-forslag: AI-genereret" : "AI-forslag: Lokal demo"}
+          </span>
         </div>
         {plan.summary.teacherNote ? (
           <div className="mt-4">
