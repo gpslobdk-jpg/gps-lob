@@ -47,6 +47,36 @@ function formatDisplayDate(isoDate: string) {
 
 const entries = [
   {
+    version: "13/6",
+    date: "2026-06-13",
+    type: "major" as const,
+    title: "Ny Mobilspil-side og første spil: Find Bedrageren",
+    summary:
+      "GPSLØB har fået en ny Mobilspil-side på lærerens dashboard. Her samles sociale og interaktive spil, som eleverne kan spille fra deres mobil.\n\nFørste spil er Find Bedrageren: et socialt bluff-spil, hvor eleverne får roller, et hemmeligt ord og skal diskutere, stemme og forsøge at afsløre bedrageren.\n\nFind Bedrageren har nu et komplet spilflow med oprettelse, elev-join, rollefordeling, diskussion, afstemning, resultat, spil igen og afslutning. Spillet har også fået en tydelig introduktionsside før opsætningen, så læreren hurtigt kan forstå spillet, før det oprettes.\n\nMobilspil-siden bliver fremover stedet, hvor nye spilmoduler kan samles.",
+    items: [
+      {
+        title: "Ny Mobilspil-side",
+        description:
+          "Dashboardet har fået en samlet indgang til sociale og interaktive spil, som eleverne kan spille fra mobilen.",
+      },
+      {
+        title: "Find Bedrageren er første spil",
+        description:
+          "Et socialt bluff-spil med roller, hemmeligt ord, diskussion og afstemning.",
+      },
+      {
+        title: "Komplet spilflow",
+        description:
+          "Spillet understøtter oprettelse, elev-join, rollefordeling, diskussion, afstemning, resultat, spil igen og afslutning.",
+      },
+      {
+        title: "Tydelig intro før opsætning",
+        description:
+          "Læreren får en rolig introduktionsside, så spillet er lettere at forstå, før det oprettes.",
+      },
+    ],
+  },
+  {
     version: "11/6",
     date: "2026-06-11",
     type: "major" as const,
@@ -142,7 +172,7 @@ export default function OpdateringerPage() {
 
         <div className="mb-12">
           <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-amber-400/20 bg-amber-400/8 px-3 py-1 text-xs font-medium tracking-wider text-amber-300 uppercase">
-            ✨ Seneste nyt
+            Seneste nyt
           </span>
           <h1 className="mt-3 text-3xl font-black tracking-tight text-white">
             Hvad er nyt i GPSLØB?

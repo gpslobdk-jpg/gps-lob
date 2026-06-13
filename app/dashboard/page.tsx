@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Gamepad2 } from "lucide-react";
+import { BookOpen, Gamepad2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
@@ -41,6 +41,9 @@ const archiveCardClass =
 const mobileGamesCardClass =
   "border-cyan-400/60 bg-cyan-500/10 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(34,211,238,0.16),inset_0_1px_0_rgba(255,255,255,0.18)]";
 
+const teacherToolsCardClass =
+  "border-indigo-300/65 bg-indigo-500/10 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(99,102,241,0.15),inset_0_1px_0_rgba(255,255,255,0.18)]";
+
 type ActiveSessionRow = {
   id: string;
 };
@@ -66,6 +69,7 @@ export default function DashboardPage() {
   const [isNavigatingCreate, setIsNavigatingCreate] = useState(false);
   const [isNavigatingArchive, setIsNavigatingArchive] = useState(false);
   const [isNavigatingMobileGames, setIsNavigatingMobileGames] = useState(false);
+  const [isNavigatingTeacherTools, setIsNavigatingTeacherTools] = useState(false);
   const [, setIsNavigatingLive] = useState(false);
 
   useEffect(() => {
@@ -245,6 +249,7 @@ export default function DashboardPage() {
                 <div className="h-[300px] rounded-3xl border border-emerald-500/20 bg-slate-800/70" />
                 <div className="h-[300px] rounded-3xl border border-emerald-500/20 bg-slate-800/70" />
                 <div className="h-[300px] rounded-3xl border border-emerald-500/20 bg-slate-800/70" />
+                <div className="h-[300px] rounded-3xl border border-emerald-500/20 bg-slate-800/70" />
               </div>
 
               <div className="flex justify-center gap-4">
@@ -336,7 +341,7 @@ export default function DashboardPage() {
         <MobileInSchoolBanner variant="dashboard" />
       </section>
 
-      <section className="mx-auto mt-10 grid w-full max-w-4xl grid-cols-1 justify-items-center gap-5 md:mt-14 md:grid-cols-2 md:gap-5">
+      <section className="mx-auto mt-10 grid w-full max-w-5xl grid-cols-1 justify-items-center gap-5 md:mt-14 md:grid-cols-2 md:gap-5 lg:grid-cols-3">
         <motion.button
           type="button"
           onClick={() => {
@@ -487,6 +492,44 @@ export default function DashboardPage() {
                   </p>
                   <p className="mx-auto max-w-62 text-sm leading-6 text-white/84">
                     Vælg mobile spilformater, og start en klasseaktivitet med klare roller, tempo og fælles opsamling.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </motion.article>
+        </motion.button>
+
+        <motion.button
+          type="button"
+          onClick={() => {
+            if (isNavigatingTeacherTools) return;
+            setIsNavigatingTeacherTools(true);
+            void router.push("/dashboard/laerervaerktoejer");
+          }}
+          className="flex h-full w-full flex-col justify-center text-left"
+          aria-busy={isNavigatingTeacherTools}
+          aria-disabled={isNavigatingTeacherTools}
+        >
+          <motion.article
+            whileHover={isNavigatingTeacherTools ? undefined : { y: -4, scale: 1.012 }}
+            className={`${cardBaseClass} ${teacherToolsCardClass} ${isNavigatingTeacherTools ? "cursor-progress opacity-85" : "cursor-pointer"}`}
+          >
+            <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.2),transparent_34%),radial-gradient(circle_at_bottom,rgba(99,102,241,0.2),transparent_58%)]" />
+            <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(99,102,241,0.14)]" />
+            <div className={`${cardPanelClass} text-indigo-950`}>
+              <div className="relative z-10 flex w-full flex-col items-center justify-center text-center">
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/18 bg-white/12 text-white shadow-[0_14px_34px_rgba(99,102,241,0.14)]">
+                  <BookOpen className="h-6 w-6" />
+                </div>
+                <div className="space-y-3">
+                  <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
+                    Lærerværktøjer
+                  </h2>
+                  <p className="text-[0.7rem] font-semibold tracking-[0.18em] text-white/70 uppercase">
+                    PLANLÆGNING OG AI-HJÆLP
+                  </p>
+                  <p className="mx-auto max-w-62 text-sm leading-6 text-white/84">
+                    Find værktøjer, der hjælper dig med planlægning, årsplaner og undervisningsidéer.
                   </p>
                 </div>
               </div>

@@ -13,7 +13,6 @@ import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
 import QRScannerModal from "@/components/QRScannerModal";
 import { getSiteCopy } from "@/lib/siteCopy";
 import type { SiteVariantKey } from "@/lib/siteVariant";
-import { changelogEntries } from "@/lib/changelog";
 import natureAnimation from "@/public/nature.json";
 
 // WelcomeModal removed — onboarding flow deprecated
@@ -62,18 +61,18 @@ type NativeDebugSnapshot = {
 };
 
 const latest = {
-  version: "11/6",
-  date: "2026-06-11",
-  dateLabel: "11/6",
+  version: "13/6",
+  date: "2026-06-13",
+  dateLabel: "13. juni 2026",
   type: "minor",
-  title: "VM26 – Jagten på pokalen er landet",
+  title: "Ny Mobilspil-side og første spil: Find Bedrageren",
   summary:
-    "Et nyt VM26-løb er klar under Spil. Samtidig er Zone-Krig blevet tydeligere, Fotoløb glider bedre mellem posterne, og elevoplevelsen på mobil er gjort mere stabil.",
+    "Mobilspil er landet på lærerens dashboard, og første spil er Find Bedrageren med intro, elev-join, roller, diskussion, afstemning og resultat.",
   items: [
     {
-      title: "VM26 under Spil",
+      title: "Mobilspil på dashboardet",
       description:
-        "Et færdigt fodboldinspireret GPS-løb med VM-stemning er klar til redigering.",
+        "Sociale og interaktive spil får nu deres egen samlede indgang.",
     },
   ],
 };
@@ -426,43 +425,47 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
     const capacitor = browserWindow.Capacitor;
     const nextIsCapacitorApp = typeof capacitor !== "undefined";
 
-    setIsCapacitorApp(nextIsCapacitorApp);
-
     const params = new URLSearchParams(browserWindow.location.search);
-    if (params.get("debugNative") !== "1") {
-      setNativeDebugSnapshot(null);
-      return;
-    }
+    let nextNativeDebugSnapshot: NativeDebugSnapshot | null = null;
 
-    let capacitorPlatform = "ikke tilgaengelig";
-    if (typeof capacitor?.getPlatform === "function") {
-      try {
-        capacitorPlatform = capacitor.getPlatform();
-      } catch {
-        capacitorPlatform = "fejl";
+    if (params.get("debugNative") === "1") {
+      let capacitorPlatform = "ikke tilgaengelig";
+      if (typeof capacitor?.getPlatform === "function") {
+        try {
+          capacitorPlatform = capacitor.getPlatform();
+        } catch {
+          capacitorPlatform = "fejl";
+        }
       }
-    }
 
-    let capacitorIsNativePlatform = "ikke tilgaengelig";
-    if (typeof capacitor?.isNativePlatform === "function") {
-      try {
-        capacitorIsNativePlatform = String(capacitor.isNativePlatform());
-      } catch {
-        capacitorIsNativePlatform = "fejl";
+      let capacitorIsNativePlatform = "ikke tilgaengelig";
+      if (typeof capacitor?.isNativePlatform === "function") {
+        try {
+          capacitorIsNativePlatform = String(capacitor.isNativePlatform());
+        } catch {
+          capacitorIsNativePlatform = "fejl";
+        }
       }
+
+      nextNativeDebugSnapshot = {
+        isNativeGpslobAppProp: isNativeGpslobApp,
+        isCapacitorAppState: nextIsCapacitorApp,
+        capacitorType: typeof capacitor,
+        hasCapacitor: typeof capacitor !== "undefined",
+        capacitorPlatform,
+        capacitorIsNativePlatform,
+        userAgent: navigator.userAgent,
+        isStandaloneDisplayMode: window.matchMedia("(display-mode: standalone)").matches,
+        href: browserWindow.location.href,
+      };
     }
 
-    setNativeDebugSnapshot({
-      isNativeGpslobAppProp: isNativeGpslobApp,
-      isCapacitorAppState: nextIsCapacitorApp,
-      capacitorType: typeof capacitor,
-      hasCapacitor: typeof capacitor !== "undefined",
-      capacitorPlatform,
-      capacitorIsNativePlatform,
-      userAgent: navigator.userAgent,
-      isStandaloneDisplayMode: window.matchMedia("(display-mode: standalone)").matches,
-      href: browserWindow.location.href,
-    });
+    const updateId = window.setTimeout(() => {
+      setIsCapacitorApp(nextIsCapacitorApp);
+      setNativeDebugSnapshot(nextNativeDebugSnapshot);
+    }, 0);
+
+    return () => window.clearTimeout(updateId);
   }, [isNativeGpslobApp]);
 
   const toggleBackgroundSound = () => {
