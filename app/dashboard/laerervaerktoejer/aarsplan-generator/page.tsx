@@ -17,7 +17,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
   buildTeachingWeeks,
@@ -147,14 +147,33 @@ const textareaClassName =
 const buttonBaseClassName =
   "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-black transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed disabled:opacity-45";
 
+const generationSteps = [
+  "Læser dine valg",
+  "Finder relevante Fælles Mål",
+  "Tilpasser skoleår og ferieuger",
+  "Fordeler forløb hen over undervisningsugerne",
+  "Klargør emner, mål og aktiviteter",
+  "Bygger årsplanen",
+] as const;
+
 export default function AarsplanGeneratorPage() {
   const [input, setInput] = useState<AnnualPlanInput>(initialInput);
   const [currentStep, setCurrentStep] = useState<StepIndex>(0);
   const [generatedPlan, setGeneratedPlan] = useState<AnnualPlanDraft | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStepIndex, setGenerationStepIndex] = useState(0);
+  const generationTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     document.title = "Årsplan-generator – GPSLØB";
   }, []);
+
+  useEffect(
+    () => () => {
+      generationTimersRef.current.forEach((timer) => clearTimeout(timer));
+    },
+    [],
+  );
 
   const selectedSchoolYear = input.schoolYear || "2026/2027";
   const selectedMunicipality = input.municipality || "Generisk ferieplan";
@@ -228,19 +247,36 @@ export default function AarsplanGeneratorPage() {
       return;
     }
 
-    setGeneratedPlan(
-      createAnnualPlanDraft({
-        subject: input.subject,
-        grade: input.gradeLevel,
-        schoolYear: input.schoolYear,
-        municipality: input.municipality,
-        lessonsPerWeek: Number(input.lessonsPerWeek),
-        courseCount: Number(input.courseCount),
-        wishes: input.specialThemes,
-        notes: input.aiNotes,
-      }),
-    );
-    setCurrentStep(4);
+    generationTimersRef.current.forEach((timer) => clearTimeout(timer));
+    generationTimersRef.current = [];
+
+    const draft = createAnnualPlanDraft({
+      subject: input.subject,
+      grade: input.gradeLevel,
+      schoolYear: input.schoolYear,
+      municipality: input.municipality,
+      lessonsPerWeek: Number(input.lessonsPerWeek),
+      courseCount: Number(input.courseCount),
+      wishes: input.specialThemes,
+      notes: input.aiNotes,
+    });
+
+    setIsGenerating(true);
+    setGenerationStepIndex(0);
+
+    generationSteps.forEach((_, index) => {
+      const timer = setTimeout(() => setGenerationStepIndex(index), index * 560);
+      generationTimersRef.current.push(timer);
+    });
+
+    const finishTimer = setTimeout(() => {
+      setGeneratedPlan(draft);
+      setCurrentStep(4);
+      setIsGenerating(false);
+      generationTimersRef.current = [];
+    }, generationSteps.length * 560 + 420);
+
+    generationTimersRef.current.push(finishTimer);
   }
 
   return (
@@ -272,11 +308,27 @@ export default function AarsplanGeneratorPage() {
                 Årsplan-generator
               </h1>
               <p className="mt-4 max-w-2xl text-base font-semibold leading-8 text-slate-700 md:text-lg">
-                Byg en lokal demo-årsplan, der fordeler forløb efter undervisningsuger, feriepauser og faglige profiler.
+                Lav en overskuelig årsplan med få valg, tydelig struktur og lokale demo-data.
               </p>
             </div>
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-bold leading-6 text-amber-950 shadow-sm">
               Ferieuger er foreløbige demo-data og skal kvalitetssikres før rigtig brug.
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-lg border border-emerald-200 bg-white/85 p-5 shadow-sm backdrop-blur">
+            <div className="flex items-start gap-4">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white">
+                <GraduationCap className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-sm font-black text-slate-950">Årsplan med afsæt i Fælles Mål</p>
+                <p className="mt-2 max-w-4xl text-sm font-semibold leading-7 text-slate-700">
+                  Generatoren hjælper med at bygge en årsplan ud fra fag, klassetrin, skoleår og demo-ferieuger.
+                  Planen tager afsæt i Fælles Mål og giver et første forslag, som læreren bagefter kan justere,
+                  forkorte eller udbygge.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -331,8 +383,8 @@ export default function AarsplanGeneratorPage() {
                   colorClassName="bg-emerald-600"
                   eyebrow="Trin 1"
                   icon={<BookOpen className="h-6 w-6" />}
-                  title="Vælg fag og klassetrin"
-                  description="Start med den undervisning, årsplanen skal passe til. Valget styrer både Fælles Mål-teksten og de faglige forløbsidéer."
+                  title="Fag og klassetrin"
+                  description="Vælg faget og klassen. Det styrer Fælles Mål-introen, fagprofilen og niveauet i årsplanen."
                   titleId="step-one-title"
                 />
 
@@ -384,8 +436,8 @@ export default function AarsplanGeneratorPage() {
                   colorClassName="bg-sky-600"
                   eyebrow="Trin 2"
                   icon={<Calendar className="h-6 w-6" />}
-                  title="Vælg skoleår og kommune"
-                  description="Motoren bygger et skoleår fra uge 33 til uge 26 og springer demo-ferieuger over."
+                  title="Skoleår og ferieplan"
+                  description="Vælg skoleår og kommune. Ferieplanen er demo-data og bruges til at fordele forløbene omkring ferieuger."
                   titleId="step-two-title"
                 />
 
@@ -454,8 +506,8 @@ export default function AarsplanGeneratorPage() {
                   colorClassName="bg-amber-500"
                   eyebrow="Trin 3"
                   icon={<Settings className="h-6 w-6" />}
-                  title="Vælg rammer og ønsker"
-                  description="Rammerne bruges nu i motoren til at beregne lektionstal pr. forløb og fordele året mere jævnt."
+                  title="Rammer og ekstra ønsker"
+                  description="Vælg kun de vigtigste rammer. Ekstra ønsker kan bruges til at præge første forløb i demo-planen."
                   titleId="step-three-title"
                 />
 
@@ -489,22 +541,13 @@ export default function AarsplanGeneratorPage() {
                   </Field>
                 </div>
 
-                <div className="mt-6 grid gap-5 lg:grid-cols-2">
-                  <Field label="Særlige ønsker">
+                <div className="mt-6">
+                  <Field label="Ekstra ønsker">
                     <textarea
                       className={textareaClassName}
                       value={input.specialThemes}
                       placeholder="Fx mere bevægelse, flere mundtlige aktiviteter, fokus på projektarbejde..."
                       onChange={(event) => updateInput("specialThemes", event.target.value)}
-                    />
-                  </Field>
-
-                  <Field label="Noter til AI senere">
-                    <textarea
-                      className={textareaClassName}
-                      value={input.aiNotes}
-                      placeholder="Fx tone, lokale emner, materialer eller ting en senere AI-version skal huske..."
-                      onChange={(event) => updateInput("aiNotes", event.target.value)}
                     />
                   </Field>
                 </div>
@@ -518,7 +561,7 @@ export default function AarsplanGeneratorPage() {
                   eyebrow="Trin 4"
                   icon={<Sparkles className="h-6 w-6" />}
                   title="Generér årsplan"
-                  description="Klik for at bygge en lokal årsplan ud fra fagprofil, ferieuger, undervisningsuger og rammer. Der kaldes ingen API."
+                  description="Klik for at bygge en lokal årsplan ud fra Fælles Mål-intro, fagprofil, ferieuger og undervisningsuger. Der kaldes ingen API."
                   titleId="step-four-title"
                 />
 
@@ -548,7 +591,7 @@ export default function AarsplanGeneratorPage() {
 
                 <button
                   type="button"
-                  disabled={!stepValidity[3]}
+                  disabled={!stepValidity[3] || isGenerating}
                   onClick={generatePlan}
                   className={`${buttonBaseClassName} mt-8 w-full border border-emerald-700 bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-emerald-100 md:w-fit`}
                 >
@@ -579,7 +622,7 @@ export default function AarsplanGeneratorPage() {
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <button
                       type="button"
-                      disabled={!stepValidity[3]}
+                      disabled={!stepValidity[3] || isGenerating}
                       onClick={generatePlan}
                       className={`${buttonBaseClassName} border border-emerald-700 bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-emerald-100`}
                     >
@@ -661,6 +704,14 @@ export default function AarsplanGeneratorPage() {
           </aside>
         </section>
       </div>
+      {isGenerating ? (
+        <GenerationOverlay
+          currentStepIndex={generationStepIndex}
+          steps={generationSteps}
+          subject={input.subject}
+          gradeLevel={input.gradeLevel}
+        />
+      ) : null}
     </main>
   );
 }
@@ -831,74 +882,184 @@ function AnnualPlanPreview({ plan }: { plan: AnnualPlanDraft }) {
           </div>
         </div>
 
-        <div className="mt-8 grid gap-5 xl:grid-cols-2">
-          {plan.courses.map((course, index) => {
-            const accent = periodAccentClasses[index % periodAccentClasses.length];
+        <AnnualPlanTable plan={plan} />
+      </section>
+    </div>
+  );
+}
+
+function GenerationOverlay({
+  currentStepIndex,
+  steps,
+  subject,
+  gradeLevel,
+}: {
+  currentStepIndex: number;
+  steps: readonly string[];
+  subject: string;
+  gradeLevel: string;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-6 py-8 backdrop-blur-sm">
+      <section className="w-full max-w-xl rounded-lg border border-white/70 bg-white p-6 shadow-[0_30px_90px_rgba(15,23,42,0.28)]">
+        <div className="flex items-start gap-4">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white">
+            <Sparkles className="h-6 w-6" />
+          </span>
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Lokal prototype</p>
+            <h2 className={`mt-2 text-3xl font-black tracking-tight text-slate-950 ${rubik.className}`}>
+              Bygger din årsplan
+            </h2>
+            <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">
+              Vi samler {subject || "fag"} og {gradeLevel || "klassetrin"} til et første udkast med Fælles Mål,
+              skoleår og demo-ferieuger.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-3">
+          {steps.map((step, index) => {
+            const isDone = index < currentStepIndex;
+            const isActive = index === currentStepIndex;
 
             return (
-              <article
-                key={`${course.period}-${course.title}`}
-                className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+              <div
+                key={step}
+                className={`flex min-h-12 items-center gap-3 rounded-lg border px-4 py-3 transition ${
+                  isActive
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+                    : isDone
+                      ? "border-slate-200 bg-slate-50 text-slate-700"
+                      : "border-slate-100 bg-white text-slate-400"
+                }`}
               >
-                <div className={`h-32 bg-gradient-to-br ${accent.visual}`}>
-                  <div className="flex h-full items-end justify-between gap-4 p-4">
-                    <div className="flex flex-wrap gap-2">
-                      <span className={`rounded-lg border px-3 py-2 text-xs font-black ${accent.badge}`}>
-                        {course.period}
-                      </span>
-                      <span className="rounded-lg border border-white/55 bg-white/65 px-3 py-2 text-xs font-black text-slate-800">
-                        {course.teachingWeeks} undervisningsuger
-                      </span>
-                      <span className="rounded-lg border border-white/55 bg-white/65 px-3 py-2 text-xs font-black text-slate-800">
-                        {course.estimatedLessons} lektioner
-                      </span>
-                    </div>
-                    <div className="hidden h-16 w-24 grid-cols-3 gap-2 opacity-75 sm:grid">
-                      <span className="rounded-md bg-white/65" />
-                      <span className="rounded-md bg-white/45" />
-                      <span className="rounded-md bg-white/65" />
-                      <span className="rounded-md bg-white/35" />
-                      <span className="rounded-md bg-white/70" />
-                      <span className="rounded-md bg-white/45" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-5">
-                  <div className={`h-1.5 w-16 rounded-full ${accent.line}`} />
-                  <h4 className={`mt-4 text-2xl font-black tracking-tight text-slate-950 ${rubik.className}`}>
-                    {course.title}
-                  </h4>
-                  <p className="mt-3 text-sm font-semibold leading-7 text-slate-700">{course.description}</p>
-
-                  {course.pauseNote ? (
-                    <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-bold leading-6 text-amber-950">
-                      {course.pauseNote}
-                    </div>
-                  ) : null}
-
-                  <div className="mt-5 grid gap-3 text-sm leading-6 text-slate-700">
-                    <InfoLine label="Fagligt fokus" value={course.focus} />
-                    <InfoLine label="Aktiviteter" value={course.activities} />
-                    <InfoLine label="Produkt/evaluering" value={course.product} />
-                  </div>
-
-                  <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                    <div className="flex items-center gap-2">
-                      <ImageIcon className="h-4 w-4 text-slate-600" />
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                        Billedprompt til senere
-                      </p>
-                    </div>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{course.imagePrompt}</p>
-                  </div>
-                </div>
-              </article>
+                <span
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border text-xs font-black ${
+                    isDone
+                      ? "border-emerald-200 bg-emerald-600 text-white"
+                      : isActive
+                        ? "border-emerald-300 bg-white text-emerald-800"
+                        : "border-slate-200 bg-slate-50 text-slate-400"
+                  }`}
+                >
+                  {isDone ? <Check className="h-4 w-4" /> : index + 1}
+                </span>
+                <span className="text-sm font-black">{step}</span>
+              </div>
             );
           })}
         </div>
+
+        <div className="mt-6 h-2 overflow-hidden rounded-full bg-slate-100">
+          <div
+            className="h-full rounded-full bg-emerald-600 transition-all duration-500"
+            style={{ width: `${((currentStepIndex + 1) / steps.length) * 100}%` }}
+          />
+        </div>
       </section>
     </div>
+  );
+}
+
+function AnnualPlanTable({ plan }: { plan: AnnualPlanDraft }) {
+  return (
+    <section className="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-200 bg-slate-950 px-5 py-4 text-white">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-white/60">Årsplanskema</p>
+            <h4 className={`mt-1 text-2xl font-black tracking-tight ${rubik.className}`}>Forløb fordelt over året</h4>
+          </div>
+          <p className="text-sm font-bold text-white/75">
+            {plan.summary.courseCount} forløb · {plan.teachingWeeks} undervisningsuger
+          </p>
+        </div>
+      </div>
+
+      <div className="hidden border-b border-slate-200 bg-slate-50 px-5 py-3 lg:grid lg:grid-cols-[140px_220px_1fr_1.25fr] lg:gap-4">
+        {["Uge / periode", "Emne / forløb", "Mål / Fælles Mål-fokus", "Indhold / aktiviteter / arbejdsformer"].map(
+          (heading) => (
+            <p key={heading} className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+              {heading}
+            </p>
+          ),
+        )}
+      </div>
+
+      <div className="divide-y divide-slate-200">
+        {plan.courses.map((course, index) => {
+          const accent = periodAccentClasses[index % periodAccentClasses.length];
+
+          return (
+            <article key={`${course.period}-${course.title}`} className="bg-white">
+              <div className="grid gap-4 px-5 py-5 lg:grid-cols-[140px_220px_1fr_1.25fr]">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 lg:hidden">
+                    Uge / periode
+                  </p>
+                  <span className={`mt-2 inline-flex rounded-lg border px-3 py-2 text-xs font-black ${accent.badge}`}>
+                    {course.period}
+                  </span>
+                  <p className="mt-3 text-xs font-bold leading-5 text-slate-500">
+                    {course.teachingWeeks} undervisningsuger
+                    <br />
+                    {course.estimatedLessons} lektioner
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 lg:hidden">
+                    Emne / forløb
+                  </p>
+                  <div className={`mt-2 h-1.5 w-14 rounded-full ${accent.line}`} />
+                  <h5 className={`mt-3 text-xl font-black tracking-tight text-slate-950 ${rubik.className}`}>
+                    {course.title}
+                  </h5>
+                  {course.pauseNote ? (
+                    <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-950">
+                      {course.pauseNote}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 lg:hidden">
+                    Mål / Fælles Mål-fokus
+                  </p>
+                  <p className="mt-2 text-sm font-semibold leading-7 text-slate-700">{course.description}</p>
+                  <p className="mt-3 text-sm font-bold leading-6 text-slate-800">Fokus: {course.focus}</p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 lg:hidden">
+                    Indhold / aktiviteter / arbejdsformer
+                  </p>
+                  <p className="mt-2 text-sm font-semibold leading-7 text-slate-700">{course.activities}</p>
+                  <p className="mt-3 text-sm font-bold leading-6 text-slate-800">
+                    Produkt/evaluering: {course.product}
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 bg-slate-50 px-5 py-4">
+                <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-4">
+                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                    <ImageIcon className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                      Billedidé til senere
+                    </p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{course.imagePrompt}</p>
+                  </div>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -915,15 +1076,6 @@ function OverviewItem({ label, value }: { label: string; value: string }) {
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
       <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
       <p className="mt-2 text-base font-black text-slate-950">{value}</p>
-    </div>
-  );
-}
-
-function InfoLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border-t border-slate-100 pt-3 first:border-t-0 first:pt-0">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
-      <p className="mt-1 font-semibold">{value}</p>
     </div>
   );
 }
