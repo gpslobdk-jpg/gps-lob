@@ -19,6 +19,20 @@ import {
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
+import {
+  buildTeachingWeeks,
+  courseCountOptions,
+  createAnnualPlanDraft,
+  getCommonGoalsIntro,
+  getHolidayWeeks,
+  gradeLevels,
+  lessonsPerWeekOptions,
+  municipalities,
+  schoolYears,
+  subjects,
+  type AnnualPlanDraft,
+} from "./annualPlanEngine";
+
 const rubik = Rubik({
   subsets: ["latin"],
   weight: ["700", "800", "900"],
@@ -40,72 +54,7 @@ type AnnualPlanInput = {
   aiNotes: string;
 };
 
-type AnnualPlanPeriod = {
-  period: string;
-  title: string;
-  description: string;
-  focus: string;
-  activities: string;
-  product: string;
-  imageIdea: string;
-};
-
-type AnnualPlan = {
-  title: string;
-  commonGoalsIntro: string;
-  metaLine: string;
-  periods: AnnualPlanPeriod[];
-  imageIdeas: string[];
-};
-
-type CourseSeed = Omit<AnnualPlanPeriod, "period">;
-
 type StepIndex = 0 | 1 | 2 | 3 | 4;
-
-const subjects = [
-  "Dansk",
-  "Matematik",
-  "Engelsk",
-  "Tysk",
-  "Historie",
-  "Samfundsfag",
-  "Kristendomskundskab",
-  "Geografi",
-  "Biologi",
-  "Fysik/kemi",
-  "Natur/teknologi",
-  "Idræt",
-  "Musik",
-  "Billedkunst",
-  "Håndværk og design",
-  "Madkundskab",
-  "Valgfag",
-] as const;
-
-const gradeLevels = [
-  "0. klasse",
-  "1. klasse",
-  "2. klasse",
-  "3. klasse",
-  "4. klasse",
-  "5. klasse",
-  "6. klasse",
-  "7. klasse",
-  "8. klasse",
-  "9. klasse",
-] as const;
-
-const schoolYears = ["2026/2027", "2027/2028"] as const;
-
-const municipalities = [
-  "Faxe Kommune",
-  "Vordingborg Kommune",
-  "København",
-  "Generisk ferieplan",
-] as const;
-
-const lessonsPerWeekOptions = ["1", "2", "3", "4", "5"] as const;
-const courseCountOptions = ["4", "5", "6", "7", "8"] as const;
 
 const initialInput: AnnualPlanInput = {
   subject: "",
@@ -145,313 +94,6 @@ const wizardSteps = [
     icon: FileText,
   },
 ] as const;
-
-const commonGoalsCopy: Record<string, string> = {
-  Historie:
-    "I historie arbejder eleverne med at forstå sammenhænge mellem fortid, nutid og fremtid. Årsplanen lægger op til arbejde med historiske problemstillinger, kilder og elevernes historiske bevidsthed.",
-  Samfundsfag:
-    "I samfundsfag arbejder eleverne med demokrati, politik, økonomi og sociale forhold. Årsplanen lægger op til, at eleverne undersøger aktuelle problemstillinger og lærer at argumentere fagligt.",
-  Engelsk:
-    "I engelsk arbejder eleverne med kommunikation, kultur og sprog. Årsplanen lægger op til mundtlighed, læsning, skrivning og møder med engelsksprogede kulturer.",
-  Dansk:
-    "I dansk arbejder eleverne med læsning, fremstilling, fortolkning og kommunikation. Årsplanen lægger op til tydelige forløb, hvor eleverne undersøger tekster, producerer egne udtryk og taler fagligt om sprog.",
-  Matematik:
-    "I matematik arbejder eleverne med problemløsning, ræsonnement, modellering og faglige begreber. Årsplanen lægger op til undersøgende aktiviteter, træning af strategier og anvendelse i hverdagsnære situationer.",
-};
-
-const genericCommonGoalsCopy =
-  "Årsplanen tager udgangspunkt i fagets kompetenceområder og fordeler årets forløb i overskuelige perioder med tydelige mål, aktiviteter og evaluering.";
-
-const historySeeds: CourseSeed[] = [
-  {
-    title: "Historiske spor i hverdagen",
-    description:
-      "Eleverne undersøger lokale og nationale spor fra fortiden og kobler dem til deres egen samtid.",
-    focus: "Fokus: kildearbejde, kronologi og historiske spørgsmål.",
-    activities: "Aktiviteter: billedkilder, tidslinjer, korte undersøgelser og fælles samtaler.",
-    product: "Produkt: visuel tidslinje med mundtlig forklaring.",
-    imageIdea:
-      "AI-billedidé: elever omkring et bord med gamle kort, fotos, tidslinjer og lyse historiske markører.",
-  },
-  {
-    title: "Magt, demokrati og rettigheder",
-    description:
-      "Eleverne arbejder med demokratiske gennembrud, magtformer og rettigheder i et historisk perspektiv.",
-    focus: "Fokus: årsag, virkning, begreber og historiske vendepunkter.",
-    activities: "Aktiviteter: kildelæsning, mini-debatter, begrebskort og casearbejde.",
-    product: "Produkt: kort gruppefremlæggelse med kilder.",
-    imageIdea:
-      "AI-billedidé: moderne illustration af elever, stemmesedler, historiske plakater og samfundsikoner.",
-  },
-  {
-    title: "Danmark i verden",
-    description:
-      "Eleverne undersøger, hvordan handel, krig, migration og kulturmøder har formet Danmark.",
-    focus: "Fokus: perspektivskifte, sammenhænge og historisk bevidsthed.",
-    activities: "Aktiviteter: kortarbejde, kildepar, fælles analyse og refleksionsskrivning.",
-    product: "Produkt: faglig poster med forklaring.",
-    imageIdea:
-      "AI-billedidé: verdenskort med ruter, arkivfotos, kompas og elever i undersøgende arbejde.",
-  },
-  {
-    title: "Kilder og fortællinger",
-    description:
-      "Eleverne vurderer kilders afsender, formål og troværdighed og bygger egne historiske fortællinger.",
-    focus: "Fokus: kildekritik, fortolkning og faglig argumentation.",
-    activities: "Aktiviteter: kildeværksted, makkersamtaler og korte skriveøvelser.",
-    product: "Produkt: historisk forklaring med kildehenvisninger.",
-    imageIdea:
-      "AI-billedidé: dokumenter, lup, notesbog og rolige farveflader i et historieværksted.",
-  },
-];
-
-const samfundsfagSeeds: CourseSeed[] = [
-  {
-    title: "Demokrati og magt",
-    description:
-      "Eleverne arbejder med demokrati, medborgerskab og magtens tredeling i Danmark.",
-    focus: "Fokus: begreber, aktuelle eksempler og diskussion.",
-    activities: "Aktiviteter: mini-debatter, kildelæsning og casearbejde.",
-    product: "Produkt: kort gruppefremlæggelse.",
-    imageIdea:
-      "AI-billedidé: moderne illustration af elever, stemmesedler og samfundsikoner.",
-  },
-  {
-    title: "Medier og holdninger",
-    description:
-      "Eleverne undersøger nyheder, vinkling, sociale medier og argumentation i aktuelle debatter.",
-    focus: "Fokus: kildekritik, argumenttyper og demokratisk samtale.",
-    activities: "Aktiviteter: nyhedsanalyse, debatkort og redaktionelt værksted.",
-    product: "Produkt: kort debatindlæg eller nyhedsforklaring.",
-    imageIdea:
-      "AI-billedidé: klasselokale med nyhedsflader, talebobler, data og elever i debat.",
-  },
-  {
-    title: "Økonomi i hverdagen",
-    description:
-      "Eleverne arbejder med privatøkonomi, velfærd og økonomiske prioriteringer.",
-    focus: "Fokus: budget, skat, forbrug og samfundsøkonomiske valg.",
-    activities: "Aktiviteter: budgetcase, begrebstræning og fælles prioriteringsøvelser.",
-    product: "Produkt: casebesvarelse med faglige begreber.",
-    imageIdea:
-      "AI-billedidé: grafiske budgetark, mønter, diagrammer og elever omkring en økonomicase.",
-  },
-  {
-    title: "Unge, fællesskab og rettigheder",
-    description:
-      "Eleverne undersøger sociale forhold, identitet, pligter og rettigheder for unge.",
-    focus: "Fokus: sociologi, normer, fællesskaber og handlemuligheder.",
-    activities: "Aktiviteter: interviewspørgsmål, dataøvelser og strukturerede samtaler.",
-    product: "Produkt: undersøgelsesnotat med konklusion.",
-    imageIdea:
-      "AI-billedidé: elever i et lyst fællesskab med grafiske symboler for rettigheder og relationer.",
-  },
-];
-
-const englishSeeds: CourseSeed[] = [
-  {
-    title: "Everyday voices",
-    description:
-      "Eleverne træner mundtlig kommunikation gennem hverdagsemner, små samtaler og korte præsentationer.",
-    focus: "Fokus: ordforråd, udtale, samtalestrategier og tryg mundtlighed.",
-    activities: "Aktiviteter: pair talks, role cards, listening tasks and mini-presentations.",
-    product: "Produkt: kort mundtlig præsentation på engelsk.",
-    imageIdea:
-      "AI-billedidé: colourful classroom scene with speech cards, students talking and English word fragments.",
-  },
-  {
-    title: "Stories and culture",
-    description:
-      "Eleverne læser korte tekster og arbejder med kulturmøder i engelsksprogede lande.",
-    focus: "Fokus: læsestrategier, tekstforståelse, kultur og personkarakteristik.",
-    activities: "Aktiviteter: shared reading, vocabulary maps, discussion circles and writing prompts.",
-    product: "Produkt: reading response med teksteksempler.",
-    imageIdea:
-      "AI-billedidé: open books, cultural landmarks, notes and warm classroom colours.",
-  },
-  {
-    title: "Write to be understood",
-    description:
-      "Eleverne skriver korte tekster med tydelig struktur, respons og sproglig bearbejdning.",
-    focus: "Fokus: writing process, sentence starters, feedback and revision.",
-    activities: "Aktiviteter: model texts, peer feedback, writing sprints and editing checklists.",
-    product: "Produkt: færdig kort tekst med refleksion.",
-    imageIdea:
-      "AI-billedidé: writing desk with drafts, feedback notes, pencils and calm green-blue accents.",
-  },
-  {
-    title: "Global themes",
-    description:
-      "Eleverne undersøger et aktuelt globalt tema og bruger engelsk til at forklare og argumentere.",
-    focus: "Fokus: facts, opinions, argumentation and presentation language.",
-    activities: "Aktiviteter: short research, vocabulary bank, group talk and presentation practice.",
-    product: "Produkt: gruppepræsentation på engelsk.",
-    imageIdea:
-      "AI-billedidé: world map, presentation boards, student group work and clear visual keywords.",
-  },
-];
-
-const danishSeeds: CourseSeed[] = [
-  {
-    title: "Læselyst og læsestrategier",
-    description:
-      "Eleverne arbejder med læsevaner, teksttyper og strategier til at forstå og tale om tekster.",
-    focus: "Fokus: før, under og efter læsning, tekstsamtaler og ordforråd.",
-    activities: "Aktiviteter: læselog, makkersamtaler, tekstmarkering og fælles modellering.",
-    product: "Produkt: læseprofil med faglig refleksion.",
-    imageIdea:
-      "AI-billedidé: hyggelig læsezone med bøger, noteskort, tekstmarkeringer og tydelig danskfaglig stemning.",
-  },
-  {
-    title: "Fortællinger med virkning",
-    description:
-      "Eleverne undersøger fortællende tekster og skriver selv med fokus på komposition og sproglige virkemidler.",
-    focus: "Fokus: person, miljø, konflikt, synsvinkel og respons.",
-    activities: "Aktiviteter: modeltekst, skriveøvelser, responsrunde og fælles forbedring.",
-    product: "Produkt: bearbejdet fortælling.",
-    imageIdea:
-      "AI-billedidé: skriveværksted med tekstudkast, karakterkort og varme farveflader.",
-  },
-  {
-    title: "Sprog, debat og holdninger",
-    description:
-      "Eleverne arbejder med argumentation, debatindlæg og sprogets betydning i kommunikation.",
-    focus: "Fokus: påstande, belæg, appelformer og modtagerbevidsthed.",
-    activities: "Aktiviteter: debatkort, tekstanalyse, mundtlig øvelse og skriveproces.",
-    product: "Produkt: debatindlæg eller tale.",
-    imageIdea:
-      "AI-billedidé: elever ved en debatvæg med talekort, tekstplakater og klare accentfarver.",
-  },
-  {
-    title: "Fortolkning i fællesskab",
-    description:
-      "Eleverne læser litteratur og arbejder med fortolkning, perspektivering og faglig samtale.",
-    focus: "Fokus: tema, symboler, tomme pladser og tekstnære begrundelser.",
-    activities: "Aktiviteter: litteratursamtaler, citatjagt, analysemodel og fælles opsamling.",
-    product: "Produkt: kort fortolkningsnotat.",
-    imageIdea:
-      "AI-billedidé: åbne bøger, citatstrimler, analyseikoner og elever i rolig samtale.",
-  },
-];
-
-const mathSeeds: CourseSeed[] = [
-  {
-    title: "Tal, strategier og mønstre",
-    description:
-      "Eleverne arbejder undersøgende med talforståelse, regnestrategier og mønstre.",
-    focus: "Fokus: repræsentationer, forklaringer og strategivalg.",
-    activities: "Aktiviteter: stationsarbejde, problemløsning, samtalekort og fælles modellering.",
-    product: "Produkt: strategiark med eksempler.",
-    imageIdea:
-      "AI-billedidé: talmønstre, konkrete materialer, tavleskitser og elever i undersøgende matematik.",
-  },
-  {
-    title: "Geometri i praksis",
-    description:
-      "Eleverne undersøger former, måling og rumlige sammenhænge gennem praktiske aktiviteter.",
-    focus: "Fokus: geometriske begreber, tegning, måling og argumentation.",
-    activities: "Aktiviteter: opmåling, konstruktion, digitale skitser og makkerforklaringer.",
-    product: "Produkt: geometrisk model med forklaring.",
-    imageIdea:
-      "AI-billedidé: linealer, geometriske figurer, gridpapir og rolige farvefelter.",
-  },
-  {
-    title: "Data og chance",
-    description:
-      "Eleverne indsamler, viser og tolker data og arbejder med sandsynlighed i enkle situationer.",
-    focus: "Fokus: tabeller, diagrammer, gennemsnit, udfald og vurderinger.",
-    activities: "Aktiviteter: dataindsamling, diagramværksted, eksperimenter og klassekonklusioner.",
-    product: "Produkt: datarapport med diagrammer.",
-    imageIdea:
-      "AI-billedidé: farvede diagrammer, datakort, terninger og elever omkring en undersøgelse.",
-  },
-  {
-    title: "Problemløsning og modeller",
-    description:
-      "Eleverne bruger matematik til at undersøge hverdagsnære problemstillinger og forklare løsninger.",
-    focus: "Fokus: modellering, ræsonnement, valg af metoder og præcis kommunikation.",
-    activities: "Aktiviteter: åbne opgaver, gruppestrategier, feedback og fælles løsninger.",
-    product: "Produkt: problemløsningsposter.",
-    imageIdea:
-      "AI-billedidé: problemløsningsbord med skitser, beregninger, post-its og tydelige matematikikoner.",
-  },
-];
-
-const genericSeeds: CourseSeed[] = [
-  {
-    title: "Faglig opstart og fælles sprog",
-    description:
-      "Eleverne etablerer centrale begreber, arbejdsformer og forventninger til årets faglige arbejde.",
-    focus: "Fokus: fagord, nysgerrighed, fælles rutiner og tryg deltagelse.",
-    activities: "Aktiviteter: begrebskort, makkerøvelser, korte undersøgelser og fælles opsamling.",
-    product: "Produkt: fælles faglig begrebsvæg.",
-    imageIdea:
-      "AI-billedidé: lyst klasselokale med faglige begrebskort, elever i grupper og rolige farvefelter.",
-  },
-  {
-    title: "Undersøgelse og fordybelse",
-    description:
-      "Eleverne arbejder med et centralt fagligt tema gennem undersøgende opgaver og guidet fordybelse.",
-    focus: "Fokus: metoder, faglige spørgsmål og begrundede svar.",
-    activities: "Aktiviteter: stationsarbejde, kildemateriale, samtalekort og fælles refleksion.",
-    product: "Produkt: kort fagligt notat eller visuel forklaring.",
-    imageIdea:
-      "AI-billedidé: elever ved arbejdsstationer med materialer, notesark og tydelige temaikoner.",
-  },
-  {
-    title: "Anvendelse i praksis",
-    description:
-      "Eleverne bruger fagets begreber og metoder i praktiske, kreative eller virkelighedsnære situationer.",
-    focus: "Fokus: anvendelse, samarbejde, problemløsning og faglig præcision.",
-    activities: "Aktiviteter: casearbejde, små produktioner, fælles feedback og afprøvning.",
-    product: "Produkt: praktisk produkt med kort forklaring.",
-    imageIdea:
-      "AI-billedidé: produktionsbord med faglige materialer, skitser og elever i koncentreret samarbejde.",
-  },
-  {
-    title: "Perspektiv og evaluering",
-    description:
-      "Eleverne samler op på årets faglige pointer og viser, hvordan de kan bruge deres viden videre.",
-    focus: "Fokus: refleksion, evaluering, perspektivering og faglig samtale.",
-    activities: "Aktiviteter: elevsamtaler, portfolio, korte præsentationer og fælles evaluering.",
-    product: "Produkt: portfolio-side eller afsluttende præsentation.",
-    imageIdea:
-      "AI-billedidé: portfolio, præsentationskort, refleksionsspørgsmål og en rolig afsluttende visuel flade.",
-  },
-];
-
-const courseSeedsBySubject: Record<string, CourseSeed[]> = {
-  Dansk: danishSeeds,
-  Matematik: mathSeeds,
-  Engelsk: englishSeeds,
-  Historie: historySeeds,
-  Samfundsfag: samfundsfagSeeds,
-};
-
-const periodLabelsByCount: Record<number, string[]> = {
-  4: ["Uge 33-41", "Uge 43-51", "Uge 2-13", "Uge 15-25"],
-  5: ["Uge 33-39", "Uge 40-47", "Uge 48-6", "Uge 7-15", "Uge 16-25"],
-  6: ["Uge 33-38", "Uge 39-44", "Uge 45-51", "Uge 2-8", "Uge 9-16", "Uge 17-25"],
-  7: [
-    "Uge 33-37",
-    "Uge 38-42",
-    "Uge 43-48",
-    "Uge 49-5",
-    "Uge 6-11",
-    "Uge 12-18",
-    "Uge 19-25",
-  ],
-  8: [
-    "Uge 33-36",
-    "Uge 37-41",
-    "Uge 43-47",
-    "Uge 48-51",
-    "Uge 2-6",
-    "Uge 7-12",
-    "Uge 13-18",
-    "Uge 19-25",
-  ],
-};
 
 const periodAccentClasses = [
   {
@@ -505,76 +147,26 @@ const textareaClassName =
 const buttonBaseClassName =
   "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-black transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed disabled:opacity-45";
 
-function getCourseSeeds(subject: string) {
-  return courseSeedsBySubject[subject] ?? genericSeeds;
-}
-
-function getCommonGoalsIntro(subject: string) {
-  return commonGoalsCopy[subject] ?? genericCommonGoalsCopy;
-}
-
-function createDemoAnnualPlan(input: AnnualPlanInput): AnnualPlan {
-  const courseCount = Number(input.courseCount);
-  const periodLabels = periodLabelsByCount[courseCount] ?? periodLabelsByCount[6];
-  const seeds = getCourseSeeds(input.subject);
-  const themeNote = input.specialThemes.trim()
-    ? ` Lærerens særlige ønske indarbejdes i årsplanen: ${input.specialThemes.trim()}.`
-    : "";
-  const aiNote = input.aiNotes.trim()
-    ? ` Noter til senere AI-version: ${input.aiNotes.trim()}.`
-    : "";
-
-  const periods = Array.from({ length: courseCount }, (_, index) => {
-    const seed = seeds[index % seeds.length];
-    const isFirstPeriod = index === 0;
-
-    return {
-      ...seed,
-      period: periodLabels[index],
-      description: `${seed.description}${isFirstPeriod ? themeNote : ""}`,
-      imageIdea: `${seed.imageIdea}${isFirstPeriod ? aiNote : ""}`,
-    };
-  });
-
-  return {
-    title: `Årsplan i ${input.subject} – ${input.gradeLevel} – ${input.schoolYear}`,
-    commonGoalsIntro: getCommonGoalsIntro(input.subject),
-    metaLine: `${input.lessonsPerWeek} lektioner pr. uge · ${courseCount} større forløb · ${input.municipality}`,
-    periods,
-    imageIdeas: periods.map((period) => period.imageIdea),
-  };
-}
-
-function Field({
-  label,
-  description,
-  children,
-}: {
-  label: string;
-  description?: string;
-  children: ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="text-sm font-black text-slate-950">{label}</span>
-      {description ? <span className="mt-1 block text-sm leading-6 text-slate-600">{description}</span> : null}
-      {children}
-    </label>
-  );
-}
-
-function EmptyValue({ children = "Ikke valgt endnu" }: { children?: ReactNode }) {
-  return <span className="text-slate-400">{children}</span>;
-}
-
 export default function AarsplanGeneratorPage() {
   const [input, setInput] = useState<AnnualPlanInput>(initialInput);
   const [currentStep, setCurrentStep] = useState<StepIndex>(0);
-  const [generatedPlan, setGeneratedPlan] = useState<AnnualPlan | null>(null);
+  const [generatedPlan, setGeneratedPlan] = useState<AnnualPlanDraft | null>(null);
 
   useEffect(() => {
     document.title = "Årsplan-generator – GPSLØB";
   }, []);
+
+  const selectedSchoolYear = input.schoolYear || "2026/2027";
+  const selectedMunicipality = input.municipality || "Generisk ferieplan";
+  const previewHolidayWeeks = useMemo(
+    () => getHolidayWeeks(selectedSchoolYear, selectedMunicipality),
+    [selectedMunicipality, selectedSchoolYear],
+  );
+  const previewTeachingWeekCount = useMemo(
+    () => buildTeachingWeeks(selectedSchoolYear, selectedMunicipality).length,
+    [selectedMunicipality, selectedSchoolYear],
+  );
+  const previewTotalLessons = previewTeachingWeekCount * Number(input.lessonsPerWeek);
 
   const stepValidity = useMemo(
     () =>
@@ -605,7 +197,7 @@ export default function AarsplanGeneratorPage() {
           ? 2
           : 3;
 
-  const selectedSubjectIntro = input.subject ? getCommonGoalsIntro(input.subject) : genericCommonGoalsCopy;
+  const selectedSubjectIntro = input.subject ? getCommonGoalsIntro(input.subject) : getCommonGoalsIntro("");
 
   function updateInput<Key extends keyof AnnualPlanInput>(key: Key, value: AnnualPlanInput[Key]) {
     setInput((previousInput) => ({
@@ -636,7 +228,18 @@ export default function AarsplanGeneratorPage() {
       return;
     }
 
-    setGeneratedPlan(createDemoAnnualPlan(input));
+    setGeneratedPlan(
+      createAnnualPlanDraft({
+        subject: input.subject,
+        grade: input.gradeLevel,
+        schoolYear: input.schoolYear,
+        municipality: input.municipality,
+        lessonsPerWeek: Number(input.lessonsPerWeek),
+        courseCount: Number(input.courseCount),
+        wishes: input.specialThemes,
+        notes: input.aiNotes,
+      }),
+    );
     setCurrentStep(4);
   }
 
@@ -669,11 +272,11 @@ export default function AarsplanGeneratorPage() {
                 Årsplan-generator
               </h1>
               <p className="mt-4 max-w-2xl text-base font-semibold leading-8 text-slate-700 md:text-lg">
-                Byg en rolig demo-årsplan ud fra fag, klassetrin, skoleår, ferieplan og lærerens ønsker.
+                Byg en lokal demo-årsplan, der fordeler forløb efter undervisningsuger, feriepauser og faglige profiler.
               </p>
             </div>
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-bold leading-6 text-amber-950 shadow-sm">
-              Ferieplanen er foreløbig en demo i denne prototype.
+              Ferieuger er foreløbige demo-data og skal kvalitetssikres før rigtig brug.
             </div>
           </div>
 
@@ -720,28 +323,18 @@ export default function AarsplanGeneratorPage() {
           </nav>
         </section>
 
-        <section className="grid flex-1 gap-6 py-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="grid flex-1 gap-6 py-8 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="rounded-lg border border-white/75 bg-white/80 p-5 shadow-[0_28px_80px_rgba(15,23,42,0.10)] backdrop-blur md:p-7">
             {currentStep === 0 ? (
               <section aria-labelledby="step-one-title">
-                <div className="flex items-start gap-4">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white">
-                    <BookOpen className="h-6 w-6" />
-                  </span>
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Trin 1</p>
-                    <h2
-                      id="step-one-title"
-                      className={`mt-2 text-3xl font-black tracking-tight text-slate-950 ${rubik.className}`}
-                    >
-                      Vælg fag og klassetrin
-                    </h2>
-                    <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-slate-600">
-                      Start med den undervisning, årsplanen skal passe til. Det styrer både Fælles Mål-teksten og de
-                      forløb, demoen foreslår.
-                    </p>
-                  </div>
-                </div>
+                <StepHeader
+                  colorClassName="bg-emerald-600"
+                  eyebrow="Trin 1"
+                  icon={<BookOpen className="h-6 w-6" />}
+                  title="Vælg fag og klassetrin"
+                  description="Start med den undervisning, årsplanen skal passe til. Valget styrer både Fælles Mål-teksten og de faglige forløbsidéer."
+                  titleId="step-one-title"
+                />
 
                 <div className="mt-8 grid gap-5 md:grid-cols-2">
                   <Field label="Fag" description="Vælg det fag, årsplanen skal bygges til.">
@@ -759,7 +352,7 @@ export default function AarsplanGeneratorPage() {
                     </select>
                   </Field>
 
-                  <Field label="Klassetrin" description="Vælg klassetrinnet for årsplanen.">
+                  <Field label="Klassetrin" description="Klassetrinnet bruges i forløbsbeskrivelserne.">
                     <select
                       className={selectClassName}
                       value={input.gradeLevel}
@@ -787,26 +380,17 @@ export default function AarsplanGeneratorPage() {
 
             {currentStep === 1 ? (
               <section aria-labelledby="step-two-title">
-                <div className="flex items-start gap-4">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-sky-600 text-white">
-                    <Calendar className="h-6 w-6" />
-                  </span>
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Trin 2</p>
-                    <h2
-                      id="step-two-title"
-                      className={`mt-2 text-3xl font-black tracking-tight text-slate-950 ${rubik.className}`}
-                    >
-                      Vælg skoleår og kommune
-                    </h2>
-                    <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-slate-600">
-                      Vælg år og ferieplan. I denne version er ferieplanen kun mock-data, så flowet kan prøves lokalt.
-                    </p>
-                  </div>
-                </div>
+                <StepHeader
+                  colorClassName="bg-sky-600"
+                  eyebrow="Trin 2"
+                  icon={<Calendar className="h-6 w-6" />}
+                  title="Vælg skoleår og kommune"
+                  description="Motoren bygger et skoleår fra uge 33 til uge 26 og springer demo-ferieuger over."
+                  titleId="step-two-title"
+                />
 
                 <div className="mt-8 grid gap-5 md:grid-cols-2">
-                  <Field label="Skoleår" description="Første prototype starter med to skoleår.">
+                  <Field label="Skoleår" description="Første lokale motor understøtter to demo-skoleår.">
                     <select
                       className={selectClassName}
                       value={input.schoolYear}
@@ -821,7 +405,7 @@ export default function AarsplanGeneratorPage() {
                     </select>
                   </Field>
 
-                  <Field label="Kommune eller ferieplan" description="Ferieplanen påvirker kun previewet som demo.">
+                  <Field label="Kommune eller ferieplan" description="Ferieplanerne er lokale mockdata i prototypen.">
                     <select
                       className={selectClassName}
                       value={input.municipality}
@@ -837,41 +421,46 @@ export default function AarsplanGeneratorPage() {
                   </Field>
                 </div>
 
-                <div className="mt-8 grid gap-3 rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950 md:grid-cols-3">
-                  {["Efterårsferie", "Vinterferie", "Påskeferie"].map((holiday) => (
-                    <div key={holiday} className="rounded-lg border border-amber-200 bg-white/70 p-4">
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">Demo</p>
-                      <p className="mt-2 text-sm font-black">{holiday}</p>
-                      <p className="mt-1 text-sm font-semibold text-amber-900/75">Foreløbig mock-periode</p>
+                <div className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">
+                        Demo-ferieplan i prototype
+                      </p>
+                      <p className="mt-2 text-sm font-bold">
+                        Foreløbigt beregnet til {previewTeachingWeekCount} undervisningsuger og {previewTotalLessons}{" "}
+                        lektioner med dine nuværende rammer.
+                      </p>
                     </div>
-                  ))}
+                  </div>
+                  <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {previewHolidayWeeks.map((holiday) => (
+                      <div key={holiday.name} className="rounded-lg border border-amber-200 bg-white/70 p-4">
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-700">
+                          {holiday.type === "holiday" ? "Springes over" : "Note"}
+                        </p>
+                        <p className="mt-2 text-sm font-black">{holiday.name}</p>
+                        <p className="mt-1 text-sm font-semibold text-amber-900/75">{holiday.label}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </section>
             ) : null}
 
             {currentStep === 2 ? (
               <section aria-labelledby="step-three-title">
-                <div className="flex items-start gap-4">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white">
-                    <Settings className="h-6 w-6" />
-                  </span>
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700">Trin 3</p>
-                    <h2
-                      id="step-three-title"
-                      className={`mt-2 text-3xl font-black tracking-tight text-slate-950 ${rubik.className}`}
-                    >
-                      Vælg rammer og ønsker
-                    </h2>
-                    <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-slate-600">
-                      Angiv de vigtigste rammer. Tekstfelterne gemmes kun lokalt i denne prototype og bruges i
-                      demo-previewet.
-                    </p>
-                  </div>
-                </div>
+                <StepHeader
+                  colorClassName="bg-amber-500"
+                  eyebrow="Trin 3"
+                  icon={<Settings className="h-6 w-6" />}
+                  title="Vælg rammer og ønsker"
+                  description="Rammerne bruges nu i motoren til at beregne lektionstal pr. forløb og fordele året mere jævnt."
+                  titleId="step-three-title"
+                />
 
                 <div className="mt-8 grid gap-5 md:grid-cols-2">
-                  <Field label="Antal lektioner pr. uge" description="Vælg en enkel ramme for årsplanens tempo.">
+                  <Field label="Antal lektioner pr. uge" description="Bruges til anslået lektionstal i hvert forløb.">
                     <select
                       className={selectClassName}
                       value={input.lessonsPerWeek}
@@ -885,7 +474,7 @@ export default function AarsplanGeneratorPage() {
                     </select>
                   </Field>
 
-                  <Field label="Antal større forløb" description="Previewet opretter samme antal forløbskort.">
+                  <Field label="Antal større forløb" description="Motoren fordeler forløbene over undervisningsugerne.">
                     <select
                       className={selectClassName}
                       value={input.courseCount}
@@ -924,23 +513,14 @@ export default function AarsplanGeneratorPage() {
 
             {currentStep === 3 ? (
               <section aria-labelledby="step-four-title">
-                <div className="flex items-start gap-4">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-rose-500 text-white">
-                    <Sparkles className="h-6 w-6" />
-                  </span>
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-700">Trin 4</p>
-                    <h2
-                      id="step-four-title"
-                      className={`mt-2 text-3xl font-black tracking-tight text-slate-950 ${rubik.className}`}
-                    >
-                      Generér årsplan
-                    </h2>
-                    <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-slate-600">
-                      Klik for at bygge en lokal mock-årsplan ud fra dine valg. Der kaldes ingen API og ingen rigtig AI.
-                    </p>
-                  </div>
-                </div>
+                <StepHeader
+                  colorClassName="bg-rose-500"
+                  eyebrow="Trin 4"
+                  icon={<Sparkles className="h-6 w-6" />}
+                  title="Generér årsplan"
+                  description="Klik for at bygge en lokal årsplan ud fra fagprofil, ferieuger, undervisningsuger og rammer. Der kaldes ingen API."
+                  titleId="step-four-title"
+                />
 
                 <div className="mt-8 grid gap-4 md:grid-cols-2">
                   {[
@@ -948,8 +528,8 @@ export default function AarsplanGeneratorPage() {
                     ["Klassetrin", input.gradeLevel],
                     ["Skoleår", input.schoolYear],
                     ["Ferieplan", input.municipality],
-                    ["Lektioner pr. uge", input.lessonsPerWeek],
-                    ["Større forløb", input.courseCount],
+                    ["Undervisningsuger", `${previewTeachingWeekCount}`],
+                    ["Lektioner i alt", `${previewTotalLessons}`],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-lg border border-slate-200 bg-slate-50/80 p-4">
                       <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{label}</p>
@@ -961,8 +541,8 @@ export default function AarsplanGeneratorPage() {
                 <div className="mt-8 rounded-lg border border-rose-100 bg-rose-50 p-5">
                   <p className="text-sm font-black text-rose-950">Lokalt prototype-output</p>
                   <p className="mt-2 text-sm font-semibold leading-7 text-rose-950/75">
-                    Demoen vælger faglige forløb fra lokale arrays, fordeler dem på perioder og lægger billedidéer klar
-                    til en senere version.
+                    Motoren bruger lokale fagprofiler og demo-ferieplaner til at fordele forløb jævnt over skoleåret.
+                    Ferieuger markeres tydeligt som prototype-data.
                   </p>
                 </div>
 
@@ -996,14 +576,25 @@ export default function AarsplanGeneratorPage() {
                       </h2>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(0)}
-                    className={`${buttonBaseClassName} border border-slate-200 bg-white text-slate-800 shadow-sm hover:border-emerald-200 hover:text-emerald-800 focus-visible:ring-emerald-100`}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    Tilpas valg
-                  </button>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <button
+                      type="button"
+                      disabled={!stepValidity[3]}
+                      onClick={generatePlan}
+                      className={`${buttonBaseClassName} border border-emerald-700 bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-emerald-100`}
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Generér igen
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(0)}
+                      className={`${buttonBaseClassName} border border-slate-200 bg-white text-slate-800 shadow-sm hover:border-emerald-200 hover:text-emerald-800 focus-visible:ring-emerald-100`}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Tilpas valg
+                    </button>
+                  </div>
                 </div>
 
                 {generatedPlan ? (
@@ -1052,8 +643,16 @@ export default function AarsplanGeneratorPage() {
               <SummaryRow label="Ferieplan" value={input.municipality} />
               <SummaryRow label="Lektioner" value={`${input.lessonsPerWeek} pr. uge`} />
               <SummaryRow label="Forløb" value={`${input.courseCount} større forløb`} />
+              <SummaryRow label="Undervisningsuger" value={`${previewTeachingWeekCount}`} />
+              <SummaryRow label="Lektioner i alt" value={`${previewTotalLessons}`} />
             </div>
-            <div className="mt-5 rounded-lg border border-emerald-100 bg-emerald-50 p-4">
+            <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-black text-amber-950">Demo-ferieplan i prototype</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-amber-950/75">
+                Ferieuger er foreløbige og skal kvalitetssikres, før værktøjet bruges som færdig årsplan.
+              </p>
+            </div>
+            <div className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 p-4">
               <p className="text-sm font-black text-emerald-950">Prototype-status</p>
               <p className="mt-2 text-sm font-semibold leading-6 text-emerald-950/75">
                 Lokal mock uden AI, API, DB, eksport eller billedgenerering.
@@ -1066,6 +665,59 @@ export default function AarsplanGeneratorPage() {
   );
 }
 
+function StepHeader({
+  colorClassName,
+  eyebrow,
+  icon,
+  title,
+  description,
+  titleId,
+}: {
+  colorClassName: string;
+  eyebrow: string;
+  icon: ReactNode;
+  title: string;
+  description: string;
+  titleId: string;
+}) {
+  return (
+    <div className="flex items-start gap-4">
+      <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-white ${colorClassName}`}>
+        {icon}
+      </span>
+      <div>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{eyebrow}</p>
+        <h2 id={titleId} className={`mt-2 text-3xl font-black tracking-tight text-slate-950 ${rubik.className}`}>
+          {title}
+        </h2>
+        <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-slate-600">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  description,
+  children,
+}: {
+  label: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-black text-slate-950">{label}</span>
+      {description ? <span className="mt-1 block text-sm leading-6 text-slate-600">{description}</span> : null}
+      {children}
+    </label>
+  );
+}
+
+function EmptyValue({ children = "Ikke valgt endnu" }: { children?: ReactNode }) {
+  return <span className="text-slate-400">{children}</span>;
+}
+
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white/80 p-4">
@@ -1075,29 +727,71 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function AnnualPlanPreview({ plan }: { plan: AnnualPlan }) {
+function AnnualPlanPreview({ plan }: { plan: AnnualPlanDraft }) {
   return (
     <div className="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-[#fbfaf6] shadow-[0_24px_70px_rgba(15,23,42,0.10)]">
       <section className="relative border-b border-slate-200 bg-[linear-gradient(135deg,#064e3b_0%,#0f766e_48%,#f59e0b_100%)] p-7 text-white md:p-9">
-        <div className="max-w-3xl">
+        <div className="max-w-4xl">
           <p className="inline-flex rounded-lg border border-white/25 bg-white/15 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-white">
             Print preview
           </p>
           <h3 className={`mt-6 text-4xl font-black tracking-tight md:text-5xl ${rubik.className}`}>{plan.title}</h3>
-          <p className="mt-4 text-sm font-bold leading-7 text-white/85">{plan.metaLine}</p>
+          <p className="mt-4 text-sm font-bold leading-7 text-white/85">
+            Demo-ferieplan i prototype · {plan.summary.courseCount} forløb · {plan.summary.totalLessons} lektioner
+          </p>
         </div>
-        <div className="mt-8 grid gap-3 md:grid-cols-3">
-          {["Fælles Mål", "Forløb", "Billedidéer"].map((label, index) => (
-            <div key={label} className="rounded-lg border border-white/20 bg-white/12 p-4 backdrop-blur">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-white/70">Del {index + 1}</p>
-              <p className="mt-2 text-sm font-black text-white">{label}</p>
-            </div>
+        <div className="mt-8 flex flex-wrap gap-3">
+          {[plan.subject, plan.grade, plan.schoolYear, plan.municipality].map((chip) => (
+            <span key={chip} className="rounded-lg border border-white/20 bg-white/12 px-3 py-2 text-xs font-black">
+              {chip}
+            </span>
           ))}
         </div>
       </section>
 
       <section className="p-7 md:p-9">
-        <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+          <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <Calendar className="h-5 w-5 text-emerald-800" />
+              <h4 className="text-base font-black text-slate-950">Årsplan-overblik</h4>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <OverviewItem label="Skoleår" value={plan.schoolYear} />
+              <OverviewItem label="Kommune" value={plan.municipality} />
+              <OverviewItem label="Ferieplan" value="Demo" />
+              <OverviewItem label="Undervisningsuger" value={`${plan.teachingWeeks}`} />
+              <OverviewItem label="Lektioner i alt" value={`${plan.summary.totalLessons}`} />
+              <OverviewItem label="Antal forløb" value={`${plan.summary.courseCount}`} />
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <Calendar className="h-5 w-5 text-amber-800" />
+              <h4 className="text-base font-black text-slate-950">Ferieoversigt</h4>
+            </div>
+            <p className="mt-3 text-sm font-semibold leading-6 text-amber-950/75">
+              Ferieplanen er demo-data i denne prototype og er ikke officiel kommunedata.
+            </p>
+            <div className="mt-4 grid gap-2">
+              {plan.holidayWeeks.map((holiday) => (
+                <div
+                  key={holiday.name}
+                  className="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white/70 px-3 py-2"
+                >
+                  <span className="text-sm font-black text-amber-950">{holiday.name}</span>
+                  <span className="text-right text-sm font-bold text-amber-900/75">
+                    {holiday.label}
+                    {holiday.type === "note" ? " · note" : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="rounded-lg border border-emerald-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
               <GraduationCap className="h-5 w-5 text-emerald-800" />
@@ -1106,30 +800,47 @@ function AnnualPlanPreview({ plan }: { plan: AnnualPlan }) {
             <p className="mt-4 text-sm font-semibold leading-7 text-slate-700">{plan.commonGoalsIntro}</p>
           </div>
 
-          <div className="rounded-lg border border-amber-100 bg-amber-50 p-5 shadow-sm">
+          <div className="rounded-lg border border-sky-100 bg-sky-50 p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <ImageIcon className="h-5 w-5 text-amber-800" />
-              <h4 className="text-base font-black text-slate-950">Billedidéer til senere</h4>
+              <FileText className="h-5 w-5 text-sky-800" />
+              <h4 className="text-base font-black text-slate-950">Fordeling over året</h4>
             </div>
-            <p className="mt-4 text-sm font-semibold leading-7 text-slate-700">
-              Hvert forløb får en billedprompt, så en senere version kan koble AI-billeder på uden at ændre selve
-              årsplanstrukturen.
-            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {plan.courses.map((course, index) => (
+                <span
+                  key={`${course.period}-${course.title}`}
+                  className="rounded-lg border border-sky-200 bg-white px-3 py-2 text-xs font-black text-sky-950"
+                >
+                  {index + 1}. {course.period}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
 
         <div className="mt-8 grid gap-5 xl:grid-cols-2">
-          {plan.periods.map((period, index) => {
+          {plan.courses.map((course, index) => {
             const accent = periodAccentClasses[index % periodAccentClasses.length];
 
             return (
-              <article key={`${period.period}-${period.title}`} className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-                <div className={`h-28 bg-gradient-to-br ${accent.visual}`}>
-                  <div className="flex h-full items-end justify-between p-4">
-                    <span className={`rounded-lg border px-3 py-2 text-xs font-black ${accent.badge}`}>
-                      {period.period}
-                    </span>
-                    <div className="grid h-16 w-24 grid-cols-3 gap-2 opacity-75">
+              <article
+                key={`${course.period}-${course.title}`}
+                className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+              >
+                <div className={`h-32 bg-gradient-to-br ${accent.visual}`}>
+                  <div className="flex h-full items-end justify-between gap-4 p-4">
+                    <div className="flex flex-wrap gap-2">
+                      <span className={`rounded-lg border px-3 py-2 text-xs font-black ${accent.badge}`}>
+                        {course.period}
+                      </span>
+                      <span className="rounded-lg border border-white/55 bg-white/65 px-3 py-2 text-xs font-black text-slate-800">
+                        {course.teachingWeeks} undervisningsuger
+                      </span>
+                      <span className="rounded-lg border border-white/55 bg-white/65 px-3 py-2 text-xs font-black text-slate-800">
+                        {course.estimatedLessons} lektioner
+                      </span>
+                    </div>
+                    <div className="hidden h-16 w-24 grid-cols-3 gap-2 opacity-75 sm:grid">
                       <span className="rounded-md bg-white/65" />
                       <span className="rounded-md bg-white/45" />
                       <span className="rounded-md bg-white/65" />
@@ -1143,14 +854,20 @@ function AnnualPlanPreview({ plan }: { plan: AnnualPlan }) {
                 <div className="p-5">
                   <div className={`h-1.5 w-16 rounded-full ${accent.line}`} />
                   <h4 className={`mt-4 text-2xl font-black tracking-tight text-slate-950 ${rubik.className}`}>
-                    {period.title}
+                    {course.title}
                   </h4>
-                  <p className="mt-3 text-sm font-semibold leading-7 text-slate-700">{period.description}</p>
+                  <p className="mt-3 text-sm font-semibold leading-7 text-slate-700">{course.description}</p>
+
+                  {course.pauseNote ? (
+                    <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-bold leading-6 text-amber-950">
+                      {course.pauseNote}
+                    </div>
+                  ) : null}
 
                   <div className="mt-5 grid gap-3 text-sm leading-6 text-slate-700">
-                    <InfoLine label="Fagligt fokus" value={period.focus} />
-                    <InfoLine label="Aktiviteter" value={period.activities} />
-                    <InfoLine label="Produkt/evaluering" value={period.product} />
+                    <InfoLine label="Fagligt fokus" value={course.focus} />
+                    <InfoLine label="Aktiviteter" value={course.activities} />
+                    <InfoLine label="Produkt/evaluering" value={course.product} />
                   </div>
 
                   <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -1160,7 +877,7 @@ function AnnualPlanPreview({ plan }: { plan: AnnualPlan }) {
                         Billedprompt til senere
                       </p>
                     </div>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{period.imageIdea}</p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{course.imagePrompt}</p>
                   </div>
                 </div>
               </article>
@@ -1168,6 +885,15 @@ function AnnualPlanPreview({ plan }: { plan: AnnualPlan }) {
           })}
         </div>
       </section>
+    </div>
+  );
+}
+
+function OverviewItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="mt-2 text-base font-black text-slate-950">{value}</p>
     </div>
   );
 }
