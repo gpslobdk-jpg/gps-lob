@@ -18,9 +18,13 @@ const poppins = Poppins({
 const gameCards = [
   {
     title: "Find Bedrageren",
-    label: "Socialt bluff-spil",
+    label: "SOCIALT BLUFF-SPIL",
     description:
-      "Eleverne får hemmelige roller, et fælles ord og en runde med mistanke, argumenter og afsløring.",
+      "Eleverne får roller og et hemmeligt ord. Én eller flere er bedragere og skal bluffe sig gennem diskussionen.",
+    howItWorks:
+      "Sådan fungerer det: Læreren opretter et ord, eleverne får roller på mobilen, klassen diskuterer, stemmer og ser til sidst, om bedrageren blev afsløret.",
+    flow: "Læreren vælger ord -> elever får roller -> diskussion -> afstemning -> resultat",
+    cta: "Opret spil",
     href: "/dashboard/opret/find-bedrageren",
   },
 ];
@@ -73,7 +77,7 @@ export default function MobilspilPage() {
               Mobilspil
             </h1>
             <p className="mt-5 max-w-xl text-base font-semibold leading-8 text-slate-200/88 md:text-lg">
-              Vælg et spil, som eleverne spiller på mobilen.
+              Vælg et spil, som eleverne spiller på mobilen. Opsætningen er enkel og trin-for-trin. Selve spillet foregår på elevernes mobiler.
             </p>
           </motion.div>
 
@@ -87,7 +91,7 @@ export default function MobilspilPage() {
             {gameCards.map((game) => (
               <article
                 key={game.href}
-                className="group relative overflow-hidden rounded-[2rem] border border-white/16 bg-white/10 p-5 shadow-[0_30px_90px_rgba(0,0,0,0.42),0_18px_42px_rgba(34,211,238,0.12),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-2xl md:p-7"
+                className="group relative overflow-hidden rounded-[2rem] border border-white/16 bg-white/10 p-5 shadow-[0_30px_90px_rgba(0,0,0,0.42),0_18px_42px_rgba(34,211,238,0.12),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-2xl transition duration-300 hover:border-cyan-100/32 hover:bg-white/14 focus-within:border-cyan-100/38 focus-within:bg-white/14 md:p-7"
               >
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.24),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.3),transparent_42%),linear-gradient(145deg,rgba(255,255,255,0.12),rgba(255,255,255,0.035))]" />
                 <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] border border-white/10" />
@@ -110,11 +114,21 @@ export default function MobilspilPage() {
                     </div>
                   </div>
 
+                  <div className="rounded-[1.25rem] border border-white/12 bg-slate-950/22 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 group-hover:border-cyan-100/30 group-hover:bg-cyan-50/10 group-focus-within:border-cyan-100/34 group-focus-within:bg-cyan-50/10">
+                    <p className="text-[0.68rem] font-black uppercase tracking-[0.2em] text-cyan-100/78">
+                      Sådan fungerer det
+                    </p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-200/84">{game.howItWorks}</p>
+                    <p className="mt-3 rounded-[0.875rem] border border-white/10 bg-white/8 px-3 py-2 text-[0.72rem] font-black text-cyan-50/82 transition duration-300 group-hover:border-cyan-100/28 group-hover:text-cyan-50 group-focus-within:border-cyan-100/28 group-focus-within:text-cyan-50">
+                      {game.flow}
+                    </p>
+                  </div>
+
                   <Link
                     href={game.href}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-cyan-100/24 bg-cyan-300/16 px-5 py-3 text-sm font-black text-cyan-50 shadow-[0_18px_44px_rgba(34,211,238,0.14),inset_0_1px_0_rgba(255,255,255,0.18)] transition hover:border-cyan-100/44 hover:bg-cyan-300/24 md:w-fit"
                   >
-                    Opret spil
+                    {game.cta}
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </div>
