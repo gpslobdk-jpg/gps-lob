@@ -5,9 +5,8 @@ import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabas
 import { createClient } from "@/utils/supabase/server";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
-type UpdatePhasePayload = {
+type ReplayPayload = {
   sessionId?: unknown;
-  phase?: unknown;
 };
 
 type LiveSessionRow = {
@@ -26,14 +25,13 @@ type FindBedragerenSessionRow = {
   live_session_id: string;
   gps_run_id: string;
   phase: string;
-  roles_assigned_at: string | null;
 };
 
 type SupabaseErrorLike = {
   message?: unknown;
 };
 
-const ALLOWED_NEXT_PHASES = new Set(["discussion", "voting", "results", "finished"]);
+const REPLAY_ALLOWED_PHASES = new Set(["results", "finished"]);
 
 function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -55,31 +53,25 @@ function toSafeLogError(error: unknown) {
 
   if (error && typeof error === "object" && "message" in error) {
     const message = asTrimmedString((error as SupabaseErrorLike).message);
-    return new Error(message || "Find Bedrageren-fasen kunne ikke skiftes.");
+    return new Error(message || "Find Bedrageren-spillet kunne ikke gøres klar igen.");
   }
 
-  return new Error("Find Bedrageren-fasen kunne ikke skiftes.");
+  return new Error("Find Bedrageren-spillet kunne ikke gøres klar igen.");
 }
 
 export async function POST(request: Request) {
   const requestPath = new URL(request.url).pathname;
-  let payload: UpdatePhasePayload;
+  let payload: ReplayPayload;
 
   try {
-    payload = (await request.json()) as UpdatePhasePayload;
+    payload = (await request.json()) as ReplayPayload;
   } catch {
     return respond({ error: "Ugyldig forespørgsel." }, 400);
   }
 
   const sessionId = asTrimmedString(payload.sessionId);
-  const nextPhase = asTrimmedString(payload.phase);
-
   if (!sessionId) {
     return respond({ error: "Lobbyen mangler." }, 400);
-  }
-
-  if (!ALLOWED_NEXT_PHASES.has(nextPhase)) {
-    return respond({ error: "Denne fase kan ikke startes endnu." }, 400);
   }
 
   const adminSupabase = createAdminClient();
@@ -132,7 +124,7 @@ export async function POST(request: Request) {
 
     const { data: findSession, error: findSessionError } = await adminSupabase
       .from("find_bedrageren_sessions")
-      .select("live_session_id,gps_run_id,phase,roles_assigned_at")
+      .select("live_session_id,gps_run_id,phase")
       .eq("live_session_id", liveSession.id)
       .eq("gps_run_id", run.id)
       .maybeSingle<FindBedragerenSessionRow>();
@@ -145,56 +137,55 @@ export async function POST(request: Request) {
       return respond({ error: "Find Bedrageren-lobbyen blev ikke fundet." }, 404);
     }
 
-    if (nextPhase === "discussion" && !findSession.roles_assigned_at) {
-      return respond({ error: "Roller skal fordeles, før diskussionen kan starte." }, 409);
+    if (!REPLAY_ALLOWED_PHASES.has(findSession.phase)) {
+      return respond({ error: "Spillet kan først gøres klar igen, når resultatet er vist." }, 409);
     }
 
-    if (findSession.phase === nextPhase) {
-      return respond({ ok: true, phase: nextPhase });
+    const { error: votesDeleteError } = await adminSupabase
+      .from("find_bedrageren_votes")
+      .delete()
+      .eq("live_session_id", liveSession.id);
+
+    if (votesDeleteError) {
+      throw new Error(votesDeleteError.message);
     }
 
-    if (nextPhase === "discussion" && findSession.phase !== "reveal") {
-      return respond({ error: "Diskussionen kan først startes efter rollevisning." }, 409);
+    const { error: playersResetError } = await adminSupabase
+      .from("find_bedrageren_players")
+      .update({
+        player_role: "civilian",
+        has_seen_role: false,
+        role_seen_at: null,
+      })
+      .eq("live_session_id", liveSession.id);
+
+    if (playersResetError) {
+      throw new Error(playersResetError.message);
     }
 
-    if (nextPhase === "voting" && findSession.phase !== "discussion") {
-      return respond({ error: "Afstemningen kan først startes efter diskussionen." }, 409);
-    }
-
-    if (nextPhase === "results" && findSession.phase !== "voting") {
-      return respond({ error: "Resultatet kan først vises efter afstemningen." }, 409);
-    }
-
-    if (nextPhase === "finished" && findSession.phase !== "results") {
-      return respond({ error: "Spillet kan først afsluttes, når resultatet er vist." }, 409);
-    }
-
-    const phaseUpdate: {
-      phase: string;
-      finished_at?: string;
-    } = {
-      phase: nextPhase,
-    };
-
-    if (nextPhase === "finished") {
-      phaseUpdate.finished_at = new Date().toISOString();
-    }
-
-    const { error: phaseUpdateError } = await adminSupabase
+    const { error: sessionResetError } = await adminSupabase
       .from("find_bedrageren_sessions")
-      .update(phaseUpdate)
+      .update({
+        phase: "lobby",
+        roles_assigned_at: null,
+        started_at: null,
+        finished_at: null,
+      })
       .eq("live_session_id", liveSession.id)
       .eq("gps_run_id", run.id);
 
-    if (phaseUpdateError) {
-      throw new Error(phaseUpdateError.message);
+    if (sessionResetError) {
+      throw new Error(sessionResetError.message);
     }
 
-    return respond({ ok: true, phase: nextPhase });
+    return respond({
+      ok: true,
+      phase: "lobby",
+    });
   } catch (error) {
-    console.error("Find Bedrageren-faseskift fejlede.");
+    console.error("Find Bedrageren-spil igen fejlede.");
     await logHandledServerError({
-      route: "/api/find-bedrageren/phase",
+      route: "/api/find-bedrageren/replay",
       method: "POST",
       status: 500,
       error: toSafeLogError(error),
@@ -202,6 +193,6 @@ export async function POST(request: Request) {
       routeType: "route",
     });
 
-    return respond({ error: "Kunne ikke skifte fase lige nu." }, 500);
+    return respond({ error: "Kunne ikke gøre spillet klar igen lige nu." }, 500);
   }
 }

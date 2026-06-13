@@ -66,7 +66,7 @@ type SupabaseErrorLike = {
 };
 
 const PARTICIPANT_STORAGE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
-const ROLE_VISIBLE_PHASES = new Set(["reveal", "discussion", "voting", "results", "finished"]);
+const ROLE_VISIBLE_PHASES = new Set(["reveal", "discussion", "voting", "results"]);
 
 function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";

@@ -256,12 +256,14 @@ export default function FindBedragerenStudentLobbyPage() {
         setWaitingForTeacher(Boolean(body.waitingForTeacher));
         const nextPlayers = body.players ?? [];
         setPlayers(nextPlayers);
-        setResult(body.result ?? null);
-        setSelectedSuspectParticipantId((currentSuspectId) =>
-          nextPlayers.some((player) => player.participantId === currentSuspectId) ? currentSuspectId : ""
-        );
+        setResult(nextPhase === "results" ? body.result ?? null : null);
 
-        if (nextPhase !== "voting") {
+        if (nextPhase === "voting") {
+          setSelectedSuspectParticipantId((currentSuspectId) =>
+            nextPlayers.some((player) => player.participantId === currentSuspectId) ? currentSuspectId : ""
+          );
+        } else {
+          setSelectedSuspectParticipantId("");
           setVoteMessage("");
         }
 
@@ -414,6 +416,7 @@ export default function FindBedragerenStudentLobbyPage() {
   const isDiscussion = phase === "discussion";
   const isVoting = phase === "voting";
   const isResults = phase === "results";
+  const isFinished = phase === "finished";
   const visibleRole = isRoleVisible ? roleView : null;
   const resultHeadline =
     !result || result.totalVotes === 0
@@ -458,6 +461,58 @@ export default function FindBedragerenStudentLobbyPage() {
             ? "Vent på læreren. Læreren kan fordele roller igen, hvis du er kommet sent ind."
             : "Kig for dig selv. Din rolle er privat.";
   const selectablePlayers = players.filter((player) => player.participantId !== participantId);
+
+  if (isFinished) {
+    return (
+      <main className={`min-h-screen bg-[#f5f3ef] px-5 py-7 text-slate-950 sm:px-6 sm:py-8 ${poppins.className}`}>
+        <div className="mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-2xl items-center justify-center">
+          <section className="w-full overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-xl">
+            <div className="bg-slate-950 px-6 py-9 text-center text-white sm:px-8 sm:py-11">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-300 text-slate-950">
+                <Trophy className="h-7 w-7" />
+              </div>
+              <p className="mt-5 text-sm font-black uppercase tracking-[0.18em] text-amber-100">
+                Find Bedrageren
+              </p>
+              <h1 className={`mt-3 text-4xl font-black leading-tight sm:text-5xl ${rubik.className}`}>
+                Spillet er slut
+              </h1>
+              <p className="mx-auto mt-4 max-w-xl text-base font-semibold leading-7 text-slate-200">
+                Tak for spillet. Vent på læreren, hvis I skal spille igen.
+              </p>
+            </div>
+
+            <div className="px-5 py-6 text-center sm:px-8 sm:py-8">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Navn</p>
+                  <p className="mt-2 truncate text-xl font-black text-slate-950">{studentName}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Status</p>
+                  <p className="mt-2 text-xl font-black text-slate-950">{phaseLabel}</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void loadSession("refresh")}
+                disabled={isRefreshing}
+                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-800 shadow-sm transition hover:border-violet-400 hover:text-slate-950 disabled:cursor-wait disabled:opacity-60 sm:w-auto"
+              >
+                {isRefreshing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                {isRefreshing ? "Opdaterer..." : "Opdater"}
+              </button>
+            </div>
+          </section>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className={`min-h-screen bg-[#f5f3ef] px-5 py-7 text-slate-950 sm:px-6 sm:py-8 ${poppins.className}`}>

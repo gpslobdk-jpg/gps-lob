@@ -571,12 +571,14 @@ export default async function FindBedragerenLivePage({ params }: PageProps) {
           </div>
 
           <aside className="space-y-6">
-            <StartFindBedragerenGameButton
-              sessionId={liveSession.id}
-              phase={findSession.phase}
-              playerCount={playerCount}
-              impostorCount={impostorCount}
-            />
+            {findSession.phase !== "results" && findSession.phase !== "finished" ? (
+              <StartFindBedragerenGameButton
+                sessionId={liveSession.id}
+                phase={findSession.phase}
+                playerCount={playerCount}
+                impostorCount={impostorCount}
+              />
+            ) : null}
 
             <StartFindBedragerenDiscussionButton
               sessionId={liveSession.id}
