@@ -18,6 +18,7 @@ import { normalizeRaceType, RACE_TYPES } from "@/utils/gpsRuns";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
 import StartFindBedragerenGameButton from "./StartFindBedragerenGameButton";
+import StartFindBedragerenDiscussionButton from "./StartFindBedragerenDiscussionButton";
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -75,7 +76,7 @@ type FindBedragerenPlayerRow = {
 const phaseLabels: Record<string, string> = {
   lobby: "Lobby",
   reveal: "Rollevisning",
-  discussion: "Samtale",
+  discussion: "Diskussion",
   voting: "Afstemning",
   results: "Resultater",
   finished: "Afsluttet",
@@ -84,7 +85,7 @@ const phaseLabels: Record<string, string> = {
 const phaseDescriptions: Record<string, string> = {
   lobby: "Eleverne joiner med koden og venter på, at rollerne bliver fordelt.",
   reveal: "Rollerne er fordelt. Eleverne kan privat se deres rolle på deres egen skærm.",
-  discussion: "Klassen giver hints og prøver at finde bedrageren.",
+  discussion: "Diskussionen er i gang.",
   voting: "Eleverne stemmer på, hvem de tror er bedrageren.",
   results: "Resultatet kan gennemgås med klassen.",
   finished: "Spillet er afsluttet.",
@@ -470,6 +471,12 @@ export default async function FindBedragerenLivePage({ params }: PageProps) {
               phase={findSession.phase}
               playerCount={playerCount}
               impostorCount={impostorCount}
+            />
+
+            <StartFindBedragerenDiscussionButton
+              sessionId={liveSession.id}
+              phase={findSession.phase}
+              rolesAssigned={Boolean(findSession.roles_assigned_at)}
             />
 
             <section className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">

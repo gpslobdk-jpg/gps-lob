@@ -61,7 +61,7 @@ type RoleView = {
 const phaseLabels: Record<string, string> = {
   lobby: "Lobby",
   reveal: "Rollevisning",
-  discussion: "Samtale",
+  discussion: "Diskussion",
   voting: "Afstemning",
   results: "Resultater",
   finished: "Afsluttet",
@@ -311,18 +311,30 @@ export default function FindBedragerenStudentLobbyPage() {
     return <ErrorState message={error} />;
   }
 
+  const isDiscussion = phase === "discussion";
+  const visibleRole = isRoleVisible ? roleView : null;
+  const discussionDescription =
+    visibleRole?.role === "civilian"
+      ? "Du kender ordet. Giv hints, lyt til de andre og prøv at finde bedrageren."
+      : visibleRole?.role === "impostor"
+        ? "Du kender ikke ordet. Lyt godt efter, bluff roligt og prøv ikke at blive afsløret."
+        : "Se din rolle først, hvis du ikke har nået det. Din rolle er privat.";
   const showWaitingForTeacher = phase === "lobby";
   const showRoleNotReady = !showWaitingForTeacher && (waitingForTeacher || !canRevealRole);
-  const statusTitle = showWaitingForTeacher
-    ? "Vent på læreren"
-    : showRoleNotReady
-      ? "Din rolle er ikke klar endnu"
-      : "Din rolle er klar";
-  const statusDescription = showWaitingForTeacher
-    ? "Når læreren starter spillet, får du din rolle her."
-    : showRoleNotReady
-      ? "Vent på læreren. Læreren kan fordele roller igen, hvis du er kommet sent ind."
-      : "Kig for dig selv. Din rolle er privat.";
+  const statusTitle = isDiscussion
+    ? "Diskussionen er i gang"
+    : showWaitingForTeacher
+      ? "Vent på læreren"
+      : showRoleNotReady
+        ? "Din rolle er ikke klar endnu"
+        : "Din rolle er klar";
+  const statusDescription = isDiscussion
+    ? discussionDescription
+    : showWaitingForTeacher
+      ? "Når læreren starter spillet, får du din rolle her."
+      : showRoleNotReady
+        ? "Vent på læreren. Læreren kan fordele roller igen, hvis du er kommet sent ind."
+        : "Kig for dig selv. Din rolle er privat.";
 
   return (
     <main className={`min-h-screen bg-[#f5f3ef] px-5 py-7 text-slate-950 sm:px-6 sm:py-8 ${poppins.className}`}>
@@ -379,10 +391,12 @@ export default function FindBedragerenStudentLobbyPage() {
                       </div>
                       <div>
                         <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-800">
-                          Rolle klar
+                          {isDiscussion ? "Diskussion" : "Rolle klar"}
                         </p>
                         <p className="mt-2 text-base font-semibold leading-7 text-slate-700">
-                          Kig for dig selv. Din rolle er privat.
+                          {isDiscussion
+                            ? "Diskussionen er startet. Se din rolle først, hvis du ikke har nået det."
+                            : "Kig for dig selv. Din rolle er privat."}
                         </p>
                       </div>
                     </div>
@@ -402,7 +416,7 @@ export default function FindBedragerenStudentLobbyPage() {
                       <UserSearch className="h-7 w-7" />
                     </div>
                     <h2 className={`mt-5 text-center text-3xl font-black text-slate-950 ${rubik.className}`}>
-                      Du er bedrageren
+                      {isDiscussion ? "Diskussionen er i gang" : "Du er bedrageren"}
                     </h2>
                     <p className="mx-auto mt-4 max-w-xl text-center text-base font-semibold leading-7 text-slate-700">
                       Du kender ikke ordet. Lyt godt efter, bluff roligt og prøv ikke at blive afsløret.
@@ -424,7 +438,7 @@ export default function FindBedragerenStudentLobbyPage() {
                       <UserCheck className="h-7 w-7" />
                     </div>
                     <h2 className={`mt-5 text-center text-3xl font-black text-slate-950 ${rubik.className}`}>
-                      Du kender ordet
+                      {isDiscussion ? "Diskussionen er i gang" : "Du kender ordet"}
                     </h2>
                     <div className="mx-auto mt-5 max-w-xl rounded-[1.5rem] border border-slate-200 bg-white p-5 text-center shadow-sm">
                       <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
@@ -435,7 +449,9 @@ export default function FindBedragerenStudentLobbyPage() {
                       </p>
                     </div>
                     <p className="mx-auto mt-5 max-w-xl text-center text-base font-semibold leading-7 text-slate-700">
-                      Du skal hjælpe med at finde bedrageren uden at gøre det for nemt.
+                      {isDiscussion
+                        ? "Du kender ordet. Giv hints, lyt til de andre og prøv at finde bedrageren."
+                        : "Du skal hjælpe med at finde bedrageren uden at gøre det for nemt."}
                     </p>
                     <ul className="mt-5 grid gap-3 text-left sm:grid-cols-2">
                       {civilianRules.map((rule) => (
