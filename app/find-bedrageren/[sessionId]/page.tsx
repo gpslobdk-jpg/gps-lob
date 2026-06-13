@@ -35,6 +35,7 @@ type SessionResponse = {
   canRevealRole?: boolean;
   hasSeenRole?: boolean;
   waitingForTeacher?: boolean;
+  players?: PlayerOption[];
   error?: string;
 };
 
@@ -45,6 +46,17 @@ type RevealResponse = {
   secretWord?: string;
   hasSeenRole?: boolean;
   error?: string;
+};
+
+type VoteResponse = {
+  ok?: boolean;
+  status?: "created" | "updated";
+  error?: string;
+};
+
+type PlayerOption = {
+  participantId: string;
+  studentName: string;
 };
 
 type StoredParticipant = {
@@ -157,17 +169,23 @@ export default function FindBedragerenStudentLobbyPage() {
   const params = useParams<{ sessionId: string }>();
   const rawSessionId = params?.sessionId;
   const sessionId = Array.isArray(rawSessionId) ? rawSessionId[0] : rawSessionId ?? "";
+  const [participantId, setParticipantId] = useState("");
   const [studentName, setStudentName] = useState("");
   const [phase, setPhase] = useState("lobby");
   const [canRevealRole, setCanRevealRole] = useState(false);
   const [waitingForTeacher, setWaitingForTeacher] = useState(false);
   const [roleView, setRoleView] = useState<RoleView | null>(null);
+  const [players, setPlayers] = useState<PlayerOption[]>([]);
+  const [selectedSuspectParticipantId, setSelectedSuspectParticipantId] = useState("");
   const [isRoleVisible, setIsRoleVisible] = useState(false);
   const [error, setError] = useState("");
   const [revealError, setRevealError] = useState("");
+  const [voteError, setVoteError] = useState("");
+  const [voteMessage, setVoteMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isRevealing, setIsRevealing] = useState(false);
+  const [isSubmittingVote, setIsSubmittingVote] = useState(false);
 
   const phaseLabel = useMemo(() => phaseLabels[phase] ?? "Lobby", [phase]);
 
@@ -188,6 +206,7 @@ export default function FindBedragerenStudentLobbyPage() {
 
       setError("");
       setRevealError("");
+      setVoteError("");
 
       const stored = readStoredParticipant(sessionId);
 
@@ -208,14 +227,25 @@ export default function FindBedragerenStudentLobbyPage() {
         const nextStudentName = body.studentName ?? stored?.studentName ?? "Elev";
         const nextPhase = body.phase ?? "lobby";
         const nextCanRevealRole = Boolean(body.canRevealRole);
+        const nextParticipantId = body.participantId ?? stored?.participantId ?? "";
 
+        setParticipantId(nextParticipantId);
         setStudentName(nextStudentName);
         setPhase(nextPhase);
         setCanRevealRole(nextCanRevealRole);
         setWaitingForTeacher(Boolean(body.waitingForTeacher));
+        const nextPlayers = body.players ?? [];
+        setPlayers(nextPlayers);
+        setSelectedSuspectParticipantId((currentSuspectId) =>
+          nextPlayers.some((player) => player.participantId === currentSuspectId) ? currentSuspectId : ""
+        );
 
-        if (body.participantId) {
-          saveStoredParticipant(sessionId, body.participantId, nextStudentName);
+        if (nextPhase !== "voting") {
+          setVoteMessage("");
+        }
+
+        if (nextParticipantId) {
+          saveStoredParticipant(sessionId, nextParticipantId, nextStudentName);
         }
 
         if (mode === "refresh" || nextPhase === "lobby" || !nextCanRevealRole) {
@@ -291,6 +321,55 @@ export default function FindBedragerenStudentLobbyPage() {
     }
   }
 
+  async function handleSubmitVote() {
+    const stored = sessionId ? readStoredParticipant(sessionId) : null;
+    const voterParticipantId = participantId || stored?.participantId || "";
+    setVoteError("");
+    setVoteMessage("");
+
+    if (!voterParticipantId) {
+      setVoteError("Deltageren kunne ikke findes. Prøv at joine igen.");
+      return;
+    }
+
+    if (!selectedSuspectParticipantId) {
+      setVoteError("Vælg en spiller først.");
+      return;
+    }
+
+    if (selectedSuspectParticipantId === voterParticipantId) {
+      setVoteError("Du kan ikke stemme på dig selv.");
+      return;
+    }
+
+    setIsSubmittingVote(true);
+
+    try {
+      const response = await fetch("/api/find-bedrageren/vote", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sessionId,
+          participantId: voterParticipantId,
+          suspectParticipantId: selectedSuspectParticipantId,
+        }),
+      });
+      const body = (await response.json()) as VoteResponse;
+
+      if (!response.ok) {
+        throw new Error(body.error || "Kunne ikke gemme stemmen.");
+      }
+
+      setVoteMessage(body.status === "updated" ? "Din stemme er opdateret" : "Din stemme er registreret");
+    } catch (submitError) {
+      setVoteError(submitError instanceof Error ? submitError.message : "Kunne ikke gemme stemmen.");
+    } finally {
+      setIsSubmittingVote(false);
+    }
+  }
+
   if (isLoading) {
     return (
       <main className={`min-h-screen bg-[#f5f3ef] px-5 py-7 text-slate-950 sm:px-6 sm:py-8 ${poppins.className}`}>
@@ -312,6 +391,7 @@ export default function FindBedragerenStudentLobbyPage() {
   }
 
   const isDiscussion = phase === "discussion";
+  const isVoting = phase === "voting";
   const visibleRole = isRoleVisible ? roleView : null;
   const discussionDescription =
     visibleRole?.role === "civilian"
@@ -321,20 +401,25 @@ export default function FindBedragerenStudentLobbyPage() {
         : "Se din rolle først, hvis du ikke har nået det. Din rolle er privat.";
   const showWaitingForTeacher = phase === "lobby";
   const showRoleNotReady = !showWaitingForTeacher && (waitingForTeacher || !canRevealRole);
-  const statusTitle = isDiscussion
-    ? "Diskussionen er i gang"
-    : showWaitingForTeacher
-      ? "Vent på læreren"
-      : showRoleNotReady
-        ? "Din rolle er ikke klar endnu"
-        : "Din rolle er klar";
-  const statusDescription = isDiscussion
-    ? discussionDescription
-    : showWaitingForTeacher
-      ? "Når læreren starter spillet, får du din rolle her."
-      : showRoleNotReady
-        ? "Vent på læreren. Læreren kan fordele roller igen, hvis du er kommet sent ind."
-        : "Kig for dig selv. Din rolle er privat.";
+  const statusTitle = isVoting
+    ? "Stem på bedrageren"
+    : isDiscussion
+      ? "Diskussionen er i gang"
+      : showWaitingForTeacher
+        ? "Vent på læreren"
+        : showRoleNotReady
+          ? "Din rolle er ikke klar endnu"
+          : "Din rolle er klar";
+  const statusDescription = isVoting
+    ? "Vælg den person, du tror er bedrageren."
+    : isDiscussion
+      ? discussionDescription
+      : showWaitingForTeacher
+        ? "Når læreren starter spillet, får du din rolle her."
+        : showRoleNotReady
+          ? "Vent på læreren. Læreren kan fordele roller igen, hvis du er kommet sent ind."
+          : "Kig for dig selv. Din rolle er privat.";
+  const selectablePlayers = players.filter((player) => player.participantId !== participantId);
 
   return (
     <main className={`min-h-screen bg-[#f5f3ef] px-5 py-7 text-slate-950 sm:px-6 sm:py-8 ${poppins.className}`}>
@@ -480,6 +565,79 @@ export default function FindBedragerenStudentLobbyPage() {
                 {revealError ? (
                   <p className="mt-4 rounded-2xl border border-amber-300 bg-white px-4 py-3 text-sm font-bold leading-6 text-amber-900">
                     {revealError}
+                  </p>
+                ) : null}
+              </section>
+            ) : null}
+
+            {isVoting ? (
+              <section className="mt-6 rounded-[1.5rem] border border-violet-200 bg-violet-50 p-5 sm:p-6">
+                <div>
+                  <p className="text-sm font-black uppercase tracking-[0.16em] text-violet-700">Afstemning</p>
+                  <h2 className={`mt-2 text-3xl font-black text-slate-950 ${rubik.className}`}>
+                    Stem på den, du tror er bedrageren
+                  </h2>
+                  <p className="mt-3 text-sm font-semibold leading-6 text-slate-700">
+                    Vælg én af de andre spillere. Du kan ændre din stemme, så længe afstemningen er i gang.
+                  </p>
+                </div>
+
+                {selectablePlayers.length > 0 ? (
+                  <div className="mt-5 grid gap-3">
+                    {selectablePlayers.map((player) => {
+                      const isSelected = selectedSuspectParticipantId === player.participantId;
+
+                      return (
+                        <button
+                          key={player.participantId}
+                          type="button"
+                          onClick={() => {
+                            setSelectedSuspectParticipantId(player.participantId);
+                            setVoteError("");
+                            setVoteMessage("");
+                          }}
+                          aria-pressed={isSelected}
+                          className={`rounded-2xl border px-4 py-4 text-left text-base font-black transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-100 ${
+                            isSelected
+                              ? "border-violet-500 bg-white text-violet-950 shadow-sm"
+                              : "border-violet-100 bg-white/70 text-slate-800 hover:border-violet-300 hover:bg-white"
+                          }`}
+                        >
+                          {player.studentName}
+                          {isSelected ? (
+                            <span className="ml-3 rounded-full bg-violet-100 px-2.5 py-1 text-xs font-black text-violet-800">
+                              Valgt
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="mt-5 rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm font-bold leading-6 text-amber-900">
+                    Der er ikke andre spillere at stemme på endnu.
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => void handleSubmitVote()}
+                  disabled={isSubmittingVote || !selectedSuspectParticipantId || selectablePlayers.length === 0}
+                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-4 text-base font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  {isSubmittingVote ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
+                  {isSubmittingVote ? "Gemmer stemme..." : "Afgiv stemme"}
+                </button>
+
+                {voteMessage ? (
+                  <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold leading-6 text-emerald-800">
+                    {voteMessage}
+                  </p>
+                ) : null}
+
+                {voteError ? (
+                  <p className="mt-4 rounded-2xl border border-amber-300 bg-white px-4 py-3 text-sm font-bold leading-6 text-amber-900">
+                    {voteError}
                   </p>
                 ) : null}
               </section>

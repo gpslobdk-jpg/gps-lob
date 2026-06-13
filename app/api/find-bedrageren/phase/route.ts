@@ -33,7 +33,7 @@ type SupabaseErrorLike = {
   message?: unknown;
 };
 
-const ALLOWED_NEXT_PHASE = "discussion";
+const ALLOWED_NEXT_PHASES = new Set(["discussion", "voting"]);
 
 function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     return respond({ error: "Lobbyen mangler." }, 400);
   }
 
-  if (nextPhase !== ALLOWED_NEXT_PHASE) {
+  if (!ALLOWED_NEXT_PHASES.has(nextPhase)) {
     return respond({ error: "Denne fase kan ikke startes endnu." }, 400);
   }
 
@@ -145,21 +145,25 @@ export async function POST(request: Request) {
       return respond({ error: "Find Bedrageren-lobbyen blev ikke fundet." }, 404);
     }
 
-    if (!findSession.roles_assigned_at) {
+    if (nextPhase === "discussion" && !findSession.roles_assigned_at) {
       return respond({ error: "Roller skal fordeles, før diskussionen kan starte." }, 409);
     }
 
-    if (findSession.phase === ALLOWED_NEXT_PHASE) {
-      return respond({ ok: true, phase: ALLOWED_NEXT_PHASE });
+    if (findSession.phase === nextPhase) {
+      return respond({ ok: true, phase: nextPhase });
     }
 
-    if (findSession.phase !== "reveal") {
+    if (nextPhase === "discussion" && findSession.phase !== "reveal") {
       return respond({ error: "Diskussionen kan først startes efter rollevisning." }, 409);
+    }
+
+    if (nextPhase === "voting" && findSession.phase !== "discussion") {
+      return respond({ error: "Afstemningen kan først startes efter diskussionen." }, 409);
     }
 
     const { error: phaseUpdateError } = await adminSupabase
       .from("find_bedrageren_sessions")
-      .update({ phase: ALLOWED_NEXT_PHASE })
+      .update({ phase: nextPhase })
       .eq("live_session_id", liveSession.id)
       .eq("gps_run_id", run.id);
 
@@ -167,7 +171,7 @@ export async function POST(request: Request) {
       throw new Error(phaseUpdateError.message);
     }
 
-    return respond({ ok: true, phase: ALLOWED_NEXT_PHASE });
+    return respond({ ok: true, phase: nextPhase });
   } catch (error) {
     console.error("Find Bedrageren-faseskift fejlede.");
     await logHandledServerError({

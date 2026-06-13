@@ -31,6 +31,11 @@ type FindBedragerenPlayerRevealRow = FindBedragerenPlayerStatusRow & {
   player_role: string | null;
 };
 
+type FindBedragerenSafePlayerRow = {
+  participant_id: string;
+  student_name: string | null;
+};
+
 type SupabaseErrorLike = {
   message?: unknown;
 };
@@ -166,6 +171,21 @@ export async function GET(request: NextRequest) {
       return respond({ error: "Du er ikke med i dette spil endnu." }, 404);
     }
 
+    const { data: playersData, error: playersError } = await adminSupabase
+      .from("find_bedrageren_players")
+      .select("participant_id,student_name")
+      .eq("live_session_id", sessionId)
+      .order("created_at", { ascending: true });
+
+    if (playersError) {
+      throw new Error(playersError.message);
+    }
+
+    const players = ((playersData ?? []) as FindBedragerenSafePlayerRow[]).map((sessionPlayer) => ({
+      participantId: sessionPlayer.participant_id,
+      studentName: asTrimmedString(sessionPlayer.student_name) || "Elev",
+    }));
+
     const canRevealRole =
       ROLE_VISIBLE_PHASES.has(findSession.phase) &&
       isPlayerAssigned(player, findSession.roles_assigned_at);
@@ -178,6 +198,7 @@ export async function GET(request: NextRequest) {
       canRevealRole,
       hasSeenRole: Boolean(player.has_seen_role),
       waitingForTeacher: findSession.phase !== "lobby" && !canRevealRole,
+      players,
     });
 
     return withParticipantCookie(response, sessionId, participantId);
