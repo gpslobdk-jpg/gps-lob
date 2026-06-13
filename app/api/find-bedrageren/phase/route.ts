@@ -33,7 +33,7 @@ type SupabaseErrorLike = {
   message?: unknown;
 };
 
-const ALLOWED_NEXT_PHASES = new Set(["discussion", "voting"]);
+const ALLOWED_NEXT_PHASES = new Set(["discussion", "voting", "results"]);
 
 function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -161,6 +161,10 @@ export async function POST(request: Request) {
       return respond({ error: "Afstemningen kan først startes efter diskussionen." }, 409);
     }
 
+    if (nextPhase === "results" && findSession.phase !== "voting") {
+      return respond({ error: "Resultatet kan først vises efter afstemningen." }, 409);
+    }
+
     const { error: phaseUpdateError } = await adminSupabase
       .from("find_bedrageren_sessions")
       .update({ phase: nextPhase })
@@ -183,6 +187,6 @@ export async function POST(request: Request) {
       routeType: "route",
     });
 
-    return respond({ error: "Kunne ikke starte diskussionen lige nu." }, 500);
+    return respond({ error: "Kunne ikke skifte fase lige nu." }, 500);
   }
 }

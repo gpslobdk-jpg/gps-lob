@@ -9,6 +9,7 @@ import {
   KeyRound,
   ListChecks,
   RefreshCw,
+  Trophy,
   UserCheck,
   UserSearch,
   Users,
@@ -73,6 +74,33 @@ type FindBedragerenPlayerRow = {
   created_at: string | null;
 };
 
+type FindBedragerenResultPlayerRow = {
+  participant_id: string;
+  student_name: string | null;
+  player_role: string | null;
+};
+
+type FindBedragerenVoteResultRow = {
+  suspect_participant_id: string | null;
+};
+
+type FindBedragerenResultSuspect = {
+  participantId: string;
+  studentName: string;
+  voteCount: number;
+  isImpostor: boolean;
+};
+
+type FindBedragerenResult = {
+  topSuspectParticipantId: string | null;
+  topSuspectName: string | null;
+  topSuspectIsImpostor: boolean | null;
+  voteCount: number;
+  totalVotes: number;
+  tied: boolean;
+  suspects: FindBedragerenResultSuspect[];
+};
+
 const phaseLabels: Record<string, string> = {
   lobby: "Lobby",
   reveal: "Rollevisning",
@@ -126,6 +154,55 @@ function isPlayerAssigned(playerCreatedAt: string | null | undefined, rolesAssig
 function getPhaseIndex(phase: string) {
   const index = phaseOrder.indexOf(phase);
   return index >= 0 ? index : 0;
+}
+
+function buildResult(
+  players: FindBedragerenResultPlayerRow[],
+  votes: FindBedragerenVoteResultRow[]
+): FindBedragerenResult {
+  const voteCounts = new Map(players.map((player) => [player.participant_id, 0]));
+  let totalVotes = 0;
+
+  votes.forEach((vote) => {
+    const suspectId = asDisplayText(vote.suspect_participant_id, "");
+    if (voteCounts.has(suspectId)) {
+      voteCounts.set(suspectId, (voteCounts.get(suspectId) ?? 0) + 1);
+      totalVotes += 1;
+    }
+  });
+
+  const suspects = players.map((player) => ({
+    participantId: player.participant_id,
+    studentName: asDisplayText(player.student_name, "Elev"),
+    voteCount: voteCounts.get(player.participant_id) ?? 0,
+    isImpostor: player.player_role === "impostor",
+  }));
+  if (totalVotes === 0 || suspects.length === 0) {
+    return {
+      topSuspectParticipantId: null,
+      topSuspectName: null,
+      topSuspectIsImpostor: null,
+      voteCount: 0,
+      totalVotes,
+      tied: false,
+      suspects,
+    };
+  }
+
+  const topVoteCount = Math.max(...suspects.map((suspect) => suspect.voteCount));
+  const topSuspects = suspects.filter((suspect) => suspect.voteCount === topVoteCount && topVoteCount > 0);
+  const tied = topSuspects.length > 1;
+  const topSuspect = tied ? null : topSuspects[0] ?? null;
+
+  return {
+    topSuspectParticipantId: topSuspect?.participantId ?? null,
+    topSuspectName: topSuspect?.studentName ?? null,
+    topSuspectIsImpostor: topSuspect ? topSuspect.isImpostor : null,
+    voteCount: topVoteCount,
+    totalVotes,
+    tied,
+    suspects,
+  };
 }
 
 export default async function FindBedragerenLivePage({ params }: PageProps) {
@@ -199,6 +276,34 @@ export default async function FindBedragerenLivePage({ params }: PageProps) {
   }
 
   const players = (playersData ?? []) as FindBedragerenPlayerRow[];
+  let result: FindBedragerenResult | null = null;
+
+  if (findSession.phase === "results") {
+    const { data: resultPlayersData, error: resultPlayersError } = await adminSupabase
+      .from("find_bedrageren_players")
+      .select("participant_id,student_name,player_role")
+      .eq("live_session_id", liveSession.id)
+      .order("created_at", { ascending: true });
+
+    if (resultPlayersError) {
+      throw new Error(resultPlayersError.message);
+    }
+
+    const { data: votesData, error: votesError } = await adminSupabase
+      .from("find_bedrageren_votes")
+      .select("suspect_participant_id")
+      .eq("live_session_id", liveSession.id);
+
+    if (votesError) {
+      throw new Error(votesError.message);
+    }
+
+    result = buildResult(
+      (resultPlayersData ?? []) as FindBedragerenResultPlayerRow[],
+      (votesData ?? []) as FindBedragerenVoteResultRow[]
+    );
+  }
+
   const title = asDisplayText(run.title, "Find Bedrageren");
   const subject = asDisplayText(run.subject, "Generelt");
   const joinPin = asDisplayText(liveSession.pin, "Ingen kode");
@@ -478,6 +583,60 @@ export default async function FindBedragerenLivePage({ params }: PageProps) {
               phase={findSession.phase}
               rolesAssigned={Boolean(findSession.roles_assigned_at)}
             />
+
+            {findSession.phase === "results" && result ? (
+              <section className="overflow-hidden rounded-[1.5rem] border border-slate-900 bg-slate-950 text-white shadow-lg">
+                <div className="border-b border-white/10 bg-white/5 p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-300 text-slate-950">
+                      <Trophy className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-100">
+                        Resultat
+                      </p>
+                      <h2 className={`mt-2 text-3xl font-black leading-tight ${rubik.className}`}>
+                        {result.totalVotes === 0
+                          ? "Der er endnu ingen registrerede stemmer."
+                          : result.tied
+                            ? "Der er stemmelighed."
+                            : `Flest stemmer gik til: ${result.topSuspectName ?? "Ukendt"}`}
+                      </h2>
+                      {!result.tied && result.totalVotes > 0 ? (
+                        <p className="mt-3 text-base font-bold leading-7 text-slate-200">
+                          {result.topSuspectIsImpostor
+                            ? "Klassen fandt bedrageren."
+                            : "Bedrageren slap igennem."}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                {result.suspects.length > 0 ? (
+                  <ul className="divide-y divide-white/10">
+                    {result.suspects.map((suspect) => (
+                      <li
+                        key={suspect.participantId}
+                        className="flex items-center justify-between gap-3 px-6 py-4"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-white">{suspect.studentName}</p>
+                          {suspect.isImpostor ? (
+                            <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-amber-100">
+                              Bedrager
+                            </p>
+                          ) : null}
+                        </div>
+                        <span className="shrink-0 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-black text-white">
+                          {suspect.voteCount} stemme{suspect.voteCount === 1 ? "" : "r"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </section>
+            ) : null}
 
             <section className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-start gap-4">

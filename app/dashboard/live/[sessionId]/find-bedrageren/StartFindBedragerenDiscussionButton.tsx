@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, MessageCircle, Vote } from "lucide-react";
+import { Loader2, MessageCircle, Trophy, Vote } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -23,7 +23,7 @@ export default function StartFindBedragerenDiscussionButton({
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function handlePhaseChange(nextPhase: "discussion" | "voting") {
+  async function handlePhaseChange(nextPhase: "discussion" | "voting" | "results") {
     setError("");
 
     if (nextPhase === "discussion" && !rolesAssigned) {
@@ -90,16 +90,46 @@ export default function StartFindBedragerenDiscussionButton({
 
   if (phase === "voting") {
     return (
+      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">Næste fase</p>
+          <h2 className="mt-2 text-2xl font-black text-slate-950">Vis resultat</h2>
+          <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+            Når alle har stemt, kan du vise resultatet for klassen.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => void handlePhaseChange("results")}
+          disabled={isSubmitting}
+          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-4 text-base font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Trophy className="h-5 w-5" />}
+          {isSubmitting ? "Viser resultat..." : "Vis resultat"}
+        </button>
+
+        {error ? (
+          <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">
+            {error}
+          </p>
+        ) : null}
+      </section>
+    );
+  }
+
+  if (phase === "results") {
+    return (
       <section className="rounded-[1.5rem] border border-emerald-200 bg-emerald-50 p-6 shadow-sm">
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white">
-            <Vote className="h-5 w-5" />
+            <Trophy className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.16em] text-emerald-700">Afstemning</p>
-            <h2 className="mt-2 text-2xl font-black text-slate-950">Afstemningen er i gang</h2>
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-emerald-700">Resultat</p>
+            <h2 className="mt-2 text-2xl font-black text-slate-950">Resultatet er vist</h2>
             <p className="mt-3 text-sm font-semibold leading-6 text-slate-700">
-              Eleverne stemmer nu på den, de mistænker.
+              Klassen kan nu se, hvem der fik flest stemmer.
             </p>
           </div>
         </div>

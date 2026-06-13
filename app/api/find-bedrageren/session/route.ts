@@ -36,6 +36,31 @@ type FindBedragerenSafePlayerRow = {
   student_name: string | null;
 };
 
+type FindBedragerenResultPlayerRow = FindBedragerenSafePlayerRow & {
+  player_role: string | null;
+};
+
+type FindBedragerenVoteResultRow = {
+  suspect_participant_id: string | null;
+};
+
+type FindBedragerenResultSuspect = {
+  participantId: string;
+  studentName: string;
+  voteCount: number;
+  isImpostor?: boolean;
+};
+
+type FindBedragerenResult = {
+  topSuspectParticipantId: string | null;
+  topSuspectName: string | null;
+  topSuspectIsImpostor: boolean | null;
+  voteCount: number;
+  totalVotes: number;
+  tied: boolean;
+  suspects: FindBedragerenResultSuspect[];
+};
+
 type SupabaseErrorLike = {
   message?: unknown;
 };
@@ -108,6 +133,56 @@ function withParticipantCookie(response: NextResponse, sessionId: string, partic
   });
 
   return response;
+}
+
+function buildResult(
+  players: FindBedragerenResultPlayerRow[],
+  votes: FindBedragerenVoteResultRow[]
+): FindBedragerenResult {
+  const voteCounts = new Map(players.map((player) => [player.participant_id, 0]));
+  let totalVotes = 0;
+
+  votes.forEach((vote) => {
+    const suspectId = asTrimmedString(vote.suspect_participant_id);
+    if (voteCounts.has(suspectId)) {
+      voteCounts.set(suspectId, (voteCounts.get(suspectId) ?? 0) + 1);
+      totalVotes += 1;
+    }
+  });
+
+  const suspects = players.map((player) => ({
+    participantId: player.participant_id,
+    studentName: asTrimmedString(player.student_name) || "Elev",
+    voteCount: voteCounts.get(player.participant_id) ?? 0,
+    isImpostor: player.player_role === "impostor",
+  }));
+
+  if (totalVotes === 0 || suspects.length === 0) {
+    return {
+      topSuspectParticipantId: null,
+      topSuspectName: null,
+      topSuspectIsImpostor: null,
+      voteCount: 0,
+      totalVotes,
+      tied: false,
+      suspects,
+    };
+  }
+
+  const topVoteCount = Math.max(...suspects.map((suspect) => suspect.voteCount));
+  const topSuspects = suspects.filter((suspect) => suspect.voteCount === topVoteCount && topVoteCount > 0);
+  const tied = topSuspects.length > 1;
+  const topSuspect = tied ? null : topSuspects[0] ?? null;
+
+  return {
+    topSuspectParticipantId: topSuspect?.participantId ?? null,
+    topSuspectName: topSuspect?.studentName ?? null,
+    topSuspectIsImpostor: topSuspect ? topSuspect.isImpostor === true : null,
+    voteCount: topVoteCount,
+    totalVotes,
+    tied,
+    suspects,
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -186,6 +261,34 @@ export async function GET(request: NextRequest) {
       studentName: asTrimmedString(sessionPlayer.student_name) || "Elev",
     }));
 
+    let result: FindBedragerenResult | null = null;
+
+    if (findSession.phase === "results") {
+      const { data: resultPlayersData, error: resultPlayersError } = await adminSupabase
+        .from("find_bedrageren_players")
+        .select("participant_id,student_name,player_role")
+        .eq("live_session_id", sessionId)
+        .order("created_at", { ascending: true });
+
+      if (resultPlayersError) {
+        throw new Error(resultPlayersError.message);
+      }
+
+      const { data: votesData, error: votesError } = await adminSupabase
+        .from("find_bedrageren_votes")
+        .select("suspect_participant_id")
+        .eq("live_session_id", sessionId);
+
+      if (votesError) {
+        throw new Error(votesError.message);
+      }
+
+      result = buildResult(
+        (resultPlayersData ?? []) as FindBedragerenResultPlayerRow[],
+        (votesData ?? []) as FindBedragerenVoteResultRow[]
+      );
+    }
+
     const canRevealRole =
       ROLE_VISIBLE_PHASES.has(findSession.phase) &&
       isPlayerAssigned(player, findSession.roles_assigned_at);
@@ -199,6 +302,7 @@ export async function GET(request: NextRequest) {
       hasSeenRole: Boolean(player.has_seen_role),
       waitingForTeacher: findSession.phase !== "lobby" && !canRevealRole,
       players,
+      result,
     });
 
     return withParticipantCookie(response, sessionId, participantId);

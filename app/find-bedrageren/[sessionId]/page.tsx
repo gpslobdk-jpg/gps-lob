@@ -8,6 +8,7 @@ import {
   Loader2,
   RefreshCw,
   Shield,
+  Trophy,
   UserCheck,
   UserSearch,
 } from "lucide-react";
@@ -36,6 +37,7 @@ type SessionResponse = {
   hasSeenRole?: boolean;
   waitingForTeacher?: boolean;
   players?: PlayerOption[];
+  result?: FindBedragerenResult | null;
   error?: string;
 };
 
@@ -57,6 +59,23 @@ type VoteResponse = {
 type PlayerOption = {
   participantId: string;
   studentName: string;
+};
+
+type FindBedragerenResultSuspect = {
+  participantId: string;
+  studentName: string;
+  voteCount: number;
+  isImpostor?: boolean;
+};
+
+type FindBedragerenResult = {
+  topSuspectParticipantId: string | null;
+  topSuspectName: string | null;
+  topSuspectIsImpostor: boolean | null;
+  voteCount: number;
+  totalVotes: number;
+  tied: boolean;
+  suspects: FindBedragerenResultSuspect[];
 };
 
 type StoredParticipant = {
@@ -176,6 +195,7 @@ export default function FindBedragerenStudentLobbyPage() {
   const [waitingForTeacher, setWaitingForTeacher] = useState(false);
   const [roleView, setRoleView] = useState<RoleView | null>(null);
   const [players, setPlayers] = useState<PlayerOption[]>([]);
+  const [result, setResult] = useState<FindBedragerenResult | null>(null);
   const [selectedSuspectParticipantId, setSelectedSuspectParticipantId] = useState("");
   const [isRoleVisible, setIsRoleVisible] = useState(false);
   const [error, setError] = useState("");
@@ -236,6 +256,7 @@ export default function FindBedragerenStudentLobbyPage() {
         setWaitingForTeacher(Boolean(body.waitingForTeacher));
         const nextPlayers = body.players ?? [];
         setPlayers(nextPlayers);
+        setResult(body.result ?? null);
         setSelectedSuspectParticipantId((currentSuspectId) =>
           nextPlayers.some((player) => player.participantId === currentSuspectId) ? currentSuspectId : ""
         );
@@ -392,7 +413,20 @@ export default function FindBedragerenStudentLobbyPage() {
 
   const isDiscussion = phase === "discussion";
   const isVoting = phase === "voting";
+  const isResults = phase === "results";
   const visibleRole = isRoleVisible ? roleView : null;
+  const resultHeadline =
+    !result || result.totalVotes === 0
+      ? "Der blev ikke registreret nogen stemmer."
+      : result.tied
+        ? "Der er stemmelighed."
+        : `Flest stemmer gik til: ${result.topSuspectName ?? "Ukendt"}`;
+  const resultOutcome =
+    result && !result.tied && result.totalVotes > 0
+      ? result.topSuspectIsImpostor
+        ? "I fandt bedrageren."
+        : "Bedrageren slap igennem."
+      : "";
   const discussionDescription =
     visibleRole?.role === "civilian"
       ? "Du kender ordet. Giv hints, lyt til de andre og prøv at finde bedrageren."
@@ -401,24 +435,28 @@ export default function FindBedragerenStudentLobbyPage() {
         : "Se din rolle først, hvis du ikke har nået det. Din rolle er privat.";
   const showWaitingForTeacher = phase === "lobby";
   const showRoleNotReady = !showWaitingForTeacher && (waitingForTeacher || !canRevealRole);
-  const statusTitle = isVoting
-    ? "Stem på bedrageren"
-    : isDiscussion
-      ? "Diskussionen er i gang"
-      : showWaitingForTeacher
-        ? "Vent på læreren"
-        : showRoleNotReady
-          ? "Din rolle er ikke klar endnu"
-          : "Din rolle er klar";
-  const statusDescription = isVoting
-    ? "Vælg den person, du tror er bedrageren."
-    : isDiscussion
-      ? discussionDescription
-      : showWaitingForTeacher
-        ? "Når læreren starter spillet, får du din rolle her."
-        : showRoleNotReady
-          ? "Vent på læreren. Læreren kan fordele roller igen, hvis du er kommet sent ind."
-          : "Kig for dig selv. Din rolle er privat.";
+  const statusTitle = isResults
+    ? "Resultatet er klar"
+    : isVoting
+      ? "Stem på bedrageren"
+      : isDiscussion
+        ? "Diskussionen er i gang"
+        : showWaitingForTeacher
+          ? "Vent på læreren"
+          : showRoleNotReady
+            ? "Din rolle er ikke klar endnu"
+            : "Din rolle er klar";
+  const statusDescription = isResults
+    ? resultOutcome || resultHeadline
+    : isVoting
+      ? "Vælg den person, du tror er bedrageren."
+      : isDiscussion
+        ? discussionDescription
+        : showWaitingForTeacher
+          ? "Når læreren starter spillet, får du din rolle her."
+          : showRoleNotReady
+            ? "Vent på læreren. Læreren kan fordele roller igen, hvis du er kommet sent ind."
+            : "Kig for dig selv. Din rolle er privat.";
   const selectablePlayers = players.filter((player) => player.participantId !== participantId);
 
   return (
@@ -639,6 +677,50 @@ export default function FindBedragerenStudentLobbyPage() {
                   <p className="mt-4 rounded-2xl border border-amber-300 bg-white px-4 py-3 text-sm font-bold leading-6 text-amber-900">
                     {voteError}
                   </p>
+                ) : null}
+              </section>
+            ) : null}
+
+            {isResults ? (
+              <section className="mt-6 overflow-hidden rounded-[1.75rem] border border-slate-900 bg-slate-950 text-white shadow-lg">
+                <div className="border-b border-white/10 bg-white/5 px-5 py-6 text-center sm:px-6">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-300 text-slate-950">
+                    <Trophy className="h-7 w-7" />
+                  </div>
+                  <p className="mt-5 text-sm font-black uppercase tracking-[0.18em] text-amber-100">
+                    Resultatet er klar
+                  </p>
+                  <h2 className={`mx-auto mt-3 max-w-xl text-3xl font-black leading-tight ${rubik.className}`}>
+                    {resultHeadline}
+                  </h2>
+                  {resultOutcome ? (
+                    <p className="mx-auto mt-4 max-w-xl text-lg font-black leading-7 text-slate-100">
+                      {resultOutcome}
+                    </p>
+                  ) : null}
+                </div>
+
+                {result?.suspects.length ? (
+                  <ul className="divide-y divide-white/10">
+                    {result.suspects.map((suspect) => (
+                      <li
+                        key={suspect.participantId}
+                        className="flex items-center justify-between gap-3 px-5 py-4 sm:px-6"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-base font-black text-white">{suspect.studentName}</p>
+                          {suspect.isImpostor ? (
+                            <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-amber-100">
+                              Bedrager
+                            </p>
+                          ) : null}
+                        </div>
+                        <span className="shrink-0 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-black text-white">
+                          {suspect.voteCount} stemme{suspect.voteCount === 1 ? "" : "r"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 ) : null}
               </section>
             ) : null}
