@@ -23,6 +23,7 @@ import {
   buildTeachingWeeks,
   courseCountOptions,
   createAnnualPlanDraft,
+  createStructuralCoursesForAi,
   getCommonGoalsIntro,
   getHolidayWeeks,
   gradeLevels,
@@ -32,6 +33,12 @@ import {
   subjects,
   type AnnualPlanDraft,
 } from "./annualPlanEngine";
+import { getGradeBand } from "./annualPlanEngine";
+import {
+  createMockAiAnnualPlanEnhancement,
+  type AnnualPlanAiInput,
+  type AnnualPlanAiOutput,
+} from "./annualPlanAiMock";
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -149,11 +156,11 @@ const buttonBaseClassName =
 
 const generationSteps = [
   "Læser dine valg",
-  "Finder relevante Fælles Mål",
-  "Tilpasser skoleår og ferieuger",
-  "Fordeler forløb hen over undervisningsugerne",
-  "Klargør emner, mål og aktiviteter",
-  "Bygger årsplanen",
+  "Finder relevant fagprofil og Fælles Mål-fokus",
+  "Låser skoleår, ferieuger og perioder",
+  "Forbereder AI-forslag (lokal demo)",
+  "Bygger årsplanen i 4 kolonner",
+  "Klargør billedidéer til senere",
 ] as const;
 
 export default function AarsplanGeneratorPage() {
@@ -270,7 +277,58 @@ export default function AarsplanGeneratorPage() {
     });
 
     const finishTimer = setTimeout(() => {
-      setGeneratedPlan(draft);
+      // Apply local mock-AI enhancement on top of the structural draft
+      const structural = createStructuralCoursesForAi({
+        subject: input.subject,
+        grade: input.gradeLevel,
+        schoolYear: input.schoolYear,
+        municipality: input.municipality,
+        lessonsPerWeek: Number(input.lessonsPerWeek),
+        courseCount: Number(input.courseCount),
+        wishes: input.specialThemes,
+        notes: input.aiNotes,
+      });
+
+      const aiInput: AnnualPlanAiInput = {
+        subject: input.subject,
+        grade: input.gradeLevel,
+        gradeBand: getGradeBand(input.gradeLevel),
+        schoolYear: input.schoolYear,
+        municipality: input.municipality,
+        lessonsPerWeek: Number(input.lessonsPerWeek),
+        courseCount: Number(input.courseCount),
+        wishes: input.specialThemes,
+        commonGoalsIntro: getCommonGoalsIntro(input.subject),
+        holidaySummary: getHolidayWeeks(input.schoolYear, input.municipality).map((h) => h.label),
+        structuralCourses: structural,
+      };
+
+      const aiOutput: AnnualPlanAiOutput = createMockAiAnnualPlanEnhancement(aiInput);
+
+      // Merge AI-enhancements into the draft (only text fields, preserving structure)
+      const enhanced = {
+        ...draft,
+        courses: draft.courses.map((course, idx) => {
+          const aiCourse = aiOutput.courses.find((c) => c.id === `${idx + 1}`);
+          if (!aiCourse) return course;
+
+          return {
+            ...course,
+            title: aiCourse.improvedTitle ?? course.title,
+            description: aiCourse.commonGoalsFocus ?? course.description,
+            activities: aiCourse.contentAndActivities ?? course.activities,
+            product: aiCourse.evaluation ?? course.product,
+            imagePrompt: aiCourse.imageIdea ?? course.imagePrompt,
+          };
+        }),
+        // attach teacher note to draft summary (rendered in preview)
+        summary: {
+          ...draft.summary,
+          teacherNote: aiOutput.teacherNote,
+        },
+      };
+
+      setGeneratedPlan(enhanced);
       setCurrentStep(4);
       setIsGenerating(false);
       generationTimersRef.current = [];
@@ -797,7 +855,16 @@ function AnnualPlanPreview({ plan }: { plan: AnnualPlanDraft }) {
               {chip}
             </span>
           ))}
+          <span className="rounded-lg border border-white/20 bg-white/12 px-3 py-2 text-xs font-black">AI-forslag: Lokal demo</span>
         </div>
+        {plan.summary.teacherNote ? (
+          <div className="mt-4">
+            <div className="rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-sm">
+              <p className="font-black">Lærer-note:</p>
+              <p className="mt-1 text-sm">{plan.summary.teacherNote}</p>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <section className="p-7 md:p-9">

@@ -45,6 +45,16 @@ export type AnnualPlanCourse = {
   pauseNote?: string;
 };
 
+// Structural course shape used as input to the mock-AI enhancer
+export type StructuralCourse = {
+  id: string;
+  periodLabel: string;
+  teachingWeeks: number;
+  estimatedLessons: number;
+  suggestedTitle: string;
+  focusArea: string;
+};
+
 export type AnnualPlanDraft = {
   title: string;
   subject: string;
@@ -62,8 +72,11 @@ export type AnnualPlanDraft = {
     totalLessons: number;
     courseCount: number;
     weeksUsed: number;
+    teacherNote?: string;
   };
 };
+
+export type AnnualPlanAiOverlayStatus = string[];
 
 export const subjects = [
   "Dansk",
@@ -425,4 +438,16 @@ export function createAnnualPlanDraft(input: AnnualPlanEngineInput): AnnualPlanD
       weeksUsed,
     },
   };
+}
+
+export function createStructuralCoursesForAi(input: AnnualPlanEngineInput) {
+  const draft = createAnnualPlanDraft(input);
+  return draft.courses.map((c, index) => ({
+    id: `${index + 1}`,
+    periodLabel: c.period,
+    teachingWeeks: c.teachingWeeks,
+    estimatedLessons: c.estimatedLessons,
+    suggestedTitle: c.title,
+    focusArea: c.focus,
+  }));
 }
