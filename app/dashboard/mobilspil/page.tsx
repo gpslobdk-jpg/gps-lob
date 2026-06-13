@@ -24,8 +24,8 @@ const gameCards = [
     howItWorks:
       "Sådan fungerer det: Læreren opretter et ord, eleverne får roller på mobilen, klassen diskuterer, stemmer og ser til sidst, om bedrageren blev afsløret.",
     flow: "Læreren vælger ord -> elever får roller -> diskussion -> afstemning -> resultat",
-    cta: "Opret spil",
-    href: "/dashboard/opret/find-bedrageren",
+    cta: "Åbn spil",
+    href: "/dashboard/mobilspil/find-bedrageren",
   },
 ];
 
