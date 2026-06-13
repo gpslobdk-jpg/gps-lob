@@ -399,7 +399,16 @@ export default function AarsplanGeneratorPage() {
                 Årsplan-generator
               </h1>
               <p className="mt-4 max-w-2xl text-base font-semibold leading-8 text-slate-700 md:text-lg">
-                Lav en overskuelig årsplan med få valg, tydelig struktur og lokale demo-data.
+                Lav et første udkast til en årsplan på få trin.
+              </p>
+              <p className="mt-3 max-w-2xl text-base font-semibold leading-7 text-slate-700 md:text-lg">
+                Generatoren bruger dine valg, Fælles Mål og skoleårets uger som ramme.
+              </p>
+              <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-700 md:text-lg">
+                Du kan justere planen bagefter. Senere kan AI hjælpe med efterredigering.
+              </p>
+              <p className="mt-4 text-sm font-semibold text-slate-700">
+                1. Vælg fag og klasse · 2. Vælg skoleår og kommune · 3. Generér et forslag · 4. Tilpas bagefter
               </p>
             </div>
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-bold leading-6 text-amber-950 shadow-sm">
@@ -415,9 +424,10 @@ export default function AarsplanGeneratorPage() {
               <div>
                 <p className="text-sm font-black text-slate-950">Årsplan med afsæt i Fælles Mål</p>
                 <p className="mt-2 max-w-4xl text-sm font-semibold leading-7 text-slate-700">
-                  Generatoren hjælper med at bygge en årsplan ud fra fag, klassetrin, skoleår og demo-ferieuger.
-                  Planen tager afsæt i Fælles Mål og giver et første forslag, som læreren bagefter kan justere,
-                  forkorte eller udbygge.
+                  Årsplanen bygges med afsæt i Fælles Mål, dine valg og skoleårets uger.
+                </p>
+                <p className="mt-2 max-w-4xl text-sm font-semibold leading-6 text-slate-700/75">
+                  Senere kan AI hjælpe med efterredigering.
                 </p>
               </div>
             </div>
@@ -475,7 +485,7 @@ export default function AarsplanGeneratorPage() {
                   eyebrow="Trin 1"
                   icon={<BookOpen className="h-6 w-6" />}
                   title="Fag og klassetrin"
-                  description="Vælg faget og klassen. Det styrer Fælles Mål-introen, fagprofilen og niveauet i årsplanen."
+                  description="Vælg fag og klassetrin."
                   titleId="step-one-title"
                 />
 
@@ -528,7 +538,7 @@ export default function AarsplanGeneratorPage() {
                   eyebrow="Trin 2"
                   icon={<Calendar className="h-6 w-6" />}
                   title="Skoleår og ferieplan"
-                  description="Vælg skoleår og kommune. Ferieplanen er demo-data og bruges til at fordele forløbene omkring ferieuger."
+                  description="Vælg skoleår og kommune."
                   titleId="step-two-title"
                 />
 
@@ -598,7 +608,7 @@ export default function AarsplanGeneratorPage() {
                   eyebrow="Trin 3"
                   icon={<Settings className="h-6 w-6" />}
                   title="Rammer og ekstra ønsker"
-                  description="Vælg kun de vigtigste rammer. Ekstra ønsker kan bruges til at præge første forløb i demo-planen."
+                  description="Angiv lektioner og antal forløb. Tilføj evt. ekstra ønsker."
                   titleId="step-three-title"
                 />
 
@@ -652,7 +662,7 @@ export default function AarsplanGeneratorPage() {
                   eyebrow="Trin 4"
                   icon={<Sparkles className="h-6 w-6" />}
                   title="Generér årsplan"
-                  description="Klik for at bygge en lokal årsplan ud fra Fælles Mål-intro, fagprofil, ferieuger og undervisningsuger. Der kaldes ingen API."
+                  description="Klik for at bygge et forslag."
                   titleId="step-four-title"
                 />
 
@@ -789,7 +799,7 @@ export default function AarsplanGeneratorPage() {
             <div className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 p-4">
               <p className="text-sm font-black text-emerald-950">Prototype-status</p>
               <p className="mt-2 text-sm font-semibold leading-6 text-emerald-950/75">
-                Lokal mock uden AI, API, DB, eksport eller billedgenerering.
+                AI hjælper med formuleringer. Uger, ferier og perioder fastholdes af årsplanmotoren.
               </p>
             </div>
           </aside>

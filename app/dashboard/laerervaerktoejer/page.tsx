@@ -20,12 +20,12 @@ const poppins = Poppins({
 
 const toolCards = [
   {
-    title: "Årsplan-generator",
-    label: "KOMMER SNART",
+    title: "Skal vi hjælpe dig med at lave en årsplan?",
+    label: "",
     description:
-      "Lav en årsplan ud fra fag, klassetrin, skoleår, kommune, ferieplan og Fælles Mål.",
+      "Brug Årsplan-generatoren til at lave et første udkast ud fra fag, klassetrin, skoleår og Fælles Mål.",
     secondaryText:
-      "Første version kommer til at hjælpe med struktur, perioder, forløb og en let forklaring af Fælles Mål i det valgte fag.",
+      "Du kan bagefter tilpasse planen og senere få AI til at hjælpe med efterredigering.",
     href: "/dashboard/laerervaerktoejer/aarsplan-generator",
     icon: Calendar,
   },
@@ -39,8 +39,23 @@ const focusAreas = [
 
 export default function LaerervaerktoejerPage() {
   return (
-    <main className={`min-h-screen bg-slate-50 text-slate-950 ${poppins.className}`}>
-      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 md:px-10 lg:px-12">
+    <main className={`relative min-h-screen overflow-hidden bg-slate-50 text-slate-950 ${poppins.className}`}>
+
+      {/* Background video (looping, muted, non-blocking) */}
+      <div className="absolute inset-0 -z-10 pointer-events-none">
+        <video
+          src="/baggrundlearen.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          className="w-full h-full object-cover opacity-80"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/30 backdrop-blur-sm" />
+      </div>
+
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 md:px-10 lg:px-12">
         <header className="flex items-center justify-between gap-4">
           <Link
             href="/dashboard"
@@ -123,7 +138,7 @@ export default function LaerervaerktoejerPage() {
                       href={tool.href}
                       className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-600 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:border-emerald-700 hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-100 md:w-fit"
                     >
-                      Åbn værktøj
+                      Start årsplan-generator
                       <ArrowRight className="h-4 w-4" />
                     </Link>
                   </div>
