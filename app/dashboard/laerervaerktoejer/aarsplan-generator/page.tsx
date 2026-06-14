@@ -29,12 +29,12 @@ import {
   getHolidayWeeks,
   gradeLevels,
   lessonsPerWeekOptions,
-  municipalities,
   schoolYears,
   subjects,
   type AnnualPlanDraft,
 } from "./annualPlanEngine";
 import { getGradeBand } from "./annualPlanEngine";
+import { GENERIC_HOLIDAY_PLAN_LABEL, municipalityOptions } from "./municipalities";
 import {
   createMockAiAnnualPlanEnhancement,
   type AnnualPlanAiInput,
@@ -194,7 +194,7 @@ export default function AarsplanGeneratorPage() {
   );
 
   const selectedSchoolYear = input.schoolYear || "2026/2027";
-  const selectedMunicipality = input.municipality || "Generisk ferieplan";
+  const selectedMunicipality = input.municipality || GENERIC_HOLIDAY_PLAN_LABEL;
   const previewHolidayWeeks = useMemo(
     () => getHolidayWeeks(selectedSchoolYear, selectedMunicipality),
     [selectedMunicipality, selectedSchoolYear],
@@ -554,7 +554,7 @@ export default function AarsplanGeneratorPage() {
                       onChange={(event) => updateInput("municipality", event.target.value)}
                     >
                       <option value="">Vælg kommune</option>
-                      {municipalities.map((municipality) => (
+                      {municipalityOptions.map((municipality) => (
                         <option key={municipality} value={municipality}>
                           {municipality}
                         </option>

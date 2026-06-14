@@ -4,6 +4,7 @@ import {
   type GradeBand,
   type SubjectProfile,
 } from "./subjectProfiles";
+import { GENERIC_HOLIDAY_PLAN_LABEL } from "./municipalities";
 
 export type { GradeBand, SubjectProfile };
 
@@ -113,13 +114,6 @@ export const gradeLevels = [
 
 export const schoolYears = ["2026/2027", "2027/2028"] as const;
 
-export const municipalities = [
-  "Faxe Kommune",
-  "Vordingborg Kommune",
-  "København",
-  "Generisk ferieplan",
-] as const;
-
 export const lessonsPerWeekOptions = ["1", "2", "3", "4", "5"] as const;
 export const courseCountOptions = ["4", "5", "6", "7", "8"] as const;
 
@@ -169,18 +163,18 @@ function getWinterHolidayWeek(schoolYear: string, municipality: string) {
     "2026/2027": {
       "Faxe Kommune": 7,
       "Vordingborg Kommune": 8,
-      København: 7,
-      "Generisk ferieplan": 7,
+      "Københavns Kommune": 7,
+      [GENERIC_HOLIDAY_PLAN_LABEL]: 7,
     },
     "2027/2028": {
       "Faxe Kommune": 8,
       "Vordingborg Kommune": 7,
-      København: 7,
-      "Generisk ferieplan": 8,
+      "Københavns Kommune": 7,
+      [GENERIC_HOLIDAY_PLAN_LABEL]: 8,
     },
   };
 
-  return winterWeeks[schoolYear]?.[municipality] ?? 7;
+  return winterWeeks[schoolYear]?.[municipality] ?? winterWeeks[schoolYear]?.[GENERIC_HOLIDAY_PLAN_LABEL] ?? 7;
 }
 
 function getEasterWeeks(schoolYear: string) {
