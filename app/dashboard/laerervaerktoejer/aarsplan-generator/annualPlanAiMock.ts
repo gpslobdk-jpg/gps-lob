@@ -28,13 +28,12 @@ export type AnnualPlanAiOutput = {
     commonGoalsFocus?: string;
     contentAndActivities?: string;
     evaluation?: string;
-    imageIdea?: string;
   }[];
   teacherNote?: string;
 };
 
 /**
- * Lokal, deterministisk mock der simulerer de tekster AI senere kan levere.
+ * Lokal, deterministisk mock der simulerer de tekstforbedringer, der senere kan leveres.
  * Må ikke ændre struktur (uger, perioder, antal forløb etc.).
  */
 export function createMockAiAnnualPlanEnhancement(input: AnnualPlanAiInput): AnnualPlanAiOutput {
@@ -44,7 +43,6 @@ export function createMockAiAnnualPlanEnhancement(input: AnnualPlanAiInput): Ann
     const commonGoalsFocus = `Eleverne arbejder med ${c.focusArea}. Forløbet lægger vægt på undersøgende, mundtlige og skriftlige aktiviteter, så eleverne kan anvende faglige begreber og forklare sammenhænge.`;
     const contentAndActivities = `Forløbet kombinerer fælles introduktion, makkerarbejde, undersøgelser, praktiske opgaver og en afsluttende opsamling. Aktivitetseksempler: ${input.wishes || "klasseøvelser, diskussion og projektarbejde"}.`;
     const evaluation = `Elevernes udbytte vurderes gennem korte præsentationer, refleksionsopgaver eller lærerobservationer.`;
-    const imageIdea = `Illustration af elever i arbejde med temaet \"${baseTitle}\", roligt skolemiljø, faglige materialer og plads til titeltekst.`;
 
     return {
       id: c.id,
@@ -52,7 +50,6 @@ export function createMockAiAnnualPlanEnhancement(input: AnnualPlanAiInput): Ann
       commonGoalsFocus,
       contentAndActivities,
       evaluation,
-      imageIdea,
     };
   });
 

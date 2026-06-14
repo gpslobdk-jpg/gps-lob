@@ -42,11 +42,10 @@ export type AnnualPlanCourse = {
   focus: string;
   activities: string;
   product: string;
-  imagePrompt: string;
   pauseNote?: string;
 };
 
-// Structural course shape used as input to the mock-AI enhancer
+// Structural course shape used as input to the local text enhancer
 export type StructuralCourse = {
   id: string;
   periodLabel: string;
@@ -365,20 +364,6 @@ export function createCourseDescription(subject: string, gradeBand: GradeBand, c
   return `${getSubjectDescriptionFrame(subject)} Temaet er ${courseTitle.toLowerCase()} i ${grade}. ${bandPhrase[gradeBand]}`;
 }
 
-function createImagePrompt(input: AnnualPlanEngineInput, profile: SubjectProfile, gradeBand: GradeBand, title: string, index: number) {
-  const notes = input.notes?.trim();
-  const base =
-    `Flot moderne undervisningsillustration til ${input.subject.toLowerCase()}forløbet "${title}", ` +
-    `${profile.imagePromptStyle.toLowerCase()}, niveau ${gradeBandLabels[gradeBand].toLowerCase()}. ` +
-    "Rolig, professionel skoleæstetik, tydeligt fagligt miljø og plads til titeltekst.";
-
-  if (index !== 0 || !notes) {
-    return base;
-  }
-
-  return `${base} Noter til billedidé: ${notes}.`;
-}
-
 export function createAnnualPlanDraft(input: AnnualPlanEngineInput): AnnualPlanDraft {
   const lessonsPerWeek = Math.max(1, input.lessonsPerWeek);
   const courseCount = Math.max(1, input.courseCount);
@@ -406,7 +391,6 @@ export function createAnnualPlanDraft(input: AnnualPlanEngineInput): AnnualPlanD
       focus: pickProfileValue(profile.focusAreas, index),
       activities: pickProfileValue(profile.activityIdeas, index),
       product: pickProfileValue(profile.productIdeas, index),
-      imagePrompt: createImagePrompt(input, profile, gradeBand, title, index),
       pauseNote: createPauseNote(weeks, holidayWeeks),
     };
   });

@@ -7,7 +7,6 @@ export type SubjectProfile = {
   focusAreas: string[];
   activityIdeas: string[];
   productIdeas: string[];
-  imagePromptStyle: string;
 };
 
 const naturalScienceActivities = [
@@ -105,8 +104,6 @@ export const subjectProfiles: Record<string, SubjectProfile> = {
       "portfolio-side med årsrefleksion",
       "fortolkningsnotat med citater",
     ],
-    imagePromptStyle:
-      "Rolig danskfaglig undervisningsillustration med bøger, tekstuddrag, noteskort og varme professionelle farver",
   },
   Matematik: {
     commonGoalsIntro:
@@ -177,8 +174,6 @@ export const subjectProfiles: Record<string, SubjectProfile> = {
       "algebraisk mønsterforklaring",
       "casebesvarelse med beregninger og konklusion",
     ],
-    imagePromptStyle:
-      "Moderne matematikillustration med tavleskitser, konkrete materialer, diagrammer og rolige grønne og blå farver",
   },
   Engelsk: {
     commonGoalsIntro:
@@ -249,8 +244,6 @@ export const subjectProfiles: Record<string, SubjectProfile> = {
       "opinion paragraph or mini debate",
       "presentation with visual support",
     ],
-    imagePromptStyle:
-      "Lys engelskundervisningsillustration med word cards, speech bubbles, bøger og globale kulturdetaljer",
   },
   Tysk: {
     commonGoalsIntro:
@@ -313,8 +306,6 @@ export const subjectProfiles: Record<string, SubjectProfile> = {
       "mundtlig optagelse eller samtale",
       "miniprojekt med tysk præsentation",
     ],
-    imagePromptStyle:
-      "Venlig tyskundervisningsillustration med ordkort, samtalekort, kort over Tyskland og klare undervisningsikoner",
   },
   Historie: {
     commonGoalsIntro:
@@ -377,8 +368,6 @@ export const subjectProfiles: Record<string, SubjectProfile> = {
       "analyse af historiebrug",
       "undersøgelsesprodukt med konklusion",
     ],
-    imagePromptStyle:
-      "Moderne historiefaglig illustration med kilder, tidslinjer, kort, arkivfotos og elever i undersøgende arbejde",
   },
   Samfundsfag: {
     commonGoalsIntro:
@@ -433,8 +422,6 @@ export const subjectProfiles: Record<string, SubjectProfile> = {
       "datafortolkning med kildekritik",
       "samfundsfaglig casepræsentation",
     ],
-    imagePromptStyle:
-      "Moderne undervisningsillustration med elever, stemmesedler, talebobler, data og samfundsikoner",
   },
   Kristendomskundskab: {
     commonGoalsIntro:
@@ -499,8 +486,6 @@ export const subjectProfiles: Record<string, SubjectProfile> = {
       "gruppeoplæg om tradition eller ritual",
       "portfolio-side med livsspørgsmål",
     ],
-    imagePromptStyle:
-      "Rolig religionsfaglig undervisningsillustration med symboler, samtalekort, bøger og elever i respektfuld dialog",
   },
   Geografi: {
     commonGoalsIntro:
@@ -559,8 +544,6 @@ export const subjectProfiles: Record<string, SubjectProfile> = {
       "kort video eller præsentation",
       "lokal undersøgelse med konklusion",
     ],
-    imagePromptStyle:
-      "Geografiillustration med kort, landskaber, diagrammer, globus og elever der undersøger verden med rolige farver",
   },
   Biologi: {
     commonGoalsIntro:
@@ -601,8 +584,6 @@ export const subjectProfiles: Record<string, SubjectProfile> = {
     ],
     activityIdeas: naturalScienceActivities,
     productIdeas: naturalScienceProducts,
-    imagePromptStyle:
-      "Biologiillustration med planter, celler, feltudstyr, mikroskop og elever i undersøgende naturfagsarbejde",
   },
   "Fysik/kemi": {
     commonGoalsIntro:
@@ -639,8 +620,6 @@ export const subjectProfiles: Record<string, SubjectProfile> = {
     ],
     activityIdeas: naturalScienceActivities,
     productIdeas: naturalScienceProducts,
-    imagePromptStyle:
-      "Fysik-kemi-illustration med laboratorieudstyr, kredsløb, modeller, sikkerhed og elever i praktisk forsøg",
   },
   "Natur/teknologi": {
     commonGoalsIntro:
@@ -682,8 +661,6 @@ export const subjectProfiles: Record<string, SubjectProfile> = {
     ],
     activityIdeas: naturalScienceActivities,
     productIdeas: naturalScienceProducts,
-    imagePromptStyle:
-      "Natur-teknologi-illustration med feltudstyr, konstruktioner, planter, vejrdata og elever i praktiske undersøgelser",
   },
   Idræt: {
     commonGoalsIntro:
@@ -748,8 +725,6 @@ export const subjectProfiles: Record<string, SubjectProfile> = {
       "mundtlig evaluering",
       "kort idrætsfaglig præsentation",
     ],
-    imagePromptStyle:
-      "Dynamisk men rolig idrætsillustration med elever i bevægelse, samarbejde, redskaber og tydelig skolekontekst",
   },
   Musik: {
     commonGoalsIntro:
@@ -815,8 +790,6 @@ export const subjectProfiles: Record<string, SubjectProfile> = {
       "øvelog med refleksion",
       "minikoncert med respons",
     ],
-    imagePromptStyle:
-      "Musikundervisningsillustration med instrumenter, rytmekort, sammenspil og elever i kreativt samarbejde",
   },
   Billedkunst: {
     commonGoalsIntro:
@@ -882,8 +855,6 @@ export const subjectProfiles: Record<string, SubjectProfile> = {
       "fotoprojekt med titeltekst",
       "miniudstilling med respons",
     ],
-    imagePromptStyle:
-      "Billedkunstillustration med skitser, farveprøver, materialer, elevværker og en rolig atelierstemning",
   },
   "Håndværk og design": {
     commonGoalsIntro:
@@ -942,8 +913,6 @@ export const subjectProfiles: Record<string, SubjectProfile> = {
       "designbrief og løsningsforslag",
       "udstilling med evaluering",
     ],
-    imagePromptStyle:
-      "Håndværk og design-illustration med værktøj, materialer, skitser, prototyper og elever i værkstedsarbejde",
   },
   Madkundskab: {
     commonGoalsIntro:
@@ -1002,8 +971,6 @@ export const subjectProfiles: Record<string, SubjectProfile> = {
       "forbrugerplakat",
       "madprojekt med evaluering",
     ],
-    imagePromptStyle:
-      "Madkundskabsillustration med køkkenbord, råvarer, opskriftskort, samarbejde og en ren skolekøkkenstemning",
   },
 };
 
@@ -1049,6 +1016,4 @@ export const fallbackProfile: SubjectProfile = {
     "kort gruppefremlæggelse",
     "årsrefleksion med faglige eksempler",
   ],
-  imagePromptStyle:
-    "Lys undervisningsillustration med faglige materialer, elever i samarbejde og rolige professionelle farver",
 };

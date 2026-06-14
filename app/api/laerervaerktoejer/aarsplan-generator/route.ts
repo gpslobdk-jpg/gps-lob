@@ -40,7 +40,6 @@ const AiCourseOutSchema = z
     commonGoalsFocus: z.string().min(1),
     contentAndActivities: z.string().min(1),
     evaluation: z.string().min(1),
-    imageIdea: z.string().min(1),
   })
   .strict();
 
@@ -55,7 +54,7 @@ function buildSystemPrompt(): string {
   return [
     "Du er en dansk lærerassistent.\nDu hjælper med at formulere årsplanindhold til lærere.",
     "Regler:",
-    "- Du må kun forbedre tekstfelter (titel, målformulering, Fælles Mål-fokus, aktiviteter, evaluering og billedidé).",
+    "- Du må kun forbedre tekstfelter (titel, målformulering, Fælles Mål-fokus, aktiviteter og evaluering).",
     "- Du må IKKE ændre course-id'er, perioder, uger, lektionstal, antallet af forløb eller rækkefølge.",
     "- Returnér KUN gyldig JSON i det præcise format beskrevet i prompten.",
     "- Skriv på dansk, konkret og lærerrettet.",
@@ -78,15 +77,13 @@ function buildUserPrompt(input: z.infer<typeof AiInputSchema>) {
     `Forløb (struktur):`,
     courseList,
     input.wishes ? `Lærerens ønske: ${input.wishes}` : "",
-    "Krav til output: Returnér et JSON-objekt med præcis samme antal 'courses' som input. Hvert course skal have samme 'id' som input. Felter: improvedTitle, commonGoalsFocus, contentAndActivities, evaluation, imageIdea.",
+    "Krav til output: Returnér et JSON-objekt med præcis samme antal 'courses' som input. Hvert course skal have samme 'id' som input. Felter: improvedTitle, commonGoalsFocus, contentAndActivities, evaluation.",
     "Returnér kun JSON. Ingen ekstra forklaringer.",
   ].filter(Boolean).join("\n\n");
 }
 
-async function fallbackWithMock(input: AnnualPlanAiInput, reason?: string) {
-  const out = createMockAiAnnualPlanEnhancement(input);
-  out.teacherNote = `${out.teacherNote} ${reason ? `(Fallback: ${reason})` : "(Fallback: lokal demo)"}`;
-  return out;
+async function fallbackWithMock(input: AnnualPlanAiInput) {
+  return createMockAiAnnualPlanEnhancement(input);
 }
 
 export async function POST(req: Request) {
@@ -104,7 +101,7 @@ export async function POST(req: Request) {
 
     if (!process.env.OPENAI_API_KEY) {
       // No key: return local mock with marking
-      const out = await fallbackWithMock(input, "OPENAI_API_KEY mangler");
+      const out = await fallbackWithMock(input);
       return NextResponse.json(out);
     }
 
@@ -118,7 +115,7 @@ export async function POST(req: Request) {
         model: openai("gpt-4o-mini"),
         schema,
         schemaName: "AnnualPlanAiOutput",
-        schemaDescription: "AI-forbedringer til årsplanforløb (kun tekstfelter).",
+        schemaDescription: "Tekstforbedringer til årsplanforløb.",
         system: systemPrompt,
         prompt: userPrompt,
         temperature: 0.2,
@@ -137,18 +134,18 @@ export async function POST(req: Request) {
 
       if (!idsMatch) {
         // fallback
-        return NextResponse.json(await fallbackWithMock(input, "AI returnerede uventede course-id'er"));
+        return NextResponse.json(await fallbackWithMock(input));
       }
 
       // Additional sanity: no empty fields
       const hasEmpty = out.courses.some((c) => !c.improvedTitle.trim() || !c.contentAndActivities.trim());
       if (hasEmpty) {
-        return NextResponse.json(await fallbackWithMock(input, "AI returnerede tomme felter"));
+        return NextResponse.json(await fallbackWithMock(input));
       }
 
       return NextResponse.json(out);
     } catch (aiError) {
-      console.error("AI route error:", aiError);
+      console.error("annual plan text route error:", aiError);
       await logHandledServerError({
         requestPath,
         route: requestPath,
@@ -158,7 +155,7 @@ export async function POST(req: Request) {
         error: aiError,
       });
 
-      return NextResponse.json(await fallbackWithMock(parsed.data, "AI-kald fejlede"));
+      return NextResponse.json(await fallbackWithMock(parsed.data));
     }
   } catch (error) {
     console.error("annual plan ai route unexpected error:", error);

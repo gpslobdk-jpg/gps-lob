@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import {
   ArrowLeft,
   ArrowRight,
@@ -56,6 +55,8 @@ type AnnualPlanInput = {
   subject: string;
   gradeLevel: string;
   schoolYear: string;
+  schoolName: string;
+  teacherName: string;
   municipality: string;
   lessonsPerWeek: string;
   courseCount: string;
@@ -71,16 +72,13 @@ type EditableAnnualPlanRow = {
   goals: string;
   content: string;
   evaluation: string;
-  imageIdea: string;
-  thumbnailSrc?: string;
-  thumbnailAlt?: string;
   isLocked?: boolean;
-  source?: "ai" | "fixed-week" | "manual";
+  source?: "course" | "fixed-week" | "holiday" | "manual";
 };
 
 type EditableAnnualPlanRowField = Exclude<
   keyof EditableAnnualPlanRow,
-  "id" | "thumbnailSrc" | "thumbnailAlt" | "isLocked" | "source"
+  "id" | "isLocked" | "source"
 >;
 
 type StepIndex = 0 | 1 | 2 | 3 | 4;
@@ -89,6 +87,8 @@ const initialInput: AnnualPlanInput = {
   subject: "",
   gradeLevel: "",
   schoolYear: "",
+  schoolName: "",
+  teacherName: "",
   municipality: "",
   lessonsPerWeek: "2",
   courseCount: "6",
@@ -104,7 +104,7 @@ const wizardSteps = [
     icon: BookOpen,
   },
   {
-    title: "Vælg skoleår og kommune",
+    title: "Vælg skoleår og skole",
     label: "Trin 2",
     icon: Calendar,
   },
@@ -128,6 +128,9 @@ const wizardSteps = [
 const selectClassName =
   "mt-3 min-h-12 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 shadow-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
 
+const textInputClassName =
+  "mt-3 min-h-12 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
+
 const textareaClassName =
   "mt-3 min-h-28 w-full resize-none overflow-hidden rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
 
@@ -140,11 +143,8 @@ const documentTextareaClassName =
 const documentTableCellClassName =
   "border border-slate-300 align-top print:border-slate-400";
 
-const subjectImageAssets: Partial<Record<string, readonly string[]>> = {
-  Dansk: ["/danskikon1.svg", "/danskikon2.svg", "/danskikon3.svg", "/danskikon4.svg"],
-  Matematik: ["/matematikikon1.svg", "/matematikikon2.svg", "/matematikikon3.svg", "/matematikikon4.svg"],
-  Engelsk: ["/engelskikon1.svg", "/engelskikon2.svg", "/engelskikon3.svg", "/engelskikon4.svg"],
-};
+const documentHeaderCellClassName =
+  `${documentTableCellClassName} bg-slate-200 px-3 py-3 text-slate-800 print:bg-slate-100`;
 
 const generationSteps = [
   "Læser dine valg",
@@ -190,16 +190,6 @@ function splitFixedWeekLine(line: string) {
   };
 }
 
-function getSubjectImageAsset(subject: string, index: number) {
-  const assets = subjectImageAssets[subject];
-
-  if (!assets?.length) {
-    return undefined;
-  }
-
-  return assets[index % assets.length];
-}
-
 function buildEditableAnnualPlanRows(plan: AnnualPlanDraft, fixedWeekLines: string[]): EditableAnnualPlanRow[] {
   const courseRows = plan.courses.map((course, index) => ({
     row: {
@@ -209,13 +199,25 @@ function buildEditableAnnualPlanRows(plan: AnnualPlanDraft, fixedWeekLines: stri
       goals: `${course.description}\n\nFokus: ${course.focus}`,
       content: course.activities,
       evaluation: course.product,
-      imageIdea: course.imagePrompt,
-      thumbnailSrc: getSubjectImageAsset(plan.subject, index),
-      thumbnailAlt: `${plan.subject}: ${course.title}`,
-      source: "ai" as const,
+      source: "course" as const,
     },
     order: getWeekOrder(course.period),
     originalIndex: index,
+  }));
+
+  const holidayRows = plan.holidayWeeks.map((holiday, index) => ({
+    row: {
+      id: `holiday-${index + 1}`,
+      weeks: holiday.label.replace(/^uge/i, "Uge"),
+      title: holiday.name,
+      goals: holiday.type === "holiday" ? "Ferie / undervisningsfri periode." : "Fridag / kalendernote.",
+      content: holiday.note ?? "Ingen planlagt undervisning.",
+      evaluation: "",
+      isLocked: true,
+      source: "holiday" as const,
+    },
+    order: getWeekOrder(holiday.label),
+    originalIndex: plan.courses.length + index,
   }));
 
   const fixedRows = fixedWeekLines.map((line, index) => {
@@ -229,18 +231,29 @@ function buildEditableAnnualPlanRows(plan: AnnualPlanDraft, fixedWeekLines: stri
         goals: "Særlig uge i årsplanen.",
         content: "Indhold aftales lokalt.",
         evaluation: "",
-        imageIdea: "",
         isLocked: true,
         source: "fixed-week" as const,
       },
       order: getWeekOrder(line),
-      originalIndex: plan.courses.length + index,
+      originalIndex: plan.courses.length + holidayRows.length + index,
     };
   });
 
-  return [...courseRows, ...fixedRows]
+  return [...courseRows, ...holidayRows, ...fixedRows]
     .sort((a, b) => a.order - b.order || a.originalIndex - b.originalIndex)
     .map(({ row }) => row);
+}
+
+function getAnnualPlanRowClassName(row: EditableAnnualPlanRow) {
+  if (row.source === "holiday") {
+    return "break-inside-avoid bg-emerald-50/70 print:bg-emerald-50";
+  }
+
+  if (row.source === "fixed-week") {
+    return "break-inside-avoid bg-amber-50/55 print:bg-amber-50";
+  }
+
+  return "break-inside-avoid bg-white [&>td:nth-child(1)]:bg-slate-50/70 [&>td:nth-child(3)]:bg-slate-50/45";
 }
 
 function getTextareaRows(value: string, minimumRows: number) {
@@ -450,7 +463,6 @@ export default function AarsplanGeneratorPage() {
                 description: aiCourse.commonGoalsFocus ?? course.description,
                 activities: aiCourse.contentAndActivities ?? course.activities,
                 product: aiCourse.evaluation ?? course.product,
-                imagePrompt: aiCourse.imageIdea ?? course.imagePrompt,
               };
             }),
             summary: {
@@ -486,9 +498,6 @@ export default function AarsplanGeneratorPage() {
         goals: "",
         content: "",
         evaluation: "",
-        imageIdea: "",
-        thumbnailSrc: getSubjectImageAsset(input.subject, rows.length),
-        thumbnailAlt: input.subject ? `${input.subject}: Nyt forløb` : "Nyt forløb",
         source: "manual",
       },
     ]);
@@ -682,8 +691,8 @@ export default function AarsplanGeneratorPage() {
                   colorClassName="bg-sky-600"
                   eyebrow="Trin 2"
                   icon={<Calendar className="h-6 w-6" />}
-                  title="Skoleår og ferieplan"
-                  description="Vælg skoleår og kommune."
+                  title="Skoleår, skole og ferieplan"
+                  description="Skriv skole og underviser, og vælg kommune til ferieuger."
                   titleId="step-two-title"
                 />
 
@@ -703,7 +712,25 @@ export default function AarsplanGeneratorPage() {
                     </select>
                   </Field>
 
-                  <Field label="Kommune">
+                  <Field label="Skole">
+                    <input
+                      className={textInputClassName}
+                      value={input.schoolName}
+                      placeholder="Fx Spjellerup Friskole"
+                      onChange={(event) => updateInput("schoolName", event.target.value)}
+                    />
+                  </Field>
+
+                  <Field label="Underviser">
+                    <input
+                      className={textInputClassName}
+                      value={input.teacherName}
+                      placeholder="Fx Jeppe Laursen"
+                      onChange={(event) => updateInput("teacherName", event.target.value)}
+                    />
+                  </Field>
+
+                  <Field label="Kommune til ferieplan" description="Bruges kun til ferieuger og kalenderlogik.">
                     <select
                       className={selectClassName}
                       value={input.municipality}
@@ -804,6 +831,8 @@ export default function AarsplanGeneratorPage() {
                   {[
                     ["Fag", input.subject],
                     ["Klassetrin", input.gradeLevel],
+                    ["Skole", input.schoolName],
+                    ["Underviser", input.teacherName],
                     ["Skoleår", input.schoolYear],
                     ["Ferieplan", input.municipality],
                     ["Undervisningsuger", `${previewTeachingWeekCount}`],
@@ -871,6 +900,8 @@ export default function AarsplanGeneratorPage() {
                   <AnnualPlanDocumentEditor
                     plan={generatedPlan}
                     rows={editableRows}
+                    schoolName={input.schoolName}
+                    teacherName={input.teacherName}
                     lessonsPerWeek={input.lessonsPerWeek}
                     onAddRow={addEditableRow}
                     onDeleteRow={deleteEditableRow}
@@ -918,6 +949,8 @@ export default function AarsplanGeneratorPage() {
               <div className="mt-4 grid gap-3">
                 <SummaryRow label="Fag" value={input.subject} />
                 <SummaryRow label="Klassetrin" value={input.gradeLevel} />
+                <SummaryRow label="Skole" value={input.schoolName} />
+                <SummaryRow label="Underviser" value={input.teacherName} />
                 <SummaryRow label="Skoleår" value={input.schoolYear} />
                 <SummaryRow label="Ferieplan" value={input.municipality} />
                 <SummaryRow label="Lektioner" value={`${input.lessonsPerWeek} pr. uge`} />
@@ -1043,9 +1076,22 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function DocumentMetaLine({ label, value }: { label: string; value: string | number }) {
+  const displayValue = String(value).trim();
+
+  return (
+    <p>
+      <span className="font-black text-slate-900">{label}:</span>{" "}
+      {displayValue || <span aria-hidden="true">{"\u00a0"}</span>}
+    </p>
+  );
+}
+
 function AnnualPlanDocumentEditor({
   plan,
   rows,
+  schoolName,
+  teacherName,
   lessonsPerWeek,
   onAddRow,
   onDeleteRow,
@@ -1054,6 +1100,8 @@ function AnnualPlanDocumentEditor({
 }: {
   plan: AnnualPlanDraft;
   rows: EditableAnnualPlanRow[];
+  schoolName: string;
+  teacherName: string;
   lessonsPerWeek: string;
   onAddRow: () => void;
   onDeleteRow: (rowId: string) => void;
@@ -1095,13 +1143,14 @@ function AnnualPlanDocumentEditor({
             {plan.title}
           </h3>
           <div className="mt-5 grid gap-2 text-sm font-bold leading-6 text-slate-700 print:grid-cols-2 print:text-[10pt] sm:grid-cols-2 lg:grid-cols-4">
-            <p>Kommune: {plan.municipality}</p>
-            <p>Fag: {plan.subject}</p>
-            <p>Klassetrin: {plan.grade}</p>
-            <p>Skoleår: {plan.schoolYear}</p>
-            <p>Lektioner pr. uge: {lessonsPerWeek}</p>
-            <p>Forløb: {plan.summary.courseCount}</p>
-            <p>Undervisningsuger: {plan.teachingWeeks}</p>
+            <DocumentMetaLine label="Skole" value={schoolName} />
+            <DocumentMetaLine label="Underviser" value={teacherName} />
+            <DocumentMetaLine label="Fag" value={plan.subject} />
+            <DocumentMetaLine label="Klassetrin" value={plan.grade} />
+            <DocumentMetaLine label="Skoleår" value={plan.schoolYear} />
+            <DocumentMetaLine label="Lektioner pr. uge" value={lessonsPerWeek} />
+            <DocumentMetaLine label="Forløb" value={plan.summary.courseCount} />
+            <DocumentMetaLine label="Undervisningsuger" value={plan.teachingWeeks} />
           </div>
           <p className="mt-5 text-sm font-semibold leading-7 text-slate-700 print:text-[10pt] print:leading-snug">
             {plan.commonGoalsIntro}
@@ -1112,11 +1161,11 @@ function AnnualPlanDocumentEditor({
           <div className="overflow-x-auto [scrollbar-width:none] print:overflow-visible [&::-webkit-scrollbar]:hidden">
             <table className="w-full min-w-[1180px] border-collapse text-left print:min-w-0">
               <thead>
-                <tr className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-600 print:text-[8pt]">
-                  <th className={`${documentTableCellClassName} w-[13%] px-3 py-3`}>Uge / periode</th>
-                  <th className={`${documentTableCellClassName} w-[24%] px-3 py-3`}>Emne / forløb</th>
-                  <th className={`${documentTableCellClassName} w-[28%] px-3 py-3`}>Mål / Fælles Mål-fokus</th>
-                  <th className={`${documentTableCellClassName} w-[35%] px-3 py-3`}>
+                <tr className="text-xs font-black uppercase tracking-[0.1em] text-slate-800 print:text-[8pt]">
+                  <th className={`${documentHeaderCellClassName} w-[13%]`}>Uge / periode</th>
+                  <th className={`${documentHeaderCellClassName} w-[24%]`}>Emne / forløb</th>
+                  <th className={`${documentHeaderCellClassName} w-[28%]`}>Mål / Fælles Mål-fokus</th>
+                  <th className={`${documentHeaderCellClassName} w-[35%]`}>
                     Indhold / aktiviteter / evaluering
                   </th>
                 </tr>
@@ -1138,11 +1187,11 @@ function AnnualPlanDocumentEditor({
         <section className="hidden print:block print:py-4">
           <table className="w-full table-fixed border-collapse text-left">
             <thead>
-              <tr className="bg-slate-100 text-[8pt] font-black uppercase tracking-[0.08em] text-slate-700">
-                <th className={`${documentTableCellClassName} w-[15%] px-2 py-2`}>Uge / periode</th>
-                <th className={`${documentTableCellClassName} w-[22%] px-2 py-2`}>Emne / forløb</th>
-                <th className={`${documentTableCellClassName} w-[27%] px-2 py-2`}>Mål</th>
-                <th className={`${documentTableCellClassName} w-[36%] px-2 py-2`}>
+              <tr className="text-[8pt] font-black uppercase tracking-[0.08em] text-slate-800">
+                <th className={`${documentHeaderCellClassName} w-[15%] px-2 py-2`}>Uge / periode</th>
+                <th className={`${documentHeaderCellClassName} w-[22%] px-2 py-2`}>Emne / forløb</th>
+                <th className={`${documentHeaderCellClassName} w-[27%] px-2 py-2`}>Mål</th>
+                <th className={`${documentHeaderCellClassName} w-[36%] px-2 py-2`}>
                   Indhold / aktiviteter / evaluering
                 </th>
               </tr>
@@ -1172,7 +1221,7 @@ function PrintableAnnualPlanTableRow({ row }: { row: EditableAnnualPlanRow }) {
   const combinedContent = [row.content, row.evaluation].filter((value) => value.trim()).join("\n\nEvaluering: ");
 
   return (
-    <tr className={row.source === "fixed-week" ? "break-inside-avoid bg-amber-50/55" : "break-inside-avoid bg-white"}>
+    <tr className={getAnnualPlanRowClassName(row)}>
       <td className={`${documentTableCellClassName} px-2 py-2`}>
         <PrintableText value={row.weeks} />
       </td>
@@ -1211,100 +1260,66 @@ function EditableAnnualPlanTableRow({
   onUpdateRow: (rowId: string, field: EditableAnnualPlanRowField, value: string) => void;
 }) {
   return (
-    <>
-      <tr className={row.source === "fixed-week" ? "break-inside-avoid bg-amber-50/55" : "break-inside-avoid bg-white"}>
-        <td className={`${documentTableCellClassName} px-3 py-3`}>
+    <tr className={getAnnualPlanRowClassName(row)}>
+      <td className={`${documentTableCellClassName} px-3 py-3`}>
+        <EditableDocumentTextarea
+          field="weeks"
+          label="Uge / periode"
+          minimumRows={row.source === "fixed-week" || row.source === "holiday" ? 2 : 3}
+          row={row}
+          value={row.weeks}
+          onUpdateRow={onUpdateRow}
+        />
+      </td>
+      <td className={`${documentTableCellClassName} px-3 py-3`}>
+        <EditableDocumentTextarea
+          field="title"
+          label="Emne / forløb"
+          minimumRows={row.source === "holiday" ? 2 : 3}
+          row={row}
+          value={row.title}
+          onUpdateRow={onUpdateRow}
+        />
+        <button
+          type="button"
+          onClick={() => onDeleteRow(row.id)}
+          className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-500 transition hover:border-rose-200 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-100 print:hidden"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Slet
+        </button>
+      </td>
+      <td className={`${documentTableCellClassName} px-3 py-3`}>
+        <EditableDocumentTextarea
+          field="goals"
+          label="Mål / Fælles Mål-fokus"
+          minimumRows={row.source === "holiday" ? 2 : 5}
+          row={row}
+          value={row.goals}
+          onUpdateRow={onUpdateRow}
+        />
+      </td>
+      <td className={`${documentTableCellClassName} px-3 py-3`}>
+        <div className="grid gap-3">
           <EditableDocumentTextarea
-            field="weeks"
-            label="Uge / periode"
-            minimumRows={row.source === "fixed-week" ? 2 : 3}
+            field="content"
+            label="Indhold / aktiviteter"
+            minimumRows={row.source === "holiday" ? 2 : 4}
             row={row}
-            value={row.weeks}
+            value={row.content}
             onUpdateRow={onUpdateRow}
           />
-        </td>
-        <td className={`${documentTableCellClassName} px-3 py-3`}>
-          <div className="flex gap-3">
-            {row.thumbnailSrc ? (
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white p-1 print:h-10 print:w-10 print:p-0.5">
-                <Image
-                  src={row.thumbnailSrc}
-                  alt={row.thumbnailAlt ?? ""}
-                  width={56}
-                  height={56}
-                  className="h-full w-full object-contain"
-                />
-              </span>
-            ) : null}
-            <div className="min-w-0 flex-1">
-              <EditableDocumentTextarea
-                field="title"
-                label="Emne / forløb"
-                minimumRows={3}
-                row={row}
-                value={row.title}
-                onUpdateRow={onUpdateRow}
-              />
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => onDeleteRow(row.id)}
-            className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-500 transition hover:border-rose-200 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-100 print:hidden"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Slet
-          </button>
-        </td>
-        <td className={`${documentTableCellClassName} px-3 py-3`}>
           <EditableDocumentTextarea
-            field="goals"
-            label="Mål / Fælles Mål-fokus"
-            minimumRows={5}
+            field="evaluation"
+            label="Evaluering"
+            minimumRows={2}
             row={row}
-            value={row.goals}
+            value={row.evaluation}
             onUpdateRow={onUpdateRow}
           />
-        </td>
-        <td className={`${documentTableCellClassName} px-3 py-3`}>
-          <div className="grid gap-3">
-            <EditableDocumentTextarea
-              field="content"
-              label="Indhold / aktiviteter"
-              minimumRows={4}
-              row={row}
-              value={row.content}
-              onUpdateRow={onUpdateRow}
-            />
-            <EditableDocumentTextarea
-              field="evaluation"
-              label="Evaluering"
-              minimumRows={2}
-              row={row}
-              value={row.evaluation}
-              onUpdateRow={onUpdateRow}
-            />
-          </div>
-        </td>
-      </tr>
-      {row.imageIdea.trim() ? (
-        <tr className="break-inside-avoid bg-[#faf7ef]">
-          <td className={`${documentTableCellClassName} px-3 py-3 text-xs font-black uppercase tracking-[0.12em] text-slate-500 print:text-[7pt]`}>
-            Billede til senere
-          </td>
-          <td className={`${documentTableCellClassName} px-3 py-3`} colSpan={3}>
-            <EditableDocumentTextarea
-              field="imageIdea"
-              label="Billede til senere"
-              minimumRows={2}
-              row={row}
-              value={row.imageIdea}
-              onUpdateRow={onUpdateRow}
-            />
-          </td>
-        </tr>
-      ) : null}
-    </>
+        </div>
+      </td>
+    </tr>
   );
 }
 
