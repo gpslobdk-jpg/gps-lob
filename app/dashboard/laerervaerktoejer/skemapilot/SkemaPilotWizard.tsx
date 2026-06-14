@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 
+import { SkemaPilotPreview } from "./SkemaPilotPreview";
+
 type SchoolSettings = {
   schoolName: string;
   schoolYear: string;
@@ -1070,6 +1072,16 @@ function SummaryStep({
           ))}
         </div>
       </SummaryCard>
+
+      <SkemaPilotPreview
+        activeBlocks={activeBlocks}
+        activeClasses={activeClasses}
+        activeRooms={activeRooms}
+        getLessonValue={getLessonValue}
+        rubikClassName={rubikClassName}
+        settings={settings}
+        subjects={subjects}
+      />
 
       <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Næste fase</p>
