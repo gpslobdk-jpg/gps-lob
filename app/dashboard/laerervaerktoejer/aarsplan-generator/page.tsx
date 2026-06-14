@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowLeft,
   ArrowRight,
@@ -72,11 +73,16 @@ type EditableAnnualPlanRow = {
   content: string;
   evaluation: string;
   imageIdea: string;
+  thumbnailSrc?: string;
+  thumbnailAlt?: string;
   isLocked?: boolean;
   source?: "ai" | "fixed-week" | "manual";
 };
 
-type EditableAnnualPlanRowField = Exclude<keyof EditableAnnualPlanRow, "id" | "isLocked" | "source">;
+type EditableAnnualPlanRowField = Exclude<
+  keyof EditableAnnualPlanRow,
+  "id" | "thumbnailSrc" | "thumbnailAlt" | "isLocked" | "source"
+>;
 
 type StepIndex = 0 | 1 | 2 | 3 | 4;
 
@@ -135,6 +141,12 @@ const documentTextareaClassName =
 const documentTableCellClassName =
   "border border-slate-300 align-top print:border-slate-400";
 
+const subjectImageAssets: Partial<Record<string, readonly string[]>> = {
+  Dansk: ["/danskikon1.svg", "/danskikon2.svg", "/danskikon3.svg", "/danskikon4.svg"],
+  Matematik: ["/matematikikon1.svg", "/matematikikon2.svg", "/matematikikon3.svg", "/matematikikon4.svg"],
+  Engelsk: ["/engelskikon1.svg", "/engelskikon2.svg", "/engelskikon3.svg", "/engelskikon4.svg"],
+};
+
 const generationSteps = [
   "Læser dine valg",
   "Låser skoleår, ferieuger og perioder",
@@ -179,6 +191,16 @@ function splitFixedWeekLine(line: string) {
   };
 }
 
+function getSubjectImageAsset(subject: string, index: number) {
+  const assets = subjectImageAssets[subject];
+
+  if (!assets?.length) {
+    return undefined;
+  }
+
+  return assets[index % assets.length];
+}
+
 function buildEditableAnnualPlanRows(plan: AnnualPlanDraft, fixedWeekLines: string[]): EditableAnnualPlanRow[] {
   const courseRows = plan.courses.map((course, index) => ({
     row: {
@@ -189,6 +211,8 @@ function buildEditableAnnualPlanRows(plan: AnnualPlanDraft, fixedWeekLines: stri
       content: course.activities,
       evaluation: course.product,
       imageIdea: course.imagePrompt,
+      thumbnailSrc: getSubjectImageAsset(plan.subject, index),
+      thumbnailAlt: `${plan.subject}: ${course.title}`,
       source: "ai" as const,
     },
     order: getWeekOrder(course.period),
@@ -310,6 +334,7 @@ export default function AarsplanGeneratorPage() {
           : 3;
 
   const selectedSubjectIntro = input.subject ? getCommonGoalsIntro(input.subject) : getCommonGoalsIntro("");
+  const isDocumentStep = currentStep === 4;
 
   function updateInput<Key extends keyof AnnualPlanInput>(key: Key, value: AnnualPlanInput[Key]) {
     setInput((previousInput) => ({
@@ -471,6 +496,8 @@ export default function AarsplanGeneratorPage() {
         content: "",
         evaluation: "",
         imageIdea: "",
+        thumbnailSrc: getSubjectImageAsset(input.subject, rows.length),
+        thumbnailAlt: input.subject ? `${input.subject}: Nyt forløb` : "Nyt forløb",
         source: "manual",
       },
     ]);
@@ -501,7 +528,13 @@ export default function AarsplanGeneratorPage() {
           }
         }
       `}</style>
-      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-8 print:min-h-0 print:max-w-none print:px-0 print:py-0 md:px-10 lg:px-12">
+      <div
+        className={`mx-auto flex min-h-screen w-full flex-col print:min-h-0 print:max-w-none print:px-0 print:py-0 ${
+          isDocumentStep
+            ? "max-w-[1680px] px-3 py-6 md:px-6 lg:px-8 xl:px-10"
+            : "max-w-7xl px-6 py-8 md:px-10 lg:px-12"
+        }`}
+      >
         <header className="flex items-center justify-between gap-4 print:hidden">
           <Link
             href="/dashboard/laerervaerktoejer"
@@ -516,7 +549,7 @@ export default function AarsplanGeneratorPage() {
           </div>
         </header>
 
-        <section className="pt-10 print:hidden lg:pt-12">
+        <section className={`${isDocumentStep ? "hidden" : "pt-10 lg:pt-12"} print:hidden`}>
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <p className="inline-flex rounded-lg border border-emerald-300/25 bg-emerald-300/10 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-emerald-50 shadow-sm backdrop-blur">
@@ -581,8 +614,16 @@ export default function AarsplanGeneratorPage() {
           </nav>
         </section>
 
-        <section className="grid flex-1 gap-6 py-8 print:block print:py-0 lg:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="rounded-lg border border-white/75 bg-white/80 p-5 shadow-[0_28px_80px_rgba(15,23,42,0.10)] backdrop-blur print:border-0 print:bg-white print:p-0 print:shadow-none md:p-7">
+        <section
+          className={`flex-1 gap-6 print:block print:py-0 ${
+            isDocumentStep ? "py-5" : "grid py-8 lg:grid-cols-[minmax(0,1fr)_340px]"
+          }`}
+        >
+          <div
+            className={`rounded-lg border border-white/75 bg-white/80 shadow-[0_28px_80px_rgba(15,23,42,0.10)] backdrop-blur print:border-0 print:bg-white print:p-0 print:shadow-none ${
+              isDocumentStep ? "p-3 md:p-5 xl:p-6" : "p-5 md:p-7"
+            }`}
+          >
             {currentStep === 0 ? (
               <section aria-labelledby="step-one-title">
                 <StepHeader
@@ -904,32 +945,37 @@ export default function AarsplanGeneratorPage() {
             ) : null}
           </div>
 
-          <aside className="h-fit rounded-lg border border-white/15 bg-slate-950/60 p-5 text-white shadow-sm backdrop-blur print:hidden">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-300">Dine valg</p>
-            <div className="mt-4 grid gap-3">
-              <SummaryRow label="Fag" value={input.subject} />
-              <SummaryRow label="Klassetrin" value={input.gradeLevel} />
-              <SummaryRow label="Skoleår" value={input.schoolYear} />
-              <SummaryRow label="Ferieplan" value={input.municipality} />
-              <SummaryRow label="Lektioner" value={`${input.lessonsPerWeek} pr. uge`} />
-              <SummaryRow label="Forløb" value={`${input.courseCount} større forløb`} />
-              <SummaryRow label="Undervisningsuger" value={`${previewTeachingWeekCount}`} />
-              <SummaryRow label="Lektioner i alt" value={`${previewTotalLessons}`} />
-              <SummaryRow label="Faste uger" value={fixedWeekLines.length ? `${fixedWeekLines.length} angivet` : ""} />
-            </div>
-            <div className="mt-5 rounded-lg border border-amber-200/30 bg-amber-100/10 p-4">
-              <p className="text-sm font-black text-amber-50">Ferieuger</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-amber-50/75">
-                Ferieuger er foreløbige og kan justeres.
-              </p>
-            </div>
-            <div className="mt-4 rounded-lg border border-emerald-200/25 bg-emerald-300/10 p-4">
-              <p className="text-sm font-black text-emerald-50">Assistent</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-emerald-50/75">
-                AI hjælper med formuleringer. Uger, ferier og perioder fastholdes af årsplanmotoren.
-              </p>
-            </div>
-          </aside>
+          {!isDocumentStep ? (
+            <aside className="h-fit rounded-lg border border-white/15 bg-slate-950/60 p-5 text-white shadow-sm backdrop-blur print:hidden">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-300">Dine valg</p>
+              <div className="mt-4 grid gap-3">
+                <SummaryRow label="Fag" value={input.subject} />
+                <SummaryRow label="Klassetrin" value={input.gradeLevel} />
+                <SummaryRow label="Skoleår" value={input.schoolYear} />
+                <SummaryRow label="Ferieplan" value={input.municipality} />
+                <SummaryRow label="Lektioner" value={`${input.lessonsPerWeek} pr. uge`} />
+                <SummaryRow label="Forløb" value={`${input.courseCount} større forløb`} />
+                <SummaryRow label="Undervisningsuger" value={`${previewTeachingWeekCount}`} />
+                <SummaryRow label="Lektioner i alt" value={`${previewTotalLessons}`} />
+                <SummaryRow
+                  label="Faste uger"
+                  value={fixedWeekLines.length ? `${fixedWeekLines.length} angivet` : ""}
+                />
+              </div>
+              <div className="mt-5 rounded-lg border border-amber-200/30 bg-amber-100/10 p-4">
+                <p className="text-sm font-black text-amber-50">Ferieuger</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-amber-50/75">
+                  Ferieuger er foreløbige og kan justeres.
+                </p>
+              </div>
+              <div className="mt-4 rounded-lg border border-emerald-200/25 bg-emerald-300/10 p-4">
+                <p className="text-sm font-black text-emerald-50">Assistent</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-emerald-50/75">
+                  AI hjælper med formuleringer. Uger, ferier og perioder fastholdes af årsplanmotoren.
+                </p>
+              </div>
+            </aside>
+          ) : null}
         </section>
       </div>
       {isGenerating ? (
@@ -1025,7 +1071,7 @@ function AnnualPlanDocumentEditor({
   onUpdateRow: (rowId: string, field: EditableAnnualPlanRowField, value: string) => void;
 }) {
   return (
-    <div className="mt-8 print:mt-0">
+    <div className="mt-6 print:mt-0">
       <div className="mb-4 flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm font-black text-slate-600">Rediger årsplanen direkte i dokumentet.</p>
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -1048,7 +1094,7 @@ function AnnualPlanDocumentEditor({
         </div>
       </div>
 
-      <article className="annual-plan-print-document overflow-hidden rounded-md bg-[#fffdf8] text-slate-950 shadow-[0_24px_70px_rgba(15,23,42,0.16)] print:rounded-none print:bg-white print:shadow-none">
+      <article className="annual-plan-print-document w-full overflow-hidden rounded-md bg-[#fffdf8] text-slate-950 shadow-[0_24px_70px_rgba(15,23,42,0.16)] print:rounded-none print:bg-white print:shadow-none">
         <header className="border-b border-slate-300 px-7 py-7 print:px-0 print:py-0 print:pb-4 md:px-9">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500 print:text-[9pt]">
             Redigerbar årsplan
@@ -1071,15 +1117,15 @@ function AnnualPlanDocumentEditor({
           </p>
         </header>
 
-        <section className="px-4 py-5 print:px-0 print:py-4 md:px-7">
+        <section className="px-3 py-5 print:px-0 print:py-4 md:px-5 xl:px-7">
           <div className="overflow-x-auto print:overflow-visible">
-            <table className="w-full min-w-[980px] border-collapse text-left print:min-w-0">
+            <table className="w-full min-w-[1180px] border-collapse text-left print:min-w-0">
               <thead>
                 <tr className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-600 print:text-[8pt]">
-                  <th className={`${documentTableCellClassName} w-[14%] px-3 py-3`}>Uge / periode</th>
-                  <th className={`${documentTableCellClassName} w-[20%] px-3 py-3`}>Emne / forløb</th>
-                  <th className={`${documentTableCellClassName} w-[29%] px-3 py-3`}>Mål / Fælles Mål-fokus</th>
-                  <th className={`${documentTableCellClassName} w-[37%] px-3 py-3`}>
+                  <th className={`${documentTableCellClassName} w-[13%] px-3 py-3`}>Uge / periode</th>
+                  <th className={`${documentTableCellClassName} w-[24%] px-3 py-3`}>Emne / forløb</th>
+                  <th className={`${documentTableCellClassName} w-[28%] px-3 py-3`}>Mål / Fælles Mål-fokus</th>
+                  <th className={`${documentTableCellClassName} w-[35%] px-3 py-3`}>
                     Indhold / aktiviteter / evaluering
                   </th>
                 </tr>
@@ -1137,14 +1183,29 @@ function EditableAnnualPlanTableRow({
           />
         </td>
         <td className={`${documentTableCellClassName} px-3 py-3`}>
-          <EditableDocumentTextarea
-            field="title"
-            label="Emne / forløb"
-            minimumRows={3}
-            row={row}
-            value={row.title}
-            onUpdateRow={onUpdateRow}
-          />
+          <div className="flex gap-3">
+            {row.thumbnailSrc ? (
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white p-1 print:h-10 print:w-10 print:p-0.5">
+                <Image
+                  src={row.thumbnailSrc}
+                  alt={row.thumbnailAlt ?? ""}
+                  width={56}
+                  height={56}
+                  className="h-full w-full object-contain"
+                />
+              </span>
+            ) : null}
+            <div className="min-w-0 flex-1">
+              <EditableDocumentTextarea
+                field="title"
+                label="Emne / forløb"
+                minimumRows={3}
+                row={row}
+                value={row.title}
+                onUpdateRow={onUpdateRow}
+              />
+            </div>
+          </div>
           <button
             type="button"
             onClick={() => onDeleteRow(row.id)}
