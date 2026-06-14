@@ -114,7 +114,7 @@ export const gradeLevels = [
 export const schoolYears = ["2026/2027", "2027/2028"] as const;
 
 export const lessonsPerWeekOptions = ["1", "2", "3", "4", "5"] as const;
-export const courseCountOptions = ["4", "5", "6", "7", "8"] as const;
+export const courseCountOptions = ["4", "5", "6", "7", "8", "9", "10", "11", "12"] as const;
 
 const gradeBandLabels: Record<GradeBand, string> = {
   indskoling: "Indskoling",
@@ -263,10 +263,13 @@ function splitTeachingWeeks(teachingWeeks: TeachingWeek[], courseCount: number) 
   const count = Math.max(1, Math.min(courseCount, teachingWeeks.length));
   const baseSize = Math.floor(teachingWeeks.length / count);
   const remainder = teachingWeeks.length % count;
+  const extraWeekIndexes = new Set(
+    Array.from({ length: remainder }, (_, index) => Math.floor(((index + 0.5) * count) / remainder)),
+  );
   let cursor = 0;
 
   return Array.from({ length: count }, (_, index) => {
-    const size = baseSize + (index < remainder ? 1 : 0);
+    const size = baseSize + (extraWeekIndexes.has(index) ? 1 : 0);
     const group = teachingWeeks.slice(cursor, cursor + size);
     cursor += size;
     return group;

@@ -755,12 +755,15 @@ export default function AarsplanGeneratorPage() {
                   eyebrow="Trin 3"
                   icon={<Settings className="h-6 w-6" />}
                   title="Rammer og faste uger"
-                  description="Angiv lektioner, antal forløb og særlige uger."
+                  description="Angiv lokalt timetal, antal forløb og særlige uger."
                   titleId="step-three-title"
                 />
 
                 <div className="mt-8 grid gap-5 md:grid-cols-2">
-                  <Field label="Lektioner pr. uge">
+                  <Field
+                    label="Lektioner pr. uge / lokalt timetal"
+                    description="Vælg det timetal, skolen har lagt for faget. Årsplanen fordeler indholdet efter dette."
+                  >
                     <select
                       className={selectClassName}
                       value={input.lessonsPerWeek}
@@ -836,7 +839,7 @@ export default function AarsplanGeneratorPage() {
                     ["Skoleår", input.schoolYear],
                     ["Ferieplan", input.municipality],
                     ["Undervisningsuger", `${previewTeachingWeekCount}`],
-                    ["Lektioner i alt", `${previewTotalLessons}`],
+                    ["Lokalt timetal i alt", `${previewTotalLessons} lektioner`],
                     ["Faste uger", fixedWeekLines.length ? `${fixedWeekLines.length} angivet` : "Ingen"],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-lg border border-slate-200 bg-slate-50/80 p-4">
@@ -902,7 +905,7 @@ export default function AarsplanGeneratorPage() {
                     rows={editableRows}
                     schoolName={input.schoolName}
                     teacherName={input.teacherName}
-                    lessonsPerWeek={input.lessonsPerWeek}
+                    lessonsPerWeek={`${input.lessonsPerWeek} lektioner/uge`}
                     onAddRow={addEditableRow}
                     onDeleteRow={deleteEditableRow}
                     onPrint={printAnnualPlan}
@@ -953,10 +956,10 @@ export default function AarsplanGeneratorPage() {
                 <SummaryRow label="Underviser" value={input.teacherName} />
                 <SummaryRow label="Skoleår" value={input.schoolYear} />
                 <SummaryRow label="Ferieplan" value={input.municipality} />
-                <SummaryRow label="Lektioner" value={`${input.lessonsPerWeek} pr. uge`} />
+                <SummaryRow label="Lokalt timetal" value={`${input.lessonsPerWeek} lektioner pr. uge`} />
                 <SummaryRow label="Forløb" value={`${input.courseCount} større forløb`} />
                 <SummaryRow label="Undervisningsuger" value={`${previewTeachingWeekCount}`} />
-                <SummaryRow label="Lektioner i alt" value={`${previewTotalLessons}`} />
+                <SummaryRow label="Lokalt timetal i alt" value={`${previewTotalLessons} lektioner`} />
                 <SummaryRow
                   label="Faste uger"
                   value={fixedWeekLines.length ? `${fixedWeekLines.length} angivet` : ""}
@@ -1148,7 +1151,7 @@ function AnnualPlanDocumentEditor({
             <DocumentMetaLine label="Fag" value={plan.subject} />
             <DocumentMetaLine label="Klassetrin" value={plan.grade} />
             <DocumentMetaLine label="Skoleår" value={plan.schoolYear} />
-            <DocumentMetaLine label="Lektioner pr. uge" value={lessonsPerWeek} />
+            <DocumentMetaLine label="Lokalt timetal" value={lessonsPerWeek} />
             <DocumentMetaLine label="Forløb" value={plan.summary.courseCount} />
             <DocumentMetaLine label="Undervisningsuger" value={plan.teachingWeeks} />
           </div>
