@@ -11,7 +11,6 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
-  GraduationCap,
   Plus,
   Printer,
   School,
@@ -120,7 +119,7 @@ const wizardSteps = [
     icon: Sparkles,
   },
   {
-    title: "Se flot årsplan-preview",
+    title: "Redigér årsplan",
     label: "Trin 5",
     icon: FileText,
   },
@@ -136,7 +135,7 @@ const buttonBaseClassName =
   "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-black transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed disabled:opacity-45";
 
 const documentTextareaClassName =
-  "w-full resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold leading-6 text-slate-900 shadow-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 print:border-0 print:bg-transparent print:p-0 print:text-[10pt] print:leading-snug print:shadow-none";
+  "w-full resize-none overflow-hidden rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold leading-7 text-slate-900 shadow-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
 
 const documentTableCellClassName =
   "border border-slate-300 align-top print:border-slate-400";
@@ -149,11 +148,11 @@ const subjectImageAssets: Partial<Record<string, readonly string[]>> = {
 
 const generationSteps = [
   "Læser dine valg",
-  "Låser skoleår, ferieuger og perioder",
-  "Sender den faste årsplanstruktur til AI",
+  "Fordeler skoleår, ferieuger og perioder",
+  "Bygger årsplanens forløb",
   "Forbedrer mål, aktiviteter og evaluering",
-  "Bygger årsplanen i 4 kolonner",
-  "Klargør billedidéer til senere",
+  "Samler årsplanen i et dokument",
+  "Gør printvisningen klar",
 ] as const;
 
 function getFixedWeekLines(fixedWeeks: string) {
@@ -227,9 +226,9 @@ function buildEditableAnnualPlanRows(plan: AnnualPlanDraft, fixedWeekLines: stri
         id: `fixed-week-${index + 1}`,
         weeks: fixedWeek.weeks,
         title: fixedWeek.title,
-        goals: "Lærerens faste uge eller temauge.",
-        content: "Planlagt uden for årsplanmotorens fordeling.",
-        evaluation: "Rediger lokalt efter behov.",
+        goals: "Særlig uge i årsplanen.",
+        content: "Indhold aftales lokalt.",
+        evaluation: "",
         imageIdea: "",
         isLocked: true,
         source: "fixed-week" as const,
@@ -245,20 +244,8 @@ function buildEditableAnnualPlanRows(plan: AnnualPlanDraft, fixedWeekLines: stri
 }
 
 function getTextareaRows(value: string, minimumRows: number) {
-  const lineCount = value.split(/\r?\n/).reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 58)), 0);
-  return Math.min(12, Math.max(minimumRows, lineCount));
-}
-
-function getRowSourceLabel(row: EditableAnnualPlanRow) {
-  if (row.source === "fixed-week") {
-    return "Fast uge";
-  }
-
-  if (row.source === "manual") {
-    return "Egen række";
-  }
-
-  return "AI-forslag";
+  const lineCount = value.split(/\r?\n/).reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 42)), 0);
+  return Math.max(minimumRows, lineCount);
 }
 
 export default function AarsplanGeneratorPage() {
@@ -268,7 +255,7 @@ export default function AarsplanGeneratorPage() {
   const [editableRows, setEditableRows] = useState<EditableAnnualPlanRow[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStepIndex, setGenerationStepIndex] = useState(0);
-  const [aiSource, setAiSource] = useState<"local" | "api">("local");
+  const [, setAiSource] = useState<"local" | "api">("local");
   const generationTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
@@ -284,10 +271,6 @@ export default function AarsplanGeneratorPage() {
 
   const selectedSchoolYear = input.schoolYear || "2026/2027";
   const selectedMunicipality = input.municipality || GENERIC_HOLIDAY_PLAN_LABEL;
-  const previewHolidayWeeks = useMemo(
-    () => getHolidayWeeks(selectedSchoolYear, selectedMunicipality),
-    [selectedMunicipality, selectedSchoolYear],
-  );
   const previewTeachingWeekCount = useMemo(
     () => buildTeachingWeeks(selectedSchoolYear, selectedMunicipality).length,
     [selectedMunicipality, selectedSchoolYear],
@@ -333,7 +316,6 @@ export default function AarsplanGeneratorPage() {
           ? 2
           : 3;
 
-  const selectedSubjectIntro = input.subject ? getCommonGoalsIntro(input.subject) : getCommonGoalsIntro("");
   const isDocumentStep = currentStep === 4;
 
   function updateInput<Key extends keyof AnnualPlanInput>(key: Key, value: AnnualPlanInput[Key]) {
@@ -517,6 +499,15 @@ export default function AarsplanGeneratorPage() {
     >
       <style>{`
         @media print {
+          @page {
+            size: A4 landscape;
+            margin: 12mm;
+          }
+
+          .annual-plan-print-document {
+            overflow: visible !important;
+          }
+
           .annual-plan-print-document textarea {
             border: 0 !important;
             background: transparent !important;
@@ -525,6 +516,18 @@ export default function AarsplanGeneratorPage() {
             padding: 0 !important;
             resize: none !important;
             overflow: visible !important;
+          }
+
+          .annual-plan-print-document table,
+          .annual-plan-print-document tr,
+          .annual-plan-print-document th,
+          .annual-plan-print-document td {
+            overflow: visible !important;
+          }
+
+          .annual-plan-print-document th,
+          .annual-plan-print-document td {
+            vertical-align: top !important;
           }
         }
       `}</style>
@@ -561,13 +564,8 @@ export default function AarsplanGeneratorPage() {
               <p className="mt-4 max-w-2xl text-base font-semibold leading-8 text-slate-100 md:text-lg">
                 Lav en årsplan på få trin.
                 <br />
-                Du vælger rammerne. Assistenten laver et forslag.
-                <br />
-                Til sidst kan du printe eller gemme planen som PDF.
+                Ret den på siden, og print eller gem som PDF.
               </p>
-            </div>
-            <div className="rounded-lg border border-amber-200/35 bg-amber-100/10 px-5 py-4 text-sm font-bold leading-6 text-amber-50 shadow-sm backdrop-blur">
-              Tjek altid ugerne, før du bruger planen.
             </div>
           </div>
 
@@ -636,7 +634,7 @@ export default function AarsplanGeneratorPage() {
                 />
 
                 <div className="mt-8 grid gap-5 md:grid-cols-2">
-                  <Field label="Fag" description="Vælg det fag, årsplanen skal bygges til.">
+                  <Field label="Fag">
                     <select
                       className={selectClassName}
                       value={input.subject}
@@ -651,7 +649,7 @@ export default function AarsplanGeneratorPage() {
                     </select>
                   </Field>
 
-                  <Field label="Klassetrin" description="Klassetrinnet bruges i forløbsbeskrivelserne.">
+                  <Field label="Klassetrin">
                     <select
                       className={selectClassName}
                       value={input.gradeLevel}
@@ -665,14 +663,6 @@ export default function AarsplanGeneratorPage() {
                       ))}
                     </select>
                   </Field>
-                </div>
-
-                <div className="mt-8 rounded-lg border border-emerald-100 bg-emerald-50/80 p-5">
-                  <div className="flex items-center gap-3">
-                    <GraduationCap className="h-5 w-5 text-emerald-800" />
-                    <p className="text-sm font-black text-emerald-950">Fælles Mål-preview</p>
-                  </div>
-                  <p className="mt-3 text-sm font-semibold leading-7 text-emerald-950/80">{selectedSubjectIntro}</p>
                 </div>
               </section>
             ) : null}
@@ -689,7 +679,7 @@ export default function AarsplanGeneratorPage() {
                 />
 
                 <div className="mt-8 grid gap-5 md:grid-cols-2">
-                  <Field label="Skoleår" description="Vælg det skoleår, planen skal dække.">
+                  <Field label="Skoleår">
                     <select
                       className={selectClassName}
                       value={input.schoolYear}
@@ -704,7 +694,7 @@ export default function AarsplanGeneratorPage() {
                     </select>
                   </Field>
 
-                  <Field label="Kommune eller ferieplan" description="Ferieuger er foreløbige og kan justeres.">
+                  <Field label="Kommune">
                     <select
                       className={selectClassName}
                       value={input.municipality}
@@ -718,29 +708,6 @@ export default function AarsplanGeneratorPage() {
                       ))}
                     </select>
                   </Field>
-                </div>
-
-                <div className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">Ferieuger</p>
-                      <p className="mt-2 text-sm font-bold">
-                        Foreløbigt beregnet til {previewTeachingWeekCount} undervisningsuger og {previewTotalLessons}{" "}
-                        lektioner med dine nuværende rammer.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {previewHolidayWeeks.map((holiday) => (
-                      <div key={holiday.name} className="rounded-lg border border-amber-200 bg-white/70 p-4">
-                        <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-700">
-                          {holiday.type === "holiday" ? "Springes over" : "Note"}
-                        </p>
-                        <p className="mt-2 text-sm font-black">{holiday.name}</p>
-                        <p className="mt-1 text-sm font-semibold text-amber-900/75">{holiday.label}</p>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               </section>
             ) : null}
@@ -757,7 +724,7 @@ export default function AarsplanGeneratorPage() {
                 />
 
                 <div className="mt-8 grid gap-5 md:grid-cols-2">
-                  <Field label="Antal lektioner pr. uge" description="Bruges til anslået lektionstal i hvert forløb.">
+                  <Field label="Lektioner pr. uge">
                     <select
                       className={selectClassName}
                       value={input.lessonsPerWeek}
@@ -771,7 +738,7 @@ export default function AarsplanGeneratorPage() {
                     </select>
                   </Field>
 
-                  <Field label="Antal større forløb" description="Motoren fordeler forløbene over undervisningsugerne.">
+                  <Field label="Antal forløb">
                     <select
                       className={selectClassName}
                       value={input.courseCount}
@@ -788,8 +755,8 @@ export default function AarsplanGeneratorPage() {
 
                 <div className="mt-6">
                   <Field
-                    label="Faste uger eller særlige dage"
-                    description="Skriv én pr. linje. Eksempel: Uge 41: Emneuge"
+                    label="Faste uger / særlige uger"
+                    description="Én pr. linje, fx Uge 41: Emneuge."
                   >
                     <textarea
                       className={textareaClassName}
@@ -801,7 +768,7 @@ export default function AarsplanGeneratorPage() {
                 </div>
 
                 <div className="mt-6">
-                  <Field label="Andre ønsker" description="Kort note til stil, arbejdsformer eller særlige hensyn.">
+                  <Field label="Eventuelle ekstra ønsker" description="Kort note til stil eller særlige hensyn.">
                     <textarea
                       className={textareaClassName}
                       value={input.specialThemes}
@@ -840,14 +807,6 @@ export default function AarsplanGeneratorPage() {
                     </div>
                   ))}
                 </div>
-
-                <div className="mt-8 rounded-lg border border-rose-100 bg-rose-50 p-5">
-                  <p className="text-sm font-black text-rose-950">PDF-retning</p>
-                  <p className="mt-2 text-sm font-semibold leading-7 text-rose-950/75">
-                    Forslaget vises som et redigerbart dokument, der kan printes eller gemmes som PDF.
-                  </p>
-                </div>
-
                 <button
                   type="button"
                   disabled={!stepValidity[3] || isGenerating}
@@ -903,7 +862,6 @@ export default function AarsplanGeneratorPage() {
                   <AnnualPlanDocumentEditor
                     plan={generatedPlan}
                     rows={editableRows}
-                    aiSource={aiSource}
                     lessonsPerWeek={input.lessonsPerWeek}
                     onAddRow={addEditableRow}
                     onDeleteRow={deleteEditableRow}
@@ -961,18 +919,6 @@ export default function AarsplanGeneratorPage() {
                   label="Faste uger"
                   value={fixedWeekLines.length ? `${fixedWeekLines.length} angivet` : ""}
                 />
-              </div>
-              <div className="mt-5 rounded-lg border border-amber-200/30 bg-amber-100/10 p-4">
-                <p className="text-sm font-black text-amber-50">Ferieuger</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-amber-50/75">
-                  Ferieuger er foreløbige og kan justeres.
-                </p>
-              </div>
-              <div className="mt-4 rounded-lg border border-emerald-200/25 bg-emerald-300/10 p-4">
-                <p className="text-sm font-black text-emerald-50">Assistent</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-emerald-50/75">
-                  AI hjælper med formuleringer. Uger, ferier og perioder fastholdes af årsplanmotoren.
-                </p>
               </div>
             </aside>
           ) : null}
@@ -1054,7 +1000,6 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 function AnnualPlanDocumentEditor({
   plan,
   rows,
-  aiSource,
   lessonsPerWeek,
   onAddRow,
   onDeleteRow,
@@ -1063,7 +1008,6 @@ function AnnualPlanDocumentEditor({
 }: {
   plan: AnnualPlanDraft;
   rows: EditableAnnualPlanRow[];
-  aiSource?: "local" | "api";
   lessonsPerWeek: string;
   onAddRow: () => void;
   onDeleteRow: (rowId: string) => void;
@@ -1073,7 +1017,9 @@ function AnnualPlanDocumentEditor({
   return (
     <div className="mt-6 print:mt-0">
       <div className="mb-4 flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm font-black text-slate-600">Rediger årsplanen direkte i dokumentet.</p>
+        <p className="text-sm font-black text-slate-600">
+          Ret årsplanen her på siden, før du printer eller gemmer som PDF.
+        </p>
         <div className="flex flex-col gap-3 sm:flex-row">
           <button
             type="button"
@@ -1094,10 +1040,10 @@ function AnnualPlanDocumentEditor({
         </div>
       </div>
 
-      <article className="annual-plan-print-document w-full overflow-hidden rounded-md bg-[#fffdf8] text-slate-950 shadow-[0_24px_70px_rgba(15,23,42,0.16)] print:rounded-none print:bg-white print:shadow-none">
+      <article className="annual-plan-print-document w-full overflow-hidden rounded-md bg-[#fffdf8] text-slate-950 shadow-[0_24px_70px_rgba(15,23,42,0.16)] print:overflow-visible print:rounded-none print:bg-white print:shadow-none">
         <header className="border-b border-slate-300 px-7 py-7 print:px-0 print:py-0 print:pb-4 md:px-9">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500 print:text-[9pt]">
-            Redigerbar årsplan
+            Årsplan
           </p>
           <h3 className={`mt-3 text-3xl font-black tracking-tight text-slate-950 print:text-[20pt] md:text-5xl ${rubik.className}`}>
             {plan.title}
@@ -1110,14 +1056,13 @@ function AnnualPlanDocumentEditor({
             <p>Lektioner pr. uge: {lessonsPerWeek}</p>
             <p>Forløb: {plan.summary.courseCount}</p>
             <p>Undervisningsuger: {plan.teachingWeeks}</p>
-            <p>Forslag: {aiSource === "api" ? "AI-genereret" : "Lokalt forbedret"}</p>
           </div>
           <p className="mt-5 text-sm font-semibold leading-7 text-slate-700 print:text-[10pt] print:leading-snug">
             {plan.commonGoalsIntro}
           </p>
         </header>
 
-        <section className="px-3 py-5 print:px-0 print:py-4 md:px-5 xl:px-7">
+        <section className="px-3 py-5 print:hidden md:px-5 xl:px-7">
           <div className="overflow-x-auto print:overflow-visible">
             <table className="w-full min-w-[1180px] border-collapse text-left print:min-w-0">
               <thead>
@@ -1144,6 +1089,26 @@ function AnnualPlanDocumentEditor({
           </div>
         </section>
 
+        <section className="hidden print:block print:py-4">
+          <table className="w-full table-fixed border-collapse text-left">
+            <thead>
+              <tr className="bg-slate-100 text-[8pt] font-black uppercase tracking-[0.08em] text-slate-700">
+                <th className={`${documentTableCellClassName} w-[15%] px-2 py-2`}>Uge / periode</th>
+                <th className={`${documentTableCellClassName} w-[22%] px-2 py-2`}>Emne / forløb</th>
+                <th className={`${documentTableCellClassName} w-[27%] px-2 py-2`}>Mål</th>
+                <th className={`${documentTableCellClassName} w-[36%] px-2 py-2`}>
+                  Indhold / aktiviteter / evaluering
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <PrintableAnnualPlanTableRow key={row.id} row={row} />
+              ))}
+            </tbody>
+          </table>
+        </section>
+
         {plan.summary.teacherNote ? (
           <footer className="border-t border-slate-200 px-7 py-5 print:px-0 print:py-3 md:px-9">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 print:text-[8pt]">Lærer-note</p>
@@ -1154,6 +1119,39 @@ function AnnualPlanDocumentEditor({
         ) : null}
       </article>
     </div>
+  );
+}
+
+function PrintableAnnualPlanTableRow({ row }: { row: EditableAnnualPlanRow }) {
+  const combinedContent = [row.content, row.evaluation].filter((value) => value.trim()).join("\n\nEvaluering: ");
+
+  return (
+    <tr className={row.source === "fixed-week" ? "break-inside-avoid bg-amber-50/55" : "break-inside-avoid bg-white"}>
+      <td className={`${documentTableCellClassName} px-2 py-2`}>
+        <PrintableText value={row.weeks} />
+      </td>
+      <td className={`${documentTableCellClassName} px-2 py-2`}>
+        <PrintableText value={row.title} strong />
+      </td>
+      <td className={`${documentTableCellClassName} px-2 py-2`}>
+        <PrintableText value={row.goals} />
+      </td>
+      <td className={`${documentTableCellClassName} px-2 py-2`}>
+        <PrintableText value={combinedContent} />
+      </td>
+    </tr>
+  );
+}
+
+function PrintableText({ value, strong = false }: { value: string; strong?: boolean }) {
+  return (
+    <p
+      className={`whitespace-pre-wrap break-words text-[9pt] leading-[1.45] text-slate-900 ${
+        strong ? "font-bold" : "font-medium"
+      }`}
+    >
+      {value.trim() || " "}
+    </p>
   );
 }
 
@@ -1168,11 +1166,8 @@ function EditableAnnualPlanTableRow({
 }) {
   return (
     <>
-      <tr className="break-inside-avoid bg-white">
+      <tr className={row.source === "fixed-week" ? "break-inside-avoid bg-amber-50/55" : "break-inside-avoid bg-white"}>
         <td className={`${documentTableCellClassName} px-3 py-3`}>
-          <span className="mb-2 inline-flex rounded border border-slate-300 bg-slate-50 px-2 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-600 print:text-[7pt]">
-            {getRowSourceLabel(row)}
-          </span>
           <EditableDocumentTextarea
             field="weeks"
             label="Uge / periode"
