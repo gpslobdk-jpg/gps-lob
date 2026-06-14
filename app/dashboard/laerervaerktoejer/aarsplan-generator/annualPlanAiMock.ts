@@ -57,7 +57,7 @@ export function createMockAiAnnualPlanEnhancement(input: AnnualPlanAiInput): Ann
   });
 
   const teacherNote =
-    "Denne AI-forbedring er en lokal demo. I den færdige version kan AI hjælpe med at formulere mål, aktiviteter og evaluering. Strukturen med skoleår, ferieuger og perioder fastholdes altid af årsplanmotoren.";
+    "Tjek uger, mål, aktiviteter og evaluering, før årsplanen deles. Strukturen med skoleår, ferieuger og perioder fastholdes af årsplanmotoren.";
 
   return { courses, teacherNote };
 }

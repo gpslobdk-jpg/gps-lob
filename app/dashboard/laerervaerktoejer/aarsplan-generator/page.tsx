@@ -129,13 +129,13 @@ const selectClassName =
   "mt-3 min-h-12 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 shadow-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
 
 const textareaClassName =
-  "mt-3 min-h-28 w-full resize-y rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
+  "mt-3 min-h-28 w-full resize-none overflow-hidden rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
 
 const buttonBaseClassName =
   "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-black transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed disabled:opacity-45";
 
 const documentTextareaClassName =
-  "w-full resize-none overflow-hidden rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold leading-7 text-slate-900 shadow-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
+  "block w-full resize-none overflow-hidden rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold leading-7 text-slate-900 shadow-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
 
 const documentTableCellClassName =
   "border border-slate-300 align-top print:border-slate-400";
@@ -246,6 +246,15 @@ function buildEditableAnnualPlanRows(plan: AnnualPlanDraft, fixedWeekLines: stri
 function getTextareaRows(value: string, minimumRows: number) {
   const lineCount = value.split(/\r?\n/).reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 42)), 0);
   return Math.max(minimumRows, lineCount);
+}
+
+function resizeTextareaToContent(textarea: HTMLTextAreaElement) {
+  textarea.style.height = "auto";
+  textarea.style.overflowY = "hidden";
+
+  const borderHeight = textarea.offsetHeight - textarea.clientHeight;
+
+  textarea.style.height = `${textarea.scrollHeight + borderHeight}px`;
 }
 
 export default function AarsplanGeneratorPage() {
@@ -758,22 +767,22 @@ export default function AarsplanGeneratorPage() {
                     label="Faste uger / særlige uger"
                     description="Én pr. linje, fx Uge 41: Emneuge."
                   >
-                    <textarea
+                    <AutoGrowingTextarea
                       className={textareaClassName}
                       value={input.fixedWeeks}
                       placeholder={"Uge 41: Emneuge\nUge 50: Juleværksted"}
-                      onChange={(event) => updateInput("fixedWeeks", event.target.value)}
+                      onValueChange={(value) => updateInput("fixedWeeks", value)}
                     />
                   </Field>
                 </div>
 
                 <div className="mt-6">
                   <Field label="Eventuelle ekstra ønsker" description="Kort note til stil eller særlige hensyn.">
-                    <textarea
+                    <AutoGrowingTextarea
                       className={textareaClassName}
                       value={input.specialThemes}
                       placeholder="Fx mere bevægelse eller fokus på mundtlighed."
-                      onChange={(event) => updateInput("specialThemes", event.target.value)}
+                      onValueChange={(value) => updateInput("specialThemes", value)}
                     />
                   </Field>
                 </div>
@@ -787,7 +796,7 @@ export default function AarsplanGeneratorPage() {
                   eyebrow="Trin 4"
                   icon={<Sparkles className="h-6 w-6" />}
                   title="Generér årsplan"
-                  description="Klik for at bygge et forslag."
+                  description="Klik for at bygge årsplanen."
                   titleId="step-four-title"
                 />
 
@@ -984,6 +993,43 @@ function Field({
   );
 }
 
+function AutoGrowingTextarea({
+  className,
+  placeholder,
+  value,
+  onValueChange,
+}: {
+  className: string;
+  placeholder?: string;
+  value: string;
+  onValueChange: (value: string) => void;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+
+    if (!textarea) {
+      return;
+    }
+
+    resizeTextareaToContent(textarea);
+  }, [value]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      className={className}
+      value={value}
+      placeholder={placeholder}
+      onChange={(event) => {
+        resizeTextareaToContent(event.currentTarget);
+        onValueChange(event.target.value);
+      }}
+    />
+  );
+}
+
 function EmptyValue({ children = "Ikke valgt endnu" }: { children?: ReactNode }) {
   return <span className="text-slate-400">{children}</span>;
 }
@@ -1063,7 +1109,7 @@ function AnnualPlanDocumentEditor({
         </header>
 
         <section className="px-3 py-5 print:hidden md:px-5 xl:px-7">
-          <div className="overflow-x-auto print:overflow-visible">
+          <div className="overflow-x-auto [scrollbar-width:none] print:overflow-visible [&::-webkit-scrollbar]:hidden">
             <table className="w-full min-w-[1180px] border-collapse text-left print:min-w-0">
               <thead>
                 <tr className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-600 print:text-[8pt]">
@@ -1277,15 +1323,31 @@ function EditableDocumentTextarea({
   value: string;
   onUpdateRow: (rowId: string, field: EditableAnnualPlanRowField, value: string) => void;
 }) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+
+    if (!textarea) {
+      return;
+    }
+
+    resizeTextareaToContent(textarea);
+  }, [value]);
+
   return (
     <label className="block">
       <span className="sr-only">{label}</span>
       <textarea
+        ref={textareaRef}
         aria-label={`${label}: ${row.title || row.weeks || "række"}`}
         className={documentTextareaClassName}
         rows={getTextareaRows(value, minimumRows)}
         value={value}
-        onChange={(event) => onUpdateRow(row.id, field, event.target.value)}
+        onChange={(event) => {
+          resizeTextareaToContent(event.currentTarget);
+          onUpdateRow(row.id, field, event.target.value);
+        }}
       />
     </label>
   );
@@ -1310,7 +1372,7 @@ function GenerationOverlay({
             <Sparkles className="h-6 w-6" />
           </span>
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Assistent</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Årsplan</p>
             <h2 className={`mt-2 text-3xl font-black tracking-tight text-slate-950 ${rubik.className}`}>
               Bygger din årsplan
             </h2>

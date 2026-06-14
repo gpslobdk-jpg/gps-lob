@@ -376,7 +376,7 @@ function createImagePrompt(input: AnnualPlanEngineInput, profile: SubjectProfile
     return base;
   }
 
-  return `${base} Noter til senere AI-version: ${notes}.`;
+  return `${base} Noter til billedidé: ${notes}.`;
 }
 
 export function createAnnualPlanDraft(input: AnnualPlanEngineInput): AnnualPlanDraft {
