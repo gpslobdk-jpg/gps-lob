@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BookOpen, Calendar } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Calendar, School } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
 
 export const metadata: Metadata = {
@@ -25,6 +25,17 @@ const toolCards = [
     secondaryText: "Senere kan AI hjælpe med efterredigering og billeder.",
     href: "/dashboard/laerervaerktoejer/aarsplan-generator",
     icon: Calendar,
+    cta: "Lav årsplan",
+  },
+  {
+    title: "SkemaPilot",
+    description: "Et kommende skemaværktøj til små skoler, friskoler og privatskoler.",
+    secondaryText:
+      "Prototype: samler senere konflikttjek, timetal, lærere, klasser, lokaler og pædagogiske ønsker.",
+    href: "/dashboard/laerervaerktoejer/skemapilot",
+    icon: School,
+    cta: "Se prototype",
+    statusLabel: "Kommer snart",
   },
 ] as const;
 
@@ -91,9 +102,16 @@ export default function LaerervaerktoejerPage() {
                         <Icon className="h-7 w-7" />
                       </div>
                       <div className="min-w-0">
-                        <h2 className={`text-3xl font-black tracking-tight text-white ${rubik.className}`}>
-                          {tool.title}
-                        </h2>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <h2 className={`text-3xl font-black tracking-tight text-white ${rubik.className}`}>
+                            {tool.title}
+                          </h2>
+                          {"statusLabel" in tool ? (
+                            <span className="rounded-lg border border-amber-200/40 bg-amber-200/15 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-amber-100">
+                              {tool.statusLabel}
+                            </span>
+                          ) : null}
+                        </div>
                         <p className="mt-3 max-w-xl text-sm font-semibold leading-7 text-slate-200 md:text-base">
                           {tool.description}
                         </p>
@@ -107,7 +125,7 @@ export default function LaerervaerktoejerPage() {
                       href={tool.href}
                       className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-emerald-300/40 bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300/25 md:w-fit"
                     >
-                      Lav årsplan
+                      {tool.cta}
                       <ArrowRight className="h-4 w-4" />
                     </Link>
                   </div>
