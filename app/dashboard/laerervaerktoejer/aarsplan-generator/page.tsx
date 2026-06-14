@@ -9,6 +9,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Download,
   FileText,
   GraduationCap,
   Image as ImageIcon,
@@ -57,6 +58,7 @@ type AnnualPlanInput = {
   municipality: string;
   lessonsPerWeek: string;
   courseCount: string;
+  fixedWeeks: string;
   specialThemes: string;
   aiNotes: string;
 };
@@ -70,6 +72,7 @@ const initialInput: AnnualPlanInput = {
   municipality: "",
   lessonsPerWeek: "2",
   courseCount: "6",
+  fixedWeeks: "",
   specialThemes: "",
   aiNotes: "",
 };
@@ -163,6 +166,13 @@ const generationSteps = [
   "Klargør billedidéer til senere",
 ] as const;
 
+function getFixedWeekLines(fixedWeeks: string) {
+  return fixedWeeks
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 export default function AarsplanGeneratorPage() {
   const [input, setInput] = useState<AnnualPlanInput>(initialInput);
   const [currentStep, setCurrentStep] = useState<StepIndex>(0);
@@ -194,6 +204,7 @@ export default function AarsplanGeneratorPage() {
     [selectedMunicipality, selectedSchoolYear],
   );
   const previewTotalLessons = previewTeachingWeekCount * Number(input.lessonsPerWeek);
+  const fixedWeekLines = useMemo(() => getFixedWeekLines(input.fixedWeeks), [input.fixedWeeks]);
 
   const stepValidity = useMemo(
     () =>
@@ -372,64 +383,42 @@ export default function AarsplanGeneratorPage() {
 
   return (
     <main
-      className={`min-h-screen bg-[linear-gradient(135deg,#edf7f4_0%,#f8fafc_44%,#fff7ed_100%)] text-slate-950 ${poppins.className}`}
+      className={`min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.22),transparent_34%),linear-gradient(135deg,#0f172a_0%,#13332d_44%,#1f2937_100%)] text-slate-950 ${poppins.className}`}
     >
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-8 md:px-10 lg:px-12">
         <header className="flex items-center justify-between gap-4">
           <Link
             href="/dashboard/laerervaerktoejer"
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/70 bg-white/85 px-4 py-2 text-sm font-bold text-slate-700 shadow-sm backdrop-blur transition hover:border-emerald-200 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-100"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/15 bg-slate-950/55 px-4 py-2 text-sm font-bold text-white shadow-sm backdrop-blur transition hover:border-emerald-300/60 hover:text-emerald-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300/20"
           >
             <ArrowLeft className="h-4 w-4" />
             Lærerværktøjer
           </Link>
-          <div className="hidden min-h-11 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/90 px-4 py-2 text-sm font-bold text-emerald-900 shadow-sm sm:inline-flex">
+          <div className="hidden min-h-11 items-center gap-2 rounded-lg border border-emerald-300/25 bg-emerald-300/10 px-4 py-2 text-sm font-bold text-emerald-50 shadow-sm backdrop-blur sm:inline-flex">
             <School className="h-4 w-4" />
-            Lokal prototype
+            PDF-årsplan
           </div>
         </header>
 
         <section className="pt-10 lg:pt-12">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-              <p className="inline-flex rounded-lg border border-emerald-200 bg-white/80 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-emerald-800 shadow-sm">
+              <p className="inline-flex rounded-lg border border-emerald-300/25 bg-emerald-300/10 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-emerald-50 shadow-sm backdrop-blur">
                 Lærerværktøj
               </p>
-              <h1 className={`mt-5 text-4xl font-black tracking-tight text-slate-950 md:text-6xl ${rubik.className}`}>
+              <h1 className={`mt-5 text-4xl font-black tracking-tight text-white md:text-6xl ${rubik.className}`}>
                 Årsplan-generator
               </h1>
-              <p className="mt-4 max-w-2xl text-base font-semibold leading-8 text-slate-700 md:text-lg">
-                Lav et første udkast til en årsplan på få trin.
-              </p>
-              <p className="mt-3 max-w-2xl text-base font-semibold leading-7 text-slate-700 md:text-lg">
-                Generatoren bruger dine valg, Fælles Mål og skoleårets uger som ramme.
-              </p>
-              <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-700 md:text-lg">
-                Du kan justere planen bagefter. Senere kan AI hjælpe med efterredigering.
-              </p>
-              <p className="mt-4 text-sm font-semibold text-slate-700">
-                1. Vælg fag og klasse · 2. Vælg skoleår og kommune · 3. Generér et forslag · 4. Tilpas bagefter
+              <p className="mt-4 max-w-2xl text-base font-semibold leading-8 text-slate-100 md:text-lg">
+                Lav en årsplan på få trin.
+                <br />
+                Du vælger rammerne. Assistenten laver et forslag.
+                <br />
+                Til sidst kan du downloade en flot PDF.
               </p>
             </div>
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-bold leading-6 text-amber-950 shadow-sm">
-              Ferieuger er foreløbige demo-data og skal kvalitetssikres før rigtig brug.
-            </div>
-          </div>
-
-          <div className="mt-6 rounded-lg border border-emerald-200 bg-white/85 p-5 shadow-sm backdrop-blur">
-            <div className="flex items-start gap-4">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white">
-                <GraduationCap className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="text-sm font-black text-slate-950">Årsplan med afsæt i Fælles Mål</p>
-                <p className="mt-2 max-w-4xl text-sm font-semibold leading-7 text-slate-700">
-                  Årsplanen bygges med afsæt i Fælles Mål, dine valg og skoleårets uger.
-                </p>
-                <p className="mt-2 max-w-4xl text-sm font-semibold leading-6 text-slate-700/75">
-                  Senere kan AI hjælpe med efterredigering.
-                </p>
-              </div>
+            <div className="rounded-lg border border-amber-200/35 bg-amber-100/10 px-5 py-4 text-sm font-bold leading-6 text-amber-50 shadow-sm backdrop-blur">
+              Tjek altid ugerne, før du bruger planen.
             </div>
           </div>
 
@@ -543,7 +532,7 @@ export default function AarsplanGeneratorPage() {
                 />
 
                 <div className="mt-8 grid gap-5 md:grid-cols-2">
-                  <Field label="Skoleår" description="Første lokale motor understøtter to demo-skoleår.">
+                  <Field label="Skoleår" description="Vælg det skoleår, planen skal dække.">
                     <select
                       className={selectClassName}
                       value={input.schoolYear}
@@ -558,7 +547,7 @@ export default function AarsplanGeneratorPage() {
                     </select>
                   </Field>
 
-                  <Field label="Kommune eller ferieplan" description="Ferieplanerne er lokale mockdata i prototypen.">
+                  <Field label="Kommune eller ferieplan" description="Ferieuger er foreløbige og kan justeres.">
                     <select
                       className={selectClassName}
                       value={input.municipality}
@@ -577,9 +566,7 @@ export default function AarsplanGeneratorPage() {
                 <div className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950">
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">
-                        Demo-ferieplan i prototype
-                      </p>
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">Ferieuger</p>
                       <p className="mt-2 text-sm font-bold">
                         Foreløbigt beregnet til {previewTeachingWeekCount} undervisningsuger og {previewTotalLessons}{" "}
                         lektioner med dine nuværende rammer.
@@ -607,8 +594,8 @@ export default function AarsplanGeneratorPage() {
                   colorClassName="bg-amber-500"
                   eyebrow="Trin 3"
                   icon={<Settings className="h-6 w-6" />}
-                  title="Rammer og ekstra ønsker"
-                  description="Angiv lektioner og antal forløb. Tilføj evt. ekstra ønsker."
+                  title="Rammer og faste uger"
+                  description="Angiv lektioner, antal forløb og særlige uger."
                   titleId="step-three-title"
                 />
 
@@ -643,11 +630,25 @@ export default function AarsplanGeneratorPage() {
                 </div>
 
                 <div className="mt-6">
-                  <Field label="Ekstra ønsker">
+                  <Field
+                    label="Faste uger eller særlige dage"
+                    description="Skriv én pr. linje. Eksempel: Uge 41: Emneuge"
+                  >
+                    <textarea
+                      className={textareaClassName}
+                      value={input.fixedWeeks}
+                      placeholder={"Uge 41: Emneuge\nUge 50: Juleværksted"}
+                      onChange={(event) => updateInput("fixedWeeks", event.target.value)}
+                    />
+                  </Field>
+                </div>
+
+                <div className="mt-6">
+                  <Field label="Andre ønsker" description="Kort note til stil, arbejdsformer eller særlige hensyn.">
                     <textarea
                       className={textareaClassName}
                       value={input.specialThemes}
-                      placeholder="Fx mere bevægelse, flere mundtlige aktiviteter, fokus på projektarbejde..."
+                      placeholder="Fx mere bevægelse eller fokus på mundtlighed."
                       onChange={(event) => updateInput("specialThemes", event.target.value)}
                     />
                   </Field>
@@ -674,6 +675,7 @@ export default function AarsplanGeneratorPage() {
                     ["Ferieplan", input.municipality],
                     ["Undervisningsuger", `${previewTeachingWeekCount}`],
                     ["Lektioner i alt", `${previewTotalLessons}`],
+                    ["Faste uger", fixedWeekLines.length ? `${fixedWeekLines.length} angivet` : "Ingen"],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-lg border border-slate-200 bg-slate-50/80 p-4">
                       <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{label}</p>
@@ -683,10 +685,9 @@ export default function AarsplanGeneratorPage() {
                 </div>
 
                 <div className="mt-8 rounded-lg border border-rose-100 bg-rose-50 p-5">
-                  <p className="text-sm font-black text-rose-950">Lokalt prototype-output</p>
+                  <p className="text-sm font-black text-rose-950">PDF-retning</p>
                   <p className="mt-2 text-sm font-semibold leading-7 text-rose-950/75">
-                    Motoren bruger lokale fagprofiler og demo-ferieplaner til at fordele forløb jævnt over skoleåret.
-                    Ferieuger markeres tydeligt som prototype-data.
+                    Forslaget vises som et dokument-preview. Rigtig PDF-download kommer senere.
                   </p>
                 </div>
 
@@ -697,7 +698,7 @@ export default function AarsplanGeneratorPage() {
                   className={`${buttonBaseClassName} mt-8 w-full border border-emerald-700 bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-emerald-100 md:w-fit`}
                 >
                   <Sparkles className="h-5 w-5" />
-                  Generér demo-årsplan
+                  Lav årsplan
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </section>
@@ -723,6 +724,17 @@ export default function AarsplanGeneratorPage() {
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <button
                       type="button"
+                      disabled
+                      className={`${buttonBaseClassName} border border-slate-200 bg-slate-100 text-slate-500 shadow-sm disabled:opacity-100`}
+                    >
+                      <Download className="h-4 w-4" />
+                      Download PDF
+                      <span className="rounded-md bg-white px-2 py-1 text-[11px] font-black text-slate-500">
+                        Kommer snart
+                      </span>
+                    </button>
+                    <button
+                      type="button"
                       disabled={!stepValidity[3] || isGenerating}
                       onClick={generatePlan}
                       className={`${buttonBaseClassName} border border-emerald-700 bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-emerald-100`}
@@ -742,10 +754,10 @@ export default function AarsplanGeneratorPage() {
                 </div>
 
                 {generatedPlan ? (
-                  <AnnualPlanPreview plan={generatedPlan} aiSource={aiSource} />
+                  <AnnualPlanPreview plan={generatedPlan} fixedWeekLines={fixedWeekLines} aiSource={aiSource} />
                 ) : (
                   <div className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm font-bold leading-7 text-amber-950">
-                    Generér en demo-årsplan i trin 4 for at se previewet.
+                    Lav en årsplan i trin 4 for at se previewet.
                   </div>
                 )}
               </section>
@@ -778,8 +790,8 @@ export default function AarsplanGeneratorPage() {
             ) : null}
           </div>
 
-          <aside className="h-fit rounded-lg border border-white/75 bg-white/70 p-5 shadow-sm backdrop-blur">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Dine valg</p>
+          <aside className="h-fit rounded-lg border border-white/15 bg-slate-950/60 p-5 text-white shadow-sm backdrop-blur">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-300">Dine valg</p>
             <div className="mt-4 grid gap-3">
               <SummaryRow label="Fag" value={input.subject} />
               <SummaryRow label="Klassetrin" value={input.gradeLevel} />
@@ -789,16 +801,17 @@ export default function AarsplanGeneratorPage() {
               <SummaryRow label="Forløb" value={`${input.courseCount} større forløb`} />
               <SummaryRow label="Undervisningsuger" value={`${previewTeachingWeekCount}`} />
               <SummaryRow label="Lektioner i alt" value={`${previewTotalLessons}`} />
+              <SummaryRow label="Faste uger" value={fixedWeekLines.length ? `${fixedWeekLines.length} angivet` : ""} />
             </div>
-            <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-black text-amber-950">Demo-ferieplan i prototype</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-amber-950/75">
-                Ferieuger er foreløbige og skal kvalitetssikres, før værktøjet bruges som færdig årsplan.
+            <div className="mt-5 rounded-lg border border-amber-200/30 bg-amber-100/10 p-4">
+              <p className="text-sm font-black text-amber-50">Ferieuger</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-amber-50/75">
+                Ferieuger er foreløbige og kan justeres.
               </p>
             </div>
-            <div className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 p-4">
-              <p className="text-sm font-black text-emerald-950">Prototype-status</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-emerald-950/75">
+            <div className="mt-4 rounded-lg border border-emerald-200/25 bg-emerald-300/10 p-4">
+              <p className="text-sm font-black text-emerald-50">Assistent</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-emerald-50/75">
                 AI hjælper med formuleringer. Uger, ferier og perioder fastholdes af årsplanmotoren.
               </p>
             </div>
@@ -872,130 +885,128 @@ function EmptyValue({ children = "Ikke valgt endnu" }: { children?: ReactNode })
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white/80 p-4">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
-      <p className="mt-1 text-sm font-black text-slate-950">{value || <EmptyValue />}</p>
+    <div className="rounded-lg border border-white/10 bg-white/10 p-4">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-300">{label}</p>
+      <p className="mt-1 text-sm font-black text-white">{value || <EmptyValue />}</p>
     </div>
   );
 }
 
-function AnnualPlanPreview({ plan, aiSource }: { plan: AnnualPlanDraft; aiSource?: "local" | "api" }) {
+function AnnualPlanPreview({
+  plan,
+  fixedWeekLines,
+  aiSource,
+}: {
+  plan: AnnualPlanDraft;
+  fixedWeekLines: string[];
+  aiSource?: "local" | "api";
+}) {
   return (
-    <div className="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-[#fbfaf6] shadow-[0_24px_70px_rgba(15,23,42,0.10)]">
-      <section className="relative border-b border-slate-200 bg-[linear-gradient(135deg,#064e3b_0%,#0f766e_48%,#f59e0b_100%)] p-7 text-white md:p-9">
-        <div className="max-w-4xl">
-          <p className="inline-flex rounded-lg border border-white/25 bg-white/15 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-white">
-            Print preview
-          </p>
-          <h3 className={`mt-6 text-4xl font-black tracking-tight md:text-5xl ${rubik.className}`}>{plan.title}</h3>
-          <p className="mt-4 text-sm font-bold leading-7 text-white/85">
-            Demo-ferieplan i prototype · {plan.summary.courseCount} forløb · {plan.summary.totalLessons} lektioner
-          </p>
-        </div>
-        <div className="mt-8 flex flex-wrap gap-3">
-          {[plan.subject, plan.grade, plan.schoolYear, plan.municipality].map((chip) => (
-            <span key={chip} className="rounded-lg border border-white/20 bg-white/12 px-3 py-2 text-xs font-black">
-              {chip}
-            </span>
-          ))}
-          <span className="rounded-lg border border-white/20 bg-white/12 px-3 py-2 text-xs font-black">
-            {aiSource === "api" ? "AI-forslag: AI-genereret" : "AI-forslag: Lokal demo"}
-          </span>
-        </div>
-        {plan.summary.teacherNote ? (
-          <div className="mt-4">
-            <div className="rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-sm">
-              <p className="font-black">Lærer-note:</p>
-              <p className="mt-1 text-sm">{plan.summary.teacherNote}</p>
+    <div className="mt-8 rounded-lg border border-slate-300 bg-slate-200/70 p-3 shadow-[0_24px_70px_rgba(15,23,42,0.16)]">
+      <article className="overflow-hidden rounded-md bg-[#fffdf8] text-slate-950 shadow-sm">
+        <header className="border-b border-slate-200 px-7 py-7 md:px-9">
+          <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+            <div className="max-w-4xl">
+              <p className="inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-emerald-800">
+                PDF-preview
+              </p>
+              <h3 className={`mt-5 text-4xl font-black tracking-tight md:text-5xl ${rubik.className}`}>
+                {plan.title}
+              </h3>
+              <p className="mt-4 text-sm font-bold leading-7 text-slate-600">
+                {plan.subject} · {plan.grade} · {plan.schoolYear} · {plan.municipality}
+              </p>
             </div>
-          </div>
-        ) : null}
-      </section>
-
-      <section className="p-7 md:p-9">
-        <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <Calendar className="h-5 w-5 text-emerald-800" />
-              <h4 className="text-base font-black text-slate-950">Årsplan-overblik</h4>
-            </div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <OverviewItem label="Skoleår" value={plan.schoolYear} />
-              <OverviewItem label="Kommune" value={plan.municipality} />
-              <OverviewItem label="Ferieplan" value="Demo" />
-              <OverviewItem label="Undervisningsuger" value={`${plan.teachingWeeks}`} />
-              <OverviewItem label="Lektioner i alt" value={`${plan.summary.totalLessons}`} />
-              <OverviewItem label="Antal forløb" value={`${plan.summary.courseCount}`} />
-            </div>
+            <button
+              type="button"
+              disabled
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-sm font-black text-slate-500"
+            >
+              <Download className="h-4 w-4" />
+              Download PDF
+              <span className="rounded-md bg-white px-2 py-1 text-[11px] font-black text-slate-500">Kommer snart</span>
+            </button>
           </div>
 
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <Calendar className="h-5 w-5 text-amber-800" />
-              <h4 className="text-base font-black text-slate-950">Ferieoversigt</h4>
-            </div>
-            <p className="mt-3 text-sm font-semibold leading-6 text-amber-950/75">
-              Ferieplanen er demo-data i denne prototype og er ikke officiel kommunedata.
-            </p>
-            <div className="mt-4 grid gap-2">
-              {plan.holidayWeeks.map((holiday) => (
-                <div
-                  key={holiday.name}
-                  className="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white/70 px-3 py-2"
-                >
-                  <span className="text-sm font-black text-amber-950">{holiday.name}</span>
-                  <span className="text-right text-sm font-bold text-amber-900/75">
-                    {holiday.label}
-                    {holiday.type === "note" ? " · note" : ""}
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <DocumentMeta label="Forløb" value={`${plan.summary.courseCount}`} />
+            <DocumentMeta label="Undervisningsuger" value={`${plan.teachingWeeks}`} />
+            <DocumentMeta label="Lektioner i alt" value={`${plan.summary.totalLessons}`} />
+            <DocumentMeta label="Forslag" value={aiSource === "api" ? "AI-genereret" : "Lokalt forbedret"} />
+          </div>
+        </header>
+
+        <section className="px-7 py-6 md:px-9">
+          <div className="grid gap-5 lg:grid-cols-[1fr_0.9fr]">
+            <section className="rounded-lg border border-slate-200 bg-white p-5">
+              <div className="flex items-center gap-3">
+                <GraduationCap className="h-5 w-5 text-emerald-800" />
+                <h4 className="text-base font-black text-slate-950">Fælles Mål</h4>
+              </div>
+              <p className="mt-4 text-sm font-semibold leading-7 text-slate-700">{plan.commonGoalsIntro}</p>
+            </section>
+
+            <section className="rounded-lg border border-amber-200 bg-amber-50 p-5">
+              <div className="flex items-center gap-3">
+                <Calendar className="h-5 w-5 text-amber-800" />
+                <h4 className="text-base font-black text-slate-950">Ferieuger</h4>
+              </div>
+              <p className="mt-3 text-sm font-semibold leading-6 text-amber-950/80">
+                Tjek altid ugerne, før du bruger planen.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {plan.holidayWeeks.map((holiday) => (
+                  <span
+                    key={holiday.name}
+                    className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-950"
+                  >
+                    {holiday.name}: {holiday.label}
                   </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </section>
           </div>
-        </div>
 
-        <div className="mt-5 rounded-lg border border-emerald-100 bg-emerald-50 p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <School className="h-5 w-5 text-emerald-800" />
-            <h4 className="text-base font-black text-slate-950">Faglig planmotor</h4>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <QualityChip label="Fagprofil" value={plan.profileName} />
-            <QualityChip label="Niveau" value={plan.gradeBandLabel} />
-            <QualityChip label="Planmotor" value="Lokal prototype" />
-            <QualityChip label="Ferieplan" value="Demo" />
-          </div>
-        </div>
-
-        <div className="mt-5 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="rounded-lg border border-emerald-100 bg-white p-5 shadow-sm">
+          <section className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-5">
             <div className="flex items-center gap-3">
-              <GraduationCap className="h-5 w-5 text-emerald-800" />
-              <h4 className="text-base font-black text-slate-950">Kort forklaring af Fælles Mål</h4>
+              <FileText className="h-5 w-5 text-slate-700" />
+              <h4 className="text-base font-black text-slate-950">Lærerens faste uger</h4>
             </div>
-            <p className="mt-4 text-sm font-semibold leading-7 text-slate-700">{plan.commonGoalsIntro}</p>
-          </div>
+            {fixedWeekLines.length > 0 ? (
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                {fixedWeekLines.map((line, index) => (
+                  <p
+                    key={`${line}-${index}`}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold"
+                  >
+                    {line}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">Ingen faste uger angivet.</p>
+            )}
+          </section>
 
-          <div className="rounded-lg border border-sky-100 bg-sky-50 p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <FileText className="h-5 w-5 text-sky-800" />
-              <h4 className="text-base font-black text-slate-950">Fordeling over året</h4>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {plan.courses.map((course, index) => (
-                <span
-                  key={`${course.period}-${course.title}`}
-                  className="rounded-lg border border-sky-200 bg-white px-3 py-2 text-xs font-black text-sky-950"
-                >
-                  {index + 1}. {course.period}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
+          {plan.summary.teacherNote ? (
+            <section className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-5">
+              <p className="text-base font-black text-slate-950">Lærer-note</p>
+              <p className="mt-3 text-sm font-semibold leading-7 text-slate-700">{plan.summary.teacherNote}</p>
+            </section>
+          ) : null}
 
-        <AnnualPlanTable plan={plan} />
-      </section>
+          <AnnualPlanTable plan={plan} />
+        </section>
+      </article>
+    </div>
+  );
+}
+
+function DocumentMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="mt-1 text-base font-black text-slate-950">{value}</p>
     </div>
   );
 }
@@ -1019,13 +1030,13 @@ function GenerationOverlay({
             <Sparkles className="h-6 w-6" />
           </span>
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Lokal prototype</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Assistent</p>
             <h2 className={`mt-2 text-3xl font-black tracking-tight text-slate-950 ${rubik.className}`}>
               Bygger din årsplan
             </h2>
             <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">
               Vi samler {subject || "fag"} og {gradeLevel || "klassetrin"} til et første udkast med Fælles Mål,
-              skoleår og demo-ferieuger.
+              skoleår og foreløbige ferieuger.
             </p>
           </div>
         </div>
@@ -1076,12 +1087,12 @@ function GenerationOverlay({
 
 function AnnualPlanTable({ plan }: { plan: AnnualPlanDraft }) {
   return (
-    <section className="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    <section className="mt-7 overflow-hidden rounded-lg border border-slate-300 bg-white">
       <div className="border-b border-slate-200 bg-slate-950 px-5 py-4 text-white">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-white/60">Årsplanskema</p>
-            <h4 className={`mt-1 text-2xl font-black tracking-tight ${rubik.className}`}>Forløb fordelt over året</h4>
+            <h4 className={`mt-1 text-2xl font-black tracking-tight ${rubik.className}`}>4-kolonne årsplan</h4>
           </div>
           <p className="text-sm font-bold text-white/75">
             {plan.summary.courseCount} forløb · {plan.teachingWeeks} undervisningsuger
@@ -1089,14 +1100,12 @@ function AnnualPlanTable({ plan }: { plan: AnnualPlanDraft }) {
         </div>
       </div>
 
-      <div className="hidden border-b border-slate-200 bg-slate-50 px-5 py-3 lg:grid lg:grid-cols-[140px_220px_1fr_1.25fr] lg:gap-4">
-        {["Uge / periode", "Emne / forløb", "Mål / Fælles Mål-fokus", "Indhold / aktiviteter / arbejdsformer"].map(
-          (heading) => (
-            <p key={heading} className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-              {heading}
-            </p>
-          ),
-        )}
+      <div className="hidden border-b border-slate-200 bg-slate-100 px-5 py-3 lg:grid lg:grid-cols-[130px_210px_1fr_1.2fr] lg:gap-4">
+        {["Uger", "Forløb", "Mål", "Indhold og evaluering"].map((heading) => (
+          <p key={heading} className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+            {heading}
+          </p>
+        ))}
       </div>
 
       <div className="divide-y divide-slate-200">
@@ -1105,10 +1114,10 @@ function AnnualPlanTable({ plan }: { plan: AnnualPlanDraft }) {
 
           return (
             <article key={`${course.period}-${course.title}`} className="bg-white">
-              <div className="grid gap-4 px-5 py-5 lg:grid-cols-[140px_220px_1fr_1.25fr]">
+              <div className="grid gap-4 px-5 py-5 lg:grid-cols-[130px_210px_1fr_1.2fr]">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 lg:hidden">
-                    Uge / periode
+                    Uger
                   </p>
                   <span className={`mt-2 inline-flex rounded-lg border px-3 py-2 text-xs font-black ${accent.badge}`}>
                     {course.period}
@@ -1122,7 +1131,7 @@ function AnnualPlanTable({ plan }: { plan: AnnualPlanDraft }) {
 
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 lg:hidden">
-                    Emne / forløb
+                    Forløb
                   </p>
                   <div className={`mt-2 h-1.5 w-14 rounded-full ${accent.line}`} />
                   <h5 className={`mt-3 text-xl font-black tracking-tight text-slate-950 ${rubik.className}`}>
@@ -1137,7 +1146,7 @@ function AnnualPlanTable({ plan }: { plan: AnnualPlanDraft }) {
 
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 lg:hidden">
-                    Mål / Fælles Mål-fokus
+                    Mål
                   </p>
                   <p className="mt-2 text-sm font-semibold leading-7 text-slate-700">{course.description}</p>
                   <p className="mt-3 text-sm font-bold leading-6 text-slate-800">Fokus: {course.focus}</p>
@@ -1145,7 +1154,7 @@ function AnnualPlanTable({ plan }: { plan: AnnualPlanDraft }) {
 
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 lg:hidden">
-                    Indhold / aktiviteter / arbejdsformer
+                    Indhold og evaluering
                   </p>
                   <p className="mt-2 text-sm font-semibold leading-7 text-slate-700">{course.activities}</p>
                   <p className="mt-3 text-sm font-bold leading-6 text-slate-800">
@@ -1154,16 +1163,19 @@ function AnnualPlanTable({ plan }: { plan: AnnualPlanDraft }) {
                 </div>
               </div>
 
-              <div className="border-t border-slate-100 bg-slate-50 px-5 py-4">
-                <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-4">
-                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+              <div className="border-t border-slate-100 bg-[#faf7ef] px-5 py-4">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700">
                     <ImageIcon className="h-4 w-4" />
                   </span>
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                      Billedidé til senere
+                      Billede til årsplanen
                     </p>
                     <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{course.imagePrompt}</p>
+                    <p className="mt-1 text-xs font-bold text-slate-500">
+                      Billeder kan genereres i en senere version.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1172,22 +1184,5 @@ function AnnualPlanTable({ plan }: { plan: AnnualPlanDraft }) {
         })}
       </div>
     </section>
-  );
-}
-
-function QualityChip({ label, value }: { label: string; value: string }) {
-  return (
-    <span className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-950">
-      {label}: {value}
-    </span>
-  );
-}
-
-function OverviewItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
-      <p className="mt-2 text-base font-black text-slate-950">{value}</p>
-    </div>
   );
 }
