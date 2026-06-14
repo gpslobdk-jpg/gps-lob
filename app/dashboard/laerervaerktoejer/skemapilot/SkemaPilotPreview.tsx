@@ -4,6 +4,9 @@ import { AlertCircle, CalendarDays, Info, School } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 
 import { SkemaPilotConflictPanel } from "./SkemaPilotConflictPanel";
+import { SkemaPilotQualityPanel } from "./SkemaPilotQualityPanel";
+
+type PriorityLevel = "Lav" | "Middel" | "Høj";
 
 type PreviewSettings = {
   schoolName: string;
@@ -26,6 +29,7 @@ type SkemaPilotPreviewProps = {
   activeClasses: readonly string[];
   activeRooms: readonly string[];
   getLessonValue: (className: string, subject: string) => string;
+  priorities: Record<string, PriorityLevel>;
   rubikClassName: string;
   settings: PreviewSettings;
   subjects: readonly string[];
@@ -51,6 +55,7 @@ export function SkemaPilotPreview({
   activeClasses,
   activeRooms,
   getLessonValue,
+  priorities,
   rubikClassName,
   settings,
   subjects,
@@ -184,6 +189,13 @@ export function SkemaPilotPreview({
         previewClass={previewClass}
         rubikClassName={rubikClassName}
         subjects={subjects}
+      />
+      <SkemaPilotQualityPanel
+        lessonCount={lessonCount}
+        previewClass={previewClass}
+        previewLessons={previewLessons}
+        priorities={priorities}
+        rubikClassName={rubikClassName}
       />
     </section>
   );

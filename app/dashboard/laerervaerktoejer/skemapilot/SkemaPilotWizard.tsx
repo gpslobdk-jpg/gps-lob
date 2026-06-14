@@ -1078,6 +1078,7 @@ function SummaryStep({
         activeClasses={activeClasses}
         activeRooms={activeRooms}
         getLessonValue={getLessonValue}
+        priorities={priorities}
         rubikClassName={rubikClassName}
         settings={settings}
         subjects={subjects}
