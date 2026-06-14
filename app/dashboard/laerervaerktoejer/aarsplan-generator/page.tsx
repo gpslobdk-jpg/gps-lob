@@ -9,13 +9,14 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Download,
   FileText,
   GraduationCap,
-  Image as ImageIcon,
+  Plus,
+  Printer,
   School,
   Settings,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -63,6 +64,20 @@ type AnnualPlanInput = {
   aiNotes: string;
 };
 
+type EditableAnnualPlanRow = {
+  id: string;
+  weeks: string;
+  title: string;
+  goals: string;
+  content: string;
+  evaluation: string;
+  imageIdea: string;
+  isLocked?: boolean;
+  source?: "ai" | "fixed-week" | "manual";
+};
+
+type EditableAnnualPlanRowField = Exclude<keyof EditableAnnualPlanRow, "id" | "isLocked" | "source">;
+
 type StepIndex = 0 | 1 | 2 | 3 | 4;
 
 const initialInput: AnnualPlanInput = {
@@ -105,49 +120,6 @@ const wizardSteps = [
   },
 ] as const;
 
-const periodAccentClasses = [
-  {
-    visual: "from-emerald-300 via-teal-200 to-sky-200",
-    badge: "bg-emerald-50 text-emerald-800 border-emerald-200",
-    line: "bg-emerald-500",
-  },
-  {
-    visual: "from-amber-300 via-orange-200 to-rose-200",
-    badge: "bg-amber-50 text-amber-900 border-amber-200",
-    line: "bg-amber-500",
-  },
-  {
-    visual: "from-sky-300 via-cyan-200 to-lime-200",
-    badge: "bg-sky-50 text-sky-900 border-sky-200",
-    line: "bg-sky-500",
-  },
-  {
-    visual: "from-rose-300 via-pink-200 to-orange-200",
-    badge: "bg-rose-50 text-rose-900 border-rose-200",
-    line: "bg-rose-500",
-  },
-  {
-    visual: "from-lime-300 via-emerald-200 to-yellow-200",
-    badge: "bg-lime-50 text-lime-900 border-lime-200",
-    line: "bg-lime-500",
-  },
-  {
-    visual: "from-cyan-300 via-blue-200 to-emerald-200",
-    badge: "bg-cyan-50 text-cyan-900 border-cyan-200",
-    line: "bg-cyan-500",
-  },
-  {
-    visual: "from-fuchsia-200 via-rose-200 to-amber-200",
-    badge: "bg-fuchsia-50 text-fuchsia-900 border-fuchsia-200",
-    line: "bg-fuchsia-500",
-  },
-  {
-    visual: "from-yellow-300 via-lime-200 to-teal-200",
-    badge: "bg-yellow-50 text-yellow-900 border-yellow-200",
-    line: "bg-yellow-500",
-  },
-] as const;
-
 const selectClassName =
   "mt-3 min-h-12 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 shadow-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
 
@@ -156,6 +128,12 @@ const textareaClassName =
 
 const buttonBaseClassName =
   "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-black transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed disabled:opacity-45";
+
+const documentTextareaClassName =
+  "w-full resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold leading-6 text-slate-900 shadow-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 print:border-0 print:bg-transparent print:p-0 print:text-[10pt] print:leading-snug print:shadow-none";
+
+const documentTableCellClassName =
+  "border border-slate-300 align-top print:border-slate-400";
 
 const generationSteps = [
   "Læser dine valg",
@@ -173,10 +151,97 @@ function getFixedWeekLines(fixedWeeks: string) {
     .filter(Boolean);
 }
 
+function getWeekOrder(label: string) {
+  const match = label.match(/uge\s*(\d{1,2})/i);
+  const week = match ? Number(match[1]) : Number.NaN;
+
+  if (!Number.isFinite(week)) {
+    return 1_000;
+  }
+
+  return week >= 33 ? week - 33 : week + 20;
+}
+
+function splitFixedWeekLine(line: string) {
+  const [firstPart, ...restParts] = line.split(":");
+  const title = restParts.join(":").trim();
+
+  if (!title) {
+    return {
+      weeks: line,
+      title: "Fast uge",
+    };
+  }
+
+  return {
+    weeks: firstPart.trim(),
+    title,
+  };
+}
+
+function buildEditableAnnualPlanRows(plan: AnnualPlanDraft, fixedWeekLines: string[]): EditableAnnualPlanRow[] {
+  const courseRows = plan.courses.map((course, index) => ({
+    row: {
+      id: `course-${index + 1}`,
+      weeks: `${course.period}\n${course.teachingWeeks} undervisningsuger\n${course.estimatedLessons} lektioner`,
+      title: course.title,
+      goals: `${course.description}\n\nFokus: ${course.focus}`,
+      content: course.activities,
+      evaluation: course.product,
+      imageIdea: course.imagePrompt,
+      source: "ai" as const,
+    },
+    order: getWeekOrder(course.period),
+    originalIndex: index,
+  }));
+
+  const fixedRows = fixedWeekLines.map((line, index) => {
+    const fixedWeek = splitFixedWeekLine(line);
+
+    return {
+      row: {
+        id: `fixed-week-${index + 1}`,
+        weeks: fixedWeek.weeks,
+        title: fixedWeek.title,
+        goals: "Lærerens faste uge eller temauge.",
+        content: "Planlagt uden for årsplanmotorens fordeling.",
+        evaluation: "Rediger lokalt efter behov.",
+        imageIdea: "",
+        isLocked: true,
+        source: "fixed-week" as const,
+      },
+      order: getWeekOrder(line),
+      originalIndex: plan.courses.length + index,
+    };
+  });
+
+  return [...courseRows, ...fixedRows]
+    .sort((a, b) => a.order - b.order || a.originalIndex - b.originalIndex)
+    .map(({ row }) => row);
+}
+
+function getTextareaRows(value: string, minimumRows: number) {
+  const lineCount = value.split(/\r?\n/).reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 58)), 0);
+  return Math.min(12, Math.max(minimumRows, lineCount));
+}
+
+function getRowSourceLabel(row: EditableAnnualPlanRow) {
+  if (row.source === "fixed-week") {
+    return "Fast uge";
+  }
+
+  if (row.source === "manual") {
+    return "Egen række";
+  }
+
+  return "AI-forslag";
+}
+
 export default function AarsplanGeneratorPage() {
   const [input, setInput] = useState<AnnualPlanInput>(initialInput);
   const [currentStep, setCurrentStep] = useState<StepIndex>(0);
   const [generatedPlan, setGeneratedPlan] = useState<AnnualPlanDraft | null>(null);
+  const [editableRows, setEditableRows] = useState<EditableAnnualPlanRow[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStepIndex, setGenerationStepIndex] = useState(0);
   const [aiSource, setAiSource] = useState<"local" | "api">("local");
@@ -205,6 +270,15 @@ export default function AarsplanGeneratorPage() {
   );
   const previewTotalLessons = previewTeachingWeekCount * Number(input.lessonsPerWeek);
   const fixedWeekLines = useMemo(() => getFixedWeekLines(input.fixedWeeks), [input.fixedWeeks]);
+
+  useEffect(() => {
+    if (!generatedPlan) {
+      setEditableRows([]);
+      return;
+    }
+
+    setEditableRows(buildEditableAnnualPlanRows(generatedPlan, fixedWeekLines));
+  }, [fixedWeekLines, generatedPlan]);
 
   const stepValidity = useMemo(
     () =>
@@ -243,6 +317,7 @@ export default function AarsplanGeneratorPage() {
       [key]: value,
     }));
     setGeneratedPlan(null);
+    setEditableRows([]);
   }
 
   function goToStep(step: StepIndex) {
@@ -381,12 +456,53 @@ export default function AarsplanGeneratorPage() {
     generationTimersRef.current.push(finishTimer);
   }
 
+  function updateEditableRow(rowId: string, field: EditableAnnualPlanRowField, value: string) {
+    setEditableRows((rows) => rows.map((row) => (row.id === rowId ? { ...row, [field]: value } : row)));
+  }
+
+  function addEditableRow() {
+    setEditableRows((rows) => [
+      ...rows,
+      {
+        id: `manual-${Date.now()}`,
+        weeks: "",
+        title: "Nyt forløb",
+        goals: "",
+        content: "",
+        evaluation: "",
+        imageIdea: "",
+        source: "manual",
+      },
+    ]);
+  }
+
+  function deleteEditableRow(rowId: string) {
+    setEditableRows((rows) => rows.filter((row) => row.id !== rowId));
+  }
+
+  function printAnnualPlan() {
+    requestAnimationFrame(() => window.print());
+  }
+
   return (
     <main
-      className={`min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.22),transparent_34%),linear-gradient(135deg,#0f172a_0%,#13332d_44%,#1f2937_100%)] text-slate-950 ${poppins.className}`}
+      className={`min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.22),transparent_34%),linear-gradient(135deg,#0f172a_0%,#13332d_44%,#1f2937_100%)] text-slate-950 print:bg-white print:text-black ${poppins.className}`}
     >
-      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-8 md:px-10 lg:px-12">
-        <header className="flex items-center justify-between gap-4">
+      <style>{`
+        @media print {
+          .annual-plan-print-document textarea {
+            border: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            outline: 0 !important;
+            padding: 0 !important;
+            resize: none !important;
+            overflow: visible !important;
+          }
+        }
+      `}</style>
+      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-8 print:min-h-0 print:max-w-none print:px-0 print:py-0 md:px-10 lg:px-12">
+        <header className="flex items-center justify-between gap-4 print:hidden">
           <Link
             href="/dashboard/laerervaerktoejer"
             className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/15 bg-slate-950/55 px-4 py-2 text-sm font-bold text-white shadow-sm backdrop-blur transition hover:border-emerald-300/60 hover:text-emerald-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300/20"
@@ -400,7 +516,7 @@ export default function AarsplanGeneratorPage() {
           </div>
         </header>
 
-        <section className="pt-10 lg:pt-12">
+        <section className="pt-10 print:hidden lg:pt-12">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <p className="inline-flex rounded-lg border border-emerald-300/25 bg-emerald-300/10 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-emerald-50 shadow-sm backdrop-blur">
@@ -414,7 +530,7 @@ export default function AarsplanGeneratorPage() {
                 <br />
                 Du vælger rammerne. Assistenten laver et forslag.
                 <br />
-                Til sidst kan du downloade en flot PDF.
+                Til sidst kan du printe eller gemme planen som PDF.
               </p>
             </div>
             <div className="rounded-lg border border-amber-200/35 bg-amber-100/10 px-5 py-4 text-sm font-bold leading-6 text-amber-50 shadow-sm backdrop-blur">
@@ -465,8 +581,8 @@ export default function AarsplanGeneratorPage() {
           </nav>
         </section>
 
-        <section className="grid flex-1 gap-6 py-8 lg:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="rounded-lg border border-white/75 bg-white/80 p-5 shadow-[0_28px_80px_rgba(15,23,42,0.10)] backdrop-blur md:p-7">
+        <section className="grid flex-1 gap-6 py-8 print:block print:py-0 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="rounded-lg border border-white/75 bg-white/80 p-5 shadow-[0_28px_80px_rgba(15,23,42,0.10)] backdrop-blur print:border-0 print:bg-white print:p-0 print:shadow-none md:p-7">
             {currentStep === 0 ? (
               <section aria-labelledby="step-one-title">
                 <StepHeader
@@ -687,7 +803,7 @@ export default function AarsplanGeneratorPage() {
                 <div className="mt-8 rounded-lg border border-rose-100 bg-rose-50 p-5">
                   <p className="text-sm font-black text-rose-950">PDF-retning</p>
                   <p className="mt-2 text-sm font-semibold leading-7 text-rose-950/75">
-                    Forslaget vises som et dokument-preview. Rigtig PDF-download kommer senere.
+                    Forslaget vises som et redigerbart dokument, der kan printes eller gemmes som PDF.
                   </p>
                 </div>
 
@@ -706,7 +822,7 @@ export default function AarsplanGeneratorPage() {
 
             {currentStep === 4 ? (
               <section aria-labelledby="step-five-title">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-col gap-4 print:hidden md:flex-row md:items-center md:justify-between">
                   <div className="flex items-start gap-4">
                     <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-950 text-white">
                       <FileText className="h-6 w-6" />
@@ -717,22 +833,11 @@ export default function AarsplanGeneratorPage() {
                         id="step-five-title"
                         className={`mt-2 text-3xl font-black tracking-tight text-slate-950 ${rubik.className}`}
                       >
-                        Årsplan-preview
+                        Redigér årsplan
                       </h2>
                     </div>
                   </div>
                   <div className="flex flex-col gap-3 sm:flex-row">
-                    <button
-                      type="button"
-                      disabled
-                      className={`${buttonBaseClassName} border border-slate-200 bg-slate-100 text-slate-500 shadow-sm disabled:opacity-100`}
-                    >
-                      <Download className="h-4 w-4" />
-                      Download PDF
-                      <span className="rounded-md bg-white px-2 py-1 text-[11px] font-black text-slate-500">
-                        Kommer snart
-                      </span>
-                    </button>
                     <button
                       type="button"
                       disabled={!stepValidity[3] || isGenerating}
@@ -754,7 +859,16 @@ export default function AarsplanGeneratorPage() {
                 </div>
 
                 {generatedPlan ? (
-                  <AnnualPlanPreview plan={generatedPlan} fixedWeekLines={fixedWeekLines} aiSource={aiSource} />
+                  <AnnualPlanDocumentEditor
+                    plan={generatedPlan}
+                    rows={editableRows}
+                    aiSource={aiSource}
+                    lessonsPerWeek={input.lessonsPerWeek}
+                    onAddRow={addEditableRow}
+                    onDeleteRow={deleteEditableRow}
+                    onPrint={printAnnualPlan}
+                    onUpdateRow={updateEditableRow}
+                  />
                 ) : (
                   <div className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm font-bold leading-7 text-amber-950">
                     Lav en årsplan i trin 4 for at se previewet.
@@ -790,7 +904,7 @@ export default function AarsplanGeneratorPage() {
             ) : null}
           </div>
 
-          <aside className="h-fit rounded-lg border border-white/15 bg-slate-950/60 p-5 text-white shadow-sm backdrop-blur">
+          <aside className="h-fit rounded-lg border border-white/15 bg-slate-950/60 p-5 text-white shadow-sm backdrop-blur print:hidden">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-300">Dine valg</p>
             <div className="mt-4 grid gap-3">
               <SummaryRow label="Fag" value={input.subject} />
@@ -829,7 +943,6 @@ export default function AarsplanGeneratorPage() {
     </main>
   );
 }
-
 function StepHeader({
   colorClassName,
   eyebrow,
@@ -892,122 +1005,233 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function AnnualPlanPreview({
+function AnnualPlanDocumentEditor({
   plan,
-  fixedWeekLines,
+  rows,
   aiSource,
+  lessonsPerWeek,
+  onAddRow,
+  onDeleteRow,
+  onPrint,
+  onUpdateRow,
 }: {
   plan: AnnualPlanDraft;
-  fixedWeekLines: string[];
+  rows: EditableAnnualPlanRow[];
   aiSource?: "local" | "api";
+  lessonsPerWeek: string;
+  onAddRow: () => void;
+  onDeleteRow: (rowId: string) => void;
+  onPrint: () => void;
+  onUpdateRow: (rowId: string, field: EditableAnnualPlanRowField, value: string) => void;
 }) {
   return (
-    <div className="mt-8 rounded-lg border border-slate-300 bg-slate-200/70 p-3 shadow-[0_24px_70px_rgba(15,23,42,0.16)]">
-      <article className="overflow-hidden rounded-md bg-[#fffdf8] text-slate-950 shadow-sm">
-        <header className="border-b border-slate-200 px-7 py-7 md:px-9">
-          <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-            <div className="max-w-4xl">
-              <p className="inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-emerald-800">
-                PDF-preview
-              </p>
-              <h3 className={`mt-5 text-4xl font-black tracking-tight md:text-5xl ${rubik.className}`}>
-                {plan.title}
-              </h3>
-              <p className="mt-4 text-sm font-bold leading-7 text-slate-600">
-                {plan.subject} · {plan.grade} · {plan.schoolYear} · {plan.municipality}
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-sm font-black text-slate-500"
-            >
-              <Download className="h-4 w-4" />
-              Download PDF
-              <span className="rounded-md bg-white px-2 py-1 text-[11px] font-black text-slate-500">Kommer snart</span>
-            </button>
-          </div>
+    <div className="mt-8 print:mt-0">
+      <div className="mb-4 flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-black text-slate-600">Rediger årsplanen direkte i dokumentet.</p>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={onAddRow}
+            className={`${buttonBaseClassName} border border-slate-300 bg-white text-slate-900 shadow-sm hover:border-emerald-300 hover:text-emerald-800 focus-visible:ring-emerald-100`}
+          >
+            <Plus className="h-4 w-4" />
+            Tilføj række
+          </button>
+          <button
+            type="button"
+            onClick={onPrint}
+            className={`${buttonBaseClassName} border border-slate-950 bg-slate-950 text-white shadow-sm hover:bg-slate-800 focus-visible:ring-slate-200`}
+          >
+            <Printer className="h-4 w-4" />
+            Print / gem som PDF
+          </button>
+        </div>
+      </div>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <DocumentMeta label="Forløb" value={`${plan.summary.courseCount}`} />
-            <DocumentMeta label="Undervisningsuger" value={`${plan.teachingWeeks}`} />
-            <DocumentMeta label="Lektioner i alt" value={`${plan.summary.totalLessons}`} />
-            <DocumentMeta label="Forslag" value={aiSource === "api" ? "AI-genereret" : "Lokalt forbedret"} />
+      <article className="annual-plan-print-document overflow-hidden rounded-md bg-[#fffdf8] text-slate-950 shadow-[0_24px_70px_rgba(15,23,42,0.16)] print:rounded-none print:bg-white print:shadow-none">
+        <header className="border-b border-slate-300 px-7 py-7 print:px-0 print:py-0 print:pb-4 md:px-9">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500 print:text-[9pt]">
+            Redigerbar årsplan
+          </p>
+          <h3 className={`mt-3 text-3xl font-black tracking-tight text-slate-950 print:text-[20pt] md:text-5xl ${rubik.className}`}>
+            {plan.title}
+          </h3>
+          <div className="mt-5 grid gap-2 text-sm font-bold leading-6 text-slate-700 print:grid-cols-2 print:text-[10pt] sm:grid-cols-2 lg:grid-cols-4">
+            <p>Kommune: {plan.municipality}</p>
+            <p>Fag: {plan.subject}</p>
+            <p>Klassetrin: {plan.grade}</p>
+            <p>Skoleår: {plan.schoolYear}</p>
+            <p>Lektioner pr. uge: {lessonsPerWeek}</p>
+            <p>Forløb: {plan.summary.courseCount}</p>
+            <p>Undervisningsuger: {plan.teachingWeeks}</p>
+            <p>Forslag: {aiSource === "api" ? "AI-genereret" : "Lokalt forbedret"}</p>
           </div>
+          <p className="mt-5 text-sm font-semibold leading-7 text-slate-700 print:text-[10pt] print:leading-snug">
+            {plan.commonGoalsIntro}
+          </p>
         </header>
 
-        <section className="px-7 py-6 md:px-9">
-          <div className="grid gap-5 lg:grid-cols-[1fr_0.9fr]">
-            <section className="rounded-lg border border-slate-200 bg-white p-5">
-              <div className="flex items-center gap-3">
-                <GraduationCap className="h-5 w-5 text-emerald-800" />
-                <h4 className="text-base font-black text-slate-950">Fælles Mål</h4>
-              </div>
-              <p className="mt-4 text-sm font-semibold leading-7 text-slate-700">{plan.commonGoalsIntro}</p>
-            </section>
-
-            <section className="rounded-lg border border-amber-200 bg-amber-50 p-5">
-              <div className="flex items-center gap-3">
-                <Calendar className="h-5 w-5 text-amber-800" />
-                <h4 className="text-base font-black text-slate-950">Ferieuger</h4>
-              </div>
-              <p className="mt-3 text-sm font-semibold leading-6 text-amber-950/80">
-                Tjek altid ugerne, før du bruger planen.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {plan.holidayWeeks.map((holiday) => (
-                  <span
-                    key={holiday.name}
-                    className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-950"
-                  >
-                    {holiday.name}: {holiday.label}
-                  </span>
+        <section className="px-4 py-5 print:px-0 print:py-4 md:px-7">
+          <div className="overflow-x-auto print:overflow-visible">
+            <table className="w-full min-w-[980px] border-collapse text-left print:min-w-0">
+              <thead>
+                <tr className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-600 print:text-[8pt]">
+                  <th className={`${documentTableCellClassName} w-[14%] px-3 py-3`}>Uge / periode</th>
+                  <th className={`${documentTableCellClassName} w-[20%] px-3 py-3`}>Emne / forløb</th>
+                  <th className={`${documentTableCellClassName} w-[29%] px-3 py-3`}>Mål / Fælles Mål-fokus</th>
+                  <th className={`${documentTableCellClassName} w-[37%] px-3 py-3`}>
+                    Indhold / aktiviteter / evaluering
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <EditableAnnualPlanTableRow
+                    key={row.id}
+                    row={row}
+                    onDeleteRow={onDeleteRow}
+                    onUpdateRow={onUpdateRow}
+                  />
                 ))}
-              </div>
-            </section>
+              </tbody>
+            </table>
           </div>
-
-          <section className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-5">
-            <div className="flex items-center gap-3">
-              <FileText className="h-5 w-5 text-slate-700" />
-              <h4 className="text-base font-black text-slate-950">Lærerens faste uger</h4>
-            </div>
-            {fixedWeekLines.length > 0 ? (
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                {fixedWeekLines.map((line, index) => (
-                  <p
-                    key={`${line}-${index}`}
-                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold"
-                  >
-                    {line}
-                  </p>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">Ingen faste uger angivet.</p>
-            )}
-          </section>
-
-          {plan.summary.teacherNote ? (
-            <section className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-5">
-              <p className="text-base font-black text-slate-950">Lærer-note</p>
-              <p className="mt-3 text-sm font-semibold leading-7 text-slate-700">{plan.summary.teacherNote}</p>
-            </section>
-          ) : null}
-
-          <AnnualPlanTable plan={plan} />
         </section>
+
+        {plan.summary.teacherNote ? (
+          <footer className="border-t border-slate-200 px-7 py-5 print:px-0 print:py-3 md:px-9">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 print:text-[8pt]">Lærer-note</p>
+            <p className="mt-2 text-sm font-semibold leading-7 text-slate-700 print:text-[10pt] print:leading-snug">
+              {plan.summary.teacherNote}
+            </p>
+          </footer>
+        ) : null}
       </article>
     </div>
   );
 }
 
-function DocumentMeta({ label, value }: { label: string; value: string }) {
+function EditableAnnualPlanTableRow({
+  row,
+  onDeleteRow,
+  onUpdateRow,
+}: {
+  row: EditableAnnualPlanRow;
+  onDeleteRow: (rowId: string) => void;
+  onUpdateRow: (rowId: string, field: EditableAnnualPlanRowField, value: string) => void;
+}) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
-      <p className="mt-1 text-base font-black text-slate-950">{value}</p>
-    </div>
+    <>
+      <tr className="break-inside-avoid bg-white">
+        <td className={`${documentTableCellClassName} px-3 py-3`}>
+          <span className="mb-2 inline-flex rounded border border-slate-300 bg-slate-50 px-2 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-600 print:text-[7pt]">
+            {getRowSourceLabel(row)}
+          </span>
+          <EditableDocumentTextarea
+            field="weeks"
+            label="Uge / periode"
+            minimumRows={row.source === "fixed-week" ? 2 : 3}
+            row={row}
+            value={row.weeks}
+            onUpdateRow={onUpdateRow}
+          />
+        </td>
+        <td className={`${documentTableCellClassName} px-3 py-3`}>
+          <EditableDocumentTextarea
+            field="title"
+            label="Emne / forløb"
+            minimumRows={3}
+            row={row}
+            value={row.title}
+            onUpdateRow={onUpdateRow}
+          />
+          <button
+            type="button"
+            onClick={() => onDeleteRow(row.id)}
+            className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-500 transition hover:border-rose-200 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-100 print:hidden"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Slet
+          </button>
+        </td>
+        <td className={`${documentTableCellClassName} px-3 py-3`}>
+          <EditableDocumentTextarea
+            field="goals"
+            label="Mål / Fælles Mål-fokus"
+            minimumRows={5}
+            row={row}
+            value={row.goals}
+            onUpdateRow={onUpdateRow}
+          />
+        </td>
+        <td className={`${documentTableCellClassName} px-3 py-3`}>
+          <div className="grid gap-3">
+            <EditableDocumentTextarea
+              field="content"
+              label="Indhold / aktiviteter"
+              minimumRows={4}
+              row={row}
+              value={row.content}
+              onUpdateRow={onUpdateRow}
+            />
+            <EditableDocumentTextarea
+              field="evaluation"
+              label="Evaluering"
+              minimumRows={2}
+              row={row}
+              value={row.evaluation}
+              onUpdateRow={onUpdateRow}
+            />
+          </div>
+        </td>
+      </tr>
+      {row.imageIdea.trim() ? (
+        <tr className="break-inside-avoid bg-[#faf7ef]">
+          <td className={`${documentTableCellClassName} px-3 py-3 text-xs font-black uppercase tracking-[0.12em] text-slate-500 print:text-[7pt]`}>
+            Billede til senere
+          </td>
+          <td className={`${documentTableCellClassName} px-3 py-3`} colSpan={3}>
+            <EditableDocumentTextarea
+              field="imageIdea"
+              label="Billede til senere"
+              minimumRows={2}
+              row={row}
+              value={row.imageIdea}
+              onUpdateRow={onUpdateRow}
+            />
+          </td>
+        </tr>
+      ) : null}
+    </>
+  );
+}
+
+function EditableDocumentTextarea({
+  field,
+  label,
+  minimumRows,
+  row,
+  value,
+  onUpdateRow,
+}: {
+  field: EditableAnnualPlanRowField;
+  label: string;
+  minimumRows: number;
+  row: EditableAnnualPlanRow;
+  value: string;
+  onUpdateRow: (rowId: string, field: EditableAnnualPlanRowField, value: string) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="sr-only">{label}</span>
+      <textarea
+        aria-label={`${label}: ${row.title || row.weeks || "række"}`}
+        className={documentTextareaClassName}
+        rows={getTextareaRows(value, minimumRows)}
+        value={value}
+        onChange={(event) => onUpdateRow(row.id, field, event.target.value)}
+      />
+    </label>
   );
 }
 
@@ -1023,7 +1247,7 @@ function GenerationOverlay({
   gradeLevel: string;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-6 py-8 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-6 py-8 backdrop-blur-sm print:hidden">
       <section className="w-full max-w-xl rounded-lg border border-white/70 bg-white p-6 shadow-[0_30px_90px_rgba(15,23,42,0.28)]">
         <div className="flex items-start gap-4">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white">
@@ -1082,107 +1306,5 @@ function GenerationOverlay({
         </div>
       </section>
     </div>
-  );
-}
-
-function AnnualPlanTable({ plan }: { plan: AnnualPlanDraft }) {
-  return (
-    <section className="mt-7 overflow-hidden rounded-lg border border-slate-300 bg-white">
-      <div className="border-b border-slate-200 bg-slate-950 px-5 py-4 text-white">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-white/60">Årsplanskema</p>
-            <h4 className={`mt-1 text-2xl font-black tracking-tight ${rubik.className}`}>4-kolonne årsplan</h4>
-          </div>
-          <p className="text-sm font-bold text-white/75">
-            {plan.summary.courseCount} forløb · {plan.teachingWeeks} undervisningsuger
-          </p>
-        </div>
-      </div>
-
-      <div className="hidden border-b border-slate-200 bg-slate-100 px-5 py-3 lg:grid lg:grid-cols-[130px_210px_1fr_1.2fr] lg:gap-4">
-        {["Uger", "Forløb", "Mål", "Indhold og evaluering"].map((heading) => (
-          <p key={heading} className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-            {heading}
-          </p>
-        ))}
-      </div>
-
-      <div className="divide-y divide-slate-200">
-        {plan.courses.map((course, index) => {
-          const accent = periodAccentClasses[index % periodAccentClasses.length];
-
-          return (
-            <article key={`${course.period}-${course.title}`} className="bg-white">
-              <div className="grid gap-4 px-5 py-5 lg:grid-cols-[130px_210px_1fr_1.2fr]">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 lg:hidden">
-                    Uger
-                  </p>
-                  <span className={`mt-2 inline-flex rounded-lg border px-3 py-2 text-xs font-black ${accent.badge}`}>
-                    {course.period}
-                  </span>
-                  <p className="mt-3 text-xs font-bold leading-5 text-slate-500">
-                    {course.teachingWeeks} undervisningsuger
-                    <br />
-                    {course.estimatedLessons} lektioner
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 lg:hidden">
-                    Forløb
-                  </p>
-                  <div className={`mt-2 h-1.5 w-14 rounded-full ${accent.line}`} />
-                  <h5 className={`mt-3 text-xl font-black tracking-tight text-slate-950 ${rubik.className}`}>
-                    {course.title}
-                  </h5>
-                  {course.pauseNote ? (
-                    <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-950">
-                      {course.pauseNote}
-                    </p>
-                  ) : null}
-                </div>
-
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 lg:hidden">
-                    Mål
-                  </p>
-                  <p className="mt-2 text-sm font-semibold leading-7 text-slate-700">{course.description}</p>
-                  <p className="mt-3 text-sm font-bold leading-6 text-slate-800">Fokus: {course.focus}</p>
-                </div>
-
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 lg:hidden">
-                    Indhold og evaluering
-                  </p>
-                  <p className="mt-2 text-sm font-semibold leading-7 text-slate-700">{course.activities}</p>
-                  <p className="mt-3 text-sm font-bold leading-6 text-slate-800">
-                    Produkt/evaluering: {course.product}
-                  </p>
-                </div>
-              </div>
-
-              <div className="border-t border-slate-100 bg-[#faf7ef] px-5 py-4">
-                <div className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700">
-                    <ImageIcon className="h-4 w-4" />
-                  </span>
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                      Billede til årsplanen
-                    </p>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{course.imagePrompt}</p>
-                    <p className="mt-1 text-xs font-bold text-slate-500">
-                      Billeder kan genereres i en senere version.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </article>
-          );
-        })}
-      </div>
-    </section>
   );
 }
