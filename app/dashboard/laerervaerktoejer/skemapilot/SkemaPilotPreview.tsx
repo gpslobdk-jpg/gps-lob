@@ -3,6 +3,8 @@
 import { AlertCircle, CalendarDays, Info, School } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 
+import { SkemaPilotConflictPanel } from "./SkemaPilotConflictPanel";
+
 type PreviewSettings = {
   schoolName: string;
   schoolYear: string;
@@ -153,8 +155,8 @@ export function SkemaPilotPreview({
           <section className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Status</p>
             <div className="mt-3 grid gap-2">
-              <StatusLine text="Ingen hårde regler tjekkes endnu" />
-              <StatusLine text="Ingen konflikter beregnes endnu" />
+              <StatusLine text="Første konflikttjek vises under previewet" />
+              <StatusLine text="Ingen automatisk flytning af lektioner" />
               <StatusLine text="Pædagogiske ønsker bruges senere" />
             </div>
           </section>
@@ -174,6 +176,15 @@ export function SkemaPilotPreview({
           </section>
         </aside>
       </div>
+      <SkemaPilotConflictPanel
+        activeBlocks={activeBlocks}
+        activeClasses={activeClasses}
+        getLessonValue={getLessonValue}
+        lessonCount={lessonCount}
+        previewClass={previewClass}
+        rubikClassName={rubikClassName}
+        subjects={subjects}
+      />
     </section>
   );
 }
