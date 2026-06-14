@@ -32,8 +32,9 @@ type PriceCard = {
 
 const WEEKEND_PASS_PRICE_ID = "price_1T9B9BFezSVmwrOXmJX9Qw1L";
 const EVENT_PASS_PRICE_ID = "price_1T9BJsFezSVmwrOXlaklvAzQ";
-const BETA_PRICE_COPY = "100% Gratis frem til juli 2026";
-const BETA_META_COPY = "Fri adgang for alle lærere og skoler hele foråret. Efter juni 2026 overgår vi til en abonnementsmodel.";
+const BETA_PRICE_COPY = "Gratis frem til efter efterårsferien";
+const BETA_META_COPY =
+  "Fri adgang efter sommerferien, så lærere og skoler kan bruge siden i forberedelsen til næste skoleår.";
 const CHECKOUT_DISABLED = true;
 
 const priceCards: PriceCard[] = [
@@ -217,7 +218,7 @@ export default function PricingPage() {
             findes der en løsning med plads til både leg, læring og tempo.
           </p>
           <div className="mt-6 inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/10 px-5 py-2 text-sm font-bold tracking-[0.18em] text-emerald-200 uppercase">
-            Alle pakker er gratis under beta frem til 1. august 2026
+            Alle pakker er gratis frem til efter efterårsferien
           </div>
         </section>
 
@@ -272,9 +273,9 @@ export default function PricingPage() {
                     className={`mt-8 inline-flex min-h-[56px] items-center justify-center rounded-2xl px-5 py-4 text-center text-base font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${card.buttonTone}`}
                   >
                     {CHECKOUT_DISABLED
-                      ? "Gratis under Beta"
+                      ? "Gratis i beta"
                       : loadingPriceId === card.priceId
-                        ? "⏳ Omdirigerer..."
+                        ? "Omdirigerer..."
                         : card.ctaLabel}
                   </button>
                 ) : (

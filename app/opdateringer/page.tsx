@@ -47,6 +47,31 @@ function formatDisplayDate(isoDate: string) {
 
 const entries = [
   {
+    version: "14/6",
+    date: "2026-06-14",
+    type: "major" as const,
+    title: "Gratisperioden forlænges — og nye lærerværktøjer er på vej",
+    summary:
+      "GPSLøb.dk er gratis at bruge frem til efter efterårsferien. Det betyder, at du også kan bruge siden efter sommerferien og tage den med i din forberedelse til næste skoleår.\n\nSamtidig er der kommet nye ting på siden. Under Mobilspil kan du prøve Find Bedrageren, hvor eleverne får roller på mobilen og skal diskutere, bluffe og stemme om, hvem bedrageren er.\n\nDer er også åbnet for Lærerens værktøjer, hvor den første version af en årsplan-generator er på vej. Her kan du lave et udkast til en årsplan, redigere den og gemme eller udskrive den som PDF.",
+    items: [
+      {
+        title: "Gratis frem til efter efterårsferien",
+        description:
+          "Siden kan også bruges efter sommerferien, mens du forbereder næste skoleår.",
+      },
+      {
+        title: "Find Bedrageren under Mobilspil",
+        description:
+          "Et socialt bluff-spil, hvor læreren vælger et hemmeligt ord. Eleverne får roller på mobilen. De fleste kender ordet, men en eller flere er bedragere og skal bluffe sig gennem klassens diskussion uden at blive afsløret.",
+      },
+      {
+        title: "Lærerens værktøjer og årsplan-generator",
+        description:
+          "Lærerens værktøjer samler nye hjælpemidler til planlægning og forberedelse. Første værktøj er en årsplan-generator, hvor du kan lave et udkast, rette det til og printe eller gemme det som PDF.",
+      },
+    ],
+  },
+  {
     version: "13/6",
     date: "2026-06-13",
     type: "major" as const,
@@ -206,7 +231,7 @@ export default function OpdateringerPage() {
                     </h2>
                   </header>
 
-                  <p className="mb-6 text-sm leading-7 text-slate-400">
+                  <p className="mb-6 whitespace-pre-line text-sm leading-7 text-slate-400">
                     {entry.summary}
                   </p>
 
