@@ -53,6 +53,12 @@ function buildMockPrompts(teacherGapContext: string): AiMockPrompt[] {
         "Lokaler kan nu ses i kladden, og SkemaPilot kan markere mulige lokale-konflikter som lokalt estimat. Næste trin kan senere blive forslag til konkrete flytninger ved lokale-konflikter, men dette svar er stadig et fast eksempel.",
     },
     {
+      id: "pe-room-pressure",
+      question: "Hvor er idrætshallen presset?",
+      answer:
+        "I lokaleskema-previewet kan man vælge Idrætshal og se placerede lektioner, ledige lektioner og mulige samtidige bookinger. Det er et fast eksempelsvar og ikke en beregnet anbefaling.",
+    },
+    {
       id: "core-early",
       question: "Kan dansk og matematik ligge tidligere?",
       answer:

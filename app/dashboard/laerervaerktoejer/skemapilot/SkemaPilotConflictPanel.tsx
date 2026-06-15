@@ -146,10 +146,10 @@ export function SkemaPilotConflictPanel({
             : "Ingen lokale-dobbeltbooking fundet i den visuelle kladde.",
       detail:
         roomDoubleBookings.length > 0
-          ? "Tjekket sammenligner delte speciallokaler, dag og lektion på tværs af aktive klasser."
+          ? "Lokaleskema-previewet kan bruges til at se de samtidige bookinger i kladden."
           : missingRoomCount > 0
             ? "Manglende lokale opstår, når et specialfag ikke har et relevant lokale valgt."
-            : "Almindelige klasselokaler er lokale forslag og giver ikke fælleslokale-konflikt.",
+            : "Lokaleskema-previewet viser brugte lokaler og ledige lektioner i kladden.",
     },
     {
       title: "Faste blokke må ikke overskrives",
@@ -190,7 +190,7 @@ export function SkemaPilotConflictPanel({
           </h4>
           <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">
             Dette er et lokalt tjek på den visuelle kladde. Lærere og lokaler bruges som lokale forslag,
-            uden at skemaet flyttes automatisk.
+            og lokaleskema-previewet kan bruges til at se mulige lokale-dobbeltbookinger.
           </p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-bold leading-6 text-slate-700">

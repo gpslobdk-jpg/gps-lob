@@ -355,7 +355,7 @@ function getRoomInsight(previewLessons: readonly QualityPreviewCell[]): RoomInsi
     text:
       missingRooms > 0
         ? `${missingRooms} lektioner mangler lokale i den visuelle kladde.`
-        : "Speciallokaler indgår nu som lokale forslag i den visuelle kladde.",
+        : "Lokaleudnyttelse kan nu ses som lokal kladde i lokaleskema-previewet.",
   };
 }
 
@@ -510,7 +510,7 @@ function buildImprovements(metrics: QualityMetric[], teacherGapEstimate: Teacher
   if (roomInsight.missingRooms > 0) {
     improvements.push("Bør tjekkes: enkelte lektioner mangler lokale i den visuelle kladde.");
   } else {
-    improvements.push("Speciallokaler indgår nu i kladden som lokale forslag, ikke som færdig lokaleplan.");
+    improvements.push("Lokaleskema-previewet viser brugte lokaler og ledige lektioner som lokalt estimat.");
   }
   improvements.push("Klasselærerens placering vurderes senere, når klasselærerdata kobles på.");
   improvements.push("Næste skridt kan være at sammenholde denne indikator med konflikttjekket.");

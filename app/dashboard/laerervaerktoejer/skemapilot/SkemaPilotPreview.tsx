@@ -6,6 +6,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { SkemaPilotAiMockPanel } from "./SkemaPilotAiMockPanel";
 import { SkemaPilotConflictPanel } from "./SkemaPilotConflictPanel";
 import { SkemaPilotQualityPanel } from "./SkemaPilotQualityPanel";
+import { SkemaPilotRoomPreview } from "./SkemaPilotRoomPreview";
 import { SkemaPilotTeacherLoadPanel } from "./SkemaPilotTeacherLoadPanel";
 import { SkemaPilotTeacherPreview } from "./SkemaPilotTeacherPreview";
 import {
@@ -238,6 +239,12 @@ export function SkemaPilotPreview({
         lessonCount={lessonCount}
         rubikClassName={rubikClassName}
         teachers={teachers}
+      />
+      <SkemaPilotRoomPreview
+        activeRooms={activeRooms}
+        allPreviewLessons={allPreviewLessons}
+        lessonCount={lessonCount}
+        rubikClassName={rubikClassName}
       />
       <SkemaPilotConflictPanel
         activeBlocks={activeBlocks}

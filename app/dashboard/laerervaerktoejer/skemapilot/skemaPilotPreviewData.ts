@@ -57,6 +57,21 @@ export type TeacherLoadSummary = {
   totalPossibleGaps: number;
 };
 
+export type RoomScheduleStats = {
+  busiestDay: string;
+  freeLessons: number;
+  placedLessons: number;
+  simultaneousBookings: number;
+  usageDays: number;
+};
+
+export type RoomSimultaneousBooking = {
+  day: string;
+  lesson: number;
+  lessons: SkemaPilotPreviewCell[];
+  room: string;
+};
+
 export const weekdays = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag"] as const;
 
 export function buildSkemaPilotPreviewLessons(
@@ -234,6 +249,67 @@ export function getTeacherPreviewLessons(
   teacherId: string,
 ) {
   return previewLessons.filter((lesson) => lesson.teacherId === teacherId);
+}
+
+export function getAvailableRoomNames(
+  activeRooms: readonly string[],
+  previewLessons: readonly SkemaPilotPreviewCell[],
+) {
+  const usedRooms = previewLessons
+    .filter((lesson) => lesson.room && !lesson.roomMissing && !lesson.isFixedBlock)
+    .map((lesson) => lesson.room ?? "");
+
+  return [...new Set([...activeRooms, ...usedRooms])].sort((first, second) => first.localeCompare(second, "da"));
+}
+
+export function getRoomPreviewLessons(
+  previewLessons: readonly SkemaPilotPreviewCell[],
+  room: string,
+) {
+  return previewLessons.filter((lesson) => lesson.room === room && !lesson.roomMissing && !lesson.isFixedBlock);
+}
+
+export function getRoomScheduleStats(
+  previewLessons: readonly SkemaPilotPreviewCell[],
+  room: string,
+  lessonCount: number,
+): RoomScheduleStats {
+  const roomLessons = getRoomPreviewLessons(previewLessons, room);
+  const occupiedSlots = new Set(roomLessons.map((lesson) => `${lesson.day}::${lesson.lesson}`));
+  const dailyCounts = weekdays.map((day) => ({
+    count: roomLessons.filter((lesson) => lesson.day === day).length,
+    day,
+  }));
+  const busiestDay = [...dailyCounts].sort((first, second) => second.count - first.count)[0];
+
+  return {
+    busiestDay: busiestDay && busiestDay.count > 0 ? `${busiestDay.day} (${busiestDay.count})` : "Ingen brug endnu",
+    freeLessons: Math.max(0, lessonCount * weekdays.length - occupiedSlots.size),
+    placedLessons: roomLessons.length,
+    simultaneousBookings: getRoomSimultaneousBookings(previewLessons, room).length,
+    usageDays: new Set(roomLessons.map((lesson) => lesson.day)).size,
+  };
+}
+
+export function getRoomSimultaneousBookings(
+  previewLessons: readonly SkemaPilotPreviewCell[],
+  room: string,
+): RoomSimultaneousBooking[] {
+  const groupedLessons = new Map<string, SkemaPilotPreviewCell[]>();
+
+  getRoomPreviewLessons(previewLessons, room).forEach((lesson) => {
+    const key = `${lesson.day}::${lesson.lesson}`;
+    groupedLessons.set(key, [...(groupedLessons.get(key) ?? []), lesson]);
+  });
+
+  return [...groupedLessons.values()]
+    .filter((lessons) => new Set(lessons.map((lesson) => lesson.className)).size > 1)
+    .map((lessons) => ({
+      day: lessons[0]?.day ?? "",
+      lesson: lessons[0]?.lesson ?? 0,
+      lessons,
+      room,
+    }));
 }
 
 function getTeacherForPreviewCell(
