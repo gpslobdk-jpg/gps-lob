@@ -5,6 +5,7 @@ import { useMemo, useState, type ReactNode } from "react";
 
 import { SkemaPilotAiMockPanel } from "./SkemaPilotAiMockPanel";
 import { SkemaPilotConflictPanel } from "./SkemaPilotConflictPanel";
+import { SkemaPilotMoveSimulator } from "./SkemaPilotMoveSimulator";
 import { SkemaPilotOverviewPanel } from "./SkemaPilotOverviewPanel";
 import { SkemaPilotQualityPanel } from "./SkemaPilotQualityPanel";
 import { SkemaPilotRoomPreview } from "./SkemaPilotRoomPreview";
@@ -162,6 +163,12 @@ export function SkemaPilotPreview({
         subjectAssignmentStatus={subjectAssignmentStatus}
         subjects={subjects}
         teachers={teachers}
+      />
+
+      <SkemaPilotMoveSimulator
+        allPreviewLessons={allPreviewLessons}
+        lessonCount={lessonCount}
+        rubikClassName={rubikClassName}
       />
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_280px]">
