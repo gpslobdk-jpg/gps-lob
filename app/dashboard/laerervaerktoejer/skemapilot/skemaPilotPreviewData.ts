@@ -397,6 +397,7 @@ export function getRoomSimultaneousBookings(
 }
 
 export type ManualMove = {
+  kind: "move";
   id: string;
   className: string;
   fromDay: string;
@@ -405,24 +406,50 @@ export type ManualMove = {
   toLesson: number;
 };
 
-export function applyManualMovesToLessons(
+export type ManualSwap = {
+  kind: "swap";
+  id: string;
+  className: string;
+  aFromDay: string;
+  aFromLesson: number;
+  bFromDay: string;
+  bFromLesson: number;
+};
+
+export type ManualChange = ManualMove | ManualSwap;
+
+export function applyManualChangesToLessons(
   lessons: readonly SkemaPilotPreviewCell[],
-  moves: readonly ManualMove[],
+  changes: readonly ManualChange[],
 ): SkemaPilotPreviewCell[] {
-  if (!moves.length) {
+  if (!changes.length) {
     return [...lessons];
   }
 
   let result: SkemaPilotPreviewCell[] = [...lessons];
 
-  for (const move of moves) {
-    result = result.map((cell) => {
-      if (cell.className === move.className && cell.day === move.fromDay && cell.lesson === move.fromLesson) {
-        return { ...cell, day: move.toDay, lesson: move.toLesson };
-      }
+  for (const change of changes) {
+    if (change.kind === "move") {
+      result = result.map((cell) => {
+        if (cell.className === change.className && cell.day === change.fromDay && cell.lesson === change.fromLesson) {
+          return { ...cell, day: change.toDay, lesson: change.toLesson };
+        }
 
-      return cell;
-    });
+        return cell;
+      });
+    } else {
+      result = result.map((cell) => {
+        if (cell.className === change.className && cell.day === change.aFromDay && cell.lesson === change.aFromLesson) {
+          return { ...cell, day: change.bFromDay, lesson: change.bFromLesson };
+        }
+
+        if (cell.className === change.className && cell.day === change.bFromDay && cell.lesson === change.bFromLesson) {
+          return { ...cell, day: change.aFromDay, lesson: change.aFromLesson };
+        }
+
+        return cell;
+      });
+    }
   }
 
   return result;

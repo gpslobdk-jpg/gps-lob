@@ -23,6 +23,13 @@ type SkemaPilotMoveSimulatorProps = {
     toDay: string;
     toLesson: number;
   }) => void;
+  onApplySwap: (swap: {
+    aFromDay: string;
+    aFromLesson: number;
+    bFromDay: string;
+    bFromLesson: number;
+    className: string;
+  }) => void;
   rubikClassName: string;
 };
 
@@ -35,6 +42,13 @@ type MoveSimulation = {
   status: SimulationStatus;
   targetLesson?: SkemaPilotPreviewCell;
   title: string;
+};
+
+type SwapSimulation = {
+  attentions: string[];
+  benefits: string[];
+  status: "possible" | "check" | "conflict";
+  swapLesson: SkemaPilotPreviewCell;
 };
 
 type LessonOption = {
@@ -64,6 +78,7 @@ export function SkemaPilotMoveSimulator({
   allPreviewLessons,
   lessonCount,
   onApplyMove,
+  onApplySwap,
   rubikClassName,
 }: SkemaPilotMoveSimulatorProps) {
   const lessonOptions = useMemo(() => buildLessonOptions(allPreviewLessons), [allPreviewLessons]);
@@ -87,6 +102,19 @@ export function SkemaPilotMoveSimulator({
     [allPreviewLessons, lessonCount, selectedLesson, targetDay, targetLessonNumber],
   );
 
+  const swapSimulation = useMemo(
+    () =>
+      selectedLesson && simulation?.status === "swap" && simulation.targetLesson
+        ? buildSwapSimulation({
+            allPreviewLessons,
+            lessonCount,
+            selectedLesson,
+            swapLesson: simulation.targetLesson,
+          })
+        : null,
+    [allPreviewLessons, lessonCount, selectedLesson, simulation],
+  );
+
   const isSameSlot =
     selectedLesson !== undefined &&
     selectedLesson.day === targetDay &&
@@ -95,6 +123,9 @@ export function SkemaPilotMoveSimulator({
     !isSameSlot &&
     simulation !== null &&
     (simulation.status === "possible" || simulation.status === "check");
+  const canApplySwap =
+    swapSimulation !== null &&
+    (swapSimulation.status === "possible" || swapSimulation.status === "check");
 
   function handleApplyMove() {
     if (!selectedLesson || !canApplyMove) {
@@ -107,6 +138,20 @@ export function SkemaPilotMoveSimulator({
       fromLesson: selectedLesson.lesson,
       toDay: targetDay,
       toLesson: targetLessonNumber,
+    });
+  }
+
+  function handleApplySwap() {
+    if (!selectedLesson || !swapSimulation || !canApplySwap) {
+      return;
+    }
+
+    onApplySwap({
+      aFromDay: selectedLesson.day,
+      aFromLesson: selectedLesson.lesson,
+      bFromDay: swapSimulation.swapLesson.day,
+      bFromLesson: swapSimulation.swapLesson.lesson,
+      className: selectedLesson.className,
     });
   }
 
@@ -215,7 +260,11 @@ export function SkemaPilotMoveSimulator({
           ) : null}
         </div>
 
-        {simulation ? <SimulationResult simulation={simulation} /> : null}
+        {selectedLesson && simulation?.status === "swap" && swapSimulation ? (
+          <SwapProposalCard selectedLesson={selectedLesson} swapSimulation={swapSimulation} />
+        ) : simulation ? (
+          <SimulationResult simulation={simulation} />
+        ) : null}
       </div>
 
       <div className="mt-4 flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -224,7 +273,9 @@ export function SkemaPilotMoveSimulator({
           <p>
             {canApplyMove
               ? "Flytningen ser sikker nok ud til at anvende i den lokale kladde."
-              : "Ikke gemt – afventer valg eller kontroller simuleringsresultatet."}
+              : canApplySwap
+                ? "Byttet ser sikkert nok ud til at anvende i den lokale kladde."
+                : "Ikke gemt – afventer valg eller kontroller simuleringsresultatet."}
           </p>
         </div>
         {canApplyMove ? (
@@ -235,13 +286,21 @@ export function SkemaPilotMoveSimulator({
           >
             Anvend i lokal kladde
           </button>
+        ) : canApplySwap ? (
+          <button
+            className="min-h-11 rounded-lg border border-sky-600 bg-sky-600 px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-sky-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100"
+            type="button"
+            onClick={handleApplySwap}
+          >
+            Anvend bytte i lokal kladde
+          </button>
         ) : simulation?.status === "swap" ? (
           <button
-            className="min-h-11 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-400"
+            className="min-h-11 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-black text-rose-400"
             disabled
             type="button"
           >
-            Bytte kommer senere
+            Bytte giver konflikt
           </button>
         ) : simulation?.status === "conflict" ? (
           <button
@@ -676,4 +735,191 @@ function formatSlot(day: string, lessonNumber: number) {
 function getGradeFromClassName(className: string) {
   const match = className.match(/\d+/);
   return match ? Number(match[0]) : 0;
+}
+
+function buildSwapSimulation({
+  allPreviewLessons,
+  lessonCount,
+  selectedLesson,
+  swapLesson,
+}: {
+  allPreviewLessons: readonly SkemaPilotPreviewCell[];
+  lessonCount: number;
+  selectedLesson: SkemaPilotPreviewCell;
+  swapLesson: SkemaPilotPreviewCell;
+}): SwapSimulation {
+  const keyA = getSkemaPilotPreviewCellKey(selectedLesson);
+  const keyB = getSkemaPilotPreviewCellKey(swapLesson);
+  const lessonsExcludingBoth = allPreviewLessons.filter(
+    (lesson) => getSkemaPilotPreviewCellKey(lesson) !== keyA && getSkemaPilotPreviewCellKey(lesson) !== keyB,
+  );
+
+  const aTeacherConflict =
+    selectedLesson.teacherId && !selectedLesson.teacherMissing
+      ? getTeacherPreviewConflictInSlot(
+          lessonsExcludingBoth,
+          selectedLesson.teacherId,
+          selectedLesson.className,
+          swapLesson.day,
+          swapLesson.lesson,
+        )
+      : undefined;
+  const aRoomConflict =
+    selectedLesson.room && selectedLesson.roomIsShared
+      ? getSharedRoomPreviewConflictInSlot(
+          lessonsExcludingBoth,
+          selectedLesson.room,
+          selectedLesson.className,
+          swapLesson.day,
+          swapLesson.lesson,
+        )
+      : undefined;
+  const bTeacherConflict =
+    swapLesson.teacherId && !swapLesson.teacherMissing
+      ? getTeacherPreviewConflictInSlot(
+          lessonsExcludingBoth,
+          swapLesson.teacherId,
+          swapLesson.className,
+          selectedLesson.day,
+          selectedLesson.lesson,
+        )
+      : undefined;
+  const bRoomConflict =
+    swapLesson.room && swapLesson.roomIsShared
+      ? getSharedRoomPreviewConflictInSlot(
+          lessonsExcludingBoth,
+          swapLesson.room,
+          swapLesson.className,
+          selectedLesson.day,
+          selectedLesson.lesson,
+        )
+      : undefined;
+
+  const hasHardConflict = !!(aTeacherConflict || aRoomConflict || bTeacherConflict || bRoomConflict);
+  const attentions: string[] = [];
+  const benefits: string[] = [];
+
+  if (aTeacherConflict && selectedLesson.teacherName) {
+    attentions.push(
+      `${selectedLesson.teacherName} underviser allerede ${aTeacherConflict.className} i ${aTeacherConflict.subject} ${formatSlot(swapLesson.day, swapLesson.lesson)}.`,
+    );
+  }
+
+  if (aRoomConflict && selectedLesson.room) {
+    attentions.push(
+      `${selectedLesson.room} bruges allerede af ${aRoomConflict.className} ${formatSlot(swapLesson.day, swapLesson.lesson)}.`,
+    );
+  }
+
+  if (bTeacherConflict && swapLesson.teacherName) {
+    attentions.push(
+      `${swapLesson.teacherName} underviser allerede ${bTeacherConflict.className} i ${bTeacherConflict.subject} ${formatSlot(selectedLesson.day, selectedLesson.lesson)}.`,
+    );
+  }
+
+  if (bRoomConflict && swapLesson.room) {
+    attentions.push(
+      `${swapLesson.room} bruges allerede af ${bRoomConflict.className} ${formatSlot(selectedLesson.day, selectedLesson.lesson)}.`,
+    );
+  }
+
+  const aPedWarnings = getPedagogicalWarnings({
+    allPreviewLessons: lessonsExcludingBoth,
+    lessonCount,
+    selectedLesson,
+    targetDay: swapLesson.day,
+    targetLessonNumber: swapLesson.lesson,
+  });
+  const bPedWarnings = getPedagogicalWarnings({
+    allPreviewLessons: lessonsExcludingBoth,
+    lessonCount,
+    selectedLesson: swapLesson,
+    targetDay: selectedLesson.day,
+    targetLessonNumber: selectedLesson.lesson,
+  });
+
+  attentions.push(...aPedWarnings, ...bPedWarnings);
+
+  if (!hasHardConflict) {
+    benefits.push("Ingen lærer- eller lokalekonflikt fundet for byttet i kladden.");
+  }
+
+  if (selectedLesson.day !== swapLesson.day) {
+    benefits.push(`Byttet fordeler lektionerne på ${selectedLesson.day} og ${swapLesson.day}.`);
+  } else {
+    benefits.push("Begge lektioner forbliver på samme dag og bytter kun tidspunkt.");
+  }
+
+  benefits.push("Byttet er reversibelt via Fortryd seneste i kladden.");
+
+  const status: "possible" | "check" | "conflict" = hasHardConflict
+    ? "conflict"
+    : attentions.length > 0
+      ? "check"
+      : "possible";
+
+  return {
+    attentions: attentions.slice(0, 6),
+    benefits: benefits.slice(0, 4),
+    status,
+    swapLesson,
+  };
+}
+
+function SwapProposalCard({
+  selectedLesson,
+  swapSimulation,
+}: {
+  selectedLesson: SkemaPilotPreviewCell;
+  swapSimulation: SwapSimulation;
+}) {
+  const swapLesson = swapSimulation.swapLesson;
+  const statusLabel =
+    swapSimulation.status === "possible"
+      ? "Bytte ser muligt ud"
+      : swapSimulation.status === "check"
+        ? "Bytte bør tjekkes"
+        : "Bytte giver konflikt";
+  const statusClassName =
+    swapSimulation.status === "possible"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+      : swapSimulation.status === "check"
+        ? "border-amber-200 bg-amber-50 text-amber-950"
+        : "border-rose-200 bg-rose-50 text-rose-950";
+  const StatusIcon = swapSimulation.status === "possible" ? CheckCircle2 : AlertTriangle;
+  const iconClassName =
+    swapSimulation.status === "possible"
+      ? "text-emerald-700"
+      : swapSimulation.status === "check"
+        ? "text-amber-700"
+        : "text-rose-700";
+
+  return (
+    <article className={`rounded-lg border p-4 ${statusClassName}`}>
+      <div className="flex items-start gap-3">
+        <StatusIcon className={`mt-0.5 h-5 w-5 shrink-0 ${iconClassName}`} />
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.14em]">Bytteforslag</p>
+          <h5 className="mt-2 text-2xl font-black tracking-tight">{statusLabel}</h5>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-1 rounded-lg border border-current/10 bg-white/60 p-3 text-sm font-bold leading-6">
+        <p className="mb-1 text-xs font-black uppercase tracking-[0.12em] opacity-60">Bytter plads</p>
+        <p>
+          {selectedLesson.subject} · {selectedLesson.className} · {selectedLesson.day}{" "}
+          {selectedLesson.lesson}. lektion
+        </p>
+        <p className="text-xs font-black opacity-50">↕</p>
+        <p>
+          {swapLesson.subject} · {swapLesson.className} · {swapLesson.day} {swapLesson.lesson}. lektion
+        </p>
+      </div>
+
+      <div className="mt-3 grid gap-3">
+        <ResultList items={swapSimulation.benefits} title="Mulige fordele" tone="good" />
+        <ResultList items={swapSimulation.attentions} title="Opmærksomhedspunkter" tone="attention" />
+      </div>
+    </article>
+  );
 }

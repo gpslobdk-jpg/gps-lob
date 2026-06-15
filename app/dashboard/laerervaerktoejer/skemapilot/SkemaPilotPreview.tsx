@@ -18,10 +18,10 @@ import {
   type TeacherLoad,
 } from "./SkemaPilotSubjectAssignment";
 import {
-  applyManualMovesToLessons,
+  applyManualChangesToLessons,
   buildSkemaPilotPreviewLessons,
   getSkemaPilotLessonCount,
-  type ManualMove,
+  type ManualChange,
   type SkemaPilotPreviewCell,
   weekdays,
 } from "./skemaPilotPreviewData";
@@ -79,7 +79,7 @@ export function SkemaPilotPreview({
   teacherLoads,
 }: SkemaPilotPreviewProps) {
   const [selectedClass, setSelectedClass] = useState("");
-  const [manualMoves, setManualMoves] = useState<ManualMove[]>([]);
+  const [manualChanges, setManualChanges] = useState<ManualChange[]>([]);
   const previewClass = activeClasses.includes(selectedClass) ? selectedClass : activeClasses[0] ?? "0. klasse";
   const lessonCount = getSkemaPilotLessonCount(settings.lessonsPerDay);
   const allPreviewLessons = useMemo(
@@ -99,8 +99,8 @@ export function SkemaPilotPreview({
     [activeBlocks, activeClasses, activeRooms, getLessonValue, lessonCount, subjectAssignments, subjects, teachers],
   );
   const effectiveLessons = useMemo(
-    () => applyManualMovesToLessons(allPreviewLessons, manualMoves),
-    [allPreviewLessons, manualMoves],
+    () => applyManualChangesToLessons(allPreviewLessons, manualChanges),
+    [allPreviewLessons, manualChanges],
   );
   const effectivePreviewLessons = useMemo(
     () => effectiveLessons.filter((lesson) => lesson.className === previewClass),
@@ -114,15 +114,25 @@ export function SkemaPilotPreview({
     toDay: string;
     toLesson: number;
   }) {
-    setManualMoves((previous) => [...previous, { ...move, id: `move-${Date.now()}` }]);
+    setManualChanges((previous) => [...previous, { kind: "move", ...move, id: `move-${Date.now()}` }]);
   }
 
-  function handleUndoLastMove() {
-    setManualMoves((previous) => previous.slice(0, -1));
+  function handleApplySwap(swap: {
+    aFromDay: string;
+    aFromLesson: number;
+    bFromDay: string;
+    bFromLesson: number;
+    className: string;
+  }) {
+    setManualChanges((previous) => [...previous, { kind: "swap", ...swap, id: `swap-${Date.now()}` }]);
   }
 
-  function handleResetMoves() {
-    setManualMoves([]);
+  function handleUndoLastChange() {
+    setManualChanges((previous) => previous.slice(0, -1));
+  }
+
+  function handleResetChanges() {
+    setManualChanges([]);
   }
 
   return (
@@ -170,29 +180,29 @@ export function SkemaPilotPreview({
 
       <SectionNavigation />
 
-      {manualMoves.length > 0 ? (
+      {manualChanges.length > 0 ? (
         <div className="mt-5 rounded-lg border border-sky-200 bg-sky-50 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">Lokal kladde ændret</p>
               <p className="mt-1 text-sm font-bold leading-6 text-sky-950">
-                {manualMoves.length === 1
-                  ? "1 manuel flytning er anvendt i denne visning."
-                  : `${manualMoves.length} manuelle flytninger er anvendt i denne visning.`}{" "}
+                {manualChanges.length === 1
+                  ? "1 manuel ændring er anvendt i denne visning."
+                  : `${manualChanges.length} manuelle ændringer er anvendt i denne visning.`}{" "}
                 Ændringerne er ikke gemt.
               </p>
             </div>
             <div className="flex shrink-0 gap-2">
               <button
                 type="button"
-                onClick={handleUndoLastMove}
+                onClick={handleUndoLastChange}
                 className="min-h-10 rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm font-black text-sky-800 transition hover:border-sky-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100"
               >
                 Fortryd seneste
               </button>
               <button
                 type="button"
-                onClick={handleResetMoves}
+                onClick={handleResetChanges}
                 className="min-h-10 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-600 transition hover:border-rose-200 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-100"
               >
                 Nulstil kladde
@@ -225,6 +235,7 @@ export function SkemaPilotPreview({
         allPreviewLessons={effectiveLessons}
         lessonCount={lessonCount}
         onApplyMove={handleApplyMove}
+        onApplySwap={handleApplySwap}
         rubikClassName={rubikClassName}
       />
 
