@@ -6,7 +6,15 @@ import { useMemo, useState, type ReactNode } from "react";
 import { SkemaPilotAiMockPanel } from "./SkemaPilotAiMockPanel";
 import { SkemaPilotConflictPanel } from "./SkemaPilotConflictPanel";
 import { SkemaPilotQualityPanel } from "./SkemaPilotQualityPanel";
-import type { SubjectAssignmentStatus, TeacherLoad } from "./SkemaPilotSubjectAssignment";
+import {
+  getAvailableSubjectTeachers,
+  getSubjectAssignmentKey,
+  getTeacherDisplayName,
+  type SubjectAssignmentMap,
+  type SubjectAssignmentStatus,
+  type SubjectAssignmentTeacher,
+  type TeacherLoad,
+} from "./SkemaPilotSubjectAssignment";
 
 type PriorityLevel = "Lav" | "Middel" | "Høj";
 
@@ -19,11 +27,15 @@ type PreviewSettings = {
 };
 
 type PreviewCell = {
+  className: string;
   day: string;
   lesson: number;
   note?: string;
   room?: string;
   subject: string;
+  teacherId?: string;
+  teacherMissing?: boolean;
+  teacherName?: string;
 };
 
 type SkemaPilotPreviewProps = {
@@ -34,8 +46,10 @@ type SkemaPilotPreviewProps = {
   priorities: Record<string, PriorityLevel>;
   rubikClassName: string;
   settings: PreviewSettings;
+  subjectAssignments: SubjectAssignmentMap;
   subjectAssignmentStatus: SubjectAssignmentStatus;
   subjects: readonly string[];
+  teachers: readonly SubjectAssignmentTeacher[];
   teacherLoads: readonly TeacherLoad[];
 };
 
@@ -62,16 +76,44 @@ export function SkemaPilotPreview({
   priorities,
   rubikClassName,
   settings,
+  subjectAssignments,
   subjectAssignmentStatus,
   subjects,
+  teachers,
   teacherLoads,
 }: SkemaPilotPreviewProps) {
   const [selectedClass, setSelectedClass] = useState("");
   const previewClass = activeClasses.includes(selectedClass) ? selectedClass : activeClasses[0] ?? "0. klasse";
   const lessonCount = getLessonCount(settings.lessonsPerDay);
   const previewLessons = useMemo(
-    () => buildPreviewLessons(previewClass, lessonCount, subjects, getLessonValue, activeBlocks, activeRooms),
-    [activeBlocks, activeRooms, getLessonValue, lessonCount, previewClass, subjects],
+    () =>
+      buildPreviewLessons(
+        previewClass,
+        lessonCount,
+        subjects,
+        getLessonValue,
+        activeBlocks,
+        activeRooms,
+        subjectAssignments,
+        teachers,
+      ),
+    [activeBlocks, activeRooms, getLessonValue, lessonCount, previewClass, subjectAssignments, subjects, teachers],
+  );
+  const allPreviewLessons = useMemo(
+    () =>
+      activeClasses.flatMap((className) =>
+        buildPreviewLessons(
+          className,
+          lessonCount,
+          subjects,
+          getLessonValue,
+          activeBlocks,
+          activeRooms,
+          subjectAssignments,
+          teachers,
+        ),
+      ),
+    [activeBlocks, activeClasses, activeRooms, getLessonValue, lessonCount, subjectAssignments, subjects, teachers],
   );
 
   return (
@@ -173,6 +215,7 @@ export function SkemaPilotPreview({
               <StatusLine
                 text={`${subjectAssignmentStatus.assignedItems}/${subjectAssignmentStatus.totalItems} fagposter er fordelt til lærere`}
               />
+              <StatusLine text="Preview-celler viser lærer, når fagfordelingen er udfyldt" />
               <StatusLine text="Ingen automatisk flytning af lektioner" />
               <StatusLine text="Pædagogiske ønsker indgår i kvalitetsscoren" />
             </div>
@@ -197,6 +240,7 @@ export function SkemaPilotPreview({
         activeBlocks={activeBlocks}
         activeClasses={activeClasses}
         getLessonValue={getLessonValue}
+        allPreviewLessons={allPreviewLessons}
         lessonCount={lessonCount}
         previewClass={previewClass}
         rubikClassName={rubikClassName}
@@ -237,6 +281,14 @@ function PreviewSubjectCell({ cell }: { cell?: PreviewCell }) {
   return (
     <div className={`min-h-20 rounded-lg border px-3 py-3 shadow-sm ${colorClassName}`}>
       <p className="text-sm font-black leading-5">{cell.subject}</p>
+      {cell.teacherName ? (
+        <p className="mt-2 break-words text-xs font-black leading-5 opacity-80">{cell.teacherName}</p>
+      ) : null}
+      {cell.teacherMissing ? (
+        <p className="mt-2 rounded-md border border-amber-200 bg-white/70 px-2 py-1 text-xs font-black leading-4 text-amber-800">
+          Ikke fordelt
+        </p>
+      ) : null}
       {cell.room ? <p className="mt-2 text-xs font-bold opacity-75">{cell.room}</p> : null}
       {cell.note ? <p className="mt-2 text-xs font-bold opacity-75">{cell.note}</p> : null}
     </div>
@@ -268,7 +320,12 @@ function buildPreviewLessons(
   getLessonValue: (className: string, subject: string) => string,
   activeBlocks: readonly string[],
   activeRooms: readonly string[],
+  subjectAssignments: SubjectAssignmentMap,
+  teachers: readonly SubjectAssignmentTeacher[],
 ) {
+  const teacherById = new Map<string, SubjectAssignmentTeacher>(
+    getAvailableSubjectTeachers(teachers).map((teacher) => [teacher.id, teacher]),
+  );
   const weightedSubjects = availableSubjects.flatMap((subject) => {
     const subjectCount = Math.max(0, Math.round(Number(getLessonValue(className, subject)) || 0));
     return Array.from({ length: Math.max(1, subjectCount) }, () => subject);
@@ -279,16 +336,51 @@ function buildPreviewLessons(
     Array.from({ length: lessonCount }, (_, lessonIndex) => {
       const fixedSubject = getFixedBlockSubject(dayIndex, lessonIndex, activeBlocks);
       const subject = fixedSubject ?? subjectPool[(dayIndex * lessonCount + lessonIndex) % subjectPool.length];
+      const teacherInfo = getTeacherForPreviewCell(
+        className,
+        subject,
+        Boolean(fixedSubject),
+        subjectAssignments,
+        teacherById,
+      );
 
       return {
+        className,
         day,
         lesson: lessonIndex + 1,
         note: fixedSubject ? "Fast blok" : undefined,
         room: getRoomForSubject(subject, activeRooms),
         subject,
+        ...teacherInfo,
       };
     }),
   );
+}
+
+function getTeacherForPreviewCell(
+  className: string,
+  subject: string,
+  isFixedSubject: boolean,
+  subjectAssignments: SubjectAssignmentMap,
+  teacherById: Map<string, SubjectAssignmentTeacher>,
+) {
+  if (isFixedSubject) {
+    return {};
+  }
+
+  const teacherId = subjectAssignments[getSubjectAssignmentKey(className, subject)] ?? "";
+  const teacher = teacherId ? teacherById.get(teacherId) : undefined;
+
+  if (!teacher) {
+    return {
+      teacherMissing: true,
+    };
+  }
+
+  return {
+    teacherId,
+    teacherName: getTeacherDisplayName(teacher),
+  };
 }
 
 function getFixedBlockSubject(dayIndex: number, lessonIndex: number, activeBlocks: readonly string[]) {

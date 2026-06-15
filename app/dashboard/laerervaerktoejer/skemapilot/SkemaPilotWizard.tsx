@@ -1208,8 +1208,10 @@ function SummaryStep({
         priorities={priorities}
         rubikClassName={rubikClassName}
         settings={settings}
+        subjectAssignments={subjectAssignments}
         subjectAssignmentStatus={subjectAssignmentStatus}
         subjects={subjects}
+        teachers={teachers}
         teacherLoads={teacherLoads}
       />
 

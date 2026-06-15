@@ -237,8 +237,8 @@ function buildQualityMetrics(
       status: "unknown",
       description:
         subjectAssignmentStatus.assignedItems > 0
-          ? "Lærerhuller kræver konkrete placeringer, men lærerbelastning kan nu estimeres ud fra fagfordelingen."
-          : "Lærerhuller vurderes senere, når fagfordeling kobles på.",
+          ? "Lærere er koblet på fagene i previewet, så næste trin kan blive lærerhuller og dobbeltbookinger."
+          : "Lærerhuller vurderes senere, når lærere er fordelt på fagene.",
       weight: getPriorityWeight(priorities["Lærere skal helst ikke have mange huller"]),
     },
   ];
@@ -402,7 +402,7 @@ function buildImprovements(metrics: QualityMetric[]) {
     improvements.push("Bør overvejes: yngre elever bør helst ikke have for mange tunge fag sent på dagen.");
   }
 
-  improvements.push("Lærerhuller vurderes senere, når fagfordeling kobles på.");
+  improvements.push("Lærerhuller kræver stadig et samlet lærerskema på tværs af ugen.");
   improvements.push("Klasselærerens placering vurderes senere, når klasselærerdata kobles på.");
   improvements.push("Næste skridt kan være at sammenholde denne indikator med konflikttjekket.");
   return improvements.slice(0, 5);
