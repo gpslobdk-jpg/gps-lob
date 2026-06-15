@@ -6,15 +6,19 @@ import { useMemo, useState, type ReactNode } from "react";
 import { SkemaPilotAiMockPanel } from "./SkemaPilotAiMockPanel";
 import { SkemaPilotConflictPanel } from "./SkemaPilotConflictPanel";
 import { SkemaPilotQualityPanel } from "./SkemaPilotQualityPanel";
+import { SkemaPilotTeacherPreview } from "./SkemaPilotTeacherPreview";
 import {
-  getAvailableSubjectTeachers,
-  getSubjectAssignmentKey,
-  getTeacherDisplayName,
   type SubjectAssignmentMap,
   type SubjectAssignmentStatus,
   type SubjectAssignmentTeacher,
   type TeacherLoad,
 } from "./SkemaPilotSubjectAssignment";
+import {
+  buildSkemaPilotPreviewLessons,
+  getSkemaPilotLessonCount,
+  type SkemaPilotPreviewCell,
+  weekdays,
+} from "./skemaPilotPreviewData";
 
 type PriorityLevel = "Lav" | "Middel" | "Høj";
 
@@ -24,18 +28,6 @@ type PreviewSettings = {
   lessonsPerDay: string;
   startTime: string;
   endTime: string;
-};
-
-type PreviewCell = {
-  className: string;
-  day: string;
-  lesson: number;
-  note?: string;
-  room?: string;
-  subject: string;
-  teacherId?: string;
-  teacherMissing?: boolean;
-  teacherName?: string;
 };
 
 type SkemaPilotPreviewProps = {
@@ -52,8 +44,6 @@ type SkemaPilotPreviewProps = {
   teachers: readonly SubjectAssignmentTeacher[];
   teacherLoads: readonly TeacherLoad[];
 };
-
-const weekdays = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag"] as const;
 
 const subjectColors: Record<string, string> = {
   Dansk: "border-emerald-200 bg-emerald-50 text-emerald-950",
@@ -84,10 +74,10 @@ export function SkemaPilotPreview({
 }: SkemaPilotPreviewProps) {
   const [selectedClass, setSelectedClass] = useState("");
   const previewClass = activeClasses.includes(selectedClass) ? selectedClass : activeClasses[0] ?? "0. klasse";
-  const lessonCount = getLessonCount(settings.lessonsPerDay);
+  const lessonCount = getSkemaPilotLessonCount(settings.lessonsPerDay);
   const previewLessons = useMemo(
     () =>
-      buildPreviewLessons(
+      buildSkemaPilotPreviewLessons(
         previewClass,
         lessonCount,
         subjects,
@@ -102,7 +92,7 @@ export function SkemaPilotPreview({
   const allPreviewLessons = useMemo(
     () =>
       activeClasses.flatMap((className) =>
-        buildPreviewLessons(
+        buildSkemaPilotPreviewLessons(
           className,
           lessonCount,
           subjects,
@@ -236,6 +226,12 @@ export function SkemaPilotPreview({
           </section>
         </aside>
       </div>
+      <SkemaPilotTeacherPreview
+        allPreviewLessons={allPreviewLessons}
+        lessonCount={lessonCount}
+        rubikClassName={rubikClassName}
+        teachers={teachers}
+      />
       <SkemaPilotConflictPanel
         activeBlocks={activeBlocks}
         activeClasses={activeClasses}
@@ -248,6 +244,7 @@ export function SkemaPilotPreview({
         subjects={subjects}
       />
       <SkemaPilotQualityPanel
+        allPreviewLessons={allPreviewLessons}
         lessonCount={lessonCount}
         previewClass={previewClass}
         previewLessons={previewLessons}
@@ -267,7 +264,7 @@ export function SkemaPilotPreview({
   );
 }
 
-function PreviewSubjectCell({ cell }: { cell?: PreviewCell }) {
+function PreviewSubjectCell({ cell }: { cell?: SkemaPilotPreviewCell }) {
   if (!cell) {
     return (
       <div className="min-h-20 rounded-lg border border-slate-100 bg-white px-3 py-3 text-sm font-bold text-slate-400">
@@ -311,120 +308,4 @@ function StatusLine({ text }: { text: string }) {
       {text}
     </p>
   );
-}
-
-function buildPreviewLessons(
-  className: string,
-  lessonCount: number,
-  availableSubjects: readonly string[],
-  getLessonValue: (className: string, subject: string) => string,
-  activeBlocks: readonly string[],
-  activeRooms: readonly string[],
-  subjectAssignments: SubjectAssignmentMap,
-  teachers: readonly SubjectAssignmentTeacher[],
-) {
-  const teacherById = new Map<string, SubjectAssignmentTeacher>(
-    getAvailableSubjectTeachers(teachers).map((teacher) => [teacher.id, teacher]),
-  );
-  const weightedSubjects = availableSubjects.flatMap((subject) => {
-    const subjectCount = Math.max(0, Math.round(Number(getLessonValue(className, subject)) || 0));
-    return Array.from({ length: Math.max(1, subjectCount) }, () => subject);
-  });
-  const subjectPool = weightedSubjects.length ? weightedSubjects : availableSubjects;
-
-  return weekdays.flatMap((day, dayIndex) =>
-    Array.from({ length: lessonCount }, (_, lessonIndex) => {
-      const fixedSubject = getFixedBlockSubject(dayIndex, lessonIndex, activeBlocks);
-      const subject = fixedSubject ?? subjectPool[(dayIndex * lessonCount + lessonIndex) % subjectPool.length];
-      const teacherInfo = getTeacherForPreviewCell(
-        className,
-        subject,
-        Boolean(fixedSubject),
-        subjectAssignments,
-        teacherById,
-      );
-
-      return {
-        className,
-        day,
-        lesson: lessonIndex + 1,
-        note: fixedSubject ? "Fast blok" : undefined,
-        room: getRoomForSubject(subject, activeRooms),
-        subject,
-        ...teacherInfo,
-      };
-    }),
-  );
-}
-
-function getTeacherForPreviewCell(
-  className: string,
-  subject: string,
-  isFixedSubject: boolean,
-  subjectAssignments: SubjectAssignmentMap,
-  teacherById: Map<string, SubjectAssignmentTeacher>,
-) {
-  if (isFixedSubject) {
-    return {};
-  }
-
-  const teacherId = subjectAssignments[getSubjectAssignmentKey(className, subject)] ?? "";
-  const teacher = teacherId ? teacherById.get(teacherId) : undefined;
-
-  if (!teacher) {
-    return {
-      teacherMissing: true,
-    };
-  }
-
-  return {
-    teacherId,
-    teacherName: getTeacherDisplayName(teacher),
-  };
-}
-
-function getFixedBlockSubject(dayIndex: number, lessonIndex: number, activeBlocks: readonly string[]) {
-  if (lessonIndex === 0 && activeBlocks.includes("Morgensamling")) {
-    return "Morgensamling";
-  }
-
-  if (lessonIndex === 1 && dayIndex < 4 && activeBlocks.includes("Læsebånd")) {
-    return "Læsebånd";
-  }
-
-  if (lessonIndex === 0 && dayIndex === 4 && activeBlocks.includes("Fællessamling")) {
-    return "Fællessamling";
-  }
-
-  return null;
-}
-
-function getLessonCount(value: string) {
-  const parsed = Number.parseInt(value, 10);
-
-  if (!Number.isFinite(parsed)) {
-    return 6;
-  }
-
-  return Math.min(10, Math.max(1, parsed));
-}
-
-function getRoomForSubject(subject: string, activeRooms: readonly string[]) {
-  if (subject === "Idræt" && activeRooms.includes("Idrætshal")) {
-    return "Idrætshal";
-  }
-
-  if (subject === "Musik" && activeRooms.includes("Musik")) {
-    return "Musik";
-  }
-
-  if (subject === "Billedkunst/krea" && activeRooms.includes("Billedkunst/krea")) {
-    return "Billedkunst/krea";
-  }
-
-  if (subject === "Natur/teknologi" && activeRooms.includes("Naturfag")) {
-    return "Naturfag";
-  }
-
-  return undefined;
 }

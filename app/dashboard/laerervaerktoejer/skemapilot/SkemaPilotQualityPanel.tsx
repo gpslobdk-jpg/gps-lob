@@ -4,18 +4,22 @@ import { CircleDashed, Gauge, Lightbulb, TrendingUp } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { SubjectAssignmentStatus, TeacherLoad } from "./SkemaPilotSubjectAssignment";
+import { getTeacherScheduleStats } from "./skemaPilotPreviewData";
 
 type PriorityLevel = "Lav" | "Middel" | "Høj";
 
 type QualityPreviewCell = {
+  className: string;
   day: string;
   lesson: number;
   note?: string;
   room?: string;
   subject: string;
+  teacherId?: string;
 };
 
 type QualityPanelProps = {
+  allPreviewLessons: readonly QualityPreviewCell[];
   lessonCount: number;
   previewClass: string;
   previewLessons: readonly QualityPreviewCell[];
@@ -25,13 +29,23 @@ type QualityPanelProps = {
   teacherLoads: readonly TeacherLoad[];
 };
 
+type QualityStatus = "good" | "medium" | "low" | "unknown";
+
 type QualityMetric = {
   description: string;
   label: string;
   score: number;
-  status: "good" | "medium" | "low" | "unknown";
+  status: QualityStatus;
   title: string;
   weight: number;
+};
+
+type TeacherGapEstimate = {
+  description: string;
+  label: string;
+  possibleGaps: number;
+  score: number;
+  status: QualityStatus;
 };
 
 const coreSubjects = ["Dansk", "Matematik"] as const;
@@ -47,6 +61,7 @@ const statusClassNames = {
 } as const;
 
 export function SkemaPilotQualityPanel({
+  allPreviewLessons,
   lessonCount,
   previewClass,
   previewLessons,
@@ -56,13 +71,21 @@ export function SkemaPilotQualityPanel({
   teacherLoads,
 }: QualityPanelProps) {
   const grade = getGradeFromClassName(previewClass);
-  const metrics = buildQualityMetrics(previewLessons, lessonCount, grade, priorities, subjectAssignmentStatus);
+  const teacherGapEstimate = getTeacherGapEstimate(allPreviewLessons, subjectAssignmentStatus);
+  const metrics = buildQualityMetrics(
+    previewLessons,
+    lessonCount,
+    grade,
+    priorities,
+    subjectAssignmentStatus,
+    teacherGapEstimate,
+  );
   const scoredMetrics = metrics.filter((metric) => metric.status !== "unknown");
   const weightedTotal = scoredMetrics.reduce((total, metric) => total + metric.score * metric.weight, 0);
   const weightTotal = scoredMetrics.reduce((total, metric) => total + metric.weight, 0);
   const score = weightTotal ? Math.round(weightedTotal / weightTotal) : 70;
   const strengths = buildStrengths(metrics, grade);
-  const improvements = buildImprovements(metrics);
+  const improvements = buildImprovements(metrics, teacherGapEstimate);
   const teacherLoadInsight = getTeacherLoadInsight(teacherLoads, subjectAssignmentStatus);
 
   return (
@@ -176,6 +199,7 @@ function buildQualityMetrics(
   grade: number,
   priorities: Record<string, PriorityLevel>,
   subjectAssignmentStatus: SubjectAssignmentStatus,
+  teacherGapEstimate: TeacherGapEstimate,
 ): QualityMetric[] {
   const coreMetric = getCoreEarlyMetric(previewLessons, lessonCount);
   const peMetric = getBlockMetric(previewLessons, "Idræt", "Idræt gerne som dobbeltlektion");
@@ -232,13 +256,10 @@ function buildQualityMetrics(
     },
     {
       title: "Lærerhuller",
-      label: "Ikke vurderet",
-      score: 0,
-      status: "unknown",
-      description:
-        subjectAssignmentStatus.assignedItems > 0
-          ? "Lærere er koblet på fagene i previewet, så næste trin kan blive lærerhuller og dobbeltbookinger."
-          : "Lærerhuller vurderes senere, når lærere er fordelt på fagene.",
+      label: teacherGapEstimate.label,
+      score: teacherGapEstimate.score,
+      status: teacherGapEstimate.status,
+      description: teacherGapEstimate.description,
       weight: getPriorityWeight(priorities["Lærere skal helst ikke have mange huller"]),
     },
   ];
@@ -259,6 +280,62 @@ function getTeacherLoadInsight(
   }
 
   return `${busiestTeacher.teacherName} har flest fordelte lektioner i det lokale estimat.`;
+}
+
+function getTeacherGapEstimate(
+  previewLessons: readonly QualityPreviewCell[],
+  subjectAssignmentStatus: SubjectAssignmentStatus,
+): TeacherGapEstimate {
+  if (!subjectAssignmentStatus.assignedItems) {
+    return {
+      description: "Lærerhuller vurderes senere, når lærere er fordelt på fagene.",
+      label: "Ikke vurderet",
+      possibleGaps: 0,
+      score: 0,
+      status: "unknown",
+    };
+  }
+
+  const teacherIds = [
+    ...new Set(
+      previewLessons
+        .map((cell) => cell.teacherId)
+        .filter((teacherId): teacherId is string => Boolean(teacherId)),
+    ),
+  ];
+  const possibleGaps = teacherIds.reduce(
+    (total, teacherId) => total + getTeacherScheduleStats(previewLessons, teacherId).possibleGaps,
+    0,
+  );
+
+  if (possibleGaps === 0) {
+    return {
+      description:
+        "Lærerhuller vurderes nu foreløbigt ud fra den visuelle kladde. Der er ikke fundet tydelige huller i det lokale estimat.",
+      label: "Lokalt estimat",
+      possibleGaps,
+      score: 82,
+      status: "good",
+    };
+  }
+
+  if (possibleGaps <= 2) {
+    return {
+      description: `Lærerhuller vurderes nu foreløbigt ud fra den visuelle kladde: ${possibleGaps} mulige tomme perioder mellem lektioner.`,
+      label: "Lokalt estimat",
+      possibleGaps,
+      score: 66,
+      status: "medium",
+    };
+  }
+
+  return {
+    description: `Lærerhuller vurderes nu foreløbigt ud fra den visuelle kladde: ${possibleGaps} mulige tomme perioder mellem lektioner.`,
+    label: "Lokalt estimat",
+    possibleGaps,
+    score: 48,
+    status: "low",
+  };
 }
 
 function getCoreEarlyMetric(previewLessons: readonly QualityPreviewCell[], lessonCount: number) {
@@ -379,7 +456,7 @@ function buildStrengths(metrics: QualityMetric[], grade: number) {
   return strengths.slice(0, 5);
 }
 
-function buildImprovements(metrics: QualityMetric[]) {
+function buildImprovements(metrics: QualityMetric[], teacherGapEstimate: TeacherGapEstimate) {
   const improvements: string[] = [];
   const coreMetric = metrics.find((metric) => metric.title === "Kernetimer tidligt");
   const calmMetric = metrics.find((metric) => metric.title === "Ro i skoledagen");
@@ -402,7 +479,13 @@ function buildImprovements(metrics: QualityMetric[]) {
     improvements.push("Bør overvejes: yngre elever bør helst ikke have for mange tunge fag sent på dagen.");
   }
 
-  improvements.push("Lærerhuller kræver stadig et samlet lærerskema på tværs af ugen.");
+  if (teacherGapEstimate.status === "unknown") {
+    improvements.push("Lærerhuller kræver stadig fagfordeling og et lærerskema-preview.");
+  } else if (teacherGapEstimate.possibleGaps > 0) {
+    improvements.push("Bør tjekkes: lærerskema-previewet viser mulige tomme perioder mellem lærerens lektioner.");
+  } else {
+    improvements.push("Lærerskema-previewet viser ingen tydelige lærerhuller i det lokale estimat.");
+  }
   improvements.push("Klasselærerens placering vurderes senere, når klasselærerdata kobles på.");
   improvements.push("Næste skridt kan være at sammenholde denne indikator med konflikttjekket.");
   return improvements.slice(0, 5);
