@@ -15,7 +15,7 @@ import {
 import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -97,6 +97,10 @@ const phaseLabels: Record<string, string> = {
   results: "Resultater",
   finished: "Afsluttet",
 };
+
+const AUTO_REFRESH_INTERVAL_MS = 2500;
+
+type LoadSessionMode = "initial" | "refresh" | "poll";
 
 const civilianRules = [
   "Giv hints",
@@ -458,11 +462,12 @@ export default function FindBedragerenStudentLobbyPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isRevealing, setIsRevealing] = useState(false);
   const [isSubmittingVote, setIsSubmittingVote] = useState(false);
+  const loadInFlightRef = useRef(false);
 
   const phaseLabel = useMemo(() => phaseLabels[phase] ?? "Lobby", [phase]);
 
   const loadSession = useCallback(
-    async (mode: "initial" | "refresh" = "initial") => {
+    async (mode: LoadSessionMode = "initial") => {
       if (!sessionId) {
         setError("Prøv at skrive koden igen.");
         setIsLoading(false);
@@ -470,15 +475,23 @@ export default function FindBedragerenStudentLobbyPage() {
         return;
       }
 
+      if (loadInFlightRef.current) {
+        return;
+      }
+
+      loadInFlightRef.current = true;
+
       if (mode === "refresh") {
         setIsRefreshing(true);
-      } else {
+      } else if (mode === "initial") {
         setIsLoading(true);
       }
 
-      setError("");
-      setRevealError("");
-      setVoteError("");
+      if (mode !== "poll") {
+        setError("");
+        setRevealError("");
+        setVoteError("");
+      }
 
       const stored = readStoredParticipant(sessionId);
 
@@ -528,8 +541,11 @@ export default function FindBedragerenStudentLobbyPage() {
           setIsRoleVisible(false);
         }
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Kunne ikke hente spillet.");
+        if (mode !== "poll") {
+          setError(loadError instanceof Error ? loadError.message : "Kunne ikke hente spillet.");
+        }
       } finally {
+        loadInFlightRef.current = false;
         setIsLoading(false);
         setIsRefreshing(false);
       }
@@ -540,6 +556,38 @@ export default function FindBedragerenStudentLobbyPage() {
   useEffect(() => {
     void loadSession();
   }, [loadSession]);
+
+  useEffect(() => {
+    if (!sessionId || phase === "finished") {
+      return;
+    }
+
+    const isPageVisible = () =>
+      typeof document === "undefined" || document.visibilityState === "visible";
+
+    const pollSession = () => {
+      if (!isPageVisible()) {
+        return;
+      }
+
+      void loadSession("poll");
+    };
+
+    const intervalId = window.setInterval(pollSession, AUTO_REFRESH_INTERVAL_MS);
+
+    const handleVisibilityChange = () => {
+      if (isPageVisible()) {
+        pollSession();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [loadSession, phase, sessionId]);
 
   async function handleRevealRole() {
     if (roleView) {
@@ -840,7 +888,8 @@ export default function FindBedragerenStudentLobbyPage() {
                       Vent på startsignalet
                     </h2>
                     <p className="mt-3 text-sm font-semibold leading-6 text-slate-200">
-                      Når læreren fordeler roller, åbner dit private rollekort her på siden.
+                      Når læreren fordeler roller, åbner dit private rollekort her på siden. Siden
+                      opdaterer automatisk, når læreren starter spillet.
                     </p>
                   </div>
                 </div>
