@@ -18,8 +18,10 @@ import {
   type TeacherLoad,
 } from "./SkemaPilotSubjectAssignment";
 import {
+  applyManualMovesToLessons,
   buildSkemaPilotPreviewLessons,
   getSkemaPilotLessonCount,
+  type ManualMove,
   type SkemaPilotPreviewCell,
   weekdays,
 } from "./skemaPilotPreviewData";
@@ -77,22 +79,9 @@ export function SkemaPilotPreview({
   teacherLoads,
 }: SkemaPilotPreviewProps) {
   const [selectedClass, setSelectedClass] = useState("");
+  const [manualMoves, setManualMoves] = useState<ManualMove[]>([]);
   const previewClass = activeClasses.includes(selectedClass) ? selectedClass : activeClasses[0] ?? "0. klasse";
   const lessonCount = getSkemaPilotLessonCount(settings.lessonsPerDay);
-  const previewLessons = useMemo(
-    () =>
-      buildSkemaPilotPreviewLessons(
-        previewClass,
-        lessonCount,
-        subjects,
-        getLessonValue,
-        activeBlocks,
-        activeRooms,
-        subjectAssignments,
-        teachers,
-      ),
-    [activeBlocks, activeRooms, getLessonValue, lessonCount, previewClass, subjectAssignments, subjects, teachers],
-  );
   const allPreviewLessons = useMemo(
     () =>
       activeClasses.flatMap((className) =>
@@ -109,6 +98,32 @@ export function SkemaPilotPreview({
       ),
     [activeBlocks, activeClasses, activeRooms, getLessonValue, lessonCount, subjectAssignments, subjects, teachers],
   );
+  const effectiveLessons = useMemo(
+    () => applyManualMovesToLessons(allPreviewLessons, manualMoves),
+    [allPreviewLessons, manualMoves],
+  );
+  const effectivePreviewLessons = useMemo(
+    () => effectiveLessons.filter((lesson) => lesson.className === previewClass),
+    [effectiveLessons, previewClass],
+  );
+
+  function handleApplyMove(move: {
+    className: string;
+    fromDay: string;
+    fromLesson: number;
+    toDay: string;
+    toLesson: number;
+  }) {
+    setManualMoves((previous) => [...previous, { ...move, id: `move-${Date.now()}` }]);
+  }
+
+  function handleUndoLastMove() {
+    setManualMoves((previous) => previous.slice(0, -1));
+  }
+
+  function handleResetMoves() {
+    setManualMoves([]);
+  }
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -155,6 +170,38 @@ export function SkemaPilotPreview({
 
       <SectionNavigation />
 
+      {manualMoves.length > 0 ? (
+        <div className="mt-5 rounded-lg border border-sky-200 bg-sky-50 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">Lokal kladde ændret</p>
+              <p className="mt-1 text-sm font-bold leading-6 text-sky-950">
+                {manualMoves.length === 1
+                  ? "1 manuel flytning er anvendt i denne visning."
+                  : `${manualMoves.length} manuelle flytninger er anvendt i denne visning.`}{" "}
+                Ændringerne er ikke gemt.
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={handleUndoLastMove}
+                className="min-h-10 rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm font-black text-sky-800 transition hover:border-sky-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100"
+              >
+                Fortryd seneste
+              </button>
+              <button
+                type="button"
+                onClick={handleResetMoves}
+                className="min-h-10 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-600 transition hover:border-rose-200 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-100"
+              >
+                Nulstil kladde
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <PreviewSectionIntro
         id="skemapilot-overblik"
         label="Overblik"
@@ -165,7 +212,7 @@ export function SkemaPilotPreview({
       <SkemaPilotOverviewPanel
         activeClasses={activeClasses}
         activeRooms={activeRooms}
-        allPreviewLessons={allPreviewLessons}
+        allPreviewLessons={effectiveLessons}
         getLessonValue={getLessonValue}
         lessonCount={lessonCount}
         rubikClassName={rubikClassName}
@@ -175,8 +222,9 @@ export function SkemaPilotPreview({
       />
 
       <SkemaPilotMoveSimulator
-        allPreviewLessons={allPreviewLessons}
+        allPreviewLessons={effectiveLessons}
         lessonCount={lessonCount}
+        onApplyMove={handleApplyMove}
         rubikClassName={rubikClassName}
       />
 
@@ -210,7 +258,7 @@ export function SkemaPilotPreview({
                     {lessonIndex + 1}. lektion
                   </th>
                   {weekdays.map((day) => {
-                    const cell = previewLessons.find(
+                    const cell = effectivePreviewLessons.find(
                       (lesson) => lesson.day === day && lesson.lesson === lessonIndex + 1,
                     );
 
@@ -243,7 +291,7 @@ export function SkemaPilotPreview({
               <StatusLine
                 text={`${subjectAssignmentStatus.assignedItems}/${subjectAssignmentStatus.totalItems} fagposter fordelt`}
               />
-              <StatusLine text="Simulatoren ændrer ikke skemaet" />
+                <StatusLine text="Flytninger kan anvendes i lokal kladde" />
               <StatusLine text="Pædagogiske ønsker indgår i kvalitetsscoren" />
             </div>
           </section>
@@ -264,14 +312,14 @@ export function SkemaPilotPreview({
         </aside>
       </div>
       <SkemaPilotTeacherPreview
-        allPreviewLessons={allPreviewLessons}
+        allPreviewLessons={effectiveLessons}
         lessonCount={lessonCount}
         rubikClassName={rubikClassName}
         teachers={teachers}
       />
       <SkemaPilotRoomPreview
         activeRooms={activeRooms}
-        allPreviewLessons={allPreviewLessons}
+        allPreviewLessons={effectiveLessons}
         lessonCount={lessonCount}
         rubikClassName={rubikClassName}
       />
@@ -288,7 +336,7 @@ export function SkemaPilotPreview({
         activeClasses={activeClasses}
         activeRooms={activeRooms}
         getLessonValue={getLessonValue}
-        allPreviewLessons={allPreviewLessons}
+        allPreviewLessons={effectiveLessons}
         lessonCount={lessonCount}
         previewClass={previewClass}
         rubikClassName={rubikClassName}
@@ -296,16 +344,16 @@ export function SkemaPilotPreview({
         subjects={subjects}
       />
       <SkemaPilotTeacherLoadPanel
-        allPreviewLessons={allPreviewLessons}
+        allPreviewLessons={effectiveLessons}
         lessonCount={lessonCount}
         rubikClassName={rubikClassName}
         teachers={teachers}
       />
       <SkemaPilotQualityPanel
-        allPreviewLessons={allPreviewLessons}
+        allPreviewLessons={effectiveLessons}
         lessonCount={lessonCount}
         previewClass={previewClass}
-        previewLessons={previewLessons}
+        previewLessons={effectivePreviewLessons}
         priorities={priorities}
         rubikClassName={rubikClassName}
         subjectAssignmentStatus={subjectAssignmentStatus}

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, CircleDashed, Lock } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleDashed } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import {
@@ -16,6 +16,13 @@ import {
 type SkemaPilotMoveSimulatorProps = {
   allPreviewLessons: readonly SkemaPilotPreviewCell[];
   lessonCount: number;
+  onApplyMove: (move: {
+    className: string;
+    fromDay: string;
+    fromLesson: number;
+    toDay: string;
+    toLesson: number;
+  }) => void;
   rubikClassName: string;
 };
 
@@ -56,6 +63,7 @@ const heavySubjects = ["Dansk", "Matematik", "Engelsk", "Natur/teknologi"] as co
 export function SkemaPilotMoveSimulator({
   allPreviewLessons,
   lessonCount,
+  onApplyMove,
   rubikClassName,
 }: SkemaPilotMoveSimulatorProps) {
   const lessonOptions = useMemo(() => buildLessonOptions(allPreviewLessons), [allPreviewLessons]);
@@ -78,6 +86,29 @@ export function SkemaPilotMoveSimulator({
         : null,
     [allPreviewLessons, lessonCount, selectedLesson, targetDay, targetLessonNumber],
   );
+
+  const isSameSlot =
+    selectedLesson !== undefined &&
+    selectedLesson.day === targetDay &&
+    selectedLesson.lesson === targetLessonNumber;
+  const canApplyMove =
+    !isSameSlot &&
+    simulation !== null &&
+    (simulation.status === "possible" || simulation.status === "check");
+
+  function handleApplyMove() {
+    if (!selectedLesson || !canApplyMove) {
+      return;
+    }
+
+    onApplyMove({
+      className: selectedLesson.className,
+      fromDay: selectedLesson.day,
+      fromLesson: selectedLesson.lesson,
+      toDay: targetDay,
+      toLesson: targetLessonNumber,
+    });
+  }
 
   if (!lessonOptions.length) {
     return (
@@ -106,15 +137,15 @@ export function SkemaPilotMoveSimulator({
             Simuler flytning i visuel kladde
           </h4>
           <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">
-            Vælg en lektion og et nyt tidspunkt. SkemaPilot viser kun et lokalt tjek af mulige
-            konsekvenser og ændrer ikke skema-previewet.
+            Vælg en lektion og et nyt tidspunkt. Simulatoren viser et lokalt tjek og giver mulighed
+            for at anvende flytningen i den lokale kladde.
           </p>
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-bold leading-6 text-slate-700">
           <div className="flex items-start gap-2">
             <CircleDashed className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
-            <p>Prototype. Ingen flytning gemmes eller anvendes.</p>
+            <p>Ingen flytning gemmes permanent. Kladden nulstilles ved refresh.</p>
           </div>
         </div>
       </div>
@@ -189,16 +220,46 @@ export function SkemaPilotMoveSimulator({
 
       <div className="mt-4 flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-2 text-sm font-bold leading-6 text-slate-600">
-          <Lock className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
-          <p>Simulatoren viser kun et lokalt tjek og ændrer ikke den visuelle kladde.</p>
+          <CircleDashed className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+          <p>
+            {canApplyMove
+              ? "Flytningen ser sikker nok ud til at anvende i den lokale kladde."
+              : "Ikke gemt – afventer valg eller kontroller simuleringsresultatet."}
+          </p>
         </div>
-        <button
-          className="min-h-11 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-400"
-          disabled
-          type="button"
-        >
-          Anvend flytning · kommende funktion
-        </button>
+        {canApplyMove ? (
+          <button
+            className="min-h-11 rounded-lg border border-emerald-600 bg-emerald-600 px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-100"
+            type="button"
+            onClick={handleApplyMove}
+          >
+            Anvend i lokal kladde
+          </button>
+        ) : simulation?.status === "swap" ? (
+          <button
+            className="min-h-11 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-400"
+            disabled
+            type="button"
+          >
+            Bytte kommer senere
+          </button>
+        ) : simulation?.status === "conflict" ? (
+          <button
+            className="min-h-11 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-black text-rose-400"
+            disabled
+            type="button"
+          >
+            Konflikt – kan ikke anvendes
+          </button>
+        ) : (
+          <button
+            className="min-h-11 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-400"
+            disabled
+            type="button"
+          >
+            {isSameSlot ? "Vælg et nyt tidspunkt" : "Ikke gemt"}
+          </button>
+        )}
       </div>
     </section>
   );

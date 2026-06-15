@@ -396,6 +396,38 @@ export function getRoomSimultaneousBookings(
     }));
 }
 
+export type ManualMove = {
+  id: string;
+  className: string;
+  fromDay: string;
+  fromLesson: number;
+  toDay: string;
+  toLesson: number;
+};
+
+export function applyManualMovesToLessons(
+  lessons: readonly SkemaPilotPreviewCell[],
+  moves: readonly ManualMove[],
+): SkemaPilotPreviewCell[] {
+  if (!moves.length) {
+    return [...lessons];
+  }
+
+  let result: SkemaPilotPreviewCell[] = [...lessons];
+
+  for (const move of moves) {
+    result = result.map((cell) => {
+      if (cell.className === move.className && cell.day === move.fromDay && cell.lesson === move.fromLesson) {
+        return { ...cell, day: move.toDay, lesson: move.toLesson };
+      }
+
+      return cell;
+    });
+  }
+
+  return result;
+}
+
 function getTeacherForPreviewCell(
   className: string,
   subject: string,
