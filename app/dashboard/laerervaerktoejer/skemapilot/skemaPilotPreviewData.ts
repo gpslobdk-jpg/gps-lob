@@ -9,9 +9,13 @@ import {
 export type SkemaPilotPreviewCell = {
   className: string;
   day: string;
+  isFixedBlock?: boolean;
   lesson: number;
   note?: string;
   room?: string;
+  roomIsShared?: boolean;
+  roomMissing?: boolean;
+  roomSource?: "default" | "fixed" | "missing" | "selected";
   subject: string;
   teacherId?: string;
   teacherMissing?: boolean;
@@ -78,21 +82,24 @@ export function buildSkemaPilotPreviewLessons(
     Array.from({ length: lessonCount }, (_, lessonIndex) => {
       const fixedSubject = getFixedBlockSubject(dayIndex, lessonIndex, activeBlocks);
       const subject = fixedSubject ?? subjectPool[(dayIndex * lessonCount + lessonIndex) % subjectPool.length];
+      const isFixedBlock = Boolean(fixedSubject);
       const teacherInfo = getTeacherForPreviewCell(
         className,
         subject,
-        Boolean(fixedSubject),
+        isFixedBlock,
         subjectAssignments,
         teacherById,
       );
+      const roomInfo = getRoomForSubject(subject, activeRooms, isFixedBlock);
 
       return {
         className,
         day,
+        isFixedBlock,
         lesson: lessonIndex + 1,
         note: fixedSubject ? "Fast blok" : undefined,
-        room: getRoomForSubject(subject, activeRooms),
         subject,
+        ...roomInfo,
         ...teacherInfo,
       };
     }),
@@ -271,24 +278,62 @@ function getFixedBlockSubject(dayIndex: number, lessonIndex: number, activeBlock
   return null;
 }
 
-function getRoomForSubject(subject: string, activeRooms: readonly string[]) {
-  if (subject === "Idræt" && activeRooms.includes("Idrætshal")) {
+function getRoomForSubject(subject: string, activeRooms: readonly string[], isFixedBlock: boolean) {
+  if (isFixedBlock) {
+    return {
+      roomSource: "fixed" as const,
+    };
+  }
+
+  const sharedRoom = getSharedRoomForSubject(subject);
+
+  if (sharedRoom) {
+    if (activeRooms.includes(sharedRoom)) {
+      return {
+        room: sharedRoom,
+        roomIsShared: true,
+        roomSource: "selected" as const,
+      };
+    }
+
+    return {
+      roomIsShared: true,
+      roomMissing: true,
+      roomSource: "missing" as const,
+    };
+  }
+
+  return {
+    room: "Klasselokale",
+    roomIsShared: false,
+    roomSource: "default" as const,
+  };
+}
+
+function getSharedRoomForSubject(subject: string) {
+  const normalizedSubject = subject.toLowerCase();
+
+  if (subject === "Idræt") {
     return "Idrætshal";
   }
 
-  if (subject === "Musik" && activeRooms.includes("Musik")) {
+  if (subject === "Musik") {
     return "Musik";
   }
 
-  if (subject === "Billedkunst/krea" && activeRooms.includes("Billedkunst/krea")) {
+  if (subject === "Billedkunst/krea") {
     return "Billedkunst/krea";
   }
 
-  if (subject === "Natur/teknologi" && activeRooms.includes("Naturfag")) {
+  if (subject === "Natur/teknologi" || normalizedSubject.includes("naturfag")) {
     return "Naturfag";
   }
 
-  return undefined;
+  if (subject === "Madkundskab") {
+    return "Madkundskab";
+  }
+
+  return null;
 }
 
 function getLongestContinuousBlock(teacherLessons: readonly SkemaPilotPreviewCell[]) {

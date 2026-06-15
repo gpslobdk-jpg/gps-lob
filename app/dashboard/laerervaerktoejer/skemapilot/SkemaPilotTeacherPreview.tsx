@@ -198,6 +198,14 @@ function TeacherSlotCell({ lessons }: { lessons: readonly SkemaPilotPreviewCell[
           <div key={`${lesson.className}-${lesson.subject}-${lesson.day}-${lesson.lesson}`} className="min-w-0">
             <p className="break-words text-sm font-black leading-5">{lesson.className}</p>
             <p className="mt-1 break-words text-xs font-bold leading-5 opacity-80">{lesson.subject}</p>
+            {lesson.room ? (
+              <p className="mt-1 break-words text-xs font-bold leading-5 opacity-80">Lokale: {lesson.room}</p>
+            ) : null}
+            {lesson.roomMissing ? (
+              <p className="mt-2 rounded-md border border-amber-200 bg-white/80 px-2 py-1 text-xs font-black leading-4 text-amber-800">
+                Lokale mangler
+              </p>
+            ) : null}
           </div>
         ))}
       </div>

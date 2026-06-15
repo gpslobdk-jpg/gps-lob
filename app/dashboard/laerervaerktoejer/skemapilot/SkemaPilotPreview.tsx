@@ -206,7 +206,7 @@ export function SkemaPilotPreview({
               <StatusLine
                 text={`${subjectAssignmentStatus.assignedItems}/${subjectAssignmentStatus.totalItems} fagposter er fordelt til lærere`}
               />
-              <StatusLine text="Preview-celler viser lærer, når fagfordelingen er udfyldt" />
+              <StatusLine text="Preview-celler viser lærer og lokalt lokaleforslag" />
               <StatusLine text="Ingen automatisk flytning af lektioner" />
               <StatusLine text="Pædagogiske ønsker indgår i kvalitetsscoren" />
             </div>
@@ -242,6 +242,7 @@ export function SkemaPilotPreview({
       <SkemaPilotConflictPanel
         activeBlocks={activeBlocks}
         activeClasses={activeClasses}
+        activeRooms={activeRooms}
         getLessonValue={getLessonValue}
         allPreviewLessons={allPreviewLessons}
         lessonCount={lessonCount}
@@ -286,14 +287,19 @@ function PreviewSubjectCell({ cell }: { cell?: SkemaPilotPreviewCell }) {
     <div className={`min-h-20 rounded-lg border px-3 py-3 shadow-sm ${colorClassName}`}>
       <p className="text-sm font-black leading-5">{cell.subject}</p>
       {cell.teacherName ? (
-        <p className="mt-2 break-words text-xs font-black leading-5 opacity-80">{cell.teacherName}</p>
+        <p className="mt-2 break-words text-xs font-black leading-5 opacity-80">Lærer: {cell.teacherName}</p>
       ) : null}
       {cell.teacherMissing ? (
         <p className="mt-2 rounded-md border border-amber-200 bg-white/70 px-2 py-1 text-xs font-black leading-4 text-amber-800">
           Ikke fordelt
         </p>
       ) : null}
-      {cell.room ? <p className="mt-2 text-xs font-bold opacity-75">{cell.room}</p> : null}
+      {cell.room ? <p className="mt-2 break-words text-xs font-bold opacity-75">Lokale: {cell.room}</p> : null}
+      {cell.roomMissing ? (
+        <p className="mt-2 rounded-md border border-amber-200 bg-white/70 px-2 py-1 text-xs font-black leading-4 text-amber-800">
+          Lokale mangler
+        </p>
+      ) : null}
       {cell.note ? <p className="mt-2 text-xs font-bold opacity-75">{cell.note}</p> : null}
     </div>
   );

@@ -8,6 +8,7 @@ import type { SubjectAssignmentStatus } from "./SkemaPilotSubjectAssignment";
 type ConflictPanelProps = {
   activeBlocks: readonly string[];
   activeClasses: readonly string[];
+  activeRooms: readonly string[];
   allPreviewLessons: readonly ConflictPreviewCell[];
   getLessonValue: (className: string, subject: string) => string;
   lessonCount: number;
@@ -20,7 +21,11 @@ type ConflictPanelProps = {
 type ConflictPreviewCell = {
   className: string;
   day: string;
+  isFixedBlock?: boolean;
   lesson: number;
+  room?: string;
+  roomIsShared?: boolean;
+  roomMissing?: boolean;
   subject: string;
   teacherId?: string;
   teacherName?: string;
@@ -59,6 +64,7 @@ const statusStyles: Record<RuleStatus, { badge: string; card: string; icon: Reac
 export function SkemaPilotConflictPanel({
   activeBlocks,
   activeClasses,
+  activeRooms,
   allPreviewLessons,
   getLessonValue,
   lessonCount,
@@ -81,6 +87,9 @@ export function SkemaPilotConflictPanel({
   const hasClassCapacityWarning = selectedClassLessonTotal > effectiveCapacityPerClass;
   const hasTotalCapacityWarning = totalSelectedLessons > effectiveTotalCapacity;
   const teacherDoubleBookings = getTeacherDoubleBookings(allPreviewLessons);
+  const roomDoubleBookings = getRoomDoubleBookings(allPreviewLessons);
+  const missingRoomCount = getMissingRoomCount(allPreviewLessons);
+  const roomOverview = getRoomOverview(activeRooms, allPreviewLessons, roomDoubleBookings);
   const canCheckTeacherDoubleBookings = activeClasses.length > 1 && subjectAssignmentStatus.assignedItems > 0;
 
   const rules: RuleCard[] = [
@@ -128,9 +137,19 @@ export function SkemaPilotConflictPanel({
     },
     {
       title: "Lokale må ikke bruges af to hold samtidig",
-      status: "unknown",
-      description: "Lokaler vises kun som noter i den visuelle kladde.",
-      detail: "Kræver senere lokaleplacering pr. lektion for alle klasser.",
+      status: roomDoubleBookings.length > 0 || missingRoomCount > 0 ? "warning" : "ok",
+      description:
+        roomDoubleBookings.length > 0
+          ? summarizeRoomDoubleBooking(roomDoubleBookings[0])
+          : missingRoomCount > 0
+            ? `${missingRoomCount} lektioner mangler lokale.`
+            : "Ingen lokale-dobbeltbooking fundet i den visuelle kladde.",
+      detail:
+        roomDoubleBookings.length > 0
+          ? "Tjekket sammenligner delte speciallokaler, dag og lektion på tværs af aktive klasser."
+          : missingRoomCount > 0
+            ? "Manglende lokale opstår, når et specialfag ikke har et relevant lokale valgt."
+            : "Almindelige klasselokaler er lokale forslag og giver ikke fælleslokale-konflikt.",
     },
     {
       title: "Faste blokke må ikke overskrives",
@@ -170,14 +189,16 @@ export function SkemaPilotConflictPanel({
             {overallText}
           </h4>
           <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">
-            Dette er et lokalt tjek på den visuelle kladde. Lærerskema-previewet bruger samme kladde,
-            og lærerbelastningspanelet viser mulige huller uden at ændre skemaet.
+            Dette er et lokalt tjek på den visuelle kladde. Lærere og lokaler bruges som lokale forslag,
+            uden at skemaet flyttes automatisk.
           </p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-bold leading-6 text-slate-700">
           <p>{totalCapacity} mulige lektionsfelter</p>
           <p>{totalSelectedLessons} valgte lektioner</p>
           <p>{teacherDoubleBookings.length} mulige lærer-dobbeltbookinger</p>
+          <p>{roomDoubleBookings.length} mulige lokale-dobbeltbookinger</p>
+          <p>{missingRoomCount} lektioner mangler lokale</p>
           <p>{subjectAssignmentStatus.missingItems} fagposter mangler lærer</p>
           <p>{fixedSlotsTotal} felter reserveret af faste blokke</p>
           <p>{unknownCount} regler kræver senere data</p>
@@ -190,6 +211,28 @@ export function SkemaPilotConflictPanel({
           {rules.map((rule) => (
             <RuleStatusCard key={rule.title} rule={rule} />
           ))}
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Lokaleoverblik</p>
+        <div className="mt-3 grid gap-3 lg:grid-cols-4">
+          <RoomOverviewCard
+            label="Valgte lokaler"
+            value={roomOverview.selectedRooms.length ? roomOverview.selectedRooms.join(", ") : "Ingen speciallokaler valgt"}
+          />
+          <RoomOverviewCard
+            label="Brugte lokaler"
+            value={roomOverview.usedRooms.length ? roomOverview.usedRooms.join(", ") : "Ingen lokaler i kladden"}
+          />
+          <RoomOverviewCard
+            label="Mulige konflikter"
+            value={roomOverview.conflictRooms.length ? roomOverview.conflictRooms.join(", ") : "Ingen fundet"}
+          />
+          <RoomOverviewCard
+            label="Ikke brugt"
+            value={roomOverview.unusedRooms.length ? roomOverview.unusedRooms.join(", ") : "Alle valgte lokaler bruges"}
+          />
         </div>
       </div>
     </section>
@@ -212,6 +255,15 @@ function RuleStatusCard({ rule }: { rule: RuleCard }) {
       </div>
       <p className="mt-3 text-sm font-bold leading-6 text-slate-700">{rule.description}</p>
       <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">{rule.detail}</p>
+    </article>
+  );
+}
+
+function RoomOverviewCard({ label, value }: { label: string; value: string }) {
+  return (
+    <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">{label}</p>
+      <p className="mt-2 break-words text-sm font-bold leading-6 text-slate-700">{value}</p>
     </article>
   );
 }
@@ -241,6 +293,62 @@ function getTeacherDoubleBookings(previewLessons: readonly ConflictPreviewCell[]
 
 function summarizeTeacherDoubleBooking(booking: ReturnType<typeof getTeacherDoubleBookings>[number]) {
   return `${booking.teacherName} optræder i ${booking.classes.join(" og ")} ${booking.day.toLowerCase()} i ${booking.lesson}. lektion.`;
+}
+
+function getRoomDoubleBookings(previewLessons: readonly ConflictPreviewCell[]) {
+  const groupedLessons = new Map<string, ConflictPreviewCell[]>();
+
+  previewLessons.forEach((lesson) => {
+    if (!lesson.room || !lesson.roomIsShared || lesson.roomMissing || lesson.isFixedBlock) {
+      return;
+    }
+
+    const key = `${lesson.day}::${lesson.lesson}::${lesson.room}`;
+    groupedLessons.set(key, [...(groupedLessons.get(key) ?? []), lesson]);
+  });
+
+  return [...groupedLessons.values()]
+    .map((lessons) => ({
+      classes: [...new Set(lessons.map((lesson) => lesson.className))],
+      day: lessons[0]?.day ?? "",
+      lesson: lessons[0]?.lesson ?? 0,
+      room: lessons[0]?.room ?? "Ukendt lokale",
+    }))
+    .filter((booking) => booking.classes.length > 1);
+}
+
+function summarizeRoomDoubleBooking(booking: ReturnType<typeof getRoomDoubleBookings>[number]) {
+  return `${booking.room} bruges af ${booking.classes.length} klasser ${booking.day.toLowerCase()} ${booking.lesson}. lektion.`;
+}
+
+function getMissingRoomCount(previewLessons: readonly ConflictPreviewCell[]) {
+  return previewLessons.filter((lesson) => lesson.roomMissing && !lesson.isFixedBlock).length;
+}
+
+function getRoomOverview(
+  activeRooms: readonly string[],
+  previewLessons: readonly ConflictPreviewCell[],
+  roomDoubleBookings: ReturnType<typeof getRoomDoubleBookings>,
+) {
+  const selectedRooms = [...activeRooms].sort((first, second) => first.localeCompare(second, "da"));
+  const usedRooms = [
+    ...new Set(
+      previewLessons
+        .filter((lesson) => lesson.room && !lesson.isFixedBlock && !lesson.roomMissing)
+        .map((lesson) => lesson.room ?? ""),
+    ),
+  ].sort((first, second) => first.localeCompare(second, "da"));
+  const conflictRooms = [...new Set(roomDoubleBookings.map((booking) => booking.room))].sort((first, second) =>
+    first.localeCompare(second, "da"),
+  );
+  const unusedRooms = selectedRooms.filter((room) => !usedRooms.includes(room));
+
+  return {
+    conflictRooms,
+    selectedRooms,
+    unusedRooms,
+    usedRooms,
+  };
 }
 
 function getClassLessonTotal(

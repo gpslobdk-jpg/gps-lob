@@ -47,6 +47,12 @@ function buildMockPrompts(teacherGapContext: string): AiMockPrompt[] {
       answer: teacherGapContext,
     },
     {
+      id: "room-conflicts",
+      question: "Hvad hvis to klasser bruger samme lokale?",
+      answer:
+        "Lokaler kan nu ses i kladden, og SkemaPilot kan markere mulige lokale-konflikter som lokalt estimat. Næste trin kan senere blive forslag til konkrete flytninger ved lokale-konflikter, men dette svar er stadig et fast eksempel.",
+    },
+    {
       id: "core-early",
       question: "Kan dansk og matematik ligge tidligere?",
       answer:

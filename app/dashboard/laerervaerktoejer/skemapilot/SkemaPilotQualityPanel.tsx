@@ -11,9 +11,11 @@ type PriorityLevel = "Lav" | "Middel" | "Høj";
 type QualityPreviewCell = {
   className: string;
   day: string;
+  isFixedBlock?: boolean;
   lesson: number;
   note?: string;
   room?: string;
+  roomMissing?: boolean;
   subject: string;
   teacherId?: string;
 };
@@ -46,6 +48,11 @@ type TeacherGapEstimate = {
   possibleGaps: number;
   score: number;
   status: QualityStatus;
+};
+
+type RoomInsight = {
+  missingRooms: number;
+  text: string;
 };
 
 const coreSubjects = ["Dansk", "Matematik"] as const;
@@ -84,7 +91,8 @@ export function SkemaPilotQualityPanel({
   const weightTotal = scoredMetrics.reduce((total, metric) => total + metric.weight, 0);
   const score = weightTotal ? Math.round(weightedTotal / weightTotal) : 70;
   const strengths = buildStrengths(metrics, grade);
-  const improvements = buildImprovements(metrics, teacherGapEstimate);
+  const roomInsight = getRoomInsight(allPreviewLessons);
+  const improvements = buildImprovements(metrics, teacherGapEstimate, roomInsight);
   const teacherLoadInsight = getTeacherLoadInsight(teacherLoads, subjectAssignmentStatus);
 
   return (
@@ -107,10 +115,13 @@ export function SkemaPilotQualityPanel({
           <Gauge className="h-6 w-6" />
           <p className="mt-3 text-sm font-black uppercase tracking-[0.14em]">Lokal score</p>
           <p className="mt-1 text-sm font-bold leading-6">
-            Bygger på bløde ønsker og den valgte klasses visuelle kladde.
+            Bygger på bløde ønsker, speciallokaler og den valgte klasses visuelle kladde.
           </p>
           <p className="mt-3 border-t border-emerald-200 pt-3 text-sm font-bold leading-6">
             {teacherLoadInsight}
+          </p>
+          <p className="mt-3 border-t border-emerald-200 pt-3 text-sm font-bold leading-6">
+            {roomInsight.text}
           </p>
         </div>
       </div>
@@ -336,6 +347,18 @@ function getTeacherGapEstimate(
   };
 }
 
+function getRoomInsight(previewLessons: readonly QualityPreviewCell[]): RoomInsight {
+  const missingRooms = previewLessons.filter((cell) => cell.roomMissing && !cell.isFixedBlock).length;
+
+  return {
+    missingRooms,
+    text:
+      missingRooms > 0
+        ? `${missingRooms} lektioner mangler lokale i den visuelle kladde.`
+        : "Speciallokaler indgår nu som lokale forslag i den visuelle kladde.",
+  };
+}
+
 function getCoreEarlyMetric(previewLessons: readonly QualityPreviewCell[], lessonCount: number) {
   const earlyLimit = Math.max(2, Math.ceil(lessonCount / 2));
   const coreLessons = previewLessons.filter((cell) => coreSubjects.includes(cell.subject as (typeof coreSubjects)[number]));
@@ -454,7 +477,7 @@ function buildStrengths(metrics: QualityMetric[], grade: number) {
   return strengths.slice(0, 5);
 }
 
-function buildImprovements(metrics: QualityMetric[], teacherGapEstimate: TeacherGapEstimate) {
+function buildImprovements(metrics: QualityMetric[], teacherGapEstimate: TeacherGapEstimate, roomInsight: RoomInsight) {
   const improvements: string[] = [];
   const coreMetric = metrics.find((metric) => metric.title === "Kernetimer tidligt");
   const calmMetric = metrics.find((metric) => metric.title === "Ro i skoledagen");
@@ -483,6 +506,11 @@ function buildImprovements(metrics: QualityMetric[], teacherGapEstimate: Teacher
     improvements.push("Bør tjekkes: lærerbelastningspanelet viser mulige tomme perioder mellem lærerens lektioner.");
   } else {
     improvements.push("Lærerbelastningspanelet viser ingen tydelige lærerhuller i det lokale estimat.");
+  }
+  if (roomInsight.missingRooms > 0) {
+    improvements.push("Bør tjekkes: enkelte lektioner mangler lokale i den visuelle kladde.");
+  } else {
+    improvements.push("Speciallokaler indgår nu i kladden som lokale forslag, ikke som færdig lokaleplan.");
   }
   improvements.push("Klasselærerens placering vurderes senere, når klasselærerdata kobles på.");
   improvements.push("Næste skridt kan være at sammenholde denne indikator med konflikttjekket.");
