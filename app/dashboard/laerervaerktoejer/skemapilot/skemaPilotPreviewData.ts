@@ -251,6 +251,90 @@ export function getTeacherPreviewLessons(
   return previewLessons.filter((lesson) => lesson.teacherId === teacherId);
 }
 
+export function getSkemaPilotPreviewCellKey(cell: SkemaPilotPreviewCell) {
+  return `${cell.className}::${cell.day}::${cell.lesson}`;
+}
+
+export function getPreviewLessonsInSlot(
+  previewLessons: readonly SkemaPilotPreviewCell[],
+  day: string,
+  lessonNumber: number,
+) {
+  return previewLessons.filter((lesson) => lesson.day === day && lesson.lesson === lessonNumber);
+}
+
+export function getClassPreviewLessonInSlot(
+  previewLessons: readonly SkemaPilotPreviewCell[],
+  className: string,
+  day: string,
+  lessonNumber: number,
+  excludedCellKey = "",
+) {
+  return getPreviewLessonsInSlot(previewLessons, day, lessonNumber).find(
+    (lesson) => lesson.className === className && getSkemaPilotPreviewCellKey(lesson) !== excludedCellKey,
+  );
+}
+
+export function getTeacherPreviewConflictInSlot(
+  previewLessons: readonly SkemaPilotPreviewCell[],
+  teacherId: string,
+  className: string,
+  day: string,
+  lessonNumber: number,
+  excludedCellKey = "",
+) {
+  return getPreviewLessonsInSlot(previewLessons, day, lessonNumber).find(
+    (lesson) =>
+      lesson.teacherId === teacherId &&
+      lesson.className !== className &&
+      getSkemaPilotPreviewCellKey(lesson) !== excludedCellKey,
+  );
+}
+
+export function getSharedRoomPreviewConflictInSlot(
+  previewLessons: readonly SkemaPilotPreviewCell[],
+  room: string,
+  className: string,
+  day: string,
+  lessonNumber: number,
+  excludedCellKey = "",
+) {
+  return getPreviewLessonsInSlot(previewLessons, day, lessonNumber).find(
+    (lesson) =>
+      lesson.room === room &&
+      lesson.roomIsShared &&
+      lesson.className !== className &&
+      !lesson.roomMissing &&
+      !lesson.isFixedBlock &&
+      getSkemaPilotPreviewCellKey(lesson) !== excludedCellKey,
+  );
+}
+
+export function getClassSubjectCountOnDay(
+  previewLessons: readonly SkemaPilotPreviewCell[],
+  className: string,
+  day: string,
+  options: { excludedCellKey?: string; includeSubject?: string; includeFixedBlocks?: boolean } = {},
+) {
+  const subjects = new Set(
+    previewLessons
+      .filter(
+        (lesson) =>
+          lesson.className === className &&
+          lesson.day === day &&
+          (options.includeFixedBlocks || !lesson.isFixedBlock) &&
+          getSkemaPilotPreviewCellKey(lesson) !== options.excludedCellKey,
+      )
+      .map((lesson) => lesson.subject),
+  );
+
+  if (options.includeSubject) {
+    subjects.add(options.includeSubject);
+  }
+
+  return subjects.size;
+}
+
 export function getAvailableRoomNames(
   activeRooms: readonly string[],
   previewLessons: readonly SkemaPilotPreviewCell[],

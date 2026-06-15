@@ -1193,10 +1193,10 @@ function SummaryStep({
       </SummaryCard>
 
       <div>
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Visuel kladde og lokale tjek</p>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">SkemaPilot-overblik</p>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-          Herunder vises skema-preview, konflikttjek, kvalitetsscore og dialogprototype som samlede
-          prototypeelementer.
+          Herunder er opsummeringen samlet i fire dele: overblik, visuelle skemaer, analyser og dialog.
+          Alle dele bruger samme lokale kladde.
         </p>
       </div>
 

@@ -3,7 +3,15 @@
 import { AlertTriangle, CheckCircle2, CircleDashed, Lock } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { type SkemaPilotPreviewCell, weekdays } from "./skemaPilotPreviewData";
+import {
+  getClassPreviewLessonInSlot,
+  getClassSubjectCountOnDay,
+  getSharedRoomPreviewConflictInSlot,
+  getSkemaPilotPreviewCellKey,
+  getTeacherPreviewConflictInSlot,
+  type SkemaPilotPreviewCell,
+  weekdays,
+} from "./skemaPilotPreviewData";
 
 type SkemaPilotMoveSimulatorProps = {
   allPreviewLessons: readonly SkemaPilotPreviewCell[];
@@ -162,7 +170,10 @@ export function SkemaPilotMoveSimulator({
 
           {selectedLesson ? (
             <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 text-sm font-bold leading-6 text-slate-700">
-              <MoveLine label="Fra" value={formatLessonLabel(selectedLesson)} />
+              <MoveLine label="Fra" value={`${selectedLesson.className} · ${selectedLesson.subject}`} />
+              <MoveLine label="Tid" value={`${selectedLesson.day} · ${selectedLesson.lesson}. lektion`} />
+              <MoveLine label="Lærer" value={selectedLesson.teacherName ?? "Lærer ikke fordelt"} />
+              <MoveLine label="Lokale" value={selectedLesson.room ?? "Lokale ikke valgt"} />
               <MoveLine label="Til" value={`${targetDay} · ${targetLessonNumber}. lektion`} />
               {simulation?.targetLesson ? (
                 <MoveLine label="Målpunkt" value={formatTargetLesson(simulation.targetLesson)} />
@@ -260,8 +271,8 @@ function buildLessonOptions(allPreviewLessons: readonly SkemaPilotPreviewCell[])
     )
     .map((cell) => ({
       cell,
-      key: getLessonKey(cell),
-      label: formatLessonLabel(cell),
+      key: getSkemaPilotPreviewCellKey(cell),
+      label: formatLessonOptionLabel(cell),
     }));
 }
 
@@ -278,34 +289,35 @@ function buildMoveSimulation({
   targetDay: string;
   targetLessonNumber: number;
 }): MoveSimulation {
+  const selectedLessonKey = getSkemaPilotPreviewCellKey(selectedLesson);
   const sameSlot = selectedLesson.day === targetDay && selectedLesson.lesson === targetLessonNumber;
-  const classConflict = allPreviewLessons.find(
-    (lesson) =>
-      lesson.className === selectedLesson.className &&
-      lesson.day === targetDay &&
-      lesson.lesson === targetLessonNumber &&
-      getLessonKey(lesson) !== getLessonKey(selectedLesson),
+  const classConflict = getClassPreviewLessonInSlot(
+    allPreviewLessons,
+    selectedLesson.className,
+    targetDay,
+    targetLessonNumber,
+    selectedLessonKey,
   );
   const teacherConflict =
     selectedLesson.teacherId && !selectedLesson.teacherMissing
-      ? allPreviewLessons.find(
-          (lesson) =>
-            lesson.teacherId === selectedLesson.teacherId &&
-            lesson.day === targetDay &&
-            lesson.lesson === targetLessonNumber &&
-            lesson.className !== selectedLesson.className,
+      ? getTeacherPreviewConflictInSlot(
+          allPreviewLessons,
+          selectedLesson.teacherId,
+          selectedLesson.className,
+          targetDay,
+          targetLessonNumber,
+          selectedLessonKey,
         )
       : undefined;
   const roomConflict =
     selectedLesson.room && selectedLesson.roomIsShared
-      ? allPreviewLessons.find(
-          (lesson) =>
-            lesson.room === selectedLesson.room &&
-            lesson.day === targetDay &&
-            lesson.lesson === targetLessonNumber &&
-            lesson.className !== selectedLesson.className &&
-            !lesson.roomMissing &&
-            !lesson.isFixedBlock,
+      ? getSharedRoomPreviewConflictInSlot(
+          allPreviewLessons,
+          selectedLesson.room,
+          selectedLesson.className,
+          targetDay,
+          targetLessonNumber,
+          selectedLessonKey,
         )
       : undefined;
   const pedagogicalWarnings = getPedagogicalWarnings({
@@ -571,7 +583,7 @@ function hasAdjacentSameSubject(
       lesson.subject === selectedLesson.subject &&
       lesson.day === day &&
       Math.abs(lesson.lesson - lessonNumber) === 1 &&
-      getLessonKey(lesson) !== getLessonKey(selectedLesson),
+      getSkemaPilotPreviewCellKey(lesson) !== getSkemaPilotPreviewCellKey(selectedLesson),
   );
 }
 
@@ -580,33 +592,14 @@ function getTargetDaySubjectCount(
   selectedLesson: SkemaPilotPreviewCell,
   targetDay: string,
 ) {
-  const subjects = new Set(
-    allPreviewLessons
-      .filter(
-        (lesson) =>
-          lesson.className === selectedLesson.className &&
-          lesson.day === targetDay &&
-          !lesson.isFixedBlock &&
-          getLessonKey(lesson) !== getLessonKey(selectedLesson),
-      )
-      .map((lesson) => lesson.subject),
-  );
-
-  if (!selectedLesson.isFixedBlock) {
-    subjects.add(selectedLesson.subject);
-  }
-
-  return subjects.size;
+  return getClassSubjectCountOnDay(allPreviewLessons, selectedLesson.className, targetDay, {
+    excludedCellKey: getSkemaPilotPreviewCellKey(selectedLesson),
+    includeSubject: selectedLesson.isFixedBlock ? undefined : selectedLesson.subject,
+  });
 }
 
-function formatLessonLabel(cell: SkemaPilotPreviewCell) {
-  return [
-    cell.className,
-    cell.subject,
-    cell.teacherName ?? "Lærer ikke fordelt",
-    cell.room ?? "Lokale ikke valgt",
-    `${cell.day} ${cell.lesson}. lektion`,
-  ].join(" · ");
+function formatLessonOptionLabel(cell: SkemaPilotPreviewCell) {
+  return `${cell.className} · ${cell.subject} · ${cell.day} ${cell.lesson}. lektion`;
 }
 
 function formatTargetLesson(cell: SkemaPilotPreviewCell) {
@@ -622,8 +615,4 @@ function formatSlot(day: string, lessonNumber: number) {
 function getGradeFromClassName(className: string) {
   const match = className.match(/\d+/);
   return match ? Number(match[0]) : 0;
-}
-
-function getLessonKey(cell: SkemaPilotPreviewCell) {
-  return `${cell.className}::${cell.day}::${cell.lesson}`;
 }

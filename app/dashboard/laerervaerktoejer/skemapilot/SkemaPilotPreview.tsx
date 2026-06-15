@@ -121,8 +121,8 @@ export function SkemaPilotPreview({
             Skema-preview
           </h3>
           <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">
-            Previewet er en visuel kladde baseret på de lokale valg. Det er ikke et færdigt genereret skema
-            og flytter ikke lektioner automatisk.
+            Alle paneler herunder bruger samme lokale kladde. De samler overblik, visuelle skemaer,
+            analyser og dialog-eksempler uden at gemme eller flytte lektioner.
           </p>
         </div>
 
@@ -153,6 +153,15 @@ export function SkemaPilotPreview({
         </div>
       </div>
 
+      <SectionNavigation />
+
+      <PreviewSectionIntro
+        id="skemapilot-overblik"
+        label="Overblik"
+        title="Status først, detaljer bagefter"
+        description="Start med skolelederens samlede status og en simuleret flytning. Begge dele er lokale tjek på den samme kladde."
+      />
+
       <SkemaPilotOverviewPanel
         activeClasses={activeClasses}
         activeRooms={activeRooms}
@@ -169,6 +178,13 @@ export function SkemaPilotPreview({
         allPreviewLessons={allPreviewLessons}
         lessonCount={lessonCount}
         rubikClassName={rubikClassName}
+      />
+
+      <PreviewSectionIntro
+        id="skemapilot-visuelle-skemaer"
+        label="Visuelle skemaer"
+        title="Klasse, lærer og lokale"
+        description="Her vises den samme ugekladde fra tre vinkler, så sammenhængen mellem klasse, lærer og lokale er lettere at følge."
       />
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_280px]">
@@ -212,23 +228,22 @@ export function SkemaPilotPreview({
 
         <aside className="grid gap-4">
           <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-800">Dette viser previewet</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-800">Klasseskema</p>
             <ul className="mt-3 grid gap-2 text-sm font-bold leading-6 text-amber-950">
-              <li>Previewet er kun en visuel kladde.</li>
-              <li>Konflikttjek og kvalitetsscore vises under skemaet.</li>
-              <li>Dialogpanelet viser faste eksempelsvar.</li>
+              <li>Valgt klasse vises som ugekladde.</li>
+              <li>Cellerne viser fag, lærer og lokale.</li>
+              <li>Detaljer følger i lærer- og lokaleskema.</li>
             </ul>
           </section>
 
           <section className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Status</p>
             <div className="mt-3 grid gap-2">
-              <StatusLine text="Lokale tjek bygger på prototype-data" />
+              <StatusLine text="Samme lokale kladde bruges på tværs" />
               <StatusLine
-                text={`${subjectAssignmentStatus.assignedItems}/${subjectAssignmentStatus.totalItems} fagposter er fordelt til lærere`}
+                text={`${subjectAssignmentStatus.assignedItems}/${subjectAssignmentStatus.totalItems} fagposter fordelt`}
               />
-              <StatusLine text="Preview-celler viser lærer og lokalt lokaleforslag" />
-              <StatusLine text="Ingen automatisk flytning af lektioner" />
+              <StatusLine text="Simulatoren ændrer ikke skemaet" />
               <StatusLine text="Pædagogiske ønsker indgår i kvalitetsscoren" />
             </div>
           </section>
@@ -254,18 +269,20 @@ export function SkemaPilotPreview({
         rubikClassName={rubikClassName}
         teachers={teachers}
       />
-      <SkemaPilotTeacherLoadPanel
-        allPreviewLessons={allPreviewLessons}
-        lessonCount={lessonCount}
-        rubikClassName={rubikClassName}
-        teachers={teachers}
-      />
       <SkemaPilotRoomPreview
         activeRooms={activeRooms}
         allPreviewLessons={allPreviewLessons}
         lessonCount={lessonCount}
         rubikClassName={rubikClassName}
       />
+
+      <PreviewSectionIntro
+        id="skemapilot-analyser"
+        label="Analyser"
+        title="Konflikter, belastning og kvalitet"
+        description="Brug disse paneler til at finde det, der bør tjekkes, før kladden bruges i videre dialog."
+      />
+
       <SkemaPilotConflictPanel
         activeBlocks={activeBlocks}
         activeClasses={activeClasses}
@@ -278,6 +295,12 @@ export function SkemaPilotPreview({
         subjectAssignmentStatus={subjectAssignmentStatus}
         subjects={subjects}
       />
+      <SkemaPilotTeacherLoadPanel
+        allPreviewLessons={allPreviewLessons}
+        lessonCount={lessonCount}
+        rubikClassName={rubikClassName}
+        teachers={teachers}
+      />
       <SkemaPilotQualityPanel
         allPreviewLessons={allPreviewLessons}
         lessonCount={lessonCount}
@@ -288,6 +311,14 @@ export function SkemaPilotPreview({
         subjectAssignmentStatus={subjectAssignmentStatus}
         teacherLoads={teacherLoads}
       />
+
+      <PreviewSectionIntro
+        id="skemapilot-dialog"
+        label="Dialog og næste skridt"
+        title="Eksempler uden AI-forbindelse"
+        description="Dialogpanelet viser faste eksempler på, hvordan SkemaPilot senere kan støtte samtalen om skemaets rytme."
+      />
+
       <SkemaPilotAiMockPanel
         previewClass={previewClass}
         priorities={priorities}
@@ -295,6 +326,52 @@ export function SkemaPilotPreview({
         subjectAssignmentStatus={subjectAssignmentStatus}
         teacherLoads={teacherLoads}
       />
+    </section>
+  );
+}
+
+function SectionNavigation() {
+  const sections = [
+    { href: "#skemapilot-overblik", label: "Overblik" },
+    { href: "#skemapilot-visuelle-skemaer", label: "Visuelle skemaer" },
+    { href: "#skemapilot-analyser", label: "Analyser" },
+    { href: "#skemapilot-dialog", label: "Dialog" },
+  ];
+
+  return (
+    <nav className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Opsummeringen er delt op</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {sections.map((section) => (
+          <a
+            key={section.href}
+            className="inline-flex min-h-9 items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-700 transition hover:border-emerald-300 hover:text-emerald-800"
+            href={section.href}
+          >
+            {section.label}
+          </a>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
+function PreviewSectionIntro({
+  description,
+  id,
+  label,
+  title,
+}: {
+  description: string;
+  id: string;
+  label: string;
+  title: string;
+}) {
+  return (
+    <section id={id} className="mt-8 border-t border-slate-200 pt-6">
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{label}</p>
+      <h4 className="mt-2 text-xl font-black tracking-tight text-slate-950">{title}</h4>
+      <p className="mt-2 max-w-3xl text-sm font-semibold leading-7 text-slate-600">{description}</p>
     </section>
   );
 }
