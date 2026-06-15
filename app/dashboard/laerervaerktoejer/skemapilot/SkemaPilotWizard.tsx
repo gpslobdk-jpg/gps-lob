@@ -132,7 +132,7 @@ const wizardSteps: WizardStep[] = [
   {
     title: "Opsummering",
     shortTitle: "Opsummering",
-    description: "Se det samlede lokale setup og hvad næste fase skal bygge videre på.",
+    description: "Se setup, visuel kladde, lokale tjek og dialog-eksempler samlet.",
     icon: <Check className="h-5 w-5" />,
   },
 ];
@@ -311,11 +311,11 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
                 SkemaPilot
               </h1>
               <p className="mt-5 max-w-2xl text-xl font-semibold leading-8 text-slate-100">
-                Klikbar prototype til små skoler, friskoler og privatskoler, især et-sporede skoler.
+                SkemaPilot hjælper små skoler med at lave skemaer, der både går op og giver pædagogisk mening.
               </p>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
-                Fase 2 samler skolens lokale rammer i en wizard. Data gemmes kun i browserens React state,
-                og der bygges ikke rigtigt skema, solver, backend eller AI i denne fase.
+                Denne lokale prototype samler skolens rammer, en visuel kladde, lokale tjek, kvalitetsscore
+                og dialog-eksempler. Data bliver i browseren, og der er ingen skemagenerator eller AI-forbindelse.
               </p>
             </div>
 
@@ -504,7 +504,7 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
           </article>
 
           <aside className="h-fit rounded-lg border border-white/15 bg-slate-950/60 p-5 text-white shadow-sm backdrop-blur">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-300">Prototype-overblik</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-300">Lokalt overblik</p>
             <div className="mt-4 grid gap-3">
               <SummaryMiniRow label="Skole" value={settings.schoolName || "Ikke navngivet endnu"} />
               <SummaryMiniRow label="Skoleår" value={settings.schoolYear} />
@@ -514,8 +514,8 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
               <SummaryMiniRow label="Faste blokke" value={`${activeBlocks.length} valgt`} />
             </div>
             <div className="mt-5 rounded-lg border border-amber-200/30 bg-amber-200/10 p-4 text-sm font-bold leading-6 text-amber-50">
-              SkemaPilot er stadig under opbygning. Denne wizard gemmer ikke data og bygger ikke et rigtigt
-              skema endnu.
+              Prototypen viser arbejdsflowet lokalt. Den gemmer ikke data på en server og bygger ikke et
+              færdigt skema.
             </div>
           </aside>
         </section>
@@ -891,9 +891,9 @@ function RoomsAndBlocksStep({
                 key={block}
                 type="button"
                 onClick={() => onRemoveExtraBlock(block)}
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 transition hover:border-rose-200 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-100"
+                className="inline-flex min-h-10 max-w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm font-bold text-slate-700 transition hover:border-rose-200 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-100"
               >
-                {block}
+                <span className="min-w-0 break-words">{block}</span>
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             ))}
@@ -986,9 +986,16 @@ function SummaryStep({
     <div className="grid gap-6">
       {setupFinished ? (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-950">
-          Opsætningen er afsluttet lokalt i prototypen. Der er stadig ikke gemt data i backend.
+          Opsætningen er afsluttet lokalt i prototypen. Der er stadig ikke gemt data på en server.
         </div>
       ) : null}
+
+      <div>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Lokalt setup</p>
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+          De vigtigste rammer vises først, så preview og lokale tjek kan læses i sammenhæng.
+        </p>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <SummaryCard title="Skole">
@@ -1016,6 +1023,9 @@ function SummaryStep({
       </div>
 
       <SummaryCard title="Fag og lokalt timetal">
+        <p className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+          Bred tabel - scroll vandret på små skærme
+        </p>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] border-collapse text-left">
             <thead>
@@ -1073,6 +1083,14 @@ function SummaryStep({
         </div>
       </SummaryCard>
 
+      <div>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Visuel kladde og lokale tjek</p>
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+          Herunder vises skema-preview, konflikttjek, kvalitetsscore og dialogprototype som samlede
+          prototypeelementer.
+        </p>
+      </div>
+
       <SkemaPilotPreview
         activeBlocks={activeBlocks}
         activeClasses={activeClasses}
@@ -1085,13 +1103,14 @@ function SummaryStep({
       />
 
       <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Næste fase</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Status</p>
         <h3 className={`mt-2 text-2xl font-black tracking-tight text-emerald-950 ${rubikClassName}`}>
-          Skema-preview og konflikttjek
+          Klar som lokal prototype
         </h3>
         <p className="mt-3 text-sm font-bold leading-7 text-emerald-950">
-          Næste fase bliver skema-preview og konflikttjek. Senere kommer pædagogisk kvalitetsscore,
-          AI-forslag og automatisk skemaoptimering. Der er ikke rigtig skemagenerering endnu.
+          SkemaPilot viser nu et samlet lokalt forløb fra setup til visuel kladde, konflikttjek,
+          kvalitetsscore og dialog-eksempler. Der er stadig ingen skemagenerator, AI-forbindelse eller
+          automatisk flytning af lektioner.
         </p>
       </section>
     </div>
@@ -1226,7 +1245,7 @@ function SummaryMiniRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-white/10 bg-white/10 p-4">
       <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-300">{label}</p>
-      <p className="mt-1 text-sm font-black text-white">{value}</p>
+      <p className="mt-1 break-words text-sm font-black text-white">{value}</p>
     </div>
   );
 }
@@ -1242,7 +1261,7 @@ function SummaryCard({ children, title }: { children: ReactNode; title: string }
 
 function SummaryLine({ label, value }: { label: string; value: string }) {
   return (
-    <p className="border-t border-slate-100 py-2 text-sm leading-6 first:border-t-0 first:pt-0">
+    <p className="break-words border-t border-slate-100 py-2 text-sm leading-6 first:border-t-0 first:pt-0">
       <span className="font-black text-slate-950">{label}:</span>{" "}
       <span className="font-semibold text-slate-600">{value}</span>
     </p>
@@ -1257,7 +1276,10 @@ function TagList({ emptyText, items }: { emptyText: string; items: readonly stri
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((item) => (
-        <span key={item} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-700">
+        <span
+          key={item}
+          className="max-w-full break-words rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-700"
+        >
           {item}
         </span>
       ))}

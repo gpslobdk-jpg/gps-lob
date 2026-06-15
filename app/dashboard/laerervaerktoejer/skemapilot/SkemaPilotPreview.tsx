@@ -74,14 +74,14 @@ export function SkemaPilotPreview({
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-2xl">
           <p className="inline-flex rounded-lg border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-amber-800">
-            Prototype / dummy-preview
+            Prototype / visuel kladde
           </p>
           <h3 className={`mt-3 text-3xl font-black tracking-tight text-slate-950 ${rubikClassName}`}>
             Skema-preview
           </h3>
           <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">
-            Previewet er kun en visuel kladde. Det viser et deterministisk eksempel ud fra de lokale valg,
-            men det er ikke et færdigt genereret skema.
+            Previewet er en visuel kladde baseret på de lokale valg. Det er ikke et færdigt genereret skema
+            og flytter ikke lektioner automatisk.
           </p>
         </div>
 
@@ -113,6 +113,9 @@ export function SkemaPilotPreview({
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_280px]">
+        <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500 lg:hidden">
+          Bredt preview - scroll vandret på små skærme
+        </p>
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full min-w-[900px] border-collapse text-left">
             <thead>
@@ -153,17 +156,17 @@ export function SkemaPilotPreview({
             <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-800">Dette viser previewet</p>
             <ul className="mt-3 grid gap-2 text-sm font-bold leading-6 text-amber-950">
               <li>Previewet er kun en visuel kladde.</li>
-              <li>Næste fase bliver konflikttjek.</li>
-              <li>Senere kommer pædagogisk kvalitetsscore og AI-forslag.</li>
+              <li>Konflikttjek og kvalitetsscore vises under skemaet.</li>
+              <li>Dialogpanelet viser faste eksempelsvar.</li>
             </ul>
           </section>
 
           <section className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Status</p>
             <div className="mt-3 grid gap-2">
-              <StatusLine text="Første konflikttjek vises under previewet" />
+              <StatusLine text="Lokale tjek bygger på prototype-data" />
               <StatusLine text="Ingen automatisk flytning af lektioner" />
-              <StatusLine text="Pædagogiske ønsker bruges senere" />
+              <StatusLine text="Pædagogiske ønsker indgår i kvalitetsscoren" />
             </div>
           </section>
 
@@ -229,9 +232,9 @@ function PreviewSubjectCell({ cell }: { cell?: PreviewCell }) {
 
 function MetaLine({ icon, text }: { icon: ReactNode; text: string }) {
   return (
-    <p className="flex items-center gap-2">
-      <span className="text-emerald-700">{icon}</span>
-      {text}
+    <p className="flex min-w-0 items-start gap-2">
+      <span className="shrink-0 text-emerald-700">{icon}</span>
+      <span className="min-w-0 break-words">{text}</span>
     </p>
   );
 }

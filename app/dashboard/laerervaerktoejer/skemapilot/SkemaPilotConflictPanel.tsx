@@ -84,7 +84,7 @@ export function SkemaPilotConflictPanel({
     {
       title: "Lokale må ikke bruges af to hold samtidig",
       status: "unknown",
-      description: "Lokaler vises kun som noter i dette dummy-preview.",
+      description: "Lokaler vises kun som noter i den visuelle kladde.",
       detail: "Kræver senere lokaleplacering pr. lektion for alle klasser.",
     },
     {

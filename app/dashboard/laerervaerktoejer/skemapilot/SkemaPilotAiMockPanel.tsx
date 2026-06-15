@@ -28,13 +28,13 @@ const mockPrompts: AiMockPrompt[] = [
     id: "pe-block",
     question: "Kan idræt samles som dobbeltlektion?",
     answer:
-      "Idræt fungerer ofte bedst som dobbeltlektion, fordi omklædning, transport og opstart ellers spiser for meget tid. I en senere version kan SkemaPilot lede efter to nabofelter med hal eller andet relevant lokale. Her vises kun princippet som mock.",
+      "Idræt fungerer ofte bedst som dobbeltlektion, fordi omklædning, transport og opstart ellers spiser for meget tid. I en senere version kan SkemaPilot lede efter to nabofelter med hal eller andet relevant lokale. Her vises kun princippet som eksempelsvar.",
   },
   {
     id: "top-three",
     question: "Hvilke tre ændringer forbedrer skemaet mest?",
     answer:
-      "De største forbedringer vil typisk være: kernefag tidligere på dagen, færre faglige skift i indskolingen og færre lærerhuller. I prototypen er det en fast formuleret pædagogisk tommelfingerregel, ikke et resultat fra en AI eller solver.",
+      "De største forbedringer vil typisk være: kernefag tidligere på dagen, færre faglige skift i indskolingen og færre lærerhuller. I prototypen er det en fast formuleret pædagogisk tommelfingerregel, ikke en beregnet anbefaling.",
   },
   {
     id: "teacher-gaps",
@@ -67,11 +67,11 @@ export function SkemaPilotAiMockPanel({ previewClass, priorities, rubikClassName
         <div className="max-w-3xl">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Dialog-prototype</p>
           <h4 className={`mt-2 text-3xl font-black tracking-tight text-slate-950 ${rubikClassName}`}>
-            SkemaPilot-dialog med eksempelsvar
+            Dialog med eksempelsvar
           </h4>
           <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">
-            Senere kan SkemaPilot føre dialog om skemaet og foreslå forbedringer. Denne prototype viser kun
-            eksempler.
+            Panelet viser, hvordan en senere dialog kan støtte arbejdet med skemaets rytme. Svarene er faste
+            eksempler i denne prototype.
           </p>
         </div>
 
@@ -81,7 +81,7 @@ export function SkemaPilotAiMockPanel({ previewClass, priorities, rubikClassName
             Ikke forbundet til AI endnu
           </p>
           <p className="text-sm font-bold leading-6">
-            Svarene er faste mock-tekster. De ændrer ikke skemaet og sender ingen data videre.
+            Svarene er skrevet på forhånd. De ændrer ikke skemaet og sender ingen data videre.
           </p>
         </div>
       </div>
@@ -116,10 +116,10 @@ export function SkemaPilotAiMockPanel({ previewClass, priorities, rubikClassName
 
         <div className="rounded-lg border border-slate-200 bg-white p-4">
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Mock-kontekst</p>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Lokal kontekst</p>
             <p className="mt-2 text-sm font-bold leading-6 text-slate-700">
-              Viser dialog for {previewClass}. {priorityContext} Dette bruges kun til at gøre eksemplet
-              genkendeligt.
+              Viser dialog for {previewClass}. {priorityContext} Konteksten gør eksempelsvaret lettere at
+              læse.
             </p>
           </div>
 
@@ -143,14 +143,14 @@ export function SkemaPilotAiMockPanel({ previewClass, priorities, rubikClassName
                 <p className="mt-2 text-sm font-bold leading-7">{selectedPrompt.answer}</p>
                 <div className="mt-4 flex flex-col gap-3 border-t border-emerald-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs font-black uppercase tracking-[0.12em] opacity-75">
-                    Ikke beregnet af rigtig AI
+                    Ikke AI-beregnet
                   </p>
                   <button
                     type="button"
                     disabled
                     className="inline-flex min-h-10 items-center justify-center rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Anvend senere · kommende funktion
+                    Kommende funktion
                   </button>
                 </div>
               </div>

@@ -69,14 +69,14 @@ export function SkemaPilotQualityPanel({
             Pædagogisk kvalitet: {score} / 100
           </h4>
           <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">
-            Scoren er en lokal, regelbaseret kvalitetsindikator på preview-/dummy-data. Den er ikke AI,
-            ikke en solver og lover ikke pædagogisk perfektion.
+            Scoren er en lokal, regelbaseret indikator på den visuelle kladde. Den ændrer ikke skemaet og
+            erstatter ikke skolens faglige vurdering.
           </p>
         </div>
 
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
           <Gauge className="h-6 w-6" />
-          <p className="mt-3 text-sm font-black uppercase tracking-[0.14em]">Heuristisk score</p>
+          <p className="mt-3 text-sm font-black uppercase tracking-[0.14em]">Lokal score</p>
           <p className="mt-1 text-sm font-bold leading-6">
             Bygger på bløde ønsker og den valgte klasses visuelle kladde.
           </p>
