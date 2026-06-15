@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertCircle, CalendarDays, Info, School } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 
 import { SkemaPilotAiMockPanel } from "./SkemaPilotAiMockPanel";
 import { SkemaPilotConflictPanel } from "./SkemaPilotConflictPanel";
@@ -20,13 +20,31 @@ import {
 import {
   applyManualChangesToLessons,
   buildSkemaPilotPreviewLessons,
+  getClassPreviewLessonInSlot,
+  getSharedRoomPreviewConflictInSlot,
+  getSkemaPilotPreviewCellKey,
   getSkemaPilotLessonCount,
+  getTeacherPreviewConflictInSlot,
   type ManualChange,
   type SkemaPilotPreviewCell,
   weekdays,
 } from "./skemaPilotPreviewData";
 
 type PriorityLevel = "Lav" | "Middel" | "Høj";
+
+type DragHoverSlot = {
+  day: string;
+  lesson: number;
+  message: string;
+  status: "possible" | "check" | "swap" | "conflict";
+};
+
+type SimulatorPrefill = {
+  lessonKey: string;
+  targetDay: string;
+  targetLesson: number;
+  version: number;
+};
 
 type PreviewSettings = {
   schoolName: string;
@@ -80,6 +98,11 @@ export function SkemaPilotPreview({
 }: SkemaPilotPreviewProps) {
   const [selectedClass, setSelectedClass] = useState("");
   const [manualChanges, setManualChanges] = useState<ManualChange[]>([]);
+  const dragSourceRef = useRef<SkemaPilotPreviewCell | null>(null);
+  const prefillVersionRef = useRef(0);
+  const [dragSourceKey, setDragSourceKey] = useState<string | null>(null);
+  const [dragHoverSlot, setDragHoverSlot] = useState<DragHoverSlot | null>(null);
+  const [simulatorPrefill, setSimulatorPrefill] = useState<SimulatorPrefill | null>(null);
   const previewClass = activeClasses.includes(selectedClass) ? selectedClass : activeClasses[0] ?? "0. klasse";
   const lessonCount = getSkemaPilotLessonCount(settings.lessonsPerDay);
   const allPreviewLessons = useMemo(
@@ -133,6 +156,64 @@ export function SkemaPilotPreview({
 
   function handleResetChanges() {
     setManualChanges([]);
+  }
+
+  function handleDragStart(cell: SkemaPilotPreviewCell) {
+    dragSourceRef.current = cell;
+    setDragSourceKey(getSkemaPilotPreviewCellKey(cell));
+    setDragHoverSlot(null);
+  }
+
+  function handleDragEnd() {
+    dragSourceRef.current = null;
+    setDragSourceKey(null);
+    setDragHoverSlot(null);
+  }
+
+  function handleDragOverSlot(event: DragEvent<HTMLTableCellElement>, day: string, lessonNumber: number) {
+    event.preventDefault();
+    const source = dragSourceRef.current;
+
+    if (!source) {
+      return;
+    }
+
+    const slotKey = `${day}::${lessonNumber}`;
+    const currentKey = dragHoverSlot ? `${dragHoverSlot.day}::${dragHoverSlot.lesson}` : null;
+
+    if (currentKey === slotKey) {
+      return;
+    }
+
+    setDragHoverSlot(evaluateDragTarget(effectiveLessons, source, day, lessonNumber, lessonCount));
+  }
+
+  function handleDragLeaveSlot(event: DragEvent<HTMLTableCellElement>) {
+    if (event.relatedTarget && (event.currentTarget as Element).contains(event.relatedTarget as Node)) {
+      return;
+    }
+
+    setDragHoverSlot(null);
+  }
+
+  function handleDropSlot(event: DragEvent<HTMLTableCellElement>, day: string, lessonNumber: number) {
+    event.preventDefault();
+    const source = dragSourceRef.current;
+
+    if (!source) {
+      return;
+    }
+
+    prefillVersionRef.current += 1;
+    setSimulatorPrefill({
+      lessonKey: getSkemaPilotPreviewCellKey(source),
+      targetDay: day,
+      targetLesson: lessonNumber,
+      version: prefillVersionRef.current,
+    });
+    dragSourceRef.current = null;
+    setDragSourceKey(null);
+    setDragHoverSlot(null);
   }
 
   return (
@@ -236,6 +317,7 @@ export function SkemaPilotPreview({
         lessonCount={lessonCount}
         onApplyMove={handleApplyMove}
         onApplySwap={handleApplySwap}
+        prefill={simulatorPrefill}
         rubikClassName={rubikClassName}
       />
 
@@ -250,39 +332,83 @@ export function SkemaPilotPreview({
         <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500 lg:hidden">
           Bredt preview - scroll vandret på små skærme
         </p>
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full min-w-[900px] border-collapse text-left">
-            <thead>
-              <tr className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-600">
-                <th className="w-28 border-b border-slate-200 px-3 py-3">Lektion</th>
-                {weekdays.map((day) => (
-                  <th key={day} className="border-b border-slate-200 px-3 py-3">
-                    {day}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from({ length: lessonCount }, (_, lessonIndex) => (
-                <tr key={lessonIndex + 1} className="border-b border-slate-100 last:border-b-0">
-                  <th className="bg-slate-50 px-3 py-3 align-top text-sm font-black text-slate-700">
-                    {lessonIndex + 1}. lektion
-                  </th>
-                  {weekdays.map((day) => {
-                    const cell = effectivePreviewLessons.find(
-                      (lesson) => lesson.day === day && lesson.lesson === lessonIndex + 1,
-                    );
 
-                    return (
-                      <td key={`${day}-${lessonIndex + 1}`} className="px-2 py-2 align-top">
-                        <PreviewSubjectCell cell={cell} />
-                      </td>
-                    );
-                  })}
+        <div className="grid gap-3">
+          <div className={`rounded-lg border p-3 text-sm font-bold leading-6 transition ${
+            dragHoverSlot?.status === "possible"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+              : dragHoverSlot?.status === "check"
+                ? "border-amber-200 bg-amber-50 text-amber-950"
+                : dragHoverSlot?.status === "swap"
+                  ? "border-sky-200 bg-sky-50 text-sky-950"
+                  : dragHoverSlot?.status === "conflict"
+                    ? "border-rose-200 bg-rose-50 text-rose-950"
+                    : "border-slate-200 bg-slate-50 text-slate-600"
+          }`}>
+            {dragHoverSlot
+              ? dragHoverSlot.message
+              : dragSourceKey
+                ? "Slip over et felt for at se konsekvensen. Slip for at sende til simulator."
+                : "Træk en lektion over et andet felt for at vurdere flytningen."}
+          </div>
+
+          <div className="overflow-x-auto rounded-lg border border-slate-200">
+            <table className="w-full min-w-[900px] border-collapse text-left">
+              <thead>
+                <tr className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-600">
+                  <th className="w-28 border-b border-slate-200 px-3 py-3">Lektion</th>
+                  {weekdays.map((day) => (
+                    <th key={day} className="border-b border-slate-200 px-3 py-3">
+                      {day}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {Array.from({ length: lessonCount }, (_, lessonIndex) => (
+                  <tr key={lessonIndex + 1} className="border-b border-slate-100 last:border-b-0">
+                    <th className="bg-slate-50 px-3 py-3 align-top text-sm font-black text-slate-700">
+                      {lessonIndex + 1}. lektion
+                    </th>
+                    {weekdays.map((day) => {
+                      const cell = effectivePreviewLessons.find(
+                        (lesson) => lesson.day === day && lesson.lesson === lessonIndex + 1,
+                      );
+                      const slotKey = `${day}::${lessonIndex + 1}`;
+                      const isHoverTarget =
+                        dragHoverSlot?.day === day && dragHoverSlot.lesson === lessonIndex + 1;
+                      const isSource =
+                        cell !== undefined && getSkemaPilotPreviewCellKey(cell) === dragSourceKey;
+
+                      return (
+                        <td
+                          key={slotKey}
+                          className="px-2 py-2 align-top"
+                          onDragLeave={handleDragLeaveSlot}
+                          onDragOver={(event) => handleDragOverSlot(event, day, lessonIndex + 1)}
+                          onDrop={(event) => handleDropSlot(event, day, lessonIndex + 1)}
+                        >
+                          <PreviewSubjectCell
+                            cell={cell}
+                            hoverStatus={isHoverTarget ? dragHoverSlot.status : null}
+                            isSource={isSource}
+                            onDragEnd={handleDragEnd}
+                            onDragStart={cell ? () => handleDragStart(cell) : undefined}
+                          />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {dragSourceKey ? (
+            <p className="text-xs font-bold text-slate-500">
+              Ikke gemt – slip over mål-slot for at sende forslaget til simulatoren.
+            </p>
+          ) : null}
         </div>
 
         <aside className="grid gap-4">
@@ -389,6 +515,103 @@ export function SkemaPilotPreview({
   );
 }
 
+function evaluateDragTarget(
+  effectiveLessons: readonly SkemaPilotPreviewCell[],
+  sourceLesson: SkemaPilotPreviewCell,
+  targetDay: string,
+  targetLessonNumber: number,
+  lessonCount: number,
+): DragHoverSlot {
+  const sourceKey = getSkemaPilotPreviewCellKey(sourceLesson);
+
+  if (sourceLesson.day === targetDay && sourceLesson.lesson === targetLessonNumber) {
+    return { day: targetDay, lesson: targetLessonNumber, message: "Nuværende tidspunkt", status: "check" };
+  }
+
+  const teacherConflict =
+    sourceLesson.teacherId && !sourceLesson.teacherMissing
+      ? getTeacherPreviewConflictInSlot(
+          effectiveLessons,
+          sourceLesson.teacherId,
+          sourceLesson.className,
+          targetDay,
+          targetLessonNumber,
+          sourceKey,
+        )
+      : undefined;
+
+  if (teacherConflict) {
+    return {
+      day: targetDay,
+      lesson: targetLessonNumber,
+      message: `${sourceLesson.teacherName ?? "Læreren"} er allerede optaget`,
+      status: "conflict",
+    };
+  }
+
+  const roomConflict =
+    sourceLesson.room && sourceLesson.roomIsShared
+      ? getSharedRoomPreviewConflictInSlot(
+          effectiveLessons,
+          sourceLesson.room,
+          sourceLesson.className,
+          targetDay,
+          targetLessonNumber,
+          sourceKey,
+        )
+      : undefined;
+
+  if (roomConflict) {
+    return {
+      day: targetDay,
+      lesson: targetLessonNumber,
+      message: `${sourceLesson.room} er allerede i brug`,
+      status: "conflict",
+    };
+  }
+
+  const classConflict = getClassPreviewLessonInSlot(
+    effectiveLessons,
+    sourceLesson.className,
+    targetDay,
+    targetLessonNumber,
+    sourceKey,
+  );
+
+  if (classConflict) {
+    return {
+      day: targetDay,
+      lesson: targetLessonNumber,
+      message: `Kræver bytte med ${classConflict.subject}`,
+      status: "swap",
+    };
+  }
+
+  const grade = Number.parseInt(sourceLesson.className, 10) || 0;
+  const lateLessonStart = Math.max(4, Math.ceil(lessonCount * 0.67));
+  const isLate = targetLessonNumber >= lateLessonStart;
+
+  if (["Dansk", "Matematik"].includes(sourceLesson.subject) && isLate) {
+    return {
+      day: targetDay,
+      lesson: targetLessonNumber,
+      message: `${sourceLesson.subject} sent på dagen – bør tjekkes`,
+      status: "check",
+    };
+  }
+
+  if (grade <= 3 && ["Dansk", "Matematik", "Engelsk", "Natur/teknologi"].includes(sourceLesson.subject) && isLate) {
+    return {
+      day: targetDay,
+      lesson: targetLessonNumber,
+      message: "Tungt fag sent for yngre klasse – bør tjekkes",
+      status: "check",
+    };
+  }
+
+  return { day: targetDay, lesson: targetLessonNumber, message: "Ser mulig ud", status: "possible" };
+}
+
 function SectionNavigation() {
   const sections = [
     { href: "#skemapilot-overblik", label: "Overblik" },
@@ -435,19 +658,59 @@ function PreviewSectionIntro({
   );
 }
 
-function PreviewSubjectCell({ cell }: { cell?: SkemaPilotPreviewCell }) {
+function PreviewSubjectCell({
+  cell,
+  hoverStatus,
+  isSource,
+  onDragEnd,
+  onDragStart,
+}: {
+  cell?: SkemaPilotPreviewCell;
+  hoverStatus?: "possible" | "check" | "swap" | "conflict" | null;
+  isSource?: boolean;
+  onDragEnd?: () => void;
+  onDragStart?: () => void;
+}) {
   if (!cell) {
+    const emptyHoverClassName =
+      hoverStatus === "possible"
+        ? "border-emerald-300 bg-emerald-50"
+        : hoverStatus === "check"
+          ? "border-amber-300 bg-amber-50"
+          : hoverStatus === "swap"
+            ? "border-sky-300 bg-sky-50"
+            : hoverStatus === "conflict"
+              ? "border-rose-300 bg-rose-50"
+              : "border-slate-100 bg-white text-slate-400";
+
     return (
-      <div className="min-h-20 rounded-lg border border-slate-100 bg-white px-3 py-3 text-sm font-bold text-slate-400">
+      <div className={`min-h-20 rounded-lg border px-3 py-3 text-sm font-bold ${ hoverStatus ? emptyHoverClassName : "border-slate-100 bg-white text-slate-400" }`}>
         Tom
       </div>
     );
   }
 
   const colorClassName = subjectColors[cell.subject] ?? "border-slate-200 bg-white text-slate-800";
+  const hoverRingClassName =
+    hoverStatus === "possible"
+      ? "ring-2 ring-emerald-400"
+      : hoverStatus === "check"
+        ? "ring-2 ring-amber-400"
+        : hoverStatus === "swap"
+          ? "ring-2 ring-sky-400"
+          : hoverStatus === "conflict"
+            ? "ring-2 ring-rose-400"
+            : "";
+  const sourceClassName = isSource ? "opacity-40" : "";
+  const draggable = !cell.isFixedBlock;
 
   return (
-    <div className={`min-h-20 rounded-lg border px-3 py-3 shadow-sm ${colorClassName}`}>
+    <div
+      className={`min-h-20 rounded-lg border px-3 py-3 shadow-sm transition ${colorClassName} ${hoverRingClassName} ${sourceClassName} ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`}
+      draggable={draggable}
+      onDragEnd={onDragEnd}
+      onDragStart={onDragStart}
+    >
       <p className="text-sm font-black leading-5">{cell.subject}</p>
       {cell.teacherName ? (
         <p className="mt-2 break-words text-xs font-black leading-5 opacity-80">Lærer: {cell.teacherName}</p>

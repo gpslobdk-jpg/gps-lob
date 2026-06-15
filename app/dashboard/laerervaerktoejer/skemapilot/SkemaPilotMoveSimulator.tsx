@@ -30,6 +30,12 @@ type SkemaPilotMoveSimulatorProps = {
     bFromLesson: number;
     className: string;
   }) => void;
+  prefill?: {
+    lessonKey: string;
+    targetDay: string;
+    targetLesson: number;
+    version: number;
+  } | null;
   rubikClassName: string;
 };
 
@@ -79,12 +85,21 @@ export function SkemaPilotMoveSimulator({
   lessonCount,
   onApplyMove,
   onApplySwap,
+  prefill,
   rubikClassName,
 }: SkemaPilotMoveSimulatorProps) {
   const lessonOptions = useMemo(() => buildLessonOptions(allPreviewLessons), [allPreviewLessons]);
   const [selectedLessonKey, setSelectedLessonKey] = useState("");
   const [targetDay, setTargetDay] = useState<string>(weekdays[0]);
   const [targetLessonNumber, setTargetLessonNumber] = useState(1);
+  const [lastPrefillVersion, setLastPrefillVersion] = useState<number | null>(null);
+
+  if (prefill && prefill.version !== lastPrefillVersion) {
+    setLastPrefillVersion(prefill.version);
+    setSelectedLessonKey(prefill.lessonKey);
+    setTargetDay(prefill.targetDay);
+    setTargetLessonNumber(prefill.targetLesson);
+  }
   const selectedOption =
     lessonOptions.find((option) => option.key === selectedLessonKey) ?? lessonOptions[0];
   const selectedLesson = selectedOption?.cell;
