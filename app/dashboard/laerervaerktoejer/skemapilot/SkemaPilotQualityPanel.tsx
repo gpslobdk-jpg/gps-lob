@@ -77,7 +77,6 @@ export function SkemaPilotQualityPanel({
     lessonCount,
     grade,
     priorities,
-    subjectAssignmentStatus,
     teacherGapEstimate,
   );
   const scoredMetrics = metrics.filter((metric) => metric.status !== "unknown");
@@ -198,7 +197,6 @@ function buildQualityMetrics(
   lessonCount: number,
   grade: number,
   priorities: Record<string, PriorityLevel>,
-  subjectAssignmentStatus: SubjectAssignmentStatus,
   teacherGapEstimate: TeacherGapEstimate,
 ): QualityMetric[] {
   const coreMetric = getCoreEarlyMetric(previewLessons, lessonCount);
@@ -279,7 +277,7 @@ function getTeacherLoadInsight(
     return "Lærerbelastning kan nu estimeres ud fra fagfordelingen.";
   }
 
-  return `${busiestTeacher.teacherName} har flest fordelte lektioner i det lokale estimat.`;
+  return `${busiestTeacher.teacherName} har flest fordelte lektioner i det lokale estimat, som uddybes i lærerbelastningspanelet.`;
 }
 
 function getTeacherGapEstimate(
@@ -311,7 +309,7 @@ function getTeacherGapEstimate(
   if (possibleGaps === 0) {
     return {
       description:
-        "Lærerhuller vurderes nu foreløbigt ud fra den visuelle kladde. Der er ikke fundet tydelige huller i det lokale estimat.",
+        "Lærerhuller vurderes nu foreløbigt ud fra den visuelle kladde. Lærerbelastningspanelet finder ingen tydelige huller i det lokale estimat.",
       label: "Lokalt estimat",
       possibleGaps,
       score: 82,
@@ -321,7 +319,7 @@ function getTeacherGapEstimate(
 
   if (possibleGaps <= 2) {
     return {
-      description: `Lærerhuller vurderes nu foreløbigt ud fra den visuelle kladde: ${possibleGaps} mulige tomme perioder mellem lektioner.`,
+      description: `Lærerhuller vurderes nu foreløbigt ud fra den visuelle kladde: ${possibleGaps} mulige tomme perioder mellem lektioner. Se lærerbelastningspanelet for detaljer.`,
       label: "Lokalt estimat",
       possibleGaps,
       score: 66,
@@ -330,7 +328,7 @@ function getTeacherGapEstimate(
   }
 
   return {
-    description: `Lærerhuller vurderes nu foreløbigt ud fra den visuelle kladde: ${possibleGaps} mulige tomme perioder mellem lektioner.`,
+    description: `Lærerhuller vurderes nu foreløbigt ud fra den visuelle kladde: ${possibleGaps} mulige tomme perioder mellem lektioner. Se lærerbelastningspanelet for detaljer.`,
     label: "Lokalt estimat",
     possibleGaps,
     score: 48,
@@ -482,9 +480,9 @@ function buildImprovements(metrics: QualityMetric[], teacherGapEstimate: Teacher
   if (teacherGapEstimate.status === "unknown") {
     improvements.push("Lærerhuller kræver stadig fagfordeling og et lærerskema-preview.");
   } else if (teacherGapEstimate.possibleGaps > 0) {
-    improvements.push("Bør tjekkes: lærerskema-previewet viser mulige tomme perioder mellem lærerens lektioner.");
+    improvements.push("Bør tjekkes: lærerbelastningspanelet viser mulige tomme perioder mellem lærerens lektioner.");
   } else {
-    improvements.push("Lærerskema-previewet viser ingen tydelige lærerhuller i det lokale estimat.");
+    improvements.push("Lærerbelastningspanelet viser ingen tydelige lærerhuller i det lokale estimat.");
   }
   improvements.push("Klasselærerens placering vurderes senere, når klasselærerdata kobles på.");
   improvements.push("Næste skridt kan være at sammenholde denne indikator med konflikttjekket.");

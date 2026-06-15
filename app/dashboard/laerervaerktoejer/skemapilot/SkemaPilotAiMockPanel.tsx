@@ -196,14 +196,14 @@ function getTeacherGapContext(
   subjectAssignmentStatus: SubjectAssignmentStatus,
 ) {
   if (!subjectAssignmentStatus.assignedItems) {
-    return "Lærerhuller kræver konkrete lektionsplaceringer. Når fagfordelingen udfyldes, kan SkemaPilot vise et lokalt estimat i lærerskema-previewet.";
+    return "Lærerhuller kræver konkrete lektionsplaceringer. Når fagfordelingen udfyldes, kan SkemaPilot vise et lokalt estimat i lærerskema-previewet og lærerbelastningspanelet.";
   }
 
   const busiestTeacher = [...teacherLoads].sort((first, second) => second.lessons - first.lessons)[0];
 
   if (!busiestTeacher) {
-    return "I den visuelle kladde opstår huller, når en lærer har lektioner adskilt af tomme perioder samme dag. SkemaPilot kan nu vise et lokalt estimat, men ikke et færdigt lærerskema.";
+    return "SkemaPilot finder foreløbigt mulige huller som tomme lektioner mellem undervisningslektioner samme dag. Næste trin kan senere være forslag til konkrete byt eller flytninger, men her vises kun et fast eksempelsvar.";
   }
 
-  return `I den visuelle kladde opstår huller, når en lærer har lektioner adskilt af tomme perioder samme dag. SkemaPilot kan nu vise et lokalt estimat, men ikke et færdigt lærerskema. ${busiestTeacher.teacherName} har flest fordelte lektioner i fagfordelingens lokale estimat.`;
+  return `SkemaPilot finder foreløbigt mulige huller som tomme lektioner mellem undervisningslektioner samme dag. Næste trin kan senere være forslag til konkrete byt eller flytninger, men her vises kun et fast eksempelsvar. ${busiestTeacher.teacherName} har flest fordelte lektioner i fagfordelingens lokale estimat.`;
 }

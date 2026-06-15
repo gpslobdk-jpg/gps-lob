@@ -108,7 +108,7 @@ export function SkemaPilotConflictPanel({
           ? summarizeTeacherDoubleBooking(teacherDoubleBookings[0])
           : canCheckTeacherDoubleBookings
             ? "Tjekket sammenligner lærer, dag og lektion på tværs af aktive klassers visuelle kladder."
-            : "Lærerhuller vises kun som et foreløbigt lokalt estimat i lærerskema-previewet.",
+            : "Lærerhuller analyseres som foreløbigt lokalt estimat i lærerbelastningspanelet.",
     },
     {
       title: "Fagposter bør have lærer",
@@ -171,7 +171,7 @@ export function SkemaPilotConflictPanel({
           </h4>
           <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">
             Dette er et lokalt tjek på den visuelle kladde. Lærerskema-previewet bruger samme kladde,
-            men ændrer ikke skemaet og er ikke et færdigt arbejdsskema.
+            og lærerbelastningspanelet viser mulige huller uden at ændre skemaet.
           </p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-bold leading-6 text-slate-700">

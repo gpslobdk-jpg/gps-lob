@@ -39,8 +39,8 @@ export function SkemaPilotTeacherPreview({
     [allPreviewLessons, resolvedTeacherId],
   );
   const scheduleStats = useMemo(
-    () => getTeacherScheduleStats(allPreviewLessons, resolvedTeacherId),
-    [allPreviewLessons, resolvedTeacherId],
+    () => getTeacherScheduleStats(allPreviewLessons, resolvedTeacherId, lessonCount),
+    [allPreviewLessons, lessonCount, resolvedTeacherId],
   );
 
   return (
