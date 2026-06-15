@@ -6,6 +6,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { SkemaPilotAiMockPanel } from "./SkemaPilotAiMockPanel";
 import { SkemaPilotConflictPanel } from "./SkemaPilotConflictPanel";
 import { SkemaPilotQualityPanel } from "./SkemaPilotQualityPanel";
+import type { SubjectAssignmentStatus, TeacherLoad } from "./SkemaPilotSubjectAssignment";
 
 type PriorityLevel = "Lav" | "Middel" | "Høj";
 
@@ -33,7 +34,9 @@ type SkemaPilotPreviewProps = {
   priorities: Record<string, PriorityLevel>;
   rubikClassName: string;
   settings: PreviewSettings;
+  subjectAssignmentStatus: SubjectAssignmentStatus;
   subjects: readonly string[];
+  teacherLoads: readonly TeacherLoad[];
 };
 
 const weekdays = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag"] as const;
@@ -59,7 +62,9 @@ export function SkemaPilotPreview({
   priorities,
   rubikClassName,
   settings,
+  subjectAssignmentStatus,
   subjects,
+  teacherLoads,
 }: SkemaPilotPreviewProps) {
   const [selectedClass, setSelectedClass] = useState("");
   const previewClass = activeClasses.includes(selectedClass) ? selectedClass : activeClasses[0] ?? "0. klasse";
@@ -165,6 +170,9 @@ export function SkemaPilotPreview({
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Status</p>
             <div className="mt-3 grid gap-2">
               <StatusLine text="Lokale tjek bygger på prototype-data" />
+              <StatusLine
+                text={`${subjectAssignmentStatus.assignedItems}/${subjectAssignmentStatus.totalItems} fagposter er fordelt til lærere`}
+              />
               <StatusLine text="Ingen automatisk flytning af lektioner" />
               <StatusLine text="Pædagogiske ønsker indgår i kvalitetsscoren" />
             </div>
@@ -192,6 +200,7 @@ export function SkemaPilotPreview({
         lessonCount={lessonCount}
         previewClass={previewClass}
         rubikClassName={rubikClassName}
+        subjectAssignmentStatus={subjectAssignmentStatus}
         subjects={subjects}
       />
       <SkemaPilotQualityPanel
@@ -200,11 +209,15 @@ export function SkemaPilotPreview({
         previewLessons={previewLessons}
         priorities={priorities}
         rubikClassName={rubikClassName}
+        subjectAssignmentStatus={subjectAssignmentStatus}
+        teacherLoads={teacherLoads}
       />
       <SkemaPilotAiMockPanel
         previewClass={previewClass}
         priorities={priorities}
         rubikClassName={rubikClassName}
+        subjectAssignmentStatus={subjectAssignmentStatus}
+        teacherLoads={teacherLoads}
       />
     </section>
   );

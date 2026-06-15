@@ -3,6 +3,8 @@
 import { AlertCircle, Check, CircleDashed } from "lucide-react";
 import type { ReactNode } from "react";
 
+import type { SubjectAssignmentStatus } from "./SkemaPilotSubjectAssignment";
+
 type ConflictPanelProps = {
   activeBlocks: readonly string[];
   activeClasses: readonly string[];
@@ -10,6 +12,7 @@ type ConflictPanelProps = {
   lessonCount: number;
   previewClass: string;
   rubikClassName: string;
+  subjectAssignmentStatus: SubjectAssignmentStatus;
   subjects: readonly string[];
 };
 
@@ -50,6 +53,7 @@ export function SkemaPilotConflictPanel({
   lessonCount,
   previewClass,
   rubikClassName,
+  subjectAssignmentStatus,
   subjects,
 }: ConflictPanelProps) {
   const capacityPerClass = lessonCount * 5;
@@ -78,8 +82,30 @@ export function SkemaPilotConflictPanel({
     {
       title: "Lærer må ikke være to steder samtidig",
       status: "unknown",
-      description: "Lærer pr. lektion er ikke koblet på previewet endnu.",
-      detail: "Kræver senere fagfordeling med konkrete lærere pr. fag og klasse.",
+      description:
+        subjectAssignmentStatus.assignedItems > 0
+          ? "Fagfordeling er oprettet, men konkrete lærer-dobbeltbookinger kræver lektionsplacering."
+          : "Lærer pr. lektion er ikke koblet på previewet endnu.",
+      detail:
+        subjectAssignmentStatus.assignedItems > 0
+          ? "SkemaPilot ved nu, hvilke lærere der er knyttet til fagposter, men ikke hvornår de underviser."
+          : "Kræver fagfordeling med konkrete lærere pr. fag og klasse.",
+    },
+    {
+      title: "Fagposter bør have lærer",
+      status:
+        subjectAssignmentStatus.totalItems === 0
+          ? "unknown"
+          : subjectAssignmentStatus.missingItems > 0
+            ? "warning"
+            : "ok",
+      description:
+        subjectAssignmentStatus.totalItems === 0
+          ? "Der er ingen relevante fagposter at fordele endnu."
+          : subjectAssignmentStatus.missingItems > 0
+            ? `${subjectAssignmentStatus.missingItems} fagposter mangler lærer.`
+            : "Alle relevante fagposter er fordelt til lærere.",
+      detail: `${subjectAssignmentStatus.assignedItems}/${subjectAssignmentStatus.totalItems} fagposter er fordelt i det lokale estimat.`,
     },
     {
       title: "Lokale må ikke bruges af to hold samtidig",
@@ -132,6 +158,7 @@ export function SkemaPilotConflictPanel({
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-bold leading-6 text-slate-700">
           <p>{totalCapacity} mulige lektionsfelter</p>
           <p>{totalSelectedLessons} valgte lektioner</p>
+          <p>{subjectAssignmentStatus.missingItems} fagposter mangler lærer</p>
           <p>{fixedSlotsTotal} felter reserveret af faste blokke</p>
           <p>{unknownCount} regler kræver senere data</p>
         </div>

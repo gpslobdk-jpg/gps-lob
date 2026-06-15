@@ -3,6 +3,8 @@
 import { CircleDashed, Gauge, Lightbulb, TrendingUp } from "lucide-react";
 import type { ReactNode } from "react";
 
+import type { SubjectAssignmentStatus, TeacherLoad } from "./SkemaPilotSubjectAssignment";
+
 type PriorityLevel = "Lav" | "Middel" | "Høj";
 
 type QualityPreviewCell = {
@@ -19,6 +21,8 @@ type QualityPanelProps = {
   previewLessons: readonly QualityPreviewCell[];
   priorities: Record<string, PriorityLevel>;
   rubikClassName: string;
+  subjectAssignmentStatus: SubjectAssignmentStatus;
+  teacherLoads: readonly TeacherLoad[];
 };
 
 type QualityMetric = {
@@ -48,15 +52,18 @@ export function SkemaPilotQualityPanel({
   previewLessons,
   priorities,
   rubikClassName,
+  subjectAssignmentStatus,
+  teacherLoads,
 }: QualityPanelProps) {
   const grade = getGradeFromClassName(previewClass);
-  const metrics = buildQualityMetrics(previewLessons, lessonCount, grade, priorities);
+  const metrics = buildQualityMetrics(previewLessons, lessonCount, grade, priorities, subjectAssignmentStatus);
   const scoredMetrics = metrics.filter((metric) => metric.status !== "unknown");
   const weightedTotal = scoredMetrics.reduce((total, metric) => total + metric.score * metric.weight, 0);
   const weightTotal = scoredMetrics.reduce((total, metric) => total + metric.weight, 0);
   const score = weightTotal ? Math.round(weightedTotal / weightTotal) : 70;
   const strengths = buildStrengths(metrics, grade);
   const improvements = buildImprovements(metrics);
+  const teacherLoadInsight = getTeacherLoadInsight(teacherLoads, subjectAssignmentStatus);
 
   return (
     <section className="mt-5 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -79,6 +86,9 @@ export function SkemaPilotQualityPanel({
           <p className="mt-3 text-sm font-black uppercase tracking-[0.14em]">Lokal score</p>
           <p className="mt-1 text-sm font-bold leading-6">
             Bygger på bløde ønsker og den valgte klasses visuelle kladde.
+          </p>
+          <p className="mt-3 border-t border-emerald-200 pt-3 text-sm font-bold leading-6">
+            {teacherLoadInsight}
           </p>
         </div>
       </div>
@@ -165,6 +175,7 @@ function buildQualityMetrics(
   lessonCount: number,
   grade: number,
   priorities: Record<string, PriorityLevel>,
+  subjectAssignmentStatus: SubjectAssignmentStatus,
 ): QualityMetric[] {
   const coreMetric = getCoreEarlyMetric(previewLessons, lessonCount);
   const peMetric = getBlockMetric(previewLessons, "Idræt", "Idræt gerne som dobbeltlektion");
@@ -224,10 +235,30 @@ function buildQualityMetrics(
       label: "Ikke vurderet",
       score: 0,
       status: "unknown",
-      description: "Lærerhuller vurderes senere, når fagfordeling kobles på.",
+      description:
+        subjectAssignmentStatus.assignedItems > 0
+          ? "Lærerhuller kræver konkrete placeringer, men lærerbelastning kan nu estimeres ud fra fagfordelingen."
+          : "Lærerhuller vurderes senere, når fagfordeling kobles på.",
       weight: getPriorityWeight(priorities["Lærere skal helst ikke have mange huller"]),
     },
   ];
+}
+
+function getTeacherLoadInsight(
+  teacherLoads: readonly TeacherLoad[],
+  subjectAssignmentStatus: SubjectAssignmentStatus,
+) {
+  if (!subjectAssignmentStatus.assignedItems) {
+    return "Lærerbelastning vises som lokalt estimat, når fagposter er fordelt.";
+  }
+
+  const busiestTeacher = [...teacherLoads].sort((first, second) => second.lessons - first.lessons)[0];
+
+  if (!busiestTeacher) {
+    return "Lærerbelastning kan nu estimeres ud fra fagfordelingen.";
+  }
+
+  return `${busiestTeacher.teacherName} har flest fordelte lektioner i det lokale estimat.`;
 }
 
 function getCoreEarlyMetric(previewLessons: readonly QualityPreviewCell[], lessonCount: number) {

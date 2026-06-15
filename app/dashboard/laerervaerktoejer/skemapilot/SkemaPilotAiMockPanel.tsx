@@ -3,6 +3,8 @@
 import { BrainCircuit, CircleDashed, MessageSquareText, UserRound } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import type { SubjectAssignmentStatus, TeacherLoad } from "./SkemaPilotSubjectAssignment";
+
 type PriorityLevel = "Lav" | "Middel" | "Høj";
 
 type AiMockPrompt = {
@@ -15,49 +17,63 @@ type SkemaPilotAiMockPanelProps = {
   previewClass: string;
   priorities: Record<string, PriorityLevel>;
   rubikClassName: string;
+  subjectAssignmentStatus: SubjectAssignmentStatus;
+  teacherLoads: readonly TeacherLoad[];
 };
 
-const mockPrompts: AiMockPrompt[] = [
-  {
-    id: "calm-class",
-    question: "Kan du gøre 3. klasses skema mere roligt?",
-    answer:
-      "Jeg ville først kigge på antallet af fag pr. dag for den valgte klasse. Hvis der er mange korte skift, kan kreative fag samles i længere blokke, og dansk eller matematik kan ligge som tydelige ankre tidligt på dagen. Det er et eksempelsvar, ikke en beregnet anbefaling.",
-  },
-  {
-    id: "pe-block",
-    question: "Kan idræt samles som dobbeltlektion?",
-    answer:
-      "Idræt fungerer ofte bedst som dobbeltlektion, fordi omklædning, transport og opstart ellers spiser for meget tid. I en senere version kan SkemaPilot lede efter to nabofelter med hal eller andet relevant lokale. Her vises kun princippet som eksempelsvar.",
-  },
-  {
-    id: "top-three",
-    question: "Hvilke tre ændringer forbedrer skemaet mest?",
-    answer:
-      "De største forbedringer vil typisk være: kernefag tidligere på dagen, færre faglige skift i indskolingen og færre lærerhuller. I prototypen er det en fast formuleret pædagogisk tommelfingerregel, ikke en beregnet anbefaling.",
-  },
-  {
-    id: "teacher-gaps",
-    question: "Hvorfor får lærere huller?",
-    answer:
-      "Lærerhuller opstår ofte, når en lærer underviser på få lektioner spredt ud over dagen, eller når lokaler og faste blokke begrænser placeringen. Lærerhuller kan først vurderes præcist, når fagfordeling og lærer pr. lektion er koblet på.",
-  },
-  {
-    id: "core-early",
-    question: "Kan dansk og matematik ligge tidligere?",
-    answer:
-      "Hvis dansk og matematik ligger sent på dagen, kan SkemaPilot senere foreslå byt med lettere eller mere praktiske fag. I denne prototype kan panelet kun vise et eksempel på, hvordan dialogen kunne lyde.",
-  },
-  {
-    id: "leader-first",
-    question: "Hvad bør skolelederen tjekke først?",
-    answer:
-      "Jeg ville først tjekke om de hårde bindinger virker rimelige: faste blokke, speciallokaler og samlet timetal. Derefter giver det mening at kigge på ro i klassernes dage og på de ønsker, skolen har markeret som høj prioritet.",
-  },
-];
+function buildMockPrompts(teacherGapContext: string): AiMockPrompt[] {
+  return [
+    {
+      id: "calm-class",
+      question: "Kan du gøre 3. klasses skema mere roligt?",
+      answer:
+        "Jeg ville først kigge på antallet af fag pr. dag for den valgte klasse. Hvis der er mange korte skift, kan kreative fag samles i længere blokke, og dansk eller matematik kan ligge som tydelige ankre tidligt på dagen. Det er et eksempelsvar, ikke en beregnet anbefaling.",
+    },
+    {
+      id: "pe-block",
+      question: "Kan idræt samles som dobbeltlektion?",
+      answer:
+        "Idræt fungerer ofte bedst som dobbeltlektion, fordi omklædning, transport og opstart ellers spiser for meget tid. I en senere version kan SkemaPilot lede efter to nabofelter med hal eller andet relevant lokale. Her vises kun princippet som eksempelsvar.",
+    },
+    {
+      id: "top-three",
+      question: "Hvilke tre ændringer forbedrer skemaet mest?",
+      answer:
+        "De største forbedringer vil typisk være: kernefag tidligere på dagen, færre faglige skift i indskolingen og færre lærerhuller. I prototypen er det en fast formuleret pædagogisk tommelfingerregel, ikke en beregnet anbefaling.",
+    },
+    {
+      id: "teacher-gaps",
+      question: "Hvorfor får lærere huller?",
+      answer: teacherGapContext,
+    },
+    {
+      id: "core-early",
+      question: "Kan dansk og matematik ligge tidligere?",
+      answer:
+        "Hvis dansk og matematik ligger sent på dagen, kan SkemaPilot senere foreslå byt med lettere eller mere praktiske fag. I denne prototype kan panelet kun vise et eksempel på, hvordan dialogen kunne lyde.",
+    },
+    {
+      id: "leader-first",
+      question: "Hvad bør skolelederen tjekke først?",
+      answer:
+        "Jeg ville først tjekke om de hårde bindinger virker rimelige: faste blokke, speciallokaler og samlet timetal. Derefter giver det mening at kigge på ro i klassernes dage og på de ønsker, skolen har markeret som høj prioritet.",
+    },
+  ];
+}
 
-export function SkemaPilotAiMockPanel({ previewClass, priorities, rubikClassName }: SkemaPilotAiMockPanelProps) {
-  const [selectedPromptId, setSelectedPromptId] = useState(mockPrompts[0].id);
+export function SkemaPilotAiMockPanel({
+  previewClass,
+  priorities,
+  rubikClassName,
+  subjectAssignmentStatus,
+  teacherLoads,
+}: SkemaPilotAiMockPanelProps) {
+  const [selectedPromptId, setSelectedPromptId] = useState("calm-class");
+  const teacherGapContext = useMemo(
+    () => getTeacherGapContext(teacherLoads, subjectAssignmentStatus),
+    [teacherLoads, subjectAssignmentStatus],
+  );
+  const mockPrompts = useMemo(() => buildMockPrompts(teacherGapContext), [teacherGapContext]);
   const selectedPrompt = mockPrompts.find((prompt) => prompt.id === selectedPromptId) ?? mockPrompts[0];
   const priorityContext = useMemo(() => getPriorityContext(priorities), [priorities]);
 
@@ -173,4 +189,21 @@ function getPriorityContext(priorities: Record<string, PriorityLevel>) {
   }
 
   return `Høje ønsker i opsætningen: ${highPriorities.join(" og ")}.`;
+}
+
+function getTeacherGapContext(
+  teacherLoads: readonly TeacherLoad[],
+  subjectAssignmentStatus: SubjectAssignmentStatus,
+) {
+  if (!subjectAssignmentStatus.assignedItems) {
+    return "Lærerhuller kræver konkrete lektionsplaceringer. Når fagfordelingen udfyldes, kan SkemaPilot allerede vise, hvilke lærere der har flest fordelte lektioner som lokalt estimat.";
+  }
+
+  const busiestTeacher = [...teacherLoads].sort((first, second) => second.lessons - first.lessons)[0];
+
+  if (!busiestTeacher) {
+    return "Lærerhuller kræver konkrete placeringer, men fagfordelingen viser allerede hvilke lærere der er mest belastede i det lokale estimat.";
+  }
+
+  return `Lærerhuller kræver konkrete placeringer, men fagfordelingen viser allerede hvilke lærere der er mest belastede. ${busiestTeacher.teacherName} har flest fordelte lektioner i det lokale estimat.`;
 }

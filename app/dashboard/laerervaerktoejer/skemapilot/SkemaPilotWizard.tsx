@@ -15,10 +15,20 @@ import {
   Plus,
   School,
   Trash2,
+  UserCheck,
 } from "lucide-react";
 import { useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 
 import { SkemaPilotPreview } from "./SkemaPilotPreview";
+import {
+  SkemaPilotSubjectAssignment,
+  buildSubjectAssignmentRows,
+  formatLessonCount,
+  getAvailableSubjectTeachers,
+  getSubjectAssignmentStatus,
+  getTeacherLoadStats,
+  type SubjectAssignmentMap,
+} from "./SkemaPilotSubjectAssignment";
 
 type SchoolSettings = {
   schoolName: string;
@@ -118,6 +128,12 @@ const wizardSteps: WizardStep[] = [
     icon: <FileText className="h-5 w-5" />,
   },
   {
+    title: "Fagfordeling",
+    shortTitle: "Fagfordeling",
+    description: "Fordel fag og klassers lektioner til lærere som et lokalt estimat.",
+    icon: <UserCheck className="h-5 w-5" />,
+  },
+  {
     title: "Lokaler og faste blokke",
     shortTitle: "Lokaler",
     description: "Vælg speciallokaler og faste blokke, der senere skal respekteres.",
@@ -175,6 +191,7 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
   const [classSelection, setClassSelection] = useState<Record<string, boolean>>({});
   const [lessonMatrix, setLessonMatrix] = useState<Record<string, Record<string, string>>>({});
   const [teachers, setTeachers] = useState<Teacher[]>(initialTeachers);
+  const [subjectAssignments, setSubjectAssignments] = useState<SubjectAssignmentMap>({});
   const [roomSelection, setRoomSelection] = useState<Record<string, boolean>>({
     Idrætshal: true,
     Musik: true,
@@ -212,6 +229,8 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
   const activeRooms = specialRooms.filter((room) => roomSelection[room]);
   const activeBlocks = [...fixedBlocks.filter((block) => blockSelection[block]), ...extraBlocks];
   const activeStep = wizardSteps[currentStep];
+  const subjectAssignmentRows = buildSubjectAssignmentRows(activeClasses, subjects, getLessonValue, subjectAssignments);
+  const subjectAssignmentStatus = getSubjectAssignmentStatus(subjectAssignmentRows, teachers);
 
   function updateSettings<Key extends keyof SchoolSettings>(key: Key, value: SchoolSettings[Key]) {
     setSettings((previous) => ({
@@ -232,6 +251,20 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
         [subject]: value,
       },
     }));
+  }
+
+  function updateSubjectAssignment(assignmentKey: string, teacherId: string) {
+    setSubjectAssignments((previous) => {
+      const nextAssignments = { ...previous };
+
+      if (teacherId) {
+        nextAssignments[assignmentKey] = teacherId;
+      } else {
+        delete nextAssignments[assignmentKey];
+      }
+
+      return nextAssignments;
+    });
   }
 
   function updateTeacher(teacherId: string, key: keyof Omit<Teacher, "id">, value: string) {
@@ -314,8 +347,9 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
                 SkemaPilot hjælper små skoler med at lave skemaer, der både går op og giver pædagogisk mening.
               </p>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
-                Denne lokale prototype samler skolens rammer, en visuel kladde, lokale tjek, kvalitetsscore
-                og dialog-eksempler. Data bliver i browseren, og der er ingen skemagenerator eller AI-forbindelse.
+                Denne lokale prototype samler skolens rammer, fagfordeling, en visuel kladde, lokale tjek,
+                kvalitetsscore og dialog-eksempler. Data bliver i browseren, og der er ingen skemagenerator
+                eller AI-forbindelse.
               </p>
             </div>
 
@@ -328,7 +362,7 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
             </div>
           </div>
 
-          <nav className="mt-8 grid gap-3 md:grid-cols-2 xl:grid-cols-7" aria-label="SkemaPilot trin">
+          <nav className="mt-8 grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8" aria-label="SkemaPilot trin">
             {wizardSteps.map((step, index) => {
               const isCurrent = index === currentStep;
               const isComplete = index < currentStep;
@@ -416,6 +450,17 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
                 />
               ) : null}
               {currentStep === 4 ? (
+                <SkemaPilotSubjectAssignment
+                  activeClasses={activeClasses}
+                  getLessonValue={getLessonValue}
+                  rubikClassName={rubikClassName}
+                  subjectAssignments={subjectAssignments}
+                  subjects={subjects}
+                  teachers={teachers}
+                  onUpdateAssignment={updateSubjectAssignment}
+                />
+              ) : null}
+              {currentStep === 5 ? (
                 <RoomsAndBlocksStep
                   activeBlocks={activeBlocks}
                   activeRooms={activeRooms}
@@ -442,10 +487,10 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
                   }
                 />
               ) : null}
-              {currentStep === 5 ? (
+              {currentStep === 6 ? (
                 <PrioritiesStep priorities={priorities} onUpdatePriority={setPriorities} />
               ) : null}
-              {currentStep === 6 ? (
+              {currentStep === 7 ? (
                 <SummaryStep
                   activeBlocks={activeBlocks}
                   activeClasses={activeClasses}
@@ -455,6 +500,7 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
                   rubikClassName={rubikClassName}
                   settings={settings}
                   setupFinished={setupFinished}
+                  subjectAssignments={subjectAssignments}
                   teachers={teachers}
                 />
               ) : null}
@@ -510,6 +556,10 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
               <SummaryMiniRow label="Skoleår" value={settings.schoolYear} />
               <SummaryMiniRow label="Klasser" value={`${activeClasses.length} aktive`} />
               <SummaryMiniRow label="Lærere" value={`${teachers.length} lokale input`} />
+              <SummaryMiniRow
+                label="Fagfordeling"
+                value={`${subjectAssignmentStatus.assignedItems}/${subjectAssignmentStatus.totalItems} fordelt`}
+              />
               <SummaryMiniRow label="Lokaler" value={`${activeRooms.length} valgt`} />
               <SummaryMiniRow label="Faste blokke" value={`${activeBlocks.length} valgt`} />
             </div>
@@ -763,7 +813,7 @@ function TeachersStep({
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-2xl text-sm font-semibold leading-7 text-slate-600">
-          Tilføj lærere lokalt med fagområder og enkle ønsker. Avanceret fagfordeling kommer ikke i denne fase.
+          Tilføj lærere lokalt med fagområder og enkle ønsker. Næste trin bruger listen til fagfordeling.
         </p>
         <button
           type="button"
@@ -968,6 +1018,7 @@ function SummaryStep({
   rubikClassName,
   settings,
   setupFinished,
+  subjectAssignments,
   teachers,
 }: {
   activeBlocks: string[];
@@ -978,9 +1029,17 @@ function SummaryStep({
   rubikClassName: string;
   settings: SchoolSettings;
   setupFinished: boolean;
+  subjectAssignments: SubjectAssignmentMap;
   teachers: Teacher[];
 }) {
   const filledTeachers = teachers.filter((teacher) => teacher.name.trim() || teacher.subjects.trim() || teacher.wishes.trim());
+  const subjectAssignmentRows = buildSubjectAssignmentRows(activeClasses, subjects, getLessonValue, subjectAssignments);
+  const subjectAssignmentStatus = getSubjectAssignmentStatus(subjectAssignmentRows, teachers);
+  const availableTeacherIds = new Set(getAvailableSubjectTeachers(teachers).map((teacher) => teacher.id));
+  const missingSubjectAssignments = subjectAssignmentRows.filter(
+    (row) => !row.teacherId || !availableTeacherIds.has(row.teacherId),
+  );
+  const teacherLoads = getTeacherLoadStats(subjectAssignmentRows, teachers);
 
   return (
     <div className="grid gap-6">
@@ -1072,6 +1131,56 @@ function SummaryStep({
         )}
       </SummaryCard>
 
+      <SummaryCard title="Fagfordeling">
+        <div className="grid gap-3 md:grid-cols-4">
+          <SummaryMetric label="Fagposter" value={String(subjectAssignmentStatus.totalItems)} />
+          <SummaryMetric label="Fordelt" value={String(subjectAssignmentStatus.assignedItems)} />
+          <SummaryMetric label="Mangler" value={String(subjectAssignmentStatus.missingItems)} />
+          <SummaryMetric label="Klar" value={`${subjectAssignmentStatus.completionPercentage} %`} />
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950">
+            <p className="text-xs font-black uppercase tracking-[0.14em]">Mangler lærer</p>
+            {missingSubjectAssignments.length ? (
+              <div className="mt-3 grid gap-2">
+                {missingSubjectAssignments.slice(0, 8).map((row) => (
+                  <p key={row.assignmentKey} className="text-sm font-bold leading-6">
+                    {row.className}: {row.subject} ({formatLessonCount(row.lessons)} lektioner/uge)
+                  </p>
+                ))}
+                {missingSubjectAssignments.length > 8 ? (
+                  <p className="text-xs font-black uppercase tracking-[0.12em] opacity-75">
+                    +{missingSubjectAssignments.length - 8} flere fagposter
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm font-bold leading-6">Alle relevante fagposter er fordelt til lærere.</p>
+            )}
+          </section>
+
+          <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
+            <p className="text-xs font-black uppercase tracking-[0.14em]">Lærerbelastning</p>
+            {teacherLoads.length ? (
+              <div className="mt-3 grid gap-2">
+                {teacherLoads.map((load) => (
+                  <p key={load.teacherId} className="flex justify-between gap-3 text-sm font-bold leading-6">
+                    <span className="min-w-0 break-words">{load.teacherName}</span>
+                    <span className="shrink-0">{formatLessonCount(load.lessons)} lektioner/uge</span>
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm font-bold leading-6">
+                Lærerbelastning vises, når der er navngivne lærere.
+              </p>
+            )}
+            <p className="mt-3 text-xs font-bold uppercase tracking-[0.12em] opacity-75">Lokalt estimat</p>
+          </section>
+        </div>
+      </SummaryCard>
+
       <SummaryCard title="Skema-prioriteter">
         <div className="grid gap-2 md:grid-cols-2">
           {priorityWishes.map((wish) => (
@@ -1099,7 +1208,9 @@ function SummaryStep({
         priorities={priorities}
         rubikClassName={rubikClassName}
         settings={settings}
+        subjectAssignmentStatus={subjectAssignmentStatus}
         subjects={subjects}
+        teacherLoads={teacherLoads}
       />
 
       <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
@@ -1108,7 +1219,7 @@ function SummaryStep({
           Klar som lokal prototype
         </h3>
         <p className="mt-3 text-sm font-bold leading-7 text-emerald-950">
-          SkemaPilot viser nu et samlet lokalt forløb fra setup til visuel kladde, konflikttjek,
+          SkemaPilot viser nu et samlet lokalt forløb fra setup til fagfordeling, visuel kladde, konflikttjek,
           kvalitetsscore og dialog-eksempler. Der er stadig ingen skemagenerator, AI-forbindelse eller
           automatisk flytning af lektioner.
         </p>
@@ -1265,6 +1376,15 @@ function SummaryLine({ label, value }: { label: string; value: string }) {
       <span className="font-black text-slate-950">{label}:</span>{" "}
       <span className="font-semibold text-slate-600">{value}</span>
     </p>
+  );
+}
+
+function SummaryMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
+    </div>
   );
 }
 
