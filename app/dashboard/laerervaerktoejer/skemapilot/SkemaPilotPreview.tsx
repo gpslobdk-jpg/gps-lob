@@ -3,6 +3,7 @@
 import { AlertCircle, CalendarDays, Info, School } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 
+import { SkemaPilotAiMockPanel } from "./SkemaPilotAiMockPanel";
 import { SkemaPilotConflictPanel } from "./SkemaPilotConflictPanel";
 import { SkemaPilotQualityPanel } from "./SkemaPilotQualityPanel";
 
@@ -194,6 +195,11 @@ export function SkemaPilotPreview({
         lessonCount={lessonCount}
         previewClass={previewClass}
         previewLessons={previewLessons}
+        priorities={priorities}
+        rubikClassName={rubikClassName}
+      />
+      <SkemaPilotAiMockPanel
+        previewClass={previewClass}
         priorities={priorities}
         rubikClassName={rubikClassName}
       />
