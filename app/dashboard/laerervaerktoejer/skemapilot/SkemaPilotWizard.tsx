@@ -393,9 +393,17 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
   }
 
   function handleDeleteDraft() {
+    if (
+      !window.confirm(
+        "Er du sikker på, at du vil slette den lokale SkemaPilot-kladde fra denne browser?",
+      )
+    ) {
+      return;
+    }
     deleteDraft();
     setLastSavedAt(null);
     setSaveError(null);
+    setShowDraftBanner(false);
   }
 
   function goToStep(stepIndex: number) {
@@ -722,14 +730,16 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
               </div>
             ) : null}
 
-            <button
-              type="button"
-              onClick={handleDeleteDraft}
-              className="mt-3 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-slate-300 transition hover:border-rose-300/30 hover:text-rose-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-300/20"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Slet lokal kladde
-            </button>
+{lastSavedAt !== null || draftLoadResult.status === "ok" ? (
+              <button
+                type="button"
+                onClick={handleDeleteDraft}
+                className="mt-3 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-slate-300 transition hover:border-rose-300/30 hover:text-rose-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-300/20"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Slet lokal kladde
+              </button>
+            ) : null}
           </aside>
         </section>
       </div>
