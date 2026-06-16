@@ -177,7 +177,7 @@ export function SkemaPilotMoveSimulator({
           Flyt/bytte-simulator
         </p>
         <h4 className={`mt-2 text-2xl font-black tracking-tight text-slate-950 ${rubikClassName}`}>
-          Simuler flytning
+          Flyt eller byt
         </h4>
         <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">
           Tilføj klasser og lektioner for at simulere lokale flytninger i den visuelle kladde.

@@ -521,10 +521,11 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
                 <button
                   type="button"
                   disabled
+                  title="Gem lokalt som kladde er en kommende funktion og ikke tilgængelig endnu."
                   className={`${buttonBaseClassName} border border-slate-200 bg-slate-50 text-slate-500 focus-visible:ring-slate-100`}
                 >
                   Gem lokalt som kladde
-                  <span className="text-xs font-black uppercase tracking-[0.12em]">Prototype</span>
+                  <span className="text-xs font-black uppercase tracking-[0.12em]">Kommende funktion</span>
                 </button>
                 {currentStep < wizardSteps.length - 1 ? (
                   <button
@@ -541,7 +542,7 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
                     onClick={() => setSetupFinished(true)}
                     className={`${buttonBaseClassName} border border-emerald-700 bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-emerald-100`}
                   >
-                    Afslut opsætning
+                    Se opsummering
                     <Check className="h-4 w-4" />
                   </button>
                 )}

@@ -334,6 +334,9 @@ export function SkemaPilotPreview({
         </p>
 
         <div className="grid gap-3">
+          <p className="text-xs font-bold text-slate-500">
+            Tip: Træk en lektionscelle over et andet felt for at vurdere flytning eller bytte.
+          </p>
           <div className={`rounded-lg border p-3 text-sm font-bold leading-6 transition ${
             dragHoverSlot?.status === "possible"
               ? "border-emerald-200 bg-emerald-50 text-emerald-950"
