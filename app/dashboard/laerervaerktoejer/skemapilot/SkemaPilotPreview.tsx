@@ -428,7 +428,7 @@ export function SkemaPilotPreview({
               <StatusLine
                 text={`${subjectAssignmentStatus.assignedItems}/${subjectAssignmentStatus.totalItems} fagposter fordelt`}
               />
-                <StatusLine text="Flytninger kan anvendes i lokal kladde" />
+              <StatusLine text="Flytninger kan anvendes i lokal kladde" />
               <StatusLine text="Pædagogiske ønsker indgår i kvalitetsscoren" />
             </div>
           </section>

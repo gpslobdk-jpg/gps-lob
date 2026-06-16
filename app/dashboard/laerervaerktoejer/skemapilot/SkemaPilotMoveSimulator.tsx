@@ -194,7 +194,7 @@ export function SkemaPilotMoveSimulator({
             Flyt/bytte-simulator
           </p>
           <h4 className={`mt-2 text-3xl font-black tracking-tight text-slate-950 ${rubikClassName}`}>
-            Simuler flytning i visuel kladde
+            Flyt eller byt i visuel kladde
           </h4>
           <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">
             Vælg en lektion og et nyt tidspunkt. Simulatoren viser et lokalt tjek og giver mulighed
@@ -205,7 +205,7 @@ export function SkemaPilotMoveSimulator({
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-bold leading-6 text-slate-700">
           <div className="flex items-start gap-2">
             <CircleDashed className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
-            <p>Ingen flytning gemmes permanent. Kladden nulstilles ved refresh.</p>
+            <p>Ingen ændringer gemmes permanent. Kladden nulstilles ved refresh.</p>
           </div>
         </div>
       </div>
