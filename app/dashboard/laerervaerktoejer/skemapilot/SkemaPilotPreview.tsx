@@ -59,6 +59,23 @@ type SkemaPilotPreviewProps = {
   activeClasses: readonly string[];
   activeRooms: readonly string[];
   getLessonValue: (className: string, subject: string) => string;
+  manualChanges: readonly ManualChange[];
+  onApplyMove: (move: {
+    className: string;
+    fromDay: string;
+    fromLesson: number;
+    toDay: string;
+    toLesson: number;
+  }) => void;
+  onApplySwap: (swap: {
+    aFromDay: string;
+    aFromLesson: number;
+    bFromDay: string;
+    bFromLesson: number;
+    className: string;
+  }) => void;
+  onUndoLastChange: () => void;
+  onResetChanges: () => void;
   priorities: Record<string, PriorityLevel>;
   rubikClassName: string;
   settings: PreviewSettings;
@@ -87,6 +104,11 @@ export function SkemaPilotPreview({
   activeClasses,
   activeRooms,
   getLessonValue,
+  manualChanges,
+  onApplyMove,
+  onApplySwap,
+  onUndoLastChange,
+  onResetChanges,
   priorities,
   rubikClassName,
   settings,
@@ -97,7 +119,6 @@ export function SkemaPilotPreview({
   teacherLoads,
 }: SkemaPilotPreviewProps) {
   const [selectedClass, setSelectedClass] = useState("");
-  const [manualChanges, setManualChanges] = useState<ManualChange[]>([]);
   const dragSourceRef = useRef<SkemaPilotPreviewCell | null>(null);
   const prefillVersionRef = useRef(0);
   const [dragSourceKey, setDragSourceKey] = useState<string | null>(null);
@@ -129,34 +150,6 @@ export function SkemaPilotPreview({
     () => effectiveLessons.filter((lesson) => lesson.className === previewClass),
     [effectiveLessons, previewClass],
   );
-
-  function handleApplyMove(move: {
-    className: string;
-    fromDay: string;
-    fromLesson: number;
-    toDay: string;
-    toLesson: number;
-  }) {
-    setManualChanges((previous) => [...previous, { kind: "move", ...move, id: `move-${Date.now()}` }]);
-  }
-
-  function handleApplySwap(swap: {
-    aFromDay: string;
-    aFromLesson: number;
-    bFromDay: string;
-    bFromLesson: number;
-    className: string;
-  }) {
-    setManualChanges((previous) => [...previous, { kind: "swap", ...swap, id: `swap-${Date.now()}` }]);
-  }
-
-  function handleUndoLastChange() {
-    setManualChanges((previous) => previous.slice(0, -1));
-  }
-
-  function handleResetChanges() {
-    setManualChanges([]);
-  }
 
   function handleDragStart(cell: SkemaPilotPreviewCell) {
     dragSourceRef.current = cell;
@@ -276,14 +269,14 @@ export function SkemaPilotPreview({
             <div className="flex shrink-0 gap-2">
               <button
                 type="button"
-                onClick={handleUndoLastChange}
+                onClick={onUndoLastChange}
                 className="min-h-10 rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm font-black text-sky-800 transition hover:border-sky-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100"
               >
                 Fortryd seneste
               </button>
               <button
                 type="button"
-                onClick={handleResetChanges}
+                onClick={onResetChanges}
                 className="min-h-10 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-600 transition hover:border-rose-200 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-100"
               >
                 Nulstil kladde
@@ -315,8 +308,8 @@ export function SkemaPilotPreview({
       <SkemaPilotMoveSimulator
         allPreviewLessons={effectiveLessons}
         lessonCount={lessonCount}
-        onApplyMove={handleApplyMove}
-        onApplySwap={handleApplySwap}
+        onApplyMove={onApplyMove}
+        onApplySwap={onApplySwap}
         prefill={simulatorPrefill}
         rubikClassName={rubikClassName}
       />

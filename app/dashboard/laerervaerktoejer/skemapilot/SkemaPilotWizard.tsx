@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  HardDrive,
   ListChecks,
   Plus,
   School,
@@ -29,6 +30,14 @@ import {
   getTeacherLoadStats,
   type SubjectAssignmentMap,
 } from "./SkemaPilotSubjectAssignment";
+import {
+  deleteDraft,
+  formatDraftSavedAt,
+  loadDraft,
+  saveDraft,
+  type LoadDraftResult,
+} from "./skemaPilotLocalDraft";
+import { type ManualChange } from "./skemaPilotPreviewData";
 
 type SchoolSettings = {
   schoolName: string;
@@ -212,6 +221,13 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
   const [priorities, setPriorities] = useState<Record<string, PriorityLevel>>(
     Object.fromEntries(priorityWishes.map((wish) => [wish, "Middel"])) as Record<string, PriorityLevel>,
   );
+  const [manualChanges, setManualChanges] = useState<ManualChange[]>([]);
+
+  // LocalStorage draft — lazy-initialized so it runs on client during hydration
+  const [draftLoadResult] = useState<LoadDraftResult>(() => loadDraft());
+  const [showDraftBanner, setShowDraftBanner] = useState(() => draftLoadResult.status === "ok");
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const suggestedClasses = useMemo(() => {
     const from = Number(settings.gradeFrom);
@@ -300,6 +316,88 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
     setExtraBlockInput("");
   }
 
+  function handleApplyMove(move: {
+    className: string;
+    fromDay: string;
+    fromLesson: number;
+    toDay: string;
+    toLesson: number;
+  }) {
+    setManualChanges((previous) => [...previous, { kind: "move", ...move, id: `move-${Date.now()}` }]);
+  }
+
+  function handleApplySwap(swap: {
+    aFromDay: string;
+    aFromLesson: number;
+    bFromDay: string;
+    bFromLesson: number;
+    className: string;
+  }) {
+    setManualChanges((previous) => [...previous, { kind: "swap", ...swap, id: `swap-${Date.now()}` }]);
+  }
+
+  function handleUndoLastChange() {
+    setManualChanges((previous) => previous.slice(0, -1));
+  }
+
+  function handleResetManualChanges() {
+    setManualChanges([]);
+  }
+
+  function handleSaveDraft() {
+    const result = saveDraft({
+      currentStep,
+      settings,
+      classSelection,
+      lessonMatrix,
+      teachers,
+      subjectAssignments,
+      roomSelection,
+      blockSelection,
+      extraBlocks,
+      priorities,
+      manualChanges,
+    });
+
+    if (result.ok) {
+      setLastSavedAt(result.savedAt);
+      setSaveError(null);
+    } else {
+      setSaveError(result.error);
+    }
+  }
+
+  function handleLoadDraft() {
+    if (draftLoadResult.status !== "ok") {
+      return;
+    }
+
+    const d = draftLoadResult.draft;
+    setCurrentStep(d.currentStep);
+    setSettings(d.settings);
+    setClassSelection(d.classSelection);
+    setLessonMatrix(d.lessonMatrix);
+    setTeachers(d.teachers);
+    setSubjectAssignments(d.subjectAssignments);
+    setRoomSelection(d.roomSelection);
+    setBlockSelection(d.blockSelection);
+    setExtraBlocks(d.extraBlocks);
+    setPriorities(d.priorities);
+    setManualChanges(d.manualChanges ?? []);
+    setLastSavedAt(d.savedAt);
+    setShowDraftBanner(false);
+  }
+
+  function handleIgnoreDraft() {
+    setShowDraftBanner(false);
+  }
+
+  function handleDeleteDraft() {
+    deleteDraft();
+    setLastSavedAt(null);
+    setSaveError(null);
+  }
+
   function goToStep(stepIndex: number) {
     setCurrentStep(stepIndex);
     setSetupFinished(false);
@@ -330,9 +428,42 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
           </Link>
           <div className="hidden min-h-11 items-center gap-2 rounded-lg border border-amber-200/35 bg-amber-200/10 px-4 py-2 text-sm font-bold text-amber-50 shadow-sm backdrop-blur sm:inline-flex">
             <CalendarClock className="h-4 w-4" />
-            Prototype
+            Under opbygning
           </div>
         </header>
+
+        {showDraftBanner && draftLoadResult.status === "ok" ? (
+          <div className="mt-5 rounded-lg border border-sky-200/40 bg-sky-950/40 p-4 text-white backdrop-blur">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-200">Lokal kladde fundet</p>
+            <p className="mt-1 text-sm font-bold leading-6 text-sky-50">
+              Der findes en lokal SkemaPilot-kladde i denne browser. Sidst gemt:{" "}
+              {formatDraftSavedAt(draftLoadResult.draft.savedAt)}.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleLoadDraft}
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-sky-300/50 bg-sky-600 px-3 py-2 text-sm font-black text-white transition hover:bg-sky-500 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300/30"
+              >
+                <HardDrive className="h-4 w-4" />
+                Hent lokal kladde
+              </button>
+              <button
+                type="button"
+                onClick={handleIgnoreDraft}
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm font-black text-white transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/10"
+              >
+                Start forfra i denne session
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {draftLoadResult.status === "error" && !showDraftBanner ? (
+          <div className="mt-5 rounded-lg border border-rose-200/30 bg-rose-950/30 p-3 text-sm font-bold text-rose-100 backdrop-blur">
+            {draftLoadResult.message}
+          </div>
+        ) : null}
 
         <section className="pt-10 text-white lg:pt-12">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -347,9 +478,9 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
                 SkemaPilot hjælper små skoler med at lave skemaer, der både går op og giver pædagogisk mening.
               </p>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
-                Denne lokale prototype samler skolens rammer, fagfordeling, en visuel kladde, lokale tjek,
-                kvalitetsscore og dialog-eksempler. Data bliver i browseren, og der er ingen skemagenerator
-                eller AI-forbindelse.
+                SkemaPilot samler skolens rammer, fagfordeling, en visuel kladde og lokale tjek i browseren.
+                Kladden kan gemmes lokalt på denne enhed. Ingen servergem endnu, ingen skemagenerator og ingen
+                AI-forbindelse.
               </p>
             </div>
 
@@ -496,6 +627,11 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
                   activeClasses={activeClasses}
                   activeRooms={activeRooms}
                   getLessonValue={getLessonValue}
+                  manualChanges={manualChanges}
+                  onApplyMove={handleApplyMove}
+                  onApplySwap={handleApplySwap}
+                  onResetChanges={handleResetManualChanges}
+                  onUndoLastChange={handleUndoLastChange}
                   priorities={priorities}
                   rubikClassName={rubikClassName}
                   settings={settings}
@@ -520,12 +656,11 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <button
                   type="button"
-                  disabled
-                  title="Gem lokalt som kladde er en kommende funktion og ikke tilgængelig endnu."
-                  className={`${buttonBaseClassName} border border-slate-200 bg-slate-50 text-slate-500 focus-visible:ring-slate-100`}
+                  onClick={handleSaveDraft}
+                  className={`${buttonBaseClassName} border border-emerald-700 bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-emerald-100`}
                 >
+                  <HardDrive className="h-4 w-4" />
                   Gem lokalt som kladde
-                  <span className="text-xs font-black uppercase tracking-[0.12em]">Kommende funktion</span>
                 </button>
                 {currentStep < wizardSteps.length - 1 ? (
                   <button
@@ -565,9 +700,36 @@ export function SkemaPilotWizard({ poppinsClassName, rubikClassName }: SkemaPilo
               <SummaryMiniRow label="Faste blokke" value={`${activeBlocks.length} valgt`} />
             </div>
             <div className="mt-5 rounded-lg border border-amber-200/30 bg-amber-200/10 p-4 text-sm font-bold leading-6 text-amber-50">
-              Prototypen viser arbejdsflowet lokalt. Den gemmer ikke data på en server og bygger ikke et
-              færdigt skema.
+              Kladden gemmes kun i denne browser. Skifter du browser eller computer, følger kladden ikke med.
+              Servergem kommer senere.
             </div>
+
+            {lastSavedAt ? (
+              <div className="mt-3 rounded-lg border border-emerald-300/20 bg-emerald-300/10 p-3 text-sm font-bold text-emerald-100">
+                <p className="flex items-center gap-2">
+                  <Check className="h-4 w-4 shrink-0" />
+                  Kladde gemt i denne browser
+                </p>
+                <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] opacity-75">
+                  Sidst gemt: {formatDraftSavedAt(lastSavedAt)}
+                </p>
+              </div>
+            ) : null}
+
+            {saveError ? (
+              <div className="mt-3 rounded-lg border border-rose-300/20 bg-rose-300/10 p-3 text-sm font-bold text-rose-100">
+                {saveError}
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={handleDeleteDraft}
+              className="mt-3 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-slate-300 transition hover:border-rose-300/30 hover:text-rose-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-300/20"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Slet lokal kladde
+            </button>
           </aside>
         </section>
       </div>
@@ -1015,6 +1177,11 @@ function SummaryStep({
   activeClasses,
   activeRooms,
   getLessonValue,
+  manualChanges,
+  onApplyMove,
+  onApplySwap,
+  onResetChanges,
+  onUndoLastChange,
   priorities,
   rubikClassName,
   settings,
@@ -1026,6 +1193,23 @@ function SummaryStep({
   activeClasses: string[];
   activeRooms: readonly string[];
   getLessonValue: (className: string, subject: string) => string;
+  manualChanges: readonly ManualChange[];
+  onApplyMove: (move: {
+    className: string;
+    fromDay: string;
+    fromLesson: number;
+    toDay: string;
+    toLesson: number;
+  }) => void;
+  onApplySwap: (swap: {
+    aFromDay: string;
+    aFromLesson: number;
+    bFromDay: string;
+    bFromLesson: number;
+    className: string;
+  }) => void;
+  onResetChanges: () => void;
+  onUndoLastChange: () => void;
   priorities: Record<string, PriorityLevel>;
   rubikClassName: string;
   settings: SchoolSettings;
@@ -1046,7 +1230,8 @@ function SummaryStep({
     <div className="grid gap-6">
       {setupFinished ? (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-950">
-          Opsætningen er afsluttet lokalt i prototypen. Der er stadig ikke gemt data på en server.
+          Opsætningen er afsluttet. Kladden er ikke gemt på en server — brug knappen nedenunder for at gemme
+          lokalt i denne browser.
         </div>
       ) : null}
 
@@ -1206,6 +1391,11 @@ function SummaryStep({
         activeClasses={activeClasses}
         activeRooms={activeRooms}
         getLessonValue={getLessonValue}
+        manualChanges={manualChanges}
+        onApplyMove={onApplyMove}
+        onApplySwap={onApplySwap}
+        onResetChanges={onResetChanges}
+        onUndoLastChange={onUndoLastChange}
         priorities={priorities}
         rubikClassName={rubikClassName}
         settings={settings}
@@ -1219,12 +1409,12 @@ function SummaryStep({
       <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Status</p>
         <h3 className={`mt-2 text-2xl font-black tracking-tight text-emerald-950 ${rubikClassName}`}>
-          Klar som lokal prototype
+          Lokal browserkladde
         </h3>
         <p className="mt-3 text-sm font-bold leading-7 text-emerald-950">
           SkemaPilot viser nu et samlet lokalt forløb fra setup til fagfordeling, visuel kladde, konflikttjek,
-          kvalitetsscore og dialog-eksempler. Der er stadig ingen skemagenerator, AI-forbindelse eller
-          automatisk flytning af lektioner.
+          kvalitetsscore og dialog-eksempler. Kladden gemmes kun i denne browser. Servergem, skemagenerator og
+          AI-forbindelse kommer senere.
         </p>
       </section>
     </div>
