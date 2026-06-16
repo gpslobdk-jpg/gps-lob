@@ -188,6 +188,8 @@ function FitBoundsSync({
 
     if (hasFittedInitialRef.current) return;
     if (!targetLocation || !playerLocation) return;
+    if (!Number.isFinite(playerLocation.lat) || !Number.isFinite(playerLocation.lng)) return;
+    if (!Number.isFinite(targetLocation.lat) || !Number.isFinite(targetLocation.lng)) return;
 
     const bounds: [number, number][] = [
       [playerLocation.lat, playerLocation.lng],
