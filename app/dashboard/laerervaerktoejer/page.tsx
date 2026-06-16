@@ -29,13 +29,13 @@ const toolCards = [
   },
   {
     title: "SkemaPilot",
-    description: "Et kommende skemaværktøj til små skoler, friskoler og privatskoler.",
+    description: "Et skemaværktøj under opbygning til små skoler, friskoler og privatskoler.",
     secondaryText:
-      "Prototype: samler senere konflikttjek, timetal, lærere, klasser, lokaler og pædagogiske ønsker.",
+      "Lav en visuel skemakladde, fordel fag, lærere og lokaler, og gem kladden lokalt i browseren.",
     href: "/dashboard/laerervaerktoejer/skemapilot",
     icon: School,
-    cta: "Se prototype",
-    statusLabel: "Kommer snart",
+    cta: "Åbn SkemaPilot",
+    statusLabel: "Lokal kladde",
   },
 ] as const;
 

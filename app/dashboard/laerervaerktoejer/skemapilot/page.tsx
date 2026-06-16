@@ -5,7 +5,7 @@ import { SkemaPilotWizard } from "./SkemaPilotWizard";
 
 export const metadata: Metadata = {
   title: "SkemaPilot – GPSLØB",
-  description: "Klikbar prototype på et kommende skemaværktøj til små skoler, friskoler og privatskoler.",
+  description: "Lav en visuel skemakladde, fordel fag, lærere og lokaler, og gem kladden lokalt i browseren.",
 };
 
 const rubik = Rubik({
