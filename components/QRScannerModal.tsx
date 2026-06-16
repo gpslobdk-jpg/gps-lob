@@ -156,8 +156,23 @@ export default function QRScannerModal({ buttonClassName = "", copy = defaultQrS
     // our try/catch as an unhandled rejection on iOS/WKWebView.
     // Only active while this modal instance is mounted (isActive flag).
     const handlePlayRejection = (event: PromiseRejectionEvent) => {
-      if (!isActive) return;
       const reason = event.reason;
+      const isAbortError = reason instanceof DOMException && reason.name === "AbortError";
+
+      // During teardown (!isActive): silently suppress scanner AbortErrors so they
+      // don't surface as unhandled rejections while scanner.stop() is in flight.
+      if (!isActive) {
+        if (isAbortError) event.preventDefault();
+        return;
+      }
+
+      // AbortError while active means the modal was closed while the camera was
+      // still starting – suppress silently, no error UI needed.
+      if (isAbortError) {
+        event.preventDefault();
+        return;
+      }
+
       const isMediaNotAllowed =
         (reason instanceof DOMException &&
           (reason.name === "NotAllowedError" || reason.name === "SecurityError")) ||
@@ -273,8 +288,11 @@ export default function QRScannerModal({ buttonClassName = "", copy = defaultQrS
 
     return () => {
       isActive = false;
-      window.removeEventListener("unhandledrejection", handlePlayRejection);
-      void stopScanner();
+      // Keep the listener alive until stopScanner completes so it can suppress
+      // any AbortError that html5-qrcode emits during video teardown.
+      void stopScanner().finally(() => {
+        window.removeEventListener("unhandledrejection", handlePlayRejection);
+      });
     };
   }, [copy, isOpen, router, scannerRegionId]);
 
