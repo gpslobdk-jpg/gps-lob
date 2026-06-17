@@ -68,6 +68,31 @@ function getCameraErrorMessage(error: unknown, copy: QrScannerCopy) {
   return copy.errors.generic;
 }
 
+function isIgnorableScannerAbortError(reason: unknown) {
+  if (reason instanceof DOMException && reason.name === "AbortError") {
+    return true;
+  }
+
+  if (reason instanceof Error) {
+    const message = reason.message.trim();
+    return (
+      reason.name === "AbortError" ||
+      message.includes("AbortError: The operation was aborted") ||
+      message === "The operation was aborted."
+    );
+  }
+
+  if (typeof reason === "string") {
+    const message = reason.trim();
+    return (
+      message.includes("AbortError: The operation was aborted") ||
+      message === "The operation was aborted."
+    );
+  }
+
+  return false;
+}
+
 function resolveScanTarget(value: string): ScanTarget | null {
   const trimmedValue = value.trim();
   if (!trimmedValue || typeof window === "undefined") return null;
@@ -157,7 +182,7 @@ export default function QRScannerModal({ buttonClassName = "", copy = defaultQrS
     // Only active while this modal instance is mounted (isActive flag).
     const handlePlayRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
-      const isAbortError = reason instanceof DOMException && reason.name === "AbortError";
+      const isAbortError = isIgnorableScannerAbortError(reason);
 
       // During teardown (!isActive): silently suppress scanner AbortErrors so they
       // don't surface as unhandled rejections while scanner.stop() is in flight.
