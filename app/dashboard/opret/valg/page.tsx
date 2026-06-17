@@ -88,6 +88,20 @@ const GAME_INFO_COPY: Record<GameType, GameInfoCopy> = {
 const fagligeCards: BuilderCard[] = [
   {
     raceType: "manuel",
+    title: "Lynbygger",
+    description:
+      "Svar på få korte spørgsmål, og få et færdigt forslag til et GPS-løb med poster og spørgsmål.",
+    href: "/dashboard/opret/lynbygger",
+    badge: "NY",
+    accentClass:
+      "border-cyan-400/80 bg-cyan-950/35 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(34,211,238,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
+    accentGlowClass:
+      "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(34,211,238,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(34,211,238,0.24)]",
+    badgeClass:
+      "border-cyan-200/50 bg-cyan-300/24 text-white shadow-[0_10px_22px_rgba(34,211,238,0.2)]",
+  },
+  {
+    raceType: "manuel",
     title: "Generel Quiz",
     description: "Byg et klassisk løb med spørgsmål, svarmuligheder og fuld kontrol over ruten.",
     href: "/dashboard/opret/manuel",
@@ -188,7 +202,14 @@ const aiCards: BuilderCard[] = [
   },
 ];
 
-function BuilderCard({ card, index }: { card: BuilderCard; index: number }) {
+function BuilderCard({ card }: { card: BuilderCard }) {
+  const tourId = card.href === "/dashboard/opret/manuel" ? "valg-classic-quiz" : undefined;
+  const testId =
+    card.href === "/dashboard/opret/lynbygger"
+      ? "create-card-lynbygger"
+      : card.href === "/dashboard/opret/manuel"
+        ? "create-card-manuel"
+        : undefined;
   const content = (
     <motion.article
       whileHover={card.locked ? undefined : { y: -4, scale: 1.012 }}
@@ -231,7 +252,8 @@ function BuilderCard({ card, index }: { card: BuilderCard; index: number }) {
   return (
     <Link
       href={card.href}
-      data-tour={index === 0 ? "valg-classic-quiz" : undefined}
+      data-tour={tourId}
+      data-testid={testId}
       className="block w-full text-left"
     >
       {content}
@@ -493,7 +515,7 @@ export default function ValgHubPage() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
           {fagligeCards.map((card, index) => (
-            <BuilderCard key={`${card.title}-${index}`} card={card} index={index} />
+            <BuilderCard key={`${card.title}-${index}`} card={card} />
           ))}
         </div>
 
@@ -504,7 +526,7 @@ export default function ValgHubPage() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
           {aiCards.map((card, index) => (
-            <BuilderCard key={`${card.title}-${index}`} card={card} index={index} />
+            <BuilderCard key={`${card.title}-${index}`} card={card} />
           ))}
         </div>
 

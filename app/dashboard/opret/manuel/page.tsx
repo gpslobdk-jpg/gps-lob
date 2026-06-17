@@ -691,6 +691,7 @@ function OpretLoebPageContent() {
   const toolsMenuPortalRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedDraftRef = useRef(false);
   const shouldAutoRestoreDraftRef = useRef<boolean | null>(null);
+  const skipNextDraftAutosaveRef = useRef(false);
   const pendingScrollTargetId = useRef<string | null>(null);
 
   const normalizedQuestionsForSave = useMemo(
@@ -1087,6 +1088,7 @@ function OpretLoebPageContent() {
       : null;
 
     if (restoredDraft) {
+      skipNextDraftAutosaveRef.current = true;
       applyDraftState(restoredDraft);
       setNotice(null);
       hasInitializedDraftRef.current = true;
@@ -1105,6 +1107,11 @@ function OpretLoebPageContent() {
   useEffect(() => {
     if (!hasInitializedDraftRef.current) return;
     if (showDraftRecoveryPrompt) return;
+
+    if (skipNextDraftAutosaveRef.current) {
+      skipNextDraftAutosaveRef.current = false;
+      return;
+    }
 
     const draftGameConfig = isVm26GameConfig(runGameConfig) ? buildVm26GameConfig(runGameConfig) : null;
 
@@ -1151,6 +1158,7 @@ function OpretLoebPageContent() {
       return;
     }
 
+    skipNextDraftAutosaveRef.current = true;
     applyDraftState(restoredDraft);
     setShowDraftRecoveryPrompt(false);
     setNotice({
