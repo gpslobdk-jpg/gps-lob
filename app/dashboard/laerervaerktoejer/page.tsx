@@ -32,10 +32,10 @@ const toolCards = [
     description: "Et skemaværktøj under opbygning til små skoler, friskoler og privatskoler.",
     secondaryText:
       "Lav en visuel skemakladde, fordel fag, lærere og lokaler, og gem kladden lokalt i browseren.",
-    href: "/dashboard/laerervaerktoejer/skemapilot",
+    href: "https://www.skemapilot.dk/app",
     icon: School,
     cta: "Åbn SkemaPilot",
-    statusLabel: "Lokal kladde",
+    statusLabel: "Åbner på skemapilot.dk",
   },
 ] as const;
 
@@ -90,6 +90,7 @@ export default function LaerervaerktoejerPage() {
           <section className="grid gap-5" aria-label="Lærerværktøjer">
             {toolCards.map((tool) => {
               const Icon = tool.icon;
+              const isExternal = tool.href.startsWith("http");
 
               return (
                 <article
@@ -123,6 +124,8 @@ export default function LaerervaerktoejerPage() {
 
                     <Link
                       href={tool.href}
+                      target={isExternal ? "_blank" : undefined}
+                      rel={isExternal ? "noopener noreferrer" : undefined}
                       className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-emerald-300/40 bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300/25 md:w-fit"
                     >
                       {tool.cta}
