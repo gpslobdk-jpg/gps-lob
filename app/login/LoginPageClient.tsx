@@ -20,6 +20,46 @@ type LoginPageClientProps = {
   initialSiteVariantKey?: SiteVariantKey;
 };
 
+const FALLBACK_OAUTH_ORIGIN = "https://gpslob.dk";
+
+const PRODUCTION_OAUTH_ORIGINS = new Set([
+  "https://gpslob.dk",
+  "https://www.gpslob.dk",
+  "https://skolegps.dk",
+  "https://www.skolegps.dk",
+]);
+
+const DEVELOPMENT_OAUTH_ORIGINS = new Set([
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+]);
+
+function normalizeOrigin(origin: string) {
+  try {
+    return new URL(origin).origin;
+  } catch {
+    return "";
+  }
+}
+
+export function buildOAuthCallbackUrl(currentOrigin: string, requestedNextPath: string) {
+  const normalizedOrigin = normalizeOrigin(currentOrigin);
+  const isAllowedProductionOrigin = PRODUCTION_OAUTH_ORIGINS.has(normalizedOrigin);
+  const isAllowedDevelopmentOrigin =
+    process.env.NODE_ENV !== "production" && DEVELOPMENT_OAUTH_ORIGINS.has(normalizedOrigin);
+  const safeOrigin =
+    isAllowedProductionOrigin || isAllowedDevelopmentOrigin
+      ? normalizedOrigin
+      : FALLBACK_OAUTH_ORIGIN;
+  const safeNextPath = requestedNextPath.startsWith("/dashboard")
+    ? requestedNextPath
+    : "/dashboard";
+  const callbackUrl = new URL("/api/auth/callback", safeOrigin);
+  callbackUrl.searchParams.set("next", safeNextPath);
+
+  return callbackUrl.toString();
+}
+
 export default function LoginPageClient({
   initialSiteVariantKey = DEFAULT_SITE_VARIANT.key,
 }: LoginPageClientProps) {
@@ -123,19 +163,13 @@ function LoginPageContent({ initialSiteVariantKey }: { initialSiteVariantKey: Si
     }
 
     const supabase = createClient();
-    const serverCallbackBase =
-      process.env.NODE_ENV === "production"
-        ? "https://gpslob.dk/api/auth/callback"
-        : "http://localhost:3000/api/auth/callback";
-
-    const callbackUrl = new URL(serverCallbackBase);
-    callbackUrl.searchParams.set("next", safeNextPath);
+    const callbackUrl = buildOAuthCallbackUrl(window.location.origin, safeNextPath);
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
         // Ensure the provider redirects back to our server-side callback
-        redirectTo: callbackUrl.toString(),
+        redirectTo: callbackUrl,
         ...(provider === "azure" ? { scopes: "email" } : {}),
       },
     });
