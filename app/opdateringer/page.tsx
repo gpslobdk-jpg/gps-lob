@@ -47,6 +47,31 @@ function formatDisplayDate(isoDate: string) {
 
 const entries = [
   {
+    version: "19/6",
+    date: "2026-06-19",
+    type: "minor" as const,
+    title: "GPSLøb får nyt hjem på SkoleGPS.dk",
+    summary:
+      "GPSLøb har fået nyt navn og nyt domæne: SkoleGPS.dk.\n\nDet betyder ikke, at funktionerne forsvinder eller ændrer sig. Du kan stadig oprette løb, bruge QR-koder, lade elever deltage via kode, se live-overblik, finde dine tidligere løb i arkivet og bruge lærerværktøjerne.\n\nDet nye navn skal gøre det tydeligere, at platformen er lavet til undervisning og skolebrug. I en overgangsperiode virker gpslob.dk fortsat, men vi anbefaler, at lærere fremover bruger skolegps.dk.",
+    items: [
+      {
+        title: "Samme funktioner",
+        description:
+          "Løb, QR-koder, live-overblik, arkiv og lærerværktøjer fortsætter som før.",
+      },
+      {
+        title: "Samme login og arkiv",
+        description:
+          "Eksisterende login og tidligere løb følger med, når du bruger SkoleGPS.dk.",
+      },
+      {
+        title: "Overgangsperiode",
+        description:
+          "gpslob.dk virker stadig, men fremover anbefaler vi lærere at bruge skolegps.dk.",
+      },
+    ],
+  },
+  {
     version: "14/6",
     date: "2026-06-14",
     type: "major" as const,

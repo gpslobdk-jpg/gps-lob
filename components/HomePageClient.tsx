@@ -61,18 +61,23 @@ type NativeDebugSnapshot = {
 };
 
 const latest = {
-  version: "14/6",
-  date: "2026-06-14",
-  dateLabel: "14. juni 2026",
+  version: "19/6",
+  date: "2026-06-19",
+  dateLabel: "19. juni 2026",
   type: "minor",
-  title: "Gratisperioden forlænges og nye lærerværktøjer er på vej",
+  title: "GPSLøb får nyt hjem på SkoleGPS.dk",
   summary:
-    "GPSLøb.dk er gratis frem til efter efterårsferien. Du kan også prøve Find Bedrageren under Mobilspil og de nye lærerværktøjer med årsplan-generator.",
+    "GPSLøb har fået nyt navn og nyt domæne: SkoleGPS.dk. Alle funktioner er de samme, og dine løb, login og arkiv fortsætter.",
   items: [
     {
-      title: "Gratis efter sommerferien",
+      title: "Samme platform og samme funktioner",
       description:
-        "Brug siden i forberedelsen til næste skoleår uden at skulle tage stilling til betaling endnu.",
+        "Du kan stadig oprette løb, bruge QR-koder, følge klassen live og finde tidligere løb i arkivet.",
+    },
+    {
+      title: "Brug SkoleGPS.dk fremover",
+      description:
+        "gpslob.dk virker fortsat i en overgangsperiode, men vi anbefaler lærere at bruge skolegps.dk fremover.",
     },
   ],
 };
@@ -344,23 +349,24 @@ function FreePeriodModal({ shouldShow }: { shouldShow: boolean }) {
         className="w-full max-w-lg rounded-3xl border border-white/70 bg-white p-6 shadow-[0_24px_80px_rgba(2,6,23,0.38)] sm:p-7"
       >
         <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">
-          Godt nyt til lærere
+          NYT NAVN - SAMME FUNKTIONER
         </p>
         <h2
           id="free-period-modal-title"
           className="mt-3 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl"
         >
-          Gratis adgang forlænges
+          GPSLøb bliver til SkoleGPS.dk
         </h2>
         <p className="mt-4 text-sm font-semibold leading-7 text-slate-700 sm:text-base">
-          GPSLøb.dk er gratis at bruge frem til efter efterårsferien.
+          GPSLøb har fået nyt hjem på SkoleGPS.dk.
         </p>
         <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
-          Det betyder, at du også kan bruge siden efter sommerferien og tage den med i din
-          forberedelse til næste skoleår.
+          Det er stadig den samme platform, de samme løb og de samme funktioner - bare
+          med et navn, der tydeligere viser, at værktøjet er lavet til skoler.
         </p>
         <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
-          Prøv løb, mobilspil og de nye lærerværktøjer, blandt andet den nye årsplan-generator.
+          gpslob.dk virker stadig i en overgangsperiode, men fremover anbefaler vi at
+          bruge skolegps.dk.
         </p>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
@@ -369,7 +375,7 @@ function FreePeriodModal({ shouldShow }: { shouldShow: boolean }) {
             className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-800 transition hover:border-emerald-200 hover:text-emerald-800"
             onClick={handleClose}
           >
-            Se opdateringer
+            Læs mere
           </Link>
           <button
             type="button"
@@ -826,12 +832,11 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
             {homeCopy.showDanishOnlyExtras ? (
               <div className="mt-5 rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-4 py-4 text-left">
                 <p className="text-sm font-black leading-6 text-emerald-50">
-                  GPSLøb.dk er gratis frem til efter efterårsferien
+                  GPSLøb har fået nyt hjem på SkoleGPS.dk
                 </p>
                 <p className="mt-2 text-sm leading-6 text-slate-200">
-                  Du kan derfor også bruge siden efter sommerferien, når du forbereder næste
-                  skoleår. Prøv Find Bedrageren under Mobilspil og de nye lærerværktøjer med
-                  årsplan-generator.
+                  Alle funktioner er de samme, og dine løb, login og arkiv fortsætter.
+                  gpslob.dk virker stadig i en overgangsperiode.
                 </p>
               </div>
             ) : null}
