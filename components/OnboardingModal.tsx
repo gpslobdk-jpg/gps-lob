@@ -110,7 +110,7 @@ export default function OnboardingModal({ forceOpenToken = 0 }: OnboardingModalP
               <motion.div variants={itemVariants} className="mb-5 flex w-full justify-center">
                 <Image
                   src="/gpslogo.png"
-                  alt="GPSLOB.DK Logo"
+                  alt="SkoleGPS logo"
                   width={350}
                   height={150}
                   priority
@@ -123,7 +123,7 @@ export default function OnboardingModal({ forceOpenToken = 0 }: OnboardingModalP
                 variants={itemVariants}
                 className={`text-center text-2xl font-extrabold text-cyan-50 sm:text-4xl ${rubik.className}`}
               >
-                GPSLOB.DK: Skattejagt på den smarte måde
+                SkoleGPS: Skattejagt på den smarte måde
               </motion.h2>
 
               <motion.p

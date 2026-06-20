@@ -22,7 +22,7 @@ export function MobileBuilderWarning({ className = "" }: MobileBuilderWarningPro
                 Brug en computer til builderen
               </h2>
               <p className="mt-3 text-sm leading-6 text-slate-200/80">
-                For at oprette og redigere løb skal du åbne gpslob.dk på en computer.
+                For at oprette og redigere løb skal du åbne SkoleGPS.dk på en computer.
                 Builderen har brug for ekstra skærmplads til kort, AI-værktøjer og præcis
                 redigering.
               </p>

@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Teknologi bag GPSLØB | Engineering the Future of Outdoor Learning",
+  title: "Teknologi bag SkoleGPS | Engineering the Future of Outdoor Learning",
   description:
-    "Et dybdegående kig bag kulissen på GPSLØB.dk – fra vores headless hook-arkitektur til Supabase Realtime og Vercel AI SDK.",
+    "Et dybdegående kig bag kulissen på SkoleGPS.dk – fra vores headless hook-arkitektur til Supabase Realtime og Vercel AI SDK.",
 };
 
 export default function TeknikSide() {
@@ -22,13 +22,13 @@ export default function TeknikSide() {
             Engineering the Future of Outdoor Learning
           </h1>
           <p className="text-xl leading-relaxed text-slate-600">
-            Bag kulissen på GPSløb.dk: Fra monolit til modulær High-End platform.
+            Bag kulissen på SkoleGPS.dk: Fra monolit til modulær High-End platform.
           </p>
         </header>
 
         <section className="prose prose-lg prose-slate max-w-none">
           <p className="lead">
-            Hos GPSløb.dk nøjes vi ikke med at flytte undervisningen ud i det fri; vi
+            Hos SkoleGPS.dk nøjes vi ikke med at flytte undervisningen ud i det fri; vi
             flytter grænserne for, hvad moderne web-teknologi kan præstere i 2026. Her
             er et indblik i vores arkitektur og de massive forbedringer, vi har
             implementeret for at skabe markedets mest skalerbare løsning.
@@ -126,7 +126,7 @@ export default function TeknikSide() {
               smelter sammen.
             </p>
             <a
-              href="mailto:Gpslobdk@gmail.com"
+              href="mailto:skolegpsdk@gmail.com"
               className="inline-block rounded-full bg-slate-900 px-8 py-3 font-semibold text-white transition-all hover:bg-slate-800"
             >
               👉 Kontakt vores tekniske team

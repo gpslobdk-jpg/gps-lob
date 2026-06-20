@@ -184,9 +184,9 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
         "SkoleGPS hjælper lærere med at lave aktive GPS-løb, quizzer og læringsaktiviteter, hvor eleverne bevæger sig og deltager via mobilen.",
       joinTitle: "Deltag i løbet | GPS Løb",
       joinDescription: "Indtast pinkode eller scan QR-koden for at deltage i løbet.",
-      loginTitle: "Login | GPS Løb",
+      loginTitle: "Login | SkoleGPS",
       loginDescription:
-        "Log ind på GPSLØB.DK for at oprette løb, følge klassen live og hente resultater.",
+        "Log ind på SkoleGPS.dk for at oprette løb, følge klassen live og hente resultater.",
       manifestName: "GPS Løb",
       manifestDescription: "Interaktive GPS-missioner",
     },
@@ -225,8 +225,8 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       redirectTitle: "Logger dig ind",
       redirectDescription:
         "Vi læser din session og sender dig videre til dashboardet uden auth-flicker.",
-      logoAlt: "GPSLØB.DK logo",
-      welcomeTitle: "Velkommen til gpsløb.dk",
+      logoAlt: "SkoleGPS logo",
+      welcomeTitle: "Velkommen til SkoleGPS.dk",
       subtitle: "",
       organizerEyebrow: "Log ind for arrangører",
       organizerDescription:
@@ -241,7 +241,7 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       passwordHint: "Mindst 6 tegn.",
       signupConsentEyebrow: "Kun ved oprettelse af ny konto",
       marketingConsentText:
-        "Ja tak, jeg vil gerne modtage nyheder og opdateringer om GPS Løb på mail. Jeg kan altid afmelde mig igen.",
+        "Ja tak, jeg vil gerne modtage nyheder og opdateringer om SkoleGPS på mail. Jeg kan altid afmelde mig igen.",
       marketingConsentStorageText:
         "v1: Ja tak, jeg vil gerne modtage nyheder og opdateringer om GPS Løb på mail. Jeg kan altid afmelde mig igen.",
       submitButton: "Log ind / Opret",

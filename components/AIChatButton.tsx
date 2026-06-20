@@ -344,10 +344,10 @@ export default function AIChatButton() {
                   <div>
                     {"Oplever du tekniske problemer? Skriv til "}
                     <a
-                      href="mailto:Gpslobdk@gmail.com"
+                      href="mailto:skolegpsdk@gmail.com"
                       className="break-all underline transition-colors hover:text-emerald-600"
                     >
-                      Gpslobdk@gmail.com
+                      skolegpsdk@gmail.com
                     </a>
                   </div>
                 </div>

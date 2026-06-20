@@ -29,7 +29,7 @@ export default function AuthLoadingScreen({
           <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border border-emerald-500/30 bg-slate-900/90 shadow-[0_0_30px_rgba(16,185,129,0.18)]">
             <Image
               src="/gpslogo.png"
-              alt="GPSLØB logo"
+              alt="SkoleGPS logo"
               width={72}
               height={72}
               priority

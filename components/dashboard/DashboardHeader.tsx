@@ -64,7 +64,7 @@ export default function DashboardHeader() {
             href="/dashboard"
             className="inline-flex w-fit items-center rounded-full border border-emerald-200 bg-white/80 px-4 py-2 text-sm font-semibold tracking-wide text-emerald-950 shadow-sm transition-all hover:border-emerald-300 hover:bg-white"
           >
-            GPS Løb
+            SkoleGPS
           </Link>
 
           <button

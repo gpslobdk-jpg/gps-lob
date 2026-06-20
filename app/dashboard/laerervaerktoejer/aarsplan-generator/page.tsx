@@ -281,7 +281,7 @@ export default function AarsplanGeneratorPage() {
   const generationTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
-    document.title = "Årsplan-generator – GPSLØB";
+    document.title = "Årsplan-generator – SkoleGPS";
   }, []);
 
   useEffect(

@@ -72,7 +72,7 @@ const priceCards: PriceCard[] = [
     title: "Skolelicensen",
     price: BETA_PRICE_COPY,
     priceMeta: BETA_META_COPY,
-    audience: "Til skoler og institutioner, der vil gøre GPSLØB til et fast værktøj i undervisningen.",
+    audience: "Til skoler og institutioner, der vil gøre SkoleGPS til et fast værktøj i undervisningen.",
     features: [
       "Ubegrænset for alle lærere",
       "Fuld adgang til AI Bog-Scanner og Rollespil",
@@ -80,7 +80,7 @@ const priceCards: PriceCard[] = [
       "Prioriteret support",
     ],
     ctaLabel: "Bestil med EAN",
-    ctaHref: "mailto:gpslobdk@gmail.com?subject=Bestilling%20af%20Skolelicens",
+    ctaHref: "mailto:skolegpsdk@gmail.com?subject=Bestilling%20af%20Skolelicens",
     featured: true,
     badge: "Mest populær",
     accent: "from-emerald-400/28 via-emerald-300/10 to-transparent",
@@ -198,7 +198,7 @@ export default function PricingPage() {
               Privatlivspolitik
             </Link>
             <span className="text-white/20">•</span>
-            <a href="mailto:gpslobdk@gmail.com" className="transition hover:text-white">
+            <a href="mailto:skolegpsdk@gmail.com" className="transition hover:text-white">
               Kontakt os
             </a>
           </div>

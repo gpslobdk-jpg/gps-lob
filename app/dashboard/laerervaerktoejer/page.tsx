@@ -4,8 +4,8 @@ import { ArrowLeft, ArrowRight, BookOpen, Calendar, School } from "lucide-react"
 import { Poppins, Rubik } from "next/font/google";
 
 export const metadata: Metadata = {
-  title: "Lærerværktøjer – GPSLØB",
-  description: "En samlet hub for planlægningsværktøjer til lærere i GPSLØB.",
+  title: "Lærerværktøjer – SkoleGPS",
+  description: "En samlet hub for planlægningsværktøjer til lærere i SkoleGPS.",
 };
 
 const rubik = Rubik({

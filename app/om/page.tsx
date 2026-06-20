@@ -4,9 +4,9 @@ import Link from "next/link";
 import { Poppins, Rubik } from "next/font/google";
 
 export const metadata: Metadata = {
-  title: "Om GPSLØB | Jeppe Laursen",
+  title: "Om SkoleGPS | Jeppe Laursen",
   description:
-    "GPSLØB er bygget af Jeppe Laursen, folkeskolelærer med 16 års erfaring. Læs om visionen bag platformen og teknologien der flytter undervisningen ud i naturen.",
+    "SkoleGPS er bygget af Jeppe Laursen, folkeskolelærer med 16 års erfaring. Læs om visionen bag platformen og teknologien der flytter undervisningen ud i naturen.",
 };
 
 const rubik = Rubik({
@@ -47,10 +47,10 @@ export default function OmPage() {
           <h1
             className={`mt-4 max-w-4xl text-4xl font-black tracking-tight text-emerald-950 md:text-6xl ${rubik.className}`}
           >
-            Om GPSløb & Arkitekten bag 🌲
+            Om SkoleGPS & Arkitekten bag 🌲
           </h1>
           <p className="mt-6 max-w-3xl text-base leading-8 text-emerald-900/75 md:text-lg">
-            GPSløb er bygget for at gøre teknologi mere menneskelig, mere bevægelig og langt
+            SkoleGPS er bygget for at gøre teknologi mere menneskelig, mere bevægelig og langt
             mere brugbar i virkeligheden. Her er tankerne bag platformen og mennesket, der
             har tegnet arkitekturen.
           </p>
@@ -67,7 +67,7 @@ export default function OmPage() {
               </h2>
               <p className="mt-5 text-base leading-8 text-emerald-900/80">
                 Min filosofi er, at digital didaktik ikke skal låse os fast foran en skærm.
-                Målet med GPSløb er at bruge teknologien som en katalysator til at få folk ud
+                Målet med SkoleGPS er at bruge teknologien som en katalysator til at få folk ud
                 i naturen, op af stolene og i gang med at bevæge sig, mens de lærer og leger.
               </p>
             </section>
@@ -123,10 +123,10 @@ export default function OmPage() {
                 <div className="flex items-start gap-3">
                   <Mail className="mt-1 h-4 w-4 shrink-0 text-emerald-700" />
                   <a
-                    href="mailto:Gpslobdk@gmail.com"
+                    href="mailto:skolegpsdk@gmail.com"
                     className="transition hover:text-emerald-950"
                   >
-                    Gpslobdk@gmail.com
+                    skolegpsdk@gmail.com
                   </a>
                 </div>
                 <div className="flex items-start gap-3">

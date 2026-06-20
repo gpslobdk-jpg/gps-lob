@@ -16,7 +16,7 @@ const bannerContent = {
   },
   dashboard: {
     eyebrow: "Skærmanbefalinger 2026",
-    text: "Læs hvordan GPSLØB støtter op om ministeriets nye skærmanbefalinger for 2026.",
+    text: "Læs hvordan SkoleGPS støtter op om ministeriets nye skærmanbefalinger for 2026.",
     cta: "Se siden",
     wrapperClass:
       "border-amber-300/45 bg-[linear-gradient(135deg,rgba(245,158,11,0.22),rgba(15,23,42,0.94)_36%,rgba(79,70,229,0.14))] shadow-[0_18px_46px_rgba(15,23,42,0.22)] hover:border-amber-200/65 hover:shadow-[0_22px_60px_rgba(245,158,11,0.18)]",

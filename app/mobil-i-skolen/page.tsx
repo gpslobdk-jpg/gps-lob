@@ -36,9 +36,9 @@ const futureProofPoints = [
 ] as const;
 
 export const metadata: Metadata = {
-  title: "Mobilforbud i skolen | GPSLØB",
+  title: "Mobilforbud i skolen | SkoleGPS",
   description:
-    "Læs hvorfor GPSLØB og Live Stratego er et aktivt, lærerstyret og fremtidssikret valg i en tid med skærmanbefalinger og debat om mobilforbud i skolen.",
+    "Læs hvorfor SkoleGPS og Live Stratego er et aktivt, lærerstyret og fremtidssikret valg i en tid med skærmanbefalinger og debat om mobilforbud i skolen.",
 };
 
 export default function MobilISkolenPage() {
@@ -74,7 +74,7 @@ export default function MobilISkolenPage() {
               </div>
 
               <h1 className={`mt-5 max-w-4xl text-3xl font-black tracking-tight text-white sm:text-4xl md:text-5xl ${rubik.className}`}>
-                Mobilforbud i skolen? Derfor er GPSLØB det sikre valg.
+                Mobilforbud i skolen? Derfor er SkoleGPS det sikre valg.
               </h1>
 
               <div className="mt-5 max-w-3xl space-y-4 text-sm leading-7 text-white/86 sm:text-base md:text-lg">
@@ -127,7 +127,7 @@ export default function MobilISkolenPage() {
         <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
           <article className="rounded-[2rem] border border-white/10 bg-slate-950/45 p-6 shadow-[0_22px_60px_rgba(2,6,23,0.35)] backdrop-blur-xl sm:p-8">
             <div className="prose prose-invert max-w-none prose-headings:font-black prose-headings:tracking-tight prose-p:text-white/84 prose-p:leading-8 prose-strong:text-white prose-li:text-white/84 prose-li:marker:text-emerald-300">
-              <h2 className={rubik.className}>Hvorfor GPSLØB og Live Stratego er fremtidssikret:</h2>
+              <h2 className={rubik.className}>Hvorfor SkoleGPS og Live Stratego er fremtidssikret:</h2>
               <ul>
                 {futureProofPoints.map((point) => (
                   <li key={point.title}>
@@ -169,7 +169,7 @@ export default function MobilISkolenPage() {
             Tryg undervisningsbrug
           </p>
           <p className="mt-4 max-w-4xl text-base leading-8 text-white/90 sm:text-lg">
-            Giv trygt eleverne telefonen i hånden til undervisningsbrug. Med GPSLØB bliver
+            Giv trygt eleverne telefonen i hånden til undervisningsbrug. Med SkoleGPS bliver
             skærmtid til kvalitetstid i skolegården og skoven.
           </p>
         </section>

@@ -107,7 +107,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         {
           title: "1. Dataansvarlig",
           paragraphs: ["GPSLØB"],
-          email: "gpslobdk@gmail.com",
+          email: "skolegpsdk@gmail.com",
           emailLabel: "Kontakt",
         },
         {
@@ -177,7 +177,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           paragraphs: [
             "Du har ret til indsigt i, hvilke data vi har registreret, ret til at få dem slettet og ret til at gøre indsigelse mod behandlingen.",
           ],
-          email: "gpslobdk@gmail.com",
+          email: "skolegpsdk@gmail.com",
           emailLabel: "Kontakt",
         },
         {
@@ -191,7 +191,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           paragraphs: [
             "Du modtager kun nyheder og opdateringer om GPS Løb på e-mail, hvis du aktivt har givet samtykke. Du kan til enhver tid trække samtykket tilbage under dine indstillinger eller ved at kontakte os.",
           ],
-          email: "gpslobdk@gmail.com",
+          email: "skolegpsdk@gmail.com",
           emailLabel: "Kontakt",
         },
       ],
@@ -200,7 +200,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         paragraphs: [
           "Vi ved, at I har brug for papirerne i orden. Vi indgår gerne en standard databehandleraftale (DPA) med jeres skole eller kommune, inden I tager platformen i brug.",
         ],
-        email: "gpslobdk@gmail.com",
+        email: "skolegpsdk@gmail.com",
         emailLabel: "Kontakt",
       },
       updatedAt: "Senest opdateret: 27. maj 2026.",
@@ -268,7 +268,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         paragraphs: [
           "Har du tekniske spørgsmål, ønsker du at købe adgang til din skole, eller vil du kontakte udvikleren direkte?",
         ],
-        email: "gpslobdk@gmail.com",
+        email: "skolegpsdk@gmail.com",
         emailLabel: "Skriv til",
       },
     },
@@ -417,7 +417,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
             "Når Postløp brukes i skolen, vil skoleeier normalt være behandlingsansvarlig for personopplysninger som behandles som del av undervisningen.",
             "Postløp leverer plattformen og kan inngå databehandleravtale ved behov.",
           ],
-          email: "gpslobdk@gmail.com",
+          email: "skolegpsdk@gmail.com",
           emailLabel: "Kontakt",
         },
         {
@@ -487,7 +487,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           paragraphs: [
             "For behandling av personopplysninger i skolen kan elever og foresatte normalt rette spørsmål til skolen eller skoleeier. Du kan også kontakte oss om plattformen, sletting eller databehandleravtale.",
           ],
-          email: "gpslobdk@gmail.com",
+          email: "skolegpsdk@gmail.com",
           emailLabel: "Kontakt",
         },
       ],
@@ -496,7 +496,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         paragraphs: [
           "Vi kan inngå databehandleravtale ved behov. Ta kontakt dersom skolen eller kommunen ønsker dokumentasjon eller en gjennomgang av behandlingen.",
         ],
-        email: "gpslobdk@gmail.com",
+        email: "skolegpsdk@gmail.com",
         emailLabel: "Kontakt",
       },
       updatedAt: "Sist oppdatert: 15. mai 2026.",
@@ -561,7 +561,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         paragraphs: [
           "Har skolen spørsmål om personvern, drift eller databehandleravtale, kan dere kontakte oss.",
         ],
-        email: "gpslobdk@gmail.com",
+        email: "skolegpsdk@gmail.com",
         emailLabel: "Kontakt",
       },
     },

@@ -452,7 +452,7 @@ export default function IndstillingerPage() {
               className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-emerald-600 disabled:cursor-not-allowed"
             />
             <span className="text-sm leading-relaxed text-emerald-900">
-              Jeg vil gerne modtage nyheder og opdateringer om GPS Løb på mail.
+              Jeg vil gerne modtage nyheder og opdateringer om SkoleGPS på mail.
             </span>
           </label>
 

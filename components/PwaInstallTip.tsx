@@ -94,10 +94,10 @@ export default function PwaInstallTip({
   }, [canUseNativePrompt, isReady, surfaceState.isIosSafari, surfaceState.isStandalone]);
 
   const helperText = canUseNativePrompt
-    ? "Åbn GPS Løb som app med den indbyggede installationsdialog."
+    ? "Åbn SkoleGPS som app med den indbyggede installationsdialog."
     : showIosHint
       ? 'Tryk på Del i Safari og vælg "Føj til hjemmeskærm".'
-      : "Installér GPS Løb som app for hurtigere adgang og en renere oplevelse.";
+      : "Installér SkoleGPS som app for hurtigere adgang og en renere oplevelse.";
 
   const handleInstall = async () => {
     if (deferredPrompt) {
@@ -140,7 +140,7 @@ export default function PwaInstallTip({
           <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-200/70">
             APP
           </p>
-          <h3 className="mt-1 text-base font-black text-white md:text-lg">Installér GPS Løb</h3>
+          <h3 className="mt-1 text-base font-black text-white md:text-lg">Installér SkoleGPS</h3>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">{helperText}</p>
         </div>
 
