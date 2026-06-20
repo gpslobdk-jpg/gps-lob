@@ -71,7 +71,7 @@ const getWelcomeMessage = (pathname: string) => {
     return "Jeg kan hjælpe dig med Generel Quiz: ideer, temaer, multiple-choice poster og et skarpt klassisk løb.";
   }
 
-  return "Jeg kan guide dig gennem GPSLOB.DK og hjælpe dig med at vælge den rigtige builder, skærpe ideen og komme hurtigt videre.";
+  return "Jeg kan guide dig gennem SkoleGPS og hjælpe dig med at vælge den rigtige løbstype, oprette idéer og komme hurtigt videre.";
 };
 
 const PAGE_CONTEXT_MESSAGE_ID = "gpslob-page-context";
@@ -113,10 +113,7 @@ export default function AIChatButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const pathname = usePathname();
-
-  if (HIDDEN_PATHNAMES.some((hidden) => pathname.includes(hidden))) {
-    return null;
-  }
+  const isHiddenPathname = HIDDEN_PATHNAMES.some((hidden) => pathname.includes(hidden));
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   const quickActions = useMemo(() => getQuickActions(pathname), [pathname]);
   const welcomeMessage = useMemo(() => getWelcomeMessage(pathname), [pathname]);
@@ -188,6 +185,10 @@ export default function AIChatButton() {
     });
   }, [isOpen, chatMessages, isLoading]);
 
+  if (isHiddenPathname) {
+    return null;
+  }
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedInput = input.trim();
@@ -245,17 +246,17 @@ export default function AIChatButton() {
                   <div className="flex items-start gap-2.5">
                     <Image
                       src="/gpslogo.png"
-                      alt={"GPSLØB logo"}
+                      alt={"SkoleGPS logo"}
                       width={28}
                       height={28}
                       className="mt-0.5 h-5 w-auto opacity-90"
                     />
                     <div>
                       <p className="text-[10px] font-medium uppercase tracking-[0.3em] text-emerald-700/55">
-                        GPSLOB.DK
+                        SkoleGPS.dk
                       </p>
                       <p className="mt-1 text-sm font-medium tracking-[0.04em] text-slate-800">
-                        GPS-Assistent
+                        SkoleGPS-assistent
                       </p>
                     </div>
                   </div>
@@ -263,7 +264,7 @@ export default function AIChatButton() {
                     type="button"
                     onClick={handleClose}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-full text-xs text-slate-400 transition-colors hover:bg-emerald-950/5 hover:text-emerald-900"
-                    aria-label="Luk Assistent"
+                    aria-label="Luk SkoleGPS-assistent"
                   >
                     <span aria-hidden="true">✕</span>
                   </button>
@@ -383,18 +384,18 @@ export default function AIChatButton() {
             type="button"
             onClick={handleToggle}
             aria-expanded={isOpen}
-            aria-label={"Åbn Assistent"}
+            aria-label={"Åbn SkoleGPS-assistent"}
             className="inline-flex items-center gap-2.5 rounded-full border border-emerald-500/20 bg-slate-950/84 px-3 py-2 text-emerald-50 shadow-[0_18px_45px_rgba(15,23,42,0.18)] backdrop-blur-md transition-[transform,box-shadow,border-color,background-color] duration-300 hover:-translate-y-0.5 hover:border-emerald-400/35 hover:bg-slate-950/92 hover:shadow-[0_20px_50px_rgba(6,78,59,0.24)]"
           >
             <Image
               src="/gpslogo.png"
-              alt={"GPSLØB logo"}
+              alt={"SkoleGPS logo"}
               width={32}
               height={32}
               className="h-5.5 w-auto opacity-90"
             />
             <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400/85" />
-            <span className="text-sm font-medium tracking-[0.04em] text-emerald-50">GPS-Assistent</span>
+            <span className="text-sm font-medium tracking-[0.04em] text-emerald-50">SkoleGPS-assistent</span>
           </button>
         </div>
       </div>

@@ -8,7 +8,7 @@ type MobileInSchoolBannerProps = {
 const bannerContent = {
   home: {
     eyebrow: "Skole & skærm i 2026",
-    text: "📱 Bekymret for mobilforbud i 2026? Se hvorfor GPSLØB er skolens sikre, lovlige og aktive valg.",
+    text: "📱 Bekymret for mobilforbud i 2026? Se hvorfor SkoleGPS er skolens sikre, lovlige og aktive valg.",
     cta: "Læs mere",
     wrapperClass:
       "border-indigo-400/35 bg-[linear-gradient(135deg,rgba(79,70,229,0.26),rgba(30,41,59,0.92)_42%,rgba(245,158,11,0.18))] shadow-[0_20px_55px_rgba(15,23,42,0.32)] hover:border-indigo-300/55 hover:shadow-[0_24px_70px_rgba(79,70,229,0.28)]",

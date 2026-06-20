@@ -179,8 +179,9 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
   gpslob: {
     localeTag: "da-DK",
     metadata: {
-      homeTitle: "GPSLOB.DK - Stjerneløb for hele klassen",
-      homeDescription: "Byg, del og følg med live.",
+      homeTitle: "SkoleGPS – aktive GPS-løb til undervisning",
+      homeDescription:
+        "SkoleGPS hjælper lærere med at lave aktive GPS-løb, quizzer og læringsaktiviteter, hvor eleverne bevæger sig og deltager via mobilen.",
       joinTitle: "Deltag i løbet | GPS Løb",
       joinDescription: "Indtast pinkode eller scan QR-koden for at deltage i løbet.",
       loginTitle: "Login | GPS Løb",
@@ -190,12 +191,12 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       manifestDescription: "Interaktive GPS-missioner",
     },
     home: {
-      brandLabel: "GPS Løb",
-      logoAlt: "GPSLØB.DK logo",
+      brandLabel: "SkoleGPS",
+      logoAlt: "SkoleGPS logo",
       soundOn: "Slå lyd til",
       soundOff: "Slå lyd fra",
       legalLinks: {
-        gdpr: "Privacy by Design",
+        gdpr: "Privatliv fra start",
         privacy: "Sikker databehandling",
         ophavsret: "Copydan-parat",
       },
@@ -207,7 +208,7 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
         studentDescription: "Scan QR-koden eller indtast løbskoden for at deltage.",
         joinCodeButton: "Indtast løbskode",
         teacherEyebrow: "Jeg er lærer",
-        teacherDescription: "Brug helst GPS Løb fra en computer, når du opretter og styrer løb.",
+        teacherDescription: "Brug helst SkoleGPS fra en computer, når du opretter og styrer løb.",
         loginButton: "Log ind",
       },
       desktop: {

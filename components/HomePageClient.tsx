@@ -65,9 +65,9 @@ const latest = {
   date: "2026-06-19",
   dateLabel: "19. juni 2026",
   type: "minor",
-  title: "GPSLøb får nyt hjem på SkoleGPS.dk",
+  title: "GPSLøb bliver til SkoleGPS.dk",
   summary:
-    "GPSLøb har fået nyt navn og nyt domæne: SkoleGPS.dk. Alle funktioner er de samme, og dine løb, login og arkiv fortsætter.",
+    "Nyt navn, samme funktioner: GPSLøb har fået nyt domæne, SkoleGPS.dk. Dine løb, login og arkiv fortsætter.",
   items: [
     {
       title: "Samme platform og samme funktioner",
@@ -349,7 +349,7 @@ function FreePeriodModal({ shouldShow }: { shouldShow: boolean }) {
         className="w-full max-w-lg rounded-3xl border border-white/70 bg-white p-6 shadow-[0_24px_80px_rgba(2,6,23,0.38)] sm:p-7"
       >
         <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">
-          NYT NAVN - SAMME FUNKTIONER
+          NYT NAVN – SAMME FUNKTIONER
         </p>
         <h2
           id="free-period-modal-title"
@@ -832,10 +832,10 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
             {homeCopy.showDanishOnlyExtras ? (
               <div className="mt-5 rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-4 py-4 text-left">
                 <p className="text-sm font-black leading-6 text-emerald-50">
-                  GPSLøb har fået nyt hjem på SkoleGPS.dk
+                  GPSLøb bliver til SkoleGPS.dk
                 </p>
                 <p className="mt-2 text-sm leading-6 text-slate-200">
-                  Alle funktioner er de samme, og dine løb, login og arkiv fortsætter.
+                  Nyt navn, samme funktioner. Dine løb, login og arkiv fortsætter, og
                   gpslob.dk virker stadig i en overgangsperiode.
                 </p>
               </div>

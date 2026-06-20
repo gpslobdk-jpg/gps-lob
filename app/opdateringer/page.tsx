@@ -5,9 +5,9 @@ import type { Metadata } from "next";
 import { changelogEntries, type ChangelogEntry } from "@/lib/changelog";
 
 export const metadata: Metadata = {
-  title: "Seneste nyt – GPSLØB",
+  title: "Seneste nyt – SkoleGPS",
   description:
-    "Følg med i de seneste forbedringer og opdateringer til GPSLØB-platformen.",
+    "Følg med i de seneste forbedringer og opdateringer til SkoleGPS-platformen.",
 };
 
 const TYPE_LABELS: Record<ChangelogEntry["type"], string> = {
@@ -225,7 +225,7 @@ export default function OpdateringerPage() {
             Seneste nyt
           </span>
           <h1 className="mt-3 text-3xl font-black tracking-tight text-white">
-            Hvad er nyt i GPSLØB?
+            Hvad er nyt i SkoleGPS?
           </h1>
           <p className="mt-3 text-base leading-7 text-slate-400">
             Vi forbedrer platformen løbende. Her kan du følge med i, hvad der er
@@ -280,7 +280,7 @@ export default function OpdateringerPage() {
                   </ul>
 
                   <p className="mt-6 text-right text-xs italic text-slate-600">
-                    — Holdet bag GPSLØB
+                    — Holdet bag SkoleGPS
                   </p>
                 </div>
               </article>
