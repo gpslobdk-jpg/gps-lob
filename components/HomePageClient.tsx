@@ -772,7 +772,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
               </div>
               <div className="relative z-20 flex h-full items-center justify-center">
                 <Image
-                  src={siteVariantKey === "postlob" ? "/postlob-logo.png" : "/gpslogo.png"}
+                  src={siteVariantKey === "postlob" ? "/postlob-logo.png" : "/skolegps-logo.svg"}
                   alt={homeCopy.logoAlt}
                   width={320}
                   height={140}

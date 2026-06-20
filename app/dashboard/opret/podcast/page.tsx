@@ -112,7 +112,7 @@ export default function PodcastDetektivPage() {
     >
       {/* Back header */}
       <header className="absolute top-0 left-0 right-0 mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4 md:px-10">
-        <Image src="/gpslogo.png" width={130} height={44} alt="Logo" priority />
+        <Image src="/skolegps-logo.svg" width={130} height={44} alt="SkoleGPS logo" priority />
         <Link
           href="/dashboard/opret/valg"
           className="inline-flex items-center gap-2 rounded-full border border-white/18 bg-white/10 px-4 py-2 text-sm font-medium text-white shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-xl transition-all hover:border-white/28 hover:bg-white/16"

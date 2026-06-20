@@ -109,7 +109,7 @@ export default function OnboardingModal({ forceOpenToken = 0 }: OnboardingModalP
             >
               <motion.div variants={itemVariants} className="mb-5 flex w-full justify-center">
                 <Image
-                  src="/gpslogo.png"
+                  src="/skolegps-logo.svg"
                   alt="SkoleGPS logo"
                   width={350}
                   height={150}

@@ -94,9 +94,9 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
   gpslob: {
     gdpr: {
       metadata: {
-        title: "Privatlivspolitik & GDPR | GPSLØB",
+        title: "Privatlivspolitik & GDPR | SkoleGPS",
         description:
-          "GPSLØB er fuldt GDPR-kompatibelt og bygget til folkeskolen. Læs vores privatlivspolitik og se hvordan vi håndterer data.",
+          "SkoleGPS er fuldt GDPR-kompatibelt og bygget til folkeskolen. Læs vores privatlivspolitik og se hvordan vi håndterer data.",
       },
       backToHomeLabel: "Tilbage til forsiden",
       heroTitle: "Bygget til folkeskolen. 100 % styr på GDPR.",
@@ -106,7 +106,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
       sections: [
         {
           title: "1. Dataansvarlig",
-          paragraphs: ["GPSLØB"],
+          paragraphs: ["SkoleGPS"],
           email: "skolegpsdk@gmail.com",
           emailLabel: "Kontakt",
         },
@@ -159,12 +159,12 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         {
           title: "8. Ingen reklamer, ingen videresalg",
           paragraphs: [
-            "Vi sælger aldrig data til tredjepart, og der er ingen reklamer i platformen. GPSLØB er et lukket undervisningsrum.",
+            "Vi sælger aldrig data til tredjepart, og der er ingen reklamer i platformen. SkoleGPS er et lukket undervisningsrum.",
           ],
         },
         {
           title: "9. Tredjeparter",
-          paragraphs: ["GPSLØB anvender følgende underleverandører til drift af platformen:"],
+          paragraphs: ["SkoleGPS anvender følgende underleverandører til drift af platformen:"],
           bullets: [
             { label: "Supabase", text: "database og backend" },
             { label: "Vercel", text: "webhosting" },
@@ -183,13 +183,13 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         {
           title: "11. Målgruppe – designet til skoler",
           paragraphs: [
-            "GPSLØB er designet til undervisningsbrug i folkeskolen og lignende institutioner. Systemet indsamler ikke unødige personoplysninger om elever.",
+            "SkoleGPS er designet til undervisningsbrug i folkeskolen og lignende institutioner. Systemet indsamler ikke unødige personoplysninger om elever.",
           ],
         },
         {
           title: "12. Nyheder og opdateringer",
           paragraphs: [
-            "Du modtager kun nyheder og opdateringer om GPS Løb på e-mail, hvis du aktivt har givet samtykke. Du kan til enhver tid trække samtykket tilbage under dine indstillinger eller ved at kontakte os.",
+            "Du modtager kun nyheder og opdateringer om SkoleGPS på e-mail, hvis du aktivt har givet samtykke. Du kan til enhver tid trække samtykket tilbage under dine indstillinger eller ved at kontakte os.",
           ],
           email: "skolegpsdk@gmail.com",
           emailLabel: "Kontakt",
@@ -207,9 +207,9 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
     },
     privacy: {
       metadata: {
-        title: "Privatliv & Datasikkerhed | GPSLØB",
+        title: "Privatliv & Datasikkerhed | SkoleGPS",
         description:
-          "GPSLØB er bygget med Privacy by Design. Elevernes GPS-data bruges kun aktivt under løbet og slettes automatisk bagefter. Ingen elev-logins, ingen sporing.",
+          "SkoleGPS er bygget med Privacy by Design. Elevernes GPS-data bruges kun aktivt under løbet og slettes automatisk bagefter. Ingen elev-logins, ingen sporing.",
       },
       backToHomeLabel: "Tilbage til forsiden",
       heroTitle: "Privatliv, Sikkerhed & Udvikler Info",
@@ -274,15 +274,15 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
     },
     ophavsret: {
       metadata: {
-        title: "Ophavsret & AI-brug | GPSLØB",
+        title: "Ophavsret & AI-brug | SkoleGPS",
         description:
-          "Klare principper for ophavsret og ansvarlig brug af AI og tekster i GPSLØB. Din data bruges ikke til at træne offentlige AI-modeller.",
+          "Klare principper for ophavsret og ansvarlig brug af AI og tekster i SkoleGPS. Din data bruges ikke til at træne offentlige AI-modeller.",
       },
       backToHomeLabel: "Tilbage til forsiden",
-      heroTitle: "Ophavsret og brug af AI i GPS Løb",
+      heroTitle: "Ophavsret og brug af AI i SkoleGPS",
       heroEyebrow: "Klare rammer for sikker databehandling og ansvarlig brug af tekster",
       intro:
-        "Når du bruger vores Scan tekst-funktion og øvrige kreative KI-værktøjer, er det vigtigt, at vi passer på forfatternes rettigheder. Derfor har vi bygget GPS Løb med to klare principper.",
+        "Når du bruger vores Scan tekst-funktion og øvrige kreative KI-værktøjer, er det vigtigt, at vi passer på forfatternes rettigheder. Derfor har vi bygget SkoleGPS med to klare principper.",
       principles: [
         {
           eyebrow: "Punkt 1",
@@ -304,27 +304,27 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         },
       ],
       summary:
-        "GPS Løb er designet til at hjælpe dig med at forvandle viden til aktiv læring i skolegården – hurtigt, sjovt og sikkert.",
+        "SkoleGPS er designet til at hjælpe dig med at forvandle viden til aktiv læring i skolegården – hurtigt, sjovt og sikkert.",
       ctaLabel: "Læs den fulde juridiske uddybning her",
     },
     ophavsretJura: {
       metadata: {
-        title: "Juridisk Ansvarsfraskrivelse | GPSLØB",
+        title: "Juridisk Ansvarsfraskrivelse | SkoleGPS",
         description:
-          "Fuld juridisk uddybning og ansvarsfraskrivelse for GPS Løb. Ophavsretsloven, E-handelsloven og Safe Harbor.",
+          "Fuld juridisk uddybning og ansvarsfraskrivelse for SkoleGPS. Ophavsretsloven, E-handelsloven og Safe Harbor.",
       },
       backToOverviewLabel: "← Ophavsret",
       backToHomeLabel: "Forsiden",
       eyebrow: "Disclaimer",
       title: "Juridisk Uddybning og Ansvarsfraskrivelse",
-      intro: "Denne side indeholder den fulde juridiske ramme for brug af GPS Løbs KI-værktøjer.",
+      intro: "Denne side indeholder den fulde juridiske ramme for brug af SkoleGPS' KI-værktøjer.",
       cards: [
         {
           eyebrow: "§ 1",
           title: "Brugerens rettigheder og ansvar",
           tone: "emerald",
           paragraphs: [
-            "Ved upload af billeder, tekster eller links til bearbejdning i GPS Løbs KI-tjenester indestår brugeren fuldt ud for, at materialet anvendes lovligt.",
+            "Ved upload af billeder, tekster eller links til bearbejdning i SkoleGPS' KI-tjenester indestår brugeren fuldt ud for, at materialet anvendes lovligt.",
             "Det indebærer, at brugeren enten har indhentet samtykke fra rettighedshaveren, agerer inden for citatretten eller bruger materiale dækket af skolens Copydan Tekst & Node-aftale.",
           ],
         },
@@ -333,7 +333,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           title: "Platformens status som teknisk formidler",
           tone: "sky",
           paragraphs: [
-            "GPS Løb fungerer som teknisk it-infrastruktur og databehandler for brugeren. Platformen bærer ikke redaktionelt ansvar for det specifikke indhold, brugerne uploader, scanner eller transmitterer.",
+            "SkoleGPS fungerer som teknisk it-infrastruktur og databehandler for brugeren. Platformen bærer ikke redaktionelt ansvar for det specifikke indhold, brugerne uploader, scanner eller transmitterer.",
             "Platformen udfører ingen forudgående manuel eller automatiseret kontrol af rettighederne til det brugergenererede indhold.",
           ],
         },
@@ -342,7 +342,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           title: "Procedure ved mulig krænkelse",
           tone: "amber",
           paragraphs: [
-            "Hvis GPS Løb får troværdig information om, at konkret indhold krænker tredjeparts rettigheder, kan vi fjerne eller blokere adgangen til materialet uden varsel.",
+            "Hvis SkoleGPS får troværdig information om, at konkret indhold krænker tredjeparts rettigheder, kan vi fjerne eller blokere adgangen til materialet uden varsel.",
           ],
         },
         {
@@ -350,7 +350,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           title: "Databehandling og tredjeparts KI-modeller",
           tone: "violet",
           paragraphs: [
-            "GPS Løb benytter lukkede API-forbindelser til underdatabehandlere. Materiale behandles midlertidigt for at generere løbsspørgsmål og slettes efter endt session.",
+            "SkoleGPS benytter lukkede API-forbindelser til underdatabehandlere. Materiale behandles midlertidigt for at generere løbsspørgsmål og slettes efter endt session.",
             "Materialet indgår ikke i træningsdata for offentlige KI-grundmodeller.",
           ],
         },
@@ -358,9 +358,9 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
     },
     ophavsretPodcast: {
       metadata: {
-        title: "Podcast-Detektiven & Ophavsret | GPSLØB",
+        title: "Podcast-Detektiven & Ophavsret | SkoleGPS",
         description:
-          "Podcast-Detektiven i GPSLØB er lovlig at bruge i undervisningen og bygger kun på offentligt tilgængeligt indhold.",
+          "Podcast-Detektiven i SkoleGPS er lovlig at bruge i undervisningen og bygger kun på offentligt tilgængeligt indhold.",
       },
       backToPodcastLabel: "Tilbage til Podcast-Detektiven",
       title: "Podcast-Detektiven og Ophavsret ⚖️",

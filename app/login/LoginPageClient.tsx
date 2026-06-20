@@ -94,7 +94,7 @@ function LoginPageContent({ initialSiteVariantKey }: { initialSiteVariantKey: Si
   const [siteVariantKey, setSiteVariantKey] = useState<SiteVariantKey>(initialSiteVariantKey);
   const siteCopy = getSiteCopy(siteVariantKey);
   const loginCopy = siteCopy.login;
-  const logoSrc = siteVariantKey === "postlob" ? "/postlob-logo.png" : "/gpslogo.png";
+  const logoSrc = siteVariantKey === "postlob" ? "/postlob-logo.png" : "/skolegps-logo.svg";
 
   const searchParamsString = searchParams.toString();
   const hasCodeParam = searchParams.has("code");

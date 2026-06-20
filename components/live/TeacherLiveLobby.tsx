@@ -102,7 +102,11 @@ export default function TeacherLiveLobby({
 }: TeacherLiveLobbyProps) {
   const [origin, setOrigin] = useState("");
   useEffect(() => {
-    setOrigin(window.location.origin);
+    const timeoutId = window.setTimeout(() => {
+      setOrigin(window.location.origin);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, []);
 
   return (
@@ -127,7 +131,7 @@ export default function TeacherLiveLobby({
       <div className="relative z-10 w-full max-w-4xl rounded-[3rem] border border-white/50 bg-white/85 p-8 text-center shadow-2xl backdrop-blur-md md:p-14">
         <section className="w-full">
           <h1 className={`mx-auto max-w-3xl text-xl font-bold text-emerald-800 md:text-2xl ${rubik.className}`}>
-            Log ind i lobbyen på gpslob.dk eller scan qr koden herunder
+            Log ind i lobbyen på SkoleGPS.dk eller scan QR-koden herunder
           </h1>
           <p className={`mb-8 mt-5 text-7xl font-black tracking-widest text-emerald-950 drop-shadow-sm md:text-9xl ${rubik.className}`}>
             {joinPin}
@@ -182,7 +186,7 @@ export default function TeacherLiveLobby({
               icon={Share2}
               eyebrow="iPhone / Safari"
               title="Åbn fra hjemmeskærmen"
-              description="Åbn linket i Safari. Tilføj derefter GPSLøb til hjemmeskærmen, og åbn fra ikonet for en mere stabil oplevelse."
+              description="Åbn linket i Safari. Tilføj derefter SkoleGPS til hjemmeskærmen, og åbn fra ikonet for en mere stabil oplevelse."
               steps={IOS_PREP_STEPS}
             />
 
@@ -190,7 +194,7 @@ export default function TeacherLiveLobby({
               icon={Download}
               eyebrow="Android / Chrome"
               title="Installér eller føj til startskærm"
-              description="Åbn linket i Chrome. Vælg derefter “Føj til startskærm” eller “Installér app”, og åbn GPSLøb fra ikonet."
+              description="Åbn linket i Chrome. Vælg derefter “Føj til startskærm” eller “Installér app”, og åbn SkoleGPS fra ikonet."
               steps={ANDROID_PREP_STEPS}
             />
           </div>

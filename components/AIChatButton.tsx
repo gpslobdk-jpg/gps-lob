@@ -245,7 +245,7 @@ export default function AIChatButton() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-2.5">
                     <Image
-                      src="/gpslogo.png"
+                      src="/skolegps-logo.svg"
                       alt={"SkoleGPS logo"}
                       width={28}
                       height={28}
@@ -388,7 +388,7 @@ export default function AIChatButton() {
             className="inline-flex items-center gap-2.5 rounded-full border border-emerald-500/20 bg-slate-950/84 px-3 py-2 text-emerald-50 shadow-[0_18px_45px_rgba(15,23,42,0.18)] backdrop-blur-md transition-[transform,box-shadow,border-color,background-color] duration-300 hover:-translate-y-0.5 hover:border-emerald-400/35 hover:bg-slate-950/92 hover:shadow-[0_20px_50px_rgba(6,78,59,0.24)]"
           >
             <Image
-              src="/gpslogo.png"
+              src="/skolegps-logo.svg"
               alt={"SkoleGPS logo"}
               width={32}
               height={32}

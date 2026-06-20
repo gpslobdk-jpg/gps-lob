@@ -491,7 +491,7 @@ export default function ValgHubPage() {
       <div className="fixed inset-0 hidden bg-gradient-to-b from-slate-900/18 via-slate-900/8 to-slate-950/40 backdrop-blur-[2px] -z-10 lg:block" />
 
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between py-3 md:py-4">
-        <Image src="/gpslogo.png" width={150} height={50} alt="Logo" priority />
+        <Image src="/skolegps-logo.svg" width={150} height={50} alt="SkoleGPS logo" priority />
         <Link
           href="/dashboard"
           className="inline-flex items-center gap-2 rounded-full border border-white/18 bg-white/10 px-4 py-2 text-sm font-medium text-white shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-xl transition-all duration-300 hover:border-white/28 hover:bg-white/16"

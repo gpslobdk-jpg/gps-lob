@@ -4,7 +4,7 @@ import { Poppins, Rubik } from "next/font/google";
 import { SkemaPilotWizard } from "./SkemaPilotWizard";
 
 export const metadata: Metadata = {
-  title: "SkemaPilot – GPSLØB",
+  title: "SkemaPilot – SkoleGPS",
   description: "Lav en visuel skemakladde, fordel fag, lærere og lokaler, og gem kladden lokalt i browseren.",
 };
 

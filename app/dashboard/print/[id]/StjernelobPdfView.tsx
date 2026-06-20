@@ -1622,12 +1622,14 @@ function renderHero(
   return (
     <View style={styles.heroCard}>
       {isHeroImage && hasImage ? (
+        // react-pdf's Image is not a DOM img; jsx-a11y still treats it as one.
+        // eslint-disable-next-line jsx-a11y/alt-text
         <Image src={imageUrl} style={styles.heroImage} />
       ) : isHeroImage ? (
         <View style={styles.heroVisual}>
           <Text style={styles.heroFallbackTitle}>Illustration mangler</Text>
           <Text style={styles.heroFallbackBody}>
-            Hero-billedet kunne ikke hentes. PDF'en vises stadig, og resten af posten er intakt.
+            {"Hero-billedet kunne ikke hentes. PDF'en vises stadig, og resten af posten er intakt."}
           </Text>
         </View>
       ) : (
@@ -1879,7 +1881,7 @@ function renderPostFooter(styles: PdfStyles, template: PdfTemplate, post: Post, 
         {template.footerIcon} Post {post.number} / {totalPosts}
       </Text>
       <Text style={styles.footerText}>{template.footerLabel}</Text>
-      <Text style={styles.footerText}>gpslob.dk</Text>
+      <Text style={styles.footerText}>SkoleGPS.dk</Text>
     </View>
   );
 }
@@ -2100,7 +2102,7 @@ function renderAnswerSheetPage(styles: PdfStyles, template: PdfTemplate, run: St
       </View>
       <View style={styles.footer}>
         <Text style={styles.footerText}>Elevsvarark</Text>
-        <Text style={styles.footerText}>gpslob.dk</Text>
+        <Text style={styles.footerText}>SkoleGPS.dk</Text>
       </View>
     </Page>
   );
@@ -2162,7 +2164,7 @@ function renderAnswerKeyPage(styles: PdfStyles, template: PdfTemplate, run: Stje
       </View>
       <View style={styles.footer}>
         <Text style={styles.footerText}>Facitliste</Text>
-        <Text style={styles.footerText}>gpslob.dk</Text>
+        <Text style={styles.footerText}>SkoleGPS.dk</Text>
       </View>
     </Page>
   );
@@ -2218,8 +2220,11 @@ export default function StjernelobPdfView({ run }: StjernelobPdfViewProps) {
       }
 
       const generation = imagePreparationGenerationRef.current;
+      // The promise compares against itself in finally to avoid clearing a newer preparation.
+      /* eslint-disable prefer-const */
       let promise!: Promise<PreparedPdfImages>;
       promise = (async () => {
+        /* eslint-enable prefer-const */
         if (generation === imagePreparationGenerationRef.current) {
           setIsPreparingImages(true);
         }

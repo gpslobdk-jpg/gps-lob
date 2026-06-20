@@ -325,7 +325,7 @@ export default function DashboardPage() {
       <div className="fixed inset-0 hidden bg-gradient-to-b from-sky-900/20 to-emerald-900/40 backdrop-blur-[2px] -z-10 lg:block" />
 
       <header className="flex items-center justify-between">
-        <Image src="/gpslogo.png" width={150} height={50} alt="Logo" priority />
+        <Image src="/skolegps-logo.svg" width={150} height={50} alt="SkoleGPS logo" priority />
       </header>
 
       <section className="mx-auto -mt-8 flex w-full max-w-5xl flex-col items-center text-center md:-mt-12">

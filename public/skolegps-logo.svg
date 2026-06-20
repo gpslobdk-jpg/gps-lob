@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">SkoleGPS.dk logo</title>
+  <desc id="desc">A map pin above a small grid with the text SkoleGPS.dk.</desc>
+  <defs>
+    <linearGradient id="pin" x1="166" y1="84" x2="346" y2="296" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7dd3fc" />
+      <stop offset="0.48" stop-color="#38bdf8" />
+      <stop offset="1" stop-color="#14b8a6" />
+    </linearGradient>
+    <linearGradient id="ink" x1="256" y1="32" x2="256" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#111827" />
+      <stop offset="1" stop-color="#020617" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="104" fill="url(#ink)" />
+  <circle cx="256" cy="196" r="118" fill="none" stroke="#2563eb" stroke-width="9" opacity="0.45" />
+  <circle cx="256" cy="196" r="88" fill="none" stroke="#38bdf8" stroke-width="7" opacity="0.7" />
+  <path d="M256 70c-56 0-101 45-101 101 0 76 101 170 101 170s101-94 101-170c0-56-45-101-101-101Z" fill="url(#pin)" />
+  <path d="M256 96c-41 0-74 33-74 74 0 52 53 117 74 140 21-23 74-88 74-140 0-41-33-74-74-74Z" fill="#e0f2fe" opacity="0.86" />
+  <circle cx="256" cy="170" r="31" fill="#020617" />
+  <circle cx="256" cy="170" r="17" fill="#38bdf8" opacity="0.75" />
+  <path d="M118 337h276M146 308h220M166 278h180M162 278l-48 59M350 278l48 59M210 278l-22 59M302 278l22 59" fill="none" stroke="#38bdf8" stroke-width="10" stroke-linecap="round" opacity="0.78" />
+  <text x="256" y="424" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="800" letter-spacing="1.5" fill="#67e8f9">SkoleGPS.dk</text>
+</svg>
