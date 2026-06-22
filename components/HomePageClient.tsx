@@ -82,7 +82,8 @@ const latest = {
   ],
 };
 
-const FREE_PERIOD_MODAL_STORAGE_KEY = "gpslob-free-period-autumn-2026-dismissed";
+const SKOLEGPS_FACEBOOK_GROUP_URL = "https://www.facebook.com/groups/1649785632764130";
+const FACEBOOK_GROUP_MODAL_STORAGE_KEY = "skolegps-facebook-group-2026-dismissed";
 
 function formatDisplayDate(isoDate: string) {
   const [yearString, monthString, dayString] = isoDate.split("-");
@@ -306,7 +307,7 @@ function formatDebugBoolean(value: boolean) {
   return value ? "ja" : "nej";
 }
 
-function FreePeriodModal({ shouldShow }: { shouldShow: boolean }) {
+function FacebookGroupModal({ shouldShow }: { shouldShow: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
@@ -317,7 +318,7 @@ function FreePeriodModal({ shouldShow }: { shouldShow: boolean }) {
       }
 
       try {
-        setIsOpen(window.localStorage.getItem(FREE_PERIOD_MODAL_STORAGE_KEY) !== "true");
+        setIsOpen(window.localStorage.getItem(FACEBOOK_GROUP_MODAL_STORAGE_KEY) !== "true");
       } catch {
         setIsOpen(true);
       }
@@ -328,7 +329,7 @@ function FreePeriodModal({ shouldShow }: { shouldShow: boolean }) {
 
   const handleClose = () => {
     try {
-      window.localStorage.setItem(FREE_PERIOD_MODAL_STORAGE_KEY, "true");
+      window.localStorage.setItem(FACEBOOK_GROUP_MODAL_STORAGE_KEY, "true");
     } catch {
       // If storage is blocked, the close button should still work for this visit.
     }
@@ -345,44 +346,39 @@ function FreePeriodModal({ shouldShow }: { shouldShow: boolean }) {
       <section
         role="dialog"
         aria-modal="true"
-        aria-labelledby="free-period-modal-title"
-        className="w-full max-w-lg rounded-3xl border border-white/70 bg-white p-6 shadow-[0_24px_80px_rgba(2,6,23,0.38)] sm:p-7"
+        aria-labelledby="facebook-group-modal-title"
+        className="w-full max-w-lg rounded-3xl border border-emerald-100 bg-white p-6 shadow-[0_24px_80px_rgba(2,6,23,0.38)] sm:p-7"
       >
         <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">
-          NYT NAVN – SAMME FUNKTIONER
+          Fællesskab for lærere
         </p>
         <h2
-          id="free-period-modal-title"
+          id="facebook-group-modal-title"
           className="mt-3 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl"
         >
-          GPSLøb bliver til SkoleGPS.dk
+          Følg med i SkoleGPS-gruppen
         </h2>
-        <p className="mt-4 text-sm font-semibold leading-7 text-slate-700 sm:text-base">
-          GPSLøb har fået nyt hjem på SkoleGPS.dk.
-        </p>
-        <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
-          Det er stadig den samme platform, de samme løb og de samme funktioner - bare
-          med et navn, der tydeligere viser, at værktøjet er lavet til skoler.
-        </p>
-        <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
-          gpslob.dk virker stadig i en overgangsperiode, men fremover anbefaler vi at
-          bruge skolegps.dk.
+        <p className="mt-4 text-sm leading-7 text-slate-600 sm:text-base">
+          Meld dig ind i Facebook-gruppen skolegps.dk, hvor lærere kan få nyheder,
+          dele erfaringer, følge udviklingen og ønske nye funktioner.
         </p>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-          <Link
-            href="/opdateringer"
-            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-800 transition hover:border-emerald-200 hover:text-emerald-800"
+          <a
+            href={SKOLEGPS_FACEBOOK_GROUP_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-500"
             onClick={handleClose}
           >
-            Læs mere
-          </Link>
+            Gå til Facebook-gruppen
+          </a>
           <button
             type="button"
             onClick={handleClose}
-            className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-slate-800"
+            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-800 transition hover:border-emerald-200 hover:text-emerald-800"
           >
-            Fint, tak
+            Ikke nu
           </button>
         </div>
       </section>
@@ -592,7 +588,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
     />
   ) : (
     <div className="relative flex min-h-screen flex-col overflow-x-hidden text-slate-100">
-      <FreePeriodModal shouldShow={siteVariantKey === "gpslob"} />
+      <FacebookGroupModal shouldShow={siteVariantKey === "gpslob"} />
         {siteVariantKey !== "postlob" ? (
           <video
             ref={backgroundVideoRef}
