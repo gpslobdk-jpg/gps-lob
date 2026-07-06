@@ -8,7 +8,6 @@ import Lottie from "lottie-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import AIChatButton from "@/components/AIChatButton";
 import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
 import QRScannerModal from "@/components/QRScannerModal";
 import { getSiteCopy } from "@/lib/siteCopy";
@@ -444,7 +443,6 @@ function NativeDebugPanel({ snapshot }: { snapshot: NativeDebugSnapshot }) {
 export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: HomePageClientProps) {
   const siteCopy = getSiteCopy(siteVariantKey);
   const homeCopy = siteCopy.home;
-  const [isMuted, setIsMuted] = useState(true);
   const [isCapacitorApp, setIsCapacitorApp] = useState(isNativeGpslobApp);
   const [shouldUseLightMobileRoot, setShouldUseLightMobileRoot] = useState<boolean | null>(
     isNativeGpslobApp ? false : null
@@ -502,10 +500,11 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
     const video = backgroundVideoRef.current;
     if (!video) return;
 
-    video.muted = isMuted;
-    video.volume = isMuted ? 0 : 1;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.volume = 0;
     void video.play().catch(() => undefined);
-  }, [isMuted, shouldUseLightMobileRoot]);
+  }, [shouldUseLightMobileRoot]);
 
   useEffect(() => {
     const browserWindow = window as HomePageWindow;
@@ -555,17 +554,6 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
     return () => window.clearTimeout(updateId);
   }, [isNativeGpslobApp]);
 
-  const toggleBackgroundSound = () => {
-    const nextMuted = !isMuted;
-    setIsMuted(nextMuted);
-
-    if (!backgroundVideoRef.current) return;
-
-    backgroundVideoRef.current.muted = nextMuted;
-    backgroundVideoRef.current.volume = nextMuted ? 0 : 1;
-    void backgroundVideoRef.current.play().catch(() => undefined);
-  };
-
   const handleAppReady = () => {
     router.push("/join");
   };
@@ -592,12 +580,12 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
         {siteVariantKey !== "postlob" ? (
           <video
             ref={backgroundVideoRef}
-            src="/introvideo.mp4"
+            src="/skolegpsforside.mp4"
             autoPlay
+            muted
             loop
-            muted={isMuted}
             playsInline
-            controls={false}
+            poster="/intro-poster.jpg"
             preload="auto"
             className="fixed top-0 left-0 h-full w-full object-cover -z-20"
           />
@@ -779,41 +767,6 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
             </div>
           </div>
 
-          <div className="flex justify-center">
-            <button
-              type="button"
-              onClick={toggleBackgroundSound}
-              aria-pressed={!isMuted}
-              className="inline-flex items-center gap-3 rounded-full border border-emerald-500/30 bg-slate-950/70 px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] text-emerald-300 shadow-[0_0_24px_rgba(16,185,129,0.15)] backdrop-blur-xl transition-all hover:border-emerald-400/60 hover:bg-emerald-500/10 hover:text-emerald-200"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
-                aria-hidden="true"
-              >
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                {isMuted ? (
-                  <>
-                    <line x1="23" y1="9" x2="17" y2="15" />
-                    <line x1="17" y1="9" x2="23" y2="15" />
-                  </>
-                ) : (
-                  <>
-                    <path d="M15.5 8.5a5 5 0 0 1 0 7" />
-                    <path d="M18.5 5.5a9 9 0 0 1 0 13" />
-                  </>
-                )}
-              </svg>
-              <span>{isMuted ? homeCopy.soundOn : homeCopy.soundOff}</span>
-            </button>
-          </div>
-
           <div className="rounded-3xl border border-emerald-500/30 bg-slate-950/80 p-8 text-center shadow-[0_0_40px_rgba(16,185,129,0.15)] backdrop-blur-xl">
             <p className="text-xs font-semibold uppercase tracking-[0.34em] text-emerald-400">
               {homeCopy.desktop.organizerEyebrow}
@@ -913,11 +866,6 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
         </section>
       </main>
 
-      {homeCopy.showDanishOnlyExtras ? (
-        <div className="hidden md:block">
-          <AIChatButton />
-        </div>
-      ) : null}
     </div>
   );
 

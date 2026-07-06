@@ -34,8 +34,6 @@ type SiteCopy = {
   home: {
     brandLabel: string;
     logoAlt: string;
-    soundOn: string;
-    soundOff: string;
     legalLinks: {
       gdpr: string;
       privacy: string;
@@ -193,8 +191,6 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
     home: {
       brandLabel: "SkoleGPS",
       logoAlt: "SkoleGPS logo",
-      soundOn: "Slå lyd til",
-      soundOff: "Slå lyd fra",
       legalLinks: {
         gdpr: "Privatliv fra start",
         privacy: "Sikker databehandling",
@@ -392,8 +388,6 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
     home: {
       brandLabel: "Postløp",
       logoAlt: "Postløp logo",
-      soundOn: "Slå på lyd",
-      soundOff: "Slå av lyd",
       legalLinks: {
         gdpr: "Personvern & databehandling",
         privacy: "Personvernerklæring",
