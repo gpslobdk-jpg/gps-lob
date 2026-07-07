@@ -37,7 +37,6 @@ type SiteCopy = {
     legalLinks: {
       gdpr: string;
       privacy: string;
-      ophavsret: string;
     };
     showTestimonials: boolean;
     showDanishOnlyExtras: boolean;
@@ -192,9 +191,8 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       brandLabel: "SkoleGPS",
       logoAlt: "SkoleGPS logo",
       legalLinks: {
-        gdpr: "Privatliv fra start",
+        gdpr: "Privat fra start",
         privacy: "Sikker databehandling",
-        ophavsret: "Copydan-parat",
       },
       showTestimonials: true,
       showDanishOnlyExtras: true,
@@ -208,10 +206,9 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
         loginButton: "Log ind",
       },
       desktop: {
-        organizerEyebrow: "Til arrangører & lærere",
-        organizerTitle: "Byg aktive GPS-løb på minutter",
-        organizerDescription:
-          "Log ind for at oprette løb, hente resultater og styre klassen live. Elever deltager fra mobilen.",
+        organizerEyebrow: "Til lærere og skoler",
+        organizerTitle: "Lav aktive GPS-løb på få minutter",
+        organizerDescription: "Opret løb, del med eleverne og følg resultaterne.",
         loginButton: "Log ind",
       },
     },
@@ -391,7 +388,6 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       legalLinks: {
         gdpr: "Personvern & databehandling",
         privacy: "Personvernerklæring",
-        ophavsret: "Opphavsrett & KI",
       },
       showTestimonials: false,
       showDanishOnlyExtras: false,

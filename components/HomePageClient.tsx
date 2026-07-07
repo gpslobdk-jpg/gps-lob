@@ -1,14 +1,13 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { FileCheck, Lock, ShieldCheck, Sparkles } from "lucide-react";
+import { Lock, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import Lottie from "lottie-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
 import QRScannerModal from "@/components/QRScannerModal";
 import { getSiteCopy } from "@/lib/siteCopy";
 import type { SiteVariantKey } from "@/lib/siteVariant";
@@ -59,53 +58,14 @@ type NativeDebugSnapshot = {
   href: string;
 };
 
-const latest = {
-  version: "19/6",
-  date: "2026-06-19",
-  dateLabel: "19. juni 2026",
-  type: "minor",
-  title: "GPSLøb bliver til SkoleGPS.dk",
-  summary:
-    "Nyt navn, samme funktioner: GPSLøb har fået nyt domæne, SkoleGPS.dk. Dine løb, login og arkiv fortsætter.",
-  items: [
-    {
-      title: "Samme platform og samme funktioner",
-      description:
-        "Du kan stadig oprette løb, bruge QR-koder, følge klassen live og finde tidligere løb i arkivet.",
-    },
-    {
-      title: "Brug SkoleGPS.dk fremover",
-      description:
-        "gpslob.dk virker fortsat i en overgangsperiode, men vi anbefaler lærere at bruge skolegps.dk fremover.",
-    },
-  ],
-};
-
 const SKOLEGPS_FACEBOOK_GROUP_URL = "https://www.facebook.com/groups/1649785632764130";
 const FACEBOOK_GROUP_MODAL_STORAGE_KEY = "skolegps-facebook-group-2026-dismissed";
-
-function formatDisplayDate(isoDate: string) {
-  const [yearString, monthString, dayString] = isoDate.split("-");
-  const year = Number(yearString);
-  const month = Number(monthString);
-  const day = Number(dayString);
-
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
-    return isoDate;
-  }
-
-  return new Intl.DateTimeFormat("da-DK", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(new Date(year, month - 1, day));
-}
 
 const zenBubbles: ZenBubble[] = [
   {
     name: "Eva Marie",
-    quote: "Mindblown – G.E.N.I.A.L.T! Den smarte generator fungerede over al forventning.",
-    position: "top-[14%] left-[10%]",
+    quote: "Den smarte generator fungerede over al forventning.",
+    position: "bottom-[14%] left-[8%]",
     animation: {
       y: [0, -10, 0, 8, 0],
       x: [0, 4, 0, -3, 0],
@@ -114,43 +74,12 @@ const zenBubbles: ZenBubble[] = [
   },
   {
     name: "Karsten",
-    quote: "Det her er ret fedt! Jeppe reagerer lynhurtigt.",
-    position: "top-[18%] right-[11%]",
+    quote: "Det her er ret fedt.",
+    position: "bottom-[16%] right-[8%]",
     animation: {
       y: [0, 9, 0, -7, 0],
       x: [0, -5, 0, 3, 0],
       rotate: [0, -1.5, 0, 1, 0],
-    },
-  },
-  {
-    name: "Sille",
-    label: "SILLE, LÆRER",
-    quote: "Det virker bare pisse fedt!! Eleverne er meget motiverede.",
-    position: "top-[45%] right-[5%]",
-    animation: {
-      y: [0, -7, 0, 9, 0],
-      x: [0, 6, 0, -5, 0],
-      rotate: [0, 1.2, 0, -1, 0],
-    },
-  },
-  {
-    name: "Thomas",
-    quote: "Det ser super fint ud. Glæder mig til at bruge det i praksis.",
-    position: "bottom-[18%] left-[16%]",
-    animation: {
-      y: [0, -8, 0, 10, 0],
-      x: [0, 3, 0, -4, 0],
-      rotate: [0, 0.8, 0, -0.8, 0],
-    },
-  },
-  {
-    name: "Mette",
-    quote: "Ser spændende ud. Det bliver godt at bruge i praksis.",
-    position: "bottom-[13%] right-[14%]",
-    animation: {
-      y: [0, 11, 0, -6, 0],
-      x: [0, -4, 0, 5, 0],
-      rotate: [0, -1, 0, 1.2, 0],
     },
   },
 ];
@@ -659,7 +588,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
         {homeCopy.showTestimonials ? zenBubbles.map((bubble, index) => (
           <motion.div
             key={bubble.name}
-            className={`absolute max-w-50 bg-transparent p-4 ${bubble.position}`}
+            className={`absolute max-w-44 bg-transparent p-4 opacity-75 ${bubble.position}`}
             animate={shouldReduceMotion ? undefined : bubble.animation}
             transition={
               shouldReduceMotion
@@ -671,10 +600,10 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
                   }
             }
           >
-            <p className="text-base leading-relaxed font-medium italic text-white/90 sm:text-lg">
+            <p className="text-sm leading-relaxed font-medium italic text-white/80">
               {bubble.quote}
             </p>
-            <p className="mt-3 block text-xs font-bold tracking-[0.16em] text-emerald-400 sm:text-sm">
+            <p className="mt-3 block text-[11px] font-bold tracking-[0.16em] text-emerald-400">
               {bubble.label ?? `${bubble.name.toUpperCase()} - Lærer`}
             </p>
           </motion.div>
@@ -682,14 +611,6 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
       </div>
 
       {/* Welcome modal removed; no onboarding modal shown */}
-
-      {homeCopy.showDanishOnlyExtras ? (
-        <div className="relative z-20 mx-auto hidden w-full max-w-6xl px-4 pt-4 sm:px-6 md:block md:px-8 md:pt-6">
-          <div className="mx-auto max-w-4xl">
-            <MobileInSchoolBanner variant="home" />
-          </div>
-        </div>
-      ) : null}
 
       <main className="relative mx-auto flex w-full flex-1 flex-col justify-center px-4 py-8 md:hidden">
         <section className="flex flex-1 items-center justify-center">
@@ -743,15 +664,15 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
       </main>
 
       <main className="relative mx-auto hidden w-full max-w-lg flex-1 flex-col justify-center px-6 py-10 md:flex">
-        <section className="space-y-6">
+        <section className="space-y-5">
           <div className="flex justify-center">
-            <div className="relative h-52 w-full max-w-75">
+            <div className="relative h-44 w-full max-w-70">
               <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
                 <Lottie
                   animationData={natureAnimation}
                   loop={true}
                   autoplay={true}
-                  className="h-44 w-44 opacity-70 sm:h-56 sm:w-56"
+                  className="h-40 w-40 opacity-60 sm:h-48 sm:w-48"
                 />
               </div>
               <div className="relative z-20 flex h-full items-center justify-center">
@@ -761,13 +682,13 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
                   width={320}
                   height={140}
                   priority
-                  className="h-auto w-full max-w-55 object-contain drop-shadow-[0_10px_20px_rgba(5,46,22,0.18)]"
+                  className="h-auto w-full max-w-52 object-contain drop-shadow-[0_10px_20px_rgba(5,46,22,0.18)]"
                 />
               </div>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-emerald-500/30 bg-slate-950/80 p-8 text-center shadow-[0_0_40px_rgba(16,185,129,0.15)] backdrop-blur-xl">
+          <div className="rounded-3xl border border-emerald-500/24 bg-slate-950/76 p-7 text-center shadow-[0_0_32px_rgba(16,185,129,0.13)] backdrop-blur-xl">
             <p className="text-xs font-semibold uppercase tracking-[0.34em] text-emerald-400">
               {homeCopy.desktop.organizerEyebrow}
             </p>
@@ -778,18 +699,6 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
               {homeCopy.desktop.organizerDescription}
             </p>
 
-            {homeCopy.showDanishOnlyExtras ? (
-              <div className="mt-5 rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-4 py-4 text-left">
-                <p className="text-sm font-black leading-6 text-emerald-50">
-                  GPSLøb bliver til SkoleGPS.dk
-                </p>
-                <p className="mt-2 text-sm leading-6 text-slate-200">
-                  Nyt navn, samme funktioner. Dine løb, login og arkiv fortsætter, og
-                  gpslob.dk virker stadig i en overgangsperiode.
-                </p>
-              </div>
-            ) : null}
-
             <Link
               href="/login"
               data-tour="home-organizer-login"
@@ -798,7 +707,16 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
               {homeCopy.desktop.loginButton}
             </Link>
 
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
+            {homeCopy.showDanishOnlyExtras ? (
+              <Link
+                href="/opdateringer"
+                className="mt-3 inline-flex min-h-10 items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-white/65 transition-all hover:border-white/20 hover:bg-white/8 hover:text-white"
+              >
+                Seneste nyt
+              </Link>
+            ) : null}
+
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
               <Link
                 href="/gdpr"
                 className="rounded-full border border-white/10 bg-white/4 px-3 py-2 transition-all hover:border-white/20 hover:bg-white/5"
@@ -819,48 +737,6 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
                 </span>
               </Link>
 
-              <Link
-                href="/ophavsret"
-                className="rounded-full border border-white/10 bg-white/4 px-3 py-2 transition-all hover:border-white/20 hover:bg-white/5"
-              >
-                <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
-                  <FileCheck className="h-3.5 w-3.5 text-emerald-300/80" />
-                  <span>{homeCopy.legalLinks.ophavsret}</span>
-                </span>
-              </Link>
-
-              {homeCopy.showDanishOnlyExtras ? (
-              <Link
-                href="/opdateringer"
-                className="group relative block rounded-3xl border border-amber-400/20 bg-amber-400/6 px-4 py-3 transition-all hover:border-amber-400/30 hover:bg-amber-400/10"
-              >
-                <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.22em] text-amber-200/70 uppercase sm:text-[11px]">
-                  <span className="h-2 w-2 rounded-full bg-amber-300/90" />
-                  <span>Seneste opdatering</span>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-amber-300/20 bg-amber-300/10 text-amber-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                    <Sparkles className="h-4 w-4 text-amber-400" />
-                  </span>
-
-                  <span className="min-w-0 flex-1 text-left">
-                    <span className="block text-sm font-semibold text-white sm:text-[15px]">
-                      Version {latest.version}
-                    </span>
-                    <span className="mt-1 block text-xs font-medium tracking-wide text-amber-100/70 sm:text-[13px]">
-                      {latest.dateLabel ?? formatDisplayDate(latest.date)}
-                    </span>
-                    <span className="mt-2 block text-xs font-semibold leading-5 text-white/90 sm:text-sm">
-                      {latest.title}
-                    </span>
-                    <span className="mt-1 block text-xs leading-5 text-amber-100/70">
-                      {latest.summary}
-                    </span>
-                  </span>
-                </div>
-              </Link>
-              ) : null}
             </div>
           </div>
         </section>
