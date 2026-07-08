@@ -20,18 +20,6 @@ type HomePageClientProps = {
   siteVariantKey: SiteVariantKey;
 };
 
-type ZenBubble = {
-  name: string;
-  quote: string;
-  position: string;
-  label?: string;
-  animation: {
-    y: number[];
-    x: number[];
-    rotate: number[];
-  };
-};
-
 type NativeAppWelcomeProps = {
   onReady: () => void;
   shouldReduceMotion: boolean;
@@ -60,29 +48,6 @@ type NativeDebugSnapshot = {
 
 const SKOLEGPS_FACEBOOK_GROUP_URL = "https://www.facebook.com/groups/1649785632764130";
 const FACEBOOK_GROUP_MODAL_STORAGE_KEY = "skolegps-facebook-group-2026-dismissed";
-
-const zenBubbles: ZenBubble[] = [
-  {
-    name: "Eva Marie",
-    quote: "Den smarte generator fungerede over al forventning.",
-    position: "bottom-[14%] left-[8%]",
-    animation: {
-      y: [0, -10, 0, 8, 0],
-      x: [0, 4, 0, -3, 0],
-      rotate: [0, 1, 0, -1, 0],
-    },
-  },
-  {
-    name: "Karsten",
-    quote: "Det her er ret fedt.",
-    position: "bottom-[16%] right-[8%]",
-    animation: {
-      y: [0, 9, 0, -7, 0],
-      x: [0, -5, 0, 3, 0],
-      rotate: [0, -1.5, 0, 1, 0],
-    },
-  },
-];
 
 function NativeAppWelcome({ onReady, shouldReduceMotion }: NativeAppWelcomeProps) {
   const pulseAnimation = shouldReduceMotion
@@ -584,32 +549,6 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
         )}
       <div className="fixed inset-0 -z-10 bg-slate-950/70 backdrop-blur-[2px]" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(16,185,129,0.16),transparent_35%),radial-gradient(circle_at_85%_95%,rgba(14,165,233,0.1),transparent_40%),radial-gradient(rgba(148,163,184,0.08)_1px,transparent_1px)] bg-size-[100%_100%,100%_100%,20px_20px] lg:hidden" />
-      <div className="pointer-events-none fixed inset-0 -z-10 hidden lg:block">
-        {homeCopy.showTestimonials ? zenBubbles.map((bubble, index) => (
-          <motion.div
-            key={bubble.name}
-            className={`absolute max-w-44 bg-transparent p-4 opacity-75 ${bubble.position}`}
-            animate={shouldReduceMotion ? undefined : bubble.animation}
-            transition={
-              shouldReduceMotion
-                ? undefined
-                : {
-                    duration: 12 + index * 1.5,
-                    ease: "easeInOut",
-                    repeat: Infinity,
-                  }
-            }
-          >
-            <p className="text-sm leading-relaxed font-medium italic text-white/80">
-              {bubble.quote}
-            </p>
-            <p className="mt-3 block text-[11px] font-bold tracking-[0.16em] text-emerald-400">
-              {bubble.label ?? `${bubble.name.toUpperCase()} - Lærer`}
-            </p>
-          </motion.div>
-        )) : null}
-      </div>
-
       {/* Welcome modal removed; no onboarding modal shown */}
 
       <main className="relative mx-auto flex w-full flex-1 flex-col justify-center px-4 py-8 md:hidden">
@@ -738,6 +677,20 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
               </Link>
 
             </div>
+
+            {homeCopy.showDanishOnlyExtras ? (
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-[11px] font-medium text-white/42">
+                <Link href="/gdpr" className="transition hover:text-emerald-200">
+                  Databehandling
+                </Link>
+                <span aria-hidden="true" className="text-white/20">
+                  /
+                </span>
+                <Link href="/ophavsret" className="transition hover:text-emerald-200">
+                  Ophavsret og Tekst & Node
+                </Link>
+              </div>
+            ) : null}
           </div>
         </section>
       </main>

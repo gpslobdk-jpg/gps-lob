@@ -94,32 +94,34 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
   gpslob: {
     gdpr: {
       metadata: {
-        title: "Privatlivspolitik & GDPR | SkoleGPS",
+        title: "Databehandling og privatliv | SkoleGPS",
         description:
-          "SkoleGPS er fuldt GDPR-kompatibelt og bygget til folkeskolen. Læs vores privatlivspolitik og se hvordan vi håndterer data.",
+          "Praktisk information om databehandling, elevoplysninger, billeder og skolebrug i SkoleGPS.dk.",
       },
       backToHomeLabel: "Tilbage til forsiden",
-      heroTitle: "Bygget til folkeskolen. 100 % styr på GDPR.",
-      heroEyebrow: "Privacy by Design fra dag ét",
+      heroTitle: "Databehandling i SkoleGPS.dk",
+      heroEyebrow: "Praktiske hensyn for skoler og lærere",
       intro:
-        'Vi ved, at datasikkerhed er afgørende ude på skolerne. Derfor er systemet bygget med "Privacy by Design" – vi indsamler kun det absolut nødvendige, og vi sletter det igen, så snart løbet er slut.',
+        "SkoleGPS.dk er et værktøj, hvor lærere kan oprette løb og opgaver til undervisning. Siden her er praktisk information - ikke juridisk rådgivning. Skolen skal selv vurdere brugen efter egne retningslinjer.",
       sections: [
         {
-          title: "1. Dataansvarlig",
-          paragraphs: ["SkoleGPS"],
+          title: "1. Dataansvar og kontakt",
+          paragraphs: [
+            "Skolen eller kommunen vurderer normalt selv, hvordan et digitalt skoleværktøj må bruges i undervisningen. SkoleGPS.dk kan hjælpe med dokumentation om platformens behandling og underleverandører.",
+          ],
           email: "skolegpsdk@gmail.com",
           emailLabel: "Kontakt",
         },
         {
-          title: "2. Ingen elev-logins",
+          title: "2. Dataminimering i praksis",
           paragraphs: [
-            "Eleverne skal ikke oprette en konto, afgive mailadresser eller downloade en app. De deltager direkte via browseren – uden UNI-login eller anden registrering.",
+            "Elever behøver ikke oprette konto eller afgive mailadresse for at deltage i et løb. Brug gerne holdnavne eller korte navne, hvis fulde elevnavne ikke er nødvendige for aktiviteten.",
           ],
         },
         {
-          title: "3. Hvilke data indsamles",
+          title: "3. Hvilke data kan indgå",
           paragraphs: [
-            'Eleverne indtaster udelukkende løbets pinkode og et valgfrit holdnavn (f.eks. "Hold 3"). Vi sporer ingen personfølsomme oplysninger. Data bruges udelukkende til at afvikle det aktive løb og vises kun på lærerens skærm.',
+            "Et løb kan indeholde de oplysninger, læreren vælger at bruge i aktiviteten. Det kan blandt andet være løbskode, holdnavn, svar, placering under løbet og eventuelle billeder fra fotoopgaver.",
           ],
           bullets: [
             { label: "Holdnavn", text: "valgfrit, indtastet af eleven" },
@@ -130,30 +132,29 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           ],
         },
         {
-          title: "4. Brug af kamera",
+          title: "4. Kamera, billeder og video",
           paragraphs: [
-            "Platformen kan anmode om adgang til kameraet, men kun hvis en opgave kræver, at eleven tager et billede som en del af løbet. Der sker ingen optagelse i baggrunden, og kameraet aktiveres aldrig uden elevens egen handling.",
+            "Kameraet bruges kun, hvis en opgave kræver, at eleven aktivt tager et billede. Billeder eller video kan være personoplysninger, hvis personer kan genkendes, og skolen bør derfor følge egne retningslinjer for brug, deling og offentliggørelse.",
           ],
         },
         {
           title: "5. Brug af GPS-lokation",
           paragraphs: [
-            "Platformen bruger GPS til at registrere elevens position under løbet. Lokationen bruges udelukkende til at afgøre, om eleven er nær en opgavepost. GPS-data bruges ikke til sporing uden for løbet.",
+            "Platformen bruger GPS til at afgøre, om eleven er i nærheden af en opgavepost. GPS bruges i forbindelse med selve løbet og skal forstås som en del af undervisningsaktiviteten.",
           ],
         },
         {
-          title: "6. Tryg datahåndtering",
+          title: "6. Sletning og adgang",
           paragraphs: [
-            'GPS-lokation registreres kun lokalt i elevens egen browser, mens løbet er aktivt. Svar og eventuelle billeder gemmes kortvarigt, men læreren kan med ét klik slette alt på Resultatsiden. Vi kalder det vores "Digitale Skraldemand".',
-            "Billeder af elever slettes automatisk efter 30 dage – uanset om læreren husker det.",
+            "Læreren kan slette svar og eventuelle billeder fra resultatsiden, når materialet ikke længere skal bruges. Kontakt os, hvis skolen har brug for hjælp til sletning, indsigt eller dokumentation.",
           ],
         },
         {
-          title: "7. Opbevaring og sletning",
+          title: "7. Opbevaring",
           bullets: [
-            { text: "Løbsdata slettes automatisk, når løbet afsluttes" },
-            { text: "Billeder slettes automatisk efter 30 dage" },
-            { text: "Læreren kan til enhver tid slette alt manuelt via Resultatsiden" },
+            { text: "Løbsdata opbevares, så læreren kan gennemgå resultater og bruge aktiviteten" },
+            { text: "Billeder og svar bør slettes, når de ikke længere er relevante for undervisningen" },
+            { text: "Skolen kan kontakte os ved spørgsmål om sletning eller adgang" },
           ],
         },
         {
@@ -163,8 +164,10 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           ],
         },
         {
-          title: "9. Tredjeparter",
-          paragraphs: ["SkoleGPS anvender følgende underleverandører til drift af platformen:"],
+          title: "9. Underleverandører",
+          paragraphs: [
+            "SkoleGPS.dk bruger underleverandører til drift, hosting, betaling og fejlovervågning. Skoler og kommuner bør vurdere databehandleraftale, underdatabehandlere og eventuelle overførsler som en del af deres egen proces.",
+          ],
           bullets: [
             { label: "Supabase", text: "database og backend" },
             { label: "Vercel", text: "webhosting" },
@@ -173,17 +176,17 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           ],
         },
         {
-          title: "10. Dine rettigheder",
+          title: "10. Rettigheder og spørgsmål",
           paragraphs: [
-            "Du har ret til indsigt i, hvilke data vi har registreret, ret til at få dem slettet og ret til at gøre indsigelse mod behandlingen.",
+            "Spørgsmål om elevoplysninger bør normalt håndteres gennem skolen eller kommunen. Du kan også kontakte SkoleGPS.dk om platformen, sletning, adgang eller dokumentation.",
           ],
           email: "skolegpsdk@gmail.com",
           emailLabel: "Kontakt",
         },
         {
-          title: "11. Målgruppe – designet til skoler",
+          title: "11. Målgruppe - designet til skoler",
           paragraphs: [
-            "SkoleGPS er designet til undervisningsbrug i folkeskolen og lignende institutioner. Systemet indsamler ikke unødige personoplysninger om elever.",
+            "SkoleGPS.dk er designet til undervisningsbrug i skoler og lignende institutioner. Platformen skal bruges sammen med skolens lokale retningslinjer.",
           ],
         },
         {
@@ -196,30 +199,31 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         },
       ],
       schoolCallout: {
-        title: "For skoler og kommuner",
+        title: "Til skoler, kommuner og DPO'er",
         paragraphs: [
-          "Vi ved, at I har brug for papirerne i orden. Vi indgår gerne en standard databehandleraftale (DPA) med jeres skole eller kommune, inden I tager platformen i brug.",
+          "Vi kan hjælpe med praktisk information om platformen og indgå databehandleraftale, hvis skolen eller kommunen har brug for det.",
+          "Brug altid skolens egne procedurer, og kontakt skoleledelse, kommune eller DPO ved tvivl om konkrete aktiviteter.",
         ],
         email: "skolegpsdk@gmail.com",
         emailLabel: "Kontakt",
       },
-      updatedAt: "Senest opdateret: 27. maj 2026.",
+      updatedAt: "Senest opdateret: 8. juli 2026.",
     },
     privacy: {
       metadata: {
-        title: "Privatliv & Datasikkerhed | SkoleGPS",
+        title: "Privatliv og sikker databehandling | SkoleGPS",
         description:
-          "SkoleGPS er bygget med Privacy by Design. Elevernes GPS-data bruges kun aktivt under løbet og slettes automatisk bagefter. Ingen elev-logins, ingen sporing.",
+          "Kort information om privatliv, elevdata og sikker databehandling i SkoleGPS.dk.",
       },
       backToHomeLabel: "Tilbage til forsiden",
-      heroTitle: "Privatliv, Sikkerhed & Udvikler Info",
-      heroEyebrow: "Vi passer på elevernes data (og rydder op efter os)",
+      heroTitle: "Privatliv og sikker databehandling",
+      heroEyebrow: "Privat fra start",
       intro:
-        'Når I løber GPS-løb hos os, skal fokus være på leg, læring og frisk luft – ikke på bekymringer om data. Vi har bygget platformen med "Privacy by Design", hvilket betyder, at vi kun indsamler det absolut nødvendige, og vi sletter det igen, så snart løbet er slut.',
+        "SkoleGPS.dk er lavet til undervisning, hvor elever kan deltage uden egen konto. Vi forsøger at holde dataforbruget lavt og gøre det let for læreren at rydde op efter et løb.",
       sections: [
         {
-          title: "1. Hvilke data indsamler vi?",
-          paragraphs: ["Når en elev eller et hold deltager i et løb, beder vi kun om:"],
+          title: "1. Hvilke data kan indgå?",
+          paragraphs: ["Når en elev eller et hold deltager i et løb, kan platformen behandle:"],
           bullets: [
             { text: "Et holdnavn eller fornavn" },
             { text: "GPS-lokation, kun mens løbet er aktivt" },
@@ -229,13 +233,13 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         {
           title: "2. Hvad bruges dataen til?",
           paragraphs: [
-            "Dataen bruges udelukkende til at drive spillet fremad og til at vise læreren et leaderboard og en resultatliste, når løbet er færdigt.",
+            "Data bruges til at afvikle løbet, vise eleverne de rigtige poster og give læreren resultater fra aktiviteten.",
           ],
         },
         {
-          title: "3. Vores Digitale Skraldemand",
+          title: "3. Oprydning efter løb",
           paragraphs: [
-            "Vi ønsker ikke at gemme billeder af børn og unge længere end nødvendigt. Derfor kan læreren med ét klik slette alle billeder og svar på resultatsiden.",
+            "Læreren kan slette svar og eventuelle billeder fra resultatsiden, når de ikke længere skal bruges. Skolen bør følge egne retningslinjer for opbevaring og sletning.",
           ],
         },
         {
@@ -247,26 +251,27 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         {
           title: "5. For skoler og kommuner",
           paragraphs: [
-            "Vi indgår gerne en standard databehandleraftale med jeres skole eller kommune, før I tager platformen i brug.",
+            "Vi kan indgå databehandleraftale og give praktisk information om underleverandører og platformens databehandling.",
           ],
         },
       ],
       securityCallout: {
-        title: "Sikkerhed i Topklasse",
+        title: "Sikkerhed i praksis",
         paragraphs: [
           "Vi tager datasikkerhed seriøst og bruger etablerede driftstjenester samt begrænset adgang til administrationsfunktioner.",
         ],
         bullets: [
           { label: "Stram adgangskontrol", text: "kun autoriserede lærere og administratorer kan oprette og styre indhold" },
-          { label: "Beskyttet KI-integration", text: "data bruges ikke til at træne offentlige KI-modeller" },
-          { label: "Skudsikre API'er", text: "trafik begrænses med timeouts og beskyttelse mod misbrug" },
+          { label: "Beskyttet AI-integration", text: "uploadet materiale bruges ikke til at træne offentlige AI-modeller" },
+          { label: "Beskyttet drift", text: "trafik begrænses med timeouts og beskyttelse mod misbrug" },
           { label: "Krypteret data", text: "al trafik kører over moderne kryptering" },
+          { label: "Underleverandører", text: "skoler kan få information til vurdering af databehandleraftale og underdatabehandlere" },
         ],
       },
       support: {
-        title: "Udvikler Info & Support",
+        title: "Kontakt og dokumentation",
         paragraphs: [
-          "Har du tekniske spørgsmål, ønsker du at købe adgang til din skole, eller vil du kontakte udvikleren direkte?",
+          "Har skolen spørgsmål om databehandling, drift eller dokumentation, kan I kontakte os.",
         ],
         email: "skolegpsdk@gmail.com",
         emailLabel: "Skriv til",
@@ -274,84 +279,94 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
     },
     ophavsret: {
       metadata: {
-        title: "Ophavsret & AI-brug | SkoleGPS",
+        title: "Ophavsret og Tekst & Node | SkoleGPS",
         description:
-          "Klare principper for ophavsret og ansvarlig brug af AI og tekster i SkoleGPS. Din data bruges ikke til at træne offentlige AI-modeller.",
+          "Praktisk information om ophavsret, Tekst & Node og ansvarlig brug af materialer i SkoleGPS.dk.",
       },
       backToHomeLabel: "Tilbage til forsiden",
-      heroTitle: "Ophavsret og brug af AI i SkoleGPS",
-      heroEyebrow: "Klare rammer for sikker databehandling og ansvarlig brug af tekster",
+      heroTitle: "Ophavsret og Tekst & Node",
+      heroEyebrow: "Praktiske rammer for tekster, noder og AI",
       intro:
-        "Når du bruger vores Scan tekst-funktion og øvrige kreative KI-værktøjer, er det vigtigt, at vi passer på forfatternes rettigheder. Derfor har vi bygget SkoleGPS med to klare principper.",
+        "Når lærere bruger tekst, billeder, noder eller andet materiale i SkoleGPS.dk, skal materialet være lovligt at bruge i undervisningen. SkoleGPS.dk er et værktøj; skolen og læreren har ansvar for indholdet.",
       principles: [
         {
           eyebrow: "Punkt 1",
-          title: "Din data træner ikke AI'en",
+          title: "Materialer skal kunne bruges i undervisningen",
           tone: "emerald",
           paragraphs: [
-            "Når du uploader et billede af en tekst, bruger vi en lukket API-forbindelse. Teksten læses kun i det øjeblik, det tager at generere løbet.",
-            "Teksten bliver ikke gemt og bliver ikke brugt til at træne offentlige KI-modeller. Din data forbliver privat.",
+            "Brug egne noter, egne opgaver, åbne materialer eller materiale, som skolen i øvrigt har ret til at bruge.",
+            "Hvis der uploades tekst, billeder eller noder fra andre, bør læreren følge skolens lokale retningslinjer og relevante aftaler.",
           ],
         },
         {
           eyebrow: "Punkt 2",
-          title: "Lærerens ansvar og Copydan",
+          title: "Tekst & Node og skolens aftaler",
           tone: "sky",
           paragraphs: [
-            "Ligesom ved skolens kopimaskine er det dit eget ansvar som underviser at sikre, at du har ret til at bruge det materiale, du scanner ind.",
-            "Vi opfordrer til, at funktionen primært bruges til egne noter, korte tekstuddrag under citatretten eller materiale, som skolen har en Copydan-aftale til.",
+            "Mange skoler har aftaler gennem Tekst & Node, som kan give rammer for kopiering af tekster og noder til undervisning.",
+            "SkoleGPS.dk vurderer ikke automatisk, om et bestemt materiale er dækket. Ved tvivl bør læreren spørge skolen, kommunen eller den ansvarlige for skolens aftaler.",
+          ],
+        },
+        {
+          eyebrow: "Punkt 3",
+          title: "AI og uploadet tekst",
+          tone: "amber",
+          paragraphs: [
+            "Når en AI-funktion bruges til at hjælpe med opgaver, behandles materialet via lukkede API-forbindelser.",
+            "Uploadet materiale bruges ikke til at træne offentlige AI-modeller, men skolen bør stadig kun bruge materiale, den har ret til at behandle.",
           ],
         },
       ],
       summary:
-        "SkoleGPS er designet til at hjælpe dig med at forvandle viden til aktiv læring i skolegården – hurtigt, sjovt og sikkert.",
-      ctaLabel: "Læs den fulde juridiske uddybning her",
+        "Siden er praktisk information og ikke juridisk rådgivning. Ved tvivl bør skolen bruge egne retningslinjer eller kontakte den ansvarlige for ophavsret og aftaler.",
+      ctaLabel: "Læs den juridiske uddybning",
     },
     ophavsretJura: {
       metadata: {
-        title: "Juridisk Ansvarsfraskrivelse | SkoleGPS",
+        title: "Juridisk præcisering | SkoleGPS",
         description:
-          "Fuld juridisk uddybning og ansvarsfraskrivelse for SkoleGPS. Ophavsretsloven, E-handelsloven og Safe Harbor.",
+          "Praktisk præcisering om ansvar, ophavsret og AI-behandling i SkoleGPS.dk.",
       },
-      backToOverviewLabel: "← Ophavsret",
+      backToOverviewLabel: "Tilbage til ophavsret",
       backToHomeLabel: "Forsiden",
-      eyebrow: "Disclaimer",
-      title: "Juridisk Uddybning og Ansvarsfraskrivelse",
-      intro: "Denne side indeholder den fulde juridiske ramme for brug af SkoleGPS' KI-værktøjer.",
+      eyebrow: "Præcisering",
+      title: "Juridisk præcisering om ansvar og ophavsret",
+      intro:
+        "Denne side er praktisk information om brug af materialer i SkoleGPS.dk. Den er ikke juridisk rådgivning, og skolen skal selv vurdere konkrete materialer og aktiviteter.",
       cards: [
         {
-          eyebrow: "§ 1",
-          title: "Brugerens rettigheder og ansvar",
+          eyebrow: "1",
+          title: "Skolens og lærerens ansvar",
           tone: "emerald",
           paragraphs: [
-            "Ved upload af billeder, tekster eller links til bearbejdning i SkoleGPS' KI-tjenester indestår brugeren fuldt ud for, at materialet anvendes lovligt.",
-            "Det indebærer, at brugeren enten har indhentet samtykke fra rettighedshaveren, agerer inden for citatretten eller bruger materiale dækket af skolens Copydan Tekst & Node-aftale.",
+            "Når en lærer uploader eller bruger tekst, billeder, noder, lyd eller andet materiale, skal skolen og læreren sikre, at materialet må bruges i undervisningen.",
+            "Det kan for eksempel være egne materialer, åbne materialer eller materiale, der er dækket af skolens aftaler, herunder relevante aftaler med Tekst & Node.",
           ],
         },
         {
-          eyebrow: "§ 2",
-          title: "Platformens status som teknisk formidler",
+          eyebrow: "2",
+          title: "SkoleGPS.dk er et teknisk værktøj",
           tone: "sky",
           paragraphs: [
-            "SkoleGPS fungerer som teknisk it-infrastruktur og databehandler for brugeren. Platformen bærer ikke redaktionelt ansvar for det specifikke indhold, brugerne uploader, scanner eller transmitterer.",
-            "Platformen udfører ingen forudgående manuel eller automatiseret kontrol af rettighederne til det brugergenererede indhold.",
+            "SkoleGPS.dk leverer en teknisk platform til at oprette og afvikle undervisningsaktiviteter. Platformen foretager ikke en juridisk vurdering af rettighederne til hvert enkelt materiale.",
+            "Læreren bør derfor kun bruge materiale, som skolen vurderer kan indgå i aktiviteten.",
           ],
         },
         {
-          eyebrow: "§ 3",
+          eyebrow: "3",
           title: "Procedure ved mulig krænkelse",
           tone: "amber",
           paragraphs: [
-            "Hvis SkoleGPS får troværdig information om, at konkret indhold krænker tredjeparts rettigheder, kan vi fjerne eller blokere adgangen til materialet uden varsel.",
+            "Hvis SkoleGPS.dk får troværdig information om, at konkret indhold krænker tredjeparts rettigheder, kan vi fjerne eller blokere adgangen til materialet.",
           ],
         },
         {
-          eyebrow: "§ 4",
-          title: "Databehandling og tredjeparts KI-modeller",
+          eyebrow: "4",
+          title: "Databehandling og AI",
           tone: "violet",
           paragraphs: [
-            "SkoleGPS benytter lukkede API-forbindelser til underdatabehandlere. Materiale behandles midlertidigt for at generere løbsspørgsmål og slettes efter endt session.",
-            "Materialet indgår ikke i træningsdata for offentlige KI-grundmodeller.",
+            "AI-funktioner kan behandle uploadet materiale via lukkede API-forbindelser til underleverandører for at hjælpe med at generere undervisningsindhold.",
+            "Materialet bruges ikke til at træne offentlige AI-modeller. Databehandleraftaler, underdatabehandlere og eventuelle overførsler bør vurderes som en del af skolens egen proces.",
           ],
         },
       ],
@@ -360,13 +375,13 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
       metadata: {
         title: "Podcast-Detektiven & Ophavsret | SkoleGPS",
         description:
-          "Podcast-Detektiven i SkoleGPS er lovlig at bruge i undervisningen og bygger kun på offentligt tilgængeligt indhold.",
+          "Praktisk information om ophavsret, podcastmateriale og undervisningsbrug i SkoleGPS.dk.",
       },
       backToPodcastLabel: "Tilbage til Podcast-Detektiven",
-      title: "Podcast-Detektiven og Ophavsret ⚖️",
-      heroEyebrow: "Tryg brug i undervisningen",
+      title: "Podcast-Detektiven og ophavsret",
+      heroEyebrow: "Praktiske hensyn i undervisningen",
       intro:
-        "Når du bruger Podcast-Detektiven til at bygge GPS-løb, skal ophavsretten respekteres. Værktøjet er bygget til at bruge offentligt tilgængeligt indhold på en forsigtig måde.",
+        "Når en podcast bruges i undervisningen, skal skolen og læreren vurdere, at materialet må indgå i aktiviteten. Siden her er praktisk information og ikke juridisk rådgivning.",
       rulesTitle: "Sådan fungerer det i praksis",
       rules: [
         {
@@ -382,7 +397,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           title: "Støt skaberne – lyt via originalkilden",
           tone: "sky",
           paragraphs: [
-            "Når elever skal lytte til udsendelsen under løbet, bliver de sendt videre til originalkilden. Skaberne bag podcasten får fortsat deres lyttertal og anerkendelse.",
+            "Når elever skal lytte til udsendelsen under løbet, bør de bruge originalkilden. Det hjælper med at respektere podcastens normale udgivelseskanal.",
           ],
         },
         {
@@ -390,12 +405,12 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           title: "Læsning af offentlig data",
           tone: "emerald",
           paragraphs: [
-            "For at bygge spørgsmålene læser systemet kun offentligt tilgængelige tekster som show notes, resuméer og åbne undertekster.",
+            "AI-funktioner kan bruge offentligt tilgængelige tekster som show notes, resuméer og åbne undertekster til at foreslå spørgsmål.",
           ],
         },
       ],
       summary:
-        "Læreren eller skolen er selv ansvarlig for, at podcastmateriale bruges lovligt i undervisningen.",
+        "Læreren eller skolen er selv ansvarlig for at vurdere, om podcastmateriale må bruges i den konkrete undervisningsaktivitet.",
     },
   },
   postlob: {

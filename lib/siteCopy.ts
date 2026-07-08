@@ -38,7 +38,6 @@ type SiteCopy = {
       gdpr: string;
       privacy: string;
     };
-    showTestimonials: boolean;
     showDanishOnlyExtras: boolean;
     mobile: {
       title: string;
@@ -194,7 +193,6 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
         gdpr: "Privat fra start",
         privacy: "Sikker databehandling",
       },
-      showTestimonials: true,
       showDanishOnlyExtras: true,
       mobile: {
         title: "Hvem er du?",
@@ -389,7 +387,6 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
         gdpr: "Personvern & databehandling",
         privacy: "Personvernerklæring",
       },
-      showTestimonials: false,
       showDanishOnlyExtras: false,
       mobile: {
         title: "Hvem er du?",

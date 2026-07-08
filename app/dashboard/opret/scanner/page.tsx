@@ -1315,7 +1315,7 @@ export default function ScannerPortalPage() {
                         className="cursor-pointer select-none text-sm leading-relaxed text-white/80"
                       >
                         Jeg bekræfter, at jeg har rettighederne til at bearbejde dette materiale, eller at min brug
-                        er dækket af min skoles gældende aftale med Copydan Tekst &amp; Node.{" "}
+                        er dækket af min skoles gældende aftale med Tekst &amp; Node.{" "}
                         <Link href="/ophavsret" className="text-blue-400 hover:underline" target="_blank">
                           (Læs mere om ophavsret)
                         </Link>
