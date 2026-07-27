@@ -2,9 +2,11 @@ import type { SiteVariantKey } from "@/lib/siteVariant";
 
 export type QrScannerCopy = {
   buttonLabel: string;
+  startButtonLabel: string;
   eyebrow: string;
   title: string;
   description: string;
+  manualFallback: string;
   startingCamera: string;
   ready: string;
   failed: string;
@@ -29,6 +31,7 @@ type SiteCopy = {
     loginTitle: string;
     loginDescription: string;
     manifestName: string;
+    manifestShortName: string;
     manifestDescription: string;
   };
   home: {
@@ -53,6 +56,7 @@ type SiteCopy = {
       organizerTitle: string;
       organizerDescription: string;
       loginButton: string;
+      joinButton: string;
     };
   };
   login: {
@@ -89,6 +93,9 @@ type SiteCopy = {
   };
   join: {
     defaultExpiredMessage: string;
+    emptyCode: string;
+    missingName: string;
+    notOpen: string;
     fillPinAndName: string;
     pinLength: (length: number) => string;
     rateLimit: string;
@@ -152,14 +159,18 @@ type SiteCopy = {
       inAppWarningAndroidStrong: string;
       inAppWarningAndroidBody: string;
       codePlaceholder: string;
+      codeLabel: string;
       namePlaceholder: string;
+      nameLabel: string;
+      continueButton: string;
+      changeCodeButton: string;
       submitButton: string;
       submitPending: string;
       checkConnectionButton: string;
       checkConnectionPending: string;
       troubleshootingTitle: string;
       troubleshootingToggle: string;
-      troubleshootingParagraphs: [string, string, string];
+      troubleshootingParagraphs: [string, string, string, string, string];
       homeButton: string;
       homescreenTitle: string;
       homescreenBody: string;
@@ -183,7 +194,8 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       loginTitle: "Login | SkoleGPS",
       loginDescription:
         "Log ind på SkoleGPS.dk for at oprette løb, følge klassen live og hente resultater.",
-      manifestName: "GPS Løb",
+      manifestName: "SkoleGPS",
+      manifestShortName: "SkoleGPS",
       manifestDescription: "Interaktive GPS-missioner",
     },
     home: {
@@ -208,6 +220,7 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
         organizerTitle: "Lav aktive GPS-løb på få minutter",
         organizerDescription: "Opret løb, del med eleverne og følg resultaterne.",
         loginButton: "Log ind",
+        joinButton: "Deltag i løb",
       },
     },
     login: {
@@ -247,20 +260,22 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       },
     },
     join: {
-      defaultExpiredMessage: "Dette løb er desværre slut. Kontakt din arrangør.",
+      defaultExpiredMessage: "Løbet er afsluttet.",
+      emptyCode: "Skriv koden fra din lærer.",
+      missingName: "Skriv dit navn eller holdnavn.",
+      notOpen: "Løbet er ikke åbnet endnu. Spørg din lærer.",
       fillPinAndName: "Udfyld venligst både pinkode og navn.",
-      pinLength: (length) => `Pinkoden skal bestå af ${length} tal.`,
+      pinLength: (length) => `Koden skal bestå af ${length} tegn.`,
       rateLimit:
         "Der er lige nu kø i skolegården. Vent 5-10 sekunder og prøv at trykke 'Deltag i løbet' igen.",
-      invalidPin: "Ugyldig pinkode.",
-      finishedOrMissing:
-        "Løbet er afsluttet eller findes ikke længere. Få en ny pinkode fra din lærer.",
+      invalidPin: "Vi kunne ikke finde et løb med den kode.",
+      finishedOrMissing: "Løbet er afsluttet.",
       timeout:
         "Forbindelsen tager for lang tid. Hvis du er på skolens Wi-Fi, så prøv mobildata. På iPhone: åbn helst linket i Safari.",
       networkError:
-        "Forbindelsen driller. Prøv igen. Hvis du er på skolens Wi-Fi, så prøv mobildata. På iPhone: åbn helst linket i Safari.",
+        "Der kunne ikke oprettes forbindelse. Kontrollér nettet, og prøv igen.",
       genericJoinError:
-        "Der skete en fejl ved deltagelse. Prøv igen. Hvis du er på skolens Wi-Fi, så prøv mobildata. På iPhone: åbn helst linket i Safari. Kontakt din lærer, hvis problemet fortsætter.",
+        "Der opstod en fejl. Prøv igen, eller spørg din lærer.",
       teamBadge: (teamName) => `Du er på ${teamName} hold!`,
       connectionCheck: {
         offlineTitle: "Forbindelsen driller",
@@ -311,7 +326,7 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       },
       form: {
         title: "Deltag i løbet",
-        description: "Indtast løbskoden eller scan QR-koden. Skriv derefter dit navn.",
+        description: "Indtast koden fra din lærer, eller scan QR-koden.",
         dismissWarningLabel: "Luk advarsel",
         iosHintTitle: "Bruger du iPhone?",
         iosHintDescription: "Åbn helst linket i Safari. Hvis skolens Wi-Fi driller, så prøv mobildata.",
@@ -321,8 +336,12 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
         inAppWarningAndroidStrong: "Åbn linket i den rigtige browser",
         inAppWarningAndroidBody:
           "i Chrome på Android for bedst chance for at GPS og login virker.",
-        codePlaceholder: "Løbskode, f.eks. 492173",
-        namePlaceholder: "Dit navn",
+        codePlaceholder: "Kode, f.eks. 492173",
+        codeLabel: "Kode fra din lærer",
+        namePlaceholder: "Navn eller holdnavn",
+        nameLabel: "Dit navn eller holdnavn",
+        continueButton: "Fortsæt",
+        changeCodeButton: "Brug en anden kode",
         submitButton: "Deltag i løbet",
         submitPending: "Gør klar...",
         checkConnectionButton: "Tjek forbindelse",
@@ -330,9 +349,11 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
         troubleshootingTitle: "Problemer med at deltage?",
         troubleshootingToggle: "Vis hjælp",
         troubleshootingParagraphs: [
-          "Hvis koden er forkert eller for gammel, skal din lærer give dig en ny kode eller et nyt link.",
-          "Hvis kameraet ikke starter, kan du stadig taste koden manuelt i feltet ovenfor.",
-          "På iPhone virker GPS og login bedst i Safari. Undgå helst at åbne linket direkte i Facebook, Instagram eller andre indbyggede browsere.",
+          "Kontrollér, at koden er skrevet korrekt.",
+          "Spørg læreren, om løbet er startet.",
+          "Slå flytilstand fra, og kontrollér forbindelsen.",
+          "Genindlæs siden, hvis du tidligere har været med i et andet løb.",
+          "Brug kodefeltet, hvis kameraet ikke virker.",
         ],
         homeButton: "Tilbage til forsiden",
         homescreenTitle: "Tip: Brug som app",
@@ -343,27 +364,28 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       },
     },
     qrScanner: {
-      buttonLabel: "Scan QR",
+      buttonLabel: "Scan QR-kode",
+      startButtonLabel: "Åbn kamera",
       eyebrow: "Scan dig ind",
       title: "Ret kameraet mod QR-koden",
-      description:
-        "Tillad kameraadgang, og hold QR-koden foran kameraet. Vi sender dig direkte videre til løbet, så snart koden er læst.",
+      description: "Tillad kameraet for at scanne lærerens QR-kode.",
+      manualFallback: "Du kan stadig indtaste koden manuelt på join-siden.",
       startingCamera: "Starter kamera...",
       ready: "QR-scanneren er klar.",
       failed: "Kameraet kunne ikke startes.",
-      scanFailed: "QR-koden kunne ikke forstås. Prøv en anden kode.",
+      scanFailed: "QR-koden tilhører ikke et aktivt SkoleGPS-løb.",
       closeAriaLabel: "Luk QR-scanner",
       errors: {
         permissionDenied:
-          "Kamera-adgang naegtet. For at bruge scanneren skal du tillade kamera i din browsers indstillinger (ofte oppe i adressebaren). Ellers kan du lukke denne boks og taste pinkoden manuelt.",
+          "Kameraet kunne ikke åbnes. Du kan stadig indtaste koden ovenfor.",
         noCamera:
-          "Vi kunne ikke finde et kamera paa denne enhed. Du kan lukke denne boks og taste pinkoden manuelt.",
+          "Kameraet kunne ikke åbnes. Du kan stadig indtaste koden ovenfor.",
         busy:
-          "Kameraet er allerede i brug af en anden app eller browser-fane. Luk denne boks og proev igen, eller tast pinkoden manuelt.",
+          "Kameraet kunne ikke åbnes. Du kan stadig indtaste koden ovenfor.",
         generic:
-          "Kameraet kunne ikke startes lige nu. Du kan proeve igen eller lukke denne boks og taste pinkoden manuelt.",
+          "Kameraet kunne ikke åbnes. Du kan stadig indtaste koden ovenfor.",
         unsupported:
-          "Din browser understotter ikke kameraadgang til QR-scanning. Du kan lukke denne boks og taste pinkoden manuelt.",
+          "Kameraet kunne ikke åbnes. Du kan stadig indtaste koden ovenfor.",
       },
     },
     wifiTip: "💡 Tip: Sluk for Wi-Fi og brug mobildata! Så mister du ikke forbindelsen ude på ruten.",
@@ -378,6 +400,7 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       loginTitle: "Logg inn | Postløp",
       loginDescription: "Logg inn på Postløp for å lage og styre GPS-løp for klassen.",
       manifestName: "Postløp",
+      manifestShortName: "Postløp",
       manifestDescription: "Interaktive skoleløp med poster",
     },
     home: {
@@ -403,6 +426,7 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
         organizerDescription:
           "Logg inn for å lage løp, hente resultater og følge deltakerne live. Elever og deltakere blir med via mobil, nettbrett eller nettleser.",
         loginButton: "Logg inn",
+        joinButton: "Bli med i løp",
       },
     },
     login: {
@@ -441,18 +465,21 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       },
     },
     join: {
-      defaultExpiredMessage: "Dette løpet er dessverre slutt. Kontakt læreren.",
+      defaultExpiredMessage: "Løpet er avsluttet.",
+      emptyCode: "Skriv inn koden fra læreren.",
+      missingName: "Skriv inn navnet ditt eller lagnavnet.",
+      notOpen: "Løpet er ikke åpnet ennå. Spør læreren.",
       fillPinAndName: "Fyll inn både pinkode og navn.",
-      pinLength: (length) => `Pinkoden må være ${length} tall.`,
+      pinLength: (length) => `Koden må være ${length} tegn.`,
       rateLimit: "Det er litt kø akkurat nå. Vent 5-10 sekunder og prøv igjen.",
-      invalidPin: "Ugyldig pinkode.",
-      finishedOrMissing: "Løpet er avsluttet eller finnes ikke lenger. Få en ny pinkode fra læreren.",
+      invalidPin: "Vi fant ikke et løp med den koden.",
+      finishedOrMissing: "Løpet er avsluttet.",
       timeout:
         "Tilkoblingen bruker for lang tid. Hvis skolens Wi-Fi er ustabil, prøv mobildata. På iPhone bør du åpne lenken i Safari.",
       networkError:
-        "Tilkoblingen er ustabil. Prøv igjen. Hvis skolens Wi-Fi er ustabil, prøv mobildata. På iPhone bør du åpne lenken i Safari.",
+        "Kunne ikke koble til. Kontroller nettet, og prøv igjen.",
       genericJoinError:
-        "Det oppstod en feil da du skulle bli med. Prøv igjen. Hvis skolens Wi-Fi er ustabil, prøv mobildata. På iPhone bør du åpne lenken i Safari. Kontakt læreren hvis problemet fortsetter.",
+        "Det oppstod en feil. Prøv igjen, eller spør læreren.",
       teamBadge: (teamName) => `Du er på lag ${teamName}!`,
       connectionCheck: {
         offlineTitle: "Tilkoblingen er ustabil",
@@ -503,7 +530,7 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       },
       form: {
         title: "Bli med i løpet",
-        description: "Skriv inn løpskoden eller skann QR-koden. Skriv deretter navnet ditt.",
+        description: "Skriv inn koden fra læreren, eller skann QR-koden.",
         dismissWarningLabel: "Lukk advarsel",
         iosHintTitle: "Bruker du iPhone?",
         iosHintDescription:
@@ -514,8 +541,12 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
         inAppWarningAndroidStrong: "Åpne lenken i riktig nettleser",
         inAppWarningAndroidBody:
           "i Chrome på Android for størst sjanse for at GPS og innlogging virker.",
-        codePlaceholder: "Løpskode, for eksempel 492173",
-        namePlaceholder: "Navnet ditt",
+        codePlaceholder: "Kode, for eksempel 492173",
+        codeLabel: "Kode fra læreren",
+        namePlaceholder: "Navn eller lagnavn",
+        nameLabel: "Navnet ditt eller lagnavnet",
+        continueButton: "Fortsett",
+        changeCodeButton: "Bruk en annen kode",
         submitButton: "Bli med i løpet",
         submitPending: "Gjør klar...",
         checkConnectionButton: "Sjekk tilkobling",
@@ -523,9 +554,11 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
         troubleshootingTitle: "Hjelp, jeg står fast",
         troubleshootingToggle: "Vis hjelp",
         troubleshootingParagraphs: [
-          "Hvis koden er feil eller for gammel, må læreren gi deg en ny kode eller en ny lenke.",
-          "Hvis kameraet ikke starter, kan du fortsatt skrive inn koden manuelt i feltet over.",
-          "På iPhone virker GPS og innlogging best i Safari. Unngå helst å åpne lenken direkte i Facebook, Instagram eller andre innebygde nettlesere.",
+          "Kontroller at koden er skrevet riktig.",
+          "Spør læreren om løpet har startet.",
+          "Slå av flymodus, og kontroller tilkoblingen.",
+          "Last siden på nytt hvis du tidligere har vært med i et annet løp.",
+          "Bruk kodefeltet hvis kameraet ikke virker.",
         ],
         homeButton: "Tilbake til forsiden",
         homescreenTitle: "Tips: Bruk som app",
@@ -537,10 +570,11 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
     },
     qrScanner: {
       buttonLabel: "Skann QR",
+      startButtonLabel: "Åpne kamera",
       eyebrow: "Skann deg inn",
       title: "Hold kameraet mot QR-koden",
-      description:
-        "Gi tilgang til kameraet, og hold QR-koden foran kameraet. Vi sender deg rett videre til løpet så snart koden er lest.",
+      description: "Tillat kameraet for å skanne lærerens QR-kode.",
+      manualFallback: "Du kan fortsatt skrive inn koden manuelt på join-siden.",
       startingCamera: "Starter kamera...",
       ready: "QR-skanneren er klar.",
       failed: "Kameraet kunne ikke startes.",

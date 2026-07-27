@@ -47,7 +47,7 @@ type TelemetryJsonValue =
   | { [key: string]: TelemetryJsonValue };
 
 const TELEMETRY_SENSITIVE_KEY_PATTERN =
-  /(^|_|-|\b)(pin|name|student|token|access_token|refresh_token|jwt|lat|lng|latitude|longitude|coords|location|answer|photo|image|file|cookie|useragent|user_agent|ua|session)(_|-|\b|$)/i;
+  /(^|_|-|\b)(pin|name|student|token|access_token|refresh_token|jwt|lat|lng|latitude|longitude|coords|location|answer|photo|image|file|cookie|useragent|user_agent|ua|session|participant)(_|-|\b|$)/i;
 
 let sessionCallCount = 0;
 const lastSentAt = new Map<string, number>();
@@ -65,16 +65,15 @@ function sanitizeTelemetryString(value: string) {
 function sanitizeTelemetryValue(value: unknown, key?: string): TelemetryJsonValue | undefined {
   const normalizedKey = key?.toLowerCase();
   const compactKey = normalizedKey?.replace(/[^a-z0-9]/g, "") ?? "";
-  const isSafeIdentifierKey =
-    compactKey === "sessionid" || compactKey === "participantid";
   const containsSensitiveSessionKey = compactKey.includes("session");
+  const containsSensitiveParticipantKey = compactKey.includes("participant");
   const containsSensitiveUserAgentKey = compactKey.includes("useragent") || compactKey === "ua";
 
   if (
     key &&
-    !isSafeIdentifierKey &&
     (TELEMETRY_SENSITIVE_KEY_PATTERN.test(key) ||
       containsSensitiveSessionKey ||
+      containsSensitiveParticipantKey ||
       containsSensitiveUserAgentKey)
   ) {
     return "[redacted]";
@@ -220,8 +219,8 @@ export function sendTelemetry(
 
   const body = JSON.stringify({
     event_type,
-    participant_id: data.participant_id ?? null,
-    session_id: data.session_id ?? null,
+    participant_id: null,
+    session_id: null,
     message: data.message ?? null,
   });
 

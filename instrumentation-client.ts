@@ -3,13 +3,27 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import {
+  sanitizeObservabilityData,
+  sanitizeSentryEvent,
+} from "@/lib/observability/privacy";
 import { ensureBugsnag } from "@/utils/observability";
 
 Sentry.init({
   dsn: "https://31175c8fd32fcc439aaa2479b9191608@o4511262707351552.ingest.de.sentry.io/4511262710038608",
 
   // Add optional integrations for additional features
-  integrations: [Sentry.replayIntegration()],
+  integrations: [
+    Sentry.replayIntegration({
+      maskAllText: true,
+      maskAllInputs: true,
+      blockAllMedia: true,
+      networkDetailDenyUrls: [/\/api\/join(?:\?|$)/],
+      beforeAddRecordingEvent(event) {
+        return sanitizeObservabilityData(event) as typeof event;
+      },
+    }),
+  ],
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1,
@@ -32,18 +46,14 @@ Sentry.init({
     "undefined is not an object (evaluating 't._leaflet_pos')",
     "Cannot read properties of undefined (reading '_leaflet_pos')",
   ],
+  beforeBreadcrumb(breadcrumb) {
+    return sanitizeObservabilityData(breadcrumb) as typeof breadcrumb;
+  },
+  beforeSendTransaction(event) {
+    return sanitizeSentryEvent(event);
+  },
   // Add a beforeSend filter to drop specific Facebook iOS WebView noise
   beforeSend(event) {
-    if (event.request?.url) {
-      try {
-        const url = new URL(event.request.url);
-        url.search = "";
-        event.request.url = url.toString();
-      } catch {
-        event.request.url = event.request.url.split("?")[0] ?? event.request.url;
-      }
-    }
-
     const userAgentHeader =
       event?.request?.headers?.["User-Agent"] ??
       event?.request?.headers?.["user-agent"] ??
@@ -83,7 +93,7 @@ Sentry.init({
       return null;
     }
 
-    return event;
+    return sanitizeSentryEvent(event);
   },
 });
 
@@ -92,4 +102,4 @@ export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
 // Initialize Bugsnag client-side (best-effort). Disabled if no API key.
 try {
   ensureBugsnag();
-} catch (_) {}
+} catch {}

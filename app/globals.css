@@ -58,6 +58,13 @@ body {
   animation: gpslob-waiting-enter 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .gpslob-onboarding-enter,
+  .gpslob-waiting-enter {
+    animation: none;
+  }
+}
+
 /* NavigatorMarker animations */
 @keyframes breath {
   0%,

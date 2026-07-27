@@ -342,7 +342,6 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
     isNativeGpslobApp ? false : null
   );
   const [nativeDebugSnapshot, setNativeDebugSnapshot] = useState<NativeDebugSnapshot | null>(null);
-  const backgroundVideoRef = useRef<HTMLVideoElement | null>(null);
   const mobileRootRedirectStartedRef = useRef(false);
   const shouldReduceMotion = useReducedMotion();
   const router = useRouter();
@@ -387,18 +386,6 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
 
     return () => window.clearTimeout(timeoutId);
   }, [isNativeGpslobApp]);
-
-  useEffect(() => {
-    if (shouldUseLightMobileRoot !== false) return;
-
-    const video = backgroundVideoRef.current;
-    if (!video) return;
-
-    video.muted = true;
-    video.defaultMuted = true;
-    video.volume = 0;
-    void video.play().catch(() => undefined);
-  }, [shouldUseLightMobileRoot]);
 
   useEffect(() => {
     const browserWindow = window as HomePageWindow;
@@ -472,16 +459,9 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
     <div className="relative flex min-h-screen flex-col overflow-x-hidden text-slate-100">
       <FacebookGroupModal shouldShow={siteVariantKey === "gpslob"} />
         {siteVariantKey !== "postlob" ? (
-          <video
-            ref={backgroundVideoRef}
-            src="/skolegpsforside.mp4"
-            autoPlay
-            muted
-            loop
-            playsInline
-            poster="/intro-poster.jpg"
-            preload="auto"
-            className="fixed top-0 left-0 h-full w-full object-cover -z-20"
+          <div
+            aria-hidden="true"
+            className="fixed inset-0 -z-20 bg-cover bg-center bg-[url('/intro-poster.jpg')]"
           />
         ) : (
           <>
@@ -609,8 +589,8 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
               <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
                 <Lottie
                   animationData={natureAnimation}
-                  loop={true}
-                  autoplay={true}
+                  loop={shouldReduceMotion === false}
+                  autoplay={shouldReduceMotion === false}
                   className="h-40 w-40 opacity-60 sm:h-48 sm:w-48"
                 />
               </div>
@@ -644,6 +624,13 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
               className="mt-6 block w-full rounded-2xl bg-emerald-500 px-4 py-4 text-base font-black tracking-[0.08em] text-slate-950 shadow-[0_0_32px_rgba(16,185,129,0.28)] transition-all hover:bg-emerald-400 hover:shadow-[0_0_44px_rgba(16,185,129,0.38)]"
             >
               {homeCopy.desktop.loginButton}
+            </Link>
+
+            <Link
+              href="/join"
+              className="mt-3 flex min-h-12 w-full items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-bold text-white/90 transition hover:border-emerald-200/35 hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+            >
+              {homeCopy.desktop.joinButton}
             </Link>
 
             {homeCopy.showDanishOnlyExtras ? (

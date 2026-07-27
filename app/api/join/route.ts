@@ -20,8 +20,11 @@ import {
   isDistributedCircularEligibleRaceType,
   normalizeCircularStartOffset,
 } from "@/lib/routes/postOrderPolicy";
+import {
+  isCompleteJoinCode,
+  normalizeJoinCode,
+} from "@/lib/join/studentJoin";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
-import { sendDiscordWebhook } from "@/lib/discord";
 
 export const runtime = "edge";
 const CACHE_CONTROL = "no-store";
@@ -423,8 +426,8 @@ async function clearParticipantAuthSession(participantSupabase: ParticipantServe
 
   try {
     await participantSupabase.auth.signOut();
-  } catch (error) {
-    console.warn("Kunne ikke rydde deltager-session efter join-fejl:", error);
+  } catch {
+    console.warn("Kunne ikke rydde deltager-session efter join-fejl.");
   }
 }
 
@@ -451,7 +454,7 @@ async function ensureSessionStudent(
       continue;
     }
 
-    console.warn("Kunne ikke oprette session_students-række:", error);
+    console.warn("Kunne ikke oprette session_students-række.");
     return false;
   }
 
@@ -641,11 +644,14 @@ function getRequiredAdminClient() {
 }
 
 export async function GET(request: NextRequest) {
-  const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
-  const rawPin = request.nextUrl.searchParams.get("pin") ?? "";
-  const pin = rawPin.replace(/\D/g, "").slice(0, 6);
+  const requestPath = request.nextUrl.pathname;
+  const rawPin =
+    request.headers.get("x-student-join-code") ??
+    request.nextUrl.searchParams.get("pin") ??
+    "";
+  const pin = normalizeJoinCode(rawPin);
 
-  if (!pin) {
+  if (!isCompleteJoinCode(rawPin)) {
     return NextResponse.json(
       { error: "Pinkode mangler." },
       { status: 400, headers: { "Cache-Control": "no-store" } }
@@ -694,12 +700,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.error("Kunne ikke hente join-data:", error);
+    console.error("Kunne ikke hente join-data.");
     await logHandledServerError({
       route: "/api/join",
       method: "GET",
       status: 500,
-      error,
+      error: "join_session_lookup_failed",
       requestPath,
       routeType: "route",
     });
@@ -713,7 +719,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   let payload: JoinParticipantRequest;
   let participantAuthClient: ParticipantServerClient | null = null;
-  const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
+  const requestPath = request.nextUrl.pathname;
 
   try {
     payload = (await request.json()) as JoinParticipantRequest;
@@ -787,7 +793,7 @@ export async function POST(request: NextRequest) {
     participantAuthClient = participantAuthSession.client;
 
     if (!participantAuthSession.ok) {
-      console.error("Kunne ikke oprette deltager-login:", participantAuthSession.error);
+      console.error("Kunne ikke oprette deltager-login.");
       await clearParticipantAuthSession(participantAuthClient);
       const authErrorStatus =
         "status" in participantAuthSession.error
@@ -854,7 +860,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!participantResult.ok) {
-      console.error("Kunne ikke oprette deltager ved join:", participantResult.error);
+      console.error("Kunne ikke oprette deltager ved join.");
       await clearParticipantAuthSession(participantAuthClient);
       return NextResponse.json(
         { error: "Kunne ikke oprette deltageren." },
@@ -944,13 +950,6 @@ export async function POST(request: NextRequest) {
         },
       }
     );
-    // Notify Discord in a best-effort, non-blocking way
-    try {
-      void sendDiscordWebhook(`🚀 Nyt hold er netop trådt ind i skoven: ${normalizedStudentName}!`);
-    } catch (e) {
-      // The helper already swallows errors; this is just extra safety
-      console.error("Discord notification failed:", e);
-    }
   } catch (error) {
     await clearParticipantAuthSession(participantAuthClient);
 
@@ -961,16 +960,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.error("Kunne ikke registrere deltageren:", error);
+    console.error("Kunne ikke registrere deltageren.");
     await logHandledServerError({
       route: "/api/join",
       method: "POST",
       status: 500,
-      error,
+      error: "participant_creation_failed",
       requestPath,
       routeType: "route",
-      sessionId,
-      participantId: preferredParticipantId || null,
     });
     return NextResponse.json(
       { error: "Kunne ikke registrere deltageren." },

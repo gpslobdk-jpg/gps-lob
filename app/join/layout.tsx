@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 
-import JoinPage from "@/app/join/page";
+import { JoinSiteVariantProvider } from "@/app/join/JoinSiteVariantContext";
 import { getSiteCopy } from "@/lib/siteCopy";
 import { resolveSiteVariantFromHeaders } from "@/lib/siteVariant";
 
@@ -15,9 +15,17 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function JoinLayout({ children: _children }: { children: React.ReactNode }) {
+export default async function JoinLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const requestHeaders = await headers();
   const siteVariant = resolveSiteVariantFromHeaders(requestHeaders);
 
-  return <JoinPage initialSiteVariantKey={siteVariant.key} />;
+  return (
+    <JoinSiteVariantProvider initialSiteVariantKey={siteVariant.key}>
+      {children}
+    </JoinSiteVariantProvider>
+  );
 }

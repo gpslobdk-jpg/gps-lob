@@ -77,7 +77,7 @@ async function mockApiRoutes(page: Page) {
         questions: QUESTIONS,
         raceType: "quiz",
         radius: 50,
-        gpsOverride: false,
+        gpsOverride: true,
       }),
     });
   });
@@ -89,7 +89,7 @@ async function mockApiRoutes(page: Page) {
       contentType: "application/json",
       body: JSON.stringify({
         sessionStatus: "running",
-        gpsOverride: false,
+        gpsOverride: true,
       }),
     });
   });
@@ -120,6 +120,12 @@ async function mockApiRoutes(page: Page) {
 
   // POST /api/play/submit-answer — tracks calls for assertion after recovery
   await page.route("**/api/play/submit-answer", async (route: Route) => {
+    const isOnline = await page.evaluate(() => navigator.onLine).catch(() => true);
+    if (!isOnline) {
+      await route.abort("internetdisconnected");
+      return;
+    }
+
     submitCallCount++;
     const raw = route.request().postData();
     if (raw) submitBodies.push(JSON.parse(raw));
@@ -189,19 +195,34 @@ async function dismissMaintenanceOverlay(page: Page) {
 // ---------------------------------------------------------------------------
 
 async function joinAndReachPost(page: Page) {
-  await page.goto(`/play/${SESSION_ID}`, { waitUntil: "networkidle" });
+  await page.goto(`/play/${SESSION_ID}`, { waitUntil: "domcontentloaded" });
   await dismissMaintenanceOverlay(page);
 
   // Wait for name gate — enter team name and confirm
   const nameInput = page.getByPlaceholder(/hold|team|navn/i).first();
-  if (await nameInput.isVisible({ timeout: 5_000 }).catch(() => false)) {
-    await nameInput.fill(TEAM_NAME);
-    const confirmBtn = page.getByRole("button", { name: /klar|start|deltag|bekræft/i }).first();
-    await confirmBtn.click();
-  }
+  await expect(nameInput).toBeVisible({ timeout: 90_000 });
+  await page.waitForFunction(() => {
+    const input = document.querySelector(
+      'input[placeholder*="hold" i], input[placeholder*="team" i], input[placeholder*="navn" i]',
+    );
+    return (
+      input !== null &&
+      Object.keys(input).some((key) => key.startsWith("__reactProps$"))
+    );
+  });
+  await nameInput.fill(TEAM_NAME);
+  const confirmBtn = page.getByRole("button", { name: /klar|start|deltag|bekræft/i }).first();
+  await expect(confirmBtn).toBeEnabled();
+  await confirmBtn.click();
 
-  // Wait for game screen — question should appear since GPS puts us in range
-  await page.waitForSelector("text=Hvad er hovedstaden", { timeout: 15_000 });
+  const openPostButton = page
+    .getByRole("button", { name: /åbn post/i })
+    .first();
+  await expect(openPostButton).toBeVisible({ timeout: 30_000 });
+  await openPostButton.click();
+
+  const question = page.getByText("Hvad er hovedstaden", { exact: false }).first();
+  await expect(question).toBeVisible({ timeout: 30_000 });
 }
 
 // ---------------------------------------------------------------------------
@@ -209,6 +230,8 @@ async function joinAndReachPost(page: Page) {
 // ---------------------------------------------------------------------------
 
 test.describe("Offline Survival (Dead Forest)", () => {
+  test.describe.configure({ timeout: 120_000 });
+
   test("queues answer while offline and syncs on recovery", async ({ page }) => {
     const mocks = await mockApiRoutes(page);
     await mockGeolocation(page);
@@ -229,16 +252,17 @@ test.describe("Offline Survival (Dead Forest)", () => {
     // Assert: no crash occurred — the page is still alive
     await expect(page.locator("body")).toBeVisible();
 
-    // Assert: "Venter på sync" message is shown (offline feedback)
-    const syncMessage = page.getByTestId("offline-sync-message");
-    await expect(syncMessage).toBeVisible({ timeout: 10_000 });
-    await expect(syncMessage).toContainText(/sync|gemt lokalt/i);
+    // Assert: the existing offline badge is shown
+    const syncMessage = page.getByText("Gemt lokalt", { exact: true });
+    await expect(syncMessage).toBeVisible({ timeout: 30_000 });
 
     // Assert: the submit-answer API was NOT called while offline
     expect(mocks.getSubmitCallCount()).toBe(0);
 
     // Step 4: Go back online — advance past the RESOLVED overlay first
-    const continueBtn = page.getByRole("button", { name: /videre/i });
+    const continueBtn = page.getByRole("button", {
+      name: /gå til næste post|se resultat/i,
+    });
     await expect(continueBtn).toBeVisible({ timeout: 5_000 });
     await continueBtn.click();
 
@@ -265,7 +289,7 @@ test.describe("Offline Survival (Dead Forest)", () => {
     await joinAndReachPost(page);
 
     // No offline indicator initially
-    const indicator = page.getByTestId("offline-indicator");
+    const indicator = page.getByText("Gemt lokalt", { exact: true });
     await expect(indicator).not.toBeVisible({ timeout: 3_000 });
 
     // Go offline and submit
@@ -274,12 +298,14 @@ test.describe("Offline Survival (Dead Forest)", () => {
     await answerB.click();
 
     // Advance past resolved overlay
-    const continueBtn = page.getByRole("button", { name: /videre/i });
+    const continueBtn = page.getByRole("button", {
+      name: /gå til næste post|se resultat/i,
+    });
     await expect(continueBtn).toBeVisible({ timeout: 10_000 });
     await continueBtn.click();
 
     // The offline indicator should now be visible in the HUD
-    await expect(indicator).toBeVisible({ timeout: 5_000 });
+    await expect(indicator).toBeVisible({ timeout: 30_000 });
 
     // Recover — indicator should disappear after sync
     await page.context().setOffline(false);

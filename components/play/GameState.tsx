@@ -1458,8 +1458,16 @@ export function usePlayGameState({
                         retryResp.status,
                         retryMessage
                       );
+                      const retryRecoveryReason =
+                        determineParticipantAuthRecoveryReason(
+                          retryResp.status,
+                          retryMessage
+                        );
 
-                      if (!retryIsAuthExpired) {
+                      if (
+                        retryRecoveryReason === "participant_not_bound" ||
+                        !retryIsAuthExpired
+                      ) {
                         try {
                           clearStoredPlayRecoveryState();
                         } catch (_err) {
@@ -1502,8 +1510,13 @@ export function usePlayGameState({
                 // No recovery attempted or recovery didn't help — classify response
                 const msg = payload?.error ?? response.statusText;
                 const isAuthExpired = isParticipantAuthResponseError(response.status, msg);
+                const recoveryReason =
+                  determineParticipantAuthRecoveryReason(response.status, msg);
 
-                if (!isAuthExpired) {
+                if (
+                  recoveryReason === "participant_not_bound" ||
+                  !isAuthExpired
+                ) {
                   try {
                     clearStoredPlayRecoveryState();
                   } catch (_err) {

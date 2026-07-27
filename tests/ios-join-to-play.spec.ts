@@ -1,8 +1,8 @@
 /**
  * ios-join-to-play.spec.ts – iPhone 14 WebKit: full join flow redirects to /play
  *
- * Simulates a student filling in pinkode + navn on /join and tapping
- * "Deltag i løbet". Asserts the browser navigates to /play/[sessionId].
+ * Simulates a student entering code, continuing to the name step and joining.
+ * Asserts the browser navigates to /play/[sessionId].
  *
  * Two-step join flow mocked via addInitScript:
  *   Step 1 – GET /api/join?pin=...  → lookup  → {kind:"active", sessionId, ...}
@@ -63,7 +63,7 @@ async function mountJoinMocks(page: Page) {
               sessionStatus: "running",
               runTitle: "iOS Testløb",
               schedule: null,
-              scheduleGate: "open",
+              scheduleGate: "active",
               raceType: "quiz",
             }),
             { status: 200, headers: { "Content-Type": "application/json" } },
@@ -128,7 +128,7 @@ async function dismissMaintenanceOverlay(page: Page) {
  *  whichever comes first. This prevents the loop from consuming the entire
  *  test timeout. */
 async function waitForJoinForm(page: Page) {
-  const pinInput = page.locator('input[inputmode="numeric"]');
+  const pinInput = page.locator("#join-code");
   await expect(pinInput).toBeVisible({ timeout: 30_000 });
 
   const deadline = Date.now() + 25_000;
@@ -140,6 +140,14 @@ async function waitForJoinForm(page: Page) {
       break; // No reload in 3 s → page is stable.
     }
   }
+
+  await page.waitForFunction(() => {
+    const input = document.querySelector("#join-code");
+    return (
+      input !== null &&
+      Object.keys(input).some((key) => key.startsWith("__reactProps$"))
+    );
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -150,7 +158,7 @@ test.describe("iOS join → /play redirect", () => {
   test.describe.configure({ mode: "serial" });
   test.setTimeout(120_000);
 
-  test("filling pinkode + navn and submitting navigates to /play/[sessionId]", async ({ page }) => {
+  test("code then name navigates to /play/[sessionId]", async ({ page }) => {
     await mountJoinMocks(page);
 
     const pageErrors: Error[] = [];
@@ -160,67 +168,34 @@ test.describe("iOS join → /play redirect", () => {
     await dismissMaintenanceOverlay(page);
     await waitForJoinForm(page);
 
-    const pinInput = page.locator('input[inputmode="numeric"]');
-    const nameInput = page.locator('input[placeholder="Dit navn"]');
-    const submitButton = page.getByRole("button", { name: /deltag i løbet/i });
+    const pinInput = page.locator("#join-code");
+    const nameInput = page.locator("#join-name");
 
-    // On WebKit, pressSequentially fires real keystroke events so React's
-    // onChange always fires. But a late HMR reload between the fill and the
-    // button-enabled check can reset both React states to "". We therefore
-    // wrap the ENTIRE fill → verify → enabled sequence in a retry loop:
-    // if the button is still disabled after filling, we refill both fields.
+    // Keep the whole code → name → navigation sequence resilient to a
+    // one-off WebKit dev-server reload.
     let navigationDone = false;
-    for (let cycle = 0; cycle < 5 && !navigationDone; cycle++) {
-      // --- fill pin ---
-      for (let attempt = 0; attempt < 4; attempt++) {
-        await pinInput.click({ clickCount: 3 });
-        await pinInput.pressSequentially(PIN, { delay: 40 });
-        try {
-          await expect(pinInput).toHaveValue(PIN, { timeout: 3_000 });
-          break;
-        } catch {
-          await expect(pinInput).toBeVisible({ timeout: 15_000 });
-        }
-      }
-
-      // --- fill name ---
-      for (let attempt = 0; attempt < 4; attempt++) {
-        await nameInput.click({ clickCount: 3 });
-        await nameInput.pressSequentially(STUDENT_NAME, { delay: 40 });
-        try {
-          await expect(nameInput).toHaveValue(STUDENT_NAME, { timeout: 3_000 });
-          break;
-        } catch {
-          await expect(nameInput).toBeVisible({ timeout: 15_000 });
-        }
-      }
-
-      // --- check button enabled (React canSubmit) ---
-      const enabled = await submitButton.isEnabled().catch(() => false);
-      if (!enabled) {
-        // React state may not have updated yet; give it up to 4 s.
-        try {
-          await expect(submitButton).toBeEnabled({ timeout: 4_000 });
-        } catch {
-          // Still disabled — an HMR reload may have cleared state;
-          // loop again to refill.
-          await expect(pinInput).toBeVisible({ timeout: 15_000 });
-          continue;
-        }
-      }
-
-      // --- click and await navigation ---
+    for (let cycle = 0; cycle < 4 && !navigationDone; cycle++) {
       try {
+        await expect(pinInput).toBeVisible({ timeout: 15_000 });
+        await pinInput.fill(PIN);
+        await expect(pinInput).toHaveValue(PIN);
+        await pinInput.press("Enter");
+
+        await expect(nameInput).toBeVisible({ timeout: 15_000 });
+        await nameInput.fill(STUDENT_NAME);
+        await expect(nameInput).toHaveValue(STUDENT_NAME);
+
         const navPromise = page.waitForURL(
           new RegExp(`/play/${SESSION_ID}`),
           { timeout: 45_000 },
         );
-        await submitButton.click();
+        await nameInput.press("Enter");
         await navPromise;
         navigationDone = true;
       } catch {
-        // Navigation didn't happen — refill and retry.
-        await expect(pinInput).toBeVisible({ timeout: 15_000 });
+        await page.goto("/join");
+        await dismissMaintenanceOverlay(page);
+        await waitForJoinForm(page);
       }
     }
     expect(navigationDone, "Navigation to /play never happened").toBe(true);

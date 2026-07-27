@@ -57,13 +57,20 @@ export default function StudentNameGateView({
     <StudentOnboardingShell tone={tone} step={1} title={title} description={description}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className={`mb-2 block text-sm font-semibold ${styles.eyebrowClass}`}>{label}</label>
+          <label
+            htmlFor="student-name-gate"
+            className={`mb-2 block text-sm font-semibold ${styles.eyebrowClass}`}
+          >
+            {label}
+          </label>
           <input
+            id="student-name-gate"
             type="text"
             value={value}
             onChange={(event) => onChange(event.target.value)}
             disabled={isSubmitting}
             placeholder={placeholder}
+            autoComplete="off"
             className={inputClass}
           />
         </div>
@@ -71,7 +78,10 @@ export default function StudentNameGateView({
         <p className={`text-sm ${styles.descriptionClass}`}>{helperText}</p>
 
         {error ? (
-          <div className="rounded-[1.35rem] border border-rose-300/30 bg-rose-500/12 px-4 py-3 text-sm font-semibold text-rose-100">
+          <div
+            className="rounded-[1.35rem] border border-rose-300/30 bg-rose-500/12 px-4 py-3 text-sm font-semibold text-rose-100"
+            role="alert"
+          >
             {error}
           </div>
         ) : null}

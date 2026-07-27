@@ -1,14 +1,14 @@
 /**
  * ios-join-ui.spec.ts – iPhone 14 WebKit: /join page UI contract
  *
- * Verifies that the /join page on iPhone 14 WebKit only shows the three
- * student-facing elements (pinkode, navn, QR-knap) and nothing that
+ * Verifies that the /join page on iPhone 14 WebKit presents the calm
+ * two-step student flow and nothing that
  * would confuse a student:
  *
- *  1. Pin-code input (inputmode="numeric") is visible.
- *  2. Name input (placeholder "Dit navn") is visible.
+ *  1. Code input is visible.
+ *  2. Name input is hidden until the code is accepted.
  *  3. QR scanner button is visible.
- *  4. "Deltag i løbet" submit button is visible.
+ *  4. "Fortsæt" is the first primary action.
  *  5. No admin / dashboard / teacher navigation links are visible.
  *  6. No horizontal overflow (page fits the iPhone 14 viewport width).
  *  7. No uncaught JS errors.
@@ -62,6 +62,24 @@ async function blockExternalFetch(page: Page) {
         });
       }
 
+      if (url.includes("/api/join")) {
+        return new Response(
+          JSON.stringify({
+            kind: "active",
+            sessionId: "ios-ui-session",
+            sessionStatus: "running",
+            runTitle: "Skovløbet",
+            schedule: null,
+            scheduleGate: "active",
+            raceType: "quiz",
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
       return _origFetch(input, init);
     };
   });
@@ -84,7 +102,7 @@ async function dismissMaintenanceOverlay(page: Page) {
 
 /** Wait for the /join form to be fully stable (handles Next.js HMR reload). */
 async function waitForJoinPage(page: Page) {
-  const pinInput = page.locator('input[inputmode="numeric"]');
+  const pinInput = page.locator("#join-code");
   await expect(pinInput).toBeVisible({ timeout: 30_000 });
 
   // If Next.js triggers an HMR reload after initial render, wait for it.
@@ -95,6 +113,14 @@ async function waitForJoinPage(page: Page) {
   } catch {
     // No HMR reload within 15 s — page is already stable.
   }
+
+  await page.waitForFunction(() => {
+    const input = document.querySelector("#join-code");
+    return (
+      input !== null &&
+      Object.keys(input).some((key) => key.startsWith("__reactProps$"))
+    );
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -106,7 +132,7 @@ test.describe("iOS /join UI contract", () => {
   test.setTimeout(60_000);
 
   test(
-    "/join shows pin input, name input, QR button and submit on iPhone 14",
+    "/join shows the two-step student controls on iPhone 14",
     async ({ page }) => {
       await blockExternalFetch(page);
 
@@ -118,20 +144,25 @@ test.describe("iOS /join UI contract", () => {
       await waitForJoinPage(page);
 
       // 1. Pin code input
-      const pinInput = page.locator('input[inputmode="numeric"]');
+      const pinInput = page.locator("#join-code");
       await expect(pinInput).toBeVisible();
 
-      // 2. Name input
-      const nameInput = page.locator('input[placeholder="Dit navn"]');
-      await expect(nameInput).toBeVisible();
+      // 2. Name input is deferred until a valid code has been looked up.
+      const nameInput = page.locator("#join-name");
+      await expect(nameInput).toBeHidden();
 
       // 3. QR scanner button (rendered by QRScannerModal)
       const qrButton = page.getByRole("button", { name: /scan qr/i });
       await expect(qrButton).toBeVisible();
 
       // 4. Submit button
-      const submitButton = page.getByRole("button", { name: /deltag i løbet/i });
-      await expect(submitButton).toBeVisible();
+      const continueButton = page.getByRole("button", { name: /^fortsæt$/i });
+      await expect(continueButton).toBeVisible();
+
+      await pinInput.fill("492173");
+      await pinInput.press("Enter");
+      await expect(nameInput).toBeVisible();
+      await expect(page.getByRole("button", { name: /deltag i løbet/i })).toBeVisible();
 
       // 5. No teacher / admin / dashboard links visible
       //    The join page has no such links in the main form; verify this holds.

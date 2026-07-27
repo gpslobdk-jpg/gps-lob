@@ -1,26 +1,19 @@
 "use client";
 
 import { Camera, Loader2, X } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Html5Qrcode, Html5QrcodeCameraScanConfig, Html5QrcodeFullConfig } from "html5-qrcode";
 
+import { resolveSafeJoinQrTarget } from "@/lib/join/studentJoin";
 import { getSiteCopy, type QrScannerCopy } from "@/lib/siteCopy";
 import { DEFAULT_SITE_VARIANT } from "@/lib/siteVariant";
-
-type ScanTarget =
-  | {
-      kind: "internal";
-      href: string;
-    }
-  | {
-      kind: "external";
-      href: string;
-    };
+import { captureAppMessage } from "@/utils/observability";
 
 type QRScannerModalProps = {
   buttonClassName?: string;
   copy?: QrScannerCopy;
+  onCodeScanned?: (code: string) => boolean | void | Promise<boolean | void>;
 };
 
 const defaultQrScannerCopy = getSiteCopy(DEFAULT_SITE_VARIANT.key).qrScanner;
@@ -68,6 +61,20 @@ function getCameraErrorMessage(error: unknown, copy: QrScannerCopy) {
   return copy.errors.generic;
 }
 
+function isExpectedCameraError(error: unknown) {
+  return (
+    error instanceof DOMException &&
+    [
+      "NotAllowedError",
+      "SecurityError",
+      "NotFoundError",
+      "DevicesNotFoundError",
+      "NotReadableError",
+      "TrackStartError",
+    ].includes(error.name)
+  );
+}
+
 function isIgnorableScannerAbortError(reason: unknown) {
   if (reason instanceof DOMException && reason.name === "AbortError") {
     return true;
@@ -93,62 +100,24 @@ function isIgnorableScannerAbortError(reason: unknown) {
   return false;
 }
 
-function resolveScanTarget(value: string): ScanTarget | null {
-  const trimmedValue = value.trim();
-  if (!trimmedValue || typeof window === "undefined") return null;
-
-  const looksLikeUrl = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmedValue) || trimmedValue.startsWith("/");
-  if (looksLikeUrl) {
-    try {
-      const parsedUrl = trimmedValue.startsWith("/")
-        ? new URL(trimmedValue, window.location.origin)
-        : new URL(trimmedValue);
-      const pinFromUrl = (parsedUrl.searchParams.get("pin") ?? "").replace(/\D/g, "").slice(0, 6);
-
-      if (pinFromUrl) {
-        return {
-          kind: "internal",
-          href: `/join?pin=${pinFromUrl}`,
-        };
-      }
-
-      if (parsedUrl.origin === window.location.origin) {
-        return {
-          kind: "internal",
-          href: `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`,
-        };
-      }
-
-      return {
-        kind: "external",
-        href: parsedUrl.toString(),
-      };
-    } catch {
-      // Fall through and try simple PIN parsing instead.
-    }
-  }
-
-  const matchedPin = trimmedValue.match(/\d{4,6}/)?.[0] ?? trimmedValue.replace(/\D/g, "").slice(0, 6);
-  if (!matchedPin) return null;
-
-  return {
-    kind: "internal",
-    href: `/join?pin=${matchedPin}`,
-  };
-}
-
-export default function QRScannerModal({ buttonClassName = "", copy = defaultQrScannerCopy }: QRScannerModalProps) {
+export default function QRScannerModal({
+  buttonClassName = "",
+  copy = defaultQrScannerCopy,
+  onCodeScanned,
+}: QRScannerModalProps) {
   const router = useRouter();
   const scannerRegionId = useId().replace(/:/g, "-");
+  const titleId = `${scannerRegionId}-title`;
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const permissionStreamRef = useRef<MediaStream | null>(null);
 
   const [isOpen, setIsOpen] = useState(false);
+  const [shouldStartCamera, setShouldStartCamera] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     stopMediaStream(permissionStreamRef.current);
     permissionStreamRef.current = null;
 
@@ -156,11 +125,13 @@ export default function QRScannerModal({ buttonClassName = "", copy = defaultQrS
     scannerRef.current = null;
     void disposeScanner(scanner);
 
+    setShouldStartCamera(false);
+    setIsStarting(false);
     setIsOpen(false);
-  };
+  }, []);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (!isOpen || !shouldStartCamera) {
       return;
     }
 
@@ -211,6 +182,64 @@ export default function QRScannerModal({ buttonClassName = "", copy = defaultQrS
     };
 
     window.addEventListener("unhandledrejection", handlePlayRejection);
+
+    const handleDecodedText = async (decodedText: string) => {
+      if (!isActive || hasResolvedScan) return;
+
+      const target = resolveSafeJoinQrTarget(
+        decodedText,
+        window.location.origin
+      );
+      if (!target) {
+        setScanError(copy.scanFailed);
+        return;
+      }
+
+      hasResolvedScan = true;
+      await stopScanner();
+      if (!isActive) return;
+
+      if (target.kind === "internal-route") {
+        setShouldStartCamera(false);
+        setIsOpen(false);
+        router.push(target.href);
+        return;
+      }
+
+      try {
+        const accepted = onCodeScanned
+          ? await onCodeScanned(target.code)
+          : undefined;
+
+        if (accepted === false) {
+          hasResolvedScan = false;
+          setScanError(copy.scanFailed);
+          setShouldStartCamera(false);
+          return;
+        }
+      } catch {
+        hasResolvedScan = false;
+        setScanError(copy.scanFailed);
+        setShouldStartCamera(false);
+        return;
+      }
+
+      if (!isActive) return;
+
+      setShouldStartCamera(false);
+      setIsOpen(false);
+
+      if (!onCodeScanned) {
+        router.push(`/join?pin=${encodeURIComponent(target.code)}`);
+      }
+    };
+
+    const testWindow = window as Window & {
+      __joinQrTestHook?: (value: string) => void;
+    };
+    testWindow.__joinQrTestHook = (value) => {
+      void handleDecodedText(value);
+    };
 
     const startScanner = async () => {
       if (
@@ -270,37 +299,23 @@ export default function QRScannerModal({ buttonClassName = "", copy = defaultQrS
         await scanner.start(
           cameraConfig,
           scanConfig,
-          async (decodedText) => {
-            if (!isActive || hasResolvedScan) return;
-
-            const target = resolveScanTarget(decodedText);
-            if (!target) {
-              setScanError(copy.scanFailed);
-              return;
-            }
-
-            hasResolvedScan = true;
-            await stopScanner();
-            if (!isActive) return;
-
-            setIsOpen(false);
-
-            if (target.kind === "internal") {
-              router.push(target.href);
-              return;
-            }
-
-            window.location.href = target.href;
-          },
+          handleDecodedText,
           () => {
             // Ignore frame-by-frame decode misses.
           }
         );
       } catch (error) {
-        console.error("Fejl ved start af QR-scanner:", error);
         if (!isActive) return;
 
         setCameraError(getCameraErrorMessage(error, copy));
+        if (!isExpectedCameraError(error)) {
+          captureAppMessage("qr_scanner_initialization_failed", {
+            category: "qr_scanner_initialization_failed",
+            routeType: "student_join",
+            online:
+              typeof navigator.onLine === "boolean" ? navigator.onLine : null,
+          });
+        }
         await stopScanner();
       } finally {
         if (isActive) {
@@ -313,13 +328,35 @@ export default function QRScannerModal({ buttonClassName = "", copy = defaultQrS
 
     return () => {
       isActive = false;
+      delete testWindow.__joinQrTestHook;
       // Keep the listener alive until stopScanner completes so it can suppress
       // any AbortError that html5-qrcode emits during video teardown.
       void stopScanner().finally(() => {
         window.removeEventListener("unhandledrejection", handlePlayRejection);
       });
     };
-  }, [copy, isOpen, router, scannerRegionId]);
+  }, [
+    copy,
+    isOpen,
+    onCodeScanned,
+    router,
+    scannerRegionId,
+    shouldStartCamera,
+  ]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeModal();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [closeModal, isOpen]);
 
   return (
     <>
@@ -328,6 +365,7 @@ export default function QRScannerModal({ buttonClassName = "", copy = defaultQrS
         onClick={() => {
           setCameraError(null);
           setScanError(null);
+          setShouldStartCamera(false);
           setIsOpen(true);
         }}
         className={`${qrButtonClassName} ${buttonClassName}`.trim()}
@@ -340,57 +378,100 @@ export default function QRScannerModal({ buttonClassName = "", copy = defaultQrS
         <div
           className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
           onClick={closeModal}
+          data-testid="join-qr-dialog-backdrop"
         >
           <div
             className="relative w-full max-w-md rounded-[1.75rem] border border-emerald-500/25 bg-slate-950/95 p-5 text-white shadow-[0_24px_60px_rgba(2,6,23,0.52)]"
             onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            data-testid="join-qr-dialog"
           >
             <button
               type="button"
               aria-label={copy.closeAriaLabel}
               onClick={closeModal}
-              className="absolute top-4 right-4 rounded-full border border-white/10 bg-white/5 p-2 text-white/70 transition hover:text-white"
+              className="absolute top-4 right-4 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 p-2 text-white/70 transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+              data-testid="join-qr-close"
             >
               <X className="h-4 w-4" />
             </button>
 
             <div className="pr-12">
               <p className="text-xs font-semibold tracking-[0.24em] text-emerald-300 uppercase">{copy.eyebrow}</p>
-              <h2 className="mt-2 text-2xl font-black tracking-tight text-white">{copy.title}</h2>
+              <h2
+                id={titleId}
+                className="mt-2 text-2xl font-black tracking-tight text-white"
+              >
+                {copy.title}
+              </h2>
               <p className="mt-2 text-sm leading-6 text-slate-300">
                 {copy.description}
               </p>
             </div>
 
-            <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-slate-900/80 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-              <div
-                id={scannerRegionId}
-                className="min-h-[280px] overflow-hidden rounded-[1.15rem] bg-slate-950 [&>div]:!border-0 [&_canvas]:rounded-[1rem] [&_video]:h-full [&_video]:w-full [&_video]:rounded-[1rem] [&_video]:object-cover"
-              />
-            </div>
+            {shouldStartCamera ? (
+              <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-slate-900/80 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                <div
+                  id={scannerRegionId}
+                  className="min-h-[280px] overflow-hidden rounded-[1.15rem] bg-slate-950 [&>div]:!border-0 [&_canvas]:rounded-[1rem] [&_video]:h-full [&_video]:w-full [&_video]:rounded-[1rem] [&_video]:object-cover"
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setCameraError(null);
+                  setScanError(null);
+                  setShouldStartCamera(true);
+                }}
+                className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+                data-testid="join-qr-start"
+              >
+                {copy.startButtonLabel}
+              </button>
+            )}
 
-            <div className="mt-4 flex items-center justify-between gap-3 text-sm text-slate-300">
-              <span>
-                {isStarting
-                  ? copy.startingCamera
-                  : cameraError
-                    ? copy.failed
-                    : copy.ready}
-              </span>
-              {isStarting ? <Loader2 className="h-4 w-4 animate-spin text-emerald-300" aria-hidden="true" /> : null}
-            </div>
+            {shouldStartCamera ? (
+              <div className="mt-4 flex items-center justify-between gap-3 text-sm text-slate-300">
+                <span>
+                  {isStarting
+                    ? copy.startingCamera
+                    : cameraError
+                      ? copy.failed
+                      : copy.ready}
+                </span>
+                {isStarting ? (
+                  <Loader2
+                    className="h-4 w-4 motion-safe:animate-spin motion-reduce:animate-none text-emerald-300"
+                    aria-hidden="true"
+                  />
+                ) : null}
+              </div>
+            ) : null}
 
             {cameraError ? (
-              <p className="mt-3 rounded-2xl border border-amber-300/30 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-50">
+              <p
+                className="mt-3 rounded-2xl border border-amber-300/30 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-50"
+                role="alert"
+              >
                 {cameraError}
               </p>
             ) : null}
 
             {scanError ? (
-              <p className="mt-3 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+              <p
+                className="mt-3 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
+                role="alert"
+              >
                 {scanError}
               </p>
             ) : null}
+
+            <p className="mt-4 text-sm leading-6 text-slate-300">
+              {copy.manualFallback}
+            </p>
           </div>
         </div>
       ) : null}

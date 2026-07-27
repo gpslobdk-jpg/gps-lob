@@ -11,18 +11,14 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
 
   return {
     name: siteCopy.metadata.manifestName,
-    short_name: siteCopy.metadata.manifestName,
+    short_name: siteCopy.metadata.manifestShortName,
     description: siteCopy.metadata.manifestDescription,
-    start_url: "/join",
+    start_url: "/",
+    scope: "/",
     display: "standalone",
     background_color: "#020617",
     theme_color: "#020617",
     icons: [
-      {
-        src: "/icon-192x192.png",
-        sizes: "192x192",
-        type: "image/png",
-      },
       {
         src: "/icon-512x512.png",
         sizes: "512x512",

@@ -1,6 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { Poppins, Rubik } from "next/font/google";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -10,17 +17,21 @@ import {
   type RunScheduleGate,
   type RunSchedule,
 } from "@/utils/runSchedule";
-import * as Sentry from "@sentry/nextjs";
-import { leaveAppBreadcrumb } from "@/utils/observability";
+import { captureAppMessage, leaveAppBreadcrumb } from "@/utils/observability";
 import QRScannerModal from "@/components/QRScannerModal";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 import { getSiteCopy } from "@/lib/siteCopy";
-import { DEFAULT_SITE_VARIANT, resolveSiteVariantFromHost, type SiteVariantKey } from "@/lib/siteVariant";
+import {
+  isCompleteJoinCode,
+  JOIN_CODE_LENGTH,
+  normalizeJoinCode,
+} from "@/lib/join/studentJoin";
+import { resolveSiteVariantFromHost, type SiteVariantKey } from "@/lib/siteVariant";
+import { useInitialJoinSiteVariant } from "@/app/join/JoinSiteVariantContext";
 import {
   readStoredActiveParticipant,
   saveStoredActiveParticipant,
   clearStoredActiveParticipant,
-  clearStoredPlaySnapshot,
 } from "@/components/play/playUtils";
 import { buildStoredParticipantFromJoin } from "@/components/play/participantHandoff";
 import { createClient } from "@/utils/supabase/client";
@@ -37,6 +48,7 @@ const poppins = Poppins({
 });
 
 type JoinView = "form" | "waiting" | "scheduled" | "expired" | "scheduleError";
+type JoinStep = "code" | "name";
 
 type JoinLookupResponse =
   | {
@@ -75,13 +87,7 @@ type JoinParticipantResponse = {
 
 type JoinBrowserPlatform = "ios" | "android" | "other";
 
-type JoinRequestStage = "lookup" | "register" | "connection_check";
-
-type ConnectionCheckResult = {
-  tone: "success" | "warning";
-  title: string;
-  detail: string;
-};
+type JoinRequestStage = "lookup" | "register";
 
 const formatLongDate = (value: string | null | undefined, localeTag: string) => {
   if (!value) return null;
@@ -113,12 +119,9 @@ const formatClockTime = (value: string | null | undefined, localeTag: string) =>
 };
 
 const JOIN_REQUEST_TIMEOUT_MS = 12_000;
-
-const CONNECTION_CHECK_TIMEOUT_MS = 10_000;
+const STORED_PARTICIPANT_RESUME_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
 const JOIN_TIMEOUT_ABORT_REASON = "join-request-timeout";
-
-const JOIN_PIN_LENGTH = 6;
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -134,12 +137,11 @@ class JoinRequestTimeoutError extends Error {
 
 function trackJoinTelemetry(
   eventName: string,
-  sessionId: string | null,
+  _sessionId: string | null,
   payload: Record<string, unknown>
 ) {
   try {
     sendTelemetry(eventName, {
-      session_id: sessionId,
       message: createClientTelemetryMessage(payload),
     });
   } catch {
@@ -200,21 +202,20 @@ async function fetchWithRetry(
   throw new Error("Join request ended unexpectedly.");
 }
 
-type JoinFormProps = {
-  initialSiteVariantKey: SiteVariantKey;
-};
-
-function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
+function JoinForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const initialSiteVariantKey = useInitialJoinSiteVariant();
   const [supabase] = useState(() => createClient());
-  const pinFromQuery = (searchParams.get("pin") || "").replace(/\D/g, "").slice(0, JOIN_PIN_LENGTH);
+  const rawPinFromQuery = searchParams.get("pin") ?? "";
+  const pinFromQuery = normalizeJoinCode(rawPinFromQuery);
   const [siteVariantKey, setSiteVariantKey] = useState<SiteVariantKey>(initialSiteVariantKey);
   const siteCopy = getSiteCopy(siteVariantKey);
   const joinCopy = siteCopy.join;
 
   const [pin, setPin] = useState(pinFromQuery);
   const [name, setName] = useState("");
+  const [step, setStep] = useState<JoinStep>("code");
   const [view, setView] = useState<JoinView>("form");
   const [error, setError] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -226,18 +227,16 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
   const [assignedTeamColor, setAssignedTeamColor] = useState<string | null>(null);
   const [assignedStartOffset, setAssignedStartOffset] = useState<number | null>(null);
   const [isJoining, setIsJoining] = useState(false);
-  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
-  const [connectionCheckResult, setConnectionCheckResult] = useState<ConnectionCheckResult | null>(null);
   const [showInAppWarning, setShowInAppWarning] = useState(false);
-  const [showHomescreenTip, setShowHomescreenTip] = useState(false);
   const [browserPlatform, setBrowserPlatform] = useState<JoinBrowserPlatform>("other");
   const joinLockRef = useRef(false);
+  const resumeAttemptedRef = useRef(false);
   const isMissingSessionNotice = searchParams.get("missingSession") === "1";
+  const hasExplicitJoinCode = searchParams.has("pin");
   const isZoneKrig = raceType === "zone_krig";
   const isStaggeredRace = raceType === "quiz" || raceType === "photo";
   const trimmedName = name.trim();
-  const trimmedPin = pin.trim();
-  const canSubmit = trimmedPin.length === JOIN_PIN_LENGTH && trimmedName.length > 0;
+  const trimmedPin = normalizeJoinCode(pin);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -253,22 +252,52 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
   }, [joinCopy.defaultExpiredMessage]);
 
   useEffect(() => {
-    setPin((current) => (current === pinFromQuery ? current : pinFromQuery));
-  }, [pinFromQuery]);
+    if (step !== "code" || !pinFromQuery) return;
+    setPin(pinFromQuery);
+  }, [pinFromQuery, step]);
 
-  // ── Auto-resume: redirect to active game on cold start ──────────────
   useEffect(() => {
-    if (isMissingSessionNotice) return;
+    if (
+      !hasExplicitJoinCode ||
+      typeof window === "undefined" ||
+      !window.location.search
+    ) {
+      return;
+    }
 
-    const stored = readStoredActiveParticipant();
-    if (!stored?.sessionId || !stored?.participantId) return;
-    // Only auto-resume if the saved session is < 6 hours old
-    const ageMs = Date.now() - new Date(stored.savedAt).getTime();
-    if (!Number.isFinite(ageMs) || ageMs > 6 * 60 * 60 * 1000) return;
-    router.replace(
-      `/play/${stored.sessionId}?name=${encodeURIComponent(stored.studentName ?? "")}`,
-    );
-  }, [isMissingSessionNotice, router]);
+    // Keep legacy/QR links working, but remove the code from browser history
+    // before any later join error can be reported.
+    window.history.replaceState(window.history.state, "", "/join");
+  }, [hasExplicitJoinCode]);
+
+  useEffect(() => {
+    if (resumeAttemptedRef.current) return;
+    resumeAttemptedRef.current = true;
+
+    // An explicit link/QR always wins over old local state. Otherwise, resume
+    // only a recent handoff; /play revalidates it against the server before
+    // allowing gameplay.
+    if (hasExplicitJoinCode || isMissingSessionNotice) return;
+
+    const storedParticipant = readStoredActiveParticipant();
+    if (
+      !storedParticipant?.sessionId ||
+      !storedParticipant.participantId ||
+      storedParticipant.sessionStatus === "finished"
+    ) {
+      return;
+    }
+
+    const savedAtMs = Date.parse(storedParticipant.savedAt);
+    if (
+      !Number.isFinite(savedAtMs) ||
+      Date.now() - savedAtMs > STORED_PARTICIPANT_RESUME_MAX_AGE_MS
+    ) {
+      return;
+    }
+
+    router.replace(`/play/${encodeURIComponent(storedParticipant.sessionId)}`);
+  }, [hasExplicitJoinCode, isMissingSessionNotice, router]);
 
   useEffect(() => {
     if (!sessionId || (view !== "waiting" && view !== "scheduled")) return;
@@ -299,7 +328,7 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
                 sessionStatus: "running",
               });
             }
-            router.push(`/play/${sessionId}?name=${encodeURIComponent(name.trim())}`);
+            router.push(`/play/${sessionId}`);
           }
         }
       )
@@ -367,16 +396,14 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
     // window.Capacitor, som altid er til stede i Capacitor-apps (men ikke i browsere).
     const isCapacitorApp =
       typeof window !== "undefined" &&
-      typeof (window as any).Capacitor !== "undefined";
+      typeof (window as Window & { Capacitor?: unknown }).Capacitor !==
+        "undefined";
     const isKnownInApp = /FBAN|FBAV|Instagram|Snapchat/i.test(ua);
     const isAndroidWebView = !isCapacitorApp && /Android/.test(ua) && /wv/.test(ua);
     const isIosWebView = /iPhone|iPad/.test(ua) && /AppleWebKit/.test(ua) && !/Safari/.test(ua);
     const navigatorWithStandalone = window.navigator as Navigator & { standalone?: boolean };
     const isStandalone =
       window.matchMedia("(display-mode: standalone)").matches || Boolean(navigatorWithStandalone.standalone);
-    const isMobileBrowser =
-      /iPad|iPhone|iPod|Android/i.test(ua) ||
-      (window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1);
     const nextPlatform: JoinBrowserPlatform = /iPad|iPhone|iPod/i.test(ua) ||
       (window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1)
       ? "ios"
@@ -395,105 +422,11 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
         source: isKnownInApp ? "known_in_app" : isIosWebView ? "ios_webview" : "android_webview",
       });
     }
-
-    // Capacitor-appen er allerede en native app — vis ikke "Tilføj til hjemmeskærm"-tipset.
-    setShowHomescreenTip(
-      !isCapacitorApp && isMobileBrowser && !isStandalone && !isKnownInApp && !isAndroidWebView && !isIosWebView,
-    );
   }, []);
-
-  const handleConnectionCheck = async () => {
-    if (isCheckingConnection) {
-      return;
-    }
-
-    const isOnline = typeof navigator === "undefined" ? null : navigator.onLine;
-    if (isOnline === false) {
-      const offlineResult: ConnectionCheckResult = {
-        tone: "warning",
-        title: joinCopy.connectionCheck.offlineTitle,
-        detail: joinCopy.connectionCheck.offlineDetail,
-      };
-
-      setConnectionCheckResult(offlineResult);
-      trackJoinTelemetry("join_connection_check", null, {
-        result: "offline",
-        online: false,
-        platform: browserPlatform,
-        reason: "offline",
-        show_in_app_warning: showInAppWarning,
-      });
-      return;
-    }
-
-    setIsCheckingConnection(true);
-    setConnectionCheckResult(null);
-
-    const checkStartedAt = Date.now();
-    const pinForCheck = trimmedPin.length === JOIN_PIN_LENGTH ? trimmedPin : "000000";
-
-    try {
-      const response = await fetchWithRetry(
-        `/api/join?pin=${encodeURIComponent(pinForCheck)}`,
-        {
-          cache: "no-store",
-        },
-        1,
-        CONNECTION_CHECK_TIMEOUT_MS,
-        "connection_check"
-      );
-      const result: ConnectionCheckResult = response.ok
-        ? {
-            tone: "success",
-            title: joinCopy.connectionCheck.okTitle,
-            detail:
-              browserPlatform === "ios"
-                ? joinCopy.connectionCheck.okDetailIos
-                : joinCopy.connectionCheck.okDetailDefault,
-          }
-        : {
-            tone: "warning",
-            title: joinCopy.connectionCheck.serverErrorTitle,
-            detail: joinCopy.connectionCheck.serverErrorDetail(response.status),
-          };
-
-      setConnectionCheckResult(result);
-      trackJoinTelemetry("join_connection_check", null, {
-        result: response.ok ? "ok" : "http_error",
-        ok: response.ok,
-        duration_ms: Date.now() - checkStartedAt,
-        status_code: response.status,
-        online: isOnline,
-        platform: browserPlatform,
-        reason: response.ok ? "ok" : "http_error",
-        show_in_app_warning: showInAppWarning,
-        used_entered_pin: trimmedPin.length === JOIN_PIN_LENGTH,
-      });
-    } catch (error) {
-      const result: ConnectionCheckResult = {
-        tone: "warning",
-        title: joinCopy.connectionCheck.offlineTitle,
-        detail: joinCopy.connectionCheck.offlineDetail,
-      };
-
-      setConnectionCheckResult(result);
-      trackJoinTelemetry("join_connection_check", null, {
-        result: error instanceof JoinRequestTimeoutError ? "timeout" : "error",
-        ok: false,
-        duration_ms: Date.now() - checkStartedAt,
-        status_code: null,
-        online: isOnline,
-        platform: browserPlatform,
-        reason: error instanceof JoinRequestTimeoutError ? "timeout" : "error",
-        show_in_app_warning: showInAppWarning,
-      });
-    } finally {
-      setIsCheckingConnection(false);
-    }
-  };
 
   const resetToForm = () => {
     setView("form");
+    setStep("code");
     setError("");
     setSessionId(null);
     setRunTitle("");
@@ -505,8 +438,149 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
     setAssignedStartOffset(null);
   };
 
+  const lookupJoinCode = useCallback(
+    async (candidateCode: string) => {
+      const normalizedCode = normalizeJoinCode(candidateCode);
+      setPin(normalizedCode);
+      setError("");
+
+      if (!normalizedCode) {
+        setError(joinCopy.emptyCode);
+        return false;
+      }
+
+      if (!isCompleteJoinCode(normalizedCode)) {
+        setError(joinCopy.pinLength(JOIN_CODE_LENGTH));
+        return false;
+      }
+
+      if (joinLockRef.current) {
+        return false;
+      }
+
+      joinLockRef.current = true;
+      setIsJoining(true);
+
+      try {
+        const response = await fetchWithRetry(
+          "/api/join",
+          {
+            cache: "no-store",
+            headers: {
+              "X-Student-Join-Code": normalizedCode,
+            },
+          },
+          3,
+          JOIN_REQUEST_TIMEOUT_MS,
+          "lookup"
+        );
+
+        if (response.status === 429 || response.status === 503) {
+          setError(joinCopy.networkError);
+          return false;
+        }
+
+        const joinData = (await response.json()) as
+          | JoinLookupResponse
+          | JoinLookupErrorResponse;
+
+        if (
+          response.status === 404 ||
+          ("kind" in joinData && joinData.kind === "invalid")
+        ) {
+          leaveAppBreadcrumb("join_code_not_found", {
+            routeType: "student_join",
+            online:
+              typeof navigator.onLine === "boolean" ? navigator.onLine : null,
+          });
+          setError(joinCopy.invalidPin);
+          return false;
+        }
+
+        if (!response.ok || !("kind" in joinData)) {
+          throw new Error("join_lookup_failed");
+        }
+
+        if (joinData.kind === "finished") {
+          setRunTitle(joinData.runTitle);
+          setSchedule(joinData.schedule);
+          setExpiredMessage(joinCopy.defaultExpiredMessage);
+          setView("expired");
+          return false;
+        }
+
+        if (joinData.scheduleGate === "scheduled") {
+          setError(joinCopy.notOpen);
+          return false;
+        }
+
+        if (joinData.scheduleGate === "error") {
+          setView("scheduleError");
+          return false;
+        }
+
+        if (joinData.scheduleGate === "expired") {
+          setExpiredMessage(joinCopy.defaultExpiredMessage);
+          setView("expired");
+          return false;
+        }
+
+        setSessionId(joinData.sessionId);
+        setRunTitle(joinData.runTitle);
+        setSchedule(joinData.schedule);
+        setRaceType(joinData.raceType ?? null);
+        setStep("name");
+        setError("");
+
+        return true;
+      } catch (lookupError) {
+        if (lookupError instanceof JoinRequestTimeoutError) {
+          setError(joinCopy.networkError);
+          return false;
+        }
+
+        if (lookupError instanceof TypeError) {
+          setError(joinCopy.networkError);
+          return false;
+        }
+
+        captureAppMessage("join_session_lookup_failed", {
+          category: "join_session_lookup_failed",
+          routeType: "student_join",
+          online:
+            typeof navigator.onLine === "boolean" ? navigator.onLine : null,
+        });
+        setError(joinCopy.genericJoinError);
+        return false;
+      } finally {
+        joinLockRef.current = false;
+        setIsJoining(false);
+      }
+    },
+    [joinCopy]
+  );
+
+  const autoLookupCodeRef = useRef("");
+  useEffect(() => {
+    if (
+      step !== "code" ||
+      !isCompleteJoinCode(rawPinFromQuery) ||
+      autoLookupCodeRef.current === pinFromQuery
+    ) {
+      return;
+    }
+
+    autoLookupCodeRef.current = pinFromQuery;
+    void lookupJoinCode(pinFromQuery);
+  }, [lookupJoinCode, pinFromQuery, rawPinFromQuery, step]);
+
   const handleJoin = async (event: FormEvent) => {
     event.preventDefault();
+
+    if (step === "code") {
+      await lookupJoinCode(trimmedPin);
+      return;
+    }
 
     if (joinLockRef.current) {
       return;
@@ -514,59 +588,37 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
 
     setError("");
 
-    if (!trimmedPin || !trimmedName) {
-      setError(joinCopy.fillPinAndName);
+    if (!trimmedName) {
+      setError(joinCopy.missingName);
       return;
     }
 
-    if (trimmedPin.length !== JOIN_PIN_LENGTH) {
-      setError(joinCopy.pinLength(JOIN_PIN_LENGTH));
+    if (!isCompleteJoinCode(trimmedPin)) {
+      setStep("code");
+      setError(joinCopy.invalidPin);
       return;
     }
 
     joinLockRef.current = true;
     setIsJoining(true);
-    setConnectionCheckResult(null);
     let shouldReleaseLock = true;
     let activeSessionId: string | null = null;
     let currentStage: JoinRequestStage = "lookup";
 
-    try {
-      try {
-        leaveAppBreadcrumb("join_attempt", {
-          has_pin: trimmedPin.length > 0,
-          pin_length: trimmedPin.length,
-          has_name: trimmedName.length > 0,
-          name_length: trimmedName.length,
-          online: typeof navigator !== "undefined" ? navigator.onLine : null,
-          platform: browserPlatform,
-          show_in_app_warning: showInAppWarning,
-        });
-      } catch (_) {}
-
-      Sentry.addBreadcrumb({
-        category: "join",
-        message: "join_attempt",
-        data: {
-          has_pin: trimmedPin.length > 0,
-          pin_length: trimmedPin.length,
-          has_name: trimmedName.length > 0,
-          name_length: trimmedName.length,
-          online: typeof navigator !== "undefined" ? navigator.onLine : null,
-          platform: browserPlatform,
-          show_in_app_warning: showInAppWarning,
-        },
-      });
-    } catch (err) {
-      // best-effort
-    }
+    leaveAppBreadcrumb("join_attempt", {
+      routeType: "student_join",
+      online: typeof navigator.onLine === "boolean" ? navigator.onLine : null,
+    });
 
     try {
       const lookupStart = Date.now();
       const response = await fetchWithRetry(
-        `/api/join?pin=${encodeURIComponent(trimmedPin)}`,
+        "/api/join",
         {
           cache: "no-store",
+          headers: {
+            "X-Student-Join-Code": trimmedPin,
+          },
         },
         3,
         JOIN_REQUEST_TIMEOUT_MS,
@@ -581,47 +633,17 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
       });
 
       if (response.status === 429 || response.status === 503) {
-        setError(joinCopy.rateLimit);
+        setError(joinCopy.networkError);
         return;
       }
 
       const joinData = (await response.json()) as JoinLookupResponse | JoinLookupErrorResponse;
 
       if (response.status === 404 || ("kind" in joinData && joinData.kind === "invalid")) {
-        try {
-          // Do not create a Sentry issue for expected/normal join failures.
-          // Replace captureMessage with a breadcrumb and telemetry so we keep
-          // observability without generating Sentry issues.
-          Sentry.addBreadcrumb({
-            category: "join",
-            message: "join_lookup_invalid_or_404",
-            data: {
-              has_pin: trimmedPin.length > 0,
-              pin_length: trimmedPin.length,
-              has_name: trimmedName.length > 0,
-              name_length: trimmedName.length,
-              platform: browserPlatform,
-              online: typeof navigator !== "undefined" ? navigator.onLine : null,
-              status_code: response.status,
-            },
-          });
-        } catch (err) {
-          // best-effort
-        }
-
-        try {
-          trackJoinTelemetry("join_lookup_invalid_or_404", null, {
-            has_pin: trimmedPin.length > 0,
-            pin_length: trimmedPin.length,
-            has_name: trimmedName.length > 0,
-            name_length: trimmedName.length,
-            platform: browserPlatform,
-            online: typeof navigator !== "undefined" ? navigator.onLine : null,
-            status_code: response.status,
-          });
-        } catch (_) {
-          // best-effort
-        }
+        leaveAppBreadcrumb("join_code_not_found", {
+          routeType: "student_join",
+          online: typeof navigator.onLine === "boolean" ? navigator.onLine : null,
+        });
 
         setError(joinCopy.invalidPin);
         return;
@@ -647,6 +669,12 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
 
       if (joinData.scheduleGate === "error") {
         setView("scheduleError");
+        return;
+      }
+
+      if (joinData.scheduleGate === "scheduled") {
+        setStep("code");
+        setError(joinCopy.notOpen);
         return;
       }
 
@@ -684,7 +712,7 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
       });
 
       if (registerResponse.status === 429 || registerResponse.status === 503) {
-        setError(joinCopy.rateLimit);
+        setError(joinCopy.networkError);
         return;
       }
 
@@ -693,7 +721,14 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
         | JoinLookupErrorResponse
         | null;
 
-      if (registerResponse.status === 404 || registerResponse.status === 410) {
+      if (registerResponse.status === 404) {
+        setStep("code");
+        setSessionId(null);
+        setError(joinCopy.invalidPin);
+        return;
+      }
+
+      if (registerResponse.status === 410) {
         setExpiredMessage(joinCopy.finishedOrMissing);
         setView("expired");
         return;
@@ -711,33 +746,15 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
         existingParticipant?.sessionId === registerData.sessionId &&
         existingParticipant?.participantId === registerData.participantId;
 
-      // If joining a different session/participant, clear any stale stored state
+      // Replace only the active handoff after a successful new registration.
+      // A participant-scoped offline snapshot is left intact until the play
+      // engine can authoritatively decide whether it belongs to this session.
       if (existingParticipant && !shouldPreserveExistingParticipant) {
-        try {
-          const _telemetryPayload = {
-            has_pin: trimmedPin.length > 0,
-            pin_length: trimmedPin.length,
-            existingSessionId: existingParticipant.sessionId,
-            existingParticipantId: existingParticipant.participantId,
-            newSessionId: registerData.sessionId,
-          };
-
-          try {
-            trackJoinTelemetry(
-              "clearing_stored_participant_due_to_session_mismatch",
-              registerData.sessionId ?? null,
-              _telemetryPayload
-            );
-          } catch (_) {}
-
-          try {
-            leaveAppBreadcrumb("clearing_stored_participant_due_to_session_mismatch", _telemetryPayload);
-          } catch (_) {}
-        } catch (err) {
-          // best-effort
-        }
+        leaveAppBreadcrumb("join_handoff_replaced", {
+          routeType: "student_join",
+          online: typeof navigator.onLine === "boolean" ? navigator.onLine : null,
+        });
         clearStoredActiveParticipant();
-        clearStoredPlaySnapshot();
       }
 
       saveStoredActiveParticipant(
@@ -749,15 +766,10 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
         })
       );
 
-      try {
-        Sentry.addBreadcrumb({
-          category: "join",
-          message: "join_success",
-          data: { sessionId: registerData.sessionId, participantId: registerData.participantId },
-        });
-      } catch (err) {
-        // best-effort
-      }
+      leaveAppBreadcrumb("join_success", {
+        routeType: "student_join",
+        online: typeof navigator.onLine === "boolean" ? navigator.onLine : null,
+      });
 
       setName(registerData.studentName);
       setSessionId(joinData.sessionId);
@@ -765,11 +777,9 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
       setAssignedTeamColor(registerData.teamColor ?? null);
       setAssignedStartOffset(typeof registerData.startOffset === "number" ? registerData.startOffset : null);
       shouldReleaseLock = false;
-      router.push(`/play/${joinData.sessionId}?name=${encodeURIComponent(registerData.studentName)}`);
+      router.replace(`/play/${joinData.sessionId}`);
       return;
     } catch (err) {
-      console.error("Fejl ved deltagelse i løbet:", err);
-
       if (err instanceof JoinRequestTimeoutError) {
         trackJoinTelemetry(
           err.stage === "lookup" ? "join_lookup_timeout" : "join_register_timeout",
@@ -783,7 +793,7 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
             show_in_app_warning: showInAppWarning,
           }
         );
-        setError(joinCopy.timeout);
+        setError(joinCopy.networkError);
         return;
       }
 
@@ -807,6 +817,20 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
         show_in_app_warning: showInAppWarning,
       });
 
+      captureAppMessage(
+        currentStage === "lookup"
+          ? "join_session_lookup_failed"
+          : "participant_creation_failed",
+        {
+          category:
+            currentStage === "lookup"
+              ? "join_session_lookup_failed"
+              : "participant_creation_failed",
+          routeType: "student_join",
+          online:
+            typeof navigator.onLine === "boolean" ? navigator.onLine : null,
+        }
+      );
       setError(joinCopy.genericJoinError);
     } finally {
       if (shouldReleaseLock) {
@@ -837,7 +861,7 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
             <div className="mt-8 text-center">
               <div className="relative mx-auto flex h-28 w-28 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.24)]">
                 <div className="absolute inset-4 rounded-full border border-emerald-400/20" />
-                <div className="absolute inset-0 rounded-full border border-emerald-300/20 animate-pulse" />
+                <div className="absolute inset-0 rounded-full border border-emerald-300/20 motion-safe:animate-pulse motion-reduce:animate-none" />
                 <div className="absolute h-px w-14 bg-emerald-300/35" />
                 <div className="absolute h-14 w-px bg-emerald-300/35" />
                 <Timer className="relative z-10 h-10 w-10 text-emerald-200" />
@@ -927,12 +951,12 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
             </div>
 
             <div className="mt-8">
-              <div className="relative mx-auto flex h-28 w-28 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 p-8 shadow-[0_0_30px_rgba(16,185,129,0.4)] animate-pulse">
+              <div className="relative mx-auto flex h-28 w-28 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 p-8 shadow-[0_0_30px_rgba(16,185,129,0.4)] motion-safe:animate-pulse motion-reduce:animate-none">
                 <div className="absolute inset-3 rounded-full border border-emerald-300/20" />
                 <div className="absolute inset-0 rounded-full border border-emerald-300/20" />
                 <div className="absolute h-px w-14 bg-emerald-300/35" />
                 <div className="absolute h-14 w-px bg-emerald-300/35" />
-                <Loader2 className="relative z-10 h-10 w-10 animate-spin text-emerald-200" />
+                <Loader2 className="relative z-10 h-10 w-10 motion-safe:animate-spin motion-reduce:animate-none text-emerald-200" />
               </div>
 
               <p className="mt-6 text-xs font-semibold tracking-[0.42em] text-emerald-300 uppercase">
@@ -1098,11 +1122,16 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/15" />
 
         <div className="relative">
+          <p className="text-center text-sm font-bold tracking-[0.22em] text-emerald-200 uppercase">
+            {siteCopy.home.brandLabel}
+          </p>
           <h1 className={`text-center text-3xl font-black text-white sm:text-4xl ${rubik.className}`}>
             {joinCopy.form.title}
           </h1>
           <p className="mt-3 text-center text-sm leading-6 text-slate-300 sm:text-base">
-            {joinCopy.form.description}
+            {step === "name" && runTitle
+              ? runTitle
+              : joinCopy.form.description}
           </p>
 
           {browserPlatform === "ios" && !showInAppWarning ? (
@@ -1140,86 +1169,124 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
 
           <form onSubmit={handleJoin} className="mt-8 space-y-5">
             {error ? (
-              <div className="rounded-2xl border border-rose-300/25 bg-rose-400/10 p-3 text-center text-sm text-rose-100 backdrop-blur-md">
+              <div
+                id="join-error"
+                className="rounded-2xl border border-rose-300/25 bg-rose-400/10 p-3 text-center text-sm text-rose-100 backdrop-blur-md"
+                role="alert"
+                aria-live="polite"
+              >
                 {error}
               </div>
             ) : null}
 
-            <div className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-emerald-300/70">
-                <KeyRound className="h-5 w-5" />
-              </div>
-              <input
-                type="text"
-                placeholder={joinCopy.form.codePlaceholder}
-                value={pin}
-                onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, JOIN_PIN_LENGTH))}
-                className="w-full rounded-[1.75rem] border border-emerald-500/50 bg-slate-950 py-5 pr-6 pl-12 text-center font-mono text-3xl font-black tracking-[0.35em] text-white shadow-[0_0_24px_rgba(16,185,129,0.12)] shadow-inner outline-none transition placeholder:text-emerald-500/30 focus:border-emerald-400 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-400/20"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={JOIN_PIN_LENGTH}
-                autoComplete="one-time-code"
-                disabled={isJoining}
-              />
-            </div>
+            {step === "code" ? (
+              <>
+                <div>
+                  <label
+                    htmlFor="join-code"
+                    className="mb-2 block text-base font-semibold text-slate-100"
+                  >
+                    {joinCopy.form.codeLabel}
+                  </label>
+                  <div className="relative">
+                    <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-emerald-300/70">
+                      <KeyRound className="h-5 w-5" aria-hidden="true" />
+                    </div>
+                    <input
+                      id="join-code"
+                      type="text"
+                      placeholder={joinCopy.form.codePlaceholder}
+                      value={pin}
+                      onChange={(event) => {
+                        setPin(normalizeJoinCode(event.target.value));
+                        setError("");
+                      }}
+                      className="min-h-16 w-full rounded-[1.5rem] border border-emerald-500/50 bg-slate-950 py-4 pr-5 pl-11 text-center font-mono text-2xl font-black tracking-[0.24em] text-white shadow-[0_0_24px_rgba(16,185,129,0.12)] shadow-inner outline-none transition placeholder:text-base placeholder:font-semibold placeholder:tracking-normal placeholder:text-emerald-100/35 focus-visible:border-emerald-300 focus-visible:ring-4 focus-visible:ring-emerald-300/20 sm:text-3xl"
+                      inputMode="text"
+                      autoCapitalize="characters"
+                      autoComplete="one-time-code"
+                      spellCheck={false}
+                      disabled={isJoining}
+                      aria-describedby={error ? "join-error" : undefined}
+                    />
+                  </div>
+                </div>
 
-            <QRScannerModal buttonClassName="w-full justify-center" copy={siteCopy.qrScanner} />
+                <QRScannerModal
+                  buttonClassName="min-h-12 w-full justify-center rounded-2xl text-sm normal-case tracking-normal"
+                  copy={siteCopy.qrScanner}
+                  onCodeScanned={lookupJoinCode}
+                />
+              </>
+            ) : (
+              <>
+                <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/8 px-4 py-3 text-sm text-emerald-50">
+                  <p className="font-bold">{runTitle || joinCopy.form.title}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep("code");
+                      setPin("");
+                      setName("");
+                      setSessionId(null);
+                      setRunTitle("");
+                      setRaceType(null);
+                      setError("");
+                    }}
+                    className="mt-2 min-h-11 rounded-lg text-sm font-semibold text-emerald-200 underline decoration-emerald-300/40 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+                  >
+                    {joinCopy.form.changeCodeButton}
+                  </button>
+                </div>
 
-            <div className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-emerald-300/70">
-                <User className="h-5 w-5" />
-              </div>
-              <input
-                type="text"
-                placeholder={joinCopy.form.namePlaceholder}
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                className="w-full rounded-[1.6rem] border border-white/20 bg-slate-950 py-4 pr-4 pl-12 text-lg font-semibold text-white shadow-inner outline-none backdrop-blur-md transition placeholder:text-slate-500 focus:border-emerald-400 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-400/20"
-                disabled={isJoining}
-              />
-            </div>
+                <div>
+                  <label
+                    htmlFor="join-name"
+                    className="mb-2 block text-base font-semibold text-slate-100"
+                  >
+                    {joinCopy.form.nameLabel}
+                  </label>
+                  <div className="relative">
+                    <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-emerald-300/70">
+                      <User className="h-5 w-5" aria-hidden="true" />
+                    </div>
+                    <input
+                      id="join-name"
+                      type="text"
+                      placeholder={joinCopy.form.namePlaceholder}
+                      value={name}
+                      onChange={(event) => {
+                        setName(event.target.value);
+                        setError("");
+                      }}
+                      className="min-h-14 w-full rounded-[1.4rem] border border-white/20 bg-slate-950 py-4 pr-4 pl-12 text-lg font-semibold text-white shadow-inner outline-none transition placeholder:text-slate-500 focus-visible:border-emerald-300 focus-visible:ring-4 focus-visible:ring-emerald-300/20"
+                      autoComplete="off"
+                      disabled={isJoining}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             <button
               type="submit"
-              disabled={!canSubmit || isJoining}
+              disabled={isJoining}
               className="mt-2 mb-6 w-full rounded-[1.6rem] border border-emerald-500/30 bg-emerald-500/10 py-4 text-base font-black tracking-[0.28em] text-emerald-300 uppercase shadow-[0_0_30px_rgba(16,185,129,0.22)] transition-all hover:bg-emerald-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-45"
             >
               {isJoining ? (
                 <span className="inline-flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 motion-safe:animate-spin motion-reduce:animate-none" />
                   {joinCopy.form.submitPending}
                 </span>
               ) : (
-                joinCopy.form.submitButton
+                step === "code"
+                  ? joinCopy.form.continueButton
+                  : joinCopy.form.submitButton
               )}
             </button>
-
-            <div className="-mt-2 flex flex-col items-center gap-2 text-center">
-              <button
-                type="button"
-                onClick={handleConnectionCheck}
-                disabled={isJoining || isCheckingConnection}
-                className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-200 transition hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isCheckingConnection ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {isCheckingConnection ? joinCopy.form.checkConnectionPending : joinCopy.form.checkConnectionButton}
-              </button>
-
-              {connectionCheckResult ? (
-                <div
-                  className={`w-full rounded-2xl border px-4 py-3 text-left text-sm backdrop-blur-md ${
-                    connectionCheckResult.tone === "success"
-                      ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-50"
-                      : "border-amber-400/25 bg-amber-400/10 text-amber-100"
-                  }`}
-                >
-                  <p className="font-bold">{connectionCheckResult.title}</p>
-                  <p className="mt-1 leading-5 opacity-90">{connectionCheckResult.detail}</p>
-                </div>
-              ) : null}
-            </div>
           </form>
 
+          {step === "code" ? (
           <details className="mt-5 rounded-[1.35rem] border border-white/10 bg-slate-950/45 px-4 py-3 text-left shadow-[0_10px_24px_rgba(2,6,23,0.16)]">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-slate-100">
               <span>{joinCopy.form.troubleshootingTitle}</span>
@@ -1227,35 +1294,11 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
             </summary>
 
             <div className="mt-4 space-y-4">
-              <p className="text-sm leading-6 text-slate-300">
-                {joinCopy.form.troubleshootingParagraphs[0]}
-              </p>
-
-              <p className="text-sm leading-6 text-slate-300">
-                {joinCopy.form.troubleshootingParagraphs[1]}
-              </p>
-
-              <p className="text-sm leading-6 text-slate-300">
-                {joinCopy.form.troubleshootingParagraphs[2]}
-              </p>
-
-              <WifiConnectionTip className="shadow-none" text={siteCopy.wifiTip} />
-
-              {showHomescreenTip ? (
-                <div className="rounded-[1.2rem] border border-emerald-300/12 bg-slate-900/45 px-4 py-3 shadow-[0_10px_24px_rgba(2,6,23,0.16)]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200/75">
-                    {joinCopy.form.homescreenTitle}
-                  </p>
-                  <p className="mt-1.5 text-sm leading-6 text-slate-200/88">
-                    {joinCopy.form.homescreenBody}
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-slate-400">
-                    {joinCopy.form.homescreenIos}
-                    <br />
-                    {joinCopy.form.homescreenAndroid}
-                  </p>
-                </div>
-              ) : null}
+              <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-slate-300">
+                {joinCopy.form.troubleshootingParagraphs.map((paragraph) => (
+                  <li key={paragraph}>{paragraph}</li>
+                ))}
+              </ul>
 
               <Link
                 href="/"
@@ -1265,19 +1308,14 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
               </Link>
             </div>
           </details>
+          ) : null}
         </div>
       </div>
     </div>
   );
 }
 
-type JoinPageProps = {
-  initialSiteVariantKey?: SiteVariantKey;
-};
-
-export default function JoinPage(props: any) {
-  const { initialSiteVariantKey = DEFAULT_SITE_VARIANT.key } = (props ?? {}) as JoinPageProps;
-
+export default function JoinPage() {
   return (
     <div className={`relative flex min-h-svh items-start justify-center overflow-y-auto bg-slate-950 pb-20 text-white sm:items-center ${poppins.className}`}>
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#020617_0%,#020b16_42%,#01040a_100%)]" />
@@ -1288,11 +1326,11 @@ export default function JoinPage(props: any) {
       <Suspense
         fallback={
           <div className="relative z-10 text-emerald-100">
-            <Loader2 size={32} className="animate-spin" />
+            <Loader2 size={32} className="motion-safe:animate-spin motion-reduce:animate-none" />
           </div>
         }
       >
-        <JoinForm initialSiteVariantKey={initialSiteVariantKey} />
+        <JoinForm />
       </Suspense>
     </div>
   );
