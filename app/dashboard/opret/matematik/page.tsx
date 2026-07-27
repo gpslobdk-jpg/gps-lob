@@ -19,6 +19,12 @@ import GradeLevelMultiSelect from "@/components/builders/GradeLevelMultiSelect";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import { useBuilderSaveGuidance } from "@/components/builders/useBuilderSaveGuidance";
 import type { SavedPin, SavedZone } from "@/components/MapPicker";
+import PostOrderModeField from "@/components/routes/PostOrderModeField";
+import {
+  getDefaultPostOrderModeForNewRun,
+  resolvePostOrderMode,
+  type ActivePostOrderMode,
+} from "@/lib/routes/postOrderPolicy";
 import {
   DEFAULT_SELECTED_GRADE_LEVELS,
   formatGradeLevelsForPrompt,
@@ -180,6 +186,7 @@ type StoredRunRecord = {
   questions: unknown;
   grade_levels?: string[] | null;
   radius?: number | null;
+  post_order_mode?: string | null;
 };
 
 type StoredQuestionRecord = {
@@ -595,6 +602,12 @@ function OpretLoebPageContent() {
   const [description, setDescription] = useState("");
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>(DEFAULT_SELECTED_GRADE_LEVELS);
   const [radius, setRadius] = useState<number>(DEFAULT_RUN_RADIUS);
+  const [postOrderMode, setPostOrderMode] = useState<ActivePostOrderMode>(() =>
+    isEditMode
+      ? resolvePostOrderMode(null, RACE_TYPES.MATEMATIK)
+      : getDefaultPostOrderModeForNewRun(RACE_TYPES.MATEMATIK)
+  );
+  const [isPostOrderModeDirty, setIsPostOrderModeDirty] = useState(false);
   const [showTeacherField, setShowTeacherField] = useState(true);
   const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
   const [showReuseModal, setShowReuseModal] = useState(false);
@@ -874,7 +887,7 @@ function OpretLoebPageContent() {
 
         const { data: run, error } = await supabase
           .from("gps_runs")
-          .select("id,user_id,title,subject,description,topic,questions,grade_levels,radius")
+          .select("id,user_id,title,subject,description,topic,questions,grade_levels,radius,post_order_mode")
           .eq("id", editRunId)
           .eq("user_id", user.id)
           .maybeSingle<StoredRunRecord>();
@@ -918,6 +931,8 @@ function OpretLoebPageContent() {
           loadedGradeLevels.length > 0 ? loadedGradeLevels : DEFAULT_SELECTED_GRADE_LEVELS
         );
         setRadius(normalizeRunRadius(run.radius));
+        setPostOrderMode(resolvePostOrderMode(run.post_order_mode, RACE_TYPES.MATEMATIK));
+        setIsPostOrderModeDirty(false);
         setShowTeacherField(true);
         setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion(defaultQuestionType)]);
         setShowAiInterviewModal(false);
@@ -1347,6 +1362,9 @@ function OpretLoebPageContent() {
         grade_levels: gradeLevels.length > 0 ? gradeLevels : null,
         radius,
         race_type: RACE_TYPES.MATEMATIK,
+        ...(!isEditMode || isPostOrderModeDirty
+          ? { post_order_mode: resolvePostOrderMode(postOrderMode, RACE_TYPES.MATEMATIK) }
+          : {}),
       };
 
       if (isEditMode) {
@@ -1842,6 +1860,17 @@ function OpretLoebPageContent() {
                 Radius styrer, hvor tæt eleven skal være på posten. Klassetrin bliver i arbejdsfladen, fordi det styrer det faglige niveau.
               </p>
             </div>
+
+            <div className="h-px bg-amber-400/10" />
+
+            <PostOrderModeField
+              value={postOrderMode}
+              onChange={(value) => {
+                setPostOrderMode(value);
+                setIsPostOrderModeDirty(true);
+              }}
+              disabled={isEditorBusy}
+            />
 
             <div className="h-px bg-amber-400/10" />
 

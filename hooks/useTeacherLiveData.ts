@@ -20,6 +20,12 @@ import type {
   TeacherLiveFeedStatus,
   TeacherLiveStanding,
 } from "@/components/live/types";
+import {
+  CURRENT_ROUTE_VERSION,
+  isDistributedCircularEligibleRaceType,
+  POST_ORDER_MODES,
+  resolveSessionPostOrderMode,
+} from "@/lib/routes/postOrderPolicy";
 import { normalizeRaceType, RACE_TYPES } from "@/utils/gpsRuns";
 import { createClient } from "@/utils/supabase/client";
 
@@ -74,6 +80,9 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   const [gpsOverride, setGpsOverride] = useState(false);
   const [isUpdatingGpsOverride, setIsUpdatingGpsOverride] = useState(false);
   const [runRaceType, setRunRaceType] = useState<string | null>(null);
+  const [postOrderMode, setPostOrderMode] =
+    useState<TeacherLiveData["postOrderMode"]>(POST_ORDER_MODES.FIXED);
+  const [routeVersion, setRouteVersion] = useState(CURRENT_ROUTE_VERSION);
   const [theme, setTheme] = useState<TeacherLiveData["theme"]>(undefined);
   const [messages, setMessages] = useState<SessionMessage[]>([]);
   const [newMessage, setNewMessageState] = useState("");
@@ -182,6 +191,11 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         setPin(String(sessionData.pin ?? ""));
         setStatus(sessionData.status ?? "waiting");
         setGpsOverride(Boolean(sessionData.gps_override));
+        const parsedRouteVersion = Number(sessionData.route_version);
+        const nextRouteVersion = Number.isSafeInteger(parsedRouteVersion)
+          ? parsedRouteVersion
+          : CURRENT_ROUTE_VERSION;
+        setRouteVersion(nextRouteVersion);
 
         if (sessionData.run_id) {
           const { data: runData } = await supabase
@@ -196,15 +210,23 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
             setRunQuestions(runData.questions as TeacherLiveData["runQuestions"]);
           }
 
-          setRunRaceType(
+          const nextRaceType =
             typeof runData?.race_type === "string"
               ? runData.race_type
               : typeof runData?.raceType === "string"
                 ? runData.raceType
-                : null
+                : null;
+          setRunRaceType(nextRaceType);
+          setPostOrderMode(
+            resolveSessionPostOrderMode(
+              sessionData.post_order_mode,
+              nextRaceType,
+              sessionData.route_version
+            )
           );
         } else {
           setRunRaceType(null);
+          setPostOrderMode(POST_ORDER_MODES.FIXED);
         }
       }
 
@@ -574,6 +596,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         student_name: normalizedName,
         lat: null,
         lng: null,
+        startOffset: null,
         updated_at: null,
         finished_at: null,
       });
@@ -788,6 +811,32 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     }
 
     const normalizedRaceType = normalizeRaceType(runRaceType);
+    const usesAtomicPostAssignmentStart =
+      isDistributedCircularEligibleRaceType(runRaceType);
+
+    if (usesAtomicPostAssignmentStart) {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("start_live_session_with_post_assignments", {
+        p_session_id: sessionId,
+      });
+
+      if (error) {
+        console.error("Kunne ikke starte session atomart:", error);
+        alert("Kunne ikke starte løbet.");
+        return;
+      }
+
+      if (data && typeof data === "object" && "postOrderMode" in data) {
+        setPostOrderMode(
+          data.postOrderMode === POST_ORDER_MODES.DISTRIBUTED_CIRCULAR
+            ? POST_ORDER_MODES.DISTRIBUTED_CIRCULAR
+            : POST_ORDER_MODES.FIXED
+        );
+      }
+      setStatus("running");
+      return;
+    }
+
     const sessionUpdate: { status: string; ends_at?: string | null } = {
       status: "running",
       ends_at:
@@ -929,6 +978,8 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     gpsOverride,
     isUpdatingGpsOverride,
     runRaceType,
+    postOrderMode,
+    routeVersion,
     theme,
     isPhotoMission,
     messages,

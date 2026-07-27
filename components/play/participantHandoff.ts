@@ -42,14 +42,18 @@ export function buildStoredParticipantFromJoin({
   sessionStatus,
   joinedAt = new Date().toISOString(),
 }: BuildStoredParticipantFromJoinParams): StoredActiveParticipant {
+  const assignedStartOffset =
+    asIntegerStartOffset(registration.startOffset) ??
+    (preserveExistingParticipant
+      ? asIntegerStartOffset(existingParticipant?.startOffset)
+      : null);
+
   return {
     participantId: registration.participantId,
     sessionId: registration.sessionId,
     studentName: registration.studentName,
-    startOffset: resolveParticipantStartOffset(
-      registration.startOffset,
-      preserveExistingParticipant ? existingParticipant?.startOffset : null
-    ),
+    startOffset:
+      assignedStartOffset ?? (sessionStatus === "waiting" ? undefined : 0),
     savedAt:
       preserveExistingParticipant && existingParticipant?.savedAt
         ? existingParticipant.savedAt

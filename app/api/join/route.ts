@@ -17,9 +17,8 @@ import {
   isZoneKrigRaceType,
 } from "@/app/api/zone-krig/_shared";
 import {
+  isDistributedCircularEligibleRaceType,
   normalizeCircularStartOffset,
-  POST_ORDER_MODES,
-  resolveSessionPostOrderMode,
 } from "@/lib/routes/postOrderPolicy";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 import { sendDiscordWebhook } from "@/lib/discord";
@@ -57,15 +56,11 @@ type JoinParticipantResponse = {
   participantId: string;
   sessionId: string;
   studentName: string;
-  startOffset: number;
+  startOffset: number | null;
   sessionStatus: string | null;
   teamId?: string | null;
   teamName?: string | null;
   teamColor?: string | null;
-};
-
-type ParticipantOffsetRow = {
-  start_offset?: number | string | null;
 };
 
 type GameTeamRow = {
@@ -135,19 +130,6 @@ function normalizeStartOffset(value: unknown, questionCount: number) {
 
 function getQuestionCount(run: (RunRecord & { questions?: unknown }) | null) {
   return Array.isArray(run?.questions) ? run.questions.length : 0;
-}
-
-function pickLeastUsedStartOffset(rows: ParticipantOffsetRow[] | null, questionCount: number) {
-  if (!rows || questionCount <= 1) return 0;
-
-  const usageByOffset = Array.from({ length: questionCount }, () => 0);
-  for (const row of rows) {
-    const normalizedOffset = normalizeStartOffset(row?.start_offset, questionCount);
-    usageByOffset[normalizedOffset] += 1;
-  }
-
-  const minUsage = Math.min(...usageByOffset);
-  return usageByOffset.findIndex((usage) => usage === minUsage);
 }
 
 async function fetchRun(runId: string, adminSupabase: AdminSupabaseClient) {
@@ -241,43 +223,17 @@ async function fetchParticipantRecord(
   return ((data ?? [])[0] ?? null) as ParticipantRow | null;
 }
 
-async function fetchSessionParticipantOffsets(
-  sessionId: string,
-  adminSupabase: AdminSupabaseClient
-) {
-  const { data, error } = await adminSupabase
-    .from("participants")
-    .select("start_offset")
-    .eq("session_id", sessionId);
-
-  if (error) {
-    if (isMissingColumnError(error)) {
-      return null;
-    }
-
-    throw new Error(error.message);
-  }
-
-  return (data ?? []) as ParticipantOffsetRow[];
-}
-
-async function persistParticipantStartOffset(
+async function assignParticipantStartOffset(
   sessionId: string,
   participantId: string,
-  startOffset: number,
   adminSupabase: AdminSupabaseClient
 ) {
-  const { error } = await adminSupabase
-    .from("participants")
-    .update({ start_offset: startOffset })
-    .eq("id", participantId)
-    .eq("session_id", sessionId);
+  const { error } = await adminSupabase.rpc("assign_live_participant_start_offset", {
+    p_session_id: sessionId,
+    p_participant_id: participantId,
+  });
 
   if (error) {
-    if (isMissingColumnError(error)) {
-      return null;
-    }
-
     throw new Error(error.message);
   }
 
@@ -288,7 +244,7 @@ async function insertParticipant(
   sessionId: string,
   studentName: string,
   participantId: string,
-  startOffset: number,
+  initialStartOffset: number | null,
   authUserId: string,
   adminSupabase: AdminSupabaseClient
 ) {
@@ -301,21 +257,14 @@ async function insertParticipant(
       student_name: normalizedStudentName,
       auth_user_id: authUserId,
       last_updated: timestamp,
-      start_offset: startOffset,
+      start_offset: initialStartOffset,
     },
     {
       id: participantId,
       session_id: sessionId,
       student_name: normalizedStudentName,
       auth_user_id: authUserId,
-      start_offset: startOffset,
-    },
-    {
-      id: participantId,
-      session_id: sessionId,
-      student_name: normalizedStudentName,
-      auth_user_id: authUserId,
-      last_updated: timestamp,
+      start_offset: initialStartOffset,
     },
     { id: participantId, session_id: sessionId, student_name: normalizedStudentName, auth_user_id: authUserId },
     {
@@ -323,11 +272,14 @@ async function insertParticipant(
       session_id: sessionId,
       student_name: normalizedStudentName,
       last_updated: timestamp,
-      start_offset: startOffset,
+      start_offset: initialStartOffset,
     },
-    { id: participantId, session_id: sessionId, student_name: normalizedStudentName, start_offset: startOffset },
-    { id: participantId, session_id: sessionId, student_name: normalizedStudentName, last_updated: timestamp },
-    { id: participantId, session_id: sessionId, student_name: normalizedStudentName },
+    {
+      id: participantId,
+      session_id: sessionId,
+      student_name: normalizedStudentName,
+      start_offset: initialStartOffset,
+    },
   ];
 
   for (const payload of payloads) {
@@ -828,18 +780,8 @@ export async function POST(request: NextRequest) {
     }
 
     const questionCount = getQuestionCount(run);
-    const postOrderMode = resolveSessionPostOrderMode(
-      activeSession.post_order_mode,
-      run?.race_type ?? run?.raceType,
-      activeSession.route_version
-    );
-    const staggerEnabled = postOrderMode === POST_ORDER_MODES.DISTRIBUTED_CIRCULAR;
-    const plannedStartOffset = staggerEnabled
-      ? pickLeastUsedStartOffset(
-          await fetchSessionParticipantOffsets(sessionId, adminSupabase),
-          questionCount
-        )
-      : 0;
+    const usesAtomicPostAssignment =
+      isDistributedCircularEligibleRaceType(run?.race_type ?? run?.raceType);
 
     const participantAuthSession = await createParticipantAuthSession();
     participantAuthClient = participantAuthSession.client;
@@ -905,7 +847,7 @@ export async function POST(request: NextRequest) {
         sessionId,
         studentName,
         crypto.randomUUID(),
-        plannedStartOffset,
+        usesAtomicPostAssignment ? null : 0,
         participantAuthSession.authUserId,
         adminSupabase
       );
@@ -927,33 +869,23 @@ export async function POST(request: NextRequest) {
       throw new Error("Deltager-id mangler i svar.");
     }
 
-    let resolvedParticipantRow = participantRow;
-
-    if (
-      staggerEnabled &&
-      questionCount > 1 &&
-      (participantRow?.start_offset === null || participantRow?.start_offset === undefined)
-    ) {
-      try {
-        const updatedParticipantRow = await persistParticipantStartOffset(
-          sessionId,
-          participantId,
-          plannedStartOffset,
-          adminSupabase
-        );
-        if (updatedParticipantRow) {
-          resolvedParticipantRow = updatedParticipantRow;
-        }
-      } catch (error) {
-        console.warn("Kunne ikke gemme start_offset for eksisterende deltager:", error);
-      }
-    }
+    const resolvedParticipantRow = usesAtomicPostAssignment
+      ? await assignParticipantStartOffset(sessionId, participantId, adminSupabase)
+      : participantRow;
 
     const normalizedStudentName =
       asTrimmedString(resolvedParticipantRow?.student_name) || studentName;
-    const startOffset = staggerEnabled
-      ? normalizeStartOffset(resolvedParticipantRow?.start_offset ?? plannedStartOffset, questionCount)
-      : 0;
+    const storedStartOffset = resolvedParticipantRow?.start_offset;
+    const startOffset = !usesAtomicPostAssignment
+      ? 0
+      : storedStartOffset === null || storedStartOffset === undefined
+        ? null
+        : normalizeStartOffset(storedStartOffset, questionCount);
+    const refreshedActiveSession = await fetchLiveSessionById(
+      sessionId,
+      ["waiting", "running"],
+      adminSupabase
+    );
 
     void ensureSessionStudent(sessionId, normalizedStudentName, adminSupabase);
 
@@ -996,7 +928,12 @@ export async function POST(request: NextRequest) {
         sessionId,
         studentName: normalizedStudentName,
         startOffset,
-        sessionStatus: typeof activeSession.status === "string" ? activeSession.status : null,
+        sessionStatus:
+          typeof refreshedActiveSession?.status === "string"
+            ? refreshedActiveSession.status
+            : typeof activeSession.status === "string"
+              ? activeSession.status
+              : null,
         teamId,
         teamName: assignedZoneKrigTeam?.teamName ?? null,
         teamColor: assignedZoneKrigTeam?.color ?? null,

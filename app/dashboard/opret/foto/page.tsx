@@ -14,6 +14,12 @@ import FotoAiInterviewModal, {
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import { useBuilderSaveGuidance } from "@/components/builders/useBuilderSaveGuidance";
 import type { SavedPin, SavedZone } from "@/components/MapPicker";
+import PostOrderModeField from "@/components/routes/PostOrderModeField";
+import {
+  getDefaultPostOrderModeForNewRun,
+  resolvePostOrderMode,
+  type ActivePostOrderMode,
+} from "@/lib/routes/postOrderPolicy";
 import {
   DEFAULT_MAP_CENTER,
   RACE_TYPES,
@@ -464,6 +470,12 @@ function FotoMissionBuilderPageContent() {
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
   const [radius, setRadius] = useState<number>(DEFAULT_RUN_RADIUS);
+  const [postOrderMode, setPostOrderMode] = useState<ActivePostOrderMode>(() =>
+    isEditMode
+      ? resolvePostOrderMode(null, RACE_TYPES.FOTO)
+      : getDefaultPostOrderModeForNewRun(RACE_TYPES.FOTO)
+  );
+  const [isPostOrderModeDirty, setIsPostOrderModeDirty] = useState(false);
   const [showTeacherField, setShowTeacherField] = useState(false);
   const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
@@ -661,7 +673,7 @@ function FotoMissionBuilderPageContent() {
 
         const { data: run, error } = await supabase
           .from("gps_runs")
-          .select("id,user_id,title,subject,description,topic,questions,race_type,radius")
+          .select("id,user_id,title,subject,description,topic,questions,race_type,radius,post_order_mode")
           .eq("id", editRunId)
           .eq("user_id", user.id)
           .maybeSingle<StoredRunRecord>();
@@ -697,6 +709,8 @@ function FotoMissionBuilderPageContent() {
         setTitle(asTrimmedString(run.title));
         setSubject(asTrimmedString(run.subject));
         setRadius(normalizeRunRadius(run.radius));
+        setPostOrderMode(resolvePostOrderMode(run.post_order_mode, RACE_TYPES.FOTO));
+        setIsPostOrderModeDirty(false);
         setShowTeacherField(Boolean(asTrimmedString(run.subject)));
         setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion()]);
         setShowAiInterviewModal(false);
@@ -1017,6 +1031,9 @@ function FotoMissionBuilderPageContent() {
         questions: normalizedQuestionsForSave,
         radius,
         race_type: RACE_TYPES.FOTO,
+        ...(!isEditMode || isPostOrderModeDirty
+          ? { post_order_mode: resolvePostOrderMode(postOrderMode, RACE_TYPES.FOTO) }
+          : {}),
       };
 
       if (isEditMode) {
@@ -1442,6 +1459,17 @@ function FotoMissionBuilderPageContent() {
                   Vælg hvor tæt eleven skal være på posten, før GPS-låsen åbner under spillet.
                 </p>
               </div>
+
+              <div className="h-px bg-sky-400/10" />
+
+              <PostOrderModeField
+                value={postOrderMode}
+                onChange={(value) => {
+                  setPostOrderMode(value);
+                  setIsPostOrderModeDirty(true);
+                }}
+                disabled={isEditorBusy}
+              />
 
               <div className="h-px bg-sky-400/10" />
 

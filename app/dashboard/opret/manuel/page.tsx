@@ -19,6 +19,13 @@ import GradeLevelMultiSelect from "@/components/builders/GradeLevelMultiSelect";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import { useBuilderSaveGuidance } from "@/components/builders/useBuilderSaveGuidance";
 import type { SavedPin, SavedZone } from "@/components/MapPicker";
+import PostOrderModeField from "@/components/routes/PostOrderModeField";
+import {
+  getDefaultPostOrderModeForNewRun,
+  isDistributedCircularEligibleRaceType,
+  resolvePostOrderMode,
+  type ActivePostOrderMode,
+} from "@/lib/routes/postOrderPolicy";
 import {
   DEFAULT_SELECTED_GRADE_LEVELS,
   formatGradeLevelsForPrompt,
@@ -195,6 +202,7 @@ type StoredRunRecord = {
   grade_levels?: string[] | null;
   radius?: number | null;
   race_type?: string | null;
+  post_order_mode?: string | null;
   game_config?: unknown;
   gameConfig?: unknown;
 };
@@ -637,6 +645,12 @@ function OpretLoebPageContent() {
   const [subject, setSubject] = useState<string>("");
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>(DEFAULT_SELECTED_GRADE_LEVELS);
   const [radius, setRadius] = useState<number>(DEFAULT_RUN_RADIUS);
+  const [postOrderMode, setPostOrderMode] = useState<ActivePostOrderMode>(() =>
+    isEditMode
+      ? resolvePostOrderMode(null, RACE_TYPES.MANUEL)
+      : getDefaultPostOrderModeForNewRun(RACE_TYPES.MANUEL)
+  );
+  const [isPostOrderModeDirty, setIsPostOrderModeDirty] = useState(false);
   const [showTeacherField, setShowTeacherField] = useState(false);
   const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
   const [showReuseModal, setShowReuseModal] = useState(false);
@@ -986,7 +1000,7 @@ function OpretLoebPageContent() {
 
         const { data: run, error } = await supabase
           .from("gps_runs")
-          .select("id,user_id,title,subject,description,topic,questions,grade_levels,radius,race_type,game_config,gameConfig:game_config")
+          .select("id,user_id,title,subject,description,topic,questions,grade_levels,radius,race_type,post_order_mode,game_config,gameConfig:game_config")
           .eq("id", editRunId)
           .eq("user_id", user.id)
           .maybeSingle<StoredRunRecord>();
@@ -1031,6 +1045,8 @@ function OpretLoebPageContent() {
         );
         setRadius(normalizeRunRadius(run.radius));
         setOverrideRaceType(normalizeRaceType(run.race_type));
+        setPostOrderMode(resolvePostOrderMode(run.post_order_mode, run.race_type));
+        setIsPostOrderModeDirty(false);
         setRunGameConfig(readRunGameConfig(run));
         setShowTeacherField(Boolean(asTrimmedString(run.subject)));
         setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion(defaultQuestionType)]);
@@ -1498,6 +1514,14 @@ function OpretLoebPageContent() {
         grade_levels: gradeLevels.length > 0 ? gradeLevels : null,
         radius,
         race_type: overrideRaceType ?? RACE_TYPES.MANUEL,
+        ...(!isEditMode || isPostOrderModeDirty
+          ? {
+              post_order_mode: resolvePostOrderMode(
+                postOrderMode,
+                overrideRaceType ?? RACE_TYPES.MANUEL
+              ),
+            }
+          : {}),
         ...(isVm26GameConfig(runGameConfig)
           ? { game_config: buildVm26GameConfig(runGameConfig) }
           : {}),
@@ -2098,6 +2122,22 @@ function OpretLoebPageContent() {
             </div>
 
             <div className="h-px bg-emerald-400/10" />
+
+            {isDistributedCircularEligibleRaceType(
+              overrideRaceType ?? RACE_TYPES.MANUEL
+            ) ? (
+              <>
+                <PostOrderModeField
+                  value={postOrderMode}
+                  onChange={(value) => {
+                    setPostOrderMode(value);
+                    setIsPostOrderModeDirty(true);
+                  }}
+                  disabled={isEditorBusy}
+                />
+                <div className="h-px bg-emerald-400/10" />
+              </>
+            ) : null}
 
             <div className="flex items-start gap-3 rounded-[1.25rem] text-left text-emerald-50/90">
               <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">

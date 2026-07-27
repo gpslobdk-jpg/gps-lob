@@ -42,6 +42,7 @@ export function toLocation(row: StudentRow): LiveStudentLocation | null {
     updated_at: row.updated_at ?? null,
     run_started_at: row.run_started_at ?? null,
     finished_at: row.finished_at ?? null,
+    startOffset: toFiniteNumber(row.start_offset),
   };
 }
 
@@ -63,6 +64,7 @@ export function upsertLocation(
     updated_at: nextLocation.updated_at ?? current.updated_at ?? null,
     run_started_at: nextLocation.run_started_at ?? current.run_started_at ?? null,
     finished_at: nextLocation.finished_at ?? current.finished_at ?? null,
+    startOffset: nextLocation.startOffset ?? current.startOffset,
   };
   return next;
 }

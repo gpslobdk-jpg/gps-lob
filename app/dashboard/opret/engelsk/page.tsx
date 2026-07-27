@@ -19,6 +19,12 @@ import GradeLevelMultiSelect from "@/components/builders/GradeLevelMultiSelect";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import { useBuilderSaveGuidance } from "@/components/builders/useBuilderSaveGuidance";
 import type { SavedPin, SavedZone } from "@/components/MapPicker";
+import PostOrderModeField from "@/components/routes/PostOrderModeField";
+import {
+  getDefaultPostOrderModeForNewRun,
+  resolvePostOrderMode,
+  type ActivePostOrderMode,
+} from "@/lib/routes/postOrderPolicy";
 import {
   DEFAULT_SELECTED_GRADE_LEVELS,
   formatGradeLevelsForPrompt,
@@ -89,6 +95,7 @@ type StoredRunRecord = {
   questions: unknown;
   grade_levels?: string[] | null;
   radius?: number | null;
+  post_order_mode?: string | null;
 };
 
 type StoredQuestionRecord = {
@@ -509,6 +516,12 @@ function OpretEngelskLoebPageContent() {
   const [description, setDescription] = useState("");
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>(DEFAULT_SELECTED_GRADE_LEVELS);
   const [radius, setRadius] = useState<number>(DEFAULT_RUN_RADIUS);
+  const [postOrderMode, setPostOrderMode] = useState<ActivePostOrderMode>(() =>
+    isEditMode
+      ? resolvePostOrderMode(null, RACE_TYPES.ENGELSK)
+      : getDefaultPostOrderModeForNewRun(RACE_TYPES.ENGELSK)
+  );
+  const [isPostOrderModeDirty, setIsPostOrderModeDirty] = useState(false);
   const [showTeacherField, setShowTeacherField] = useState(true);
   const [showAiInterviewModal, setShowAiInterviewModal] = useState(false);
   const [showReuseModal, setShowReuseModal] = useState(false);
@@ -788,7 +801,7 @@ function OpretEngelskLoebPageContent() {
 
         const { data: run, error } = await supabase
           .from("gps_runs")
-          .select("id,user_id,title,subject,description,topic,questions,grade_levels,radius")
+          .select("id,user_id,title,subject,description,topic,questions,grade_levels,radius,post_order_mode")
           .eq("id", editRunId)
           .eq("user_id", user.id)
           .maybeSingle<StoredRunRecord>();
@@ -832,6 +845,8 @@ function OpretEngelskLoebPageContent() {
           loadedGradeLevels.length > 0 ? loadedGradeLevels : DEFAULT_SELECTED_GRADE_LEVELS
         );
         setRadius(normalizeRunRadius(run.radius));
+        setPostOrderMode(resolvePostOrderMode(run.post_order_mode, RACE_TYPES.ENGELSK));
+        setIsPostOrderModeDirty(false);
         setShowTeacherField(true);
         setQuestions(loadedQuestions.length > 0 ? loadedQuestions : [createQuestion(defaultQuestionType)]);
         setShowAiInterviewModal(false);
@@ -1263,6 +1278,9 @@ function OpretEngelskLoebPageContent() {
         grade_levels: gradeLevels.length > 0 ? gradeLevels : null,
         radius,
         race_type: RACE_TYPES.ENGELSK,
+        ...(!isEditMode || isPostOrderModeDirty
+          ? { post_order_mode: resolvePostOrderMode(postOrderMode, RACE_TYPES.ENGELSK) }
+          : {}),
       };
 
       if (isEditMode) {
@@ -1771,6 +1789,17 @@ function OpretEngelskLoebPageContent() {
                   Radius controls when the GPS lock opens. Grade levels stay visible in the workspace because they drive the teaching setup.
                 </p>
               </div>
+
+              <div className="h-px bg-indigo-400/10" />
+
+              <PostOrderModeField
+                value={postOrderMode}
+                onChange={(value) => {
+                  setPostOrderMode(value);
+                  setIsPostOrderModeDirty(true);
+                }}
+                disabled={isEditorBusy}
+              />
 
               <div className="h-px bg-indigo-400/10" />
 

@@ -5,6 +5,8 @@ export type SessionRow = {
   status: string | null;
   run_id: string | null;
   gps_override?: boolean | null;
+  post_order_mode?: string | null;
+  route_version?: number | string | null;
 };
 
 export type SessionMessage = {
@@ -25,6 +27,7 @@ export type StudentRow = {
   updated_at?: string | null;
   run_started_at?: string | null;
   finished_at?: string | null;
+  start_offset?: number | string | null;
 };
 
 export type LiveStudentLocation = {
@@ -36,6 +39,7 @@ export type LiveStudentLocation = {
   updated_at?: string | null;
   run_started_at?: string | null;
   finished_at?: string | null;
+  startOffset: number | null;
 };
 
 export type RunQuestion = {
@@ -106,6 +110,8 @@ export type TeacherLiveData = {
   gpsOverride: boolean;
   isUpdatingGpsOverride: boolean;
   runRaceType: string | null;
+  postOrderMode: "fixed" | "distributed_circular";
+  routeVersion: number;
   theme?: TeacherLiveTheme;
   isPhotoMission: boolean;
   messages: SessionMessage[];

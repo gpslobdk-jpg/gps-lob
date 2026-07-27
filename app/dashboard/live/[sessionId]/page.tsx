@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import { Poppins } from "next/font/google";
 import { Copy, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { QRCode } from "react-qrcode-logo";
 
 import { FullscreenWarning } from "@/components/ui/FullscreenWarning";
@@ -18,7 +18,12 @@ import TeacherLiveResults from "@/components/live/TeacherLiveResults";
 import ZoneKrigFinalResults from "@/components/live/ZoneKrigFinalResults";
 import TeacherLiveSidebar from "@/components/live/TeacherLiveSidebar";
 import type { LiveAnswer, LiveModuleId, TeacherLiveStanding } from "@/components/live/types";
+import PostOrderSummary from "@/components/routes/PostOrderSummary";
 import { useTeacherLiveData } from "@/hooks/useTeacherLiveData";
+import {
+  buildEvenStartOffsets,
+  isDistributedCircularEligibleRaceType,
+} from "@/lib/routes/postOrderPolicy";
 import { normalizeRaceType, RACE_TYPES } from "@/utils/gpsRuns";
 
 const TeacherLiveMap = dynamic(() => import("@/components/live/TeacherLiveMap"), {
@@ -228,6 +233,24 @@ export default function LiveLobbyPage() {
   const showTeacherVm26Badge =
     live.theme?.vm26?.enabled === true && isStandardRunningView && !isZoneKrigRace;
   const showTeacherVm26Scoreboard = showTeacherVm26Badge;
+  const showPostOrderSummary =
+    !isStrategoRace && isDistributedCircularEligibleRaceType(live.runRaceType);
+  const previewStartOffsets = useMemo(
+    () =>
+      buildEvenStartOffsets(
+        live.totalPosts,
+        live.students.length,
+        live.postOrderMode
+      ),
+    [live.postOrderMode, live.students.length, live.totalPosts]
+  );
+  const assignedStartOffsets = useMemo(
+    () =>
+      live.studentLocations
+        .map((student) => student.startOffset)
+        .filter((offset): offset is number => offset !== null),
+    [live.studentLocations]
+  );
 
   const openAccessOverlay = () => {
     setDidCopyJoinAccess(false);
@@ -318,6 +341,9 @@ export default function LiveLobbyPage() {
             students={live.students}
             isLoading={live.isLoading}
             onStartSession={live.startSession}
+            postOrderMode={showPostOrderSummary ? live.postOrderMode : undefined}
+            postCount={live.totalPosts}
+            previewStartOffsets={previewStartOffsets}
             startHint={
               isZoneKrigRace
                 ? "Standard kampur: 15 minutter. Timeren starter automatisk, når du starter spillet."
@@ -399,6 +425,18 @@ export default function LiveLobbyPage() {
           {showTeacherVm26Scoreboard ? (
             <div className="absolute bottom-6 left-6 z-[1040] hidden xl:block">
               <TeacherVm26Scoreboard standings={live.finalStandings} />
+            </div>
+          ) : null}
+          {showPostOrderSummary ? (
+            <div className="absolute left-6 top-6 z-[1030] hidden w-[min(28rem,calc(100vw-2rem))] xl:block">
+              <PostOrderSummary
+                mode={live.postOrderMode}
+                postCount={live.totalPosts}
+                participantCount={live.studentLocations.length}
+                startOffsets={assignedStartOffsets}
+                actual={true}
+                compact
+              />
             </div>
           ) : null}
           <TeacherLiveMap

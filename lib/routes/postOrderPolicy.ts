@@ -115,6 +115,12 @@ export function resolvePostOrderMode(
     : POST_ORDER_MODES.FIXED;
 }
 
+export function getDefaultPostOrderModeForNewRun(raceType: unknown): ActivePostOrderMode {
+  return isDistributedCircularEligibleRaceType(raceType)
+    ? POST_ORDER_MODES.DISTRIBUTED_CIRCULAR
+    : POST_ORDER_MODES.FIXED;
+}
+
 export function isSupportedRouteVersion(value: unknown) {
   const parsed =
     typeof value === "number"
@@ -166,4 +172,62 @@ export function buildCircularRouteOrder(postCount: number, startOffset: number):
 
   const normalizedOffset = normalizeCircularStartOffset(startOffset, postCount);
   return Array.from({ length: postCount }, (_, index) => (index + normalizedOffset) % postCount);
+}
+
+export function buildEvenStartOffsets(
+  postCount: number,
+  participantCount: number,
+  mode: unknown
+): number[] {
+  if (!Number.isSafeInteger(participantCount) || participantCount <= 0) {
+    return [];
+  }
+
+  if (
+    mode !== POST_ORDER_MODES.DISTRIBUTED_CIRCULAR ||
+    !Number.isSafeInteger(postCount) ||
+    postCount <= 0
+  ) {
+    return Array.from({ length: participantCount }, () => 0);
+  }
+
+  return Array.from({ length: participantCount }, (_, index) =>
+    Math.floor((index * postCount) / participantCount)
+  );
+}
+
+export function pickLateJoinStartOffset(postCount: number, existingOffsets: number[]): number {
+  if (!Number.isSafeInteger(postCount) || postCount <= 1) {
+    return 0;
+  }
+
+  const normalizedOffsets = existingOffsets
+    .filter(Number.isSafeInteger)
+    .map((offset) => normalizeCircularStartOffset(offset, postCount));
+  const loadByOffset = Array.from({ length: postCount }, () => 0);
+  normalizedOffsets.forEach((offset) => {
+    loadByOffset[offset] += 1;
+  });
+
+  const minimumLoad = Math.min(...loadByOffset);
+  const usedOffsets = [...new Set(normalizedOffsets)];
+  const candidates = loadByOffset
+    .map((load, offset) => ({ load, offset }))
+    .filter(({ load }) => load === minimumLoad)
+    .map(({ offset }) => {
+      const distance =
+        usedOffsets.length === 0
+          ? postCount
+          : Math.min(
+              ...usedOffsets.map((usedOffset) => {
+                const directDistance = Math.abs(offset - usedOffset);
+                return Math.min(directDistance, postCount - directDistance);
+              })
+            );
+
+      return { distance, offset };
+    })
+    .sort((left, right) => right.distance - left.distance || left.offset - right.offset);
+
+  return candidates[0]?.offset ?? 0;
 }

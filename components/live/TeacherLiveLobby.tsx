@@ -7,6 +7,8 @@ import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useState } from "react";
 import { QRCode } from "react-qrcode-logo";
 
+import PostOrderSummary from "@/components/routes/PostOrderSummary";
+import type { ActivePostOrderMode } from "@/lib/routes/postOrderPolicy";
 import phoneAnimation from "@/public/phone.json";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
@@ -91,6 +93,9 @@ type TeacherLiveLobbyProps = {
   isLoading: boolean;
   onStartSession: () => Promise<void>;
   startHint?: string | null;
+  postOrderMode?: ActivePostOrderMode;
+  postCount?: number;
+  previewStartOffsets?: number[];
 };
 
 export default function TeacherLiveLobby({
@@ -99,6 +104,9 @@ export default function TeacherLiveLobby({
   isLoading,
   onStartSession,
   startHint = null,
+  postOrderMode,
+  postCount = 0,
+  previewStartOffsets = [],
 }: TeacherLiveLobbyProps) {
   const [origin, setOrigin] = useState("");
   useEffect(() => {
@@ -226,6 +234,16 @@ export default function TeacherLiveLobby({
             ) : null}
           </div>
         </section>
+
+        {postOrderMode ? (
+          <PostOrderSummary
+            mode={postOrderMode}
+            postCount={postCount}
+            participantCount={students.length}
+            startOffsets={previewStartOffsets}
+            actual={false}
+          />
+        ) : null}
 
         {startHint ? (
           <p className="mt-7 text-sm font-semibold text-emerald-800/80">{startHint}</p>
