@@ -1,3 +1,5 @@
+import type { LiveRouteOverview } from "@/lib/routes/liveRouteOverview";
+
 export type SessionStatus = "waiting" | "running" | "paused" | "finished" | string;
 
 export type SessionRow = {
@@ -25,6 +27,7 @@ export type StudentRow = {
   latitude?: number | string | null;
   longitude?: number | string | null;
   updated_at?: string | null;
+  last_updated?: string | null;
   run_started_at?: string | null;
   finished_at?: string | null;
   start_offset?: number | string | null;
@@ -37,6 +40,7 @@ export type LiveStudentLocation = {
   lat: number | null;
   lng: number | null;
   updated_at?: string | null;
+  last_updated?: string | null;
   run_started_at?: string | null;
   finished_at?: string | null;
   startOffset: number | null;
@@ -98,6 +102,12 @@ export type TeacherLiveStanding = {
   elapsedTimeMs: number | null;
 };
 
+export type TeacherLiveRouteParticipant = {
+  participant: LiveStudentLocation;
+  overview: LiveRouteOverview;
+  lastActivityAt: string | null;
+};
+
 export type TeacherLiveData = {
   sessionId: string | null;
   pin: string;
@@ -128,6 +138,8 @@ export type TeacherLiveData = {
   activeStudents: LiveStudentLocation[];
   finishers: LiveStudentLocation[];
   finalStandings: TeacherLiveStanding[];
+  liveRouteParticipants: TeacherLiveRouteParticipant[];
+  liveRouteIssueCount: number;
   winnerCelebrationName: string;
   totalPosts: number;
   mapCenter: [number, number];

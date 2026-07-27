@@ -19,6 +19,12 @@ const migrationPath = join(
   "migrations",
   "202607270001_distributed_post_assignment.sql"
 );
+const foundationMigrationPath = join(
+  process.cwd(),
+  "supabase",
+  "migrations",
+  "202607260001_stable_post_route_foundation.sql"
+);
 
 test.describe("distributed post assignment", () => {
   test("uses the deterministic floor formula and keeps loads balanced", () => {
@@ -108,5 +114,32 @@ test.describe("distributed post assignment", () => {
     expect(sql.indexOf("set status = 'running'")).toBeGreaterThan(
       sql.indexOf("update public.participants as participant")
     );
+  });
+
+  test("the combined Phase A/B SQL contract fails closed with minimum grants", () => {
+    const foundationSql = readFileSync(foundationMigrationPath, "utf8");
+    const assignmentSql = readFileSync(migrationPath, "utf8");
+
+    expect(foundationSql).toContain("participants_start_offset_nonnegative_check");
+    expect(foundationSql).toContain("live_sessions_post_order_mode_check");
+    expect(foundationSql).toContain("live_sessions_route_version_positive_check");
+    expect(assignmentSql.match(/security definer/g)?.length).toBe(2);
+    expect(
+      assignmentSql.match(/set search_path = public, pg_temp/g)?.length
+    ).toBe(2);
+    expect(assignmentSql).toContain("auth.uid() is null");
+    expect(assignmentSql).toContain(
+      "v_teacher_id is distinct from auth.uid()"
+    );
+    expect(assignmentSql).toContain(
+      "revoke all on function public.start_live_session_with_post_assignments(uuid) from anon"
+    );
+    expect(assignmentSql).toContain(
+      "grant execute on function public.start_live_session_with_post_assignments(uuid) to authenticated"
+    );
+    expect(assignmentSql).toContain(
+      "revoke all on function public.assign_live_participant_start_offset(uuid, uuid) from authenticated"
+    );
+    expect(assignmentSql).not.toContain("then 'random_per_assignment'");
   });
 });

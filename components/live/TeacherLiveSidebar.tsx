@@ -4,7 +4,13 @@ import { Poppins, Rubik } from "next/font/google";
 import { QrCode } from "lucide-react";
 import { type FormEvent } from "react";
 
-import type { LiveModuleId, LiveStudentLocation } from "@/components/live/types";
+import LiveRouteOverview from "@/components/live/LiveRouteOverview";
+import type {
+  LiveModuleId,
+  LiveStudentLocation,
+  TeacherLiveRouteParticipant,
+} from "@/components/live/types";
+import type { ActivePostOrderMode } from "@/lib/routes/postOrderPolicy";
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -28,6 +34,9 @@ type TeacherLiveSidebarProps = {
   hasParticipantsTable: boolean;
   gpsOverride: boolean;
   isUpdatingGpsOverride: boolean;
+  liveRouteParticipants: TeacherLiveRouteParticipant[] | null;
+  liveRouteMode: ActivePostOrderMode;
+  liveRouteIssueCount: number;
   newMessage: string;
   onNewMessageChange: (value: string) => void;
   onOpenAccessOverlay: () => void;
@@ -42,6 +51,9 @@ export default function TeacherLiveSidebar({
   hasParticipantsTable,
   gpsOverride,
   isUpdatingGpsOverride,
+  liveRouteParticipants,
+  liveRouteMode,
+  liveRouteIssueCount,
   newMessage,
   onNewMessageChange,
   onOpenAccessOverlay,
@@ -56,7 +68,7 @@ export default function TeacherLiveSidebar({
 
   return (
     <aside
-      className={`ml-4 flex h-full w-1/3 flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900/50 shadow-[0_24px_64px_rgba(0,0,0,0.35)] backdrop-blur-2xl ${poppins.className}`}
+      className={`flex h-[calc(50%-0.5rem)] w-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900/50 shadow-[0_24px_64px_rgba(0,0,0,0.35)] backdrop-blur-2xl lg:h-full lg:w-1/3 ${poppins.className}`}
     >
       <div className="flex-1 overflow-y-auto border-b border-white/10 px-6 pb-5 pt-6">
         <div className="flex items-start justify-between gap-4">
@@ -149,6 +161,14 @@ export default function TeacherLiveSidebar({
           <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-xs font-medium text-amber-100">
             `participants` mangler, så kick-funktionen er i fallback-mode.
           </div>
+        ) : null}
+
+        {liveRouteParticipants ? (
+          <LiveRouteOverview
+            participants={liveRouteParticipants}
+            mode={liveRouteMode}
+            issueCount={liveRouteIssueCount}
+          />
         ) : null}
 
         <div className="mt-5 mb-4 flex items-center gap-2 text-sm text-gray-500">

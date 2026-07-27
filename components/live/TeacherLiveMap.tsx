@@ -238,8 +238,8 @@ export default function TeacherLiveMap({
 
   return (
     <div
-      className={`relative z-0 h-full overflow-hidden rounded-4xl border border-white/15 shadow-2xl transition-all duration-500 ease-in-out ${
-        sidebarCollapsed ? "w-full" : "w-2/3"
+      className={`relative z-0 h-[calc(50%-0.5rem)] w-full overflow-hidden rounded-4xl border border-white/15 shadow-2xl transition-all duration-500 ease-in-out lg:h-full ${
+        sidebarCollapsed ? "lg:w-full" : "lg:w-2/3"
       } ${poppins.className}`}
     >
       {/* Nature-Glass info overlay */}

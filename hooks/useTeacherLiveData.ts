@@ -20,6 +20,7 @@ import type {
   TeacherLiveFeedStatus,
   TeacherLiveStanding,
 } from "@/components/live/types";
+import { buildLiveRouteOverview } from "@/lib/routes/liveRouteOverview";
 import {
   CURRENT_ROUTE_VERSION,
   isDistributedCircularEligibleRaceType,
@@ -598,6 +599,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         lng: null,
         startOffset: null,
         updated_at: null,
+        last_updated: null,
         finished_at: null,
       });
     }
@@ -715,6 +717,107 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         return a.student.name.localeCompare(b.student.name, "da");
       });
   }, [participantRoster, sessionAnswers, totalPosts]);
+
+  const liveRouteParticipants = useMemo<TeacherLiveData["liveRouteParticipants"]>(() => {
+    if (!isDistributedCircularEligibleRaceType(runRaceType)) {
+      return [];
+    }
+
+    const answerProgressByParticipant = new Map<
+      string,
+      { completedPostIndexes: Set<number>; lastActivityAt: string | null }
+    >();
+
+    for (const answer of sessionAnswers) {
+      const normalizedName = normalizeName(answer.studentName);
+      const participantKey =
+        answer.participantId ??
+        (normalizedName ? normalizedName.toLocaleLowerCase("da-DK") : null);
+      if (!participantKey) continue;
+
+      const progress =
+        answerProgressByParticipant.get(participantKey) ?? {
+          completedPostIndexes: new Set<number>(),
+          lastActivityAt: null,
+        };
+
+      if (
+        typeof answer.postNumber === "number" &&
+        Number.isSafeInteger(answer.postNumber) &&
+        answer.postNumber >= 1
+      ) {
+        progress.completedPostIndexes.add(answer.postNumber - 1);
+      }
+
+      const answerTimestamp = toTimestamp(answer.createdAt);
+      const lastActivityTimestamp = toTimestamp(progress.lastActivityAt);
+      if (
+        answerTimestamp !== null &&
+        (lastActivityTimestamp === null || answerTimestamp > lastActivityTimestamp)
+      ) {
+        progress.lastActivityAt = answer.createdAt;
+      }
+
+      answerProgressByParticipant.set(participantKey, progress);
+    }
+
+    const postIndexes = runQuestions.map((_, index) => index);
+    return participantRoster
+      .map((participant) => {
+        const progress =
+          answerProgressByParticipant.get(participant.id) ??
+          answerProgressByParticipant.get(
+            participant.name.toLocaleLowerCase("da-DK")
+          );
+        const overview = buildLiveRouteOverview({
+          postIndexes,
+          startOffset: participant.startOffset,
+          completedPostIndexes: progress
+            ? [...progress.completedPostIndexes]
+            : [],
+          postOrderMode,
+          raceType: runRaceType,
+          routeVersion,
+          participantFinished: Boolean(participant.finished_at),
+        });
+        const activityCandidates = [
+          progress?.lastActivityAt ?? null,
+          participant.last_updated ?? null,
+          participant.updated_at ?? null,
+        ];
+        const lastActivityAt =
+          activityCandidates.reduce<string | null>((latest, candidate) => {
+            const candidateTimestamp = toTimestamp(candidate);
+            const latestTimestamp = toTimestamp(latest);
+            return candidateTimestamp !== null &&
+              (latestTimestamp === null || candidateTimestamp > latestTimestamp)
+              ? candidate
+              : latest;
+          }, null);
+
+        return { participant, overview, lastActivityAt };
+      })
+      .sort((left, right) => {
+        if (left.overview.isCompleted !== right.overview.isCompleted) {
+          return left.overview.isCompleted ? 1 : -1;
+        }
+
+        return left.participant.name.localeCompare(
+          right.participant.name,
+          "da"
+        );
+      });
+  }, [
+    participantRoster,
+    postOrderMode,
+    routeVersion,
+    runQuestions,
+    runRaceType,
+    sessionAnswers,
+  ]);
+  const liveRouteIssueCount = liveRouteParticipants.filter(
+    ({ overview }) => !overview.isConsistent
+  ).length;
 
   const finishers = useMemo(
     () =>
@@ -996,6 +1099,8 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     studentLocations,
     finishers,
     finalStandings,
+    liveRouteParticipants,
+    liveRouteIssueCount,
     winnerCelebrationName,
     totalPosts,
     mapCenter,

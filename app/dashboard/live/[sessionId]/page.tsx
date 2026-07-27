@@ -24,6 +24,7 @@ import {
   buildEvenStartOffsets,
   isDistributedCircularEligibleRaceType,
 } from "@/lib/routes/postOrderPolicy";
+import { captureAppMessage } from "@/utils/observability";
 import { normalizeRaceType, RACE_TYPES } from "@/utils/gpsRuns";
 
 const TeacherLiveMap = dynamic(() => import("@/components/live/TeacherLiveMap"), {
@@ -289,6 +290,18 @@ export default function LiveLobbyPage() {
     };
   }, [live.status]);
 
+  useEffect(() => {
+    const isLive = live.status === "running" || live.status === "paused";
+    if (!isLive || !showPostOrderSummary || live.liveRouteIssueCount <= 0) {
+      return;
+    }
+
+    captureAppMessage("live_route_overview_inconsistent", {
+      category: "route_assignment_inconsistent",
+      affectedCount: live.liveRouteIssueCount,
+    });
+  }, [live.liveRouteIssueCount, live.status, showPostOrderSummary]);
+
   const visibleActiveModule = isStandardRunningView ? activeModule : "none";
   const visibleSelectedPhoto = isStandardRunningView ? selectedPhoto : null;
 
@@ -415,7 +428,7 @@ export default function LiveLobbyPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -16 }}
           transition={{ duration: 0.35 }}
-          className={`relative flex h-screen overflow-hidden bg-linear-to-b from-slate-950 via-emerald-950 to-teal-950 p-4 text-white ${poppins.className}`}
+          className={`relative flex h-screen flex-col gap-4 overflow-hidden bg-linear-to-b from-slate-950 via-emerald-950 to-teal-950 p-4 text-white lg:flex-row ${poppins.className}`}
         >
           {showTeacherVm26Badge ? (
             <div className="absolute left-1/2 top-6 z-[1050] w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2">
@@ -458,6 +471,11 @@ export default function LiveLobbyPage() {
             hasParticipantsTable={live.hasParticipantsTable}
             gpsOverride={live.gpsOverride}
             isUpdatingGpsOverride={live.isUpdatingGpsOverride}
+            liveRouteParticipants={
+              showPostOrderSummary ? live.liveRouteParticipants : null
+            }
+            liveRouteMode={live.postOrderMode}
+            liveRouteIssueCount={live.liveRouteIssueCount}
             newMessage={live.newMessage}
             onNewMessageChange={live.setNewMessage}
             onOpenAccessOverlay={openAccessOverlay}
