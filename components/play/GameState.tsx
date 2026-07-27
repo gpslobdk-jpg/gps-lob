@@ -7,6 +7,11 @@ import { useRouter } from "next/navigation";
 import { createClientTelemetryMessage, sendTelemetry } from "@/utils/telemetry";
 import * as Sentry from "@sentry/nextjs";
 import { authWithLockRetry } from "@/utils/supabase/authWithLockRetry";
+import {
+  POST_ORDER_MODES,
+  normalizePostOrderMode,
+  type ActivePostOrderMode,
+} from "@/lib/routes/postOrderPolicy";
 
 import type {
   AnswerProgressRow,
@@ -73,10 +78,14 @@ import {
   resolvePostVariant,
   saveStoredActiveParticipant,
   saveStoredPlaySnapshot,
-  supportsStaggeredStart,
   toFiniteNumber,
   toIntegerStartOffset,
 } from "./playUtils";
+import {
+  isFreshParticipantHandoff,
+  resolveParticipantStartOffset,
+  resolveRestoredPostIndex,
+} from "./participantHandoff";
 
 const TARGET_VISUAL_RADIUS_METERS = 25;
 const TARGET_CLICK_BUFFER_METERS = 20;
@@ -138,6 +147,7 @@ type SubmitPhotoRequestError = Error & {
 type FetchedPlaySessionSnapshot = {
   questions: Question[];
   raceMode: RaceMode;
+  postOrderMode: ActivePostOrderMode;
   radius: number;
   gpsOverride: boolean;
   bonusAvailable: boolean;
@@ -414,16 +424,11 @@ export function usePlayGameState({
   }, [sessionId, storedParticipantOnLoad?.participantId]);
 
   const isStoredParticipantFreshJoin = useMemo(() => {
-    if (!storedParticipantOnLoad?.savedAt) return false;
-    try {
-      const savedTime = new Date(storedParticipantOnLoad.savedAt).getTime();
-      const now = Date.now();
-      const ageMs = now - savedTime;
-      return ageMs < 30000;
-    } catch {
-      return false;
-    }
-  }, [storedParticipantOnLoad?.savedAt]);
+    return isFreshParticipantHandoff(
+      storedParticipantOnLoad?.savedAt,
+      Boolean(storedPlaySnapshotOnLoad)
+    );
+  }, [storedParticipantOnLoad?.savedAt, storedPlaySnapshotOnLoad]);
 
   const [pendingPlayerName, setPendingPlayerNameState] = useState(
     () => storedParticipantOnLoad?.studentName || initialNameCandidate
@@ -443,6 +448,11 @@ export function usePlayGameState({
   );
   const [questions, setQuestions] = useState<Question[]>([]);
   const [raceMode, setRaceMode] = useState<RaceMode>("unknown");
+  const [postOrderMode, setPostOrderMode] = useState<ActivePostOrderMode>(
+    POST_ORDER_MODES.FIXED
+  );
+  const distributedCircularEnabled =
+    postOrderMode === POST_ORDER_MODES.DISTRIBUTED_CIRCULAR;
   const [theme, setTheme] = useState<PlayThemeState | undefined>(undefined);
   const [currentPostIndex, setCurrentPostIndex] = useState(0);
   const [myLoc, setMyLoc] = useState<Location | null>(null);
@@ -878,7 +888,7 @@ export function usePlayGameState({
         const initialRouteOrder = buildRouteOrder(
           questions.length,
           resolvedStartOffset,
-          supportsStaggeredStart(raceMode)
+          distributedCircularEnabled
         );
         // Only set the initial post when no posts have been answered yet.
         // During an auth-rebind (recoverParticipantAuthSession → rebind path),
@@ -926,7 +936,7 @@ export function usePlayGameState({
       circuitBreakerActive,
       isProvisioningParticipant,
       questions.length,
-      raceMode,
+      distributedCircularEnabled,
       rememberActiveParticipant,
       sessionId,
       storedParticipantOnLoad?.avatarUrl,
@@ -951,8 +961,8 @@ export function usePlayGameState({
   }, []);
 
   const routeOrder = useMemo(
-    () => buildRouteOrder(questions.length, startOffset, supportsStaggeredStart(raceMode)),
-    [questions.length, raceMode, startOffset]
+    () => buildRouteOrder(questions.length, startOffset, distributedCircularEnabled),
+    [distributedCircularEnabled, questions.length, startOffset]
   );
   const currentRouteStepIndex = getRouteStepIndex(routeOrder, currentPostIndex);
   const displayPostNumber = routeOrder.length > 0 ? currentRouteStepIndex + 1 : 0;
@@ -1073,6 +1083,7 @@ export function usePlayGameState({
       ? payload.questions.map(parseQuestion).filter((q): q is Question => q !== null)
       : [];
     const nextRaceMode = normalizeRaceMode(payload?.raceType);
+    const nextPostOrderMode = normalizePostOrderMode(payload?.postOrderMode);
 
     if (parsedQuestions.length === 0 && nextRaceMode !== "stratego") {
       throw new Error(PLAY_SETUP_PENDING_MESSAGE);
@@ -1081,6 +1092,7 @@ export function usePlayGameState({
     return {
       questions: parsedQuestions,
       raceMode: nextRaceMode,
+      postOrderMode: nextPostOrderMode,
       radius: Math.round(parsedRadius),
       gpsOverride: Boolean(payload?.gpsOverride),
       bonusAvailable: Boolean(payload?.bonusAvailable),
@@ -1121,7 +1133,7 @@ export function usePlayGameState({
       const nextRouteOrder = buildRouteOrder(
         questionCount,
         startOffset,
-        supportsStaggeredStart(nextRaceMode)
+        snapshot.postOrderMode === POST_ORDER_MODES.DISTRIBUTED_CIRCULAR
       );
       const preferredPostIndex =
         typeof uploadError.postIndex === "number" &&
@@ -1142,6 +1154,7 @@ export function usePlayGameState({
 
       setQuestions(nextQuestions);
       setRaceMode(nextRaceMode);
+      setPostOrderMode(snapshot.postOrderMode);
       setTheme(snapshot.theme);
       setAutoUnlockRadius(snapshot.radius);
       setGpsOverride(snapshot.gpsOverride);
@@ -2278,21 +2291,49 @@ export function usePlayGameState({
   }, [avatarUrl, hasCompletedAvatarGate, participantId, sessionId, sessionStatus]);
 
   useEffect(() => {
-    if (!sessionId || !participantId) {
+    if (
+      !sessionId ||
+      !participantId ||
+      isLoading ||
+      isRestoringParticipant ||
+      !hasRestoredRef.current
+    ) {
       return;
+    }
+
+    let snapshotCurrentPostIndex = currentPostIndex;
+    let snapshotShowQuestion = showQuestion;
+    let snapshotDismissedPostIndex = dismissedPostIndex;
+
+    if (distributedCircularEnabled) {
+      if (routeOrder.length === 0) {
+        return;
+      }
+
+      snapshotCurrentPostIndex = resolveRestoredPostIndex({
+        routeOrder,
+        answeredPostIndexes,
+        snapshotCurrentPostIndex: currentPostIndex,
+        enforceRouteOrder: true,
+      });
+
+      if (snapshotCurrentPostIndex !== currentPostIndex) {
+        snapshotShowQuestion = false;
+        snapshotDismissedPostIndex = null;
+      }
     }
 
     saveStoredPlaySnapshot({
       participantId,
       sessionId,
-      currentPostIndex,
+      currentPostIndex: snapshotCurrentPostIndex,
       solvedPostIndexes,
       answeredPostIndexes,
       burnedPosts: Array.from(burnedPosts),
       correctAnswersCount,
       score,
-      showQuestion,
-      dismissedPostIndex,
+      showQuestion: snapshotShowQuestion,
+      dismissedPostIndex: snapshotDismissedPostIndex,
       playStartedAtMs,
       playFinishedAtMs,
       pendingAnswers: pendingLocalAnswers,
@@ -2302,7 +2343,10 @@ export function usePlayGameState({
     correctAnswersCount,
     currentPostIndex,
     dismissedPostIndex,
+    distributedCircularEnabled,
     participantId,
+    isLoading,
+    isRestoringParticipant,
     pendingLocalAnswers,
     playFinishedAtMs,
     playStartedAtMs,
@@ -2311,6 +2355,7 @@ export function usePlayGameState({
     showQuestion,
     answeredPostIndexes,
     burnedPosts,
+    routeOrder,
     solvedPostIndexes,
   ]);
 
@@ -2850,8 +2895,10 @@ export function usePlayGameState({
         typeof participantData?.student_name === "string"
           ? participantData.student_name.trim()
           : "";
-      const restoredStartOffset =
-        toIntegerStartOffset(participantData?.start_offset) ?? storedStartOffset;
+      const restoredStartOffset = resolveParticipantStartOffset(
+        participantData?.start_offset,
+        storedStartOffset
+      );
       const restoredRunStartedAtMs =
         toTimestampMs(participantData?.run_started_at) ??
         storedProgressSnapshot?.playStartedAtMs ??
@@ -2859,7 +2906,7 @@ export function usePlayGameState({
       const restoredRouteOrder = buildRouteOrder(
         questions.length,
         restoredStartOffset,
-        supportsStaggeredStart(raceMode)
+        distributedCircularEnabled
       );
       const firstRoutePostIndex = restoredRouteOrder[0] ?? 0;
       setStartOffset(restoredStartOffset);
@@ -2985,18 +3032,12 @@ export function usePlayGameState({
             pendingEscapeRewards.sort((a, b) => a.postIndex - b.postIndex)
           );
 
-          const snapshotCurrentPostIndex = storedProgressSnapshot?.currentPostIndex;
-          const canResumeSnapshotPost =
-            typeof snapshotCurrentPostIndex === "number" &&
-            Number.isInteger(snapshotCurrentPostIndex) &&
-            snapshotCurrentPostIndex >= 0 &&
-            snapshotCurrentPostIndex < questions.length &&
-            !restoredAnsweredPostIndexes.includes(snapshotCurrentPostIndex);
-
-          nextPostIndex = canResumeSnapshotPost
-            ? snapshotCurrentPostIndex
-            : getNextRoutePostIndex(restoredRouteOrder, new Set(restoredAnsweredPostIndexes)) ??
-              firstRoutePostIndex;
+          nextPostIndex = resolveRestoredPostIndex({
+            routeOrder: restoredRouteOrder,
+            answeredPostIndexes: restoredAnsweredPostIndexes,
+            snapshotCurrentPostIndex: storedProgressSnapshot?.currentPostIndex,
+            enforceRouteOrder: distributedCircularEnabled,
+          });
         } else if (answersData) {
           restoredAnswerRows = answersData as AnswerProgressRow[];
           const confirmedAnsweredPosts = new Set<number>(baseAnsweredPosts);
@@ -3073,18 +3114,12 @@ export function usePlayGameState({
             return;
           }
 
-          const snapshotCurrentPostIndex = storedProgressSnapshot?.currentPostIndex;
-          const canResumeSnapshotPost =
-            typeof snapshotCurrentPostIndex === "number" &&
-            Number.isInteger(snapshotCurrentPostIndex) &&
-            snapshotCurrentPostIndex >= 0 &&
-            snapshotCurrentPostIndex < questions.length &&
-            !restoredAnsweredPostIndexes.includes(snapshotCurrentPostIndex);
-
-          nextPostIndex = canResumeSnapshotPost
-            ? snapshotCurrentPostIndex
-            : getNextRoutePostIndex(restoredRouteOrder, new Set(restoredAnsweredPostIndexes)) ??
-              firstRoutePostIndex;
+          nextPostIndex = resolveRestoredPostIndex({
+            routeOrder: restoredRouteOrder,
+            answeredPostIndexes: restoredAnsweredPostIndexes,
+            snapshotCurrentPostIndex: storedProgressSnapshot?.currentPostIndex,
+            enforceRouteOrder: distributedCircularEnabled,
+          });
         } else {
           const restoredAnsweredPostIndexes = sortUniquePostIndexes([...baseAnsweredPosts]);
           const restoredSolvedPostIndexes = sortUniquePostIndexes([
@@ -3107,18 +3142,12 @@ export function usePlayGameState({
             pendingEscapeRewards.sort((a, b) => a.postIndex - b.postIndex)
           );
 
-          const snapshotCurrentPostIndex = storedProgressSnapshot?.currentPostIndex;
-          const canResumeSnapshotPost =
-            typeof snapshotCurrentPostIndex === "number" &&
-            Number.isInteger(snapshotCurrentPostIndex) &&
-            snapshotCurrentPostIndex >= 0 &&
-            snapshotCurrentPostIndex < questions.length &&
-            !restoredAnsweredPostIndexes.includes(snapshotCurrentPostIndex);
-
-          nextPostIndex = canResumeSnapshotPost
-            ? snapshotCurrentPostIndex
-            : getNextRoutePostIndex(restoredRouteOrder, new Set(restoredAnsweredPostIndexes)) ??
-              firstRoutePostIndex;
+          nextPostIndex = resolveRestoredPostIndex({
+            routeOrder: restoredRouteOrder,
+            answeredPostIndexes: restoredAnsweredPostIndexes,
+            snapshotCurrentPostIndex: storedProgressSnapshot?.currentPostIndex,
+            enforceRouteOrder: distributedCircularEnabled,
+          });
         }
 
         const restoreTargetQuestion = questions[nextPostIndex];
@@ -3163,14 +3192,12 @@ export function usePlayGameState({
           setDistanceState(null);
         }
       } else {
-        const snapshotCurrentPostIndex = storedProgressSnapshot?.currentPostIndex;
-        const fallbackPostIndex =
-          typeof snapshotCurrentPostIndex === "number" &&
-          Number.isInteger(snapshotCurrentPostIndex) &&
-          snapshotCurrentPostIndex >= 0 &&
-          snapshotCurrentPostIndex < questions.length
-            ? snapshotCurrentPostIndex
-            : firstRoutePostIndex;
+        const fallbackPostIndex = resolveRestoredPostIndex({
+          routeOrder: restoredRouteOrder,
+          answeredPostIndexes: storedProgressSnapshot?.answeredPostIndexes ?? [],
+          snapshotCurrentPostIndex: storedProgressSnapshot?.currentPostIndex,
+          enforceRouteOrder: distributedCircularEnabled,
+        });
 
         setCurrentPostIndex(fallbackPostIndex);
         setDismissedPostIndex(
@@ -3203,7 +3230,7 @@ export function usePlayGameState({
     return () => {
       isActive = false;
     };
-  }, [participantId, questions.length, sessionId]);
+  }, [distributedCircularEnabled, participantId, questions.length, sessionId]);
 
   const markParticipantFinished = useCallback(async () => {
     if (!sessionId || !participantId) return false;
@@ -3484,6 +3511,7 @@ export function usePlayGameState({
             ? payload.questions.map(parseQuestion).filter((q): q is Question => q !== null)
             : [];
           const nextRaceMode = normalizeRaceMode(payload?.raceType);
+          const nextPostOrderMode = normalizePostOrderMode(payload?.postOrderMode);
           const nextTheme = normalizePlayTheme(payload?.theme);
 
           if (parsedQuestions.length === 0 && nextRaceMode !== "stratego") {
@@ -3493,6 +3521,7 @@ export function usePlayGameState({
           }
 
           setRaceMode(nextRaceMode);
+          setPostOrderMode(nextPostOrderMode);
           setTheme(nextTheme);
           setAutoUnlockRadius(Math.round(parsedRadius));
           setGpsOverride(Boolean(payload?.gpsOverride));

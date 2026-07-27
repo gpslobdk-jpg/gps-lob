@@ -8,6 +8,7 @@ import {
   resolveQuestionVariant,
   sanitizeQuestionForPlay,
 } from "@/app/api/play/_shared";
+import { resolveSessionPostOrderMode } from "@/lib/routes/postOrderPolicy";
 import { generateBonusQuestions, type SourceQuestion } from "@/utils/bonus/generateBonusQuestions";
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
@@ -45,7 +46,13 @@ export async function GET(request: NextRequest) {
     }
 
     const rawQuestions = Array.isArray(run.questions) ? run.questions : [];
-    const normalizedRaceMode = normalizeRaceMode(run.raceType ?? run.race_type);
+    const rawRaceType = run.raceType ?? run.race_type;
+    const normalizedRaceMode = normalizeRaceMode(rawRaceType);
+    const postOrderMode = resolveSessionPostOrderMode(
+      run.sessionPostOrderMode,
+      rawRaceType,
+      run.routeVersion
+    );
     const inferredVariants = rawQuestions.map((question) => resolveQuestionVariant("unknown", question));
     const inferredEscapeRun =
       inferredVariants.length > 0 && inferredVariants.every((variant) => variant === "escape");
@@ -73,6 +80,7 @@ export async function GET(request: NextRequest) {
       {
         questions,
         raceType,
+        postOrderMode,
         radius: getRunRadiusMeters(run),
         gpsOverride: Boolean(sessionData?.gps_override),
         bonusAvailable,

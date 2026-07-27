@@ -26,6 +26,7 @@ type ValidateResult = {
 type MockConfig = {
   raceType: "quiz" | "escape" | "unknown";
   questions: MockQuestion[];
+  postOrderMode?: "fixed" | "distributed_circular";
   validateAnswer?: (body: Record<string, unknown>) => ValidateResult;
 };
 
@@ -95,6 +96,7 @@ async function mountPlayMocks(ctx: BrowserContext, config: MockConfig, state: Mo
       body: JSON.stringify({
         questions: config.questions,
         raceType: config.raceType,
+        postOrderMode: config.postOrderMode,
         radius: 50,
         gpsOverride: false,
       }),
@@ -176,6 +178,44 @@ async function mountPlayMocks(ctx: BrowserContext, config: MockConfig, state: Mo
   });
 }
 
+async function openCurrentPost(
+  page: Page,
+  readyLocator: Locator,
+  expectedProgressLabel?: RegExp
+) {
+  if (expectedProgressLabel) {
+    await expect(
+      page.getByText(expectedProgressLabel),
+      "Forventede at progressionen skiftede til den korrekte rutepost før GPS-opdateringen."
+    ).toBeVisible({ timeout: 30_000 });
+  }
+
+  await page.context().setGeolocation({ latitude: POST_LAT, longitude: POST_LNG, accuracy: 5 });
+
+  const distancePanel = page.getByText(/^Afstand$/).locator("..");
+  await expect(distancePanel.getByText(/^0m$/)).toBeVisible({ timeout: 30_000 });
+
+  const openPostButton = page.getByRole("button", { name: /^åbn post$/i });
+  await expect(
+    readyLocator.or(openPostButton).first(),
+    "Forventede enten den aktuelle posts svar eller knappen “Åbn post” ved 0 meter."
+  ).toBeVisible({ timeout: 30_000 });
+
+  if (await readyLocator.isVisible()) {
+    return;
+  }
+
+  await expect(
+    openPostButton,
+    "Eleven var 0 meter fra posten, men hverken svarmuligheder eller knappen “Åbn post” var synlig."
+  ).toBeVisible({ timeout: 30_000 });
+  await openPostButton.click();
+  await expect(
+    readyLocator,
+    "Forventede den aktuelle posts svar efter ét klik på “Åbn post”."
+  ).toBeVisible({ timeout: 30_000 });
+}
+
 async function openPlayPage(page: Page, readyLocator: Locator) {
   await page.context().grantPermissions(["geolocation"]);
   await page.context().setGeolocation({ latitude: POST_LAT, longitude: POST_LNG, accuracy: 5 });
@@ -188,8 +228,7 @@ async function openPlayPage(page: Page, readyLocator: Locator) {
   await nameInput.fill(TEAM_NAME);
   await page.getByRole("button", { name: /klar/i }).click();
 
-  await page.waitForSelector("text=Afstand", { timeout: 30_000 });
-  await expect(readyLocator).toBeVisible({ timeout: 30_000 });
+  await openCurrentPost(page, readyLocator);
 }
 
 function makeProgressionQuestions(): MockQuestion[] {
@@ -369,6 +408,11 @@ test.describe("answer progression regressions", () => {
       await page.getByRole("button", { name: /^Forkert svar$/i }).click();
 
       await expect(page.getByText(/Desværre.*0 point/i)).toBeVisible({ timeout: 5_000 });
+      await openCurrentPost(
+        page,
+        page.getByRole("button", { name: /^Næste korrekt$/i }),
+        /^Find post 2 af 4$/i
+      );
       await expect(page.getByRole("button", { name: /^Næste korrekt$/i })).toBeVisible({ timeout: 10_000 });
 
       await expect.poll(() => state.submitPayloads.length).toBe(1);
@@ -385,6 +429,11 @@ test.describe("answer progression regressions", () => {
 
       await expect(page.getByText(/Korrekt! Du får point\./i)).toBeVisible({ timeout: 5_000 });
       await page.getByRole("button", { name: /gå til næste post/i }).click();
+      await openCurrentPost(
+        page,
+        page.getByText(/Post 3 escape er nu aktiv\./i),
+        /^Find post 3 af 4$/i
+      );
       await expect(page.getByText(/Post 3 escape er nu aktiv\./i)).toBeVisible({ timeout: 10_000 });
       await expect(page.getByPlaceholder(/skriv tallet eller ordet her/i)).toBeVisible({ timeout: 10_000 });
 
@@ -402,6 +451,11 @@ test.describe("answer progression regressions", () => {
       await page.getByRole("button", { name: /tjek svar/i }).click();
 
       await expect(page.getByText(/Desværre.*0 point/i)).toBeVisible({ timeout: 5_000 });
+      await openCurrentPost(
+        page,
+        page.getByRole("button", { name: /^Finale korrekt$/i }),
+        /^Find post 4 af 4$/i
+      );
       await expect(page.getByRole("button", { name: /^Finale korrekt$/i })).toBeVisible({ timeout: 10_000 });
 
       await expect.poll(() => state.validatePayloads.length).toBe(1);
@@ -645,7 +699,15 @@ test.describe("start_offset=3 – sidst mulige startpost må ikke give for-tidli
         },
       ];
 
-      await mountPlayMocks(page.context(), { raceType: "quiz", questions }, state);
+      await mountPlayMocks(
+        page.context(),
+        {
+          raceType: "quiz",
+          questions,
+          postOrderMode: "distributed_circular",
+        },
+        state
+      );
 
       // Override join-svar til start_offset=3.
       // Registreret EFTER mountPlayMocks → har forrang (Playwright LIFO-rækkefølge).
@@ -676,6 +738,11 @@ test.describe("start_offset=3 – sidst mulige startpost må ikke give for-tidli
         await expect(page.getByText(/Korrekt! Du får point\./i)).toBeVisible({ timeout: 5_000 });
         await page.getByRole("button", { name: /gå til næste post/i }).click();
         // Kritisk assertion: post 0 vises – IKKE "Løbet er slut."
+        await openCurrentPost(
+          page,
+          page.getByText("S3-Post0 er aktiv"),
+          /^Find post 2 af 4$/i
+        );
         await expect(page.getByText("S3-Post0 er aktiv")).toBeVisible({ timeout: 10_000 });
         await expect(page.getByText(/Løbet er slut\./i)).not.toBeVisible();
       });
@@ -684,6 +751,11 @@ test.describe("start_offset=3 – sidst mulige startpost må ikke give for-tidli
         await page.getByRole("button", { name: /^S3P0-Korrekt$/i }).click();
         await expect(page.getByText(/Korrekt! Du får point\./i)).toBeVisible({ timeout: 5_000 });
         await page.getByRole("button", { name: /gå til næste post/i }).click();
+        await openCurrentPost(
+          page,
+          page.getByText("S3-Post1 er aktiv"),
+          /^Find post 3 af 4$/i
+        );
         await expect(page.getByText("S3-Post1 er aktiv")).toBeVisible({ timeout: 10_000 });
         await expect(page.getByText(/Løbet er slut\./i)).not.toBeVisible();
       });
@@ -692,6 +764,11 @@ test.describe("start_offset=3 – sidst mulige startpost må ikke give for-tidli
         await page.getByRole("button", { name: /^S3P1-Korrekt$/i }).click();
         await expect(page.getByText(/Korrekt! Du får point\./i)).toBeVisible({ timeout: 5_000 });
         await page.getByRole("button", { name: /gå til næste post/i }).click();
+        await openCurrentPost(
+          page,
+          page.getByText("S3-Post2 er aktiv"),
+          /^Find post 4 af 4$/i
+        );
         await expect(page.getByText("S3-Post2 er aktiv")).toBeVisible({ timeout: 10_000 });
         await expect(page.getByText(/Løbet er slut\./i)).not.toBeVisible();
       });

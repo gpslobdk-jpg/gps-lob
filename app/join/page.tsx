@@ -22,6 +22,7 @@ import {
   clearStoredActiveParticipant,
   clearStoredPlaySnapshot,
 } from "@/components/play/playUtils";
+import { buildStoredParticipantFromJoin } from "@/components/play/participantHandoff";
 import { createClient } from "@/utils/supabase/client";
 import { createClientTelemetryMessage, sendTelemetry } from "@/utils/telemetry";
 
@@ -739,19 +740,14 @@ function JoinForm({ initialSiteVariantKey }: JoinFormProps) {
         clearStoredPlaySnapshot();
       }
 
-      saveStoredActiveParticipant({
-        participantId: registerData.participantId,
-        sessionId: registerData.sessionId,
-        studentName: registerData.studentName,
-        savedAt: new Date().toISOString(),
-        teamId: registerData.teamId ?? null,
-        teamColor: registerData.teamColor ?? null,
-        avatarUrl: shouldPreserveExistingParticipant ? existingParticipant?.avatarUrl ?? null : null,
-        sessionStatus: resolvedSessionStatus,
-        hasCompletedAvatarGate: shouldPreserveExistingParticipant
-          ? existingParticipant?.hasCompletedAvatarGate ?? true
-          : false,
-      });
+      saveStoredActiveParticipant(
+        buildStoredParticipantFromJoin({
+          registration: registerData,
+          existingParticipant,
+          preserveExistingParticipant: shouldPreserveExistingParticipant,
+          sessionStatus: resolvedSessionStatus,
+        })
+      );
 
       try {
         Sentry.addBreadcrumb({

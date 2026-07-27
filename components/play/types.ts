@@ -238,6 +238,7 @@ export type StrategoDuelEvent = {
 export type PlaySessionPayload = {
   questions?: unknown;
   raceType?: unknown;
+  postOrderMode?: unknown;
   radius?: number | null;
   gpsOverride?: boolean;
   bonusAvailable?: boolean;

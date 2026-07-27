@@ -2,9 +2,17 @@ import {
   ADMIN_ACCESS_MISSING_MESSAGE,
   createAdminClient,
 } from "@/utils/supabase/admin";
+import {
+  buildCircularRouteOrder,
+  normalizeCircularStartOffset,
+  POST_ORDER_MODES,
+  resolveSessionPostOrderMode,
+} from "@/lib/routes/postOrderPolicy";
 
 type LiveSessionRow = {
   run_id?: string | null;
+  post_order_mode?: unknown;
+  route_version?: number | string | null;
 };
 
 type RunRow = {
@@ -16,6 +24,8 @@ type RunRow = {
   bonus_enabled?: boolean | null;
   game_config?: unknown;
   gameConfig?: unknown;
+  sessionPostOrderMode?: unknown;
+  routeVersion?: number | string | null;
 };
 
 type GameZoneRow = {
@@ -60,7 +70,7 @@ export function isZoneKrigRaceType(value: unknown) {
 async function fetchSessionRow(sessionId: string, adminSupabase: AdminSupabaseClient) {
   const { data, error } = await adminSupabase
     .from("live_sessions")
-    .select("run_id")
+    .select("run_id,post_order_mode,route_version")
     .eq("id", sessionId)
     .limit(1);
 
@@ -95,7 +105,14 @@ export async function fetchRunForSession(sessionId: string) {
   const runId = asTrimmedString(sessionRow?.run_id);
   if (!runId) return null;
 
-  return await fetchRunRow(runId, adminSupabase);
+  const run = await fetchRunRow(runId, adminSupabase);
+  if (!run) return null;
+
+  return {
+    ...run,
+    sessionPostOrderMode: sessionRow?.post_order_mode ?? null,
+    routeVersion: sessionRow?.route_version ?? null,
+  };
 }
 
 export function normalizeRaceMode(value: unknown) {
@@ -137,9 +154,15 @@ export function normalizeRaceMode(value: unknown) {
   }
 }
 
-export function supportsServerStaggeredStart(raceMode: unknown) {
-  const normalizedRaceMode = normalizeRaceMode(raceMode);
-  return normalizedRaceMode === "quiz" || normalizedRaceMode === "photo";
+export function supportsServerStaggeredStart(
+  raceType: unknown,
+  postOrderMode: unknown,
+  routeVersion: unknown
+) {
+  return (
+    resolveSessionPostOrderMode(postOrderMode, raceType, routeVersion) ===
+    POST_ORDER_MODES.DISTRIBUTED_CIRCULAR
+  );
 }
 
 function toFiniteNumber(value: unknown) {
@@ -195,11 +218,7 @@ export function getServerPositionValidationRadius(
 
 export function normalizeServerStartOffset(startOffset: unknown, questionCount: number) {
   const parsedStartOffset = toFiniteNumber(startOffset);
-  if (parsedStartOffset === null || !Number.isInteger(parsedStartOffset) || questionCount <= 1) {
-    return 0;
-  }
-
-  return ((parsedStartOffset % questionCount) + questionCount) % questionCount;
+  return normalizeCircularStartOffset(parsedStartOffset ?? Number.NaN, questionCount);
 }
 
 export function getServerRouteOrder(
@@ -207,26 +226,23 @@ export function getServerRouteOrder(
   startOffset: unknown,
   staggerEnabled: boolean
 ) {
-  if (questionCount <= 0) return [] as number[];
-
-  const normalizedStartOffset = staggerEnabled
-    ? normalizeServerStartOffset(startOffset, questionCount)
-    : 0;
-
-  return Array.from({ length: questionCount }, (_, index) =>
-    (index + normalizedStartOffset) % questionCount
+  return buildCircularRouteOrder(
+    questionCount,
+    staggerEnabled ? normalizeServerStartOffset(startOffset, questionCount) : 0
   );
 }
 
 export function getFirstRoutePostIndexForParticipant(
   questionCount: number,
   startOffset: unknown,
-  raceMode: unknown
+  raceType: unknown,
+  postOrderMode: unknown,
+  routeVersion: unknown
 ) {
   const routeOrder = getServerRouteOrder(
     questionCount,
     startOffset,
-    supportsServerStaggeredStart(raceMode)
+    supportsServerStaggeredStart(raceType, postOrderMode, routeVersion)
   );
 
   return routeOrder[0] ?? null;

@@ -81,6 +81,11 @@ export type RunGameConfigRecord = {
   gameConfig?: unknown;
 };
 
+export type RunPostOrderRecord = {
+  post_order_mode?: unknown;
+  postOrderMode?: unknown;
+};
+
 export type RunQuestionRecord = {
   id?: number | null;
   type?: "multiple_choice" | "ai_image";
@@ -110,7 +115,8 @@ export type StoredRunRecord = {
   grade_levels?: string[] | null;
   radius?: number | null;
 } & RunRaceTypeRecord &
-  RunGameConfigRecord;
+  RunGameConfigRecord &
+  RunPostOrderRecord;
 
 export type RunRecordWithNormalizedRaceType<T extends { race_type?: unknown; raceType?: unknown }> = Omit<
   T,

@@ -231,6 +231,8 @@ async function maybeStampRunStartedAt(
   participantId: string,
   postIndex: number,
   raceMode: unknown,
+  postOrderMode: unknown,
+  routeVersion: unknown,
   questionCount: number,
   adminSupabase: AdminSupabaseClient,
   answeredAt: string
@@ -243,7 +245,9 @@ async function maybeStampRunStartedAt(
   const firstRoutePostIndex = getFirstRoutePostIndexForParticipant(
     questionCount,
     participantState.start_offset ?? 0,
-    raceMode
+    raceMode,
+    postOrderMode,
+    routeVersion
   );
 
   if (firstRoutePostIndex === null || postIndex !== firstRoutePostIndex) {
@@ -354,6 +358,8 @@ export async function POST(request: Request) {
         participantId,
         postIndex,
         run.raceType ?? run.race_type,
+        run.sessionPostOrderMode,
+        run.routeVersion,
         run.questions.length,
         adminSupabase,
         answeredAt
@@ -421,6 +427,8 @@ export async function POST(request: Request) {
       participantId,
       postIndex,
       run.raceType ?? run.race_type,
+      run.sessionPostOrderMode,
+      run.routeVersion,
       run.questions.length,
       adminSupabase,
       answeredAt

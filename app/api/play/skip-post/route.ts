@@ -32,6 +32,8 @@ type LiveSessionStateRow = {
   id?: string | null;
   run_id?: string | null;
   status?: string | null;
+  post_order_mode?: unknown;
+  route_version?: number | string | null;
 };
 
 type RunRow = {
@@ -169,7 +171,7 @@ async function fetchSessionState(
 ) {
   const { data, error } = await adminSupabase
     .from("live_sessions")
-    .select("id,run_id,status")
+    .select("id,run_id,status,post_order_mode,route_version")
     .eq("id", sessionId)
     .maybeSingle<LiveSessionStateRow>();
 
@@ -575,7 +577,11 @@ export async function POST(request: NextRequest) {
     const routeOrder = getServerRouteOrder(
       questions.length,
       startOffset ?? 0,
-      supportsServerStaggeredStart(run.raceType ?? run.race_type)
+      supportsServerStaggeredStart(
+        run.raceType ?? run.race_type,
+        sessionState.post_order_mode,
+        sessionState.route_version
+      )
     );
     const currentUnresolvedPostIndex = routeOrder.find((postIndex) => !answeredPostIndexes.has(postIndex)) ?? null;
 

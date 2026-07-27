@@ -10,6 +10,7 @@ import type {
   SupabaseErrorLike,
 } from "./types";
 import { getQuestionPoints } from "@/utils/questionPoints";
+import { buildCircularRouteOrder } from "@/lib/routes/postOrderPolicy";
 
 export const ACTIVE_PARTICIPANT_STORAGE_KEY = "gpslob_active_participant";
 export const ACTIVE_PLAY_SNAPSHOT_STORAGE_KEY = "gpslob_active_play_snapshot";
@@ -76,20 +77,8 @@ export function toIntegerStartOffset(value: unknown) {
   return parsed !== null && Number.isInteger(parsed) ? parsed : null;
 }
 
-export function supportsStaggeredStart(raceMode: RaceMode) {
-  return raceMode === "quiz" || raceMode === "photo";
-}
-
-export function normalizeStartOffset(startOffset: number, questionCount: number) {
-  if (!Number.isInteger(startOffset) || questionCount <= 1) return 0;
-  return ((startOffset % questionCount) + questionCount) % questionCount;
-}
-
 export function buildRouteOrder(questionCount: number, startOffset: number, staggerEnabled: boolean) {
-  if (questionCount <= 0) return [];
-
-  const normalizedOffset = staggerEnabled ? normalizeStartOffset(startOffset, questionCount) : 0;
-  return Array.from({ length: questionCount }, (_, index) => (index + normalizedOffset) % questionCount);
+  return buildCircularRouteOrder(questionCount, staggerEnabled ? startOffset : 0);
 }
 
 export function getNextRoutePostIndex(routeOrder: number[], completedPosts: Set<number>) {

@@ -58,11 +58,15 @@ import {
   readStoredPlaySnapshot,
   resolvePostVariant,
   saveStoredPlaySnapshot,
-  supportsStaggeredStart,
   toFiniteNumber,
 } from "../playUtils";
 
 import { DEFAULT_QUESTION_POINTS } from "@/utils/questionPoints";
+import {
+  POST_ORDER_MODES,
+  normalizePostOrderMode,
+  type ActivePostOrderMode,
+} from "@/lib/routes/postOrderPolicy";
 
 import type { PlayAuthIdentity } from "./usePlayAuth";
 import type { PlayGpsState } from "./usePlayGPS";
@@ -263,6 +267,9 @@ export function usePlayEngine(params: UsePlayEngineParams): UsePlayEngineReturn 
   const [sessionPhase, setSessionPhase] = useState<SessionPhase>("loading");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [raceMode, setRaceMode] = useState<RaceMode>("unknown");
+  const [postOrderMode, setPostOrderMode] = useState<ActivePostOrderMode>(
+    POST_ORDER_MODES.FIXED
+  );
   const [autoUnlockRadius, setAutoUnlockRadius] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [latestMessage, setLatestMessage] = useState<TeacherBroadcastMessage | null>(null);
@@ -352,8 +359,13 @@ export function usePlayEngine(params: UsePlayEngineParams): UsePlayEngineReturn 
   // Derived values (pure, no side effects)
   // =========================================================================
   const routeOrder = useMemo(
-    () => buildRouteOrder(questions.length, startOffset, supportsStaggeredStart(raceMode)),
-    [questions.length, raceMode, startOffset],
+    () =>
+      buildRouteOrder(
+        questions.length,
+        startOffset,
+        postOrderMode === POST_ORDER_MODES.DISTRIBUTED_CIRCULAR
+      ),
+    [postOrderMode, questions.length, startOffset],
   );
 
   const currentRouteStepIndex = getRouteStepIndex(routeOrder, currentPostIndex);
@@ -405,6 +417,7 @@ export function usePlayEngine(params: UsePlayEngineParams): UsePlayEngineReturn 
           ? (payload!.questions as unknown[]).map(parseQuestion).filter((q): q is Question => q !== null)
           : [];
         const mode = normalizeRaceMode(payload?.raceType);
+        const nextPostOrderMode = normalizePostOrderMode(payload?.postOrderMode);
 
         if (parsed.length === 0 && mode !== "stratego") {
           setSessionPhase("error");
@@ -414,6 +427,7 @@ export function usePlayEngine(params: UsePlayEngineParams): UsePlayEngineReturn 
 
         setQuestions(parsed);
         setRaceMode(mode);
+        setPostOrderMode(nextPostOrderMode);
         setAutoUnlockRadius(Math.round(radius));
         setSessionPhase("active");
       } catch {

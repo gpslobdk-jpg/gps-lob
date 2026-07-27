@@ -16,6 +16,11 @@ import {
   initializeZoneKrigZones,
   isZoneKrigRaceType,
 } from "@/app/api/zone-krig/_shared";
+import {
+  normalizeCircularStartOffset,
+  POST_ORDER_MODES,
+  resolveSessionPostOrderMode,
+} from "@/lib/routes/postOrderPolicy";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 import { sendDiscordWebhook } from "@/lib/discord";
 
@@ -30,6 +35,8 @@ type LiveSessionRow = {
   id?: string | number | null;
   status?: string | null;
   run_id?: string | null;
+  post_order_mode?: unknown;
+  route_version?: number | string | null;
 };
 
 type ParticipantRow = {
@@ -123,59 +130,7 @@ function normalizeStartOffset(value: unknown, questionCount: number) {
         ? Number(value)
         : Number.NaN;
 
-  if (!Number.isInteger(parsed) || questionCount <= 1) {
-    return 0;
-  }
-
-  return ((parsed % questionCount) + questionCount) % questionCount;
-}
-
-function normalizeStaggerRaceType(value: unknown) {
-  if (typeof value !== "string") return "unknown";
-
-  switch (value.trim().toLocaleLowerCase("da-DK")) {
-    case "quiz":
-    case "manuel":
-    case "manual":
-    case "matematik":
-    case "math":
-    case "dansk":
-    case "danish":
-    case "engelsk":
-    case "english":
-      return "quiz";
-    case "foto":
-    case "photo":
-      return "photo";
-    case "selfie":
-      return "selfie";
-    case "scanner":
-    case "bogscanner":
-    case "bookscanner":
-    case "qrscanner":
-      return "scanner";
-    case "escape":
-    case "escape_room":
-    case "escaperoom":
-      return "escape";
-    case "rollespil":
-    case "roleplay":
-    case "role_play":
-    case "tidsmaskinen":
-      return "roleplay";
-    default:
-      return "unknown";
-  }
-}
-
-function supportsStaggeredStart(value: unknown) {
-  const normalizedRaceType = normalizeStaggerRaceType(value);
-  return (
-    normalizedRaceType === "quiz" ||
-    normalizedRaceType === "photo" ||
-    normalizedRaceType === "selfie" ||
-    normalizedRaceType === "scanner"
-  );
+  return normalizeCircularStartOffset(parsed, questionCount);
 }
 
 function getQuestionCount(run: (RunRecord & { questions?: unknown }) | null) {
@@ -216,7 +171,7 @@ async function fetchLiveSessionByPin(
 ) {
   const { data, error } = await adminSupabase
     .from("live_sessions")
-    .select("id,status,run_id")
+    .select("id,status,run_id,post_order_mode,route_version")
     .eq("pin", pin)
     .in("status", statuses)
     .order("created_at", { ascending: false })
@@ -236,7 +191,7 @@ async function fetchLiveSessionById(
 ) {
   const { data, error } = await adminSupabase
     .from("live_sessions")
-    .select("id,status,run_id")
+    .select("id,status,run_id,post_order_mode,route_version")
     .eq("id", sessionId)
     .in("status", statuses)
     .limit(1);
@@ -840,7 +795,7 @@ export async function POST(request: NextRequest) {
     // Tjek først om session findes uanset status
     const { data: sessionRow, error: sessionError } = await adminSupabase
       .from("live_sessions")
-      .select("id,status,run_id")
+      .select("id,status,run_id,post_order_mode,route_version")
       .eq("id", sessionId)
       .maybeSingle();
 
@@ -873,7 +828,12 @@ export async function POST(request: NextRequest) {
     }
 
     const questionCount = getQuestionCount(run);
-    const staggerEnabled = supportsStaggeredStart(run?.race_type ?? run?.raceType);
+    const postOrderMode = resolveSessionPostOrderMode(
+      activeSession.post_order_mode,
+      run?.race_type ?? run?.raceType,
+      activeSession.route_version
+    );
+    const staggerEnabled = postOrderMode === POST_ORDER_MODES.DISTRIBUTED_CIRCULAR;
     const plannedStartOffset = staggerEnabled
       ? pickLeastUsedStartOffset(
           await fetchSessionParticipantOffsets(sessionId, adminSupabase),

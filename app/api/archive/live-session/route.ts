@@ -6,6 +6,10 @@ import {
   isPaywallEnabled,
   type AccessProfile,
 } from "@/utils/accessControl";
+import {
+  CURRENT_ROUTE_VERSION,
+  resolvePostOrderMode,
+} from "@/lib/routes/postOrderPolicy";
 import { getNormalizedRunRaceType, RACE_TYPES, type StoredRunRecord } from "@/utils/gpsRuns";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
@@ -20,7 +24,7 @@ type ArchiveLiveSessionPayload = {
   runId?: string;
 };
 
-type RunRow = Pick<StoredRunRecord, "id" | "user_id" | "race_type">;
+type RunRow = Pick<StoredRunRecord, "id" | "user_id" | "race_type" | "post_order_mode">;
 
 type LiveSessionRow = {
   id: string;
@@ -52,7 +56,7 @@ function toSessionResponse(session: LiveSessionRow) {
 async function fetchOwnedRun(runId: string, userId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data, error } = await supabase
     .from("gps_runs")
-    .select("id,user_id,race_type")
+    .select("id,user_id,race_type,post_order_mode")
     .eq("id", runId)
     .eq("user_id", userId)
     .maybeSingle<RunRow>();
@@ -135,7 +139,12 @@ async function generateAvailablePin(supabase: Awaited<ReturnType<typeof createCl
   throw new Error("Kunne ikke generere en unik PIN efter flere forsøg.");
 }
 
-async function ensureLiveSession(runId: string, teacherId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
+async function ensureLiveSession(
+  run: RunRow,
+  teacherId: string,
+  supabase: Awaited<ReturnType<typeof createClient>>
+) {
+  const runId = run.id;
   const existingSessions = await fetchActiveSessions(runId, teacherId, supabase);
   const existingSession = existingSessions[0] ?? null;
   const existingPin = normalizePin(existingSession?.pin);
@@ -175,6 +184,8 @@ async function ensureLiveSession(runId: string, teacherId: string, supabase: Awa
       teacher_id: teacherId,
       pin: generatedPin,
       status: "waiting",
+      post_order_mode: resolvePostOrderMode(run.post_order_mode, run.race_type),
+      route_version: CURRENT_ROUTE_VERSION,
     })
     .select("id,run_id,pin,status,created_at")
     .single<LiveSessionRow>();
@@ -278,7 +289,7 @@ export async function POST(request: Request) {
 
     const result =
       action === "ensure"
-        ? await ensureLiveSession(runId, user.id, supabase)
+        ? await ensureLiveSession(ownedRun, user.id, supabase)
         : await finishLiveSessions(runId, user.id, supabase);
 
     if (action === "ensure" && shouldConsumeFreeTrial) {

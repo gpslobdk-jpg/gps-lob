@@ -139,7 +139,9 @@ async function maybeStampRunStartedAt(
   const firstRoutePostIndex = getFirstRoutePostIndexForParticipant(
     questionCount,
     startOffset ?? 0,
-    run?.raceType ?? run?.race_type
+    run?.raceType ?? run?.race_type,
+    run?.sessionPostOrderMode,
+    run?.routeVersion
   );
 
   if (firstRoutePostIndex === null || answeredPostIndex !== firstRoutePostIndex) {
