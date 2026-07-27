@@ -241,6 +241,7 @@ export type PlaySessionPayload = {
   postOrderMode?: unknown;
   radius?: number | null;
   gpsOverride?: boolean;
+  usesStandardStudentLocationExperience?: boolean;
   bonusAvailable?: boolean;
   theme?: PlayThemeState;
   error?: string;
@@ -414,7 +415,9 @@ export interface PlayStrategoState {
 
 export interface PlayUiFlags {
   canManualUnlock: boolean;
+  canOpenCurrentPostFromDistance: boolean;
   gpsOverrideEnabled: boolean;
+  usesStandardStudentLocationExperience: boolean;
   hasActivePhotoSuccess: boolean;
   hasActiveQuizSuccess: boolean;
   hasAllEscapeBricks: boolean;
@@ -431,6 +434,7 @@ export interface PlayUiFlags {
   isCheckingEscapeAnswer: boolean;
   isSessionPaused: boolean;
   shouldKeepScreenAwake: boolean;
+  reconnectConfirmationNonce: number;
   /** Automatisk beregnet: true hvis løbet har nok gyldige quizspørgsmål til bonusgenerering. */
   bonusAvailable: boolean;
 }

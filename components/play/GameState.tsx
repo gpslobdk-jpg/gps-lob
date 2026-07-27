@@ -150,6 +150,7 @@ type FetchedPlaySessionSnapshot = {
   postOrderMode: ActivePostOrderMode;
   radius: number;
   gpsOverride: boolean;
+  usesStandardStudentLocationExperience: boolean;
   bonusAvailable: boolean;
   theme?: PlayThemeState;
 };
@@ -158,6 +159,7 @@ type WakeReconnectTrigger =
   | "status_channel_error"
   | "message_channel_error"
   | "visibility_resume"
+  | "pageshow_resume"
   | "online_resume"
   | "auth_refresh";
 
@@ -520,12 +522,18 @@ export function usePlayGameState({
     () => storedParticipantOnLoad?.sessionStatus ?? null
   );
   const [gpsOverride, setGpsOverride] = useState(false);
+  const [
+    usesStandardStudentLocationExperience,
+    setUsesStandardStudentLocationExperience,
+  ] = useState(false);
   const [bonusAvailable, setBonusAvailable] = useState(false);
   const router = useRouter();
   const [isTeacherGuided, setIsTeacherGuided] = useState(false);
   const [autoUnlockRadius, setAutoUnlockRadius] = useState<number | null>(null);
   const [locationSyncErrors, setLocationSyncErrors] = useState(0);
   const [restoreRetryNonce, setRestoreRetryNonce] = useState(0);
+  const [reconnectConfirmationNonce, setReconnectConfirmationNonce] =
+    useState(0);
   const [isRestoringParticipant, setIsRestoringParticipant] = useState(false);
   const [pendingLocalAnswers, setPendingLocalAnswers] = useState<StoredPendingAnswer[]>(
     () => storedPlaySnapshotOnLoad?.pendingAnswers ?? []
@@ -588,6 +596,7 @@ export function usePlayGameState({
   const pendingPlayerNameRef = useRef(pendingPlayerName);
   // In-flight guard for fetchSessionStatusSnapshot to avoid concurrent fetches.
   const statusFetchInFlightRef = useRef(false);
+  const awaitingOnlineConfirmationRef = useRef(false);
   const clearRoleplayInputErrorTone = useCallback(() => {
     if (roleplayInputErrorTimerRef.current) {
       clearTimeout(roleplayInputErrorTimerRef.current);
@@ -1095,6 +1104,9 @@ export function usePlayGameState({
       postOrderMode: nextPostOrderMode,
       radius: Math.round(parsedRadius),
       gpsOverride: Boolean(payload?.gpsOverride),
+      usesStandardStudentLocationExperience: Boolean(
+        payload?.usesStandardStudentLocationExperience
+      ),
       bonusAvailable: Boolean(payload?.bonusAvailable),
       theme: normalizePlayTheme(payload?.theme),
     } satisfies FetchedPlaySessionSnapshot;
@@ -1158,6 +1170,9 @@ export function usePlayGameState({
       setTheme(snapshot.theme);
       setAutoUnlockRadius(snapshot.radius);
       setGpsOverride(snapshot.gpsOverride);
+      setUsesStandardStudentLocationExperience(
+        snapshot.usesStandardStudentLocationExperience
+      );
       setBonusAvailable(snapshot.bonusAvailable);
       setAnsweredPostIndexes(nextAnsweredPostIndexes);
       setSolvedPostIndexes(nextSolvedPostIndexes);
@@ -1675,6 +1690,13 @@ export function usePlayGameState({
         typeof status === "string" ? status : null;
 
       const nextSessionStatus = normalizeSessionStatus(payload.sessionStatus ?? payload.status);
+      if (
+        awaitingOnlineConfirmationRef.current &&
+        navigator.onLine
+      ) {
+        awaitingOnlineConfirmationRef.current = false;
+        setReconnectConfirmationNonce((current) => current + 1);
+      }
 
       const teacherGuided = Boolean(
         (payload as any).teacherGuided ??
@@ -1828,6 +1850,14 @@ export function usePlayGameState({
     }
 
     reconnectInFlightRef.current = true;
+    if (
+      usesStandardStudentLocationExperience &&
+      (trigger === "visibility_resume" ||
+        trigger === "pageshow_resume" ||
+        trigger === "online_resume")
+    ) {
+      setDistanceState(null);
+    }
     // Read frequently-changing state via refs so this callback stays stable.
     const shouldTrackReconnectOutcome =
       isRestoringParticipantRef.current ||
@@ -2032,6 +2062,7 @@ export function usePlayGameState({
     sessionId,
     storedParticipantOnLoad?.studentName,
     supabase,
+    usesStandardStudentLocationExperience,
   ]);
 
   const getAnswerValidationErrorMessage = useCallback((error: unknown) => {
@@ -2256,12 +2287,19 @@ export function usePlayGameState({
     };
 
     const handleOnline = () => {
+      awaitingOnlineConfirmationRef.current = true;
       void recoverWakeUpState("online_resume");
+      createStatusSubscription();
+    };
+
+    const handlePageShow = () => {
+      void recoverWakeUpState("pageshow_resume");
       createStatusSubscription();
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("online", handleOnline);
+    window.addEventListener("pageshow", handlePageShow);
 
     return () => {
       cancelled = true;
@@ -2269,6 +2307,7 @@ export function usePlayGameState({
       clearSessionStatusResubscribeTimer();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("online", handleOnline);
+      window.removeEventListener("pageshow", handlePageShow);
       removeStatusChannel();
     };
   }, [
@@ -2554,24 +2593,27 @@ export function usePlayGameState({
   const currentPostIsHardLocked =
     answeredPostIndexesRef.current.includes(currentPostIndex) ||
     burnedPostsRef.current.has(currentPostIndex);
+  const canOpenCurrentPostFromDistance =
+    !showQuestion &&
+    !currentPostIsHardLocked &&
+    !isTeacherGuided &&
+    distance !== null &&
+    manualUnlockBufferRadius !== null &&
+    distance <= manualUnlockBufferRadius;
   const canOpenCurrentPost =
     !showQuestion &&
     !currentPostIsHardLocked &&
     !isTeacherGuided &&
     (gpsOverride ||
       dismissedPostIndex === currentPostIndex ||
-      (distance !== null &&
-        manualUnlockBufferRadius !== null &&
-        distance <= manualUnlockBufferRadius));
+      canOpenCurrentPostFromDistance);
   const canManualUnlock =
     !showQuestion &&
     !currentPostIsHardLocked &&
     !isTeacherGuided &&
     (gpsOverride ||
       dismissedPostIndex === currentPostIndex ||
-      (distance !== null &&
-        manualUnlockBufferRadius !== null &&
-        distance <= manualUnlockBufferRadius));
+      canOpenCurrentPostFromDistance);
 
   const clearTypedAnswerError = useCallback(() => {
     setTypedAnswerError(null);
@@ -3165,12 +3207,18 @@ export function usePlayGameState({
 
         const restoreTargetQuestion = questions[nextPostIndex];
         const restoredDistanceToNextPost =
+          !usesStandardStudentLocationExperience &&
           restoredLat !== null &&
           restoredLng !== null &&
           restoreTargetQuestion &&
           Number.isFinite(restoreTargetQuestion.lat) &&
           Number.isFinite(restoreTargetQuestion.lng)
-            ? getDistance(restoredLat, restoredLng, restoreTargetQuestion.lat, restoreTargetQuestion.lng)
+            ? getDistance(
+                restoredLat,
+                restoredLng,
+                restoreTargetQuestion.lat,
+                restoreTargetQuestion.lng
+              )
             : null;
         const shouldResumeOpenQuestion =
           storedProgressSnapshot?.showQuestion === true &&
@@ -3243,7 +3291,13 @@ export function usePlayGameState({
     return () => {
       isActive = false;
     };
-  }, [distributedCircularEnabled, participantId, questions.length, sessionId]);
+  }, [
+    distributedCircularEnabled,
+    participantId,
+    questions.length,
+    sessionId,
+    usesStandardStudentLocationExperience,
+  ]);
 
   const markParticipantFinished = useCallback(async () => {
     if (!sessionId || !participantId) return false;
@@ -3538,6 +3592,9 @@ export function usePlayGameState({
           setTheme(nextTheme);
           setAutoUnlockRadius(Math.round(parsedRadius));
           setGpsOverride(Boolean(payload?.gpsOverride));
+          setUsesStandardStudentLocationExperience(
+            Boolean(payload?.usesStandardStudentLocationExperience)
+          );
           setBonusAvailable(Boolean(payload?.bonusAvailable));
           setCorrectAnswersCount(0);
           setScore(0);
@@ -5053,7 +5110,9 @@ export function usePlayGameState({
 
   const flags: PlayUiFlags = {
     canManualUnlock,
+    canOpenCurrentPostFromDistance,
     gpsOverrideEnabled: gpsOverride,
+    usesStandardStudentLocationExperience,
     hasActivePhotoSuccess,
     hasActiveQuizSuccess,
     hasAllEscapeBricks,
@@ -5070,6 +5129,7 @@ export function usePlayGameState({
     isCheckingEscapeAnswer,
     isSessionPaused,
     shouldKeepScreenAwake,
+    reconnectConfirmationNonce,
     bonusAvailable,
   };
 

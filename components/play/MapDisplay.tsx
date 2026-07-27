@@ -212,14 +212,6 @@ function FitBoundsSync({
       });
       hasFittedInitialRef.current = true;
       prevTargetKeyRef.current = `${targetLocation.lat},${targetLocation.lng}`;
-      try {
-        console.debug("Map auto-zoomed (fitBounds) triggered by: initial", {
-          playerLocation,
-          targetLocation,
-        });
-      } catch {
-        /* no-op */
-      }
     } catch (err) {
       console.warn("FitBoundsSync initial fit failed:", err);
     }
@@ -249,14 +241,6 @@ function FitBoundsSync({
           map.fitBounds(bounds as LatLngBoundsExpression, { padding: [80, 80], maxZoom: 17, animate: false });
         });
         prevTargetKeyRef.current = targetKey;
-        try {
-          console.debug("Map auto-zoomed (fitBounds) triggered by: target_change", {
-            playerLocation,
-            targetLocation,
-          });
-        } catch {
-          /* no-op */
-        }
       } catch (err) {
         console.warn("FitBoundsSync target change fit failed:", err);
       }

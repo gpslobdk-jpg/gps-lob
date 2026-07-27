@@ -2,7 +2,14 @@
 
 import { useEffect, useRef } from "react";
 
-import { sendTelemetry } from "@/utils/telemetry";
+import {
+  STUDENT_LOCATION_STALE_AFTER_MS,
+  STUDENT_LOCATION_UNLOCK_MAX_ACCURACY_METERS,
+} from "@/lib/location/studentLocationState";
+import {
+  createClientTelemetryMessage,
+  sendTelemetry,
+} from "@/utils/telemetry";
 
 import type { Location } from "./types";
 import {
@@ -14,14 +21,27 @@ import {
   getDistance,
 } from "./playUtils";
 
-type GpsErrorType =
+export type GpsErrorType =
   | "permission_denied"
   | "position_unavailable"
   | "timeout"
   | "unknown";
 
+export type StudentLocationRuntimeState = {
+  supported: boolean;
+  isLocating: boolean;
+  hasPosition: boolean;
+  observedAtMs: number;
+  positionTimestampMs: number | null;
+  accuracyMeters: number | null;
+  errorType: GpsErrorType | null;
+  resumedAtMs: number | null;
+};
+
 type GPSManagerProps = {
   enabled: boolean;
+  standardStudentLocationFlow?: boolean;
+  allowAutomaticUnlock?: boolean;
   target: Location | null;
   autoUnlockRadius: number | null;
   currentPostIndex: number;
@@ -34,6 +54,7 @@ type GPSManagerProps = {
   onSyncLocation: (lat: number, lng: number, accuracy: number | null) => Promise<void>;
   onGpsErrorChange?: (hasError: boolean) => void;
   onGpsErrorTypeChange?: (errorType: GpsErrorType | null) => void;
+  onLocationRuntimeChange?: (state: StudentLocationRuntimeState) => void;
   restartNonce?: number;
 };
 
@@ -42,22 +63,30 @@ type AcceptedGpsLocation = Location & {
   timestampMs: number;
 };
 
-  const MOVEMENT_SYNC_MIN_INTERVAL_MS = 10000; // Throttle: minimum 10s between syncs
+const MOVEMENT_SYNC_MIN_INTERVAL_MS = 10000; // Throttle: minimum 10s between syncs
 const GPS_HEARTBEAT_INTERVAL_MS = 20_000;
 const GPS_HEARTBEAT_STALE_THRESHOLD_MS = 15_000;
-const LIVE_TRACKING_MAX_ACCURACY_METERS = 250;
+const LIVE_TRACKING_MAX_ACCURACY_METERS =
+  STUDENT_LOCATION_UNLOCK_MAX_ACCURACY_METERS;
 const AUTO_UNLOCK_CONFIRMATION_GRACE_MS = 4_000;
 // Fallback: if no position has been accepted for this long (e.g. WiFi→4G switch),
 // temporarily allow readings up to the fallback ceiling so the user isn't stuck.
 const GPS_ACCURACY_FALLBACK_AFTER_MS = 10_000;
 const GPS_ACCURACY_FALLBACK_MAX_METERS = 500;
+const INITIAL_LOCATION_ATTEMPT_TIMEOUT_MS = 30_000;
 
 function getRoundedAccuracyMeters(rawAccuracy: number) {
   return Number.isFinite(rawAccuracy) ? Math.max(0, Math.round(rawAccuracy)) : null;
 }
 
 function getMeasurementTimestampMs(rawTimestamp: number) {
-  return Number.isFinite(rawTimestamp) && rawTimestamp > 0 ? rawTimestamp : Date.now();
+  const nowMs = Date.now();
+  const earliestReasonableEpochMs = Date.UTC(2000, 0, 1);
+  return Number.isFinite(rawTimestamp) &&
+    rawTimestamp >= earliestReasonableEpochMs &&
+    rawTimestamp <= nowMs + 60_000
+    ? rawTimestamp
+    : nowMs;
 }
 
 const toMeters = (lat1: number, lng1: number, lat2: number, lng2: number) => {
@@ -77,6 +106,8 @@ function calculateDistanceMeters(prev: AcceptedGpsLocation, next: AcceptedGpsLoc
 
 export default function GPSManager({
   enabled,
+  standardStudentLocationFlow = false,
+  allowAutomaticUnlock = true,
   target,
   autoUnlockRadius,
   currentPostIndex,
@@ -89,6 +120,7 @@ export default function GPSManager({
   onSyncLocation,
   onGpsErrorChange,
   onGpsErrorTypeChange,
+  onLocationRuntimeChange,
   restartNonce = 0,
 }: GPSManagerProps) {
   const targetLat = target?.lat ?? null;
@@ -107,6 +139,8 @@ export default function GPSManager({
   const isLocationSyncInFlightRef = useRef(false);
   const lastPositionTimestampRef = useRef(0);
   const heartbeatRestartCountRef = useRef(0);
+  const repeatedTimeoutCountRef = useRef(0);
+  const locationTelemetrySentRef = useRef(new Set<string>());
   const currentPostIndexRef = useRef(currentPostIndex);
   const showQuestionRef = useRef(showQuestion);
   const dismissedPostIndexRef = useRef(dismissedPostIndex);
@@ -117,6 +151,7 @@ export default function GPSManager({
   const onSyncLocationRef = useRef(onSyncLocation);
   const onGpsErrorChangeRef = useRef(onGpsErrorChange);
   const onGpsErrorTypeChangeRef = useRef(onGpsErrorTypeChange);
+  const onLocationRuntimeChangeRef = useRef(onLocationRuntimeChange);
 
   useEffect(() => {
     currentPostIndexRef.current = currentPostIndex;
@@ -129,6 +164,7 @@ export default function GPSManager({
     onSyncLocationRef.current = onSyncLocation;
     onGpsErrorChangeRef.current = onGpsErrorChange;
     onGpsErrorTypeChangeRef.current = onGpsErrorTypeChange;
+    onLocationRuntimeChangeRef.current = onLocationRuntimeChange;
   }, [
     currentPostIndex,
     dismissedPostIndex,
@@ -138,6 +174,7 @@ export default function GPSManager({
     onGpsErrorChange,
     onGpsErrorTypeChange,
     onLocationChange,
+    onLocationRuntimeChange,
     onSyncLocation,
     showQuestion,
   ]);
@@ -179,16 +216,144 @@ export default function GPSManager({
       onGpsErrorChangeRef.current?.(true);
       onGpsErrorTypeChangeRef.current?.("unknown");
       onDistanceChangeRef.current(null);
+      onLocationRuntimeChangeRef.current?.({
+        supported: false,
+        isLocating: false,
+        hasPosition: false,
+        observedAtMs: Date.now(),
+        positionTimestampMs: null,
+        accuracyMeters: null,
+        errorType: null,
+        resumedAtMs: null,
+      });
       return;
     }
 
     const watchIdRef = { current: null as number | null };
+    let isDisposed = false;
+    let callbackGeneration = 0;
+    let staleTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let lastRestartAtMs = Date.now();
+    let resumedAtMs: number | null = null;
+    let hasAcceptedPositionInEffect = false;
+    const trackingStartedAtMs = Date.now();
 
     const gpsOptions: PositionOptions = {
       enableHighAccuracy: true,
       maximumAge: 0,
       timeout: 30000,
     };
+
+    const emitRuntimeState = (
+      overrides: Partial<StudentLocationRuntimeState> = {}
+    ) => {
+      const lastAccepted = lastAcceptedLocationRef.current;
+      onLocationRuntimeChangeRef.current?.({
+        supported: true,
+        isLocating: false,
+        hasPosition: Boolean(lastAccepted),
+        observedAtMs: Date.now(),
+        positionTimestampMs: lastAccepted?.timestampMs ?? null,
+        accuracyMeters: lastAccepted?.accuracy ?? null,
+        errorType: null,
+        resumedAtMs,
+        ...overrides,
+      });
+    };
+
+    const sendLocationTelemetryOnce = (
+      eventType: string,
+      phase: string
+    ) => {
+      if (locationTelemetrySentRef.current.has(eventType)) {
+        return;
+      }
+
+      locationTelemetrySentRef.current.add(eventType);
+      sendTelemetry(eventType, {
+        message: createClientTelemetryMessage({
+          accuracy_category: "unknown",
+          online: navigator.onLine,
+          phase,
+        }),
+      });
+    };
+
+    const invalidateUnlockDistance = () => {
+      autoUnlockConfirmationRef.current = 0;
+      lastAutoUnlockInRangeAtMsRef.current = 0;
+      onDistanceChangeRef.current(null);
+    };
+
+    const clearActiveWatch = () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+    };
+
+    const clearStaleTimeout = () => {
+      if (staleTimeoutId !== null) {
+        clearTimeout(staleTimeoutId);
+        staleTimeoutId = null;
+      }
+    };
+
+    const scheduleFreshnessExpiry = (initialAttempt = false) => {
+      clearStaleTimeout();
+      staleTimeoutId = setTimeout(() => {
+        staleTimeoutId = null;
+        if (
+          isDisposed ||
+          document.visibilityState !== "visible" ||
+          Date.now() - lastPositionTimestampRef.current <
+            STUDENT_LOCATION_STALE_AFTER_MS
+        ) {
+          return;
+        }
+
+        if (initialAttempt && !hasAcceptedPositionInEffect) {
+          if (standardStudentLocationFlow) {
+            invalidateUnlockDistance();
+            onGpsErrorChangeRef.current?.(true);
+            onGpsErrorTypeChangeRef.current?.("timeout");
+            emitRuntimeState({
+              isLocating: false,
+              errorType: "timeout",
+            });
+            return;
+          }
+
+          startWatch("stale");
+          return;
+        }
+
+        if (standardStudentLocationFlow) {
+          invalidateUnlockDistance();
+          emitRuntimeState({
+            isLocating: true,
+            errorType: "position_unavailable",
+          });
+          sendLocationTelemetryOnce(
+            "student_location_watch_stopped",
+            "stale"
+          );
+        }
+        startWatch("stale");
+      }, (initialAttempt
+        ? standardStudentLocationFlow
+          ? INITIAL_LOCATION_ATTEMPT_TIMEOUT_MS
+          : 20_000
+        : STUDENT_LOCATION_STALE_AFTER_MS) + 50);
+    };
+
+    if (standardStudentLocationFlow) {
+      invalidateUnlockDistance();
+    }
+    emitRuntimeState({
+      isLocating: true,
+      errorType: null,
+    });
 
     const resetAutoUnlockConfirmationIfGraceExpired = (nowMs: number) => {
       if (
@@ -266,9 +431,11 @@ export default function GPSManager({
     };
 
     const successHandler = async (position: GeolocationPosition) => {
-      // Track that the watcher is alive (used by heartbeat)
-      lastPositionTimestampRef.current = Date.now();
       const nowMs = Date.now();
+      if (!standardStudentLocationFlow) {
+        // Preserve the legacy heartbeat contract for special game flows.
+        lastPositionTimestampRef.current = nowMs;
+      }
 
       const accuracy = getRoundedAccuracyMeters(position.coords.accuracy);
 
@@ -277,8 +444,10 @@ export default function GPSManager({
       // (typical during WiFi→4G network switch), temporarily raise the ceiling
       // so the user is not left without a location entirely.
       const msSinceLastAccepted = lastAcceptedAtMsRef.current > 0
-        ? Date.now() - lastAcceptedAtMsRef.current
-        : Number.MAX_SAFE_INTEGER;
+        ? nowMs - lastAcceptedAtMsRef.current
+        : standardStudentLocationFlow
+          ? nowMs - trackingStartedAtMs
+          : Number.MAX_SAFE_INTEGER;
       const isPositionStale = msSinceLastAccepted >= GPS_ACCURACY_FALLBACK_AFTER_MS;
       const effectiveMaxAccuracy = isPositionStale
         ? GPS_ACCURACY_FALLBACK_MAX_METERS
@@ -286,21 +455,43 @@ export default function GPSManager({
 
       if (accuracy === null || accuracy > effectiveMaxAccuracy) {
         resetAutoUnlockConfirmationIfGraceExpired(nowMs);
+        if (standardStudentLocationFlow) {
+          invalidateUnlockDistance();
+          emitRuntimeState({
+            isLocating: false,
+            hasPosition: true,
+            positionTimestampMs: getMeasurementTimestampMs(position.timestamp),
+            accuracyMeters: accuracy,
+            errorType: null,
+          });
+        }
         return;
       }
 
       // A degraded-accuracy fallback reading must not trigger auto-unlock —
       // it only keeps the location indicator alive during a network transition.
       const isDegradedFallback = accuracy > LIVE_TRACKING_MAX_ACCURACY_METERS;
-      if (isDegradedFallback) {
-        sendTelemetry("gps_fallback_activated", {
-          message: `accuracy=${accuracy}m msSinceLastAccepted=${msSinceLastAccepted}`,
-        });
-      }
 
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
       const timestampMs = getMeasurementTimestampMs(position.timestamp);
+      if (
+        standardStudentLocationFlow &&
+        (nowMs - timestampMs > STUDENT_LOCATION_STALE_AFTER_MS ||
+          timestampMs > nowMs ||
+          (resumedAtMs !== null && timestampMs < resumedAtMs))
+      ) {
+        invalidateUnlockDistance();
+        emitRuntimeState({
+          isLocating: true,
+          hasPosition: true,
+          positionTimestampMs: timestampMs,
+          accuracyMeters: accuracy,
+          errorType: "position_unavailable",
+        });
+        return;
+      }
+
       const previousAcceptedLocation = lastAcceptedLocationRef.current;
       const distanceSinceLastAccepted = previousAcceptedLocation
         ? getDistance(previousAcceptedLocation.lat, previousAcceptedLocation.lng, lat, lng)
@@ -325,6 +516,9 @@ export default function GPSManager({
         return;
       }
 
+      if (standardStudentLocationFlow) {
+        lastPositionTimestampRef.current = nowMs;
+      }
       const acceptedLocation: AcceptedGpsLocation = {
         lat,
         lng,
@@ -358,26 +552,43 @@ export default function GPSManager({
 
       lastAcceptedLocationRef.current = acceptedLocation;
       lastAcceptedAtMsRef.current = acceptedNow;
+      hasAcceptedPositionInEffect = true;
+      repeatedTimeoutCountRef.current = 0;
       onGpsErrorChangeRef.current?.(false);
       onGpsErrorTypeChangeRef.current?.(null);
+      emitRuntimeState({
+        isLocating: false,
+        hasPosition: true,
+        positionTimestampMs: timestampMs,
+        accuracyMeters: accuracy,
+        errorType: null,
+      });
+      if (standardStudentLocationFlow) {
+        scheduleFreshnessExpiry();
+      }
 
       targetLocationRef.current = acceptedLocation;
 
       if (!displayLocationRef.current) {
         displayLocationRef.current = acceptedLocation;
         onLocationChangeRef.current(acceptedLocation);
-        return;
-      }
-
-      if (!animationFrameRef.current) {
+        if (!standardStudentLocationFlow) {
+          return;
+        }
+      } else if (!animationFrameRef.current) {
         animationFrameRef.current = requestAnimationFrame(animate);
       }
 
       if (targetLat !== null && targetLng !== null) {
         const nextDistance = getDistance(lat, lng, targetLat, targetLng);
-        onDistanceChangeRef.current(nextDistance);
+        if (standardStudentLocationFlow && isDegradedFallback) {
+          invalidateUnlockDistance();
+        } else {
+          onDistanceChangeRef.current(nextDistance);
+        }
 
         if (
+          allowAutomaticUnlock &&
           !isDegradedFallback &&
           autoUnlockRadius !== null &&
           nextDistance <= autoUnlockRadius &&
@@ -439,86 +650,196 @@ export default function GPSManager({
     };
 
     const errorHandler = (error: GeolocationPositionError) => {
-      console.error("GPS Error:", error);
+      clearStaleTimeout();
       resetAutoUnlockConfirmationIfGraceExpired(Date.now());
-      onDistanceChangeRef.current(null);
+      invalidateUnlockDistance();
       onGpsErrorChangeRef.current?.(true);
 
       if (error.code === error.PERMISSION_DENIED || error.code === 1) {
         onGpsErrorTypeChangeRef.current?.("permission_denied");
+        emitRuntimeState({
+          isLocating: false,
+          errorType: "permission_denied",
+        });
+        if (standardStudentLocationFlow) {
+          clearActiveWatch();
+        }
         return;
       }
 
       if (error.code === error.POSITION_UNAVAILABLE || error.code === 2) {
         onGpsErrorTypeChangeRef.current?.("position_unavailable");
+        emitRuntimeState({
+          isLocating: false,
+          errorType: "position_unavailable",
+        });
         return;
       }
 
       if (error.code === error.TIMEOUT || error.code === 3) {
         onGpsErrorTypeChangeRef.current?.("timeout");
-        lastPositionTimestampRef.current = 1;
+        if (!standardStudentLocationFlow) {
+          lastPositionTimestampRef.current = 1;
+        }
+        emitRuntimeState({
+          isLocating: false,
+          errorType: "timeout",
+        });
+        if (standardStudentLocationFlow) {
+          repeatedTimeoutCountRef.current += 1;
+        }
+        if (
+          standardStudentLocationFlow &&
+          repeatedTimeoutCountRef.current >= 2
+        ) {
+          sendLocationTelemetryOnce(
+            "student_location_repeated_timeout",
+            "watch"
+          );
+        }
         return;
       }
 
       onGpsErrorTypeChangeRef.current?.("unknown");
+      emitRuntimeState({
+        isLocating: false,
+        errorType: "unknown",
+      });
     };
 
-    const startWatch = () => {
+    function startWatch(
+      reason: "start" | "retry" | "resume" | "stale"
+    ) {
       try {
-        if (watchIdRef.current !== null) {
-          navigator.geolocation.clearWatch(watchIdRef.current);
-          watchIdRef.current = null;
-        }
+        clearActiveWatch();
+        callbackGeneration += 1;
+        const generation = callbackGeneration;
+        emitRuntimeState({
+          isLocating: true,
+          errorType: reason === "stale" ? "position_unavailable" : null,
+        });
         watchIdRef.current = navigator.geolocation.watchPosition(
-          successHandler,
-          errorHandler,
+          (position) => {
+            if (!isDisposed && generation === callbackGeneration) {
+              void successHandler(position);
+            }
+          },
+          (error) => {
+            if (!isDisposed && generation === callbackGeneration) {
+              errorHandler(error);
+            }
+          },
           gpsOptions
         );
-      } catch (e) {
-        console.warn("Failed to start geolocation watch:", e);
+      } catch {
         onGpsErrorChangeRef.current?.(true);
         onGpsErrorTypeChangeRef.current?.("unknown");
-      }
-    };
-
-    startWatch();
-
-    // Heartbeat: if no GPS update in 15s, force a watcher restart
-    const heartbeatId = setInterval(() => {
-      const stale =
-        Date.now() - lastPositionTimestampRef.current > GPS_HEARTBEAT_STALE_THRESHOLD_MS;
-      if (stale) {
-        console.debug("GPS heartbeat: ingen opdatering i >15s, genstarter watcher");
-        heartbeatRestartCountRef.current++;
-        if (heartbeatRestartCountRef.current >= 2) {
-          sendTelemetry("gps_died", {
-            message: `GPS heartbeat restarted ${heartbeatRestartCountRef.current} times (no update in >15s)`,
-          });
+        emitRuntimeState({
+          isLocating: false,
+          errorType: "unknown",
+        });
+        if (standardStudentLocationFlow) {
+          sendLocationTelemetryOnce(
+            "student_location_initialization_failed",
+            reason
+          );
         }
-        startWatch();
       }
-    }, GPS_HEARTBEAT_INTERVAL_MS);
+    }
+
+    startWatch(restartNonce > 0 ? "retry" : "start");
+    if (standardStudentLocationFlow) {
+      scheduleFreshnessExpiry(true);
+    }
+
+    const heartbeatId = !standardStudentLocationFlow
+      ? setInterval(() => {
+          const stale =
+            Date.now() - lastPositionTimestampRef.current >
+            GPS_HEARTBEAT_STALE_THRESHOLD_MS;
+          if (!stale) {
+            return;
+          }
+
+          heartbeatRestartCountRef.current += 1;
+          if (heartbeatRestartCountRef.current >= 2) {
+            sendTelemetry("gps_died", {
+              message: createClientTelemetryMessage({
+                online: navigator.onLine,
+                phase: "legacy_heartbeat",
+                restart_count: heartbeatRestartCountRef.current,
+              }),
+            });
+          }
+          startWatch("stale");
+        }, GPS_HEARTBEAT_INTERVAL_MS)
+      : null;
 
     const restartTracking = () => {
-      // Refresh the current position, then start a fresh high-accuracy watcher.
+      const nowMs = Date.now();
+      if (
+        watchIdRef.current !== null &&
+        nowMs - lastRestartAtMs < 750
+      ) {
+        return;
+      }
+
+      lastRestartAtMs = nowMs;
+      resumedAtMs = nowMs;
+      if (standardStudentLocationFlow) {
+        invalidateUnlockDistance();
+      }
+      startWatch("resume");
+      if (standardStudentLocationFlow) {
+        scheduleFreshnessExpiry();
+      }
+      const generation = callbackGeneration;
+
       try {
         if (navigator.geolocation.getCurrentPosition) {
           navigator.geolocation.getCurrentPosition(
-            (pos) => void successHandler(pos),
-            () => undefined,
+            (position) => {
+              if (!isDisposed && generation === callbackGeneration) {
+                void successHandler(position);
+              }
+            },
+            (error) => {
+              if (
+                standardStudentLocationFlow &&
+                !isDisposed &&
+                generation === callbackGeneration
+              ) {
+                errorHandler(error);
+              }
+            },
             gpsOptions
           );
         }
       } catch {
-        /* no-op */
+        if (standardStudentLocationFlow) {
+          errorHandler({
+            code: 2,
+            message: "",
+            PERMISSION_DENIED: 1,
+            POSITION_UNAVAILABLE: 2,
+            TIMEOUT: 3,
+          });
+        }
       }
-
-      startWatch();
     };
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
         restartTracking();
+      } else if (standardStudentLocationFlow) {
+        callbackGeneration += 1;
+        clearActiveWatch();
+        clearStaleTimeout();
+        invalidateUnlockDistance();
+        emitRuntimeState({
+          isLocating: false,
+          errorType: "position_unavailable",
+        });
       }
     };
 
@@ -535,21 +856,26 @@ export default function GPSManager({
     window.addEventListener("pageshow", handlePageShow);
 
     return () => {
+      isDisposed = true;
+      callbackGeneration += 1;
       if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = null;
       }
       velocityRef.current = null;
-      clearInterval(heartbeatId);
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
+      if (heartbeatId !== null) {
+        clearInterval(heartbeatId);
       }
+      clearStaleTimeout();
+      clearActiveWatch();
       document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("pageshow", handlePageShow);
     };
   }, [
     enabled,
+    allowAutomaticUnlock,
+    standardStudentLocationFlow,
     targetLat,
     targetLng,
     autoUnlockRadius,

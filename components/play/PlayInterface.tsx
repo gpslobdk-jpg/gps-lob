@@ -393,6 +393,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const {
     canManualUnlock,
     gpsOverrideEnabled,
+    usesStandardStudentLocationExperience,
     hasActivePhotoSuccess,
     hasActiveQuizSuccess,
     hasAllEscapeBricks,
@@ -1643,7 +1644,9 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                           {gpsOverrideEnabled
                             ? "GPS-kravet er slået fra for denne session."
                             : autoUnlockRadius !== null
-                              ? `GPS låser automatisk op inden for ${autoUnlockRadius} meter.`
+                              ? usesStandardStudentLocationExperience
+                                ? "Når du er fremme, kan du selv åbne posten."
+                                : `GPS låser automatisk op inden for ${autoUnlockRadius} meter.`
                               : "GPS-radius hentes..."}
                         </p>
                       </div>
@@ -1688,7 +1691,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                                     <Cloud className="h-3.5 w-3.5 shrink-0" />
                                     <span>Gemmer i skyen...</span>
                                   </span>
-                                ) : isOffline ? (
+                                ) : isOffline &&
+                                  !usesStandardStudentLocationExperience ? (
                                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-white/55">
                                     <CloudOff className="h-3.5 w-3.5 shrink-0" />
                                     <span>Gemt lokalt</span>
@@ -1713,7 +1717,10 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       </div>
                     ) : null}
 
-                    {hasActiveUnlockTarget ? (
+                    {hasActiveUnlockTarget &&
+                    (!usesStandardStudentLocationExperience ||
+                      gpsOverrideEnabled ||
+                      dismissedPostIndex === currentPostIndex) ? (
                       <div className="w-full">
                         <button
                           type="button"

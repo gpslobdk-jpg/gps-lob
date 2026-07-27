@@ -2,15 +2,37 @@
 
 import dynamic from "next/dynamic";
 import { Crosshair, MapPin, RefreshCcw } from "lucide-react";
-import { Suspense, useCallback, useState, useRef, useEffect } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 
-import { FullscreenWarning } from "@/components/ui/FullscreenWarning";
-import GPSManager from "@/components/play/GPSManager";
+import GPSManager, {
+  type GpsErrorType,
+  type StudentLocationRuntimeState,
+} from "@/components/play/GPSManager";
 import { usePlayGameState } from "@/components/play/GameState";
 import PlayInterface from "@/components/play/PlayInterface";
+import StudentConnectionStatus from "@/components/play/StudentConnectionStatus";
+import StudentLocationStatus from "@/components/play/StudentLocationStatus";
+import { FullscreenWarning } from "@/components/ui/FullscreenWarning";
+import {
+  resolveStudentLocationState,
+  type StudentLocationPermission,
+} from "@/lib/location/studentLocationState";
 
-const MapDisplay = dynamic(() => import("@/components/play/MapDisplay"), { ssr: false });
+const MapDisplay = dynamic(() => import("@/components/play/MapDisplay"), {
+  ssr: false,
+});
+
+const INITIAL_LOCATION_RUNTIME: StudentLocationRuntimeState = {
+  supported: true,
+  isLocating: false,
+  hasPosition: false,
+  observedAtMs: 0,
+  positionTimestampMs: null,
+  accuracyMeters: null,
+  errorType: null,
+  resumedAtMs: null,
+};
 
 function ModeLoadingState() {
   return (
@@ -20,23 +42,23 @@ function ModeLoadingState() {
   );
 }
 
-const StrategoElevInterface = dynamic(() => import("@/components/play/StrategoElevInterface"), {
-  ssr: false,
-  loading: () => <ModeLoadingState />,
-});
+const StrategoElevInterface = dynamic(
+  () => import("@/components/play/StrategoElevInterface"),
+  {
+    ssr: false,
+    loading: () => <ModeLoadingState />,
+  }
+);
 
-const ZoneKrigElevInterface = dynamic(() => import("@/components/play/ZoneKrigElevInterface"), {
-  ssr: false,
-  loading: () => <ModeLoadingState />,
-});
+const ZoneKrigElevInterface = dynamic(
+  () => import("@/components/play/ZoneKrigElevInterface"),
+  {
+    ssr: false,
+    loading: () => <ModeLoadingState />,
+  }
+);
 
-type GpsGuardErrorType =
-  | "permission_denied"
-  | "position_unavailable"
-  | "timeout"
-  | "unknown";
-
-function getGpsGuardCopy(errorType: GpsGuardErrorType | null) {
+function getLegacyGpsGuardCopy(errorType: GpsErrorType | null) {
   switch (errorType) {
     case "permission_denied":
       return {
@@ -64,14 +86,14 @@ function getGpsGuardCopy(errorType: GpsGuardErrorType | null) {
   }
 }
 
-function GpsGuardOverlay({
+function LegacyGpsGuardOverlay({
   visible,
   errorType,
   onRetry,
   isRetrying,
 }: {
   visible: boolean;
-  errorType: GpsGuardErrorType | null;
+  errorType: GpsErrorType | null;
   onRetry: () => void;
   isRetrying: boolean;
 }) {
@@ -79,7 +101,7 @@ function GpsGuardOverlay({
     return null;
   }
 
-  const copy = getGpsGuardCopy(errorType);
+  const copy = getLegacyGpsGuardCopy(errorType);
 
   return (
     <div className="fixed inset-0 z-[2200] flex items-center justify-center bg-slate-950/65 px-5 backdrop-blur-xl">
@@ -110,7 +132,9 @@ function GpsGuardOverlay({
               aria-busy={isRetrying}
               className="inline-flex min-h-[56px] flex-1 items-center justify-center gap-2 rounded-[1.25rem] border border-emerald-300/30 bg-gradient-to-r from-emerald-500 to-teal-400 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-[0_18px_38px_rgba(16,185,129,0.24)] transition hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:brightness-100 disabled:active:scale-100"
             >
-              <RefreshCcw className={`h-4 w-4 ${isRetrying ? "animate-spin" : ""}`} />
+              <RefreshCcw
+                className={`h-4 w-4 ${isRetrying ? "animate-spin" : ""}`}
+              />
               {isRetrying ? "Prøver igen..." : "Prøv igen"}
             </button>
           </div>
@@ -124,43 +148,40 @@ function GpsGuardOverlay({
   );
 }
 
-
 function PlayScreen() {
   const params = useParams<{ sessionId: string }>();
   const searchParams = useSearchParams();
-  const [gpsGuardVisible, setGpsGuardVisible] = useState(false);
-  const [gpsGuardErrorType, setGpsGuardErrorType] = useState<GpsGuardErrorType | null>(null);
   const [gpsRestartNonce, setGpsRestartNonce] = useState(0);
-  const [isGpsRetrying, setIsGpsRetrying] = useState(false);
-  const gpsRetryLockedRef = useRef(false);
-  const gpsRetryUnlockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isLocationAttemptActive, setIsLocationAttemptActive] = useState(false);
+  const [hasRequestedLocation, setHasRequestedLocation] = useState(false);
+  const [isRequestingPermission, setIsRequestingPermission] = useState(false);
+  const [locationPermission, setLocationPermission] =
+    useState<StudentLocationPermission>("unknown");
+  const [locationRuntime, setLocationRuntime] =
+    useState<StudentLocationRuntimeState>(INITIAL_LOCATION_RUNTIME);
+  const [isOnline, setIsOnline] = useState(true);
+  const [legacyGpsGuardVisible, setLegacyGpsGuardVisible] = useState(false);
+  const [legacyGpsGuardErrorType, setLegacyGpsGuardErrorType] =
+    useState<GpsErrorType | null>(null);
+  const [isLegacyGpsRetrying, setIsLegacyGpsRetrying] = useState(false);
+  const locationAttemptLockedRef = useRef(false);
+  const locationAttemptTimerRef =
+    useRef<ReturnType<typeof setTimeout> | null>(null);
+  const legacyGpsRetryLockedRef = useRef(false);
+  const legacyGpsRetryTimerRef =
+    useRef<ReturnType<typeof setTimeout> | null>(null);
   const rawSessionId = params?.sessionId;
-  const sessionId = Array.isArray(rawSessionId) ? rawSessionId[0] : rawSessionId;
+  const sessionId = Array.isArray(rawSessionId)
+    ? rawSessionId[0]
+    : rawSessionId;
   const initialStudentName = searchParams.get("name")?.trim() || "";
   const game = usePlayGameState({ sessionId, initialStudentName });
   const isZoneKrig = game.progress.raceMode === "zone_krig";
   const isStratego = game.progress.raceMode === "stratego";
-  const handleGpsRetry = useCallback(() => {
-    if (gpsRetryLockedRef.current) return;
-    gpsRetryLockedRef.current = true;
-    setIsGpsRetrying(true);
-    setGpsRestartNonce((current) => current + 1);
-    if (gpsRetryUnlockTimerRef.current) {
-      clearTimeout(gpsRetryUnlockTimerRef.current);
-    }
-    gpsRetryUnlockTimerRef.current = setTimeout(() => {
-      gpsRetryLockedRef.current = false;
-      setIsGpsRetrying(false);
-    }, 3500);
-  }, []);
-  useEffect(() => {
-    return () => {
-      if (gpsRetryUnlockTimerRef.current) {
-        clearTimeout(gpsRetryUnlockTimerRef.current);
-      }
-    };
-  }, []);
-  const isTrackingEnabled =
+  const usesStandardLocation =
+    game.flags.usesStandardStudentLocationExperience;
+
+  const baseTrackingEnabled =
     Boolean(sessionId) &&
     (game.progress.questions.length > 0 || game.flags.isStrategoRace) &&
     !game.progress.screen.isFinished &&
@@ -169,12 +190,223 @@ function PlayScreen() {
     game.player.hasConfirmedName &&
     game.player.hasCompletedAvatarGate &&
     Boolean(game.player.participantId);
+  const standardLocationRequired =
+    usesStandardLocation && !game.flags.gpsOverrideEnabled;
+  const showStandardLocationStatus =
+    baseTrackingEnabled &&
+    standardLocationRequired &&
+    !game.progress.showQuestion;
+  const isTrackingEnabled =
+    baseTrackingEnabled &&
+    (usesStandardLocation
+      ? !game.flags.gpsOverrideEnabled && hasRequestedLocation
+      : true);
+
+  const handleLegacyGpsRetry = useCallback(() => {
+    if (legacyGpsRetryLockedRef.current) {
+      return;
+    }
+
+    legacyGpsRetryLockedRef.current = true;
+    setIsLegacyGpsRetrying(true);
+    setGpsRestartNonce((current) => current + 1);
+    if (legacyGpsRetryTimerRef.current !== null) {
+      clearTimeout(legacyGpsRetryTimerRef.current);
+    }
+    legacyGpsRetryTimerRef.current = setTimeout(() => {
+      legacyGpsRetryLockedRef.current = false;
+      setIsLegacyGpsRetrying(false);
+      legacyGpsRetryTimerRef.current = null;
+    }, 3_500);
+  }, []);
+
+  const finishLocationAttempt = useCallback(() => {
+    locationAttemptLockedRef.current = false;
+    setIsLocationAttemptActive(false);
+    setIsRequestingPermission(false);
+    if (locationAttemptTimerRef.current !== null) {
+      clearTimeout(locationAttemptTimerRef.current);
+      locationAttemptTimerRef.current = null;
+    }
+  }, []);
+
+  const beginLocationAttempt = useCallback(
+    (isRetry: boolean) => {
+      if (locationAttemptLockedRef.current) {
+        return;
+      }
+
+      locationAttemptLockedRef.current = true;
+      setIsLocationAttemptActive(true);
+      setIsRequestingPermission(true);
+      if (isRetry) {
+        setLocationPermission((current) =>
+          current === "denied" ? "unknown" : current
+        );
+      }
+      setLocationRuntime((current) => ({
+        ...current,
+        isLocating: true,
+        errorType: null,
+      }));
+
+      if (hasRequestedLocation || isRetry) {
+        setGpsRestartNonce((current) => current + 1);
+      }
+      setHasRequestedLocation(true);
+
+      if (locationAttemptTimerRef.current !== null) {
+        clearTimeout(locationAttemptTimerRef.current);
+      }
+      locationAttemptTimerRef.current = setTimeout(
+        finishLocationAttempt,
+        32_000
+      );
+    },
+    [finishLocationAttempt, hasRequestedLocation]
+  );
+
+  const handleLocationRuntimeChange = useCallback(
+    (nextRuntime: StudentLocationRuntimeState) => {
+      setLocationRuntime(nextRuntime);
+
+      if (nextRuntime.hasPosition && nextRuntime.errorType === null) {
+        setLocationPermission("granted");
+        setIsRequestingPermission(false);
+      } else if (nextRuntime.errorType === "permission_denied") {
+        setLocationPermission("denied");
+      }
+
+      if (!nextRuntime.isLocating) {
+        finishLocationAttempt();
+      }
+    },
+    [finishLocationAttempt]
+  );
+
+  useEffect(() => {
+    const updateConnection = () => {
+      setIsOnline(navigator.onLine);
+    };
+
+    updateConnection();
+    window.addEventListener("online", updateConnection);
+    window.addEventListener("offline", updateConnection);
+
+    return () => {
+      window.removeEventListener("online", updateConnection);
+      window.removeEventListener("offline", updateConnection);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showStandardLocationStatus) {
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      const unsupportedTimer = setTimeout(() => {
+        setLocationRuntime({
+          ...INITIAL_LOCATION_RUNTIME,
+          supported: false,
+          observedAtMs: Date.now(),
+        });
+        finishLocationAttempt();
+      }, 0);
+      return () => clearTimeout(unsupportedTimer);
+    }
+
+    if (!navigator.permissions?.query) {
+      return;
+    }
+
+    let isCancelled = false;
+    let permissionStatus: PermissionStatus | null = null;
+
+    const applyPermissionState = () => {
+      if (isCancelled || !permissionStatus) {
+        return;
+      }
+
+      setLocationPermission(permissionStatus.state);
+      if (permissionStatus.state === "granted") {
+        setHasRequestedLocation(true);
+      } else if (permissionStatus.state === "denied") {
+        setHasRequestedLocation(false);
+        finishLocationAttempt();
+      }
+    };
+
+    void navigator.permissions
+      .query({ name: "geolocation" })
+      .then((status) => {
+        if (isCancelled) {
+          return;
+        }
+        permissionStatus = status;
+        applyPermissionState();
+        permissionStatus.addEventListener("change", applyPermissionState);
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setLocationPermission("unknown");
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+      permissionStatus?.removeEventListener("change", applyPermissionState);
+    };
+  }, [finishLocationAttempt, showStandardLocationStatus]);
+
+  useEffect(() => {
+    return () => {
+      if (locationAttemptTimerRef.current !== null) {
+        clearTimeout(locationAttemptTimerRef.current);
+      }
+      if (legacyGpsRetryTimerRef.current !== null) {
+        clearTimeout(legacyGpsRetryTimerRef.current);
+      }
+    };
+  }, []);
+
+  const locationStateInput = {
+    enabled: showStandardLocationStatus,
+    supported: locationRuntime.supported,
+    online: isOnline,
+    permission: locationPermission,
+    requesting: isRequestingPermission,
+    locating: locationRuntime.isLocating,
+    hasPosition: locationRuntime.hasPosition,
+    timestampMs: locationRuntime.positionTimestampMs,
+    accuracyMeters: locationRuntime.accuracyMeters,
+    error: locationRuntime.errorType,
+    resumedAtMs: locationRuntime.resumedAtMs,
+    nowMs: locationRuntime.observedAtMs,
+  };
+  const locationState = resolveStudentLocationState(locationStateInput);
+  const locationPresentationState =
+    locationState.status === "offline"
+      ? resolveStudentLocationState({
+          ...locationStateInput,
+          online: true,
+        })
+      : locationState;
+  const canOpenFromFreshLocation =
+    game.flags.canOpenCurrentPostFromDistance &&
+    locationState.canUsePositionForUnlock;
+  const currentPostLabel =
+    game.progress.map.targetNumber !== null
+      ? `Post ${game.progress.map.targetNumber}`
+      : null;
 
   return (
     <>
       <FullscreenWarning />
       <GPSManager
         enabled={isTrackingEnabled}
+        standardStudentLocationFlow={usesStandardLocation}
+        allowAutomaticUnlock={!usesStandardLocation}
         target={game.progress.map.targetLocation}
         autoUnlockRadius={game.gps.autoUnlockRadius}
         currentPostIndex={game.progress.currentPostIndex}
@@ -185,14 +417,27 @@ function PlayScreen() {
         onAutoUnlock={game.actions.unlockCurrentPost}
         onDismissedReset={game.actions.clearDismissedPost}
         onSyncLocation={game.actions.syncParticipantLocation}
-        onGpsErrorChange={setGpsGuardVisible}
-        onGpsErrorTypeChange={setGpsGuardErrorType}
+        onGpsErrorChange={
+          usesStandardLocation ? undefined : setLegacyGpsGuardVisible
+        }
+        onGpsErrorTypeChange={
+          usesStandardLocation ? undefined : setLegacyGpsGuardErrorType
+        }
+        onLocationRuntimeChange={handleLocationRuntimeChange}
         restartNonce={gpsRestartNonce}
       />
       {isZoneKrig ? (
-        <ZoneKrigElevInterface sessionId={sessionId} ui={game} actions={game.actions} />
+        <ZoneKrigElevInterface
+          sessionId={sessionId}
+          ui={game}
+          actions={game.actions}
+        />
       ) : isStratego ? (
-        <StrategoElevInterface sessionId={sessionId} ui={game} actions={game.actions} />
+        <StrategoElevInterface
+          sessionId={sessionId}
+          ui={game}
+          actions={game.actions}
+        />
       ) : (
         <PlayInterface ui={game} actions={game.actions}>
           <MapDisplay
@@ -205,16 +450,43 @@ function PlayScreen() {
             dimmed={game.flags.isRoleplayImmersed}
             isNearTarget={game.progress.map.isNearTarget}
             canOpenTarget={game.progress.map.canOpenTarget}
-            distanceToTargetMeters={game.progress.map.distanceToTargetMeters}
+            distanceToTargetMeters={
+              game.progress.map.distanceToTargetMeters
+            }
             onTargetClick={game.actions.unlockCurrentPost}
           />
         </PlayInterface>
       )}
-      <GpsGuardOverlay
-        visible={isTrackingEnabled && gpsGuardVisible}
-        errorType={gpsGuardErrorType}
-        onRetry={handleGpsRetry}
-        isRetrying={isGpsRetrying}
+      {showStandardLocationStatus ? (
+        <div className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-[2200] mx-auto max-w-md">
+          <StudentLocationStatus
+            state={locationPresentationState}
+            onStart={() => beginLocationAttempt(false)}
+            onRetry={() => beginLocationAttempt(true)}
+            isRetrying={isLocationAttemptActive}
+            isStandardFlow
+            currentPostLabel={currentPostLabel}
+            canOpenCurrentPost={canOpenFromFreshLocation}
+            onOpenCurrentPost={game.actions.unlockCurrentPost}
+          />
+        </div>
+      ) : null}
+      {usesStandardLocation ? (
+        <StudentConnectionStatus
+          reconnectConfirmationNonce={
+            game.flags.reconnectConfirmationNonce
+          }
+        />
+      ) : null}
+      <LegacyGpsGuardOverlay
+        visible={
+          !usesStandardLocation &&
+          isTrackingEnabled &&
+          legacyGpsGuardVisible
+        }
+        errorType={legacyGpsGuardErrorType}
+        onRetry={handleLegacyGpsRetry}
+        isRetrying={isLegacyGpsRetrying}
       />
     </>
   );

@@ -1,19 +1,18 @@
 /**
- * ios-gps-denied.spec.ts – iPhone 14 WebKit: GPS permission denied shows guard overlay
+ * ios-gps-denied.spec.ts – iPhone 14 WebKit: GPS permission denied stays actionable
  *
  * Seeds a complete game session in localStorage so the name/avatar gates are
  * skipped. Overrides navigator.geolocation via addInitScript to always call
  * the error callback with code 1 (PERMISSION_DENIED). Asserts:
  *
- *  1. GpsGuardOverlay appears with the Danish "GPS er blokeret" heading.
- *  2. The "GPS-guide" label is visible (correct component rendered).
+ *  1. The standard location intro waits for the student's action.
+ *  2. Denial shows friendly Danish copy without browser error codes.
  *  3. The retry button ("Prøv igen") is tappable.
  *  4. The page body is not blank — no white screen of death.
  *  5. No uncaught page errors / TypeError crashes.
  *
- * The GpsGuardOverlay only renders when isTrackingEnabled is true, which
- * requires questions to be loaded and hasCompletedAvatarGate to be true.
- * Both are satisfied by the localStorage seed + session API mock.
+ * The location flow only renders when tracking prerequisites are satisfied.
+ * The localStorage seed and session API mock satisfy those prerequisites.
  *
  * addInitScript is used for all mocks so they survive Next.js HMR full
  * reloads on WebKit (page.route() can be lost on a reload).
@@ -79,32 +78,58 @@ async function mountGpsDeniedMocks(page: Page) {
       // ── Seed localStorage ───────────────────────────────────────────────
       window.localStorage.setItem("gpslob_active_participant", JSON.stringify(stored));
 
+      Object.defineProperty(navigator, "permissions", {
+        configurable: true,
+        value: {
+          query: async () => ({
+            state: "prompt" as PermissionState,
+            addEventListener: () => undefined,
+            removeEventListener: () => undefined,
+          }),
+        },
+      });
+
       // ── Override geolocation to always return PERMISSION_DENIED ─────────
       // GPSManager calls watchPosition / getCurrentPosition when enabled.
-      // Returning code 1 triggers the onGpsErrorChange(true) callback which
-      // makes GpsGuardOverlay visible.
-      if ("geolocation" in navigator) {
-        const geoError = {
-          code: 1,
-          message: "User denied Geolocation",
-          PERMISSION_DENIED: 1 as const,
-          POSITION_UNAVAILABLE: 2 as const,
-          TIMEOUT: 3 as const,
-        };
+      // Returning code 1 drives the standard location state to the friendly
+      // permission-denied card.
+      const geoError = {
+        code: 1,
+        message: "User denied Geolocation",
+        PERMISSION_DENIED: 1 as const,
+        POSITION_UNAVAILABLE: 2 as const,
+        TIMEOUT: 3 as const,
+      };
 
-        navigator.geolocation.getCurrentPosition = function (_ok, error) {
-          if (error) setTimeout(() => error(geoError as GeolocationPositionError), 80);
-        };
-
-        navigator.geolocation.watchPosition = function (_ok, error) {
-          if (error) setTimeout(() => error(geoError as GeolocationPositionError), 80);
-          return 9999;
-        };
-
-        navigator.geolocation.clearWatch = function () {
-          /* no-op */
-        };
-      }
+      Object.defineProperty(navigator, "geolocation", {
+        configurable: true,
+        value: {
+          getCurrentPosition: (
+            _ok: (position: GeolocationPosition) => void,
+            error?: (positionError: GeolocationPositionError) => void,
+          ) => {
+            if (error) {
+              setTimeout(
+                () => error(geoError as GeolocationPositionError),
+                80,
+              );
+            }
+          },
+          watchPosition: (
+            _ok: (position: GeolocationPosition) => void,
+            error?: (positionError: GeolocationPositionError) => void,
+          ) => {
+            if (error) {
+              setTimeout(
+                () => error(geoError as GeolocationPositionError),
+                80,
+              );
+            }
+            return 9999;
+          },
+          clearWatch: () => undefined,
+        },
+      });
 
       // ── Fetch mock ────────────────────────────────────────────────────
       const _origFetch = window.fetch.bind(window);
@@ -124,6 +149,7 @@ async function mountGpsDeniedMocks(page: Page) {
               raceType: "quiz",
               radius: 50,
               gpsOverride: false,
+              usesStandardStudentLocationExperience: true,
             }),
             { status: 200, headers: { "Content-Type": "application/json" } },
           );
@@ -139,10 +165,23 @@ async function mountGpsDeniedMocks(page: Page) {
 
         // GET /api/play/participant — 404 is the safe default (no team data)
         if (url.includes("/api/play/participant")) {
-          return new Response(JSON.stringify({ error: "Not found" }), {
-            status: 404,
-            headers: { "Content-Type": "application/json" },
-          });
+          return new Response(
+            JSON.stringify({
+              participant: {
+                id: stored.participantId,
+                session_id: stored.sessionId,
+                student_name: stored.studentName,
+                start_offset: stored.startOffset,
+                lat: null,
+                lng: null,
+                finished_at: null,
+              },
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            }
+          );
         }
 
         // POST /api/play/location — fire-and-forget
@@ -191,7 +230,7 @@ test.describe("iOS GPS permission denied", () => {
   test.describe.configure({ mode: "serial" });
   test.setTimeout(60_000);
 
-  test("GpsGuardOverlay renders 'GPS er blokeret' and is not a blank page", async ({ page }) => {
+  test("permission action leads to a friendly denied state and is not a blank page", async ({ page }) => {
     await mountGpsDeniedMocks(page);
 
     const pageErrors: Error[] = [];
@@ -204,10 +243,18 @@ test.describe("iOS GPS permission denied", () => {
     // GPS to have fired the PERMISSION_DENIED error.
     // The flow is: session loads → isTrackingEnabled becomes true →
     // GPSManager starts watchPosition → error fires → GpsGuardOverlay shows.
-    await expect(page.getByText("GPS er blokeret")).toBeVisible({ timeout: 35_000 });
+    const permissionButton = page.getByRole("button", {
+      name: /tillad placering/i,
+    });
+    await expect(permissionButton).toBeVisible({ timeout: 35_000 });
+    await permissionButton.click();
 
-    // "GPS-guide" label confirms the correct overlay component rendered.
-    await expect(page.getByText(/GPS-guide/i)).toBeVisible();
+    await expect(page.getByText("Placering er slået fra")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(
+      page.getByText(/PERMISSION_DENIED|GeolocationPositionError/i)
+    ).toHaveCount(0);
 
     // Retry button exists and is not disabled.
     const retryButton = page.getByRole("button", { name: /prøv igen/i });

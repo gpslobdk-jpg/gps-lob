@@ -11,11 +11,11 @@
  *  3. Fill "Holdnavn" input and click "Klar til start" to register.
  *     POST /api/join is mocked and returns a participantId, which sets
  *     hasConfirmedName = true → isTrackingEnabled = true → GPSManager starts.
- *  4. Q1 auto-unlocks (GPS at post 1, distance = 0 < radius = 50 m).
+ *  4. GPS reaches post 1 and the student explicitly opens Q1.
  *  5. Click correct answer ("København").
  *  6. Wait for answer to process (no fragile Q1-disappear assertion).
  *  7. Move GPS to post 2.
- *  8. Q2 auto-unlocks.
+ *  8. GPS reaches post 2 and the student explicitly opens Q2.
  *  9. Click correct answer ("4").
  * 10. Assert no uncaught critical JS errors.
  *
@@ -114,6 +114,7 @@ async function mountPlayMocks(page: Page) {
               raceType: "quiz",
               radius: 50,
               gpsOverride: false,
+              usesStandardStudentLocationExperience: true,
             }),
             { status: 200, headers: { "Content-Type": "application/json" } },
           );
@@ -239,12 +240,24 @@ test.describe("iOS two-post flow", () => {
     await expect(nameGateInput).toHaveValue(TEAM_NAME, { timeout: 3_000 });
     await page.getByRole("button", { name: /^klar$/i }).click();
 
-    // ── Step 2: Q1 auto-unlocks ───────────────────────────────────────
+    // ── Step 2: GPS reaches Q1; the student opens it ──────────────────
     // GPS is at post 1 coords (distance = 0 < radius = 50 m).
-    // GPSManager calls onAutoUnlock → showQuestion = true → Q1 renders.
+    // The standard flow shows a separate, explicit open action.
+    const firstArrivedCard = page
+      .getByRole("status")
+      .filter({ hasText: "Du er fremme!" });
+    await expect(firstArrivedCard).toBeVisible({
+      timeout: 40_000,
+    });
     await expect(
-      page.getByText("Hvad er hovedstaden i Danmark?"),
-    ).toBeVisible({ timeout: 40_000 });
+      page.getByText("Hvad er hovedstaden i Danmark?")
+    ).toHaveCount(0);
+    await firstArrivedCard
+      .getByRole("button", { name: "Åbn post", exact: true })
+      .click();
+    await expect(
+      page.getByText("Hvad er hovedstaden i Danmark?")
+    ).toBeVisible({ timeout: 10_000 });
 
     // ── Step 3: Answer Q1 ─────────────────────────────────────────────
     await page.locator("button").filter({ hasText: "København" }).click();
@@ -258,23 +271,16 @@ test.describe("iOS two-post flow", () => {
     await expect(nextPostButton).toBeVisible({ timeout: 15_000 });
     await nextPostButton.click();
 
-    // ── Steps 5-6 combined: GPS loop until Q2 auto-unlocks ───────────
+    // ── Steps 5-6 combined: GPS loop until Q2 is in range ─────────────
     //
-    // AUTO_UNLOCK_CONFIRMATION_HITS = 2: two consecutive in-range GPS
-    // hits are needed before onAutoUnlock fires.
-    // The confirmation counter is reset:
-    //   a) when showQuestion = true  (feedback overlay still showing)
-    //   b) when currentPostIndex changes  (useEffect in GPSManager)
-    //
-    // A fixed-count jitter loop sometimes misses the "2 consecutive hits
-    // after all guards are clear" window. The robust fix: keep re-firing
-    // setGeolocation near POST_2 every 1 s until Q2 appears (up to 50 s).
-    // As soon as the feedback dismisses AND currentPostIndex = 1, the next
-    // two 1-second ticks accumulate confirmationRef to 2 → onAutoUnlock.
+    // Keep re-firing setGeolocation near POST_2 until the watcher observes
+    // the new post after the answer feedback has advanced currentPostIndex.
     //
     // Micro-jitter (0.000001°≈0.11m) ensures watchPosition fires on each
     // call even if the browser considers coordinates "unchanged".
-    const q2Text = page.getByText(/Hvad er 2\+2/);
+    const arrivedCard = page
+      .getByRole("status")
+      .filter({ hasText: "Du er fremme!" });
     for (let tick = 0; tick < 50; tick++) {
       const jitter = tick % 2 === 0 ? 0 : 0.000001;
       await page.context().setGeolocation({
@@ -282,10 +288,16 @@ test.describe("iOS two-post flow", () => {
         longitude: POST_2_LNG + jitter,
         accuracy: 5,
       });
-      if (await q2Text.isVisible().catch(() => false)) break;
+      if (await arrivedCard.isVisible().catch(() => false)) break;
       await page.waitForTimeout(1_000);
     }
 
+    await expect(arrivedCard).toBeVisible({ timeout: 5_000 });
+    await arrivedCard
+      .getByRole("button", { name: "Åbn post", exact: true })
+      .click();
+
+    const q2Text = page.getByText(/Hvad er 2\+2/);
     // ── Step 6: Q2 visible (final assertion) ──────────────────────────
     await expect(q2Text).toBeVisible({ timeout: 5_000 });
 

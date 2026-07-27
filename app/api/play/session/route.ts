@@ -8,6 +8,7 @@ import {
   resolveQuestionVariant,
   sanitizeQuestionForPlay,
 } from "@/app/api/play/_shared";
+import { usesStandardStudentLocationExperience } from "@/lib/location/studentLocationState";
 import { resolveSessionPostOrderMode } from "@/lib/routes/postOrderPolicy";
 import { generateBonusQuestions, type SourceQuestion } from "@/utils/bonus/generateBonusQuestions";
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
@@ -83,6 +84,8 @@ export async function GET(request: NextRequest) {
         postOrderMode,
         radius: getRunRadiusMeters(run),
         gpsOverride: Boolean(sessionData?.gps_override),
+        usesStandardStudentLocationExperience:
+          usesStandardStudentLocationExperience(rawRaceType),
         bonusAvailable,
         ...(theme ? { theme } : {}),
       },
