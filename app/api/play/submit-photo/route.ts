@@ -7,17 +7,24 @@ import {
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 import { getAwardedPoints } from "@/utils/questionPoints";
 import { resolveParticipantRequestContext } from "@/utils/supabase/participantServer";
+import { usesStandardStudentLocationExperience } from "@/lib/location/studentLocationState";
 import {
   asTrimmedString,
   fetchParticipantStartState,
   fetchRunForSession,
+  getAnsweredPostIndex,
   getFirstRoutePostIndexForParticipant,
+  getServerRouteOrder,
   resolveQuestionVariant,
+  supportsServerStaggeredStart,
 } from "@/app/api/play/_shared";
 
 export const maxDuration = 60;
 
 const RUN_OUT_OF_SYNC_ERROR_CODE = "RUN_OUT_OF_SYNC";
+const PHOTO_UPLOAD_MAX_BYTES = 12 * 1024 * 1024;
+const PHOTO_OPERATION_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type AdminSupabaseClient = NonNullable<ReturnType<typeof createAdminClient>>;
 
@@ -26,21 +33,38 @@ type UploadedPhotoInput = {
   mimeType: string;
 };
 
+type ResolvedPhotoRun = NonNullable<
+  Awaited<ReturnType<typeof fetchRunForSession>>
+> & {
+  questions: unknown[];
+};
+
 type ActiveSessionRow = {
   id?: string | null;
 };
 
+type PhotoProgressRow = {
+  post_index?: number | string | null;
+  question_index?: number | string | null;
+};
+
 type ExistingPhotoAnswerRow = {
   id?: string | null;
+  participant_id?: string | null;
   image_url?: string | null;
   awarded_points?: number | string | null;
   is_correct?: boolean | null;
+  post_index?: number | string | null;
+  question_index?: number | string | null;
+  client_operation_id?: string | null;
 };
 
 type SupabaseLikeError = {
   code?: string;
   message?: string;
   details?: string;
+  status?: number | string;
+  statusCode?: number | string;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -70,9 +94,70 @@ function isMissingColumnError(error: SupabaseLikeError | null | undefined) {
   return message.includes("does not exist") || message.includes("column");
 }
 
+function isUniqueViolationError(error: SupabaseLikeError | null | undefined) {
+  return error?.code === "23505";
+}
+
+function parsePhotoSubmissionOperationId(value: unknown) {
+  if (value === undefined || value === null || value === "") {
+    return {
+      provided: false,
+      valid: true,
+      value: null as string | null,
+    };
+  }
+
+  if (typeof value !== "string") {
+    return {
+      provided: true,
+      valid: false,
+      value: null as string | null,
+    };
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return {
+    provided: true,
+    valid: PHOTO_OPERATION_ID_PATTERN.test(normalized),
+    value: PHOTO_OPERATION_ID_PATTERN.test(normalized)
+      ? normalized
+      : null,
+  };
+}
+
+function isSupportedPhotoMimeType(value: unknown) {
+  return (
+    typeof value === "string" &&
+    value.trim().toLowerCase().startsWith("image/")
+  );
+}
+
+function isPhotoUploadTooLarge(size: unknown) {
+  return (
+    typeof size === "number" &&
+    Number.isFinite(size) &&
+    size > PHOTO_UPLOAD_MAX_BYTES
+  );
+}
+
+function isStorageObjectAlreadyExistsError(
+  error: SupabaseLikeError | null | undefined
+) {
+  if (!error) return false;
+
+  const status = String(error.statusCode ?? error.status ?? "");
+  const message = `${error.code ?? ""} ${error.message ?? ""}`.toLowerCase();
+  return (
+    status === "409" ||
+    message.includes("already exists") ||
+    message.includes("resource exists") ||
+    message.includes("duplicate")
+  );
+}
+
 async function parseUploadedImage(file: File): Promise<UploadedPhotoInput | null> {
   const mimeType = file.type.trim().toLowerCase();
-  if (!mimeType.startsWith("image/")) {
+  if (!isSupportedPhotoMimeType(mimeType)) {
     return null;
   }
 
@@ -96,7 +181,14 @@ function getImageFileExtension(mimeType: string) {
   return normalizedSubtype || "jpg";
 }
 
-function createStorageUploadNonce(answeredAt: string) {
+function createStorageUploadNonce(
+  answeredAt: string,
+  operationId: string | null
+) {
+  if (operationId) {
+    return operationId.toLowerCase();
+  }
+
   const normalizedTimestamp = answeredAt.replace(/[^a-zA-Z0-9_-]/g, "");
   if (normalizedTimestamp) {
     return normalizedTimestamp;
@@ -109,17 +201,18 @@ function createStorageUploadNonce(answeredAt: string) {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function buildStoragePath(
+function buildPhotoStoragePath(
   sessionId: string,
   participantId: string,
   postIndex: number,
   mimeType: string,
-  answeredAt: string
+  answeredAt: string,
+  operationId: string | null = null
 ) {
   const safeSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, "") || "session";
   const safeParticipantId = participantId.replace(/[^a-zA-Z0-9_-]/g, "") || "participant";
   const extension = getImageFileExtension(mimeType);
-  const uploadNonce = createStorageUploadNonce(answeredAt);
+  const uploadNonce = createStorageUploadNonce(answeredAt, operationId);
   return `${safeSessionId}/${safeParticipantId}/${uploadNonce}-${postIndex}.${extension}`;
 }
 
@@ -128,25 +221,59 @@ function getQuestionText(rawQuestion: unknown) {
   return asTrimmedString(rawQuestion.text);
 }
 
+function isSelfiePhotoQuestion(rawQuestion: unknown) {
+  if (!isRecord(rawQuestion)) return false;
+  return rawQuestion.isSelfie === true || rawQuestion.is_selfie === true;
+}
+
+function isActualStoredPhotoAnswer(answer: ExistingPhotoAnswerRow) {
+  return (
+    answer.is_correct === true &&
+    Boolean(asTrimmedString(answer.image_url))
+  );
+}
+
 async function uploadPhotoToStorage(
   image: UploadedPhotoInput,
   sessionId: string,
   participantId: string,
   postIndex: number,
   answeredAt: string,
+  operationId: string | null,
   adminSupabase: AdminSupabaseClient
 ) {
-  const storagePath = buildStoragePath(sessionId, participantId, postIndex, image.mimeType, answeredAt);
+  const storagePath = buildPhotoStoragePath(
+    sessionId,
+    participantId,
+    postIndex,
+    image.mimeType,
+    answeredAt,
+    operationId
+  );
   const { error: uploadError } = await adminSupabase.storage
     .from("participant-uploads")
     .upload(storagePath, image.buffer, {
       contentType: image.mimeType,
-      upsert: true,
+      upsert: operationId === null,
     });
 
-  if (uploadError) {
-    console.error("Kunne ikke uploade deltagerbillede til Storage:", uploadError);
-    return { imageUrl: null as string | null };
+  const reusedExistingObject =
+    operationId !== null &&
+    isStorageObjectAlreadyExistsError(uploadError);
+  if (uploadError && !reusedExistingObject) {
+    if (operationId) {
+      console.error("Kunne ikke uploade deltagerbillede til Storage.");
+    } else {
+      console.error(
+        "Kunne ikke uploade deltagerbillede til Storage:",
+        uploadError
+      );
+    }
+    return {
+      imageUrl: null as string | null,
+      storagePath: null as string | null,
+      createdByRequest: false,
+    };
   }
 
   const {
@@ -155,7 +282,41 @@ async function uploadPhotoToStorage(
 
   return {
     imageUrl: publicUrl || null,
+    storagePath,
+    createdByRequest: operationId !== null && !uploadError,
   };
+}
+
+function shouldRemovePhotoUploadAfterDuplicate({
+  createdByRequest,
+  uploadedImageUrl,
+  storedImageUrl,
+}: {
+  createdByRequest: boolean;
+  uploadedImageUrl: string | null;
+  storedImageUrl: string | null | undefined;
+}) {
+  return (
+    createdByRequest &&
+    Boolean(uploadedImageUrl) &&
+    uploadedImageUrl !== (storedImageUrl ?? null)
+  );
+}
+
+async function removeNewPhotoUpload(
+  storagePath: string | null,
+  createdByRequest: boolean,
+  adminSupabase: AdminSupabaseClient
+) {
+  if (!storagePath || !createdByRequest) return;
+
+  const { error } = await adminSupabase.storage
+    .from("participant-uploads")
+    .remove([storagePath]);
+
+  if (error) {
+    console.error("Kunne ikke rydde en urefereret deltagerfoto-upload.");
+  }
 }
 
 async function fetchActiveSession(
@@ -170,11 +331,56 @@ async function fetchActiveSession(
     .maybeSingle<ActiveSessionRow>();
 
   if (error) {
-    console.error("Kunne ikke validere aktiv live-session til foto-upload:", error);
-    return null;
+    console.error("Kunne ikke validere aktiv live-session til foto-upload.");
+    return { ok: false as const };
   }
 
-  return data ?? null;
+  return {
+    ok: true as const,
+    session: data ?? null,
+  };
+}
+
+async function fetchAnsweredPhotoProgress(
+  sessionId: string,
+  participantId: string,
+  adminSupabase: AdminSupabaseClient
+) {
+  for (const selectClause of [
+    "question_index,post_index",
+    "question_index",
+    "post_index",
+  ] as const) {
+    const { data, error } = await adminSupabase
+      .from("answers")
+      .select(selectClause)
+      .eq("session_id", sessionId)
+      .eq("participant_id", participantId);
+
+    if (error) {
+      if (isMissingColumnError(error)) {
+        continue;
+      }
+
+      throw new Error(
+        error.message ?? "Kunne ikke hente eksisterende foto-progression."
+      );
+    }
+
+    const answeredPostIndexes = new Set<number>();
+    for (const row of (Array.isArray(data) ? data : []) as PhotoProgressRow[]) {
+      const answeredPostIndex = getAnsweredPostIndex(
+        row as Record<string, unknown>
+      );
+      if (answeredPostIndex !== null && answeredPostIndex >= 0) {
+        answeredPostIndexes.add(answeredPostIndex);
+      }
+    }
+
+    return answeredPostIndexes;
+  }
+
+  return null;
 }
 
 async function findExistingPhotoAnswer(
@@ -182,32 +388,75 @@ async function findExistingPhotoAnswer(
   studentName: string,
   participantId: string,
   postIndex: number,
-  adminSupabase: AdminSupabaseClient
+  adminSupabase: AdminSupabaseClient,
+  lookupMode: "standard" | "legacy"
 ): Promise<ExistingPhotoAnswerRow | null> {
   const normalizedStudentName = asTrimmedString(studentName);
-  const lookupCandidates = [
-    normalizedStudentName ? { column: "student_name" as const, value: normalizedStudentName } : null,
-    !normalizedStudentName && asTrimmedString(participantId)
-      ? { column: "participant_id" as const, value: asTrimmedString(participantId) }
-      : null,
-  ].filter((candidate): candidate is { column: "student_name" | "participant_id"; value: string } =>
-    candidate !== null
+  const normalizedParticipantId = asTrimmedString(participantId);
+  const lookupCandidates =
+    lookupMode === "standard"
+      ? [
+          normalizedParticipantId
+            ? {
+                column: "participant_id" as const,
+                value: normalizedParticipantId,
+                legacyOnly: false,
+              }
+            : null,
+          normalizedStudentName
+            ? {
+                column: "student_name" as const,
+                value: normalizedStudentName,
+                legacyOnly: true,
+              }
+            : null,
+        ]
+      : [
+          normalizedStudentName
+            ? {
+                column: "student_name" as const,
+                value: normalizedStudentName,
+                legacyOnly: false,
+              }
+            : null,
+          !normalizedStudentName && normalizedParticipantId
+            ? {
+                column: "participant_id" as const,
+                value: normalizedParticipantId,
+                legacyOnly: false,
+              }
+            : null,
+        ];
+  const normalizedLookupCandidates = lookupCandidates.filter(
+    (
+      candidate
+    ): candidate is {
+      column: "student_name" | "participant_id";
+      value: string;
+      legacyOnly: boolean;
+    } => candidate !== null
   );
 
-  if (lookupCandidates.length === 0) {
+  if (normalizedLookupCandidates.length === 0) {
     return null;
   }
 
-  for (const lookup of lookupCandidates) {
+  for (const lookup of normalizedLookupCandidates) {
     for (const column of ["question_index", "post_index"] as const) {
       const value = column === "question_index" ? postIndex : postIndex + 1;
-      const { data, error } = await adminSupabase
+      let query = adminSupabase
         .from("answers")
-        .select("id,image_url,awarded_points,is_correct")
+        .select("id,participant_id,image_url,awarded_points,is_correct")
         .eq("session_id", sessionId)
         .eq(lookup.column, lookup.value)
-        .eq(column, value)
-        .maybeSingle<ExistingPhotoAnswerRow>();
+        .eq(column, value);
+
+      if (lookup.legacyOnly) {
+        query = query.is("participant_id", null);
+      }
+
+      const { data, error } =
+        await query.maybeSingle<ExistingPhotoAnswerRow>();
 
       if (error) {
         if (isMissingColumnError(error)) {
@@ -224,6 +473,133 @@ async function findExistingPhotoAnswer(
   }
 
   return null;
+}
+
+function getExistingPhotoAnswerPostIndex(
+  answer: ExistingPhotoAnswerRow
+) {
+  const questionIndex = Number(answer.question_index);
+  if (Number.isInteger(questionIndex) && questionIndex >= 0) {
+    return questionIndex;
+  }
+
+  const postIndex = Number(answer.post_index);
+  if (Number.isInteger(postIndex) && postIndex >= 1) {
+    return postIndex - 1;
+  }
+
+  return null;
+}
+
+async function findExistingPhotoAnswerByOperationId(
+  sessionId: string,
+  participantId: string,
+  operationId: string,
+  adminSupabase: AdminSupabaseClient
+): Promise<ExistingPhotoAnswerRow | null> {
+  const { data, error } = await adminSupabase
+    .from("answers")
+    .select(
+      "id,participant_id,image_url,awarded_points,is_correct,post_index,question_index,client_operation_id"
+    )
+    .eq("session_id", sessionId)
+    .eq("participant_id", participantId)
+    .eq("client_operation_id", operationId)
+    .limit(1);
+
+  if (error) {
+    if (isMissingColumnError(error)) {
+      return null;
+    }
+
+    throw new Error(
+      error.message ?? "Kunne ikke tjekke eksisterende foto-operation."
+    );
+  }
+
+  return Array.isArray(data)
+    ? (data as ExistingPhotoAnswerRow[])[0] ?? null
+    : null;
+}
+
+function createPhotoSubmissionConflictResponse(
+  code: "PHOTO_OPERATION_CONFLICT" | "PHOTO_SUBMISSION_CONFLICT",
+  error: string
+) {
+  return NextResponse.json(
+    {
+      error,
+      code,
+    },
+    { status: 409 }
+  );
+}
+
+async function validateStandardPhotoProgress({
+  sessionId,
+  participantId,
+  postIndex,
+  startOffset,
+  run,
+  adminSupabase,
+}: {
+  sessionId: string;
+  participantId: string;
+  postIndex: number;
+  startOffset: number | string | null;
+  run: ResolvedPhotoRun;
+  adminSupabase: AdminSupabaseClient;
+}) {
+  const answeredPostIndexes = await fetchAnsweredPhotoProgress(
+    sessionId,
+    participantId,
+    adminSupabase
+  );
+  if (answeredPostIndexes === null) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          error:
+            "Foto-aflevering understottes ikke med den nuvaerende answers-struktur.",
+          code: "ANSWERS_SCHEMA_INCOMPATIBLE",
+        },
+        { status: 503 }
+      ),
+    };
+  }
+
+  const routeOrder = getServerRouteOrder(
+    run.questions.length,
+    startOffset ?? 0,
+    supportsServerStaggeredStart(
+      run.raceType ?? run.race_type,
+      run.sessionPostOrderMode,
+      run.routeVersion
+    )
+  );
+  const expectedPostIndex =
+    routeOrder.find(
+      (candidatePostIndex) => !answeredPostIndexes.has(candidatePostIndex)
+    ) ?? null;
+
+  if (expectedPostIndex !== postIndex) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          error: "Foto-posten er ikke laengere synkron med loebet.",
+          code: RUN_OUT_OF_SYNC_ERROR_CODE,
+          postIndex,
+          expectedPostIndex,
+          questionCount: run.questions.length,
+        },
+        { status: 409 }
+      ),
+    };
+  }
+
+  return { ok: true as const };
 }
 
 async function maybeStampRunStartedAt(
@@ -266,6 +642,84 @@ async function maybeStampRunStartedAt(
   }
 }
 
+async function createPhotoDuplicateResponse({
+  existingAnswer,
+  sessionId,
+  participantId,
+  postIndex,
+  run,
+  adminSupabase,
+  answeredAt,
+}: {
+  existingAnswer: ExistingPhotoAnswerRow;
+  sessionId: string;
+  participantId: string;
+  postIndex: number;
+  run: ResolvedPhotoRun;
+  adminSupabase: AdminSupabaseClient;
+  answeredAt: string;
+}) {
+  await maybeStampRunStartedAt(
+    sessionId,
+    participantId,
+    postIndex,
+    run.raceType ?? run.race_type,
+    run.sessionPostOrderMode,
+    run.routeVersion,
+    run.questions.length,
+    adminSupabase,
+    answeredAt
+  );
+
+  const existingAwardedPoints = Number(existingAnswer.awarded_points);
+  const rawQuestion = run.questions[postIndex];
+  const responseAwardedPoints = Number.isFinite(existingAwardedPoints)
+    ? Math.max(0, Math.round(existingAwardedPoints))
+    : rawQuestion
+      ? getAwardedPoints(rawQuestion, true)
+      : 0;
+
+  return NextResponse.json({
+    storedAnswer: true,
+    duplicate: true,
+    storedIsCorrect: true,
+    awardedPoints: responseAwardedPoints,
+    imageUrl: existingAnswer.image_url ?? null,
+    message: "Billedet er uploadet til laererens foto-stroem.",
+    isLocked: true,
+  });
+}
+
+async function insertPhotoAnswerWithOperationFallback({
+  payload,
+  operationId,
+  adminSupabase,
+}: {
+  payload: Record<string, unknown>;
+  operationId: string | null;
+  adminSupabase: AdminSupabaseClient;
+}) {
+  const operationPayload = operationId
+    ? {
+        ...payload,
+        client_operation_id: operationId,
+      }
+    : payload;
+  const firstResult = await adminSupabase
+    .from("answers")
+    .insert(operationPayload);
+
+  if (
+    operationId &&
+    firstResult.error &&
+    isMissingColumnError(firstResult.error)
+  ) {
+    return adminSupabase.from("answers").insert(payload);
+  }
+
+  return firstResult;
+}
+
 export async function POST(request: Request) {
   let formData: FormData;
   const requestPath = new URL(request.url).pathname;
@@ -282,14 +736,10 @@ export async function POST(request: Request) {
     const claimedParticipantId = asTrimmedString(formData.get("participantId"));
     const answeredAt = asTrimmedString(formData.get("answeredAt")) || new Date().toISOString();
     const postIndex = asPostIndex(formData.get("postIndex"));
+    const operationIdEntry = formData.get("operationId");
 
     if (!(imageEntry instanceof File) || postIndex === null) {
       return NextResponse.json({ error: "Billede eller postdata mangler." }, { status: 400 });
-    }
-
-    const image = await parseUploadedImage(imageEntry);
-    if (!image) {
-      return NextResponse.json({ error: "Billedfilen er ugyldig." }, { status: 400 });
     }
 
     const adminSupabase = createAdminClient();
@@ -306,16 +756,110 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: participantContext.error }, { status: participantContext.status });
     }
 
-    const { participantId, sessionId, studentName } = participantContext.data;
-    const activeSession = await fetchActiveSession(sessionId, adminSupabase);
+    const { participantId, sessionId, studentName, startOffset } =
+      participantContext.data;
+    const activeSessionLookup = await fetchActiveSession(
+      sessionId,
+      adminSupabase
+    );
+    if (!activeSessionLookup.ok) {
+      return NextResponse.json(
+        {
+          error: "Sessionens status kunne ikke kontrolleres sikkert.",
+          code: "SESSION_LOOKUP_FAILED",
+        },
+        { status: 503 }
+      );
+    }
+
+    const activeSession = activeSessionLookup.session;
     if (!activeSession?.id) {
+      const closedOperation = parsePhotoSubmissionOperationId(operationIdEntry);
+      if (closedOperation.valid && closedOperation.value) {
+        const closedRunResult = await fetchRunForSession(sessionId);
+        const closedRun =
+          closedRunResult && Array.isArray(closedRunResult.questions)
+            ? (closedRunResult as ResolvedPhotoRun)
+            : null;
+        const closedQuestion = closedRun?.questions[postIndex];
+        const isClosedRobustStandardPhoto =
+          Boolean(closedRun) &&
+          usesStandardStudentLocationExperience(
+            closedRun?.raceType ?? closedRun?.race_type
+          ) &&
+          !isSelfiePhotoQuestion(closedQuestion);
+
+        if (closedRun && isClosedRobustStandardPhoto) {
+          const existingOperation =
+            await findExistingPhotoAnswerByOperationId(
+              sessionId,
+              participantId,
+              closedOperation.value,
+              adminSupabase
+            );
+          if (
+            existingOperation &&
+            getExistingPhotoAnswerPostIndex(existingOperation) !== postIndex
+          ) {
+            return createPhotoSubmissionConflictResponse(
+              "PHOTO_OPERATION_CONFLICT",
+              "Billedets afleverings-id tilhorer en anden post."
+            );
+          }
+
+          const existingClosedAnswer =
+            existingOperation ??
+            (await findExistingPhotoAnswer(
+              sessionId,
+              studentName,
+              participantId,
+              postIndex,
+              adminSupabase,
+              "standard"
+            ));
+          if (existingClosedAnswer) {
+            if (!isActualStoredPhotoAnswer(existingClosedAnswer)) {
+              return createPhotoSubmissionConflictResponse(
+                "PHOTO_SUBMISSION_CONFLICT",
+                "Posten er allerede afsluttet med en anden aflevering."
+              );
+            }
+
+            return createPhotoDuplicateResponse({
+              existingAnswer: existingClosedAnswer,
+              sessionId,
+              participantId,
+              postIndex,
+              run: closedRun,
+              adminSupabase,
+              answeredAt,
+            });
+          }
+
+          return NextResponse.json(
+            {
+              error: "Sessionen er ikke aktiv laengere.",
+              code: "SESSION_CLOSED",
+            },
+            { status: 410 }
+          );
+        }
+      }
+
       return NextResponse.json({ error: "Sessionen er ikke aktiv laengere." }, { status: 404 });
     }
 
-    const run = await fetchRunForSession(sessionId);
-    if (!run || !Array.isArray(run.questions)) {
-      return NextResponse.json({ error: "Foto-posten kunne ikke findes." }, { status: 404 });
+    const runResult = await fetchRunForSession(sessionId);
+    if (!runResult || !Array.isArray(runResult.questions)) {
+      return NextResponse.json(
+        {
+          error: "Foto-posten kunne ikke findes.",
+          code: "POST_NOT_FOUND",
+        },
+        { status: 404 }
+      );
     }
+    const run = runResult as ResolvedPhotoRun;
 
     const questionCount = run.questions.length;
     if (postIndex >= questionCount) {
@@ -343,16 +887,112 @@ export async function POST(request: Request) {
       );
     }
 
-    const existingAnswer = await findExistingPhotoAnswer(
+    const isStandardStudentSubmission =
+      usesStandardStudentLocationExperience(
+        run.raceType ?? run.race_type
+      );
+    const isSelfiePhotoTask = isSelfiePhotoQuestion(rawQuestion);
+    const parsedOperationId =
+      isStandardStudentSubmission && !isSelfiePhotoTask
+      ? parsePhotoSubmissionOperationId(operationIdEntry)
+      : {
+          provided: false,
+          valid: true,
+          value: null as string | null,
+        };
+
+    if (!parsedOperationId.valid) {
+      return NextResponse.json(
+        {
+          error: "Billedets afleverings-id er ugyldigt.",
+          code: "INVALID_OPERATION_ID",
+        },
+        { status: 400 }
+      );
+    }
+
+    const operationId = parsedOperationId.value;
+    const usesRobustStandardPhotoDelivery =
+      isStandardStudentSubmission &&
+      !isSelfiePhotoTask &&
+      operationId !== null;
+    if (operationId && isPhotoUploadTooLarge(imageEntry.size)) {
+      return NextResponse.json(
+        {
+          error: "Billedet er for stort til at blive sendt.",
+          code: "PHOTO_TOO_LARGE",
+          maxBytes: PHOTO_UPLOAD_MAX_BYTES,
+        },
+        { status: 413 }
+      );
+    }
+
+    const image = await parseUploadedImage(imageEntry);
+    if (!image) {
+      return NextResponse.json(
+        { error: "Billedfilen er ugyldig." },
+        { status: 400 }
+      );
+    }
+
+    let existingAnswer: ExistingPhotoAnswerRow | null = null;
+    if (operationId) {
+      const existingOperation =
+        await findExistingPhotoAnswerByOperationId(
+          sessionId,
+          participantId,
+          operationId,
+          adminSupabase
+        );
+      if (
+        existingOperation &&
+        getExistingPhotoAnswerPostIndex(existingOperation) !== postIndex
+      ) {
+        return NextResponse.json(
+          {
+            error: "Billedets afleverings-id tilhører en anden post.",
+            code: "PHOTO_OPERATION_CONFLICT",
+          },
+          { status: 409 }
+        );
+      }
+
+      existingAnswer = existingOperation;
+    }
+
+    existingAnswer ??= await findExistingPhotoAnswer(
       sessionId,
       studentName,
       participantId,
       postIndex,
-      adminSupabase
+      adminSupabase,
+      usesRobustStandardPhotoDelivery ? "standard" : "legacy"
     );
     const awardedPoints = getAwardedPoints(rawQuestion, true);
 
     if (existingAnswer) {
+      if (
+        usesRobustStandardPhotoDelivery &&
+        !isActualStoredPhotoAnswer(existingAnswer)
+      ) {
+        return createPhotoSubmissionConflictResponse(
+          "PHOTO_SUBMISSION_CONFLICT",
+          "Posten er allerede afsluttet med en anden aflevering."
+        );
+      }
+
+      if (usesRobustStandardPhotoDelivery) {
+        return createPhotoDuplicateResponse({
+          existingAnswer,
+          sessionId,
+          participantId,
+          postIndex,
+          run,
+          adminSupabase,
+          answeredAt,
+        });
+      }
+
       await maybeStampRunStartedAt(
         sessionId,
         participantId,
@@ -371,11 +1011,26 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         storedAnswer: true,
+        duplicate: true,
         awardedPoints: responseAwardedPoints,
         imageUrl: existingAnswer.image_url ?? null,
         message: "Billedet er uploadet til laererens foto-stroem.",
         isLocked: true,
       });
+    }
+
+    if (usesRobustStandardPhotoDelivery) {
+      const progressResult = await validateStandardPhotoProgress({
+        sessionId,
+        participantId,
+        postIndex,
+        startOffset,
+        run,
+        adminSupabase,
+      });
+      if (!progressResult.ok) {
+        return progressResult.response;
+      }
     }
 
     const uploadedPhoto = await uploadPhotoToStorage(
@@ -384,14 +1039,22 @@ export async function POST(request: Request) {
       participantId,
       postIndex,
       answeredAt,
+      operationId,
       adminSupabase
     );
 
     if (!uploadedPhoto.imageUrl) {
+      if (!operationId) {
+        await removeNewPhotoUpload(
+          uploadedPhoto.storagePath,
+          uploadedPhoto.createdByRequest,
+          adminSupabase
+        );
+      }
       return NextResponse.json({ error: "Billedet kunne ikke uploades." }, { status: 500 });
     }
 
-    const { error } = await adminSupabase.from("answers").insert({
+    const photoAnswerPayload: Record<string, unknown> = {
       session_id: sessionId,
       participant_id: participantId,
       student_name: studentName.trim(),
@@ -405,9 +1068,112 @@ export async function POST(request: Request) {
       image_url: uploadedPhoto.imageUrl,
       answered_at: answeredAt,
       created_at: answeredAt,
+    };
+    const { error } = await insertPhotoAnswerWithOperationFallback({
+      payload: photoAnswerPayload,
+      operationId,
+      adminSupabase,
     });
 
+    if (error && isUniqueViolationError(error)) {
+      const existingAfterConflict = await findExistingPhotoAnswer(
+        sessionId,
+        studentName,
+        participantId,
+        postIndex,
+        adminSupabase,
+        usesRobustStandardPhotoDelivery ? "standard" : "legacy"
+      );
+
+      if (existingAfterConflict) {
+        if (
+          shouldRemovePhotoUploadAfterDuplicate({
+            createdByRequest: uploadedPhoto.createdByRequest,
+            uploadedImageUrl: uploadedPhoto.imageUrl,
+            storedImageUrl: existingAfterConflict.image_url,
+          })
+        ) {
+          await removeNewPhotoUpload(
+            uploadedPhoto.storagePath,
+            uploadedPhoto.createdByRequest,
+            adminSupabase
+          );
+        }
+
+        if (
+          usesRobustStandardPhotoDelivery &&
+          !isActualStoredPhotoAnswer(existingAfterConflict)
+        ) {
+          return createPhotoSubmissionConflictResponse(
+            "PHOTO_SUBMISSION_CONFLICT",
+            "Posten blev afsluttet med en anden aflevering."
+          );
+        }
+
+        if (usesRobustStandardPhotoDelivery) {
+          return createPhotoDuplicateResponse({
+            existingAnswer: existingAfterConflict,
+            sessionId,
+            participantId,
+            postIndex,
+            run,
+            adminSupabase,
+            answeredAt,
+          });
+        }
+
+        await maybeStampRunStartedAt(
+          sessionId,
+          participantId,
+          postIndex,
+          run.raceType ?? run.race_type,
+          run.sessionPostOrderMode,
+          run.routeVersion,
+          run.questions.length,
+          adminSupabase,
+          answeredAt
+        );
+
+        const existingAwardedPoints = Number(
+          existingAfterConflict.awarded_points
+        );
+        const responseAwardedPoints = Number.isFinite(existingAwardedPoints)
+          ? Math.max(0, Math.round(existingAwardedPoints))
+          : awardedPoints;
+
+        return NextResponse.json({
+          storedAnswer: true,
+          duplicate: true,
+          awardedPoints: responseAwardedPoints,
+          imageUrl: existingAfterConflict.image_url ?? null,
+          message: "Billedet er uploadet til laererens foto-stroem.",
+          isLocked: true,
+        });
+      }
+
+      await removeNewPhotoUpload(
+        uploadedPhoto.storagePath,
+        uploadedPhoto.createdByRequest,
+        adminSupabase
+      );
+
+      return NextResponse.json(
+        {
+          error: "Billedet kolliderede med en anden aflevering.",
+          code: "PHOTO_SUBMISSION_CONFLICT",
+        },
+        { status: 409 }
+      );
+    }
+
     if (error) {
+      if (!operationId) {
+        await removeNewPhotoUpload(
+          uploadedPhoto.storagePath,
+          uploadedPhoto.createdByRequest,
+          adminSupabase
+        );
+      }
       console.error("Kunne ikke gemme foto-upload i answers:", error);
       await logHandledServerError({
         route: "/api/play/submit-photo",
@@ -436,6 +1202,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       storedAnswer: true,
+      ...(usesRobustStandardPhotoDelivery
+        ? { storedIsCorrect: true }
+        : {}),
       awardedPoints,
       imageUrl: uploadedPhoto.imageUrl,
       message: "Billedet er uploadet til laererens foto-stroem.",

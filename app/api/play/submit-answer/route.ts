@@ -6,9 +6,12 @@ import {
   getAnsweredPostIndex,
   getCorrectIndex,
   getFirstRoutePostIndexForParticipant,
+  getServerRouteOrder,
   isZoneKrigRaceType,
   resolveQuestionVariant,
+  supportsServerStaggeredStart,
 } from "@/app/api/play/_shared";
+import { usesStandardStudentLocationExperience } from "@/lib/location/studentLocationState";
 import { getAwardedPoints } from "@/utils/questionPoints";
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
@@ -20,7 +23,106 @@ export const maxDuration = 60;
 
 type SubmitAnswerPayload = {
   payloads?: unknown;
+  operationId?: unknown;
 };
+
+const STANDARD_SUBMISSION_SESSION_STATUSES = new Set(["running", "active", "paused"]);
+const CLIENT_OPERATION_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function parseClientOperationId(value: unknown) {
+  if (value === undefined || value === null || value === "") {
+    return {
+      provided: false,
+      valid: true,
+      value: null as string | null,
+    };
+  }
+
+  if (typeof value !== "string") {
+    return {
+      provided: true,
+      valid: false,
+      value: null as string | null,
+    };
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return {
+    provided: true,
+    valid: CLIENT_OPERATION_ID_PATTERN.test(normalized),
+    value: CLIENT_OPERATION_ID_PATTERN.test(normalized) ? normalized : null,
+  };
+}
+
+type StandardPayloadPostIndex =
+  | { kind: "missing" }
+  | { kind: "invalid" }
+  | { kind: "valid"; postIndex: number };
+
+function hasPayloadIndexValue(value: unknown) {
+  return !(
+    value === undefined ||
+    value === null ||
+    (typeof value === "string" && value.trim() === "")
+  );
+}
+
+function parsePayloadIndexValue(value: unknown) {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value.trim())
+        : Number.NaN;
+
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function getStrictStandardPayloadPostIndex(
+  payload: Record<string, unknown>
+): StandardPayloadPostIndex {
+  const hasQuestionIndex = hasPayloadIndexValue(payload.question_index);
+  const hasPostIndex = hasPayloadIndexValue(payload.post_index);
+
+  if (!hasQuestionIndex && !hasPostIndex) {
+    return { kind: "missing" };
+  }
+
+  const questionIndex = hasQuestionIndex
+    ? parsePayloadIndexValue(payload.question_index)
+    : null;
+  const rawPostIndex = hasPostIndex
+    ? parsePayloadIndexValue(payload.post_index)
+    : null;
+
+  if (
+    (hasQuestionIndex && questionIndex === null) ||
+    (hasPostIndex && rawPostIndex === null)
+  ) {
+    return { kind: "invalid" };
+  }
+
+  const normalizedPostIndex =
+    rawPostIndex === null
+      ? null
+      : rawPostIndex >= 1
+        ? rawPostIndex - 1
+        : rawPostIndex;
+
+  if (
+    questionIndex !== null &&
+    normalizedPostIndex !== null &&
+    questionIndex !== normalizedPostIndex
+  ) {
+    return { kind: "invalid" };
+  }
+
+  return {
+    kind: "valid",
+    postIndex: questionIndex ?? normalizedPostIndex ?? 0,
+  };
+}
 
 function isArrayOfRecords(value: unknown): value is Record<string, unknown>[] {
   return Array.isArray(value) && value.every((v) => typeof v === "object" && v !== null && !Array.isArray(v));
@@ -61,10 +163,15 @@ type ExistingAnswerRow = {
   id: string;
   awarded_points?: number | string | null;
   is_correct?: boolean | null;
+  post_index?: number | string | null;
+  question_index?: number | string | null;
+  client_operation_id?: string | null;
 };
 
 type InsertedAnswerRow = {
   id: string;
+  awarded_points?: number | string | null;
+  is_correct?: boolean | null;
 };
 
 type ServerCorrectnessResult =
@@ -76,7 +183,8 @@ type ServerCorrectnessResult =
 
 async function findExistingAnswerRecord(
   payload: Record<string, unknown>,
-  admin: NonNullable<ReturnType<typeof createAdminClient>>
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  lookupPolicy: "legacy" | "standard" = "legacy"
 ): Promise<ExistingAnswerRow | null> {
   const sessionId = asTrimmedString(payload.session_id);
   const studentName = asTrimmedString(payload.student_name);
@@ -87,11 +195,48 @@ async function findExistingAnswerRecord(
     return null;
   }
 
-  const lookupCandidates = [
-    studentName ? { column: "student_name" as const, value: studentName } : null,
-    !studentName && participantId ? { column: "participant_id" as const, value: participantId } : null,
-  ].filter((candidate): candidate is { column: "student_name" | "participant_id"; value: string } =>
-    candidate !== null
+  const lookupCandidates = (
+    lookupPolicy === "standard"
+      ? [
+          participantId
+            ? {
+                column: "participant_id" as const,
+                value: participantId,
+                legacyOnly: false,
+              }
+            : null,
+          studentName
+            ? {
+                column: "student_name" as const,
+                value: studentName,
+                legacyOnly: Boolean(participantId),
+              }
+            : null,
+        ]
+      : [
+          studentName
+            ? {
+                column: "student_name" as const,
+                value: studentName,
+                legacyOnly: false,
+              }
+            : null,
+          !studentName && participantId
+            ? {
+                column: "participant_id" as const,
+                value: participantId,
+                legacyOnly: false,
+              }
+            : null,
+        ]
+  ).filter(
+    (
+      candidate
+    ): candidate is {
+      column: "student_name" | "participant_id";
+      value: string;
+      legacyOnly: boolean;
+    } => candidate !== null
   );
 
   if (lookupCandidates.length === 0) {
@@ -101,13 +246,18 @@ async function findExistingAnswerRecord(
   for (const lookup of lookupCandidates) {
     for (const column of ["question_index", "post_index"] as const) {
       const value = column === "question_index" ? answeredPostIndex : answeredPostIndex + 1;
-      const { data, error } = await admin
+      let query = admin
         .from("answers")
         .select("id,is_correct,awarded_points")
         .eq("session_id", sessionId)
         .eq(lookup.column, lookup.value)
-        .eq(column, value)
-        .limit(1);
+        .eq(column, value);
+
+      if (lookup.legacyOnly) {
+        query = query.is("participant_id", null);
+      }
+
+      const { data, error } = await query.limit(1);
 
       if (error) {
         if (isMissingColumnError(error)) {
@@ -125,6 +275,33 @@ async function findExistingAnswerRecord(
   }
 
   return null;
+}
+
+async function findExistingAnswerByOperationId(
+  sessionId: string,
+  participantId: string,
+  operationId: string,
+  admin: NonNullable<ReturnType<typeof createAdminClient>>
+): Promise<ExistingAnswerRow | null> {
+  const { data, error } = await admin
+    .from("answers")
+    .select(
+      "id,is_correct,awarded_points,post_index,question_index,client_operation_id"
+    )
+    .eq("session_id", sessionId)
+    .eq("participant_id", participantId)
+    .eq("client_operation_id", operationId)
+    .limit(1);
+
+  if (error) {
+    if (isMissingColumnError(error)) {
+      return null;
+    }
+
+    throw new Error(error.message ?? "Kunne ikke tjekke eksisterende operation.");
+  }
+
+  return Array.isArray(data) ? (data as ExistingAnswerRow[])[0] ?? null : null;
 }
 
 async function maybeStampRunStartedAt(
@@ -190,6 +367,17 @@ function isMissingColumnError(
   return message.includes("does not exist") || message.includes("column");
 }
 
+function isUniqueViolationError(
+  error:
+    | {
+        code?: unknown;
+      }
+    | null
+    | undefined
+) {
+  return error?.code === "23505";
+}
+
 type CaptureZoneRpcRow = {
   zone_id?: string | null;
   owner_team_id?: string | null;
@@ -231,6 +419,160 @@ async function getRunForSessionCached(sessionId: string, runCache: RunCache) {
   }
 
   return runCache.get(sessionId) ?? null;
+}
+
+type StandardAnswerProgressRow = {
+  post_index?: number | string | null;
+  question_index?: number | string | null;
+};
+
+type StandardSubmissionSafetyResult =
+  | {
+      ok: true;
+    }
+  | {
+      ok: false;
+      status: number;
+      code:
+        | "SESSION_CLOSED"
+        | "POST_NOT_FOUND"
+        | "PROGRESS_MISMATCH"
+        | "ANSWERS_SCHEMA_INCOMPATIBLE";
+      error: string;
+      expectedPostIndex?: number | null;
+    };
+
+async function fetchStandardAnsweredPostIndexes(
+  sessionId: string,
+  participantId: string,
+  admin: NonNullable<ReturnType<typeof createAdminClient>>
+) {
+  for (const selectClause of [
+    "question_index,post_index",
+    "question_index",
+    "post_index",
+  ] as const) {
+    const { data, error } = await admin
+      .from("answers")
+      .select(selectClause)
+      .eq("session_id", sessionId)
+      .eq("participant_id", participantId);
+
+    if (error) {
+      if (isMissingColumnError(error)) {
+        continue;
+      }
+
+      throw new Error(error.message ?? "Kunne ikke hente eksisterende svar.");
+    }
+
+    const answeredPostIndexes = new Set<number>();
+    for (const row of (Array.isArray(data) ? data : []) as StandardAnswerProgressRow[]) {
+      const postIndex = getAnsweredPostIndex(row as Record<string, unknown>);
+      if (postIndex !== null) {
+        answeredPostIndexes.add(postIndex);
+      }
+    }
+
+    return answeredPostIndexes;
+  }
+
+  return null;
+}
+
+async function validateStandardSubmissionSafety({
+  sessionId,
+  participantId,
+  postIndex,
+  startOffset,
+  run,
+  admin,
+}: {
+  sessionId: string;
+  participantId: string;
+  postIndex: number;
+  startOffset: number | string | null;
+  run: Awaited<ReturnType<typeof fetchRunForSession>>;
+  admin: NonNullable<ReturnType<typeof createAdminClient>>;
+}): Promise<StandardSubmissionSafetyResult> {
+  const { data: sessionRow, error: sessionError } = await admin
+    .from("live_sessions")
+    .select("status")
+    .eq("id", sessionId)
+    .maybeSingle<{ status?: string | null }>();
+
+  if (sessionError) {
+    throw new Error(sessionError.message ?? "Kunne ikke hente sessionstatus.");
+  }
+
+  const sessionStatus = asTrimmedString(sessionRow?.status).toLocaleLowerCase("da-DK");
+  if (!STANDARD_SUBMISSION_SESSION_STATUSES.has(sessionStatus)) {
+    return {
+      ok: false,
+      status: 410,
+      code: "SESSION_CLOSED",
+      error: "Løbet er afsluttet. Svaret kan ikke længere afleveres.",
+    };
+  }
+
+  const questionCount = Array.isArray(run?.questions) ? run.questions.length : 0;
+  if (questionCount <= 0 || postIndex < 0 || postIndex >= questionCount) {
+    return {
+      ok: false,
+      status: 404,
+      code: "POST_NOT_FOUND",
+      error: "Posten kunne ikke findes.",
+    };
+  }
+
+  const answeredPostIndexes = await fetchStandardAnsweredPostIndexes(
+    sessionId,
+    participantId,
+    admin
+  );
+  if (answeredPostIndexes === null) {
+    return {
+      ok: false,
+      status: 503,
+      code: "ANSWERS_SCHEMA_INCOMPATIBLE",
+      error: "Svaraflevering understøttes ikke med den nuværende answers-struktur.",
+    };
+  }
+
+  const routeOrder = getServerRouteOrder(
+    questionCount,
+    startOffset ?? 0,
+    supportsServerStaggeredStart(
+      run?.raceType ?? run?.race_type,
+      run?.sessionPostOrderMode,
+      run?.routeVersion
+    )
+  );
+  const expectedPostIndex =
+    routeOrder.find((candidatePostIndex) => !answeredPostIndexes.has(candidatePostIndex)) ??
+    null;
+
+  if (expectedPostIndex === null) {
+    return {
+      ok: false,
+      status: 409,
+      code: "PROGRESS_MISMATCH",
+      error: "Alle poster er allerede besvaret.",
+      expectedPostIndex: null,
+    };
+  }
+
+  if (postIndex !== expectedPostIndex) {
+    return {
+      ok: false,
+      status: 409,
+      code: "PROGRESS_MISMATCH",
+      error: "Posten matcher ikke den aktuelle serverprogression.",
+      expectedPostIndex,
+    };
+  }
+
+  return { ok: true };
 }
 
 async function resolveAwardedPoints(payload: Record<string, unknown>, runCache: RunCache) {
@@ -306,6 +648,66 @@ async function resolveServerCorrectness(
     checked: true,
     isCorrect: selectedIndex === correctIndex,
   };
+}
+
+async function canonicalizeStandardAnswerPayload(
+  payload: Record<string, unknown>,
+  runCache: RunCache
+) {
+  const sessionId = asTrimmedString(payload.session_id);
+  const postIndex = getAnsweredPostIndex(payload);
+  if (!sessionId || postIndex === null) {
+    return withAwardedPoints(payload, runCache);
+  }
+
+  const run = await getRunForSessionCached(sessionId, runCache);
+  const rawQuestion =
+    Array.isArray(run?.questions) && postIndex >= 0 && postIndex < run.questions.length
+      ? run.questions[postIndex]
+      : null;
+  if (
+    resolveQuestionVariant(run?.raceType ?? run?.race_type, rawQuestion) !==
+    "quiz"
+  ) {
+    return withAwardedPoints(payload, runCache);
+  }
+
+  const serverCorrectness = await resolveServerCorrectness(payload, runCache);
+  return withAwardedPoints(
+    {
+      ...payload,
+      is_correct:
+        serverCorrectness?.checked === true && serverCorrectness.isCorrect === true,
+    },
+    runCache
+  );
+}
+
+async function createStandardDuplicateResponse(
+  payload: Record<string, unknown>,
+  existingAnswer: ExistingAnswerRow,
+  admin: NonNullable<ReturnType<typeof createAdminClient>>
+) {
+  await maybeStampRunStartedAt(payload, admin);
+
+  const existingAwardedPoints = Number(existingAnswer.awarded_points);
+  const storedIsCorrect = existingAnswer.is_correct === true;
+  const responseAwardedPoints = Number.isFinite(existingAwardedPoints)
+    ? Math.max(0, Math.round(existingAwardedPoints))
+    : 0;
+
+  return NextResponse.json({
+    inserted: true,
+    awardedPoints: responseAwardedPoints,
+    storedIsCorrect,
+    serverCorrectness: {
+      checked: true,
+      isCorrect: storedIsCorrect,
+    },
+    zoneKrigCapture: null,
+    isLocked: true,
+    duplicate: true,
+  });
 }
 
 async function resolveZoneKrigTeamId(
@@ -553,9 +955,220 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: participantContext.error }, { status: participantContext.status });
     }
 
-    const sanitizedPayloads = rawPayloads.map((payload) =>
+    let sanitizedPayloads = rawPayloads.map((payload) =>
       sanitizeAnswerPayload(payload, participantContext.data)
     );
+    let isStandardStudentSubmission = false;
+    let standardPostIndex: number | null = null;
+    let standardOperationId: string | null = null;
+
+    const run = await getRunForSessionCached(participantContext.data.sessionId, runCache);
+    const hasRequestedOperationId = Boolean(asTrimmedString(body.operationId));
+    if (!run && hasRequestedOperationId) {
+      return NextResponse.json(
+        {
+          error: "Løbet kunne ikke hentes sikkert.",
+          code: "RUN_LOOKUP_FAILED",
+        },
+        { status: 503 }
+      );
+    }
+    const rawRaceType = run?.raceType ?? run?.race_type;
+    isStandardStudentSubmission = usesStandardStudentLocationExperience(rawRaceType);
+
+    if (isStandardStudentSubmission) {
+      const parsedOperationId = parseClientOperationId(body.operationId);
+      if (!parsedOperationId.valid) {
+        return NextResponse.json(
+          {
+            error: "Ugyldigt operation-id.",
+            code: "INVALID_OPERATION_ID",
+          },
+          { status: 400 }
+        );
+      }
+      standardOperationId = parsedOperationId.value;
+
+      const indexedStandardPayloads = sanitizedPayloads.map((payload) => ({
+        payload,
+        index: getStrictStandardPayloadPostIndex(payload),
+      }));
+      if (
+        indexedStandardPayloads.some(
+          ({ index }) => index.kind === "invalid"
+        )
+      ) {
+        return NextResponse.json(
+          {
+            error: "Svarpayloads indeholder ugyldige postdata.",
+            code: "INVALID_ANSWER_PAYLOAD",
+          },
+          { status: 400 }
+        );
+      }
+
+      const submittedPostIndexes = [
+        ...new Set(
+          indexedStandardPayloads.flatMap(({ index }) =>
+            index.kind === "valid" ? [index.postIndex] : []
+          )
+        ),
+      ];
+      if (submittedPostIndexes.length !== 1) {
+        return NextResponse.json(
+          {
+            error: "Svarpayloads matcher ikke den samme post.",
+            code: "INVALID_ANSWER_PAYLOAD",
+          },
+          { status: 400 }
+        );
+      }
+
+      standardPostIndex = submittedPostIndexes[0] ?? null;
+      sanitizedPayloads = indexedStandardPayloads.flatMap(
+        ({ payload, index }) =>
+          index.kind === "valid" &&
+          index.postIndex === standardPostIndex
+            ? [payload]
+            : []
+      );
+      const standardQuestion =
+        standardPostIndex !== null &&
+        Array.isArray(run?.questions) &&
+        standardPostIndex >= 0 &&
+        standardPostIndex < run.questions.length
+          ? run.questions[standardPostIndex]
+          : null;
+      if (!standardQuestion || standardPostIndex === null) {
+        return NextResponse.json(
+          {
+            error: "Posten kunne ikke findes.",
+            code: "POST_NOT_FOUND",
+          },
+          { status: 404 }
+        );
+      }
+
+      const standardVariant = resolveQuestionVariant(
+        rawRaceType,
+        standardQuestion
+      );
+      if (standardVariant === "photo") {
+        return NextResponse.json(
+          {
+            error: "Foto-poster skal afleveres som et billede.",
+            code: "PHOTO_POST_REQUIRES_PHOTO_SUBMISSION",
+          },
+          { status: 400 }
+        );
+      }
+      if (standardVariant !== "quiz" && standardOperationId) {
+        return NextResponse.json(
+          {
+            error: "Denne posttype understøtter ikke almindelig svaraflevering.",
+            code: "UNSUPPORTED_ANSWER_VARIANT",
+          },
+          { status: 400 }
+        );
+      }
+
+      sanitizedPayloads = await Promise.all(
+        sanitizedPayloads.map((payload) =>
+          canonicalizeStandardAnswerPayload(payload, runCache)
+        )
+      );
+      if (standardOperationId) {
+        sanitizedPayloads = sanitizedPayloads.flatMap((payload) => {
+          const operationPayload = {
+            ...payload,
+            client_operation_id: standardOperationId,
+          };
+          const legacyPayload: Record<string, unknown> = { ...operationPayload };
+          delete legacyPayload.client_operation_id;
+          return [operationPayload, legacyPayload];
+        });
+      }
+
+      const primaryPayload =
+        sanitizedPayloads.find(
+          (payload) =>
+            getStrictStandardPayloadPostIndex(payload).kind === "valid"
+        ) ?? null;
+      if (!primaryPayload || standardPostIndex === null) {
+        return NextResponse.json(
+          {
+            error: "Svarposten mangler.",
+            code: "INVALID_ANSWER_PAYLOAD",
+          },
+          { status: 400 }
+        );
+      }
+
+      const enrichedPrimaryPayload = await withAwardedPoints(primaryPayload, runCache);
+
+      if (standardOperationId) {
+        const existingOperation = await findExistingAnswerByOperationId(
+          participantContext.data.sessionId,
+          participantContext.data.participantId,
+          standardOperationId,
+          admin
+        );
+        if (existingOperation) {
+          const existingOperationPostIndex = getAnsweredPostIndex(
+            existingOperation as Record<string, unknown>
+          );
+          if (existingOperationPostIndex !== standardPostIndex) {
+            return NextResponse.json(
+              {
+                error: "Operationen tilhører en anden post.",
+                code: "PROGRESS_MISMATCH",
+              },
+              { status: 409 }
+            );
+          }
+
+          return createStandardDuplicateResponse(
+            enrichedPrimaryPayload,
+            existingOperation,
+            admin
+          );
+        }
+      }
+
+      const existingAnswer = await findExistingAnswerRecord(
+        enrichedPrimaryPayload,
+        admin,
+        "standard"
+      );
+      if (existingAnswer) {
+        return createStandardDuplicateResponse(
+          enrichedPrimaryPayload,
+          existingAnswer,
+          admin
+        );
+      }
+
+      const safetyResult = await validateStandardSubmissionSafety({
+        sessionId: participantContext.data.sessionId,
+        participantId: participantContext.data.participantId,
+        postIndex: standardPostIndex,
+        startOffset: participantContext.data.startOffset,
+        run,
+        admin,
+      });
+      if (!safetyResult.ok) {
+        return NextResponse.json(
+          {
+            error: safetyResult.error,
+            code: safetyResult.code,
+            ...("expectedPostIndex" in safetyResult
+              ? { expectedPostIndex: safetyResult.expectedPostIndex }
+              : {}),
+          },
+          { status: safetyResult.status }
+        );
+      }
+    }
 
     for (const payload of sanitizedPayloads) {
       try {
@@ -563,7 +1176,19 @@ export async function POST(request: NextRequest) {
         const serverCorrectness = await resolveServerCorrectness(enrichedPayload, runCache);
         const awardedPoints = Number(enrichedPayload.awarded_points) || 0;
         const incomingIsCorrect = isCorrectAnswerPayload(enrichedPayload);
-        const existingAnswer = await findExistingAnswerRecord(enrichedPayload, admin);
+        const existingAnswer = await findExistingAnswerRecord(
+          enrichedPayload,
+          admin,
+          isStandardStudentSubmission ? "standard" : "legacy"
+        );
+        if (existingAnswer && isStandardStudentSubmission) {
+          return createStandardDuplicateResponse(
+            enrichedPayload,
+            existingAnswer,
+            admin
+          );
+        }
+
         if (existingAnswer) {
           await maybeStampRunStartedAt(enrichedPayload, admin);
           const existingAwardedPoints = Number(existingAnswer.awarded_points);
@@ -601,10 +1226,13 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        const insertSelectClause = isStandardStudentSubmission
+          ? "id,is_correct,awarded_points"
+          : "id";
         const { data: insertedAnswer, error } = await admin
           .from("answers")
           .insert(enrichedPayload)
-          .select("id")
+          .select(insertSelectClause)
           .single<InsertedAnswerRow>();
         if (!error) {
           if (!insertedAnswer?.id) {
@@ -623,11 +1251,28 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Kunne ikke gemme svar." }, { status: 500 });
           }
 
+          const storedIsCorrect = isStandardStudentSubmission
+            ? insertedAnswer.is_correct === true
+            : incomingIsCorrect;
+          const insertedAwardedPoints = Number(
+            insertedAnswer.awarded_points
+          );
+          const storedAwardedPoints = isStandardStudentSubmission
+            ? Number.isFinite(insertedAwardedPoints)
+              ? Math.max(0, Math.round(insertedAwardedPoints))
+              : 0
+            : awardedPoints;
+
           await maybeStampRunStartedAt(enrichedPayload, admin);
-          const zoneKrigCapture = await maybeCaptureZone(enrichedPayload, admin, awardedPoints, runCache);
+          const zoneKrigCapture = await maybeCaptureZone(
+            enrichedPayload,
+            admin,
+            storedAwardedPoints,
+            runCache
+          );
           const effectiveAwardedPoints = await resolveEffectiveAwardedPointsAfterCapture({
             answerId: insertedAnswer.id,
-            awardedPoints,
+            awardedPoints: storedAwardedPoints,
             zoneKrigCapture,
             admin,
             requestPath,
@@ -645,8 +1290,64 @@ export async function POST(request: NextRequest) {
             awardedPoints: effectiveAwardedPoints,
             zoneKrigCapture,
             isLocked: true,
-            ...(serverCorrectness ? { serverCorrectness } : {}),
+            ...(isStandardStudentSubmission
+              ? {
+                  storedIsCorrect,
+                  serverCorrectness: {
+                    checked: true,
+                    isCorrect: storedIsCorrect,
+                  },
+                }
+              : serverCorrectness
+                ? { serverCorrectness }
+                : {}),
           });
+        }
+
+        if (
+          isStandardStudentSubmission &&
+          standardPostIndex !== null &&
+          isUniqueViolationError(error)
+        ) {
+          const existingOperation = standardOperationId
+            ? await findExistingAnswerByOperationId(
+                participantContext.data.sessionId,
+                participantContext.data.participantId,
+                standardOperationId,
+                admin
+              )
+            : null;
+          const existingOperationPostIndex = existingOperation
+            ? getAnsweredPostIndex(existingOperation as Record<string, unknown>)
+            : null;
+
+          if (
+            existingOperation &&
+            existingOperationPostIndex !== standardPostIndex
+          ) {
+            return NextResponse.json(
+              {
+                error: "Operationen tilhører en anden post.",
+                code: "PROGRESS_MISMATCH",
+              },
+              { status: 409 }
+            );
+          }
+
+          const duplicateAnswer =
+            existingOperation ??
+            (await findExistingAnswerRecord(
+              enrichedPayload,
+              admin,
+              "standard"
+            ));
+          if (duplicateAnswer) {
+            return createStandardDuplicateResponse(
+              enrichedPayload,
+              duplicateAnswer,
+              admin
+            );
+          }
         }
 
         if (isMissingColumnError(error)) {

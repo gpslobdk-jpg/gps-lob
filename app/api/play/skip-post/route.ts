@@ -15,12 +15,12 @@ import {
   writeTelemetryLog,
 } from "@/utils/telemetry/serverLogs";
 import { resolveParticipantRequestContext } from "@/utils/supabase/participantServer";
+import { usesStandardStudentLocationExperience } from "@/lib/location/studentLocationState";
 
 export const runtime = "edge";
 export const maxDuration = 60;
 
 const SKIPPABLE_SESSION_STATUSES = new Set(["running", "active", "paused"]);
-const EXCLUDED_RACE_MODES = new Set(["zone_krig", "stratego", "escape", "roleplay"]);
 
 type SkipPostPayload = {
   sessionId?: unknown;
@@ -45,6 +45,11 @@ type RunRow = {
 type AnswerLookupRow = {
   question_index?: number | string | null;
   post_index?: number | string | null;
+};
+
+type ExistingAnswerOutcomeRow = {
+  id?: string | null;
+  is_correct?: boolean | null;
 };
 
 type SupabaseLikeError = {
@@ -73,10 +78,6 @@ function isMissingColumnError(error: SupabaseLikeError | null | undefined) {
 
 function isUniqueViolationError(error: SupabaseLikeError | null | undefined) {
   return error?.code === "23505";
-}
-
-function isSelfieRaceType(value: unknown) {
-  return asTrimmedString(value).toLocaleLowerCase("da-DK") === "selfie";
 }
 
 function getPostType(rawQuestion: unknown) {
@@ -250,7 +251,7 @@ async function fetchAnsweredPostIndexes(
   return answeredPostIndexes;
 }
 
-async function hasExistingAnswerRecord(
+async function findExistingAnswerOutcome(
   sessionId: string,
   participantId: string,
   postIndex: number,
@@ -262,7 +263,7 @@ async function hasExistingAnswerRecord(
     const value = column === "question_index" ? postIndex : postIndex + 1;
     const { data, error } = await adminSupabase
       .from("answers")
-      .select("id")
+      .select("id,is_correct")
       .eq("session_id", sessionId)
       .eq("participant_id", participantId)
       .eq(column, value)
@@ -279,11 +280,45 @@ async function hasExistingAnswerRecord(
     hasUsableIndexColumn = true;
 
     if (Array.isArray(data) && data.length > 0) {
-      return true;
+      return (data as ExistingAnswerOutcomeRow[])[0] ?? false;
     }
   }
 
   return hasUsableIndexColumn ? false : null;
+}
+
+function isSkipEquivalentOutcome(
+  answer: ExistingAnswerOutcomeRow | false | null
+) {
+  return answer !== null && answer !== false && answer.is_correct === false;
+}
+
+function createSkipDuplicateResponse({
+  postIndex,
+  expectedPostIndex,
+}: {
+  postIndex: number;
+  expectedPostIndex: number | null;
+}) {
+  return NextResponse.json({
+    skipped: true,
+    duplicate: true,
+    storedIsCorrect: false,
+    postIndex,
+    awardedPoints: 0,
+    expectedPostIndex,
+  });
+}
+
+function createSkipOutcomeConflictResponse(expectedPostIndex: number | null) {
+  return NextResponse.json(
+    {
+      error: "Posten er allerede afsluttet med en anden aflevering.",
+      code: "SUBMISSION_CONFLICT",
+      expectedPostIndex,
+    },
+    { status: 409 }
+  );
 }
 
 async function maybeStampRunStartedAt(
@@ -445,11 +480,81 @@ export async function POST(request: NextRequest) {
         reason: "session_missing",
         postIndex: requestedPostIndex,
       });
-      return NextResponse.json({ error: "Løbet kunne ikke findes." }, { status: 404 });
+      return NextResponse.json(
+        {
+          error: "Løbet kunne ikke findes.",
+          code: "SESSION_NOT_FOUND",
+        },
+        { status: 404 }
+      );
     }
 
     const normalizedSessionStatus = asTrimmedString(sessionState.status).toLocaleLowerCase("da-DK");
     if (!SKIPPABLE_SESSION_STATUSES.has(normalizedSessionStatus)) {
+      const closedRunId = asTrimmedString(sessionState.run_id);
+      if (closedRunId) {
+        const closedRun = await fetchRunRow(closedRunId, adminSupabase);
+        const closedQuestions = Array.isArray(closedRun?.questions)
+          ? closedRun.questions
+          : [];
+        const closedRaceType = closedRun?.raceType ?? closedRun?.race_type;
+        const closedQuestion = closedQuestions[requestedPostIndex];
+        const closedVariant = resolveQuestionVariant(
+          closedRaceType,
+          closedQuestion
+        );
+        const closedPostType =
+          getPostType(closedQuestion)?.trim().toLocaleLowerCase("da-DK") ?? "";
+        const canReconcileClosedSkip =
+          closedPostType !== "intro" &&
+          (closedVariant === "quiz" || closedVariant === "photo") &&
+          !(
+            closedVariant === "photo" &&
+            getPhotoMissionConfig(closedQuestion).isSelfie
+          );
+
+        if (
+          closedRun &&
+          isStandardSkipRaceType(closedRaceType) &&
+          canReconcileClosedSkip
+        ) {
+          const existingClosedOutcome = await findExistingAnswerOutcome(
+            sessionId,
+            participantId,
+            requestedPostIndex,
+            adminSupabase
+          );
+
+          if (existingClosedOutcome) {
+            if (!isSkipEquivalentOutcome(existingClosedOutcome)) {
+              return createSkipOutcomeConflictResponse(null);
+            }
+
+            const closedRouteOrder = getServerRouteOrder(
+              closedQuestions.length,
+              startOffset ?? 0,
+              supportsServerStaggeredStart(
+                closedRaceType,
+                sessionState.post_order_mode,
+                sessionState.route_version
+              )
+            );
+            await maybeStampRunStartedAt(
+              sessionId,
+              participantId,
+              requestedPostIndex,
+              closedRouteOrder[0] ?? null,
+              adminSupabase
+            );
+
+            return createSkipDuplicateResponse({
+              postIndex: requestedPostIndex,
+              expectedPostIndex: null,
+            });
+          }
+        }
+      }
+
       await logSkipFailureTelemetry({
         participantId,
         sessionId,
@@ -457,7 +562,13 @@ export async function POST(request: NextRequest) {
         reason: "session_not_skippable",
         postIndex: requestedPostIndex,
       });
-      return NextResponse.json({ error: "Løbet kan ikke springes over i den nuværende status." }, { status: 410 });
+      return NextResponse.json(
+        {
+          error: "Løbet er afsluttet. Posten kan ikke springes over.",
+          code: "SESSION_CLOSED",
+        },
+        { status: 410 }
+      );
     }
 
     const runId = asTrimmedString(sessionState.run_id);
@@ -469,7 +580,13 @@ export async function POST(request: NextRequest) {
         reason: "run_missing",
         postIndex: requestedPostIndex,
       });
-      return NextResponse.json({ error: "Løbet kunne ikke findes." }, { status: 404 });
+      return NextResponse.json(
+        {
+          error: "Løbet kunne ikke findes.",
+          code: "SESSION_NOT_FOUND",
+        },
+        { status: 404 }
+      );
     }
 
     const run = await fetchRunRow(runId, adminSupabase);
@@ -486,31 +603,17 @@ export async function POST(request: NextRequest) {
     }
 
     const rawRaceType = run.raceType ?? run.race_type;
-    if (isSelfieRaceType(rawRaceType)) {
-      await logSkipFailureTelemetry({
-        participantId,
-        sessionId,
-        status: 403,
-        reason: "selfie_race_excluded",
-        postIndex: requestedPostIndex,
-        raceMode: "selfie",
-      });
-      return NextResponse.json({ error: "Selfie-løb understøtter ikke emergency skip i v1." }, { status: 403 });
+    if (!isStandardSkipRaceType(rawRaceType)) {
+      return NextResponse.json(
+        {
+          error: "Denne løbstype understøtter ikke at springe poster over.",
+          code: "SPECIAL_FLOW_EXCLUDED",
+        },
+        { status: 403 }
+      );
     }
 
     const raceMode = normalizeRaceMode(rawRaceType);
-    if (EXCLUDED_RACE_MODES.has(raceMode)) {
-      await logSkipFailureTelemetry({
-        participantId,
-        sessionId,
-        status: 403,
-        reason: "excluded_race_mode",
-        postIndex: requestedPostIndex,
-        raceMode,
-      });
-      return NextResponse.json({ error: "Denne løbstype understøtter ikke emergency skip." }, { status: 403 });
-    }
-
     const rawQuestion = questions[requestedPostIndex];
     const postType = getPostType(rawQuestion)?.trim().toLocaleLowerCase("da-DK") ?? "";
     if (postType === "intro") {
@@ -583,63 +686,85 @@ export async function POST(request: NextRequest) {
         sessionState.route_version
       )
     );
-    const currentUnresolvedPostIndex = routeOrder.find((postIndex) => !answeredPostIndexes.has(postIndex)) ?? null;
+    const progressDecision = resolveSkipProgressDecision({
+      routeOrder,
+      answeredPostIndexes,
+      requestedPostIndex,
+    });
 
-    if (currentUnresolvedPostIndex === null) {
-      await logSkipFailureTelemetry({
-        participantId,
+    if (progressDecision.kind === "duplicate") {
+      const existingOutcome = await findExistingAnswerOutcome(
         sessionId,
-        status: 409,
-        reason: "no_unresolved_posts",
-        postIndex: requestedPostIndex,
-        expectedPostIndex: null,
-        raceMode,
-        variant,
-      });
-      return NextResponse.json(
-        {
-          error: "Alle poster er allerede besvaret.",
-          expectedPostIndex: null,
-        },
-        { status: 409 }
+        participantId,
+        requestedPostIndex,
+        adminSupabase
       );
+      if (existingOutcome === null) {
+        return NextResponse.json(
+          {
+            error:
+              "Emergency skip understoettes ikke med den nuvaerende answers-struktur.",
+            code: "ANSWERS_SCHEMA_INCOMPATIBLE",
+          },
+          { status: 503 }
+        );
+      }
+      if (!isSkipEquivalentOutcome(existingOutcome)) {
+        return createSkipOutcomeConflictResponse(
+          progressDecision.expectedPostIndex
+        );
+      }
+
+      await maybeStampRunStartedAt(
+        sessionId,
+        participantId,
+        requestedPostIndex,
+        routeOrder[0] ?? null,
+        adminSupabase
+      );
+
+      return createSkipDuplicateResponse({
+        postIndex: requestedPostIndex,
+        expectedPostIndex: progressDecision.expectedPostIndex,
+      });
     }
 
-    if (requestedPostIndex !== currentUnresolvedPostIndex) {
+    if (progressDecision.kind === "progress_mismatch") {
       await logSkipFailureTelemetry({
         participantId,
         sessionId,
         status: 409,
-        reason: answeredPostIndexes.has(requestedPostIndex) ? "post_already_answered" : "progress_mismatch",
+        reason: "progress_mismatch",
         postIndex: requestedPostIndex,
-        expectedPostIndex: currentUnresolvedPostIndex,
+        expectedPostIndex: progressDecision.expectedPostIndex,
         raceMode,
         variant,
       });
       return NextResponse.json(
         {
           error: "Posten matcher ikke den aktuelle serverprogression.",
-          expectedPostIndex: currentUnresolvedPostIndex,
+          code: "PROGRESS_MISMATCH",
+          expectedPostIndex: progressDecision.expectedPostIndex,
         },
         { status: 409 }
       );
     }
 
-    const alreadyAnswered = await hasExistingAnswerRecord(
+    const alreadyAnsweredOutcome = await findExistingAnswerOutcome(
       sessionId,
       participantId,
       requestedPostIndex,
       adminSupabase
     );
 
-    if (alreadyAnswered === null) {
+    if (alreadyAnsweredOutcome === null) {
       await logSkipFailureTelemetry({
         participantId,
         sessionId,
         status: 503,
         reason: "duplicate_check_schema_incompatible",
         postIndex: requestedPostIndex,
-        expectedPostIndex: currentUnresolvedPostIndex,
+        expectedPostIndex: progressDecision.expectedPostIndex,
         raceMode,
         variant,
       });
@@ -649,24 +774,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (alreadyAnswered) {
-      await logSkipFailureTelemetry({
-        participantId,
+    if (alreadyAnsweredOutcome) {
+      const nextExpectedPostIndex =
+        routeOrder.find(
+          (postIndex) =>
+            postIndex !== requestedPostIndex &&
+            !answeredPostIndexes.has(postIndex)
+        ) ?? null;
+
+      if (!isSkipEquivalentOutcome(alreadyAnsweredOutcome)) {
+        return createSkipOutcomeConflictResponse(nextExpectedPostIndex);
+      }
+
+      await maybeStampRunStartedAt(
         sessionId,
-        status: 409,
-        reason: "post_already_answered_preinsert",
-        postIndex: requestedPostIndex,
-        expectedPostIndex: currentUnresolvedPostIndex,
-        raceMode,
-        variant,
-      });
-      return NextResponse.json(
-        {
-          error: "Posten er allerede besvaret.",
-          expectedPostIndex: currentUnresolvedPostIndex,
-        },
-        { status: 409 }
+        participantId,
+        requestedPostIndex,
+        routeOrder[0] ?? null,
+        adminSupabase
       );
+
+      return createSkipDuplicateResponse({
+        postIndex: requestedPostIndex,
+        expectedPostIndex: nextExpectedPostIndex,
+      });
     }
 
     const persistResult = await persistEmergencySkip(
@@ -682,8 +813,33 @@ export async function POST(request: NextRequest) {
 
     if (!persistResult.ok) {
       if (persistResult.kind === "conflict") {
+        const storedOutcomeAfterConflict = await findExistingAnswerOutcome(
+          sessionId,
+          participantId,
+          requestedPostIndex,
+          adminSupabase
+        );
         const nextExpectedPostIndex =
           routeOrder.find((postIndex) => postIndex !== requestedPostIndex && !answeredPostIndexes.has(postIndex)) ?? null;
+
+        if (isSkipEquivalentOutcome(storedOutcomeAfterConflict)) {
+          await maybeStampRunStartedAt(
+            sessionId,
+            participantId,
+            requestedPostIndex,
+            routeOrder[0] ?? null,
+            adminSupabase
+          );
+
+          return createSkipDuplicateResponse({
+            postIndex: requestedPostIndex,
+            expectedPostIndex: nextExpectedPostIndex,
+          });
+        }
+
+        if (storedOutcomeAfterConflict) {
+          return createSkipOutcomeConflictResponse(nextExpectedPostIndex);
+        }
 
         await logSkipFailureTelemetry({
           participantId,
@@ -697,7 +853,8 @@ export async function POST(request: NextRequest) {
         });
         return NextResponse.json(
           {
-            error: "Posten er allerede besvaret eller opdateret.",
+            error: "Posten blev opdateret af en anden aflevering.",
+            code: "SUBMISSION_CONFLICT",
             expectedPostIndex: nextExpectedPostIndex,
           },
           { status: 409 }
@@ -754,4 +911,58 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ error: "Emergency skip fejlede." }, { status: 500 });
   }
+}
+
+type SkipProgressDecision =
+  | {
+      kind: "submit";
+      expectedPostIndex: number;
+    }
+  | {
+      kind: "duplicate";
+      expectedPostIndex: number | null;
+    }
+  | {
+      kind: "progress_mismatch";
+      expectedPostIndex: number | null;
+    };
+
+function resolveSkipProgressDecision({
+  routeOrder,
+  answeredPostIndexes,
+  requestedPostIndex,
+}: {
+  routeOrder: readonly number[];
+  answeredPostIndexes: ReadonlySet<number>;
+  requestedPostIndex: number;
+}): SkipProgressDecision {
+  const expectedPostIndex =
+    routeOrder.find((postIndex) => !answeredPostIndexes.has(postIndex)) ??
+    null;
+
+  if (answeredPostIndexes.has(requestedPostIndex)) {
+    return {
+      kind: "duplicate",
+      expectedPostIndex,
+    };
+  }
+
+  if (
+    expectedPostIndex === null ||
+    requestedPostIndex !== expectedPostIndex
+  ) {
+    return {
+      kind: "progress_mismatch",
+      expectedPostIndex,
+    };
+  }
+
+  return {
+    kind: "submit",
+    expectedPostIndex,
+  };
+}
+
+function isStandardSkipRaceType(rawRaceType: unknown) {
+  return usesStandardStudentLocationExperience(rawRaceType);
 }

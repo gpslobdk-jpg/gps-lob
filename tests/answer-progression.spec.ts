@@ -97,6 +97,8 @@ async function mountPlayMocks(ctx: BrowserContext, config: MockConfig, state: Mo
         questions: config.questions,
         raceType: config.raceType,
         postOrderMode: config.postOrderMode,
+        usesStandardStudentLocationExperience:
+          config.raceType === "quiz",
         radius: 50,
         gpsOverride: false,
       }),
@@ -320,8 +322,27 @@ test.describe("correctIndex B/C/D regression – korrekt svar på anden svarmuli
 
       await openPlayPage(page, page.getByRole("button", { name: new RegExp(`^${wrongButtonText}$`, "i") }));
 
-      // Click the WRONG answer first (A at index 0)
-      await page.getByRole("button", { name: new RegExp(`^${wrongButtonText}$`, "i") }).click();
+      // Fire two synchronous taps. The submission ref lock must keep this at one
+      // logical operation even before React has rendered the disabled state.
+      await page.evaluate(
+        ({ firstText, secondText }) => {
+          const buttons = Array.from(
+            document.querySelectorAll<HTMLButtonElement>("button")
+          );
+          const first = buttons.find(
+            (button) => button.textContent?.trim() === firstText
+          );
+          const second = buttons.find(
+            (button) => button.textContent?.trim() === secondText
+          );
+          if (!first || !second) {
+            throw new Error("Svarmulighederne kunne ikke findes.");
+          }
+          first.click();
+          second.click();
+        },
+        { firstText: wrongButtonText, secondText: buttonText }
+      );
       await expect(page.getByText(/Desværre.*0 point/i)).toBeVisible({ timeout: 5_000 });
 
       await expect.poll(() => state.submitPayloads.length, { timeout: 5_000 }).toBe(1);

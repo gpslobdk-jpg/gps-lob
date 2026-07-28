@@ -12,6 +12,21 @@ import {
   normalizePostOrderMode,
   type ActivePostOrderMode,
 } from "@/lib/routes/postOrderPolicy";
+import {
+  canProgressStudentSubmission,
+  canReplayStudentSubmission,
+  createIdleStudentSubmissionState,
+  createStudentSubmissionOperationId,
+  getStudentSubmissionRetryDelayMs,
+  isPendingSubmissionForContext,
+  reconcileStudentSubmissionOutcome,
+  restoreStudentSubmissionState,
+  transitionStudentSubmission,
+  type StudentSubmissionEvent,
+  type StudentSubmissionState,
+  type StudentSubmissionStatus,
+  type StudentSubmissionType,
+} from "@/lib/submissions/studentSubmissionState";
 
 import type {
   AnswerProgressRow,
@@ -77,6 +92,7 @@ import {
   readStoredPlaySnapshot,
   resolvePostVariant,
   saveStoredActiveParticipant,
+  savePendingAnswersForStoredPlaySnapshot,
   saveStoredPlaySnapshot,
   toFiniteNumber,
   toIntegerStartOffset,
@@ -126,14 +142,17 @@ type SubmitPhotoResponsePayload = {
   code?: string;
   postIndex?: number;
   questionCount?: number;
+  duplicate?: boolean;
 };
 
 type SkipPostResponsePayload = {
   skipped?: boolean;
+  duplicate?: boolean;
   postIndex?: number;
   awardedPoints?: number;
   expectedPostIndex?: number | null;
   error?: string;
+  code?: string;
 };
 
 type SubmitPhotoRequestError = Error & {
@@ -175,8 +194,6 @@ const PLAY_RESTORE_RETRY_MESSAGE =
 const PLAY_PARTICIPANT_AUTH_EXPIRED_MESSAGE =
   "Hov, du har været væk lidt længe! Dit adgangskort er udløbet.";
 const PLAY_PARTICIPANT_UNAUTHORIZED_REJOIN_MESSAGE = "Du skal tilmelde dig løbet igen.";
-const PLAY_JOIN_SESSION_MISSING_MESSAGE =
-  "Løbet er muligvis afsluttet af læreren.";
 const RESTORE_RETRY_DELAY_MS = 2500;
 const RESTORE_AUTH_RECOVERY_DELAY_MS = 350;
 const VM26_GOAL_FEEDBACK_DURATION_MS = 1600;
@@ -184,6 +201,15 @@ const VM26_GOAL_FEEDBACK_MESSAGE = "MÅÅÅL! ⚽";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isTerminalPendingAnswer(
+  pendingAnswer: Pick<StoredPendingAnswer, "status">
+) {
+  return (
+    pendingAnswer.status === "rejected" ||
+    pendingAnswer.status === "session_closed"
+  );
 }
 
 function normalizePlayTheme(value: unknown): PlayThemeState | undefined {
@@ -226,6 +252,7 @@ const VALIDATE_ANSWER_MAX_RETRIES = 3;
 // we surface an error to the user and release the submission lock so the
 // UI doesn't remain permanently disabled.
 const PHOTO_UPLOAD_MAX_RETRIES = 5;
+const STANDARD_ANSWER_SUBMISSION_TIMEOUT_MS = 12_000;
 const WAITING_SESSION_STATUS_POLL_INTERVAL_MS = 4000;
 const ACTIVE_SESSION_STATUS_POLL_INTERVAL_MS = 15000;
 const PHOTO_UPLOAD_RUN_OUT_OF_SYNC_MESSAGE =
@@ -297,6 +324,10 @@ type InsertAnswerResult = {
   awardedPoints: number;
   zoneKrigCapture: ZoneKrigCaptureApiResult;
   serverCorrectness?: SubmitAnswerServerCorrectness;
+  deliveryStatus?: StudentSubmissionStatus;
+  operationId?: string;
+  canProgress?: boolean;
+  duplicate?: boolean;
 };
 
 type SessionTeacherMessageRow = {
@@ -538,6 +569,24 @@ export function usePlayGameState({
   const [pendingLocalAnswers, setPendingLocalAnswers] = useState<StoredPendingAnswer[]>(
     () => storedPlaySnapshotOnLoad?.pendingAnswers ?? []
   );
+  const [studentSubmission, setStudentSubmission] =
+    useState<StudentSubmissionState>(() => {
+      const pendingSubmission =
+        storedPlaySnapshotOnLoad?.pendingAnswers.find(
+          isTerminalPendingAnswer
+        ) ??
+        storedPlaySnapshotOnLoad?.pendingAnswers.find(
+          (entry) => !entry.hasLocalProgress
+        ) ?? null;
+
+      return pendingSubmission
+        ? restoreStudentSubmissionState(
+            pendingSubmission.submissionType,
+            pendingSubmission.id,
+            pendingSubmission.status
+          )
+        : createIdleStudentSubmissionState();
+    });
 
   const answersTableMissingRef = useRef(false);
   const hasRestoredRef = useRef(!Boolean(storedParticipantOnLoad) || isStoredParticipantFreshJoin);
@@ -572,6 +621,13 @@ export function usePlayGameState({
   const answeredPostIndexesRef = useRef<number[]>(answeredPostIndexes);
   const pendingLocalAnswersRef = useRef<StoredPendingAnswer[]>(pendingLocalAnswers);
   const pendingAnswerReplayInFlightRef = useRef(false);
+  const pendingAnswerReplayTimerRef =
+    useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingAnswerReplayRunnerRef = useRef<() => void>(() => undefined);
+  const studentSubmissionRef =
+    useRef<StudentSubmissionState>(studentSubmission);
+  const reportedSubmissionEventsRef = useRef<Set<string>>(new Set());
+  const finalizeAfterPendingAnswersRef = useRef(false);
   const locationSyncErrorsRef = useRef(0);
   const locationSyncSuspendedRef = useRef(false);
   const locationSyncRecoveryCheckInFlightRef = useRef(false);
@@ -715,6 +771,9 @@ export function usePlayGameState({
   }, [pendingLocalAnswers]);
 
   // Keep stable refs in sync with their matching state values.
+  useEffect(() => {
+    studentSubmissionRef.current = studentSubmission;
+  }, [studentSubmission]);
   useEffect(() => { sessionStatusRef.current = sessionStatus; }, [sessionStatus]);
   useEffect(() => { isFinishedRef.current = isFinished; }, [isFinished]);
   useEffect(() => { isKickedRef.current = isKicked; }, [isKicked]);
@@ -739,24 +798,257 @@ export function usePlayGameState({
   const clearStoredPlayRecoveryState = useCallback(() => {
     clearStoredActiveParticipant();
     clearStoredPlaySnapshot();
+    if (pendingAnswerReplayTimerRef.current) {
+      clearTimeout(pendingAnswerReplayTimerRef.current);
+      pendingAnswerReplayTimerRef.current = null;
+    }
+    pendingLocalAnswersRef.current = [];
     setPendingLocalAnswers([]);
+    const idleSubmission = createIdleStudentSubmissionState();
+    studentSubmissionRef.current = idleSubmission;
+    setStudentSubmission(idleSubmission);
   }, []);
 
-  const queuePendingLocalAnswer = useCallback((pendingAnswer: StoredPendingAnswer) => {
-    setPendingLocalAnswers((current) => {
-      if (current.some((entry) => entry.id === pendingAnswer.id)) {
-        return current;
+  const updatePendingLocalAnswers = useCallback(
+    (
+      update: (current: StoredPendingAnswer[]) => StoredPendingAnswer[]
+    ) => {
+      const current = pendingLocalAnswersRef.current;
+      const next = update(current);
+      if (next === current) {
+        return {
+          pendingAnswers: current,
+          persisted: true,
+        };
       }
 
-      return [...current, pendingAnswer];
-    });
-  }, []);
+      pendingLocalAnswersRef.current = next;
+      setPendingLocalAnswers(next);
+
+      const persisted =
+        sessionId && participantId
+          ? savePendingAnswersForStoredPlaySnapshot(
+              sessionId,
+              participantId,
+              next
+            )
+          : false;
+
+      return {
+        pendingAnswers: next,
+        persisted,
+      };
+    },
+    [participantId, sessionId]
+  );
+
+  const queuePendingLocalAnswer = useCallback((pendingAnswer: StoredPendingAnswer) => {
+    return updatePendingLocalAnswers((current) => {
+      const existingIndex = current.findIndex((entry) => entry.id === pendingAnswer.id);
+      if (existingIndex < 0) {
+        return [...current, pendingAnswer];
+      }
+
+      const next = [...current];
+      next[existingIndex] = pendingAnswer;
+      return next;
+    }).persisted;
+  }, [updatePendingLocalAnswers]);
 
   const removePendingLocalAnswer = useCallback((pendingAnswerId: string) => {
-    setPendingLocalAnswers((current) =>
-      current.filter((entry) => entry.id !== pendingAnswerId)
-    );
+    updatePendingLocalAnswers((current) => {
+      const next = current.filter((entry) => entry.id !== pendingAnswerId);
+      return next.length === current.length ? current : next;
+    });
+  }, [updatePendingLocalAnswers]);
+
+  const updatePendingLocalAnswer = useCallback(
+    (
+      pendingAnswerId: string,
+      update: (current: StoredPendingAnswer) => StoredPendingAnswer
+    ) => {
+      return updatePendingLocalAnswers((current) => {
+        const existingIndex = current.findIndex((entry) => entry.id === pendingAnswerId);
+        if (existingIndex < 0) return current;
+
+        const next = [...current];
+        next[existingIndex] = update(current[existingIndex]);
+        return next;
+      });
+    },
+    [updatePendingLocalAnswers]
+  );
+
+  const markPendingAnswerLocallyProgressed = useCallback(
+    (pendingAnswerId: string | undefined) => {
+      if (!pendingAnswerId) return;
+      updatePendingLocalAnswer(pendingAnswerId, (current) =>
+        current.hasLocalProgress
+          ? current
+          : {
+              ...current,
+              hasLocalProgress: true,
+            }
+      );
+      if (typeof navigator !== "undefined" && navigator.onLine) {
+        pendingAnswerReplayRunnerRef.current();
+      }
+    },
+    [updatePendingLocalAnswer]
+  );
+
+  const markSolvedPostIndex = useCallback((postIndex: number) => {
+    if (
+      !Number.isInteger(postIndex) ||
+      postIndex < 0 ||
+      solvedPostIndexesRef.current.includes(postIndex)
+    ) {
+      return false;
+    }
+
+    const nextSolvedPostIndexes = sortUniquePostIndexes([
+      ...solvedPostIndexesRef.current,
+      postIndex,
+    ]);
+    solvedPostIndexesRef.current = nextSolvedPostIndexes;
+    setSolvedPostIndexes(nextSolvedPostIndexes);
+    return true;
   }, []);
+
+  const removeSolvedPostIndex = useCallback((postIndex: number) => {
+    if (!solvedPostIndexesRef.current.includes(postIndex)) {
+      return false;
+    }
+
+    const nextSolvedPostIndexes = solvedPostIndexesRef.current.filter(
+      (candidate) => candidate !== postIndex
+    );
+    solvedPostIndexesRef.current = nextSolvedPostIndexes;
+    setSolvedPostIndexes(nextSolvedPostIndexes);
+    return true;
+  }, []);
+
+  const markBurnedPostIndex = useCallback((postIndex: number) => {
+    if (
+      !Number.isInteger(postIndex) ||
+      postIndex < 0 ||
+      burnedPostsRef.current.has(postIndex)
+    ) {
+      return false;
+    }
+
+    const nextBurnedPosts = new Set(burnedPostsRef.current);
+    nextBurnedPosts.add(postIndex);
+    burnedPostsRef.current = nextBurnedPosts;
+    setBurnedPosts(nextBurnedPosts);
+    return true;
+  }, []);
+
+  const removeBurnedPostIndex = useCallback((postIndex: number) => {
+    if (!burnedPostsRef.current.has(postIndex)) {
+      return false;
+    }
+
+    const nextBurnedPosts = new Set(burnedPostsRef.current);
+    nextBurnedPosts.delete(postIndex);
+    burnedPostsRef.current = nextBurnedPosts;
+    setBurnedPosts(nextBurnedPosts);
+    return true;
+  }, []);
+
+  const captureStudentSubmissionIssue = useCallback(
+    (
+      category:
+        | "student_answer_submission_failed"
+        | "student_answer_confirmation_uncertain"
+        | "student_answer_queue_replay_failed"
+        | "student_photo_upload_failed"
+        | "student_skip_submission_failed"
+        | "student_submission_state_invalid",
+      operationId: string | null,
+      metadata: {
+        submissionType: StudentSubmissionType;
+        stage: "submit" | "upload" | "confirm" | "replay" | "resume";
+        result: "retryable" | "duplicate" | "rejected" | "unknown";
+      }
+    ) => {
+      const dedupeKey = `${operationId ?? "none"}:${category}:${metadata.stage}`;
+      if (reportedSubmissionEventsRef.current.has(dedupeKey)) return;
+      reportedSubmissionEventsRef.current.add(dedupeKey);
+
+      try {
+        Sentry.withScope((scope) => {
+          scope.setExtras({
+            submission_type: metadata.submissionType,
+            network_state:
+              typeof navigator !== "undefined" && navigator.onLine === false
+                ? "offline"
+                : "online",
+            stage: metadata.stage,
+            result: metadata.result,
+            queue_length: pendingLocalAnswersRef.current.length,
+            route_mode: distributedCircularEnabled ? "distributed" : "fixed",
+          });
+          Sentry.captureMessage(category);
+        });
+      } catch {
+        // best-effort, privacy-safe telemetry
+      }
+    },
+    [distributedCircularEnabled]
+  );
+
+  const applyStudentSubmissionEvent = useCallback(
+    (event: StudentSubmissionEvent) => {
+      const transition = transitionStudentSubmission(
+        studentSubmissionRef.current,
+        event
+      );
+
+      if (!transition.accepted) {
+        captureStudentSubmissionIssue(
+          "student_submission_state_invalid",
+          studentSubmissionRef.current.operationId,
+          {
+            submissionType: studentSubmissionRef.current.submissionType,
+            stage: "resume",
+            result: "rejected",
+          }
+        );
+        return studentSubmissionRef.current;
+      }
+
+      studentSubmissionRef.current = transition.state;
+      setStudentSubmission(transition.state);
+      return transition.state;
+    },
+    [captureStudentSubmissionIssue]
+  );
+
+  const beginStudentSubmission = useCallback(
+    (submissionType: StudentSubmissionType, operationId: string) => {
+      const current = studentSubmissionRef.current;
+      if (
+        current.operationId !== operationId ||
+        current.submissionType !== submissionType
+      ) {
+        const next = createIdleStudentSubmissionState(submissionType);
+        studentSubmissionRef.current = next;
+        setStudentSubmission(next);
+      }
+
+      const active = studentSubmissionRef.current;
+      return applyStudentSubmissionEvent(
+        active.operationId === operationId &&
+          (active.status === "queued_offline" ||
+            active.status === "awaiting_confirmation" ||
+            active.status === "retryable_error")
+          ? { type: "retry" }
+          : { type: "submit", operationId }
+      );
+    },
+    [applyStudentSubmissionEvent]
+  );
 
   const rememberActiveParticipant = useCallback(
     (
@@ -846,7 +1138,7 @@ export function usePlayGameState({
             Sentry.addBreadcrumb({
               category: "join",
               message: "register_participant_session_ended",
-              data: { sessionId, statusCode: 410 },
+              data: { statusCode: 410 },
             });
           } catch (err) {
             // best-effort
@@ -860,7 +1152,6 @@ export function usePlayGameState({
             Sentry.addBreadcrumb({
               category: "join",
               message: "register_participant_session_missing",
-              data: { sessionId },
             });
           } catch (err) {
             // best-effort
@@ -921,7 +1212,7 @@ export function usePlayGameState({
           Sentry.addBreadcrumb({
             category: "auth",
             message: "participant_registered",
-            data: { sessionId, participantId: payload.participantId, studentName: resolvedName },
+            data: { result: "stored" },
           });
         } catch (err) {
           // best-effort
@@ -1345,7 +1636,7 @@ export function usePlayGameState({
               Sentry.addBreadcrumb({
                 category: "play",
                 message: "play_expired_screen_shown",
-                data: { sessionId, participantId, variant, message },
+                data: { variant },
                 level: "info",
               });
             } catch (_err) {
@@ -2486,16 +2777,36 @@ export function usePlayGameState({
   ]);
   // ───────────────────────────────────────────────────────────────────────────
 
+  const schedulePendingAnswerReplay = useCallback((delayMs: number) => {
+    if (pendingAnswerReplayTimerRef.current) {
+      clearTimeout(pendingAnswerReplayTimerRef.current);
+    }
+
+    pendingAnswerReplayTimerRef.current = setTimeout(() => {
+      pendingAnswerReplayTimerRef.current = null;
+      pendingAnswerReplayRunnerRef.current();
+    }, Math.max(250, delayMs));
+  }, []);
+
   const replayPendingLocalAnswers = useCallback(async () => {
-    if (!sessionId || !participantId || pendingAnswerReplayInFlightRef.current) {
+    if (
+      !sessionId ||
+      !participantId ||
+      !hasRestoredRef.current ||
+      isRestoringParticipantRef.current ||
+      pendingAnswerReplayInFlightRef.current
+    ) {
       return;
     }
 
-    if (answersTableMissingRef.current) {
+    if (
+      answersTableMissingRef.current ||
+      (typeof navigator !== "undefined" && navigator.onLine === false)
+    ) {
       return;
     }
 
-    const queuedAnswers = pendingLocalAnswersRef.current;
+    const queuedAnswers = [...pendingLocalAnswersRef.current];
     if (queuedAnswers.length === 0) {
       return;
     }
@@ -2504,55 +2815,293 @@ export function usePlayGameState({
 
     try {
       for (const pendingAnswer of queuedAnswers) {
+        if (
+          !isPendingSubmissionForContext(pendingAnswer, {
+            sessionId,
+            participantId,
+          })
+        ) {
+          updatePendingLocalAnswer(pendingAnswer.id, (current) => ({
+            ...current,
+            status: "rejected",
+          }));
+          captureStudentSubmissionIssue(
+            "student_answer_queue_replay_failed",
+            pendingAnswer.id,
+            {
+              submissionType: pendingAnswer.submissionType,
+              stage: "replay",
+              result: "rejected",
+            }
+          );
+          const rejectedSubmission = restoreStudentSubmissionState(
+            pendingAnswer.submissionType,
+            pendingAnswer.id,
+            "rejected"
+          );
+          studentSubmissionRef.current = rejectedSubmission;
+          setStudentSubmission(rejectedSubmission);
+          break;
+        }
+
+        if (isTerminalPendingAnswer(pendingAnswer)) {
+          const terminalSubmission = restoreStudentSubmissionState(
+            pendingAnswer.submissionType,
+            pendingAnswer.id,
+            pendingAnswer.status
+          );
+          studentSubmissionRef.current = terminalSubmission;
+          setStudentSubmission(terminalSubmission);
+          break;
+        }
+
+        if (!pendingAnswer.hasLocalProgress) {
+          // Et usikkert svar på den aktuelle post kræver elevens eksplicitte retry,
+          // så replay ikke kan flytte UI-progression i baggrunden.
+          break;
+        }
+
+        if (
+          !canReplayStudentSubmission(
+            pendingAnswer,
+            { sessionId, participantId },
+            Date.now(),
+            pendingAnswer.nextRetryAtMs
+          )
+        ) {
+          if (
+            pendingAnswer.nextRetryAtMs &&
+            pendingAnswer.nextRetryAtMs > Date.now()
+          ) {
+            schedulePendingAnswerReplay(
+              pendingAnswer.nextRetryAtMs - Date.now()
+            );
+          }
+          break;
+        }
+
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(
+          () => abortController.abort(),
+          STANDARD_ANSWER_SUBMISSION_TIMEOUT_MS
+        );
+
         try {
           const response = await fetch("/api/play/submit-answer", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ payloads: pendingAnswer.payloads }),
+            body: JSON.stringify({
+              operationId: pendingAnswer.id,
+              payloads: pendingAnswer.payloads,
+            }),
+            signal: abortController.signal,
           });
 
           const body = (await response.json().catch(() => null)) as
-            | { inserted?: boolean; error?: string }
+            | {
+                inserted?: boolean;
+                duplicate?: boolean;
+                awardedPoints?: number;
+                storedIsCorrect?: boolean;
+                serverCorrectness?: unknown;
+                error?: string;
+                code?: string;
+              }
             | null;
 
-          if (!response.ok) {
-            console.error(
-              "Kunne ikke gensynkronisere lokalt svar:",
-              body?.error ?? response.statusText
-            );
+          if (response.ok && body?.inserted === true) {
+            if (pendingAnswer.hasLocalProgress) {
+              const serverCorrectness =
+                typeof body.storedIsCorrect === "boolean"
+                  ? body.storedIsCorrect
+                  : normalizeSubmitAnswerServerCorrectness(
+                      body.serverCorrectness
+                    )?.isCorrect ?? pendingAnswer.isCorrect;
+              const serverAwardedPoints =
+                typeof body.awardedPoints === "number" &&
+                Number.isFinite(body.awardedPoints)
+                  ? Math.max(0, Math.round(body.awardedPoints))
+                  : pendingAnswer.awardedPoints;
+              const reconciliation = reconcileStudentSubmissionOutcome(
+                {
+                  isCorrect: pendingAnswer.isCorrect,
+                  awardedPoints: pendingAnswer.awardedPoints,
+                },
+                {
+                  isCorrect: serverCorrectness,
+                  awardedPoints: serverAwardedPoints,
+                }
+              );
 
-            if (body?.error === "Admin access missing") {
-              answersTableMissingRef.current = true;
+              if (reconciliation.didCorrectnessChange) {
+                if (reconciliation.authoritativeOutcome.isCorrect) {
+                  removeBurnedPostIndex(pendingAnswer.solvedPostIndex);
+                  if (markSolvedPostIndex(pendingAnswer.solvedPostIndex)) {
+                    setCorrectAnswersCount((current) => current + 1);
+                  }
+                } else {
+                  markBurnedPostIndex(pendingAnswer.solvedPostIndex);
+                  if (removeSolvedPostIndex(pendingAnswer.solvedPostIndex)) {
+                    setCorrectAnswersCount((current) =>
+                      Math.max(0, current - 1)
+                    );
+                  }
+                }
+              }
+
+              if (reconciliation.pointsDelta !== 0) {
+                setScore((current) =>
+                  Math.max(0, current + reconciliation.pointsDelta)
+                );
+              }
             }
 
+            removePendingLocalAnswer(pendingAnswer.id);
+            if (
+              studentSubmissionRef.current.operationId === pendingAnswer.id &&
+              studentSubmissionRef.current.status !== "confirmed"
+            ) {
+              applyStudentSubmissionEvent({
+                type: "confirm",
+                result: body.duplicate === true ? "duplicate" : "stored",
+              });
+            }
+            showResumeNotice("Svaret er gemt");
             continue;
           }
 
-          if (body?.inserted === true) {
-            removePendingLocalAnswer(pendingAnswer.id);
-          }
-        } catch (error) {
-          if (isTransientNetworkError(error)) {
+          if (response.status === 410 || body?.code === "SESSION_CLOSED") {
+            updatePendingLocalAnswer(pendingAnswer.id, (current) => ({
+              ...current,
+              status: "session_closed",
+              nextRetryAtMs: null,
+            }));
+            const closedSubmission = restoreStudentSubmissionState(
+              pendingAnswer.submissionType,
+              pendingAnswer.id,
+              "session_closed"
+            );
+            studentSubmissionRef.current = closedSubmission;
+            setStudentSubmission(closedSubmission);
             break;
           }
 
-          console.error("Kunne ikke gensynkronisere lokalt svar:", error);
+          if (
+            response.status === 400 ||
+            response.status === 401 ||
+            response.status === 403 ||
+            response.status === 409 ||
+            response.status === 422 ||
+            (response.status === 404 && body?.code === "POST_NOT_FOUND")
+          ) {
+            updatePendingLocalAnswer(pendingAnswer.id, (current) => ({
+              ...current,
+              status: "rejected",
+              nextRetryAtMs: null,
+            }));
+            const rejectedSubmission = restoreStudentSubmissionState(
+              pendingAnswer.submissionType,
+              pendingAnswer.id,
+              "rejected"
+            );
+            studentSubmissionRef.current = rejectedSubmission;
+            setStudentSubmission(rejectedSubmission);
+            break;
+          }
+
+          const nextAttemptCount = pendingAnswer.attemptCount + 1;
+          const retryDelayMs =
+            getStudentSubmissionRetryDelayMs(nextAttemptCount);
+          updatePendingLocalAnswer(pendingAnswer.id, (current) => ({
+            ...current,
+            status: "awaiting_confirmation",
+            attemptCount: nextAttemptCount,
+            nextRetryAtMs: Date.now() + retryDelayMs,
+          }));
+          schedulePendingAnswerReplay(retryDelayMs);
+          captureStudentSubmissionIssue(
+            "student_answer_queue_replay_failed",
+            pendingAnswer.id,
+            {
+              submissionType: pendingAnswer.submissionType,
+              stage: "replay",
+              result: "retryable",
+            }
+          );
+          break;
+        } catch {
+          const isOffline =
+            typeof navigator !== "undefined" && navigator.onLine === false;
+          const nextAttemptCount = pendingAnswer.attemptCount + 1;
+          const retryDelayMs =
+            getStudentSubmissionRetryDelayMs(nextAttemptCount);
+          updatePendingLocalAnswer(pendingAnswer.id, (current) => ({
+            ...current,
+            status: isOffline
+              ? "queued_offline"
+              : "awaiting_confirmation",
+            attemptCount: nextAttemptCount,
+            nextRetryAtMs: isOffline ? null : Date.now() + retryDelayMs,
+          }));
+          if (!isOffline) {
+            schedulePendingAnswerReplay(retryDelayMs);
+          }
+          captureStudentSubmissionIssue(
+            "student_answer_queue_replay_failed",
+            pendingAnswer.id,
+            {
+              submissionType: pendingAnswer.submissionType,
+              stage: "replay",
+              result: isOffline ? "unknown" : "retryable",
+            }
+          );
+          break;
+        } finally {
+          clearTimeout(timeoutId);
         }
       }
     } finally {
       pendingAnswerReplayInFlightRef.current = false;
     }
-  }, [isTransientNetworkError, participantId, removePendingLocalAnswer, sessionId]);
+  }, [
+    applyStudentSubmissionEvent,
+    captureStudentSubmissionIssue,
+    participantId,
+    markBurnedPostIndex,
+    markSolvedPostIndex,
+    removePendingLocalAnswer,
+    removeBurnedPostIndex,
+    removeSolvedPostIndex,
+    schedulePendingAnswerReplay,
+    sessionId,
+    showResumeNotice,
+    updatePendingLocalAnswer,
+  ]);
+
+  pendingAnswerReplayRunnerRef.current = () => {
+    void replayPendingLocalAnswers();
+  };
 
   useEffect(() => {
-    if (!sessionId || !participantId || pendingLocalAnswersRef.current.length === 0) {
+    if (
+      !sessionId ||
+      !participantId ||
+      isRestoringParticipant ||
+      !hasRestoredRef.current ||
+      pendingLocalAnswersRef.current.length === 0
+    ) {
       return;
     }
 
     void replayPendingLocalAnswers();
-  }, [participantId, replayPendingLocalAnswers, sessionId]);
+  }, [
+    isRestoringParticipant,
+    participantId,
+    replayPendingLocalAnswers,
+    sessionId,
+  ]);
 
   useEffect(() => {
     if (!sessionId || !participantId) {
@@ -2560,6 +3109,10 @@ export function usePlayGameState({
     }
 
     const handleOnline = () => {
+      if (pendingAnswerReplayTimerRef.current) {
+        clearTimeout(pendingAnswerReplayTimerRef.current);
+        pendingAnswerReplayTimerRef.current = null;
+      }
       void replayPendingLocalAnswers();
     };
 
@@ -2567,6 +3120,10 @@ export function usePlayGameState({
 
     return () => {
       window.removeEventListener("online", handleOnline);
+      if (pendingAnswerReplayTimerRef.current) {
+        clearTimeout(pendingAnswerReplayTimerRef.current);
+        pendingAnswerReplayTimerRef.current = null;
+      }
     };
   }, [participantId, replayPendingLocalAnswers, sessionId]);
 
@@ -2638,21 +3195,6 @@ export function usePlayGameState({
     ]);
     answeredPostIndexesRef.current = nextAnsweredPostIndexes;
     setAnsweredPostIndexes(nextAnsweredPostIndexes);
-  }, []);
-
-  const markBurnedPostIndex = useCallback((postIndex: number) => {
-    if (!Number.isInteger(postIndex) || postIndex < 0) {
-      return;
-    }
-
-    if (burnedPostsRef.current.has(postIndex)) {
-      return;
-    }
-
-    const nextBurnedPosts = new Set(burnedPostsRef.current);
-    nextBurnedPosts.add(postIndex);
-    burnedPostsRef.current = nextBurnedPosts;
-    setBurnedPosts(nextBurnedPosts);
   }, []);
 
   const unlockCurrentPost = useCallback(() => {
@@ -2860,6 +3402,20 @@ export function usePlayGameState({
         setBurnedPosts(new Set(restoredBurnedPosts));
         const storedPendingAnswers =
           storedProgressSnapshot?.pendingAnswers ?? pendingLocalAnswersRef.current;
+        const scopedStoredPendingAnswers = storedPendingAnswers.filter(
+          (pendingAnswer) =>
+            pendingAnswer.sessionId === sessionId &&
+            pendingAnswer.participantId === participantId
+        );
+        if (scopedStoredPendingAnswers.length !== storedPendingAnswers.length) {
+          pendingLocalAnswersRef.current = scopedStoredPendingAnswers;
+          setPendingLocalAnswers(scopedStoredPendingAnswers);
+          savePendingAnswersForStoredPlaySnapshot(
+            sessionId,
+            participantId,
+            scopedStoredPendingAnswers
+          );
+        }
         const storedName = storedParticipantOnLoad?.studentName?.trim() || playerName || initialStudentName;
         const storedStartOffset = storedParticipantOnLoad?.startOffset ?? 0;
         if (storedName) {
@@ -3010,14 +3566,28 @@ export function usePlayGameState({
         const scoreByPostIndex = new Map<number, number>();
         const pendingEscapeRewards: EscapeCodeEntry[] = [];
 
-        for (const pendingAnswer of storedPendingAnswers) {
+        for (const pendingAnswer of scopedStoredPendingAnswers) {
           if (!questions[pendingAnswer.solvedPostIndex]) continue;
-          pendingSolvedPosts.add(pendingAnswer.solvedPostIndex);
+          if (!pendingAnswer.hasLocalProgress) continue;
+          if (
+            usesStandardStudentLocationExperience &&
+            isTerminalPendingAnswer(pendingAnswer)
+          ) {
+            continue;
+          }
+
           baseAnsweredPosts.add(pendingAnswer.solvedPostIndex);
-          if (!baseSolvedPosts.has(pendingAnswer.solvedPostIndex)) {
+          if (
+            pendingAnswer.isCorrect &&
+            !baseSolvedPosts.has(pendingAnswer.solvedPostIndex)
+          ) {
+            pendingSolvedPosts.add(pendingAnswer.solvedPostIndex);
             newlySolvedPosts.add(pendingAnswer.solvedPostIndex);
           }
-          if (!scoreByPostIndex.has(pendingAnswer.solvedPostIndex)) {
+          if (
+            pendingAnswer.isCorrect &&
+            !scoreByPostIndex.has(pendingAnswer.solvedPostIndex)
+          ) {
             scoreByPostIndex.set(
               pendingAnswer.solvedPostIndex,
               Math.max(0, Math.round(pendingAnswer.awardedPoints))
@@ -3025,7 +3595,10 @@ export function usePlayGameState({
           }
 
           const pendingQuestion = questions[pendingAnswer.solvedPostIndex];
-          if (resolvePostVariant(raceMode, pendingQuestion) === "escape") {
+          if (
+            pendingAnswer.isCorrect &&
+            resolvePostVariant(raceMode, pendingQuestion) === "escape"
+          ) {
             pendingEscapeRewards.push({
               postIndex: pendingAnswer.solvedPostIndex,
               brick: getEscapeCodeBrick(pendingQuestion, pendingAnswer.solvedPostIndex),
@@ -3033,8 +3606,14 @@ export function usePlayGameState({
           }
         }
 
-        const restoredAnswerLookupColumn = resolvedName ? "student_name" : "participant_id";
-        const restoredAnswerLookupValue = resolvedName || participantId;
+        const restoredAnswerLookupColumn =
+          usesStandardStudentLocationExperience && participantId
+          ? "participant_id"
+          : "student_name";
+        const restoredAnswerLookupValue =
+          usesStandardStudentLocationExperience && participantId
+            ? participantId
+            : resolvedName;
 
         const answersWithPointsResult = await supabase
           .from("answers")
@@ -3095,17 +3674,28 @@ export function usePlayGameState({
           });
         } else if (answersData) {
           restoredAnswerRows = answersData as AnswerProgressRow[];
-          const confirmedAnsweredPosts = new Set<number>(baseAnsweredPosts);
+          const serverConfirmedPostIndexes = new Set<number>();
+          const confirmedAnsweredPosts = new Set<number>(
+            usesStandardStudentLocationExperience ? [] : baseAnsweredPosts
+          );
+          const confirmedSolvedPosts = new Set<number>(
+            usesStandardStudentLocationExperience ? [] : baseSolvedPosts
+          );
+          const confirmedBurnedPosts = usesStandardStudentLocationExperience
+            ? new Set<number>()
+            : restoredBurnedPosts;
           for (const row of restoredAnswerRows) {
             const normalizedPostIndex = getNormalizedAnsweredPostIndex(row);
             if (normalizedPostIndex === null || normalizedPostIndex < 0) continue;
+            serverConfirmedPostIndexes.add(normalizedPostIndex);
             confirmedAnsweredPosts.add(normalizedPostIndex);
 
             if (row.is_correct !== true) {
-              restoredBurnedPosts.add(normalizedPostIndex);
+              confirmedBurnedPosts.add(normalizedPostIndex);
               continue;
             }
 
+            confirmedSolvedPosts.add(normalizedPostIndex);
             if (!baseSolvedPosts.has(normalizedPostIndex)) {
               newlySolvedPosts.add(normalizedPostIndex);
             }
@@ -3119,27 +3709,100 @@ export function usePlayGameState({
             );
           }
 
-          for (const pendingAnsweredPost of pendingSolvedPosts) {
-            confirmedAnsweredPosts.add(pendingAnsweredPost);
+          const confirmedPendingAnswers = scopedStoredPendingAnswers.filter(
+            (pendingAnswer) =>
+              serverConfirmedPostIndexes.has(pendingAnswer.solvedPostIndex)
+          );
+          const remainingScopedPendingAnswers =
+            confirmedPendingAnswers.length > 0
+              ? scopedStoredPendingAnswers.filter(
+                  (pendingAnswer) =>
+                    !serverConfirmedPostIndexes.has(
+                      pendingAnswer.solvedPostIndex
+                    )
+                )
+              : scopedStoredPendingAnswers;
+          if (confirmedPendingAnswers.length > 0) {
+            pendingLocalAnswersRef.current = remainingScopedPendingAnswers;
+            setPendingLocalAnswers(remainingScopedPendingAnswers);
+            savePendingAnswersForStoredPlaySnapshot(
+              sessionId,
+              participantId,
+              remainingScopedPendingAnswers
+            );
+
+            const activeConfirmedPending = confirmedPendingAnswers.find(
+              (pendingAnswer) =>
+                pendingAnswer.id ===
+                studentSubmissionRef.current.operationId
+            );
+            if (activeConfirmedPending) {
+              const confirmedSubmission = restoreStudentSubmissionState(
+                activeConfirmedPending.submissionType,
+                activeConfirmedPending.id,
+                "confirmed"
+              );
+              studentSubmissionRef.current = confirmedSubmission;
+              setStudentSubmission(confirmedSubmission);
+            }
+          }
+
+          if (usesStandardStudentLocationExperience) {
+            for (const pendingAnswer of remainingScopedPendingAnswers) {
+              const pendingPostIndex = pendingAnswer.solvedPostIndex;
+              if (
+                !pendingAnswer.hasLocalProgress ||
+                isTerminalPendingAnswer(pendingAnswer) ||
+                !questions[pendingPostIndex] ||
+                confirmedAnsweredPosts.has(pendingPostIndex)
+              ) {
+                continue;
+              }
+
+              confirmedAnsweredPosts.add(pendingPostIndex);
+              if (pendingAnswer.isCorrect) {
+                confirmedSolvedPosts.add(pendingPostIndex);
+                scoreByPostIndex.set(
+                  pendingPostIndex,
+                  Math.max(0, Math.round(pendingAnswer.awardedPoints))
+                );
+              } else {
+                confirmedBurnedPosts.add(pendingPostIndex);
+              }
+            }
+          } else {
+            for (const pendingAnsweredPost of pendingSolvedPosts) {
+              confirmedAnsweredPosts.add(pendingAnsweredPost);
+            }
           }
 
           const restoredAnsweredPostIndexes = sortUniquePostIndexes([...confirmedAnsweredPosts]);
-          const restoredSolvedPostIndexes = sortUniquePostIndexes([
-            ...baseSolvedPosts,
-            ...newlySolvedPosts,
-          ]);
-          const restoredScore = [...newlySolvedPosts].reduce((total, postIndex) => {
-            const awardedPoints = scoreByPostIndex.get(postIndex);
-            return total + (awardedPoints ?? questions[postIndex]?.points ?? DEFAULT_QUESTION_POINTS);
-          }, 0);
+          const restoredSolvedPostIndexes = usesStandardStudentLocationExperience
+            ? sortUniquePostIndexes([...confirmedSolvedPosts])
+            : sortUniquePostIndexes([
+                ...baseSolvedPosts,
+                ...newlySolvedPosts,
+              ]);
+          const restoredScore = (
+            usesStandardStudentLocationExperience
+              ? restoredSolvedPostIndexes
+              : [...newlySolvedPosts]
+          ).reduce((total, postIndex) => {
+              const awardedPoints = scoreByPostIndex.get(postIndex);
+              return total + (awardedPoints ?? questions[postIndex]?.points ?? DEFAULT_QUESTION_POINTS);
+            }, 0);
 
-          burnedPostsRef.current = restoredBurnedPosts;
-          setBurnedPosts(new Set(restoredBurnedPosts));
+          burnedPostsRef.current = confirmedBurnedPosts;
+          setBurnedPosts(new Set(confirmedBurnedPosts));
 
           setAnsweredPostIndexes(restoredAnsweredPostIndexes);
           setSolvedPostIndexes(restoredSolvedPostIndexes);
           setCorrectAnswersCount(restoredSolvedPostIndexes.length);
-          setScore(baseScore + restoredScore);
+          setScore(
+            usesStandardStudentLocationExperience
+              ? restoredScore
+              : baseScore + restoredScore
+          );
 
           const restoredEscapeRewards = getEscapeCodeEntriesFromRows(restoredAnswerRows, questions);
           const mergedEscapeRewards = [...restoredEscapeRewards];
@@ -3153,8 +3816,22 @@ export function usePlayGameState({
           const hasCompletedRestore = isEscapeRace
             ? restoredSolvedPostIndexes.length >= questions.length
             : restoredAnsweredPostIndexes.length >= questions.length;
+          if (
+            usesStandardStudentLocationExperience &&
+            hasCompletedRestore &&
+            remainingScopedPendingAnswers.length > 0
+          ) {
+            finalizeAfterPendingAnswersRef.current = true;
+          }
 
-          if (!isStrategoRace && questions.length > 0 && raceMode !== "zone_krig" && hasCompletedRestore) {
+          if (
+            !isStrategoRace &&
+            questions.length > 0 &&
+            raceMode !== "zone_krig" &&
+            hasCompletedRestore &&
+            (!usesStandardStudentLocationExperience ||
+              remainingScopedPendingAnswers.length === 0)
+          ) {
             setShowQuestion(false);
             setDistanceState(null);
             setEscapeReward(null);
@@ -3357,10 +4034,16 @@ export function usePlayGameState({
       questionPoints: number,
       lat: number | null,
       lng: number | null,
-      options?: { forcedAwardedPoints?: number }
+      options?: {
+        forcedAwardedPoints?: number;
+        useRobustDelivery?: boolean;
+        submissionType?: StudentSubmissionType;
+      }
     ): Promise<InsertAnswerResult> => {
       const activeName = playerName.trim();
       const forcedAwardedPoints = options?.forcedAwardedPoints;
+      const useRobustDelivery = options?.useRobustDelivery === true;
+      const submissionType = options?.submissionType ?? "quiz";
       const shouldForceAwardedPoints = typeof forcedAwardedPoints === "number";
       const resolvedAwardedPoints = shouldForceAwardedPoints
         ? Math.max(0, Math.round(forcedAwardedPoints))
@@ -3371,19 +4054,27 @@ export function usePlayGameState({
         didPersist: false,
         awardedPoints: resolvedAwardedPoints,
         zoneKrigCapture: null,
+        deliveryStatus: useRobustDelivery ? "retryable_error" : undefined,
+        canProgress: !useRobustDelivery,
       };
 
       if (!sessionId || !participantId || !activeName) {
-        console.error("Svar kunne ikke forberedes til submit-answer API. Fortsætter stille i elev-UI.", {
-          hasSessionId: Boolean(sessionId),
-          hasParticipantId: Boolean(participantId),
-          hasPlayerName: Boolean(activeName),
-        });
+        if (useRobustDelivery) {
+          captureStudentSubmissionIssue(
+            "student_answer_submission_failed",
+            null,
+            {
+              submissionType,
+              stage: "submit",
+              result: "rejected",
+            }
+          );
+        }
         return fallbackResult;
       }
 
       const timestamp = new Date().toISOString();
-      const payloads: Record<string, unknown>[] = [
+      const generatedPayloads: Record<string, unknown>[] = [
         {
           session_id: sessionId,
           participant_id: participantId,
@@ -3429,23 +4120,312 @@ export function usePlayGameState({
           awarded_points: resolvedAwardedPoints,
         },
       ];
-      const pendingAnswerId = `${sessionId}:${participantId}:${postNumber - 1}:${selectedIndex}:${timestamp}`;
-      const pendingLocalAnswer = isCorrect
-        ? {
-            id: pendingAnswerId,
-            payloads,
-            solvedPostIndex: postNumber - 1,
-            awardedPoints: resolvedAwardedPoints,
-          }
+      const existingPendingAnswer = useRobustDelivery
+        ? pendingLocalAnswersRef.current.find(
+            (entry) =>
+              entry.sessionId === sessionId &&
+              entry.participantId === participantId &&
+              entry.solvedPostIndex === postNumber - 1 &&
+              entry.submissionType === submissionType &&
+              entry.status !== "confirmed"
+          ) ?? null
         : null;
+      const pendingAnswerId =
+        existingPendingAnswer?.id ?? createStudentSubmissionOperationId();
+      const payloads =
+        existingPendingAnswer?.payloads.map((payload) => ({ ...payload })) ??
+        generatedPayloads;
+      const pendingLocalAnswer: StoredPendingAnswer | null =
+        useRobustDelivery || isCorrect
+          ? {
+              id: pendingAnswerId,
+              sessionId,
+              participantId,
+              submissionType,
+              status: useRobustDelivery
+                ? "awaiting_confirmation"
+                : "queued_offline",
+              payloads,
+              solvedPostIndex: postNumber - 1,
+              awardedPoints:
+                existingPendingAnswer?.awardedPoints ?? resolvedAwardedPoints,
+              isCorrect: existingPendingAnswer?.isCorrect ?? isCorrect,
+              hasLocalProgress:
+                useRobustDelivery
+                  ? existingPendingAnswer?.hasLocalProgress ?? false
+                  : true,
+              attemptCount: existingPendingAnswer?.attemptCount ?? 0,
+              nextRetryAtMs: null,
+            }
+          : null;
 
-      if (pendingLocalAnswer) {
-        queuePendingLocalAnswer(pendingLocalAnswer);
+      const didPersistPendingAnswer = pendingLocalAnswer
+        ? queuePendingLocalAnswer(pendingLocalAnswer)
+        : false;
+
+      if (useRobustDelivery && pendingLocalAnswer) {
+        beginStudentSubmission(submissionType, pendingAnswerId);
+
+        if (typeof navigator !== "undefined" && navigator.onLine === false) {
+          if (!didPersistPendingAnswer) {
+            updatePendingLocalAnswer(pendingAnswerId, (current) => ({
+              ...current,
+              status: "retryable_error",
+              nextRetryAtMs: null,
+            }));
+            applyStudentSubmissionEvent({ type: "retryable_error" });
+            captureStudentSubmissionIssue(
+              "student_answer_submission_failed",
+              pendingAnswerId,
+              {
+                submissionType,
+                stage: "submit",
+                result: "retryable",
+              }
+            );
+            return {
+              ...fallbackResult,
+              deliveryStatus: "retryable_error",
+              operationId: pendingAnswerId,
+              canProgress: false,
+            };
+          }
+
+          const queuedUpdate = updatePendingLocalAnswer(pendingAnswerId, (current) => ({
+            ...current,
+            status: "queued_offline",
+            hasLocalProgress: true,
+            nextRetryAtMs: null,
+          }));
+          if (
+            !canProgressStudentSubmission({
+              networkState: "offline",
+              serverConfirmed: false,
+              durablePersistenceSucceeded: queuedUpdate.persisted,
+            })
+          ) {
+            updatePendingLocalAnswer(pendingAnswerId, (current) => ({
+              ...current,
+              status: "retryable_error",
+              hasLocalProgress: false,
+              nextRetryAtMs: null,
+            }));
+            applyStudentSubmissionEvent({ type: "retryable_error" });
+            captureStudentSubmissionIssue(
+              "student_answer_submission_failed",
+              pendingAnswerId,
+              {
+                submissionType,
+                stage: "submit",
+                result: "retryable",
+              }
+            );
+            return {
+              ...fallbackResult,
+              deliveryStatus: "retryable_error",
+              operationId: pendingAnswerId,
+              canProgress: false,
+            };
+          }
+          applyStudentSubmissionEvent({ type: "queue_offline" });
+          return {
+            ...fallbackResult,
+            deliveryStatus: "queued_offline",
+            operationId: pendingAnswerId,
+            canProgress: true,
+          };
+        }
       }
 
       if (answersTableMissingRef.current) {
-        console.error("submit-answer API er tidligere fejlet permanent. Fortsætter stille i elev-UI.");
+        if (useRobustDelivery && pendingLocalAnswer) {
+          updatePendingLocalAnswer(pendingAnswerId, (current) => ({
+            ...current,
+            status: "retryable_error",
+          }));
+          applyStudentSubmissionEvent({ type: "retryable_error" });
+        }
         return fallbackResult;
+      }
+
+      if (useRobustDelivery && pendingLocalAnswer) {
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(
+          () => abortController.abort(),
+          STANDARD_ANSWER_SUBMISSION_TIMEOUT_MS
+        );
+
+        try {
+          const response = await fetch("/api/play/submit-answer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              operationId: pendingAnswerId,
+              payloads,
+            }),
+            signal: abortController.signal,
+          });
+
+          const body = (await response.json().catch(() => null)) as {
+            inserted?: boolean;
+            awardedPoints?: number;
+            error?: string;
+            code?: string;
+            duplicate?: boolean;
+            zoneKrigCapture?: ZoneKrigCaptureApiResult;
+            serverCorrectness?: unknown;
+          } | null;
+
+          if (response.ok && body?.inserted === true) {
+            removePendingLocalAnswer(pendingAnswerId);
+            applyStudentSubmissionEvent({
+              type: "confirm",
+              result: body.duplicate === true ? "duplicate" : "stored",
+            });
+
+            return {
+              didPersist: true,
+              awardedPoints: shouldForceAwardedPoints
+                ? resolvedAwardedPoints
+                : typeof body.awardedPoints === "number" &&
+                    Number.isFinite(body.awardedPoints)
+                  ? Math.max(0, Math.round(body.awardedPoints))
+                  : resolvedAwardedPoints,
+              zoneKrigCapture: body.zoneKrigCapture ?? null,
+              serverCorrectness: normalizeSubmitAnswerServerCorrectness(
+                body.serverCorrectness
+              ),
+              deliveryStatus: "confirmed",
+              operationId: pendingAnswerId,
+              canProgress: true,
+              duplicate: body.duplicate === true,
+            };
+          }
+
+          if (response.status === 410 || body?.code === "SESSION_CLOSED") {
+            updatePendingLocalAnswer(pendingAnswerId, (current) => ({
+              ...current,
+              status: "session_closed",
+            }));
+            applyStudentSubmissionEvent({ type: "close_session" });
+            return {
+              ...fallbackResult,
+              deliveryStatus: "session_closed",
+              operationId: pendingAnswerId,
+              canProgress: false,
+            };
+          }
+
+          if (
+            response.status === 400 ||
+            response.status === 401 ||
+            response.status === 403 ||
+            response.status === 409 ||
+            response.status === 422 ||
+            (response.status === 404 && body?.code === "POST_NOT_FOUND")
+          ) {
+            updatePendingLocalAnswer(pendingAnswerId, (current) => ({
+              ...current,
+              status: "rejected",
+            }));
+            applyStudentSubmissionEvent({ type: "reject" });
+            return {
+              ...fallbackResult,
+              deliveryStatus: "rejected",
+              operationId: pendingAnswerId,
+              canProgress: false,
+            };
+          }
+
+          updatePendingLocalAnswer(pendingAnswerId, (current) => ({
+            ...current,
+            status: "awaiting_confirmation",
+          }));
+          applyStudentSubmissionEvent({ type: "response_lost" });
+          captureStudentSubmissionIssue(
+            "student_answer_confirmation_uncertain",
+            pendingAnswerId,
+            {
+              submissionType,
+              stage: "confirm",
+              result: "unknown",
+            }
+          );
+          return {
+            ...fallbackResult,
+            deliveryStatus: "awaiting_confirmation",
+            operationId: pendingAnswerId,
+            canProgress: false,
+          };
+        } catch (error) {
+          const isOffline =
+            typeof navigator !== "undefined" && navigator.onLine === false;
+          const isUncertain =
+            isOffline ||
+            (error instanceof DOMException && error.name === "AbortError") ||
+            isTransientNetworkError(error);
+          const initialDeliveryStatus: StudentSubmissionStatus = isOffline
+            ? "queued_offline"
+            : isUncertain
+              ? "awaiting_confirmation"
+              : "retryable_error";
+
+          const pendingUpdate = updatePendingLocalAnswer(pendingAnswerId, (current) => ({
+            ...current,
+            status: initialDeliveryStatus,
+            hasLocalProgress:
+              initialDeliveryStatus === "queued_offline"
+                ? true
+                : current.hasLocalProgress,
+          }));
+          const deliveryStatus: StudentSubmissionStatus =
+            initialDeliveryStatus === "queued_offline" &&
+            !canProgressStudentSubmission({
+              networkState: "offline",
+              serverConfirmed: false,
+              durablePersistenceSucceeded: pendingUpdate.persisted,
+            })
+              ? "retryable_error"
+              : initialDeliveryStatus;
+          if (deliveryStatus !== initialDeliveryStatus) {
+            updatePendingLocalAnswer(pendingAnswerId, (current) => ({
+              ...current,
+              status: deliveryStatus,
+              hasLocalProgress: false,
+            }));
+          }
+          applyStudentSubmissionEvent(
+            deliveryStatus === "queued_offline"
+              ? { type: "queue_offline" }
+              : deliveryStatus === "awaiting_confirmation"
+                ? { type: "response_lost" }
+                : { type: "retryable_error" }
+          );
+          captureStudentSubmissionIssue(
+            deliveryStatus === "awaiting_confirmation"
+              ? "student_answer_confirmation_uncertain"
+              : "student_answer_submission_failed",
+            pendingAnswerId,
+            {
+              submissionType,
+              stage:
+                deliveryStatus === "awaiting_confirmation"
+                  ? "confirm"
+                  : "submit",
+              result:
+                deliveryStatus === "retryable_error" ? "retryable" : "unknown",
+            }
+          );
+
+          return {
+            ...fallbackResult,
+            deliveryStatus,
+            operationId: pendingAnswerId,
+            canProgress: deliveryStatus === "queued_offline",
+          };
+        } finally {
+          clearTimeout(timeoutId);
+        }
       }
 
       let retryCount = 0;
@@ -3478,18 +4458,13 @@ export function usePlayGameState({
 
             try {
               Sentry.addBreadcrumb({
-                category: "answer",
-                message: "answer_persisted",
+                category: "student_submission",
+                message: "student_answer_persisted",
                 data: {
-                  sessionId,
-                  participantId,
-                  postNumber,
-                  selectedIndex,
-                  awardedPoints: shouldForceAwardedPoints
-                    ? resolvedAwardedPoints
-                    : typeof body.awardedPoints === "number" && Number.isFinite(body.awardedPoints)
-                    ? Math.max(0, Math.round(body.awardedPoints))
-                    : resolvedAwardedPoints,
+                  submission_type: submissionType,
+                  network_state: "online",
+                  stage: "confirm",
+                  result: "duplicate",
                 },
               });
             } catch (err) {
@@ -3525,6 +4500,9 @@ export function usePlayGameState({
     },
     [
       isTransientNetworkError,
+      applyStudentSubmissionEvent,
+      beginStudentSubmission,
+      captureStudentSubmissionIssue,
       participantId,
       playerName,
       raceMode,
@@ -3532,6 +4510,7 @@ export function usePlayGameState({
       sessionId,
       queuePendingLocalAnswer,
       teamId,
+      updatePendingLocalAnswer,
       waitForNetworkRetry,
     ]
   );
@@ -4060,17 +5039,41 @@ export function usePlayGameState({
   }, [currentPostIndex]);
 
   useEffect(() => {
+    const pendingForCurrentPost =
+      pendingLocalAnswersRef.current.find(isTerminalPendingAnswer) ??
+      pendingLocalAnswersRef.current.find(
+        (entry) =>
+          entry.solvedPostIndex === currentPostIndex &&
+          !entry.hasLocalProgress
+      ) ?? null;
+    const nextSubmission = pendingForCurrentPost
+      ? restoreStudentSubmissionState(
+          pendingForCurrentPost.submissionType,
+          pendingForCurrentPost.id,
+          pendingForCurrentPost.status === "submitting"
+            ? "awaiting_confirmation"
+            : pendingForCurrentPost.status
+        )
+      : createIdleStudentSubmissionState();
+
+    studentSubmissionRef.current = nextSubmission;
+    setStudentSubmission(nextSubmission);
+  }, [currentPostIndex]);
+
+  useEffect(() => {
     if (!sessionId) return;
     try {
       Sentry.addBreadcrumb({
         category: "navigation",
         message: "reach_post",
-        data: { sessionId, participantId, postIndex: currentPostIndex },
+        data: {
+          route_mode: distributedCircularEnabled ? "distributed" : "fixed",
+        },
       });
     } catch (err) {
       // best-effort
     }
-  }, [currentPostIndex, sessionId, participantId]);
+  }, [currentPostIndex, distributedCircularEnabled, sessionId]);
 
   const continueFromSolvedPost = async () => {
     clearRoleplayInputErrorTone();
@@ -4126,6 +5129,22 @@ export function usePlayGameState({
       return true;
     }
 
+    const hasPendingStandardAnswers =
+      usesStandardStudentLocationExperience &&
+      pendingLocalAnswersRef.current.some(
+        (entry) =>
+          entry.sessionId === sessionId &&
+          entry.participantId === participantId &&
+          entry.status !== "confirmed"
+      );
+    if (hasPendingStandardAnswers) {
+      finalizeAfterPendingAnswersRef.current = true;
+      showResumeNotice(
+        "Svaret er gemt på telefonen. Det sendes automatisk, når forbindelsen er tilbage."
+      );
+      return false;
+    }
+
     if (!isEscapeRace) {
       void finalizeParticipantSilently();
     }
@@ -4144,10 +5163,44 @@ export function usePlayGameState({
     return true;
   };
 
+  useEffect(() => {
+    if (
+      !finalizeAfterPendingAnswersRef.current ||
+      pendingLocalAnswers.length > 0
+    ) {
+      return;
+    }
+
+    finalizeAfterPendingAnswersRef.current = false;
+    if (!isEscapeRace) {
+      void finalizeParticipantSilently();
+    }
+    setDismissedPostIndex(null);
+    setPhotoFeedback(null);
+    setQuizAnswerFeedback(null);
+    setZoneKrigCaptureFeedback(null);
+    setTypedAnswerError(null);
+    setEscapeReward(null);
+    setRoleplayReply(null);
+    setWrongAttempts(0);
+    setShowQuestion(false);
+    setDistanceState(null);
+    setIsFinished(true);
+  }, [
+    finalizeParticipantSilently,
+    isEscapeRace,
+    pendingLocalAnswers.length,
+  ]);
+
   const handleAnswer = async (
     selectedIndex: number,
     escapeBrick?: string | null,
-    options?: { skipAnswerPersist?: boolean; awardedPoints?: number; zoneKrigCapture?: ZoneKrigCaptureApiResult }
+    options?: {
+      skipAnswerPersist?: boolean;
+      awardedPoints?: number;
+      zoneKrigCapture?: ZoneKrigCaptureApiResult;
+      answerInsertResult?: InsertAnswerResult;
+    }
   ) => {
     const current = questions[currentPostIndex];
     if (!current) return false;
@@ -4165,18 +5218,23 @@ export function usePlayGameState({
     setTypedAnswerError(null);
     setPostActionError(null);
     const isBurnedQuizPost = currentVariant === "quiz" && burnedPostsRef.current.has(currentPostIndex);
+    const usesRobustStandardDelivery =
+      usesStandardStudentLocationExperience && currentVariant === "quiz";
+    const wasAlreadySolved =
+      solvedPostIndexesRef.current.includes(currentPostIndex);
+    const expectedPoints =
+      options?.awardedPoints ?? (isBurnedQuizPost ? 0 : current.points);
 
-    // Sæt quiz-succès-feedback STRAKS (optimistisk) – selv mens netværket er nede.
-    // Dermed kan "Gå til næste post"-knappen vises INDEN insertAnswerRecord returnerer,
-    // og brugeren kan fortsætte selvom WiFi er slukket under besvarelsen.
-    // For Zone Krig venter vi dog for at sikre, at brugeren ser om zonen blev erobret.
-    if (currentVariant === "quiz" && raceMode !== "zone_krig") {
+    // Legacy- og specialflows beholder deres eksisterende optimistiske adfærd.
+    if (
+      !usesRobustStandardDelivery &&
+      currentVariant === "quiz" &&
+      raceMode !== "zone_krig"
+    ) {
       setQuizAnswerFeedback({ key: feedbackKey, selectedIndex, tone: "success" });
     }
 
-      const wasAlreadySolved = solvedPostIndexesRef.current.includes(currentPostIndex);
-      const expectedPoints = options?.awardedPoints ?? (isBurnedQuizPost ? 0 : current.points);
-
+    if (!usesRobustStandardDelivery) {
       markAnsweredPostIndex(currentPostIndex);
 
       if (!wasAlreadySolved) {
@@ -4184,14 +5242,17 @@ export function usePlayGameState({
         setCorrectAnswersCount((prev) => prev + 1);
         setScore((prev) => prev + expectedPoints);
       }
+    }
 
-    const answerInsertResult: InsertAnswerResult = options?.skipAnswerPersist
-      ? {
-          didPersist: true,
-          awardedPoints: expectedPoints,
-          zoneKrigCapture: options.zoneKrigCapture ?? null,
-        }
-      : await insertAnswerRecord(
+    const answerInsertResult: InsertAnswerResult =
+      options?.answerInsertResult ??
+      (options?.skipAnswerPersist
+        ? {
+            didPersist: true,
+            awardedPoints: expectedPoints,
+            zoneKrigCapture: options.zoneKrigCapture ?? null,
+          }
+        : await insertAnswerRecord(
           selectedIndex,
           true,
           postNumber,
@@ -4199,12 +5260,55 @@ export function usePlayGameState({
           current.points,
           myLoc?.lat ?? null,
           myLoc?.lng ?? null,
-          isBurnedQuizPost ? { forcedAwardedPoints: 0 } : undefined
-        );
+          {
+            ...(isBurnedQuizPost ? { forcedAwardedPoints: 0 } : {}),
+            ...(usesRobustStandardDelivery
+              ? {
+                  useRobustDelivery: true,
+                  submissionType: "quiz" as const,
+                }
+              : {}),
+          }
+          ));
 
-      if (!wasAlreadySolved && answerInsertResult.awardedPoints !== expectedPoints) {
-        setScore((prev) => prev - expectedPoints + answerInsertResult.awardedPoints);
+    if (
+      usesRobustStandardDelivery &&
+      answerInsertResult.canProgress !== true
+    ) {
+      setPostActionError({
+        key: activeTypedAnswerKey,
+        message:
+          answerInsertResult.deliveryStatus === "session_closed"
+            ? "Løbet er afsluttet. Svaret kan ikke længere afleveres."
+            : "Svaret kunne ikke sendes endnu.",
+      });
+      return false;
+    }
+
+    if (usesRobustStandardDelivery) {
+      setQuizAnswerFeedback({
+        key: feedbackKey,
+        selectedIndex,
+        tone: "success",
+      });
+      markAnsweredPostIndex(currentPostIndex);
+
+      if (!wasAlreadySolved) {
+        markSolvedPostIndex(currentPostIndex);
+        setCorrectAnswersCount((prev) => prev + 1);
+        setScore((prev) => prev + answerInsertResult.awardedPoints);
       }
+
+      markPendingAnswerLocallyProgressed(answerInsertResult.operationId);
+    } else if (
+      !wasAlreadySolved &&
+      answerInsertResult.awardedPoints !== expectedPoints
+    ) {
+      setScore(
+        (prev) =>
+          prev - expectedPoints + answerInsertResult.awardedPoints
+      );
+    }
 
     if (
       currentVariant === "quiz" &&
@@ -4400,13 +5504,61 @@ export function usePlayGameState({
     const isCorrect = selectedIndex === activeQuestion.correctIndex;
 
     try {
+      if (usesStandardStudentLocationExperience) {
+        const answerInsertResult = await insertAnswerRecord(
+          selectedIndex,
+          isCorrect,
+          currentPostIndex + 1,
+          activeQuestion.text,
+          activeQuestion.points,
+          myLoc?.lat ?? null,
+          myLoc?.lng ?? null,
+          {
+            useRobustDelivery: true,
+            submissionType: "quiz",
+          }
+        );
+
+        if (answerInsertResult.canProgress !== true) {
+          setPostActionError({
+            key: activeTypedAnswerKey,
+            message:
+              answerInsertResult.deliveryStatus === "session_closed"
+                ? "Løbet er afsluttet. Svaret kan ikke længere afleveres."
+                : "Svaret kunne ikke sendes endnu.",
+          });
+          return;
+        }
+
+        const resolvedIsCorrect =
+          answerInsertResult.didPersist &&
+          answerInsertResult.serverCorrectness?.checked === true
+            ? answerInsertResult.serverCorrectness.isCorrect
+            : isCorrect;
+
+        if (resolvedIsCorrect) {
+          await handleAnswer(selectedIndex, null, {
+            awardedPoints: answerInsertResult.awardedPoints,
+            answerInsertResult,
+          });
+          return;
+        }
+
+        handleWrongQuizAnswer(selectedIndex, feedbackKey);
+        await new Promise<void>((resolve) => setTimeout(resolve, 1400));
+        if (!isMountedRef.current) return;
+        markAnsweredPostIndex(currentPostIndex);
+        markPendingAnswerLocallyProgressed(answerInsertResult.operationId);
+        await continueFromSolvedPost();
+        return;
+      }
+
       if (isCorrect) {
         await handleAnswer(selectedIndex, null);
       } else {
-        // Vis fejl-feedback i 1400 ms
         handleWrongQuizAnswer(selectedIndex, feedbackKey);
 
-        // Gem 0-point svar i databasen (fire-and-forget — blokerer aldrig UI)
+        // Specialflows beholder deres eksisterende fire-and-forget-adfærd.
         void insertAnswerRecord(
           selectedIndex,
           false,
@@ -4649,7 +5801,7 @@ export function usePlayGameState({
     }
   };
 
-  const submitPhoto = async (file: File) => {
+  const submitPhoto = async (file: File, operationId?: string) => {
     if (
       !file ||
       !activeQuestion ||
@@ -4664,6 +5816,14 @@ export function usePlayGameState({
     if (isSubmitting || submissionLockRef.current) return;
     if (!beginSubmission()) return;
     const isSelfie = activeQuestion.isSelfie === true;
+    const usesRobustPhotoDelivery =
+      usesStandardStudentLocationExperience &&
+      !isSelfie &&
+      typeof operationId === "string";
+
+    if (usesRobustPhotoDelivery && operationId) {
+      beginStudentSubmission("photo", operationId);
+    }
 
     setPhotoFeedback(null);
     setPostActionError(null);
@@ -4671,9 +5831,16 @@ export function usePlayGameState({
 
     try {
       Sentry.addBreadcrumb({
-        category: "photo",
-        message: "photo_upload_start",
-        data: { sessionId, participantId, postIndex: currentPostIndex, isSelfie },
+        category: "student_submission",
+        message: "student_photo_upload_started",
+        data: {
+          submission_type: "photo",
+          network_state:
+            typeof navigator !== "undefined" && navigator.onLine === false
+              ? "offline"
+              : "online",
+          stage: "upload",
+        },
       });
     } catch (err) {
       // best-effort
@@ -4681,10 +5848,17 @@ export function usePlayGameState({
 
     let retryCount = 0;
     try {
+      if (
+        usesRobustPhotoDelivery &&
+        typeof navigator !== "undefined" &&
+        navigator.onLine === false
+      ) {
+        throw new Error("PHOTO_OFFLINE");
+      }
+
       const image = await compressImageForUpload(file);
       const answeredAt = new Date().toISOString();
       let authRecoveryAttempted = false;
-      let authRecoveryAttempts = 0;
       let payload: SubmitPhotoResponsePayload | null = null;
 
       const getActiveSubmitPhotoParticipantId = () => {
@@ -4704,30 +5878,45 @@ export function usePlayGameState({
         formData.append("participantId", activeParticipantId);
         formData.append("postIndex", String(currentPostIndex));
         formData.append("answeredAt", answeredAt);
-
-        const response = await fetch("/api/play/submit-photo", {
-          method: "POST",
-          body: formData,
-        });
-
-        const nextPayload = (await response.json().catch(() => null)) as SubmitPhotoResponsePayload | null;
-        if (!response.ok || typeof nextPayload?.message !== "string") {
-          const errorMessage = nextPayload?.error || "Ugyldigt svar fra foto-upload.";
-          const uploadError = new Error(errorMessage) as SubmitPhotoRequestError;
-          uploadError.status = response.status;
-          uploadError.code = nextPayload?.code;
-          uploadError.postIndex =
-            typeof nextPayload?.postIndex === "number" ? nextPayload.postIndex : undefined;
-          uploadError.questionCount =
-            typeof nextPayload?.questionCount === "number" ? nextPayload.questionCount : undefined;
-          uploadError.isParticipantAuthError = isParticipantAuthResponseError(
-            response.status,
-            errorMessage
-          );
-          throw uploadError;
+        if (operationId) {
+          formData.append("operationId", operationId);
         }
 
-        return nextPayload;
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(
+          () => abortController.abort(),
+          STANDARD_ANSWER_SUBMISSION_TIMEOUT_MS
+        );
+        try {
+          const response = await fetch("/api/play/submit-photo", {
+            method: "POST",
+            body: formData,
+            signal: usesRobustPhotoDelivery
+              ? abortController.signal
+              : undefined,
+          });
+
+          const nextPayload = (await response.json().catch(() => null)) as SubmitPhotoResponsePayload | null;
+          if (!response.ok || typeof nextPayload?.message !== "string") {
+            const errorMessage = nextPayload?.error || "Ugyldigt svar fra foto-upload.";
+            const uploadError = new Error(errorMessage) as SubmitPhotoRequestError;
+            uploadError.status = response.status;
+            uploadError.code = nextPayload?.code;
+            uploadError.postIndex =
+              typeof nextPayload?.postIndex === "number" ? nextPayload.postIndex : undefined;
+            uploadError.questionCount =
+              typeof nextPayload?.questionCount === "number" ? nextPayload.questionCount : undefined;
+            uploadError.isParticipantAuthError = isParticipantAuthResponseError(
+              response.status,
+              errorMessage
+            );
+            throw uploadError;
+          }
+
+          return nextPayload;
+        } finally {
+          clearTimeout(timeoutId);
+        }
       };
 
       while (isMountedRef.current) {
@@ -4749,7 +5938,6 @@ export function usePlayGameState({
             }
 
             authRecoveryAttempted = true;
-            authRecoveryAttempts++;
 
             try {
               const recoveryReason = determineParticipantAuthRecoveryReason(
@@ -4758,15 +5946,19 @@ export function usePlayGameState({
               );
 
               Sentry.addBreadcrumb({
-                category: "photo",
-                message: "photo_upload_auth_recovery_attempt",
+                category: "student_submission",
+                message: "student_photo_auth_recovery_attempt",
                 data: {
-                  reason: recoveryReason,
-                  retryCount: authRecoveryAttempts,
-                  sessionId,
-                  participantId: getActiveSubmitPhotoParticipantId(),
-                  postIndex: currentPostIndex,
-                  status: uploadError.status,
+                  submission_type: "photo",
+                  network_state:
+                    typeof navigator !== "undefined" && navigator.onLine === false
+                      ? "offline"
+                      : "online",
+                  stage: "upload",
+                  result:
+                    recoveryReason === "unknown_auth_error"
+                      ? "unknown"
+                      : "retryable",
                 },
               });
             } catch (_err) {
@@ -4797,15 +5989,13 @@ export function usePlayGameState({
               );
 
               Sentry.addBreadcrumb({
-                category: "photo",
-                message: "photo_upload_auth_recovery_success",
+                category: "student_submission",
+                message: "student_photo_auth_recovery_succeeded",
                 data: {
-                  reason: recoveryReason,
-                  retryCount: authRecoveryAttempts,
-                  sessionId,
-                  participantId: getActiveSubmitPhotoParticipantId(),
-                  postIndex: currentPostIndex,
-                  recoveryMethod,
+                  submission_type: "photo",
+                  network_state: "online",
+                  stage: "upload",
+                  result: "duplicate",
                 },
               });
             } catch (_err) {
@@ -4832,9 +6022,17 @@ export function usePlayGameState({
           retryCount++;
           try {
             Sentry.addBreadcrumb({
-              category: "photo",
-              message: "photo_upload_retry",
-              data: { sessionId, participantId, postIndex: currentPostIndex, retryCount },
+              category: "student_submission",
+              message: "student_photo_upload_retry",
+              data: {
+                submission_type: "photo",
+                network_state:
+                  typeof navigator !== "undefined" && navigator.onLine === false
+                    ? "offline"
+                    : "online",
+                stage: "upload",
+                result: "retryable",
+              },
             });
           } catch (err) {
             // best-effort
@@ -4850,6 +6048,13 @@ export function usePlayGameState({
       }
 
       if (!payload || !isMountedRef.current) return;
+
+      if (usesRobustPhotoDelivery) {
+        applyStudentSubmissionEvent({
+          type: "confirm",
+          result: payload.duplicate === true ? "duplicate" : "stored",
+        });
+      }
 
       const didSaveAnswer = await handleAnswer(0, null, {
         awardedPoints:
@@ -4878,33 +6083,68 @@ export function usePlayGameState({
       const uploadError = error as SubmitPhotoRequestError;
       const isRunOutOfSyncError =
         uploadError?.status === 409 && uploadError?.code === RUN_OUT_OF_SYNC_ERROR_CODE;
+      const isSessionClosed =
+        uploadError?.status === 410 ||
+        uploadError?.code === "SESSION_CLOSED";
+      const isExpectedPhotoRejection =
+        usesRobustPhotoDelivery &&
+        (uploadError?.status === 400 ||
+          uploadError?.status === 413 ||
+          uploadError?.status === 422 ||
+          uploadError?.code === "PHOTO_OPERATION_CONFLICT" ||
+          uploadError?.code === "PHOTO_SUBMISSION_CONFLICT" ||
+          (uploadError?.status === 404 &&
+            uploadError?.code === "POST_NOT_FOUND"));
 
-      if (!isRunOutOfSyncError) {
-        console.error("Foto-upload fejlede:", error);
+      if (usesRobustPhotoDelivery) {
+        applyStudentSubmissionEvent(
+          isSessionClosed
+            ? { type: "close_session" }
+            : isExpectedPhotoRejection
+              ? { type: "reject" }
+            : { type: "retryable_error" }
+        );
+      }
 
-        try {
-          Sentry.withScope((scope) => {
-            scope.setExtras({
-              sessionId,
-              participantId,
-              postIndex: currentPostIndex,
-              retryCount,
-            });
-            Sentry.captureException(error);
-          });
-        } catch (err) {
-          // best-effort
+      if (
+        !isRunOutOfSyncError &&
+        !isSessionClosed &&
+        !isExpectedPhotoRejection
+      ) {
+        if (usesRobustPhotoDelivery) {
+          console.error("Foto-upload fejlede i standardflowet.");
+        } else {
+          console.error("Foto-upload fejlede:", error);
+        }
+
+        if (usesRobustPhotoDelivery) {
+          captureStudentSubmissionIssue(
+            "student_photo_upload_failed",
+            operationId ?? null,
+            {
+              submissionType: "photo",
+              stage: "upload",
+              result: isTransientNetworkError(error)
+                ? "retryable"
+                : "unknown",
+            }
+          );
         }
       }
 
-      const networkMsg = "Netværksfejl: Prøv igen senere";
       const message = isRunOutOfSyncError
         ? PHOTO_UPLOAD_RUN_OUT_OF_SYNC_MESSAGE
-        : error instanceof Error && error.message === networkMsg
-          ? networkMsg
-          : isSelfie
+        : isSessionClosed
+          ? "Løbet er afsluttet. Svaret kan ikke længere afleveres."
+          : isExpectedPhotoRejection
+            ? uploadError?.status === 413
+              ? "Billedet er for stort. Vælg et mindre billede."
+              : uploadError?.code === "PHOTO_SUBMISSION_CONFLICT"
+                ? "Der er allerede gemt et andet svar på posten."
+                : "Billedet kunne ikke bruges. Vælg et andet billede."
+        : isSelfie
             ? "Vi kunne ikke uploade selfien endnu. Prøv igen med en stabil forbindelse."
-            : "Billedet kunne ikke uploades endnu. Prøv igen.";
+            : "Billedet kunne ikke sendes endnu. Billedet er stadig valgt. Prøv igen.";
 
       setPhotoFeedback({
         key: activeTypedAnswerKey,
@@ -5002,6 +6242,7 @@ export function usePlayGameState({
   };
 
   const feedback: PlayFeedbackState = {
+    studentSubmission,
     photoFeedback,
     postActionError,
     quizAnswerFeedback,
@@ -5130,6 +6371,7 @@ export function usePlayGameState({
     isSessionPaused,
     shouldKeepScreenAwake,
     reconnectConfirmationNonce,
+    pendingAnswerCount: pendingLocalAnswers.length,
     bonusAvailable,
   };
 
@@ -5140,7 +6382,6 @@ export function usePlayGameState({
         category: "play",
         message: "play_reset_from_expired",
         level: "info",
-        data: { sessionId },
       });
     } catch {
       // best-effort
@@ -5181,6 +6422,7 @@ export function usePlayGameState({
       answeredPostIndexesRef.current.includes(currentPostIndex) ||
       burnedPostsRef.current.has(currentPostIndex) ||
       isSelfiePhotoTask ||
+      !usesStandardStudentLocationExperience ||
       isStrategoRace ||
       raceMode === "zone_krig" ||
       isEscapeRace ||
@@ -5190,7 +6432,14 @@ export function usePlayGameState({
       isSubmittingAnswer ||
       isAnalyzingPhoto ||
       isRestoringParticipant ||
-      restoreInFlightRef.current
+      restoreInFlightRef.current ||
+      pendingLocalAnswersRef.current.some(
+        (entry) =>
+          entry.sessionId === sessionId &&
+          entry.participantId === participantId &&
+          entry.solvedPostIndex === currentPostIndex &&
+          entry.status !== "confirmed"
+      )
     ) {
       return;
     }
@@ -5198,6 +6447,18 @@ export function usePlayGameState({
     if (!beginSubmission()) return;
 
     setPostActionError(null);
+    const skipOperationId =
+      studentSubmissionRef.current.submissionType === "skip" &&
+      studentSubmissionRef.current.operationId &&
+      studentSubmissionRef.current.status !== "confirmed"
+        ? studentSubmissionRef.current.operationId
+        : createStudentSubmissionOperationId();
+    beginStudentSubmission("skip", skipOperationId);
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(
+      () => abortController.abort(),
+      STANDARD_ANSWER_SUBMISSION_TIMEOUT_MS
+    );
 
     try {
       const response = await fetch("/api/play/skip-post", {
@@ -5211,6 +6472,7 @@ export function usePlayGameState({
           participantId,
           postIndex: currentPostIndex,
         }),
+        signal: abortController.signal,
       });
 
       const payload = (await response.json().catch(() => null)) as SkipPostResponsePayload | null;
@@ -5218,14 +6480,40 @@ export function usePlayGameState({
 
       if (!response.ok) {
         if (response.status === 409) {
+          if (
+            payload?.code === "SUBMISSION_CONFLICT" ||
+            payload?.code === "PROGRESS_MISMATCH"
+          ) {
+            applyStudentSubmissionEvent({ type: "reject" });
+            setPostActionError({
+              key: activeTypedAnswerKey,
+              message:
+                payload.code === "SUBMISSION_CONFLICT"
+                  ? "Posten er allerede afsluttet med en anden aflevering."
+                  : "Ruten er ændret. Genindlæs løbet, før du prøver igen.",
+            });
+            return;
+          }
+
+          applyStudentSubmissionEvent({ type: "retryable_error" });
+          captureStudentSubmissionIssue(
+            "student_skip_submission_failed",
+            skipOperationId,
+            {
+              submissionType: "skip",
+              stage: "submit",
+              result: "retryable",
+            }
+          );
           setPostActionError({
             key: activeTypedAnswerKey,
-            message: "Ruten blev opdateret. Prøv at hente posten igen.",
+            message: "Posten kunne ikke springes over endnu. Prøv igen.",
           });
           return;
         }
 
         if (response.status === 401 || response.status === 403) {
+          applyStudentSubmissionEvent({ type: "retryable_error" });
           if (isParticipantAuthResponseError(response.status, errorMessage)) {
             tripPlayCircuitBreaker(
               PLAY_PARTICIPANT_AUTH_EXPIRED_MESSAGE,
@@ -5241,40 +6529,149 @@ export function usePlayGameState({
         }
 
         if (response.status === 404 || response.status === 410) {
-          tripPlayCircuitBreaker(PLAY_JOIN_SESSION_MISSING_MESSAGE, "join_session_missing");
+          applyStudentSubmissionEvent({ type: "close_session" });
+          setPostActionError({
+            key: activeTypedAnswerKey,
+            message: "Løbet er afsluttet. Svaret kan ikke længere afleveres.",
+          });
           return;
         }
 
+        if (response.status === 400 || response.status === 422) {
+          applyStudentSubmissionEvent({ type: "reject" });
+          setPostActionError({
+            key: activeTypedAnswerKey,
+            message: "Posten kunne ikke springes over med de aktuelle data.",
+          });
+          return;
+        }
+
+        applyStudentSubmissionEvent({ type: "retryable_error" });
+        captureStudentSubmissionIssue(
+          "student_skip_submission_failed",
+          skipOperationId,
+          {
+            submissionType: "skip",
+            stage: "submit",
+            result: "retryable",
+          }
+        );
         setPostActionError({
           key: activeTypedAnswerKey,
-          message: errorMessage,
+          message: "Posten kunne ikke springes over endnu. Prøv igen.",
         });
         return;
       }
 
       if (payload?.skipped !== true) {
+        applyStudentSubmissionEvent({ type: "retryable_error" });
         setPostActionError({
           key: activeTypedAnswerKey,
-          message: "Vi kunne ikke springe posten over endnu. Prøv igen om et øjeblik.",
+          message: "Posten kunne ikke springes over endnu. Prøv igen.",
         });
         return;
       }
 
+      applyStudentSubmissionEvent({
+        type: "confirm",
+        result: payload.duplicate === true ? "duplicate" : "stored",
+      });
       markAnsweredPostIndex(currentPostIndex);
       markBurnedPostIndex(currentPostIndex);
       await continueFromSolvedPost();
-    } catch (error) {
+    } catch {
       if (!isMountedRef.current) return;
 
+      applyStudentSubmissionEvent({ type: "retryable_error" });
+      captureStudentSubmissionIssue(
+        "student_skip_submission_failed",
+        skipOperationId,
+        {
+          submissionType: "skip",
+          stage: "submit",
+          result: "retryable",
+        }
+      );
       setPostActionError({
         key: activeTypedAnswerKey,
-        message: isTransientNetworkError(error)
-          ? "Netværksfejl: Prøv igen senere."
-          : "Vi kunne ikke springe posten over endnu. Prøv igen om et øjeblik.",
+        message: "Posten kunne ikke springes over endnu. Prøv igen.",
       });
     } finally {
+      clearTimeout(timeoutId);
       endSubmission();
     }
+  };
+
+  const preparePhotoSubmission = useCallback(
+    (operationId: string) => {
+      if (
+        !usesStandardStudentLocationExperience ||
+        activePostVariant !== "photo" ||
+        isSelfiePhotoTask
+      ) {
+        return;
+      }
+
+      const editingSubmission = restoreStudentSubmissionState(
+        "photo",
+        operationId,
+        "editing"
+      );
+      studentSubmissionRef.current = editingSubmission;
+      setStudentSubmission(editingSubmission);
+    },
+    [
+      activePostVariant,
+      isSelfiePhotoTask,
+      usesStandardStudentLocationExperience,
+    ]
+  );
+
+  const retryStudentSubmission = async () => {
+    if (isSubmitting || submissionLockRef.current) return;
+
+    const activeSubmission = studentSubmissionRef.current;
+    if (activeSubmission.submissionType === "skip") {
+      await skipCurrentPostAsEmergency();
+      return;
+    }
+
+    if (activeSubmission.submissionType !== "quiz") {
+      return;
+    }
+
+    const pendingAnswer = pendingLocalAnswersRef.current.find(
+      (entry) =>
+        entry.id === activeSubmission.operationId &&
+        entry.sessionId === sessionId &&
+        entry.participantId === participantId &&
+        entry.solvedPostIndex === currentPostIndex &&
+        !entry.hasLocalProgress
+    );
+    const firstPayload = pendingAnswer?.payloads[0];
+    const selectedValue =
+      firstPayload?.selected_index ?? firstPayload?.answer_index;
+    const selectedIndex =
+      typeof selectedValue === "number"
+        ? selectedValue
+        : typeof selectedValue === "string"
+          ? Number(selectedValue)
+          : Number.NaN;
+
+    if (!Number.isInteger(selectedIndex)) {
+      captureStudentSubmissionIssue(
+        "student_submission_state_invalid",
+        activeSubmission.operationId,
+        {
+          submissionType: "quiz",
+          stage: "resume",
+          result: "rejected",
+        }
+      );
+      return;
+    }
+
+    await submitQuizAnswer(selectedIndex);
   };
 
   const startOver = useCallback(() => {
@@ -5316,10 +6713,12 @@ export function usePlayGameState({
       resetFromExpired,
       retrySessionStatus,
       startOver,
+      retryStudentSubmission,
       continueFromSolvedPost,
       skipCurrentPostAsEmergency,
       submitQuizAnswer,
       submitTypedAnswer,
+      preparePhotoSubmission,
       submitPhoto,
       submitMasterCode,
       setLiveLocation,

@@ -76,6 +76,7 @@ async function mockApiRoutes(page: Page) {
       body: JSON.stringify({
         questions: QUESTIONS,
         raceType: "quiz",
+        usesStandardStudentLocationExperience: true,
         radius: 50,
         gpsOverride: true,
       }),
@@ -253,7 +254,7 @@ test.describe("Offline Survival (Dead Forest)", () => {
     await expect(page.locator("body")).toBeVisible();
 
     // Assert: the existing offline badge is shown
-    const syncMessage = page.getByText("Gemt lokalt", { exact: true });
+    const syncMessage = page.getByText("Gemt på telefonen", { exact: true });
     await expect(syncMessage).toBeVisible({ timeout: 30_000 });
 
     // Assert: the submit-answer API was NOT called while offline
@@ -276,10 +277,16 @@ test.describe("Offline Survival (Dead Forest)", () => {
     expect(mocks.getSubmitCallCount()).toBeGreaterThanOrEqual(1);
 
     // Assert: the payload includes the right session and post info
-    const bodies = mocks.getSubmitBodies() as Array<{ payloads?: Array<{ session_id?: string }> }>;
+    const bodies = mocks.getSubmitBodies() as Array<{
+      operationId?: string;
+      payloads?: Array<{ session_id?: string }>;
+    }>;
     expect(bodies.length).toBeGreaterThanOrEqual(1);
     const firstPayload = bodies[0]?.payloads?.[0];
     expect(firstPayload?.session_id).toBe(SESSION_ID);
+    expect(bodies[0]?.operationId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+    );
   });
 
   test("shows offline indicator badge in HUD when answers are pending", async ({ page }) => {
@@ -289,7 +296,7 @@ test.describe("Offline Survival (Dead Forest)", () => {
     await joinAndReachPost(page);
 
     // No offline indicator initially
-    const indicator = page.getByText("Gemt lokalt", { exact: true });
+    const indicator = page.getByText("Gemt på telefonen", { exact: true });
     await expect(indicator).not.toBeVisible({ timeout: 3_000 });
 
     // Go offline and submit

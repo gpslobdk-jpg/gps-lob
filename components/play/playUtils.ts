@@ -11,6 +11,13 @@ import type {
 } from "./types";
 import { getQuestionPoints } from "@/utils/questionPoints";
 import { buildCircularRouteOrder } from "@/lib/routes/postOrderPolicy";
+import {
+  createStudentSubmissionOperationId,
+  isStudentSubmissionOperationId,
+  STUDENT_SUBMISSION_STATUSES,
+  type StudentSubmissionStatus,
+  type StudentSubmissionType,
+} from "@/lib/submissions/studentSubmissionState";
 
 export const ACTIVE_PARTICIPANT_STORAGE_KEY = "gpslob_active_participant";
 export const ACTIVE_PLAY_SNAPSHOT_STORAGE_KEY = "gpslob_active_play_snapshot";
@@ -145,7 +152,10 @@ function normalizeStoredPendingAnswer(value: unknown): StoredPendingAnswer | nul
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
 
   const candidate = value as Record<string, unknown>;
-  const id = typeof candidate.id === "string" ? candidate.id.trim() : "";
+  const storedId = typeof candidate.id === "string" ? candidate.id.trim() : "";
+  const id = isStudentSubmissionOperationId(storedId)
+    ? storedId
+    : createStudentSubmissionOperationId();
   const solvedPostIndex = toFiniteNumber(candidate.solvedPostIndex);
   const awardedPoints = toFiniteNumber(candidate.awardedPoints);
   const payloads = Array.isArray(candidate.payloads)
@@ -154,23 +164,71 @@ function normalizeStoredPendingAnswer(value: unknown): StoredPendingAnswer | nul
           Boolean(payload) && typeof payload === "object" && !Array.isArray(payload)
       )
     : [];
+  const firstPayload = payloads[0] ?? {};
+  const sessionId =
+    typeof candidate.sessionId === "string"
+      ? candidate.sessionId.trim()
+      : typeof firstPayload.session_id === "string"
+        ? firstPayload.session_id.trim()
+        : "";
+  const participantId =
+    typeof candidate.participantId === "string"
+      ? candidate.participantId.trim()
+      : typeof firstPayload.participant_id === "string"
+        ? firstPayload.participant_id.trim()
+        : "";
+  const submissionType: StudentSubmissionType =
+    candidate.submissionType === "manual" ||
+    candidate.submissionType === "photo" ||
+    candidate.submissionType === "skip"
+      ? candidate.submissionType
+      : "quiz";
+  const status: StudentSubmissionStatus =
+    typeof candidate.status === "string" &&
+    STUDENT_SUBMISSION_STATUSES.includes(candidate.status as StudentSubmissionStatus)
+      ? candidate.status === "submitting"
+        ? "awaiting_confirmation"
+        : (candidate.status as StudentSubmissionStatus)
+      : "queued_offline";
+  const attemptCount = toFiniteNumber(candidate.attemptCount);
+  const nextRetryAtMs = toFiniteNumber(candidate.nextRetryAtMs);
 
-  if (!id || solvedPostIndex === null || !Number.isInteger(solvedPostIndex) || solvedPostIndex < 0) {
+  if (solvedPostIndex === null || !Number.isInteger(solvedPostIndex) || solvedPostIndex < 0) {
     return null;
   }
 
-  if (payloads.length === 0) {
+  if (payloads.length === 0 || !sessionId || !participantId) {
     return null;
   }
 
   return {
     id,
+    sessionId,
+    participantId,
+    submissionType,
+    status,
     payloads: payloads.map((payload) => ({ ...payload })),
     solvedPostIndex,
     awardedPoints:
       awardedPoints !== null && Number.isFinite(awardedPoints)
         ? Math.max(0, Math.round(awardedPoints))
         : 0,
+    isCorrect:
+      typeof candidate.isCorrect === "boolean"
+        ? candidate.isCorrect
+        : firstPayload.is_correct === true,
+    hasLocalProgress:
+      typeof candidate.hasLocalProgress === "boolean"
+        ? candidate.hasLocalProgress
+        : true,
+    attemptCount:
+      attemptCount !== null && Number.isInteger(attemptCount) && attemptCount >= 0
+        ? attemptCount
+        : 0,
+    nextRetryAtMs:
+      nextRetryAtMs !== null && Number.isFinite(nextRetryAtMs) && nextRetryAtMs > 0
+        ? Math.round(nextRetryAtMs)
+        : null,
   };
 }
 
@@ -200,9 +258,27 @@ export function readStoredPlaySnapshot(): StoredPlaySnapshot | null {
     const dismissedPostIndex = toFiniteNumber(parsed.dismissedPostIndex);
     const playStartedAtMs = toFiniteNumber(parsed.playStartedAtMs);
     const playFinishedAtMs = toFiniteNumber(parsed.playFinishedAtMs);
+    let didMigratePendingOperationIds = false;
     const pendingAnswers = Array.isArray(parsed.pendingAnswers)
       ? parsed.pendingAnswers
-          .map((entry) => normalizeStoredPendingAnswer(entry))
+          .map((entry) => {
+            const normalized = normalizeStoredPendingAnswer(entry);
+            if (
+              normalized &&
+              entry &&
+              typeof entry === "object" &&
+              !Array.isArray(entry)
+            ) {
+              const storedId =
+                typeof (entry as Record<string, unknown>).id === "string"
+                  ? String((entry as Record<string, unknown>).id).trim()
+                  : "";
+              if (normalized.id !== storedId) {
+                didMigratePendingOperationIds = true;
+              }
+            }
+            return normalized;
+          })
           .filter((entry): entry is StoredPendingAnswer => entry !== null)
       : [];
 
@@ -210,7 +286,7 @@ export function readStoredPlaySnapshot(): StoredPlaySnapshot | null {
       return null;
     }
 
-    return {
+    const snapshot: StoredPlaySnapshot = {
       participantId,
       sessionId,
       currentPostIndex: Math.max(0, currentPostIndex),
@@ -238,18 +314,57 @@ export function readStoredPlaySnapshot(): StoredPlaySnapshot | null {
       pendingAnswers,
       savedAt: typeof parsed.savedAt === "string" ? parsed.savedAt : "",
     };
+
+    if (didMigratePendingOperationIds) {
+      try {
+        window.localStorage.setItem(
+          ACTIVE_PLAY_SNAPSHOT_STORAGE_KEY,
+          JSON.stringify(snapshot)
+        );
+      } catch (error) {
+        console.warn(
+          "Kunne ikke gemme migrerede afleverings-id'er lokalt:",
+          error
+        );
+      }
+    }
+
+    return snapshot;
   } catch {
     return null;
   }
 }
 
 export function saveStoredPlaySnapshot(value: StoredPlaySnapshot) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") return false;
   try {
     window.localStorage.setItem(ACTIVE_PLAY_SNAPSHOT_STORAGE_KEY, JSON.stringify(value));
+    return true;
   } catch (error) {
     console.warn("Kunne ikke gemme play-snapshot lokalt:", error);
+    return false;
   }
+}
+
+export function savePendingAnswersForStoredPlaySnapshot(
+  sessionId: string,
+  participantId: string,
+  pendingAnswers: StoredPendingAnswer[]
+) {
+  const snapshot = readStoredPlaySnapshot();
+  if (
+    !snapshot ||
+    snapshot.sessionId !== sessionId ||
+    snapshot.participantId !== participantId
+  ) {
+    return false;
+  }
+
+  return saveStoredPlaySnapshot({
+    ...snapshot,
+    pendingAnswers,
+    savedAt: new Date().toISOString(),
+  });
 }
 
 export function clearStoredPlaySnapshot() {

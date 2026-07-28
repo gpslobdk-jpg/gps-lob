@@ -18,11 +18,13 @@ import {
   wrapTextClass,
 } from "./playUtils";
 import QuestionTtsButton from "./QuestionTtsButton";
+import StudentSubmissionStatus from "./StudentSubmissionStatus";
 import TeacherBroadcastModal from "./TeacherBroadcastModal";
 import StudentNameGateView from "./shared/StudentNameGateView";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 import trophyAnimation from "@/public/trophy.json";
 import { getGamerTitle } from "@/utils/gamerTitle";
+import { createStudentSubmissionOperationId } from "@/lib/submissions/studentSubmissionState";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 const LottiePlayer = dynamic(
@@ -44,6 +46,13 @@ type PlayInterfaceProps = {
   ui: PlayUiState;
   actions: PlayActions;
   children?: ReactNode;
+};
+
+type PendingPhotoSelection = {
+  key: string;
+  file: File;
+  previewUrl: string;
+  operationId: string;
 };
 
 function Vm26PlayBadge({ compact = false }: { compact?: boolean }) {
@@ -324,6 +333,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const [showLoadingStuckHelp, setShowLoadingStuckHelp] = useState(false);
   const loadingStuckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [skipConfirm, setSkipConfirm] = useState<{ key: string } | null>(null);
+  const [pendingPhotoSelection, setPendingPhotoSelection] =
+    useState<PendingPhotoSelection | null>(null);
 
   const params = useParams<{ sessionId: string }>();
   const sessionId = params?.sessionId ?? "";
@@ -389,7 +400,13 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     showMasterVictory,
     myEscapePlacement,
   } = escape;
-  const { latestMessage, resumeMessage, vm26GoalFeedback, wrongAnswerFeedback } = feedback;
+  const {
+    studentSubmission,
+    latestMessage,
+    resumeMessage,
+    vm26GoalFeedback,
+    wrongAnswerFeedback,
+  } = feedback;
   const {
     canManualUnlock,
     gpsOverrideEnabled,
@@ -407,6 +424,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     isSubmittingAnswer,
     isAnalyzingPhoto,
     isCheckingEscapeAnswer,
+    pendingAnswerCount,
     bonusAvailable,
   } = flags;
   const isWithinAutoUnlockRadius =
@@ -482,8 +500,21 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const cameraError = cameraErrorState.key === activeTypedAnswerKey ? cameraErrorState.message : null;
   const lockedPostFeedback = lockedPostFeedbackState?.message ?? null;
   const isAnswerSubmissionPending = isSubmittingAnswer || isSubmitting;
+  const isStandardSubmissionBlockingInput =
+    usesStandardStudentLocationExperience &&
+    (
+      studentSubmission.status === "submitting" ||
+      studentSubmission.status === "queued_offline" ||
+      studentSubmission.status === "awaiting_confirmation" ||
+      studentSubmission.status === "retryable_error" ||
+      studentSubmission.status === "rejected" ||
+      studentSubmission.status === "session_closed"
+    );
   const isQuizSubmissionPending =
-    activePostVariant === "quiz" && isAnswerSubmissionPending && !activeQuizAnswerFeedback;
+    !usesStandardStudentLocationExperience &&
+    activePostVariant === "quiz" &&
+    isAnswerSubmissionPending &&
+    !activeQuizAnswerFeedback;
   const shouldQueryCameraPermission = activePostVariant === "photo";
   const isParticipantAuthExpired = screen.loadErrorVariant === "participant_auth_expired";
   const isJoinSessionMissing = screen.loadErrorVariant === "join_session_missing";
@@ -498,6 +529,31 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const answeredPostLockMessage = isQuizPostBurned
     ? "Allerede besvaret."
     : "Besvaret. Videre til næste post.";
+
+  useEffect(() => {
+    const previewUrl = pendingPhotoSelection?.previewUrl;
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [pendingPhotoSelection?.previewUrl]);
+
+  useEffect(() => {
+    if (
+      pendingPhotoSelection &&
+      (pendingPhotoSelection.key !== activeTypedAnswerKey ||
+        hasActivePhotoSuccess ||
+        isCurrentPostAnswered)
+    ) {
+      setPendingPhotoSelection(null);
+    }
+  }, [
+    activeTypedAnswerKey,
+    hasActivePhotoSuccess,
+    isCurrentPostAnswered,
+    pendingPhotoSelection,
+  ]);
 
   const clearLockedPostFeedback = useCallback(() => {
     if (lockedPostFeedbackTimerRef.current !== null) {
@@ -618,7 +674,11 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   }, []);
 
   useEffect(() => {
-    if (!hasActiveQuizSuccess) {
+    const hasConfirmedSubmission =
+      usesStandardStudentLocationExperience
+        ? studentSubmission.status === "confirmed"
+        : hasActiveQuizSuccess;
+    if (!hasConfirmedSubmission) {
       return;
     }
 
@@ -631,7 +691,11 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
       setShowCloudSyncSuccess(false);
       cloudSyncSuccessTimerRef.current = null;
     }, 2000) as any;
-  }, [hasActiveQuizSuccess]);
+  }, [
+    hasActiveQuizSuccess,
+    studentSubmission.status,
+    usesStandardStudentLocationExperience,
+  ]);
 
   useEffect(() => {
     if (showQuestion || !hasActiveUnlockTarget || canManualUnlock) {
@@ -776,7 +840,51 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
       return;
     }
     setCameraError(null);
+
+    if (
+      usesStandardStudentLocationExperience &&
+      !isSelfiePhotoTask
+    ) {
+      const nextSelection: PendingPhotoSelection = {
+        key: activeTypedAnswerKey,
+        file,
+        previewUrl: URL.createObjectURL(file),
+        operationId: createStudentSubmissionOperationId(),
+      };
+      actions.preparePhotoSubmission(nextSelection.operationId);
+      setPendingPhotoSelection(nextSelection);
+      return;
+    }
+
     void actions.submitPhoto(file);
+  };
+
+  const submitPendingPhoto = () => {
+    if (
+      !pendingPhotoSelection ||
+      pendingPhotoSelection.key !== activeTypedAnswerKey ||
+      isAnswerSubmissionPending ||
+      isAnalyzingPhoto
+    ) {
+      return;
+    }
+
+    void actions.submitPhoto(
+      pendingPhotoSelection.file,
+      pendingPhotoSelection.operationId
+    );
+  };
+
+  const retryActiveSubmission = () => {
+    if (
+      studentSubmission.submissionType === "photo" &&
+      pendingPhotoSelection?.key === activeTypedAnswerKey
+    ) {
+      submitPendingPhoto();
+      return;
+    }
+
+    void actions.retryStudentSubmission();
   };
 
   const handlePhotoButtonClick = () => {
@@ -1686,7 +1794,27 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                               <div className="mt-1 flex items-center justify-center gap-2">
                                 <p className="text-2xl font-black text-white md:text-3xl">{score}</p>
 
-                                {isAnswerSubmissionPending ? (
+                                {usesStandardStudentLocationExperience &&
+                                studentSubmission.status === "submitting" ? (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-amber-100 shadow-[0_0_0_1px_rgba(251,191,36,0.12)]">
+                                    <Cloud className="h-3.5 w-3.5 shrink-0" />
+                                    <span>Sender…</span>
+                                  </span>
+                                ) : usesStandardStudentLocationExperience &&
+                                  pendingAnswerCount > 0 &&
+                                  studentSubmission.status !==
+                                    "awaiting_confirmation" &&
+                                  studentSubmission.status !==
+                                    "retryable_error" &&
+                                  studentSubmission.status !== "rejected" &&
+                                  studentSubmission.status !==
+                                    "session_closed" ? (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-300/30 bg-sky-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-sky-100">
+                                    <CloudOff className="h-3.5 w-3.5 shrink-0" />
+                                    <span>Gemt på telefonen</span>
+                                  </span>
+                                ) : !usesStandardStudentLocationExperience &&
+                                  isAnswerSubmissionPending ? (
                                   <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-amber-100 shadow-[0_0_0_1px_rgba(251,191,36,0.12)] animate-pulse">
                                     <Cloud className="h-3.5 w-3.5 shrink-0" />
                                     <span>Gemmer i skyen...</span>
@@ -1905,6 +2033,17 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                     <span className={tacticalPillClass}>Mission Device</span>
                     <span className={tacticalMetaLabelClass}>Post {displayPostNumber}</span>
                   </div>
+                  {usesStandardStudentLocationExperience ? (
+                    <div className="mb-5">
+                      <StudentSubmissionStatus
+                        state={studentSubmission}
+                        onRetry={retryActiveSubmission}
+                        retryDisabled={
+                          isAnswerSubmissionPending || isAnalyzingPhoto
+                        }
+                      />
+                    </div>
+                  ) : null}
                 {activePostVariant === "escape" ? (
                   <div className="mb-6">
                     <h2 className={`text-2xl font-black text-white ${wrapTextClass} ${rubik.className}`}>
@@ -2005,7 +2144,11 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                                   key={idx}
                                   type="button"
                                   disabled={
-                                    isClosing || isQuizPostBurned || Boolean(activeQuizAnswerFeedback) || isAnswerSubmissionPending
+                                    isClosing ||
+                                    isQuizPostBurned ||
+                                    Boolean(activeQuizAnswerFeedback) ||
+                                    isAnswerSubmissionPending ||
+                                    isStandardSubmissionBlockingInput
                                   }
                                   onClick={() => void actions.submitQuizAnswer(idx)}
                                   className={`flex min-h-[56px] w-full items-center justify-between gap-3 overflow-hidden rounded-[1.35rem] border p-4 text-left text-base font-black uppercase tracking-[0.2em] transition-all sm:text-lg ${wrapTextClass} ${rubik.className} ${
@@ -2066,7 +2209,61 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       className="hidden"
                     />
 
-                    {!hasActivePhotoSuccess && !isCurrentPostAnswered ? (
+                    {!hasActivePhotoSuccess &&
+                    !isCurrentPostAnswered &&
+                    pendingPhotoSelection?.key === activeTypedAnswerKey ? (
+                      <div className="space-y-4">
+                        <div className="overflow-hidden rounded-[1.6rem] border border-white/15 bg-slate-900/80 p-2">
+                          <Image
+                            src={pendingPhotoSelection.previewUrl}
+                            alt="Det valgte billede"
+                            width={1200}
+                            height={900}
+                            unoptimized
+                            className="max-h-[50vh] w-full rounded-[1.2rem] object-contain"
+                          />
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <button
+                            type="button"
+                            onClick={handlePhotoButtonClick}
+                            disabled={
+                              isAnalyzingPhoto ||
+                              isAnswerSubmissionPending ||
+                              (isStandardSubmissionBlockingInput &&
+                                studentSubmission.status !== "retryable_error" &&
+                                studentSubmission.status !== "rejected")
+                            }
+                            className={tacticalSecondaryButtonClass}
+                          >
+                            <Camera className="h-5 w-5" />
+                            Vælg et andet billede
+                          </button>
+                          <button
+                            type="button"
+                            onClick={submitPendingPhoto}
+                            disabled={
+                              isAnalyzingPhoto ||
+                              isAnswerSubmissionPending ||
+                              isStandardSubmissionBlockingInput
+                            }
+                            className={tacticalPrimaryButtonClass}
+                          >
+                            {isAnalyzingPhoto || isAnswerSubmissionPending ? (
+                              <>
+                                <Loader2 className="h-5 w-5 animate-spin motion-reduce:animate-none" />
+                                Sender billedet…
+                              </>
+                            ) : (
+                              <>
+                                <Cloud className="h-5 w-5" />
+                                Aflever billede
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ) : !hasActivePhotoSuccess && !isCurrentPostAnswered ? (
                       <button
                         type="button"
                         onClick={handlePhotoButtonClick}
@@ -2467,8 +2664,13 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                   </div>
                 ) : null}
 
-                {/* Emergency skip — kun quiz/photo, kun efter post-action-fejl, ikke selfie, ikke allerede besvaret */}
-                {activePostActionError &&
+                {/* Emergency skip — kun standard quiz/photo efter en post-action-fejl. */}
+                {usesStandardStudentLocationExperience &&
+                  !isStandardSubmissionBlockingInput &&
+                  pendingAnswerCount === 0 &&
+                  (activePostActionError ||
+                    (activePostVariant === "photo" &&
+                      activePhotoFeedback?.tone === "error")) &&
                   (activePostVariant === "quiz" || activePostVariant === "photo") &&
                   raceMode !== "zone_krig" &&
                   !isSelfiePhotoTask &&
@@ -2480,7 +2682,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
                       <button
                         type="button"
                         onClick={() => setSkipConfirm({ key: activeTypedAnswerKey })}
-                        className="text-xs text-white/40 underline underline-offset-2 transition-colors hover:text-white/65"
+                        className="inline-flex min-h-[56px] items-center justify-center px-4 text-xs text-white/50 underline underline-offset-2 transition-colors hover:text-white/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                       >
                         Stadig låst?
                       </button>

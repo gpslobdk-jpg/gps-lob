@@ -1,3 +1,9 @@
+import type {
+  StudentSubmissionState,
+  StudentSubmissionStatus,
+  StudentSubmissionType,
+} from "@/lib/submissions/studentSubmissionState";
+
 export type QuestionType = "multiple_choice" | "ai_image" | "unknown";
 
 export type Question = {
@@ -160,9 +166,17 @@ export type StoredActiveParticipant = {
 
 export type StoredPendingAnswer = {
   id: string;
+  sessionId: string;
+  participantId: string;
+  submissionType: StudentSubmissionType;
+  status: StudentSubmissionStatus;
   payloads: Record<string, unknown>[];
   solvedPostIndex: number;
   awardedPoints: number;
+  isCorrect: boolean;
+  hasLocalProgress: boolean;
+  attemptCount: number;
+  nextRetryAtMs: number | null;
 };
 
 export type StoredPlaySnapshot = {
@@ -364,6 +378,7 @@ export interface PlayEscapeState {
 }
 
 export interface PlayFeedbackState {
+  studentSubmission: StudentSubmissionState;
   photoFeedback: PhotoFeedbackState;
   postActionError: PostActionErrorState;
   quizAnswerFeedback: QuizAnswerFeedbackState;
@@ -435,6 +450,7 @@ export interface PlayUiFlags {
   isSessionPaused: boolean;
   shouldKeepScreenAwake: boolean;
   reconnectConfirmationNonce: number;
+  pendingAnswerCount: number;
   /** Automatisk beregnet: true hvis løbet har nok gyldige quizspørgsmål til bonusgenerering. */
   bonusAvailable: boolean;
 }
@@ -487,11 +503,13 @@ export interface PlayActions {
   resetFromExpired: () => void;
   retrySessionStatus: () => Promise<void>;
   startOver: () => void;
+  retryStudentSubmission: () => Promise<void>;
   continueFromSolvedPost: () => Promise<boolean>;
   skipCurrentPostAsEmergency: () => Promise<void>;
   submitQuizAnswer: (selectedIndex: number) => Promise<void>;
   submitTypedAnswer: (answer: string) => Promise<void>;
-  submitPhoto: (file: File) => Promise<void>;
+  preparePhotoSubmission: (operationId: string) => void;
+  submitPhoto: (file: File, operationId?: string) => Promise<void>;
   submitMasterCode: (code: string) => Promise<void>;
   setLiveLocation: (location: Location | null) => void;
   setDistance: (distance: number | null) => void;
