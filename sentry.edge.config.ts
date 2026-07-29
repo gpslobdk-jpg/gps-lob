@@ -4,6 +4,10 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import {
+  sanitizeObservabilityObject,
+  sanitizeSentryEvent,
+} from "./lib/observability/privacy";
 
 Sentry.init({
   dsn: "https://31175c8fd32fcc439aaa2479b9191608@o4511262707351552.ingest.de.sentry.io/4511262710038608",
@@ -19,16 +23,12 @@ Sentry.init({
   sendDefaultPii: false,
 
   beforeSend(event) {
-    if (event.request?.url) {
-      try {
-        const url = new URL(event.request.url);
-        url.search = "";
-        event.request.url = url.toString();
-      } catch {
-        event.request.url = event.request.url.split("?")[0] ?? event.request.url;
-      }
-    }
-
-    return event;
+    return sanitizeSentryEvent(event);
+  },
+  beforeSendTransaction(event) {
+    return sanitizeSentryEvent(event);
+  },
+  beforeSendLog(log) {
+    return sanitizeObservabilityObject(log);
   },
 });

@@ -4,10 +4,26 @@
 
 import * as Sentry from "@sentry/nextjs";
 import {
-  sanitizeObservabilityData,
+  sanitizeObservabilityObject,
   sanitizeSentryEvent,
 } from "@/lib/observability/privacy";
 import { ensureBugsnag } from "@/utils/observability";
+
+function sanitizeClientTelemetryObject<T extends object>(value: T): T | null {
+  try {
+    return sanitizeObservabilityObject(value);
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeClientSentryEvent<T extends object>(event: T): T | null {
+  try {
+    return sanitizeSentryEvent(event);
+  } catch {
+    return null;
+  }
+}
 
 Sentry.init({
   dsn: "https://31175c8fd32fcc439aaa2479b9191608@o4511262707351552.ingest.de.sentry.io/4511262710038608",
@@ -20,7 +36,7 @@ Sentry.init({
       blockAllMedia: true,
       networkDetailDenyUrls: [/\/api\/join(?:\?|$)/],
       beforeAddRecordingEvent(event) {
-        return sanitizeObservabilityData(event) as typeof event;
+        return sanitizeClientTelemetryObject(event);
       },
     }),
   ],
@@ -47,10 +63,13 @@ Sentry.init({
     "Cannot read properties of undefined (reading '_leaflet_pos')",
   ],
   beforeBreadcrumb(breadcrumb) {
-    return sanitizeObservabilityData(breadcrumb) as typeof breadcrumb;
+    return sanitizeClientTelemetryObject(breadcrumb);
   },
   beforeSendTransaction(event) {
-    return sanitizeSentryEvent(event);
+    return sanitizeClientSentryEvent(event);
+  },
+  beforeSendLog(log) {
+    return sanitizeClientTelemetryObject(log);
   },
   // Add a beforeSend filter to drop specific Facebook iOS WebView noise
   beforeSend(event) {
@@ -93,7 +112,7 @@ Sentry.init({
       return null;
     }
 
-    return sanitizeSentryEvent(event);
+    return sanitizeClientSentryEvent(event);
   },
 });
 

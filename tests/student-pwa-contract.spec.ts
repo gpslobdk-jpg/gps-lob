@@ -298,6 +298,11 @@ test.describe("student PWA source contracts", () => {
       ],
     });
 
+    expect(sanitized).not.toBeNull();
+    if (!sanitized) {
+      throw new Error("Expected the privacy-safe Sentry event to be retained");
+    }
+
     const serialized = JSON.stringify(sanitized);
 
     for (const secret of [

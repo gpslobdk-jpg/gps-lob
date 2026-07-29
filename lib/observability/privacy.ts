@@ -1,4 +1,13 @@
 export const REDACTED_OBSERVABILITY_VALUE = "[redacted]";
+export const CIRCULAR_OBSERVABILITY_VALUE = "[circular]";
+export const TRUNCATED_OBSERVABILITY_VALUE = "[truncated]";
+export const UNSANITIZABLE_OBSERVABILITY_VALUE = "[unavailable]";
+
+const MAX_OBSERVABILITY_DEPTH = 24;
+const MAX_OBSERVABILITY_NODES = 5_000;
+const MAX_OBSERVABILITY_COLLECTION_SIZE = 250;
+const MAX_OBSERVABILITY_STRING_LENGTH = 20_000;
+const TRUNCATED_COLLECTION_KEY = "__truncated__";
 
 const UUID_PATTERN =
   /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi;
@@ -82,21 +91,53 @@ export function sanitizeObservabilityUrl(value: string) {
   }
 }
 
-function sanitizeJsonString(value: string) {
+type SanitizationState = {
+  ancestors: WeakSet<object>;
+  remainingNodes: number;
+};
+
+function sanitizeJsonString(
+  value: string,
+  state: SanitizationState,
+  depth: number
+) {
   const trimmedValue = value.trim();
   if (!trimmedValue.startsWith("{") && !trimmedValue.startsWith("[")) {
     return null;
   }
 
+  let parsedValue: unknown;
   try {
-    return JSON.stringify(sanitizeObservabilityData(JSON.parse(trimmedValue)));
+    parsedValue = JSON.parse(trimmedValue);
   } catch {
     return null;
   }
+
+  const sanitizedValue = sanitizeObservabilityDataInternal(
+    parsedValue,
+    "",
+    depth + 1,
+    state
+  );
+
+  try {
+    return JSON.stringify(sanitizedValue);
+  } catch {
+    return JSON.stringify(UNSANITIZABLE_OBSERVABILITY_VALUE);
+  }
 }
 
-function sanitizeObservabilityString(value: string, key = "") {
-  const sanitizedJson = sanitizeJsonString(value);
+function sanitizeObservabilityString(
+  value: string,
+  key: string,
+  state: SanitizationState,
+  depth: number
+) {
+  if (value.length > MAX_OBSERVABILITY_STRING_LENGTH) {
+    return TRUNCATED_OBSERVABILITY_VALUE;
+  }
+
+  const sanitizedJson = sanitizeJsonString(value, state, depth);
   if (sanitizedJson !== null) {
     return sanitizedJson;
   }
@@ -124,16 +165,23 @@ function sanitizeObservabilityString(value: string, key = "") {
     .replace(JOIN_CODE_PATTERN, REDACTED_OBSERVABILITY_VALUE);
 }
 
-export function sanitizeObservabilityData(
+function sanitizeObservabilityDataInternal(
   value: unknown,
-  key = ""
+  key: string,
+  depth: number,
+  state: SanitizationState
 ): unknown {
   if (key && isSensitiveObservabilityKey(key)) {
     return REDACTED_OBSERVABILITY_VALUE;
   }
 
+  if (state.remainingNodes <= 0) {
+    return TRUNCATED_OBSERVABILITY_VALUE;
+  }
+  state.remainingNodes -= 1;
+
   if (typeof value === "string") {
-    return sanitizeObservabilityString(value, key);
+    return sanitizeObservabilityString(value, key, state, depth);
   }
 
   if (
@@ -144,28 +192,133 @@ export function sanitizeObservabilityData(
     return value;
   }
 
-  if (Array.isArray(value)) {
-    return value.map((item) => sanitizeObservabilityData(item));
+  if (value === undefined) {
+    return value;
   }
 
   if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).map(([entryKey, entryValue]) => [
-        entryKey,
-        sanitizeObservabilityData(entryValue, entryKey),
-      ])
-    );
+    if (depth >= MAX_OBSERVABILITY_DEPTH) {
+      return TRUNCATED_OBSERVABILITY_VALUE;
+    }
+
+    if (state.ancestors.has(value)) {
+      return CIRCULAR_OBSERVABILITY_VALUE;
+    }
+
+    state.ancestors.add(value);
+
+    try {
+      if (Array.isArray(value)) {
+        const outputLength = Math.min(
+          value.length,
+          MAX_OBSERVABILITY_COLLECTION_SIZE
+        );
+        const sanitizedArray = new Array<unknown>(outputLength);
+
+        for (let index = 0; index < outputLength; index += 1) {
+          const descriptor = Object.getOwnPropertyDescriptor(value, index);
+          if (!descriptor) {
+            continue;
+          }
+
+          sanitizedArray[index] =
+            "value" in descriptor
+              ? sanitizeObservabilityDataInternal(
+                  descriptor.value,
+                  "",
+                  depth + 1,
+                  state
+                )
+              : UNSANITIZABLE_OBSERVABILITY_VALUE;
+        }
+
+        if (value.length > MAX_OBSERVABILITY_COLLECTION_SIZE) {
+          sanitizedArray.push(TRUNCATED_OBSERVABILITY_VALUE);
+        }
+
+        return sanitizedArray;
+      }
+
+      const entryKeys = Object.keys(value);
+      const sanitizedEntries: Array<[string, unknown]> = [];
+
+      for (const entryKey of entryKeys.slice(
+        0,
+        MAX_OBSERVABILITY_COLLECTION_SIZE
+      )) {
+        const descriptor = Object.getOwnPropertyDescriptor(value, entryKey);
+        const sanitizedValue =
+          descriptor && "value" in descriptor
+            ? sanitizeObservabilityDataInternal(
+                descriptor.value,
+                entryKey,
+                depth + 1,
+                state
+              )
+            : UNSANITIZABLE_OBSERVABILITY_VALUE;
+
+        sanitizedEntries.push([entryKey, sanitizedValue]);
+      }
+
+      if (entryKeys.length > MAX_OBSERVABILITY_COLLECTION_SIZE) {
+        sanitizedEntries.push([
+          TRUNCATED_COLLECTION_KEY,
+          TRUNCATED_OBSERVABILITY_VALUE,
+        ]);
+      }
+
+      return Object.fromEntries(sanitizedEntries);
+    } finally {
+      state.ancestors.delete(value);
+    }
   }
 
-  return value;
+  return UNSANITIZABLE_OBSERVABILITY_VALUE;
 }
 
-export function sanitizeSentryEvent<T>(event: T): T {
-  const sanitizedEvent = sanitizeObservabilityData(event) as T;
-
-  if (sanitizedEvent && typeof sanitizedEvent === "object") {
-    (sanitizedEvent as Record<string, unknown>).user = undefined;
+export function sanitizeObservabilityData(
+  value: unknown,
+  key = ""
+): unknown {
+  try {
+    return sanitizeObservabilityDataInternal(value, key, 0, {
+      ancestors: new WeakSet<object>(),
+      remainingNodes: MAX_OBSERVABILITY_NODES,
+    });
+  } catch {
+    return UNSANITIZABLE_OBSERVABILITY_VALUE;
   }
+}
 
-  return sanitizedEvent;
+export function sanitizeObservabilityObject<T extends object>(
+  value: T
+): T | null {
+  try {
+    const sanitizedValue = sanitizeObservabilityData(value);
+    if (
+      !sanitizedValue ||
+      typeof sanitizedValue !== "object" ||
+      Array.isArray(sanitizedValue)
+    ) {
+      return null;
+    }
+
+    return sanitizedValue as T;
+  } catch {
+    return null;
+  }
+}
+
+export function sanitizeSentryEvent<T extends object>(event: T): T | null {
+  try {
+    const sanitizedEvent = sanitizeObservabilityObject(event);
+    if (!sanitizedEvent) {
+      return null;
+    }
+
+    (sanitizedEvent as Record<string, unknown>).user = undefined;
+    return sanitizedEvent;
+  } catch {
+    return null;
+  }
 }
