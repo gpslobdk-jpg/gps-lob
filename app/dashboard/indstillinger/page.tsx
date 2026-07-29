@@ -206,29 +206,15 @@ export default function IndstillingerPage() {
     setIsSavingConsent(true);
 
     try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const response = await fetch("/api/profile/marketing-consent", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ consent: nyVaerdi }),
+      });
 
-      if (!user) {
-        setConsentFejl("Kunne ikke gemme indstillingen. Prøv at opdatere siden.");
-        return;
-      }
-
-      const consentUpdate: Record<string, unknown> = {
-        id: user.id,
-        marketing_consent: nyVaerdi,
-        marketing_consent_at: nyVaerdi ? new Date().toISOString() : null,
-        marketing_consent_source: "settings",
-      };
-      if (nyVaerdi) {
-        consentUpdate.marketing_consent_text =
-          "v1: Ja tak, jeg vil gerne modtage nyheder og opdateringer om GPS Løb på mail. Jeg kan altid afmelde mig igen.";
-      }
-      const { error } = await supabase.from("profiles").upsert(consentUpdate);
-
-      if (error) {
+      if (!response.ok) {
         setConsentFejl("Kunne ikke gemme indstillingen. Prøv igen.");
         return;
       }

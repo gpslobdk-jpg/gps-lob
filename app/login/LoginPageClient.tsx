@@ -227,18 +227,16 @@ function LoginPageContent({ initialSiteVariantKey }: { initialSiteVariantKey: Si
       }
 
       if (signUpData.session) {
-        if (marketingConsent && signUpData.user) {
-          const { error: consentError } = await supabase
-            .from("profiles")
-            .upsert({
-              id: signUpData.user.id,
-              marketing_consent: true,
-              marketing_consent_at: new Date().toISOString(),
-              marketing_consent_text: loginCopy.marketingConsentStorageText,
-              marketing_consent_source: "signup",
-            });
-          if (consentError) {
-            console.warn("Kunne ikke gemme marketing-samtykke:", consentError);
+        if (marketingConsent) {
+          const consentResponse = await fetch("/api/profile/marketing-consent", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ consent: true }),
+          });
+          if (!consentResponse.ok) {
+            console.warn("Kunne ikke gemme marketing-samtykke.");
           }
         }
         shouldKeepLoading = false;

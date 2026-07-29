@@ -11,7 +11,10 @@ import {
   resolvePostOrderMode,
 } from "@/lib/routes/postOrderPolicy";
 import { getNormalizedRunRaceType, RACE_TYPES, type StoredRunRecord } from "@/utils/gpsRuns";
-import { createAdminClient } from "@/utils/supabase/admin";
+import {
+  ADMIN_ACCESS_MISSING_MESSAGE,
+  createAdminClient,
+} from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
@@ -82,8 +85,10 @@ async function fetchProfileAccess(userId: string, supabase: Awaited<ReturnType<t
   return data ?? null;
 }
 
-async function markFreeTrialAsUsed(userId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
-  const profileClient = createAdminClient() ?? supabase;
+async function markFreeTrialAsUsed(
+  userId: string,
+  profileClient: NonNullable<ReturnType<typeof createAdminClient>>
+) {
   const { error } = await profileClient
     .from("profiles")
     .upsert(
@@ -287,13 +292,21 @@ export async function POST(request: Request) {
         profile?.has_used_free_trial !== true;
     }
 
+    const freeTrialProfileClient = shouldConsumeFreeTrial ? createAdminClient() : null;
+    if (shouldConsumeFreeTrial && !freeTrialProfileClient) {
+      return NextResponse.json({ error: ADMIN_ACCESS_MISSING_MESSAGE }, { status: 503 });
+    }
+
     const result =
       action === "ensure"
         ? await ensureLiveSession(ownedRun, user.id, supabase)
         : await finishLiveSessions(runId, user.id, supabase);
 
     if (action === "ensure" && shouldConsumeFreeTrial) {
-      await markFreeTrialAsUsed(user.id, supabase);
+      if (!freeTrialProfileClient) {
+        throw new Error("Supabase admin access forsvandt før registrering af gratis prøveløb.");
+      }
+      await markFreeTrialAsUsed(user.id, freeTrialProfileClient);
     }
 
     return NextResponse.json(result);

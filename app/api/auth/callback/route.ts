@@ -181,8 +181,12 @@ export async function GET(request: Request) {
 
     console.log("Auth callback: user fetched", { userId: user.id });
 
-    const profileClient = createAdminClient() ?? supabase;
-    await ensureProfileRecord(user.id, profileClient);
+    const profileClient = createAdminClient();
+    if (profileClient) {
+      await ensureProfileRecord(user.id, profileClient);
+    } else {
+      console.error("Profile-seeding blev sprunget over: Supabase admin access mangler.");
+    }
 
       // QUICK onboard check: if the user has no saved runs, redirect them directly
       // to the welcome/onboarding flow. This is a fast, best-effort check with a

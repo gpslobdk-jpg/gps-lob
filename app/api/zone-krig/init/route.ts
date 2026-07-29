@@ -42,8 +42,10 @@ function asTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-async function markFreeTrialAsUsed(userId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
-  const profileClient = createAdminClient() ?? supabase;
+async function markFreeTrialAsUsed(
+  userId: string,
+  profileClient: NonNullable<ReturnType<typeof createAdminClient>>
+) {
   const { error } = await profileClient
     .from("profiles")
     .upsert(
@@ -160,8 +162,8 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await initializeZoneKrigZones(sessionId, run ?? null, adminSupabase);
-    if (shouldConsumeFreeTrial && supabase && user) {
-      await markFreeTrialAsUsed(user.id, supabase);
+    if (shouldConsumeFreeTrial && user) {
+      await markFreeTrialAsUsed(user.id, adminSupabase);
     }
     return NextResponse.json(result, { status: 200 });
   } catch (error) {

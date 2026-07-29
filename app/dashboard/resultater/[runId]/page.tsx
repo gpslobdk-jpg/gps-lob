@@ -455,6 +455,11 @@ async function clearRunDataAction(runId: string) {
     redirect(`/dashboard/resultater/${runId}?error=permission`);
   }
 
+  if (!adminSupabase) {
+    console.error("Admin access mangler til sikker oprydning af deltageruploads.");
+    redirect(`/dashboard/resultater/${runId}?error=delete_failed`);
+  }
+
   const { data: sessionsData, error: sessionsError } = await supabase
     .from("live_sessions")
     .select("id")
@@ -471,9 +476,7 @@ async function clearRunDataAction(runId: string) {
     .filter((sessionId) => sessionId.length > 0);
 
   if (sessionIds.length > 0) {
-    const answersClient = adminSupabase ?? supabase;
-    const storageClient = adminSupabase ?? supabase;
-    const { data: answerImageRows, error: answerImagesError } = await answersClient
+    const { data: answerImageRows, error: answerImagesError } = await adminSupabase
       .from("answers")
       .select("image_url")
       .in("session_id", sessionIds)
@@ -494,7 +497,7 @@ async function clearRunDataAction(runId: string) {
 
     for (let index = 0; index < imagePaths.length; index += STORAGE_REMOVE_CHUNK_SIZE) {
       const chunk = imagePaths.slice(index, index + STORAGE_REMOVE_CHUNK_SIZE);
-      const { error: storageDeleteError } = await storageClient.storage
+      const { error: storageDeleteError } = await adminSupabase.storage
         .from(PARTICIPANT_UPLOADS_BUCKET)
         .remove(chunk);
 

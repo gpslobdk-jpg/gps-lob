@@ -16,10 +16,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from "react";
 
-import { createClient } from "@/utils/supabase/client";
-
-const BUCKET_NAME = "stjerneloeb_pdfs";
-
 const CATEGORIES = [
   { value: "indskoling", label: "Indskoling" },
   { value: "mellemtrin", label: "Mellemtrin" },
@@ -64,14 +60,6 @@ function makeStableId() {
   }
 
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function sanitizeFileName(name: string) {
-  return name.replace(/[^a-zA-Z0-9_.-]/g, "-").slice(0, 180);
-}
-
-function makeStoragePath(userId: string, fileName: string) {
-  return `${userId}/${Date.now()}-${makeStableId()}-${sanitizeFileName(fileName)}`;
 }
 
 function isPdfFile(file: File | null | undefined) {
@@ -175,7 +163,7 @@ function QueueItemCard({ item, onRetry }: { item: QueueItem; onRetry: (itemId: s
           {item.status === "pending" ? (
             <p className="mt-3 text-sm leading-6 text-slate-300">Klar til at blive uploadet.</p>
           ) : item.status === "uploading" ? (
-            <p className="mt-3 text-sm leading-6 text-emerald-100/80">Direkte upload til Supabase Storage...</p>
+            <p className="mt-3 text-sm leading-6 text-emerald-100/80">Sikker serverupload og AI-behandling...</p>
           ) : item.status === "ai_processing" ? (
             <p className="mt-3 text-sm leading-6 text-emerald-100/80">
               ChatGPT læser dit løb og finder på en genial titel...
@@ -231,7 +219,6 @@ function QueueItemCard({ item, onRetry }: { item: QueueItem; onRetry: (itemId: s
 }
 
 export default function StjerneloebUploadWorkspace() {
-  const [supabase] = useState(() => createClient());
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const queueRef = useRef<QueueItem[]>([]);
   const processingRef = useRef(false);
@@ -333,16 +320,6 @@ export default function StjerneloebUploadWorkspace() {
 
     processingRef.current = true;
     try {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      const userId = authData.user?.id ?? null;
-
-      if (authError || !userId) {
-        const message = "Du skal være logget ind for at uploade.";
-        setGlobalError(message);
-        markPendingItemsError(message);
-        return;
-      }
-
       setGlobalError(null);
 
       while (true) {
@@ -351,7 +328,6 @@ export default function StjerneloebUploadWorkspace() {
           break;
         }
 
-        const storagePath = makeStoragePath(userId, nextItem.file.name);
         updateQueueItem(nextItem.id, {
           status: "uploading",
           error: null,
@@ -361,44 +337,18 @@ export default function StjerneloebUploadWorkspace() {
           libraryUrl: null,
         });
 
-        const { error: uploadError } = await supabase.storage
-          .from(BUCKET_NAME)
-          .upload(storagePath, nextItem.file, {
-            contentType: nextItem.file.type || "application/pdf",
-            upsert: false,
-          });
-
-        if (uploadError) {
-          updateQueueItem(nextItem.id, {
-            status: "error",
-            error: uploadError.message || "Kunne ikke uploade filen til Supabase.",
-          });
-          continue;
-        }
-
-        const publicUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl(storagePath).data.publicUrl;
-        updateQueueItem(nextItem.id, {
-          status: "ai_processing",
-          filePath: storagePath,
-          publicUrl,
-          error: null,
-        });
-
         try {
+          const formData = new FormData();
+          formData.append("file", nextItem.file);
+          formData.append("category", nextItem.category);
+
           const response = await fetch("/api/stjerneloeb-library/upload", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              filePath: storagePath,
-              category: nextItem.category,
-            }),
+            body: formData,
           });
 
           const payload = (await response.json().catch(() => null)) as ApiResponse | null;
           if (!response.ok) {
-            await supabase.storage.from(BUCKET_NAME).remove([storagePath]).catch(() => undefined);
             updateQueueItem(nextItem.id, {
               status: "error",
               error: payload?.error ?? "AI-processen fejlede. Prøv igen.",
@@ -416,12 +366,11 @@ export default function StjerneloebUploadWorkspace() {
             status: "success",
             error: null,
             title: resolvedTitle,
-            filePath: responseItem?.file_path ?? storagePath,
-            publicUrl: responseItem?.publicUrl ?? publicUrl,
+            filePath: responseItem?.file_path ?? null,
+            publicUrl: responseItem?.publicUrl ?? null,
             libraryUrl: resolvedLibraryUrl,
           });
         } catch {
-          await supabase.storage.from(BUCKET_NAME).remove([storagePath]).catch(() => undefined);
           updateQueueItem(nextItem.id, {
             status: "error",
             error: "Netværksfejl under AI-processen. Prøv igen.",
@@ -435,7 +384,7 @@ export default function StjerneloebUploadWorkspace() {
     } finally {
       processingRef.current = false;
     }
-  }, [markPendingItemsError, supabase, updateQueueItem]);
+  }, [markPendingItemsError, updateQueueItem]);
 
   useEffect(() => {
     if (processingRef.current) return;
@@ -730,7 +679,7 @@ export default function StjerneloebUploadWorkspace() {
                     ChatGPT læser dit løb og finder på en genial titel...
                   </h3>
                   <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-                    Vi uploader først til Supabase Storage og sender derefter kun filstien til API'et.
+                    Filen sendes til det beskyttede admin-API, som står for både Storage og AI-behandling.
                   </p>
                   <p className="mt-3 wrap-break-word text-sm font-semibold text-emerald-100/90">
                     {activeItem.file.name}
@@ -787,7 +736,7 @@ export default function StjerneloebUploadWorkspace() {
                 {[
                   "Vælg kategori først, så filerne lander det rigtige sted i biblioteket.",
                   "Træk, slip eller paste en eller flere PDF'er direkte ind på siden.",
-                  "Vi uploader til Supabase Storage først og sender derefter filstien til API'et.",
+                  "Det beskyttede admin-API uploader filen og gemmer derefter metadata.",
                   "Klik i biblioteket, når uploaden er færdig.",
                 ].map((step, index) => (
                   <div
