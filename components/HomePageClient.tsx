@@ -34,6 +34,10 @@ type HomePageWindow = Window & {
   Capacitor?: CapacitorDebugBridge;
 };
 
+type NavigatorWithStandalone = Navigator & {
+  standalone?: boolean;
+};
+
 type NativeDebugSnapshot = {
   isNativeGpslobAppProp: boolean;
   isCapacitorAppState: boolean;
@@ -48,6 +52,85 @@ type NativeDebugSnapshot = {
 
 const SKOLEGPS_FACEBOOK_GROUP_URL = "https://www.facebook.com/groups/1649785632764130";
 const FACEBOOK_GROUP_MODAL_STORAGE_KEY = "skolegps-facebook-group-2026-dismissed";
+const DESKTOP_HOME_MEDIA_QUERY = "(min-width: 768px)";
+const STANDALONE_DISPLAY_MEDIA_QUERY = "(display-mode: standalone)";
+const REDUCED_MOTION_MEDIA_QUERY = "(prefers-reduced-motion: reduce)";
+
+function DesktopHomeBackground() {
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
+  const [isVideoReady, setIsVideoReady] = useState(false);
+
+  useEffect(() => {
+    const desktopMedia = window.matchMedia(DESKTOP_HOME_MEDIA_QUERY);
+    const standaloneMedia = window.matchMedia(STANDALONE_DISPLAY_MEDIA_QUERY);
+    const reducedMotionMedia = window.matchMedia(REDUCED_MOTION_MEDIA_QUERY);
+
+    const updateVideoEligibility = () => {
+      const isIosStandalone = Boolean(
+        (window.navigator as NavigatorWithStandalone).standalone
+      );
+      const nextShouldLoadVideo =
+        desktopMedia.matches &&
+        !standaloneMedia.matches &&
+        !isIosStandalone &&
+        !reducedMotionMedia.matches;
+
+      setShouldLoadVideo(nextShouldLoadVideo);
+      if (!nextShouldLoadVideo) {
+        setIsVideoReady(false);
+      }
+    };
+
+    updateVideoEligibility();
+    desktopMedia.addEventListener("change", updateVideoEligibility);
+    standaloneMedia.addEventListener("change", updateVideoEligibility);
+    reducedMotionMedia.addEventListener("change", updateVideoEligibility);
+
+    return () => {
+      desktopMedia.removeEventListener("change", updateVideoEligibility);
+      standaloneMedia.removeEventListener("change", updateVideoEligibility);
+      reducedMotionMedia.removeEventListener("change", updateVideoEligibility);
+    };
+  }, []);
+
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        data-testid="home-static-background"
+        className="fixed inset-0 -z-20 bg-cover bg-center bg-[url('/intro-poster.jpg')]"
+      />
+
+      {shouldLoadVideo ? (
+        <video
+          aria-hidden="true"
+          data-testid="home-background-video"
+          src="/skolegpsforside.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          poster="/intro-poster.jpg"
+          preload="auto"
+          onCanPlay={(event) => {
+            event.currentTarget.muted = true;
+            event.currentTarget.defaultMuted = true;
+            event.currentTarget.volume = 0;
+            void event.currentTarget
+              .play()
+              .then(() => setIsVideoReady(true))
+              .catch(() => setIsVideoReady(false));
+          }}
+          onPlaying={() => setIsVideoReady(true)}
+          onError={() => setIsVideoReady(false)}
+          className={`fixed inset-0 -z-20 h-full w-full object-cover transition-opacity duration-300 ${
+            isVideoReady ? "opacity-100" : "opacity-0"
+          }`}
+        />
+      ) : null}
+    </>
+  );
+}
 
 function NativeAppWelcome({ onReady, shouldReduceMotion }: NativeAppWelcomeProps) {
   const pulseAnimation = shouldReduceMotion
@@ -459,10 +542,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
     <div className="relative flex min-h-screen flex-col overflow-x-hidden text-slate-100">
       <FacebookGroupModal shouldShow={siteVariantKey === "gpslob"} />
         {siteVariantKey !== "postlob" ? (
-          <div
-            aria-hidden="true"
-            className="fixed inset-0 -z-20 bg-cover bg-center bg-[url('/intro-poster.jpg')]"
-          />
+          <DesktopHomeBackground />
         ) : (
           <>
             <div

@@ -167,8 +167,6 @@ test.describe("student PWA source contracts", () => {
     expect(desktopLayout, "The public homepage must retain its desktop layout").toBeDefined();
     expect(mobileLayout).toMatch(/\bhref\s*=\s*["'`]\/join["'`]/);
     expect(desktopLayout).toMatch(/\bhref\s*=\s*["'`]\/join["'`]/);
-    expect(homePageSource).not.toMatch(/<video\b/);
-    expect(homePageSource).not.toContain("/skolegpsforside.mp4");
   });
 
   test("a supported offline fallback page exists", () => {
