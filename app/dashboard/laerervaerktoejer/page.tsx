@@ -29,36 +29,63 @@ const poppins = Poppins({
 const toolCards = [
   {
     title: "Årsplan",
-    description: "Lav et første udkast til skoleåret, tilpas indholdet og gør planen klar som PDF.",
-    secondaryText:
-      "Få overblik over fag, perioder og mål, før du deler planen med kolleger eller Aula.",
+    description: "Lav og tilpas en årsplan – klar som PDF.",
     href: "/dashboard/laerervaerktoejer/aarsplan-generator",
     icon: Calendar,
     cta: "Lav årsplan",
     familyLabel: "SkoleGPS",
     destinationLabel: "Åbner i SkoleGPS",
+    theme: {
+      card:
+        "border-amber-300/45 bg-[linear-gradient(145deg,rgba(120,53,15,0.92)_0%,rgba(51,35,25,0.94)_38%,rgba(15,23,42,0.97)_78%)] shadow-[0_24px_90px_rgba(245,158,11,0.16)] hover:border-amber-200/80 hover:shadow-[0_28px_100px_rgba(245,158,11,0.28)]",
+      rail: "bg-amber-300",
+      accent: "via-amber-200/95",
+      icon: "border-amber-200/55 bg-amber-300/20 text-amber-100",
+      badge: "border-amber-200/35 bg-amber-300/15 text-amber-50",
+      destination: "text-amber-100/90",
+      button:
+        "border-amber-100/70 bg-amber-300 text-amber-950 hover:border-white hover:bg-amber-200 focus-visible:ring-amber-200/40",
+    },
   },
   {
     title: "SkemaPilot",
-    description: "Byg en overskuelig skemakladde til små skoler, friskoler og privatskoler.",
-    secondaryText:
-      "Lav en visuel skemakladde, fordel fag, lærere og lokaler, og gem kladden lokalt i browseren.",
+    description: "Byg en skemakladde med fag, lærere og lokaler.",
     href: "https://www.skemapilot.dk/app",
     icon: School,
     cta: "Åbn SkemaPilot",
     familyLabel: "SkoleGPS-familien",
     destinationLabel: "Åbner på skemapilot.dk",
+    theme: {
+      card:
+        "border-sky-300/45 bg-[linear-gradient(145deg,rgba(3,105,161,0.88)_0%,rgba(15,48,68,0.94)_38%,rgba(15,23,42,0.97)_78%)] shadow-[0_24px_90px_rgba(14,165,233,0.16)] hover:border-sky-200/80 hover:shadow-[0_28px_100px_rgba(14,165,233,0.28)]",
+      rail: "bg-sky-300",
+      accent: "via-sky-200/95",
+      icon: "border-sky-200/55 bg-sky-300/20 text-sky-100",
+      badge: "border-sky-200/35 bg-sky-300/15 text-sky-50",
+      destination: "text-sky-100/90",
+      button:
+        "border-sky-100/70 bg-sky-400 text-sky-950 hover:border-white hover:bg-sky-300 focus-visible:ring-sky-200/40",
+    },
   },
   {
     title: "SkolePodcast.dk",
-    description: "Lav elevpodcasts nemt og trygt som en del af undervisningen.",
-    secondaryText:
-      "Saml idé, optagelse og elevernes podcastarbejde på en enkel side, der er bygget til skolen.",
+    description: "Planlæg og optag elevpodcasts til undervisningen.",
     href: "https://skolepodcast.dk",
     icon: Podcast,
     cta: "Åbn SkolePodcast.dk",
     familyLabel: "SkoleGPS-familien",
     destinationLabel: "Åbner på skolepodcast.dk",
+    theme: {
+      card:
+        "border-fuchsia-300/45 bg-[linear-gradient(145deg,rgba(126,34,206,0.88)_0%,rgba(65,27,86,0.94)_38%,rgba(15,23,42,0.97)_78%)] shadow-[0_24px_90px_rgba(217,70,239,0.16)] hover:border-fuchsia-200/80 hover:shadow-[0_28px_100px_rgba(217,70,239,0.28)]",
+      rail: "bg-fuchsia-300",
+      accent: "via-fuchsia-200/95",
+      icon: "border-fuchsia-200/55 bg-fuchsia-300/20 text-fuchsia-100",
+      badge: "border-fuchsia-200/35 bg-fuchsia-300/15 text-fuchsia-50",
+      destination: "text-fuchsia-100/90",
+      button:
+        "border-fuchsia-100/70 bg-fuchsia-400 text-fuchsia-950 hover:border-white hover:bg-fuchsia-300 focus-visible:ring-fuchsia-200/40",
+    },
   },
 ] as const;
 
@@ -105,10 +132,7 @@ export default function LaerervaerktoejerPage() {
               Lærerværktøjer
             </h1>
             <p className="mt-4 max-w-2xl text-lg font-semibold leading-8 text-slate-100 sm:text-xl">
-              Tre enkle indgange til planlægning, skema og elevpodcast.
-            </p>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-              Vælg det værktøj, der passer til opgaven. Resten åbner roligt og tydeligt derfra.
+              Vælg mellem årsplan, skema og elevpodcast.
             </p>
           </div>
 
@@ -124,15 +148,24 @@ export default function LaerervaerktoejerPage() {
               return (
                 <article
                   key={tool.href}
-                  className="group relative flex h-full min-h-[26rem] min-w-0 flex-col overflow-hidden rounded-[1.75rem] border border-white/15 bg-slate-950/75 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.28)] backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:border-emerald-300/45 hover:bg-slate-950/85 md:p-7"
+                  className={`group relative flex h-full min-h-[22rem] min-w-0 flex-col overflow-hidden rounded-[1.75rem] border p-6 backdrop-blur-md transition duration-300 hover:-translate-y-1 md:p-7 ${tool.theme.card}`}
                 >
-                  <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-emerald-200/80 to-transparent" />
+                  <div
+                    className={`pointer-events-none absolute inset-y-8 left-0 w-1 rounded-r-full ${tool.theme.rail}`}
+                  />
+                  <div
+                    className={`pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent to-transparent ${tool.theme.accent}`}
+                  />
 
                   <div className="flex min-w-0 items-start justify-between gap-3">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-300/10 text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                    <div
+                      className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] ${tool.theme.icon}`}
+                    >
                       <Icon className="h-7 w-7" aria-hidden="true" />
                     </div>
-                    <span className="max-w-[11rem] break-words rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-right text-[0.68rem] font-black uppercase leading-4 tracking-[0.12em] text-slate-200">
+                    <span
+                      className={`max-w-[11rem] break-words rounded-full border px-3 py-1.5 text-right text-[0.68rem] font-black uppercase leading-4 tracking-[0.12em] ${tool.theme.badge}`}
+                    >
                       {tool.familyLabel}
                     </span>
                   </div>
@@ -146,13 +179,10 @@ export default function LaerervaerktoejerPage() {
                     <p className="mt-4 text-sm font-semibold leading-7 text-slate-100 sm:text-base">
                       {tool.description}
                     </p>
-                    <p className="mt-5 border-t border-white/10 pt-5 text-sm leading-6 text-slate-300">
-                      {tool.secondaryText}
-                    </p>
                   </div>
 
                   <div className="mt-auto min-w-0 pt-7">
-                    <p className="mb-3 break-words text-xs font-semibold text-emerald-100/75">
+                    <p className={`mb-3 break-words text-xs font-semibold ${tool.theme.destination}`}>
                       {tool.destinationLabel}
                     </p>
                     <Link
@@ -160,7 +190,7 @@ export default function LaerervaerktoejerPage() {
                       target={isExternal ? "_blank" : undefined}
                       rel={isExternal ? "noopener noreferrer" : undefined}
                       aria-label={`${tool.cta}${isExternal ? " – åbner i en ny fane" : ""}`}
-                      className="inline-flex min-h-12 w-full min-w-0 items-center justify-center gap-2 rounded-xl border border-emerald-300/40 bg-emerald-500 px-4 py-3 text-center text-sm leading-5 font-black whitespace-normal text-slate-950 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300/25 [overflow-wrap:anywhere]"
+                      className={`inline-flex min-h-12 w-full min-w-0 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-center text-sm leading-5 font-black whitespace-normal shadow-sm transition focus-visible:outline-none focus-visible:ring-4 [overflow-wrap:anywhere] ${tool.theme.button}`}
                     >
                       <span className="min-w-0">{tool.cta}</span>
                       <LinkIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
