@@ -98,7 +98,7 @@ function DesktopHomeBackground() {
       <div
         aria-hidden="true"
         data-testid="home-static-background"
-        className="fixed inset-0 -z-20 bg-cover bg-center bg-[url('/intro-poster.jpg')]"
+        className="fixed inset-0 -z-20 bg-cover bg-right bg-[url('/intro-poster.jpg')]"
       />
 
       {shouldLoadVideo ? (
@@ -123,7 +123,7 @@ function DesktopHomeBackground() {
           }}
           onPlaying={() => setIsVideoReady(true)}
           onError={() => setIsVideoReady(false)}
-          className={`fixed inset-0 -z-20 h-full w-full object-cover transition-opacity duration-300 ${
+          className={`fixed inset-0 -z-20 h-full w-full object-cover object-right transition-opacity duration-300 ${
             isVideoReady ? "opacity-100" : "opacity-0"
           }`}
         />

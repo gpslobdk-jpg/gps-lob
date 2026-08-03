@@ -36,9 +36,11 @@ test.describe("public homepage background video", () => {
 
     await expect(fallback).toHaveCount(1);
     await expect(fallback).toHaveClass(/bg-\[url\('\/intro-poster\.jpg'\)\]/);
+    await expect(fallback).toHaveClass(/bg-right/);
     await expect(video).toHaveCount(1);
     await expect(video).toHaveAttribute("src", VIDEO_SRC);
     await expect(video).toHaveClass(/object-cover/);
+    await expect(video).toHaveClass(/object-right/);
 
     const playbackContract = await video.evaluate((element: HTMLVideoElement) => ({
       autoplay: element.autoplay,
@@ -46,6 +48,7 @@ test.describe("public homepage background video", () => {
       loop: element.loop,
       playsInline: element.playsInline,
       objectFit: window.getComputedStyle(element).objectFit,
+      objectPosition: window.getComputedStyle(element).objectPosition,
     }));
 
     expect(playbackContract).toEqual({
@@ -54,6 +57,7 @@ test.describe("public homepage background video", () => {
       loop: true,
       playsInline: true,
       objectFit: "cover",
+      objectPosition: "100% 50%",
     });
   });
 
