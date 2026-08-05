@@ -14,6 +14,8 @@ const UUID_PATTERN =
 const BEARER_TOKEN_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/=-]+\b/gi;
 const JWT_PATTERN =
   /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g;
+const RUN_EXECUTION_SHARE_TOKEN_PATTERN =
+  /(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{43}(?![A-Za-z0-9_-])/g;
 const JOIN_CODE_PATTERN =
   /\b(?=[0-9A-ZÆØÅ]{6}\b)(?=[0-9A-ZÆØÅ]*\d)[0-9A-ZÆØÅ]{6}\b/giu;
 const SENSITIVE_INLINE_VALUE_PATTERN =
@@ -52,6 +54,8 @@ function isSensitiveObservabilityKey(key: string) {
     compactKey.includes("authtoken") ||
     compactKey.includes("accesstoken") ||
     compactKey.includes("refreshtoken") ||
+    compactKey === "token" ||
+    compactKey.includes("sharetoken") ||
     compactKey === "jwt" ||
     compactKey === "answer" ||
     compactKey.includes("selectedindex") ||
@@ -76,6 +80,10 @@ export function sanitizeObservabilityUrl(value: string) {
       .replace(
         /^\/find-bedrageren\/(?!join(?:\/|$))[^/]+/i,
         "/find-bedrageren/[sessionId]"
+      )
+      .replace(
+        /^\/del\/afvikling\/[^/]+/i,
+        "/del/afvikling/[redacted]"
       );
 
   try {
@@ -157,6 +165,7 @@ function sanitizeObservabilityString(
     )
     .replace(BEARER_TOKEN_PATTERN, REDACTED_OBSERVABILITY_VALUE)
     .replace(JWT_PATTERN, REDACTED_OBSERVABILITY_VALUE)
+    .replace(RUN_EXECUTION_SHARE_TOKEN_PATTERN, REDACTED_OBSERVABILITY_VALUE)
     .replace(UUID_PATTERN, REDACTED_OBSERVABILITY_VALUE)
     .replace(
       SENSITIVE_INLINE_VALUE_PATTERN,

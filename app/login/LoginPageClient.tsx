@@ -7,6 +7,7 @@ import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import AuthLoadingScreen from "@/components/AuthLoadingScreen";
+import { getSafeNextPath } from "@/lib/auth/safeNextPath";
 import { useAuth } from "@/components/AuthProvider";
 import { getSiteCopy } from "@/lib/siteCopy";
 import {
@@ -51,9 +52,7 @@ export function buildOAuthCallbackUrl(currentOrigin: string, requestedNextPath: 
     isAllowedProductionOrigin || isAllowedDevelopmentOrigin
       ? normalizedOrigin
       : FALLBACK_OAUTH_ORIGIN;
-  const safeNextPath = requestedNextPath.startsWith("/dashboard")
-    ? requestedNextPath
-    : "/dashboard";
+  const safeNextPath = getSafeNextPath(requestedNextPath);
   const callbackUrl = new URL("/api/auth/callback", safeOrigin);
   callbackUrl.searchParams.set("next", safeNextPath);
 
@@ -104,7 +103,7 @@ function LoginPageContent({ initialSiteVariantKey }: { initialSiteVariantKey: Si
       window.location.hash.includes("refresh_token"));
   const safeNextPath = (() => {
     const requested = searchParams.get("next")?.trim() ?? "";
-    return requested.startsWith("/dashboard") ? requested : "/dashboard";
+    return getSafeNextPath(requested);
   })();
 
   useEffect(() => {

@@ -20,6 +20,8 @@ export function ensureBugsnag(): void {
           appVersion: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
           releaseStage: process.env.NODE_ENV || "development",
           onError(event: any) {
+            if (window.location.pathname === "/del/afvikling") return false;
+
             // Drop unhandled SW registration rejections.
             // @ducanh2912/next-pwa injects navigator.serviceWorker.register()
             // without a .catch(), so iOS private browsing, MDM restrictions,

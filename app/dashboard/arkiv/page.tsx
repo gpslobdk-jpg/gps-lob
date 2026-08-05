@@ -2,12 +2,14 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { BarChart, Calendar, Copy, Edit2, MapPin, Play, Plus, Search, Shield, Timer, Trash2, X } from "lucide-react";
+import { BarChart, Calendar, Copy, Edit2, MapPin, Play, Plus, Search, Share2, Shield, Timer, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Poppins, Rubik } from "next/font/google";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { Switch } from "@/components/ui/switch";
+import RunExecutionShareModal from "@/components/archive/RunExecutionShareModal";
+import { isRunExecutionSharingEnabled } from "@/lib/runExecutionShare";
 import { formatGradeLevelBadge, normalizeGradeLevels } from "@/utils/gradeLevels";
 import {
   asTrimmedString,
@@ -325,6 +327,7 @@ type ArchivedRunCardProps = {
   onToggleLobby: (run: Run, nextEnabled: boolean) => Promise<void>;
   onOpenSchedule: (run: Run) => void;
   onOpenResults: (runId: string) => void;
+  onOpenShare: (run: Run) => void;
   onEditRun: (run: Run) => void;
   onDeleteRun: (runId: string) => Promise<void>;
 };
@@ -336,6 +339,7 @@ function ArchivedRunCard({
   onToggleLobby,
   onOpenSchedule,
   onOpenResults,
+  onOpenShare,
   onEditRun,
   onDeleteRun,
 }: ArchivedRunCardProps) {
@@ -515,6 +519,17 @@ function ArchivedRunCard({
               Resultater
             </button>
 
+            {isRunExecutionSharingEnabled() ? (
+              <button
+                type="button"
+                onClick={() => onOpenShare(run)}
+                className={`inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-full px-3.5 text-xs font-semibold transition ${theme.archiveGhostButtonClass}`}
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                Del til afvikling
+              </button>
+            ) : null}
+
             <button
               type="button"
               aria-label="Rediger løb"
@@ -577,6 +592,7 @@ export default function ArkivPage() {
   const [scheduleShareLink, setScheduleShareLink] = useState("");
   const [scheduleSessionSource, setScheduleSessionSource] = useState<"created" | "reused" | null>(null);
   const [didCopyScheduleAccess, setDidCopyScheduleAccess] = useState(false);
+  const [shareRun, setShareRun] = useState<Run | null>(null);
 
   const handleEditRun = (run: Run) => {
     const href = getBuilderHrefForRaceType(run.id, run.race_type ?? run.raceType);
@@ -1093,6 +1109,7 @@ export default function ArkivPage() {
                     onToggleLobby={handleToggleLobby}
                     onOpenSchedule={openScheduleModal}
                     onOpenResults={(runId) => router.push(`/dashboard/resultater/${runId}`)}
+                    onOpenShare={setShareRun}
                     onEditRun={handleEditRun}
                     onDeleteRun={handleDeleteRun}
                   />
@@ -1260,6 +1277,17 @@ export default function ArkivPage() {
           </motion.div>
         ) : null}
       </AnimatePresence>
+
+      {shareRun ? (
+        <RunExecutionShareModal
+          run={{
+            id: shareRun.id,
+            title: shareRun.title,
+            raceType: getNormalizedRunRaceType(shareRun),
+          }}
+          onClose={() => setShareRun(null)}
+        />
+      ) : null}
     </main>
   );
 }

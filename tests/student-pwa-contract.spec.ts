@@ -154,6 +154,21 @@ test.describe("student PWA source contracts", () => {
     ).toBeGreaterThanOrEqual(2);
   });
 
+  test("execution-share landing requests stay NetworkOnly", () => {
+    const nextConfigSource = readSource("next.config.ts");
+    const shareNetworkOnlyRules = [
+      ...nextConfigSource.matchAll(
+        /\{\s*urlPattern\s*:[\s\S]*?\bhandler\s*:\s*["'`]NetworkOnly["'`][\s\S]*?\},/g,
+      ),
+    ]
+      .map((match) => match[0])
+      .filter((rule) =>
+        /url\.pathname\s*===\s*["'`]\/del\/afvikling["'`]/.test(rule)
+      );
+
+    expect(shareNetworkOnlyRules.length).toBeGreaterThanOrEqual(2);
+  });
+
   test("the public homepage exposes a /join CTA in both mobile and desktop layouts", () => {
     const homePageSource = readSource("components/HomePageClient.tsx");
     const mobileLayout = homePageSource.match(

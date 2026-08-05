@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { createAdminClient } from "@/utils/supabase/admin";
+import { getSafeNextPath } from "@/lib/auth/safeNextPath";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 const BETA_PLAN = "beta";
@@ -102,16 +103,15 @@ export async function GET(request: Request) {
       : requestUrl.origin;
   const code = requestUrl.searchParams.get("code");
   const requestedNext = requestUrl.searchParams.get("next");
-  const nextPath =
-    requestedNext && requestedNext.startsWith("/dashboard") ? requestedNext : "/dashboard";
+  const nextPath = getSafeNextPath(requestedNext);
 
   if (!code) {
-    console.log("Auth callback: missing code in query", requestUrl.href);
+    console.log("Auth callback: missing code in query", { path: requestUrl.pathname });
     return redirectToLogin(safeOrigin, "missing_oauth_code");
   }
 
   try {
-    console.log("Auth callback: Hit callback", { url: requestUrl.href });
+    console.log("Auth callback: Hit callback", { path: requestUrl.pathname });
     const providerError = requestUrl.searchParams.get("error");
     const providerErrorDescription = requestUrl.searchParams.get("error_description");
     if (providerError) {
@@ -206,7 +206,7 @@ export async function GET(request: Request) {
 
           if (!runsError) {
             const hasRuns = Array.isArray(runsData) && runsData.length > 0;
-            if (!hasRuns) {
+            if (!hasRuns && nextPath === "/dashboard") {
               return NextResponse.redirect(`${safeOrigin}/dashboard`);
             }
           }
