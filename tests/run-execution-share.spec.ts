@@ -209,6 +209,7 @@ test.describe("Del til afvikling security contract", () => {
 
   test("recipient removes the fragment before preview and preserves it only for login return", () => {
     const client = source("app/del/afvikling/RunExecutionShareClient.tsx");
+    const layout = source("app/del/layout.tsx");
     const fragmentRead = client.indexOf("window.location.hash");
     const fragmentRemoval = client.indexOf("window.history.replaceState");
     const featureEvaluation = client.indexOf(
@@ -234,6 +235,8 @@ test.describe("Del til afvikling security contract", () => {
     expect(client).toContain('action: "claim"');
     expect(client).toContain("LOG IND FOR AT FORTSÆTTE");
     expect(client).toContain("OPRET MIN KOPI");
+    expect(layout).toContain('import { AuthProvider } from "@/components/AuthProvider"');
+    expect(layout).toContain("<AuthProvider>{children}</AuthProvider>");
   });
 
   test("owner UI explains independent copies and one-time link display", () => {
