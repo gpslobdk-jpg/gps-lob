@@ -10,6 +10,7 @@
     "stripe": "stripe listen --forward-to localhost:3000/api/webhook/stripe",
     "test:ai-grades": "node scripts/ai-grade-check.mjs",
     "test:post-order-db": "node scripts/test-post-order-db.mjs",
+    "test:run-execution-share": "playwright test tests/run-execution-share.spec.ts tests/auth-safe-next.spec.ts --project=chromium",
     "cap:sync": "npx cap sync",
     "cap:sync:ios": "npx cap sync ios",
     "cap:copy": "npx cap copy",

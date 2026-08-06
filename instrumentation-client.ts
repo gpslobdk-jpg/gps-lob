@@ -34,7 +34,10 @@ Sentry.init({
       maskAllText: true,
       maskAllInputs: true,
       blockAllMedia: true,
-      networkDetailDenyUrls: [/\/api\/join(?:\?|$)/],
+      networkDetailDenyUrls: [
+        /\/api\/join(?:\?|$)/,
+        /\/api\/run-execution-share(?:\?|$)/,
+      ],
       beforeAddRecordingEvent(event) {
         return sanitizeClientTelemetryObject(event);
       },
@@ -120,5 +123,7 @@ export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
 
 // Initialize Bugsnag client-side (best-effort). Disabled if no API key.
 try {
-  ensureBugsnag();
+  if (window.location.pathname !== "/del/afvikling") {
+    ensureBugsnag();
+  }
 } catch {}

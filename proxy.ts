@@ -1,16 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { getSafeNextPath } from "@/lib/auth/safeNextPath";
+
 const isProtectedPath = (pathname: string) =>
   pathname.startsWith("/dashboard") || pathname.startsWith("/opret");
 const isLoginPath = (pathname: string) => pathname === "/login";
-
-const getSafeNextPath = (request: NextRequest) => {
-  const requested = request.nextUrl.searchParams.get("next")?.trim() ?? "";
-  return requested.startsWith("/dashboard") || requested.startsWith("/opret")
-    ? requested
-    : "/dashboard";
-};
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({
@@ -58,7 +53,9 @@ export async function proxy(request: NextRequest) {
   }
 
   if (isLoginPath(request.nextUrl.pathname) && user) {
-    return NextResponse.redirect(new URL(getSafeNextPath(request), request.url));
+    return NextResponse.redirect(
+      new URL(getSafeNextPath(request.nextUrl.searchParams.get("next")), request.url)
+    );
   }
 
   return response;

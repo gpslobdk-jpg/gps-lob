@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import "leaflet/dist/leaflet.css";
-import { Analytics } from "@vercel/analytics/next";
 import { headers } from "next/headers";
 import { Poppins, Rubik } from "next/font/google";
 import "./globals.css";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
+import PrivacySafeAnalytics from "@/components/PrivacySafeAnalytics";
 
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import { getSiteCopy } from "@/lib/siteCopy";
@@ -64,7 +64,7 @@ export default async function RootLayout({
         <ErrorBoundary>
           {children}
           <ServiceWorkerRegister />
-          <Analytics />
+          <PrivacySafeAnalytics />
         </ErrorBoundary>
       </body>
     </html>

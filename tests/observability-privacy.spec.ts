@@ -138,6 +138,60 @@ test.describe("observability privacy sanitizer", () => {
     expect(JSON.stringify(sanitized)).not.toContain("secret-click-id");
   });
 
+  test("redacts execution-share tokens from keys, URLs, and fallback messages", () => {
+    const token = "A".repeat(43);
+    const sanitized = sanitizeObservabilityData({
+      shareToken: token,
+      requestUrl: `https://skolegps.dk/del/afvikling/${token}?token=${token}#${token}`,
+      message: `share token ${token}`,
+    }) as Record<string, unknown>;
+    const serialized = JSON.stringify(sanitized);
+
+    expect(sanitized.shareToken).toBe(REDACTED_OBSERVABILITY_VALUE);
+    expect(sanitized.requestUrl).toBe(
+      "https://skolegps.dk/del/afvikling/[redacted]"
+    );
+    expect(serialized).not.toContain(token);
+  });
+
+  test("redacts exact base64url share tokens at explicit base64url boundaries", () => {
+    const tokens = [
+      "A".repeat(43),
+      `-${"A".repeat(42)}`,
+      `${"A".repeat(42)}-`,
+      `_${"A".repeat(42)}`,
+      `${"A".repeat(42)}_`,
+    ];
+
+    for (const token of tokens) {
+      for (const message of [token, `(${token})`, `token:${token}`]) {
+        const sanitized = sanitizeObservabilityData(message);
+        expect(sanitized).toContain(REDACTED_OBSERVABILITY_VALUE);
+        expect(sanitized).not.toContain(token);
+      }
+    }
+  });
+
+  test("does not partially redact non-token base64url strings", () => {
+    const tooShort = "A".repeat(42);
+    const tooLong = "A".repeat(44);
+
+    expect(sanitizeObservabilityData(tooShort)).toBe(tooShort);
+    expect(sanitizeObservabilityData(tooLong)).toBe(tooLong);
+  });
+
+  test("redacts share tokens in breadcrumbs and ordinary error text", () => {
+    const token = `-${"A".repeat(41)}_`;
+    const sanitized = sanitizeObservabilityData({
+      breadcrumbs: [{ message: `Åbn deling (${token})` }],
+      errorMessage: `Kunne ikke hente token:${token}`,
+    });
+    const serialized = JSON.stringify(sanitized);
+
+    expect(serialized).not.toContain(token);
+    expect(serialized.match(/\[redacted\]/g)).toHaveLength(2);
+  });
+
   test("preserves the existing key, token, identifier, and location rules", () => {
     const sanitized = sanitizeObservabilityData({
       email: "elev@example.com",

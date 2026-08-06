@@ -19,6 +19,20 @@ const withPWA = withPWAInit({
       {
         urlPattern: ({ request, url, sameOrigin }) =>
           sameOrigin &&
+          url.pathname === "/del/afvikling" &&
+          request.headers.get("RSC") === "1",
+        handler: "NetworkOnly",
+        method: "GET",
+      },
+      {
+        urlPattern: ({ url, sameOrigin }) =>
+          sameOrigin && url.pathname === "/del/afvikling",
+        handler: "NetworkOnly",
+        method: "GET",
+      },
+      {
+        urlPattern: ({ request, url, sameOrigin }) =>
+          sameOrigin &&
           (url.pathname === "/join" || url.pathname.startsWith("/play/")) &&
           request.headers.get("RSC") === "1",
         handler: "NetworkOnly",
@@ -38,6 +52,31 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   turbopack: {},
   transpilePackages: ["@react-pdf/renderer"],
+  async headers() {
+    return [
+      {
+        source: "/del/afvikling",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-store, max-age=0",
+          },
+          {
+            key: "Pragma",
+            value: "no-cache",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "no-referrer",
+          },
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow, noarchive",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default withSentryConfig(withPWA(nextConfig), {
