@@ -229,7 +229,13 @@ async function finishLiveSessions(runId: string, teacherId: string, supabase: Aw
   if (adminSupabase) {
     const { error: finishParticipantsError } = await adminSupabase
       .from("participants")
-      .update({ finished_at: finishedAt })
+      .update({
+        finished_at: finishedAt,
+        lat: null,
+        lng: null,
+        accuracy: null,
+        last_updated: finishedAt,
+      })
       .in("session_id", sessionIds)
       .is("finished_at", null);
 

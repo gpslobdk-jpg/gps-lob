@@ -197,7 +197,13 @@ export default function ZoneKrigCommandCenter() {
 
         const { error: finishParticipantsError } = await supabase
           .from("participants")
-          .update({ finished_at: finishedAt })
+          .update({
+            finished_at: finishedAt,
+            lat: null,
+            lng: null,
+            accuracy: null,
+            last_updated: finishedAt,
+          })
           .eq("session_id", sessionId)
           .is("finished_at", null);
 

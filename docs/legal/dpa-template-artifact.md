@@ -3,9 +3,9 @@
 ## Dokumentidentitet
 
 - Titel: `Standarddatabehandleraftale – SkoleGPS`
-- Version: `1.0`
-- Udgivet: `7. august 2026`
-- Senest opdateret: `7. august 2026`
+- Version: `1.1`
+- Udgivet: `8. august 2026`
+- Senest opdateret: `8. august 2026`
 - Dokumentansvarlig: `Jeppe Laursen, SkoleGPS.dk`
 - Status: `Ikke underskrevet standardskabelon`
 - Kildeskabelon: Datatilsynets danske standardkontraktbestemmelser.
@@ -41,14 +41,16 @@
 - Elevens position sendes til serveren under et aktivt løb og gemmes på deltagerposten som breddegrad, længdegrad, nøjagtighed og seneste opdatering.
 - Den aktuelle position overskrives løbende; standardflowet har ikke en særskilt positionshistoriktabel.
 - Afstand til posten beregnes i elevens browser.
-- Positionen slettes sammen med deltager-/sessionsdata ved lærerens oprydning.
+- Positionen nulstilles ved afslutning/forladelse og skjules/slettes automatisk efter 15 minutters inaktivitet.
+- Positionsfelter fjernes fra elevsvar, så GPS ikke indgår i arkiverede resultater.
 
 ## Opbevaring og sletning
 
 - Læreren kan fra resultatsiden rydde fotos, svar, deltagere, sessionselever, beskeder og live-sessioner for løbet.
-- Koden indeholder en 30-dages oprydningsfunktion for fotoobjektet og billedlinket. Den hostede planlægningsstatus kan ikke dokumenteres lokalt, så standardskabelonen gør lærerens manuelle oprydning til den bindende procedure.
-- Der loves ikke universel automatisk 30-dages sletning af øvrige elevdata.
-- Kommunen fastsætter sin interne oprydningsfrist; standardskabelonen foreslår senest 30 dage efter aktiviteten, medmindre et kortere dokumenteret formål gælder.
+- Fotoobjekter og billedreferencer har en fast standardfrist på 30 dage.
+- Almindelige elevsvar, deltagere, navne, beskeder og afsluttede live-sessioner har en fast standardfrist på 90 dage.
+- Tekniske oprydningslogs uden elevoplysninger har en frist på 30 dage.
+- Hosted cron og Edge-funktion er forberedt versionsstyret, men må ikke beskrives som aktive i produktion, før migration, cron.job og jobhistorik er verificeret. Indtil da er lærerens manuelle oprydning bindende.
 - Lærerkonto og lærerskabte løb opbevares, mens konto/aftale er aktiv, og slettes efter verificeret anmodning eller ophør med forbehold for lovpligtig opbevaring og lukkede backups.
 - Leverandørspecifik retention for logs og backups følger godkendte leverandørvilkår; der gives ikke et særskilt RTO/RPO-løfte.
 
@@ -58,9 +60,10 @@
 - Rå delingstokens gemmes ikke; delingslinks bruger URL-fragment, SHA-256-digest, no-store/noindex og tokenredaktion.
 - Sentry fjerner brugerobjektet og redigerer navn, e-mail, PIN-/løbskoder, tokens, sessions-/deltager-id, svar, billeder og lokation.
 - Bugsnag er en betinget kodeintegration og er ikke godkendt som aktiv underdatabehandler i version 1.0. Den må ikke aktiveres til kommunens personoplysninger uden ændringsvarsel, kontraktgrundlag og global redaktion.
-- Foto-bucketen er offentligt læsbar via lange, tilfældige objektstier. Derfor er forbuddet mod personhenførbare fotos bindende, indtil en eventuel særskilt ændring til privat Storage er implementeret, testet og aftalt.
+- Foto-bucketen er privat. Browseren modtager ikke objektstien; en autentificeret lærer får først et 60-sekunders signed URL efter kontrol af løbs-, svar- og fotoejerskab.
+- Forbuddet mod genkendelige personer og fortroligt indhold i fotoopgaver gælder fortsat som dataminimering.
 
-## Godkendte underdatabehandlere i version 1.0
+## Godkendte underdatabehandlere i version 1.1
 
 - Supabase, Inc.: database, login, Storage, Realtime og serverfunktioner. Projektkonfigurationen angiver region `eu-west-1` (Irland); support, backups og underleverandører følger gældende DPA.
 - Vercel Inc.: webhosting, edge/serverafvikling og webanalyse. Må kun anvendes til kommunens personoplysninger på en plan med kontraktuel DPA-dækning.
@@ -80,6 +83,6 @@
 2. Behovet for en konsekvensanalyse (DPIA) ved børn og præcis lokation.
 3. Om fotoopgaver med ikke-personhenførbare motiver må anvendes.
 4. Om frivillige lærerrettede AI- og indholdsfunktioner må anvendes.
-5. Intern frist og ansvar for manuel oprydning af elev-/sessionsdata.
+5. Ansvar for tidligere manuel sletning og kontrol af de aftalte automatiske frister.
 6. Kommunens kontaktvej ved brud og anmodninger fra registrerede.
 7. Eventuelle supplerende krav til support, oppetid, revision, ansvar, forsikring, værneting og ophør.

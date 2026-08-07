@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { logServerResponseError } from "@/utils/telemetry/serverLogs";
 import { resolveParticipantRequestContext } from "@/utils/supabase/participantServer";
+import { shouldExposeStudentLocation } from "@/lib/studentData/privacyPolicy";
 
 export const runtime = "edge";
 
@@ -15,6 +16,7 @@ type ParticipantSnapshotRow = {
   lat?: number | string | null;
   lng?: number | string | null;
   accuracy?: number | string | null;
+  last_updated?: string | null;
   finished_at?: string | null;
   start_offset?: number | string | null;
   run_started_at?: string | null;
@@ -50,19 +52,19 @@ async function fetchParticipantSnapshot(
       .maybeSingle<ParticipantSnapshotRow>();
 
   let result = await runQuery(
-    "id,session_id,student_name,lat,lng,accuracy,finished_at,start_offset,run_started_at"
+    "id,session_id,student_name,lat,lng,accuracy,last_updated,finished_at,start_offset,run_started_at"
   );
 
   if (result.error && isMissingColumnError(result.error)) {
-    result = await runQuery("id,session_id,student_name,lat,lng,finished_at,start_offset,run_started_at");
+    result = await runQuery("id,session_id,student_name,lat,lng,last_updated,finished_at,start_offset,run_started_at");
   }
 
   if (result.error && isMissingColumnError(result.error)) {
-    result = await runQuery("id,session_id,student_name,lat,lng,finished_at,start_offset");
+    result = await runQuery("id,session_id,student_name,lat,lng,last_updated,finished_at,start_offset");
   }
 
   if (result.error && isMissingColumnError(result.error)) {
-    result = await runQuery("id,session_id,student_name,lat,lng,finished_at");
+    result = await runQuery("id,session_id,student_name,lat,lng,last_updated,finished_at");
   }
 
   return result;
@@ -128,9 +130,23 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Deltageren findes ikke længere." }, { status: 404 });
   }
 
+  const { data: session } = await adminSupabase
+    .from("live_sessions")
+    .select("status")
+    .eq("id", sessionId)
+    .maybeSingle<{ status?: string | null }>();
+  const exposeLocation = shouldExposeStudentLocation({
+    sessionStatus: session?.status,
+    finishedAt: data.finished_at,
+    lastUpdated: data.last_updated,
+  });
+  const participant = exposeLocation
+    ? data
+    : { ...data, lat: null, lng: null, accuracy: null };
+
   return NextResponse.json(
     {
-      participant: data,
+      participant,
     },
     {
       headers: {

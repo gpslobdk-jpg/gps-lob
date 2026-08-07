@@ -9,6 +9,7 @@ import StoredAnswerImage from "@/app/dashboard/resultater/[runId]/StoredAnswerIm
 import { DEFAULT_QUESTION_POINTS } from "@/utils/questionPoints";
 import { getGamerTitle } from "@/utils/gamerTitle";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { deleteParticipantPhotosForSessions } from "@/utils/supabase/participantPhotos";
 import { createClient } from "@/utils/supabase/server";
 
 const rubik = Rubik({
@@ -107,46 +108,6 @@ type PageFeedback = {
 };
 
 const ACTIVE_STATUSES = new Set(["waiting", "running"]);
-const PARTICIPANT_UPLOADS_BUCKET = "participant-uploads";
-const STORAGE_REMOVE_CHUNK_SIZE = 100;
-const STORAGE_URL_PREFIXES = [
-  `/storage/v1/object/public/${PARTICIPANT_UPLOADS_BUCKET}/`,
-  `/storage/v1/object/authenticated/${PARTICIPANT_UPLOADS_BUCKET}/`,
-  `/storage/v1/object/sign/${PARTICIPANT_UPLOADS_BUCKET}/`,
-];
-
-const normalizeStoragePath = (value: string) => {
-  let normalized = value.trim().replace(/^\/+/, "");
-  const bucketPrefix = `${PARTICIPANT_UPLOADS_BUCKET}/`;
-
-  if (normalized.startsWith(bucketPrefix)) {
-    normalized = normalized.slice(bucketPrefix.length);
-  }
-
-  return normalized;
-};
-
-const extractParticipantUploadPath = (imageUrl: string | null | undefined) => {
-  const rawValue = imageUrl?.trim();
-  if (!rawValue) return null;
-
-  if (!rawValue.includes("://")) {
-    const normalized = normalizeStoragePath(rawValue);
-    return normalized.length > 0 ? normalized : null;
-  }
-
-  try {
-    const parsedUrl = new URL(rawValue);
-    const matchingPrefix = STORAGE_URL_PREFIXES.find((prefix) => parsedUrl.pathname.startsWith(prefix));
-
-    if (!matchingPrefix) return null;
-
-    const normalized = normalizeStoragePath(decodeURIComponent(parsedUrl.pathname.slice(matchingPrefix.length)));
-    return normalized.length > 0 ? normalized : null;
-  } catch {
-    return null;
-  }
-};
 
 const normalizeName = (value: string | null | undefined) => value?.trim() ?? "";
 
@@ -476,37 +437,14 @@ async function clearRunDataAction(runId: string) {
     .filter((sessionId) => sessionId.length > 0);
 
   if (sessionIds.length > 0) {
-    const { data: answerImageRows, error: answerImagesError } = await adminSupabase
-      .from("answers")
-      .select("image_url")
-      .in("session_id", sessionIds)
-      .not("image_url", "is", null);
-
-    if (answerImagesError && !isMissingRelationOrColumnError(answerImagesError)) {
-      console.error("Kunne ikke hente billedstier til rydning:", answerImagesError);
+    try {
+      await deleteParticipantPhotosForSessions({
+        sessionIds,
+        adminSupabase,
+      });
+    } catch {
+      console.error("Private deltagerbilleder kunne ikke slettes fuldstændigt.");
       redirect(`/dashboard/resultater/${runId}?error=delete_failed`);
-    }
-
-    const imagePaths = Array.from(
-      new Set(
-        (answerImageRows ?? [])
-          .map((row) => extractParticipantUploadPath((row as { image_url?: string | null }).image_url ?? null))
-          .filter((path): path is string => Boolean(path))
-      )
-    );
-
-    for (let index = 0; index < imagePaths.length; index += STORAGE_REMOVE_CHUNK_SIZE) {
-      const chunk = imagePaths.slice(index, index + STORAGE_REMOVE_CHUNK_SIZE);
-      const { error: storageDeleteError } = await adminSupabase.storage
-        .from(PARTICIPANT_UPLOADS_BUCKET)
-        .remove(chunk);
-
-      if (storageDeleteError) {
-        console.warn("Kunne ikke slette et eller flere deltagerbilleder fra Storage. Fortsaetter med databasen.", {
-          paths: chunk,
-          error: storageDeleteError,
-        });
-      }
     }
 
     for (const tableName of ["answers", "participants", "session_students", "session_messages", "messages"] as const) {
@@ -1020,9 +958,9 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
         <section className="mt-10 rounded-[2rem] border border-white/10 bg-white/5 px-6 py-5 shadow-2xl backdrop-blur-2xl">
           <h2 className={`text-xl font-black text-white ${rubik.className}`}>Privatliv</h2>
           <p className="mt-2 text-sm leading-6 text-white/70">
-            Privatliv: Ryd billeder, besvarelser, deltagere og sessionsdata, når de ikke længere er
-            nødvendige. Fotooprydning er teknisk sat til 30 dage, men læreren er ansvarlig for den manuelle
-            oprydning af de øvrige elevdata.
+            Privatliv: Ryd billeder, besvarelser, deltagere og sessionsdata, så snart de ikke længere er
+            nødvendige. Den forberedte standard er 30 dage for fotos og 90 dage for øvrige elev- og
+            sessionsdata; læreren kan altid slette tidligere.
           </p>
         </section>
       </div>

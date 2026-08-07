@@ -36,6 +36,10 @@ const resultsPageSource = readFileSync(
   ),
   "utf8"
 );
+const participantPhotoCleanupSource = readFileSync(
+  join(process.cwd(), "utils", "supabase", "participantPhotos.ts"),
+  "utf8"
+);
 const storageMigrationSource = readFileSync(
   join(
     process.cwd(),
@@ -132,10 +136,16 @@ test.describe("H3 Stjerneløb Storage security", () => {
     expect(missingAdminIndex).toBeGreaterThan(-1);
     expect(firstDeleteIndex).toBeGreaterThan(missingAdminIndex);
     expect(actionSource).not.toContain("adminSupabase ?? supabase");
-    expect(actionSource).toContain(
-      "const { data: answerImageRows, error: answerImagesError } = await adminSupabase"
+    expect(actionSource).toContain("deleteParticipantPhotosForSessions");
+    expect(participantPhotoCleanupSource).toContain(
+      '.from("participant_photo_objects")'
     );
-    expect(actionSource).toContain("await adminSupabase.storage");
+    expect(participantPhotoCleanupSource).toContain(
+      ".remove(objectPaths.slice(index, index + STORAGE_REMOVE_CHUNK_SIZE))"
+    );
+    expect(participantPhotoCleanupSource).toContain(
+      'throw new Error("Et eller flere private fotoobjekter kunne ikke slettes.")'
+    );
   });
 
   test("replaces the four global VIP policies with explicit bucket compatibility", () => {

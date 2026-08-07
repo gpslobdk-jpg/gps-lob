@@ -108,6 +108,24 @@ async function updateParticipantById(
   );
 }
 
+async function clearParticipantLocationById(
+  sessionId: string,
+  participantId: string,
+  adminSupabase: ParticipantRequestContext["adminSupabase"]
+) {
+  return adminSupabase
+    .from("participants")
+    .update({
+      lat: null,
+      lng: null,
+      accuracy: null,
+      last_updated: new Date().toISOString(),
+    })
+    .eq("id", participantId)
+    .eq("session_id", sessionId)
+    .select("id");
+}
+
 async function fetchActiveParticipant(
   sessionId: string,
   participantId: string,
@@ -243,7 +261,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ ok: true, participantId });
+    return NextResponse.json(
+      { ok: true, participantId },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   } catch (error) {
     console.error("Kunne ikke synkronisere elevposition:", error);
     await logHandledServerError({
@@ -257,5 +278,66 @@ export async function POST(request: NextRequest) {
       sessionId,
     });
     return NextResponse.json({ error: "Kunne ikke gemme positionen." }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  let payload: LocationPayload;
+  const requestPath = request.nextUrl.pathname;
+
+  try {
+    payload = (await request.json()) as LocationPayload;
+  } catch {
+    return NextResponse.json({ error: "Ugyldig foresporgsel." }, { status: 400 });
+  }
+
+  const participantContext = await resolveParticipantRequestContext({
+    claimedParticipantId: asTrimmedString(payload.participantId) || null,
+    claimedSessionId: asTrimmedString(payload.sessionId) || null,
+  });
+
+  if (!participantContext.ok) {
+    return NextResponse.json(
+      { error: participantContext.error },
+      { status: participantContext.status }
+    );
+  }
+
+  const { adminSupabase, participantId, sessionId } = participantContext.data;
+
+  try {
+    const { data, error } = await clearParticipantLocationById(
+      sessionId,
+      participantId,
+      adminSupabase
+    );
+
+    if (error) throw error;
+    if (!Array.isArray(data) || data.length === 0) {
+      return NextResponse.json(
+        { error: "Deltageren findes ikke længere." },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(
+      { ok: true },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch (error) {
+    await logHandledServerError({
+      route: "/api/play/location",
+      method: "DELETE",
+      status: 500,
+      error,
+      requestPath,
+      routeType: "route",
+      participantId,
+      sessionId,
+    });
+    return NextResponse.json(
+      { error: "Positionen kunne ikke ryddes." },
+      { status: 500 }
+    );
   }
 }

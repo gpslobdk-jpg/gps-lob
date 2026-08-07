@@ -1,12 +1,12 @@
 # Verifikationsrapport for SkoleGPS' kommunepakke
 
-Dato: 7. august 2026
-Omfang: Lokal kode, migrationsfiler, dokumenter og offentlige produktsider på branch `legal/kommunepakke-production-ready`.
+Dato: 8. august 2026
+Omfang: Lokal kode, migrationsfiler, dokumenter og offentlige produktsider på branch `security/kommuneklar-elevdata`.
 Begrænsning: Ingen hosted konfiguration, leverandørkonto, produktionsdatabase eller deployment er ændret eller anvendt som bevis.
 
 ## 1. Dokumentkontrol
 
-Den offentlige standardaftale er version 1.0, udgivet og senest opdateret 7. august 2026. Den er en ikke underskrevet standardskabelon, ikke en myndighedsgodkendelse.
+Den offentlige standardaftale er version 1.1, udgivet og senest opdateret 8. august 2026. Den er en ikke underskrevet standardskabelon, ikke en myndighedsgodkendelse.
 
 | Søgeord | DOCX | PDF | Klassifikation |
 | --- | ---: | ---: | --- |
@@ -26,22 +26,26 @@ Word og PDF indeholder samme version, dato, dokumentansvarlige, bilag A–D og c
 - `supabase/migrations/202603040001_participants_answers_rls.sql` definerer `participants.lat`, `participants.lng`, `participants.last_updated` samt positionsfelter på svar.
 - `components/play/v2/usePlayGPS.ts` beregner afstand i browseren med Haversine og synkroniserer løbende aktuelle målinger til API'et.
 - Standardflowet har ikke en særskilt positionshistoriktabel. Den aktuelle deltagerposition overskrives. Der findes specialspilslogik andre steder, som skal vurderes særskilt, hvis kommunen aktiverer disse løbstyper.
-- Positionen eksisterer, indtil læreren rydder deltager-/sessionsdata, eller en dokumenteret sletteinstruks udføres.
+- `app/api/play/location/route.ts` kan nulstille deltagerens position ved forladelse, og afslutningsflows sætter position og nøjagtighed til `null`.
+- `supabase/migrations/202608070001_kommuneklar_elevdata.sql` nulstiller position ved deltager-/sessionsafslutning og efter 15 minutters inaktivitet. Lærer- og elevvisning skjuler desuden stale eller afsluttede positioner straks.
+- Nye elevsvar får positionsfelter fjernet både i API og med databasetrigger, så GPS ikke indgår i arkiverede svar.
 
 ## 3. Elevdata og medier
 
 - Elever deltager uden elevkonto og elev-e-mail. Normal deltagelse kan omfatte holdnavn/kort fornavn, sessions- og deltager-id, løbskode, svar, fritekst, quizvalg, point, status, tidsstempler, aktuel lokation og foto.
-- `app/api/play/submit-photo/route.ts` gemmer foto i Storage og opretter en offentlig URL. Bucketen `participant-uploads` er markeret `public = true` i migrationskoden.
+- `app/api/play/submit-photo/route.ts` validerer aktiv session, konkret deltager og fotoopgave på serveren. Fotoet gemmes med service-role alene på serveren; browseren modtager ikke en Storage-sti.
+- Den nye migration gør `participant-uploads` privat, backfiller eksisterende referencer til `participant_photo_objects` og erstatter gamle offentlige URL'er med en intern foto-route.
+- `app/api/teacher/answers/[answerId]/photo/route.ts` kræver lærerlogin, løbsejerskab samt match mellem svar, session, deltager og fotoobjekt. Først derefter oprettes et signed URL med 60 sekunders gyldighed.
 - Der er ikke fundet et almindeligt elevflow, som optager eller uploader lyd, podcastlyd eller video. Lærerens AI-/podcastværktøjer kan behandle lærerindtastet tekst, links, resuméer eller transskriptioner.
-- Offentligt læsbare fotolinks gør personhenførbare fotos uegnede til kommunal brug. Aftalen gør derfor forbuddet mod genkendelige personer og fortroligt indhold bindende.
+- Fotoopgaver er fortsat begrænset til ting, steder og ikke-personhenførbare motiver. Privat Storage reducerer eksponering, men ændrer ikke dataminimeringsinstruksen.
 
 ## 4. Sletning og retention
 
-- `supabase/functions/participant-uploads-retention/index.ts` indeholder en 30-dages grænse for fotoobjekter og nulstilling af billedlink.
-- `supabase/migrations/202604110001_participant_uploads_retention.sql` indeholder en daglig cron-definition. Den hostede aktivering er ikke dokumenteret ved denne lokale kontrol.
-- Resultatsiden kan slette Storage-objekter, svar, deltagere, sessionselever, sessionsbeskeder, beskeder og live-sessioner efter ejerskabskontrol.
-- Der findes ikke en universel automatisk 30-dages sletning af alle øvrige elevdata og ikke et dokumenteret selvbetjent flow til sletning af hele lærerkontoen.
-- Supabase-plan, databasebackup-retention og den faktiske hosted cron-/edge-funktion skal bekræftes af ejeren. Storage-objekter indgår ikke i Supabase-databasebackups.
+- `supabase/functions/student-data-retention/index.ts` koordinerer Storage-sletning før databasefinalisering og registrerer kun status, tællere og en generisk fejlkode uden elevoplysninger eller objektstier.
+- Retentionmodellen er: GPS 15 minutter; fotos 30 dage; almindelige elevsvar, deltagere, navne, beskeder og afsluttede live-sessioner 90 dage; tekniske oprydningslogs 30 dage.
+- Resultatsiden kan fortsat slette tidligere. Storage-sletning er fail-closed: databaseposterne slettes ikke, hvis et fotoobjekt ikke kan slettes.
+- Den gamle foto-retentionfunktion er pensioneret. Migrationen forbereder en konfigurationsfunktion til GPS-job hvert femte minut og daglig samlet retention, men aktiverer ikke cron automatisk.
+- Supabase-plan, databasebackup-retention, Edge-deployment samt den faktiske `cron.job`- og jobhistorik skal bekræftes af ejeren efter en senere, godkendt deployment. Storage-objekter indgår ikke i Supabase-databasebackups.
 
 ## 5. Adgang og sikkerhed
 
@@ -53,9 +57,9 @@ Word og PDF indeholder samme version, dato, dokumentansvarlige, bilag A–D og c
 
 ## 6. Observability
 
-- Sentry initialiseres på klient, server og edge. `sendDefaultPii` er slået fra, brugerobjektet fjernes, replay maskerer tekst/input og blokerer medier, og den centrale sanitizer redigerer navn, e-mail, koder, tokens, sessions-/deltager-id, svar, billeder og lokation.
+- Sentry initialiseres på klient, server og edge. `sendDefaultPii` er slået fra, brugerobjektet fjernes, replay maskerer tekst/input og blokerer medier, og den centrale sanitizer redigerer navn, e-mail, koder, tokens, sessions-/deltager-id, svar, fotostier, signed URLs og lokation.
 - Bugsnag findes som betinget integration bag `NEXT_PUBLIC_BUGSNAG_API_KEY`. Den robuste globale sanitizer er ikke koblet til alle automatisk indfangede Bugsnag-fejl. Bugsnag er derfor ikke angivet som aktiv/godkendt underdatabehandler i standardaftale version 1.0 og må ikke aktiveres til kommunens personoplysninger uden en ny kontrakt- og sikkerhedskontrol.
-- Vercel Analytics er aktiv i layoutet med et før-afsendelsesfilter. Delingssiden til afvikling fravælges.
+- Vercel Analytics er aktiv i layoutet med et før-afsendelsesfilter. Delingssiden til afvikling og fotoudleveringsflowet fravælges.
 
 ## 7. Leverandører og eksterne tjenester
 
@@ -94,4 +98,4 @@ Der er ikke fundet en selvstændig mailleverandør, captcha-tjeneste, Google Ana
 
 ## 10. Samlet vurdering
 
-Pakken er teknisk og redaktionelt klar til ejerens gennemgang og en pull request. Den er ikke klar til at blive præsenteret som endeligt kommunegodkendt eller underskriftsklar for en konkret kommune, før punkterne ovenfor er dokumenteret og kommunens DPO/jurist har gennemgået aftalen. Personhenførbare fotos kræver en teknisk ændring til privat Storage; indtil da gælder det udtrykkelige forbud mod genkendelige personer.
+Pakken indeholder nu den lokale hardening til privat foto-Storage, kortlivede signed URLs, GPS-timeout og samlet retention. Den er først klar til kommunal elevbrug efter sikkerheds-PR, isoleret database-/RLS-test, godkendt deployment, migration i korrekt rækkefølge og dokumenteret hosted cron-/jobhistorik. Den er ikke endeligt kommunegodkendt eller underskriftsklar for en konkret kommune, før ejerpunkterne er dokumenteret og kommunens DPO/jurist har gennemgået aftalen.

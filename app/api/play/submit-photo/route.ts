@@ -9,6 +9,11 @@ import { getAwardedPoints } from "@/utils/questionPoints";
 import { resolveParticipantRequestContext } from "@/utils/supabase/participantServer";
 import { usesStandardStudentLocationExperience } from "@/lib/location/studentLocationState";
 import {
+  getProtectedAnswerPhotoUrl,
+  PARTICIPANT_UPLOADS_BUCKET,
+} from "@/lib/studentData/privacyPolicy";
+import { registerParticipantPhotoObject } from "@/utils/supabase/participantPhotos";
+import {
   asTrimmedString,
   fetchParticipantStartState,
   fetchRunForSession,
@@ -235,6 +240,7 @@ function isActualStoredPhotoAnswer(answer: ExistingPhotoAnswerRow) {
 
 async function uploadPhotoToStorage(
   image: UploadedPhotoInput,
+  answerId: string,
   sessionId: string,
   participantId: string,
   postIndex: number,
@@ -251,7 +257,7 @@ async function uploadPhotoToStorage(
     operationId
   );
   const { error: uploadError } = await adminSupabase.storage
-    .from("participant-uploads")
+    .from(PARTICIPANT_UPLOADS_BUCKET)
     .upload(storagePath, image.buffer, {
       contentType: image.mimeType,
       upsert: operationId === null,
@@ -276,12 +282,8 @@ async function uploadPhotoToStorage(
     };
   }
 
-  const {
-    data: { publicUrl },
-  } = adminSupabase.storage.from("participant-uploads").getPublicUrl(storagePath);
-
   return {
-    imageUrl: publicUrl || null,
+    imageUrl: getProtectedAnswerPhotoUrl(answerId),
     storagePath,
     createdByRequest: operationId !== null && !uploadError,
   };
@@ -311,7 +313,7 @@ async function removeNewPhotoUpload(
   if (!storagePath || !createdByRequest) return;
 
   const { error } = await adminSupabase.storage
-    .from("participant-uploads")
+    .from(PARTICIPANT_UPLOADS_BUCKET)
     .remove([storagePath]);
 
   if (error) {
@@ -1033,8 +1035,10 @@ export async function POST(request: Request) {
       }
     }
 
+    const answerId = crypto.randomUUID();
     const uploadedPhoto = await uploadPhotoToStorage(
       image,
+      answerId,
       sessionId,
       participantId,
       postIndex,
@@ -1043,7 +1047,7 @@ export async function POST(request: Request) {
       adminSupabase
     );
 
-    if (!uploadedPhoto.imageUrl) {
+    if (!uploadedPhoto.imageUrl || !uploadedPhoto.storagePath) {
       if (!operationId) {
         await removeNewPhotoUpload(
           uploadedPhoto.storagePath,
@@ -1055,6 +1059,7 @@ export async function POST(request: Request) {
     }
 
     const photoAnswerPayload: Record<string, unknown> = {
+      id: answerId,
       session_id: sessionId,
       participant_id: participantId,
       student_name: studentName.trim(),
@@ -1186,6 +1191,37 @@ export async function POST(request: Request) {
         sessionId,
       });
       return NextResponse.json({ error: error.message ?? "Kunne ikke gemme fotoet." }, { status: 500 });
+    }
+
+    try {
+      await registerParticipantPhotoObject({
+        answerId,
+        sessionId,
+        participantId,
+        objectPath: uploadedPhoto.storagePath,
+        adminSupabase,
+      });
+    } catch (registrationError) {
+      await adminSupabase.from("answers").delete().eq("id", answerId);
+      await removeNewPhotoUpload(
+        uploadedPhoto.storagePath,
+        uploadedPhoto.createdByRequest,
+        adminSupabase
+      );
+      await logHandledServerError({
+        route: "/api/play/submit-photo",
+        method: "POST",
+        status: 500,
+        error: registrationError,
+        requestPath,
+        routeType: "route",
+        participantId,
+        sessionId,
+      });
+      return NextResponse.json(
+        { error: "Fotoet kunne ikke registreres sikkert." },
+        { status: 500 }
+      );
     }
 
     await maybeStampRunStartedAt(

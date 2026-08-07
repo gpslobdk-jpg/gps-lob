@@ -15,8 +15,8 @@ from docx.text.paragraph import Paragraph
 
 
 CONTROLLER = "[UDFYLDES AF KOMMUNEN/SKOLEEJEREN]"
-DOCUMENT_VERSION = "1.0"
-PUBLICATION_DATE = "7. august 2026"
+DOCUMENT_VERSION = "1.1"
+PUBLICATION_DATE = "8. august 2026"
 
 
 def clear_paragraph(paragraph) -> None:
@@ -216,7 +216,8 @@ def fill_annex_a(doc: Document) -> None:
         "Behandlingen omfatter indsamling, registrering, organisering, opbevaring, løbende opdatering, "
         "visning, begrænset videregivelse til godkendte underdatabehandlere, fejlsøgning, sletning og "
         "sikkerhedskopiering. Under et aktivt løb modtages elevens aktuelle GPS-position og overskrives "
-        "løbende på deltagerposten. Der er ikke konstateret en særskilt positionshistorik for det normale "
+        "løbende på deltagerposten. Positionen nulstilles ved afslutning og skjules/slettes efter 15 minutters "
+        "inaktivitet. Der opbygges ikke en særskilt positionshistorik for det normale "
         "løbsflow. Lærere kan dele et løb til afvikling; modtageren får en selvstændig kopi uden tidligere "
         "sessioner, deltagere, elevdata, resultater, PIN-koder eller live-status.",
     )
@@ -376,12 +377,11 @@ def fill_annex_c(doc: Document) -> None:
     )
     set_paragraph(
         p[308],
-        "Databaseadgang beskyttes med row-level security og serverkontrol. Fotoobjekter gemmes i den "
-        "offentligt læsbare Storage-bucket participant-uploads under lange, tilfældige objektstier. Derfor må "
-        "fotoopgaver kun bruges til ting, steder og ikke-personhenførbare motiver; genkendelige personer og "
-        "andet personhenførbart indhold må ikke fotograferes. Koden indeholder en 30-dages oprydningsfunktion "
-        "for fotoobjektet og nulstilling af billedlinket, men aftalen lover ikke automatisk sletning, før "
-        "driftsaktiveringen er dokumenteret. Læreren kan rydde fotos og øvrige elevdata fra resultatsiden.",
+        "Databaseadgang beskyttes med row-level security og serverkontrol. Fotoobjekter gemmes i en privat "
+        "Storage-bucket. Visning kræver autentificeret lærer, kontrol af løbs-, svar- og fotoejerskab samt et "
+        "kortlivet signed URL på 60 sekunder; Storage-stien udleveres ikke til browseren. Fotoopgaver må fortsat "
+        "kun bruges til ting, steder og ikke-personhenførbare motiver. Læreren kan rydde fotos og øvrige "
+        "elevdata fra resultatsiden, hvor Storage-objekt og databasepost slettes samlet.",
     )
     set_paragraph(
         p[310],
@@ -400,8 +400,8 @@ def fill_annex_c(doc: Document) -> None:
     set_paragraph(
         p[314],
         "Der logges begrænsede drifts- og fejloplysninger. Sentry-integrationen fjerner brugerobjektet og "
-        "redigerer navne, e-mail, PIN-/løbskoder, tokens, sessions- og deltager-id'er, svar, fotos og lokation. "
-        "Delingssiden er fravalgt i analytics og netværksdetaljer. Vercel Analytics behandler tekniske "
+        "redigerer navne, e-mail, PIN-/løbskoder, tokens, sessions- og deltager-id'er, svar, fotostier, signed "
+        "URLs og lokation. Delings- og fotoudleveringsflow er fravalgt i analytics. Vercel Analytics behandler tekniske "
         "besøgsdata. Bugsnag findes som en betinget kodeintegration, men må ikke aktiveres til kommunal "
         "behandling uden skriftlig ændringsmeddelelse, leverandøraftale og tilsvarende global redaktion. "
         "Logdata må ikke bruges til elevprofilering.",
@@ -424,17 +424,18 @@ def fill_annex_c(doc: Document) -> None:
     )
     set_multiline_left(
         p[324],
-        "1. Fotos: koden indeholder oprydning af Storage-objekt og nulstilling af billedlink efter 30 dage. "
-        "Da den hostede planlægningsstatus ikke kan dokumenteres i denne standardskabelon, er lærerens "
-        "manuelle oprydning den bindende sletteprocedure.\n"
-        "2. Øvrige elev-/sessionsdata: den dataansvarlige instruerer lærerne i at rydde data senest 30 dage "
-        "efter aktiviteten, medmindre et kortere dokumenteret formål gælder. Koden dokumenterer aktuelt "
-        "manuel, ikke universel automatisk tidsbaseret, sletning.\n"
-        "3. Aktuel position: overskrives løbende og slettes sammen med deltager-/sessionsdata.\n"
+        "1. Fotos: private Storage-objekter og billedreferencer slettes automatisk efter 30 dage. Læreren kan "
+        "slette tidligere fra resultatsiden. Hosted cron skal aktiveres og verificeres efter deployment; indtil "
+        "det er dokumenteret, er lærerens manuelle oprydning den bindende driftsprocedure.\n"
+        "2. Øvrige elev-/sessionsdata: svar, deltagere, navne, beskeder og afsluttede live-sessioner slettes "
+        "automatisk efter 90 dage. Læreren kan slette tidligere. Hosted aktivering skal dokumenteres, før "
+        "automatisk sletning oplyses som aktiv i produktion.\n"
+        "3. Aktuel position: overskrives løbende, nulstilles ved afslutning/forladelse og efter 15 minutters "
+        "inaktivitet. Positionsfelter gemmes ikke i arkiverede svar.\n"
         "4. Lærerkonto og lærerskabte løb: opbevares, mens kontoen/aftalen er aktiv, og slettes efter "
         "dokumenteret anmodning eller ved ophør, bortset fra lovpligtig opbevaring.\n"
-        "5. Driftslogs/backups: den til enhver tid gældende retention i de skriftligt godkendte "
-        "leverandørvilkår gælder; særskilte kommunale krav skal aftales skriftligt.\n"
+        "5. Tekniske oprydningslogs uden elevoplysninger slettes efter 30 dage. Øvrige driftslogs/backups "
+        "følger de skriftligt godkendte leverandørvilkår; særskilte kommunale krav aftales skriftligt.\n"
         "6. Ved aftalens ophør slettes personoplysninger og eksisterende kopier i aktive systemer uden "
         "unødig forsinkelse; rester i lovlige, lukkede backups udløber efter leverandørens godkendte "
         "retention og må ikke bruges til andre formål. Databehandleren bekræfter sletningen skriftligt.",
@@ -512,8 +513,8 @@ def fill_annex_d(doc: Document) -> None:
     sections = [
         (
             "D.1 Dokumentstatus og indgåelse",
-            "Dette dokument er Standarddatabehandleraftale – SkoleGPS, version 1.0, udgivet og senest "
-            "opdateret 7. august 2026. Den downloadede fil er en ikke underskrevet standardskabelon baseret "
+            f"Dette dokument er Standarddatabehandleraftale – SkoleGPS, version {DOCUMENT_VERSION}, udgivet og senest "
+            f"opdateret {PUBLICATION_DATE}. Den downloadede fil er en ikke underskrevet standardskabelon baseret "
             "på Datatilsynets standardbestemmelser. Kommunen/skoleejeren udfylder egne parts-, kontakt- og "
             "underskriftsfelter og foretager sin egen juridiske, sikkerhedsmæssige og eventuelle DPIA-vurdering. "
             "Dokumentet er ikke en certificering eller myndighedsgodkendelse.",
@@ -537,9 +538,9 @@ def fill_annex_d(doc: Document) -> None:
             "D.4 Foto – bindende anvendelsesbegrænsning",
             "Fotoopgaver må i kommunal brug alene omfatte ting, steder eller andre ikke-personhenførbare "
             "motiver. Genkendelige personer, elevnavne, skærmbilleder med personoplysninger og andet "
-            "personhenførbart eller fortroligt indhold må ikke fotograferes eller uploades. Ønsker kommunen "
-            "senere personhenførbare fotos, kræver det en særskilt teknisk ændring til privat Storage, "
-            "fornyet risikovurdering og en skriftlig ændring af denne instruks.",
+            "personhenførbart eller fortroligt indhold må ikke fotograferes eller uploades. Fotoobjekter ligger "
+            "i privat Storage og vises alene til løbets ejer via kortlivede signed URLs. Ønsker kommunen senere "
+            "personhenførbare fotos, kræver det en fornyet risikovurdering og skriftlig ændring af instruksen.",
         ),
         (
             "D.5 Eksterne kort-, AI- og indholdstjenester",
@@ -557,7 +558,7 @@ def fill_annex_d(doc: Document) -> None:
             "2. Kommunens vurdering af behovet for en konsekvensanalyse (DPIA) ved børn og lokation.\n"
             "3. Om fotoopgaver med ikke-personhenførbare motiver må anvendes.\n"
             "4. Om de frivillige lærerrettede AI- og indholdsfunktioner må anvendes.\n"
-            "5. Kommunens interne frist og ansvar for lærerens manuelle oprydning af elev-/sessionsdata.\n"
+            "5. Kommunens ansvar for tidligere manuel sletning og kontrol af de aftalte automatiske frister.\n"
             "6. Kommunens kontaktvej ved sikkerhedsbrud og anmodninger fra registrerede.\n"
             "7. Eventuelle supplerende krav til oppetid, support, revision, ansvar, forsikring, værneting og "
             "ophør i en særskilt hovedaftale.",
@@ -603,7 +604,7 @@ def set_core_properties(doc: Document) -> None:
     props.author = "SkoleGPS.dk"
     props.last_modified_by = "SkoleGPS.dk"
     props.comments = ""
-    props.keywords = "SkoleGPS, databehandleraftale, GDPR, standardaftale, version 1.0"
+    props.keywords = f"SkoleGPS, databehandleraftale, GDPR, standardaftale, version {DOCUMENT_VERSION}"
 
 
 def patch_document_ooxml(docx_path: Path) -> None:
@@ -684,15 +685,115 @@ def patch_document_ooxml(docx_path: Path) -> None:
     shutil.move(temp_path, docx_path)
 
 
+def update_existing_document(doc: Document) -> None:
+    replacements = {
+        "Behandlingen omfatter indsamling,": (
+            "Behandlingen omfatter indsamling, registrering, organisering, opbevaring, løbende opdatering, "
+            "visning, begrænset videregivelse til godkendte underdatabehandlere, fejlsøgning, sletning og "
+            "sikkerhedskopiering. Under et aktivt løb modtages elevens aktuelle GPS-position og overskrives "
+            "løbende på deltagerposten. Positionen nulstilles ved afslutning og skjules/slettes efter 15 minutters "
+            "inaktivitet. Der opbygges ikke en særskilt positionshistorik for det normale løbsflow. Lærere kan "
+            "dele et løb til afvikling; modtageren får en selvstændig kopi uden tidligere sessioner, deltagere, "
+            "elevdata, resultater, PIN-koder eller live-status."
+        ),
+        "Databaseadgang beskyttes med row-level security": (
+            "Databaseadgang beskyttes med row-level security og serverkontrol. Fotoobjekter gemmes i en privat "
+            "Storage-bucket. Visning kræver autentificeret lærer, kontrol af løbs-, svar- og fotoejerskab samt et "
+            "kortlivet signed URL på 60 sekunder; Storage-stien udleveres ikke til browseren. Fotoopgaver må "
+            "fortsat kun bruges til ting, steder og ikke-personhenførbare motiver. Læreren kan rydde fotos og "
+            "øvrige elevdata fra resultatsiden, hvor Storage-objekt og databasepost slettes samlet."
+        ),
+        "Der logges begrænsede drifts- og fejloplysninger.": (
+            "Der logges begrænsede drifts- og fejloplysninger. Sentry-integrationen fjerner brugerobjektet og "
+            "redigerer navne, e-mail, PIN-/løbskoder, tokens, sessions- og deltager-id'er, svar, fotostier, signed "
+            "URLs og lokation. Delings- og fotoudleveringsflow er fravalgt i analytics. Vercel Analytics behandler "
+            "tekniske besøgsdata. Bugsnag findes som en betinget kodeintegration, men må ikke aktiveres til "
+            "kommunal behandling uden skriftlig ændringsmeddelelse, leverandøraftale og tilsvarende global "
+            "redaktion. Logdata må ikke bruges til elevprofilering."
+        ),
+        "1. Fotos:": (
+            "1. Fotos: private Storage-objekter og billedreferencer slettes automatisk efter 30 dage. Læreren kan "
+            "slette tidligere fra resultatsiden. Hosted cron skal aktiveres og verificeres efter deployment; indtil "
+            "det er dokumenteret, er lærerens manuelle oprydning den bindende driftsprocedure.\n"
+            "2. Øvrige elev-/sessionsdata: svar, deltagere, navne, beskeder og afsluttede live-sessioner slettes "
+            "automatisk efter 90 dage. Læreren kan slette tidligere. Hosted aktivering skal dokumenteres, før "
+            "automatisk sletning oplyses som aktiv i produktion.\n"
+            "3. Aktuel position: overskrives løbende, nulstilles ved afslutning/forladelse og efter 15 minutters "
+            "inaktivitet. Positionsfelter gemmes ikke i arkiverede svar.\n"
+            "4. Lærerkonto og lærerskabte løb: opbevares, mens kontoen/aftalen er aktiv, og slettes efter "
+            "dokumenteret anmodning eller ved ophør, bortset fra lovpligtig opbevaring.\n"
+            "5. Tekniske oprydningslogs uden elevoplysninger slettes efter 30 dage. Øvrige driftslogs/backups "
+            "følger de skriftligt godkendte leverandørvilkår; særskilte kommunale krav aftales skriftligt.\n"
+            "6. Ved aftalens ophør slettes personoplysninger og eksisterende kopier i aktive systemer uden "
+            "unødig forsinkelse; rester i lovlige, lukkede backups udløber efter leverandørens godkendte "
+            "retention og må ikke bruges til andre formål. Databehandleren bekræfter sletningen skriftligt."
+        ),
+        "Dette dokument er Standarddatabehandleraftale – SkoleGPS": (
+            f"Dette dokument er Standarddatabehandleraftale – SkoleGPS, version {DOCUMENT_VERSION}, udgivet og "
+            f"senest opdateret {PUBLICATION_DATE}. Den downloadede fil er en ikke underskrevet standardskabelon "
+            "baseret på Datatilsynets standardbestemmelser. Kommunen/skoleejeren udfylder egne parts-, kontakt- "
+            "og underskriftsfelter og foretager sin egen juridiske, sikkerhedsmæssige og eventuelle DPIA-vurdering. "
+            "Dokumentet er ikke en certificering eller myndighedsgodkendelse."
+        ),
+        "Fotoopgaver må i kommunal brug": (
+            "Fotoopgaver må i kommunal brug alene omfatte ting, steder eller andre ikke-personhenførbare motiver. "
+            "Genkendelige personer, elevnavne, skærmbilleder med personoplysninger og andet personhenførbart eller "
+            "fortroligt indhold må ikke fotograferes eller uploades. Fotoobjekter ligger i privat Storage og vises "
+            "alene til løbets ejer via kortlivede signed URLs. Ønsker kommunen senere personhenførbare fotos, "
+            "kræver det en fornyet risikovurdering og skriftlig ændring af instruksen."
+        ),
+    }
+
+    for paragraph in doc.paragraphs:
+        text = paragraph.text
+        if text.startswith("STANDARD DATABEHANDLERAFTALE – IKKE UNDERSKREVET"):
+            set_paragraph(
+                paragraph,
+                text.replace("Version 1.0", f"Version {DOCUMENT_VERSION}").replace(
+                    "7. august 2026", PUBLICATION_DATE
+                ),
+            )
+            continue
+
+        for prefix, replacement in replacements.items():
+            if text.startswith(prefix):
+                set_paragraph(paragraph, replacement)
+                break
+
+        if paragraph.text.startswith("1. Kommunens juridiske navn"):
+            set_paragraph(
+                paragraph,
+                paragraph.text.replace(
+                    "5. Kommunens interne frist og ansvar for lærerens manuelle oprydning af elev-/sessionsdata.",
+                    "5. Kommunens ansvar for tidligere manuel sletning og kontrol af de aftalte automatiske frister.",
+                ),
+            )
+
+    set_core_properties(doc)
+    enable_field_updates(doc)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--template", required=True, type=Path)
+    source_group = parser.add_mutually_exclusive_group(required=True)
+    source_group.add_argument("--template", type=Path)
+    source_group.add_argument("--existing", type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(args.template, args.output)
+    source_path = args.template or args.existing
+    if source_path is None:
+        raise ValueError("A template or existing document is required")
+    shutil.copyfile(source_path, args.output)
     doc = Document(args.output)
+
+    if args.existing is not None:
+        update_existing_document(doc)
+        doc.save(args.output)
+        patch_document_ooxml(args.output)
+        print(args.output)
+        return
 
     for table in doc.tables:
         if table.rows:

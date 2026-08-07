@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   Building2,
+  Clock3,
   Download,
   ExternalLink,
   FileText,
@@ -48,13 +49,18 @@ const facts = [
   },
   {
     icon: MapPin,
-    title: "Aktuel GPS-position",
-    text: "Positionen sendes under et aktivt løb og overskrives løbende. Standardflowet opbygger ikke en særskilt rutehistorik.",
+    title: "GPS i højst 15 minutter",
+    text: "Afstanden beregnes på elevens enhed. Den seneste serverposition nulstilles ved afslutning og efter 15 minutters inaktivitet.",
   },
   {
     icon: ShieldCheck,
-    title: "Dataminimering",
-    text: "Brug holdnavn eller kort fornavn. Fotoopgaver må kun vise ting og steder. Genkendelige personer må ikke fotograferes.",
+    title: "Private elevfotos",
+    text: "Fotoobjekter er private. Kun løbets ejer kan få et signed visningslink, som udløber efter 60 sekunder.",
+  },
+  {
+    icon: Clock3,
+    title: "Faste slettefrister",
+    text: "Fotos: 30 dage. Almindelige elevsvar, deltagere og afsluttede sessioner: 90 dage. Læreren kan altid slette tidligere.",
   },
 ];
 
@@ -93,7 +99,7 @@ export default function ItAfdelingerPage() {
             <div className="mt-8 rounded-2xl border border-sky-300/25 bg-sky-300/10 p-5">
               <h2 className="font-bold text-sky-100">Ikke underskrevet standardskabelon</h2>
               <p className="mt-1 text-sm leading-relaxed text-sky-50/85">
-                Word- og PDF-filen er version 1.0 fra 7. august 2026. Den konkrete kommune eller skoleejer
+                Word- og PDF-filen er version 1.1 fra 8. august 2026. Den konkrete kommune eller skoleejer
                 skal udfylde egne felter, gennemgå aftalen og indgå den med SkoleGPS. Materialet er ikke en
                 myndighedsgodkendelse eller juridisk rådgivning.
               </p>
@@ -123,7 +129,7 @@ export default function ItAfdelingerPage() {
               <h2 id="facts-heading" className={`text-2xl font-bold md:text-3xl ${rubik.className}`}>
                 Sådan behandler SkoleGPS elevdata
               </h2>
-              <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {facts.map(({ icon: Icon, title, text }) => (
                   <article key={title} className="rounded-2xl border border-white/10 bg-slate-950/35 p-5">
                     <Icon className="h-6 w-6 text-emerald-300" aria-hidden="true" />
@@ -147,10 +153,10 @@ export default function ItAfdelingerPage() {
               <div className="rounded-2xl border border-amber-300/20 bg-amber-300/8 p-6">
                 <h2 className={`text-xl font-bold text-amber-100 ${rubik.className}`}>Sletning i praksis</h2>
                 <p className="mt-3 text-sm leading-relaxed text-slate-200">
-                  Læreren kan rydde fotos, svar, deltagere og sessionsdata fra resultatsiden. Koden har en
-                  30-dages fotooprydning, men den offentlige aftale lover ikke automatisk sletning, fordi
-                  aktiveringen af det hostede job skal dokumenteres særskilt. Kommunen fastsætter derfor en
-                  lokal frist for lærerens oprydning.
+                  Læreren kan rydde fotos, svar, deltagere og sessionsdata fra resultatsiden. Den forberedte
+                  model har 15 minutters GPS-timeout, 30 dage for fotos og 90 dage for almindelige elevdata.
+                  Hosted cron oplyses først som aktiv, når migration, Edge-funktion, job og jobhistorik er
+                  kontrolleret efter en senere deployment. Indtil da gælder manuel oprydning.
                 </p>
               </div>
             </section>

@@ -21,6 +21,7 @@ import type {
   TeacherLiveStanding,
 } from "@/components/live/types";
 import { buildLiveRouteOverview } from "@/lib/routes/liveRouteOverview";
+import { isActiveStudentSessionStatus } from "@/lib/studentData/privacyPolicy";
 import {
   CURRENT_ROUTE_VERSION,
   isDistributedCircularEligibleRaceType,
@@ -176,6 +177,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       const studentNames = new Set<string>();
       let fallbackSessionStudents: StudentRow[] = [];
       let didEncounterLiveFeedError = false;
+      let fetchedSessionStatus: string | null = null;
 
       const { data: sessionData, error: sessionError } = await supabase
         .from("live_sessions")
@@ -189,6 +191,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         didEncounterLiveFeedError = true;
         console.error("Fejl ved hentning af session:", sessionError);
       } else if (sessionData) {
+        fetchedSessionStatus = sessionData.status ?? null;
         setPin(String(sessionData.pin ?? ""));
         setStatus(sessionData.status ?? "waiting");
         setGpsOverride(Boolean(sessionData.gps_override));
@@ -278,19 +281,19 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         nextStudentNames.length > 0 || previous.length === 0 ? nextStudentNames : previous
       );
 
-      const nextLocations = locationRows
+      let nextLocations = locationRows
         .map((row) => toLocation(row))
         .filter((row): row is LiveStudentLocation => row !== null);
 
-      setStudentLocations((previous) => {
-        if (nextLocations.length === 0) {
-          return previous;
-        }
+      if (!isActiveStudentSessionStatus(fetchedSessionStatus)) {
+        nextLocations = nextLocations.map((location) => ({
+          ...location,
+          lat: null,
+          lng: null,
+        }));
+      }
 
-        return nextLocations.reduce<LiveStudentLocation[]>((accumulator, location) => {
-          return upsertLocation(accumulator, location);
-        }, previous);
-      });
+      setStudentLocations(nextLocations);
       setHasParticipantsTable(supportsParticipants);
 
       const { data: messagesData, error: messagesError } = await supabase
@@ -408,7 +411,18 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
           },
           (payload) => {
             const nextSession = payload.new as SessionRow;
-            if (nextSession.status) setStatus(nextSession.status);
+            if (nextSession.status) {
+              setStatus(nextSession.status);
+              if (!isActiveStudentSessionStatus(nextSession.status)) {
+                setStudentLocations((previous) =>
+                  previous.map((location) => ({
+                    ...location,
+                    lat: null,
+                    lng: null,
+                  }))
+                );
+              }
+            }
             setGpsOverride(Boolean(nextSession.gps_override));
           }
         );
@@ -1020,7 +1034,13 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     if (hasParticipantsTable) {
       const { error: finishParticipantsError } = await supabase
         .from("participants")
-        .update({ finished_at: finishedAt })
+        .update({
+          finished_at: finishedAt,
+          lat: null,
+          lng: null,
+          accuracy: null,
+          last_updated: finishedAt,
+        })
         .eq("session_id", sessionId)
         .is("finished_at", null);
 
@@ -1034,6 +1054,8 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
               : {
                   ...student,
                   finished_at: finishedAt,
+                  lat: null,
+                  lng: null,
                 }
           )
         );

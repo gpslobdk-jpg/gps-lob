@@ -256,7 +256,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         {
           title: "5. GPS, billeder og AI",
           paragraphs: [
-            "Den aktuelle GPS-position sendes under et aktivt løb og overskrives løbende. Standardflowet opbygger ikke en særskilt historik over elevens rute. Afstandsberegning foretages i elevens browser, mens positionen også synkroniseres til sessionen.",
+            "Den aktuelle GPS-position sendes under et aktivt løb og overskrives løbende. Afstanden beregnes i elevens browser. Positionen nulstilles ved afslutning eller forladelse og skjules/slettes efter 15 minutters inaktivitet; standardflowet opbygger ikke en særskilt rutehistorik.",
             "Fotoopgaver må kun bruges til ting, steder og andre ikke-personhenførbare motiver. Genkendelige personer, fortrolige oplysninger og særlige kategorier må ikke fotograferes eller uploades.",
             "Lærerrettede AI-funktioner er frivillige og må ikke få elevdata, elevfotos, lokation, særlige kategorier eller fortroligt materiale. Der er ikke en teknisk garanti, som kan genkende alt personindhold; læreren skal derfor kontrollere materialet før afsendelse.",
           ],
@@ -278,14 +278,14 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           title: "8. Opbevaring og sletning",
           paragraphs: [
             "Lærerkonto og lærerskabte løb opbevares, mens kontoen eller aftalen er aktiv, og slettes efter en verificeret anmodning eller ved ophør, bortset fra oplysninger som skal opbevares efter loven eller i lukkede backups indtil deres normale udløb.",
-            "Læreren kan rydde fotos, svar, deltagere og sessionsdata fra resultatsiden. Koden indeholder en 30-dages oprydning af fotoobjekter, men den hostede planlægningsstatus er ikke dokumenteret her; skolen skal derfor fastsætte og følge en manuel slettefrist for elevdata. Tekniske logs og backups følger de relevante leverandørers dokumenterede retention.",
+            "Læreren kan rydde fotos, svar, deltagere og sessionsdata tidligere fra resultatsiden. Den forberedte retentionmodel sletter fotos efter 30 dage, almindelige elevsvar, deltagere og afsluttede sessioner efter 90 dage samt tekniske oprydningslogs uden elevoplysninger efter 30 dage. Hosted cron er ikke oplyst som aktiv, før den er deployet og verificeret; indtil da skal læreren følge den manuelle sletteprocedure.",
             "Supporthenvendelser og sikkerhedsoplysninger opbevares kun så længe, de er nødvendige for formålet, en tvist eller et lovkrav. Et eventuelt nyhedssamtykke opbevares, indtil det trækkes tilbage, samt i den periode dokumentation er nødvendig.",
           ],
         },
         {
           title: "9. Cookies og analyse",
           paragraphs: [
-            "Nødvendige teknologier bruges til login, session og sikkerhed. Vercel Analytics bruges til begrænset teknisk besøgsanalyse; delingssiden til afvikling er fravalgt. Tredjeparts login via Google eller Microsoft vælges af læreren og er også omfattet af den valgte udbyders egne vilkår.",
+            "Nødvendige teknologier bruges til login, session og sikkerhed. Vercel Analytics bruges til begrænset teknisk besøgsanalyse; delingssiden til afvikling og fotoudleveringsflowet er fravalgt. Tredjeparts login via Google eller Microsoft vælges af læreren og er også omfattet af den valgte udbyders egne vilkår.",
           ],
         },
         {
@@ -299,7 +299,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
       securityCallout: {
         title: "Sikkerhed i praksis",
         paragraphs: [
-          "SkoleGPS bruger HTTPS/TLS, autentifikation, ejerskabskontrol, row-level security og serverbeskyttede nøgler. Fejlmonitoreringen redigerer blandt andet navne, e-mail, koder, tokens, svar, foto-URL'er og lokation.",
+          "SkoleGPS bruger HTTPS/TLS, autentifikation, ejerskabskontrol, row-level security og serverbeskyttede nøgler. Elevfotos ligger i privat Storage og vises kun til løbets ejer via et signed URL på 60 sekunder. Fejlmonitoreringen redigerer blandt andet navne, e-mail, koder, tokens, svar, fotostier, signed URLs og lokation.",
         ],
         bullets: [
           { label: "Brud", text: "berørte dataansvarlige orienteres uden unødig forsinkelse og om muligt inden 24 timer efter, at SkoleGPS bliver bekendt med bruddet" },

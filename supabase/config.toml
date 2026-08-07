@@ -397,3 +397,6 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 
 [functions.participant-uploads-retention]
 verify_jwt = false
+
+[functions.student-data-retention]
+verify_jwt = false

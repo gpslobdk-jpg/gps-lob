@@ -84,6 +84,14 @@ export function sanitizeObservabilityUrl(value: string) {
       .replace(
         /^\/del\/afvikling\/[^/]+/i,
         "/del/afvikling/[redacted]"
+      )
+      .replace(
+        /^\/api\/teacher\/answers\/[^/]+\/photo/i,
+        "/api/teacher/answers/[redacted]/photo"
+      )
+      .replace(
+        /^\/storage\/v1\/object\/(?:public|authenticated|sign)\/participant-uploads\/.*/i,
+        "/storage/v1/object/[redacted]/participant-uploads/[redacted]"
       );
 
   try {
