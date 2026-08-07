@@ -15,7 +15,8 @@ from docx.text.paragraph import Paragraph
 
 
 CONTROLLER = "[UDFYLDES AF KOMMUNEN/SKOLEEJEREN]"
-VERIFY = "[SKAL VERIFICERES FØR UNDERSKRIFT]"
+DOCUMENT_VERSION = "1.0"
+PUBLICATION_DATE = "7. august 2026"
 
 
 def clear_paragraph(paragraph) -> None:
@@ -87,19 +88,21 @@ def insert_paragraph_after(paragraph, text: str, style: str = "Normal") -> Parag
     return inserted
 
 
-def add_draft_notice(doc: Document) -> None:
+def add_document_notice(doc: Document) -> None:
     anchor = doc.paragraphs[4]
     notice = anchor.insert_paragraph_before()
     notice.style = doc.styles["Normal"]
     notice.alignment = 1
-    shade_paragraph(notice, "FFF3CD")
+    shade_paragraph(notice, "E8F5F0")
     run = notice.add_run(
-        "FØRSTEUDKAST – IKKE UNDERSKREVET\n"
-        "Skal gennemgås og godkendes af kommunen/skoleejeren, kommunens DPO og begge parter. "
-        "Dokumentet er ikke en erklæring om, at SkoleGPS er juridisk godkendt."
+        "STANDARD DATABEHANDLERAFTALE – IKKE UNDERSKREVET\n"
+        f"Version {DOCUMENT_VERSION} · Udgivet og senest opdateret {PUBLICATION_DATE} · "
+        "Dokumentansvarlig: Jeppe Laursen, SkoleGPS.dk\n"
+        "Standardskabelonen skal udfyldes, vurderes og underskrives af den konkrete kommune/skoleejer "
+        "og SkoleGPS. Den er ikke en myndighedsgodkendelse eller juridisk rådgivning."
     )
     run.bold = True
-    run.font.color.rgb = RGBColor(114, 75, 0)
+    run.font.color.rgb = RGBColor(6, 78, 59)
     run.font.size = Pt(10)
 
 
@@ -245,7 +248,7 @@ def fill_annex_a(doc: Document) -> None:
         p[260],
         "Behandlingen kan påbegyndes efter ikrafttræden og fortsætter, mens den dataansvarlige anvender "
         "tjenesten. De enkelte kategorier opbevares efter bilag C.4. Ved ophør slettes oplysningerne efter "
-        "bestemmelse 11.1 og bilag C.4. Udkastet forudsætter gratis adgang i skoleåret 2026/27; dette "
+        "bestemmelse 11.1 og bilag C.4. Aftalen forudsætter gratis adgang i skoleåret 2026/27; dette "
         "ændrer ikke databeskyttelsesforpligtelserne.",
     )
 
@@ -255,38 +258,31 @@ def fill_annex_b(doc: Document) -> None:
     vendors = [
         (
             "Supabase, Inc.",
-            "Ikke dansk CVR; kontraktenhed verificeres",
-            "Valgt projektregion og øvrige lokationer efter leverandørens DPA/SCC – verificeres",
+            "Amerikansk selskab; ikke dansk CVR",
+            "Projektregion eu-west-1 (Irland) samt øvrige lokationer efter gældende DPA og underdatabehandlerliste",
             "Database, autentifikation, Storage, Realtime og serverfunktioner. Centrale konto-, løbs-, "
             "sessions-, deltager-, positions-, svar- og fotodata.",
         ),
         (
             "Vercel Inc.",
             "Delaware nr. 5857312",
-            "440 N Barranca Ave #4133, Covina, CA 91723, USA; global behandling efter DPA/SCC",
-            "Webhosting, edge/serverafvikling og webanalyse. DPA-dækning for den konkrete plan skal "
-            "verificeres; Vercels offentliggjorte DPA omtaler Pro/Enterprise.",
+            "440 N Barranca Ave #4133, Covina, CA 91723, USA; behandling efter gældende DPA og underdatabehandlerliste",
+            "Webhosting, edge/serverafvikling og webanalyse. Må kun anvendes på en plan med kontraktuel "
+            "DPA-dækning for kommunens personoplysninger.",
         ),
         (
             "Functional Software, Inc. (Sentry)",
-            "Ikke dansk CVR",
-            "Tyskland og USA samt godkendte underleverandører efter Sentrys DPA/SCC",
-            "Fejlmonitorering, hvis aktiveret. Kun redigerede tekniske data; ingen elevnavne, svar, "
-            "lokationer, fotos, PIN-koder eller delingstokens må sendes.",
+            "Amerikansk selskab; ikke dansk CVR",
+            "Valgt datalagringsregion Tyskland; support og øvrig behandling efter gældende DPA og underdatabehandlerliste",
+            "Aktiv fejlmonitorering med applikationsredaktion. Ingen elevnavne, svar, lokationer, fotos, "
+            "PIN-koder eller delingstokens må sendes.",
         ),
         (
-            "SmartBear Software, Inc. (Bugsnag)",
-            "Ikke dansk CVR",
-            "USA og godkendte underleverandører efter SmartBears DPA/SCC – konkret konto verificeres",
-            "Fejlmonitorering, hvis aktiveret. Kun redigerede tekniske data; ingen særlige kategorier eller "
-            "elevindhold må sendes.",
-        ),
-        (
-            "OpenAI Ireland Ltd. / gældende OpenAI-kontraktenhed",
-            "Ikke dansk CVR; kontraktenhed verificeres",
-            "EØS samt eventuelle overførsler efter OpenAI DPA/SCC og aktuel underdatabehandlerliste",
-            "Valgfrie lærerrettede AI-funktioner. Elevdata, genkendelige billeder, særlige kategorier og "
-            "fortroligt materiale må ikke indsendes. Funktionen kan deaktiveres/udelades af instruksen.",
+            "OpenAI Ireland Ltd.",
+            "Irsk selskab; ikke dansk CVR",
+            "EØS og øvrige lokationer efter gældende DPA, overførselsgrundlag og underdatabehandlerliste",
+            "Frivillige lærerrettede AI-funktioner. Elevdata, genkendelige billeder, særlige kategorier og "
+            "fortroligt materiale må ikke indsendes.",
         ),
     ]
 
@@ -306,8 +302,9 @@ def fill_annex_b(doc: Document) -> None:
         doc.paragraphs[273],
         "Databehandleren varsler planlagte tilføjelser eller udskiftninger mindst 30 dage før den nye "
         "underdatabehandler tages i brug. Den dataansvarlige kan inden fristens udløb gøre skriftlig og "
-        "sagligt begrundet indsigelse. De i tabellen markerede verifikationspunkter skal være afklaret og "
-        "accepteret skriftligt før underskrift eller før den pågældende funktion aktiveres.",
+        "sagligt begrundet indsigelse. Bugsnag/SmartBear, Stripe og andre betingede integrationer er ikke "
+        "godkendte underdatabehandlere efter denne version og må ikke aktiveres til kommunens "
+        "personoplysninger uden varsling og skriftligt behandlingsgrundlag.",
     )
 
 
@@ -351,10 +348,11 @@ def fill_annex_c(doc: Document) -> None:
     )
     set_paragraph(
         p[300],
-        "Driften baseres på de godkendte hosting- og databaseleverandørers redundans og backupmuligheder. "
-        "Databehandleren skal ved hændelser prioritere genetablering af tjenesten og orientere den "
-        "dataansvarlige. Konkrete RTO/RPO, backupregioner og backupretention er ikke verificeret i dette "
-        f"udkast og skal aftales før underskrift: {VERIFY}.",
+        "Driften baseres på hosting- og databaseleverandørernes til enhver tid gældende redundans og "
+        "backupfunktioner. Der gives ikke en særskilt garanti for et bestemt RTO eller RPO i denne aftale. "
+        "Databehandleren prioriterer genetablering og orienterer den dataansvarlige ved en hændelse. "
+        "Leverandørernes dokumenterede backupretention gælder; Storage-objekter er ikke omfattet af "
+        "Supabase-databasebackups. Kommunen kan kræve en særskilt kontinuitetsaftale før ibrugtagning.",
     )
     set_paragraph(
         p[302],
@@ -378,12 +376,12 @@ def fill_annex_c(doc: Document) -> None:
     )
     set_paragraph(
         p[308],
-        "Databaseadgang beskyttes med row-level security og serverkontrol. Fotoobjekter slettes automatisk "
-        "efter 30 dage og kan slettes tidligere manuelt. Den aktuelle Storage-bucket participant-uploads er dog "
-        "konfigureret som offentlig i migrationskoden. Det er en væsentlig afvigelse: inden kommunen "
-        "anvender fotoopgaver med personoplysninger, skal bucket ændres til privat adgang med kortlivede "
-        "signerede links eller kommunen skal udtrykkeligt acceptere en anden dokumenteret model. Indtil da "
-        "må genkendelige personer ikke fotograferes.",
+        "Databaseadgang beskyttes med row-level security og serverkontrol. Fotoobjekter gemmes i den "
+        "offentligt læsbare Storage-bucket participant-uploads under lange, tilfældige objektstier. Derfor må "
+        "fotoopgaver kun bruges til ting, steder og ikke-personhenførbare motiver; genkendelige personer og "
+        "andet personhenførbart indhold må ikke fotograferes. Koden indeholder en 30-dages oprydningsfunktion "
+        "for fotoobjektet og nulstilling af billedlinket, men aftalen lover ikke automatisk sletning, før "
+        "driftsaktiveringen er dokumenteret. Læreren kan rydde fotos og øvrige elevdata fra resultatsiden.",
     )
     set_paragraph(
         p[310],
@@ -401,11 +399,12 @@ def fill_annex_c(doc: Document) -> None:
     )
     set_paragraph(
         p[314],
-        "Der logges begrænsede drifts- og fejloplysninger. Applikationen har redaktion af navne, e-mail, "
-        "PIN-/løbskoder, tokens, sessions- og deltager-id'er, svar, fotos og lokation før observability. "
-        "Delingssiden er særskilt fravalgt i analytics/fejlmonitorering. Aktuel retention og aktivering hos "
-        f"Vercel Analytics, Sentry, Bugsnag og database-logning skal verificeres: {VERIFY}. Logdata må ikke "
-        "bruges til elevprofilering.",
+        "Der logges begrænsede drifts- og fejloplysninger. Sentry-integrationen fjerner brugerobjektet og "
+        "redigerer navne, e-mail, PIN-/løbskoder, tokens, sessions- og deltager-id'er, svar, fotos og lokation. "
+        "Delingssiden er fravalgt i analytics og netværksdetaljer. Vercel Analytics behandler tekniske "
+        "besøgsdata. Bugsnag findes som en betinget kodeintegration, men må ikke aktiveres til kommunal "
+        "behandling uden skriftlig ændringsmeddelelse, leverandøraftale og tilsvarende global redaktion. "
+        "Logdata må ikke bruges til elevprofilering.",
     )
 
     set_paragraph(
@@ -425,15 +424,17 @@ def fill_annex_c(doc: Document) -> None:
     )
     set_multiline_left(
         p[324],
-        "1. Fotos: automatisk sletning af Storage-objekt og nulstilling af billedlink efter 30 dage; tidligere "
-        "manuel sletning er mulig. Det hostede oprydningsjobs faktiske aktivering skal verificeres.\n"
+        "1. Fotos: koden indeholder oprydning af Storage-objekt og nulstilling af billedlink efter 30 dage. "
+        "Da den hostede planlægningsstatus ikke kan dokumenteres i denne standardskabelon, er lærerens "
+        "manuelle oprydning den bindende sletteprocedure.\n"
         "2. Øvrige elev-/sessionsdata: den dataansvarlige instruerer lærerne i at rydde data senest 30 dage "
         "efter aktiviteten, medmindre et kortere dokumenteret formål gælder. Koden dokumenterer aktuelt "
         "manuel, ikke universel automatisk tidsbaseret, sletning.\n"
         "3. Aktuel position: overskrives løbende og slettes sammen med deltager-/sessionsdata.\n"
         "4. Lærerkonto og lærerskabte løb: opbevares, mens kontoen/aftalen er aktiv, og slettes efter "
         "dokumenteret anmodning eller ved ophør, bortset fra lovpligtig opbevaring.\n"
-        "5. Driftslogs/backups: leverandørspecifik retention skal oplyses og godkendes før underskrift.\n"
+        "5. Driftslogs/backups: den til enhver tid gældende retention i de skriftligt godkendte "
+        "leverandørvilkår gælder; særskilte kommunale krav skal aftales skriftligt.\n"
         "6. Ved aftalens ophør slettes personoplysninger og eksisterende kopier i aktive systemer uden "
         "unødig forsinkelse; rester i lovlige, lukkede backups udløber efter leverandørens godkendte "
         "retention og må ikke bruges til andre formål. Databehandleren bekræfter sletningen skriftligt.",
@@ -443,13 +444,15 @@ def fill_annex_c(doc: Document) -> None:
 
     set_multiline_left(
         p[335],
-        "• SkoleGPS' applikationsdrift: Vercel Inc.; primær behandling i USA og globalt efter "
-        "leverandørens DPA/SCC.\n"
-        "• Database, autentifikation og Storage: Supabase, Inc.; den valgte projektregion og supplerende "
-        f"support-/backup-lokationer skal dokumenteres: {VERIFY}.\n"
-        "• Fejlmonitorering: Sentry (Tyskland/USA) og Bugsnag/SmartBear (USA og underleverandører), kun "
-        "hvis aktiveret.\n"
-        "• Lærerrettet AI: OpenAI efter gældende DPA/SCC, hvis aktiveret; ingen elevdata må sendes.\n"
+        "• SkoleGPS' applikationsdrift: Vercel Inc.; behandling i USA og andre lokationer efter "
+        "leverandørens gældende DPA, underdatabehandlerliste og overførselsgrundlag.\n"
+        "• Database, autentifikation og Storage: Supabase, Inc.; den lokalt tilknyttede projektkonfiguration "
+        "angiver region eu-west-1 (Irland), mens support, backups og underleverandører kan indebære andre "
+        "lokationer efter leverandørens gældende DPA.\n"
+        "• Fejlmonitorering: Functional Software, Inc. (Sentry); valgt datalagringsregion Tyskland, med "
+        "support og underleverandører efter leverandørens gældende DPA.\n"
+        "• Lærerrettet AI: OpenAI Ireland Ltd. efter gældende DPA og underdatabehandlerliste, hvis læreren "
+        "frivilligt bruger funktionen; elevdata må ikke sendes.\n"
         "• Databehandlerens administrative arbejde: Sandbergvej 29, 4760 Vordingborg, Danmark.\n"
         "Andre lokaliteter eller væsentlige ændringer kræver skriftlig godkendelse efter bilag B.",
     )
@@ -464,9 +467,10 @@ def fill_annex_c(doc: Document) -> None:
     )
     set_paragraph(
         p[340],
-        "For Vercel, Supabase, Sentry, SmartBear/Bugsnag og OpenAI skal kontraktenhed, DPA, "
-        "underdatabehandlerliste, lokationer, eventuel EU-U.S. Data Privacy Framework-certificering og/eller "
-        f"relevante SCC-moduler dokumenteres før underskrift. Status: {VERIFY}.",
+        "For Vercel, Supabase, Sentry og OpenAI anvendes leverandørernes gældende DPA, "
+        "underdatabehandlerliste og relevante overførselsgrundlag. Databehandleren må kun aktivere en "
+        "leverandør til kommunens personoplysninger, når den konkrete konto og plan er omfattet af et "
+        "gyldigt databehandlergrundlag. Væsentlige ændringer varsles efter bilag B.",
     )
 
     set_paragraph(
@@ -507,16 +511,16 @@ def fill_annex_d(doc: Document) -> None:
     anchor = doc.paragraphs[411]
     sections = [
         (
-            "D.1 Udkastets status og forudsætninger",
-            "Dette dokument er et grundigt førsteudkast baseret på Datatilsynets standardbestemmelser og "
-            "en lokal teknisk kodegennemgang pr. 7. august 2026. Det er ikke underskrevet, er ikke juridisk "
-            "rådgivning og udgør ikke en certificering eller myndighedsgodkendelse. Kommunen/skoleejeren "
-            "skal lade egen DPO og relevante IT-/sikkerhedsfunktioner gennemgå aftalen og de markerede "
-            "verifikationspunkter før brug eller underskrift.",
+            "D.1 Dokumentstatus og indgåelse",
+            "Dette dokument er Standarddatabehandleraftale – SkoleGPS, version 1.0, udgivet og senest "
+            "opdateret 7. august 2026. Den downloadede fil er en ikke underskrevet standardskabelon baseret "
+            "på Datatilsynets standardbestemmelser. Kommunen/skoleejeren udfylder egne parts-, kontakt- og "
+            "underskriftsfelter og foretager sin egen juridiske, sikkerhedsmæssige og eventuelle DPIA-vurdering. "
+            "Dokumentet er ikke en certificering eller myndighedsgodkendelse.",
         ),
         (
             "D.2 Gratis tjeneste i skoleåret 2026/27",
-            "SkoleGPS forventes stillet gratis til rådighed for danske skoler og kommuner i skoleåret "
+            "SkoleGPS stilles gratis til rådighed for danske skoler og kommuner i skoleåret "
             "2026/27. Gratis levering ændrer ikke parternes pligter efter databeskyttelsesreglerne. "
             "Eventuelle senere betalings-, support-, oppetids-, ansvar- og opsigelsesvilkår aftales særskilt "
             "og må ikke forringe disse standardbestemmelser eller de registreredes rettigheder.",
@@ -530,35 +534,33 @@ def fill_annex_d(doc: Document) -> None:
             "bilag C.4 og (f) at behandle løbskoder, QR-koder og delingslinks fortroligt.",
         ),
         (
-            "D.4 Foto – midlertidig sikkerhedsgate",
+            "D.4 Foto – bindende anvendelsesbegrænsning",
             "Fotoopgaver må i kommunal brug alene omfatte ting, steder eller andre ikke-personhenførbare "
-            "motiver. Hvis kommunen ønsker fotos med personer eller andre personoplysninger, er funktionen "
-            "ikke godkendt efter dette udkast, før Storage er ændret til privat adgang med passende "
-            "kortlivede links, ændringen er testet og dokumenteret, og kommunen har foretaget en fornyet "
-            "risikovurdering/DPO-godkendelse.",
+            "motiver. Genkendelige personer, elevnavne, skærmbilleder med personoplysninger og andet "
+            "personhenførbart eller fortroligt indhold må ikke fotograferes eller uploades. Ønsker kommunen "
+            "senere personhenførbare fotos, kræver det en særskilt teknisk ændring til privat Storage, "
+            "fornyet risikovurdering og en skriftlig ændring af denne instruks.",
         ),
         (
-            "D.5 Eksterne kort- og indholdstjenester",
+            "D.5 Eksterne kort-, AI- og indholdstjenester",
             "SkoleGPS' browser kan hente kortfliser/geokodning fra OpenStreetMap/Nominatim, CARTO og Esri "
-            "samt enkelte offentlige medieaktiver. Disse tjenester kan modtage brugerens IP-adresse, "
-            "browsermetadata og den forespurgte kortflise/søgning direkte. Der sendes ikke tilsigtet "
-            "elevnavn, svar eller foto. Tjenesternes rolle, vilkår, behandlingssteder og kapitel V-grundlag "
-            "er ikke endeligt klassificeret i dette udkast. Kommunen skal godkende dem, eller de skal "
-            "erstattes/deaktiveres for kommunens brug.",
+            "samt enkelte offentlige medieaktiver. Lærerens frivillige AI- og indholdsværktøjer kan benytte "
+            "OpenAI, Pollinations, YouTube og Apple iTunes-søgning. Disse tjenester kan modtage brugerens "
+            "IP-adresse, browsermetadata og den forespurgte kortflise/søgning direkte. Der sendes ikke tilsigtet "
+            "elevnavn, elevsvar, elevfoto eller elevlokation til AI- og indholdsværktøjerne. Kommunen skal "
+            "instruere lærerne i kun at bruge ikke-personhenførbart materiale og kan beslutte at undlade de "
+            "frivillige funktioner. Korttjenesterne modtager teknisk nødvendige IP- og forespørgselsdata.",
         ),
         (
-            "D.6 Punkter der skal lukkes før underskrift",
+            "D.6 Kommunens konkrete valg ved indgåelse",
             "1. Kommunens juridiske navn, CVR, adresse, kontaktperson, underskriver og behandlingsgrundlag.\n"
-            "2. Kommunens vurdering af behovet for DPIA ved behandling af børn og lokation.\n"
-            "3. Privat adgangsmodel for foto-Storage eller dokumenteret fravalg af personhenførbare fotos.\n"
-            "4. Supabase-projektregion, backup-/logretention, DPA/SCC og aktuel hosted cleanup-job.\n"
-            "5. Vercel-planens kontraktuelle DPA-dækning og overførselsvurdering.\n"
-            "6. Om Sentry, Bugsnag og Vercel Analytics er aktive, samt deres retention og region.\n"
-            "7. Kortleverandørernes rolle og godkendelse.\n"
-            "8. AI-funktionernes afgrænsning, DPA/SCC eller deaktivering.\n"
-            "9. Om kommunen kræver automatisk sletning af alle øvrige elevdata frem for dokumenteret "
-            "læreroprensning.\n"
-            "10. Revisionsniveau, ansvar, forsikring, værneting, support og ophør i en særskilt hovedaftale.",
+            "2. Kommunens vurdering af behovet for en konsekvensanalyse (DPIA) ved børn og lokation.\n"
+            "3. Om fotoopgaver med ikke-personhenførbare motiver må anvendes.\n"
+            "4. Om de frivillige lærerrettede AI- og indholdsfunktioner må anvendes.\n"
+            "5. Kommunens interne frist og ansvar for lærerens manuelle oprydning af elev-/sessionsdata.\n"
+            "6. Kommunens kontaktvej ved sikkerhedsbrud og anmodninger fra registrerede.\n"
+            "7. Eventuelle supplerende krav til oppetid, support, revision, ansvar, forsikring, værneting og "
+            "ophør i en særskilt hovedaftale.",
         ),
     ]
 
@@ -596,16 +598,16 @@ def enable_field_updates(doc: Document) -> None:
 
 def set_core_properties(doc: Document) -> None:
     props = doc.core_properties
-    props.title = "SkoleGPS.dk – databehandleraftale (førsteudkast)"
+    props.title = "Standarddatabehandleraftale – SkoleGPS"
     props.subject = "Datatilsynets standardkontraktbestemmelser med bilag"
     props.author = "SkoleGPS.dk"
     props.last_modified_by = "SkoleGPS.dk"
-    props.comments = "Førsteudkast. Skal gennemgås af kommunen/skoleejerens DPO før underskrift."
-    props.keywords = "SkoleGPS, databehandleraftale, GDPR, førsteudkast"
+    props.comments = ""
+    props.keywords = "SkoleGPS, databehandleraftale, GDPR, standardaftale, version 1.0"
 
 
-def patch_header_accessibility(docx_path: Path) -> None:
-    """Add useful alt text to the two header shapes inherited from the official template."""
+def patch_document_ooxml(docx_path: Path) -> None:
+    """Remove template-only changelog/draft labeling and improve inherited header accessibility."""
     namespace = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
     word_namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     with zipfile.ZipFile(docx_path, "r") as source, tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp:
@@ -613,6 +615,45 @@ def patch_header_accessibility(docx_path: Path) -> None:
         with zipfile.ZipFile(temp, "w", zipfile.ZIP_DEFLATED) as target:
             for item in source.infolist():
                 payload = source.read(item.filename)
+                if item.filename == "word/document.xml":
+                    from lxml import etree
+
+                    root = etree.fromstring(payload)
+                    body = root.find(f"{{{word_namespace}}}body")
+                    if body is not None:
+                        title_block = None
+                        for child in list(body):
+                            if "Udkast" in "".join(child.itertext()):
+                                title_block = child
+                                break
+                        if title_block is not None:
+                            for child in list(body):
+                                if child is title_block:
+                                    break
+                                body.remove(child)
+                            body.remove(title_block)
+                        annex_c_headings = root.xpath(
+                            "//w:p[.//w:t[contains(., 'Bilag C')]]",
+                            namespaces={"w": word_namespace},
+                        )
+                        for child in reversed(annex_c_headings):
+                            child_text = "".join(child.itertext())
+                            if "Instruks vedrørende behandling" not in child_text:
+                                continue
+                            previous = child.getprevious()
+                            if previous is None or previous.tag != f"{{{word_namespace}}}p":
+                                continue
+                            page_break = any(
+                                item.get(f"{{{word_namespace}}}type") == "page"
+                                for item in previous.findall(f".//{{{word_namespace}}}br")
+                            )
+                            visible_text = "".join(previous.itertext()).strip()
+                            if page_break and not visible_text:
+                                body.remove(previous)
+                            break
+                    payload = etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone="yes")
+                elif item.filename.startswith("customXml/") and item.filename.endswith(".xml"):
+                    payload = payload.replace(b">Udkast<", b"><")
                 if item.filename.startswith("word/header") and item.filename.endswith(".xml"):
                     from lxml import etree
 
@@ -657,7 +698,7 @@ def main() -> None:
         if table.rows:
             mark_table_header(table.rows[0])
 
-    # All index-based edits are completed before inserting the draft notice or Annex D.
+    # All index-based edits are completed before inserting the document notice or Annex D.
     fill_parties_and_choices(doc)
     fill_signatures_and_contacts(doc)
     fill_annex_a(doc)
@@ -665,12 +706,12 @@ def main() -> None:
     fill_annex_c(doc)
     fill_annex_d(doc)
     remove_omitted_template_scaffold(doc)
-    add_draft_notice(doc)
+    add_document_notice(doc)
     enable_field_updates(doc)
     set_core_properties(doc)
 
     doc.save(args.output)
-    patch_header_accessibility(args.output)
+    patch_document_ooxml(args.output)
     print(args.output)
 
 

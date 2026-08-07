@@ -1020,8 +1020,9 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
         <section className="mt-10 rounded-[2rem] border border-white/10 bg-white/5 px-6 py-5 shadow-2xl backdrop-blur-2xl">
           <h2 className={`text-xl font-black text-white ${rubik.className}`}>Privatliv</h2>
           <p className="mt-2 text-sm leading-6 text-white/70">
-            Privatlivs-indstilling: Besvarelser og billeder slettes automatisk efter 30 dage for at beskytte
-            deltagernes data.
+            Privatliv: Ryd billeder, besvarelser, deltagere og sessionsdata, når de ikke længere er
+            nødvendige. Fotooprydning er teknisk sat til 30 dage, men læreren er ansvarlig for den manuelle
+            oprydning af de øvrige elevdata.
           </p>
         </section>
       </div>

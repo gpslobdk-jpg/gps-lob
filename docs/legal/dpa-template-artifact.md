@@ -1,90 +1,85 @@
-# SkoleGPS databehandleraftale – skabelonartefakt
+# SkoleGPS standarddatabehandleraftale – dokumentkontrakt
 
-## Kilde og integritet
+## Dokumentidentitet
 
-- Kilde: Datatilsynets danske standardkontraktbestemmelser efter GDPR artikel 28, stk. 3.
-- Hentet: 7. august 2026.
-- Referencefil: `Datatilsynet_standard_databehandleraftale_dansk.docx` (opbevaret uændret i opgavens midlertidige arbejdsmappe).
-- SHA-256: `31D529F7B8CAFB52F63537CB74DBEA446782929AE803445AABD4B9996BACCAE2`.
-- Standardskabelonens faste kontraktbestemmelser må ikke omskrives. Kun skabelonens valgmuligheder, felter og bilag udfyldes.
+- Titel: `Standarddatabehandleraftale – SkoleGPS`
+- Version: `1.0`
+- Udgivet: `7. august 2026`
+- Senest opdateret: `7. august 2026`
+- Dokumentansvarlig: `Jeppe Laursen, SkoleGPS.dk`
+- Status: `Ikke underskrevet standardskabelon`
+- Kildeskabelon: Datatilsynets danske standardkontraktbestemmelser.
 
-## Layoutkontrakt
+## Layout og redigering
 
-- A4, stående format.
-- Ét dokumentafsnit med Datatilsynets eksisterende sidehoved, sidefod, logo, typografi, nummerering og indholdsfortegnelse bevaret.
-- Ingen ændring af overskriftsniveauer eller den juridiske hovedstruktur.
-- Lange bilagstekster må brydes over flere sider, men tabelrækker og overskrifter skal holdes læsbare.
-- Dokumentet skal markeres som `FØRSTEUDKAST – IKKE UNDERSKREVET` og tydeligt henvise til kommunens DPO-gennemgang.
+- Skabelonens faste juridiske hovedstruktur, sidehoved, logo, typografi, nummerering og indholdsfortegnelse bevares.
+- Kun skabelonens valgmuligheder, partsfelter og bilag udfyldes.
+- Kommune-/skoleejerfelter står som `[UDFYLDES AF KOMMUNEN/SKOLEEJEREN]`.
+- Den offentlige version må ikke indeholde interne noter, kontrolmarkører, TODO/TBD, lokale filstier eller hemmeligheder.
+- Word og PDF skal have samme materielle indhold, version og dato.
 
-## Udfyldningskontrakt
+## Parter og valg
 
-### Parter
+- Dataansvarlig: Den konkrete kommune/skoleejer, som udfylder navn, CVR, adresse, kontaktperson, behandlingsgrundlag og underskriver.
+- Databehandler: Jeppe Laursen, privatperson og ejer/driftsansvarlig for SkoleGPS.dk, uden CVR.
+- Tjeneste: Webbaseret oprettelse, deling og afvikling af undervisningsløb.
+- Underdatabehandlere: Generel skriftlig godkendelse med mindst 30 dages varsel ved ændringer.
+- Brud: Underretning uden unødig forsinkelse og om muligt senest 24 timer efter kendskab.
+- Ophør: Sletning og skriftlig bekræftelse; returnering efter særskilt dokumenteret instruks, hvor teknisk muligt.
 
-- Dataansvarlig: kommune/skoleejer; alle identitets-, kontakt- og underskriftsfelter står som tydelige felter til udfyldelse.
-- Databehandler: Jeppe Laursen, privatperson og ejer/driftsansvarlig for SkoleGPS.dk.
-- Databehandleren er ikke CVR-registreret på udkaststidspunktet.
-- Privat adresse og telefon må kun stå i den personlige aftale, ikke på en offentlig informationsside.
+## Behandling og registrerede
 
-### Valg i standardbestemmelserne
+- Lærere/konsulenter: navn, e-mail, autentifikations-id, loginudbyder, kontostatus, oprettede løb og frivilligt produktnyt.
+- Elever/deltagere: valgfrit holdnavn eller kort fornavn, sessions- og deltager-id, aktuel GPS-position og nøjagtighed, tidsstempler, svar, point/status og foto ved fotoopgave.
+- Drift: IP-/netværksoplysninger hos drifts- og kortleverandører, browser/enhed, redigerede URL-, fejl- og driftsmetadata.
+- Elever deltager uden elevkonto og elev-e-mail.
+- CPR-numre, særlige kategorier, fortrolige elevsager og andre unødvendige personoplysninger må ikke indtastes.
+- Fotoopgaver må kun vise ting, steder og andet ikke-personhenførbart indhold. Genkendelige personer må ikke fotograferes.
 
-- Tjeneste: SkoleGPS.dk – webbaseret oprettelse og afvikling af undervisningsløb.
-- Underdatabehandlere: generel skriftlig godkendelse med 30 dages varsel.
-- Kompetent tilsynsmyndighed: Datatilsynet.
-- Brud: underretning uden unødig forsinkelse og om muligt senest 24 timer efter kendskab.
-- Ophør: sletning og skriftlig bekræftelse; returnering kun efter særskilt dokumenteret instruks og hvor teknisk muligt.
+## GPS
 
-## Behandlingsbeskrivelse
+- Elevens position sendes til serveren under et aktivt løb og gemmes på deltagerposten som breddegrad, længdegrad, nøjagtighed og seneste opdatering.
+- Den aktuelle position overskrives løbende; standardflowet har ikke en særskilt positionshistoriktabel.
+- Afstand til posten beregnes i elevens browser.
+- Positionen slettes sammen med deltager-/sessionsdata ved lærerens oprydning.
 
-- Registrerede: lærere, undervisningskonsulenter, skoleadministratorer og elever/deltagere.
-- Lærerkonto: navn, e-mail, autentifikations-id, login- og kontostatus, samtykke til produktnyt hvis afgivet.
-- Elevdeltagelse: valgfrit fornavn/holdnavn, sessions- og deltager-id, aktuelle positionskoordinater og nøjagtighed under aktivt løb, tidsstempler, svar, point/resultater og foto ved fotoopgave.
-- Teknisk drift: IP-/netværksoplysninger hos hosting- og kortleverandører, browser/enhed, URL/fejl-/driftsmetadata og pseudonyme tekniske id'er.
-- Ingen elevkonto eller elev-e-mail er nødvendig i normal deltagelse.
-- Særlige kategorier, CPR-numre og fortrolige elevsager er ikke tilsigtet og må ikke indtastes.
-- Genkendelige personer må ikke fotograferes. Fotoopgaver skal tilrettelægges mod ting, steder eller ikke-identificerende motiver.
+## Opbevaring og sletning
 
-## Sletning og opbevaring
+- Læreren kan fra resultatsiden rydde fotos, svar, deltagere, sessionselever, beskeder og live-sessioner for løbet.
+- Koden indeholder en 30-dages oprydningsfunktion for fotoobjektet og billedlinket. Den hostede planlægningsstatus kan ikke dokumenteres lokalt, så standardskabelonen gør lærerens manuelle oprydning til den bindende procedure.
+- Der loves ikke universel automatisk 30-dages sletning af øvrige elevdata.
+- Kommunen fastsætter sin interne oprydningsfrist; standardskabelonen foreslår senest 30 dage efter aktiviteten, medmindre et kortere dokumenteret formål gælder.
+- Lærerkonto og lærerskabte løb opbevares, mens konto/aftale er aktiv, og slettes efter verificeret anmodning eller ophør med forbehold for lovpligtig opbevaring og lukkede backups.
+- Leverandørspecifik retention for logs og backups følger godkendte leverandørvilkår; der gives ikke et særskilt RTO/RPO-løfte.
 
-- Fotoobjekter og tilknyttede billedlinks er teknisk indstillet til automatisk oprydning efter 30 dage; læreren kan rydde tidligere via resultatsiden.
-- Læreren kan manuelt rydde besvarelser, billeder, deltagere, sessionsdata og tilknyttede elevdata for et løb.
-- Den aktuelle kode dokumenterer ikke en universel automatisk 30-dages sletning af alle øvrige elevdata. Aftalen må derfor ikke love dette som allerede implementeret.
-- Foreslået instruks: dataansvarlige rydder løbsdata senest 30 dage efter aktiviteten, medmindre et kortere dokumenteret undervisningsbehov gælder. Databehandleren udfører dokumenterede sletteanmodninger uden unødig forsinkelse og normalt inden 30 dage.
-- Aktuel GPS-position overskrives løbende på deltagerposten; der er ikke konstateret en særskilt historiktabel for standardløbet. Positionen fjernes sammen med deltager-/sessionsdata ved oprydning.
-- Lærerskabte løb opbevares, indtil læreren sletter dem eller aftalen/kontoen ophører.
-- Log- og backuppolitikker hos underdatabehandlere skal verificeres før underskrift; udkastet må ikke angive uverificerede garantier.
+## Sikkerhed
 
-## Sikkerhedsrealiteter og åbne punkter
+- HTTPS/TLS, Supabase RLS, ejerskabskontrol, deltagerbinding og serverbeskyttede privilegerede nøgler er dokumenteret i kodebasen.
+- Rå delingstokens gemmes ikke; delingslinks bruger URL-fragment, SHA-256-digest, no-store/noindex og tokenredaktion.
+- Sentry fjerner brugerobjektet og redigerer navn, e-mail, PIN-/løbskoder, tokens, sessions-/deltager-id, svar, billeder og lokation.
+- Bugsnag er en betinget kodeintegration og er ikke godkendt som aktiv underdatabehandler i version 1.0. Den må ikke aktiveres til kommunens personoplysninger uden ændringsvarsel, kontraktgrundlag og global redaktion.
+- Foto-bucketen er offentligt læsbar via lange, tilfældige objektstier. Derfor er forbuddet mod personhenførbare fotos bindende, indtil en eventuel særskilt ændring til privat Storage er implementeret, testet og aftalt.
 
-- TLS ved transport, server-only serviceadgang, RLS/adgangspolitikker, deltagerbinding og redaktion af tokens/navne/lokation i observability er dokumenteret i koden.
-- Rå delingstokens gemmes ikke; delingslinks bruger fragment og hash-baseret opslag.
-- Foto-bucketen `participant-uploads` er i den aktuelle migration markeret offentlig. Det er en væsentlig risiko og skal enten ændres til privat adgang med korte signaturer eller udtrykkeligt accepteres af kommunen før foto med personoplysninger kan bruges.
-- Kortfliser/geokodning leveres direkte til browseren af eksterne tjenester og kan modtage IP-adresse og forespørgselsmetadata. Rolle, vilkår og geografisk behandling skal afklares eller tjenesterne skal erstattes/afgrænses før kommunal godkendelse.
-- Vercels aktuelle DPA oplyser, at databehandlerrollen gælder Pro/Enterprise. SkoleGPS' konkrete plan og kontraktdækning skal verificeres.
-- Supabase-projektets valgte region, backupretention og kontraktuelle DPA/SCC-status skal verificeres i leverandørkontoen.
-- Sentry og Bugsnag er kodeunderstøttede, betinget af miljøkonfiguration; aktuel aktivering, konto, region og retention skal verificeres.
-- OpenAI bruges i lærerrettede AI-funktioner. Elevdata og personhenførbart materiale må ikke sendes til AI-funktionerne. Aktuel DPA/SCC og kontoindstilling skal verificeres, hvis funktionen omfattes af kommunens brug.
+## Godkendte underdatabehandlere i version 1.0
 
-## Underdatabehandlerklassifikation til bilag B/D
+- Supabase, Inc.: database, login, Storage, Realtime og serverfunktioner. Projektkonfigurationen angiver region `eu-west-1` (Irland); support, backups og underleverandører følger gældende DPA.
+- Vercel Inc.: webhosting, edge/serverafvikling og webanalyse. Må kun anvendes til kommunens personoplysninger på en plan med kontraktuel DPA-dækning.
+- Functional Software, Inc. (Sentry): aktiv fejlmonitorering med valgt datalagringsregion Tyskland og redigerede tekniske data.
+- OpenAI Ireland Ltd.: frivillige lærerrettede AI-funktioner. Elevdata, genkendelige fotos, lokation, særlige kategorier og fortroligt materiale må ikke sendes.
 
-- Supabase, Inc.: database, autentifikation, Storage, Realtime og serverfunktioner; behandler centrale tjenestedata.
-- Vercel Inc.: webhosting, edge/serverafvikling og aggregeret webanalyse; kan behandle tekniske forespørgselsdata og applikationsdata under afvikling.
-- Functional Software, Inc. (Sentry): fejlmonitorering, hvis aktiveret; kun redigerede tekniske data må sendes.
-- SmartBear Software, Inc. (Bugsnag): fejlmonitorering, hvis aktiveret; kun redigerede tekniske data må sendes.
-- OpenAI Ireland Ltd./OpenAI-kontrakten: AI-behandling af lærerindhold, hvis funktionen bruges; ingen elevdata eller særlige kategorier må sendes.
-- Stripe: betalingsbehandling er ikke en nødvendig del af skoleårets gratis elev-/løbsbehandling og beskrives som særskilt kommercielt flow, ikke som standard elevdatabehandling.
-- OSM/CARTO/Esri/Nominatim og andre direkte korttjenester: eksterne modtagere, der skal afklares særskilt i bilag D før endelig aftale.
+## Andre eksterne tjenester og betingede funktioner
 
-## DPO-gate
+- OpenStreetMap/Nominatim, CARTO og Esri leverer kortfliser eller geokodning direkte til browseren og modtager teknisk nødvendige IP- og forespørgselsdata.
+- Pollinations, YouTube og Apple iTunes-søgning kan bruges i frivillige lærerrettede indholdsflows; elevdata må ikke sendes.
+- Stripe er kun relevant, hvis betaling aktiveres, og er ikke en nødvendig del af skoleårets gratis elev-/løbsbehandling.
+- Bugsnag/SmartBear må ikke aktiveres til kommunens personoplysninger uden et varslet og dokumenteret kontrakt- og sikkerhedsgrundlag.
 
-Før underskrift skal kommunen mindst godkende eller afklare:
+## Kommunens konkrete udfyldelse og vurdering
 
-1. dataansvarlig enhed, kontakt og behandlingsgrundlag;
-2. om en konsekvensanalyse (DPIA) er nødvendig, navnlig pga. børn og lokation;
-3. foto-bucketens adgangsmodel og kommunens forbud mod genkendelige personer;
-4. Supabase-region, backup/sletning og DPA/SCC;
-5. Vercel-planens DPA-dækning;
-6. aktivering, placering og retention for Sentry/Bugsnag/Vercel Analytics;
-7. kortleverandørernes rolle og overførselsgrundlag;
-8. AI-funktionernes afgrænsning eller deaktivering;
-9. en bindende automatiseret frist for øvrige elevdata, hvis kommunen ikke accepterer lærerens manuelle oprydning;
-10. revisionsmodel, ansvar, erstatning, værneting og ophør.
+1. Juridisk navn, CVR, adresse, kontaktperson, behandlingsgrundlag og underskriver.
+2. Behovet for en konsekvensanalyse (DPIA) ved børn og præcis lokation.
+3. Om fotoopgaver med ikke-personhenførbare motiver må anvendes.
+4. Om frivillige lærerrettede AI- og indholdsfunktioner må anvendes.
+5. Intern frist og ansvar for manuel oprydning af elev-/sessionsdata.
+6. Kommunens kontaktvej ved brud og anmodninger fra registrerede.
+7. Eventuelle supplerende krav til support, oppetid, revision, ansvar, forsikring, værneting og ophør.
