@@ -439,6 +439,16 @@ function LoginPageContent({ initialSiteVariantKey }: { initialSiteVariantKey: Si
             >
               &larr; {loginCopy.backToHome}
             </Link>
+            {siteCopy.home.showDanishOnlyExtras ? (
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <Link
+                  href="/it-afdelinger"
+                  className="text-xs font-semibold text-sky-300 transition hover:text-sky-200"
+                >
+                  Til kommunernes IT- og databeskyttelsesafdelinger
+                </Link>
+              </div>
+            ) : null}
           </div>
         </div>
       </motion.section>
