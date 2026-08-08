@@ -234,6 +234,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           title: "2. Lærer-, kunde- og kontaktoplysninger",
           paragraphs: [
             "Vi kan behandle navn, e-mailadresse, autentifikations-id, valgt loginudbyder, kontostatus, oprettede undervisningsløb, supportkorrespondance, skole-/kommunetilknytning og tekniske sikkerhedsoplysninger.",
+            "Når den forberedte DagensTavle-integration senere aktiveres, kan læreren vælge en sikker login-overdragelse. Kun nødvendige læreridentitetsoplysninger behandles kortvarigt server-side. DagensTavle får ikke SkoleGPS-løb, klasser, elevsvar, elevfotos, GPS-data eller adgang til Gmail, Google Drive, kalender, Microsoft-filer eller postkasser.",
             "Hvis betaling senere aktiveres, kan kunde-, abonnements- og betalingsreferencer behandles. Kortoplysninger håndteres af betalingsleverandøren og skal ikke indtastes i SkoleGPS' almindelige felter.",
           ],
         },
@@ -286,6 +287,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           title: "9. Cookies og analyse",
           paragraphs: [
             "Nødvendige teknologier bruges til login, session og sikkerhed. Vercel Analytics bruges til begrænset teknisk besøgsanalyse; delingssiden til afvikling og fotoudleveringsflowet er fravalgt. Tredjeparts login via Google eller Microsoft vælges af læreren og er også omfattet af den valgte udbyders egne vilkår.",
+            "SkoleGPS og DagensTavle bruger separate host-only sessions. Den forberedte login-overdragelse bruger en 90 sekunders, hash-baseret engangsrequest, state/nonce og server-til-server-kontrol; adgangstokens, refresh tokens, e-mail og elevdata sendes ikke i browserens overdragelsesadresse. Første brug kan kræve accept af DagensTavles egne vilkår.",
           ],
         },
         {

@@ -1,0 +1,228 @@
+import { NextResponse } from "next/server";
+
+import {
+  FAMILY_SSO_TTL_SECONDS,
+  getDagensTavleSsoOrigin,
+  getFamilySsoExchangeSecret,
+  getSafeDagensTavlePath,
+  isFamilySsoEnabled,
+} from "@/lib/familySso/config";
+import { verifyFamilySsoBackchannel } from "@/lib/familySso/crypto";
+import { createAdminClient } from "@/utils/supabase/admin";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const HASH_PATTERN = /^[a-f0-9]{64}$/;
+const TERMS_VERSION = "2026-08-08";
+
+type JsonRecord = Record<string, unknown>;
+
+function json(body: JsonRecord, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "private, no-store, max-age=0",
+      Pragma: "no-cache",
+      "Referrer-Policy": "no-referrer",
+      "X-Content-Type-Options": "nosniff",
+      "X-Robots-Tag": "noindex, nofollow",
+    },
+  });
+}
+
+function asRecord(value: unknown): JsonRecord | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as JsonRecord
+    : null;
+}
+
+function isHash(value: unknown): value is string {
+  return typeof value === "string" && HASH_PATTERN.test(value);
+}
+
+function isActiveAuthUser(user: {
+  email?: string | null;
+  email_confirmed_at?: string | null;
+  banned_until?: string | null;
+}) {
+  const bannedUntil = user.banned_until ? Date.parse(user.banned_until) : Number.NaN;
+  return Boolean(
+    user.email &&
+    user.email_confirmed_at &&
+    (!Number.isFinite(bannedUntil) || bannedUntil <= Date.now())
+  );
+}
+
+export async function POST(request: Request) {
+  if (!isFamilySsoEnabled()) return json({ ok: false, code: "DISABLED" }, 404);
+
+  const contentLength = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(contentLength) && contentLength > 4096) {
+    return json({ ok: false, code: "INVALID_REQUEST" }, 413);
+  }
+
+  const secret = getFamilySsoExchangeSecret();
+  const destinationOrigin = getDagensTavleSsoOrigin();
+  const admin = createAdminClient();
+  if (!secret || !destinationOrigin || !admin) {
+    return json({ ok: false, code: "NOT_CONFIGURED" }, 503);
+  }
+
+  const rawBody = await request.text();
+  if (rawBody.length > 4096) return json({ ok: false, code: "INVALID_REQUEST" }, 413);
+  if (!verifyFamilySsoBackchannel({
+    body: rawBody,
+    timestamp: request.headers.get("x-family-sso-timestamp"),
+    signature: request.headers.get("x-family-sso-signature"),
+    secret,
+  })) {
+    return json({ ok: false, code: "UNAUTHORIZED" }, 401);
+  }
+
+  let parsed: JsonRecord | null = null;
+  try {
+    parsed = asRecord(JSON.parse(rawBody));
+  } catch {
+    return json({ ok: false, code: "INVALID_REQUEST" }, 400);
+  }
+  if (!parsed) return json({ ok: false, code: "INVALID_REQUEST" }, 400);
+
+  const action = parsed.action;
+  const requestHash = parsed.requestHash;
+  const nonceHash = parsed.nonceHash;
+  if (typeof action !== "string" || !isHash(requestHash)) {
+    return json({ ok: false, code: "INVALID_REQUEST" }, 400);
+  }
+
+  if (action === "create") {
+    if (!isHash(nonceHash)) return json({ ok: false, code: "INVALID_REQUEST" }, 400);
+    const returnPath = getSafeDagensTavlePath(parsed.returnPath);
+    const { error } = await admin.from("family_sso_requests").insert({
+      request_hash: requestHash,
+      nonce_hash: nonceHash,
+      destination_origin: destinationOrigin,
+      return_path: returnPath,
+      expires_at: new Date(Date.now() + FAMILY_SSO_TTL_SECONDS * 1000).toISOString(),
+    });
+    return error
+      ? json({ ok: false, code: "CREATE_FAILED" }, 409)
+      : json({ ok: true, expiresIn: FAMILY_SSO_TTL_SECONDS }, 201);
+  }
+
+  if (!isHash(nonceHash)) return json({ ok: false, code: "INVALID_REQUEST" }, 400);
+
+  if (action === "inspect") {
+    const { data: handoff, error } = await admin
+      .from("family_sso_requests")
+      .select("user_id,status,expires_at")
+      .eq("request_hash", requestHash)
+      .eq("nonce_hash", nonceHash)
+      .eq("destination_origin", destinationOrigin)
+      .maybeSingle();
+    if (error || !handoff || handoff.status !== "authorized" || Date.parse(handoff.expires_at) <= Date.now()) {
+      return json({ ok: false, code: "HANDOFF_INVALID" }, 410);
+    }
+
+    const { data: profile } = await admin
+      .from("dagenstavle_family_profiles")
+      .select("terms_version,terms_accepted_at,disabled_at")
+      .eq("user_id", handoff.user_id)
+      .maybeSingle();
+    return json({
+      ok: true,
+      subject: handoff.user_id,
+      termsAccepted: Boolean(
+        profile?.terms_accepted_at &&
+        profile.terms_version === TERMS_VERSION &&
+        !profile.disabled_at
+      ),
+      disabled: Boolean(profile?.disabled_at),
+      termsVersion: TERMS_VERSION,
+    });
+  }
+
+  if (action === "accept_terms") {
+    const { data: handoff } = await admin
+      .from("family_sso_requests")
+      .select("user_id,status,expires_at")
+      .eq("request_hash", requestHash)
+      .eq("nonce_hash", nonceHash)
+      .eq("destination_origin", destinationOrigin)
+      .maybeSingle();
+    if (!handoff || handoff.status !== "authorized" || Date.parse(handoff.expires_at) <= Date.now()) {
+      return json({ ok: false, code: "HANDOFF_INVALID" }, 410);
+    }
+
+    const { data: existingProfile } = await admin
+      .from("dagenstavle_family_profiles")
+      .select("disabled_at")
+      .eq("user_id", handoff.user_id)
+      .maybeSingle();
+    if (existingProfile?.disabled_at) return json({ ok: false, code: "ACCOUNT_DISABLED" }, 403);
+
+    const now = new Date().toISOString();
+    const { error } = await admin.from("dagenstavle_family_profiles").upsert({
+      user_id: handoff.user_id,
+      terms_version: TERMS_VERSION,
+      terms_accepted_at: now,
+      last_sso_at: now,
+    }, { onConflict: "user_id" });
+    return error
+      ? json({ ok: false, code: "TERMS_FAILED" }, 500)
+      : json({ ok: true, termsVersion: TERMS_VERSION });
+  }
+
+  if (action === "invalidate") {
+    await admin.rpc("invalidate_family_sso_request", {
+      p_request_hash: requestHash,
+      p_nonce_hash: nonceHash,
+      p_destination_origin: destinationOrigin,
+    });
+    return json({ ok: true });
+  }
+
+  if (action !== "consume") return json({ ok: false, code: "INVALID_ACTION" }, 400);
+
+  const { data: consumed, error: consumeError } = await admin.rpc(
+    "consume_family_sso_request",
+    {
+      p_request_hash: requestHash,
+      p_nonce_hash: nonceHash,
+      p_destination_origin: destinationOrigin,
+    }
+  );
+  const consumedRow = Array.isArray(consumed) ? consumed[0] : null;
+  if (consumeError || !consumedRow?.user_id || !consumedRow?.verified_email) {
+    return json({ ok: false, code: "HANDOFF_INVALID" }, 410);
+  }
+
+  const { data: userData, error: userError } = await admin.auth.admin.getUserById(
+    consumedRow.user_id
+  );
+  if (userError || !userData.user || !isActiveAuthUser(userData.user)) {
+    return json({ ok: false, code: "ACCOUNT_DISABLED" }, 403);
+  }
+  if (userData.user.email?.toLowerCase() !== String(consumedRow.verified_email).toLowerCase()) {
+    return json({ ok: false, code: "IDENTITY_CHANGED" }, 403);
+  }
+
+  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+    type: "magiclink",
+    email: userData.user.email,
+  });
+  const tokenHash = linkData?.properties?.hashed_token;
+  if (linkError || !tokenHash) return json({ ok: false, code: "SESSION_FAILED" }, 500);
+
+  await admin.from("dagenstavle_family_profiles").update({
+    last_sso_at: new Date().toISOString(),
+  }).eq("user_id", consumedRow.user_id);
+
+  return json({
+    ok: true,
+    subject: consumedRow.user_id,
+    tokenHash,
+    tokenType: "magiclink",
+    next: getSafeDagensTavlePath(consumedRow.return_path),
+  });
+}

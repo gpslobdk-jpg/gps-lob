@@ -105,3 +105,13 @@ Syntetiske tests beviste lærer A/B-isolation, anonym afvisning, privat Storage,
 ## 11. Samlet vurdering
 
 Pakken indeholder nu lokal hardening til privat foto-Storage, proxied og ikke-cachebar fotovisning, valideret/genkodet foto-upload, præcis GPS-timeout og samlet retention. Den isolerede database-, Storage-, RLS-, cron- og belastningstest er gennemført. Pakken er først klar til kommunal elevbrug efter teknisk review, godkendt deployment, migration i korrekt rækkefølge og dokumenteret hosted Edge-/cron-/jobhistorik. Den er ikke endeligt kommunegodkendt eller underskriftsklar for en konkret kommune, før ejerpunkterne er dokumenteret og kommunens DPO/jurist har gennemgået aftalen.
+
+## Forberedt DagensTavle-login, ikke produktionsaktivt
+
+Feature-branchen forbereder en valgfri login-overdragelse for lærere. Browseren
+modtager ingen Supabase-session, JWT, OTP eller e-mail i URL'en. DagensTavle får
+ingen service-role-nøgle og ingen adgang til SkoleGPS' elevtabeller. Request- og
+nonceværdier gemmes kun som hashes i 90 sekunder, exchange sker server-til-
+server med HMAC, og DagensTavle etablerer derefter sin egen host-only session.
+Ingen elevdata overføres. Funktionen, migrationen og dashboardkonfigurationen er
+ikke aktiveret eller verificeret i produktion.

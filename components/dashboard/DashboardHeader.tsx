@@ -43,14 +43,24 @@ export default function DashboardHeader() {
   const router = useRouter();
   const { isPlaying, toggleAudio } = useAudio();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState(false);
 
   const handleLogUd = async () => {
     setIsSigningOut(true);
+    setSignOutError(false);
 
     try {
+      const revokeResponse = await fetch("/api/family-sso/revoke", {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      if (!revokeResponse.ok) throw new Error("FAMILY_SSO_REVOKE_FAILED");
       const supabase = createClient();
       await supabase.auth.signOut();
       router.push("/");
+    } catch {
+      setSignOutError(true);
     } finally {
       setIsSigningOut(false);
     }
@@ -120,6 +130,11 @@ export default function DashboardHeader() {
           </div>
         </div>
       </div>
+      {signOutError ? (
+        <p role="alert" className="mx-auto max-w-7xl px-4 pb-3 text-sm font-semibold text-red-700 md:px-8">
+          Kunne ikke logge sikkert ud. Prøv igen.
+        </p>
+      ) : null}
     </header>
   );
 }
