@@ -1,5 +1,39 @@
 begin;
 
+-- Policies created by the legacy bootstrap migration reference session_id.
+-- Remove them before aligning that column to the UUID parent type; PostgreSQL
+-- otherwise rejects the type change even though the policies are replaced
+-- later in this migration.
+do $$
+declare
+  participant_policy record;
+begin
+  for participant_policy in
+    select policyname
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'participants'
+  loop
+    execute format('drop policy if exists %I on public.participants', participant_policy.policyname);
+  end loop;
+end
+$$;
+
+do $$
+declare
+  answer_policy record;
+begin
+  for answer_policy in
+    select policyname
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'answers'
+  loop
+    execute format('drop policy if exists %I on public.answers', answer_policy.policyname);
+  end loop;
+end
+$$;
+
 create or replace function public.request_header(header_name text)
 returns text
 language sql

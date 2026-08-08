@@ -4,6 +4,9 @@ import withPWAInit from "@ducanh2912/next-pwa";
 
 const withPWA = withPWAInit({
   dest: "public",
+  // The generated worker is a production artifact. Rewriting it from a dev
+  // server races with Playwright and can leave /join unavailable on Windows.
+  disable: process.env.NODE_ENV === "development",
   publicExcludes: ["!**/*"],
   // Disable automatic SW registration; we'll register manually client-side
   register: false,

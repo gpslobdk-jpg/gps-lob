@@ -209,7 +209,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         email: "skolegpsdk@gmail.com",
         emailLabel: "Kontakt",
       },
-      updatedAt: "Senest opdateret: 7. august 2026.",
+      updatedAt: "Senest opdateret: 8. august 2026.",
     },
     privacy: {
       metadata: {
@@ -256,7 +256,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         {
           title: "5. GPS, billeder og AI",
           paragraphs: [
-            "Den aktuelle GPS-position sendes under et aktivt løb og overskrives løbende. Afstanden beregnes i elevens browser. Positionen nulstilles ved afslutning eller forladelse og skjules/slettes efter 15 minutters inaktivitet; standardflowet opbygger ikke en særskilt rutehistorik.",
+            "Den aktuelle GPS-position sendes under et aktivt løb og overskrives løbende. Afstanden beregnes i elevens browser. Positionen skjules for alle efter 15 minutters inaktivitet og nulstilles fysisk ved næste femminutters oprydning, normalt senest efter cirka 20 minutter. Afslutning og forladelse nulstiller straks, hvor det er muligt. Standardflowet opbygger ikke en særskilt rutehistorik.",
             "Fotoopgaver må kun bruges til ting, steder og andre ikke-personhenførbare motiver. Genkendelige personer, fortrolige oplysninger og særlige kategorier må ikke fotograferes eller uploades.",
             "Lærerrettede AI-funktioner er frivillige og må ikke få elevdata, elevfotos, lokation, særlige kategorier eller fortroligt materiale. Der er ikke en teknisk garanti, som kan genkende alt personindhold; læreren skal derfor kontrollere materialet før afsendelse.",
           ],
@@ -278,7 +278,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           title: "8. Opbevaring og sletning",
           paragraphs: [
             "Lærerkonto og lærerskabte løb opbevares, mens kontoen eller aftalen er aktiv, og slettes efter en verificeret anmodning eller ved ophør, bortset fra oplysninger som skal opbevares efter loven eller i lukkede backups indtil deres normale udløb.",
-            "Læreren kan rydde fotos, svar, deltagere og sessionsdata tidligere fra resultatsiden. Den forberedte retentionmodel sletter fotos efter 30 dage, almindelige elevsvar, deltagere og afsluttede sessioner efter 90 dage samt tekniske oprydningslogs uden elevoplysninger efter 30 dage. Hosted cron er ikke oplyst som aktiv, før den er deployet og verificeret; indtil da skal læreren følge den manuelle sletteprocedure.",
+            "Læreren kan rydde fotos, svar, deltagere og sessionsdata tidligere fra resultatsiden. Den forberedte retentionmodel sletter fotos efter 30 dage, almindelige elevsvar, deltagere og afsluttede sessioner efter 90 dage regnet fra afslutning eller dokumenteret inaktivitet samt tekniske oprydningslogs uden elevoplysninger efter 30 dage. Hosted cron er ikke oplyst som aktiv, før den er deployet og verificeret; indtil da skal læreren følge den manuelle sletteprocedure.",
             "Supporthenvendelser og sikkerhedsoplysninger opbevares kun så længe, de er nødvendige for formålet, en tvist eller et lovkrav. Et eventuelt nyhedssamtykke opbevares, indtil det trækkes tilbage, samt i den periode dokumentation er nødvendig.",
           ],
         },
@@ -299,7 +299,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
       securityCallout: {
         title: "Sikkerhed i praksis",
         paragraphs: [
-          "SkoleGPS bruger HTTPS/TLS, autentifikation, ejerskabskontrol, row-level security og serverbeskyttede nøgler. Elevfotos ligger i privat Storage og vises kun til løbets ejer via et signed URL på 60 sekunder. Fejlmonitoreringen redigerer blandt andet navne, e-mail, koder, tokens, svar, fotostier, signed URLs og lokation.",
+          "SkoleGPS bruger HTTPS/TLS, autentifikation, ejerskabskontrol, row-level security og serverbeskyttede nøgler. Elevfotos ligger i privat Storage og leveres kun til løbets ejer gennem en beskyttet, ikke-cachebar SkoleGPS-route; Storage-sti og midlertidige Storage-adresser udleveres ikke til browseren. Uploads dekodes og genkodes som JPEG, så EXIF- og GPS-metadata fjernes. Fejlmonitoreringen redigerer blandt andet navne, e-mail, koder, tokens, svar, fotostier, URL'er og lokation.",
         ],
         bullets: [
           { label: "Brud", text: "berørte dataansvarlige orienteres uden unødig forsinkelse og om muligt inden 24 timer efter, at SkoleGPS bliver bekendt med bruddet" },
@@ -314,7 +314,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         email: "skolegpsdk@gmail.com",
         emailLabel: "Skriv til",
       },
-      updatedAt: "Senest opdateret: 7. august 2026.",
+      updatedAt: "Senest opdateret: 8. august 2026.",
     },
     ophavsret: {
       metadata: {

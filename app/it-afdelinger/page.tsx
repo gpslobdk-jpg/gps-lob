@@ -49,13 +49,13 @@ const facts = [
   },
   {
     icon: MapPin,
-    title: "GPS i højst 15 minutter",
-    text: "Afstanden beregnes på elevens enhed. Den seneste serverposition nulstilles ved afslutning og efter 15 minutters inaktivitet.",
+    title: "GPS skjules efter 15 minutter",
+    text: "Afstanden beregnes på elevens enhed. Positionen skjules efter 15 minutters inaktivitet og nulstilles fysisk ved næste femminutters oprydning.",
   },
   {
     icon: ShieldCheck,
     title: "Private elevfotos",
-    text: "Fotoobjekter er private. Kun løbets ejer kan få et signed visningslink, som udløber efter 60 sekunder.",
+    text: "Fotoobjekter er private. Kun løbets ejer kan se dem gennem en beskyttet SkoleGPS-route uden at få Storage-stien udleveret.",
   },
   {
     icon: Clock3,
@@ -154,7 +154,9 @@ export default function ItAfdelingerPage() {
                 <h2 className={`text-xl font-bold text-amber-100 ${rubik.className}`}>Sletning i praksis</h2>
                 <p className="mt-3 text-sm leading-relaxed text-slate-200">
                   Læreren kan rydde fotos, svar, deltagere og sessionsdata fra resultatsiden. Den forberedte
-                  model har 15 minutters GPS-timeout, 30 dage for fotos og 90 dage for almindelige elevdata.
+                  model skjuler GPS efter 15 minutters inaktivitet og nulstiller den ved næste femminutters
+                  oprydning. Fristerne er 30 dage for fotos og 90 dage fra afslutning eller inaktivitet for
+                  almindelige elevdata.
                   Hosted cron oplyses først som aktiv, når migration, Edge-funktion, job og jobhistorik er
                   kontrolleret efter en senere deployment. Indtil da gælder manuel oprydning.
                 </p>

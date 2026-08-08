@@ -211,6 +211,9 @@ async function navigateToPlayAndEnterName(page: Page, readyLocator: Locator) {
   await page.getByRole("button", { name: /klar/i }).click();
 
   await page.waitForSelector("text=Afstand", { timeout: 30_000 });
+  const openPostButton = page.getByRole("button", { name: /bn post/i });
+  await expect(openPostButton).toBeVisible({ timeout: 30_000 });
+  await openPostButton.click();
   await expect(readyLocator).toBeVisible({ timeout: 30_000 });
 }
 

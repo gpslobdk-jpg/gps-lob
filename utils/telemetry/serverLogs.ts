@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/utils/supabase/admin";
+import { sanitizeObservabilityData } from "@/lib/observability/privacy";
 
 const TELEMETRY_MESSAGE_LIMIT = 500;
 
@@ -133,13 +134,15 @@ function getErrorParts(error: unknown) {
 }
 
 function normalizeMessage(message?: string | null) {
-  return typeof message === "string" && message.trim() ? message.slice(0, TELEMETRY_MESSAGE_LIMIT) : null;
+  if (typeof message !== "string" || !message.trim()) return null;
+  const sanitized = sanitizeObservabilityData(message);
+  return typeof sanitized === "string"
+    ? sanitized.slice(0, TELEMETRY_MESSAGE_LIMIT)
+    : null;
 }
 
 export async function writeTelemetryLog({
   eventType,
-  participantId = null,
-  sessionId = null,
   message = null,
 }: TelemetryInsertInput) {
   const adminSupabase = createAdminClient();
@@ -149,13 +152,14 @@ export async function writeTelemetryLog({
 
   const { error } = await adminSupabase.from("telemetry_logs").insert({
     event_type: eventType,
-    participant_id: participantId,
-    session_id: sessionId,
+    // Correlation identifiers belong in operational memory, not durable logs.
+    participant_id: null,
+    session_id: null,
     message: normalizeMessage(message),
   });
 
   if (error) {
-    console.info("[telemetry] telemetry_logs not writable:", eventType, error.message);
+    console.info("[telemetry] telemetry_logs not writable:", eventType);
   }
 }
 

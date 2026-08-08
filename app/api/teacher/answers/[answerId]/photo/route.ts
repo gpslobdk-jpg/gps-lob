@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import {
   canTeacherAccessAnswerPhoto,
   PARTICIPANT_UPLOADS_BUCKET,
-  PHOTO_SIGNED_URL_TTL_SECONDS,
 } from "@/lib/studentData/privacyPolicy";
+import { PHOTO_OUTPUT_MAX_BYTES } from "@/lib/studentData/photoUpload";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
 
@@ -110,15 +110,30 @@ export async function GET(
     return unavailable();
   }
 
-  const { data: signedPhoto, error: signedPhotoError } = await adminSupabase.storage
+  const { data: photoBlob, error: photoDownloadError } = await adminSupabase.storage
     .from(PARTICIPANT_UPLOADS_BUCKET)
-    .createSignedUrl(photoObject.object_path, PHOTO_SIGNED_URL_TTL_SECONDS);
+    .download(photoObject.object_path);
 
-  if (signedPhotoError || !signedPhoto?.signedUrl) return unavailable();
+  if (photoDownloadError || !photoBlob) return unavailable();
 
-  const response = NextResponse.redirect(signedPhoto.signedUrl, 307);
-  for (const [name, value] of Object.entries(PRIVATE_RESPONSE_HEADERS)) {
-    response.headers.set(name, value);
+  const contentType = photoBlob.type.trim().toLowerCase();
+  if (!["image/jpeg", "image/png", "image/webp"].includes(contentType)) {
+    return unavailable();
   }
-  return response;
+
+  const photoBytes = await photoBlob.arrayBuffer();
+  if (photoBytes.byteLength <= 0 || photoBytes.byteLength > PHOTO_OUTPUT_MAX_BYTES) {
+    return unavailable();
+  }
+
+  return new NextResponse(new Uint8Array(photoBytes), {
+    status: 200,
+    headers: {
+      ...PRIVATE_RESPONSE_HEADERS,
+      "Content-Type": contentType,
+      "Content-Length": String(photoBytes.byteLength),
+      "Content-Disposition": "inline",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
 }

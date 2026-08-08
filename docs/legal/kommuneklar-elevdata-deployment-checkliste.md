@@ -5,7 +5,7 @@ Status: Forberedt, ikke udført. Denne checkliste giver ikke tilladelse til prod
 ## Godkendelsesgate
 
 - [ ] Sikkerheds-PR er gennemgået af mindst én anden teknisk reviewer.
-- [ ] Isoleret Supabase/Postgres-test har kørt migrationen, RLS-/ejeradgang, signed URLs, sletning, retention og rollback.
+- [x] Isoleret lokal Supabase/Postgres-test har kørt hele migrationsrækken, RLS-/ejeradgang, privat Storage, proxied fotoadgang, sletning, retention og opgraderingen fra parent-schemaet den 8. august 2026.
 - [ ] Kommunepakke version 1.1 er gennemgået af ejer og kommunens DPO/jurist.
 - [ ] Et vedligeholdelsesvindue uden aktive elevsessioner er aftalt. Appkoden kræver den nye fotometadatatabel; fotoaflevering skal derfor holdes lukket mellem apprelease og migration.
 - [ ] Produktionsprojektets reference, region og målmiljø er dobbelttjekket uden at udskrive nøgler eller persondata.
@@ -16,7 +16,8 @@ Status: Forberedt, ikke udført. Denne checkliste giver ikke tilladelse til prod
 - [ ] Eksportér kun schema-/rækkeantal og checksums til kontrol; hent ikke elevdata lokalt.
 - [ ] Registrér antal objekter i `participant-uploads`, antal ikke-null `answers.image_url`, antal svar med `lat/lng` og antal aktive/afsluttede sessioner.
 - [ ] Kontroller for dublette Storage-stier, manglende objekter og objekter uden svarreference. Orphans slettes ikke automatisk under migrationen; de skal rapporteres og håndteres efter særskilt godkendt liste.
-- [ ] Bekræft, at eksisterende fotostier matcher de genererede mønstre. Ukendte eller URL-kodede legacy-stier stoppes og undersøges før fortsættelse.
+- [ ] Bekræft, at eksisterende fotostier matcher de genererede mønstre. Migrationen stopper ved ukendte eksterne URL'er; de må ikke nulstilles eller flyttes automatisk uden verificeret objektmapping.
+- [ ] Planlæg en vedligeholdelsesstyret legacy-rekey: kopiér hvert kendt objekt server-side til et nyt `private-v2`-objektnavn, verificér indhold/checksum og ejermapping, opdatér referencen atomisk, og slet først derefter det gamle objekt. Purge leverandør-/CDN-cache, hvor muligt. Bucketen må aldrig gøres offentlig som rollback.
 - [ ] Bekræft, at den nye Edge-funktion `student-data-retention` er klar, men at ingen cron er aktiveret.
 
 ## 2. Rækkefølge
@@ -44,15 +45,15 @@ Status: Forberedt, ikke udført. Denne checkliste giver ikke tilladelse til prod
 - [ ] Lærer A kan se et foto fra eget løb.
 - [ ] Lærer A får 404/ingen adgang til lærer B's svar-ID; responsen afslører ikke ejer, sti eller bucket.
 - [ ] Anonym bruger får 401 og kan ikke følge en gammel offentlig URL.
-- [ ] Det udleverede signed URL udløber efter 60 sekunder og kan ikke genbruges derefter.
+- [ ] Fotobilledet leveres gennem den beskyttede SkoleGPS-route med `private, no-store`, `Pragma: no-cache` og `Referrer-Policy: no-referrer`; responsen indeholder ingen Storage-sti eller signed URL og kan ikke genbruges efter sletning.
 - [ ] Sletning fra resultatsiden fjerner både Storage-objekt, fotometadata, svar, deltagere og session; ny hentning giver 404.
 - [ ] En elev kan aflevere foto uden elevkonto i en konkret aktiv session/fotoopgave, men ikke i en afsluttet eller anden session.
 - [ ] GPS-afstand beregnes fortsat lokalt; en frisk position vises under aktivt løb.
-- [ ] Position skjules/nulstilles ved målgang, lærerafslutning, sideforladelse og senest efter 15 minutters inaktivitet plus croninterval.
+- [ ] Position skjules ved målgang, lærerafslutning og efter højst 15 minutters inaktivitet. Den fysiske værdi nulstilles straks ved afslutningsflows og ellers ved næste femminutters cronjob, normalt senest efter cirka 20 minutter.
 - [ ] Afsluttede resultater indeholder ingen svarpositioner.
-- [ ] Syntetiske data yngre end fristen bevares; 30-dages fotos og 90-dages afsluttede elevsessioner slettes; aktive sessioner bevares.
+- [ ] Syntetiske data yngre end fristen bevares; 30-dages fotos og 90-dages elevsessioner målt fra afslutnings-/inaktivitetsankeret slettes; aktive sessioner uden anker bevares.
 - [ ] Manuel sletning af lærer A's løb ændrer ikke lærer B's løb. Automatisk retention bruger kun alder/status og krydser ikke ejerrelationer ved læsning eller visning.
-- [ ] Sentry, almindelige logs og analytics indeholder ingen GPS, Storage-stier, signed URLs, svar-ID'er eller elevoplysninger.
+- [ ] Sentry, almindelige logs og analytics indeholder ingen GPS, IP, Storage-stier, URL-legitimationsoplysninger, svar-ID'er eller elevoplysninger. Bekræft særskilt environment-tags, retention, region, DPA og integrationsindstillinger i hosted Sentry-dashboardet.
 
 ## 5. Rollback
 

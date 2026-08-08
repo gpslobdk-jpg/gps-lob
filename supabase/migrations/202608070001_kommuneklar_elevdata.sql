@@ -22,7 +22,7 @@ values (
   'participant-uploads',
   false,
   12582912,
-  array['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'],
+  array['image/jpeg'],
   'STANDARD'
 )
 on conflict (id) do update
@@ -52,6 +52,27 @@ create index if not exists participant_photo_objects_participant_idx
   on public.participant_photo_objects(participant_id);
 create index if not exists participant_photo_objects_created_idx
   on public.participant_photo_objects(created_at);
+
+do $$
+declare
+  unknown_legacy_count integer;
+begin
+  select count(*)
+  into unknown_legacy_count
+  from public.answers a
+  where a.image_url is not null
+    and a.image_url not like '/api/teacher/answers/%/photo'
+    and a.image_url !~ '/storage/v1/object/(public|authenticated|sign)/participant-uploads/'
+    and a.image_url like '%://%';
+
+  if unknown_legacy_count > 0 then
+    raise exception using
+      message = 'Unknown legacy participant photo URLs require manual inventory before migration.',
+      detail = format('Unknown URL count: %s', unknown_legacy_count),
+      hint = 'Stop deployment and follow the legacy-photo inventory and rekey checklist.';
+  end if;
+end
+$$;
 
 insert into public.participant_photo_objects (
   answer_id,
@@ -96,14 +117,95 @@ where exists (
   where ppo.answer_id = a.id
 );
 
-update public.answers
-set image_url = null
-where image_url is not null
-  and image_url not like '/api/teacher/answers/%/photo';
-
 alter table public.participant_photo_objects enable row level security;
 revoke all privileges on table public.participant_photo_objects from public, anon, authenticated;
 grant all privileges on table public.participant_photo_objects to postgres, service_role;
+
+create table if not exists public.participant_photo_upload_limits (
+  session_id uuid not null references public.live_sessions(id) on delete cascade,
+  participant_id uuid not null references public.participants(id) on delete cascade,
+  request_fingerprint text not null,
+  window_started_at timestamptz not null,
+  attempt_count integer not null default 1,
+  primary key (
+    session_id,
+    participant_id,
+    request_fingerprint,
+    window_started_at
+  ),
+  constraint participant_photo_upload_limits_fingerprint_check
+    check (request_fingerprint ~ '^[a-f0-9]{64}$'),
+  constraint participant_photo_upload_limits_count_check
+    check (attempt_count between 1 and 6)
+);
+
+create index if not exists participant_photo_upload_limits_window_idx
+  on public.participant_photo_upload_limits(window_started_at);
+
+alter table public.participant_photo_upload_limits enable row level security;
+revoke all privileges on table public.participant_photo_upload_limits
+from public, anon, authenticated;
+grant all privileges on table public.participant_photo_upload_limits
+to postgres, service_role;
+
+create or replace function public.consume_participant_photo_upload_limit(
+  p_session_id uuid,
+  p_participant_id uuid,
+  p_request_fingerprint text,
+  p_now timestamptz default now()
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  next_count integer;
+  window_start timestamptz := date_trunc('minute', p_now);
+begin
+  if p_request_fingerprint !~ '^[a-f0-9]{64}$' then
+    return false;
+  end if;
+
+  if not exists (
+    select 1
+    from public.participants p
+    join public.live_sessions ls on ls.id = p.session_id
+    where p.id = p_participant_id
+      and p.session_id = p_session_id
+      and p.finished_at is null
+      and coalesce(ls.status, '') in ('waiting', 'running', 'active', 'paused')
+  ) then
+    return false;
+  end if;
+
+  insert into public.participant_photo_upload_limits (
+    session_id,
+    participant_id,
+    request_fingerprint,
+    window_started_at,
+    attempt_count
+  ) values (
+    p_session_id,
+    p_participant_id,
+    p_request_fingerprint,
+    window_start,
+    1
+  )
+  on conflict (session_id, participant_id, request_fingerprint, window_started_at)
+  do update
+    set attempt_count = participant_photo_upload_limits.attempt_count + 1
+    where participant_photo_upload_limits.attempt_count < 6
+  returning attempt_count into next_count;
+
+  return coalesce(next_count, 7) <= 6;
+end;
+$$;
+
+revoke all on function public.consume_participant_photo_upload_limit(uuid, uuid, text, timestamptz)
+from public, anon, authenticated;
+grant execute on function public.consume_participant_photo_upload_limit(uuid, uuid, text, timestamptz)
+to postgres, service_role;
 
 do $$
 declare
@@ -191,19 +293,13 @@ with check (
 );
 
 drop policy if exists answers_teacher_delete on public.answers;
-create policy answers_teacher_delete
-on public.answers
-for delete
-to authenticated
-using (
-  exists (
-    select 1
-    from public.live_sessions as ls
-    join public.gps_runs as gr on gr.id = ls.run_id
-    where ls.id = answers.session_id
-      and gr.user_id = auth.uid()
-  )
-);
+drop policy if exists participants_teacher_delete on public.participants;
+
+-- Browser-side cascading deletes could leave private Storage objects behind.
+-- All participant/answer deletion therefore goes through the existing
+-- server-side deletion flow, which removes Storage before database rows.
+revoke delete on public.answers from anon, authenticated;
+revoke delete on public.participants from anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Temporary GPS: 15 minutes, and immediate clearing at finish/close.
@@ -298,6 +394,53 @@ grant execute on function public.clear_expired_participant_locations(timestamptz
 
 select public.clear_expired_participant_locations(now());
 
+-- Closed-session retention is anchored to close/inactivity time, never to the
+-- original creation time. Active sessions deliberately have no anchor.
+alter table public.live_sessions
+  add column if not exists student_data_retention_anchor_at timestamptz;
+
+update public.live_sessions ls
+set student_data_retention_anchor_at = greatest(
+  ls.created_at,
+  coalesce((
+    select max(coalesce(p.finished_at, p.last_updated, p.created_at))
+    from public.participants p
+    where p.session_id = ls.id
+  ), ls.created_at),
+  coalesce((
+    select max(coalesce(a.answered_at, a.created_at))
+    from public.answers a
+    where a.session_id = ls.id
+  ), ls.created_at)
+)
+where coalesce(ls.status, '') not in ('waiting', 'running', 'active', 'paused')
+  and ls.student_data_retention_anchor_at is null;
+
+create index if not exists live_sessions_retention_anchor_idx
+  on public.live_sessions(student_data_retention_anchor_at, id)
+  where student_data_retention_anchor_at is not null;
+
+create or replace function public.set_session_retention_anchor()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if coalesce(new.status, '') in ('waiting', 'running', 'active', 'paused') then
+    new.student_data_retention_anchor_at := null;
+  elsif new.student_data_retention_anchor_at is null
+    or coalesce(old.status, '') in ('waiting', 'running', 'active', 'paused') then
+    new.student_data_retention_anchor_at := now();
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists live_sessions_set_retention_anchor on public.live_sessions;
+create trigger live_sessions_set_retention_anchor
+before insert or update of status on public.live_sessions
+for each row execute function public.set_session_retention_anchor();
+
 -- ---------------------------------------------------------------------------
 -- Unified, idempotent retention. Storage deletion is coordinated by the Edge
 -- function; database finalization only follows successful/missing-object delete.
@@ -321,6 +464,10 @@ alter table public.student_data_retention_runs enable row level security;
 revoke all privileges on table public.student_data_retention_runs from public, anon, authenticated;
 grant all privileges on table public.student_data_retention_runs to postgres, service_role;
 
+create unique index if not exists student_data_retention_one_running_idx
+  on public.student_data_retention_runs ((1))
+  where status = 'running';
+
 create or replace function public.start_student_data_retention_run()
 returns uuid
 language plpgsql
@@ -330,8 +477,22 @@ as $$
 declare
   run_id uuid;
 begin
-  insert into public.student_data_retention_runs default values
-  returning id into run_id;
+  update public.student_data_retention_runs
+  set
+    completed_at = now(),
+    status = 'failed',
+    error_code = 'STALE_RUN_RECOVERED'
+  where status = 'running'
+    and started_at < now() - interval '2 hours';
+
+  begin
+    insert into public.student_data_retention_runs default values
+    returning id into run_id;
+  exception
+    when unique_violation then
+      return null;
+  end;
+
   return run_id;
 end;
 $$;
@@ -362,7 +523,8 @@ begin
     photo_objects_deleted = greatest(0, coalesce(p_photo_objects_deleted, 0)),
     sessions_deleted = greatest(0, coalesce(p_sessions_deleted, 0)),
     error_code = case when p_status = 'failed' then p_error_code else null end
-  where id = p_run_id;
+  where id = p_run_id
+    and status = 'running';
 end;
 $$;
 
@@ -386,9 +548,31 @@ as $$
       < p_now - interval '30 days'
     or (
       coalesce(ls.status, '') not in ('waiting', 'running', 'active', 'paused')
-      and ls.created_at < p_now - interval '90 days'
+      and ls.student_data_retention_anchor_at < p_now - interval '90 days'
     )
   order by ppo.created_at, ppo.answer_id
+  limit greatest(1, least(coalesce(p_limit, 200), 1000));
+$$;
+
+create or replace function public.list_student_photo_orphan_candidates(
+  p_now timestamptz default now(),
+  p_limit integer default 200
+)
+returns table (object_path text)
+language sql
+security definer
+set search_path = public, storage
+as $$
+  select o.name::text
+  from storage.objects o
+  where o.bucket_id = 'participant-uploads'
+    and coalesce(o.created_at, p_now) < p_now - interval '24 hours'
+    and not exists (
+      select 1
+      from public.participant_photo_objects ppo
+      where ppo.object_path = o.name
+    )
+  order by o.created_at, o.name
   limit greatest(1, least(coalesce(p_limit, 200), 1000));
 $$;
 
@@ -440,7 +624,7 @@ begin
       select ls.id
       from public.live_sessions as ls
       where coalesce(ls.status, '') not in ('waiting', 'running', 'active', 'paused')
-        and ls.created_at < p_now - interval '90 days'
+        and ls.student_data_retention_anchor_at < p_now - interval '90 days'
         and not exists (
           select 1
           from public.participant_photo_objects as ppo
@@ -492,6 +676,15 @@ begin
   delete from public.student_data_retention_runs
   where started_at < p_now - interval '30 days';
   get diagnostics deleted_count = row_count;
+
+  delete from public.participant_photo_upload_limits
+  where window_started_at < p_now - interval '1 day';
+
+  if to_regclass('public.telemetry_logs') is not null then
+    execute 'delete from public.telemetry_logs where created_at < $1 - interval ''30 days'''
+      using p_now;
+  end if;
+
   return deleted_count;
 end;
 $$;
@@ -499,6 +692,7 @@ $$;
 revoke all on function public.start_student_data_retention_run() from public, anon, authenticated;
 revoke all on function public.finish_student_data_retention_run(uuid, text, integer, integer, integer, text) from public, anon, authenticated;
 revoke all on function public.list_student_photo_retention_candidates(timestamptz, integer) from public, anon, authenticated;
+revoke all on function public.list_student_photo_orphan_candidates(timestamptz, integer) from public, anon, authenticated;
 revoke all on function public.finalize_student_photo_retention(uuid[]) from public, anon, authenticated;
 revoke all on function public.delete_expired_student_sessions(timestamptz, integer) from public, anon, authenticated;
 revoke all on function public.delete_expired_retention_job_logs(timestamptz) from public, anon, authenticated;
@@ -506,6 +700,7 @@ revoke all on function public.delete_expired_retention_job_logs(timestamptz) fro
 grant execute on function public.start_student_data_retention_run() to postgres, service_role;
 grant execute on function public.finish_student_data_retention_run(uuid, text, integer, integer, integer, text) to postgres, service_role;
 grant execute on function public.list_student_photo_retention_candidates(timestamptz, integer) to postgres, service_role;
+grant execute on function public.list_student_photo_orphan_candidates(timestamptz, integer) to postgres, service_role;
 grant execute on function public.finalize_student_photo_retention(uuid[]) to postgres, service_role;
 grant execute on function public.delete_expired_student_sessions(timestamptz, integer) to postgres, service_role;
 grant execute on function public.delete_expired_retention_job_logs(timestamptz) to postgres, service_role;

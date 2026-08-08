@@ -64,6 +64,7 @@ alter table public.answers enable row level security;
 
 grant select, insert, update on public.participants to anon, authenticated;
 grant select, insert on public.answers to anon, authenticated;
+grant all privileges on public.participants, public.answers to service_role;
 
 drop policy if exists participants_select_all on public.participants;
 create policy participants_select_all

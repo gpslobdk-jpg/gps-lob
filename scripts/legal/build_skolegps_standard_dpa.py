@@ -216,8 +216,9 @@ def fill_annex_a(doc: Document) -> None:
         "Behandlingen omfatter indsamling, registrering, organisering, opbevaring, løbende opdatering, "
         "visning, begrænset videregivelse til godkendte underdatabehandlere, fejlsøgning, sletning og "
         "sikkerhedskopiering. Under et aktivt løb modtages elevens aktuelle GPS-position og overskrives "
-        "løbende på deltagerposten. Positionen nulstilles ved afslutning og skjules/slettes efter 15 minutters "
-        "inaktivitet. Der opbygges ikke en særskilt positionshistorik for det normale "
+        "løbende på deltagerposten. Positionen er ikke synlig efter 15 minutters inaktivitet og nulstilles "
+        "fysisk ved næste femminutters oprydning, normalt senest efter cirka 20 minutter. Afslutning eller "
+        "forladelse nulstiller straks, hvor det er muligt. Der opbygges ikke en særskilt positionshistorik for det normale "
         "løbsflow. Lærere kan dele et løb til afvikling; modtageren får en selvstændig kopi uden tidligere "
         "sessioner, deltagere, elevdata, resultater, PIN-koder eller live-status.",
     )
@@ -378,8 +379,10 @@ def fill_annex_c(doc: Document) -> None:
     set_paragraph(
         p[308],
         "Databaseadgang beskyttes med row-level security og serverkontrol. Fotoobjekter gemmes i en privat "
-        "Storage-bucket. Visning kræver autentificeret lærer, kontrol af løbs-, svar- og fotoejerskab samt et "
-        "kortlivet signed URL på 60 sekunder; Storage-stien udleveres ikke til browseren. Fotoopgaver må fortsat "
+        "Storage-bucket. Visning kræver autentificeret lærer og kontrol af løbs-, svar- og fotoejerskab. En "
+        "beskyttet, ikke-cachebar SkoleGPS-route streamer derefter billedets bytes; hverken Storage-sti eller "
+        "signed Storage-URL udleveres til browseren. Uploads dekodes, rotation anvendes, og billedet genkodes "
+        "som JPEG uden EXIF- eller GPS-metadata. Fotoopgaver må fortsat "
         "kun bruges til ting, steder og ikke-personhenførbare motiver. Læreren kan rydde fotos og øvrige "
         "elevdata fra resultatsiden, hvor Storage-objekt og databasepost slettes samlet.",
     )
@@ -399,9 +402,10 @@ def fill_annex_c(doc: Document) -> None:
     )
     set_paragraph(
         p[314],
-        "Der logges begrænsede drifts- og fejloplysninger. Sentry-integrationen fjerner brugerobjektet og "
-        "redigerer navne, e-mail, PIN-/løbskoder, tokens, sessions- og deltager-id'er, svar, fotostier, signed "
-        "URLs og lokation. Delings- og fotoudleveringsflow er fravalgt i analytics. Vercel Analytics behandler tekniske "
+        "Der logges begrænsede drifts- og fejloplysninger. Sentry aktiveres kun ved eksplicit konfiguration, "
+        "fjerner bruger-, server-, request- og enhedskontekst og redigerer navne, e-mail, IP, PIN-/løbskoder, "
+        "tokens, sessions- og deltager-id'er, svar, fotostier, URL-legitimationsoplysninger og lokation. "
+        "Delings- og fotoudleveringsflow er fravalgt i analytics. Vercel Analytics behandler tekniske "
         "besøgsdata. Bugsnag findes som en betinget kodeintegration, men må ikke aktiveres til kommunal "
         "behandling uden skriftlig ændringsmeddelelse, leverandøraftale og tilsvarende global redaktion. "
         "Logdata må ikke bruges til elevprofilering.",
@@ -428,10 +432,12 @@ def fill_annex_c(doc: Document) -> None:
         "slette tidligere fra resultatsiden. Hosted cron skal aktiveres og verificeres efter deployment; indtil "
         "det er dokumenteret, er lærerens manuelle oprydning den bindende driftsprocedure.\n"
         "2. Øvrige elev-/sessionsdata: svar, deltagere, navne, beskeder og afsluttede live-sessioner slettes "
-        "automatisk efter 90 dage. Læreren kan slette tidligere. Hosted aktivering skal dokumenteres, før "
+        "automatisk efter 90 dage fra afslutning eller dokumenteret inaktivitet. Aktive sessioner uden "
+        "retentionsanker bevares. Læreren kan slette tidligere. Hosted aktivering skal dokumenteres, før "
         "automatisk sletning oplyses som aktiv i produktion.\n"
-        "3. Aktuel position: overskrives løbende, nulstilles ved afslutning/forladelse og efter 15 minutters "
-        "inaktivitet. Positionsfelter gemmes ikke i arkiverede svar.\n"
+        "3. Aktuel position: overskrives løbende og er ikke synlig efter 15 minutters inaktivitet. Den "
+        "nulstilles fysisk ved næste femminutters oprydning, normalt senest efter cirka 20 minutter, og straks "
+        "ved afslutning/forladelse, hvor det er muligt. Positionsfelter gemmes ikke i arkiverede svar.\n"
         "4. Lærerkonto og lærerskabte løb: opbevares, mens kontoen/aftalen er aktiv, og slettes efter "
         "dokumenteret anmodning eller ved ophør, bortset fra lovpligtig opbevaring.\n"
         "5. Tekniske oprydningslogs uden elevoplysninger slettes efter 30 dage. Øvrige driftslogs/backups "
@@ -539,7 +545,8 @@ def fill_annex_d(doc: Document) -> None:
             "Fotoopgaver må i kommunal brug alene omfatte ting, steder eller andre ikke-personhenførbare "
             "motiver. Genkendelige personer, elevnavne, skærmbilleder med personoplysninger og andet "
             "personhenførbart eller fortroligt indhold må ikke fotograferes eller uploades. Fotoobjekter ligger "
-            "i privat Storage og vises alene til løbets ejer via kortlivede signed URLs. Ønsker kommunen senere "
+            "i privat Storage og streames kun til løbets ejer gennem en beskyttet, ikke-cachebar SkoleGPS-route. "
+            "Storage-stier og signed Storage-URLs udleveres ikke til browseren. Ønsker kommunen senere "
             "personhenførbare fotos, kræver det en fornyet risikovurdering og skriftlig ændring af instruksen.",
         ),
         (
@@ -691,22 +698,27 @@ def update_existing_document(doc: Document) -> None:
             "Behandlingen omfatter indsamling, registrering, organisering, opbevaring, løbende opdatering, "
             "visning, begrænset videregivelse til godkendte underdatabehandlere, fejlsøgning, sletning og "
             "sikkerhedskopiering. Under et aktivt løb modtages elevens aktuelle GPS-position og overskrives "
-            "løbende på deltagerposten. Positionen nulstilles ved afslutning og skjules/slettes efter 15 minutters "
-            "inaktivitet. Der opbygges ikke en særskilt positionshistorik for det normale løbsflow. Lærere kan "
+            "løbende på deltagerposten. Positionen er ikke synlig efter 15 minutters inaktivitet og nulstilles "
+            "fysisk ved næste femminutters oprydning, normalt senest efter cirka 20 minutter. Afslutning eller "
+            "forladelse nulstiller straks, hvor det er muligt. Der opbygges ikke en særskilt positionshistorik "
+            "for det normale løbsflow. Lærere kan "
             "dele et løb til afvikling; modtageren får en selvstændig kopi uden tidligere sessioner, deltagere, "
             "elevdata, resultater, PIN-koder eller live-status."
         ),
         "Databaseadgang beskyttes med row-level security": (
             "Databaseadgang beskyttes med row-level security og serverkontrol. Fotoobjekter gemmes i en privat "
-            "Storage-bucket. Visning kræver autentificeret lærer, kontrol af løbs-, svar- og fotoejerskab samt et "
-            "kortlivet signed URL på 60 sekunder; Storage-stien udleveres ikke til browseren. Fotoopgaver må "
+            "Storage-bucket. Visning kræver autentificeret lærer og kontrol af løbs-, svar- og fotoejerskab. En "
+            "beskyttet, ikke-cachebar SkoleGPS-route streamer derefter billedets bytes; hverken Storage-sti "
+            "eller signed Storage-URL udleveres til browseren. Uploads dekodes, rotation anvendes, og billedet "
+            "genkodes som JPEG uden EXIF- eller GPS-metadata. Fotoopgaver må "
             "fortsat kun bruges til ting, steder og ikke-personhenførbare motiver. Læreren kan rydde fotos og "
             "øvrige elevdata fra resultatsiden, hvor Storage-objekt og databasepost slettes samlet."
         ),
         "Der logges begrænsede drifts- og fejloplysninger.": (
-            "Der logges begrænsede drifts- og fejloplysninger. Sentry-integrationen fjerner brugerobjektet og "
-            "redigerer navne, e-mail, PIN-/løbskoder, tokens, sessions- og deltager-id'er, svar, fotostier, signed "
-            "URLs og lokation. Delings- og fotoudleveringsflow er fravalgt i analytics. Vercel Analytics behandler "
+            "Der logges begrænsede drifts- og fejloplysninger. Sentry aktiveres kun ved eksplicit konfiguration, "
+            "fjerner bruger-, server-, request- og enhedskontekst og redigerer navne, e-mail, IP, PIN-/løbskoder, "
+            "tokens, sessions- og deltager-id'er, svar, fotostier, URL-legitimationsoplysninger og lokation. "
+            "Delings- og fotoudleveringsflow er fravalgt i analytics. Vercel Analytics behandler "
             "tekniske besøgsdata. Bugsnag findes som en betinget kodeintegration, men må ikke aktiveres til "
             "kommunal behandling uden skriftlig ændringsmeddelelse, leverandøraftale og tilsvarende global "
             "redaktion. Logdata må ikke bruges til elevprofilering."
@@ -716,10 +728,12 @@ def update_existing_document(doc: Document) -> None:
             "slette tidligere fra resultatsiden. Hosted cron skal aktiveres og verificeres efter deployment; indtil "
             "det er dokumenteret, er lærerens manuelle oprydning den bindende driftsprocedure.\n"
             "2. Øvrige elev-/sessionsdata: svar, deltagere, navne, beskeder og afsluttede live-sessioner slettes "
-            "automatisk efter 90 dage. Læreren kan slette tidligere. Hosted aktivering skal dokumenteres, før "
+            "automatisk efter 90 dage fra afslutning eller dokumenteret inaktivitet. Aktive sessioner uden "
+            "retentionsanker bevares. Læreren kan slette tidligere. Hosted aktivering skal dokumenteres, før "
             "automatisk sletning oplyses som aktiv i produktion.\n"
-            "3. Aktuel position: overskrives løbende, nulstilles ved afslutning/forladelse og efter 15 minutters "
-            "inaktivitet. Positionsfelter gemmes ikke i arkiverede svar.\n"
+            "3. Aktuel position: overskrives løbende og er ikke synlig efter 15 minutters inaktivitet. Den "
+            "nulstilles fysisk ved næste femminutters oprydning, normalt senest efter cirka 20 minutter, og "
+            "straks ved afslutning/forladelse, hvor det er muligt. Positionsfelter gemmes ikke i arkiverede svar.\n"
             "4. Lærerkonto og lærerskabte løb: opbevares, mens kontoen/aftalen er aktiv, og slettes efter "
             "dokumenteret anmodning eller ved ophør, bortset fra lovpligtig opbevaring.\n"
             "5. Tekniske oprydningslogs uden elevoplysninger slettes efter 30 dage. Øvrige driftslogs/backups "
@@ -738,8 +752,9 @@ def update_existing_document(doc: Document) -> None:
         "Fotoopgaver må i kommunal brug": (
             "Fotoopgaver må i kommunal brug alene omfatte ting, steder eller andre ikke-personhenførbare motiver. "
             "Genkendelige personer, elevnavne, skærmbilleder med personoplysninger og andet personhenførbart eller "
-            "fortroligt indhold må ikke fotograferes eller uploades. Fotoobjekter ligger i privat Storage og vises "
-            "alene til løbets ejer via kortlivede signed URLs. Ønsker kommunen senere personhenførbare fotos, "
+            "fortroligt indhold må ikke fotograferes eller uploades. Fotoobjekter ligger i privat Storage og "
+            "streames kun til løbets ejer gennem en beskyttet, ikke-cachebar SkoleGPS-route. Storage-stier og "
+            "signed Storage-URLs udleveres ikke til browseren. Ønsker kommunen senere personhenførbare fotos, "
             "kræver det en fornyet risikovurdering og skriftlig ændring af instruksen."
         ),
     }

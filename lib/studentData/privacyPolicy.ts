@@ -1,6 +1,5 @@
 export const PARTICIPANT_UPLOADS_BUCKET = "participant-uploads";
 
-export const PHOTO_SIGNED_URL_TTL_SECONDS = 60;
 export const GPS_LOCATION_TTL_MINUTES = 15;
 export const GPS_LOCATION_TTL_MS = GPS_LOCATION_TTL_MINUTES * 60 * 1000;
 export const PHOTO_RETENTION_DAYS = 30;

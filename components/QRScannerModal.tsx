@@ -2,6 +2,7 @@
 
 import { Camera, Loader2, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { Html5Qrcode, Html5QrcodeCameraScanConfig, Html5QrcodeFullConfig } from "html5-qrcode";
 
@@ -110,6 +111,8 @@ export default function QRScannerModal({
   const titleId = `${scannerRegionId}-title`;
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const permissionStreamRef = useRef<MediaStream | null>(null);
+  const scannerStreamsRef = useRef<Set<MediaStream>>(new Set());
+  const restoreGetUserMediaRef = useRef<(() => void) | null>(null);
 
   const [isOpen, setIsOpen] = useState(false);
   const [shouldStartCamera, setShouldStartCamera] = useState(false);
@@ -117,9 +120,17 @@ export default function QRScannerModal({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
 
+  const stopTrackedScannerStreams = useCallback(() => {
+    scannerStreamsRef.current.forEach((stream) => stopMediaStream(stream));
+    scannerStreamsRef.current.clear();
+  }, []);
+
   const closeModal = useCallback(() => {
+    restoreGetUserMediaRef.current?.();
+    restoreGetUserMediaRef.current = null;
     stopMediaStream(permissionStreamRef.current);
     permissionStreamRef.current = null;
+    stopTrackedScannerStreams();
 
     const scanner = scannerRef.current;
     scannerRef.current = null;
@@ -128,7 +139,7 @@ export default function QRScannerModal({
     setShouldStartCamera(false);
     setIsStarting(false);
     setIsOpen(false);
-  }, []);
+  }, [stopTrackedScannerStreams]);
 
   useEffect(() => {
     if (!isOpen || !shouldStartCamera) {
@@ -139,8 +150,11 @@ export default function QRScannerModal({
     let hasResolvedScan = false;
 
     const stopScanner = async () => {
+      restoreGetUserMediaRef.current?.();
+      restoreGetUserMediaRef.current = null;
       stopMediaStream(permissionStreamRef.current);
       permissionStreamRef.current = null;
+      stopTrackedScannerStreams();
 
       const scanner = scannerRef.current;
       scannerRef.current = null;
@@ -296,6 +310,30 @@ export default function QRScannerModal({
           aspectRatio: 1,
         };
 
+        const mediaDevices = navigator.mediaDevices;
+        const originalGetUserMedia = mediaDevices.getUserMedia.bind(mediaDevices);
+        const restoreGetUserMedia = () => {
+          if (mediaDevices.getUserMedia === trackedGetUserMedia) {
+            mediaDevices.getUserMedia = originalGetUserMedia;
+          }
+          if (restoreGetUserMediaRef.current === restoreGetUserMedia) {
+            restoreGetUserMediaRef.current = null;
+          }
+        };
+        const trackedGetUserMedia: MediaDevices["getUserMedia"] = async (
+          constraints,
+        ) => {
+          restoreGetUserMedia();
+          const stream = await originalGetUserMedia(constraints);
+          scannerStreamsRef.current.add(stream);
+          if (!isActive) {
+            stopMediaStream(stream);
+          }
+          return stream;
+        };
+        mediaDevices.getUserMedia = trackedGetUserMedia;
+        restoreGetUserMediaRef.current = restoreGetUserMedia;
+
         await scanner.start(
           cameraConfig,
           scanConfig,
@@ -304,6 +342,13 @@ export default function QRScannerModal({
             // Ignore frame-by-frame decode misses.
           }
         );
+
+        // Closing while html5-qrcode is still starting can make the original
+        // cleanup run before isScanning becomes true. Dispose once more after
+        // start resolves so a late camera stream cannot survive the modal.
+        if (!isActive || scannerRef.current !== scanner) {
+          await disposeScanner(scanner);
+        }
       } catch (error) {
         if (!isActive) return;
 
@@ -342,6 +387,7 @@ export default function QRScannerModal({
     router,
     scannerRegionId,
     shouldStartCamera,
+    stopTrackedScannerStreams,
   ]);
 
   useEffect(() => {
@@ -374,7 +420,7 @@ export default function QRScannerModal({
         <span>{copy.buttonLabel}</span>
       </button>
 
-      {isOpen ? (
+      {isOpen ? createPortal(
         <div
           className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
           onClick={closeModal}
@@ -473,7 +519,8 @@ export default function QRScannerModal({
               {copy.manualFallback}
             </p>
           </div>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </>
   );

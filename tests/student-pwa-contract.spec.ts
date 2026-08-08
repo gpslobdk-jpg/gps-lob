@@ -333,13 +333,9 @@ test.describe("student PWA source contracts", () => {
     }
 
     expect(sanitized.user).toBeUndefined();
-    expect(sanitized.request.query_string).toBe("[redacted]");
-    expect(sanitized.request.headers.Authorization).toBe("[redacted]");
-    expect(sanitized.request.headers.Cookie).toBe("[redacted]");
-    expect(sanitized.request.headers["X-Student-Join-Code"]).toBe(
-      "[redacted]",
-    );
+    expect(sanitized.request.query_string).toBeUndefined();
+    expect(sanitized.request.data).toBeUndefined();
+    expect(sanitized.request.headers).toBeUndefined();
     expect(sanitized.request.url).not.toContain("?");
-    expect(sanitized.request.headers.Referer).not.toContain("?");
   });
 });

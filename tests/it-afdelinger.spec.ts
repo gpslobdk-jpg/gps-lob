@@ -15,9 +15,9 @@ test.describe("IT- og databeskyttelsessiden", () => {
       page.getByRole("heading", { name: "Til IT og databeskyttelse", level: 1 }),
     ).toBeVisible();
     await expect(page.getByText("Ikke underskrevet standardskabelon")).toBeVisible();
-    await expect(page.getByText(/version 1\.0 fra 7\. august 2026/i)).toBeVisible();
-    await expect(page.getByText(/Standardflowet opbygger ikke en særskilt rutehistorik/)).toBeVisible();
-    await expect(page.getByText(/ikke fotograferes/)).toBeVisible();
+    await expect(page.getByText(/version 1\.1 fra 8\. august 2026/i)).toBeVisible();
+    await expect(page.getByText(/GPS skjules efter 15 minutter/)).toBeVisible();
+    await expect(page.getByText(/beskyttet SkoleGPS-route/)).toBeVisible();
     await expect(page.getByRole("link", { name: "Hent Word-skabelon" })).toHaveAttribute(
       "href",
       DPA_DOCX,
@@ -86,7 +86,7 @@ test.describe("IT- og databeskyttelsessiden", () => {
     await expect(page.getByRole("heading", { name: "Privatlivspolitik", level: 1 })).toBeVisible();
     await expect(page.getByText(/Jeppe Laursen er dataansvarlig/)).toBeVisible();
     await expect(page.getByText(/Kommunen eller skoleejeren er dataansvarlig for elevdata/)).toBeVisible();
-    await expect(page.getByText("Senest opdateret: 7. august 2026.")).toBeVisible();
+    await expect(page.getByText("Senest opdateret: 8. august 2026.")).toBeVisible();
 
     const metrics = await page.evaluate(() => ({
       bodyWidth: document.body.scrollWidth,

@@ -41,14 +41,14 @@
 - Elevens position sendes til serveren under et aktivt løb og gemmes på deltagerposten som breddegrad, længdegrad, nøjagtighed og seneste opdatering.
 - Den aktuelle position overskrives løbende; standardflowet har ikke en særskilt positionshistoriktabel.
 - Afstand til posten beregnes i elevens browser.
-- Positionen nulstilles ved afslutning/forladelse og skjules/slettes automatisk efter 15 minutters inaktivitet.
+- Positionen er ikke synlig efter 15 minutters inaktivitet og nulstilles fysisk ved næste femminutters oprydning, normalt senest efter cirka 20 minutter. Afslutning/forladelse nulstiller straks, hvor det er muligt.
 - Positionsfelter fjernes fra elevsvar, så GPS ikke indgår i arkiverede resultater.
 
 ## Opbevaring og sletning
 
 - Læreren kan fra resultatsiden rydde fotos, svar, deltagere, sessionselever, beskeder og live-sessioner for løbet.
 - Fotoobjekter og billedreferencer har en fast standardfrist på 30 dage.
-- Almindelige elevsvar, deltagere, navne, beskeder og afsluttede live-sessioner har en fast standardfrist på 90 dage.
+- Almindelige elevsvar, deltagere, navne, beskeder og afsluttede live-sessioner har en fast standardfrist på 90 dage fra afslutning eller dokumenteret inaktivitet. Aktive sessioner har ingen retentionsankerdato.
 - Tekniske oprydningslogs uden elevoplysninger har en frist på 30 dage.
 - Hosted cron og Edge-funktion er forberedt versionsstyret, men må ikke beskrives som aktive i produktion, før migration, cron.job og jobhistorik er verificeret. Indtil da er lærerens manuelle oprydning bindende.
 - Lærerkonto og lærerskabte løb opbevares, mens konto/aftale er aktiv, og slettes efter verificeret anmodning eller ophør med forbehold for lovpligtig opbevaring og lukkede backups.
@@ -58,9 +58,9 @@
 
 - HTTPS/TLS, Supabase RLS, ejerskabskontrol, deltagerbinding og serverbeskyttede privilegerede nøgler er dokumenteret i kodebasen.
 - Rå delingstokens gemmes ikke; delingslinks bruger URL-fragment, SHA-256-digest, no-store/noindex og tokenredaktion.
-- Sentry fjerner brugerobjektet og redigerer navn, e-mail, PIN-/løbskoder, tokens, sessions-/deltager-id, svar, billeder og lokation.
+- Sentry er kun aktiv ved eksplicit miljøkonfiguration, fjerner bruger-, server- og enhedskontekst og redigerer navn, e-mail, IP, PIN-/løbskoder, tokens, sessions-/deltager-id, svar, billeder og lokation.
 - Bugsnag er en betinget kodeintegration og er ikke godkendt som aktiv underdatabehandler i version 1.0. Den må ikke aktiveres til kommunens personoplysninger uden ændringsvarsel, kontraktgrundlag og global redaktion.
-- Foto-bucketen er privat. Browseren modtager ikke objektstien; en autentificeret lærer får først et 60-sekunders signed URL efter kontrol af løbs-, svar- og fotoejerskab.
+- Foto-bucketen er privat. Browseren modtager hverken objektsti eller signed Storage-URL. Efter kontrol af lærerlogin samt løbs-, svar- og fotoejerskab streamer en beskyttet SkoleGPS-route billedets bytes med `private, no-store`. Uploads dekodes som JPEG, PNG eller WebP, rotation anvendes, og billedet genkodes som JPEG uden EXIF- eller GPS-metadata.
 - Forbuddet mod genkendelige personer og fortroligt indhold i fotoopgaver gælder fortsat som dataminimering.
 
 ## Godkendte underdatabehandlere i version 1.1

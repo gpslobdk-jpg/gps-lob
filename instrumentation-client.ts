@@ -27,6 +27,11 @@ function sanitizeClientSentryEvent<T extends object>(event: T): T | null {
 
 Sentry.init({
   dsn: "https://31175c8fd32fcc439aaa2479b9191608@o4511262707351552.ingest.de.sentry.io/4511262710038608",
+  enabled: process.env.NEXT_PUBLIC_SENTRY_ENABLED === "true",
+  environment:
+    process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ??
+    process.env.NEXT_PUBLIC_VERCEL_ENV ??
+    process.env.NODE_ENV,
 
   // Add optional integrations for additional features
   integrations: [
@@ -36,6 +41,8 @@ Sentry.init({
       blockAllMedia: true,
       networkDetailDenyUrls: [
         /\/api\/join(?:\?|$)/,
+        /\/api\/play\/submit-photo(?:\?|$)/,
+        /\/api\/teacher\/answers\/.+\/photo(?:\?|$)/,
         /\/api\/run-execution-share(?:\?|$)/,
       ],
       beforeAddRecordingEvent(event) {

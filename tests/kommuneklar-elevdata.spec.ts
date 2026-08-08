@@ -9,7 +9,6 @@ import {
   GPS_LOCATION_TTL_MS,
   isFreshStudentLocation,
   PHOTO_RETENTION_DAYS,
-  PHOTO_SIGNED_URL_TTL_SECONDS,
   SECURITY_LOG_RETENTION_DAYS,
   shouldExposeStudentLocation,
   STUDENT_DATA_RETENTION_DAYS,
@@ -94,20 +93,21 @@ test.describe("Kommuneklar elevdata", () => {
     ).toBe(false);
   });
 
-  test("photo route checks auth, run ownership, answer ownership and signs for 60 seconds", () => {
+  test("photo route checks ownership and streams bytes without exposing a signed URL", () => {
     const authIndex = photoRoute.indexOf("await supabase.auth.getUser()");
     const runOwnerIndex = photoRoute.indexOf('.eq("user_id", user.id)');
     const adminIndex = photoRoute.indexOf("createAdminClient()");
-    const signIndex = photoRoute.indexOf(".createSignedUrl(");
+    const downloadIndex = photoRoute.indexOf(".download(");
 
-    expect(PHOTO_SIGNED_URL_TTL_SECONDS).toBe(60);
     expect(authIndex).toBeGreaterThan(-1);
     expect(runOwnerIndex).toBeGreaterThan(authIndex);
     expect(adminIndex).toBeGreaterThan(runOwnerIndex);
-    expect(signIndex).toBeGreaterThan(adminIndex);
+    expect(downloadIndex).toBeGreaterThan(adminIndex);
     expect(photoRoute).toContain("canTeacherAccessAnswerPhoto");
     expect(photoRoute).toContain("private, no-store");
-    expect(photoRoute).toContain("PHOTO_SIGNED_URL_TTL_SECONDS");
+    expect(photoRoute).toContain('"Referrer-Policy": "no-referrer"');
+    expect(photoRoute).not.toContain("createSignedUrl");
+    expect(photoRoute).not.toContain("NextResponse.redirect");
   });
 
   test("private upload stores only a protected app URL and private metadata", () => {
@@ -118,6 +118,8 @@ test.describe("Kommuneklar elevdata", () => {
     expect(uploadRoute).toContain("fetchActiveSession");
     expect(uploadRoute).toContain("registerParticipantPhotoObject");
     expect(uploadRoute).toContain("getProtectedAnswerPhotoUrl(answerId)");
+    expect(uploadRoute).toContain("sanitizeUploadedPhoto");
+    expect(uploadRoute).toContain("consume_participant_photo_upload_limit");
     expect(uploadRoute).not.toContain("getPublicUrl");
     expect(uploadRoute).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
   });
@@ -193,6 +195,9 @@ test.describe("Kommuneklar elevdata", () => {
     expect(SECURITY_LOG_RETENTION_DAYS).toBe(30);
     expect(migration).toContain("p_now - interval '30 days'");
     expect(migration).toContain("p_now - interval '90 days'");
+    expect(migration).toContain("student_data_retention_anchor_at");
+    expect(migration).toContain("student_data_retention_one_running_idx");
+    expect(migration).toContain("list_student_photo_orphan_candidates");
     expect(migration).toContain("student_data_retention_runs");
     expect(migration).toContain("status in ('running', 'succeeded', 'failed')");
     expect(migration).toContain("configure_student_data_retention_cron");

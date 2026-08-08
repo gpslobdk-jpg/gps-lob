@@ -12,6 +12,13 @@ import {
   getProtectedAnswerPhotoUrl,
   PARTICIPANT_UPLOADS_BUCKET,
 } from "@/lib/studentData/privacyPolicy";
+import {
+  PhotoUploadValidationError,
+  PHOTO_UPLOAD_MAX_BYTES,
+  sanitizeUploadedPhoto,
+  type SanitizedPhoto,
+} from "@/lib/studentData/photoUpload";
+import { createPhotoRateLimitFingerprint } from "@/lib/studentData/photoRateLimit";
 import { registerParticipantPhotoObject } from "@/utils/supabase/participantPhotos";
 import {
   asTrimmedString,
@@ -27,16 +34,10 @@ import {
 export const maxDuration = 60;
 
 const RUN_OUT_OF_SYNC_ERROR_CODE = "RUN_OUT_OF_SYNC";
-const PHOTO_UPLOAD_MAX_BYTES = 12 * 1024 * 1024;
 const PHOTO_OPERATION_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type AdminSupabaseClient = NonNullable<ReturnType<typeof createAdminClient>>;
-
-type UploadedPhotoInput = {
-  buffer: Buffer;
-  mimeType: string;
-};
 
 type ResolvedPhotoRun = NonNullable<
   Awaited<ReturnType<typeof fetchRunForSession>>
@@ -130,95 +131,16 @@ function parsePhotoSubmissionOperationId(value: unknown) {
   };
 }
 
-function isSupportedPhotoMimeType(value: unknown) {
-  return (
-    typeof value === "string" &&
-    value.trim().toLowerCase().startsWith("image/")
-  );
-}
-
-function isPhotoUploadTooLarge(size: unknown) {
-  return (
-    typeof size === "number" &&
-    Number.isFinite(size) &&
-    size > PHOTO_UPLOAD_MAX_BYTES
-  );
-}
-
-function isStorageObjectAlreadyExistsError(
-  error: SupabaseLikeError | null | undefined
-) {
-  if (!error) return false;
-
-  const status = String(error.statusCode ?? error.status ?? "");
-  const message = `${error.code ?? ""} ${error.message ?? ""}`.toLowerCase();
-  return (
-    status === "409" ||
-    message.includes("already exists") ||
-    message.includes("resource exists") ||
-    message.includes("duplicate")
-  );
-}
-
-async function parseUploadedImage(file: File): Promise<UploadedPhotoInput | null> {
-  const mimeType = file.type.trim().toLowerCase();
-  if (!isSupportedPhotoMimeType(mimeType)) {
-    return null;
-  }
-
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-  if (buffer.byteLength === 0) {
-    return null;
-  }
-
-  return {
-    buffer,
-    mimeType,
-  };
-}
-
-function getImageFileExtension(mimeType: string) {
-  const rawSubtype = mimeType.split("/")[1]?.toLowerCase() ?? "jpg";
-  const normalizedSubtype = rawSubtype.replace(/[^a-z0-9]/g, "");
-
-  if (normalizedSubtype === "jpeg") return "jpg";
-  return normalizedSubtype || "jpg";
-}
-
-function createStorageUploadNonce(
-  answeredAt: string,
-  operationId: string | null
-) {
-  if (operationId) {
-    return operationId.toLowerCase();
-  }
-
-  const normalizedTimestamp = answeredAt.replace(/[^a-zA-Z0-9_-]/g, "");
-  if (normalizedTimestamp) {
-    return normalizedTimestamp;
-  }
-
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID().replace(/-/g, "");
-  }
-
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
 function buildPhotoStoragePath(
   sessionId: string,
   participantId: string,
-  postIndex: number,
-  mimeType: string,
-  answeredAt: string,
-  operationId: string | null = null
+  answerId: string,
+  postIndex: number
 ) {
   const safeSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, "") || "session";
   const safeParticipantId = participantId.replace(/[^a-zA-Z0-9_-]/g, "") || "participant";
-  const extension = getImageFileExtension(mimeType);
-  const uploadNonce = createStorageUploadNonce(answeredAt, operationId);
-  return `${safeSessionId}/${safeParticipantId}/${uploadNonce}-${postIndex}.${extension}`;
+  const safeAnswerId = answerId.replace(/[^a-fA-F0-9-]/g, "");
+  return `private-v2/${safeSessionId}/${safeParticipantId}/${safeAnswerId}-${postIndex}.jpg`;
 }
 
 function getQuestionText(rawQuestion: unknown) {
@@ -239,53 +161,40 @@ function isActualStoredPhotoAnswer(answer: ExistingPhotoAnswerRow) {
 }
 
 async function uploadPhotoToStorage(
-  image: UploadedPhotoInput,
+  image: SanitizedPhoto,
   answerId: string,
   sessionId: string,
   participantId: string,
   postIndex: number,
-  answeredAt: string,
-  operationId: string | null,
   adminSupabase: AdminSupabaseClient
 ) {
   const storagePath = buildPhotoStoragePath(
     sessionId,
     participantId,
-    postIndex,
-    image.mimeType,
-    answeredAt,
-    operationId
+    answerId,
+    postIndex
   );
   const { error: uploadError } = await adminSupabase.storage
     .from(PARTICIPANT_UPLOADS_BUCKET)
     .upload(storagePath, image.buffer, {
       contentType: image.mimeType,
-      upsert: operationId === null,
+      upsert: false,
+      cacheControl: "0",
     });
 
-  const reusedExistingObject =
-    operationId !== null &&
-    isStorageObjectAlreadyExistsError(uploadError);
-  if (uploadError && !reusedExistingObject) {
-    if (operationId) {
-      console.error("Kunne ikke uploade deltagerbillede til Storage.");
-    } else {
-      console.error(
-        "Kunne ikke uploade deltagerbillede til Storage:",
-        uploadError
-      );
-    }
+  if (uploadError) {
+    console.error("Kunne ikke uploade deltagerbillede til Storage.");
     return {
       imageUrl: null as string | null,
-      storagePath: null as string | null,
-      createdByRequest: false,
+      storagePath,
+      createdByRequest: true,
     };
   }
 
   return {
     imageUrl: getProtectedAnswerPhotoUrl(answerId),
     storagePath,
-    createdByRequest: operationId !== null && !uploadError,
+    createdByRequest: true,
   };
 }
 
@@ -725,6 +634,21 @@ async function insertPhotoAnswerWithOperationFallback({
 export async function POST(request: Request) {
   let formData: FormData;
   const requestPath = new URL(request.url).pathname;
+  const contentLength = Number(request.headers.get("content-length"));
+
+  if (
+    Number.isFinite(contentLength) &&
+    contentLength > PHOTO_UPLOAD_MAX_BYTES + 256 * 1024
+  ) {
+    return NextResponse.json(
+      {
+        error: "Billedet er for stort til at blive sendt.",
+        code: "PHOTO_TOO_LARGE",
+        maxBytes: PHOTO_UPLOAD_MAX_BYTES,
+      },
+      { status: 413 }
+    );
+  }
 
   try {
     formData = await request.formData();
@@ -851,6 +775,43 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Sessionen er ikke aktiv laengere." }, { status: 404 });
     }
 
+    const requestFingerprint = createPhotoRateLimitFingerprint(request);
+    if (!requestFingerprint) {
+      return NextResponse.json(
+        {
+          error: "Foto-uploadens sikkerhedskontrol er midlertidigt utilgaengelig.",
+          code: "PHOTO_RATE_LIMIT_UNAVAILABLE",
+        },
+        { status: 503 }
+      );
+    }
+
+    const { data: uploadAllowed, error: rateLimitError } =
+      await adminSupabase.rpc("consume_participant_photo_upload_limit", {
+        p_session_id: sessionId,
+        p_participant_id: participantId,
+        p_request_fingerprint: requestFingerprint,
+      });
+
+    if (rateLimitError) {
+      return NextResponse.json(
+        {
+          error: "Foto-uploadens sikkerhedskontrol er midlertidigt utilgaengelig.",
+          code: "PHOTO_RATE_LIMIT_UNAVAILABLE",
+        },
+        { status: 503 }
+      );
+    }
+    if (uploadAllowed !== true) {
+      return NextResponse.json(
+        {
+          error: "Vent et oejeblik, foer du sender billedet igen.",
+          code: "PHOTO_RATE_LIMITED",
+        },
+        { status: 429, headers: { "Retry-After": "60" } }
+      );
+    }
+
     const runResult = await fetchRunForSession(sessionId);
     if (!runResult || !Array.isArray(runResult.questions)) {
       return NextResponse.json(
@@ -918,7 +879,7 @@ export async function POST(request: Request) {
       isStandardStudentSubmission &&
       !isSelfiePhotoTask &&
       operationId !== null;
-    if (operationId && isPhotoUploadTooLarge(imageEntry.size)) {
+    if (imageEntry.size > PHOTO_UPLOAD_MAX_BYTES) {
       return NextResponse.json(
         {
           error: "Billedet er for stort til at blive sendt.",
@@ -929,10 +890,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const image = await parseUploadedImage(imageEntry);
-    if (!image) {
+    let image: SanitizedPhoto;
+    try {
+      image = await sanitizeUploadedPhoto(imageEntry);
+    } catch (error) {
+      const code =
+        error instanceof PhotoUploadValidationError
+          ? error.code
+          : "PHOTO_DECODE_FAILED";
       return NextResponse.json(
-        { error: "Billedfilen er ugyldig." },
+        { error: "Billedfilen er ugyldig.", code },
         { status: 400 }
       );
     }
@@ -1042,19 +1009,15 @@ export async function POST(request: Request) {
       sessionId,
       participantId,
       postIndex,
-      answeredAt,
-      operationId,
       adminSupabase
     );
 
     if (!uploadedPhoto.imageUrl || !uploadedPhoto.storagePath) {
-      if (!operationId) {
-        await removeNewPhotoUpload(
-          uploadedPhoto.storagePath,
-          uploadedPhoto.createdByRequest,
-          adminSupabase
-        );
-      }
+      await removeNewPhotoUpload(
+        uploadedPhoto.storagePath,
+        uploadedPhoto.createdByRequest,
+        adminSupabase
+      );
       return NextResponse.json({ error: "Billedet kunne ikke uploades." }, { status: 500 });
     }
 
@@ -1172,14 +1135,12 @@ export async function POST(request: Request) {
     }
 
     if (error) {
-      if (!operationId) {
-        await removeNewPhotoUpload(
-          uploadedPhoto.storagePath,
-          uploadedPhoto.createdByRequest,
-          adminSupabase
-        );
-      }
-      console.error("Kunne ikke gemme foto-upload i answers:", error);
+      await removeNewPhotoUpload(
+        uploadedPhoto.storagePath,
+        uploadedPhoto.createdByRequest,
+        adminSupabase
+      );
+      console.error("Kunne ikke gemme foto-upload i answers.");
       await logHandledServerError({
         route: "/api/play/submit-photo",
         method: "POST",

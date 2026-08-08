@@ -128,6 +128,10 @@ Deno.serve(async (request) => {
   const { data: runIdData, error: startError } = await supabase.rpc(
     "start_student_data_retention_run"
   );
+  if (!startError && runIdData === null) {
+    console.info("student_data_retention_skipped", { code: "ALREADY_RUNNING" });
+    return json({ ok: true, skipped: true, code: "ALREADY_RUNNING" });
+  }
   if (startError || typeof runIdData !== "string") {
     console.error("student_data_retention_failed", { code: "START_FAILED" });
     return json({ error: "Retention job could not start." }, 500);
@@ -182,6 +186,36 @@ Deno.serve(async (request) => {
       if (finalizeError) throw new Error("PHOTO_FINALIZE_FAILED");
 
       totals.photoObjectsDeleted += candidates.length;
+      if (rows.length < batchSize) break;
+    }
+
+    for (let batch = 0; batch < maxBatches; batch += 1) {
+      const { data, error } = await supabase.rpc(
+        "list_student_photo_orphan_candidates",
+        { p_limit: batchSize }
+      );
+      if (error) throw new Error("LIST_ORPHAN_PHOTOS_FAILED");
+
+      const rows = (Array.isArray(data) ? data : []) as Array<{
+        object_path?: string | null;
+      }>;
+      if (rows.length === 0) break;
+
+      const paths = rows
+        .map((row) => row.object_path)
+        .filter((path): path is string => typeof path === "string" && path.length > 0);
+      if (paths.length !== rows.length) {
+        throw new Error("INVALID_ORPHAN_PHOTO_CANDIDATES");
+      }
+
+      for (const pathChunk of chunks(paths, STORAGE_REMOVE_CHUNK_SIZE)) {
+        const { error: storageError } = await supabase.storage
+          .from(BUCKET_NAME)
+          .remove(pathChunk);
+        if (storageError) throw new Error("ORPHAN_PHOTO_DELETE_FAILED");
+      }
+
+      totals.photoObjectsDeleted += paths.length;
       if (rows.length < batchSize) break;
     }
 

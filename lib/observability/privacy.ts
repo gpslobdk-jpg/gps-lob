@@ -69,7 +69,10 @@ function isSensitiveObservabilityKey(key: string) {
     compactKey.includes("latitude") ||
     compactKey.includes("longitude") ||
     compactKey.includes("coords") ||
-    compactKey.includes("location")
+    compactKey.includes("location") ||
+    compactKey === "ip" ||
+    compactKey === "ipaddress" ||
+    compactKey === "remoteaddr"
   );
 }
 
@@ -333,7 +336,30 @@ export function sanitizeSentryEvent<T extends object>(event: T): T | null {
       return null;
     }
 
-    (sanitizedEvent as Record<string, unknown>).user = undefined;
+    const eventRecord = sanitizedEvent as Record<string, unknown>;
+    eventRecord.user = undefined;
+    eventRecord.server_name = undefined;
+
+    if (eventRecord.request && typeof eventRecord.request === "object") {
+      const request = eventRecord.request as Record<string, unknown>;
+      request.cookies = undefined;
+      request.data = undefined;
+      request.env = undefined;
+      request.headers = undefined;
+      request.query_string = undefined;
+    }
+
+    if (eventRecord.contexts && typeof eventRecord.contexts === "object") {
+      const contexts = eventRecord.contexts as Record<string, unknown>;
+      contexts.app = undefined;
+      contexts.cloud_resource = undefined;
+      contexts.culture = undefined;
+      contexts.device = undefined;
+      contexts.gpu = undefined;
+      contexts.os = undefined;
+      contexts.runtime = undefined;
+    }
+
     return sanitizedEvent;
   } catch {
     return null;
