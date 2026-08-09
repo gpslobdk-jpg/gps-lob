@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { expect, test } from "@playwright/test";
 
 import {
@@ -11,6 +14,18 @@ import {
 } from "../lib/observability/privacy";
 
 test.describe("observability privacy sanitizer", () => {
+  test("keeps Session Replay disabled for student and GPS privacy", () => {
+    const clientConfig = readFileSync(
+      join(process.cwd(), "instrumentation-client.ts"),
+      "utf8"
+    );
+
+    expect(clientConfig).not.toContain("replayIntegration");
+    expect(clientConfig).not.toContain("replaysSessionSampleRate");
+    expect(clientConfig).not.toContain("replaysOnErrorSampleRate");
+    expect(clientConfig).toContain("sendDefaultPii: false");
+  });
+
   test("replaces a direct self-reference without throwing", () => {
     const input: Record<string, unknown> = {
       message: "safe message",
