@@ -57,7 +57,7 @@ Word og PDF indeholder samme version, dato, dokumentansvarlige, bilag A–D og c
 
 ## 6. Observability
 
-- Sentry initialiseres kun, når det relevante eksplicitte miljøflag er `true`. Production, preview, development og test skal sættes med særskilte miljønavne. `sendDefaultPii` er slået fra, bruger-, server-, request-, app-, cloud-, enheds-, GPU-, OS- og runtimekontekst fjernes, replay maskerer tekst/input og blokerer medier, og den centrale sanitizer redigerer navn, e-mail, IP, koder, tokens, sessions-/deltager-id, svar, fotostier, URL-legitimationsoplysninger og lokation.
+- Sentry initialiseres kun, når det relevante eksplicitte miljøflag er `true`. Production, preview, development og test skal sættes med særskilte miljønavne. `sendDefaultPii` er slået fra, bruger-, server-, request-, app-, cloud-, enheds-, GPU-, OS- og runtimekontekst fjernes, Session Replay er slået helt fra, og den centrale sanitizer redigerer navn, e-mail, IP, koder, tokens, sessions-/deltager-id, svar, fotostier, URL-legitimationsoplysninger og lokation.
 - Bugsnag findes som betinget integration bag `NEXT_PUBLIC_BUGSNAG_API_KEY`. Den robuste globale sanitizer er ikke koblet til alle automatisk indfangede Bugsnag-fejl. Bugsnag er derfor ikke angivet som aktiv/godkendt underdatabehandler i standardaftale version 1.2 og må ikke aktiveres til kommunens personoplysninger uden en ny kontrakt- og sikkerhedskontrol.
 - Vercel Analytics er aktiv i layoutet med et før-afsendelsesfilter. Delingssiden til afvikling og fotoudleveringsflowet fravælges.
 

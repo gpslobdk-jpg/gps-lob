@@ -239,7 +239,7 @@ test.describe("student PWA source contracts", () => {
     ).toBeGreaterThan(0);
   });
 
-  test("student observability strips join queries and participant identifiers", () => {
+  test("student observability disables Replay and strips identifiers", () => {
     const joinSource = readSource("app/join/page.tsx");
     const joinApiSource = readSource("app/api/join/route.ts");
     const sentrySource = readSource("instrumentation-client.ts");
@@ -249,8 +249,9 @@ test.describe("student PWA source contracts", () => {
     expect(joinSource).toMatch(/X-Student-Join-Code/);
     expect(joinApiSource).toMatch(/x-student-join-code/);
     expect(sentrySource).toMatch(/\bbeforeBreadcrumb\s*\(/);
-    expect(sentrySource).toMatch(/\bbeforeAddRecordingEvent\s*\(/);
-    expect(sentrySource).toMatch(/\bmaskAllInputs\s*:\s*true/);
+    expect(sentrySource).not.toMatch(/\breplayIntegration\s*\(/);
+    expect(sentrySource).not.toMatch(/\breplaysSessionSampleRate\s*:/);
+    expect(sentrySource).not.toMatch(/\breplaysOnErrorSampleRate\s*:/);
     expect(telemetrySource).toMatch(/\bparticipant_id\s*:\s*null/);
     expect(telemetrySource).toMatch(/\bsession_id\s*:\s*null/);
   });
