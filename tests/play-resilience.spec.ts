@@ -28,7 +28,7 @@ import { test, expect, type Page, type Route, type BrowserContext } from "@playw
 // Test fixtures
 // ---------------------------------------------------------------------------
 
-const SESSION_ID = "resilience-session-001";
+const SESSION_ID = "44444444-4444-4444-8444-444444444444";
 const PARTICIPANT_ID = "eeeeeeee-1111-2222-3333-ffffffffffff";
 const TEAM_NAME = "TestHold";
 
@@ -94,6 +94,30 @@ type MockState = {
   validateHangResolvers: Array<() => void>;
 };
 
+function participantSnapshot() {
+  return {
+    participant: {
+      id: PARTICIPANT_ID,
+      session_id: SESSION_ID,
+      student_name: TEAM_NAME,
+      start_offset: 0,
+      lat: null,
+      lng: null,
+      accuracy: null,
+      finished_at: null,
+    },
+  };
+}
+
+function releasePendingRequests(resolvers: Array<() => void>) {
+  for (const resolve of resolvers.splice(0)) resolve();
+}
+
+async function closeTestContext(ctx: BrowserContext) {
+  await ctx.unrouteAll({ behavior: "wait" });
+  await ctx.close();
+}
+
 async function mountApiMocks(ctx: BrowserContext, mockState: MockState) {
   // Block Next.js Fast Refresh / HMR WebSocket — prevents repeated full-page
   // reloads triggered by webpack lazy chunk compilation during tests.
@@ -134,7 +158,9 @@ async function mountApiMocks(ctx: BrowserContext, mockState: MockState) {
         questions: QUIZ_QUESTIONS,
         raceType: "quiz",
         radius: 30,
-        gpsOverride: false,
+        // This suite targets state/retry resilience. Dedicated GPS specs cover
+        // browser geolocation, so test God Mode isolates post unlocking here.
+        gpsOverride: true,
       }),
     });
   });
@@ -144,17 +170,21 @@ async function mountApiMocks(ctx: BrowserContext, mockState: MockState) {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ sessionStatus: "running", gpsOverride: false }),
+      body: JSON.stringify({ sessionStatus: "running", gpsOverride: true }),
     });
   });
 
-  // GET /api/play/participant — returns 404 (fresh start)
+  // GET /api/play/participant — return the participant created by the mocked join.
   await ctx.route(/\/api\/play\/participant/, async (route: Route) => {
     await route.fulfill({
-      status: 404,
+      status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ error: "Not found" }),
+      body: JSON.stringify(participantSnapshot()),
     });
+  });
+
+  await ctx.route("**/rest/v1/session_messages*", async (route: Route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
   });
 
   // POST /api/play/location
@@ -231,14 +261,6 @@ async function grantGeoAndMock(ctx: BrowserContext, mockState: MockState) {
 }
 
 async function dismissMaintenanceOverlay(page: Page) {
-  await page.addStyleTag({
-    content: `
-      div[class*="fixed"][class*="inset-0"][class*="z-"] {
-        display: none !important;
-        pointer-events: none !important;
-      }
-    `,
-  });
   await page.evaluate(() => {
     document.querySelectorAll("div").forEach((el) => {
       const cls = typeof el.className === "string" ? el.className : "";
@@ -261,22 +283,38 @@ async function joinAndWaitForMap(page: Page) {
   // Udfyld holdnavn og bekræft (placeholder = "Skriv holdnavn").
   // Giv React 20s til at hydratere og vise name-gate.
   const nameInput = page.getByPlaceholder(/hold|team|navn/i).first();
-  if (await nameInput.isVisible({ timeout: 20_000 }).catch(() => false)) {
-    await nameInput.fill(TEAM_NAME);
-    const confirmBtn = page
-      .getByRole("button", { name: /klar|start|deltag|bekræft/i })
-      .first();
-    await confirmBtn.click();
-  }
+  await expect(nameInput).toBeVisible({ timeout: 30_000 });
+  await page.waitForFunction(() => {
+    const input = document.querySelector(
+      'input[placeholder*="hold" i], input[placeholder*="team" i], input[placeholder*="navn" i]',
+    );
+    return input !== null && Object.keys(input).some((key) => key.startsWith("__reactProps$"));
+  });
+  await nameInput.fill(TEAM_NAME);
+  const confirmBtn = page
+    .getByRole("button", { name: /klar|start|deltag|bekræft/i })
+    .first();
+  await expect(confirmBtn).toBeEnabled();
+  await confirmBtn.click();
 
   // Vent til spil-HUD er synlig. "Afstand" er teksten i distance-kortet der
   // vises på game-skærmen (PlayInterface.tsx case "play"). Det er det mest
   // reliable signal på at spillet er aktivt — ingen data-testid attributter
   // eksisterer i PlayInterface.
-  // 110s budget: global-setup pre-kompilerer JS-chunks via fetch, men ved
-  // Fast Refresh genstart eller kold start kan kompilering tage 60-90s.
-  // 110s er inden for test.setTimeout(120_000) og giver 10s margin.
-  await page.waitForSelector('text=Afstand', { timeout: 110_000 });
+  await page.getByText("Afstand", { exact: true }).first().waitFor({
+    state: "visible",
+    timeout: 30_000,
+  });
+
+  const openPostButton = page.getByRole("button", { name: /åbn post/i }).first();
+  const visibleQuestion = page.getByText(/Hvad er hovedstaden|Løs koden/, { exact: false }).first();
+  try {
+    await expect(openPostButton.or(visibleQuestion).first()).toBeVisible({ timeout: 15_000 });
+  } catch {
+    const visiblePageText = (await page.locator("body").innerText()).replace(/\s+/g, " ").slice(0, 1_200);
+    throw new Error(`Elevflowet nåede HUD, men ingen post kunne åbnes. Synlig tekst: ${visiblePageText}`);
+  }
+  if (await openPostButton.isVisible()) await openPostButton.click();
 }
 
 // ---------------------------------------------------------------------------
@@ -285,7 +323,7 @@ async function joinAndWaitForMap(page: Page) {
 
 async function readPlaySnapshot(page: Page) {
   return page.evaluate(() => {
-    const key = "gpslob_play_snapshot";
+    const key = "gpslob_active_play_snapshot";
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     try {
@@ -399,7 +437,9 @@ test.describe("WiFi→4G GPS-Drift Resilience", () => {
         // Submit-count: mindst 1 svar er synkroniseret
         expect(mockState.submitCallCount).toBeGreaterThanOrEqual(1);
       } finally {
-        await ctx.close();
+        mockState.validateShouldHang = false;
+        releasePendingRequests(mockState.validateHangResolvers);
+        await closeTestContext(ctx);
       }
     }
   );
@@ -425,7 +465,6 @@ test.describe("Frosset Svar-Knap efter Netværksudfald", () => {
       let validateHangResolvers: Array<() => void> = [];
       let validateShouldHang = true;
       let validateCallCount = 0;
-      let submitCallCount = 0;
 
       try {
         await ctx.grantPermissions(["geolocation"]);
@@ -463,7 +502,7 @@ test.describe("Frosset Svar-Knap efter Netværksudfald", () => {
               questions: ESCAPE_QUESTIONS,
               raceType: "escape",
               radius: 30,
-              gpsOverride: false,
+              gpsOverride: true,
             }),
           });
         });
@@ -472,16 +511,20 @@ test.describe("Frosset Svar-Knap efter Netværksudfald", () => {
           await route.fulfill({
             status: 200,
             contentType: "application/json",
-            body: JSON.stringify({ sessionStatus: "running", gpsOverride: false }),
+            body: JSON.stringify({ sessionStatus: "running", gpsOverride: true }),
           });
         });
 
         await ctx.route(/\/api\/play\/participant/, async (route: Route) => {
           await route.fulfill({
-            status: 404,
+            status: 200,
             contentType: "application/json",
-            body: JSON.stringify({ error: "Not found" }),
+            body: JSON.stringify(participantSnapshot()),
           });
+        });
+
+        await ctx.route("**/rest/v1/session_messages*", async (route: Route) => {
+          await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
         });
 
         await ctx.route(/\/api\/play\/location/, async (route: Route) => {
@@ -489,7 +532,6 @@ test.describe("Frosset Svar-Knap efter Netværksudfald", () => {
         });
 
         await ctx.route(/\/api\/play\/submit-answer/, async (route: Route) => {
-          submitCallCount++;
           await route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -533,8 +575,11 @@ test.describe("Frosset Svar-Knap efter Netværksudfald", () => {
         await answerInput.fill("4");
         await tjekSvarBtn.click();
 
-        // isCheckingEscapeAnswer = true → knappen er disabled
-        await expect(tjekSvarBtn).toBeDisabled({ timeout: 5_000 });
+        // UI skal reagere med det samme: den aktuelle implementation skjuler
+        // formularen under behandlingen, mens ældre UI lod knappen stå disabled.
+        await expect
+          .poll(async () => (await tjekSvarBtn.count()) === 0 || (await tjekSvarBtn.isDisabled()))
+          .toBe(true);
         await page.waitForTimeout(300);
         expect(validateCallCount).toBeGreaterThanOrEqual(1);
 
@@ -564,7 +609,9 @@ test.describe("Frosset Svar-Knap efter Netværksudfald", () => {
         // Siden er stadig funktionel
         await expect(page.locator("body")).toBeVisible();
       } finally {
-        await ctx.close();
+        validateShouldHang = false;
+        releasePendingRequests(validateHangResolvers);
+        await closeTestContext(ctx);
       }
     }
   );
@@ -581,7 +628,6 @@ test.describe("Frosset Svar-Knap efter Netværksudfald", () => {
       let submitShouldHang = true;
 
       await ctx.grantPermissions(["geolocation"]);
-
       // Blokér Supabase Realtime
       await ctx.route(/supabase.*realtime|realtime\/v1\/websocket/i, async (route: Route) => {
         await route.abort("connectionrefused");
@@ -648,7 +694,10 @@ test.describe("Frosset Svar-Knap efter Netværksudfald", () => {
         expect(snap?.solvedPostIndexes).toContain(0);
         expect(snap?.correctAnswersCount).toBeGreaterThanOrEqual(1);
       } finally {
-        await ctx.close();
+        submitShouldHang = false;
+        releasePendingRequests(submitHangResolvers);
+        releasePendingRequests(mockState.validateHangResolvers);
+        await closeTestContext(ctx);
       }
     }
   );
@@ -730,7 +779,9 @@ test.describe("Fuld Offline-Resiliens Livscyklus", () => {
         await page.waitForTimeout(2_000);
         expect(mockState.submitCallCount).toBeGreaterThanOrEqual(1);
       } finally {
-        await ctx.close();
+        mockState.validateShouldHang = false;
+        releasePendingRequests(mockState.validateHangResolvers);
+        await closeTestContext(ctx);
       }
     }
   );

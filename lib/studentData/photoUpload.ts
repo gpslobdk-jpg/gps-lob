@@ -4,7 +4,9 @@ export const PHOTO_UPLOAD_MAX_BYTES = 12 * 1024 * 1024;
 export const PHOTO_OUTPUT_MAX_BYTES = 8 * 1024 * 1024;
 export const PHOTO_MAX_WIDTH = 8_000;
 export const PHOTO_MAX_HEIGHT = 8_000;
-export const PHOTO_MAX_PIXELS = 40_000_000;
+// A 12 MP ceiling still preserves more detail than the displayed school-task
+// photos need, while bounding libvips memory during concurrent submissions.
+export const PHOTO_MAX_PIXELS = 12_000_000;
 
 const ALLOWED_SOURCE_FORMATS = new Set(["jpeg", "png", "webp"]);
 

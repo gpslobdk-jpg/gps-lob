@@ -64,4 +64,15 @@ test.describe("safe login return paths", () => {
     expect(callback).not.toContain("requestUrl.href");
     expect(callback).toContain("requestUrl.pathname");
   });
+
+  test("keeps OAuth codes, provider payloads and user objects out of auth logs", () => {
+    const callback = source("app/api/auth/callback/route.ts");
+
+    expect(callback).not.toContain("error_description");
+    expect(callback).not.toContain("providerErrorDescription");
+    expect(callback).not.toContain("console.log(");
+    expect(callback).not.toContain("{ userError, user }");
+    expect(callback).not.toContain("exchangeError);");
+    expect(callback).toContain('redirectToLogin(safeOrigin, "oauth_provider_error")');
+  });
 });

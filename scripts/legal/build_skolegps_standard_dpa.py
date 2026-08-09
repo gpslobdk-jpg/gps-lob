@@ -15,8 +15,8 @@ from docx.text.paragraph import Paragraph
 
 
 CONTROLLER = "[UDFYLDES AF KOMMUNEN/SKOLEEJEREN]"
-DOCUMENT_VERSION = "1.1"
-PUBLICATION_DATE = "8. august 2026"
+DOCUMENT_VERSION = "1.2"
+PUBLICATION_DATE = "9. august 2026"
 
 
 def clear_paragraph(paragraph) -> None:
@@ -380,9 +380,9 @@ def fill_annex_c(doc: Document) -> None:
         p[308],
         "Databaseadgang beskyttes med row-level security og serverkontrol. Fotoobjekter gemmes i en privat "
         "Storage-bucket. Visning kræver autentificeret lærer og kontrol af løbs-, svar- og fotoejerskab. En "
-        "beskyttet, ikke-cachebar SkoleGPS-route streamer derefter billedets bytes; hverken Storage-sti eller "
-        "signed Storage-URL udleveres til browseren. Uploads dekodes, rotation anvendes, og billedet genkodes "
-        "som JPEG uden EXIF- eller GPS-metadata. Fotoopgaver må fortsat "
+        "beskyttet, ikke-cachebar SkoleGPS-fotoproxy streamer derefter billedets bytes; hverken Storage-sti eller "
+        "signed Storage-URL udleveres til browseren. Uploads dekodes med en fast grænse på 12 millioner "
+        "pixels, rotation anvendes, og billedet genkodes som JPEG uden EXIF- eller GPS-metadata. Fotoopgaver må fortsat "
         "kun bruges til ting, steder og ikke-personhenførbare motiver. Læreren kan rydde fotos og øvrige "
         "elevdata fra resultatsiden, hvor Storage-objekt og databasepost slettes samlet.",
     )
@@ -545,7 +545,7 @@ def fill_annex_d(doc: Document) -> None:
             "Fotoopgaver må i kommunal brug alene omfatte ting, steder eller andre ikke-personhenførbare "
             "motiver. Genkendelige personer, elevnavne, skærmbilleder med personoplysninger og andet "
             "personhenførbart eller fortroligt indhold må ikke fotograferes eller uploades. Fotoobjekter ligger "
-            "i privat Storage og streames kun til løbets ejer gennem en beskyttet, ikke-cachebar SkoleGPS-route. "
+            "i privat Storage og streames kun til løbets ejer gennem en beskyttet, ikke-cachebar SkoleGPS-fotoproxy. "
             "Storage-stier og signed Storage-URLs udleveres ikke til browseren. Ønsker kommunen senere "
             "personhenførbare fotos, kræver det en fornyet risikovurdering og skriftlig ændring af instruksen.",
         ),
@@ -569,6 +569,17 @@ def fill_annex_d(doc: Document) -> None:
             "6. Kommunens kontaktvej ved sikkerhedsbrud og anmodninger fra registrerede.\n"
             "7. Eventuelle supplerende krav til oppetid, support, revision, ansvar, forsikring, værneting og "
             "ophør i en særskilt hovedaftale.",
+        ),
+        (
+            "D.7 Forberedt login-overdragelse til DagensTavle",
+            "DagensTavle-SSO er forberedt bag feature flags og er ikke aktivt i produktion, før en senere "
+            "godkendt deployment og konfiguration er verificeret. Når det aktiveres, overdrages kun lærerens "
+            "stabile bruger-id, verificerede e-mail, visningsnavn og loginudbyder gennem en kortlivet, "
+            "single-use serverforbindelse. Der anvendes alene identitets-scopes openid, email og profile. "
+            "DagensTavle modtager ingen elevdata, løb, deltagere, svar, fotos, GPS, resultater, Supabase-session, "
+            "JWT, OAuth-kode eller service-role-nøgle. De kortlivede request- og nonceværdier gemmes kun som "
+            "hashes, udløber senest efter to minutter og kan slettes idempotent; DagensTavle opretter sin egen "
+            "host-only session og kræver særskilt accept af egne vilkår.",
         ),
     ]
 
@@ -595,13 +606,14 @@ def remove_omitted_template_scaffold(doc: Document) -> None:
         element.getparent().remove(element)
 
 
-def enable_field_updates(doc: Document) -> None:
+def disable_automatic_field_updates(doc: Document) -> None:
+    """Keep Word from spending minutes re-evaluating inherited template fields on open."""
     settings = doc.settings._element
     update = settings.find(qn("w:updateFields"))
     if update is None:
         update = OxmlElement("w:updateFields")
         settings.append(update)
-    update.set(qn("w:val"), "true")
+    update.set(qn("w:val"), "false")
 
 
 def set_core_properties(doc: Document) -> None:
@@ -615,7 +627,7 @@ def set_core_properties(doc: Document) -> None:
 
 
 def patch_document_ooxml(docx_path: Path) -> None:
-    """Remove template-only changelog/draft labeling and improve inherited header accessibility."""
+    """Remove template-only metadata/labels and improve inherited header accessibility."""
     namespace = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
     word_namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     with zipfile.ZipFile(docx_path, "r") as source, tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp:
@@ -659,6 +671,24 @@ def patch_document_ooxml(docx_path: Path) -> None:
                             if page_break and not visible_text:
                                 body.remove(previous)
                             break
+                    payload = etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone="yes")
+                elif item.filename == "docProps/core.xml":
+                    from lxml import etree
+
+                    root = etree.fromstring(payload)
+                    metadata_namespaces = {
+                        "cp": "http://schemas.openxmlformats.org/package/2006/metadata/core-properties",
+                        "dc": "http://purl.org/dc/elements/1.1/",
+                        "dcterms": "http://purl.org/dc/terms/",
+                    }
+                    for xpath in ("dc:creator", "cp:lastModifiedBy", "dc:description"):
+                        element = root.find(xpath, namespaces=metadata_namespaces)
+                        if element is not None:
+                            element.text = None
+                    for xpath in ("dcterms:created", "dcterms:modified"):
+                        element = root.find(xpath, namespaces=metadata_namespaces)
+                        if element is not None:
+                            root.remove(element)
                     payload = etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone="yes")
                 elif item.filename.startswith("customXml/") and item.filename.endswith(".xml"):
                     payload = payload.replace(b">Udkast<", b"><")
@@ -708,9 +738,9 @@ def update_existing_document(doc: Document) -> None:
         "Databaseadgang beskyttes med row-level security": (
             "Databaseadgang beskyttes med row-level security og serverkontrol. Fotoobjekter gemmes i en privat "
             "Storage-bucket. Visning kræver autentificeret lærer og kontrol af løbs-, svar- og fotoejerskab. En "
-            "beskyttet, ikke-cachebar SkoleGPS-route streamer derefter billedets bytes; hverken Storage-sti "
-            "eller signed Storage-URL udleveres til browseren. Uploads dekodes, rotation anvendes, og billedet "
-            "genkodes som JPEG uden EXIF- eller GPS-metadata. Fotoopgaver må "
+            "beskyttet, ikke-cachebar SkoleGPS-fotoproxy streamer derefter billedets bytes; hverken Storage-sti "
+            "eller signed Storage-URL udleveres til browseren. Uploads dekodes med en fast grænse på 12 millioner "
+            "pixels, rotation anvendes, og billedet genkodes som JPEG uden EXIF- eller GPS-metadata. Fotoopgaver må "
             "fortsat kun bruges til ting, steder og ikke-personhenførbare motiver. Læreren kan rydde fotos og "
             "øvrige elevdata fra resultatsiden, hvor Storage-objekt og databasepost slettes samlet."
         ),
@@ -753,7 +783,7 @@ def update_existing_document(doc: Document) -> None:
             "Fotoopgaver må i kommunal brug alene omfatte ting, steder eller andre ikke-personhenførbare motiver. "
             "Genkendelige personer, elevnavne, skærmbilleder med personoplysninger og andet personhenførbart eller "
             "fortroligt indhold må ikke fotograferes eller uploades. Fotoobjekter ligger i privat Storage og "
-            "streames kun til løbets ejer gennem en beskyttet, ikke-cachebar SkoleGPS-route. Storage-stier og "
+            "streames kun til løbets ejer gennem en beskyttet, ikke-cachebar SkoleGPS-fotoproxy. Storage-stier og "
             "signed Storage-URLs udleveres ikke til browseren. Ønsker kommunen senere personhenførbare fotos, "
             "kræver det en fornyet risikovurdering og skriftlig ændring af instruksen."
         ),
@@ -761,12 +791,16 @@ def update_existing_document(doc: Document) -> None:
 
     for paragraph in doc.paragraphs:
         text = paragraph.text
+        if "Bugsnag" in text and "version 1.0" in text:
+            set_paragraph(paragraph, text.replace("version 1.0", f"version {DOCUMENT_VERSION}"))
+            text = paragraph.text
         if text.startswith("STANDARD DATABEHANDLERAFTALE – IKKE UNDERSKREVET"):
             set_paragraph(
                 paragraph,
-                text.replace("Version 1.0", f"Version {DOCUMENT_VERSION}").replace(
-                    "7. august 2026", PUBLICATION_DATE
-                ),
+                text.replace("Version 1.0", f"Version {DOCUMENT_VERSION}")
+                .replace("Version 1.1", f"Version {DOCUMENT_VERSION}")
+                .replace("7. august 2026", PUBLICATION_DATE)
+                .replace("8. august 2026", PUBLICATION_DATE),
             )
             continue
 
@@ -784,8 +818,36 @@ def update_existing_document(doc: Document) -> None:
                 ),
             )
 
+    if not any(paragraph.text.startswith("D.7 Forberedt login-overdragelse") for paragraph in doc.paragraphs):
+        d6_heading = next(
+            paragraph
+            for paragraph in doc.paragraphs
+            if paragraph.text.startswith("D.6 Kommunens konkrete valg")
+        )
+        d6_body_element = d6_heading._p.getnext()
+        if d6_body_element is None:
+            raise ValueError("D.6-afsnittets brødtekst mangler")
+        d6_body = Paragraph(d6_body_element, d6_heading._parent)
+        heading = insert_paragraph_after(
+            d6_body,
+            "D.7 Forberedt login-overdragelse til DagensTavle",
+        )
+        heading.runs[0].bold = True
+        heading.runs[0].font.size = Pt(11)
+        insert_paragraph_after(
+            heading,
+            "DagensTavle-SSO er forberedt bag feature flags og er ikke aktivt i produktion, før en senere "
+            "godkendt deployment og konfiguration er verificeret. Når det aktiveres, overdrages kun lærerens "
+            "stabile bruger-id, verificerede e-mail, visningsnavn og loginudbyder gennem en kortlivet, single-use "
+            "serverforbindelse. Der anvendes alene identitets-scopes openid, email og profile. DagensTavle modtager "
+            "ingen elevdata, løb, deltagere, svar, fotos, GPS, resultater, Supabase-session, JWT, OAuth-kode eller "
+            "service-role-nøgle. De kortlivede request- og nonceværdier gemmes kun som hashes, udløber senest efter "
+            "to minutter og kan slettes idempotent; DagensTavle opretter sin egen host-only session og kræver "
+            "særskilt accept af egne vilkår.",
+        )
+
     set_core_properties(doc)
-    enable_field_updates(doc)
+    disable_automatic_field_updates(doc)
 
 
 def main() -> None:
@@ -823,7 +885,7 @@ def main() -> None:
     fill_annex_d(doc)
     remove_omitted_template_scaffold(doc)
     add_document_notice(doc)
-    enable_field_updates(doc)
+    disable_automatic_field_updates(doc)
     set_core_properties(doc)
 
     doc.save(args.output)

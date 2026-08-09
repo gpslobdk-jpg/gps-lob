@@ -12,6 +12,14 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated output and local Supabase runtime state are never source files.
+    "playwright-report/**",
+    "test-results/**",
+    "supabase/.temp/**",
+    "public/fallback-*.js",
+    "public/sw.js",
+    "public/swe-worker-*.js",
+    "public/workbox-*.js",
   ]),
 ]);
 

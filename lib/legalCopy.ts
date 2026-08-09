@@ -209,7 +209,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         email: "skolegpsdk@gmail.com",
         emailLabel: "Kontakt",
       },
-      updatedAt: "Senest opdateret: 8. august 2026.",
+      updatedAt: "Senest opdateret: 9. august 2026.",
     },
     privacy: {
       metadata: {
@@ -266,7 +266,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           title: "6. Modtagere og underleverandører",
           paragraphs: [
             "SkoleGPS bruger leverandører til database, autentifikation og Storage (Supabase), hosting og webanalyse (Vercel) samt fejlmonitorering (Sentry). Lærerens frivillige funktioner kan desuden bruge OpenAI og eksterne kort- eller indholdstjenester. Betaling via Stripe er kun relevant, hvis et betalingsflow aktiveres.",
-            "Bugsnag findes som betinget integration i kodebasen, men er ikke godkendt som aktiv leverandør for kommunens personoplysninger i standardaftale version 1.0. Vi sælger ikke personoplysninger og viser ikke reklamer i platformen.",
+            "Bugsnag findes som betinget integration i kodebasen, men er ikke godkendt som aktiv leverandør for kommunens personoplysninger i standardaftale version 1.2. Vi sælger ikke personoplysninger og viser ikke reklamer i platformen.",
           ],
         },
         {
@@ -301,7 +301,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
       securityCallout: {
         title: "Sikkerhed i praksis",
         paragraphs: [
-          "SkoleGPS bruger HTTPS/TLS, autentifikation, ejerskabskontrol, row-level security og serverbeskyttede nøgler. Elevfotos ligger i privat Storage og leveres kun til løbets ejer gennem en beskyttet, ikke-cachebar SkoleGPS-route; Storage-sti og midlertidige Storage-adresser udleveres ikke til browseren. Uploads dekodes og genkodes som JPEG, så EXIF- og GPS-metadata fjernes. Fejlmonitoreringen redigerer blandt andet navne, e-mail, koder, tokens, svar, fotostier, URL'er og lokation.",
+          "SkoleGPS bruger HTTPS/TLS, autentifikation, ejerskabskontrol, row-level security og serverbeskyttede nøgler. Elevfotos ligger i privat Storage og leveres kun til løbets ejer gennem en beskyttet, ikke-cachebar SkoleGPS-fotoproxy; Storage-sti og midlertidige Storage-adresser udleveres ikke til browseren. Uploads dekodes og genkodes som JPEG, så EXIF- og GPS-metadata fjernes. Fejlmonitoreringen redigerer blandt andet navne, e-mail, koder, tokens, svar, fotostier, URL'er og lokation.",
         ],
         bullets: [
           { label: "Brud", text: "berørte dataansvarlige orienteres uden unødig forsinkelse og om muligt inden 24 timer efter, at SkoleGPS bliver bekendt med bruddet" },
@@ -316,7 +316,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         email: "skolegpsdk@gmail.com",
         emailLabel: "Skriv til",
       },
-      updatedAt: "Senest opdateret: 8. august 2026.",
+      updatedAt: "Senest opdateret: 9. august 2026.",
     },
     ophavsret: {
       metadata: {

@@ -5,9 +5,9 @@ Status: Forberedt, ikke udført. Denne checkliste giver ikke tilladelse til prod
 ## Godkendelsesgate
 
 - [ ] Sikkerheds-PR er gennemgået af mindst én anden teknisk reviewer.
-- [x] Isoleret lokal Supabase/Postgres-test har kørt hele migrationsrækken, RLS-/ejeradgang, privat Storage, proxied fotoadgang, sletning, retention og opgraderingen fra parent-schemaet den 8. august 2026.
-- [ ] Kommunepakke version 1.1 er gennemgået af ejer og kommunens DPO/jurist.
-- [ ] Et vedligeholdelsesvindue uden aktive elevsessioner er aftalt. Appkoden kræver den nye fotometadatatabel; fotoaflevering skal derfor holdes lukket mellem apprelease og migration.
+- [x] Isoleret lokal Supabase/Postgres-test har kørt hele migrationsrækken, RLS-/ejeradgang, privat Storage, proxied fotoadgang, sletning, retention og alle overgangsfaser den 9. august 2026.
+- [ ] Kommunepakke version 1.2 er gennemgået af ejer og kommunens DPO/jurist.
+- [x] Zero-downtime-rækkefølgen er bevist lokalt: gammel kode virker efter additiv forberedelse, og ny kode virker både før og efter privat cutover for almindelige flows. Ny kode deployes først efter forberedelsen, så fotoaflevering ikke får et schemahul.
 - [ ] Produktionsprojektets reference, region og målmiljø er dobbelttjekket uden at udskrive nøgler eller persondata.
 
 ## 1. Backup og førkontrol
@@ -20,15 +20,22 @@ Status: Forberedt, ikke udført. Denne checkliste giver ikke tilladelse til prod
 - [ ] Planlæg en vedligeholdelsesstyret legacy-rekey: kopiér hvert kendt objekt server-side til et nyt `private-v2`-objektnavn, verificér indhold/checksum og ejermapping, opdatér referencen atomisk, og slet først derefter det gamle objekt. Purge leverandør-/CDN-cache, hvor muligt. Bucketen må aldrig gøres offentlig som rollback.
 - [ ] Bekræft, at den nye Edge-funktion `student-data-retention` er klar, men at ingen cron er aktiveret.
 
-## 2. Rækkefølge
+## 2. Minut-for-minut-rækkefølge
 
-1. [ ] Deploy den præcist godkendte app- og Edge-funktionscommit uden at aktivere cron.
-2. [ ] Smoke-test login, almindeligt løb og at nye fotoafleveringer fejler lukket i det korte interval før migrationen. Der må ikke være aktive elevsessioner.
-3. [ ] Anvend `202608070001_kommuneklar_elevdata.sql` én gang på det bekræftede projekt.
-4. [ ] Kontroller straks, at `participant-uploads.public = false`, at `participant_photo_objects` er backfillet, og at `answers.image_url` kun indeholder interne `/api/teacher/answers/<id>/photo`-referencer eller `null`.
-5. [ ] Kontroller, at ingen anon/authenticated Storage-policy giver direkte adgang til `participant-uploads`.
-6. [ ] Smoke-test ejeradgang og afvisning, før cron aktiveres.
-7. [ ] Aktivér først derefter cron som databaseejer med den korrekte HTTPS-URL til `/functions/v1/student-data-retention` via `public.configure_student_data_retention_cron(...)`.
+- **T-30 min:** [ ] Bekræft godkendt commit, projekt-id/region, backup, objektinventar og at feature flags fortsat er slukket. Stop ved enhver afvigelse.
+- **T-20 min:** [ ] Deploy Edge-funktionen `student-data-retention`, men opret eller aktivér ingen cron.
+- **T-15 min:** [ ] Anvend kun `202608070001_kommuneklar_elevdata.sql`. Denne migration er additiv og ændrer ikke bucketens eksisterende public-status eller gamle fotoflow.
+- **T-12 min:** [ ] Verificér tabeller, funktioner, RLS/grants, nul aktive cronjobs og uændret bucket-status. Gammel kode og almindelige aktive løb skal fortsat virke.
+- **T-10 min:** [ ] Deploy den præcist godkendte nye appcommit med Family-SSO-flags slukket. Ny kode kan nu bruge fotometadatatabellen, mens bucketens status stadig er kompatibel.
+- **T-7 min:** [ ] Smoke-test login, elevjoin, almindeligt svar, foto-upload/visning, GPS, målgang, resultat, Zone Krig og arkivering. Stop før cutover ved fejl; appen kan på dette tidspunkt rulles tilbage uden schemaændring.
+- **T-3 min:** [ ] Kontrollér legacy-fotostier og ukendte eksterne URL'er igen. Cutover-migrationen skal selv stoppe transaktionen ved ukendt mapping.
+- **T:** [ ] Anvend `202608070002_kommuneklar_elevdata_cutover.sql`. Den validerer/backfiller, omskriver interne fotoreferencer, fjerner direkte browserpolicies og gør bucketen privat i én transaktion.
+- **T+1 min:** [ ] Kontrollér, at `participant-uploads.public = false`, at `participant_photo_objects` er backfillet, at `answers.image_url` kun indeholder interne `/api/teacher/answers/<id>/photo`-referencer eller `null`, og at ingen anon/authenticated Storage-policy giver direkte adgang.
+- **T+3 min:** [ ] Gentag ejer-, cross-owner-, anonym-, upload-, visnings- og slettesmoke. Almindelige aktive løb må ikke være afbrudt.
+- **T+7 min:** [ ] Anvend den separate `202608080001_dagenstavle_family_sso.sql`, mens begge SSO-flags fortsat er slukket. Verificér migration og normal DagensTavle-login uden SSO.
+- **T+12 min:** [ ] Aktivér kun Family SSO i et særskilt godkendt miljø-/dashboardtrin, og kør single-use, terms, konflikt, logout og deaktiveringssmoke. Dette dokument giver ikke tilladelse til trinets udførelse.
+- **T+20 min:** [ ] Aktivér først efter separat ejeraccept cron som databaseejer via `public.configure_student_data_retention_cron(...)`. Dette dokument giver ikke tilladelse til hosted aktivering.
+- **T+25 min:** [ ] Verificér `cron.job`, jobhistorik og én kontrolleret syntetisk kørsel. Først efter dokumenteret succes må cron beskrives som aktiv i produktion.
 
 ## 3. Hosted cron og jobhistorik
 
@@ -45,7 +52,7 @@ Status: Forberedt, ikke udført. Denne checkliste giver ikke tilladelse til prod
 - [ ] Lærer A kan se et foto fra eget løb.
 - [ ] Lærer A får 404/ingen adgang til lærer B's svar-ID; responsen afslører ikke ejer, sti eller bucket.
 - [ ] Anonym bruger får 401 og kan ikke følge en gammel offentlig URL.
-- [ ] Fotobilledet leveres gennem den beskyttede SkoleGPS-route med `private, no-store`, `Pragma: no-cache` og `Referrer-Policy: no-referrer`; responsen indeholder ingen Storage-sti eller signed URL og kan ikke genbruges efter sletning.
+- [ ] Fotobilledet leveres gennem den beskyttede SkoleGPS-fotoproxy med `private, no-store`, `Pragma: no-cache` og `Referrer-Policy: no-referrer`; responsen indeholder ingen Storage-sti eller signed URL og kan ikke genbruges efter sletning.
 - [ ] Sletning fra resultatsiden fjerner både Storage-objekt, fotometadata, svar, deltagere og session; ny hentning giver 404.
 - [ ] En elev kan aflevere foto uden elevkonto i en konkret aktiv session/fotoopgave, men ikke i en afsluttet eller anden session.
 - [ ] GPS-afstand beregnes fortsat lokalt; en frisk position vises under aktivt løb.
@@ -57,9 +64,10 @@ Status: Forberedt, ikke udført. Denne checkliste giver ikke tilladelse til prod
 
 ## 5. Rollback
 
-- [ ] Stop først begge nye cronjobs; bevar jobhistorikken som revisionsspor.
-- [ ] Stop fotoaflevering og aktive elevsessioner.
-- [ ] Rul appen tilbage til den senest godkendte commit kun efter vurdering af datamodellen. En gammel app må ikke genåbne bucketen eller begynde at gemme offentlige URL'er.
+- [ ] **Før migration 002:** Stop deploymenten. Ny app kan rulles tilbage til gammel app, fordi migration 001 er additiv og bucketstatus er uændret. Bevar migration 001; ingen destruktiv schema-rollback er nødvendig.
+- [ ] **Efter migration 002:** Rul aldrig tilbage til gammel kode. Den gamle app forventer offentlige fotoreferencer og er ikke kompatibel med privat bucket. Hold bucketen privat og ret fremad med den senest godkendte nye kode.
+- [ ] Stop først begge nye cronjobs, hvis de senere er blevet aktiveret; bevar jobhistorikken som revisionsspor.
+- [ ] Ved nødvendig trafikstandsning stop kun nye fotoafleveringer først. Almindelige løb må kun stoppes ved dokumenteret integritets- eller adgangsfejl.
 - [ ] Bevar bucketen privat under rollback. Offentliggørelse er ikke en acceptabel rollback.
 - [ ] Ved kodefejl kan den nye foto-route og retentionfunktion rettes fremad, mens Storage forbliver privat.
 - [ ] Ved databasefejl gendannes den verificerede backup efter Supabase-proceduren. Sammenhold Storage-inventaret særskilt, fordi Storage-objekter ikke indgår i databasebackup.

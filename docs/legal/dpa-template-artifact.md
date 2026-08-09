@@ -3,9 +3,9 @@
 ## Dokumentidentitet
 
 - Titel: `Standarddatabehandleraftale – SkoleGPS`
-- Version: `1.1`
-- Udgivet: `8. august 2026`
-- Senest opdateret: `8. august 2026`
+- Version: `1.2`
+- Udgivet: `9. august 2026`
+- Senest opdateret: `9. august 2026`
 - Dokumentansvarlig: `Jeppe Laursen, SkoleGPS.dk`
 - Status: `Ikke underskrevet standardskabelon`
 - Kildeskabelon: Datatilsynets danske standardkontraktbestemmelser.
@@ -59,11 +59,19 @@
 - HTTPS/TLS, Supabase RLS, ejerskabskontrol, deltagerbinding og serverbeskyttede privilegerede nøgler er dokumenteret i kodebasen.
 - Rå delingstokens gemmes ikke; delingslinks bruger URL-fragment, SHA-256-digest, no-store/noindex og tokenredaktion.
 - Sentry er kun aktiv ved eksplicit miljøkonfiguration, fjerner bruger-, server- og enhedskontekst og redigerer navn, e-mail, IP, PIN-/løbskoder, tokens, sessions-/deltager-id, svar, billeder og lokation.
-- Bugsnag er en betinget kodeintegration og er ikke godkendt som aktiv underdatabehandler i version 1.0. Den må ikke aktiveres til kommunens personoplysninger uden ændringsvarsel, kontraktgrundlag og global redaktion.
-- Foto-bucketen er privat. Browseren modtager hverken objektsti eller signed Storage-URL. Efter kontrol af lærerlogin samt løbs-, svar- og fotoejerskab streamer en beskyttet SkoleGPS-route billedets bytes med `private, no-store`. Uploads dekodes som JPEG, PNG eller WebP, rotation anvendes, og billedet genkodes som JPEG uden EXIF- eller GPS-metadata.
+- Bugsnag er en betinget kodeintegration og er ikke godkendt som aktiv underdatabehandler i version 1.2. Den må ikke aktiveres til kommunens personoplysninger uden ændringsvarsel, kontraktgrundlag og global redaktion.
+- Foto-bucketen er privat. Browseren modtager hverken objektsti eller signed Storage-URL. Efter kontrol af lærerlogin samt løbs-, svar- og fotoejerskab streamer en beskyttet SkoleGPS-fotoproxy billedets bytes med `private, no-store`. Uploads dekodes som JPEG, PNG eller WebP med højst 12 millioner pixels, rotation anvendes, og billedet genkodes som JPEG uden EXIF- eller GPS-metadata.
 - Forbuddet mod genkendelige personer og fortroligt indhold i fotoopgaver gælder fortsat som dataminimering.
 
-## Godkendte underdatabehandlere i version 1.1
+## Forberedt DagensTavle-SSO
+
+- SSO er bag feature flags og må ikke beskrives som aktivt i produktion, før senere godkendt deployment og konfiguration er verificeret.
+- Kun lærerens stabile bruger-id, verificerede e-mail, visningsnavn og loginudbyder kan overdrages gennem en kortlivet, single-use serverforbindelse.
+- Der bruges alene identitets-scopes `openid`, `email` og `profile`.
+- DagensTavle modtager ingen elevdata, løb, deltagere, svar, fotos, GPS, resultater, Supabase-session, JWT, OAuth-kode eller service-role-nøgle.
+- Request og nonce gemmes kun som hashes, udløber senest efter to minutter og kan slettes idempotent. DagensTavle etablerer sin egen host-only session og kræver særskilt accept af egne vilkår.
+
+## Godkendte underdatabehandlere i version 1.2
 
 - Supabase, Inc.: database, login, Storage, Realtime og serverfunktioner. Projektkonfigurationen angiver region `eu-west-1` (Irland); support, backups og underleverandører følger gældende DPA.
 - Vercel Inc.: webhosting, edge/serverafvikling og webanalyse. Må kun anvendes til kommunens personoplysninger på en plan med kontraktuel DPA-dækning.

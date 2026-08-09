@@ -1,12 +1,12 @@
 # Verifikationsrapport for SkoleGPS' kommunepakke
 
-Dato: 8. august 2026
-Omfang: Lokal kode, migrationsfiler, dokumenter og isolerede testresultater på branch `security/kommuneklar-elevdata`.
+Dato: 9. august 2026
+Omfang: Lokal kode, migrationsfiler, dokumenter og isolerede testresultater på branch `feature/dagenstavle-family-sso`.
 Begrænsning: Ingen hosted konfiguration, leverandørkonto, produktionsdatabase eller deployment er ændret eller anvendt som bevis.
 
 ## 1. Dokumentkontrol
 
-Den offentlige standardaftale er version 1.1, udgivet og senest opdateret 8. august 2026. Den er en ikke underskrevet standardskabelon, ikke en myndighedsgodkendelse.
+Den offentlige standardaftale er version 1.2, udgivet og senest opdateret 9. august 2026. Den er en ikke underskrevet standardskabelon, ikke en myndighedsgodkendelse.
 
 | Søgeord | DOCX | PDF | Klassifikation |
 | --- | ---: | ---: | --- |
@@ -34,10 +34,10 @@ Word og PDF indeholder samme version, dato, dokumentansvarlige, bilag A–D og c
 
 - Elever deltager uden elevkonto og elev-e-mail. Normal deltagelse kan omfatte holdnavn/kort fornavn, sessions- og deltager-id, løbskode, svar, fritekst, quizvalg, point, status, tidsstempler, aktuel lokation og foto.
 - `app/api/play/submit-photo/route.ts` validerer aktiv session, konkret deltager og fotoopgave på serveren. Faktisk JPEG-, PNG- eller WebP-indhold dekodes, begrænses i bytes/dimensioner, roteres efter metadata og genkodes som JPEG uden EXIF/GPS-metadata. Fotoet får en servergenereret tilfældig sti og gemmes med service-role alene på serveren; browseren modtager ikke Storage-stien.
-- Den nye migration gør `participant-uploads` privat, backfiller eksisterende referencer til `participant_photo_objects` og erstatter gamle offentlige URL'er med en intern foto-route.
+- Forberedelsesmigrationen `202608070001_kommuneklar_elevdata.sql` tilføjer metadata, retention og kompatible funktioner uden at ændre bucketens eksisterende public-status. Cutover-migrationen `202608070002_kommuneklar_elevdata_cutover.sql` validerer/backfiller referencer, erstatter gamle offentlige URL'er med den interne foto-route og gør derefter `participant-uploads` privat i samme transaktion.
 - `app/api/teacher/answers/[answerId]/photo/route.ts` kræver lærerlogin, løbsejerskab samt match mellem svar, session, deltager og fotoobjekt. Routen henter derefter objektet server-side og streamer bytes med `Cache-Control: private, no-store, max-age=0`, `Pragma: no-cache` og `Referrer-Policy: no-referrer`. Browseren modtager ikke en signed Storage-URL.
 - Der er ikke fundet et almindeligt elevflow, som optager eller uploader lyd, podcastlyd eller video. Lærerens AI-/podcastværktøjer kan behandle lærerindtastet tekst, links, resuméer eller transskriptioner.
-- Fotoopgaver er fortsat begrænset til ting, steder og ikke-personhenførbare motiver. Privat Storage reducerer eksponering, men ændrer ikke dataminimeringsinstruksen.
+- Fotoopgaver er fortsat begrænset til ting, steder og ikke-personhenførbare motiver. Privat Storage reducerer eksponering, men ændrer ikke dataminimeringsinstruksen. Pixelgrænsen er sænket fra 40 til 12 millioner pixels efter målt peak på cirka 1.077 MiB ved fem samtidige 40 MP-filer. Ved 12 MP måltes 102 MiB for ét JPEG, 94 MiB for ét PNG, 418 MiB for fem samtidige og 432 MiB for ti samtidige; alle gennemførte uden timeout, og et komprimeret overgrænseinput blev afvist på 4 ms.
 
 ## 4. Sletning og retention
 
@@ -58,7 +58,7 @@ Word og PDF indeholder samme version, dato, dokumentansvarlige, bilag A–D og c
 ## 6. Observability
 
 - Sentry initialiseres kun, når det relevante eksplicitte miljøflag er `true`. Production, preview, development og test skal sættes med særskilte miljønavne. `sendDefaultPii` er slået fra, bruger-, server-, request-, app-, cloud-, enheds-, GPU-, OS- og runtimekontekst fjernes, replay maskerer tekst/input og blokerer medier, og den centrale sanitizer redigerer navn, e-mail, IP, koder, tokens, sessions-/deltager-id, svar, fotostier, URL-legitimationsoplysninger og lokation.
-- Bugsnag findes som betinget integration bag `NEXT_PUBLIC_BUGSNAG_API_KEY`. Den robuste globale sanitizer er ikke koblet til alle automatisk indfangede Bugsnag-fejl. Bugsnag er derfor ikke angivet som aktiv/godkendt underdatabehandler i standardaftale version 1.0 og må ikke aktiveres til kommunens personoplysninger uden en ny kontrakt- og sikkerhedskontrol.
+- Bugsnag findes som betinget integration bag `NEXT_PUBLIC_BUGSNAG_API_KEY`. Den robuste globale sanitizer er ikke koblet til alle automatisk indfangede Bugsnag-fejl. Bugsnag er derfor ikke angivet som aktiv/godkendt underdatabehandler i standardaftale version 1.2 og må ikke aktiveres til kommunens personoplysninger uden en ny kontrakt- og sikkerhedskontrol.
 - Vercel Analytics er aktiv i layoutet med et før-afsendelsesfilter. Delingssiden til afvikling og fotoudleveringsflowet fravælges.
 
 ## 7. Leverandører og eksterne tjenester
@@ -68,7 +68,7 @@ Word og PDF indeholder samme version, dato, dokumentansvarlige, bilag A–D og c
 | Supabase | Database, Auth, Storage, Realtime og serverfunktioner; centrale konto-, løbs- og elevdata | Aktiv kerneintegration | Lokal linked-regionindikator `eu-west-1` (Irland); plan, backups og hosted DPA/SCC kræver ejerens kontodokumentation |
 | Vercel | Hosting, server/edge og webanalyse; tekniske requests og data under afvikling | Aktiv kerneintegration | USA/global efter leverandørvilkår; konkret plan skal have DPA-dækning |
 | Sentry | Fejlmonitorering; redigerede tekniske data | Aktiv initialisering | Valgt datalagringsregion Tyskland; konto, retention og DPA skal dokumenteres af ejeren |
-| Bugsnag/SmartBear | Betinget fejlmonitorering | Kode findes, aktivering ukendt; ikke godkendt i aftale v1.0 | Må forblive deaktiveret for kommunedata uden ny kontrol |
+| Bugsnag/SmartBear | Betinget fejlmonitorering | Kode findes, aktivering ukendt; ikke godkendt i aftale v1.2 | Må forblive deaktiveret for kommunedata uden ny kontrol |
 | OpenAI | Frivillige lærerrettede AI-funktioner og indholdsgenerering | Flere lærer-API-routes | OpenAI Ireland/DPA og underdatabehandlere; kontoindstillinger, eventuel ZDR og data residency kræver ejerbevis |
 | Pollinations | Fallback til lærerrettet billedgenerering | Aktiv fallbackkode | Ekstern tjeneste; ingen elevdata må sendes |
 | Stripe | Betaling, abonnement og kundeportal | Kode findes; ikke nødvendig i gratis skoleår | Kun relevant hvis betaling aktiveres; konto og aftale kræver ejerbevis |
@@ -98,7 +98,7 @@ Der er ikke fundet en selvstændig mailleverandør, captcha-tjeneste, Google Ana
 
 ## 10. Isoleret teknisk bevis
 
-Den 8. august 2026 blev den eksisterende lokale Docker/Supabase-runtime anvendt uden installation af systemsoftware og uden forbindelse til produktionsprojektet. Hele migrationsrækken blev anvendt fra nul, og opgraderingen fra parent-migrationspunktet blev kørt separat. Gentagen migration gav ingen resterende migrationer.
+Den 9. august 2026 blev den eksisterende lokale Docker/Supabase-runtime anvendt uden installation af systemsoftware og uden forbindelse til produktionsprojektet. Hele migrationsrækken blev anvendt fra nul, og overgangene før forberedelse, efter forberedelse og efter privat cutover blev kørt separat. Gentagen migration gav ingen SQL-fejl.
 
 Syntetiske tests beviste lærer A/B-isolation, anonym afvisning, privat Storage, server-only adgang, deltagerbinding, atomisk upload-ratebegrænsning, skjult/stale GPS, fysisk GPS-oprydning, finish-nulstilling, 30-/90-dages retention, aktive sessioners bevarelse, orphan-detektion, seriel retentionstart og 50 samtidige deltagere med GPS og svar. Et lokalt pg_cron-smokejob kørte succesfuldt, og alle testjobs blev derefter afmeldt. Hosted Edge-, cron- og dashboardstatus er fortsat ikke verificeret eller aktiveret.
 
@@ -111,7 +111,24 @@ Pakken indeholder nu lokal hardening til privat foto-Storage, proxied og ikke-ca
 Feature-branchen forbereder en valgfri login-overdragelse for lærere. Browseren
 modtager ingen Supabase-session, JWT, OTP eller e-mail i URL'en. DagensTavle får
 ingen service-role-nøgle og ingen adgang til SkoleGPS' elevtabeller. Request- og
-nonceværdier gemmes kun som hashes i 90 sekunder, exchange sker server-til-
+nonceværdier gemmes kun som hashes, browserbindingen varer højst 90 sekunder og database-requesten højst to minutter; exchange sker server-til-
 server med HMAC, og DagensTavle etablerer derefter sin egen host-only session.
-Ingen elevdata overføres. Funktionen, migrationen og dashboardkonfigurationen er
+Kun identitets-scopes `openid`, `email` og `profile` anvendes. Ingen elevdata overføres. Funktionen, migrationen og dashboardkonfigurationen er
 ikke aktiveret eller verificeret i produktion.
+
+## 12. Release-kompatibilitet og lokal bootstrap
+
+`202603010001_core_schema.sql` fandtes ikke på `origin/main` og heller ikke i den read-only hostede migrationshistorik. Filen opretter et tomt lokalt kerneschema og er ikke idempotent mod et allerede eksisterende hosted schema, blandt andet på grund af policy-, trigger- og funktionsdefinitioner. Den er derfor flyttet ud af produktionsstien til `supabase/test-fixtures/bootstrap/`. Den versionsstyrede lokale reset-runner samler fixture og produktionsmigrationer i en midlertidig Supabase-workdir og bevarer evnen til at starte en tom isoleret database.
+
+Den isolerede kompatibilitetsmatrix gav:
+
+| Kode | Schema | Almindelige flows | Foto |
+| --- | --- | --- | --- |
+| Gammel | Gammelt | Bestået | Bestået |
+| Ny | Gammelt | Bestået | Blokeret som forventet, fordi fotometadata mangler |
+| Gammel | Forberedt/additivt | Bestået | Bestået |
+| Ny | Forberedt/additivt | Bestået | Bestået |
+| Gammel | Privat cutover | Bestået | Blokeret som forventet, fordi gammel kode bruger offentlig URL |
+| Ny | Privat cutover | Bestået | Bestået |
+
+Den sikre senere rækkefølge er derfor: backup og inventar; additiv migration 001; ny kode med flags fortsat slukket; valideret atomisk cutover 002; smoke tests; separat SSO-migration; Edge-funktion; og først efter særskilt godkendelse hosted cron. Gammel kode må aldrig rulles tilbage efter cutover, og bucket må aldrig gøres offentlig som rollback.

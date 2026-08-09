@@ -55,7 +55,7 @@ const facts = [
   {
     icon: ShieldCheck,
     title: "Private elevfotos",
-    text: "Fotoobjekter er private. Kun løbets ejer kan se dem gennem en beskyttet SkoleGPS-route uden at få Storage-stien udleveret.",
+    text: "Fotoobjekter er private. Kun løbets ejer kan se dem gennem en beskyttet SkoleGPS-fotoproxy uden at få Storage-stien udleveret.",
   },
   {
     icon: Clock3,
@@ -99,7 +99,7 @@ export default function ItAfdelingerPage() {
             <div className="mt-8 rounded-2xl border border-sky-300/25 bg-sky-300/10 p-5">
               <h2 className="font-bold text-sky-100">Ikke underskrevet standardskabelon</h2>
               <p className="mt-1 text-sm leading-relaxed text-sky-50/85">
-                Word- og PDF-filen er version 1.1 fra 8. august 2026. Den konkrete kommune eller skoleejer
+                Word- og PDF-filen er version 1.2 fra 9. august 2026. Den konkrete kommune eller skoleejer
                 skal udfylde egne felter, gennemgå aftalen og indgå den med SkoleGPS. Materialet er ikke en
                 myndighedsgodkendelse eller juridisk rådgivning.
               </p>

@@ -2,9 +2,21 @@ begin;
 
 create extension if not exists pgcrypto;
 
--- The hosted project predates the checked-in migration history. Keep the
--- minimum core schema versioned so a clean local database can be rebuilt and
--- security migrations can be tested without consulting production data.
+-- LOCAL TEST BOOTSTRAP ONLY. Never apply this file to a linked or hosted project.
+-- The hosted project predates the checked-in migration history. This minimum
+-- schema exists only so a clean, isolated local database can replay the later
+-- production migrations without consulting production data.
+-- Hosted Supabase projects create public-schema objects with role grants that
+-- the historical migrations rely on. The isolated bootstrap runs migrations
+-- as postgres, so reproduce those defaults here and let RLS enforce access.
+grant usage on schema public to anon, authenticated, service_role;
+alter default privileges for role postgres in schema public
+  grant all privileges on tables to anon, authenticated, service_role;
+alter default privileges for role postgres in schema public
+  grant all privileges on sequences to anon, authenticated, service_role;
+alter default privileges for role postgres in schema public
+  grant execute on functions to anon, authenticated, service_role;
+
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   created_at timestamptz not null default now(),

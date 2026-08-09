@@ -52,7 +52,7 @@ async function ensureProfileRecord(userId: string, profileClient: ProfileClient)
     );
 
     if (profileError) {
-      console.error("Kunne ikke læse profile til beta-seeding:", profileError);
+      console.error("Kunne ikke læse profile til beta-seeding.");
       return;
     }
 
@@ -86,10 +86,10 @@ async function ensureProfileRecord(userId: string, profileClient: ProfileClient)
     );
 
     if (upsertError) {
-      console.error("Kunne ikke sikre profile i databasen:", upsertError);
+      console.error("Kunne ikke sikre profile i databasen.");
     }
-  } catch (error) {
-    console.error("Profile-seeding fejlede uden at blokere login:", error);
+  } catch {
+    console.error("Profile-seeding fejlede uden at blokere login.");
   }
 }
 
@@ -106,20 +106,16 @@ export async function GET(request: Request) {
   const nextPath = getSafeNextPath(requestedNext);
 
   if (!code) {
-    console.log("Auth callback: missing code in query", { path: requestUrl.pathname });
     return redirectToLogin(safeOrigin, "missing_oauth_code");
   }
 
   try {
-    console.log("Auth callback: Hit callback", { path: requestUrl.pathname });
     const providerError = requestUrl.searchParams.get("error");
-    const providerErrorDescription = requestUrl.searchParams.get("error_description");
     if (providerError) {
-      console.warn("Auth callback: provider returned error", { providerError, providerErrorDescription });
-      return redirectToLogin(safeOrigin, `${providerError}${providerErrorDescription ? ": " + providerErrorDescription : ""}`);
+      console.warn("Auth callback: loginudbyderen afviste forespørgslen.");
+      return redirectToLogin(safeOrigin, "oauth_provider_error");
     }
     const cookieStore = await cookies();
-    console.log("Auth callback: cookies acquired");
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -138,48 +134,40 @@ export async function GET(request: Request) {
       }
     );
 
-    console.log("Auth callback: exchanging code for session");
     const exchangeResult = await withTimeout(
       supabase.auth.exchangeCodeForSession(code),
       OAUTH_TIMEOUT_MS,
       "oauth_exchange"
-    ).catch((err) => {
-      console.error("Auth callback: exchangeCodeForSession failed/timeout", err);
+    ).catch(() => {
+      console.error("Auth callback: sessionudveksling fejlede eller fik timeout.");
       return null;
     });
 
     if (!exchangeResult) {
-      console.error("Auth callback: exchange result null — treating as failure");
       return redirectToLogin(safeOrigin, "oauth_exchange_failed");
     }
 
-    const { error: exchangeError, data: exchangeData } = exchangeResult;
+    const { error: exchangeError } = exchangeResult;
     if (exchangeError) {
-      console.error("Auth callback: exchange returned error", exchangeError);
+      console.error("Auth callback: sessionudveksling returnerede en fejl.");
       return redirectToLogin(safeOrigin, "oauth_exchange_failed");
     }
 
-    console.log("Auth callback: Session exchanged", { sessionId: exchangeData?.session?.access_token ? true : false });
-
-    console.log("Auth callback: fetching user from supabase");
-    const userResult = await withTimeout(supabase.auth.getUser(), OAUTH_TIMEOUT_MS, "oauth_user").catch((err) => {
-      console.error("Auth callback: getUser failed/timeout", err);
+    const userResult = await withTimeout(supabase.auth.getUser(), OAUTH_TIMEOUT_MS, "oauth_user").catch(() => {
+      console.error("Auth callback: brugeropslag fejlede eller fik timeout.");
       return null;
     });
 
     if (!userResult) {
-      console.error("Auth callback: getUser returned null — treating as missing user");
       return redirectToLogin(safeOrigin, "oauth_user_missing");
     }
 
     const { data: userData, error: userError } = userResult;
     const user = userData?.user ?? null;
     if (userError || !user) {
-      console.error("Auth callback: getUser returned error or no user", { userError, user });
+      console.error("Auth callback: brugeropslag returnerede ingen gyldig bruger.");
       return redirectToLogin(safeOrigin, "oauth_user_missing");
     }
-
-    console.log("Auth callback: user fetched", { userId: user.id });
 
     const profileClient = createAdminClient();
     if (profileClient) {
@@ -211,15 +199,15 @@ export async function GET(request: Request) {
             }
           }
         }
-      } catch (err) {
+      } catch {
         // best-effort: if anything fails here (timeout, admin client missing),
         // continue with the normal flow so login doesn't block.
-        console.warn("Onboard check failed or timed out, continuing with regular redirect:", err);
+        console.warn("Onboard check fejlede eller fik timeout; det normale loginflow fortsætter.");
       }
 
     return NextResponse.redirect(`${safeOrigin}${nextPath}`);
   } catch (error) {
-    console.error("OAuth callback crashede:", error);
+    console.error("OAuth callback fejlede.");
     await logHandledServerError({
       route: "/api/auth/callback",
       method: "GET",

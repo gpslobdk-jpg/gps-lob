@@ -11,16 +11,17 @@
  */
 
 import { test, expect, type Page, type Route } from "@playwright/test";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const SESSION_ID = "photo-tsunami-session-00000000-0001";
-const RUN_ID = "photo-tsunami-run-00000000-0001";
-const TEACHER_USER_ID = "teacher-photo-00000000-0000-0000-0000-000000000001";
-
+const SESSION_ID = "22222222-2222-4222-8222-222222222222";
+const RUN_ID = "33333333-3333-4333-8333-333333333333";
 const PHOTO_COUNT = 30;
+
+let localTeacher: { id: string; email: string; password: string } | null = null;
 
 const BASE_LAT = 55.6761;
 const BASE_LNG = 12.5683;
@@ -96,47 +97,7 @@ function parseMockTable(url: string): string | null {
 async function mockSupabaseRoutes(page: Page) {
   const ctx = page.context();
 
-  // Auth endpoints
-  await ctx.route("**/auth/v1/**", async (route: Route) => {
-    const url = route.request().url();
-    if (url.includes("/token") || url.includes("/session")) {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          access_token: "mock-access-token",
-          token_type: "bearer",
-          expires_in: 36000,
-          refresh_token: "mock-refresh-token",
-          user: {
-            id: TEACHER_USER_ID,
-            email: "teacher@test.dk",
-            role: "authenticated",
-            aud: "authenticated",
-            app_metadata: { provider: "email" },
-            user_metadata: { full_name: "Photo Teacher" },
-            created_at: "2024-01-01T00:00:00Z",
-          },
-        }),
-      });
-      return;
-    }
-    if (url.includes("/user")) {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          id: TEACHER_USER_ID,
-          email: "teacher@test.dk",
-          role: "authenticated",
-          aud: "authenticated",
-          app_metadata: { provider: "email" },
-          user_metadata: { full_name: "Photo Teacher" },
-          created_at: "2024-01-01T00:00:00Z",
-        }),
-      });
-      return;
-    }
+  await ctx.route("**/api/dashboard/live/theme**", async (route: Route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
   });
 
@@ -238,11 +199,43 @@ async function mockSupabaseRoutes(page: Page) {
 // Tests
 // ---------------------------------------------------------------------------
 
+async function signInLocalTeacher(page: Page) {
+  await page.goto("/login");
+  await page.getByPlaceholder("Email").fill(localTeacher!.email);
+  await page.getByPlaceholder("Adgangskode").fill(localTeacher!.password);
+  await page.getByRole("button", { name: /Log ind \/ Opret/i }).click();
+  await page.waitForURL(/\/dashboard/);
+}
+
+test.beforeAll(async () => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey || !/^https?:\/\/(?:127\.0\.0\.1|localhost)(?::|\/)/.test(url)) return;
+
+  const admin = createSupabaseClient(url, serviceKey, { auth: { persistSession: false } });
+  const email = `photo-tsunami-${crypto.randomUUID()}@isolated.invalid`;
+  const password = `Local-${crypto.randomUUID()}-A1!`;
+  const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+  if (error || !data.user) throw new Error("Kunne ikke oprette lokal foto-testlærer.");
+  await admin.from("profiles").upsert({ id: data.user.id });
+  localTeacher = { id: data.user.id, email, password };
+});
+
+test.afterAll(async () => {
+  if (!localTeacher) return;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) return;
+  const admin = createSupabaseClient(url, serviceKey, { auth: { persistSession: false } });
+  await admin.auth.admin.deleteUser(localTeacher.id);
+});
+
 test.describe("Photo Tsunami – 30 simultaneous photo uploads", () => {
   test("30 photos render in the grid, lightbox opens/closes, UI stays responsive", async ({
     page,
   }) => {
     test.setTimeout(120_000);
+    test.skip(!localTeacher, "Kræver den isolerede lokale Supabase-instans.");
 
     // Collect console errors
     const consoleErrors: string[] = [];
@@ -273,44 +266,11 @@ test.describe("Photo Tsunami – 30 simultaneous photo uploads", () => {
       didCrash = true;
     });
 
-    // Set up mocks
+    // Use a genuine local Supabase session so the route guard is exercised.
+    await signInLocalTeacher(page);
+
+    // Mock only the client-side data API used by the live dashboard.
     await mockSupabaseRoutes(page);
-
-    // Inject auth cookie
-    const session = {
-      access_token: "mock-access-token",
-      token_type: "bearer",
-      expires_in: 36000,
-      expires_at: Math.floor(Date.now() / 1000) + 36000,
-      refresh_token: "mock-refresh-token",
-      user: {
-        id: TEACHER_USER_ID,
-        email: "teacher@test.dk",
-        role: "authenticated",
-        aud: "authenticated",
-        app_metadata: { provider: "email" },
-        user_metadata: { full_name: "Photo Teacher" },
-        created_at: "2024-01-01T00:00:00Z",
-      },
-    };
-
-    const encoded = Buffer.from(JSON.stringify(session))
-      .toString("base64")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
-
-    await page.context().addCookies([
-      {
-        name: "sb-xodrzahqdgbsssntupjt-auth-token.0",
-        value: "base64-" + encoded,
-        domain: "localhost",
-        path: "/",
-        httpOnly: false,
-        secure: false,
-        sameSite: "Lax",
-      },
-    ]);
 
     // Navigate to teacher live view
     await page.goto(`/dashboard/live/${SESSION_ID}`, {

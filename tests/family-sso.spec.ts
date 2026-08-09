@@ -90,6 +90,7 @@ test.describe("DagensTavle family SSO security contract", () => {
   test("keeps browser navigation free of credentials and DagensTavle free of service role access", () => {
     const startRoute = read("app", "api", "family-sso", "start", "route.ts");
     const backchannel = read("app", "api", "family-sso", "backchannel", "route.ts");
+    const revokeRoute = read("app", "api", "family-sso", "revoke", "route.ts");
     const migration = read("supabase", "migrations", "202608080001_dagenstavle_family_sso.sql");
 
     expect(startRoute).toContain('searchParams.set("request", requestId)');
@@ -99,6 +100,9 @@ test.describe("DagensTavle family SSO security contract", () => {
     expect(migration).toContain("request_hash text not null unique");
     expect(migration).toContain("status = 'consumed'");
     expect(migration).toContain("revoke all on table public.family_sso_requests from public, anon, authenticated");
+    for (const route of [startRoute, backchannel, revokeRoute]) {
+      expect(route).not.toMatch(/console\.(?:log|info|warn|error)/);
+    }
   });
 
   test("renders four distinct accessible tool cards without horizontal overflow", async ({ page }) => {

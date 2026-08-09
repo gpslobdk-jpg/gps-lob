@@ -19,11 +19,17 @@ function source(...segments: string[]) {
   return readFileSync(join(process.cwd(), ...segments), "utf8");
 }
 
-const migration = source(
+const preparationMigration = source(
   "supabase",
   "migrations",
   "202608070001_kommuneklar_elevdata.sql"
 );
+const cutoverMigration = source(
+  "supabase",
+  "migrations",
+  "202608070002_kommuneklar_elevdata_cutover.sql"
+);
+const migration = `${preparationMigration}\n${cutoverMigration}`;
 const photoRoute = source(
   "app",
   "api",
@@ -125,9 +131,12 @@ test.describe("Kommuneklar elevdata", () => {
   });
 
   test("migration makes the bucket private and hides object paths from browser roles", () => {
-    expect(migration).toMatch(
-      /'participant-uploads',[\s\S]*?false,[\s\S]*?12582912/
+    expect(preparationMigration).not.toContain("public = false");
+    expect(preparationMigration).not.toContain("answers_protect_student_data");
+    expect(cutoverMigration).toMatch(
+      /update storage\.buckets[\s\S]*?public = false[\s\S]*?12582912/
     );
+    expect(cutoverMigration).toContain("answers_protect_student_data");
     expect(migration).toContain(
       "alter table public.participant_photo_objects enable row level security"
     );
@@ -173,6 +182,18 @@ test.describe("Kommuneklar elevdata", () => {
         nowMs: now,
       })
     ).toBe(false);
+  });
+
+  test("participants can read only their own live-session status", () => {
+    expect(preparationMigration).toContain(
+      "create policy live_sessions_participant_select"
+    );
+    expect(preparationMigration).toContain(
+      "using (id::text = public.request_session_id())"
+    );
+    expect(preparationMigration).not.toContain(
+      "create policy live_sessions_participant_select\non public.live_sessions\nfor select\nto anon"
+    );
   });
 
   test("GPS is cleared on client leave, finish, session close and scheduled expiry", () => {
