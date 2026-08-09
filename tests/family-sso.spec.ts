@@ -87,6 +87,25 @@ test.describe("DagensTavle family SSO security contract", () => {
     expect(isTrustedSkoleGpsRequest(crossOrigin)).toBe(false);
   });
 
+  test("trusts only the canonical www SkoleGPS production origin", () => {
+    const requestFor = (origin: string) => new Request("https://www.skolegps.dk/api/family-sso/revoke", {
+      method: "POST",
+      headers: { Origin: origin, "Sec-Fetch-Site": "same-origin" },
+    });
+
+    expect(isTrustedSkoleGpsRequest(requestFor("https://www.skolegps.dk"))).toBe(true);
+    for (const untrusted of [
+      "https://skolegps.dk",
+      "https://teachers.skolegps.dk",
+      "https://www.skolegps.dk.attacker.com",
+      "https://www.skolegps.dk:444",
+      "http://www.skolegps.dk",
+      "https://xn--sklegps-54a.dk",
+    ]) {
+      expect(isTrustedSkoleGpsRequest(requestFor(untrusted)), untrusted).toBe(false);
+    }
+  });
+
   test("keeps browser navigation free of credentials and DagensTavle free of service role access", () => {
     const startRoute = read("app", "api", "family-sso", "start", "route.ts");
     const backchannel = read("app", "api", "family-sso", "backchannel", "route.ts");
