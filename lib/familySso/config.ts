@@ -1,4 +1,5 @@
 const LOCAL_ORIGIN_PATTERN = /^http:\/\/(?:[a-z0-9-]+\.)?localhost(?::\d{1,5})?$|^http:\/\/127\.0\.0\.1(?::\d{1,5})?$/;
+const SKOLEGPS_PRODUCTION_ORIGIN = "https://www.skolegps.dk";
 
 export const FAMILY_SSO_TTL_SECONDS = 90;
 export const FAMILY_SSO_CLOCK_SKEW_SECONDS = 30;
@@ -32,7 +33,7 @@ export function getFamilySsoExchangeSecret() {
 export function isTrustedSkoleGpsRequest(request: Request) {
   const origin = request.headers.get("origin");
   if (!origin || request.headers.get("sec-fetch-site") !== "same-origin") return false;
-  if (origin === "https://skolegps.dk") return true;
+  if (origin === SKOLEGPS_PRODUCTION_ORIGIN) return true;
   return process.env.NODE_ENV !== "production" && LOCAL_ORIGIN_PATTERN.test(origin);
 }
 
