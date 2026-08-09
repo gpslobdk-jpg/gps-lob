@@ -6,10 +6,13 @@ import {
   ArrowUpRight,
   BookOpen,
   Calendar,
+  Presentation,
   Podcast,
   School,
 } from "lucide-react";
 import { Poppins, Rubik } from "next/font/google";
+
+import { getDagensTavleSsoOrigin } from "@/lib/familySso/config";
 
 export const metadata: Metadata = {
   title: "Lærerværktøjer – SkoleGPS",
@@ -25,6 +28,8 @@ const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
 });
+
+const dagensTavleOrigin = getDagensTavleSsoOrigin() ?? "https://dagenstavle.dk";
 
 const toolCards = [
   {
@@ -87,6 +92,26 @@ const toolCards = [
         "border-fuchsia-100/70 bg-fuchsia-400 text-fuchsia-950 hover:border-white hover:bg-fuchsia-300 focus-visible:ring-fuchsia-200/40",
     },
   },
+  {
+    title: "DagensTavle",
+    description: "Fra skema til tavle – klar til undervisning.",
+    href: `${dagensTavleOrigin}/auth/family-sso/start?next=%2Fskema&source=skolegps`,
+    icon: Presentation,
+    cta: "Åbn DagensTavle",
+    familyLabel: "SkoleGPS-familien",
+    destinationLabel: "Åbner på dagenstavle.dk",
+    theme: {
+      card:
+        "border-[#8fd8bc]/50 bg-[linear-gradient(145deg,rgba(23,63,52,0.96)_0%,rgba(16,47,39,0.96)_44%,rgba(15,23,42,0.98)_82%)] shadow-[0_24px_90px_rgba(52,211,153,0.14)] hover:border-[#c7f2df]/85 hover:shadow-[0_28px_100px_rgba(52,211,153,0.26)]",
+      rail: "bg-[#8fd8bc]",
+      accent: "via-[#e8d17d]/85",
+      icon: "border-[#bcebd7]/55 bg-[#8fd8bc]/18 text-[#e6fff4]",
+      badge: "border-[#bcebd7]/35 bg-[#8fd8bc]/12 text-[#f4efd9]",
+      destination: "text-[#d9f6e9]",
+      button:
+        "border-[#c7f2df]/70 bg-[#8fd8bc] text-[#102f27] hover:border-white hover:bg-[#bcebd7] focus-visible:ring-[#8fd8bc]/45",
+    },
+  },
 ] as const;
 
 export default function LaerervaerktoejerPage() {
@@ -132,12 +157,12 @@ export default function LaerervaerktoejerPage() {
               Lærerværktøjer
             </h1>
             <p className="mt-4 max-w-2xl text-lg font-semibold leading-8 text-slate-100 sm:text-xl">
-              Vælg mellem årsplan, skema og elevpodcast.
+              Vælg mellem årsplan, skema, tavle og elevpodcast.
             </p>
           </div>
 
           <section
-            className="mt-9 grid auto-rows-fr items-stretch gap-5 md:grid-cols-2 lg:grid-cols-3"
+            className="mt-9 grid auto-rows-fr items-stretch gap-5 md:grid-cols-2 2xl:grid-cols-4"
             aria-label="Lærerværktøjer"
           >
             {toolCards.map((tool) => {

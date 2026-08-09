@@ -273,16 +273,17 @@ export default function ZoneKrigElevInterface({ sessionId, ui, actions }: ZoneKr
           !isMountedRef.current ||
           activeSessionIdRef.current !== sessionId ||
           teamsRes.error ||
-          zonesRes.error ||
-          sessionRes.error
+          zonesRes.error
         ) {
           return;
         }
 
         setTeams((teamsRes.data ?? []) as ZoneKrigGameTeam[]);
         setZones((zonesRes.data ?? []) as ZoneKrigGameZone[]);
-        setSessionStatus(sessionRes.data?.status ?? null);
-        setEndsAt(sessionRes.data?.ends_at ?? null);
+        if (!sessionRes.error) {
+          setSessionStatus(sessionRes.data?.status ?? null);
+          setEndsAt(sessionRes.data?.ends_at ?? null);
+        }
       } catch {
         // Realtime remains primary; transient reconcile failures should not interrupt pupils.
       } finally {

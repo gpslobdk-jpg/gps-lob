@@ -10,6 +10,7 @@
     "stripe": "stripe listen --forward-to localhost:3000/api/webhook/stripe",
     "test:ai-grades": "node scripts/ai-grade-check.mjs",
     "test:post-order-db": "node scripts/test-post-order-db.mjs",
+    "test:db:reset-local": "node scripts/security/reset-local-test-db.mjs",
     "test:run-execution-share": "playwright test tests/run-execution-share.spec.ts tests/auth-safe-next.spec.ts --project=chromium",
     "cap:sync": "npx cap sync",
     "cap:sync:ios": "npx cap sync ios",
@@ -19,6 +20,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^3.0.41",
     "@ai-sdk/react": "^3.0.118",
+    "@bugsnag/js": "^7.0.0",
     "@capacitor/android": "^8.2.0",
     "@capacitor/core": "^8.2.0",
     "@capacitor/ios": "^8.3.1",
@@ -26,7 +28,6 @@
     "@lottiefiles/react-lottie-player": "^3.6.0",
     "@react-pdf/renderer": "^4.4.0",
     "@sentry/nextjs": "^10.49.0",
-    "@bugsnag/js": "^7.0.0",
     "@stripe/stripe-js": "^8.9.0",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.98.0",
@@ -46,6 +47,7 @@
     "react-leaflet": "^5.0.0",
     "react-lottie-player": "^2.1.0",
     "react-qrcode-logo": "^4.0.0",
+    "sharp": "0.34.5",
     "stripe": "^20.4.1",
     "youtube-transcript": "^1.3.0"
   },

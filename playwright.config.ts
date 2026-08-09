@@ -1,15 +1,19 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
+
 export default defineConfig({
   testDir: "./tests",
   globalSetup: "./tests/global-setup.ts",
+  globalTimeout: 15 * 60_000,
+  timeout: 120_000,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
   workers: process.env.CI ? 1 : undefined,
   reporter: "html",
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: externalBaseUrl ?? "http://localhost:3000",
     trace: "on-first-retry",
   },
   projects: [
@@ -32,7 +36,7 @@ export default defineConfig({
       testMatch: /ios-.*\.spec\.ts$/,
     },
   ],
-  webServer: {
+  webServer: externalBaseUrl ? undefined : {
     command: "npm run dev",
     url: "http://localhost:3000",
     reuseExistingServer: true,

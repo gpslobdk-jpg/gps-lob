@@ -3353,6 +3353,26 @@ export function usePlayGameState({
   );
 
   useEffect(() => {
+    if (!sessionId || !participantId) return;
+
+    const clearServerLocation = () => {
+      void fetch("/api/play/location", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        keepalive: true,
+        body: JSON.stringify({ sessionId, participantId }),
+      }).catch(() => undefined);
+    };
+
+    window.addEventListener("pagehide", clearServerLocation);
+    return () => {
+      window.removeEventListener("pagehide", clearServerLocation);
+      clearServerLocation();
+    };
+  }, [participantId, sessionId]);
+
+  useEffect(() => {
     return () => {
       isMountedRef.current = false;
       if (resumeMessageTimerRef.current) {
@@ -3983,7 +4003,13 @@ export function usePlayGameState({
     while (isMountedRef.current) {
       const { error } = await supabase
         .from("participants")
-        .update({ finished_at: finishedAt })
+        .update({
+          finished_at: finishedAt,
+          lat: null,
+          lng: null,
+          accuracy: null,
+          last_updated: finishedAt,
+        })
         .eq("id", participantId)
         .eq("session_id", sessionId);
 

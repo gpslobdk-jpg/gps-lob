@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { Lock, ShieldCheck } from "lucide-react";
+import { Building2, Lock, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import Lottie from "lottie-react";
@@ -742,6 +742,18 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
                   <span>{homeCopy.legalLinks.privacy}</span>
                 </span>
               </Link>
+
+              {homeCopy.showDanishOnlyExtras ? (
+                <Link
+                  href="/it-afdelinger"
+                  className="rounded-full border border-white/10 bg-white/4 px-3 py-2 transition-all hover:border-white/20 hover:bg-white/5"
+                >
+                  <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
+                    <Building2 className="h-3.5 w-3.5 text-sky-300/80" />
+                    <span>Til IT-afdelinger</span>
+                  </span>
+                </Link>
+              ) : null}
 
             </div>
 

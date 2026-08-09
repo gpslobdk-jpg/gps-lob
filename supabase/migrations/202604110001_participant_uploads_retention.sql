@@ -115,24 +115,7 @@ $$;
 revoke all on function public.clear_participant_upload_image_urls(text[]) from public, anon, authenticated;
 grant execute on function public.clear_participant_upload_image_urls(text[]) to postgres, service_role;
 
-select cron.schedule(
-  'participant-uploads-retention-daily',
-  '17 3 * * *',
-  $cron$
-  select net.http_post(
-    url := 'https://xodrzahqdgbsssntupjt.supabase.co/functions/v1/participant-uploads-retention',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'x-participant-uploads-cron-secret', public.get_participant_uploads_cleanup_secret()
-    ),
-    body := jsonb_build_object(
-      'source', 'pg_cron',
-      'batchSize', 200,
-      'maxBatches', 10
-    ),
-    timeout_milliseconds := 15000
-  ) as request_id;
-  $cron$
-);
+-- Deliberately do not schedule a hosted URL from a migration. The replacement
+-- retention job is configured explicitly after Edge deployment and smoke test.
 
 commit;

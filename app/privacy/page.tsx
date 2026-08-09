@@ -34,7 +34,7 @@ export default async function PrivacyPage() {
 
   return (
     <main
-      className={`relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#04110f_0%,#071d1a_35%,#0d1f2e_100%)] p-10 text-white md:p-20 ${poppins.className}`}
+      className={`relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#04110f_0%,#071d1a_35%,#0d1f2e_100%)] px-4 py-8 text-white sm:px-8 md:py-20 ${poppins.className}`}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.14),transparent_30%),radial-gradient(circle_at_50%_12%,rgba(255,255,255,0.05),transparent_24%)]" />
 
@@ -42,16 +42,16 @@ export default async function PrivacyPage() {
         <div className="flex justify-start">
           <Link
             href="/"
-            className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-white/10"
+            className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
           >
             {copy.backToHomeLabel}
           </Link>
         </div>
 
-        <section className="mt-10 rounded-[2.5rem] border border-white/10 bg-white/6 p-8 shadow-[0_30px_90px_rgba(0,0,0,0.28)] backdrop-blur-md md:p-12">
+        <section className="mt-8 rounded-[1.75rem] border border-white/10 bg-white/6 p-5 shadow-[0_30px_90px_rgba(0,0,0,0.28)] backdrop-blur-md sm:p-8 md:rounded-[2.5rem] md:p-12">
           <article className="mx-auto max-w-3xl space-y-6">
             <div className="space-y-4">
-              <h1 className={`text-4xl font-black tracking-tight text-white md:text-6xl ${rubik.className}`}>
+              <h1 className={`break-words text-4xl font-black tracking-tight text-white [overflow-wrap:anywhere] md:text-6xl ${rubik.className}`}>
                 {copy.heroTitle}
               </h1>
               <p className="text-xl font-semibold text-emerald-100">{copy.heroEyebrow}</p>
@@ -100,6 +100,8 @@ export default async function PrivacyPage() {
                 </p>
               ) : null}
             </section>
+
+            <p className="border-t border-white/10 pt-5 text-sm text-slate-400">{copy.updatedAt}</p>
           </article>
         </section>
       </div>

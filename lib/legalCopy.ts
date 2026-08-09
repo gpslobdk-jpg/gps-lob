@@ -48,6 +48,7 @@ type PrivacyPageCopy = {
   sections: LegalSection[];
   securityCallout: LegalSection;
   support: LegalSection;
+  updatedAt: string;
 };
 
 type OphavsretPageCopy = {
@@ -132,9 +133,9 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           ],
         },
         {
-          title: "4. Kamera, billeder og video",
+          title: "4. Kamera og billeder",
           paragraphs: [
-            "Kameraet bruges kun, hvis en opgave kræver, at eleven aktivt tager et billede. Billeder eller video kan være personoplysninger, hvis personer kan genkendes, og skolen bør derfor følge egne retningslinjer for brug, deling og offentliggørelse.",
+            "Kameraet bruges kun, hvis en opgave kræver, at eleven aktivt tager et billede. Fotoopgaver må kun vise ting, steder eller andet ikke-personhenførbart indhold. Genkendelige personer og fortrolige oplysninger må ikke fotograferes.",
           ],
         },
         {
@@ -166,13 +167,14 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         {
           title: "9. Underleverandører",
           paragraphs: [
-            "SkoleGPS.dk bruger underleverandører til drift, hosting, betaling og fejlovervågning. Skoler og kommuner bør vurdere databehandleraftale, underdatabehandlere og eventuelle overførsler som en del af deres egen proces.",
+            "SkoleGPS.dk bruger leverandører til drift, hosting, fejlovervågning og frivillige lærerfunktioner. Skoler og kommuner bør vurdere databehandleraftale, underdatabehandlere og eventuelle overførsler som en del af deres egen proces.",
           ],
           bullets: [
-            { label: "Supabase", text: "database og backend" },
-            { label: "Vercel", text: "webhosting" },
-            { label: "Stripe", text: "betalingsbehandling for lærere og skoler" },
-            { label: "Sentry", text: "teknisk fejlovervågning" },
+            { label: "Supabase", text: "database, login, Storage og backend" },
+            { label: "Vercel", text: "webhosting og begrænset webanalyse" },
+            { label: "Sentry", text: "redigeret teknisk fejlovervågning" },
+            { label: "OpenAI", text: "frivillige lærerrettede AI-funktioner; må ikke modtage elevdata" },
+            { label: "Stripe", text: "kun betalingsbehandling, hvis et betalingsflow senere aktiveres" },
           ],
         },
         {
@@ -207,75 +209,114 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         email: "skolegpsdk@gmail.com",
         emailLabel: "Kontakt",
       },
-      updatedAt: "Senest opdateret: 8. juli 2026.",
+      updatedAt: "Senest opdateret: 9. august 2026.",
     },
     privacy: {
       metadata: {
-        title: "Privatliv og sikker databehandling | SkoleGPS",
+        title: "Privatlivspolitik | SkoleGPS",
         description:
-          "Kort information om privatliv, elevdata og sikker databehandling i SkoleGPS.dk.",
+          "Privatlivspolitik for lærer- og kontaktdata samt forklaring af SkoleGPS' rolle som databehandler for elevdata.",
       },
       backToHomeLabel: "Tilbage til forsiden",
-      heroTitle: "Privatliv og sikker databehandling",
-      heroEyebrow: "Privat fra start",
+      heroTitle: "Privatlivspolitik",
+      heroEyebrow: "Hvem behandler hvad – og hvorfor?",
       intro:
-        "SkoleGPS.dk er lavet til undervisning, hvor elever kan deltage uden egen konto. Vi forsøger at holde dataforbruget lavt og gøre det let for læreren at rydde op efter et løb.",
+        "Denne politik gælder SkoleGPS' egen behandling af lærer-, kontakt- og driftsoplysninger. Når en skole bruger SkoleGPS til elever, er skolen eller kommunen dataansvarlig, mens SkoleGPS behandler elevdata efter skolens dokumenterede instruks.",
       sections: [
         {
-          title: "1. Hvilke data kan indgå?",
-          paragraphs: ["Når en elev eller et hold deltager i et løb, kan platformen behandle:"],
+          title: "1. Dataansvarlig og kontakt",
+          paragraphs: [
+            "SkoleGPS.dk drives af Jeppe Laursen som privatperson uden CVR-nummer. Adresse: Sandbergvej 29, 4760 Vordingborg. E-mail: skolegpsdk@gmail.com. Telefon: +45 40 87 45 38.",
+            "Jeppe Laursen er dataansvarlig for oplysninger om lærerkonti, skole- og kundekontakt, support, sikkerhedsdrift og frivilligt produktnyt. Kommunen eller skoleejeren er dataansvarlig for elevdata i undervisningsløb.",
+          ],
+        },
+        {
+          title: "2. Lærer-, kunde- og kontaktoplysninger",
+          paragraphs: [
+            "Vi kan behandle navn, e-mailadresse, autentifikations-id, valgt loginudbyder, kontostatus, oprettede undervisningsløb, supportkorrespondance, skole-/kommunetilknytning og tekniske sikkerhedsoplysninger.",
+            "Når den forberedte DagensTavle-integration senere aktiveres, kan læreren vælge en sikker login-overdragelse. Kun nødvendige læreridentitetsoplysninger behandles kortvarigt server-side. DagensTavle får ikke SkoleGPS-løb, klasser, elevsvar, elevfotos, GPS-data eller adgang til Gmail, Google Drive, kalender, Microsoft-filer eller postkasser.",
+            "Hvis betaling senere aktiveres, kan kunde-, abonnements- og betalingsreferencer behandles. Kortoplysninger håndteres af betalingsleverandøren og skal ikke indtastes i SkoleGPS' almindelige felter.",
+          ],
+        },
+        {
+          title: "3. Formål og behandlingsgrundlag",
           bullets: [
-            { text: "Et holdnavn eller fornavn" },
-            { text: "GPS-lokation, kun mens løbet er aktivt" },
-            { text: "Svar på posterne og eventuelle billeder, hvis læreren har valgt en foto-post" },
+            { label: "Konto og tjeneste", text: "at oprette login, levere funktionerne og besvare support. Grundlaget er aftalen eller skridt før aftale, jf. GDPR artikel 6, stk. 1, litra b." },
+            { label: "Sikkerhed og drift", text: "at forebygge misbrug, fejlfinde og beskytte tjenesten. Grundlaget er legitim interesse, jf. artikel 6, stk. 1, litra f." },
+            { label: "Lovkrav", text: "at opfylde eventuelle regnskabs-, myndigheds- eller retskrav, jf. artikel 6, stk. 1, litra c." },
+            { label: "Produktnyt", text: "at sende frivillige nyheder, når du har samtykket. Samtykket kan altid trækkes tilbage, jf. artikel 6, stk. 1, litra a." },
           ],
         },
         {
-          title: "2. Hvad bruges dataen til?",
+          title: "4. Elevdata: SkoleGPS som databehandler",
           paragraphs: [
-            "Data bruges til at afvikle løbet, vise eleverne de rigtige poster og give læreren resultater fra aktiviteten.",
+            "Elever behøver ikke en individuel konto eller e-mailadresse. Et løb kan behandle holdnavn eller kort fornavn, sessions- og deltager-id, aktuel GPS-position, svar, point, tidsstempler og et foto ved en fotoopgave.",
+            "Elevdata bruges til at afvikle undervisningsløbet og vise resultater til den ansvarlige lærer. Henvendelser om indsigt, rettelse eller sletning af elevdata skal som udgangspunkt sendes til skolen eller kommunen, som kan instruere SkoleGPS.",
           ],
         },
         {
-          title: "3. Oprydning efter løb",
+          title: "5. GPS, billeder og AI",
           paragraphs: [
-            "Læreren kan slette svar og eventuelle billeder fra resultatsiden, når de ikke længere skal bruges. Skolen bør følge egne retningslinjer for opbevaring og sletning.",
+            "Den aktuelle GPS-position sendes under et aktivt løb og overskrives løbende. Afstanden beregnes i elevens browser. Positionen skjules for alle efter 15 minutters inaktivitet og nulstilles fysisk ved næste femminutters oprydning, normalt senest efter cirka 20 minutter. Afslutning og forladelse nulstiller straks, hvor det er muligt. Standardflowet opbygger ikke en særskilt rutehistorik.",
+            "Fotoopgaver må kun bruges til ting, steder og andre ikke-personhenførbare motiver. Genkendelige personer, fortrolige oplysninger og særlige kategorier må ikke fotograferes eller uploades.",
+            "Lærerrettede AI-funktioner er frivillige og må ikke få elevdata, elevfotos, lokation, særlige kategorier eller fortroligt materiale. Der er ikke en teknisk garanti, som kan genkende alt personindhold; læreren skal derfor kontrollere materialet før afsendelse.",
           ],
         },
         {
-          title: "4. Ingen reklamer, ingen videresalg",
+          title: "6. Modtagere og underleverandører",
           paragraphs: [
-            "Vi sælger aldrig data til tredjepart, og der er ingen reklamer i platformen. Det skal være et trygt undervisningsrum.",
+            "SkoleGPS bruger leverandører til database, autentifikation og Storage (Supabase), hosting og webanalyse (Vercel) samt fejlmonitorering (Sentry). Lærerens frivillige funktioner kan desuden bruge OpenAI og eksterne kort- eller indholdstjenester. Betaling via Stripe er kun relevant, hvis et betalingsflow aktiveres.",
+            "Bugsnag findes som betinget integration i kodebasen, men er ikke godkendt som aktiv leverandør for kommunens personoplysninger i standardaftale version 1.2. Vi sælger ikke personoplysninger og viser ikke reklamer i platformen.",
           ],
         },
         {
-          title: "5. For skoler og kommuner",
+          title: "7. Overførsler uden for EØS",
           paragraphs: [
-            "Vi kan indgå databehandleraftale og give praktisk information om underleverandører og platformens databehandling.",
+            "Nogle leverandører eller deres underleverandører kan behandle oplysninger uden for EØS. Overførsler skal være dækket af en tilstrækkelighedsafgørelse, EU-Kommissionens standardkontraktbestemmelser med nødvendige supplerende foranstaltninger eller et andet gyldigt grundlag efter GDPR kapitel V.",
+          ],
+        },
+        {
+          title: "8. Opbevaring og sletning",
+          paragraphs: [
+            "Lærerkonto og lærerskabte løb opbevares, mens kontoen eller aftalen er aktiv, og slettes efter en verificeret anmodning eller ved ophør, bortset fra oplysninger som skal opbevares efter loven eller i lukkede backups indtil deres normale udløb.",
+            "Læreren kan rydde fotos, svar, deltagere og sessionsdata tidligere fra resultatsiden. Den forberedte retentionmodel sletter fotos efter 30 dage, almindelige elevsvar, deltagere og afsluttede sessioner efter 90 dage regnet fra afslutning eller dokumenteret inaktivitet samt tekniske oprydningslogs uden elevoplysninger efter 30 dage. Hosted cron er ikke oplyst som aktiv, før den er deployet og verificeret; indtil da skal læreren følge den manuelle sletteprocedure.",
+            "Supporthenvendelser og sikkerhedsoplysninger opbevares kun så længe, de er nødvendige for formålet, en tvist eller et lovkrav. Et eventuelt nyhedssamtykke opbevares, indtil det trækkes tilbage, samt i den periode dokumentation er nødvendig.",
+          ],
+        },
+        {
+          title: "9. Cookies og analyse",
+          paragraphs: [
+            "Nødvendige teknologier bruges til login, session og sikkerhed. Vercel Analytics bruges til begrænset teknisk besøgsanalyse; delingssiden til afvikling og fotoudleveringsflowet er fravalgt. Tredjeparts login via Google eller Microsoft vælges af læreren og er også omfattet af den valgte udbyders egne vilkår.",
+            "SkoleGPS og DagensTavle bruger separate host-only sessions. Den forberedte login-overdragelse bruger en 90 sekunders, hash-baseret engangsrequest, state/nonce og server-til-server-kontrol; adgangstokens, refresh tokens, e-mail og elevdata sendes ikke i browserens overdragelsesadresse. Første brug kan kræve accept af DagensTavles egne vilkår.",
+          ],
+        },
+        {
+          title: "10. Dine rettigheder",
+          paragraphs: [
+            "Når SkoleGPS er dataansvarlig, kan du efter reglerne anmode om indsigt, rettelse, sletning, begrænsning, dataportabilitet eller gøre indsigelse. Du kan trække et samtykke tilbage uden at påvirke tidligere lovlig behandling. Rettighederne afhænger af den konkrete behandling og kan være begrænset ved lov.",
+            "Du kan klage til Datatilsynet, Carl Jacobsens Vej 35, 2500 Valby, www.datatilsynet.dk. Der anvendes ikke automatiske afgørelser med retsvirkning eller tilsvarende væsentlig virkning.",
           ],
         },
       ],
       securityCallout: {
         title: "Sikkerhed i praksis",
         paragraphs: [
-          "Vi tager datasikkerhed seriøst og bruger etablerede driftstjenester samt begrænset adgang til administrationsfunktioner.",
+          "SkoleGPS bruger HTTPS/TLS, autentifikation, ejerskabskontrol, row-level security og serverbeskyttede nøgler. Elevfotos ligger i privat Storage og leveres kun til løbets ejer gennem en beskyttet, ikke-cachebar SkoleGPS-fotoproxy; Storage-sti og midlertidige Storage-adresser udleveres ikke til browseren. Uploads dekodes og genkodes som JPEG, så EXIF- og GPS-metadata fjernes. Fejlmonitoreringen redigerer blandt andet navne, e-mail, koder, tokens, svar, fotostier, URL'er og lokation.",
         ],
         bullets: [
-          { label: "Stram adgangskontrol", text: "kun autoriserede lærere og administratorer kan oprette og styre indhold" },
-          { label: "Beskyttet AI-integration", text: "uploadet materiale bruges ikke til at træne offentlige AI-modeller" },
-          { label: "Beskyttet drift", text: "trafik begrænses med timeouts og beskyttelse mod misbrug" },
-          { label: "Krypteret data", text: "al trafik kører over moderne kryptering" },
-          { label: "Underleverandører", text: "skoler kan få information til vurdering af databehandleraftale og underdatabehandlere" },
+          { label: "Brud", text: "berørte dataansvarlige orienteres uden unødig forsinkelse og om muligt inden 24 timer efter, at SkoleGPS bliver bekendt med bruddet" },
+          { label: "Ingen absolut garanti", text: "ingen internetbaseret tjeneste kan love fuldstændig sikkerhed; adgang og funktioner begrænses efter behov" },
         ],
       },
       support: {
-        title: "Kontakt og dokumentation",
+        title: "Kontakt, klage og dokumentation",
         paragraphs: [
-          "Har skolen spørgsmål om databehandling, drift eller dokumentation, kan I kontakte os.",
+          "Skriv til os om privatliv, sikkerhed, rettigheder eller dokumentation. Ved elevdata bør du samtidig kontakte skolen eller kommunen, som er dataansvarlig.",
         ],
         email: "skolegpsdk@gmail.com",
         emailLabel: "Skriv til",
       },
+      updatedAt: "Senest opdateret: 9. august 2026.",
     },
     ophavsret: {
       metadata: {
@@ -579,6 +620,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         email: "skolegpsdk@gmail.com",
         emailLabel: "Kontakt",
       },
+      updatedAt: "Sist oppdatert: 15. mai 2026.",
     },
     ophavsret: {
       metadata: {

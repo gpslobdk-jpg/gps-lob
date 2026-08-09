@@ -6,6 +6,7 @@ import type {
   StudentRow,
 } from "@/components/live/types";
 import { DEFAULT_QUESTION_POINTS } from "@/utils/questionPoints";
+import { isFreshStudentLocation } from "@/lib/studentData/privacyPolicy";
 
 export const DEFAULT_TEACHER_MAP_CENTER: [number, number] = [55.3959, 10.3883];
 
@@ -29,8 +30,14 @@ export function toLocation(row: StudentRow): LiveStudentLocation | null {
   const name = normalizeName(row.student_name);
   if (!name) return null;
 
-  const lat = toFiniteNumber(row.lat ?? row.latitude);
-  const lng = toFiniteNumber(row.lng ?? row.longitude);
+  const canExposeLocation =
+    !row.finished_at && isFreshStudentLocation(row.last_updated);
+  const lat = canExposeLocation
+    ? toFiniteNumber(row.lat ?? row.latitude)
+    : null;
+  const lng = canExposeLocation
+    ? toFiniteNumber(row.lng ?? row.longitude)
+    : null;
   const baseId = row.id ?? `${row.session_id ?? "session"}-${name}`;
 
   return {
@@ -59,9 +66,9 @@ export function upsertLocation(
   next[index] = {
     ...current,
     ...nextLocation,
-    // Keep the last known coordinates if a fallback row arrives without location data.
-    lat: nextLocation.lat ?? current.lat,
-    lng: nextLocation.lng ?? current.lng,
+    // Explicit nulls are privacy-significant: they clear stale or finished GPS data.
+    lat: nextLocation.lat,
+    lng: nextLocation.lng,
     updated_at: nextLocation.updated_at ?? current.updated_at ?? null,
     last_updated: nextLocation.last_updated ?? current.last_updated ?? null,
     run_started_at: nextLocation.run_started_at ?? current.run_started_at ?? null,

@@ -4,6 +4,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 
+import { ACTIVE_PARTICIPANT_STORAGE_KEY } from "../components/play/playUtils";
+
 type SmokeQuestion = {
   id: number;
   type: "multiple_choice";
@@ -20,6 +22,8 @@ type SmokeSession = {
   runId: string;
   sessionId: string;
   pin: string;
+  teacherId: string;
+  ownsTeacher: boolean;
 };
 
 type GameTeam = {
@@ -41,8 +45,9 @@ type JoinResponse = {
   teamName?: string | null;
 };
 
-const BASE_URL = process.env.ZONE_KRIG_SMOKE_BASE_URL ?? "https://www.gpslob.dk";
+const BASE_URL = process.env.ZONE_KRIG_SMOKE_BASE_URL ?? "http://localhost:3000";
 const LOCAL_ENV_PATH = path.join(process.cwd(), ".env.local");
+const ADMIN_REQUEST_TIMEOUT_MS = 15_000;
 
 const QUESTIONS: SmokeQuestion[] = [
   {
@@ -134,9 +139,14 @@ function requireAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
-  test.skip(!supabaseUrl || !serviceRoleKey, "Supabase admin env vars are required for production smoke setup.");
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error("Supabase admin env vars are required for production smoke setup.");
+  const localSupabase = /^https?:\/\/(?:127\.0\.0\.1|localhost)(?::|\/)/.test(supabaseUrl ?? "");
+  const localApp = /^https?:\/\/(?:127\.0\.0\.1|localhost)(?::|\/)/.test(BASE_URL);
+  test.skip(
+    !supabaseUrl || !serviceRoleKey || !localSupabase || !localApp,
+    "Zone Krig-smoke kræver den isolerede lokale app og Supabase.",
+  );
+  if (!supabaseUrl || !serviceRoleKey || !localSupabase || !localApp) {
+    throw new Error("ISOLATED_LOCAL_ZONE_KRIG_REQUIRED");
   }
 
   return createClient(supabaseUrl, serviceRoleKey, {
@@ -144,12 +154,21 @@ function requireAdminClient() {
       persistSession: false,
       autoRefreshToken: false,
     },
+    global: {
+      fetch: (input, init = {}) => {
+        const timeoutSignal = AbortSignal.timeout(ADMIN_REQUEST_TIMEOUT_MS);
+        const signal = init.signal
+          ? AbortSignal.any([init.signal, timeoutSignal])
+          : timeoutSignal;
+        return fetch(input, { ...init, signal });
+      },
+    },
   });
 }
 
 async function getTeacherId(admin: SupabaseClient) {
   const configuredTeacherId = process.env.ZONE_KRIG_SMOKE_TEACHER_ID?.trim();
-  if (configuredTeacherId) return configuredTeacherId;
+  if (configuredTeacherId) return { teacherId: configuredTeacherId, ownsTeacher: false };
 
   const { data, error } = await admin
     .from("gps_runs")
@@ -160,12 +179,26 @@ async function getTeacherId(admin: SupabaseClient) {
   if (error) throw error;
 
   const teacherId = typeof data?.[0]?.user_id === "string" ? data[0].user_id : "";
-  expect(teacherId, "Could not infer teacher user_id for smoke run.").toBeTruthy();
-  return teacherId;
+  if (teacherId) return { teacherId, ownsTeacher: false };
+
+  const email = `zone-smoke-${randomUUID()}@isolated.invalid`;
+  const password = `Local-${randomUUID()}-A1!`;
+  const { data: userData, error: userError } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+  if (userError || !userData.user) throw userError ?? new Error("Synthetic teacher was not created.");
+  const { error: profileError } = await admin.from("profiles").upsert({ id: userData.user.id });
+  if (profileError) {
+    await admin.auth.admin.deleteUser(userData.user.id);
+    throw profileError;
+  }
+  return { teacherId: userData.user.id, ownsTeacher: true };
 }
 
 async function createControlledZoneKrigSession(admin: SupabaseClient): Promise<SmokeSession> {
-  const teacherId = await getTeacherId(admin);
+  const { teacherId, ownsTeacher } = await getTeacherId(admin);
   const runId = randomUUID();
   const sessionId = randomUUID();
   const pin = String(Math.floor(100000 + Math.random() * 900000));
@@ -185,7 +218,10 @@ async function createControlledZoneKrigSession(admin: SupabaseClient): Promise<S
     game_config: {},
     bonus_enabled: false,
   });
-  if (runError) throw runError;
+  if (runError) {
+    if (ownsTeacher) await admin.auth.admin.deleteUser(teacherId);
+    throw runError;
+  }
 
   const { error: sessionError } = await admin.from("live_sessions").insert({
     id: sessionId,
@@ -196,78 +232,130 @@ async function createControlledZoneKrigSession(admin: SupabaseClient): Promise<S
     gps_override: true,
     ends_at: endsAtIso,
   });
-  if (sessionError) throw sessionError;
+  if (sessionError) {
+    await admin.from("gps_runs").delete().eq("id", runId);
+    if (ownsTeacher) await admin.auth.admin.deleteUser(teacherId);
+    throw sessionError;
+  }
 
-  return { runId, sessionId, pin };
+  return { runId, sessionId, pin, teacherId, ownsTeacher };
 }
 
-async function waitForHydratedJoinForm(page: Page) {
-  const pinInput = page.locator('input[inputmode="numeric"]');
-  const nameInput = page.locator('input[placeholder="Dit navn"]');
-  const submitButton = page.locator("form").locator('button[type="submit"]');
+async function cleanupControlledZoneKrigSession(admin: SupabaseClient, session: SmokeSession) {
+  const { error: runDeleteError } = await admin.from("gps_runs").delete().eq("id", session.runId);
+  if (runDeleteError) throw runDeleteError;
+  if (session.ownsTeacher) {
+    const { error: userDeleteError } = await admin.auth.admin.deleteUser(session.teacherId);
+    if (userDeleteError) throw userDeleteError;
+  }
+}
 
+async function waitForHydratedJoinCode(page: Page) {
+  const codeInput = page.getByLabel("Kode fra din lærer", { exact: true });
   await page.waitForLoadState("load");
-  await expect(pinInput).toBeVisible({ timeout: 15_000 });
-  await expect(nameInput).toBeVisible({ timeout: 15_000 });
-  await expect(submitButton).toBeVisible({ timeout: 15_000 });
+  await expect(codeInput).toBeVisible({ timeout: 15_000 });
 
   await page.waitForFunction(
     () => {
-      const input = document.querySelector('input[placeholder="Dit navn"]');
+      const input = document.querySelector("#join-code");
       return input ? Object.keys(input).some((key) => key.startsWith("__reactProps$")) : false;
     },
     null,
     { timeout: 15_000 }
   );
 
-  return { pinInput, nameInput, submitButton };
+  return codeInput;
 }
 
 async function fillJoinForm(page: Page, pin: string, name: string) {
-  const { pinInput, nameInput, submitButton } = await waitForHydratedJoinForm(page);
+  const codeInput = await waitForHydratedJoinCode(page);
+  await codeInput.fill(pin);
+  await codeInput.press("Enter", { noWaitAfter: true });
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    await pinInput.fill("");
-    await pinInput.fill(pin);
-    await nameInput.fill("");
-    await nameInput.fill(name);
-
-    try {
-      await expect(pinInput).toHaveValue(pin, { timeout: 3_000 });
-      await expect(nameInput).toHaveValue(name, { timeout: 3_000 });
-      await expect(submitButton).toBeEnabled({ timeout: 3_000 });
-      return submitButton;
-    } catch {
-      await expect(nameInput).toBeVisible({ timeout: 15_000 });
-    }
-  }
-
-  await expect(submitButton).toBeEnabled({ timeout: 3_000 });
-  return submitButton;
+  const nameInput = page.getByLabel("Dit navn eller holdnavn", { exact: true });
+  await expect(nameInput).toBeVisible({ timeout: 15_000 });
+  await nameInput.fill(name);
+  return nameInput;
 }
 
 async function joinStudent(page: Page, session: SmokeSession) {
   const studentName = `P4-smoke-${String(Date.now()).slice(-6)}`;
-  await page.goto(`${BASE_URL}/join?pin=${encodeURIComponent(session.pin)}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE_URL}/join`, { waitUntil: "domcontentloaded" });
 
-  const submitButton = await fillJoinForm(page, session.pin, studentName);
+  await fillJoinForm(page, session.pin, studentName);
   const joinResponsePromise = page.waitForResponse(
     (response) => response.url().includes("/api/join") && response.request().method() === "POST",
     { timeout: 30_000 }
   );
+  const joinButton = page.getByRole("button", { name: "Deltag i løbet", exact: true });
+  await expect(joinButton).toBeEnabled({ timeout: 10_000 });
 
-  await Promise.all([
-    page.waitForURL(new RegExp(`/play/${session.sessionId}(?:[/?#]|$)`), { timeout: 30_000 }),
-    submitButton.click(),
+  const [joinResponse] = await Promise.all([
+    joinResponsePromise,
+    joinButton.click({ noWaitAfter: true }),
   ]);
-
-  const joinResponse = await joinResponsePromise;
-  expect(joinResponse.ok(), "POST /api/join should succeed").toBe(true);
+  expect(
+    joinResponse.ok(),
+    `POST /api/join should succeed (HTTP ${joinResponse.status()})`,
+  ).toBe(true);
 
   const joinData = (await joinResponse.json()) as JoinResponse;
   expect(joinData.participantId, "Join response participantId").toBeTruthy();
   expect(joinData.teamId, "Join response teamId").toBeTruthy();
+  await page.waitForURL(new RegExp(`/play/${session.sessionId}(?:[/?#]|$)`), { timeout: 30_000 });
+  const storedHandoff = await page.evaluate((storageKey) => {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return { hasParticipant: false, hasTeam: false };
+    try {
+      const value = JSON.parse(raw) as { participantId?: unknown; teamId?: unknown };
+      return {
+        hasParticipant: typeof value.participantId === "string" && value.participantId.length > 0,
+        hasTeam: typeof value.teamId === "string" && value.teamId.length > 0,
+      };
+    } catch {
+      return { hasParticipant: false, hasTeam: false };
+    }
+  }, ACTIVE_PARTICIPANT_STORAGE_KEY);
+  expect(storedHandoff.hasParticipant, "Join handoff should keep participantId").toBe(true);
+  expect(storedHandoff.hasTeam, "Join handoff should keep teamId").toBe(true);
+  const participantAuthCookiePresent = (await page.context().cookies(BASE_URL)).some((cookie) =>
+    cookie.name.includes("gpslob-participant-auth"),
+  );
+  expect(participantAuthCookiePresent, "Join response should persist participant auth cookie").toBe(true);
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          async ({ sessionId, participantId }) => {
+            const response = await fetch(
+              `/api/play/participant?sessionId=${encodeURIComponent(sessionId)}&participantId=${encodeURIComponent(participantId)}`,
+              { cache: "no-store" },
+            );
+            return response.status;
+          },
+          { sessionId: session.sessionId, participantId: joinData.participantId },
+        ),
+      {
+        message: "Participant auth should be ready before reload",
+        timeout: 15_000,
+        intervals: [250, 500, 1_000],
+      },
+    )
+    .toBe(200);
   return joinData;
+}
+
+async function completeOptionalAvatarGate(page: Page) {
+  const zoneKrigLabel = page.getByText("Zone Krig", { exact: true });
+  const skipAvatarButton = page.getByRole("button", {
+    name: "Spring over uden avatar",
+    exact: true,
+  });
+  await expect(zoneKrigLabel.or(skipAvatarButton).first()).toBeVisible({ timeout: 30_000 });
+  if (await skipAvatarButton.isVisible()) {
+    await skipAvatarButton.click();
+  }
+  await expect(zoneKrigLabel).toBeVisible({ timeout: 30_000 });
 }
 
 async function waitForRows<T>(
@@ -413,10 +501,12 @@ async function fetchAnswerCount(admin: SupabaseClient, sessionId: string, partic
   return count ?? 0;
 }
 
-test("Zone Krig production flow covers capture, used attempts and zone ownership text", async ({ context, page }) => {
+test("Zone Krig isolated flow covers capture, used attempts and zone ownership text", async ({ context, page }) => {
   test.setTimeout(120_000);
   const admin = requireAdminClient();
   const session = await createControlledZoneKrigSession(admin);
+  let flowError: unknown;
+  try {
   await context.grantPermissions(["geolocation"], { origin: BASE_URL });
   await context.setGeolocation({ latitude: QUESTIONS[0].lat, longitude: QUESTIONS[0].lng, accuracy: 5 });
 
@@ -424,7 +514,7 @@ test("Zone Krig production flow covers capture, used attempts and zone ownership
   const { opponent } = await setControlledZoneOwnership(admin, session.sessionId, joinData.teamId);
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.getByText("Zone Krig")).toBeVisible({ timeout: 30_000 });
+  await completeOptionalAvatarGate(page);
   await expect(page.getByText("Neutral zone. Svar korrekt for at overtage den.")).toBeVisible({ timeout: 30_000 });
 
   await openSelectedZoneQuestion(page);
@@ -472,4 +562,14 @@ test("Zone Krig production flow covers capture, used attempts and zone ownership
 
   await selectZone(page, 5);
   await expect(page.getByText("I ejer denne zone.")).toBeVisible({ timeout: 10_000 });
+  } catch (error) {
+    flowError = error;
+  } finally {
+    try {
+      await cleanupControlledZoneKrigSession(admin, session);
+    } catch (cleanupError) {
+      if (!flowError) throw cleanupError;
+    }
+  }
+  if (flowError) throw flowError;
 });

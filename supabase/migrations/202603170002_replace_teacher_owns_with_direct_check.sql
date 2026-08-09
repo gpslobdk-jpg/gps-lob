@@ -25,6 +25,45 @@ end
 $$;
 
 -- Create owner policies using direct joins: gps_runs.user_id must equal auth.uid()
+drop policy if exists live_sessions_owner_select on public.live_sessions;
+create policy live_sessions_owner_select
+on public.live_sessions
+for select
+to authenticated
+using (
+  teacher_id = auth.uid()
+  and exists (
+    select 1
+    from public.gps_runs gr
+    where gr.id = public.live_sessions.run_id
+      and gr.user_id = auth.uid()
+  )
+);
+
+drop policy if exists live_sessions_owner_update on public.live_sessions;
+create policy live_sessions_owner_update
+on public.live_sessions
+for update
+to authenticated
+using (
+  teacher_id = auth.uid()
+  and exists (
+    select 1
+    from public.gps_runs gr
+    where gr.id = public.live_sessions.run_id
+      and gr.user_id = auth.uid()
+  )
+)
+with check (
+  teacher_id = auth.uid()
+  and exists (
+    select 1
+    from public.gps_runs gr
+    where gr.id = public.live_sessions.run_id
+      and gr.user_id = auth.uid()
+  )
+);
+
 -- Teacher can SELECT participants for sessions whose run is owned by them
 drop policy if exists participants_teacher_select on public.participants;
 create policy participants_teacher_select

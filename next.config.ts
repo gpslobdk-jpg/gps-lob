@@ -4,6 +4,9 @@ import withPWAInit from "@ducanh2912/next-pwa";
 
 const withPWA = withPWAInit({
   dest: "public",
+  // The generated worker is a production artifact. Rewriting it from a dev
+  // server races with Playwright and can leave /join unavailable on Windows.
+  disable: process.env.NODE_ENV === "development",
   publicExcludes: ["!**/*"],
   // Disable automatic SW registration; we'll register manually client-side
   register: false,
@@ -73,6 +76,18 @@ const nextConfig: NextConfig = {
             key: "X-Robots-Tag",
             value: "noindex, nofollow, noarchive",
           },
+        ],
+      },
+      {
+        source: "/api/family-sso/:path*",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "Pragma", value: "no-cache" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'none'; object-src 'none'" },
         ],
       },
     ];

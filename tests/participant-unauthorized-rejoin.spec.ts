@@ -3,6 +3,8 @@
 const SESSION_ID = "11111111-1111-1111-1111-111111111111";
 const ACTIVE_PARTICIPANT_STORAGE_KEY = "gpslob_active_participant";
 
+test.describe.configure({ timeout: 45_000 });
+
 async function setupMocks(page: Page) {
   // prevent realtime websocket connections
   await page.context().route(/supabase.*realtime|realtime\/v1\/websocket/i, async (route: Route) => {
@@ -33,7 +35,30 @@ async function setupMocks(page: Page) {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ questions: [], raceType: "quiz", radius: 50, gpsOverride: false }),
+      body: JSON.stringify({
+        questions: [
+          {
+            type: "multiple_choice",
+            text: "Testspørgsmål",
+            answers: ["A", "B"],
+            correctIndex: 0,
+            points: 10,
+            lat: 55.6761,
+            lng: 12.5683,
+          },
+        ],
+        raceType: "quiz",
+        radius: 50,
+        gpsOverride: false,
+      }),
+    });
+  });
+
+  await page.context().route("**/rest/v1/session_messages*", async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: "[]",
     });
   });
 }
@@ -86,15 +111,10 @@ test("401 from /api/play/participant shows Danish rejoin message and join button
 
   await setupMocks(page);
 
-  // Log browser console and requests to help diagnose flakiness
-  page.on('console', (msg) => console.log('PAGE LOG:', msg.text()));
-  page.on('request', (req) => console.log('REQ:', req.method(), req.url()));
-
   // Ensure the app starts with a stored active participant so the client
   // immediately attempts to fetch the participant snapshot on load.
-  await page.addInitScript((sessionId: string) => {
+  await page.addInitScript(({ sessionId, storageKey }) => {
     try {
-      const key = "gpslob_active_participant";
       const stored = {
         participantId: "p-saved-1",
         sessionId: sessionId,
@@ -103,11 +123,11 @@ test("401 from /api/play/participant shows Danish rejoin message and join button
         savedAt: new Date().toISOString(),
         sessionStatus: "running",
       };
-      window.localStorage.setItem(key, JSON.stringify(stored));
-    } catch (e) {
+      window.localStorage.setItem(storageKey, JSON.stringify(stored));
+    } catch {
       // ignore
     }
-  }, SESSION_ID);
+  }, { sessionId: SESSION_ID, storageKey: ACTIVE_PARTICIPANT_STORAGE_KEY });
 
   await page.goto(`/play/${SESSION_ID}`);
 
@@ -115,7 +135,7 @@ test("401 from /api/play/participant shows Danish rejoin message and join button
 
   // Expect the new rejoin message and a button back to /join
   const rejoinLocator = page.locator("text=Du skal tilmelde dig løbet igen.").first();
-  await expect(rejoinLocator).toBeVisible({ timeout: 30000 });
+  await expect(rejoinLocator).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("button", { name: /Gå til join/i })).toBeVisible();
 
   // Ensure the session-missing text is NOT shown in this case

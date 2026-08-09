@@ -36,25 +36,19 @@ test.describe("student photo delivery backend contract", () => {
     expect(photoRouteSource).toMatch(
       /const parsedOperationId =\s*isStandardStudentSubmission && !isSelfiePhotoTask\s*\?\s*parsePhotoSubmissionOperationId\(operationIdEntry\)/
     );
-    expect(photoRouteSource).toMatch(
-      /createStorageUploadNonce\(\s*answeredAt:\s*string,\s*operationId:\s*string\s*\|\s*null/
-    );
-    expect(photoRouteSource).toMatch(
-      /if\s*\(operationId\)\s*\{\s*return operationId\.toLowerCase\(\)/
-    );
-    expect(photoRouteSource).toContain(
-      'answeredAt.replace(/[^a-zA-Z0-9_-]/g, "")'
-    );
+    expect(photoRouteSource).toContain("const answerId = crypto.randomUUID()");
+    expect(photoRouteSource).toContain("buildPhotoStoragePath(");
+    expect(photoRouteSource).toContain("answerId,");
+    expect(photoRouteSource).not.toContain("createStorageUploadNonce");
   });
 
-  test("keeps legacy photo and selfie uploads on answeredAt with upsert", () => {
-    expect(photoRouteSource).toContain("upsert: operationId === null");
-    expect(photoRouteSource).toContain(
-      "createdByRequest: operationId !== null && !uploadError"
-    );
+  test("uses non-overwriting random storage objects for every photo flow", () => {
+    expect(photoRouteSource).toContain("upsert: false");
+    expect(photoRouteSource).toContain("createdByRequest: true");
     expect(photoRouteSource).toMatch(
       /isStandardStudentSubmission && !isSelfiePhotoTask\s*\?\s*parsePhotoSubmissionOperationId\(operationIdEntry\)\s*:\s*\{[\s\S]*?value:\s*null/
     );
+    expect(photoRouteSource).toContain("const answerId = crypto.randomUUID()");
   });
 
   test("looks up participant identity before legacy student-name fallback", () => {
@@ -72,34 +66,27 @@ test.describe("student photo delivery backend contract", () => {
     );
   });
 
-  test("checks stable requests before buffering and keeps legacy size behavior plus HEIC", () => {
-    expect(photoRouteSource).toContain(
-      "const PHOTO_UPLOAD_MAX_BYTES = 12 * 1024 * 1024"
-    );
+  test("checks size before decoding and rejects files that are not real supported images", () => {
+    expect(photoRouteSource).toContain("PHOTO_UPLOAD_MAX_BYTES");
     expect(photoRouteSource).toContain('"PHOTO_TOO_LARGE"');
     expect(photoRouteSource).toContain(
-      "if (operationId && isPhotoUploadTooLarge(imageEntry.size))"
+      "if (imageEntry.size > PHOTO_UPLOAD_MAX_BYTES)"
     );
-    expect(photoRouteSource).toContain('startsWith("image/")');
-    expect(photoRouteSource).not.toMatch(
-      /image\/(?:heic|heif).*(?:reject|unsupported|invalid)/i
-    );
+    expect(photoRouteSource).toContain("sanitizeUploadedPhoto(imageEntry)");
+    expect(photoRouteSource).not.toContain('startsWith("image/")');
 
     const sizeCheckIndex = photoRouteSource.indexOf(
-      "isPhotoUploadTooLarge(imageEntry.size)"
+      "imageEntry.size > PHOTO_UPLOAD_MAX_BYTES"
     );
-    const parseIndex = photoRouteSource.indexOf(
-      "const image = await parseUploadedImage(imageEntry)"
+    const sanitizeIndex = photoRouteSource.indexOf(
+      "image = await sanitizeUploadedPhoto(imageEntry)"
     );
     expect(sizeCheckIndex).toBeGreaterThan(-1);
-    expect(parseIndex).toBeGreaterThan(sizeCheckIndex);
+    expect(sanitizeIndex).toBeGreaterThan(sizeCheckIndex);
   });
 
-  test("reuses a stable storage object and reconciles a unique insert race", () => {
-    expect(photoRouteSource).toContain("upsert: operationId === null");
-    expect(photoRouteSource).toContain(
-      "isStorageObjectAlreadyExistsError(uploadError)"
-    );
+  test("cleans the fresh random object when a unique insert race is reconciled", () => {
+    expect(photoRouteSource).toContain("upsert: false");
     expect(photoRouteSource).toContain(
       "findExistingPhotoAnswerByOperationId("
     );
@@ -114,9 +101,7 @@ test.describe("student photo delivery backend contract", () => {
     expect(photoRouteSource).toContain(
       "shouldRemovePhotoUploadAfterDuplicate({"
     );
-    expect(photoRouteSource).toMatch(
-      /if\s*\(!operationId\)\s*\{\s*await removeNewPhotoUpload\([\s\S]*?Billedet kolliderede med en anden aflevering/
-    );
+    expect(photoRouteSource).not.toContain("isStorageObjectAlreadyExistsError");
   });
 
   test("distinguishes a session lookup failure from a closed session", () => {

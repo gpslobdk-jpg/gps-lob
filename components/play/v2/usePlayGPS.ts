@@ -243,6 +243,20 @@ export function usePlayGps(params: {
   const gpsOverrideRef = useRef(gpsOverrideActive);
   gpsOverrideRef.current = gpsOverrideActive;
 
+  const clearServerLocation = useCallback(() => {
+    const sid = sessionIdRef.current;
+    const pid = participantIdRef.current;
+    if (!sid || !pid) return;
+
+    void fetch("/api/play/location", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      keepalive: true,
+      body: JSON.stringify({ sessionId: sid, participantId: pid }),
+    }).catch(() => undefined);
+  }, []);
+
   // ---- Derived "isInRange" ----
   const isInRange = useMemo(() => {
     if (gpsOverrideActive) return true;
@@ -504,10 +518,12 @@ export function usePlayGps(params: {
     };
     const onOnline = () => restartTracking();
     const onPageShow = () => restartTracking();
+    const onPageHide = () => clearServerLocation();
 
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("online", onOnline);
     window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("pagehide", onPageHide);
 
     return () => {
       isMountedRef.current = false;
@@ -519,8 +535,10 @@ export function usePlayGps(params: {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("online", onOnline);
       window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("pagehide", onPageHide);
+      clearServerLocation();
     };
-  }, [enabled, handlePosition, handleError]);
+  }, [clearServerLocation, enabled, handlePosition, handleError]);
 
   // ---- Compass heading (DeviceOrientation) ----
   useEffect(() => {

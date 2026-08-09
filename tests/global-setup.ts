@@ -12,8 +12,8 @@
  * already running because Playwright starts it before globalSetup executes.
  */
 
-const BASE = "http://localhost:3000";
-const WARMUP_URL = `${BASE}/play/resilience-session-001`;
+const BASE = (process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+const WARMUP_URL = `${BASE}/play/44444444-4444-4444-8444-444444444444`;
 const CHUNK_TIMEOUT_MS = 120_000;
 const SETTLE_MS = 3_000; // let webpack finish writing chunks to disk
 
@@ -47,13 +47,13 @@ export default async function globalSetup() {
     ...html.matchAll(/src="(\/_next\/static\/[^"]+\.js)"/g),
   ].map((m) => `${BASE}${m[1]}`);
 
-  await Promise.all(
-    scriptPaths.map((url) =>
-      fetch(url, { signal: AbortSignal.timeout(CHUNK_TIMEOUT_MS) }).catch(
-        () => {}
-      )
-    )
-  );
+  // Keep this serial on Windows. Concurrent on-demand chunk compilation can
+  // contend for the same webpack files and leave the reused dev server stuck.
+  for (const url of [...new Set(scriptPaths)]) {
+    await fetch(url, { signal: AbortSignal.timeout(CHUNK_TIMEOUT_MS) }).catch(
+      () => {}
+    );
+  }
 
   // Step 3: Give webpack a moment to finish writing all chunk files to disk
   // before the first worker navigates to the page.

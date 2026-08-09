@@ -155,6 +155,11 @@ function sanitizeAnswerPayload(
   };
 
   delete sanitizedPayload.zone_krig_team_id;
+  delete sanitizedPayload.lat;
+  delete sanitizedPayload.lng;
+  delete sanitizedPayload.latitude;
+  delete sanitizedPayload.longitude;
+  delete sanitizedPayload.accuracy;
 
   return sanitizedPayload;
 }
