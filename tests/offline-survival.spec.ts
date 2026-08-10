@@ -254,7 +254,9 @@ test.describe("Offline Survival (Dead Forest)", () => {
     await expect(page.locator("body")).toBeVisible();
 
     // Assert: the existing offline badge is shown
-    const syncMessage = page.getByText("Gemt på telefonen", { exact: true });
+    const syncMessage = page.getByText("Svaret er gemt på telefonen", {
+      exact: true,
+    });
     await expect(syncMessage).toBeVisible({ timeout: 30_000 });
 
     // Assert: the submit-answer API was NOT called while offline
@@ -296,7 +298,9 @@ test.describe("Offline Survival (Dead Forest)", () => {
     await joinAndReachPost(page);
 
     // No offline indicator initially
-    const indicator = page.getByText("Gemt på telefonen", { exact: true });
+    const indicator = page.getByText("Svaret er gemt på telefonen", {
+      exact: true,
+    });
     await expect(indicator).not.toBeVisible({ timeout: 3_000 });
 
     // Go offline and submit

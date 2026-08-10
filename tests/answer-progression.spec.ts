@@ -187,19 +187,17 @@ async function openCurrentPost(
 ) {
   if (expectedProgressLabel) {
     await expect(
-      page.getByText(expectedProgressLabel),
+      page.getByText(expectedProgressLabel).first(),
       "Forventede at progressionen skiftede til den korrekte rutepost før GPS-opdateringen."
     ).toBeVisible({ timeout: 30_000 });
   }
 
   await page.context().setGeolocation({ latitude: POST_LAT, longitude: POST_LNG, accuracy: 5 });
 
-  const distancePanel = page.getByText(/^Afstand$/).locator("..");
-  await expect(distancePanel.getByText(/^0m$/)).toBeVisible({ timeout: 30_000 });
-
-  const openPostButton = page.getByRole("button", { name: /^åbn post$/i });
+  const arrivedCard = page.getByRole("status").filter({ hasText: "Du er fremme!" });
+  const legacyOpenButton = page.getByRole("button", { name: /^åbn post$/i });
   await expect(
-    readyLocator.or(openPostButton).first(),
+    readyLocator.or(arrivedCard).or(legacyOpenButton).first(),
     "Forventede enten den aktuelle posts svar eller knappen “Åbn post” ved 0 meter."
   ).toBeVisible({ timeout: 30_000 });
 
@@ -207,11 +205,20 @@ async function openCurrentPost(
     return;
   }
 
+  if (await legacyOpenButton.isVisible()) {
+    await legacyOpenButton.click();
+    await expect(
+      readyLocator,
+      "Forventede den aktuelle posts svar efter ét klik på “Åbn post”."
+    ).toBeVisible({ timeout: 30_000 });
+    return;
+  }
+
   await expect(
-    openPostButton,
+    arrivedCard,
     "Eleven var 0 meter fra posten, men hverken svarmuligheder eller knappen “Åbn post” var synlig."
   ).toBeVisible({ timeout: 30_000 });
-  await openPostButton.click();
+  await arrivedCard.getByRole("button", { name: /^åbn post$/i }).click();
   await expect(
     readyLocator,
     "Forventede den aktuelle posts svar efter ét klik på “Åbn post”."
@@ -330,10 +337,14 @@ test.describe("correctIndex B/C/D regression – korrekt svar på anden svarmuli
             document.querySelectorAll<HTMLButtonElement>("button")
           );
           const first = buttons.find(
-            (button) => button.textContent?.trim() === firstText
+            (button) =>
+              button.getAttribute("aria-label") === firstText ||
+              button.textContent?.trim() === firstText
           );
           const second = buttons.find(
-            (button) => button.textContent?.trim() === secondText
+            (button) =>
+              button.getAttribute("aria-label") === secondText ||
+              button.textContent?.trim() === secondText
           );
           if (!first || !second) {
             throw new Error("Svarmulighederne kunne ikke findes.");
@@ -343,7 +354,9 @@ test.describe("correctIndex B/C/D regression – korrekt svar på anden svarmuli
         },
         { firstText: wrongButtonText, secondText: buttonText }
       );
-      await expect(page.getByText(/Desværre.*0 point/i)).toBeVisible({ timeout: 5_000 });
+      await expect(
+        page.getByText(/Desværre.*0 point|Det var ikke det rigtige svar/i),
+      ).toBeVisible({ timeout: 5_000 });
 
       await expect.poll(() => state.submitPayloads.length, { timeout: 5_000 }).toBe(1);
       expect(state.submitPayloads[0]).toMatchObject({
@@ -432,7 +445,7 @@ test.describe("answer progression regressions", () => {
       await openCurrentPost(
         page,
         page.getByRole("button", { name: /^Næste korrekt$/i }),
-        /^Find post 2 af 4$/i
+        /^(?:Find )?post 2 af 4$/i
       );
       await expect(page.getByRole("button", { name: /^Næste korrekt$/i })).toBeVisible({ timeout: 10_000 });
 
@@ -453,7 +466,7 @@ test.describe("answer progression regressions", () => {
       await openCurrentPost(
         page,
         page.getByText(/Post 3 escape er nu aktiv\./i),
-        /^Find post 3 af 4$/i
+        /^(?:Find )?post 3 af 4$/i
       );
       await expect(page.getByText(/Post 3 escape er nu aktiv\./i)).toBeVisible({ timeout: 10_000 });
       await expect(page.getByPlaceholder(/skriv tallet eller ordet her/i)).toBeVisible({ timeout: 10_000 });
@@ -475,7 +488,7 @@ test.describe("answer progression regressions", () => {
       await openCurrentPost(
         page,
         page.getByRole("button", { name: /^Finale korrekt$/i }),
-        /^Find post 4 af 4$/i
+        /^(?:Find )?post 4 af 4$/i
       );
       await expect(page.getByRole("button", { name: /^Finale korrekt$/i })).toBeVisible({ timeout: 10_000 });
 
@@ -762,7 +775,7 @@ test.describe("start_offset=3 – sidst mulige startpost må ikke give for-tidli
         await openCurrentPost(
           page,
           page.getByText("S3-Post0 er aktiv"),
-          /^Find post 2 af 4$/i
+          /^(?:Find )?post 2 af 4$/i
         );
         await expect(page.getByText("S3-Post0 er aktiv")).toBeVisible({ timeout: 10_000 });
         await expect(page.getByText(/Løbet er slut\./i)).not.toBeVisible();
@@ -775,7 +788,7 @@ test.describe("start_offset=3 – sidst mulige startpost må ikke give for-tidli
         await openCurrentPost(
           page,
           page.getByText("S3-Post1 er aktiv"),
-          /^Find post 3 af 4$/i
+          /^(?:Find )?post 3 af 4$/i
         );
         await expect(page.getByText("S3-Post1 er aktiv")).toBeVisible({ timeout: 10_000 });
         await expect(page.getByText(/Løbet er slut\./i)).not.toBeVisible();
@@ -788,7 +801,7 @@ test.describe("start_offset=3 – sidst mulige startpost må ikke give for-tidli
         await openCurrentPost(
           page,
           page.getByText("S3-Post2 er aktiv"),
-          /^Find post 4 af 4$/i
+          /^(?:Find )?post 4 af 4$/i
         );
         await expect(page.getByText("S3-Post2 er aktiv")).toBeVisible({ timeout: 10_000 });
         await expect(page.getByText(/Løbet er slut\./i)).not.toBeVisible();

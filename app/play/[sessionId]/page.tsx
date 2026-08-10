@@ -13,6 +13,7 @@ import { usePlayGameState } from "@/components/play/GameState";
 import PlayInterface from "@/components/play/PlayInterface";
 import StudentConnectionStatus from "@/components/play/StudentConnectionStatus";
 import StudentLocationStatus from "@/components/play/StudentLocationStatus";
+import StandardPlayLocationStatus from "@/components/play/standard/StandardPlayLocationStatus";
 import { FullscreenWarning } from "@/components/ui/FullscreenWarning";
 import {
   resolveStudentLocationState,
@@ -180,6 +181,10 @@ function PlayScreen() {
   const isStratego = game.progress.raceMode === "stratego";
   const usesStandardLocation =
     game.flags.usesStandardStudentLocationExperience;
+  const usesStandardPlayExperience =
+    usesStandardLocation &&
+    game.progress.raceMode === "quiz" &&
+    game.progress.currentPost.activePostVariant === "quiz";
 
   const baseTrackingEnabled =
     Boolean(sessionId) &&
@@ -459,16 +464,31 @@ function PlayScreen() {
       )}
       {showStandardLocationStatus ? (
         <div className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-[2200] mx-auto max-w-md">
-          <StudentLocationStatus
-            state={locationPresentationState}
-            onStart={() => beginLocationAttempt(false)}
-            onRetry={() => beginLocationAttempt(true)}
-            isRetrying={isLocationAttemptActive}
-            isStandardFlow
-            currentPostLabel={currentPostLabel}
-            canOpenCurrentPost={canOpenFromFreshLocation}
-            onOpenCurrentPost={game.actions.unlockCurrentPost}
-          />
+          {usesStandardPlayExperience ? (
+            <StandardPlayLocationStatus
+              state={locationPresentationState}
+              postNumber={game.progress.displayPostNumber}
+              totalPosts={game.progress.totalQuestions}
+              distanceMeters={game.progress.map.distanceToTargetMeters}
+              isNearTarget={game.progress.map.isNearTarget}
+              onStart={() => beginLocationAttempt(false)}
+              onRetry={() => beginLocationAttempt(true)}
+              isRetrying={isLocationAttemptActive}
+              canOpenCurrentPost={canOpenFromFreshLocation}
+              onOpenCurrentPost={game.actions.unlockCurrentPost}
+            />
+          ) : (
+            <StudentLocationStatus
+              state={locationPresentationState}
+              onStart={() => beginLocationAttempt(false)}
+              onRetry={() => beginLocationAttempt(true)}
+              isRetrying={isLocationAttemptActive}
+              isStandardFlow
+              currentPostLabel={currentPostLabel}
+              canOpenCurrentPost={canOpenFromFreshLocation}
+              onOpenCurrentPost={game.actions.unlockCurrentPost}
+            />
+          )}
         </div>
       ) : null}
       {usesStandardLocation ? (
