@@ -12,12 +12,13 @@ test.setTimeout(45_000);
 
 const CODE = "ABC123";
 const STUDENT_NAME = "Hold Grøn";
-const INVALID_COPY = "Vi kunne ikke finde et løb med den kode.";
-const FINISHED_COPY = "Løbet er afsluttet.";
+const INVALID_COPY = "Den kode virker ikke. Tjek koden, og prøv igen.";
+const FINISHED_COPY =
+  "Løbet er slut. Få en ny kode af din lærer, hvis du skal deltage i et andet løb.";
 const NETWORK_COPY =
-  "Der kunne ikke oprettes forbindelse. Kontrollér nettet, og prøv igen.";
+  "Vi mistede forbindelsen. Tjek nettet, og prøv igen.";
 
-type RaceType = "quiz" | "zone_krig" | "stratego" | "escape";
+type RaceType = "quiz" | "zone_krig" | "stratego";
 
 type JoinObservation = {
   lookupCodes: Array<string | null>;
@@ -98,8 +99,19 @@ async function mockActiveJoin(
   return observation;
 }
 
-async function openJoin(page: Page) {
+async function openJoinStart(page: Page) {
   await page.goto("/join");
+  await expect(
+    page.getByRole("heading", { name: "Deltag i et løb", exact: true }),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page.getByRole("button", { name: "Deltag i et løb", exact: true }),
+  ).toBeVisible();
+}
+
+async function openJoin(page: Page) {
+  await openJoinStart(page);
+  await page.getByRole("button", { name: "Deltag i et løb", exact: true }).click();
   const codeInput = page.getByLabel("Kode fra din lærer", { exact: true });
   await expect(codeInput).toBeVisible({ timeout: 30_000 });
   await page.waitForFunction(() => {
@@ -198,10 +210,10 @@ test.describe("/join browser experience", () => {
   }) => {
     for (const width of [320, 375, 600, 1280]) {
       await page.setViewportSize({ width, height: 800 });
-      await openJoin(page);
+      await openJoinStart(page);
 
       await expect(
-        page.getByRole("button", { name: "Fortsæt", exact: true }),
+        page.getByRole("button", { name: "Deltag i et løb", exact: true }),
       ).toBeVisible();
       await expect(
         page.getByRole("button", { name: "Scan QR-kode", exact: true }),
@@ -226,7 +238,7 @@ test.describe("/join browser experience", () => {
       .getByRole("button", { name: "Fortsæt", exact: true })
       .click();
     await expect(page.locator("#join-error")).toHaveText(
-      "Skriv koden fra din lærer.",
+      "Skriv koden på 6 tegn fra din lærer.",
     );
 
     const troubleshooting = page.locator("details").filter({
@@ -399,7 +411,6 @@ test.describe("/join browser experience", () => {
   for (const raceType of [
     "zone_krig",
     "stratego",
-    "escape",
   ] as const) {
     test(`${raceType} keeps the standard /play/:session join route`, async ({
       page,
@@ -452,6 +463,16 @@ test.describe("/join browser experience", () => {
     });
 
     await page.goto("/join");
+    await expect(
+      page.getByRole("heading", {
+        name: "Du har allerede et løb i gang",
+        exact: true,
+      }),
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/\/join$/);
+    await page
+      .getByRole("button", { name: "Fortsæt løbet", exact: true })
+      .click();
     await page.waitForURL(`**/play/${sessionId}`, { timeout: 30_000 });
 
     expect(new URL(page.url()).pathname).toBe(`/play/${sessionId}`);

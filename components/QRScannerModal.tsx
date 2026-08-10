@@ -110,6 +110,11 @@ export default function QRScannerModal({
   const scannerRegionId = useId().replace(/:/g, "-");
   const titleId = `${scannerRegionId}-title`;
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const restoreFocusOnCloseRef = useRef(true);
   const permissionStreamRef = useRef<MediaStream | null>(null);
   const scannerStreamsRef = useRef<Set<MediaStream>>(new Set());
   const restoreGetUserMediaRef = useRef<(() => void) | null>(null);
@@ -126,6 +131,7 @@ export default function QRScannerModal({
   }, []);
 
   const closeModal = useCallback(() => {
+    restoreFocusOnCloseRef.current = true;
     restoreGetUserMediaRef.current?.();
     restoreGetUserMediaRef.current = null;
     stopMediaStream(permissionStreamRef.current);
@@ -192,7 +198,11 @@ export default function QRScannerModal({
       event.preventDefault();
       setCameraError(copy.errors.permissionDenied);
       setIsStarting(false);
-      void stopScanner();
+      void stopScanner().finally(() => {
+        if (isActive) {
+          setShouldStartCamera(false);
+        }
+      });
     };
 
     window.addEventListener("unhandledrejection", handlePlayRejection);
@@ -214,6 +224,7 @@ export default function QRScannerModal({
       if (!isActive) return;
 
       if (target.kind === "internal-route") {
+        restoreFocusOnCloseRef.current = false;
         setShouldStartCamera(false);
         setIsOpen(false);
         router.push(target.href);
@@ -241,6 +252,7 @@ export default function QRScannerModal({
       if (!isActive) return;
 
       setShouldStartCamera(false);
+      restoreFocusOnCloseRef.current = false;
       setIsOpen(false);
 
       if (!onCodeScanned) {
@@ -264,6 +276,7 @@ export default function QRScannerModal({
         setCameraError(
           copy.errors.unsupported
         );
+        setShouldStartCamera(false);
         return;
       }
 
@@ -362,6 +375,9 @@ export default function QRScannerModal({
           });
         }
         await stopScanner();
+        if (isActive) {
+          setShouldStartCamera(false);
+        }
       } finally {
         if (isActive) {
           setIsStarting(false);
@@ -393,25 +409,77 @@ export default function QRScannerModal({
   useEffect(() => {
     if (!isOpen) return;
 
+    const triggerElement = triggerRef.current;
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : triggerElement;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      closeButtonRef.current?.focus();
+    });
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
         closeModal();
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable?.length) {
+        event.preventDefault();
+        closeButtonRef.current?.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousBodyOverflow;
+      if (restoreFocusOnCloseRef.current) {
+        window.requestAnimationFrame(() => {
+          const previousFocus = previousFocusRef.current;
+          if (previousFocus?.isConnected) {
+            previousFocus.focus();
+          } else {
+            triggerElement?.focus();
+          }
+        });
+      }
+    };
   }, [closeModal, isOpen]);
 
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => {
+          restoreFocusOnCloseRef.current = true;
           setCameraError(null);
           setScanError(null);
-          setShouldStartCamera(false);
+          setShouldStartCamera(true);
           setIsOpen(true);
         }}
         className={`${qrButtonClassName} ${buttonClassName}`.trim()}
@@ -427,7 +495,8 @@ export default function QRScannerModal({
           data-testid="join-qr-dialog-backdrop"
         >
           <div
-            className="relative w-full max-w-md rounded-[1.75rem] border border-emerald-500/25 bg-slate-950/95 p-5 text-white shadow-[0_24px_60px_rgba(2,6,23,0.52)]"
+            ref={dialogRef}
+            className="relative max-h-[calc(100svh-2rem)] w-full max-w-md overflow-y-auto rounded-[1.75rem] border border-emerald-500/25 bg-slate-950/95 p-5 text-white shadow-[0_24px_60px_rgba(2,6,23,0.52)]"
             onClick={(event) => event.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -435,6 +504,7 @@ export default function QRScannerModal({
             data-testid="join-qr-dialog"
           >
             <button
+              ref={closeButtonRef}
               type="button"
               aria-label={copy.closeAriaLabel}
               onClick={closeModal}
@@ -461,7 +531,7 @@ export default function QRScannerModal({
               <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-slate-900/80 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                 <div
                   id={scannerRegionId}
-                  className="min-h-[280px] overflow-hidden rounded-[1.15rem] bg-slate-950 [&>div]:!border-0 [&_canvas]:rounded-[1rem] [&_video]:h-full [&_video]:w-full [&_video]:rounded-[1rem] [&_video]:object-cover"
+                  className="min-h-[min(280px,45svh)] overflow-hidden rounded-[1.15rem] bg-slate-950 [&>div]:!border-0 [&_canvas]:rounded-[1rem] [&_video]:h-full [&_video]:w-full [&_video]:rounded-[1rem] [&_video]:object-cover"
                 />
               </div>
             ) : (

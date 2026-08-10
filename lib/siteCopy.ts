@@ -151,6 +151,18 @@ type SiteCopy = {
     form: {
       title: string;
       description: string;
+      manualButton: string;
+      codeTitle: string;
+      codeDescription: string;
+      nameTitle: string;
+      nameDescription: string;
+      lookupPending: string;
+      resumeTitle: string;
+      resumeDescription: string;
+      resumeButton: string;
+      newRunButton: string;
+      expiredLinkTitle: string;
+      expiredLinkDescription: string;
       dismissWarningLabel: string;
       iosHintTitle: string;
       iosHintDescription: string;
@@ -260,20 +272,20 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       },
     },
     join: {
-      defaultExpiredMessage: "Løbet er afsluttet.",
-      emptyCode: "Skriv koden fra din lærer.",
+      defaultExpiredMessage: "Løbet er slut. Få en ny kode af din lærer, hvis du skal deltage i et andet løb.",
+      emptyCode: "Skriv koden på 6 tegn fra din lærer.",
       missingName: "Skriv dit navn eller holdnavn.",
       notOpen: "Løbet er ikke åbnet endnu. Spørg din lærer.",
       fillPinAndName: "Udfyld venligst både pinkode og navn.",
       pinLength: (length) => `Koden skal bestå af ${length} tegn.`,
       rateLimit:
         "Der er lige nu kø i skolegården. Vent 5-10 sekunder og prøv at trykke 'Deltag i løbet' igen.",
-      invalidPin: "Vi kunne ikke finde et løb med den kode.",
+      invalidPin: "Den kode virker ikke. Tjek koden, og prøv igen.",
       finishedOrMissing: "Løbet er afsluttet.",
       timeout:
         "Forbindelsen tager for lang tid. Hvis du er på skolens Wi-Fi, så prøv mobildata. På iPhone: åbn helst linket i Safari.",
       networkError:
-        "Der kunne ikke oprettes forbindelse. Kontrollér nettet, og prøv igen.",
+        "Vi mistede forbindelsen. Tjek nettet, og prøv igen.",
       genericJoinError:
         "Der opstod en fejl. Prøv igen, eller spørg din lærer.",
       teamBadge: (teamName) => `Du er på ${teamName} hold!`,
@@ -319,14 +331,27 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       },
       missingSession: {
         eyebrow: "Løb ikke fundet",
-        title: "Hov! Vi kan ikke finde dette løb 🏁",
+        title: "Vi kan ikke finde løbet",
         description:
-          "Det ser ud til, at linket er blevet for gammelt, eller at din lærer har afsluttet løbet. Tjek med din lærer, om du har fået det rigtige link eller den rigtige PIN-kode.",
+          "Linket er forkert eller for gammelt. Åbn et nyt link, eller skriv koden fra din lærer.",
         homeButton: "Gå til forsiden",
       },
       form: {
-        title: "Deltag i løbet",
-        description: "Indtast koden fra din lærer, eller scan QR-koden.",
+        title: "Deltag i et løb",
+        description: "Vælg, hvordan du vil deltage.",
+        manualButton: "Deltag i et løb",
+        codeTitle: "Skriv koden",
+        codeDescription: "Koden har 6 tegn og står hos din lærer.",
+        nameTitle: "Hvad skal vi kalde dig?",
+        nameDescription: "Skriv dit navn eller navnet på dit hold.",
+        lookupPending: "Tjekker koden...",
+        resumeTitle: "Du har allerede et løb i gang",
+        resumeDescription: "Du kan fortsætte, hvor du slap.",
+        resumeButton: "Fortsæt løbet",
+        newRunButton: "Deltag i et andet løb",
+        expiredLinkTitle: "Linket kan ikke bruges længere",
+        expiredLinkDescription:
+          "Løbet er slut, eller linket er blevet for gammelt. Få en ny kode af din lærer.",
         dismissWarningLabel: "Luk advarsel",
         iosHintTitle: "Bruger du iPhone?",
         iosHintDescription: "Åbn helst linket i Safari. Hvis skolens Wi-Fi driller, så prøv mobildata.",
@@ -336,14 +361,14 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
         inAppWarningAndroidStrong: "Åbn linket i den rigtige browser",
         inAppWarningAndroidBody:
           "i Chrome på Android for bedst chance for at GPS og login virker.",
-        codePlaceholder: "Kode, f.eks. 492173",
+        codePlaceholder: "ABC123",
         codeLabel: "Kode fra din lærer",
         namePlaceholder: "Navn eller holdnavn",
         nameLabel: "Dit navn eller holdnavn",
         continueButton: "Fortsæt",
         changeCodeButton: "Brug en anden kode",
         submitButton: "Deltag i løbet",
-        submitPending: "Gør klar...",
+        submitPending: "Lukker dig ind...",
         checkConnectionButton: "Tjek forbindelse",
         checkConnectionPending: "Tjekker...",
         troubleshootingTitle: "Problemer med at deltage?",
@@ -365,7 +390,7 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
     },
     qrScanner: {
       buttonLabel: "Scan QR-kode",
-      startButtonLabel: "Åbn kamera",
+      startButtonLabel: "Prøv kamera igen",
       eyebrow: "Scan dig ind",
       title: "Ret kameraet mod QR-koden",
       description: "Tillad kameraet for at scanne lærerens QR-kode.",
@@ -377,15 +402,15 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       closeAriaLabel: "Luk QR-scanner",
       errors: {
         permissionDenied:
-          "Kameraet kunne ikke åbnes. Du kan stadig indtaste koden ovenfor.",
+          "Kameraet kunne ikke åbnes. Luk kameraet, og skriv koden i stedet.",
         noCamera:
-          "Kameraet kunne ikke åbnes. Du kan stadig indtaste koden ovenfor.",
+          "Vi kan ikke finde et kamera. Luk kameraet, og skriv koden i stedet.",
         busy:
-          "Kameraet kunne ikke åbnes. Du kan stadig indtaste koden ovenfor.",
+          "Kameraet bruges et andet sted. Luk kameraet, og skriv koden i stedet.",
         generic:
-          "Kameraet kunne ikke åbnes. Du kan stadig indtaste koden ovenfor.",
+          "Kameraet kunne ikke åbnes. Prøv igen, eller skriv koden i stedet.",
         unsupported:
-          "Kameraet kunne ikke åbnes. Du kan stadig indtaste koden ovenfor.",
+          "Denne browser kan ikke bruge kameraet. Luk kameraet, og skriv koden i stedet.",
       },
     },
     wifiTip: "💡 Tip: Sluk for Wi-Fi og brug mobildata! Så mister du ikke forbindelsen ude på ruten.",
@@ -530,7 +555,20 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       },
       form: {
         title: "Bli med i løpet",
-        description: "Skriv inn koden fra læreren, eller skann QR-koden.",
+        description: "Velg hvordan du vil delta.",
+        manualButton: "Bli med i et løp",
+        codeTitle: "Skriv koden",
+        codeDescription: "Koden har 6 tegn og står hos læreren.",
+        nameTitle: "Hva skal vi kalle deg?",
+        nameDescription: "Skriv navnet ditt eller navnet på laget.",
+        lookupPending: "Sjekker koden...",
+        resumeTitle: "Du har allerede et løp i gang",
+        resumeDescription: "Du kan fortsette der du slapp.",
+        resumeButton: "Fortsett løpet",
+        newRunButton: "Bli med i et annet løp",
+        expiredLinkTitle: "Lenken kan ikke brukes lenger",
+        expiredLinkDescription:
+          "Løpet er slutt, eller lenken er blitt for gammel. Be læreren om en ny kode.",
         dismissWarningLabel: "Lukk advarsel",
         iosHintTitle: "Bruker du iPhone?",
         iosHintDescription:
