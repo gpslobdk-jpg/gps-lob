@@ -128,26 +128,34 @@ async function dismissMaintenanceOverlay(page: Page) {
  *  whichever comes first. This prevents the loop from consuming the entire
  *  test timeout. */
 async function waitForJoinForm(page: Page) {
-  const pinInput = page.locator("#join-code");
-  await expect(pinInput).toBeVisible({ timeout: 30_000 });
+  const startButton = page.getByRole("button", {
+    name: "Deltag i et løb",
+    exact: true,
+  });
+  await expect(startButton).toBeVisible({ timeout: 30_000 });
 
   const deadline = Date.now() + 25_000;
   while (Date.now() < deadline) {
     try {
       await page.waitForEvent("framenavigated", { timeout: 3_000 });
-      await expect(pinInput).toBeVisible({ timeout: 15_000 });
+      await expect(startButton).toBeVisible({ timeout: 15_000 });
     } catch {
       break; // No reload in 3 s → page is stable.
     }
   }
 
   await page.waitForFunction(() => {
-    const input = document.querySelector("#join-code");
+    const input = [...document.querySelectorAll("button")].find(
+      (button) => button.textContent?.trim() === "Deltag i et løb",
+    );
     return (
-      input !== null &&
+      input !== undefined &&
       Object.keys(input).some((key) => key.startsWith("__reactProps$"))
     );
   });
+
+  await startButton.click();
+  await expect(page.locator("#join-code")).toBeVisible();
 }
 
 // ---------------------------------------------------------------------------

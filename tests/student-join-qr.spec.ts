@@ -192,7 +192,6 @@ async function cameraSnapshot(page: Page) {
 }
 
 async function startScanner(page: Page) {
-  await page.getByTestId("join-qr-start").click();
   await page.waitForFunction(
     () =>
       typeof (
@@ -218,7 +217,7 @@ async function sendQrValue(page: Page, value: string) {
 }
 
 test.describe("production /join QR scanner", () => {
-  test("shows permission copy before camera access and supports Escape and close", async ({
+  test("starts in one tap, traps focus, locks scroll and restores focus on Escape", async ({
     page,
   }) => {
     const scanButton = await openJoinPage(page, "granted");
@@ -228,27 +227,31 @@ test.describe("production /join QR scanner", () => {
     await expect(
       page.getByText("Tillad kameraet for at scanne lærerens QR-kode."),
     ).toBeVisible();
-    await expect(page.getByTestId("join-qr-start")).toBeVisible();
-    expect((await cameraSnapshot(page)).getUserMediaCalls).toBe(0);
+    await expect(page.getByTestId("join-qr-close")).toBeFocused();
+    await expect
+      .poll(async () => (await cameraSnapshot(page)).getUserMediaCalls)
+      .toBeGreaterThan(0);
+    expect(await page.evaluate(() => document.body.style.overflow)).toBe("hidden");
+
+    await page.keyboard.press("Tab");
+    await expect(page.getByTestId("join-qr-close")).toBeFocused();
 
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("join-qr-dialog")).toBeHidden();
+    await expect(scanButton).toBeFocused();
+    expect(await page.evaluate(() => document.body.style.overflow)).toBe("");
 
     await scanButton.click();
     await expect(page.getByTestId("join-qr-dialog")).toBeVisible();
     await page.getByTestId("join-qr-close").click();
     await expect(page.getByTestId("join-qr-dialog")).toBeHidden();
-    expect((await cameraSnapshot(page)).getUserMediaCalls).toBe(0);
   });
 
-  test("camera starts only after explicit consent and close stops its mock tracks", async ({
+  test("one-tap camera start and close stop all mock tracks", async ({
     page,
   }) => {
     const scanButton = await openJoinPage(page, "granted");
     await scanButton.click();
-    expect((await cameraSnapshot(page)).getUserMediaCalls).toBe(0);
-
-    await page.getByTestId("join-qr-start").click();
     await expect
       .poll(async () => (await cameraSnapshot(page)).getUserMediaCalls)
       .toBeGreaterThan(0);
@@ -346,13 +349,13 @@ test.describe("production /join QR scanner", () => {
   }) => {
     const scanButton = await openJoinPage(page, "denied");
     await scanButton.click();
-    await page.getByTestId("join-qr-start").click();
 
     await expect(
       page.getByRole("alert").filter({
-        hasText: "Kameraet kunne ikke åbnes. Du kan stadig indtaste koden ovenfor.",
+        hasText: "Kameraet kunne ikke åbnes. Luk kameraet, og skriv koden i stedet.",
       }),
     ).toBeVisible();
+    await expect(page.getByTestId("join-qr-start")).toBeVisible();
     await expect(
       page.getByText("Du kan stadig indtaste koden manuelt på join-siden."),
     ).toBeVisible();

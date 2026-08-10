@@ -102,22 +102,24 @@ async function dismissMaintenanceOverlay(page: Page) {
 
 /** Wait for the /join form to be fully stable (handles Next.js HMR reload). */
 async function waitForJoinPage(page: Page) {
-  const pinInput = page.locator("#join-code");
-  await expect(pinInput).toBeVisible({ timeout: 30_000 });
+  const startButton = page.getByRole("button", { name: "Deltag i et løb", exact: true });
+  await expect(startButton).toBeVisible({ timeout: 30_000 });
 
   // If Next.js triggers an HMR reload after initial render, wait for it.
   try {
     await page.waitForEvent("framenavigated", { timeout: 15_000 });
     // Reload happened — wait for re-render.
-    await expect(pinInput).toBeVisible({ timeout: 20_000 });
+    await expect(startButton).toBeVisible({ timeout: 20_000 });
   } catch {
     // No HMR reload within 15 s — page is already stable.
   }
 
   await page.waitForFunction(() => {
-    const input = document.querySelector("#join-code");
+    const input = [...document.querySelectorAll("button")].find(
+      (button) => button.textContent?.trim() === "Deltag i et løb",
+    );
     return (
-      input !== null &&
+      input !== undefined &&
       Object.keys(input).some((key) => key.startsWith("__reactProps$"))
     );
   });
@@ -143,17 +145,22 @@ test.describe("iOS /join UI contract", () => {
       await dismissMaintenanceOverlay(page);
       await waitForJoinPage(page);
 
-      // 1. Pin code input
+      // 1. The initial screen offers the two clear entry choices.
+      await expect(
+        page.getByRole("heading", { name: "Deltag i et løb", exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Scan QR-kode", exact: true }),
+      ).toBeVisible();
+      await page.getByRole("button", { name: "Deltag i et løb", exact: true }).click();
+
+      // 2. Pin code input
       const pinInput = page.locator("#join-code");
       await expect(pinInput).toBeVisible();
 
-      // 2. Name input is deferred until a valid code has been looked up.
+      // 3. Name input is deferred until a valid code has been looked up.
       const nameInput = page.locator("#join-name");
       await expect(nameInput).toBeHidden();
-
-      // 3. QR scanner button (rendered by QRScannerModal)
-      const qrButton = page.getByRole("button", { name: /scan qr/i });
-      await expect(qrButton).toBeVisible();
 
       // 4. Submit button
       const continueButton = page.getByRole("button", { name: /^fortsæt$/i });

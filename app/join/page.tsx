@@ -11,7 +11,18 @@ import {
 import { poppins, rubik } from "@/lib/fonts";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, ArrowLeft, KeyRound, Leaf, Loader2, Timer, User } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  KeyRound,
+  Leaf,
+  Loader2,
+  Navigation,
+  Play,
+  Timer,
+  User,
+} from "lucide-react";
 
 import {
   type RunScheduleGate,
@@ -34,11 +45,12 @@ import {
   clearStoredActiveParticipant,
 } from "@/components/play/playUtils";
 import { buildStoredParticipantFromJoin } from "@/components/play/participantHandoff";
+import type { StoredActiveParticipant } from "@/components/play/types";
 import { createClient } from "@/utils/supabase/client";
 import { createClientTelemetryMessage, sendTelemetry } from "@/utils/telemetry";
 
 type JoinView = "form" | "waiting" | "scheduled" | "expired" | "scheduleError";
-type JoinStep = "code" | "name";
+type JoinStep = "start" | "code" | "name";
 
 type JoinLookupResponse =
   | {
@@ -192,6 +204,69 @@ async function fetchWithRetry(
   throw new Error("Join request ended unexpectedly.");
 }
 
+function JoinMapBackdrop() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+      <svg
+        className="absolute inset-0 h-full w-full opacity-65"
+        viewBox="0 0 900 1200"
+        preserveAspectRatio="xMidYMid slice"
+      >
+        <defs>
+          <pattern id="join-map-grid" width="72" height="72" patternUnits="userSpaceOnUse">
+            <path d="M 72 0 L 0 0 0 72" fill="none" stroke="rgba(148,163,184,0.07)" strokeWidth="1" />
+          </pattern>
+          <linearGradient id="join-route-line" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#34d399" stopOpacity="0.12" />
+            <stop offset="0.5" stopColor="#22d3ee" stopOpacity="0.42" />
+            <stop offset="1" stopColor="#34d399" stopOpacity="0.12" />
+          </linearGradient>
+        </defs>
+        <rect width="900" height="1200" fill="url(#join-map-grid)" />
+        <path
+          d="M-80 960 C120 850 120 650 330 620 C550 590 500 360 760 300 C860 276 940 180 1010 72"
+          fill="none"
+          stroke="url(#join-route-line)"
+          strokeWidth="7"
+          strokeLinecap="round"
+          strokeDasharray="2 20"
+        />
+        <path
+          d="M-120 310 C110 410 220 250 390 330 C570 415 650 650 1010 610"
+          fill="none"
+          stroke="rgba(52,211,153,0.09)"
+          strokeWidth="2"
+        />
+        <g className="join-map-dot join-map-dot-one">
+          <circle cx="330" cy="620" r="18" fill="rgba(15,23,42,0.9)" stroke="#34d399" strokeWidth="4" />
+          <circle cx="330" cy="620" r="5" fill="#6ee7b7" />
+        </g>
+        <g className="join-map-dot join-map-dot-two">
+          <circle cx="760" cy="300" r="18" fill="rgba(15,23,42,0.9)" stroke="#22d3ee" strokeWidth="4" />
+          <circle cx="760" cy="300" r="5" fill="#67e8f9" />
+        </g>
+      </svg>
+      <style jsx>{`
+        .join-map-dot {
+          transform-box: fill-box;
+          transform-origin: center;
+          animation: join-map-breathe 7s ease-in-out infinite;
+        }
+        .join-map-dot-two {
+          animation-delay: -3.5s;
+        }
+        @keyframes join-map-breathe {
+          0%, 100% { opacity: 0.45; transform: scale(0.92); }
+          50% { opacity: 1; transform: scale(1.08); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .join-map-dot { animation: none; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 function JoinForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -205,7 +280,7 @@ function JoinForm() {
 
   const [pin, setPin] = useState(pinFromQuery);
   const [name, setName] = useState("");
-  const [step, setStep] = useState<JoinStep>("code");
+  const [step, setStep] = useState<JoinStep>(pinFromQuery ? "code" : "start");
   const [view, setView] = useState<JoinView>("form");
   const [error, setError] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -219,9 +294,13 @@ function JoinForm() {
   const [isJoining, setIsJoining] = useState(false);
   const [showInAppWarning, setShowInAppWarning] = useState(false);
   const [browserPlatform, setBrowserPlatform] = useState<JoinBrowserPlatform>("other");
+  const [resumeParticipant, setResumeParticipant] = useState<StoredActiveParticipant | null>(null);
   const joinLockRef = useRef(false);
   const resumeAttemptedRef = useRef(false);
+  const codeInputRef = useRef<HTMLInputElement | null>(null);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
   const isMissingSessionNotice = searchParams.get("missingSession") === "1";
+  const isExpiredSessionNotice = searchParams.get("expired") === "1";
   const hasExplicitJoinCode = searchParams.has("pin");
   const isZoneKrig = raceType === "zone_krig";
   const isStaggeredRace = raceType === "quiz" || raceType === "photo";
@@ -267,7 +346,7 @@ function JoinForm() {
     // An explicit link/QR always wins over old local state. Otherwise, resume
     // only a recent handoff; /play revalidates it against the server before
     // allowing gameplay.
-    if (hasExplicitJoinCode || isMissingSessionNotice) return;
+    if (hasExplicitJoinCode || isMissingSessionNotice || isExpiredSessionNotice) return;
 
     const storedParticipant = readStoredActiveParticipant();
     if (
@@ -286,8 +365,20 @@ function JoinForm() {
       return;
     }
 
-    router.replace(`/play/${encodeURIComponent(storedParticipant.sessionId)}`);
-  }, [hasExplicitJoinCode, isMissingSessionNotice, router]);
+    setResumeParticipant(storedParticipant);
+  }, [hasExplicitJoinCode, isExpiredSessionNotice, isMissingSessionNotice]);
+
+  useEffect(() => {
+    const focusFrame = window.requestAnimationFrame(() => {
+      if (step === "code") {
+        codeInputRef.current?.focus();
+      } else if (step === "name") {
+        nameInputRef.current?.focus();
+      }
+    });
+
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [step]);
 
   useEffect(() => {
     if (!sessionId || (view !== "waiting" && view !== "scheduled")) return;
@@ -416,7 +507,7 @@ function JoinForm() {
 
   const resetToForm = () => {
     setView("form");
-    setStep("code");
+    setStep("start");
     setError("");
     setSessionId(null);
     setRunTitle("");
@@ -426,6 +517,12 @@ function JoinForm() {
     setAssignedTeamName(null);
     setAssignedTeamColor(null);
     setAssignedStartOffset(null);
+  };
+
+  const openCodeStep = () => {
+    setResumeParticipant(null);
+    setError("");
+    setStep("code");
   };
 
   const lookupJoinCode = useCallback(
@@ -1074,57 +1171,78 @@ function JoinForm() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
-      {isMissingSessionNotice ? (
-        <div className="relative mb-5 w-full overflow-hidden rounded-[2rem] border border-emerald-300/25 bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(15,23,42,0.96))] p-5 text-white shadow-[0_28px_70px_rgba(2,6,23,0.5)] backdrop-blur-2xl sm:p-6">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.22),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.12),transparent_36%)]" />
-          <div className="pointer-events-none absolute inset-0 rounded-[2rem] ring-1 ring-white/5" />
-
-          <div className="relative z-10">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-400/12 text-emerald-200 shadow-[0_0_24px_rgba(16,185,129,0.18)]">
-              <Leaf className="h-6 w-6" />
-            </div>
-
-            <p className="text-[11px] font-semibold tracking-[0.32em] text-emerald-200/70 uppercase">
-              {joinCopy.missingSession.eyebrow}
-            </p>
-            <h1 className={`mt-3 text-2xl font-black text-white sm:text-3xl ${rubik.className}`}>
-              {joinCopy.missingSession.title}
-            </h1>
-            <p className="mt-4 text-sm leading-6 text-white/80 sm:text-base">
-              {joinCopy.missingSession.description}
-            </p>
-
-            <div className="mt-6">
-              <Link
-                href="/"
-                className="inline-flex min-h-[52px] w-full items-center justify-center rounded-[1.2rem] border border-emerald-300/30 bg-gradient-to-r from-emerald-500 to-teal-400 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-[0_18px_38px_rgba(16,185,129,0.24)] transition hover:brightness-110 active:scale-[0.99]"
-              >
-                {joinCopy.missingSession.homeButton}
-              </Link>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/20 bg-slate-900/60 p-5 text-white shadow-[0_36px_100px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:p-8">
+    <div className="relative z-10 mx-auto flex min-h-svh w-full max-w-md flex-col items-center justify-center px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
+      <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/15 bg-slate-900/75 p-5 text-white shadow-[0_30px_90px_rgba(0,0,0,0.5)] backdrop-blur-2xl sm:p-7">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.12),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_42%)]" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/15" />
 
         <div className="relative">
-          <p className="text-center text-sm font-bold tracking-[0.22em] text-emerald-200 uppercase">
+          {step !== "start" ? (
+            <button
+              type="button"
+              onClick={() => {
+                setError("");
+                if (step === "name") {
+                  setPin("");
+                  setName("");
+                  setSessionId(null);
+                  setRunTitle("");
+                  setRaceType(null);
+                  setStep("code");
+                } else {
+                  setPin("");
+                  setStep("start");
+                }
+              }}
+              className="absolute -top-1 -left-1 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/80 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+              aria-label={joinCopy.form.changeCodeButton}
+            >
+              <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+            </button>
+          ) : null}
+
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-400/10 text-emerald-200 shadow-[0_0_24px_rgba(16,185,129,0.16)]">
+            <Navigation className="h-6 w-6" aria-hidden="true" />
+          </div>
+          <p className="mt-3 text-center text-[11px] font-bold tracking-[0.22em] text-emerald-200 uppercase">
             {siteCopy.home.brandLabel}
           </p>
-          <h1 className={`text-center text-3xl font-black text-white sm:text-4xl ${rubik.className}`}>
-            {joinCopy.form.title}
+
+          {(isMissingSessionNotice || isExpiredSessionNotice) && step === "start" ? (
+            <div className="mt-4 rounded-2xl border border-amber-300/25 bg-amber-400/10 px-4 py-3 text-left" role="status">
+              <p className="text-sm font-bold text-amber-50">
+                {isExpiredSessionNotice
+                  ? joinCopy.form.expiredLinkTitle
+                  : joinCopy.missingSession.eyebrow}
+              </p>
+              <p className="mt-1 text-sm leading-5 text-amber-50/80">
+                {isExpiredSessionNotice
+                  ? joinCopy.form.expiredLinkDescription
+                  : joinCopy.missingSession.description}
+              </p>
+            </div>
+          ) : null}
+
+          <h1 className={`mt-4 text-center text-3xl font-black text-white sm:text-4xl ${rubik.className}`}>
+            {resumeParticipant && step === "start"
+              ? joinCopy.form.resumeTitle
+              : step === "code"
+                ? joinCopy.form.codeTitle
+                : step === "name"
+                  ? joinCopy.form.nameTitle
+                  : joinCopy.form.title}
           </h1>
           <p className="mt-3 text-center text-sm leading-6 text-slate-300 sm:text-base">
-            {step === "name" && runTitle
-              ? runTitle
-              : joinCopy.form.description}
+            {resumeParticipant && step === "start"
+              ? joinCopy.form.resumeDescription
+              : step === "code"
+                ? joinCopy.form.codeDescription
+                : step === "name"
+                  ? joinCopy.form.nameDescription
+                  : joinCopy.form.description}
           </p>
 
-          {browserPlatform === "ios" && !showInAppWarning ? (
+          {step === "code" && browserPlatform === "ios" && !showInAppWarning ? (
             <div className="mt-4 rounded-2xl border border-sky-400/25 bg-sky-400/10 px-4 py-3 text-left text-sm text-sky-100 backdrop-blur-md">
               <p className="font-bold text-sky-50">{joinCopy.form.iosHintTitle}</p>
               <p className="mt-1 leading-5 text-sky-100/90">
@@ -1133,7 +1251,7 @@ function JoinForm() {
             </div>
           ) : null}
 
-          {showInAppWarning ? (
+          {step === "code" && showInAppWarning ? (
             <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200 backdrop-blur-md">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
               <span className="flex-1 leading-5">
@@ -1157,7 +1275,50 @@ function JoinForm() {
             </div>
           ) : null}
 
-          <form onSubmit={handleJoin} className="mt-8 space-y-5">
+          {step === "start" ? (
+            resumeParticipant ? (
+              <div className="mt-7 space-y-3" data-testid="join-resume-card">
+                <button
+                  type="button"
+                  onClick={() => {
+                    router.replace(`/play/${encodeURIComponent(resumeParticipant.sessionId)}`);
+                  }}
+                  className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-emerald-400 px-5 py-3 text-base font-black text-slate-950 shadow-[0_16px_36px_rgba(16,185,129,0.25)] transition hover:bg-emerald-300 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+                >
+                  <Play className="h-5 w-5 fill-current" aria-hidden="true" />
+                  {joinCopy.form.resumeButton}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setResumeParticipant(null)}
+                  className="inline-flex min-h-12 w-full items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+                >
+                  {joinCopy.form.newRunButton}
+                </button>
+              </div>
+            ) : (
+              <div className="mt-7 space-y-3" data-testid="join-start-actions">
+                <button
+                  type="button"
+                  onClick={openCodeStep}
+                  className="group inline-flex min-h-16 w-full items-center gap-4 rounded-2xl bg-emerald-400 px-5 py-3 text-left text-slate-950 shadow-[0_16px_36px_rgba(16,185,129,0.24)] transition hover:bg-emerald-300 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-950/10">
+                    <KeyRound className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span className="flex-1 text-base font-black">{joinCopy.form.manualButton}</span>
+                  <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                </button>
+
+                <QRScannerModal
+                  buttonClassName="!min-h-16 !w-full !justify-start !rounded-2xl !border-sky-300/25 !bg-sky-400/12 !px-5 !py-3 !text-left !text-base !font-black !tracking-normal !text-sky-50 !normal-case hover:!bg-sky-400/20 [&>svg]:!h-6 [&>svg]:!w-6"
+                  copy={siteCopy.qrScanner}
+                  onCodeScanned={lookupJoinCode}
+                />
+              </div>
+            )
+          ) : (
+          <form onSubmit={handleJoin} className="mt-7 space-y-4" aria-busy={isJoining}>
             {error ? (
               <div
                 id="join-error"
@@ -1183,6 +1344,7 @@ function JoinForm() {
                       <KeyRound className="h-5 w-5" aria-hidden="true" />
                     </div>
                     <input
+                      ref={codeInputRef}
                       id="join-code"
                       type="text"
                       placeholder={joinCopy.form.codePlaceholder}
@@ -1201,32 +1363,11 @@ function JoinForm() {
                     />
                   </div>
                 </div>
-
-                <QRScannerModal
-                  buttonClassName="min-h-12 w-full justify-center rounded-2xl text-sm normal-case tracking-normal"
-                  copy={siteCopy.qrScanner}
-                  onCodeScanned={lookupJoinCode}
-                />
               </>
             ) : (
               <>
                 <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/8 px-4 py-3 text-sm text-emerald-50">
                   <p className="font-bold">{runTitle || joinCopy.form.title}</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStep("code");
-                      setPin("");
-                      setName("");
-                      setSessionId(null);
-                      setRunTitle("");
-                      setRaceType(null);
-                      setError("");
-                    }}
-                    className="mt-2 min-h-11 rounded-lg text-sm font-semibold text-emerald-200 underline decoration-emerald-300/40 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
-                  >
-                    {joinCopy.form.changeCodeButton}
-                  </button>
                 </div>
 
                 <div>
@@ -1241,6 +1382,7 @@ function JoinForm() {
                       <User className="h-5 w-5" aria-hidden="true" />
                     </div>
                     <input
+                      ref={nameInputRef}
                       id="join-name"
                       type="text"
                       placeholder={joinCopy.form.namePlaceholder}
@@ -1261,12 +1403,14 @@ function JoinForm() {
             <button
               type="submit"
               disabled={isJoining}
-              className="mt-2 mb-6 w-full rounded-[1.6rem] border border-emerald-500/30 bg-emerald-500/10 py-4 text-base font-black tracking-[0.28em] text-emerald-300 uppercase shadow-[0_0_30px_rgba(16,185,129,0.22)] transition-all hover:bg-emerald-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-45"
+              className="mt-2 inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-emerald-400 px-5 py-3 text-base font-black text-slate-950 shadow-[0_16px_36px_rgba(16,185,129,0.22)] transition hover:bg-emerald-300 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
             >
               {isJoining ? (
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="h-4 w-4 motion-safe:animate-spin motion-reduce:animate-none" />
-                  {joinCopy.form.submitPending}
+                  {step === "code"
+                    ? joinCopy.form.lookupPending
+                    : joinCopy.form.submitPending}
                 </span>
               ) : (
                 step === "code"
@@ -1275,6 +1419,7 @@ function JoinForm() {
               )}
             </button>
           </form>
+          )}
 
           {step === "code" ? (
           <details className="mt-5 rounded-[1.35rem] border border-white/10 bg-slate-950/45 px-4 py-3 text-left shadow-[0_10px_24px_rgba(2,6,23,0.16)]">
@@ -1307,11 +1452,12 @@ function JoinForm() {
 
 export default function JoinPage() {
   return (
-    <div className={`relative flex min-h-svh items-start justify-center overflow-y-auto bg-slate-950 pb-20 text-white sm:items-center ${poppins.className}`}>
+    <div className={`relative flex min-h-svh items-stretch justify-center overflow-x-hidden bg-slate-950 text-white ${poppins.className}`}>
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#020617_0%,#020b16_42%,#01040a_100%)]" />
       <div className="pointer-events-none absolute left-[-7rem] top-[-5rem] h-72 w-72 rounded-full bg-emerald-400/14 blur-[120px]" />
       <div className="pointer-events-none absolute bottom-[-8rem] right-[-5rem] h-80 w-80 rounded-full bg-cyan-400/10 blur-[140px]" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_28%),radial-gradient(circle_at_bottom,rgba(34,211,238,0.08),transparent_22%)]" />
+      <JoinMapBackdrop />
 
       <Suspense
         fallback={
