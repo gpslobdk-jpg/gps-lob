@@ -227,6 +227,14 @@ test.describe("iOS two-post flow", () => {
     // participantId → isTrackingEnabled = true → GPSManager starts.
     await page.goto(`/play/${SESSION_ID}`);
     await dismissMaintenanceOverlay(page);
+    const closeFullscreenWarning = page.getByRole("button", {
+      name: "Luk advarsel",
+    });
+    if (await closeFullscreenWarning.isVisible().catch(() => false)) {
+      await closeFullscreenWarning.evaluate((button) => {
+        (button as HTMLButtonElement).click();
+      });
+    }
 
     // ── Step 1: Name gate — always appears when no stored/URL name ────
     // PlayInterface renders StudentNameGateView with:
@@ -246,8 +254,26 @@ test.describe("iOS two-post flow", () => {
     const firstArrivedCard = page
       .getByRole("status")
       .filter({ hasText: "Du er fremme!" });
+    for (let tick = 0; tick < 50; tick++) {
+      const locationAction = page.getByRole("button", {
+        name: /tillad placering|prøv igen|find min placering igen/i,
+      });
+      if (await locationAction.isVisible().catch(() => false)) {
+        await locationAction.evaluate((button) => {
+          (button as HTMLButtonElement).click();
+        }).catch(() => undefined);
+      }
+      const jitter = tick % 2 === 0 ? 0 : 0.000001;
+      await page.context().setGeolocation({
+        latitude: POST_1_LAT + jitter,
+        longitude: POST_1_LNG + jitter,
+        accuracy: 5,
+      });
+      if (await firstArrivedCard.isVisible().catch(() => false)) break;
+      await page.waitForTimeout(500);
+    }
     await expect(firstArrivedCard).toBeVisible({
-      timeout: 40_000,
+      timeout: 10_000,
     });
     await expect(
       page.getByText("Hvad er hovedstaden i Danmark?")
@@ -282,6 +308,14 @@ test.describe("iOS two-post flow", () => {
       .getByRole("status")
       .filter({ hasText: "Du er fremme!" });
     for (let tick = 0; tick < 50; tick++) {
+      const locationAction = page.getByRole("button", {
+        name: /tillad placering|prøv igen|find min placering igen/i,
+      });
+      if (await locationAction.isVisible().catch(() => false)) {
+        await locationAction.evaluate((button) => {
+          (button as HTMLButtonElement).click();
+        }).catch(() => undefined);
+      }
       const jitter = tick % 2 === 0 ? 0 : 0.000001;
       await page.context().setGeolocation({
         latitude: POST_2_LAT + jitter,
@@ -302,7 +336,7 @@ test.describe("iOS two-post flow", () => {
     await expect(q2Text).toBeVisible({ timeout: 5_000 });
 
     // ── Step 7: Answer Q2 ─────────────────────────────────────────────
-    await page.locator("button").filter({ hasText: /^4$/ }).first().click();
+    await page.getByRole("button", { name: /^4$/ }).click();
     await page.waitForTimeout(2_000);
 
     // ── Assert no critical uncaught errors ────────────────────────────

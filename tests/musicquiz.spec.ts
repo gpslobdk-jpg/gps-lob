@@ -119,14 +119,14 @@ async function mountPlayMocks(
   await ctx.route(/\/api\/play\/session/, async (route: Route) => {
     await route.fulfill({
       status: 200, contentType: "application/json",
-      body: JSON.stringify({ questions, raceType: "quiz", radius: 50, gpsOverride: false }),
+      body: JSON.stringify({ questions, raceType: "quiz", radius: 50, gpsOverride: true }),
     });
   });
 
   await ctx.route(/\/api\/play\/status/, async (route: Route) => {
     await route.fulfill({
       status: 200, contentType: "application/json",
-      body: JSON.stringify({ sessionStatus: "running", gpsOverride: false }),
+      body: JSON.stringify({ sessionStatus: "running", gpsOverride: true }),
     });
   });
 
@@ -178,6 +178,13 @@ async function openPlayPage(page: Page, readyLocator: Locator) {
   await page.getByRole("button", { name: /klar/i }).click();
 
   await page.waitForSelector("text=Afstand", { timeout: 30_000 });
+  const openPostButton = page.getByRole("button", { name: /^åbn post/i });
+  await expect(readyLocator.or(openPostButton).first()).toBeVisible({
+    timeout: 30_000,
+  });
+  if (!(await readyLocator.isVisible())) {
+    await openPostButton.click();
+  }
   await expect(readyLocator).toBeVisible({ timeout: 30_000 });
 }
 
@@ -458,9 +465,20 @@ test.describe("Musikquiz – malrettede tests", () => {
     await expect(page.getByText(/Desværre.*0 point/i)).toBeVisible({ timeout: 5_000 });
 
     // Bekraeft at appen gaar videre og viser naeste post
-    await expect(
-      page.getByRole("button", { name: /^Post2 svar$/i }),
-    ).toBeVisible({ timeout: 10_000 });
+    await page.context().setGeolocation({
+      latitude: POST_LAT,
+      longitude: POST_LNG,
+      accuracy: 5,
+    });
+    const nextAnswer = page.getByRole("button", { name: /^Post2 svar$/i });
+    const nextOpenButton = page.getByRole("button", { name: /^åbn post/i });
+    await expect(nextAnswer.or(nextOpenButton).first()).toBeVisible({
+      timeout: 30_000,
+    });
+    if (!(await nextAnswer.isVisible())) {
+      await nextOpenButton.click();
+    }
+    await expect(nextAnswer).toBeVisible({ timeout: 10_000 });
 
     // Bekraeft submit-payload
     await expect.poll(() => state.submitPayloads.length).toBe(1);

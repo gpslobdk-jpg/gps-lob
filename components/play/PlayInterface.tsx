@@ -21,6 +21,7 @@ import QuestionTtsButton from "./QuestionTtsButton";
 import StudentSubmissionStatus from "./StudentSubmissionStatus";
 import TeacherBroadcastModal from "./TeacherBroadcastModal";
 import StudentNameGateView from "./shared/StudentNameGateView";
+import StandardStudentPlayExperience from "./standard/StandardStudentPlayExperience";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 import trophyAnimation from "@/public/trophy.json";
 import { getGamerTitle } from "@/utils/gamerTitle";
@@ -315,7 +316,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const [cameraPermissionState, setCameraPermissionState] = useState<PermissionState | "unknown">("unknown");
   const [isOffline, setIsOffline] = useState(() => (typeof navigator !== "undefined" ? !navigator.onLine : false));
   const [showCloudSyncSuccess, setShowCloudSyncSuccess] = useState(false);
-  const cloudSyncSuccessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cloudSyncSuccessTimerRef = useRef<number | null>(null);
   const [isRetryingConnection, setIsRetryingConnection] = useState(false);
   const [isResettingFromExpired, setIsResettingFromExpired] = useState(false);
   const [showRetrySlowHint, setShowRetrySlowHint] = useState(false);
@@ -511,6 +512,10 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const isParticipantUnauthorizedRejoin =
     screen.loadErrorVariant === "participant_unauthorized_rejoin";
   const isQuizPostBurned = activePostVariant === "quiz" && activeQuizPostBurned;
+  const usesStandardPlayExperience =
+    usesStandardStudentLocationExperience &&
+    raceMode === "quiz" &&
+    activePostVariant === "quiz";
   // Check BOTH arrays — solvedPostIndexes (correct answers) and answeredPostIndexes
   // (wrong answers). Either being true means the post is done and buttons must not render.
   const isCurrentPostAnswered =
@@ -680,7 +685,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     cloudSyncSuccessTimerRef.current = window.setTimeout(() => {
       setShowCloudSyncSuccess(false);
       cloudSyncSuccessTimerRef.current = null;
-    }, 2000) as any;
+    }, 2000);
   }, [
     hasActiveQuizSuccess,
     studentSubmission.status,
@@ -1643,6 +1648,19 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
       break;
 
     case "active":
+      if (usesStandardPlayExperience) {
+        content = (
+          <StandardStudentPlayExperience
+            ui={ui}
+            actions={actions}
+            onRetrySubmission={retryActiveSubmission}
+          >
+            {children}
+          </StandardStudentPlayExperience>
+        );
+        break;
+      }
+
       content = (
         <div
           className={`relative flex h-[100svh] min-h-[100svh] w-full flex-col overflow-hidden bg-slate-950 text-white ${poppins.className}`}
