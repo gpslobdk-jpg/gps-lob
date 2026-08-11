@@ -2,7 +2,7 @@
 
 import { Camera, ChevronDown, Loader2, Plus, Ruler, Sparkles, Trash2, Wrench } from "lucide-react";
 import dynamic from "next/dynamic";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
@@ -47,16 +47,6 @@ const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   loading: () => (
     <div className="h-full w-full animate-pulse rounded-3xl border border-sky-500/20 bg-slate-900/60" />
   ),
-});
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
 });
 
 const SUBJECT_TOPICS: Record<string, string[]> = {
@@ -437,7 +427,6 @@ const isQuestionEmpty = (question: Question) =>
   question.lat === null &&
   question.lng === null;
 
-
 export default function FotoMissionBuilderPage() {
   return (
     <Suspense
@@ -460,7 +449,6 @@ export default function FotoMissionBuilderPage() {
     </Suspense>
   );
 }
-
 
 function FotoMissionBuilderPageContent() {
   const router = useRouter();

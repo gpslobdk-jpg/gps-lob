@@ -5,7 +5,7 @@ import { ArrowLeft, CircleHelp, Printer, Shield, Trophy } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 import PwaInstallTip from "@/components/PwaInstallTip";
@@ -18,16 +18,6 @@ import { type RaceTypeThemeKey } from "@/utils/raceTypeTheme";
 import { markDraftForAutoload, writeRunDraft } from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
 import { buildVm26Template } from "@/utils/vm26Template";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 const cardBaseClass =
   "group relative z-0 mx-auto flex h-[12rem] w-full max-w-[20.5rem] flex-col overflow-visible rounded-[2rem] border bg-white/10 p-0 text-left shadow-[0_22px_52px_rgba(15,23,42,0.16),0_8px_18px_rgba(15,23,42,0.07),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-lg transition-all duration-300 hover:z-20 focus-within:z-20";

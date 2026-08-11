@@ -8,7 +8,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, ArrowLeft, KeyRound, Leaf, Loader2, Timer, User } from "lucide-react";
@@ -36,16 +36,6 @@ import {
 import { buildStoredParticipantFromJoin } from "@/components/play/participantHandoff";
 import { createClient } from "@/utils/supabase/client";
 import { createClientTelemetryMessage, sendTelemetry } from "@/utils/telemetry";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 type JoinView = "form" | "waiting" | "scheduled" | "expired" | "scheduleError";
 type JoinStep = "code" | "name";

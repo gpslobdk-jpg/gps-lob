@@ -3,17 +3,13 @@
 export const dynamic = "force-dynamic";
 
 import { Loader2, Printer, Sparkles } from "lucide-react";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { BUILDER_SUBJECTS } from "@/utils/subjects";
 import { DEFAULT_SELECTED_GRADE_LEVELS, type GradeLevel } from "@/utils/gradeLevels";
 import GradeLevelMultiSelect from "@/components/builders/GradeLevelMultiSelect";
-
-const rubik = Rubik({ subsets: ["latin"], weight: ["700", "800", "900"] });
-const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
-
 
 const POST_COUNTS = [4, 6, 8, 10] as const;
 
@@ -126,7 +122,6 @@ export default function StjerneloebPage() {
               />
             </div>
           </div>
-
 
           {/* Løbstype vælger */}
           <div className="mb-8">

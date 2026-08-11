@@ -1,21 +1,11 @@
 "use client";
 
 import { ArrowLeft, BookOpen, Check, Loader2, Search, X } from "lucide-react";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { useEffect, useMemo, useState } from "react";
 
 import { getNormalizedRunRaceType, RACE_TYPE_LABELS, type RaceType, type StoredRunRecord } from "@/utils/gpsRuns";
 import { createClient } from "@/utils/supabase/client";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 const ANSWER_LABELS = ["A", "B", "C", "D"] as const;
 

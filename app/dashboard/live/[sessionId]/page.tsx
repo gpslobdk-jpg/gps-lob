@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
-import { Poppins } from "next/font/google";
+import { poppins } from "@/lib/fonts";
 import { Copy, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { QRCode } from "react-qrcode-logo";
@@ -35,11 +35,6 @@ const StrategoTeacherSetup = dynamic(() => import("@/components/live/StrategoTea
 });
 const StrategoTeacherDashboard = dynamic(() => import("@/components/live/StrategoTeacherDashboard"), {
   ssr: false,
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
 });
 
 type TeacherAccessOverlayProps = {

@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, Crosshair, Loader2, MapPinned, Shield, Swords, Z
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { useBuilderSaveGuidance } from "@/components/builders/useBuilderSaveGuidance";
@@ -17,16 +17,6 @@ import {
   type StoredRunRecord,
 } from "@/utils/gpsRuns";
 import { createClient } from "@/utils/supabase/client";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 type BuilderNotice = {
   tone: "success" | "error";

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "leaflet/dist/leaflet.css";
 import { headers } from "next/headers";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import "./globals.css";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import PrivacySafeAnalytics from "@/components/PrivacySafeAnalytics";
@@ -9,18 +9,6 @@ import PrivacySafeAnalytics from "@/components/PrivacySafeAnalytics";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import { getSiteCopy } from "@/lib/siteCopy";
 import { resolveSiteVariantFromHeaders } from "@/lib/siteVariant";
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  variable: "--font-poppins",
-});
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-  variable: "--font-rubik",
-});
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();

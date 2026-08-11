@@ -1,6 +1,6 @@
 "use client";
 
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { QrCode } from "lucide-react";
 import { type FormEvent } from "react";
 
@@ -11,16 +11,6 @@ import type {
   TeacherLiveRouteParticipant,
 } from "@/components/live/types";
 import type { ActivePostOrderMode } from "@/lib/routes/postOrderPolicy";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 const MODULE_BUTTONS: Array<{ id: LiveModuleId; label: string }> = [
   { id: "leaderboard", label: "Leaderboard" },

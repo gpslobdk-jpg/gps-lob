@@ -3,20 +3,10 @@
 import { Player } from "@lottiefiles/react-lottie-player";
 import { motion } from "framer-motion";
 import { Award, Medal, Trophy } from "lucide-react";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { useMemo, useState, type ReactNode } from "react";
 
 import type { LiveAnswer, TeacherLiveStanding } from "@/components/live/types";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 const FIREWORKS_LOTTIE_URL = "https://assets2.lottiefiles.com/packages/lf20_touohxv0.json";
 

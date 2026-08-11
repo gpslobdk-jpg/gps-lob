@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { useEffect, useRef, useState } from "react";
 
 import GradeLevelMultiSelect from "@/components/builders/GradeLevelMultiSelect";
@@ -16,16 +16,6 @@ import {
   readSessionDraft,
   writeSessionDraft,
 } from "@/utils/runDrafts";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
 const DEFAULT_QUESTION_COUNT: (typeof QUESTION_COUNT_OPTIONS)[number] = 10;
@@ -514,5 +504,4 @@ export default function EnglishAiInterviewModal({
     </div>
   );
 }
-
 

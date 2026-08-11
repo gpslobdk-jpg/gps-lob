@@ -3,7 +3,7 @@
 import { BookOpen, BookOpenText, Check, ChevronDown, GraduationCap, Loader2, Plus, Printer, Ruler, Sparkles, Trash2, Wrench } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { createPortal } from "react-dom";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 
@@ -53,16 +53,6 @@ const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   loading: () => (
     <div className="h-full w-full animate-pulse rounded-3xl border border-emerald-500/20 bg-slate-900/50" />
   ),
-});
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
 });
 
 const VM26_POST_LABELS = [
@@ -1712,7 +1702,6 @@ function OpretLoebPageContent() {
                           placeholder="F.eks. 6.A's store videnløb"
                           className="w-full rounded-[1.6rem] border border-emerald-500/30 bg-emerald-950/20 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                         />
-
 
                       </div>
                     </div>

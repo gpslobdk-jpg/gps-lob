@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 
 import AutoRefresh from "@/app/dashboard/resultater/[runId]/AutoRefresh";
 import ClearRunDataButton from "@/app/dashboard/resultater/[runId]/ClearRunDataButton";
@@ -11,16 +11,6 @@ import { getGamerTitle } from "@/utils/gamerTitle";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { deleteParticipantPhotosForSessions } from "@/utils/supabase/participantPhotos";
 import { createClient } from "@/utils/supabase/server";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 export const dynamic = "force-dynamic";
 

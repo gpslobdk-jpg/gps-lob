@@ -1,21 +1,11 @@
 "use client";
 
 import { memo } from "react";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { ArrowLeft } from "lucide-react";
 
 import { getPhotoAltText, getPhotoLabel } from "@/components/live/liveDashboardUtils";
 import type { LiveAnswer } from "@/components/live/types";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 type LivePhotosModuleProps = {
   photoAnswers: LiveAnswer[];

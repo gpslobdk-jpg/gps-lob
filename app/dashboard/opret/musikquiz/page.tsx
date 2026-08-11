@@ -14,7 +14,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
@@ -33,12 +33,6 @@ const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   loading: () => (
     <div className="h-full w-full animate-pulse rounded-3xl border border-pink-500/20 bg-slate-900/50" />
   ),
-});
-
-const rubik = Rubik({ subsets: ["latin"], weight: ["700", "800", "900"] });
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
 });
 
 // ---------------------------------------------------------------------------

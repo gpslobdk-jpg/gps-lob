@@ -18,7 +18,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const AdminLogsFeed = dynamic(() => import("./logs/page"), {
@@ -29,9 +29,6 @@ const AdminLogsFeed = dynamic(() => import("./logs/page"), {
     </div>
   ),
 });
-
-const rubik = Rubik({ subsets: ["latin"], weight: ["700", "800", "900"] });
-const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 const AUTO_REFRESH_MS = 60_000;
 const DISPLAY_TIME_ZONE = "Europe/Copenhagen";

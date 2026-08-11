@@ -2,19 +2,13 @@
 
 import { ArrowLeft, Check, Loader2, MapPin, Minus, Plus, Sparkles, Wand2 } from "lucide-react";
 import Link from "next/link";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { RACE_TYPES } from "@/utils/gpsRuns";
 import { markDraftForAutoload, writeRunDraft } from "@/utils/runDrafts";
 import type { GradeLevel } from "@/utils/gradeLevels";
-
-const rubik = Rubik({ subsets: ["latin"], weight: ["700", "800", "900"] });
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 const MANUEL_DRAFT_STORAGE_KEY = "draft_run_manuel";
 const DEFAULT_CENTER = { lat: 55.6761, lng: 12.5683 } as const;

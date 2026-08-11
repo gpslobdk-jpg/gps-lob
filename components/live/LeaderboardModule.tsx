@@ -1,21 +1,11 @@
 "use client";
 
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { ArrowLeft } from "lucide-react";
 import { useMemo } from "react";
 
 import { buildLeaderboardEntries, getStudentInitials } from "@/components/live/liveDashboardUtils";
 import type { LiveAnswer, LiveStudentLocation } from "@/components/live/types";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 type LeaderboardModuleProps = {
   activeStudents: LiveStudentLocation[];

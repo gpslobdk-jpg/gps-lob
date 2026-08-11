@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 
 import L from "leaflet";
 import { PanelRightClose, PanelRightOpen } from "lucide-react";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { useEffect, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
@@ -15,16 +15,6 @@ import type {
   RunQuestion,
   TeacherLiveFeedStatus,
 } from "@/components/live/types";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 type TeacherLiveMapProps = {
   mapCenter: [number, number];

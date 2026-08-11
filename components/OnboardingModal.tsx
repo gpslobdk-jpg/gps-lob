@@ -2,19 +2,9 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { Brain, Key, Radio } from "lucide-react";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import Image from "next/image";
 import { useState } from "react";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 const STORAGE_KEY = "hasSeenOnboarding";
 

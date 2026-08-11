@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { Camera, CheckCircle2, Cloud, CloudOff, KeyRound, Loader2, RefreshCcw, XCircle } from "lucide-react";
 import Image from "next/image";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import * as Sentry from "@sentry/nextjs";
 
@@ -31,16 +31,6 @@ const LottiePlayer = dynamic(
   () => import("@lottiefiles/react-lottie-player").then((mod) => mod.Player),
   { ssr: false }
 );
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 type PlayInterfaceProps = {
   ui: PlayUiState;

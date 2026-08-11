@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { BarChart, Calendar, Copy, Edit2, MapPin, Play, Plus, Search, Share2, Shield, Timer, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { Switch } from "@/components/ui/switch";
@@ -25,16 +25,6 @@ import { getRaceTypeTheme } from "@/utils/raceTypeTheme";
 import { buildRunScheduleUpdate, getRunSchedule, hasRunSchedule } from "@/utils/runSchedule";
 import { ARCHIVE_SUBJECT_FILTER_OPTIONS } from "@/utils/subjects";
 import { createClient } from "@/utils/supabase/client";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 type Run = Omit<StoredRunRecord, "title" | "subject" | "description" | "topic" | "questions" | "created_at"> & {
   id: string;

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 
 import { getLegalCopy, type LegalBullet } from "@/lib/legalCopy";
 import { resolveSiteVariantFromHeaders } from "@/lib/siteVariant";
@@ -16,16 +16,6 @@ export async function generateMetadata(): Promise<Metadata> {
     description: copy.metadata.description,
   };
 }
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 export default async function GdprPage() {
   const requestHeaders = await headers();

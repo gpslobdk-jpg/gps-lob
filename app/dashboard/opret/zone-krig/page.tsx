@@ -3,7 +3,7 @@
 import { BookOpen, Check, Crosshair, Flag, Loader2, Map, Plus, Shield, Trash2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
@@ -27,16 +27,6 @@ const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   loading: () => (
     <div className="h-full w-full animate-pulse rounded-3xl border border-cyan-500/20 bg-slate-900/50" />
   ),
-});
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
 });
 
 const SUBJECT_TOPICS: Record<string, string[]> = {

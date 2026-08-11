@@ -4,7 +4,7 @@ import { ArrowLeft, Loader2, Trash2, Camera, Images, FileText } from "lucide-rea
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import {
   type ChangeEvent,
   type DragEvent,
@@ -31,16 +31,6 @@ import {
   writeSessionDraft,
   writeRunDraft,
 } from "@/utils/runDrafts";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 const MANUEL_DRAFT_STORAGE_KEY = "draft_run_manuel";
 const SCANNER_DRAFT_STORAGE_KEY = "draft_run_scanner";

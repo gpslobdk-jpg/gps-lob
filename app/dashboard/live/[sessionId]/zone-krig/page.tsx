@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, Crown, Shield, Swords, Timer, Wifi, Zap } from "lucide-react";
@@ -22,9 +22,6 @@ const ZoneKrigMap = dynamic(() => import("@/components/live/ZoneKrigMap"), {
     </div>
   ),
 });
-
-const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
-const rubik = Rubik({ subsets: ["latin"], weight: ["700", "800", "900"] });
 
 const DEFAULT_MAP_CENTER: [number, number] = [55.3959, 10.3883];
 const ZONE_KRIG_RECONCILE_INTERVAL_MS = 30_000;

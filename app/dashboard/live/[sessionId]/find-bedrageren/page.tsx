@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import {
   ArrowLeft,
   BadgeCheck,
@@ -20,16 +20,6 @@ import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
 import StartFindBedragerenGameButton from "./StartFindBedragerenGameButton";
 import StartFindBedragerenDiscussionButton from "./StartFindBedragerenDiscussionButton";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 export const dynamic = "force-dynamic";
 

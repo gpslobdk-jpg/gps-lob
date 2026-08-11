@@ -1,11 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { ShieldCheck } from "lucide-react";
-
-const rubik = Rubik({ subsets: ["latin"], weight: ["700", "800"] });
-const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
 const STORAGE_KEY = "admin_unlocked";
 const PIN = "265526";

@@ -2,19 +2,9 @@
 
 import { KeyRound, Loader2, LogIn, UserRound } from "lucide-react";
 import Link from "next/link";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 type JoinResponse = {
   sessionId?: string;

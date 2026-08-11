@@ -2,17 +2,7 @@ import type { Metadata } from "next";
 
 import { ArrowLeft, Compass, ShieldCheck, Users } from "lucide-react";
 import Link from "next/link";
-import { Poppins, Rubik } from "next/font/google";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
+import { poppins, rubik } from "@/lib/fonts";
 
 const futureProofPoints = [
   {

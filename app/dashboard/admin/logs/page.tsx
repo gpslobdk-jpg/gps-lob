@@ -14,18 +14,8 @@ import {
   TriangleAlert,
   Waves,
 } from "lucide-react";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 const AUTO_REFRESH_MS = 30_000;
 const DISPLAY_TIME_ZONE = "Europe/Copenhagen";

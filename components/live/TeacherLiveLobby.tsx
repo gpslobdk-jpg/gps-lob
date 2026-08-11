@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Download, type LucideIcon, Share2, UserCircle, WifiOff } from "lucide-react";
 import dynamic from "next/dynamic";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 import { useEffect, useState } from "react";
 import { QRCode } from "react-qrcode-logo";
 
@@ -12,16 +12,6 @@ import type { ActivePostOrderMode } from "@/lib/routes/postOrderPolicy";
 import phoneAnimation from "@/public/phone.json";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 const IOS_PREP_STEPS = [
   "Åbn i Safari",

@@ -1,23 +1,13 @@
 import type { Metadata } from "next";
 import { ArrowLeft, Mail, MapPin, Phone } from "lucide-react";
 import Link from "next/link";
-import { Poppins, Rubik } from "next/font/google";
+import { poppins, rubik } from "@/lib/fonts";
 
 export const metadata: Metadata = {
   title: "Om SkoleGPS | Jeppe Laursen",
   description:
     "SkoleGPS er bygget af Jeppe Laursen, folkeskolelærer med 16 års erfaring. Læs om visionen bag platformen og teknologien der flytter undervisningen ud i naturen.",
 };
-
-const rubik = Rubik({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 const sectionClass =
   "rounded-[2rem] border border-emerald-100 bg-white/88 p-8 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm md:p-10";
