@@ -4,6 +4,7 @@ import {
   STUDENT_SUBMISSION_STATUSES,
   canProgressStudentSubmission,
   canReplayStudentSubmission,
+  classifyStudentSubmissionResponse,
   createIdleStudentSubmissionState,
   createStudentSubmissionOperationId,
   getStudentSubmissionProgressionDecision,
@@ -13,6 +14,8 @@ import {
   isPendingSubmissionForContext,
   isStudentSubmissionOperationId,
   reconcileStudentSubmissionOutcome,
+  reconcileStudentSubmissionProgress,
+  rescueLegacyRejectedStudentSubmissions,
   restoreStudentSubmissionState,
   transitionStudentSubmission,
   upsertStudentSubmissionQueueEntry,
@@ -50,6 +53,155 @@ function queueEntry(
 }
 
 test.describe("student submission state model", () => {
+  test("classifies progress mismatch and auth failures as recoverable", () => {
+    expect(classifyStudentSubmissionResponse(409, "PROGRESS_MISMATCH")).toBe(
+      "reconcile_progress"
+    );
+    expect(classifyStudentSubmissionResponse(401)).toBe("recover_auth");
+    expect(classifyStudentSubmissionResponse(403)).toBe("recover_auth");
+    expect(classifyStudentSubmissionResponse(410, "SESSION_CLOSED")).toBe(
+      "session_closed"
+    );
+    expect(classifyStudentSubmissionResponse(400)).toBe("rejected_for_post");
+    expect(classifyStudentSubmissionResponse(404, "POST_NOT_FOUND")).toBe(
+      "rejected_for_post"
+    );
+    expect(classifyStudentSubmissionResponse(422)).toBe("rejected_for_post");
+    expect(classifyStudentSubmissionResponse(503)).toBe("retryable");
+  });
+
+  test("reconciles post N to authoritative N+1 without a poison queue head", () => {
+    const poisoned = queueEntry({
+      id: OPERATION_A,
+      status: "rejected",
+    });
+    const submitted = {
+      ...queueEntry({ id: OPERATION_B, status: "awaiting_confirmation" }),
+      solvedPostIndex: 4,
+      hasLocalProgress: false,
+      nextRetryAtMs: null,
+    };
+
+    const result = reconcileStudentSubmissionProgress(
+      [
+        { ...poisoned, solvedPostIndex: 1, hasLocalProgress: false, nextRetryAtMs: null },
+        submitted,
+      ],
+      CONTEXT,
+      {
+        operationId: OPERATION_B,
+        submittedPostIndex: 4,
+        expectedPostIndex: 5,
+        answeredPostIndexes: [0, 1, 2, 3, 4],
+      }
+    );
+
+    expect(result.outcome).toBe("advance");
+    expect(result.expectedPostIndex).toBe(5);
+    expect(result.queue).toEqual([]);
+  });
+
+  test("keeps the same operation id retryable when 409 still expects the same post", () => {
+    const pending = {
+      ...queueEntry({ status: "awaiting_confirmation" }),
+      solvedPostIndex: 4,
+      hasLocalProgress: false,
+      nextRetryAtMs: 1234,
+    };
+
+    const result = reconcileStudentSubmissionProgress(
+      [pending],
+      CONTEXT,
+      {
+        operationId: OPERATION_A,
+        submittedPostIndex: 4,
+        expectedPostIndex: 4,
+        answeredPostIndexes: [0, 1, 2, 3],
+      }
+    );
+
+    expect(result.outcome).toBe("retry_same_operation");
+    expect(result.queue).toEqual([
+      expect.objectContaining({
+        id: OPERATION_A,
+        status: "retryable_error",
+        hasLocalProgress: false,
+        nextRetryAtMs: null,
+      }),
+    ]);
+  });
+
+  test("rescues legacy rejected storage only for the authoritative current post", () => {
+    const oldRejected = (postIndex: number, id: string) => ({
+      ...queueEntry({ id, status: "rejected" }),
+      solvedPostIndex: postIndex,
+      hasLocalProgress: false,
+      nextRetryAtMs: null,
+    });
+
+    const rescued = rescueLegacyRejectedStudentSubmissions(
+      [
+        oldRejected(2, OPERATION_A),
+        oldRejected(5, OPERATION_B),
+        {
+          ...oldRejected(6, "00000000-0000-4000-8000-000000000003"),
+          failureCode: "POST_NOT_FOUND",
+        },
+      ],
+      CONTEXT,
+      {
+        expectedPostIndex: 5,
+        answeredPostIndexes: [0, 1, 2, 3, 4],
+      }
+    );
+
+    expect(rescued).toEqual([
+      expect.objectContaining({
+        id: OPERATION_B,
+        solvedPostIndex: 5,
+        status: "retryable_error",
+      }),
+      expect.objectContaining({
+        solvedPostIndex: 6,
+        status: "rejected",
+        failureCode: "POST_NOT_FOUND",
+      }),
+    ]);
+  });
+
+  test("never reconciles another participant queue while advancing through 12 posts", () => {
+    const otherParticipant = {
+      ...queueEntry({
+        id: OPERATION_B,
+        participantId: "participant-b",
+        status: "rejected",
+      }),
+      solvedPostIndex: 3,
+      hasLocalProgress: false,
+      nextRetryAtMs: null,
+    };
+    const active = {
+      ...queueEntry({ status: "awaiting_confirmation" }),
+      solvedPostIndex: 10,
+      hasLocalProgress: false,
+      nextRetryAtMs: null,
+    };
+
+    const result = reconcileStudentSubmissionProgress(
+      [otherParticipant, active],
+      CONTEXT,
+      {
+        operationId: OPERATION_A,
+        submittedPostIndex: 10,
+        expectedPostIndex: 11,
+        answeredPostIndexes: Array.from({ length: 11 }, (_, index) => index),
+      }
+    );
+
+    expect(result.outcome).toBe("advance");
+    expect(result.expectedPostIndex).toBe(11);
+    expect(result.queue).toEqual([otherParticipant]);
+  });
   test("declares the complete explicit status contract", () => {
     expect(STUDENT_SUBMISSION_STATUSES).toEqual([
       "idle",

@@ -39,7 +39,7 @@ test.describe("standard student submission client contract", () => {
       "queuePendingLocalAnswer(pendingLocalAnswer)"
     );
     const requestPosition = insertion.indexOf(
-      'fetch("/api/play/submit-answer"'
+      "sendStandardAnswerOperation("
     );
 
     expect(queuePosition).toBeGreaterThanOrEqual(0);
@@ -47,9 +47,16 @@ test.describe("standard student submission client contract", () => {
     expect(insertion).toMatch(
       /existingPendingAnswer\?\.id\s*\?\?\s*createStudentSubmissionOperationId\(\)/
     );
-    expect(insertion).toMatch(
-      /body:\s*JSON\.stringify\(\{\s*operationId:\s*pendingAnswerId,\s*payloads,\s*\}\)/
+    const sender = section(
+      gameStateSource,
+      "const sendStandardAnswerOperation = useCallback(",
+      "\n  const clearRestoreRetryTimer"
     );
+    expect(sender).toMatch(
+      /body:\s*JSON\.stringify\(\{\s*operationId,\s*payloads\s*\}\)/
+    );
+    expect(sender).toContain("result = await sendOnce()");
+    expect(sender).toContain("Exactly one auth recovery and one resend");
 
     const replay = section(
       gameStateSource,
@@ -57,7 +64,7 @@ test.describe("standard student submission client contract", () => {
       "\n  pendingAnswerReplayRunnerRef.current ="
     );
     expect(replay).toMatch(
-      /body:\s*JSON\.stringify\(\{\s*operationId:\s*pendingAnswer\.id,\s*payloads:\s*pendingAnswer\.payloads,\s*\}\)/
+      /sendStandardAnswerOperation\(\s*pendingAnswer\.id,\s*pendingAnswer\.payloads,\s*abortController\.signal\s*\)/
     );
     expect(replay).toContain("for (const pendingAnswer of queuedAnswers)");
     expect(replay).toContain("break;");
@@ -107,7 +114,7 @@ test.describe("standard student submission client contract", () => {
     const confirmed = section(
       insertion,
       "if (response.ok && body?.inserted === true) {",
-      "\n          if (response.status === 410"
+      '\n          if (responseDisposition === "session_closed")'
     );
     expect(confirmed).toContain(
       "removePendingLocalAnswer(pendingAnswerId)"
@@ -124,7 +131,7 @@ test.describe("standard student submission client contract", () => {
     );
   });
 
-  test("restores terminal queue conflicts without treating them as progress", () => {
+  test("scopes terminal queue conflicts and rescues legacy progress locks", () => {
     const replay = section(
       gameStateSource,
       "const replayPendingLocalAnswers = useCallback(async () => {",
@@ -141,6 +148,9 @@ test.describe("standard student submission client contract", () => {
     expect(replay).toMatch(
       /restoreStudentSubmissionState\(\s*pendingAnswer\.submissionType,\s*pendingAnswer\.id,\s*pendingAnswer\.status\s*\)/
     );
+    expect(replay).toMatch(
+      /pendingAnswer\.status === "rejected"[\s\S]*?continue;/
+    );
 
     const restore = section(
       gameStateSource,
@@ -153,8 +163,9 @@ test.describe("standard student submission client contract", () => {
     expect(restore).toMatch(
       /!pendingAnswer\.hasLocalProgress\s*\|\|\s*isTerminalPendingAnswer\(pendingAnswer\)/
     );
+    expect(restore).toContain("rescueLegacyRejectedStudentSubmissions(");
     expect(gameStateSource).toMatch(
-      /pendingLocalAnswersRef\.current\.find\(isTerminalPendingAnswer\)\s*\?\?[\s\S]*?entry\.solvedPostIndex === currentPostIndex/
+      /entry\.status === "session_closed"[\s\S]*?entry\.solvedPostIndex === currentPostIndex[\s\S]*?isTerminalPendingAnswer\(entry\)/
     );
   });
 

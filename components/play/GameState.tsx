@@ -15,11 +15,14 @@ import {
 import {
   canProgressStudentSubmission,
   canReplayStudentSubmission,
+  classifyStudentSubmissionResponse,
   createIdleStudentSubmissionState,
   createStudentSubmissionOperationId,
   getStudentSubmissionRetryDelayMs,
   isPendingSubmissionForContext,
   reconcileStudentSubmissionOutcome,
+  reconcileStudentSubmissionProgress,
+  rescueLegacyRejectedStudentSubmissions,
   restoreStudentSubmissionState,
   transitionStudentSubmission,
   type StudentSubmissionEvent,
@@ -143,6 +146,19 @@ type SubmitPhotoResponsePayload = {
   postIndex?: number;
   questionCount?: number;
   duplicate?: boolean;
+};
+
+type SubmitAnswerResponsePayload = {
+  inserted?: boolean;
+  duplicate?: boolean;
+  awardedPoints?: number;
+  storedIsCorrect?: boolean;
+  serverCorrectness?: unknown;
+  error?: string;
+  code?: string;
+  expectedPostIndex?: number | null;
+  answeredPostIndexes?: number[];
+  zoneKrigCapture?: ZoneKrigCaptureApiResult;
 };
 
 type SkipPostResponsePayload = {
@@ -328,6 +344,7 @@ type InsertAnswerResult = {
   operationId?: string;
   canProgress?: boolean;
   duplicate?: boolean;
+  progressReconciled?: boolean;
 };
 
 type SessionTeacherMessageRow = {
@@ -573,10 +590,12 @@ export function usePlayGameState({
     useState<StudentSubmissionState>(() => {
       const pendingSubmission =
         storedPlaySnapshotOnLoad?.pendingAnswers.find(
-          isTerminalPendingAnswer
-        ) ??
-        storedPlaySnapshotOnLoad?.pendingAnswers.find(
-          (entry) => !entry.hasLocalProgress
+          (entry) =>
+            entry.sessionId === storedPlaySnapshotOnLoad.sessionId &&
+            entry.participantId === storedPlaySnapshotOnLoad.participantId &&
+            (entry.status === "session_closed" ||
+              (entry.solvedPostIndex === storedPlaySnapshotOnLoad.currentPostIndex &&
+                (isTerminalPendingAnswer(entry) || !entry.hasLocalProgress)))
         ) ?? null;
 
       return pendingSubmission
@@ -624,6 +643,8 @@ export function usePlayGameState({
   const pendingAnswerReplayTimerRef =
     useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingAnswerReplayRunnerRef = useRef<() => void>(() => undefined);
+  const finalizeParticipantSilentlyRunnerRef =
+    useRef<() => Promise<boolean>>(async () => false);
   const studentSubmissionRef =
     useRef<StudentSubmissionState>(studentSubmission);
   const reportedSubmissionEventsRef = useRef<Set<string>>(new Set());
@@ -1564,6 +1585,161 @@ export function usePlayGameState({
       supabase,
       waitForNetworkRetry,
     ]
+  );
+
+  const reconcileAuthoritativeAnswerProgress = useCallback(
+    (
+      pendingAnswer: StoredPendingAnswer,
+      payload: SubmitAnswerResponsePayload | null
+    ) => {
+      if (
+        !sessionId ||
+        !participantId ||
+        !payload ||
+        !("expectedPostIndex" in payload) ||
+        payload.expectedPostIndex === undefined ||
+        !Array.isArray(payload.answeredPostIndexes) ||
+        payload.answeredPostIndexes.some(
+          (postIndex) =>
+            !Number.isInteger(postIndex) ||
+            postIndex < 0 ||
+            postIndex >= questions.length
+        )
+      ) {
+        return "invalid" as const;
+      }
+
+      const expectedPostIndex = payload.expectedPostIndex;
+      if (
+        expectedPostIndex !== null &&
+        (!Number.isInteger(expectedPostIndex) ||
+          (expectedPostIndex ?? -1) < 0 ||
+          (expectedPostIndex ?? questions.length) >= questions.length)
+      ) {
+        return "invalid" as const;
+      }
+
+      const reconciliation = reconcileStudentSubmissionProgress(
+        pendingLocalAnswersRef.current,
+        { sessionId, participantId },
+        {
+          operationId: pendingAnswer.id,
+          submittedPostIndex: pendingAnswer.solvedPostIndex,
+          expectedPostIndex,
+          answeredPostIndexes: payload.answeredPostIndexes,
+        }
+      );
+      if (reconciliation.outcome === "invalid") {
+        return "invalid" as const;
+      }
+
+      updatePendingLocalAnswers(() => reconciliation.queue);
+      answeredPostIndexesRef.current = reconciliation.answeredPostIndexes;
+      setAnsweredPostIndexes(reconciliation.answeredPostIndexes);
+
+      const confirmedAnsweredPosts = new Set(
+        reconciliation.answeredPostIndexes
+      );
+      const nextSolvedPostIndexes = solvedPostIndexesRef.current.filter(
+        (postIndex) => confirmedAnsweredPosts.has(postIndex)
+      );
+      solvedPostIndexesRef.current = nextSolvedPostIndexes;
+      setSolvedPostIndexes(nextSolvedPostIndexes);
+      setCorrectAnswersCount(nextSolvedPostIndexes.length);
+      const nextBurnedPosts = new Set(
+        [...burnedPostsRef.current].filter((postIndex) =>
+          confirmedAnsweredPosts.has(postIndex)
+        )
+      );
+      burnedPostsRef.current = nextBurnedPosts;
+      setBurnedPosts(nextBurnedPosts);
+
+      setQuizAnswerFeedback(null);
+      setPostActionError(null);
+      setTypedAnswerError(null);
+      setEscapeReward(null);
+      setRoleplayReply(null);
+      setDismissedPostIndex(null);
+      setDistanceState(null);
+
+      if (reconciliation.outcome === "retry_same_operation") {
+        const retryableSubmission = restoreStudentSubmissionState(
+          pendingAnswer.submissionType,
+          pendingAnswer.id,
+          "retryable_error"
+        );
+        studentSubmissionRef.current = retryableSubmission;
+        setStudentSubmission(retryableSubmission);
+        setCurrentPostIndex(pendingAnswer.solvedPostIndex);
+        return reconciliation.outcome;
+      }
+
+      const idleSubmission = createIdleStudentSubmissionState(
+        pendingAnswer.submissionType
+      );
+      studentSubmissionRef.current = idleSubmission;
+      setStudentSubmission(idleSubmission);
+      setShowQuestion(false);
+
+      if (reconciliation.expectedPostIndex === null) {
+        setIsFinished(true);
+        void finalizeParticipantSilentlyRunnerRef.current();
+        return reconciliation.outcome;
+      }
+
+      setCurrentPostIndex(reconciliation.expectedPostIndex);
+      showResumeNotice("Løbet er opdateret. Fortsæt ved næste post.");
+      return reconciliation.outcome;
+    },
+    [participantId, questions.length, sessionId, showResumeNotice, updatePendingLocalAnswers]
+  );
+
+  const sendStandardAnswerOperation = useCallback(
+    async (
+      operationId: string,
+      payloads: Record<string, unknown>[],
+      signal: AbortSignal
+    ) => {
+      const sendOnce = async () => {
+        const response = await fetch("/api/play/submit-answer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+          body: JSON.stringify({ operationId, payloads }),
+          signal,
+        });
+        const body = (await response.json().catch(() => null)) as
+          | SubmitAnswerResponsePayload
+          | null;
+        return { response, body };
+      };
+
+      let result = await sendOnce();
+      if (
+        classifyStudentSubmissionResponse(
+          result.response.status,
+          result.body?.code
+        ) !== "recover_auth"
+      ) {
+        return result;
+      }
+
+      const storedName =
+        playerNameRef.current.trim() || pendingPlayerNameRef.current.trim();
+      const recoveryMethod = await recoverParticipantAuthSession(
+        storedName,
+        "answer_submit_auth"
+      );
+      if (!recoveryMethod) {
+        return result;
+      }
+
+      // Exactly one auth recovery and one resend. The operation id is unchanged,
+      // so a lost first response remains idempotent server-side.
+      result = await sendOnce();
+      return result;
+    },
+    [recoverParticipantAuthSession]
   );
 
   const clearRestoreRetryTimer = useCallback(() => {
@@ -2821,30 +2997,14 @@ export function usePlayGameState({
             participantId,
           })
         ) {
-          updatePendingLocalAnswer(pendingAnswer.id, (current) => ({
-            ...current,
-            status: "rejected",
-          }));
-          captureStudentSubmissionIssue(
-            "student_answer_queue_replay_failed",
-            pendingAnswer.id,
-            {
-              submissionType: pendingAnswer.submissionType,
-              stage: "replay",
-              result: "rejected",
-            }
-          );
-          const rejectedSubmission = restoreStudentSubmissionState(
-            pendingAnswer.submissionType,
-            pendingAnswer.id,
-            "rejected"
-          );
-          studentSubmissionRef.current = rejectedSubmission;
-          setStudentSubmission(rejectedSubmission);
-          break;
+          removePendingLocalAnswer(pendingAnswer.id);
+          continue;
         }
 
         if (isTerminalPendingAnswer(pendingAnswer)) {
+          if (pendingAnswer.status === "rejected") {
+            continue;
+          }
           const terminalSubmission = restoreStudentSubmissionState(
             pendingAnswer.submissionType,
             pendingAnswer.id,
@@ -2858,7 +3018,8 @@ export function usePlayGameState({
         if (!pendingAnswer.hasLocalProgress) {
           // Et usikkert svar på den aktuelle post kræver elevens eksplicitte retry,
           // så replay ikke kan flytte UI-progression i baggrunden.
-          break;
+          if (pendingAnswer.solvedPostIndex === currentPostIndex) break;
+          continue;
         }
 
         if (
@@ -2887,29 +3048,15 @@ export function usePlayGameState({
         );
 
         try {
-          const response = await fetch("/api/play/submit-answer", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              operationId: pendingAnswer.id,
-              payloads: pendingAnswer.payloads,
-            }),
-            signal: abortController.signal,
-          });
-
-          const body = (await response.json().catch(() => null)) as
-            | {
-                inserted?: boolean;
-                duplicate?: boolean;
-                awardedPoints?: number;
-                storedIsCorrect?: boolean;
-                serverCorrectness?: unknown;
-                error?: string;
-                code?: string;
-              }
-            | null;
+          const { response, body } = await sendStandardAnswerOperation(
+            pendingAnswer.id,
+            pendingAnswer.payloads,
+            abortController.signal
+          );
+          const responseDisposition = classifyStudentSubmissionResponse(
+            response.status,
+            body?.code
+          );
 
           if (response.ok && body?.inserted === true) {
             if (pendingAnswer.hasLocalProgress) {
@@ -2972,7 +3119,7 @@ export function usePlayGameState({
             continue;
           }
 
-          if (response.status === 410 || body?.code === "SESSION_CLOSED") {
+          if (responseDisposition === "session_closed") {
             updatePendingLocalAnswer(pendingAnswer.id, (current) => ({
               ...current,
               status: "session_closed",
@@ -2988,27 +3135,76 @@ export function usePlayGameState({
             break;
           }
 
-          if (
-            response.status === 400 ||
-            response.status === 401 ||
-            response.status === 403 ||
-            response.status === 409 ||
-            response.status === 422 ||
-            (response.status === 404 && body?.code === "POST_NOT_FOUND")
-          ) {
+          if (responseDisposition === "reconcile_progress") {
+            const reconciliation = reconcileAuthoritativeAnswerProgress(
+              pendingAnswer,
+              body
+            );
+            if (
+              reconciliation === "retry_same_operation" ||
+              reconciliation === "advance" ||
+              reconciliation === "complete"
+            ) {
+              break;
+            }
+
+            updatePendingLocalAnswer(pendingAnswer.id, (current) => ({
+              ...current,
+              status: "retryable_error",
+              nextRetryAtMs: null,
+              failureCode: "PROGRESS_RECONCILIATION_INVALID",
+            }));
+            if (pendingAnswer.solvedPostIndex === currentPostIndex) {
+              const retryableSubmission = restoreStudentSubmissionState(
+                pendingAnswer.submissionType,
+                pendingAnswer.id,
+                "retryable_error"
+              );
+              studentSubmissionRef.current = retryableSubmission;
+              setStudentSubmission(retryableSubmission);
+              break;
+            }
+            continue;
+          }
+
+          if (responseDisposition === "rejected_for_post") {
             updatePendingLocalAnswer(pendingAnswer.id, (current) => ({
               ...current,
               status: "rejected",
               nextRetryAtMs: null,
+              failureCode: body?.code || `HTTP_${response.status}`,
             }));
-            const rejectedSubmission = restoreStudentSubmissionState(
-              pendingAnswer.submissionType,
-              pendingAnswer.id,
-              "rejected"
-            );
-            studentSubmissionRef.current = rejectedSubmission;
-            setStudentSubmission(rejectedSubmission);
-            break;
+            if (pendingAnswer.solvedPostIndex === currentPostIndex) {
+              const rejectedSubmission = restoreStudentSubmissionState(
+                pendingAnswer.submissionType,
+                pendingAnswer.id,
+                "rejected"
+              );
+              studentSubmissionRef.current = rejectedSubmission;
+              setStudentSubmission(rejectedSubmission);
+              break;
+            }
+            continue;
+          }
+
+          if (responseDisposition === "recover_auth") {
+            updatePendingLocalAnswer(pendingAnswer.id, (current) => ({
+              ...current,
+              status: "retryable_error",
+              nextRetryAtMs: null,
+              failureCode: "AUTH_RECOVERY_FAILED",
+            }));
+            if (pendingAnswer.solvedPostIndex === currentPostIndex) {
+              const retryableSubmission = restoreStudentSubmissionState(
+                pendingAnswer.submissionType,
+                pendingAnswer.id,
+                "retryable_error"
+              );
+              studentSubmissionRef.current = retryableSubmission;
+              setStudentSubmission(retryableSubmission);
+              break;
+            }
+            continue;
           }
 
           const nextAttemptCount = pendingAnswer.attemptCount + 1;
@@ -3068,13 +3264,16 @@ export function usePlayGameState({
   }, [
     applyStudentSubmissionEvent,
     captureStudentSubmissionIssue,
+    currentPostIndex,
     participantId,
     markBurnedPostIndex,
     markSolvedPostIndex,
+    reconcileAuthoritativeAnswerProgress,
     removePendingLocalAnswer,
     removeBurnedPostIndex,
     removeSolvedPostIndex,
     schedulePendingAnswerReplay,
+    sendStandardAnswerOperation,
     sessionId,
     showResumeNotice,
     updatePendingLocalAnswer,
@@ -3733,7 +3932,7 @@ export function usePlayGameState({
             (pendingAnswer) =>
               serverConfirmedPostIndexes.has(pendingAnswer.solvedPostIndex)
           );
-          const remainingScopedPendingAnswers =
+          let remainingScopedPendingAnswers =
             confirmedPendingAnswers.length > 0
               ? scopedStoredPendingAnswers.filter(
                   (pendingAnswer) =>
@@ -3797,6 +3996,51 @@ export function usePlayGameState({
           }
 
           const restoredAnsweredPostIndexes = sortUniquePostIndexes([...confirmedAnsweredPosts]);
+          if (usesStandardStudentLocationExperience && sessionId && participantId) {
+            const authoritativeExpectedPostIndex =
+              getNextRoutePostIndex(
+                restoredRouteOrder,
+                new Set(restoredAnsweredPostIndexes)
+              ) ?? null;
+            const rescuedPendingAnswers = rescueLegacyRejectedStudentSubmissions(
+              remainingScopedPendingAnswers,
+              { sessionId, participantId },
+              {
+                expectedPostIndex: authoritativeExpectedPostIndex,
+                answeredPostIndexes: restoredAnsweredPostIndexes,
+              }
+            );
+            if (
+              rescuedPendingAnswers.length !== remainingScopedPendingAnswers.length ||
+              rescuedPendingAnswers.some(
+                (entry, index) =>
+                  entry !== remainingScopedPendingAnswers[index]
+              )
+            ) {
+              remainingScopedPendingAnswers = rescuedPendingAnswers;
+              pendingLocalAnswersRef.current = rescuedPendingAnswers;
+              setPendingLocalAnswers(rescuedPendingAnswers);
+              savePendingAnswersForStoredPlaySnapshot(
+                sessionId,
+                participantId,
+                rescuedPendingAnswers
+              );
+              const rescuedCurrentSubmission = rescuedPendingAnswers.find(
+                (entry) =>
+                  entry.solvedPostIndex === authoritativeExpectedPostIndex &&
+                  !entry.hasLocalProgress
+              );
+              if (rescuedCurrentSubmission) {
+                const restoredSubmission = restoreStudentSubmissionState(
+                  rescuedCurrentSubmission.submissionType,
+                  rescuedCurrentSubmission.id,
+                  rescuedCurrentSubmission.status
+                );
+                studentSubmissionRef.current = restoredSubmission;
+                setStudentSubmission(restoredSubmission);
+              }
+            }
+          }
           const restoredSolvedPostIndexes = usesStandardStudentLocationExperience
             ? sortUniquePostIndexes([...confirmedSolvedPosts])
             : sortUniquePostIndexes([
@@ -4051,6 +4295,8 @@ export function usePlayGameState({
     return didPersist;
   }, [clearStoredPlayRecoveryState, markParticipantFinished]);
 
+  finalizeParticipantSilentlyRunnerRef.current = finalizeParticipantSilently;
+
   const insertAnswerRecord = useCallback(
     async (
       selectedIndex: number,
@@ -4282,25 +4528,15 @@ export function usePlayGameState({
         );
 
         try {
-          const response = await fetch("/api/play/submit-answer", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              operationId: pendingAnswerId,
-              payloads,
-            }),
-            signal: abortController.signal,
-          });
-
-          const body = (await response.json().catch(() => null)) as {
-            inserted?: boolean;
-            awardedPoints?: number;
-            error?: string;
-            code?: string;
-            duplicate?: boolean;
-            zoneKrigCapture?: ZoneKrigCaptureApiResult;
-            serverCorrectness?: unknown;
-          } | null;
+          const { response, body } = await sendStandardAnswerOperation(
+            pendingAnswerId,
+            payloads,
+            abortController.signal
+          );
+          const responseDisposition = classifyStudentSubmissionResponse(
+            response.status,
+            body?.code
+          );
 
           if (response.ok && body?.inserted === true) {
             removePendingLocalAnswer(pendingAnswerId);
@@ -4328,7 +4564,7 @@ export function usePlayGameState({
             };
           }
 
-          if (response.status === 410 || body?.code === "SESSION_CLOSED") {
+          if (responseDisposition === "session_closed") {
             updatePendingLocalAnswer(pendingAnswerId, (current) => ({
               ...current,
               status: "session_closed",
@@ -4342,22 +4578,71 @@ export function usePlayGameState({
             };
           }
 
-          if (
-            response.status === 400 ||
-            response.status === 401 ||
-            response.status === 403 ||
-            response.status === 409 ||
-            response.status === 422 ||
-            (response.status === 404 && body?.code === "POST_NOT_FOUND")
-          ) {
+          if (responseDisposition === "reconcile_progress") {
+            const reconciliation = reconcileAuthoritativeAnswerProgress(
+              pendingLocalAnswer,
+              body
+            );
+            if (reconciliation === "retry_same_operation") {
+              return {
+                ...fallbackResult,
+                deliveryStatus: "retryable_error",
+                operationId: pendingAnswerId,
+                canProgress: false,
+              };
+            }
+            if (reconciliation === "advance" || reconciliation === "complete") {
+              return {
+                ...fallbackResult,
+                deliveryStatus: "confirmed",
+                operationId: pendingAnswerId,
+                canProgress: true,
+                progressReconciled: true,
+              };
+            }
+
+            updatePendingLocalAnswer(pendingAnswerId, (current) => ({
+              ...current,
+              status: "retryable_error",
+              nextRetryAtMs: null,
+              failureCode: "PROGRESS_RECONCILIATION_INVALID",
+            }));
+            applyStudentSubmissionEvent({ type: "retryable_error" });
+            return {
+              ...fallbackResult,
+              deliveryStatus: "retryable_error",
+              operationId: pendingAnswerId,
+              canProgress: false,
+            };
+          }
+
+          if (responseDisposition === "rejected_for_post") {
             updatePendingLocalAnswer(pendingAnswerId, (current) => ({
               ...current,
               status: "rejected",
+              nextRetryAtMs: null,
+              failureCode: body?.code || `HTTP_${response.status}`,
             }));
             applyStudentSubmissionEvent({ type: "reject" });
             return {
               ...fallbackResult,
               deliveryStatus: "rejected",
+              operationId: pendingAnswerId,
+              canProgress: false,
+            };
+          }
+
+          if (responseDisposition === "recover_auth") {
+            updatePendingLocalAnswer(pendingAnswerId, (current) => ({
+              ...current,
+              status: "retryable_error",
+              nextRetryAtMs: null,
+              failureCode: "AUTH_RECOVERY_FAILED",
+            }));
+            applyStudentSubmissionEvent({ type: "retryable_error" });
+            return {
+              ...fallbackResult,
+              deliveryStatus: "retryable_error",
               operationId: pendingAnswerId,
               canProgress: false,
             };
@@ -4532,7 +4817,9 @@ export function usePlayGameState({
       participantId,
       playerName,
       raceMode,
+      reconcileAuthoritativeAnswerProgress,
       removePendingLocalAnswer,
+      sendStandardAnswerOperation,
       sessionId,
       queuePendingLocalAnswer,
       teamId,
@@ -5066,11 +5353,18 @@ export function usePlayGameState({
 
   useEffect(() => {
     const pendingForCurrentPost =
-      pendingLocalAnswersRef.current.find(isTerminalPendingAnswer) ??
       pendingLocalAnswersRef.current.find(
         (entry) =>
+          entry.sessionId === sessionId &&
+          entry.participantId === participantId &&
+          entry.status === "session_closed"
+      ) ??
+      pendingLocalAnswersRef.current.find(
+        (entry) =>
+          entry.sessionId === sessionId &&
+          entry.participantId === participantId &&
           entry.solvedPostIndex === currentPostIndex &&
-          !entry.hasLocalProgress
+          (isTerminalPendingAnswer(entry) || !entry.hasLocalProgress)
       ) ?? null;
     const nextSubmission = pendingForCurrentPost
       ? restoreStudentSubmissionState(
@@ -5084,7 +5378,7 @@ export function usePlayGameState({
 
     studentSubmissionRef.current = nextSubmission;
     setStudentSubmission(nextSubmission);
-  }, [currentPostIndex]);
+  }, [currentPostIndex, participantId, sessionId]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -5296,6 +5590,13 @@ export function usePlayGameState({
               : {}),
           }
           ));
+
+    if (
+      usesRobustStandardDelivery &&
+      answerInsertResult.progressReconciled === true
+    ) {
+      return true;
+    }
 
     if (
       usesRobustStandardDelivery &&
@@ -5544,6 +5845,10 @@ export function usePlayGameState({
             submissionType: "quiz",
           }
         );
+
+        if (answerInsertResult.progressReconciled === true) {
+          return;
+        }
 
         if (answerInsertResult.canProgress !== true) {
           setPostActionError({

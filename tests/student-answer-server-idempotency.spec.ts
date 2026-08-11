@@ -121,6 +121,8 @@ test.describe("standard student answer server idempotency", () => {
     );
     expect(route).toContain("if (isStandardStudentSubmission) {");
     expect(route).toContain("validateStandardSubmissionSafety({");
+    expect(route).toContain("answeredPostIndexes: [...answeredPostIndexes].sort");
+    expect(route).toContain('"answeredPostIndexes" in safetyResult');
     expect(route).toContain("STANDARD_SUBMISSION_SESSION_STATUSES");
     expect(route).toContain("getServerRouteOrder(");
 

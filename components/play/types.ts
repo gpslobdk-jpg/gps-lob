@@ -177,6 +177,7 @@ export type StoredPendingAnswer = {
   hasLocalProgress: boolean;
   attemptCount: number;
   nextRetryAtMs: number | null;
+  failureCode?: string;
 };
 
 export type StoredPlaySnapshot = {

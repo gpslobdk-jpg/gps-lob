@@ -445,6 +445,7 @@ type StandardSubmissionSafetyResult =
         | "ANSWERS_SCHEMA_INCOMPATIBLE";
       error: string;
       expectedPostIndex?: number | null;
+      answeredPostIndexes?: number[];
     };
 
 async function fetchStandardAnsweredPostIndexes(
@@ -564,6 +565,7 @@ async function validateStandardSubmissionSafety({
       code: "PROGRESS_MISMATCH",
       error: "Alle poster er allerede besvaret.",
       expectedPostIndex: null,
+      answeredPostIndexes: [...answeredPostIndexes].sort((a, b) => a - b),
     };
   }
 
@@ -574,6 +576,7 @@ async function validateStandardSubmissionSafety({
       code: "PROGRESS_MISMATCH",
       error: "Posten matcher ikke den aktuelle serverprogression.",
       expectedPostIndex,
+      answeredPostIndexes: [...answeredPostIndexes].sort((a, b) => a - b),
     };
   }
 
@@ -1168,6 +1171,9 @@ export async function POST(request: NextRequest) {
             code: safetyResult.code,
             ...("expectedPostIndex" in safetyResult
               ? { expectedPostIndex: safetyResult.expectedPostIndex }
+              : {}),
+            ...("answeredPostIndexes" in safetyResult
+              ? { answeredPostIndexes: safetyResult.answeredPostIndexes }
               : {}),
           },
           { status: safetyResult.status }

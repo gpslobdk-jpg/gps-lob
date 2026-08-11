@@ -192,6 +192,10 @@ function normalizeStoredPendingAnswer(value: unknown): StoredPendingAnswer | nul
       : "queued_offline";
   const attemptCount = toFiniteNumber(candidate.attemptCount);
   const nextRetryAtMs = toFiniteNumber(candidate.nextRetryAtMs);
+  const failureCode =
+    typeof candidate.failureCode === "string" && candidate.failureCode.trim()
+      ? candidate.failureCode.trim().slice(0, 80)
+      : undefined;
 
   if (solvedPostIndex === null || !Number.isInteger(solvedPostIndex) || solvedPostIndex < 0) {
     return null;
@@ -229,6 +233,7 @@ function normalizeStoredPendingAnswer(value: unknown): StoredPendingAnswer | nul
       nextRetryAtMs !== null && Number.isFinite(nextRetryAtMs) && nextRetryAtMs > 0
         ? Math.round(nextRetryAtMs)
         : null,
+    ...(failureCode ? { failureCode } : {}),
   };
 }
 

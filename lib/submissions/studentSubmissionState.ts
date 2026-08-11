@@ -58,6 +58,26 @@ export type StudentSubmissionQueueEntry<TPayload = unknown> = {
   payload?: TPayload;
 };
 
+export type StudentSubmissionProgressQueueEntry = StudentSubmissionQueueEntry & {
+  solvedPostIndex: number;
+  hasLocalProgress: boolean;
+  nextRetryAtMs: number | null;
+  failureCode?: string;
+};
+
+export type StudentSubmissionResponseDisposition =
+  | "confirmed"
+  | "recover_auth"
+  | "reconcile_progress"
+  | "session_closed"
+  | "rejected_for_post"
+  | "retryable";
+
+export type AuthoritativeStudentProgress = {
+  expectedPostIndex: number | null;
+  answeredPostIndexes: number[];
+};
+
 export type StudentSubmissionOutcome = {
   isCorrect: boolean;
   awardedPoints: number;
@@ -420,6 +440,158 @@ export function canReplayStudentSubmission(
     entry.status !== "session_closed" &&
     (nextRetryAtMs === null || nextRetryAtMs <= nowMs)
   );
+}
+
+export function classifyStudentSubmissionResponse(
+  status: number,
+  code?: string | null
+): StudentSubmissionResponseDisposition {
+  if (status >= 200 && status < 300) return "confirmed";
+  if (status === 401 || status === 403) return "recover_auth";
+  if (status === 409 && code === "PROGRESS_MISMATCH") {
+    return "reconcile_progress";
+  }
+  if (status === 410 || code === "SESSION_CLOSED") return "session_closed";
+  if (
+    status === 400 ||
+    status === 422 ||
+    (status === 404 && code === "POST_NOT_FOUND")
+  ) {
+    return "rejected_for_post";
+  }
+  return "retryable";
+}
+
+function normalizeAnsweredPostIndexes(postIndexes: readonly number[]) {
+  return [...new Set(postIndexes.filter((value) => Number.isInteger(value) && value >= 0))]
+    .sort((a, b) => a - b);
+}
+
+/**
+ * Reconciles one failed operation against server-authoritative progress.
+ * Entries for another participant are never changed. Confirmed/obsolete and
+ * legacy poison entries are removed; a mismatch on the same post preserves the
+ * operation id and becomes explicitly retryable.
+ */
+export function reconcileStudentSubmissionProgress<
+  T extends StudentSubmissionProgressQueueEntry,
+>(
+  queue: readonly T[],
+  context: { sessionId: string; participantId: string },
+  progress: AuthoritativeStudentProgress & {
+    operationId: string;
+    submittedPostIndex: number;
+  }
+): {
+  queue: T[];
+  answeredPostIndexes: number[];
+  expectedPostIndex: number | null;
+  outcome: "advance" | "retry_same_operation" | "complete" | "invalid";
+} {
+  const answeredPostIndexes = normalizeAnsweredPostIndexes(
+    progress.answeredPostIndexes
+  );
+  const expectedPostIndex = progress.expectedPostIndex;
+  const isValidExpectedPostIndex =
+    expectedPostIndex === null ||
+    (Number.isInteger(expectedPostIndex) &&
+      expectedPostIndex >= 0 &&
+      !answeredPostIndexes.includes(expectedPostIndex));
+  const submittedEntry = queue.find(
+    (entry) =>
+      entry.id === progress.operationId &&
+      isPendingSubmissionForContext(entry, context) &&
+      entry.solvedPostIndex === progress.submittedPostIndex
+  );
+
+  if (!isValidExpectedPostIndex || !submittedEntry) {
+    return {
+      queue: [...queue],
+      answeredPostIndexes,
+      expectedPostIndex,
+      outcome: "invalid",
+    };
+  }
+
+  const nextQueue = queue.flatMap((entry): T[] => {
+    if (!isPendingSubmissionForContext(entry, context)) return [entry];
+    if (entry.status === "session_closed") return [entry];
+    if (answeredPostIndexes.includes(entry.solvedPostIndex)) return [];
+
+    if (entry.id === progress.operationId) {
+      if (expectedPostIndex !== progress.submittedPostIndex) return [];
+      return [
+        {
+          ...entry,
+          status: "retryable_error",
+          hasLocalProgress: false,
+          nextRetryAtMs: null,
+          failureCode: "PROGRESS_MISMATCH",
+        } as T,
+      ];
+    }
+
+    if (entry.status === "rejected" && !entry.failureCode) {
+      if (entry.solvedPostIndex !== expectedPostIndex) return [];
+      return [
+        {
+          ...entry,
+          status: "retryable_error",
+          hasLocalProgress: false,
+          nextRetryAtMs: null,
+          failureCode: "LEGACY_REJECTED_RECOVERED",
+        } as T,
+      ];
+    }
+
+    return [entry];
+  });
+
+  return {
+    queue: nextQueue,
+    answeredPostIndexes,
+    expectedPostIndex,
+    outcome:
+      expectedPostIndex === null
+        ? "complete"
+        : expectedPostIndex === progress.submittedPostIndex
+          ? "retry_same_operation"
+          : "advance",
+  };
+}
+
+/**
+ * Older snapshots did not persist an error code, so a rejected current-post
+ * entry may be the historic 409 lock. Rescue only that exact current post;
+ * explicit terminal errors remain scoped to their original post.
+ */
+export function rescueLegacyRejectedStudentSubmissions<
+  T extends StudentSubmissionProgressQueueEntry,
+>(
+  queue: readonly T[],
+  context: { sessionId: string; participantId: string },
+  progress: AuthoritativeStudentProgress
+): T[] {
+  const answeredPostIndexes = normalizeAnsweredPostIndexes(
+    progress.answeredPostIndexes
+  );
+
+  return queue.flatMap((entry): T[] => {
+    if (!isPendingSubmissionForContext(entry, context)) return [entry];
+    if (answeredPostIndexes.includes(entry.solvedPostIndex)) return [];
+    if (entry.status !== "rejected" || entry.failureCode) return [entry];
+    if (entry.solvedPostIndex !== progress.expectedPostIndex) return [];
+
+    return [
+      {
+        ...entry,
+        status: "retryable_error",
+        hasLocalProgress: false,
+        nextRetryAtMs: null,
+        failureCode: "LEGACY_REJECTED_RECOVERED",
+      } as T,
+    ];
+  });
 }
 
 export function getStudentSubmissionReplayHead<
