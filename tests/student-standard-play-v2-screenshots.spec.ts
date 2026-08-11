@@ -331,6 +331,35 @@ test("producerer den komplette standardflow-state-galleri uden for repo", async 
 
   {
     const { context, page } = await createHarnessPage(browser, {
+      sessionId: "standard-v2-shot-reconciliation",
+      raceType: "manuel",
+      submitResponses: [
+        {
+          status: 409,
+          body: {
+            error: "Posten matcher ikke den aktuelle serverprogression.",
+            code: "PROGRESS_MISMATCH",
+            expectedPostIndex: 1,
+            answeredPostIndexes: [0],
+          },
+        },
+      ],
+    });
+    await openStandardQuestion(page);
+    await page
+      .getByRole("button", { name: DEFAULT_STANDARD_QUESTIONS[0].answers[1] })
+      .click();
+    await expect(
+      page.getByText("Løbet er opdateret. Fortsæt ved næste post."),
+    ).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("Post 2 af 2").first()).toBeVisible();
+    await expect(page.getByText("50%", { exact: true }).first()).toBeVisible();
+    await capture(page, "state-14-reconciliation-390x844");
+    await context.close();
+  }
+
+  {
+    const { context, page } = await createHarnessPage(browser, {
       sessionId: "standard-v2-shot-next",
       raceType: "matematik",
     });
@@ -340,7 +369,7 @@ test("producerer den komplette standardflow-state-galleri uden for repo", async 
       .click();
     await page.getByRole("button", { name: "Gå til næste post" }).click();
     await expect(page.getByText("Post 2 af 2").first()).toBeVisible();
-    await capture(page, "state-14-naeste-post-390x844");
+    await capture(page, "state-15-naeste-post-390x844");
     await context.close();
   }
 
@@ -357,7 +386,7 @@ test("producerer den komplette standardflow-state-galleri uden for repo", async 
     await page.getByRole("button", { name: "Se resultat" }).click();
     await expect(page.getByText("Løbet er slut.")).toBeVisible({ timeout: 15_000 });
     await hideLocalDevelopmentUi(page);
-    await capture(page, "state-15-finish-overgang-390x844", true);
+    await capture(page, "state-16-finish-overgang-390x844", true);
     await context.close();
   }
 });

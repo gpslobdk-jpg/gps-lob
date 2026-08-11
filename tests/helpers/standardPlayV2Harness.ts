@@ -24,6 +24,11 @@ export type StandardPlayHarnessOptions = {
   questions?: StandardPlayQuestionFixture[];
   sessionDelayMs?: number;
   submitDelayMs?: number;
+  submitResponses?: Array<{
+    status: number;
+    body: Record<string, unknown>;
+    delayMs?: number;
+  }>;
   validateCorrect?: boolean;
   theme?: {
     vm26?: {
@@ -204,13 +209,17 @@ export async function installStandardPlayHarness(
       unknown
     >;
     state.submitRequests.push(body);
-    if (options.submitDelayMs) {
-      await new Promise((resolve) => setTimeout(resolve, options.submitDelayMs));
+    const response = options.submitResponses?.[state.submitRequests.length - 1];
+    const responseDelayMs = response?.delayMs ?? options.submitDelayMs;
+    if (responseDelayMs) {
+      await new Promise((resolve) => setTimeout(resolve, responseDelayMs));
     }
     await route.fulfill({
-      status: 200,
+      status: response?.status ?? 200,
       contentType: "application/json",
-      body: JSON.stringify({ inserted: true, awardedPoints: 10 }),
+      body: JSON.stringify(
+        response?.body ?? { inserted: true, awardedPoints: 10 },
+      ),
     });
   });
 
