@@ -47,6 +47,7 @@ async function mountMocks(
 ) {
   const requests: MockAnswerRequest[] = [];
   let joinCount = 0;
+  let joinCountAtFirstSubmit: number | null = null;
 
   await context.routeWebSocket(/webpack-hmr/, (socket) => socket.close());
   await context.route(/supabase.*realtime|realtime\/v1\/websocket/i, (route) =>
@@ -132,6 +133,9 @@ async function mountMocks(
   await context.route(/\/api\/play\/submit-answer/, async (route) => {
     const request = JSON.parse(route.request().postData() ?? "{}") as MockAnswerRequest;
     requests.push(request);
+    if (requests.length === 1) {
+      joinCountAtFirstSubmit = joinCount;
+    }
     const response = options.onSubmit(request, requests.length);
     await route.fulfill({
       status: response.status,
@@ -143,6 +147,7 @@ async function mountMocks(
   return {
     requests,
     getJoinCount: () => joinCount,
+    getJoinCountAtFirstSubmit: () => joinCountAtFirstSubmit,
   };
 }
 
@@ -153,6 +158,11 @@ async function dismissOverlay(page: Page) {
 }
 
 async function openPost(page: Page, answer: string) {
+  await page.context().setGeolocation({
+    latitude: POST_LAT + 0.000001,
+    longitude: POST_LNG,
+    accuracy: 5,
+  });
   await page.context().setGeolocation({
     latitude: POST_LAT,
     longitude: POST_LNG,
@@ -237,9 +247,11 @@ test.describe("progress mismatch recovery", () => {
     await page.getByRole("button", { name: "Correct 1" }).click();
 
     await expect.poll(() => mock.requests.length, { timeout: 10_000 }).toBe(2);
+    const joinCountAtFirstSubmit = mock.getJoinCountAtFirstSubmit();
+    expect(joinCountAtFirstSubmit).not.toBeNull();
     expect(mock.requests[0].operationId).toBeTruthy();
     expect(mock.requests[1].operationId).toBe(mock.requests[0].operationId);
-    expect(mock.getJoinCount()).toBe(2);
+    expect(mock.getJoinCount()).toBe((joinCountAtFirstSubmit ?? 0) + 1);
     await expect(page.getByText(/Korrekt!/i)).toBeVisible({ timeout: 10_000 });
   });
 

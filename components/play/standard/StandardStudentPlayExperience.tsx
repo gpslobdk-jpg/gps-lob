@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Loader2, MapPin, Trophy, XCircle } from "lucide-react";
+import { CheckCircle2, CloudOff, Loader2, MapPin, Trophy, XCircle } from "lucide-react";
 import Image from "next/image";
 import { useState, type ReactNode } from "react";
 
@@ -63,7 +63,6 @@ export default function StandardStudentPlayExperience({
     currentPostIndex,
     displayPostNumber,
     totalQuestions,
-    progressPercent,
     dismissedPostIndex,
     showQuestion,
     currentPost,
@@ -98,6 +97,12 @@ export default function StandardStudentPlayExperience({
   const isCurrentPostAnswered =
     progress.solvedPostIndexes.includes(currentPostIndex) ||
     progress.answeredPostIndexes.includes(currentPostIndex);
+  const routeProgressPercent =
+    totalQuestions > 0
+      ? Math.round(
+          (progress.answeredPostIndexes.length / totalQuestions) * 100,
+        )
+      : 0;
   const isAnswerSubmissionPending = isSubmittingAnswer || isSubmitting;
   const isSubmissionBlocking = [
     "submitting",
@@ -107,6 +112,10 @@ export default function StandardStudentPlayExperience({
     "rejected",
     "session_closed",
   ].includes(studentSubmission.status);
+  const showPendingAnswerNotice =
+    pendingAnswerCount > 0 &&
+    studentSubmission.status !== "submitting" &&
+    studentSubmission.status !== "queued_offline";
   const canShowEmergencySkip =
     Boolean(activePostActionError) &&
     pendingAnswerCount === 0 &&
@@ -143,13 +152,28 @@ export default function StandardStudentPlayExperience({
               <StandardProgress
                 postNumber={displayPostNumber}
                 totalPosts={totalQuestions}
-                progressPercent={progressPercent}
+                progressPercent={routeProgressPercent}
               />
               <StudentSubmissionStatus
                 state={studentSubmission}
                 onRetry={onRetrySubmission}
                 retryDisabled={isAnswerSubmissionPending}
               />
+              {showPendingAnswerNotice ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="flex items-start gap-3 rounded-2xl border border-sky-300/35 bg-sky-500/12 px-4 py-4 text-sm text-sky-50 shadow-sm"
+                >
+                  <CloudOff aria-hidden="true" className="h-5 w-5 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold">Svaret er gemt på telefonen</p>
+                    <p className="mt-1 leading-relaxed opacity-90">
+                      Det sendes automatisk, når forbindelsen er tilbage.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
               {gpsOverrideEnabled ? (
                 <div className="rounded-[1.4rem] border border-white/14 bg-slate-950/92 px-4 py-3 shadow-[0_16px_44px_rgba(2,6,23,0.4)] backdrop-blur-xl sm:px-5">
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-200/80">
@@ -222,7 +246,7 @@ export default function StandardStudentPlayExperience({
             <StandardProgress
               postNumber={displayPostNumber}
               totalPosts={totalQuestions}
-              progressPercent={progressPercent}
+              progressPercent={routeProgressPercent}
             />
 
             <div className="mt-3 rounded-[1.75rem] border border-white/12 bg-slate-900 p-4 shadow-[0_24px_70px_rgba(2,6,23,0.5)] sm:p-6">
