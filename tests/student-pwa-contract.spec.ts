@@ -18,6 +18,7 @@ type DeclaredIcon = {
   src: string;
   sizes: string;
   type: string;
+  purpose?: string;
 };
 
 function readDeclaredIcons(manifestSource: string): DeclaredIcon[] {
@@ -32,9 +33,10 @@ function readDeclaredIcons(manifestSource: string): DeclaredIcon[] {
     const src = block.match(/\bsrc\s*:\s*["'`]([^"'`]+)["'`]/)?.[1];
     const sizes = block.match(/\bsizes\s*:\s*["'`]([^"'`]+)["'`]/)?.[1];
     const type = block.match(/\btype\s*:\s*["'`]([^"'`]+)["'`]/)?.[1];
+    const purpose = block.match(/\bpurpose\s*:\s*["'`]([^"'`]+)["'`]/)?.[1];
 
     if (src && sizes && type) {
-      icons.push({ src, sizes, type });
+      icons.push({ src, sizes, type, purpose });
     }
   }
 
@@ -122,6 +124,26 @@ test.describe("student PWA source contracts", () => {
         ).toEqual({ width, height });
       }
     }
+
+    expect(icons.map((icon) => icon.sizes)).toContain("192x192");
+    expect(icons.map((icon) => icon.sizes)).toContain("512x512");
+    expect(icons.filter((icon) => icon.purpose?.includes("maskable"))).toHaveLength(2);
+  });
+
+  test("the shared PWA identity keeps its public start destination and install surfaces", () => {
+    const manifestSource = readSource("app/manifest.ts");
+    const rootLayoutSource = readSource("app/layout.tsx");
+    const joinLayoutSource = readSource("app/join/layout.tsx");
+
+    expect(manifestSource).toMatch(/\bstart_url\s*:\s*["'`]\/["'`]/);
+    expect(manifestSource).toMatch(/\bscope\s*:\s*["'`]\/["'`]/);
+    expect(manifestSource).not.toMatch(/\bid\s*:/);
+    expect(rootLayoutSource).toContain("PwaLaunchExperience");
+    expect(joinLayoutSource).toContain("StudentPwaInstallPromotion");
+    expect(rootLayoutSource).not.toContain("StudentPwaInstallPromotion");
+
+    const launchSource = readSource("components/pwa/PwaLaunchExperience.tsx");
+    expect(launchSource).toMatch(/\.pwa-launch-reduced\s+\.pwa-launch-mark\s*\{[\s\S]*?display:\s*none/);
   });
 
   test("next-pwa excludes public assets from precache but keeps student routes NetworkOnly", () => {

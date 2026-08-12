@@ -208,7 +208,7 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
         "Log ind på SkoleGPS.dk for at oprette løb, følge klassen live og hente resultater.",
       manifestName: "SkoleGPS",
       manifestShortName: "SkoleGPS",
-      manifestDescription: "Interaktive GPS-missioner",
+      manifestDescription: "GPS-løb, quizzer og aktive læringsoplevelser til skolen.",
     },
     home: {
       brandLabel: "SkoleGPS",

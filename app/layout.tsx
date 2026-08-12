@@ -7,6 +7,7 @@ import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import PrivacySafeAnalytics from "@/components/PrivacySafeAnalytics";
 
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import PwaLaunchExperience from "@/components/pwa/PwaLaunchExperience";
 import { getSiteCopy } from "@/lib/siteCopy";
 import { resolveSiteVariantFromHeaders } from "@/lib/siteVariant";
 
@@ -51,6 +52,7 @@ export default async function RootLayout({
       <body className={`${poppins.variable} ${rubik.variable} font-sans antialiased bg-[#0a1128]`}>
         <ErrorBoundary>
           {children}
+          <PwaLaunchExperience brandName={getSiteCopy(siteVariant.key).metadata.manifestName} />
           <ServiceWorkerRegister />
           <PrivacySafeAnalytics />
         </ErrorBoundary>

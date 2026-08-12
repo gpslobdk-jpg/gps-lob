@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 
 import { JoinSiteVariantProvider } from "@/app/join/JoinSiteVariantContext";
+import StudentPwaInstallPromotion from "@/components/pwa/StudentPwaInstallPromotion";
 import { getSiteCopy } from "@/lib/siteCopy";
 import { resolveSiteVariantFromHeaders } from "@/lib/siteVariant";
 
@@ -22,10 +23,12 @@ export default async function JoinLayout({
 }) {
   const requestHeaders = await headers();
   const siteVariant = resolveSiteVariantFromHeaders(requestHeaders);
+  const siteCopy = getSiteCopy(siteVariant.key);
 
   return (
     <JoinSiteVariantProvider initialSiteVariantKey={siteVariant.key}>
       {children}
+      <StudentPwaInstallPromotion brandName={siteCopy.metadata.manifestName} />
     </JoinSiteVariantProvider>
   );
 }
