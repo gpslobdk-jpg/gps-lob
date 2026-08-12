@@ -170,7 +170,25 @@ async function openPost(page: Page, answer: string) {
   });
   const answerButton = page.getByRole("button", { name: answer });
   const openButton = page.getByRole("button", { name: /bn post/i });
-  await expect(answerButton.or(openButton).first()).toBeVisible({ timeout: 30_000 });
+  const recoverLocationButton = page.getByRole("button", {
+    name: /Find min placering igen/i,
+  });
+  await expect(
+    answerButton.or(openButton).or(recoverLocationButton).first()
+  ).toBeVisible({ timeout: 30_000 });
+  if (await recoverLocationButton.isVisible()) {
+    await recoverLocationButton.click();
+    await page.context().setGeolocation({
+      latitude: POST_LAT + 0.000001,
+      longitude: POST_LNG,
+      accuracy: 5,
+    });
+    await page.context().setGeolocation({
+      latitude: POST_LAT,
+      longitude: POST_LNG,
+      accuracy: 5,
+    });
+  }
   if (!(await answerButton.isVisible())) {
     await openButton.click();
   }

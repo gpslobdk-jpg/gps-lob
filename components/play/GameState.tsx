@@ -664,6 +664,10 @@ export function usePlayGameState({
     participantId: string;
     promise: Promise<ParticipantSnapshotFetchResult>;
   } | null>(null);
+  const participantRegistrationPromiseRef = useRef<Promise<boolean> | null>(null);
+  const participantAuthRecoveryPromiseRef = useRef<
+    Promise<ParticipantAuthRecoveryMethod | null> | null
+  >(null);
   // Stable refs so frequently-changing state doesn't recreate heavy callbacks.
   const sessionStatusRef = useRef<string | null>(sessionStatus);
   const isFinishedRef = useRef(isFinished);
@@ -1117,7 +1121,7 @@ export function usePlayGameState({
     [avatarUrl, hasCompletedAvatarGate, sessionId, startOffset, teamColor, teamId]
   );
 
-  const registerParticipantIdentity = useCallback(
+  const runParticipantIdentityRegistration = useCallback(
     async (nextStudentName: string) => {
       const normalizedName = nextStudentName.trim();
       const preferredParticipantId = storedParticipantOnLoad?.participantId?.trim() || null;
@@ -1264,6 +1268,27 @@ export function usePlayGameState({
       storedParticipantOnLoad?.hasCompletedAvatarGate,
       storedParticipantOnLoad?.participantId,
     ]
+  );
+
+  const registerParticipantIdentity = useCallback(
+    async (nextStudentName: string) => {
+      const inFlightRegistration = participantRegistrationPromiseRef.current;
+      if (inFlightRegistration) {
+        return inFlightRegistration;
+      }
+
+      const registrationPromise = runParticipantIdentityRegistration(nextStudentName);
+      participantRegistrationPromiseRef.current = registrationPromise;
+
+      try {
+        return await registrationPromise;
+      } finally {
+        if (participantRegistrationPromiseRef.current === registrationPromise) {
+          participantRegistrationPromiseRef.current = null;
+        }
+      }
+    },
+    [runParticipantIdentityRegistration]
   );
 
   const beginSubmission = useCallback(() => {
@@ -1519,7 +1544,7 @@ export function usePlayGameState({
     []
   );
 
-  const recoverParticipantAuthSession = useCallback(
+  const runParticipantAuthSessionRecovery = useCallback(
     async (
       storedName: string,
       telemetryReason?: string
@@ -1585,6 +1610,33 @@ export function usePlayGameState({
       supabase,
       waitForNetworkRetry,
     ]
+  );
+
+  const recoverParticipantAuthSession = useCallback(
+    async (
+      storedName: string,
+      telemetryReason?: string
+    ): Promise<ParticipantAuthRecoveryMethod | null> => {
+      const inFlightRecovery = participantAuthRecoveryPromiseRef.current;
+      if (inFlightRecovery) {
+        return inFlightRecovery;
+      }
+
+      const recoveryPromise = runParticipantAuthSessionRecovery(
+        storedName,
+        telemetryReason
+      );
+      participantAuthRecoveryPromiseRef.current = recoveryPromise;
+
+      try {
+        return await recoveryPromise;
+      } finally {
+        if (participantAuthRecoveryPromiseRef.current === recoveryPromise) {
+          participantAuthRecoveryPromiseRef.current = null;
+        }
+      }
+    },
+    [runParticipantAuthSessionRecovery]
   );
 
   const reconcileAuthoritativeAnswerProgress = useCallback(
@@ -2337,14 +2389,21 @@ export function usePlayGameState({
         storedParticipantOnLoad?.studentName?.trim() || playerNameRef.current || pendingPlayerNameRef.current;
       let participantAuthRecoveryMethod: ParticipantAuthRecoveryMethod | null = null;
       let hasRecoveredParticipantAuth = true;
+      const channelOnlyReconnect =
+        trigger === "status_channel_error" || trigger === "message_channel_error";
 
-      if (participantId && !isFinishedRef.current && !isKickedRef.current) {
+      if (
+        participantId &&
+        !isFinishedRef.current &&
+        !isKickedRef.current &&
+        !channelOnlyReconnect
+      ) {
         participantAuthRecoveryMethod = await recoverParticipantAuthSession(
           storedName,
           shouldTrackReconnectOutcome ? `wake_reconnect:${trigger}` : undefined
         );
         hasRecoveredParticipantAuth = participantAuthRecoveryMethod !== null;
-      } else {
+      } else if (!participantId) {
         void authWithLockRetry(() => supabase.auth.refreshSession(), "GameState.backgroundRefresh").catch(() => undefined);
       }
 
@@ -2759,7 +2818,11 @@ export function usePlayGameState({
       createStatusSubscription();
     };
 
-    const handlePageShow = () => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) {
+        return;
+      }
+
       void recoverWakeUpState("pageshow_resume");
       createStatusSubscription();
     };
