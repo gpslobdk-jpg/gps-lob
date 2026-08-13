@@ -740,6 +740,7 @@ export async function POST(req: Request) {
       providerOptions: {
         openai: {
           strictJsonSchema: true,
+          store: false,
         },
       },
     });
@@ -751,14 +752,13 @@ export async function POST(req: Request) {
       questions: normalizedRun.questions,
     });
   } catch (error) {
-    console.error("Fejl i manual-builder/interview:", error);
-
     const status = isTimeoutError(error) ? 504 : 500;
+    console.error("Fejl i manual-builder/interview.", { status });
     await logHandledServerError({
       route: "/api/manual-builder/interview",
       method: "POST",
       status,
-      error,
+      error: status === 504 ? "manual_builder_generation_timeout" : "manual_builder_generation_failed",
       requestPath,
       routeType: "route",
     });

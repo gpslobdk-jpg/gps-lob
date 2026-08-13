@@ -260,6 +260,7 @@ type ManualBuilderDraftState = {
   questions?: unknown;
   mapCenter?: unknown;
   overrideRaceType?: unknown;
+  lynbyggerPlacementStatus?: unknown;
   game_config?: unknown;
   gameConfig?: unknown;
 };
@@ -297,8 +298,6 @@ const PORTAL_MENU_GAP = 12;
 const PORTAL_MENU_MARGIN = 16;
 
 const DEFAULT_ANSWERS: [string, string, string, string] = ["", "", "", ""];
-const ANSWER_LABELS = ["A", "B", "C", "D"] as const;
-
 const createEmptyAnswers = (): [string, string, string, string] => ["", "", "", ""];
 
 const buildPhotoAnswers = (targetObject: string): [string, string, string, string] => [
@@ -654,6 +653,7 @@ function OpretLoebPageContent() {
   const [mapCenter, setMapCenter] = useState<MapCenter>(DEFAULT_MAP_CENTER);
   const [showDraftRecoveryPrompt, setShowDraftRecoveryPrompt] = useState(false);
   const [overrideRaceType, setOverrideRaceType] = useState<string | null>(null);
+  const [lynbyggerPlacementStatus, setLynbyggerPlacementStatus] = useState<"placed" | "missing" | null>(null);
   const [runGameConfig, setRunGameConfig] = useState<Record<string, unknown> | null>(null);
   const [pendingAiReviewDraft, setPendingAiReviewDraft] = useState<PendingManualAiReviewDraft | null>(null);
   const isEditorBusy = isSaving || showDraftRecoveryPrompt;
@@ -771,6 +771,11 @@ function OpretLoebPageContent() {
     setQuestions(restoredQuestions.length > 0 ? restoredQuestions : [createQuestion(defaultQuestionType)]);
     setMapCenter(restoreDraftMapCenter(draft.mapCenter, DEFAULT_MAP_CENTER));
     setOverrideRaceType(restoredRaceType);
+    setLynbyggerPlacementStatus(
+      draft.lynbyggerPlacementStatus === "placed" || draft.lynbyggerPlacementStatus === "missing"
+        ? draft.lynbyggerPlacementStatus
+        : null
+    );
     setRunGameConfig(readRunGameConfig(draft));
   };
 
@@ -1133,6 +1138,7 @@ function OpretLoebPageContent() {
       questions,
       mapCenter,
       overrideRaceType,
+      lynbyggerPlacementStatus,
       ...(draftGameConfig ? { game_config: draftGameConfig } : {}),
     } satisfies ManualBuilderDraftState);
   }, [
@@ -1140,6 +1146,7 @@ function OpretLoebPageContent() {
     editRunId,
     gradeLevels,
     mapCenter,
+    lynbyggerPlacementStatus,
     overrideRaceType,
     pendingAiReviewDraft,
     questions,
@@ -1562,6 +1569,7 @@ function OpretLoebPageContent() {
         setRadius(DEFAULT_RUN_RADIUS);
         setShowTeacherField(false);
         setPendingAiReviewDraft(null);
+        setLynbyggerPlacementStatus(null);
         setRunGameConfig(null);
         setQuestions([createQuestion(defaultQuestionType)]);
       }
@@ -1781,6 +1789,16 @@ function OpretLoebPageContent() {
                     {questions.length}
                   </span>
                 </div>
+
+                {lynbyggerPlacementStatus !== null && hasMissingCoordinates ? (
+                  <div
+                    role="status"
+                    data-testid="lynbygger-placement-warning"
+                    className="rounded-2xl border border-amber-300/35 bg-amber-400/10 px-4 py-3 text-sm font-semibold leading-6 text-amber-50"
+                  >
+                    Dit løb er klar. Placér hver post på kortet, før du gemmer.
+                  </div>
+                ) : null}
 
                 {renderNotice()}
 
