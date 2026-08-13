@@ -23,6 +23,7 @@ export type LynbyggerApiResponse = {
 
 export type LynbyggerRequest = {
   builderType: "manual";
+  qualityMode: "strict";
   manualTopic: string;
   gradeLevels: [GradeLevel];
   count: typeof LYNBYGGER_QUESTION_COUNT;
@@ -98,6 +99,7 @@ export function validateLynbyggerInput(topic: string, gradeLevel: string): Input
     ok: true,
     request: {
       builderType: "manual",
+      qualityMode: "strict",
       manualTopic: normalizedTopic,
       gradeLevels: [gradeLevel],
       count: LYNBYGGER_QUESTION_COUNT,

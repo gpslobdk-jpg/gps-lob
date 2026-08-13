@@ -8,6 +8,17 @@ import {
   GRADE_LEVEL_OPTIONS,
   getGradeLevelRange,
 } from "@/utils/gradeLevels";
+import {
+  createLynbyggerReviewSchema,
+  createLynbyggerReviewerPrompt,
+  createLynbyggerRewritePrompt,
+  createStrictLynbyggerGeneratorRules,
+  LYNBYGGER_GENERATOR_MODEL,
+  LynbyggerQualityError,
+  LYNBYGGER_REVIEWER_SYSTEM_PROMPT,
+  LYNBYGGER_REVIEW_MODEL,
+  runLynbyggerQualityPipeline,
+} from "@/lib/lynbyggerAiQuality";
 import { createClient } from "@/utils/supabase/server";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
@@ -23,6 +34,7 @@ const OPENAI_TIMEOUT_MS = 45_000;
 const manualInterviewPayloadSchema = z
   .object({
     builderType: z.literal("manual").optional().default("manual"),
+    qualityMode: z.literal("strict").optional(),
     subject: z.string().trim().max(80).optional().default(""),
     gradeLevels: z.array(z.enum(GRADE_LEVEL_OPTIONS)).min(1).max(GRADE_LEVEL_OPTIONS.length),
     manualTopic: z.string().trim().min(1).max(180),
@@ -86,10 +98,11 @@ function createGeneratedRunSchema(desiredCount: number) {
 }
 
 function createManualPrompt(input: z.infer<typeof manualInterviewPayloadSchema>) {
-  const { manualTopic, subject, gradeLevels, tone, count } = input;
+  const { manualTopic, subject, gradeLevels, tone, count, qualityMode } = input;
   const gradeLevelLabel = formatGradeLevelsForPrompt(gradeLevels);
   const gradeLevelGuidance = createManualGradeLevelGuidance(gradeLevels);
   const subjectLine = subject ? `Fag eller kategori: ${subject}.` : "Fag eller kategori: Ikke angivet.";
+  const strictQualityRules = qualityMode === "strict" ? createStrictLynbyggerGeneratorRules(count) : "";
 
   return {
     schemaName: "ManualBuilderInterviewRun",
@@ -117,7 +130,8 @@ Du SKAL altid følge disse regler:
 - Svarmulighederne skal være troværdige, men tydeligt adskilte, så der kun er ét korrekt svar.
 - Tonen skal afspejle brugerens valg uden at gøre spørgsmålene useriøse eller uklare.
 - Følg disse klassetrinskrav meget nøje:
-${gradeLevelGuidance.map((line) => `- ${line}`).join("\n")}`,
+${gradeLevelGuidance.map((line) => `- ${line}`).join("\n")}
+${strictQualityRules ? `\nSærlige regler for Lynbyggerens strenge kvalitetstilstand:\n${strictQualityRules}` : ""}`,
     prompt: [
       `Tema eller emne: ${manualTopic}.`,
       subjectLine,
@@ -130,6 +144,12 @@ ${gradeLevelGuidance.map((line) => `- ${line}`).join("\n")}`,
       "Svarmulighederne skal være realistiske distractors, så det korrekte svar ikke bliver åbenlyst.",
       "Titel skal gøre løbet indbydende og motivere deltagerne til at komme i gang.",
       ...gradeLevelGuidance,
+      ...(strictQualityRules
+        ? [
+            "Prioritér faglig sikkerhed over kreativitet. Hvis en detalje eller et facit er usikkert, skal du vælge et enklere spørgsmål.",
+            "Kontrollér internt hvert spørgsmål for faktuel korrekthed, præcis ét korrekt svar og fravær af opdigtede detaljer, før du returnerer JSON.",
+          ]
+        : []),
       "Byg nu et komplet quiz-løb med titel og spørgsmål.",
       "Spørgsmålene må gerne variere i vinkel, men de skal alle tydeligt høre til samme løb.",
     ].join("\n"),
@@ -646,7 +666,10 @@ function isTimeoutError(error: unknown) {
   );
 }
 
-function normalizeGeneratedRun(object: { title: string; questions: Array<{ question: string; options: string[]; correctAnswer: string }> }) {
+function normalizeGeneratedRun(
+  object: { title: string; questions: Array<{ question: string; options: string[]; correctAnswer: string }> },
+  normalization: { failClosed: boolean } = { failClosed: false },
+) {
   const questions = object.questions.map((question) => {
     const options = question.options.map((option) => option.trim()).slice(0, 4);
     const paddedOptions = [...options];
@@ -662,6 +685,17 @@ function normalizeGeneratedRun(object: { title: string; questions: Array<{ quest
     ] as [string, string, string, string];
 
     const normalizedCorrectAnswer = asTrimmedString(question.correctAnswer);
+    const hasUniqueOptions =
+      new Set(safeOptions.map((option) => option.toLocaleLowerCase("da-DK"))).size === 4;
+    if (
+      normalization.failClosed &&
+      (!safeOptions.includes(normalizedCorrectAnswer) ||
+        safeOptions.some((option) => !option) ||
+        !hasUniqueOptions)
+    ) {
+      throw new LynbyggerQualityError("invalid_generated_output");
+    }
+
     const safeCorrectAnswer = safeOptions.includes(normalizedCorrectAnswer)
       ? normalizedCorrectAnswer
       : safeOptions[0];
@@ -728,30 +762,123 @@ export async function POST(req: Request) {
     const count = parsedPayload.data.count;
 
     const schema = createGeneratedRunSchema(count);
-    const { object } = await generateObject({
-      model: openai("gpt-4o-mini"),
-      schema,
-      schemaName: basePromptConfig.schemaName,
-      schemaDescription: basePromptConfig.schemaDescription,
-      system: basePromptConfig.systemPrompt,
-      prompt: basePromptConfig.prompt,
-      temperature: 0.7,
-      timeout: OPENAI_TIMEOUT_MS,
-      providerOptions: {
-        openai: {
-          strictJsonSchema: true,
-          store: false,
+    const strictLynbyggerInput =
+      parsedPayload.data.builderType === "manual" && parsedPayload.data.qualityMode === "strict"
+        ? parsedPayload.data
+        : null;
+
+    const generateRun = async (input: {
+      modelId: string;
+      prompt: string;
+      systemPrompt: string;
+      temperature?: number;
+    }) => {
+      const { object } = await generateObject({
+        model: openai(input.modelId),
+        schema,
+        schemaName: basePromptConfig.schemaName,
+        schemaDescription: basePromptConfig.schemaDescription,
+        system: input.systemPrompt,
+        prompt: input.prompt,
+        ...(input.temperature === undefined ? {} : { temperature: input.temperature }),
+        timeout: OPENAI_TIMEOUT_MS,
+        providerOptions: {
+          openai: {
+            strictJsonSchema: true,
+            store: false,
+          },
         },
+      });
+
+      return normalizeGeneratedRun(object, { failClosed: strictLynbyggerInput !== null });
+    };
+
+    let normalizedRun;
+    let qualityRewriteRounds: number | null = null;
+    if (strictLynbyggerInput) {
+      const topic = strictLynbyggerInput.manualTopic;
+      const gradeLevelLabel = formatGradeLevelsForPrompt(strictLynbyggerInput.gradeLevels);
+      const qualityResult = await runLynbyggerQualityPipeline({
+        questionCount: count,
+        generate: () =>
+          generateRun({
+            modelId: LYNBYGGER_GENERATOR_MODEL,
+            systemPrompt: basePromptConfig.systemPrompt,
+            prompt: basePromptConfig.prompt,
+            temperature: 0.2,
+          }),
+        review: async (run) => {
+          const { object } = await generateObject({
+            model: openai(LYNBYGGER_REVIEW_MODEL),
+            schema: createLynbyggerReviewSchema(count),
+            schemaName: "LynbyggerQuestionReview",
+            schemaDescription: "En streng faglig vurdering af hvert quizspørgsmål.",
+            system: LYNBYGGER_REVIEWER_SYSTEM_PROMPT,
+            prompt: createLynbyggerReviewerPrompt({ topic, gradeLevelLabel, run }),
+            timeout: OPENAI_TIMEOUT_MS,
+            providerOptions: {
+              openai: {
+                strictJsonSchema: true,
+                store: false,
+              },
+            },
+          });
+
+          return object;
+        },
+        rewrite: (run, review) =>
+          generateRun({
+            modelId: LYNBYGGER_REVIEW_MODEL,
+            systemPrompt: basePromptConfig.systemPrompt,
+            prompt: createLynbyggerRewritePrompt({ topic, gradeLevelLabel, run, review }),
+          }),
+      });
+
+      normalizedRun = qualityResult.run;
+      qualityRewriteRounds = qualityResult.rewriteRounds;
+    } else {
+      normalizedRun = await generateRun({
+        modelId: LYNBYGGER_GENERATOR_MODEL,
+        systemPrompt: basePromptConfig.systemPrompt,
+        prompt: basePromptConfig.prompt,
+        temperature: 0.7,
+      });
+    }
+
+    return NextResponse.json(
+      {
+        title: normalizedRun.title,
+        questions: normalizedRun.questions,
       },
-    });
-
-    const normalizedRun = normalizeGeneratedRun(object);
-
-    return NextResponse.json({
-      title: normalizedRun.title,
-      questions: normalizedRun.questions,
-    });
+      qualityRewriteRounds === null
+        ? undefined
+        : {
+            headers: {
+              "X-Lynbygger-Quality": "reviewed",
+              "X-Lynbygger-Rewrite-Rounds": String(qualityRewriteRounds),
+            },
+          },
+    );
   } catch (error) {
+    if (error instanceof LynbyggerQualityError) {
+      console.warn("Lynbyggerens faglige kvalitetstjek afviste et udkast.", {
+        status: 422,
+        code: error.code,
+      });
+      await logHandledServerError({
+        route: "/api/manual-builder/interview",
+        method: "POST",
+        status: 422,
+        error: error.code,
+        requestPath,
+        routeType: "route",
+      });
+      return NextResponse.json(
+        { error: "Løbet kunne ikke laves sikkert lige nu. Prøv igen." },
+        { status: 422 },
+      );
+    }
+
     const status = isTimeoutError(error) ? 504 : 500;
     console.error("Fejl i manual-builder/interview.", { status });
     await logHandledServerError({

@@ -248,6 +248,7 @@ test.describe("Ultraenkel Lynbygger", () => {
     await expect(page.getByTestId("lynbygger-placement-step")).toBeVisible();
     expect(capturedRequest).toEqual({
       builderType: "manual",
+      qualityMode: "strict",
       manualTopic: "Den Kolde Krig",
       gradeLevels: ["8. klasse"],
       count: 5,
@@ -294,6 +295,17 @@ test.describe("Ultraenkel Lynbygger", () => {
   });
 
   test("afvist geolocation åbner editoren uden København-default og med tydelig besked", async ({ page, context }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(window.navigator, "geolocation", {
+        configurable: true,
+        value: {
+          getCurrentPosition: (
+            _success: PositionCallback,
+            error?: PositionErrorCallback | null,
+          ) => error?.({ code: 1, message: "denied" } as GeolocationPositionError),
+        },
+      });
+    });
     await page.route("**/api/manual-builder/interview", async (route) => {
       await route.fulfill({
         status: 200,
@@ -324,7 +336,8 @@ test.describe("Ultraenkel Lynbygger", () => {
     );
   });
 
-  test("manglende geolocation åbner også editoren uden placerede poster", async ({ page }) => {
+  test("manglende geolocation åbner også editoren uden placerede poster", async ({ page, context }) => {
+    await context.clearPermissions();
     await page.addInitScript(() => {
       Object.defineProperty(window.navigator, "geolocation", {
         configurable: true,
@@ -377,5 +390,25 @@ test.describe("Ultraenkel Lynbygger", () => {
     await expect(page.getByRole("button", { name: "Prøv igen" })).toBeEnabled();
     expect(requestCount).toBe(1);
     await expect(page.getByText("internal_detail_must_not_reach_ui")).toHaveCount(0);
+  });
+
+  test("usikker AI-generering afvises med en tydelig og rolig besked", async ({ page }) => {
+    await page.route("**/api/manual-builder/interview", async (route) => {
+      await route.fulfill({
+        status: 422,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "internal_quality_detail_must_not_reach_ui" }),
+      });
+    });
+
+    await openLynbygger(page);
+    await page.getByLabel("Emne").fill("Eventyr");
+    await page.getByLabel("Klassetrin").selectOption("4. klasse");
+    await page.getByRole("button", { name: "⚡ Lav mit løb" }).click();
+
+    await expect(page.getByTestId("lynbygger-error")).toHaveText(
+      "Løbet kunne ikke laves sikkert lige nu. Prøv igen.",
+    );
+    await expect(page.getByText("internal_quality_detail_must_not_reach_ui")).toHaveCount(0);
   });
 });

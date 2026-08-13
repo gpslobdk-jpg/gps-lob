@@ -32,6 +32,7 @@ test.describe("Lynbygger-kontrakt", () => {
 
       expect(result.request).toEqual({
         builderType: "manual",
+        qualityMode: "strict",
         manualTopic: "Vulkaner",
         gradeLevels: [gradeLevel],
         count: LYNBYGGER_QUESTION_COUNT,

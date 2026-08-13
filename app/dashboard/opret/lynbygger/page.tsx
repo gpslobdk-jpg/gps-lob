@@ -27,6 +27,10 @@ function getGenerationErrorMessage(status: number) {
     return "Der er mange, der laver løb lige nu. Vent et øjeblik, og prøv igen.";
   }
 
+  if (status === 422) {
+    return "Løbet kunne ikke laves sikkert lige nu. Prøv igen.";
+  }
+
   if (status === 504) {
     return "Det tog for lang tid at lave løbet. Prøv igen.";
   }
