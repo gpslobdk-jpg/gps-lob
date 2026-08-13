@@ -85,7 +85,7 @@ const toolCards = [
   {
     title: "DagensTavle",
     description: "Fra skema til tavle – klar til undervisning.",
-    href: `${dagensTavleOrigin}/auth/family-sso/start?next=%2Fskema&source=skolegps`,
+    href: `${dagensTavleOrigin}/auth/family-sso/start?next=%2Ftavle&source=skolegps`,
     icon: Presentation,
     cta: "Åbn DagensTavle",
     familyLabel: "SkoleGPS-familien",

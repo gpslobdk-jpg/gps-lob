@@ -47,6 +47,12 @@ test.afterAll(async () => {
 });
 
 test.describe("DagensTavle family SSO security contract", () => {
+  test("opens DagensTavle on the board through Family SSO from SkoleGPS", () => {
+    const toolsPage = read("app", "dashboard", "laerervaerktoejer", "page.tsx");
+
+    expect(toolsPage).toContain("/auth/family-sso/start?next=%2Ftavle&source=skolegps");
+  });
+
   test("accepts only normalized relative DagensTavle return paths", () => {
     expect(getSafeDagensTavlePath("/tavle?fra=skema")).toBe("/tavle?fra=skema");
     for (const unsafe of [
