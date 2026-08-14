@@ -1,7 +1,11 @@
 import { expect, test, type BrowserContext, type Page, type Route } from "@playwright/test";
 
 const TEACHER_USER_ID = "bbbbbbbb-1111-4222-8333-cccccccc0001";
-const SUPABASE_COOKIE_NAMES = ["sb-127-auth-token", "sb-xodrzahqdgbsssntupjt-auth-token"];
+const SUPABASE_COOKIE_NAMES = [
+  "sb-localhost-auth-token",
+  "sb-127-auth-token",
+  "sb-xodrzahqdgbsssntupjt-auth-token",
+];
 const MANUEL_DRAFT_STORAGE_KEY = "draft_run_manuel";
 
 type ManualDraftQuestion = {
@@ -200,11 +204,34 @@ test.describe("Ultraenkel Lynbygger", () => {
     await page.getByLabel("Klassetrin").selectOption("6. klasse");
     await page.getByLabel("Emne").press("Enter");
     await expect(page.getByTestId("lynbygger-placement-step")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "AI-udkast – gennemgå spørgsmål og facit" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/Lynbyggeren sparer dig tid, men AI kan tage fejl/),
+    ).toBeVisible();
+    await expect(page.locator('[data-testid^="lynbygger-draft-question-"]')).toHaveCount(5);
+    await expect(page.getByTestId("lynbygger-teacher-approval")).not.toBeChecked();
+    await expect(page.getByTestId("lynbygger-place-current")).toBeDisabled();
+    await expect(page.getByTestId("lynbygger-place-manually")).toBeDisabled();
   });
 
   test("sender minimumsrequest, placerer fem poster og importerer kladden", async ({ page, context }) => {
     let capturedRequest: unknown = null;
     let savedRunPayload: Record<string, unknown> | null = null;
+    const contentLeaks: string[] = [];
+    page.on("console", (message) => {
+      const text = message.text();
+      if (/Den Kolde Krig|Korrekt svar 1/u.test(text)) contentLeaks.push(`console:${text}`);
+    });
+    page.on("request", (request) => {
+      const url = new URL(request.url());
+      const isLocal = ["localhost", "127.0.0.1"].includes(url.hostname);
+      const payload = `${request.url()} ${request.postData() ?? ""}`;
+      if (!isLocal && /Den Kolde Krig|Korrekt svar 1/u.test(payload)) {
+        contentLeaks.push(`network:${url.hostname}`);
+      }
+    });
     await page.route("**/api/manual-builder/interview", async (route) => {
       capturedRequest = route.request().postDataJSON();
       await route.fulfill({
@@ -246,6 +273,7 @@ test.describe("Ultraenkel Lynbygger", () => {
     await page.getByRole("button", { name: "⚡ Lav mit løb" }).click();
 
     await expect(page.getByTestId("lynbygger-placement-step")).toBeVisible();
+    await expect(page.locator('[data-testid^="lynbygger-draft-question-"]')).toHaveCount(5);
     expect(capturedRequest).toEqual({
       builderType: "manual",
       qualityMode: "strict",
@@ -253,6 +281,26 @@ test.describe("Ultraenkel Lynbygger", () => {
       gradeLevels: ["8. klasse"],
       count: 5,
     });
+
+    const approval = page.getByTestId("lynbygger-teacher-approval");
+    const firstDraftQuestion = page.getByTestId("lynbygger-draft-question-0");
+    await expect(page.getByTestId("lynbygger-place-current")).toBeDisabled();
+    await firstDraftQuestion.getByTestId("lynbygger-question-text-0").fill(
+      "Hvilken by blev delt af en mur under Den Kolde Krig?",
+    );
+    await firstDraftQuestion.getByTestId("lynbygger-option-0-1").fill("Berlin");
+    await firstDraftQuestion
+      .getByRole("radio", { name: "Markér svar 2 som facit i spørgsmål 1" })
+      .check();
+    await approval.check();
+    await expect(page.getByTestId("lynbygger-place-current")).toBeEnabled();
+
+    await firstDraftQuestion.getByTestId("lynbygger-question-text-0").fill(
+      "Hvilken by blev delt af Berlinmuren under Den Kolde Krig?",
+    );
+    await expect(approval).not.toBeChecked();
+    await expect(page.getByTestId("lynbygger-place-current")).toBeDisabled();
+    await approval.check();
 
     await page.getByTestId("lynbygger-place-current").click();
     await expect(page).toHaveURL(/\/dashboard\/opret\/manuel$/, { timeout: 45_000 });
@@ -282,6 +330,10 @@ test.describe("Ultraenkel Lynbygger", () => {
 
     await page.locator('input[placeholder*="store viden"]').first().fill("Den Kolde Krig – redigeret");
     await expect.poll(async () => (await readManualDraft(page))?.data?.title).toBe("Den Kolde Krig – redigeret");
+    await expect.poll(async () => (await readManualDraft(page))?.data?.questions?.[0]).toMatchObject({
+      text: "Hvilken by blev delt af Berlinmuren under Den Kolde Krig?",
+      correctIndex: 1,
+    });
 
     await page.getByRole("button", { name: "Gem løb i arkivet" }).click();
     await expect(page).toHaveURL(/\/dashboard\/arkiv$/, { timeout: 30_000 });
@@ -291,7 +343,19 @@ test.describe("Ultraenkel Lynbygger", () => {
       title: "Den Kolde Krig – redigeret",
       race_type: "manuel",
       radius: 15,
+      questions: [
+        expect.objectContaining({
+          text: "Hvilken by blev delt af Berlinmuren under Den Kolde Krig?",
+          answers: expect.arrayContaining(["Berlin"]),
+          correctIndex: 1,
+        }),
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+      ],
     });
+    expect(contentLeaks).toEqual([]);
   });
 
   test("afvist geolocation åbner editoren uden København-default og med tydelig besked", async ({ page, context }) => {
@@ -320,6 +384,7 @@ test.describe("Ultraenkel Lynbygger", () => {
     await page.getByLabel("Klassetrin").selectOption("6. klasse");
     await page.getByRole("button", { name: "⚡ Lav mit løb" }).click();
     await expect(page.getByTestId("lynbygger-placement-step")).toBeVisible();
+    await page.getByTestId("lynbygger-teacher-approval").check();
     await page.getByTestId("lynbygger-place-current").click();
 
     await expect(page).toHaveURL(/\/dashboard\/opret\/manuel$/, { timeout: 45_000 });
@@ -356,6 +421,7 @@ test.describe("Ultraenkel Lynbygger", () => {
     await page.getByLabel("Emne").fill("Brøker");
     await page.getByLabel("Klassetrin").selectOption("5. klasse");
     await page.getByRole("button", { name: "⚡ Lav mit løb" }).click();
+    await page.getByTestId("lynbygger-teacher-approval").check();
     await page.getByTestId("lynbygger-place-current").click();
 
     await expect(page).toHaveURL(/\/dashboard\/opret\/manuel$/, { timeout: 45_000 });

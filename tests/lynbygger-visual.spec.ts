@@ -48,7 +48,11 @@ function makeGeneratedRun(topic: string) {
 async function setupDashboardContext(context: BrowserContext) {
   const session = makeSessionPayload();
   const cookieValue = `base64-${base64UrlEncode(session)}`;
-  const cookieNames = ["sb-127-auth-token", "sb-xodrzahqdgbsssntupjt-auth-token"];
+  const cookieNames = [
+    "sb-localhost-auth-token",
+    "sb-127-auth-token",
+    "sb-xodrzahqdgbsssntupjt-auth-token",
+  ];
 
   await context.addCookies(
     cookieNames.flatMap((name) =>
@@ -136,6 +140,7 @@ test("gemmer den krævede visuelle Lynbygger-gennemgang", async ({ page, context
 
   await expect(page.getByTestId("lynbygger-placement-step")).toBeVisible();
   await page.screenshot({ path: path.join(OUTPUT_DIR, "04-placering.png"), animations: "disabled" });
+  await page.getByTestId("lynbygger-teacher-approval").check();
   await page.getByTestId("lynbygger-place-manually").click();
   await expect(page).toHaveURL(/\/dashboard\/opret\/manuel$/);
   await expect(page.locator('article[id^="manuel-post-"]')).toHaveCount(5);
@@ -155,4 +160,16 @@ test("gemmer den krævede visuelle Lynbygger-gennemgang", async ({ page, context
   await page.getByLabel("Emne").fill("Eventyr");
   await page.getByLabel("Klassetrin").selectOption("4. klasse");
   await page.screenshot({ path: path.join(OUTPUT_DIR, "07-mobil-390.png"), animations: "disabled" });
+  await page.getByRole("button", { name: /Lav mit/ }).click();
+  await expect(page.getByTestId("lynbygger-draft-review")).toBeVisible();
+  const mobileLayout = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(mobileLayout.scrollWidth).toBeLessThanOrEqual(mobileLayout.clientWidth + 1);
+  await page.screenshot({
+    path: path.join(OUTPUT_DIR, "08-mobil-ai-udkast-390.png"),
+    animations: "disabled",
+    fullPage: true,
+  });
 });

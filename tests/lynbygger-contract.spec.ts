@@ -116,12 +116,20 @@ test.describe("Lynbygger-kontrakt", () => {
 
   test("den eksisterende AI-motor kræver faglig specificitet og gemmer ikke provider-input", () => {
     const routeSource = readFileSync(resolve(process.cwd(), "app/api/manual-builder/interview/route.ts"), "utf8");
+    const qualitySource = readFileSync(resolve(process.cwd(), "lib/lynbyggerAiQuality.ts"), "utf8");
     const pageSource = readFileSync(resolve(process.cwd(), "app/dashboard/opret/lynbygger/page.tsx"), "utf8");
 
     expect(routeSource).toContain("faktuelt korrekte");
     expect(routeSource).toContain("intelligente og plausible distractors");
     expect(routeSource).toContain("store: false");
+    expect(routeSource).toContain("responses.parse");
+    expect(routeSource).toContain("maxRetries: 0");
+    expect(routeSource).not.toContain("web_search");
     expect(routeSource).not.toContain('console.error("Fejl i manual-builder/interview:", error)');
+    expect(qualitySource).toContain('LYNBYGGER_REVIEW_MODEL = "gpt-5.4-mini-2026-03-17"');
+    expect(qualitySource).toContain("LYNBYGGER_MAX_REVIEW_CONCURRENCY = 5");
+    expect(qualitySource).toContain("reviewer_output_unknown_field");
+    expect(qualitySource).toContain("claim_requires_unavailable_evidence");
     expect(pageSource).not.toContain("Hvad passer bedst om");
     expect(pageSource).not.toContain("Hvad viser god forståelse af");
   });

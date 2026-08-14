@@ -1,6 +1,8 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { NextResponse } from "next/server";
+import OpenAI from "openai";
+import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 
 import {
@@ -9,14 +11,18 @@ import {
   getGradeLevelRange,
 } from "@/utils/gradeLevels";
 import {
-  createLynbyggerReviewSchema,
   createLynbyggerReviewerPrompt,
   createLynbyggerRewritePrompt,
+  createLynbyggerRewriteSchema,
   createStrictLynbyggerGeneratorRules,
   LYNBYGGER_GENERATOR_MODEL,
+  LYNBYGGER_INITIAL_CANDIDATE_SURPLUS,
   LynbyggerQualityError,
+  LynbyggerReviewerTechnicalError,
   LYNBYGGER_REVIEWER_SYSTEM_PROMPT,
   LYNBYGGER_REVIEW_MODEL,
+  LYNBYGGER_REWRITE_SYSTEM_PROMPT,
+  lynbyggerReviewerObservationSchema,
   runLynbyggerQualityPipeline,
 } from "@/lib/lynbyggerAiQuality";
 import { createClient } from "@/utils/supabase/server";
@@ -24,7 +30,7 @@ import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const maxDuration = 300;
 
-const openai = createOpenAI({
+const aiSdkOpenai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
@@ -97,7 +103,12 @@ function createGeneratedRunSchema(desiredCount: number) {
     .strict();
 }
 
-function createManualPrompt(input: z.infer<typeof manualInterviewPayloadSchema>) {
+type ManualPromptInput = Omit<
+  z.infer<typeof manualInterviewPayloadSchema>,
+  "count"
+> & { count: number };
+
+function createManualPrompt(input: ManualPromptInput) {
   const { manualTopic, subject, gradeLevels, tone, count, qualityMode } = input;
   const gradeLevelLabel = formatGradeLevelsForPrompt(gradeLevels);
   const gradeLevelGuidance = createManualGradeLevelGuidance(gradeLevels);
@@ -685,20 +696,11 @@ function normalizeGeneratedRun(
     ] as [string, string, string, string];
 
     const normalizedCorrectAnswer = asTrimmedString(question.correctAnswer);
-    const hasUniqueOptions =
-      new Set(safeOptions.map((option) => option.toLocaleLowerCase("da-DK"))).size === 4;
-    if (
-      normalization.failClosed &&
-      (!safeOptions.includes(normalizedCorrectAnswer) ||
-        safeOptions.some((option) => !option) ||
-        !hasUniqueOptions)
-    ) {
-      throw new LynbyggerQualityError("invalid_generated_output");
-    }
-
-    const safeCorrectAnswer = safeOptions.includes(normalizedCorrectAnswer)
+    const safeCorrectAnswer = normalization.failClosed
       ? normalizedCorrectAnswer
-      : safeOptions[0];
+      : safeOptions.includes(normalizedCorrectAnswer)
+        ? normalizedCorrectAnswer
+        : safeOptions[0];
 
     return {
       question: question.question.trim(),
@@ -750,6 +752,15 @@ export async function POST(req: Request) {
       );
     }
 
+    const count = parsedPayload.data.count;
+    const strictLynbyggerInput =
+      parsedPayload.data.builderType === "manual" && parsedPayload.data.qualityMode === "strict"
+        ? parsedPayload.data
+        : null;
+    const generationCount = strictLynbyggerInput
+      ? count + LYNBYGGER_INITIAL_CANDIDATE_SURPLUS
+      : count;
+
     const basePromptConfig =
       parsedPayload.data.builderType === "matematik"
         ? createMathPrompt(parsedPayload.data)
@@ -757,15 +768,9 @@ export async function POST(req: Request) {
           ? createDanskPrompt(parsedPayload.data)
           : parsedPayload.data.builderType === "engelsk"
             ? createEnglishPrompt(parsedPayload.data)
-            : createManualPrompt(parsedPayload.data);
+            : createManualPrompt({ ...parsedPayload.data, count: generationCount });
 
-    const count = parsedPayload.data.count;
-
-    const schema = createGeneratedRunSchema(count);
-    const strictLynbyggerInput =
-      parsedPayload.data.builderType === "manual" && parsedPayload.data.qualityMode === "strict"
-        ? parsedPayload.data
-        : null;
+    const schema = createGeneratedRunSchema(generationCount);
 
     const generateRun = async (input: {
       modelId: string;
@@ -774,7 +779,7 @@ export async function POST(req: Request) {
       temperature?: number;
     }) => {
       const { object } = await generateObject({
-        model: openai(input.modelId),
+        model: aiSdkOpenai(input.modelId),
         schema,
         schemaName: basePromptConfig.schemaName,
         schemaDescription: basePromptConfig.schemaDescription,
@@ -798,8 +803,14 @@ export async function POST(req: Request) {
     if (strictLynbyggerInput) {
       const topic = strictLynbyggerInput.manualTopic;
       const gradeLevelLabel = formatGradeLevelsForPrompt(strictLynbyggerInput.gradeLevels);
+      const reviewerClient = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+        maxRetries: 0,
+        timeout: OPENAI_TIMEOUT_MS,
+      });
       const qualityResult = await runLynbyggerQualityPipeline({
         questionCount: count,
+        initialCandidateCount: generationCount,
         generate: () =>
           generateRun({
             modelId: LYNBYGGER_GENERATOR_MODEL,
@@ -807,14 +818,59 @@ export async function POST(req: Request) {
             prompt: basePromptConfig.prompt,
             temperature: 0.2,
           }),
-        review: async (run) => {
+        reviewObservation: async ({ question }) => {
+          const response = await reviewerClient.responses.parse(
+            {
+              model: LYNBYGGER_REVIEW_MODEL,
+              input: [
+                {
+                  role: "system",
+                  content: LYNBYGGER_REVIEWER_SYSTEM_PROMPT,
+                },
+                {
+                  role: "user",
+                  content: createLynbyggerReviewerPrompt({
+                    topic,
+                    gradeLevelLabel,
+                    question,
+                  }),
+                },
+              ],
+              reasoning: { effort: "none" },
+              text: {
+                format: zodTextFormat(
+                  lynbyggerReviewerObservationSchema,
+                  "lynbygger_question_observation_v3_1",
+                ),
+                verbosity: "low",
+              },
+              max_output_tokens: 1_200,
+              store: false,
+            },
+            { timeout: OPENAI_TIMEOUT_MS, maxRetries: 0 },
+          );
+
+          if (response.model !== LYNBYGGER_REVIEW_MODEL) {
+            throw new LynbyggerReviewerTechnicalError(
+              "reviewer_model_snapshot_mismatch",
+              false,
+            );
+          }
+          return response.output_parsed;
+        },
+        rewriteFailed: async ({ failedQuestions }) => {
           const { object } = await generateObject({
-            model: openai(LYNBYGGER_REVIEW_MODEL),
-            schema: createLynbyggerReviewSchema(count),
-            schemaName: "LynbyggerQuestionReview",
-            schemaDescription: "En streng faglig vurdering af hvert quizspørgsmål.",
-            system: LYNBYGGER_REVIEWER_SYSTEM_PROMPT,
-            prompt: createLynbyggerReviewerPrompt({ topic, gradeLevelLabel, run }),
+            model: aiSdkOpenai(LYNBYGGER_GENERATOR_MODEL),
+            schema: createLynbyggerRewriteSchema(failedQuestions.length),
+            schemaName: "LynbyggerQuestionReplacements",
+            schemaDescription: "Kun erstatninger for afviste quizspørgsmål.",
+            system: LYNBYGGER_REWRITE_SYSTEM_PROMPT,
+            prompt: createLynbyggerRewritePrompt({
+              topic,
+              gradeLevelLabel,
+              failedQuestions,
+            }),
+            temperature: 0.2,
             timeout: OPENAI_TIMEOUT_MS,
             providerOptions: {
               openai: {
@@ -826,12 +882,6 @@ export async function POST(req: Request) {
 
           return object;
         },
-        rewrite: (run, review) =>
-          generateRun({
-            modelId: LYNBYGGER_REVIEW_MODEL,
-            systemPrompt: basePromptConfig.systemPrompt,
-            prompt: createLynbyggerRewritePrompt({ topic, gradeLevelLabel, run, review }),
-          }),
       });
 
       normalizedRun = qualityResult.run;

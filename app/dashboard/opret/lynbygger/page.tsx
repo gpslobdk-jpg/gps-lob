@@ -43,6 +43,7 @@ export default function LynbyggerPage() {
   const [topic, setTopic] = useState("");
   const [gradeLevel, setGradeLevel] = useState("");
   const [generatedRun, setGeneratedRun] = useState<LynbyggerApiResponse | null>(null);
+  const [hasTeacherApproved, setHasTeacherApproved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
@@ -71,6 +72,7 @@ export default function LynbyggerPage() {
 
     setError(null);
     setGeneratedRun(null);
+    setHasTeacherApproved(false);
     setIsGenerating(true);
 
     const controller = new AbortController();
@@ -99,6 +101,7 @@ export default function LynbyggerPage() {
       }
 
       setGeneratedRun(parsedRun);
+      setHasTeacherApproved(false);
     } catch (requestError) {
       if (requestError instanceof DOMException && requestError.name === "AbortError") {
         return;
@@ -113,8 +116,34 @@ export default function LynbyggerPage() {
     }
   };
 
+  const updateGeneratedQuestion = (
+    questionIndex: number,
+    update: (question: LynbyggerApiResponse["questions"][number]) =>
+      LynbyggerApiResponse["questions"][number],
+  ) => {
+    setGeneratedRun((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        questions: current.questions.map((question, index) =>
+          index === questionIndex ? update(question) : question,
+        ),
+      };
+    });
+    setHasTeacherApproved(false);
+    setError(null);
+  };
+
   const openBuilder = (center: LynbyggerCenter | null) => {
-    if (!generatedRun || !isGradeLevel(gradeLevel) || isOpeningBuilder) return;
+    if (
+      !generatedRun ||
+      !hasTeacherApproved ||
+      !parseLynbyggerApiResponse(generatedRun) ||
+      !isGradeLevel(gradeLevel) ||
+      isOpeningBuilder
+    ) {
+      return;
+    }
 
     setError(null);
     setIsOpeningBuilder(true);
@@ -167,6 +196,9 @@ export default function LynbyggerPage() {
   };
 
   const isBusy = isGenerating || isLocating || isOpeningBuilder;
+  const isDraftStructurallyValid = Boolean(
+    generatedRun && parseLynbyggerApiResponse(generatedRun),
+  );
 
   return (
     <main
@@ -277,22 +309,124 @@ export default function LynbyggerPage() {
                 ) : null}
               </form>
             ) : (
-              <div data-testid="lynbygger-placement-step" className="mx-auto max-w-3xl text-center">
+              <div data-testid="lynbygger-placement-step" className="mx-auto max-w-4xl">
                 <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-300 text-emerald-950 shadow-[0_14px_34px_rgba(110,231,183,0.24)]">
                   <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
                 </span>
-                <h2 className={`mt-4 text-2xl font-black text-white sm:text-3xl ${rubik.className}`}>
-                  Dit løb er klar
+                <h2 className={`mt-4 text-center text-2xl font-black text-white sm:text-3xl ${rubik.className}`}>
+                  AI-udkast – gennemgå spørgsmål og facit
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-cyan-50/72 sm:text-base">
-                  Placér de fem poster omkring dig nu, eller placér dem selv på kortet i editoren.
+                <p className="mx-auto mt-2 max-w-2xl text-center text-sm leading-6 text-cyan-50/76 sm:text-base">
+                  Lynbyggeren sparer dig tid, men AI kan tage fejl. Gennemgå derfor alle spørgsmål,
+                  svarmuligheder og facit, og ret det nødvendige.
+                </p>
+
+                <div data-testid="lynbygger-draft-review" className="mt-6 grid gap-4 text-left">
+                  {generatedRun.questions.map((question, questionIndex) => {
+                    const correctIndex = question.options.indexOf(question.correctAnswer);
+                    return (
+                      <fieldset
+                        key={questionIndex}
+                        data-testid={`lynbygger-draft-question-${questionIndex}`}
+                        className="rounded-2xl border border-white/14 bg-slate-950/34 p-4 sm:p-5"
+                      >
+                        <legend className="px-2 text-sm font-black text-cyan-100">
+                          Spørgsmål {questionIndex + 1}
+                        </legend>
+                        <label className="block text-xs font-bold uppercase tracking-[0.12em] text-cyan-50/68">
+                          Spørgsmålstekst
+                          <textarea
+                            value={question.question}
+                            data-testid={`lynbygger-question-text-${questionIndex}`}
+                            onChange={(event) =>
+                              updateGeneratedQuestion(questionIndex, (current) => ({
+                                ...current,
+                                question: event.target.value,
+                              }))
+                            }
+                            disabled={isBusy}
+                            rows={2}
+                            className="mt-2 w-full resize-y rounded-xl border border-white/16 bg-slate-950/54 px-3 py-2 text-sm font-semibold normal-case tracking-normal text-white outline-none focus:border-cyan-200 focus:ring-2 focus:ring-cyan-200/20 disabled:opacity-70"
+                          />
+                        </label>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          {question.options.map((option, optionIndex) => (
+                            <div
+                              key={optionIndex}
+                              className="flex min-w-0 items-center gap-2 rounded-xl border border-white/12 bg-white/5 p-2"
+                            >
+                              <input
+                                type="radio"
+                                name={`lynbygger-correct-${questionIndex}`}
+                                aria-label={`Markér svar ${optionIndex + 1} som facit i spørgsmål ${questionIndex + 1}`}
+                                checked={correctIndex === optionIndex}
+                                onChange={() =>
+                                  updateGeneratedQuestion(questionIndex, (current) => ({
+                                    ...current,
+                                    correctAnswer: current.options[optionIndex],
+                                  }))
+                                }
+                                disabled={isBusy}
+                                className="h-5 w-5 shrink-0 accent-cyan-300"
+                              />
+                              <label className="min-w-0 flex-1 text-xs font-bold text-cyan-50/68">
+                                Svar {optionIndex + 1}
+                                <input
+                                  value={option}
+                                  data-testid={`lynbygger-option-${questionIndex}-${optionIndex}`}
+                                  onChange={(event) =>
+                                    updateGeneratedQuestion(questionIndex, (current) => {
+                                      const options = [...current.options] as [string, string, string, string];
+                                      const wasCorrect = current.correctAnswer === current.options[optionIndex];
+                                      options[optionIndex] = event.target.value;
+                                      return {
+                                        ...current,
+                                        options,
+                                        correctAnswer: wasCorrect
+                                          ? event.target.value
+                                          : current.correctAnswer,
+                                      };
+                                    })
+                                  }
+                                  disabled={isBusy}
+                                  className="mt-1 w-full rounded-lg border border-white/14 bg-slate-950/54 px-3 py-2 text-sm font-semibold text-white outline-none focus:border-cyan-200 focus:ring-2 focus:ring-cyan-200/20 disabled:opacity-70"
+                                />
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </fieldset>
+                    );
+                  })}
+                </div>
+
+                <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-cyan-100/22 bg-cyan-300/8 p-4 text-left">
+                  <input
+                    type="checkbox"
+                    data-testid="lynbygger-teacher-approval"
+                    checked={hasTeacherApproved}
+                    onChange={(event) => setHasTeacherApproved(event.target.checked)}
+                    disabled={isBusy || !isDraftStructurallyValid}
+                    className="mt-0.5 h-5 w-5 shrink-0 accent-cyan-300"
+                  />
+                  <span className="text-sm font-bold leading-6 text-cyan-50">
+                    Jeg har gennemgået alle spørgsmål, svarmuligheder og facit
+                  </span>
+                </label>
+                {!isDraftStructurallyValid ? (
+                  <p role="alert" className="mt-2 text-sm font-semibold text-amber-200">
+                    Udfyld alle spørgsmål og fire forskellige svar, og vælg ét facit til hvert spørgsmål.
+                  </p>
+                ) : null}
+                <p className="mt-4 text-center text-sm leading-6 text-cyan-50/72 sm:text-base">
+                  Når du har godkendt udkastet, kan du placere de fem poster omkring dig eller selv på kortet.
                 </p>
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
                   <button
                     type="button"
                     data-testid="lynbygger-place-current"
                     onClick={handleAutomaticPlacement}
-                    disabled={isBusy}
+                    disabled={isBusy || !hasTeacherApproved}
                     className="inline-flex min-h-13 items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-cyan-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-100/40 disabled:cursor-wait disabled:opacity-70"
                   >
                     {isLocating || isOpeningBuilder ? (
@@ -306,7 +440,7 @@ export default function LynbyggerPage() {
                     type="button"
                     data-testid="lynbygger-place-manually"
                     onClick={() => openBuilder(null)}
-                    disabled={isBusy}
+                    disabled={isBusy || !hasTeacherApproved}
                     className="inline-flex min-h-13 items-center justify-center gap-2 rounded-2xl border border-white/18 bg-slate-950/34 px-5 py-3 text-sm font-black text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-100/24 disabled:cursor-wait disabled:opacity-70"
                   >
                     <MapPinOff className="h-5 w-5" aria-hidden="true" />
