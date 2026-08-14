@@ -4,7 +4,11 @@ import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
-import { getSafeDagensTavlePath, isTrustedSkoleGpsRequest } from "../lib/familySso/config";
+import {
+  getSafeDagensTavlePath,
+  getSafeFamilySsoPath,
+  isTrustedSkoleGpsRequest,
+} from "../lib/familySso/config";
 import {
   signFamilySsoBackchannel,
   verifyFamilySsoBackchannel,
@@ -64,6 +68,13 @@ test.describe("DagensTavle family SSO security contract", () => {
       "data:text/html,test",
     ]) {
       expect(getSafeDagensTavlePath(unsafe), unsafe).toBe("/skema");
+    }
+  });
+
+  test("keeps PrintMitArbejdsark returns on its own origin and defaults to the builder", () => {
+    expect(getSafeFamilySsoPath("printmitarbejdsark", "/lav?fra=skolegps")).toBe("/lav?fra=skolegps");
+    for (const unsafe of ["https://evil.invalid/", "//evil.invalid/", "/%2e%2e/admin", "/\\evil.invalid"]) {
+      expect(getSafeFamilySsoPath("printmitarbejdsark", unsafe), unsafe).toBe("/lav");
     }
   });
 
@@ -128,6 +139,23 @@ test.describe("DagensTavle family SSO security contract", () => {
     for (const route of [startRoute, backchannel, revokeRoute]) {
       expect(route).not.toMatch(/console\.(?:log|info|warn|error)/);
     }
+  });
+
+  test("keeps the PrintMitArbejdsark card behind its server-side feature flag", () => {
+    const toolsPage = read("app", "dashboard", "laerervaerktoejer", "page.tsx");
+    expect(toolsPage).toContain("isPrintMitArbejdsarkEnabled()");
+    expect(toolsPage).toContain("/auth/family-sso/start?next=%2Flav&source=skolegps");
+    expect(toolsPage).toContain('cta: "Lav et arbejdsark"');
+  });
+
+  test("defines private projects and a distributed single-active generation guard", () => {
+    const migration = read("supabase", "migrations", "202608140001_printmitarbejdsark_preview.sql");
+    expect(migration).toContain("alter table public.worksheet_projects enable row level security");
+    expect(migration).toContain("user_id = (select auth.uid())");
+    expect(migration).toContain("unique (user_id, request_id)");
+    expect(migration).toContain("and e.status = 'reserved'");
+    expect(migration).toContain("created_at < now() - interval '2 minutes'");
+    expect(migration).not.toMatch(/\bprompt\s+(?:text|jsonb)|document\s+text/i);
   });
 
   test("renders four distinct accessible tool cards without horizontal overflow", async ({ page }) => {

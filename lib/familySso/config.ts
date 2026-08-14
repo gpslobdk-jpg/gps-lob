@@ -4,19 +4,49 @@ const SKOLEGPS_PRODUCTION_ORIGIN = "https://www.skolegps.dk";
 export const FAMILY_SSO_TTL_SECONDS = 90;
 export const FAMILY_SSO_CLOCK_SKEW_SECONDS = 30;
 export const FAMILY_SSO_REQUEST_PATTERN = /^[A-Za-z0-9_-]{32,96}$/;
+export const FAMILY_SSO_AUDIENCES = ["dagenstavle", "printmitarbejdsark"] as const;
+
+export type FamilySsoAudience = (typeof FAMILY_SSO_AUDIENCES)[number];
+
+const destinations: Record<FamilySsoAudience, {
+  canonicalOrigin: string;
+  originVariable: "DAGENSTAVLE_SSO_ORIGIN" | "PRINTMITARBEJDSARK_SSO_ORIGIN";
+  fallbackPath: string;
+}> = {
+  dagenstavle: {
+    canonicalOrigin: "https://dagenstavle.dk",
+    originVariable: "DAGENSTAVLE_SSO_ORIGIN",
+    fallbackPath: "/skema",
+  },
+  printmitarbejdsark: {
+    canonicalOrigin: "https://printmitarbejdsark.dk",
+    originVariable: "PRINTMITARBEJDSARK_SSO_ORIGIN",
+    fallbackPath: "/lav",
+  },
+};
 
 export function isFamilySsoEnabled() {
   return process.env.FAMILY_SSO_ENABLED === "true";
 }
 
-export function getDagensTavleSsoOrigin() {
-  const raw = process.env.DAGENSTAVLE_SSO_ORIGIN?.trim();
+export function isPrintMitArbejdsarkEnabled() {
+  return process.env.PRINTMITARBEJDSARK_ENABLED === "true";
+}
+
+export function getFamilySsoAudience(value: unknown): FamilySsoAudience | null {
+  if (value === null || value === undefined || value === "") return "dagenstavle";
+  return FAMILY_SSO_AUDIENCES.find((audience) => audience === value) ?? null;
+}
+
+export function getFamilySsoOrigin(audience: FamilySsoAudience) {
+  const destination = destinations[audience];
+  const raw = process.env[destination.originVariable]?.trim();
   if (!raw) return null;
 
   try {
     const origin = new URL(raw).origin;
     const isAllowed =
-      origin === "https://dagenstavle.dk" ||
+      origin === destination.canonicalOrigin ||
       origin.endsWith(".vercel.app") && origin.startsWith("https://") ||
       process.env.NODE_ENV !== "production" && LOCAL_ORIGIN_PATTERN.test(origin);
     return isAllowed ? origin : null;
@@ -25,8 +55,19 @@ export function getDagensTavleSsoOrigin() {
   }
 }
 
-export function getFamilySsoExchangeSecret() {
-  const secret = process.env.FAMILY_SSO_EXCHANGE_SECRET?.trim();
+export function getDagensTavleSsoOrigin() {
+  return getFamilySsoOrigin("dagenstavle");
+}
+
+export function getPrintMitArbejdsarkSsoOrigin() {
+  return getFamilySsoOrigin("printmitarbejdsark");
+}
+
+export function getFamilySsoExchangeSecret(audience: FamilySsoAudience = "dagenstavle") {
+  const raw = audience === "printmitarbejdsark"
+    ? process.env.PRINTMITARBEJDSARK_SSO_EXCHANGE_SECRET
+    : process.env.FAMILY_SSO_EXCHANGE_SECRET;
+  const secret = raw?.trim();
   return secret && secret.length >= 32 ? secret : null;
 }
 
@@ -37,7 +78,11 @@ export function isTrustedSkoleGpsRequest(request: Request) {
   return process.env.NODE_ENV !== "production" && LOCAL_ORIGIN_PATTERN.test(origin);
 }
 
-export function getSafeDagensTavlePath(value: unknown, fallback = "/skema") {
+export function getSafeFamilySsoPath(
+  audience: FamilySsoAudience,
+  value: unknown,
+  fallback = destinations[audience].fallbackPath,
+) {
   if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
     return fallback;
   }
@@ -65,10 +110,15 @@ export function getSafeDagensTavlePath(value: unknown, fallback = "/skema") {
   }
 
   try {
-    const parsed = new URL(value, "https://dagenstavle.dk");
-    if (parsed.origin !== "https://dagenstavle.dk") return fallback;
+    const canonicalOrigin = destinations[audience].canonicalOrigin;
+    const parsed = new URL(value, canonicalOrigin);
+    if (parsed.origin !== canonicalOrigin) return fallback;
     return `${parsed.pathname}${parsed.search}${parsed.hash}`;
   } catch {
     return fallback;
   }
+}
+
+export function getSafeDagensTavlePath(value: unknown, fallback = "/skema") {
+  return getSafeFamilySsoPath("dagenstavle", value, fallback);
 }

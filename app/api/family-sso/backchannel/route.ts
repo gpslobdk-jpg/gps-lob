@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 
 import {
   FAMILY_SSO_TTL_SECONDS,
-  getDagensTavleSsoOrigin,
+  getFamilySsoAudience,
   getFamilySsoExchangeSecret,
-  getSafeDagensTavlePath,
+  getFamilySsoOrigin,
+  getSafeFamilySsoPath,
   isFamilySsoEnabled,
 } from "@/lib/familySso/config";
 import { verifyFamilySsoBackchannel } from "@/lib/familySso/crypto";
@@ -62,15 +63,24 @@ export async function POST(request: Request) {
     return json({ ok: false, code: "INVALID_REQUEST" }, 413);
   }
 
-  const secret = getFamilySsoExchangeSecret();
-  const destinationOrigin = getDagensTavleSsoOrigin();
+  const rawBody = await request.text();
+  if (rawBody.length > 4096) return json({ ok: false, code: "INVALID_REQUEST" }, 413);
+  let parsed: JsonRecord | null = null;
+  try {
+    parsed = asRecord(JSON.parse(rawBody));
+  } catch {
+    return json({ ok: false, code: "INVALID_REQUEST" }, 400);
+  }
+  if (!parsed) return json({ ok: false, code: "INVALID_REQUEST" }, 400);
+
+  const audience = getFamilySsoAudience(parsed.audience);
+  if (!audience) return json({ ok: false, code: "INVALID_AUDIENCE" }, 400);
+  const secret = getFamilySsoExchangeSecret(audience);
+  const destinationOrigin = getFamilySsoOrigin(audience);
   const admin = createAdminClient();
   if (!secret || !destinationOrigin || !admin) {
     return json({ ok: false, code: "NOT_CONFIGURED" }, 503);
   }
-
-  const rawBody = await request.text();
-  if (rawBody.length > 4096) return json({ ok: false, code: "INVALID_REQUEST" }, 413);
   if (!verifyFamilySsoBackchannel({
     body: rawBody,
     timestamp: request.headers.get("x-family-sso-timestamp"),
@@ -79,14 +89,6 @@ export async function POST(request: Request) {
   })) {
     return json({ ok: false, code: "UNAUTHORIZED" }, 401);
   }
-
-  let parsed: JsonRecord | null = null;
-  try {
-    parsed = asRecord(JSON.parse(rawBody));
-  } catch {
-    return json({ ok: false, code: "INVALID_REQUEST" }, 400);
-  }
-  if (!parsed) return json({ ok: false, code: "INVALID_REQUEST" }, 400);
 
   const action = parsed.action;
   const requestHash = parsed.requestHash;
@@ -97,7 +99,7 @@ export async function POST(request: Request) {
 
   if (action === "create") {
     if (!isHash(nonceHash)) return json({ ok: false, code: "INVALID_REQUEST" }, 400);
-    const returnPath = getSafeDagensTavlePath(parsed.returnPath);
+    const returnPath = getSafeFamilySsoPath(audience, parsed.returnPath);
     const { error } = await admin.from("family_sso_requests").insert({
       request_hash: requestHash,
       nonce_hash: nonceHash,
@@ -124,6 +126,16 @@ export async function POST(request: Request) {
       return json({ ok: false, code: "HANDOFF_INVALID" }, 410);
     }
 
+    if (audience === "printmitarbejdsark") {
+      return json({
+        ok: true,
+        subject: handoff.user_id,
+        termsAccepted: true,
+        disabled: false,
+        termsVersion: null,
+      });
+    }
+
     const { data: profile } = await admin
       .from("dagenstavle_family_profiles")
       .select("terms_version,terms_accepted_at,disabled_at")
@@ -143,6 +155,7 @@ export async function POST(request: Request) {
   }
 
   if (action === "accept_terms") {
+    if (audience !== "dagenstavle") return json({ ok: false, code: "INVALID_ACTION" }, 400);
     const { data: handoff } = await admin
       .from("family_sso_requests")
       .select("user_id,status,expires_at")
@@ -212,17 +225,21 @@ export async function POST(request: Request) {
     email: userData.user.email,
   });
   const tokenHash = linkData?.properties?.hashed_token;
-  if (linkError || !tokenHash) return json({ ok: false, code: "SESSION_FAILED" }, 500);
+  if (linkError || !tokenHash || linkData.user?.id !== consumedRow.user_id) {
+    return json({ ok: false, code: "SESSION_FAILED" }, 500);
+  }
 
-  await admin.from("dagenstavle_family_profiles").update({
-    last_sso_at: new Date().toISOString(),
-  }).eq("user_id", consumedRow.user_id);
+  if (audience === "dagenstavle") {
+    await admin.from("dagenstavle_family_profiles").update({
+      last_sso_at: new Date().toISOString(),
+    }).eq("user_id", consumedRow.user_id);
+  }
 
   return json({
     ok: true,
     subject: consumedRow.user_id,
     tokenHash,
     tokenType: "magiclink",
-    next: getSafeDagensTavlePath(consumedRow.return_path),
+    next: getSafeFamilySsoPath(audience, consumedRow.return_path),
   });
 }

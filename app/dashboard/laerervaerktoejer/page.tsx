@@ -6,13 +6,18 @@ import {
   ArrowUpRight,
   BookOpen,
   Calendar,
+  FilePenLine,
   Presentation,
   Podcast,
   School,
 } from "lucide-react";
 import { poppins, rubik } from "@/lib/fonts";
 
-import { getDagensTavleSsoOrigin } from "@/lib/familySso/config";
+import {
+  getDagensTavleSsoOrigin,
+  getPrintMitArbejdsarkSsoOrigin,
+  isPrintMitArbejdsarkEnabled,
+} from "@/lib/familySso/config";
 
 export const metadata: Metadata = {
   title: "Lærerværktøjer – SkoleGPS",
@@ -20,6 +25,7 @@ export const metadata: Metadata = {
 };
 
 const dagensTavleOrigin = getDagensTavleSsoOrigin() ?? "https://dagenstavle.dk";
+const printMitArbejdsarkOrigin = getPrintMitArbejdsarkSsoOrigin();
 
 const toolCards = [
   {
@@ -102,6 +108,28 @@ const toolCards = [
         "border-[#c7f2df]/70 bg-[#8fd8bc] text-[#102f27] hover:border-white hover:bg-[#bcebd7] focus-visible:ring-[#8fd8bc]/45",
     },
   },
+  ...(isPrintMitArbejdsarkEnabled() && printMitArbejdsarkOrigin
+    ? [{
+        title: "PrintMitArbejdsark",
+        description: "Lav et fagligt arbejdsark og hent elev- og lærer-PDF.",
+        href: `${printMitArbejdsarkOrigin}/auth/family-sso/start?next=%2Flav&source=skolegps`,
+        icon: FilePenLine,
+        cta: "Lav et arbejdsark",
+        familyLabel: "SkoleGPS-familien",
+        destinationLabel: "Åbner i PrintMit-preview",
+        theme: {
+          card:
+            "border-[#80c7e3]/50 bg-[linear-gradient(145deg,rgba(21,81,108,0.96)_0%,rgba(22,62,70,0.96)_44%,rgba(15,23,42,0.98)_82%)] shadow-[0_24px_90px_rgba(74,181,157,0.14)] hover:border-[#bce9db]/85 hover:shadow-[0_28px_100px_rgba(74,181,157,0.26)]",
+          rail: "bg-[#75c98f]",
+          accent: "via-[#80c7e3]/90",
+          icon: "border-[#bce9db]/55 bg-[#75c98f]/18 text-[#effff8]",
+          badge: "border-[#bce9db]/35 bg-[#75c98f]/12 text-[#f4fbff]",
+          destination: "text-[#d9f6e9]",
+          button:
+            "border-[#c9f0e2]/70 bg-[#75c98f] text-[#102f27] hover:border-white hover:bg-[#a7dfb8] focus-visible:ring-[#75c98f]/45",
+        },
+      }]
+    : []),
 ] as const;
 
 export default function LaerervaerktoejerPage() {
@@ -147,12 +175,12 @@ export default function LaerervaerktoejerPage() {
               Lærerværktøjer
             </h1>
             <p className="mt-4 max-w-2xl text-lg font-semibold leading-8 text-slate-100 sm:text-xl">
-              Vælg mellem årsplan, skema, tavle og elevpodcast.
+              Vælg mellem årsplan, skema, tavle, arbejdsark og elevpodcast.
             </p>
           </div>
 
           <section
-            className="mt-9 grid auto-rows-fr items-stretch gap-5 md:grid-cols-2 2xl:grid-cols-4"
+            className="mt-9 grid auto-rows-fr items-stretch gap-5 md:grid-cols-2 2xl:grid-cols-5"
             aria-label="Lærerværktøjer"
           >
             {toolCards.map((tool) => {

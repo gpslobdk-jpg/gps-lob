@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 
 import {
   FAMILY_SSO_REQUEST_PATTERN,
-  getDagensTavleSsoOrigin,
+  getFamilySsoAudience,
+  getFamilySsoOrigin,
   isFamilySsoEnabled,
 } from "@/lib/familySso/config";
+import type { FamilySsoAudience } from "@/lib/familySso/config";
 import { digestFamilySsoValue } from "@/lib/familySso/crypto";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
@@ -12,9 +14,15 @@ import { createClient } from "@/utils/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function redirectToDagensTavle(origin: string, requestId: string | null, result: string) {
+function redirectToDestination(
+  origin: string,
+  audience: FamilySsoAudience,
+  requestId: string | null,
+  result: string,
+) {
   const target = new URL("/auth/family-sso/complete", origin);
   if (requestId) target.searchParams.set("request", requestId);
+  if (audience !== "dagenstavle") target.searchParams.set("audience", audience);
   target.searchParams.set("result", result);
   const response = NextResponse.redirect(target, 303);
   response.headers.set("Cache-Control", "private, no-store, max-age=0");
@@ -25,19 +33,27 @@ function redirectToDagensTavle(origin: string, requestId: string | null, result:
 }
 
 export async function GET(request: Request) {
-  const destinationOrigin = getDagensTavleSsoOrigin();
+  const requestUrl = new URL(request.url);
+  const audience = getFamilySsoAudience(requestUrl.searchParams.get("audience"));
+  if (!audience) {
+    return new NextResponse("SSO-modtageren er ugyldig.", {
+      status: 400,
+      headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" },
+    });
+  }
+  const destinationOrigin = getFamilySsoOrigin(audience);
   if (!destinationOrigin) return new NextResponse("SSO er ikke konfigureret.", { status: 503 });
 
-  const requestId = new URL(request.url).searchParams.get("request");
+  const requestId = requestUrl.searchParams.get("request");
   if (!requestId || !FAMILY_SSO_REQUEST_PATTERN.test(requestId)) {
-    return redirectToDagensTavle(destinationOrigin, null, "invalid");
+    return redirectToDestination(destinationOrigin, audience, null, "invalid");
   }
   if (!isFamilySsoEnabled()) {
-    return redirectToDagensTavle(destinationOrigin, requestId, "disabled");
+    return redirectToDestination(destinationOrigin, audience, requestId, "disabled");
   }
 
   const admin = createAdminClient();
-  if (!admin) return redirectToDagensTavle(destinationOrigin, requestId, "unavailable");
+  if (!admin) return redirectToDestination(destinationOrigin, audience, requestId, "unavailable");
 
   const supabase = await createClient();
   const {
@@ -45,7 +61,7 @@ export async function GET(request: Request) {
     error: userError,
   } = await supabase.auth.getUser();
   if (userError || !user?.id || !user.email || !user.email_confirmed_at) {
-    return redirectToDagensTavle(destinationOrigin, requestId, "login");
+    return redirectToDestination(destinationOrigin, audience, requestId, "login");
   }
 
   const { data: profile } = await admin
@@ -53,7 +69,7 @@ export async function GET(request: Request) {
     .select("id")
     .eq("id", user.id)
     .maybeSingle();
-  if (!profile) return redirectToDagensTavle(destinationOrigin, requestId, "role");
+  if (!profile) return redirectToDestination(destinationOrigin, audience, requestId, "role");
 
   const { data: adminUserData, error: adminUserError } = await admin.auth.admin.getUserById(user.id);
   const adminUser = adminUserData?.user;
@@ -63,7 +79,7 @@ export async function GET(request: Request) {
     !adminUser ||
     (Number.isFinite(bannedUntil) && bannedUntil > Date.now())
   ) {
-    return redirectToDagensTavle(destinationOrigin, requestId, "disabled-account");
+    return redirectToDestination(destinationOrigin, audience, requestId, "disabled-account");
   }
 
   const displayName =
@@ -89,8 +105,8 @@ export async function GET(request: Request) {
     }
   );
   if (authorizationError || authorizationResult !== "authorized") {
-    return redirectToDagensTavle(destinationOrigin, requestId, "expired");
+    return redirectToDestination(destinationOrigin, audience, requestId, "expired");
   }
 
-  return redirectToDagensTavle(destinationOrigin, requestId, "authorized");
+  return redirectToDestination(destinationOrigin, audience, requestId, "authorized");
 }
