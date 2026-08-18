@@ -4,7 +4,7 @@ export default function DashboardLoading() {
   return (
     <AuthLoadingScreen
       title="Gør dashboardet klar"
-      description="Vi henter din adgang og varmer kontroltårnet op."
+      description="Et øjeblik – vi henter dine løb."
     />
   );
 }

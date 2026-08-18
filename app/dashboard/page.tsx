@@ -30,9 +30,6 @@ const liveCardEnabledClass =
 const archiveCardClass =
   "border-fuchsia-400/60 bg-fuchsia-500/10 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(217,70,239,0.16),inset_0_1px_0_rgba(255,255,255,0.18)]";
 
-const mobileGamesCardClass =
-  "border-cyan-400/60 bg-cyan-500/10 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(34,211,238,0.16),inset_0_1px_0_rgba(255,255,255,0.18)]";
-
 const teacherToolsCardClass =
   "border-indigo-300/65 bg-indigo-500/10 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(99,102,241,0.15),inset_0_1px_0_rgba(255,255,255,0.18)]";
 
@@ -55,7 +52,6 @@ export default function DashboardPage() {
   const router = useRouter();
   const [resumeTarget, setResumeTarget] = useState<ResumeTarget | null>(null);
   const [isCheckingLiveSession, setIsCheckingLiveSession] = useState(true);
-  const [liveHint, setLiveHint] = useState("");
   const [runCountError, setRunCountError] = useState(false);
   const [dashboardRetryKey, setDashboardRetryKey] = useState(0);
   const [isNavigatingCreate, setIsNavigatingCreate] = useState(false);
@@ -173,13 +169,6 @@ export default function DashboardPage() {
 
   const hasResumeTarget = Boolean(resumeTarget?.sessionId);
   const isParticipantResume = resumeTarget?.kind === "participant";
-  const isTeacherResume = resumeTarget?.kind === "teacher";
-
-  useEffect(() => {
-    if (hasResumeTarget || isCheckingLiveSession) {
-      setLiveHint("");
-    }
-  }, [hasResumeTarget, isCheckingLiveSession]);
 
   const handleLiveMonitoringClick = () => {
     if (isCheckingLiveSession) return;
@@ -193,8 +182,6 @@ export default function DashboardPage() {
       );
       return;
     }
-
-    setLiveHint("Start et l\u00f8b fra arkivet f\u00f8rst.");
   };
 
   const handleRetryDashboardLoad = () => {
@@ -273,19 +260,11 @@ export default function DashboardPage() {
         <div className="fixed inset-0 -z-10 bg-slate-950/80 backdrop-blur-[3px]" />
 
         <div className="relative w-full max-w-xl rounded-[2rem] border border-emerald-500/20 bg-slate-900/70 p-8 text-center shadow-[0_32px_100px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:p-10">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 text-lg font-black text-emerald-300">
-            MC
-          </div>
-          <p className="mt-6 text-xs font-semibold tracking-[0.32em] text-emerald-300 uppercase">
-            Mission Control
-          </p>
           <h1 className={`mt-4 text-3xl font-black tracking-tight text-white ${rubik.className}`}>
-            {"Kontrollt\u00e5rnet mistede forbindelsen"}
+            {"Vi kunne ikke hente dine l\u00f8b"}
           </h1>
           <p className="mt-4 text-sm leading-relaxed text-slate-300 sm:text-base">
-            {
-              "Vi kunne ikke hente dine gemte l\u00f8b fra databasen. Pr\u00f8v igen, s\u00e5 genopretter vi forbindelsen og sender dig videre."
-            }
+            {"Pr\u00f8v igen, s\u00e5 henter vi dem igen for dig."}
           </p>
           <div className="mt-8 flex justify-center">
             <button
@@ -322,18 +301,21 @@ export default function DashboardPage() {
 
       <section className="mx-auto -mt-8 flex w-full max-w-5xl flex-col items-center text-center md:-mt-12">
         <h1
-          className={`mb-2 text-4xl font-black tracking-widest text-white uppercase drop-shadow-md md:text-6xl ${rubik.className}`}
+          className={`mb-2 text-4xl font-black tracking-tight text-white drop-shadow-md md:text-6xl ${rubik.className}`}
         >
-          UDSIGTSPOSTEN
+          Hvad vil du lave?
         </h1>
-        <p className="text-emerald-50">{"V\u00e6lg din n\u00e6ste handling og kom i gang"}</p>
+        <p className="text-emerald-50">
+          {"Opret et nyt l\u00f8b, start et tidligere l\u00f8b eller \u00e5bn dine l\u00e6rerv\u00e6rkt\u00f8jer."}
+        </p>
       </section>
 
       <section className="mx-auto mt-8 w-full max-w-4xl">
         <MobileInSchoolBanner variant="dashboard" />
       </section>
 
-      <section className="mx-auto mt-10 grid w-full max-w-5xl grid-cols-1 justify-items-center gap-5 md:mt-14 md:grid-cols-2 md:gap-5 lg:grid-cols-3">
+      {/* Primary action: opret et løb er dashboardets ene tydelige hovedhandling */}
+      <section className="mx-auto mt-10 w-full max-w-2xl md:mt-14">
         <motion.button
           type="button"
           onClick={() => {
@@ -352,16 +334,16 @@ export default function DashboardPage() {
           >
             <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_34%),radial-gradient(circle_at_bottom,rgba(16,185,129,0.22),transparent_58%)]" />
             <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(16,185,129,0.16)]" />
-            <div className={`${cardPanelClass} text-emerald-950`}>
+            <div className={`${cardPanelClass} text-emerald-950 sm:py-10`}>
               <div className="relative z-10 flex w-full flex-col items-center justify-center text-center">
                 <div className="space-y-3">
-                  <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
-                    {isNavigatingCreate ? "Gør klar til nyt løb" : "Opret nyt løb"}
-                  </h2>
                   <p className="text-[0.7rem] font-semibold tracking-[0.18em] text-white/70 uppercase">
-                    Byg et nyt eventyr med fuld kontrol.
+                    Kom i gang
                   </p>
-                  <p className="mx-auto max-w-[15.5rem] text-sm leading-6 text-white/84">
+                  <h2 className={`text-[2.1rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] sm:text-[2.4rem] ${rubik.className}`}>
+                    {isNavigatingCreate ? "Gør klar til nyt løb" : "Opret et løb"}
+                  </h2>
+                  <p className="mx-auto max-w-[19rem] text-sm leading-6 text-white/84">
                     Sæt poster på kortet, skriv spørgsmål og design et løb, der føles gennemtænkt fra første stop.
                   </p>
                 </div>
@@ -370,53 +352,47 @@ export default function DashboardPage() {
             </div>
           </motion.article>
         </motion.button>
+      </section>
 
-        <motion.button
-          type="button"
-          onClick={handleLiveMonitoringClick}
-          whileHover={hasResumeTarget ? { scale: 1.012 } : undefined}
-          className="flex h-full w-full flex-col justify-center text-left"
-          aria-disabled={!hasResumeTarget && !isCheckingLiveSession}
-        >
-          <motion.article whileHover={hasResumeTarget ? { y: -4, scale: 1.012 } : undefined} className={liveCardClass}>
-            <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_34%),radial-gradient(circle_at_bottom,rgba(245,158,11,0.22),transparent_58%)]" />
-            <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(245,158,11,0.16)]" />
-            <div className={`${cardPanelClass} text-amber-950`}>
-              <div className="relative z-10 flex w-full flex-col items-center justify-center text-center">
-                <div className="space-y-3">
-                  <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
-                    {isParticipantResume ? "Genoptag dit løb" : isTeacherResume ? "Genoptag live-overblik" : "Genoptag"}
-                  </h2>
-                  <p className="text-[0.7rem] font-semibold tracking-[0.18em] text-white/70 uppercase">
-                    {isCheckingLiveSession
-                      ? "Vi leder efter dit aktive løb."
-                      : isParticipantResume
+      {/* Dynamisk handling: vises kun når læreren faktisk har et aktivt løb */}
+      {hasResumeTarget ? (
+        <section className="mx-auto mt-5 w-full max-w-2xl">
+          <motion.button
+            type="button"
+            onClick={handleLiveMonitoringClick}
+            whileHover={{ scale: 1.012 }}
+            className="flex h-full w-full flex-col justify-center text-left"
+          >
+            <motion.article whileHover={{ y: -4, scale: 1.012 }} className={liveCardClass}>
+              <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_34%),radial-gradient(circle_at_bottom,rgba(245,158,11,0.22),transparent_58%)]" />
+              <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(245,158,11,0.16)]" />
+              <div className={`${cardPanelClass} text-amber-950`}>
+                <div className="relative z-10 flex w-full flex-col items-center justify-center text-center">
+                  <div className="space-y-3">
+                    <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
+                      {isParticipantResume ? "Fortsæt dit løb" : "Fortsæt løbet"}
+                    </h2>
+                    <p className="text-[0.7rem] font-semibold tracking-[0.18em] text-white/70 uppercase">
+                      {isParticipantResume
                         ? "Hop direkte tilbage til din post på ruten."
-                        : isTeacherResume
-                          ? "Hop direkte tilbage ind i det aktive løb."
-                        : "Åbner igen, så snart et løb er sat i gang."}
-                  </p>
-                  <p className="mx-auto max-w-62 text-sm leading-6 text-white/84">
-                    {isCheckingLiveSession
-                      ? "Vi matcher dig med den seneste aktive deltager- eller lærersession, så du kan fortsætte uden ekstra klik."
-                      : isParticipantResume
-                        ? "Fortsæt direkte i spillerflowet på den aktive session uden at miste din fremdrift."
-                        : isTeacherResume
-                          ? "Fortsæt med livekort, svarflow og overblik præcis der, hvor du slap."
-                        : "Start et løb fra arkivet først, hvis du vil åbne overvågning og genoptage en session."}
-                  </p>
-                  {!isCheckingLiveSession && !hasResumeTarget && liveHint ? (
-                    <p className="mx-auto max-w-62 rounded-2xl border border-amber-200/24 bg-amber-400/10 px-4 py-3 text-xs font-semibold text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md">
-                      {liveHint}
+                        : "Hop direkte tilbage ind i det aktive løb."}
                     </p>
-                  ) : null}
+                    <p className="mx-auto max-w-62 text-sm leading-6 text-white/84">
+                      {isParticipantResume
+                        ? "Fortsæt direkte i spillerflowet på den aktive session uden at miste din fremdrift."
+                        : "Fortsæt med livekort, svarflow og overblik præcis der, hvor du slap."}
+                    </p>
+                  </div>
+
                 </div>
-
               </div>
-            </div>
-          </motion.article>
-        </motion.button>
+            </motion.article>
+          </motion.button>
+        </section>
+      ) : null}
 
+      {/* Sekundære, men tydelige handlinger */}
+      <section className="mx-auto mt-8 grid w-full max-w-2xl grid-cols-1 justify-items-center gap-5 sm:grid-cols-2">
         <motion.button
           type="button"
           onClick={() => {
@@ -437,8 +413,8 @@ export default function DashboardPage() {
             <div className={`${cardPanelClass} text-sky-950`}>
               <div className="relative z-10 flex w-full flex-col items-center justify-center text-center">
                 <div className="space-y-3">
-                  <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
-                    Mit løbsarkiv
+                  <h2 className={`text-[1.6rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
+                    Mine løb
                   </h2>
                   <p className="text-[0.7rem] font-semibold tracking-[0.18em] text-white/70 uppercase">
                     Gemte løb, klar til genbrug.
@@ -448,44 +424,6 @@ export default function DashboardPage() {
                   </p>
                 </div>
 
-              </div>
-            </div>
-          </motion.article>
-        </motion.button>
-
-        <motion.button
-          type="button"
-          onClick={() => {
-            if (isNavigatingMobileGames) return;
-            setIsNavigatingMobileGames(true);
-            void router.push("/dashboard/mobilspil");
-          }}
-          className="flex h-full w-full flex-col justify-center text-left"
-          aria-busy={isNavigatingMobileGames}
-          aria-disabled={isNavigatingMobileGames}
-        >
-          <motion.article
-            whileHover={isNavigatingMobileGames ? undefined : { y: -4, scale: 1.012 }}
-            className={`${cardBaseClass} ${mobileGamesCardClass} ${isNavigatingMobileGames ? "cursor-progress opacity-85" : "cursor-pointer"}`}
-          >
-            <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_34%),radial-gradient(circle_at_bottom,rgba(34,211,238,0.22),transparent_58%)]" />
-            <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(34,211,238,0.16)]" />
-            <div className={`${cardPanelClass} text-cyan-950`}>
-              <div className="relative z-10 flex w-full flex-col items-center justify-center text-center">
-                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/18 bg-white/12 text-white shadow-[0_14px_34px_rgba(34,211,238,0.14)]">
-                  <Gamepad2 className="h-6 w-6" />
-                </div>
-                <div className="space-y-3">
-                  <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
-                    Mobilspil
-                  </h2>
-                  <p className="text-[0.7rem] font-semibold tracking-[0.18em] text-white/70 uppercase">
-                    Spil designet til elevernes telefoner.
-                  </p>
-                  <p className="mx-auto max-w-62 text-sm leading-6 text-white/84">
-                    Vælg mobile spilformater, og start en klasseaktivitet med klare roller, tempo og fælles opsamling.
-                  </p>
-                </div>
               </div>
             </div>
           </motion.article>
@@ -514,11 +452,11 @@ export default function DashboardPage() {
                   <BookOpen className="h-6 w-6" />
                 </div>
                 <div className="space-y-3">
-                  <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
+                  <h2 className={`text-[1.6rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
                     Lærerværktøjer
                   </h2>
                   <p className="text-[0.7rem] font-semibold tracking-[0.18em] text-white/70 uppercase">
-                    PLANLÆGNING OG AI-HJÆLP
+                    Planlægning og AI-hjælp
                   </p>
                   <p className="mx-auto max-w-62 text-sm leading-6 text-white/84">
                     Find værktøjer, der hjælper dig med planlægning, årsplaner og undervisningsidéer.
@@ -526,6 +464,42 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+          </motion.article>
+        </motion.button>
+      </section>
+
+      {/* Flere muligheder: Mobilspil beholdes, men nedtones visuelt (samme route/handling) */}
+      <section className="mx-auto mt-6 w-full max-w-2xl">
+        <p className="mb-3 text-center text-[0.7rem] font-semibold tracking-[0.18em] text-emerald-50/70 uppercase">
+          Flere muligheder
+        </p>
+        <motion.button
+          type="button"
+          onClick={() => {
+            if (isNavigatingMobileGames) return;
+            setIsNavigatingMobileGames(true);
+            void router.push("/dashboard/mobilspil");
+          }}
+          className="flex w-full items-center justify-center text-left"
+          aria-busy={isNavigatingMobileGames}
+          aria-disabled={isNavigatingMobileGames}
+        >
+          <motion.article
+            whileHover={isNavigatingMobileGames ? undefined : { y: -2, scale: 1.006 }}
+            className={`group flex w-full items-center gap-3 rounded-[1.75rem] border border-cyan-400/25 bg-cyan-500/8 px-5 py-4 text-white shadow-[0_16px_38px_rgba(15,23,42,0.14)] backdrop-blur-xl transition ${isNavigatingMobileGames ? "cursor-progress opacity-85" : "cursor-pointer hover:border-cyan-300/40 hover:bg-cyan-500/12"}`}
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-white">
+              <Gamepad2 className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold leading-6 text-white/92">Mobilspil</span>
+              <span className="block text-xs leading-5 text-white/70">
+                Spil designet til elevernes telefoner.
+              </span>
+            </span>
+            <span className="shrink-0 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold text-white/90 transition group-hover:border-white/25 group-hover:bg-white/14">
+              Åbn
+            </span>
           </motion.article>
         </motion.button>
       </section>

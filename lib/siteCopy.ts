@@ -239,8 +239,7 @@ const siteCopies: Record<SiteVariantKey, SiteCopy> = {
       preparingTitle: "Gør login klar",
       preparingDescription: "Vi læser din session, så du ikke bliver sendt rundt unødigt.",
       redirectTitle: "Logger dig ind",
-      redirectDescription:
-        "Vi læser din session og sender dig videre til dashboardet uden auth-flicker.",
+      redirectDescription: "Vi læser din session og sender dig videre til dashboardet.",
       logoAlt: "SkoleGPS logo",
       welcomeTitle: "Velkommen til SkoleGPS.dk",
       subtitle: "",

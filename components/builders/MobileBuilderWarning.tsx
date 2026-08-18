@@ -16,15 +16,14 @@ export function MobileBuilderWarning({ className = "" }: MobileBuilderWarningPro
 
             <div className="min-w-0">
               <p className="text-[11px] font-semibold tracking-[0.28em] text-sky-100/55 uppercase">
-                Mobile Warning
+                Bedst på computer
               </p>
               <h2 className="mt-2 text-2xl font-black tracking-tight text-white">
                 Brug en computer til builderen
               </h2>
               <p className="mt-3 text-sm leading-6 text-slate-200/80">
-                For at oprette og redigere løb skal du åbne SkoleGPS.dk på en computer.
-                Builderen har brug for ekstra skærmplads til kort, AI-værktøjer og præcis
-                redigering.
+                Skal du oprette eller redigere et løb? Åbn SkoleGPS på en computer, så får du
+                bedre plads til kort, spørgsmål og AI-hjælp.
               </p>
             </div>
           </div>

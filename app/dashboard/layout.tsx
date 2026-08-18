@@ -20,7 +20,7 @@ export default function DashboardLayout({
       fallback={
         <AuthLoadingScreen
           title="Åbner dashboardet"
-          description="Vi læser sessionen og gør kontroltårnet klar."
+          description="Et øjeblik – vi henter dine løb."
         />
       }
     >

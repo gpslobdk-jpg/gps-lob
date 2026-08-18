@@ -27,7 +27,7 @@ export default function DashboardAuthGate({ children }: { children: ReactNode })
     return (
       <AuthLoadingScreen
         title="Åbner dit dashboard"
-        description="Vi læser din session færdig, så du lander det rigtige sted uden auth-flicker."
+        description="Vi læser din session færdig, så du lander det rigtige sted."
       />
     );
   }
