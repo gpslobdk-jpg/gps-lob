@@ -35,6 +35,10 @@ const DEVELOPMENT_OAUTH_ORIGINS = new Set([
   "http://127.0.0.1:3000",
 ]);
 
+// Trusted preview deployments for our own Vercel team only — never widen this to *.vercel.app.
+const PREVIEW_OAUTH_ORIGIN_PATTERN =
+  /^https:\/\/[a-z0-9-]+-gpslobdk-jpgs-projects\.vercel\.app$/;
+
 function normalizeOrigin(origin: string) {
   try {
     return new URL(origin).origin;
@@ -48,8 +52,9 @@ export function buildOAuthCallbackUrl(currentOrigin: string, requestedNextPath: 
   const isAllowedProductionOrigin = PRODUCTION_OAUTH_ORIGINS.has(normalizedOrigin);
   const isAllowedDevelopmentOrigin =
     process.env.NODE_ENV !== "production" && DEVELOPMENT_OAUTH_ORIGINS.has(normalizedOrigin);
+  const isAllowedPreviewOrigin = PREVIEW_OAUTH_ORIGIN_PATTERN.test(normalizedOrigin);
   const safeOrigin =
-    isAllowedProductionOrigin || isAllowedDevelopmentOrigin
+    isAllowedProductionOrigin || isAllowedDevelopmentOrigin || isAllowedPreviewOrigin
       ? normalizedOrigin
       : FALLBACK_OAUTH_ORIGIN;
   const safeNextPath = getSafeNextPath(requestedNextPath);
