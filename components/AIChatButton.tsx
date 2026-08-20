@@ -6,6 +6,8 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
+import { DASHBOARD_QUICK_GUIDE_VISIBILITY_EVENT } from "@/components/DashboardQuickGuide";
+
 type QuickAction = {
   id: string;
   label: string;
@@ -112,6 +114,7 @@ const HIDDEN_PATHNAMES = ["/opret/zone-krig"];
 export default function AIChatButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
+  const [isDashboardQuickGuideActive, setIsDashboardQuickGuideActive] = useState(false);
   const pathname = usePathname();
   const isHiddenPathname = HIDDEN_PATHNAMES.some((hidden) => pathname.includes(hidden));
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
@@ -164,6 +167,20 @@ export default function AIChatButton() {
     };
   }, [pathname]);
 
+  useEffect(() => {
+    const syncVisibility = (event?: Event) => {
+      const isActive = event instanceof CustomEvent && typeof event.detail === "boolean"
+        ? event.detail
+        : document.documentElement.dataset.dashboardQuickGuide === "active";
+      setIsDashboardQuickGuideActive(isActive);
+      if (isActive) setIsOpen(false);
+    };
+
+    syncVisibility();
+    window.addEventListener(DASHBOARD_QUICK_GUIDE_VISIBILITY_EVENT, syncVisibility);
+    return () => window.removeEventListener(DASHBOARD_QUICK_GUIDE_VISIBILITY_EVENT, syncVisibility);
+  }, []);
+
   const chatMessages = useMemo(
     () =>
       messages
@@ -185,7 +202,7 @@ export default function AIChatButton() {
     });
   }, [isOpen, chatMessages, isLoading]);
 
-  if (isHiddenPathname) {
+  if (isHiddenPathname || isDashboardQuickGuideActive) {
     return null;
   }
 

@@ -12,6 +12,7 @@ import {
 } from "react";
 
 export const DASHBOARD_QUICK_GUIDE_EVENT = "skolegps:open-quick-guide";
+export const DASHBOARD_QUICK_GUIDE_VISIBILITY_EVENT = "skolegps:quick-guide-visibility";
 export const DASHBOARD_QUICK_GUIDE_SEEN_KEY = "skolegps.dashboard-quick-guide.v1.seen";
 const DASHBOARD_QUICK_GUIDE_STEP_KEY = "skolegps.dashboard-quick-guide.v1.step";
 
@@ -74,32 +75,79 @@ function isGuideStep(value: string | null): value is "create" | "lynbygger" | "f
   return value === "create" || value === "lynbygger" || value === "finish";
 }
 
+function isVisibleFocusTarget(element: HTMLElement | null) {
+  if (!element?.isConnected) return false;
+  const rect = element.getBoundingClientRect();
+  const style = window.getComputedStyle(element);
+  return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+}
+
 export default function DashboardQuickGuide() {
   const pathname = usePathname();
   const router = useRouter();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const manualTriggerRef = useRef<HTMLElement | null>(null);
+  const dialogFocusFrameRef = useRef<number | null>(null);
+  const returnFocusFrameRef = useRef<number | null>(null);
   const [view, setView] = useState<GuideView>("closed");
   const [highlightRect, setHighlightRect] = useState<HighlightRect | null>(null);
+  const isGuideOpen = view !== "closed";
+
+  const markGuideSeen = useCallback(() => {
+    writeStorage(DASHBOARD_QUICK_GUIDE_SEEN_KEY, "true");
+  }, []);
 
   const setActiveStep = useCallback((step: "create" | "lynbygger" | "finish") => {
     writeStorage(DASHBOARD_QUICK_GUIDE_STEP_KEY, step);
     setView(step);
   }, []);
 
+  const returnFocus = useCallback(() => {
+    if (returnFocusFrameRef.current !== null) {
+      window.cancelAnimationFrame(returnFocusFrameRef.current);
+    }
+
+    returnFocusFrameRef.current = window.requestAnimationFrame(() => {
+      const manualTrigger = manualTriggerRef.current;
+      const routeFallback = pathname === "/dashboard/opret/valg"
+        ? document.querySelector<HTMLElement>('[data-tour="valg-lynbygger"]')
+        : pathname === "/dashboard"
+          ? document.querySelector<HTMLElement>('[data-tour="dashboard-create-run"]')
+          : document.querySelector<HTMLElement>("h1");
+      const focusTarget = isVisibleFocusTarget(manualTrigger)
+        ? manualTrigger
+        : isVisibleFocusTarget(routeFallback)
+          ? routeFallback
+          : null;
+
+      if (focusTarget) {
+        if (focusTarget.tabIndex < 0) focusTarget.tabIndex = -1;
+        focusTarget.focus({ preventScroll: true });
+      }
+
+      manualTriggerRef.current = null;
+      returnFocusFrameRef.current = null;
+    });
+  }, [pathname]);
+
   const closeGuide = useCallback(() => {
+    markGuideSeen();
     removeStorage(DASHBOARD_QUICK_GUIDE_STEP_KEY);
     setView("closed");
-  }, []);
+    returnFocus();
+  }, [markGuideSeen, returnFocus]);
 
   useEffect(() => {
     let frame = 0;
     const savedStep = readStorage(DASHBOARD_QUICK_GUIDE_STEP_KEY);
     if (isGuideStep(savedStep)) {
+      manualTriggerRef.current = null;
       frame = window.requestAnimationFrame(() => setView(savedStep));
       return () => window.cancelAnimationFrame(frame);
     }
 
     if (pathname === "/dashboard" && readStorage(DASHBOARD_QUICK_GUIDE_SEEN_KEY) !== "true") {
+      manualTriggerRef.current = null;
       frame = window.requestAnimationFrame(() => setView("intro"));
     }
 
@@ -107,9 +155,43 @@ export default function DashboardQuickGuide() {
   }, [pathname]);
 
   useEffect(() => {
-    const handleManualOpen = () => setView("intro");
+    const handleManualOpen = () => {
+      manualTriggerRef.current = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+      setView("intro");
+    };
     window.addEventListener(DASHBOARD_QUICK_GUIDE_EVENT, handleManualOpen);
     return () => window.removeEventListener(DASHBOARD_QUICK_GUIDE_EVENT, handleManualOpen);
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isGuideOpen) {
+      root.dataset.dashboardQuickGuide = "active";
+    } else {
+      delete root.dataset.dashboardQuickGuide;
+    }
+    window.dispatchEvent(
+      new CustomEvent<boolean>(DASHBOARD_QUICK_GUIDE_VISIBILITY_EVENT, { detail: isGuideOpen })
+    );
+
+    return () => {
+      if (!isGuideOpen) return;
+      delete root.dataset.dashboardQuickGuide;
+      window.dispatchEvent(
+        new CustomEvent<boolean>(DASHBOARD_QUICK_GUIDE_VISIBILITY_EVENT, { detail: false })
+      );
+    };
+  }, [isGuideOpen]);
+
+  useEffect(() => () => {
+    if (dialogFocusFrameRef.current !== null) {
+      window.cancelAnimationFrame(dialogFocusFrameRef.current);
+    }
+    if (returnFocusFrameRef.current !== null) {
+      window.cancelAnimationFrame(returnFocusFrameRef.current);
+    }
   }, []);
 
   useEffect(() => {
@@ -122,9 +204,16 @@ export default function DashboardQuickGuide() {
 
     document.body.style.overflow = "hidden";
     document.addEventListener("keydown", handleEscape);
-    window.requestAnimationFrame(() => dialogRef.current?.querySelector<HTMLElement>("button")?.focus());
+    dialogFocusFrameRef.current = window.requestAnimationFrame(() => {
+      dialogRef.current?.querySelector<HTMLElement>("button")?.focus();
+      dialogFocusFrameRef.current = null;
+    });
 
     return () => {
+      if (dialogFocusFrameRef.current !== null) {
+        window.cancelAnimationFrame(dialogFocusFrameRef.current);
+        dialogFocusFrameRef.current = null;
+      }
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleEscape);
     };
@@ -137,7 +226,9 @@ export default function DashboardQuickGuide() {
 
     const highlightView = view;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let repositionFrame: number | null = null;
     let attempts = 0;
+    let repositionAttempts = 0;
     const updateHighlight = () => {
       const target = document.querySelector<HTMLElement>(guideSteps[highlightView].target ?? "");
       if (!target) {
@@ -147,6 +238,25 @@ export default function DashboardQuickGuide() {
       }
 
       const rect = target.getBoundingClientRect();
+      const isCompactViewport = window.matchMedia("(max-width: 639px)").matches;
+      if (isCompactViewport && repositionAttempts < 3) {
+        const panelRect = dialogRef.current?.getBoundingClientRect();
+        const viewportTop = window.visualViewport?.offsetTop ?? 0;
+        const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+        const safeTop = Math.max(viewportTop + 16, (panelRect?.bottom ?? viewportTop + 220) + 16);
+        const safeBottom = viewportTop + viewportHeight - 16;
+        const availableHeight = Math.max(0, safeBottom - safeTop);
+        const desiredTop = safeTop + Math.max(0, (availableHeight - rect.height) / 2);
+        const scrollDelta = rect.top - desiredTop;
+
+        if ((rect.top < safeTop || rect.bottom > safeBottom) && Math.abs(scrollDelta) > 1) {
+          repositionAttempts += 1;
+          window.scrollBy({ top: scrollDelta, behavior: "auto" });
+          repositionFrame = window.requestAnimationFrame(updateHighlight);
+          return;
+        }
+      }
+
       setHighlightRect({
         height: rect.height,
         left: rect.left,
@@ -159,10 +269,15 @@ export default function DashboardQuickGuide() {
     updateHighlight();
     window.addEventListener("resize", updateHighlight);
     window.addEventListener("scroll", updateHighlight, true);
+    window.visualViewport?.addEventListener("resize", updateHighlight);
+    window.visualViewport?.addEventListener("scroll", updateHighlight);
     return () => {
       if (retryTimer) clearTimeout(retryTimer);
+      if (repositionFrame !== null) window.cancelAnimationFrame(repositionFrame);
       window.removeEventListener("resize", updateHighlight);
       window.removeEventListener("scroll", updateHighlight, true);
+      window.visualViewport?.removeEventListener("resize", updateHighlight);
+      window.visualViewport?.removeEventListener("scroll", updateHighlight);
     };
   }, [pathname, view]);
 
@@ -211,15 +326,18 @@ export default function DashboardQuickGuide() {
         <div className="absolute inset-0 bg-slate-950/72 backdrop-blur-sm" aria-hidden="true" />
       )}
 
-      <div className={`pointer-events-none absolute inset-0 flex px-4 py-5 ${view === "intro" ? "items-center justify-center" : "items-end justify-center sm:items-center"}`}>
+      <div
+        className={`pointer-events-none absolute inset-0 flex px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] ${view === "intro" ? "items-center justify-center" : "items-start justify-center sm:items-center"}`}
+      >
         <div
           ref={dialogRef}
+          data-testid="quick-guide-panel"
           role="dialog"
           aria-modal="true"
           aria-labelledby="quick-guide-title"
           aria-describedby="quick-guide-description"
           onKeyDown={handleDialogKeyDown}
-          className="pointer-events-auto relative w-full max-w-md rounded-[1.75rem] border border-cyan-200/35 bg-slate-950/96 p-6 text-left text-white shadow-[0_30px_90px_rgba(0,0,0,0.55)] sm:p-7"
+          className="pointer-events-auto relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[1.75rem] border border-cyan-200/35 bg-slate-950/96 p-6 text-left text-white shadow-[0_30px_90px_rgba(0,0,0,0.55)] sm:p-7"
         >
           <button
             type="button"
@@ -243,7 +361,7 @@ export default function DashboardQuickGuide() {
                 <button
                   type="button"
                   onClick={() => {
-                    writeStorage(DASHBOARD_QUICK_GUIDE_SEEN_KEY, "true");
+                    markGuideSeen();
                     if (pathname !== "/dashboard") router.push("/dashboard");
                     setActiveStep("create");
                   }}
@@ -253,10 +371,7 @@ export default function DashboardQuickGuide() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    writeStorage(DASHBOARD_QUICK_GUIDE_SEEN_KEY, "true");
-                    closeGuide();
-                  }}
+                  onClick={closeGuide}
                   className="inline-flex min-h-12 flex-1 items-center justify-center rounded-xl border border-white/20 bg-white/8 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/14 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
                 >
                   Jeg finder selv

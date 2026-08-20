@@ -18,13 +18,13 @@ const steps = [
   {
     icon: Key,
     lead: "DEL",
-    headline: "KODEN DU DELER",
+    headline: "KODEN DE ER I GANG",
     text: "Eleverne scanner en QR-kode eller indtaster en 5-cifret kode. Ingen login, ingen app - bare ren læring.",
   },
   {
     icon: Radio,
     lead: "FØLG",
-    headline: "MED LIVE PÅ KORTET",
+    headline: "MED FRA KONTROLTÅRNET",
     text: "Se eleverne bevæge sig live på kortet. Modtag deres svar i realtid og vær klar med hjælp, hvis de sender en besked direkte fra ruten.",
   },
 ];

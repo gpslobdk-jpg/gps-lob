@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import PwaInstallTip from "@/components/PwaInstallTip";
 import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
 import { DASHBOARD_QUICK_GUIDE_EVENT } from "@/components/DashboardQuickGuide";
+import { readStoredActiveParticipant } from "@/components/play/playUtils";
 import { createClient } from "@/utils/supabase/client";
 
 const SKOLEGPS_FACEBOOK_GROUP_URL = "https://www.facebook.com/groups/1649785632764130";
@@ -19,7 +20,7 @@ const cardBaseClass =
   "group relative mx-auto flex h-full w-full max-w-[20.5rem] flex-col overflow-hidden rounded-[2rem] border bg-white/10 p-0 text-left shadow-[0_22px_52px_rgba(15,23,42,0.16),0_8px_18px_rgba(15,23,42,0.07),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-lg transition-all duration-300";
 
 const cardPanelClass =
-  "relative flex h-full flex-col items-center justify-center rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.05))] p-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-16px_24px_rgba(15,23,42,0.07)]";
+  "relative flex h-full flex-col items-center justify-center rounded-[2rem] border border-white/16 bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(15,23,42,0.68))] p-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-16px_24px_rgba(15,23,42,0.12)] lg:border-white/10 lg:bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.05))]";
 
 const createCardClass =
   "border-emerald-400/60 bg-emerald-500/10 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(16,185,129,0.16),inset_0_1px_0_rgba(255,255,255,0.18)]";
@@ -37,8 +38,14 @@ type ActiveSessionRow = {
   id: string;
 };
 
+type ParticipantResumeRow = {
+  id: string;
+  session_id: string;
+  finished_at: string | null;
+};
+
 type ResumeTarget = {
-  kind: "teacher";
+  kind: "participant" | "teacher";
   sessionId: string;
 };
 
@@ -76,6 +83,28 @@ export default function DashboardPage() {
           }
           if (isMounted) setResumeTarget(null);
           return;
+        }
+
+        const storedParticipant = readStoredActiveParticipant();
+        if (storedParticipant?.participantId) {
+          const { data: participantData, error: participantError } = await supabase
+            .from("participants")
+            .select("id,session_id,finished_at")
+            .eq("id", storedParticipant.participantId)
+            .is("finished_at", null)
+            .maybeSingle();
+
+          if (participantError) {
+            console.error("Kunne ikke tjekke aktiv deltagerstatus:", participantError);
+          }
+
+          const activeParticipant = (participantData as ParticipantResumeRow | null) ?? null;
+          if (activeParticipant?.session_id) {
+            if (isMounted) {
+              setResumeTarget({ kind: "participant", sessionId: activeParticipant.session_id });
+            }
+            return;
+          }
         }
 
         const [
@@ -140,13 +169,18 @@ export default function DashboardPage() {
   }, [dashboardRetryKey, router]);
 
   const hasResumeTarget = Boolean(resumeTarget?.sessionId);
+  const isParticipantResume = resumeTarget?.kind === "participant";
 
   const handleLiveMonitoringClick = () => {
     if (isCheckingLiveSession) return;
 
     if (resumeTarget?.sessionId) {
       setIsNavigatingLive(true);
-      void router.push(`/dashboard/live/${resumeTarget.sessionId}`);
+      void router.push(
+        resumeTarget.kind === "participant"
+          ? `/play/${resumeTarget.sessionId}`
+          : `/dashboard/live/${resumeTarget.sessionId}`
+      );
       return;
     }
   };
@@ -334,7 +368,7 @@ export default function DashboardPage() {
         <section className="mx-auto mt-5 w-full max-w-2xl">
           <motion.button
             type="button"
-            aria-label="Fortsæt løbet"
+            aria-label={isParticipantResume ? "Fortsæt dit løb" : "Fortsæt løbet"}
             onClick={handleLiveMonitoringClick}
             whileHover={{ scale: 1.012 }}
             className="flex h-full w-full flex-col justify-center text-left"
@@ -346,13 +380,17 @@ export default function DashboardPage() {
                 <div className="relative z-10 flex w-full flex-col items-center justify-center text-center">
                   <div className="space-y-3">
                     <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
-                      Fortsæt løbet
+                      {isParticipantResume ? "Fortsæt dit løb" : "Fortsæt løbet"}
                     </h2>
                     <p className="text-[0.7rem] font-semibold tracking-[0.18em] text-white/70 uppercase">
-                      Hop direkte tilbage ind i det aktive løb.
+                      {isParticipantResume
+                        ? "Hop direkte tilbage til din post på ruten."
+                        : "Hop direkte tilbage ind i det aktive løb."}
                     </p>
                     <p className="mx-auto max-w-62 text-sm leading-6 text-white/84">
-                      Fortsæt med livekort, svarflow og overblik præcis der, hvor du slap.
+                      {isParticipantResume
+                        ? "Fortsæt direkte i spillerflowet uden at miste din fremdrift."
+                        : "Fortsæt med livekort, svarflow og overblik præcis der, hvor du slap."}
                     </p>
                   </div>
 
@@ -461,7 +499,7 @@ export default function DashboardPage() {
         >
           <motion.article
             whileHover={isNavigatingMobileGames ? undefined : { y: -2, scale: 1.006 }}
-            className={`group flex w-full items-center gap-3 rounded-[1.75rem] border border-cyan-400/25 bg-cyan-500/8 px-5 py-4 text-white shadow-[0_16px_38px_rgba(15,23,42,0.14)] backdrop-blur-xl transition ${isNavigatingMobileGames ? "cursor-progress opacity-85" : "cursor-pointer hover:border-cyan-300/40 hover:bg-cyan-500/12"}`}
+            className={`group flex w-full items-center gap-3 rounded-[1.75rem] border border-cyan-300/35 bg-slate-950/72 px-5 py-4 text-white shadow-[0_16px_38px_rgba(15,23,42,0.18)] backdrop-blur-xl transition lg:border-cyan-400/25 lg:bg-cyan-500/8 ${isNavigatingMobileGames ? "cursor-progress opacity-85" : "cursor-pointer hover:border-cyan-300/50 hover:bg-slate-950/80 lg:hover:bg-cyan-500/12"}`}
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-white">
               <Gamepad2 className="h-5 w-5" />

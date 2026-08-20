@@ -33,11 +33,8 @@ const TEAM_NAME = "MusicTestHold";
 const POST_LAT = 55.6761;
 const POST_LNG = 12.5683;
 
-// Cookie-navnet følger den Supabase-host, den lokale testserver faktisk bruger.
-const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
-  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname.split(".")[0]
-  : "xodrzahqdgbsssntupjt";
-const SUPABASE_COOKIE_NAME = `sb-${supabaseHostname}-auth-token`;
+// Supabase projekt-ref: xodrzahqdgbsssntupjt (fra NEXT_PUBLIC_SUPABASE_URL)
+const SUPABASE_COOKIE_NAME = "sb-xodrzahqdgbsssntupjt-auth-token";
 
 /** Mock-musikresultat som /api/music/search returnerer */
 const MOCK_MUSIC_RESULT = {
@@ -235,7 +232,7 @@ async function setupDashboardContext(ctx: BrowserContext) {
   });
 
   // Mock Supabase auth token-endpoint (auto-refresh)
-  await ctx.route(/\/auth\/v1\/token/, async (route: Route) => {
+  await ctx.route(/xodrzahqdgbsssntupjt\.supabase\.co.*\/auth\/v1\/token/, async (route: Route) => {
     await route.fulfill({
       status: 200, contentType: "application/json",
       body: JSON.stringify({ ...fakeSession, expires_at: expiresAt }),
@@ -243,7 +240,7 @@ async function setupDashboardContext(ctx: BrowserContext) {
   });
 
   // Mock Supabase getUser endpoint
-  await ctx.route(/\/auth\/v1\/user/, async (route: Route) => {
+  await ctx.route(/xodrzahqdgbsssntupjt\.supabase\.co.*\/auth\/v1\/user/, async (route: Route) => {
     await route.fulfill({
       status: 200, contentType: "application/json",
       body: JSON.stringify(FAKE_USER),
@@ -251,7 +248,7 @@ async function setupDashboardContext(ctx: BrowserContext) {
   });
 
   // Mock Supabase REST API (gpsRuns, live_sessions osv.) — returnerer tom liste
-  await ctx.route(/\/rest\/v1\//, async (route: Route) => {
+  await ctx.route(/xodrzahqdgbsssntupjt\.supabase\.co.*\/rest\/v1\//, async (route: Route) => {
     await route.fulfill({
       status: 200, contentType: "application/json",
       body: JSON.stringify([]),

@@ -39,8 +39,8 @@ export default function DashboardLayout({
               </div>
             </div>
           </AudioProvider>
+          <DashboardQuickGuide />
         </DashboardAuthGate>
-        <DashboardQuickGuide />
         <OnboardingTour />
       </AuthProvider>
     </Suspense>
