@@ -26,6 +26,12 @@ export default defineConfig({
       use: { ...devices["iPhone 14"] },
       testMatch: /apple-webkit\.spec\.ts$/,
     },
+    {
+      name: "webkit-location-recovery",
+      use: { ...devices["iPhone 14"] },
+      testMatch: /student-location-recovery\.spec\.ts$/,
+      grep: /@safari-map-resume/,
+    },
     // Separate project for new iOS-readiness tests (ios-*.spec.ts).
     // Uses the same WebKit / iPhone 14 device profile as the webkit project
     // but matches a different set of files so both can coexist and be run

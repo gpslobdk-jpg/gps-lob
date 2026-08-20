@@ -454,12 +454,13 @@ export default function GPSManager({
         : LIVE_TRACKING_MAX_ACCURACY_METERS;
 
       if (accuracy === null || accuracy > effectiveMaxAccuracy) {
+        const hasAcceptedPosition = Boolean(lastAcceptedLocationRef.current);
         resetAutoUnlockConfirmationIfGraceExpired(nowMs);
         if (standardStudentLocationFlow) {
           invalidateUnlockDistance();
           emitRuntimeState({
-            isLocating: false,
-            hasPosition: true,
+            isLocating: !hasAcceptedPosition,
+            hasPosition: hasAcceptedPosition,
             positionTimestampMs: getMeasurementTimestampMs(position.timestamp),
             accuracyMeters: accuracy,
             errorType: null,

@@ -3,7 +3,7 @@
 import "leaflet/dist/leaflet.css";
 
 import L from "leaflet";
-import type { LatLngBoundsExpression } from "leaflet";
+import type { LatLngBoundsExpression, LeafletEventHandlerFnMap } from "leaflet";
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 
@@ -19,15 +19,49 @@ type TargetClickHintState = {
 
 type ProgrammaticMapMotionRef = MutableRefObject<boolean>;
 
-type MapViewportSyncProps = {
-  playerLocation: Location | null;
-  targetLocation: Location | null;
+type StandardMapResumeState = {
+  scopeKey: string;
   isFollowingPlayer: boolean;
+  center: [number, number] | null;
+  zoom: number | null;
+};
+
+type MapViewportSyncProps = {
+  initialResumeState: StandardMapResumeState | null;
+  resumeScopeKey: string;
+  playerLocation: Location | null;
+  isFollowingPlayer: boolean;
+  onMapResume: () => void;
   onUserMapInteraction: () => void;
   programmaticMapMotionRef: ProgrammaticMapMotionRef;
 };
 
 const DEFAULT_MAP_CENTER: [number, number] = [55.6761, 12.5683];
+const MAP_RESUME_SETTLE_DELAY_MS = 180;
+let standardMapResumeState: StandardMapResumeState | null = null;
+
+function getStandardMapResumeScopeKey() {
+  return typeof window === "undefined" ? "" : window.location.pathname;
+}
+
+function readStandardMapResumeState(scopeKey: string) {
+  return standardMapResumeState?.scopeKey === scopeKey
+    ? standardMapResumeState
+    : null;
+}
+
+function updateStandardMapFollowState(
+  scopeKey: string,
+  isFollowingPlayer: boolean
+) {
+  const current = readStandardMapResumeState(scopeKey);
+  standardMapResumeState = {
+    scopeKey,
+    isFollowingPlayer,
+    center: current?.center ?? null,
+    zoom: current?.zoom ?? null,
+  };
+}
 
 function withProgrammaticMapMotion(
   programmaticMapMotionRef: ProgrammaticMapMotionRef,
@@ -69,13 +103,66 @@ function createTargetIcon(targetNumber: number | null, isNearTarget: boolean) {
 }
 
 function MapViewportSync({
+  initialResumeState,
+  resumeScopeKey,
   playerLocation,
-  targetLocation,
   isFollowingPlayer,
+  onMapResume,
   onUserMapInteraction,
   programmaticMapMotionRef,
 }: MapViewportSyncProps) {
   const map = useMap();
+  const playerLocationRef = useRef(playerLocation);
+  const isFollowingPlayerRef = useRef(isFollowingPlayer);
+  const hasRestoredInitialViewportRef = useRef(false);
+
+  useEffect(() => {
+    playerLocationRef.current = playerLocation;
+    isFollowingPlayerRef.current = isFollowingPlayer;
+  }, [isFollowingPlayer, playerLocation]);
+
+  useEffect(() => {
+    const captureViewport = () => {
+      try {
+        if (!map || !map.getContainer()) return;
+        const center = map.getCenter();
+        standardMapResumeState = {
+          scopeKey: resumeScopeKey,
+          isFollowingPlayer:
+            readStandardMapResumeState(resumeScopeKey)?.isFollowingPlayer ??
+            isFollowingPlayerRef.current,
+          center: [center.lat, center.lng],
+          zoom: map.getZoom(),
+        };
+      } catch {
+        // The map may already be detached during a transient route remount.
+      }
+    };
+
+    if (
+      !hasRestoredInitialViewportRef.current &&
+      initialResumeState?.scopeKey === resumeScopeKey &&
+      initialResumeState.center &&
+      initialResumeState.zoom !== null
+    ) {
+      hasRestoredInitialViewportRef.current = true;
+      withProgrammaticMapMotion(programmaticMapMotionRef, () => {
+        map.setView(initialResumeState.center!, initialResumeState.zoom!, {
+          animate: false,
+        });
+      });
+    }
+
+    captureViewport();
+    map.on("moveend", captureViewport);
+    map.on("zoomend", captureViewport);
+
+    return () => {
+      captureViewport();
+      map.off("moveend", captureViewport);
+      map.off("zoomend", captureViewport);
+    };
+  }, [initialResumeState, map, programmaticMapMotionRef, resumeScopeKey]);
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => {
@@ -92,6 +179,82 @@ function MapViewportSync({
       window.cancelAnimationFrame(frameId);
     };
   }, [map]);
+
+  useEffect(() => {
+    let firstFrameId: number | null = null;
+    let secondFrameId: number | null = null;
+    let settleTimerId: number | null = null;
+    let resumeScheduled = false;
+
+    const restoreViewport = (remountPlayerMarker: boolean) => {
+      try {
+        if (!map || !map.getContainer()) return;
+
+        map.invalidateSize({ animate: false });
+
+        const currentPlayerLocation = playerLocationRef.current;
+        if (
+          isFollowingPlayerRef.current &&
+          currentPlayerLocation &&
+          Number.isFinite(currentPlayerLocation.lat) &&
+          Number.isFinite(currentPlayerLocation.lng)
+        ) {
+          map.panTo([currentPlayerLocation.lat, currentPlayerLocation.lng], {
+            animate: false,
+          });
+        }
+
+        if (remountPlayerMarker) {
+          onMapResume();
+        }
+      } catch {
+        // Resume recovery is best-effort. The existing GPS retry remains available.
+      }
+    };
+
+    const scheduleResume = () => {
+      if (resumeScheduled || document.visibilityState !== "visible") {
+        return;
+      }
+
+      resumeScheduled = true;
+      firstFrameId = window.requestAnimationFrame(() => {
+        firstFrameId = null;
+        secondFrameId = window.requestAnimationFrame(() => {
+          secondFrameId = null;
+          restoreViewport(true);
+          settleTimerId = window.setTimeout(() => {
+            settleTimerId = null;
+            restoreViewport(false);
+            resumeScheduled = false;
+          }, MAP_RESUME_SETTLE_DELAY_MS);
+        });
+      });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        scheduleResume();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pageshow", scheduleResume);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pageshow", scheduleResume);
+      if (firstFrameId !== null) {
+        window.cancelAnimationFrame(firstFrameId);
+      }
+      if (secondFrameId !== null) {
+        window.cancelAnimationFrame(secondFrameId);
+      }
+      if (settleTimerId !== null) {
+        window.clearTimeout(settleTimerId);
+      }
+    };
+  }, [map, onMapResume]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -139,7 +302,7 @@ function MapViewportSync({
     } catch (err) {
       console.warn("MapViewportSync follow pan failed:", err);
     }
-  }, [isFollowingPlayer, map, playerLocation?.lat, playerLocation?.lng, programmaticMapMotionRef, targetLocation]);
+  }, [isFollowingPlayer, map, playerLocation, programmaticMapMotionRef]);
 
   useEffect(() => {
     if (!map) {
@@ -263,8 +426,15 @@ export default function MapDisplay({
   distanceToTargetMeters,
   onTargetClick,
 }: MapDisplayProps) {
-  const [isFollowingPlayer, setIsFollowingPlayer] = useState(true);
+  const [resumeScopeKey] = useState(getStandardMapResumeScopeKey);
+  const [initialResumeState] = useState(() =>
+    readStandardMapResumeState(resumeScopeKey)
+  );
+  const [isFollowingPlayer, setIsFollowingPlayer] = useState(
+    initialResumeState?.isFollowingPlayer ?? true
+  );
   const [hasManualMapInteraction, setHasManualMapInteraction] = useState(false);
+  const [playerMarkerResumeGeneration, setPlayerMarkerResumeGeneration] = useState(0);
   const [targetClickHint, setTargetClickHint] = useState<TargetClickHintState>(null);
   const lastTouchActivationAtRef = useRef(0);
   const isOpeningTargetRef = useRef(false);
@@ -363,12 +533,21 @@ export default function MapDisplay({
   );
 
   const handleUserMapInteraction = useCallback(() => {
+    updateStandardMapFollowState(resumeScopeKey, false);
     setIsFollowingPlayer(false);
     setHasManualMapInteraction(true);
-  }, []);
+  }, [resumeScopeKey]);
 
   const handleFollowToggle = useCallback(() => {
-    setIsFollowingPlayer((current) => !current);
+    setIsFollowingPlayer((current) => {
+      const next = !current;
+      updateStandardMapFollowState(resumeScopeKey, next);
+      return next;
+    });
+  }, [resumeScopeKey]);
+
+  const handleMapResume = useCallback(() => {
+    setPlayerMarkerResumeGeneration((current) => current + 1);
   }, []);
 
   const allowAutoFrame = isFollowingPlayer && !hasManualMapInteraction;
@@ -415,9 +594,11 @@ export default function MapDisplay({
           programmaticMapMotionRef={programmaticMapMotionRef}
         />
         <MapViewportSync
+          initialResumeState={initialResumeState}
+          resumeScopeKey={resumeScopeKey}
           playerLocation={playerLocation}
-          targetLocation={targetLocation}
           isFollowingPlayer={isFollowingPlayer}
+          onMapResume={handleMapResume}
           onUserMapInteraction={handleUserMapInteraction}
           programmaticMapMotionRef={programmaticMapMotionRef}
         />
@@ -438,12 +619,13 @@ export default function MapDisplay({
             eventHandlers={{
               click: () => handleTargetMarkerActivate("click"),
               touchend: () => handleTargetMarkerActivate("touchend"),
-            } as any}
+            } as LeafletEventHandlerFnMap & { touchend: () => void }}
           />
         ) : null}
 
         {playerLocation ? (
           <GlidingPlayerMarker
+            key={`player-resume-${playerMarkerResumeGeneration}`}
             location={playerLocation}
             avatarUrl={avatarUrl}
             popupContent={`Du er her${playerName ? `, ${playerName}` : ""}`}

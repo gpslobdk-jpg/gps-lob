@@ -64,6 +64,7 @@ async function installPlayHarness(page: Page, fixture: SessionFixture) {
         emitError: (code: 1 | 2 | 3, message?: string) => void;
         setPermission: (state: PermissionState) => void;
         setVisibility: (state: DocumentVisibilityState) => void;
+        dispatchPageShow: () => void;
         setOnline: (online: boolean) => void;
         setStatusRecoveryOk: (ok: boolean) => void;
       };
@@ -137,6 +138,26 @@ async function installPlayHarness(page: Page, fixture: SessionFixture) {
       window.localStorage.setItem(
         "gpslob_active_participant",
         JSON.stringify(storedParticipant),
+      );
+      const participantAuthSession = {
+        access_token: "synthetic-participant-access-token",
+        refresh_token: "synthetic-participant-refresh-token",
+        token_type: "bearer",
+        expires_in: 3600,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        user: {
+          id: participantId,
+          aud: "authenticated",
+          role: "authenticated",
+          email: "student@test.invalid",
+          app_metadata: { provider: "email" },
+          user_metadata: {},
+          created_at: "2024-01-01T00:00:00.000Z",
+        },
+      };
+      window.localStorage.setItem(
+        "gpslob-participant-auth",
+        JSON.stringify(participantAuthSession),
       );
 
       let permissionState: PermissionState = "prompt";
@@ -267,6 +288,9 @@ async function installPlayHarness(page: Page, fixture: SessionFixture) {
           visibilityState = state;
           document.dispatchEvent(new Event("visibilitychange"));
         },
+        dispatchPageShow() {
+          window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }));
+        },
         setOnline(nextOnline) {
           online = nextOnline;
           const type: ConnectivityEventType = nextOnline ? "online" : "offline";
@@ -296,6 +320,13 @@ async function installPlayHarness(page: Page, fixture: SessionFixture) {
           init?.method ??
           (input instanceof Request ? input.method : "GET")
         ).toUpperCase();
+
+        if (url.includes("/auth/v1/token")) {
+          return new Response(JSON.stringify(participantAuthSession), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
 
         if (url.includes("/api/play/session")) {
           return new Response(
@@ -441,6 +472,7 @@ async function callHarness(
       }
     | { type: "error"; code: 1 | 2 | 3; message?: string }
     | { type: "visibility"; state: DocumentVisibilityState }
+    | { type: "pageshow" }
     | { type: "online"; online: boolean }
     | { type: "status"; ok: boolean },
 ) {
@@ -456,6 +488,7 @@ async function callHarness(
           ) => void;
           emitError: (code: 1 | 2 | 3, message?: string) => void;
           setVisibility: (state: DocumentVisibilityState) => void;
+          dispatchPageShow: () => void;
           setOnline: (online: boolean) => void;
           setStatusRecoveryOk: (ok: boolean) => void;
         };
@@ -473,6 +506,8 @@ async function callHarness(
         harness.emitError(action.code, action.message);
       } else if (action.type === "visibility") {
         harness.setVisibility(action.state);
+      } else if (action.type === "pageshow") {
+        harness.dispatchPageShow();
       } else if (action.type === "online") {
         harness.setOnline(action.online);
       } else {
@@ -544,9 +579,8 @@ test.describe("student location recovery", () => {
     await expect.poll(async () => (await harnessSnapshot(page)).watchStarts).toBe(1);
 
     await callHarness(page, { type: "position", accuracy: 300 });
-    await expect(
-      page.getByText("GPS-signalet er lidt usikkert", { exact: true }),
-    ).toBeVisible();
+    await expect(page.getByText("Finder din placering…", { exact: true })).toBeVisible();
+    await expect(page.locator(".gpslob-player-dot-icon")).toHaveCount(0);
     await expect(page.getByText("Du er fremme!", { exact: true })).toHaveCount(0);
     await expect(page.getByText(QUESTION_TEXT, { exact: true })).toHaveCount(0);
 
@@ -656,6 +690,171 @@ test.describe("student location recovery", () => {
 
     await callHarness(page, { type: "position", accuracy: 5 });
     await expect(page.getByText("Du er fremme!", { exact: true })).toBeVisible();
+  });
+
+  test("keeps one production marker through movement and transient GPS errors @safari-map-resume", async ({
+    page,
+  }) => {
+    await openStandardPlay(page, "student-location-production-marker");
+    await page.getByRole("button", { name: "Tillad placering" }).click();
+    await expect.poll(async () => (await harnessSnapshot(page)).watchStarts).toBe(1);
+
+    const marker = page.locator(".gpslob-player-dot-icon");
+    await callHarness(page, { type: "position", accuracy: 300 });
+    await expect(page.getByText("Finder din placering…", { exact: true })).toBeVisible();
+    await expect(marker).toHaveCount(0);
+
+    await callHarness(page, { type: "position", accuracy: 5 });
+    await expect(marker).toBeVisible();
+    await expect(marker).toHaveCount(1);
+    await marker.evaluate((element) => {
+      element.setAttribute("data-test-marker-instance", "stable-update");
+    });
+
+    const followButton = page.getByRole("button", { name: /Følg mig/i });
+    await expect(followButton).toHaveAttribute("aria-pressed", "true");
+    await followButton.click();
+    await expect(followButton).toHaveAttribute("aria-pressed", "false");
+
+    const initialTransform = await marker.evaluate((element) => (element as HTMLElement).style.transform);
+    await callHarness(page, {
+      type: "position",
+      accuracy: 5,
+      latitude: POST_LAT + 0.0001,
+      longitude: POST_LNG + 0.0001,
+    });
+    await expect
+      .poll(async () => marker.evaluate((element) => (element as HTMLElement).style.transform))
+      .not.toBe(initialTransform);
+    await expect(marker).toHaveAttribute("data-test-marker-instance", "stable-update");
+    await expect(marker).toHaveCount(1);
+
+    await callHarness(page, { type: "position", accuracy: 300 });
+    await expect(
+      page.getByText("GPS-signalet er lidt usikkert", { exact: true }),
+    ).toBeVisible();
+    await expect(marker).toHaveAttribute("data-test-marker-instance", "stable-update");
+
+    await callHarness(page, { type: "error", code: 3 });
+    await expect(marker).toHaveAttribute("data-test-marker-instance", "stable-update");
+    await callHarness(page, { type: "error", code: 2 });
+    await expect(marker).toHaveAttribute("data-test-marker-instance", "stable-update");
+    await expect(marker).toHaveCount(1);
+  });
+
+  test("coalesces visibility and pageshow while remounting the production marker once @safari-map-resume", async ({
+    page,
+  }) => {
+    await openStandardPlay(page, "student-location-marker-resume");
+    await page.getByRole("button", { name: "Tillad placering" }).click();
+    await expect.poll(async () => (await harnessSnapshot(page)).watchStarts).toBe(1);
+    await callHarness(page, { type: "position", accuracy: 5 });
+
+    const marker = page.locator(".gpslob-player-dot-icon");
+    await expect(marker).toBeVisible();
+    await marker.evaluate((element) => {
+      element.setAttribute("data-test-marker-instance", "before-resume");
+    });
+
+    await callHarness(page, { type: "visibility", state: "hidden" });
+    await expect.poll(async () => (await harnessSnapshot(page)).activeWatchIds).toHaveLength(0);
+    await expect(marker).toHaveAttribute("data-test-marker-instance", "before-resume");
+
+    await page.evaluate(() => {
+      const harness = (window as typeof window & {
+        __studentLocationHarness: {
+          setVisibility: (state: DocumentVisibilityState) => void;
+          dispatchPageShow: () => void;
+        };
+      }).__studentLocationHarness;
+      harness.setVisibility("visible");
+      harness.dispatchPageShow();
+    });
+
+    await expect.poll(async () => (await harnessSnapshot(page)).watchStarts).toBe(2);
+    await expect.poll(async () => (await harnessSnapshot(page)).activeWatchIds).toHaveLength(1);
+    await expect(marker).toBeVisible();
+    await expect(marker).toHaveCount(1);
+    await expect(marker).not.toHaveAttribute("data-test-marker-instance", "before-resume");
+    await expect(page.getByRole("button", { name: /Følg mig/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await marker.evaluate((element) => {
+      element.setAttribute("data-test-marker-instance", "after-resume");
+    });
+    await page.waitForTimeout(260);
+    await expect(marker).toHaveAttribute("data-test-marker-instance", "after-resume");
+
+    await callHarness(page, {
+      type: "position",
+      accuracy: 5,
+      latitude: POST_LAT + 0.0001,
+      longitude: POST_LNG + 0.0001,
+    });
+    await expect(marker).toHaveAttribute("data-test-marker-instance", "after-resume");
+    await expect(marker).toHaveCount(1);
+    await page.waitForTimeout(1_800);
+    const mapPosition = await page.locator(".leaflet-container").boundingBox();
+    const markerPosition = await marker.boundingBox();
+    expect(mapPosition).not.toBeNull();
+    expect(markerPosition).not.toBeNull();
+    const mapCenterX = mapPosition!.x + mapPosition!.width / 2;
+    const mapCenterY = mapPosition!.y + mapPosition!.height / 2;
+    const markerCenterX = markerPosition!.x + markerPosition!.width / 2;
+    const markerCenterY = markerPosition!.y + markerPosition!.height / 2;
+    expect(Math.abs(markerCenterX - mapCenterX)).toBeLessThanOrEqual(3);
+    expect(Math.abs(markerCenterY - mapCenterY)).toBeLessThanOrEqual(3);
+  });
+
+  test("pageshow preserves disabled follow mode and the visible map position @safari-map-resume", async ({
+    page,
+  }) => {
+    await openStandardPlay(page, "student-location-follow-resume");
+    await page.getByRole("button", { name: "Tillad placering" }).click();
+    await expect.poll(async () => (await harnessSnapshot(page)).watchStarts).toBe(1);
+    await callHarness(page, { type: "position", accuracy: 5 });
+
+    const marker = page.locator(".gpslob-player-dot-icon");
+    const followButton = page.getByRole("button", { name: /Følg mig/i });
+    await expect(marker).toBeVisible();
+    await followButton.click();
+    await expect(followButton).toHaveAttribute("aria-pressed", "false");
+
+    const initialTransform = await marker.evaluate((element) => (element as HTMLElement).style.transform);
+    await callHarness(page, {
+      type: "position",
+      accuracy: 5,
+      latitude: POST_LAT + 0.0001,
+      longitude: POST_LNG + 0.0001,
+    });
+    await expect
+      .poll(async () => marker.evaluate((element) => (element as HTMLElement).style.transform))
+      .not.toBe(initialTransform);
+    await page.waitForTimeout(1_800);
+    await expect(followButton).toHaveAttribute("aria-pressed", "false");
+    const positionBeforeResume = await marker.boundingBox();
+    expect(positionBeforeResume).not.toBeNull();
+    await marker.evaluate((element) => {
+      element.setAttribute("data-test-marker-instance", "follow-disabled");
+    });
+
+    const watchStartsBeforePageShow = (await harnessSnapshot(page)).watchStarts;
+    await callHarness(page, { type: "pageshow" });
+    await expect.poll(async () => (await harnessSnapshot(page)).activeWatchIds).toHaveLength(1);
+    await expect
+      .poll(async () => (await harnessSnapshot(page)).watchStarts)
+      .toBeLessThanOrEqual(watchStartsBeforePageShow + 1);
+    await expect(marker).toBeVisible();
+    await expect(marker).toHaveCount(1);
+    await expect(marker).not.toHaveAttribute("data-test-marker-instance", "follow-disabled");
+    await expect(followButton).toHaveAttribute("aria-pressed", "false");
+
+    const positionAfterResume = await marker.boundingBox();
+    expect(positionAfterResume).not.toBeNull();
+    expect(Math.abs(positionAfterResume!.x - positionBeforeResume!.x)).toBeLessThanOrEqual(2);
+    expect(Math.abs(positionAfterResume!.y - positionBeforeResume!.y)).toBeLessThanOrEqual(2);
   });
 
   for (const special of [
