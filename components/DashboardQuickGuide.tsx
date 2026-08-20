@@ -71,10 +71,6 @@ function removeStorage(key: string) {
   }
 }
 
-function isGuideStep(value: string | null): value is "create" | "lynbygger" | "finish" {
-  return value === "create" || value === "lynbygger" || value === "finish";
-}
-
 function isVisibleFocusTarget(element: HTMLElement | null) {
   if (!element?.isConnected) return false;
   const rect = element.getBoundingClientRect();
@@ -98,7 +94,6 @@ export default function DashboardQuickGuide() {
   }, []);
 
   const setActiveStep = useCallback((step: "create" | "lynbygger" | "finish") => {
-    writeStorage(DASHBOARD_QUICK_GUIDE_STEP_KEY, step);
     setView(step);
   }, []);
 
@@ -139,14 +134,12 @@ export default function DashboardQuickGuide() {
 
   useEffect(() => {
     let frame = 0;
-    const savedStep = readStorage(DASHBOARD_QUICK_GUIDE_STEP_KEY);
-    if (isGuideStep(savedStep)) {
-      manualTriggerRef.current = null;
-      frame = window.requestAnimationFrame(() => setView(savedStep));
-      return () => window.cancelAnimationFrame(frame);
-    }
+    const hasSeenGuide = readStorage(DASHBOARD_QUICK_GUIDE_SEEN_KEY) === "true";
+    removeStorage(DASHBOARD_QUICK_GUIDE_STEP_KEY);
 
-    if (pathname === "/dashboard" && readStorage(DASHBOARD_QUICK_GUIDE_SEEN_KEY) !== "true") {
+    if (hasSeenGuide) return;
+
+    if (pathname === "/dashboard") {
       manualTriggerRef.current = null;
       frame = window.requestAnimationFrame(() => setView("intro"));
     }
