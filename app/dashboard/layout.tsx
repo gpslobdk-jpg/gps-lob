@@ -5,6 +5,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 import AuthLoadingScreen from "@/components/AuthLoadingScreen";
 import DashboardAudioPlayer from "@/components/DashboardAudioPlayer";
 import DashboardAuthGate from "@/components/DashboardAuthGate";
+import DashboardQuickGuide from "@/components/DashboardQuickGuide";
 import OnboardingTour from "@/components/OnboardingTour";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { AudioProvider } from "@/contexts/AudioContext";
@@ -39,6 +40,7 @@ export default function DashboardLayout({
             </div>
           </AudioProvider>
         </DashboardAuthGate>
+        <DashboardQuickGuide />
         <OnboardingTour />
       </AuthProvider>
     </Suspense>

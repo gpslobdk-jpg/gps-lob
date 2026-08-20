@@ -10,7 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import PwaInstallTip from "@/components/PwaInstallTip";
 import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
-import { readStoredActiveParticipant } from "@/components/play/playUtils";
+import { DASHBOARD_QUICK_GUIDE_EVENT } from "@/components/DashboardQuickGuide";
 import { createClient } from "@/utils/supabase/client";
 
 const SKOLEGPS_FACEBOOK_GROUP_URL = "https://www.facebook.com/groups/1649785632764130";
@@ -37,14 +37,8 @@ type ActiveSessionRow = {
   id: string;
 };
 
-type ParticipantResumeRow = {
-  id: string;
-  session_id: string;
-  finished_at: string | null;
-};
-
 type ResumeTarget = {
-  kind: "participant" | "teacher";
+  kind: "teacher";
   sessionId: string;
 };
 
@@ -82,28 +76,6 @@ export default function DashboardPage() {
           }
           if (isMounted) setResumeTarget(null);
           return;
-        }
-
-        const storedParticipant = readStoredActiveParticipant();
-        if (storedParticipant?.participantId) {
-          const { data: participantData, error: participantError } = await supabase
-            .from("participants")
-            .select("id,session_id,finished_at")
-            .eq("id", storedParticipant.participantId)
-            .is("finished_at", null)
-            .maybeSingle();
-
-          if (participantError) {
-            console.error("Kunne ikke tjekke aktiv deltagerstatus:", participantError);
-          }
-
-          const activeParticipant = (participantData as ParticipantResumeRow | null) ?? null;
-          if (activeParticipant?.session_id) {
-            if (isMounted) {
-              setResumeTarget({ kind: "participant", sessionId: activeParticipant.session_id });
-            }
-            return;
-          }
         }
 
         const [
@@ -168,18 +140,13 @@ export default function DashboardPage() {
   }, [dashboardRetryKey, router]);
 
   const hasResumeTarget = Boolean(resumeTarget?.sessionId);
-  const isParticipantResume = resumeTarget?.kind === "participant";
 
   const handleLiveMonitoringClick = () => {
     if (isCheckingLiveSession) return;
 
     if (resumeTarget?.sessionId) {
       setIsNavigatingLive(true);
-      void router.push(
-        resumeTarget.kind === "participant"
-          ? `/play/${resumeTarget.sessionId}`
-          : `/dashboard/live/${resumeTarget.sessionId}`
-      );
+      void router.push(`/dashboard/live/${resumeTarget.sessionId}`);
       return;
     }
   };
@@ -295,19 +262,26 @@ export default function DashboardPage() {
       />
       <div className="fixed inset-0 hidden bg-gradient-to-b from-sky-900/20 to-emerald-900/40 backdrop-blur-[2px] -z-10 lg:block" />
 
-      <header className="flex items-center justify-between">
-        <Image src="/skolegps-logo.svg" width={150} height={50} alt="SkoleGPS logo" priority />
+      <header className="flex items-center justify-between py-3 md:py-4">
+        <Image src="/skolegps-logo.svg" width={150} height={150} alt="SkoleGPS logo" priority />
       </header>
 
-      <section className="mx-auto -mt-8 flex w-full max-w-5xl flex-col items-center text-center md:-mt-12">
+      <section className="mx-auto mt-4 flex w-full max-w-5xl flex-col items-center text-center md:mt-6">
         <h1
           className={`mb-2 text-4xl font-black tracking-tight text-white drop-shadow-md md:text-6xl ${rubik.className}`}
         >
           Hvad vil du lave?
         </h1>
         <p className="text-emerald-50">
-          {"Opret et nyt l\u00f8b, start et tidligere l\u00f8b eller \u00e5bn dine l\u00e6rerv\u00e6rkt\u00f8jer."}
+          {"Opret et nyt l\u00f8b, forts\u00e6t et aktivt l\u00f8b eller find dine tidligere l\u00f8b."}
         </p>
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event(DASHBOARD_QUICK_GUIDE_EVENT))}
+          className="mt-4 rounded-full border border-white/25 bg-slate-950/35 px-4 py-2 text-sm font-semibold text-white/90 shadow-sm backdrop-blur-md transition hover:border-white/40 hover:bg-slate-950/50 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-cyan-200"
+        >
+          Ny her? Vis den korte guide
+        </button>
       </section>
 
       <section className="mx-auto mt-8 w-full max-w-4xl">
@@ -318,6 +292,7 @@ export default function DashboardPage() {
       <section className="mx-auto mt-10 w-full max-w-2xl md:mt-14">
         <motion.button
           type="button"
+          aria-label="Opret et løb"
           onClick={() => {
             if (isNavigatingCreate) return;
             setIsNavigatingCreate(true);
@@ -359,6 +334,7 @@ export default function DashboardPage() {
         <section className="mx-auto mt-5 w-full max-w-2xl">
           <motion.button
             type="button"
+            aria-label="Fortsæt løbet"
             onClick={handleLiveMonitoringClick}
             whileHover={{ scale: 1.012 }}
             className="flex h-full w-full flex-col justify-center text-left"
@@ -370,17 +346,13 @@ export default function DashboardPage() {
                 <div className="relative z-10 flex w-full flex-col items-center justify-center text-center">
                   <div className="space-y-3">
                     <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
-                      {isParticipantResume ? "Fortsæt dit løb" : "Fortsæt løbet"}
+                      Fortsæt løbet
                     </h2>
                     <p className="text-[0.7rem] font-semibold tracking-[0.18em] text-white/70 uppercase">
-                      {isParticipantResume
-                        ? "Hop direkte tilbage til din post på ruten."
-                        : "Hop direkte tilbage ind i det aktive løb."}
+                      Hop direkte tilbage ind i det aktive løb.
                     </p>
                     <p className="mx-auto max-w-62 text-sm leading-6 text-white/84">
-                      {isParticipantResume
-                        ? "Fortsæt direkte i spillerflowet på den aktive session uden at miste din fremdrift."
-                        : "Fortsæt med livekort, svarflow og overblik præcis der, hvor du slap."}
+                      Fortsæt med livekort, svarflow og overblik præcis der, hvor du slap.
                     </p>
                   </div>
 
@@ -395,6 +367,7 @@ export default function DashboardPage() {
       <section className="mx-auto mt-8 grid w-full max-w-2xl grid-cols-1 justify-items-center gap-5 sm:grid-cols-2">
         <motion.button
           type="button"
+          aria-label="Mine løb"
           onClick={() => {
             if (isNavigatingArchive) return;
             setIsNavigatingArchive(true);
@@ -431,6 +404,7 @@ export default function DashboardPage() {
 
         <motion.button
           type="button"
+          aria-label="Lærerværktøjer"
           onClick={() => {
             if (isNavigatingTeacherTools) return;
             setIsNavigatingTeacherTools(true);
@@ -475,6 +449,7 @@ export default function DashboardPage() {
         </p>
         <motion.button
           type="button"
+          aria-label="Mobilspil"
           onClick={() => {
             if (isNavigatingMobileGames) return;
             setIsNavigatingMobileGames(true);

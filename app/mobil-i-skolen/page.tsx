@@ -51,7 +51,7 @@ export default function MobilISkolenPage() {
             href="/dashboard"
             className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/15"
           >
-            Til dashboardet
+            Til Udsigtsposten
           </Link>
         </div>
 

@@ -1,12 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowLeft, CircleHelp, Printer, Shield, Trophy } from "lucide-react";
+import { ArrowLeft, CircleHelp, Printer } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { poppins, rubik } from "@/lib/fonts";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import PwaInstallTip from "@/components/PwaInstallTip";
 import {
@@ -15,9 +14,7 @@ import {
   type AccessProfile,
 } from "@/utils/accessControl";
 import { type RaceTypeThemeKey } from "@/utils/raceTypeTheme";
-import { markDraftForAutoload, writeRunDraft } from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
-import { buildVm26Template } from "@/utils/vm26Template";
 
 const cardBaseClass =
   "group relative z-0 mx-auto flex h-[12rem] w-full max-w-[20.5rem] flex-col overflow-visible rounded-[2rem] border bg-white/10 p-0 text-left shadow-[0_22px_52px_rgba(15,23,42,0.16),0_8px_18px_rgba(15,23,42,0.07),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-lg transition-all duration-300 hover:z-20 focus-within:z-20";
@@ -29,8 +26,6 @@ const cardPanelClass =
   "relative flex h-full flex-col items-center justify-center rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.05))] px-4 py-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-16px_24px_rgba(15,23,42,0.07)]";
 
 const IS_PAYWALL_ENABLED = process.env.NEXT_PUBLIC_PAYWALL_ENABLED === "true";
-const MANUEL_DRAFT_STORAGE_KEY = "draft_run_manuel";
-
 type BuilderCard = {
   raceType: RaceTypeThemeKey;
   title: string;
@@ -45,7 +40,7 @@ type BuilderCard = {
 
 type ProfileAccessRow = AccessProfile;
 type PremiumCardAccessState = "loading" | "premium" | "trial" | "locked";
-type GameType = "stratego" | "zone-krig";
+type GameType = "zone-krig";
 type GameInfoCopy = {
   title: string;
   purpose: string;
@@ -55,15 +50,6 @@ type GameInfoCopy = {
 };
 
 const GAME_INFO_COPY: Record<GameType, GameInfoCopy> = {
-  stratego: {
-    title: "Live Stratego",
-    purpose: "Tag det klassiske brætspil ud i virkeligheden! Eleverne får pulsen op, mens de samarbejder, tænker taktisk og dyster mod hinanden i det fri.",
-    flow: "Eleverne inddeles i hold, og deres telefoner fungerer som spillebrikker på et stort, interaktivt kort. Holdene skal forsøge at finde og erobre modstandernes fane, som er gemt i en af baserne. Det kræver, at eleverne bevæger sig fysisk ud til zonerne for at angribe eller forsvare. Bliver man angrebet, dyster holdene på rang (præcis som i brætspillet), og taberen må løbe tilbage til start. Et fantastisk spil til idræt, trivselsdage eller som et aktivt afbræk i undervisningen.",
-    toneClassName:
-      "border-red-300/28 bg-[linear-gradient(145deg,rgba(127,29,29,0.94),rgba(136,19,55,0.9))] text-white shadow-[0_24px_60px_rgba(127,29,29,0.35)]",
-    iconToneClassName:
-      "border-red-300/35 bg-red-500/18 text-red-50 shadow-[0_12px_26px_rgba(239,68,68,0.22)]",
-  },
   "zone-krig": {
     title: "Zone-Krigen",
     purpose: "Gør skolegården eller lokalområdet til en levende spilleplade. Her handler det om strategi, udholdenhed og at løfte i flok som hold.",
@@ -76,20 +62,6 @@ const GAME_INFO_COPY: Record<GameType, GameInfoCopy> = {
 };
 
 const fagligeCards: BuilderCard[] = [
-  {
-    raceType: "manuel",
-    title: "Lynbygger",
-    description:
-      "Svar på få korte spørgsmål, og få et færdigt forslag til et GPS-løb med poster og spørgsmål.",
-    href: "/dashboard/opret/lynbygger",
-    badge: "NY",
-    accentClass:
-      "border-cyan-400/80 bg-cyan-950/35 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(34,211,238,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
-    accentGlowClass:
-      "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(34,211,238,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(34,211,238,0.24)]",
-    badgeClass:
-      "border-cyan-200/50 bg-cyan-300/24 text-white shadow-[0_10px_22px_rgba(34,211,238,0.2)]",
-  },
   {
     raceType: "manuel",
     title: "Generel Quiz",
@@ -251,47 +223,6 @@ function BuilderCard({ card }: { card: BuilderCard }) {
   );
 }
 
-function Vm26TemplateCard({ onCreate }: { onCreate: () => void }) {
-  return (
-    <motion.button
-      type="button"
-      whileHover={{ y: -4, scale: 1.012 }}
-      onClick={onCreate}
-      className={`${cardBaseClass} cursor-pointer border-sky-500/75 bg-sky-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(14,165,233,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]`}
-    >
-      <div className={cardBackgroundShellClass}>
-        <div className="absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(14,165,233,0.30),transparent_62%)] shadow-[inset_0_0_54px_rgba(14,165,233,0.22)]" />
-        <div className="absolute inset-[1px] rounded-[1.95rem]" />
-      </div>
-
-      <div className="absolute top-4 right-4 z-20">
-        <span className="inline-flex items-center rounded-full border border-sky-300/40 bg-sky-400/20 px-3 py-1 text-[0.58rem] font-bold tracking-[0.18em] text-white uppercase shadow-[0_10px_22px_rgba(14,165,233,0.18)] backdrop-blur-md">
-          VM26
-        </span>
-      </div>
-
-      <div className={`${cardPanelClass} text-slate-950`}>
-        <div className="relative z-10 flex h-full w-full flex-col items-center justify-center text-center">
-          <div className="mb-2 inline-flex h-11 w-11 items-center justify-center rounded-full border border-amber-200/45 bg-amber-300/18 shadow-[0_10px_30px_rgba(251,191,36,0.24)]">
-            <Trophy className="h-5 w-5 text-sky-100" />
-          </div>
-          <div className="space-y-1">
-            <h2 className={`text-[1.25rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
-              VM26 – Jagten på pokalen
-            </h2>
-            <p className="mx-auto max-w-[16.5rem] text-[0.68rem] leading-tight text-white/84">
-              Et sikkert almindeligt GPS-løb med 8 færdige fodboldposter. Ingen ny motor, bare VM-stemning i den kendte builder.
-            </p>
-            <span className="mt-2 inline-flex rounded-full border border-white/18 bg-white/12 px-3 py-1 text-[0.58rem] font-black tracking-[0.18em] text-white uppercase">
-              Opret VM26-løb
-            </span>
-          </div>
-        </div>
-      </div>
-    </motion.button>
-  );
-}
-
 function PremiumGameCardWrapper({
   href,
   children,
@@ -342,7 +273,6 @@ function GameInfoButton({
 }
 
 export default function ValgHubPage() {
-  const router = useRouter();
   const [premiumAccessState, setPremiumAccessState] = useState<PremiumCardAccessState>(() =>
     IS_PAYWALL_ENABLED ? "loading" : "premium"
   );
@@ -437,16 +367,6 @@ export default function ValgHubPage() {
   const handleInfoToggle = (gameType: GameType) => {
     setSelectedInfo((current) => (current === gameType ? null : gameType));
   };
-  const handleCreateVm26Run = useCallback(() => {
-    writeRunDraft(MANUEL_DRAFT_STORAGE_KEY, null, buildVm26Template());
-    markDraftForAutoload(MANUEL_DRAFT_STORAGE_KEY);
-    router.push("/dashboard/opret/manuel");
-  }, [router]);
-  const strategoCardHref = premiumCardsAreLocked
-    ? "/priser"
-    : premiumCardsAreLoading
-      ? undefined
-      : "/dashboard/opret/stratego";
   const zoneKrigCardHref = premiumCardsAreLocked
     ? "/priser"
     : premiumCardsAreLoading
@@ -481,7 +401,7 @@ export default function ValgHubPage() {
       <div className="fixed inset-0 hidden bg-gradient-to-b from-slate-900/18 via-slate-900/8 to-slate-950/40 backdrop-blur-[2px] -z-10 lg:block" />
 
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between py-3 md:py-4">
-        <Image src="/skolegps-logo.svg" width={150} height={50} alt="SkoleGPS logo" priority />
+        <Image src="/skolegps-logo.svg" width={150} height={150} alt="SkoleGPS logo" priority />
         <Link
           href="/dashboard"
           className="inline-flex items-center gap-2 rounded-full border border-white/18 bg-white/10 px-4 py-2 text-sm font-medium text-white shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-xl transition-all duration-300 hover:border-white/28 hover:bg-white/16"
@@ -491,15 +411,57 @@ export default function ValgHubPage() {
         </Link>
       </header>
 
-      <section className="mx-auto mt-[-4rem] flex w-full max-w-6xl flex-col items-center text-center">
+      <section className="mx-auto mt-4 flex w-full max-w-6xl flex-col items-center text-center md:mt-6">
         <h1
-          className={`text-4xl font-black tracking-[0.22em] text-white uppercase drop-shadow-[0_18px_40px_rgba(15,23,42,0.24)] md:text-6xl ${rubik.className}`}
+          className={`max-w-3xl text-4xl font-black tracking-tight text-white drop-shadow-[0_18px_40px_rgba(15,23,42,0.24)] md:text-6xl ${rubik.className}`}
         >
-          VÆLG LØBSTYPE
+          Hvordan vil du lave dit løb?
         </h1>
       </section>
 
-      <section className="mx-auto mt-56 w-full max-w-6xl lg:mt-64">
+      <aside className="mx-auto mt-6 w-full max-w-3xl rounded-2xl border border-sky-300/55 bg-sky-950/72 px-5 py-4 text-left shadow-[0_18px_46px_rgba(15,23,42,0.24)] backdrop-blur-xl lg:hidden">
+        <p className="text-sm font-black text-sky-100">Bedst på computer</p>
+        <p className="mt-1 text-sm leading-6 text-sky-50/82">
+          Oprettelse og redigering af løb fungerer bedst på en større skærm, hvor der er plads til kort og spørgsmål.
+        </p>
+      </aside>
+
+      <section className="mx-auto mt-8 w-full max-w-4xl">
+        <Link
+          href="/dashboard/opret/lynbygger"
+          data-tour="valg-lynbygger"
+          data-testid="create-card-lynbygger"
+          className="group block rounded-[2rem] focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-cyan-200"
+        >
+          <motion.article
+            whileHover={{ y: -4, scale: 1.008 }}
+            className="relative overflow-hidden rounded-[2rem] border-2 border-cyan-300/85 bg-[linear-gradient(135deg,rgba(8,47,73,0.97),rgba(6,78,59,0.94))] px-6 py-8 text-left shadow-[0_30px_80px_rgba(8,145,178,0.32),inset_0_1px_0_rgba(255,255,255,0.2)] sm:px-9 sm:py-9"
+          >
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(103,232,249,0.26),transparent_42%)]" />
+            <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="max-w-xl">
+                <span className="inline-flex rounded-full border border-cyan-100/35 bg-cyan-200/15 px-3 py-1 text-[0.65rem] font-black tracking-[0.18em] text-cyan-50 uppercase">
+                  Anbefalet til nye brugere
+                </span>
+                <h2 className={`mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl ${rubik.className}`}>
+                  Start med Lynbyggeren
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-cyan-50/86 sm:text-base">
+                  Skriv emne og klassetrin – gennemse og godkend spørgsmålene bagefter.
+                </p>
+              </div>
+              <span className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-xl bg-cyan-300 px-6 py-3 text-sm font-black text-slate-950 transition group-hover:bg-cyan-200">
+                Åbn Lynbyggeren
+              </span>
+            </div>
+          </motion.article>
+        </Link>
+      </section>
+
+      <section className="mx-auto mt-12 w-full max-w-6xl">
+        <h2 className={`mb-8 text-center text-2xl font-black tracking-tight text-white drop-shadow-md sm:text-3xl ${rubik.className}`}>
+          Andre måder at lave et løb
+        </h2>
         <h2 className={`text-2xl font-black tracking-[0.18em] text-white drop-shadow-md uppercase mb-3 ${rubik.className}`}>
           Faglige Værktøjer
         </h2>
@@ -568,46 +530,6 @@ export default function ValgHubPage() {
           Spil
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 justify-items-center gap-8">
-          <PremiumGameCardWrapper href={strategoCardHref}>
-            <motion.article
-              whileHover={strategoCardHref ? { y: -4, scale: 1.012 } : undefined}
-              className={`${cardBaseClass} ${strategoCardHref ? "cursor-pointer" : "cursor-default"} border-red-500/75 bg-red-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(239,68,68,0.28),inset_0_1px_0_rgba(255,255,255,0.18)] ${premiumCardsAreLocked ? "ring-1 ring-amber-300/20" : ""}`}
-            >
-              <div className={cardBackgroundShellClass}>
-                <div className="absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(249,115,22,0.28),transparent_62%),radial-gradient(circle_at_center,rgba(239,68,68,0.2),transparent_70%)] shadow-[inset_0_0_54px_rgba(239,68,68,0.18)]" />
-                <div className="absolute inset-[1px] rounded-[1.95rem]" />
-              </div>
-              <GameInfoButton
-                gameType="stratego"
-                isOpen={selectedInfo === "stratego"}
-                onToggle={handleInfoToggle}
-              />
-
-              <div className="absolute top-4 right-4 z-20">
-                <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[0.58rem] font-bold tracking-[0.18em] text-white uppercase shadow-[0_10px_22px_rgba(239,68,68,0.22)] backdrop-blur-md ${premiumBadgeLabel ? premiumBadgeClass : "border-red-300/40 bg-red-400/20"}`}>
-                  {premiumBadgeLabel ?? "NYT SPIL"}
-                </span>
-              </div>
-
-              <div className={`${cardPanelClass} text-slate-950`}>
-                <div className="relative z-10 flex h-full w-full flex-col items-center justify-center text-center">
-                  <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full border border-red-300/35 bg-red-500/18 shadow-[0_10px_30px_rgba(239,68,68,0.22)]">
-                    <Shield className="h-6 w-6 text-orange-200" />
-                  </div>
-
-                  <div className="space-y-1">
-                    <h2 className={`text-[1.4rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
-                      Live Stratego
-                    </h2>
-                    <p className="mx-auto max-w-[15rem] text-xs leading-tight text-white/84">
-                      Det klassiske brætspil vækkes til live. Eleverne får hemmelige roller på mobilen og dyster i virkeligheden.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </motion.article>
-          </PremiumGameCardWrapper>
-
           <PremiumGameCardWrapper href={zoneKrigCardHref}>
             <motion.article
               whileHover={zoneKrigCardHref ? { y: -4, scale: 1.012 } : undefined}
@@ -644,7 +566,6 @@ export default function ValgHubPage() {
             </motion.article>
           </PremiumGameCardWrapper>
 
-          <Vm26TemplateCard onCreate={handleCreateVm26Run} />
         </div>
       </section>
 
