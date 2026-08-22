@@ -4,11 +4,19 @@ import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
-import { getSafeDagensTavlePath, isTrustedSkoleGpsRequest } from "../lib/familySso/config";
+import {
+  getFamilySsoAudience,
+  getFamilySsoExchangeSecret,
+  getFamilySsoOrigin,
+  getSafeDagensTavlePath,
+  getSafeFamilySsoPath,
+  isTrustedSkoleGpsRequest,
+} from "../lib/familySso/config";
 import {
   signFamilySsoBackchannel,
   verifyFamilySsoBackchannel,
 } from "../lib/familySso/crypto";
+import { createPrintMitIdentity, isActiveFamilySsoUser } from "../lib/familySso/identity";
 
 const read = (...segments: string[]) => readFileSync(join(process.cwd(), ...segments), "utf8");
 
@@ -65,6 +73,26 @@ test.describe("DagensTavle family SSO security contract", () => {
     ]) {
       expect(getSafeDagensTavlePath(unsafe), unsafe).toBe("/skema");
     }
+  });
+
+  test("accepts the PrintMit audience with a separate exact destination and secret", () => {
+    expect(getFamilySsoAudience("printmitarbejdsark")).toBe("printmitarbejdsark");
+    expect(getFamilySsoAudience("unknown")).toBeNull();
+    expect(getSafeFamilySsoPath("printmitarbejdsark", "/lav?fra=skolegps")).toBe("/lav?fra=skolegps");
+    for (const unsafe of ["https://evil.invalid", "//evil.invalid", "/\\evil.invalid", "/%2e%2e/admin"]) {
+      expect(getSafeFamilySsoPath("printmitarbejdsark", unsafe), unsafe).toBe("/lav");
+    }
+
+    const previousOrigin = process.env.PRINTMITARBEJDSARK_SSO_ORIGIN;
+    const previousSecret = process.env.PRINTMITARBEJDSARK_SSO_EXCHANGE_SECRET;
+    process.env.PRINTMITARBEJDSARK_SSO_ORIGIN = "https://printmitarbejdsark.vercel.app";
+    process.env.PRINTMITARBEJDSARK_SSO_EXCHANGE_SECRET = "p".repeat(48);
+    expect(getFamilySsoOrigin("printmitarbejdsark")).toBe("https://printmitarbejdsark.vercel.app");
+    expect(getFamilySsoExchangeSecret("printmitarbejdsark")).toBe("p".repeat(48));
+    process.env.PRINTMITARBEJDSARK_SSO_ORIGIN = "https://attacker.vercel.app";
+    expect(getFamilySsoOrigin("printmitarbejdsark")).toBeNull();
+    process.env.PRINTMITARBEJDSARK_SSO_ORIGIN = previousOrigin;
+    process.env.PRINTMITARBEJDSARK_SSO_EXCHANGE_SECRET = previousSecret;
   });
 
   test("requires a fresh, exact HMAC and rejects replay outside the clock window", () => {
@@ -128,6 +156,50 @@ test.describe("DagensTavle family SSO security contract", () => {
     for (const route of [startRoute, backchannel, revokeRoute]) {
       expect(route).not.toMatch(/console\.(?:log|info|warn|error)/);
     }
+  });
+
+  test("returns identity rather than a SkoleGPS magic token for PrintMit", () => {
+    const backchannel = read("app", "api", "family-sso", "backchannel", "route.ts");
+    const identityHelper = read("lib", "familySso", "identity.ts");
+    const startRoute = read("app", "api", "family-sso", "start", "route.ts");
+    const migration = read("supabase", "migrations", "202608080001_dagenstavle_family_sso.sql");
+    const printIdentityBranch = backchannel.lastIndexOf('if (audience === "printmitarbejdsark")');
+
+    expect(printIdentityBranch).toBeGreaterThan(0);
+    expect(identityHelper).toContain('issuer: "skolegps"');
+    expect(backchannel).toContain("requestId");
+    expect(printIdentityBranch).toBeLessThan(backchannel.indexOf("admin.auth.admin.generateLink"));
+    expect(startRoute).toContain('searchParams.set("audience", audience)');
+    expect(migration).toContain("status = 'consumed'");
+    expect(migration).toContain("and r.nonce_hash = p_nonce_hash");
+    expect(migration).toContain("and r.destination_origin = p_destination_origin");
+    expect(backchannel).not.toMatch(/PRINTMIT.*SERVICE_ROLE|PRINTMIT.*SUPABASE_SERVICE/i);
+
+    expect(createPrintMitIdentity({
+      subject: "11111111-1111-4111-8111-111111111111",
+      email: "teacher@example.invalid",
+      requestId: "r".repeat(43),
+      now: 1_786_147_200_000,
+    })).toEqual({
+      version: 1,
+      issuer: "skolegps",
+      audience: "printmitarbejdsark",
+      subject: "11111111-1111-4111-8111-111111111111",
+      email: "teacher@example.invalid",
+      issuedAt: 1_786_147_200_000,
+      expiresAt: 1_786_147_290_000,
+      requestId: "r".repeat(43),
+    });
+    expect(isActiveFamilySsoUser({
+      email: "teacher@example.invalid",
+      email_confirmed_at: new Date(1_700_000_000_000).toISOString(),
+    }, 1_786_147_200_000)).toBe(true);
+    expect(isActiveFamilySsoUser({
+      email: "teacher@example.invalid",
+      email_confirmed_at: new Date(1_700_000_000_000).toISOString(),
+      banned_until: new Date(1_786_147_201_000).toISOString(),
+    }, 1_786_147_200_000)).toBe(false);
+    expect(isActiveFamilySsoUser({ email: null, email_confirmed_at: null }, 1_786_147_200_000)).toBe(false);
   });
 
   test("renders four distinct accessible tool cards without horizontal overflow", async ({ page }) => {

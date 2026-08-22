@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 
 import {
   FAMILY_SSO_TTL_SECONDS,
-  getDagensTavleSsoOrigin,
+  FAMILY_SSO_REQUEST_PATTERN,
+  getFamilySsoAudience,
   getFamilySsoExchangeSecret,
-  getSafeDagensTavlePath,
-  isFamilySsoEnabled,
+  getFamilySsoOrigin,
+  getSafeFamilySsoPath,
+  isFamilySsoAudienceEnabled,
 } from "@/lib/familySso/config";
-import { verifyFamilySsoBackchannel } from "@/lib/familySso/crypto";
+import { digestFamilySsoValue, verifyFamilySsoBackchannel } from "@/lib/familySso/crypto";
+import { createPrintMitIdentity, isActiveFamilySsoUser } from "@/lib/familySso/identity";
 import { createAdminClient } from "@/utils/supabase/admin";
 
 export const runtime = "nodejs";
@@ -41,36 +44,32 @@ function isHash(value: unknown): value is string {
   return typeof value === "string" && HASH_PATTERN.test(value);
 }
 
-function isActiveAuthUser(user: {
-  email?: string | null;
-  email_confirmed_at?: string | null;
-  banned_until?: string | null;
-}) {
-  const bannedUntil = user.banned_until ? Date.parse(user.banned_until) : Number.NaN;
-  return Boolean(
-    user.email &&
-    user.email_confirmed_at &&
-    (!Number.isFinite(bannedUntil) || bannedUntil <= Date.now())
-  );
-}
-
 export async function POST(request: Request) {
-  if (!isFamilySsoEnabled()) return json({ ok: false, code: "DISABLED" }, 404);
-
   const contentLength = Number(request.headers.get("content-length") ?? "0");
   if (Number.isFinite(contentLength) && contentLength > 4096) {
     return json({ ok: false, code: "INVALID_REQUEST" }, 413);
   }
 
-  const secret = getFamilySsoExchangeSecret();
-  const destinationOrigin = getDagensTavleSsoOrigin();
+  const rawBody = await request.text();
+  if (rawBody.length > 4096) return json({ ok: false, code: "INVALID_REQUEST" }, 413);
+  let parsed: JsonRecord | null = null;
+  try {
+    parsed = asRecord(JSON.parse(rawBody));
+  } catch {
+    return json({ ok: false, code: "INVALID_REQUEST" }, 400);
+  }
+  if (!parsed) return json({ ok: false, code: "INVALID_REQUEST" }, 400);
+
+  const audience = getFamilySsoAudience(parsed.audience);
+  if (!audience) return json({ ok: false, code: "INVALID_AUDIENCE" }, 400);
+  if (!isFamilySsoAudienceEnabled(audience)) return json({ ok: false, code: "DISABLED" }, 404);
+  const secret = getFamilySsoExchangeSecret(audience);
+  const destinationOrigin = getFamilySsoOrigin(audience);
   const admin = createAdminClient();
   if (!secret || !destinationOrigin || !admin) {
     return json({ ok: false, code: "NOT_CONFIGURED" }, 503);
   }
 
-  const rawBody = await request.text();
-  if (rawBody.length > 4096) return json({ ok: false, code: "INVALID_REQUEST" }, 413);
   if (!verifyFamilySsoBackchannel({
     body: rawBody,
     timestamp: request.headers.get("x-family-sso-timestamp"),
@@ -79,14 +78,6 @@ export async function POST(request: Request) {
   })) {
     return json({ ok: false, code: "UNAUTHORIZED" }, 401);
   }
-
-  let parsed: JsonRecord | null = null;
-  try {
-    parsed = asRecord(JSON.parse(rawBody));
-  } catch {
-    return json({ ok: false, code: "INVALID_REQUEST" }, 400);
-  }
-  if (!parsed) return json({ ok: false, code: "INVALID_REQUEST" }, 400);
 
   const action = parsed.action;
   const requestHash = parsed.requestHash;
@@ -97,7 +88,7 @@ export async function POST(request: Request) {
 
   if (action === "create") {
     if (!isHash(nonceHash)) return json({ ok: false, code: "INVALID_REQUEST" }, 400);
-    const returnPath = getSafeDagensTavlePath(parsed.returnPath);
+    const returnPath = getSafeFamilySsoPath(audience, parsed.returnPath);
     const { error } = await admin.from("family_sso_requests").insert({
       request_hash: requestHash,
       nonce_hash: nonceHash,
@@ -124,6 +115,16 @@ export async function POST(request: Request) {
       return json({ ok: false, code: "HANDOFF_INVALID" }, 410);
     }
 
+    if (audience === "printmitarbejdsark") {
+      return json({
+        ok: true,
+        subject: handoff.user_id,
+        termsAccepted: true,
+        disabled: false,
+        termsVersion: null,
+      });
+    }
+
     const { data: profile } = await admin
       .from("dagenstavle_family_profiles")
       .select("terms_version,terms_accepted_at,disabled_at")
@@ -143,6 +144,7 @@ export async function POST(request: Request) {
   }
 
   if (action === "accept_terms") {
+    if (audience !== "dagenstavle") return json({ ok: false, code: "INVALID_ACTION" }, 400);
     const { data: handoff } = await admin
       .from("family_sso_requests")
       .select("user_id,status,expires_at")
@@ -184,6 +186,16 @@ export async function POST(request: Request) {
 
   if (action !== "consume") return json({ ok: false, code: "INVALID_ACTION" }, 400);
 
+  const requestId = parsed.requestId;
+  if (
+    audience === "printmitarbejdsark" &&
+    (typeof requestId !== "string" ||
+      !FAMILY_SSO_REQUEST_PATTERN.test(requestId) ||
+      digestFamilySsoValue(requestId) !== requestHash)
+  ) {
+    return json({ ok: false, code: "INVALID_REQUEST" }, 400);
+  }
+
   const { data: consumed, error: consumeError } = await admin.rpc(
     "consume_family_sso_request",
     {
@@ -200,11 +212,25 @@ export async function POST(request: Request) {
   const { data: userData, error: userError } = await admin.auth.admin.getUserById(
     consumedRow.user_id
   );
-  if (userError || !userData.user || !isActiveAuthUser(userData.user)) {
+  if (userError || !userData.user || !isActiveFamilySsoUser(userData.user)) {
     return json({ ok: false, code: "ACCOUNT_DISABLED" }, 403);
   }
   if (userData.user.email?.toLowerCase() !== String(consumedRow.verified_email).toLowerCase()) {
     return json({ ok: false, code: "IDENTITY_CHANGED" }, 403);
+  }
+
+  if (audience === "printmitarbejdsark") {
+    const identity = createPrintMitIdentity({
+      subject: consumedRow.user_id,
+      email: userData.user.email,
+      requestId: String(requestId),
+    });
+    if (!identity) return json({ ok: false, code: "IDENTITY_INVALID" }, 500);
+    return json({
+      ok: true,
+      identity,
+      next: getSafeFamilySsoPath(audience, consumedRow.return_path),
+    });
   }
 
   const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
@@ -223,6 +249,6 @@ export async function POST(request: Request) {
     subject: consumedRow.user_id,
     tokenHash,
     tokenType: "magiclink",
-    next: getSafeDagensTavlePath(consumedRow.return_path),
+    next: getSafeFamilySsoPath(audience, consumedRow.return_path),
   });
 }
