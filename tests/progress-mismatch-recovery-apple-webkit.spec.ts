@@ -46,6 +46,24 @@ async function mountMocks(
   options: MockOptions
 ) {
   const requests: MockAnswerRequest[] = [];
+  const answeredPostIndexes = new Set<number>();
+  const questionCount = options.questionCount ?? 2;
+  const routeOrder = Array.from(
+    { length: questionCount },
+    (_, index) =>
+      options.postOrderMode === "distributed_circular"
+        ? ((options.startOffset ?? 0) + index) % questionCount
+        : index
+  );
+  const progressSnapshot = () => {
+    const expectedPostIndex =
+      routeOrder.find((postIndex) => !answeredPostIndexes.has(postIndex)) ?? null;
+    return {
+      answeredPostIndexes: [...answeredPostIndexes].sort((a, b) => a - b),
+      expectedPostIndex,
+      isFinished: expectedPostIndex === null,
+    };
+  };
   let joinCount = 0;
   let joinCountAtFirstSubmit: number | null = null;
 
@@ -87,7 +105,7 @@ async function mountMocks(
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        questions: questions(options.questionCount ?? 2),
+        questions: questions(questionCount),
         raceType: "quiz",
         postOrderMode: options.postOrderMode ?? "fixed",
         usesStandardStudentLocationExperience: true,
@@ -119,6 +137,7 @@ async function mountMocks(
                 lat: POST_LAT,
                 lng: POST_LNG,
               },
+              progress: progressSnapshot(),
             }
           : { error: "Not found" }
       ),
@@ -137,10 +156,30 @@ async function mountMocks(
       joinCountAtFirstSubmit = joinCount;
     }
     const response = options.onSubmit(request, requests.length);
+    const responseAnsweredPostIndexes = response.body.answeredPostIndexes;
+    if (Array.isArray(responseAnsweredPostIndexes)) {
+      answeredPostIndexes.clear();
+      for (const postIndex of responseAnsweredPostIndexes) {
+        if (Number.isInteger(postIndex)) {
+          answeredPostIndexes.add(Number(postIndex));
+        }
+      }
+    }
+    if (response.status === 200 && response.body.inserted === true) {
+      const submittedPostIndex = Number(request.payloads?.[0]?.question_index);
+      if (Number.isInteger(submittedPostIndex) && submittedPostIndex >= 0) {
+        answeredPostIndexes.add(submittedPostIndex);
+      }
+    }
+    const responseBody =
+      (response.status === 200 && response.body.inserted === true) ||
+      response.body.code === "PROGRESS_MISMATCH"
+        ? { ...response.body, ...progressSnapshot() }
+        : response.body;
     await route.fulfill({
       status: response.status,
       contentType: "application/json",
-      body: JSON.stringify(response.body),
+      body: JSON.stringify(responseBody),
     });
   });
 

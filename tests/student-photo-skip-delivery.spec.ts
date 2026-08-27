@@ -109,7 +109,7 @@ test.describe("student photo delivery backend contract", () => {
       "async function fetchActiveSession"
     );
     const lookupEnd = photoRouteSource.indexOf(
-      "async function fetchAnsweredPhotoProgress",
+      "async function findExistingPhotoAnswer",
       lookupStart
     );
     const lookup = photoRouteSource.slice(lookupStart, lookupEnd);
@@ -120,6 +120,26 @@ test.describe("student photo delivery backend contract", () => {
     expect(photoRouteSource).toMatch(
       /if\s*\(!activeSessionLookup\.ok\)\s*\{[\s\S]*?SESSION_LOOKUP_FAILED[\s\S]*?status:\s*503/
     );
+  });
+
+  test("normal and duplicate robust photo responses share authoritative progression", () => {
+    const duplicateResponse = photoRouteSource.slice(
+      photoRouteSource.indexOf("async function createPhotoDuplicateResponse"),
+      photoRouteSource.indexOf("async function insertPhotoAnswerWithOperationFallback")
+    );
+    const normalResponseStart = photoRouteSource.indexOf(
+      "const progressSnapshot = usesRobustStandardPhotoDelivery"
+    );
+    const normalResponse = photoRouteSource.slice(
+      normalResponseStart,
+      photoRouteSource.indexOf("} catch (error)", normalResponseStart)
+    );
+
+    expect(photoRouteSource).toContain("fetchAuthoritativeProgressSnapshot");
+    expect(duplicateResponse).toContain("fetchAuthoritativeProgressSnapshot({");
+    expect(duplicateResponse).toContain("...progressSnapshot");
+    expect(normalResponse).toContain("fetchAuthoritativeProgressSnapshot({");
+    expect(normalResponse).toContain("progressSnapshot ?? {}");
   });
 
   test("does not add photo paths, blobs, or participant identifiers to new client telemetry", () => {
@@ -212,5 +232,24 @@ test.describe("student skip delivery backend contract", () => {
     expect(skipRouteSource).not.toContain("indexedDB");
     expect(skipRouteSource).not.toContain("enqueue");
     expect(skipRouteSource).toContain("skipped: true");
+  });
+
+  test("normal, duplicate, and final skip responses return authoritative progression", () => {
+    const duplicateResponse = skipRouteSource.slice(
+      skipRouteSource.indexOf("function createSkipDuplicateResponse"),
+      skipRouteSource.indexOf("function createSkipOutcomeConflictResponse")
+    );
+    const normalResponseStart = skipRouteSource.lastIndexOf(
+      "await maybeStampRunStartedAt("
+    );
+    const normalResponse = skipRouteSource.slice(
+      normalResponseStart,
+      skipRouteSource.indexOf("} catch (error)", normalResponseStart)
+    );
+
+    expect(skipRouteSource).toContain("fetchAuthoritativeProgressSnapshot");
+    expect(duplicateResponse).toContain("...progressSnapshot");
+    expect(normalResponse).toContain("refreshProgressSnapshot()");
+    expect(normalResponse).toContain("...progressSnapshot");
   });
 });

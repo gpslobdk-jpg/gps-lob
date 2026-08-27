@@ -89,6 +89,66 @@ type ResolveRestoredPostIndexParams = {
   enforceRouteOrder: boolean;
 };
 
+export type AuthoritativeProgressSnapshot = {
+  answeredPostIndexes: number[];
+  expectedPostIndex: number | null;
+  isFinished: boolean;
+};
+
+export function normalizeAuthoritativeProgressSnapshot(
+  value: unknown,
+  questionCount: number
+): AuthoritativeProgressSnapshot | null {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !Number.isInteger(questionCount) ||
+    questionCount <= 0
+  ) {
+    return null;
+  }
+
+  const candidate = value as Partial<AuthoritativeProgressSnapshot>;
+  if (
+    !Array.isArray(candidate.answeredPostIndexes) ||
+    typeof candidate.isFinished !== "boolean" ||
+    candidate.answeredPostIndexes.some(
+      (postIndex) =>
+        !Number.isInteger(postIndex) ||
+        postIndex < 0 ||
+        postIndex >= questionCount
+    )
+  ) {
+    return null;
+  }
+
+  const answeredPostIndexes = [...new Set(candidate.answeredPostIndexes)].sort(
+    (a, b) => a - b
+  );
+  const expectedPostIndex = candidate.expectedPostIndex;
+  const hasValidExpectedPostIndex =
+    expectedPostIndex === null ||
+    (typeof expectedPostIndex === "number" &&
+      Number.isInteger(expectedPostIndex) &&
+      expectedPostIndex >= 0 &&
+      expectedPostIndex < questionCount &&
+      !answeredPostIndexes.includes(expectedPostIndex));
+
+  if (
+    !hasValidExpectedPostIndex ||
+    candidate.isFinished !== (expectedPostIndex === null) ||
+    (candidate.isFinished && answeredPostIndexes.length < questionCount)
+  ) {
+    return null;
+  }
+
+  return {
+    answeredPostIndexes,
+    expectedPostIndex: expectedPostIndex ?? null,
+    isFinished: candidate.isFinished,
+  };
+}
+
 /**
  * A distributed circular route is server-assigned, so a snapshot may resume
  * only at the next unresolved post in that route. Fixed/special-game sessions
@@ -100,10 +160,21 @@ export function resolveRestoredPostIndex({
   snapshotCurrentPostIndex,
   enforceRouteOrder,
 }: ResolveRestoredPostIndexParams) {
-  const firstRoutePostIndex = routeOrder[0] ?? 0;
+  if (
+    routeOrder.length === 0 ||
+    routeOrder.some(
+      (postIndex, index) =>
+        !Number.isInteger(postIndex) ||
+        postIndex < 0 ||
+        routeOrder.indexOf(postIndex) !== index
+    )
+  ) {
+    throw new Error("Restore route is empty or invalid.");
+  }
+
   const answeredPosts = new Set(answeredPostIndexes);
   const nextRoutePostIndex =
-    routeOrder.find((postIndex) => !answeredPosts.has(postIndex)) ?? firstRoutePostIndex;
+    routeOrder.find((postIndex) => !answeredPosts.has(postIndex)) ?? null;
   const isValidSnapshotPost =
     typeof snapshotCurrentPostIndex === "number" &&
     Number.isInteger(snapshotCurrentPostIndex) &&

@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import {
+  fetchAuthoritativeProgressSnapshot,
+  fetchRunForSession,
+  getServerRouteOrder,
+  supportsServerStaggeredStart,
+} from "@/app/api/play/_shared";
+import { usesStandardStudentLocationExperience } from "@/lib/location/studentLocationState";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { logServerResponseError } from "@/utils/telemetry/serverLogs";
 import { resolveParticipantRequestContext } from "@/utils/supabase/participantServer";
@@ -73,6 +80,7 @@ async function fetchParticipantSnapshot(
 export async function GET(request: NextRequest) {
   const claimedSessionId = asTrimmedString(request.nextUrl.searchParams.get("sessionId"));
   const claimedParticipantId = asTrimmedString(request.nextUrl.searchParams.get("participantId"));
+  const includeProgress = request.nextUrl.searchParams.get("includeProgress") === "1";
   const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
 
   if (!claimedSessionId || !claimedParticipantId) {
@@ -143,10 +151,82 @@ export async function GET(request: NextRequest) {
   const participant = exposeLocation
     ? data
     : { ...data, lat: null, lng: null, accuracy: null };
+  let progress = null;
+  if (includeProgress) {
+    let run: Awaited<ReturnType<typeof fetchRunForSession>>;
+    try {
+      run = await fetchRunForSession(sessionId);
+    } catch (runError) {
+      await logServerResponseError({
+        route: "/api/play/participant",
+        method: "GET",
+        status: 503,
+        error: runError,
+        requestPath,
+        participantId,
+        sessionId,
+      });
+      return NextResponse.json(
+        { error: "Kunne ikke hente løbets progression." },
+        { status: 503 }
+      );
+    }
+    if (!run) {
+      return NextResponse.json(
+        { error: "Løbet kunne ikke findes." },
+        { status: 404 }
+      );
+    }
+    const rawRaceType = run.raceType ?? run.race_type;
+    if (
+      usesStandardStudentLocationExperience(rawRaceType) &&
+      Array.isArray(run.questions) &&
+      run.questions.length > 0
+    ) {
+      try {
+        progress = await fetchAuthoritativeProgressSnapshot({
+          sessionId,
+          participantId,
+          routeOrder: getServerRouteOrder(
+            run.questions.length,
+            participantContext.data.startOffset ?? 0,
+            supportsServerStaggeredStart(
+              rawRaceType,
+              run.sessionPostOrderMode,
+              run.routeVersion
+            )
+          ),
+          adminSupabase,
+        });
+      } catch (progressError) {
+        await logServerResponseError({
+          route: "/api/play/participant",
+          method: "GET",
+          status: 503,
+          error: progressError,
+          requestPath,
+          participantId,
+          sessionId,
+        });
+        return NextResponse.json(
+          { error: "Kunne ikke hente deltagerens progression." },
+          { status: 503 }
+        );
+      }
+    }
+
+    if (progress === null) {
+      return NextResponse.json(
+        { error: "Deltagerprogression understøttes ikke sikkert." },
+        { status: 503 }
+      );
+    }
+  }
 
   return NextResponse.json(
     {
       participant,
+      ...(includeProgress ? { progress } : {}),
     },
     {
       headers: {

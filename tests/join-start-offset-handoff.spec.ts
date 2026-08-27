@@ -7,6 +7,7 @@ import {
   resolveRestoredPostIndex,
 } from "@/components/play/participantHandoff";
 import type { StoredActiveParticipant } from "@/components/play/types";
+import { getNextRoutePostIndex } from "@/components/play/playUtils";
 import { buildCircularRouteOrder } from "@/lib/routes/postOrderPolicy";
 
 const JOINED_AT = "2026-07-26T10:00:00.000Z";
@@ -126,7 +127,66 @@ test.describe("normal join start-offset handoff", () => {
     ).toBe(0);
   });
 
-  test("fixed and special-game snapshots retain the existing permissive restore behavior", () => {
+  test("an all-complete fixed route restores as finished instead of restarting at post zero", () => {
+    expect(
+      resolveRestoredPostIndex({
+        routeOrder: [0, 1, 2, 3, 4],
+        answeredPostIndexes: [0, 1, 2, 3, 4],
+        snapshotCurrentPostIndex: 4,
+        enforceRouteOrder: false,
+      })
+    ).toBeNull();
+  });
+
+  test("an all-complete distributed route restores as finished instead of restarting at its offset", () => {
+    expect(
+      resolveRestoredPostIndex({
+        routeOrder: [3, 4, 0, 1, 2],
+        answeredPostIndexes: [0, 1, 2, 3, 4],
+        snapshotCurrentPostIndex: 2,
+        enforceRouteOrder: true,
+      })
+    ).toBeNull();
+  });
+
+  test("a completed one-post route restores as finished", () => {
+    expect(
+      resolveRestoredPostIndex({
+        routeOrder: [0],
+        answeredPostIndexes: [0],
+        snapshotCurrentPostIndex: 0,
+        enforceRouteOrder: false,
+      })
+    ).toBeNull();
+  });
+
+  test("an invalid empty route fails closed instead of inventing post zero", () => {
+    expect(() =>
+      resolveRestoredPostIndex({
+        routeOrder: [],
+        answeredPostIndexes: [],
+        snapshotCurrentPostIndex: 0,
+        enforceRouteOrder: true,
+      })
+    ).toThrow("Restore route is empty or invalid");
+  });
+
+  test("out-of-order completion selects the first actually unresolved route post", () => {
+    expect(getNextRoutePostIndex([0, 1, 2, 3, 4], new Set([0, 1, 3]))).toBe(2);
+  });
+
+  test("standard fixed restore ignores a stale later snapshot and selects the first unresolved post", () => {
+    expect(
+      resolveRestoredPostIndex({
+        routeOrder: [0, 1, 2, 3],
+        answeredPostIndexes: [],
+        snapshotCurrentPostIndex: 2,
+        enforceRouteOrder: true,
+      })
+    ).toBe(0);
+  });
+
+  test("legacy special-game snapshots retain the existing permissive restore behavior", () => {
     expect(
       resolveRestoredPostIndex({
         routeOrder: [0, 1, 2, 3],

@@ -133,7 +133,13 @@ async function mockApiRoutes(page: Page) {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ inserted: true, awardedPoints: 0 }),
+      body: JSON.stringify({
+        inserted: true,
+        awardedPoints: 0,
+        answeredPostIndexes: [0],
+        expectedPostIndex: 1,
+        isFinished: false,
+      }),
     });
   });
 

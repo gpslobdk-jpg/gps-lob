@@ -22,9 +22,9 @@ import { createPhotoRateLimitFingerprint } from "@/lib/studentData/photoRateLimi
 import { registerParticipantPhotoObject } from "@/utils/supabase/participantPhotos";
 import {
   asTrimmedString,
+  fetchAuthoritativeProgressSnapshot,
   fetchParticipantStartState,
   fetchRunForSession,
-  getAnsweredPostIndex,
   getFirstRoutePostIndexForParticipant,
   getServerRouteOrder,
   resolveQuestionVariant,
@@ -47,11 +47,6 @@ type ResolvedPhotoRun = NonNullable<
 
 type ActiveSessionRow = {
   id?: string | null;
-};
-
-type PhotoProgressRow = {
-  post_index?: number | string | null;
-  question_index?: number | string | null;
 };
 
 type ExistingPhotoAnswerRow = {
@@ -252,48 +247,6 @@ async function fetchActiveSession(
   };
 }
 
-async function fetchAnsweredPhotoProgress(
-  sessionId: string,
-  participantId: string,
-  adminSupabase: AdminSupabaseClient
-) {
-  for (const selectClause of [
-    "question_index,post_index",
-    "question_index",
-    "post_index",
-  ] as const) {
-    const { data, error } = await adminSupabase
-      .from("answers")
-      .select(selectClause)
-      .eq("session_id", sessionId)
-      .eq("participant_id", participantId);
-
-    if (error) {
-      if (isMissingColumnError(error)) {
-        continue;
-      }
-
-      throw new Error(
-        error.message ?? "Kunne ikke hente eksisterende foto-progression."
-      );
-    }
-
-    const answeredPostIndexes = new Set<number>();
-    for (const row of (Array.isArray(data) ? data : []) as PhotoProgressRow[]) {
-      const answeredPostIndex = getAnsweredPostIndex(
-        row as Record<string, unknown>
-      );
-      if (answeredPostIndex !== null && answeredPostIndex >= 0) {
-        answeredPostIndexes.add(answeredPostIndex);
-      }
-    }
-
-    return answeredPostIndexes;
-  }
-
-  return null;
-}
-
 async function findExistingPhotoAnswer(
   sessionId: string,
   studentName: string,
@@ -461,12 +414,22 @@ async function validateStandardPhotoProgress({
   run: ResolvedPhotoRun;
   adminSupabase: AdminSupabaseClient;
 }) {
-  const answeredPostIndexes = await fetchAnsweredPhotoProgress(
+  const routeOrder = getServerRouteOrder(
+    run.questions.length,
+    startOffset ?? 0,
+    supportsServerStaggeredStart(
+      run.raceType ?? run.race_type,
+      run.sessionPostOrderMode,
+      run.routeVersion
+    )
+  );
+  const progressSnapshot = await fetchAuthoritativeProgressSnapshot({
     sessionId,
     participantId,
-    adminSupabase
-  );
-  if (answeredPostIndexes === null) {
+    routeOrder,
+    adminSupabase,
+  });
+  if (progressSnapshot === null) {
     return {
       ok: false as const,
       response: NextResponse.json(
@@ -480,19 +443,7 @@ async function validateStandardPhotoProgress({
     };
   }
 
-  const routeOrder = getServerRouteOrder(
-    run.questions.length,
-    startOffset ?? 0,
-    supportsServerStaggeredStart(
-      run.raceType ?? run.race_type,
-      run.sessionPostOrderMode,
-      run.routeVersion
-    )
-  );
-  const expectedPostIndex =
-    routeOrder.find(
-      (candidatePostIndex) => !answeredPostIndexes.has(candidatePostIndex)
-    ) ?? null;
+  const { expectedPostIndex } = progressSnapshot;
 
   if (expectedPostIndex !== postIndex) {
     return {
@@ -502,7 +453,7 @@ async function validateStandardPhotoProgress({
           error: "Foto-posten er ikke laengere synkron med loebet.",
           code: RUN_OUT_OF_SYNC_ERROR_CODE,
           postIndex,
-          expectedPostIndex,
+          ...progressSnapshot,
           questionCount: run.questions.length,
         },
         { status: 409 }
@@ -559,6 +510,7 @@ async function createPhotoDuplicateResponse({
   participantId,
   postIndex,
   run,
+  startOffset,
   adminSupabase,
   answeredAt,
 }: {
@@ -567,6 +519,7 @@ async function createPhotoDuplicateResponse({
   participantId: string;
   postIndex: number;
   run: ResolvedPhotoRun;
+  startOffset: number | string | null;
   adminSupabase: AdminSupabaseClient;
   answeredAt: string;
 }) {
@@ -581,6 +534,32 @@ async function createPhotoDuplicateResponse({
     adminSupabase,
     answeredAt
   );
+
+  const routeOrder = getServerRouteOrder(
+    run.questions.length,
+    startOffset ?? 0,
+    supportsServerStaggeredStart(
+      run.raceType ?? run.race_type,
+      run.sessionPostOrderMode,
+      run.routeVersion
+    )
+  );
+  const progressSnapshot = await fetchAuthoritativeProgressSnapshot({
+    sessionId,
+    participantId,
+    routeOrder,
+    adminSupabase,
+  });
+  if (progressSnapshot === null) {
+    return NextResponse.json(
+      {
+        error:
+          "Foto-progression understottes ikke med den nuvaerende answers-struktur.",
+        code: "ANSWERS_SCHEMA_INCOMPATIBLE",
+      },
+      { status: 503 }
+    );
+  }
 
   const existingAwardedPoints = Number(existingAnswer.awarded_points);
   const rawQuestion = run.questions[postIndex];
@@ -598,6 +577,7 @@ async function createPhotoDuplicateResponse({
     imageUrl: existingAnswer.image_url ?? null,
     message: "Billedet er uploadet til laererens foto-stroem.",
     isLocked: true,
+    ...progressSnapshot,
   });
 }
 
@@ -757,6 +737,7 @@ export async function POST(request: Request) {
               participantId,
               postIndex,
               run: closedRun,
+              startOffset,
               adminSupabase,
               answeredAt,
             });
@@ -957,6 +938,7 @@ export async function POST(request: Request) {
           participantId,
           postIndex,
           run,
+          startOffset,
           adminSupabase,
           answeredAt,
         });
@@ -1085,6 +1067,7 @@ export async function POST(request: Request) {
             participantId,
             postIndex,
             run,
+            startOffset,
             adminSupabase,
             answeredAt,
           });
@@ -1197,6 +1180,33 @@ export async function POST(request: Request) {
       answeredAt
     );
 
+    const progressSnapshot = usesRobustStandardPhotoDelivery
+      ? await fetchAuthoritativeProgressSnapshot({
+          sessionId,
+          participantId,
+          routeOrder: getServerRouteOrder(
+            run.questions.length,
+            startOffset ?? 0,
+            supportsServerStaggeredStart(
+              run.raceType ?? run.race_type,
+              run.sessionPostOrderMode,
+              run.routeVersion
+            )
+          ),
+          adminSupabase,
+        })
+      : null;
+    if (usesRobustStandardPhotoDelivery && progressSnapshot === null) {
+      return NextResponse.json(
+        {
+          error:
+            "Foto-progression understottes ikke med den nuvaerende answers-struktur.",
+          code: "ANSWERS_SCHEMA_INCOMPATIBLE",
+        },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json({
       storedAnswer: true,
       ...(usesRobustStandardPhotoDelivery
@@ -1206,6 +1216,7 @@ export async function POST(request: Request) {
       imageUrl: uploadedPhoto.imageUrl,
       message: "Billedet er uploadet til laererens foto-stroem.",
       isLocked: true,
+      ...(progressSnapshot ?? {}),
     });
   } catch (error) {
     if (error instanceof Error && error.message === ADMIN_ACCESS_MISSING_MESSAGE) {

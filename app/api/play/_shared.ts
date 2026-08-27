@@ -262,6 +262,117 @@ export function getAnsweredPostIndex(payload: Record<string, unknown>) {
   return null;
 }
 
+export type AuthoritativeProgressSnapshot = {
+  answeredPostIndexes: number[];
+  expectedPostIndex: number | null;
+  isFinished: boolean;
+};
+
+type ProgressAnswerRow = {
+  question_index?: unknown;
+  post_index?: unknown;
+};
+
+export function buildAuthoritativeProgressSnapshot({
+  routeOrder,
+  answerRows,
+}: {
+  routeOrder: readonly number[];
+  answerRows: readonly ProgressAnswerRow[];
+}): AuthoritativeProgressSnapshot {
+  if (
+    routeOrder.length === 0 ||
+    routeOrder.some(
+      (postIndex, index) =>
+        !Number.isInteger(postIndex) ||
+        postIndex < 0 ||
+        routeOrder.indexOf(postIndex) !== index
+    )
+  ) {
+    throw new Error("Progression route is empty or invalid.");
+  }
+
+  const validRoutePostIndexes = new Set(routeOrder);
+  const answeredPostIndexes = [...new Set(
+    answerRows
+      .map((row) => getAnsweredPostIndex(row as Record<string, unknown>))
+      .filter(
+        (postIndex): postIndex is number =>
+          postIndex !== null && validRoutePostIndexes.has(postIndex)
+      )
+  )].sort((a, b) => a - b);
+  const answeredPostIndexSet = new Set(answeredPostIndexes);
+  const expectedPostIndex =
+    routeOrder.find((postIndex) => !answeredPostIndexSet.has(postIndex)) ?? null;
+
+  return {
+    answeredPostIndexes,
+    expectedPostIndex,
+    isFinished: expectedPostIndex === null,
+  };
+}
+
+function isProgressSchemaCompatibilityError(error: {
+  code?: string;
+  message?: string;
+  details?: string;
+} | null | undefined) {
+  if (!error) return false;
+  if (
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    error.code === "PGRST205" ||
+    error.code === "42P01"
+  ) {
+    return true;
+  }
+
+  return /column|does not exist/i.test(
+    `${error.message ?? ""} ${error.details ?? ""}`
+  );
+}
+
+export async function fetchAuthoritativeProgressSnapshot({
+  sessionId,
+  participantId,
+  routeOrder,
+  adminSupabase,
+}: {
+  sessionId: string;
+  participantId: string;
+  routeOrder: readonly number[];
+  adminSupabase: AdminSupabaseClient;
+}): Promise<AuthoritativeProgressSnapshot | null> {
+  for (const selectClause of [
+    "question_index,post_index",
+    "question_index",
+    "post_index",
+  ] as const) {
+    const { data, error } = await adminSupabase
+      .from("answers")
+      .select(selectClause)
+      .eq("session_id", sessionId)
+      .eq("participant_id", participantId);
+
+    if (error) {
+      if (isProgressSchemaCompatibilityError(error)) {
+        continue;
+      }
+
+      throw new Error(
+        error.message ?? "Kunne ikke hente autoritativ progression."
+      );
+    }
+
+    return buildAuthoritativeProgressSnapshot({
+      routeOrder,
+      answerRows: (Array.isArray(data) ? data : []) as ProgressAnswerRow[],
+    });
+  }
+
+  return null;
+}
+
 export async function fetchParticipantStartState(
   sessionId: string,
   participantId: string,

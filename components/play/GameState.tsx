@@ -102,8 +102,10 @@ import {
 } from "./playUtils";
 import {
   isFreshParticipantHandoff,
+  normalizeAuthoritativeProgressSnapshot,
   resolveParticipantStartOffset,
   resolveRestoredPostIndex,
+  type AuthoritativeProgressSnapshot,
 } from "./participantHandoff";
 
 const TARGET_VISUAL_RADIUS_METERS = 25;
@@ -131,6 +133,7 @@ type PlaySessionStatusSnapshot = {
 
 type ParticipantSnapshotFetchResult = {
   data: ParticipantRow | null;
+  progress?: AuthoritativeProgressSnapshot | null;
   error: { status?: number; code?: string; message?: string } | null;
 };
 
@@ -146,6 +149,9 @@ type SubmitPhotoResponsePayload = {
   postIndex?: number;
   questionCount?: number;
   duplicate?: boolean;
+  expectedPostIndex?: number | null;
+  answeredPostIndexes?: number[];
+  isFinished?: boolean;
 };
 
 type SubmitAnswerResponsePayload = {
@@ -158,6 +164,7 @@ type SubmitAnswerResponsePayload = {
   code?: string;
   expectedPostIndex?: number | null;
   answeredPostIndexes?: number[];
+  isFinished?: boolean;
   zoneKrigCapture?: ZoneKrigCaptureApiResult;
 };
 
@@ -167,6 +174,8 @@ type SkipPostResponsePayload = {
   postIndex?: number;
   awardedPoints?: number;
   expectedPostIndex?: number | null;
+  answeredPostIndexes?: number[];
+  isFinished?: boolean;
   error?: string;
   code?: string;
 };
@@ -345,6 +354,7 @@ type InsertAnswerResult = {
   canProgress?: boolean;
   duplicate?: boolean;
   progressReconciled?: boolean;
+  authoritativeProgress?: AuthoritativeProgressSnapshot;
 };
 
 type SessionTeacherMessageRow = {
@@ -638,6 +648,8 @@ export function usePlayGameState({
   const expiredLoggedRef = useRef(false);
   const solvedPostIndexesRef = useRef<number[]>([]);
   const answeredPostIndexesRef = useRef<number[]>(answeredPostIndexes);
+  const deferredAuthoritativeProgressRef =
+    useRef<AuthoritativeProgressSnapshot | null>(null);
   const pendingLocalAnswersRef = useRef<StoredPendingAnswer[]>(pendingLocalAnswers);
   const pendingAnswerReplayInFlightRef = useRef(false);
   const pendingAnswerReplayTimerRef =
@@ -1495,7 +1507,7 @@ export function usePlayGameState({
             : null;
       const answeredSet = new Set(nextAnsweredPostIndexes);
       const fallbackRoutePostIndex =
-        getNextRoutePostIndex(nextRouteOrder, answeredSet) ?? nextRouteOrder[0] ?? 0;
+        getNextRoutePostIndex(nextRouteOrder, answeredSet);
       const nextCurrentPostIndex =
         preferredPostIndex !== null && !answeredSet.has(preferredPostIndex)
           ? preferredPostIndex
@@ -1518,10 +1530,17 @@ export function usePlayGameState({
       setBurnedPosts(new Set(nextBurnedPosts));
       pendingLocalAnswersRef.current = nextPendingLocalAnswers;
       setPendingLocalAnswers(nextPendingLocalAnswers);
-      setCurrentPostIndex(nextCurrentPostIndex);
       setShowQuestion(false);
       setDismissedPostIndex(null);
       setDistanceState(null);
+
+      if (nextCurrentPostIndex === null) {
+        setIsFinished(true);
+        void finalizeParticipantSilentlyRunnerRef.current();
+        return true;
+      }
+
+      setCurrentPostIndex(nextCurrentPostIndex);
 
       showResumeNotice(PHOTO_UPLOAD_RUN_OUT_OF_SYNC_MESSAGE);
 
@@ -1637,6 +1656,67 @@ export function usePlayGameState({
       }
     },
     [runParticipantAuthSessionRecovery]
+  );
+
+  const applyAuthoritativeProgressSnapshot = useCallback(
+    (value: unknown, options?: { deferNavigation?: boolean }) => {
+      const normalized = normalizeAuthoritativeProgressSnapshot(
+        value,
+        questions.length
+      );
+      if (!normalized) {
+        return false;
+      }
+
+      answeredPostIndexesRef.current = normalized.answeredPostIndexes;
+      setAnsweredPostIndexes(normalized.answeredPostIndexes);
+      const confirmedAnsweredPosts = new Set(
+        normalized.answeredPostIndexes
+      );
+      const nextSolvedPostIndexes = solvedPostIndexesRef.current.filter(
+        (postIndex) => confirmedAnsweredPosts.has(postIndex)
+      );
+      solvedPostIndexesRef.current = nextSolvedPostIndexes;
+      setSolvedPostIndexes(nextSolvedPostIndexes);
+      setCorrectAnswersCount(nextSolvedPostIndexes.length);
+      const nextBurnedPosts = new Set(
+        [...burnedPostsRef.current].filter((postIndex) =>
+          confirmedAnsweredPosts.has(postIndex)
+        )
+      );
+      burnedPostsRef.current = nextBurnedPosts;
+      setBurnedPosts(nextBurnedPosts);
+
+      if (options?.deferNavigation === true) {
+        deferredAuthoritativeProgressRef.current = normalized;
+        return true;
+      }
+
+      deferredAuthoritativeProgressRef.current = null;
+
+      setShowQuestion(false);
+      setDismissedPostIndex(null);
+      setDistanceState(null);
+      setQuizAnswerFeedback(null);
+      setPhotoFeedback(null);
+      setPostActionError(null);
+      setTypedAnswerError(null);
+      setEscapeReward(null);
+      setRoleplayReply(null);
+
+      if (normalized.isFinished) {
+        setIsFinished(true);
+        void finalizeParticipantSilentlyRunnerRef.current();
+        return true;
+      }
+
+      setIsFinished(false);
+      const expectedPostIndex = normalized.expectedPostIndex;
+      if (expectedPostIndex === null) return false;
+      setCurrentPostIndex(expectedPostIndex);
+      return true;
+    },
+    [questions.length]
   );
 
   const reconcileAuthoritativeAnswerProgress = useCallback(
@@ -1927,17 +2007,24 @@ export function usePlayGameState({
         // tripping the circuit-breaker / logging Sentry on the first
         // transient 401/403 right after join.
         let authRecoveryAttempted = false;
+        const progressQuery = usesStandardStudentLocationExperience
+          ? "&includeProgress=1"
+          : "";
 
         const doFetch = async () => {
           try {
             const response = await fetch(
-              `/api/play/participant?sessionId=${encodeURIComponent(sessionId)}&participantId=${encodeURIComponent(targetParticipantId)}`,
+              `/api/play/participant?sessionId=${encodeURIComponent(sessionId)}&participantId=${encodeURIComponent(targetParticipantId)}${progressQuery}`,
               {
                 cache: "no-store",
               }
             );
             const payload = (await response.json().catch(() => null)) as
-              | { participant?: ParticipantRow | null; error?: string }
+              | {
+                  participant?: ParticipantRow | null;
+                  progress?: unknown;
+                  error?: string;
+                }
               | null;
 
             if (!response.ok) {
@@ -1972,16 +2059,24 @@ export function usePlayGameState({
                     if (recoveryMethod) {
                       // Try again once after recovery
                       const retryResp = await fetch(
-                        `/api/play/participant?sessionId=${encodeURIComponent(sessionId)}&participantId=${encodeURIComponent(targetParticipantId)}`,
+                        `/api/play/participant?sessionId=${encodeURIComponent(sessionId)}&participantId=${encodeURIComponent(targetParticipantId)}${progressQuery}`,
                         { cache: "no-store" }
                       );
                       const retryPayload = (await retryResp.json().catch(() => null)) as
-                        | { participant?: ParticipantRow | null; error?: string }
+                        | {
+                            participant?: ParticipantRow | null;
+                            progress?: unknown;
+                            error?: string;
+                          }
                         | null;
 
                       if (retryResp.ok) {
                         return {
                           data: (retryPayload?.participant ?? null) as ParticipantRow | null,
+                          progress: normalizeAuthoritativeProgressSnapshot(
+                            retryPayload?.progress,
+                            questions.length
+                          ),
                           error: null,
                         };
                       }
@@ -2089,6 +2184,10 @@ export function usePlayGameState({
 
             return {
               data: (payload?.participant ?? null) as ParticipantRow | null,
+              progress: normalizeAuthoritativeProgressSnapshot(
+                payload?.progress,
+                questions.length
+              ),
               error: null,
             };
           } catch (error) {
@@ -2125,6 +2224,8 @@ export function usePlayGameState({
       storedParticipantOnLoad,
       playerName,
       pendingPlayerName,
+      questions.length,
+      usesStandardStudentLocationExperience,
     ]
   );
 
@@ -2892,12 +2993,16 @@ export function usePlayGameState({
         return;
       }
 
-      snapshotCurrentPostIndex = resolveRestoredPostIndex({
+      const resolvedSnapshotPostIndex = resolveRestoredPostIndex({
         routeOrder,
         answeredPostIndexes,
         snapshotCurrentPostIndex: currentPostIndex,
         enforceRouteOrder: true,
       });
+      if (resolvedSnapshotPostIndex === null) {
+        return;
+      }
+      snapshotCurrentPostIndex = resolvedSnapshotPostIndex;
 
       if (snapshotCurrentPostIndex !== currentPostIndex) {
         snapshotShowQuestion = false;
@@ -3122,6 +3227,20 @@ export function usePlayGameState({
           );
 
           if (response.ok && body?.inserted === true) {
+            const authoritativeProgress =
+              normalizeAuthoritativeProgressSnapshot(
+                body,
+                questions.length
+              );
+            if (!authoritativeProgress) {
+              updatePendingLocalAnswer(pendingAnswer.id, (current) => ({
+                ...current,
+                status: "retryable_error",
+                nextRetryAtMs: null,
+                failureCode: "PROGRESS_RECONCILIATION_INVALID",
+              }));
+              break;
+            }
             if (pendingAnswer.hasLocalProgress) {
               const serverCorrectness =
                 typeof body.storedIsCorrect === "boolean"
@@ -3169,6 +3288,7 @@ export function usePlayGameState({
             }
 
             removePendingLocalAnswer(pendingAnswer.id);
+            applyAuthoritativeProgressSnapshot(authoritativeProgress);
             if (
               studentSubmissionRef.current.operationId === pendingAnswer.id &&
               studentSubmissionRef.current.status !== "confirmed"
@@ -3326,6 +3446,7 @@ export function usePlayGameState({
     }
   }, [
     applyStudentSubmissionEvent,
+    applyAuthoritativeProgressSnapshot,
     captureStudentSubmissionIssue,
     currentPostIndex,
     participantId,
@@ -3339,6 +3460,7 @@ export function usePlayGameState({
     sendStandardAnswerOperation,
     sessionId,
     showResumeNotice,
+    questions.length,
     updatePendingLocalAnswer,
   ]);
 
@@ -3713,9 +3835,14 @@ export function usePlayGameState({
         };
 
         let participantData: ParticipantRow | null = null;
+        let authoritativeProgress: AuthoritativeProgressSnapshot | null = null;
         let didResolveParticipant = false;
 
-        const { data, error: participantError } = await attemptParticipantRestore();
+        const {
+          data,
+          progress,
+          error: participantError,
+        } = await attemptParticipantRestore();
 
         if (!isActive) return;
 
@@ -3730,6 +3857,7 @@ export function usePlayGameState({
         } else {
           didResolveParticipant = true;
           participantData = data ?? null;
+          authoritativeProgress = progress ?? null;
         }
 
       if (didResolveParticipant && !participantData) {
@@ -3753,7 +3881,11 @@ export function usePlayGameState({
 
           if (!isActive) break;
 
-          const { data: retryData, error: retryError } = await attemptParticipantRestore();
+          const {
+            data: retryData,
+            progress: retryProgress,
+            error: retryError,
+          } = await attemptParticipantRestore();
 
           if (!isActive) break;
 
@@ -3770,6 +3902,7 @@ export function usePlayGameState({
           if (retryData) {
             // Found participant on a retry — proceed with normal restore flow
             participantData = retryData ?? null;
+            authoritativeProgress = retryProgress ?? null;
             resolved = true;
             break;
           }
@@ -3801,7 +3934,7 @@ export function usePlayGameState({
         restoredStartOffset,
         distributedCircularEnabled
       );
-      const firstRoutePostIndex = restoredRouteOrder[0] ?? 0;
+      const firstRoutePostIndex = restoredRouteOrder[0] ?? null;
       setStartOffset(restoredStartOffset);
 
       if (restoredRunStartedAtMs !== null) {
@@ -3836,10 +3969,16 @@ export function usePlayGameState({
       }
 
       if (resolvedName) {
-        const baseAnsweredPosts = new Set<number>(storedProgressSnapshot?.answeredPostIndexes ?? []);
+        const baseAnsweredPosts = new Set<number>(
+          usesStandardStudentLocationExperience && authoritativeProgress
+            ? authoritativeProgress.answeredPostIndexes
+            : storedProgressSnapshot?.answeredPostIndexes ?? []
+        );
         const baseSolvedPosts = new Set<number>(storedProgressSnapshot?.solvedPostIndexes ?? []);
         const baseScore = storedProgressSnapshot?.score ?? 0;
-        let nextPostIndex = firstRoutePostIndex;
+        let nextPostIndex: number | null = authoritativeProgress
+          ? authoritativeProgress.expectedPostIndex
+          : firstRoutePostIndex;
         let answersData: AnswerProgressRow[] | null = null;
         let answersError: { code?: string; message?: string } | null = null;
         let restoredAnswerRows: AnswerProgressRow[] = [];
@@ -3943,22 +4082,30 @@ export function usePlayGameState({
           setCorrectAnswersCount(restoredSolvedPostIndexes.length);
           setScore(baseScore + restoredScore);
 
+          answeredPostIndexesRef.current = restoredAnsweredPostIndexes;
           setAnsweredPostIndexes(restoredAnsweredPostIndexes);
           setCollectedEscapeRewards(
             pendingEscapeRewards.sort((a, b) => a.postIndex - b.postIndex)
           );
 
-          nextPostIndex = resolveRestoredPostIndex({
-            routeOrder: restoredRouteOrder,
-            answeredPostIndexes: restoredAnsweredPostIndexes,
-            snapshotCurrentPostIndex: storedProgressSnapshot?.currentPostIndex,
-            enforceRouteOrder: distributedCircularEnabled,
-          });
+          nextPostIndex = authoritativeProgress
+            ? authoritativeProgress.expectedPostIndex
+            : resolveRestoredPostIndex({
+                routeOrder: restoredRouteOrder,
+                answeredPostIndexes: restoredAnsweredPostIndexes,
+                snapshotCurrentPostIndex:
+                  storedProgressSnapshot?.currentPostIndex,
+                enforceRouteOrder:
+                  distributedCircularEnabled ||
+                  usesStandardStudentLocationExperience,
+              });
         } else if (answersData) {
           restoredAnswerRows = answersData as AnswerProgressRow[];
           const serverConfirmedPostIndexes = new Set<number>();
           const confirmedAnsweredPosts = new Set<number>(
-            usesStandardStudentLocationExperience ? [] : baseAnsweredPosts
+            usesStandardStudentLocationExperience && !authoritativeProgress
+              ? []
+              : baseAnsweredPosts
           );
           const confirmedSolvedPosts = new Set<number>(
             usesStandardStudentLocationExperience ? [] : baseSolvedPosts
@@ -4122,6 +4269,7 @@ export function usePlayGameState({
           burnedPostsRef.current = confirmedBurnedPosts;
           setBurnedPosts(new Set(confirmedBurnedPosts));
 
+          answeredPostIndexesRef.current = restoredAnsweredPostIndexes;
           setAnsweredPostIndexes(restoredAnsweredPostIndexes);
           setSolvedPostIndexes(restoredSolvedPostIndexes);
           setCorrectAnswersCount(restoredSolvedPostIndexes.length);
@@ -4140,9 +4288,11 @@ export function usePlayGameState({
           }
           setCollectedEscapeRewards(mergedEscapeRewards.sort((a, b) => a.postIndex - b.postIndex));
 
-          const hasCompletedRestore = isEscapeRace
-            ? restoredSolvedPostIndexes.length >= questions.length
-            : restoredAnsweredPostIndexes.length >= questions.length;
+          const hasCompletedRestore =
+            authoritativeProgress?.isFinished === true ||
+            (isEscapeRace
+              ? restoredSolvedPostIndexes.length >= questions.length
+              : restoredAnsweredPostIndexes.length >= questions.length);
           if (
             usesStandardStudentLocationExperience &&
             hasCompletedRestore &&
@@ -4173,12 +4323,17 @@ export function usePlayGameState({
             return;
           }
 
-          nextPostIndex = resolveRestoredPostIndex({
-            routeOrder: restoredRouteOrder,
-            answeredPostIndexes: restoredAnsweredPostIndexes,
-            snapshotCurrentPostIndex: storedProgressSnapshot?.currentPostIndex,
-            enforceRouteOrder: distributedCircularEnabled,
-          });
+          nextPostIndex = authoritativeProgress
+            ? authoritativeProgress.expectedPostIndex
+            : resolveRestoredPostIndex({
+                routeOrder: restoredRouteOrder,
+                answeredPostIndexes: restoredAnsweredPostIndexes,
+                snapshotCurrentPostIndex:
+                  storedProgressSnapshot?.currentPostIndex,
+                enforceRouteOrder:
+                  distributedCircularEnabled ||
+                  usesStandardStudentLocationExperience,
+              });
         } else {
           const restoredAnsweredPostIndexes = sortUniquePostIndexes([...baseAnsweredPosts]);
           const restoredSolvedPostIndexes = sortUniquePostIndexes([
@@ -4193,6 +4348,7 @@ export function usePlayGameState({
           burnedPostsRef.current = restoredBurnedPosts;
           setBurnedPosts(new Set(restoredBurnedPosts));
 
+          answeredPostIndexesRef.current = restoredAnsweredPostIndexes;
           setAnsweredPostIndexes(restoredAnsweredPostIndexes);
           setSolvedPostIndexes(restoredSolvedPostIndexes);
           setCorrectAnswersCount(restoredSolvedPostIndexes.length);
@@ -4201,12 +4357,34 @@ export function usePlayGameState({
             pendingEscapeRewards.sort((a, b) => a.postIndex - b.postIndex)
           );
 
-          nextPostIndex = resolveRestoredPostIndex({
-            routeOrder: restoredRouteOrder,
-            answeredPostIndexes: restoredAnsweredPostIndexes,
-            snapshotCurrentPostIndex: storedProgressSnapshot?.currentPostIndex,
-            enforceRouteOrder: distributedCircularEnabled,
-          });
+          nextPostIndex = authoritativeProgress
+            ? authoritativeProgress.expectedPostIndex
+            : resolveRestoredPostIndex({
+                routeOrder: restoredRouteOrder,
+                answeredPostIndexes: restoredAnsweredPostIndexes,
+                snapshotCurrentPostIndex:
+                  storedProgressSnapshot?.currentPostIndex,
+                enforceRouteOrder:
+                  distributedCircularEnabled ||
+                  usesStandardStudentLocationExperience,
+              });
+        }
+
+        if (nextPostIndex === null) {
+          setShowQuestion(false);
+          setDismissedPostIndex(null);
+          setDistanceState(null);
+          setEscapeReward(null);
+          setRoleplayReply(null);
+          setIsFinished(true);
+          if (scopedStoredPendingAnswers.length === 0) {
+            void finalizeParticipantSilentlyRunnerRef.current();
+          } else {
+            finalizeAfterPendingAnswersRef.current = true;
+          }
+          setIsRestoringParticipant(false);
+          hasRestoredRef.current = true;
+          return;
         }
 
         const restoreTargetQuestion = questions[nextPostIndex];
@@ -4261,19 +4439,28 @@ export function usePlayGameState({
           routeOrder: restoredRouteOrder,
           answeredPostIndexes: storedProgressSnapshot?.answeredPostIndexes ?? [],
           snapshotCurrentPostIndex: storedProgressSnapshot?.currentPostIndex,
-          enforceRouteOrder: distributedCircularEnabled,
+          enforceRouteOrder:
+            distributedCircularEnabled ||
+            usesStandardStudentLocationExperience,
         });
 
-        setCurrentPostIndex(fallbackPostIndex);
-        setDismissedPostIndex(
-          storedProgressSnapshot?.dismissedPostIndex === fallbackPostIndex
-            ? fallbackPostIndex
-            : null
-        );
-        setShowQuestion(
-          storedProgressSnapshot?.showQuestion === true &&
-            storedProgressSnapshot.currentPostIndex === fallbackPostIndex
-        );
+        if (fallbackPostIndex === null) {
+          setIsFinished(true);
+          setShowQuestion(false);
+          setDismissedPostIndex(null);
+          void finalizeParticipantSilentlyRunnerRef.current();
+        } else {
+          setCurrentPostIndex(fallbackPostIndex);
+          setDismissedPostIndex(
+            storedProgressSnapshot?.dismissedPostIndex === fallbackPostIndex
+              ? fallbackPostIndex
+              : null
+          );
+          setShowQuestion(
+            storedProgressSnapshot?.showQuestion === true &&
+              storedProgressSnapshot.currentPostIndex === fallbackPostIndex
+          );
+        }
         setDistanceState(null);
       }
 
@@ -4602,6 +4789,26 @@ export function usePlayGameState({
           );
 
           if (response.ok && body?.inserted === true) {
+            const authoritativeProgress =
+              normalizeAuthoritativeProgressSnapshot(
+                body,
+                questions.length
+              );
+            if (!authoritativeProgress) {
+              updatePendingLocalAnswer(pendingAnswerId, (current) => ({
+                ...current,
+                status: "retryable_error",
+                nextRetryAtMs: null,
+                failureCode: "PROGRESS_RECONCILIATION_INVALID",
+              }));
+              applyStudentSubmissionEvent({ type: "retryable_error" });
+              return {
+                ...fallbackResult,
+                deliveryStatus: "retryable_error",
+                operationId: pendingAnswerId,
+                canProgress: false,
+              };
+            }
             removePendingLocalAnswer(pendingAnswerId);
             applyStudentSubmissionEvent({
               type: "confirm",
@@ -4624,6 +4831,7 @@ export function usePlayGameState({
               operationId: pendingAnswerId,
               canProgress: true,
               duplicate: body.duplicate === true,
+              authoritativeProgress,
             };
           }
 
@@ -4879,6 +5087,7 @@ export function usePlayGameState({
       captureStudentSubmissionIssue,
       participantId,
       playerName,
+      questions.length,
       raceMode,
       reconcileAuthoritativeAnswerProgress,
       removePendingLocalAnswer,
@@ -5480,6 +5689,18 @@ export function usePlayGameState({
       currentRouteStepIndex + 1 < routeOrder.length ? routeOrder[currentRouteStepIndex + 1] : null;
 
     const nextRoutePostIndex = (() => {
+      if (usesStandardStudentLocationExperience) {
+        const deferredProgress = deferredAuthoritativeProgressRef.current;
+        if (deferredProgress) {
+          deferredAuthoritativeProgressRef.current = null;
+          return deferredProgress.expectedPostIndex;
+        }
+
+        const completedPosts = new Set(answeredPostIndexesRef.current);
+        completedPosts.add(currentPostIndex);
+        return getNextRoutePostIndex(routeOrder, completedPosts);
+      }
+
       if (nextByLinearStep !== null) return nextByLinearStep;
 
       const answeredSet = new Set(answeredPostIndexesRef.current);
@@ -5713,6 +5934,21 @@ export function usePlayGameState({
       triggerVm26GoalFeedback();
     }
 
+    if (
+      usesRobustStandardDelivery &&
+      answerInsertResult.authoritativeProgress &&
+      !applyAuthoritativeProgressSnapshot(
+        answerInsertResult.authoritativeProgress,
+        { deferNavigation: true }
+      )
+    ) {
+      setPostActionError({
+        key: activeTypedAnswerKey,
+        message: "Løbets progression kunne ikke opdateres sikkert.",
+      });
+      return false;
+    }
+
     if (currentVariant === "escape") {
       const codeBrick = escapeBrick?.trim() || getEscapeCodeBrick(current, currentPostIndex);
       setCollectedEscapeRewards((prev) =>
@@ -5943,6 +6179,19 @@ export function usePlayGameState({
         if (!isMountedRef.current) return;
         markAnsweredPostIndex(currentPostIndex);
         markPendingAnswerLocallyProgressed(answerInsertResult.operationId);
+        if (answerInsertResult.authoritativeProgress) {
+          if (
+            !applyAuthoritativeProgressSnapshot(
+              answerInsertResult.authoritativeProgress
+            )
+          ) {
+            setPostActionError({
+              key: activeTypedAnswerKey,
+              message: "Løbets progression kunne ikke opdateres sikkert.",
+            });
+          }
+          return;
+        }
         await continueFromSolvedPost();
         return;
       }
@@ -6468,6 +6717,19 @@ export function usePlayGameState({
       const photoSuccessMessage = isSelfie
         ? `Selfie sendt! ${payload.message ?? ""}`
         : payload.message ?? "";
+      if (usesRobustPhotoDelivery) {
+        if (!applyAuthoritativeProgressSnapshot(payload)) {
+          setPostActionError({
+            key: activeTypedAnswerKey,
+            message: "Løbets progression kunne ikke opdateres sikkert.",
+          });
+          setIsAnalyzingPhoto(false);
+          return;
+        }
+        showResumeNotice(photoSuccessMessage);
+        setIsAnalyzingPhoto(false);
+        return;
+      }
       await continueFromSolvedPost();
       showResumeNotice(photoSuccessMessage);
       setIsAnalyzingPhoto(false);
@@ -6972,7 +7234,12 @@ export function usePlayGameState({
       });
       markAnsweredPostIndex(currentPostIndex);
       markBurnedPostIndex(currentPostIndex);
-      await continueFromSolvedPost();
+      if (!applyAuthoritativeProgressSnapshot(payload)) {
+        setPostActionError({
+          key: activeTypedAnswerKey,
+          message: "Løbets progression kunne ikke opdateres sikkert.",
+        });
+      }
     } catch {
       if (!isMountedRef.current) return;
 

@@ -121,7 +121,8 @@ test.describe("standard student answer server idempotency", () => {
     );
     expect(route).toContain("if (isStandardStudentSubmission) {");
     expect(route).toContain("validateStandardSubmissionSafety({");
-    expect(route).toContain("answeredPostIndexes: [...answeredPostIndexes].sort");
+    expect(route).toContain("fetchAuthoritativeProgressSnapshot({");
+    expect(route).toContain("const { answeredPostIndexes, expectedPostIndex } = progressSnapshot");
     expect(route).toContain('"answeredPostIndexes" in safetyResult');
     expect(route).toContain("STANDARD_SUBMISSION_SESSION_STATUSES");
     expect(route).toContain("getServerRouteOrder(");
@@ -162,6 +163,34 @@ test.describe("standard student answer server idempotency", () => {
     expect(duplicateResponse).toContain("inserted: true");
     expect(duplicateResponse).toContain("isLocked: true");
     expect(duplicateResponse).toContain("duplicate: true");
+  });
+
+  test("normal and duplicate standard responses return the same authoritative progress contract", () => {
+    const route = source("app/api/play/submit-answer/route.ts");
+    const duplicateResponse = route.slice(
+      route.indexOf("async function createStandardDuplicateResponse"),
+      route.indexOf("async function resolveZoneKrigTeamId")
+    );
+    const insertedResponseStart = route.indexOf(
+      "const { data: insertedAnswer, error }"
+    );
+    const insertedResponse = route.slice(
+      insertedResponseStart,
+      route.indexOf("if (isMissingColumnError(error))", insertedResponseStart)
+    );
+
+    expect(route).toContain("fetchAuthoritativeProgressSnapshot");
+    expect(duplicateResponse).toContain("fetchAuthoritativeProgressSnapshot({");
+    expect(duplicateResponse).toContain("...progressSnapshot");
+    expect(insertedResponse).toContain("fetchAuthoritativeProgressSnapshot({");
+    expect(insertedResponse).toContain("progressSnapshot ?? {}");
+    for (const field of [
+      "answeredPostIndexes",
+      "expectedPostIndex",
+      "isFinished",
+    ]) {
+      expect(route).toContain(field);
+    }
   });
 
   test("migration is additive, preflights duplicates, and replaces the name lock last", () => {

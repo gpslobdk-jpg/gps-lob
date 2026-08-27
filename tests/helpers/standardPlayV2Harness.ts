@@ -21,6 +21,8 @@ export type StandardPlayHarnessOptions = {
   usesStandardStudentLocationExperience?: boolean;
   gpsOverride?: boolean;
   sessionStatus?: "waiting" | "running" | "finished";
+  postOrderMode?: "fixed" | "distributed_circular";
+  startOffset?: number;
   questions?: StandardPlayQuestionFixture[];
   sessionDelayMs?: number;
   submitDelayMs?: number;
@@ -30,6 +32,8 @@ export type StandardPlayHarnessOptions = {
     delayMs?: number;
   }>;
   validateCorrect?: boolean;
+  dropSubmitResponseAt?: number[];
+  failSupabaseRequests?: boolean;
   theme?: {
     vm26?: {
       enabled: true;
@@ -41,7 +45,11 @@ export type StandardPlayHarnessOptions = {
 
 export type StandardPlayHarnessState = {
   submitRequests: Array<Record<string, unknown>>;
+  photoRequests: number;
+  skipRequests: Array<Record<string, unknown>>;
   validateRequests: Array<Record<string, unknown>>;
+  committedOperationIds: Set<string>;
+  answeredPostIndexes: Set<number>;
 };
 
 export const DEFAULT_STANDARD_QUESTIONS: StandardPlayQuestionFixture[] = [
@@ -94,20 +102,43 @@ export async function installStandardPlayHarness(
     options.usesStandardStudentLocationExperience ?? true;
   const gpsOverride = options.gpsOverride ?? true;
   const sessionStatus = options.sessionStatus ?? "running";
+  const postOrderMode = options.postOrderMode ?? "fixed";
+  const startOffset = options.startOffset ?? 0;
   const state: StandardPlayHarnessState = {
     submitRequests: [],
+    photoRequests: 0,
+    skipRequests: [],
     validateRequests: [],
+    committedOperationIds: new Set(),
+    answeredPostIndexes: new Set(),
+  };
+  const routeOrder = Array.from(
+    { length: questions.length },
+    (_, index) =>
+      postOrderMode === "distributed_circular"
+        ? (startOffset + index) % questions.length
+        : index,
+  );
+  const progressSnapshot = () => {
+    const expectedPostIndex =
+      routeOrder.find((postIndex) => !state.answeredPostIndexes.has(postIndex)) ??
+      null;
+    return {
+      answeredPostIndexes: [...state.answeredPostIndexes].sort((a, b) => a - b),
+      expectedPostIndex,
+      isFinished: expectedPostIndex === null,
+    };
   };
 
   await page.addInitScript(
-    ({ participantId, sessionId, teamName, sessionStatus }) => {
+    ({ participantId, sessionId, teamName, sessionStatus, startOffset }) => {
       window.localStorage.setItem(
         "gpslob_active_participant",
         JSON.stringify({
           participantId,
           sessionId,
           studentName: teamName,
-          startOffset: 0,
+          startOffset,
           savedAt: new Date().toISOString(),
           teamId: null,
           teamColor: null,
@@ -122,6 +153,7 @@ export async function installStandardPlayHarness(
       sessionId: options.sessionId,
       teamName,
       sessionStatus,
+      startOffset,
     },
   );
 
@@ -135,7 +167,7 @@ export async function installStandardPlayHarness(
       body: JSON.stringify({
         questions,
         raceType,
-        postOrderMode: "fixed",
+        postOrderMode,
         radius: 50,
         gpsOverride,
         usesStandardStudentLocationExperience: usesStandard,
@@ -161,11 +193,12 @@ export async function installStandardPlayHarness(
           id: participantId,
           session_id: options.sessionId,
           student_name: teamName,
-          start_offset: 0,
+          start_offset: startOffset,
           lat: null,
           lng: null,
           finished_at: null,
         },
+        progress: progressSnapshot(),
       }),
     });
   });
@@ -178,7 +211,7 @@ export async function installStandardPlayHarness(
         participantId,
         sessionId: options.sessionId,
         studentName: teamName,
-        startOffset: 0,
+        startOffset,
         sessionStatus,
         teamId: null,
         teamColor: null,
@@ -209,7 +242,38 @@ export async function installStandardPlayHarness(
       unknown
     >;
     state.submitRequests.push(body);
-    const response = options.submitResponses?.[state.submitRequests.length - 1];
+    const requestNumber = state.submitRequests.length;
+    const operationId =
+      typeof body.operationId === "string" ? body.operationId : "";
+    const duplicate =
+      operationId.length > 0 && state.committedOperationIds.has(operationId);
+    const payloads = Array.isArray(body.payloads)
+      ? (body.payloads as Array<Record<string, unknown>>)
+      : [];
+    const response = options.submitResponses?.[requestNumber - 1];
+    const responseStatus = response?.status ?? 200;
+    const shouldCommit =
+      responseStatus >= 200 &&
+      responseStatus < 300 &&
+      (response?.body.inserted ?? true) === true;
+    const submittedPostIndex = Number(payloads[0]?.question_index);
+    if (
+      shouldCommit &&
+      Number.isInteger(submittedPostIndex) &&
+      submittedPostIndex >= 0
+    ) {
+      state.answeredPostIndexes.add(submittedPostIndex);
+    }
+    if (shouldCommit && operationId) {
+      state.committedOperationIds.add(operationId);
+    }
+    if (
+      options.dropSubmitResponseAt?.includes(requestNumber) &&
+      !duplicate
+    ) {
+      await route.abort("connectionreset");
+      return;
+    }
     const responseDelayMs = response?.delayMs ?? options.submitDelayMs;
     if (responseDelayMs) {
       await new Promise((resolve) => setTimeout(resolve, responseDelayMs));
@@ -218,8 +282,54 @@ export async function installStandardPlayHarness(
       status: response?.status ?? 200,
       contentType: "application/json",
       body: JSON.stringify(
-        response?.body ?? { inserted: true, awardedPoints: 10 },
+        response?.body ?? {
+          inserted: true,
+          duplicate,
+          awardedPoints: 10,
+          serverCorrectness: { checked: true, isCorrect: true },
+          ...progressSnapshot(),
+        },
       ),
+    });
+  });
+
+  await page.context().route(/\/api\/play\/submit-photo/, async (route: Route) => {
+    state.photoRequests += 1;
+    const activePostIndex = progressSnapshot().expectedPostIndex;
+    if (activePostIndex !== null) {
+      state.answeredPostIndexes.add(activePostIndex);
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        storedAnswer: true,
+        awardedPoints: 10,
+        message: "Syntetisk foto gemt.",
+        ...progressSnapshot(),
+      }),
+    });
+  });
+
+  await page.context().route(/\/api\/play\/skip-post/, async (route: Route) => {
+    const body = JSON.parse(route.request().postData() ?? "{}") as Record<
+      string,
+      unknown
+    >;
+    state.skipRequests.push(body);
+    const skippedPostIndex = Number(body.postIndex);
+    if (Number.isInteger(skippedPostIndex) && skippedPostIndex >= 0) {
+      state.answeredPostIndexes.add(skippedPostIndex);
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skipped: true,
+        postIndex: skippedPostIndex,
+        awardedPoints: 0,
+        ...progressSnapshot(),
+      }),
     });
   });
 
@@ -243,9 +353,16 @@ export async function installStandardPlayHarness(
     /\/api\/play\/(?:location|auth\/refresh)|\/api\/telemetry|supabase|realtime/i,
     async (route: Route) => {
       await route.fulfill({
-        status: 200,
+        status:
+          options.failSupabaseRequests && /supabase/i.test(route.request().url())
+            ? 503
+            : 200,
         contentType: "application/json",
-        body: JSON.stringify({ ok: true }),
+        body: JSON.stringify(
+          options.failSupabaseRequests && /supabase/i.test(route.request().url())
+            ? { error: "synthetic read failure" }
+            : { ok: true },
+        ),
       });
     },
   );

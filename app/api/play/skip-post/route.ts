@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   asTrimmedString,
-  getAnsweredPostIndex,
+  fetchAuthoritativeProgressSnapshot,
   getPhotoMissionConfig,
   getServerRouteOrder,
   normalizeRaceMode,
   resolveQuestionVariant,
   supportsServerStaggeredStart,
+  type AuthoritativeProgressSnapshot,
 } from "@/app/api/play/_shared";
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
 import {
@@ -40,11 +41,6 @@ type RunRow = {
   questions?: unknown;
   raceType?: unknown;
   race_type?: unknown;
-};
-
-type AnswerLookupRow = {
-  question_index?: number | string | null;
-  post_index?: number | string | null;
 };
 
 type ExistingAnswerOutcomeRow = {
@@ -200,57 +196,6 @@ async function fetchRunRow(
   return data ?? null;
 }
 
-async function fetchAnswerRowsForParticipant(
-  sessionId: string,
-  participantId: string,
-  adminSupabase: NonNullable<ReturnType<typeof createAdminClient>>
-) {
-  const runQuery = (selectClause: string) =>
-    adminSupabase
-      .from("answers")
-      .select(selectClause)
-      .eq("session_id", sessionId)
-      .eq("participant_id", participantId);
-
-  for (const selectClause of ["question_index,post_index", "question_index", "post_index"] as const) {
-    const result = await runQuery(selectClause);
-
-    if (result.error) {
-      if (isMissingColumnError(result.error)) {
-        continue;
-      }
-
-      throw new Error(result.error.message ?? "Kunne ikke hente eksisterende svar.");
-    }
-
-    return Array.isArray(result.data) ? (result.data as AnswerLookupRow[]) : [];
-  }
-
-  return null;
-}
-
-async function fetchAnsweredPostIndexes(
-  sessionId: string,
-  participantId: string,
-  adminSupabase: NonNullable<ReturnType<typeof createAdminClient>>
-) {
-  const answeredPostIndexes = new Set<number>();
-
-  const rows = await fetchAnswerRowsForParticipant(sessionId, participantId, adminSupabase);
-  if (rows === null) {
-    return null;
-  }
-
-  for (const row of rows) {
-    const normalizedPostIndex = getAnsweredPostIndex(row as Record<string, unknown>);
-    if (normalizedPostIndex !== null && normalizedPostIndex >= 0) {
-      answeredPostIndexes.add(normalizedPostIndex);
-    }
-  }
-
-  return answeredPostIndexes;
-}
-
 async function findExistingAnswerOutcome(
   sessionId: string,
   participantId: string,
@@ -295,10 +240,10 @@ function isSkipEquivalentOutcome(
 
 function createSkipDuplicateResponse({
   postIndex,
-  expectedPostIndex,
+  progressSnapshot,
 }: {
   postIndex: number;
-  expectedPostIndex: number | null;
+  progressSnapshot: AuthoritativeProgressSnapshot;
 }) {
   return NextResponse.json({
     skipped: true,
@@ -306,8 +251,18 @@ function createSkipDuplicateResponse({
     storedIsCorrect: false,
     postIndex,
     awardedPoints: 0,
-    expectedPostIndex,
+    ...progressSnapshot,
   });
+}
+
+function createSkipProgressUnavailableResponse() {
+  return NextResponse.json(
+    {
+      error: "Emergency skip understoettes ikke med den nuvaerende answers-struktur.",
+      code: "ANSWERS_SCHEMA_INCOMPATIBLE",
+    },
+    { status: 503 }
+  );
 }
 
 function createSkipOutcomeConflictResponse(expectedPostIndex: number | null) {
@@ -546,10 +501,20 @@ export async function POST(request: NextRequest) {
               closedRouteOrder[0] ?? null,
               adminSupabase
             );
+            const closedProgressSnapshot =
+              await fetchAuthoritativeProgressSnapshot({
+                sessionId,
+                participantId,
+                routeOrder: closedRouteOrder,
+                adminSupabase,
+              });
+            if (closedProgressSnapshot === null) {
+              return createSkipProgressUnavailableResponse();
+            }
 
             return createSkipDuplicateResponse({
               postIndex: requestedPostIndex,
-              expectedPostIndex: null,
+              progressSnapshot: closedProgressSnapshot,
             });
           }
         }
@@ -655,13 +620,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Selfie-poster kan ikke springes over i v1." }, { status: 403 });
     }
 
-    const answeredPostIndexes = await fetchAnsweredPostIndexes(
+    const routeOrder = getServerRouteOrder(
+      questions.length,
+      startOffset ?? 0,
+      supportsServerStaggeredStart(
+        run.raceType ?? run.race_type,
+        sessionState.post_order_mode,
+        sessionState.route_version
+      )
+    );
+    const initialProgressSnapshot = await fetchAuthoritativeProgressSnapshot({
       sessionId,
       participantId,
-      adminSupabase
-    );
+      routeOrder,
+      adminSupabase,
+    });
 
-    if (answeredPostIndexes === null) {
+    if (initialProgressSnapshot === null) {
       await logSkipFailureTelemetry({
         participantId,
         sessionId,
@@ -676,15 +651,16 @@ export async function POST(request: NextRequest) {
         { status: 503 }
       );
     }
+    const refreshProgressSnapshot = () =>
+      fetchAuthoritativeProgressSnapshot({
+        sessionId,
+        participantId,
+        routeOrder,
+        adminSupabase,
+      });
 
-    const routeOrder = getServerRouteOrder(
-      questions.length,
-      startOffset ?? 0,
-      supportsServerStaggeredStart(
-        run.raceType ?? run.race_type,
-        sessionState.post_order_mode,
-        sessionState.route_version
-      )
+    const answeredPostIndexes = new Set(
+      initialProgressSnapshot.answeredPostIndexes
     );
     const progressDecision = resolveSkipProgressDecision({
       routeOrder,
@@ -722,10 +698,14 @@ export async function POST(request: NextRequest) {
         routeOrder[0] ?? null,
         adminSupabase
       );
+      const progressSnapshot = await refreshProgressSnapshot();
+      if (progressSnapshot === null) {
+        return createSkipProgressUnavailableResponse();
+      }
 
       return createSkipDuplicateResponse({
         postIndex: requestedPostIndex,
-        expectedPostIndex: progressDecision.expectedPostIndex,
+        progressSnapshot,
       });
     }
 
@@ -793,10 +773,14 @@ export async function POST(request: NextRequest) {
         routeOrder[0] ?? null,
         adminSupabase
       );
+      const progressSnapshot = await refreshProgressSnapshot();
+      if (progressSnapshot === null) {
+        return createSkipProgressUnavailableResponse();
+      }
 
       return createSkipDuplicateResponse({
         postIndex: requestedPostIndex,
-        expectedPostIndex: nextExpectedPostIndex,
+        progressSnapshot,
       });
     }
 
@@ -830,10 +814,14 @@ export async function POST(request: NextRequest) {
             routeOrder[0] ?? null,
             adminSupabase
           );
+          const progressSnapshot = await refreshProgressSnapshot();
+          if (progressSnapshot === null) {
+            return createSkipProgressUnavailableResponse();
+          }
 
           return createSkipDuplicateResponse({
             postIndex: requestedPostIndex,
-            expectedPostIndex: nextExpectedPostIndex,
+            progressSnapshot,
           });
         }
 
@@ -871,6 +859,10 @@ export async function POST(request: NextRequest) {
       routeOrder[0] ?? null,
       adminSupabase
     );
+    const progressSnapshot = await refreshProgressSnapshot();
+    if (progressSnapshot === null) {
+      return createSkipProgressUnavailableResponse();
+    }
 
     await logSkipSuccessTelemetry({
       participantId,
@@ -884,6 +876,7 @@ export async function POST(request: NextRequest) {
       skipped: true,
       postIndex: requestedPostIndex,
       awardedPoints: 0,
+      ...progressSnapshot,
     });
   } catch (error) {
     if (error instanceof Error && error.message === ADMIN_ACCESS_MISSING_MESSAGE) {

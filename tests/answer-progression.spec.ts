@@ -27,6 +27,7 @@ type MockConfig = {
   raceType: "quiz" | "escape" | "unknown";
   questions: MockQuestion[];
   postOrderMode?: "fixed" | "distributed_circular";
+  startOffset?: number;
   validateAnswer?: (body: Record<string, unknown>) => ValidateResult;
 };
 
@@ -61,6 +62,14 @@ async function dismissMaintenanceOverlay(page: Page) {
 }
 
 async function mountPlayMocks(ctx: BrowserContext, config: MockConfig, state: MockState) {
+  const answeredPostIndexes = new Set<number>();
+  const routeOrder = Array.from(
+    { length: config.questions.length },
+    (_, index) =>
+      config.postOrderMode === "distributed_circular"
+        ? ((config.startOffset ?? 0) + index) % config.questions.length
+        : index
+  );
   await ctx.routeWebSocket(/webpack-hmr/, (ws) => {
     ws.close();
   });
@@ -81,7 +90,7 @@ async function mountPlayMocks(ctx: BrowserContext, config: MockConfig, state: Mo
       body: JSON.stringify({
         participantId: PARTICIPANT_ID,
         studentName: TEAM_NAME,
-        startOffset: 0,
+        startOffset: config.startOffset ?? 0,
         sessionStatus: "running",
         teamId: null,
         teamColor: null,
@@ -170,12 +179,29 @@ async function mountPlayMocks(ctx: BrowserContext, config: MockConfig, state: Mo
     const body = JSON.parse(route.request().postData() ?? "{}") as {
       payloads?: Array<Record<string, unknown>>;
     };
-    state.submitPayloads.push(body.payloads?.[0] ?? {});
+    const submittedPayload = body.payloads?.[0] ?? {};
+    state.submitPayloads.push(submittedPayload);
+    const answeredPostIndex = Number(submittedPayload.question_index);
+    if (Number.isInteger(answeredPostIndex) && answeredPostIndex >= 0) {
+      answeredPostIndexes.add(answeredPostIndex);
+    }
+    const expectedPostIndex =
+      routeOrder.find((postIndex) => !answeredPostIndexes.has(postIndex)) ?? null;
 
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ inserted: true, awardedPoints: body.payloads?.[0]?.awarded_points ?? 0 }),
+      body: JSON.stringify({
+        inserted: true,
+        awardedPoints: submittedPayload.awarded_points ?? 0,
+        serverCorrectness: {
+          checked: true,
+          isCorrect: submittedPayload.is_correct === true,
+        },
+        answeredPostIndexes: [...answeredPostIndexes].sort((a, b) => a - b),
+        expectedPostIndex,
+        isFinished: expectedPostIndex === null,
+      }),
     });
   });
 }
@@ -739,6 +765,7 @@ test.describe("start_offset=3 – sidst mulige startpost må ikke give for-tidli
           raceType: "quiz",
           questions,
           postOrderMode: "distributed_circular",
+          startOffset: 3,
         },
         state
       );

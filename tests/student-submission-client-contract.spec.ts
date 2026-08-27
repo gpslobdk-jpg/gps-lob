@@ -29,6 +29,64 @@ const statusSource = source("components/play/StudentSubmissionStatus.tsx");
 const playUtilsSource = source("components/play/playUtils.ts");
 
 test.describe("standard student submission client contract", () => {
+  test("server progress wins after normal, duplicate, photo, and skip success", () => {
+    const applyProgress = section(
+      gameStateSource,
+      "const applyAuthoritativeProgressSnapshot = useCallback(",
+      "\n  const reconcileAuthoritativeAnswerProgress"
+    );
+    expect(applyProgress).toContain("normalizeAuthoritativeProgressSnapshot(");
+    expect(applyProgress).toContain("answeredPostIndexesRef.current = normalized.answeredPostIndexes");
+    expect(applyProgress).toContain("if (normalized.isFinished)");
+    expect(applyProgress).toContain("setCurrentPostIndex(expectedPostIndex)");
+
+    const standardInsert = section(
+      gameStateSource,
+      "const insertAnswerRecord = useCallback(",
+      "const fetchRun = async () => {"
+    );
+    expect(standardInsert).toContain("authoritativeProgress,");
+    expect(gameStateSource).toContain("applyAuthoritativeProgressSnapshot(");
+    expect(gameStateSource).toContain("{ deferNavigation: true }");
+    expect(gameStateSource).toContain("deferredAuthoritativeProgressRef.current");
+
+    const photoSubmit = section(
+      gameStateSource,
+      "const submitPhoto = async",
+      "\n  const skipCurrentPostAsEmergency = async"
+    );
+    expect(photoSubmit).toContain("applyAuthoritativeProgressSnapshot(payload)");
+    expect(photoSubmit.indexOf("applyAuthoritativeProgressSnapshot(payload)")).toBeLessThan(
+      photoSubmit.indexOf("await continueFromSolvedPost();")
+    );
+
+    const skipSubmit = section(
+      gameStateSource,
+      "const skipCurrentPostAsEmergency = async () => {",
+      "\n  const preparePhotoSubmission"
+    );
+    expect(skipSubmit).toContain("applyAuthoritativeProgressSnapshot(payload)");
+    expect(skipSubmit).not.toContain("await continueFromSolvedPost();");
+  });
+
+  test("participant restore prefers the authenticated server progress snapshot", () => {
+    const participantRoute = source("app/api/play/participant/route.ts");
+    const restore = section(
+      gameStateSource,
+      "const restoreFromStorage = async () => {",
+      "\n    void restoreFromStorage();"
+    );
+
+    expect(participantRoute).toContain("fetchAuthoritativeProgressSnapshot({");
+    expect(participantRoute).toContain('searchParams.get("includeProgress") === "1"');
+    expect(participantRoute).toContain("...(includeProgress ? { progress } : {})");
+    expect(gameStateSource).toContain('"&includeProgress=1"');
+    expect(participantRoute).toContain('"Cache-Control": "no-store"');
+    expect(restore).toContain("authoritativeProgress");
+    expect(restore).toContain("authoritativeProgress.answeredPostIndexes");
+    expect(restore).toContain("authoritativeProgress?.isFinished");
+  });
+
   test("queues before sending and reuses the same opaque operation id", () => {
     const insertion = section(
       gameStateSource,

@@ -81,6 +81,7 @@ async function mountPlayMocks(page: Page) {
   await page.addInitScript(
     ({ participantId, sessionId, teamName, questions }) => {
       const _origFetch = window.fetch.bind(window);
+      const answeredPostIndexes = new Set<number>();
       window.fetch = async function (input, init) {
         const url =
           typeof input === "string"
@@ -146,8 +147,27 @@ async function mountPlayMocks(page: Page) {
 
         // POST /api/play/submit-answer
         if (url.includes("/api/play/submit-answer")) {
+          const requestBody = JSON.parse(String(init?.body ?? "{}")) as {
+            payloads?: Array<Record<string, unknown>>;
+          };
+          const submittedPostIndex = Number(
+            requestBody.payloads?.[0]?.question_index,
+          );
+          if (Number.isInteger(submittedPostIndex) && submittedPostIndex >= 0) {
+            answeredPostIndexes.add(submittedPostIndex);
+          }
+          const expectedPostIndex =
+            questions.findIndex((_, postIndex) => !answeredPostIndexes.has(postIndex));
           return new Response(
-            JSON.stringify({ inserted: true, awardedPoints: 0 }),
+            JSON.stringify({
+              inserted: true,
+              awardedPoints: 10,
+              serverCorrectness: { checked: true, isCorrect: true },
+              answeredPostIndexes: [...answeredPostIndexes].sort((a, b) => a - b),
+              expectedPostIndex:
+                expectedPostIndex >= 0 ? expectedPostIndex : null,
+              isFinished: expectedPostIndex < 0,
+            }),
             { status: 200, headers: { "Content-Type": "application/json" } },
           );
         }

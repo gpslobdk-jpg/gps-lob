@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
+  fetchAuthoritativeProgressSnapshot,
   fetchParticipantStartState,
   fetchRunForSession,
   getAnsweredPostIndex,
@@ -426,11 +427,6 @@ async function getRunForSessionCached(sessionId: string, runCache: RunCache) {
   return runCache.get(sessionId) ?? null;
 }
 
-type StandardAnswerProgressRow = {
-  post_index?: number | string | null;
-  question_index?: number | string | null;
-};
-
 type StandardSubmissionSafetyResult =
   | {
       ok: true;
@@ -446,59 +442,20 @@ type StandardSubmissionSafetyResult =
       error: string;
       expectedPostIndex?: number | null;
       answeredPostIndexes?: number[];
+      isFinished?: boolean;
     };
-
-async function fetchStandardAnsweredPostIndexes(
-  sessionId: string,
-  participantId: string,
-  admin: NonNullable<ReturnType<typeof createAdminClient>>
-) {
-  for (const selectClause of [
-    "question_index,post_index",
-    "question_index",
-    "post_index",
-  ] as const) {
-    const { data, error } = await admin
-      .from("answers")
-      .select(selectClause)
-      .eq("session_id", sessionId)
-      .eq("participant_id", participantId);
-
-    if (error) {
-      if (isMissingColumnError(error)) {
-        continue;
-      }
-
-      throw new Error(error.message ?? "Kunne ikke hente eksisterende svar.");
-    }
-
-    const answeredPostIndexes = new Set<number>();
-    for (const row of (Array.isArray(data) ? data : []) as StandardAnswerProgressRow[]) {
-      const postIndex = getAnsweredPostIndex(row as Record<string, unknown>);
-      if (postIndex !== null) {
-        answeredPostIndexes.add(postIndex);
-      }
-    }
-
-    return answeredPostIndexes;
-  }
-
-  return null;
-}
 
 async function validateStandardSubmissionSafety({
   sessionId,
   participantId,
   postIndex,
-  startOffset,
-  run,
+  routeOrder,
   admin,
 }: {
   sessionId: string;
   participantId: string;
   postIndex: number;
-  startOffset: number | string | null;
-  run: Awaited<ReturnType<typeof fetchRunForSession>>;
+  routeOrder: readonly number[];
   admin: NonNullable<ReturnType<typeof createAdminClient>>;
 }): Promise<StandardSubmissionSafetyResult> {
   const { data: sessionRow, error: sessionError } = await admin
@@ -521,8 +478,7 @@ async function validateStandardSubmissionSafety({
     };
   }
 
-  const questionCount = Array.isArray(run?.questions) ? run.questions.length : 0;
-  if (questionCount <= 0 || postIndex < 0 || postIndex >= questionCount) {
+  if (!routeOrder.includes(postIndex)) {
     return {
       ok: false,
       status: 404,
@@ -531,12 +487,13 @@ async function validateStandardSubmissionSafety({
     };
   }
 
-  const answeredPostIndexes = await fetchStandardAnsweredPostIndexes(
+  const progressSnapshot = await fetchAuthoritativeProgressSnapshot({
     sessionId,
     participantId,
-    admin
-  );
-  if (answeredPostIndexes === null) {
+    routeOrder,
+    adminSupabase: admin,
+  });
+  if (progressSnapshot === null) {
     return {
       ok: false,
       status: 503,
@@ -545,18 +502,7 @@ async function validateStandardSubmissionSafety({
     };
   }
 
-  const routeOrder = getServerRouteOrder(
-    questionCount,
-    startOffset ?? 0,
-    supportsServerStaggeredStart(
-      run?.raceType ?? run?.race_type,
-      run?.sessionPostOrderMode,
-      run?.routeVersion
-    )
-  );
-  const expectedPostIndex =
-    routeOrder.find((candidatePostIndex) => !answeredPostIndexes.has(candidatePostIndex)) ??
-    null;
+  const { answeredPostIndexes, expectedPostIndex } = progressSnapshot;
 
   if (expectedPostIndex === null) {
     return {
@@ -565,7 +511,8 @@ async function validateStandardSubmissionSafety({
       code: "PROGRESS_MISMATCH",
       error: "Alle poster er allerede besvaret.",
       expectedPostIndex: null,
-      answeredPostIndexes: [...answeredPostIndexes].sort((a, b) => a - b),
+      answeredPostIndexes,
+      isFinished: true,
     };
   }
 
@@ -576,7 +523,8 @@ async function validateStandardSubmissionSafety({
       code: "PROGRESS_MISMATCH",
       error: "Posten matcher ikke den aktuelle serverprogression.",
       expectedPostIndex,
-      answeredPostIndexes: [...answeredPostIndexes].sort((a, b) => a - b),
+      answeredPostIndexes,
+      isFinished: false,
     };
   }
 
@@ -694,9 +642,26 @@ async function canonicalizeStandardAnswerPayload(
 async function createStandardDuplicateResponse(
   payload: Record<string, unknown>,
   existingAnswer: ExistingAnswerRow,
-  admin: NonNullable<ReturnType<typeof createAdminClient>>
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  routeOrder: readonly number[]
 ) {
   await maybeStampRunStartedAt(payload, admin);
+
+  const progressSnapshot = await fetchAuthoritativeProgressSnapshot({
+    sessionId: asTrimmedString(payload.session_id),
+    participantId: asTrimmedString(payload.participant_id),
+    routeOrder,
+    adminSupabase: admin,
+  });
+  if (progressSnapshot === null) {
+    return NextResponse.json(
+      {
+        error: "Svarprogression understøttes ikke med den nuværende answers-struktur.",
+        code: "ANSWERS_SCHEMA_INCOMPATIBLE",
+      },
+      { status: 503 }
+    );
+  }
 
   const existingAwardedPoints = Number(existingAnswer.awarded_points);
   const storedIsCorrect = existingAnswer.is_correct === true;
@@ -715,6 +680,7 @@ async function createStandardDuplicateResponse(
     zoneKrigCapture: null,
     isLocked: true,
     duplicate: true,
+    ...progressSnapshot,
   });
 }
 
@@ -969,6 +935,7 @@ export async function POST(request: NextRequest) {
     let isStandardStudentSubmission = false;
     let standardPostIndex: number | null = null;
     let standardOperationId: string | null = null;
+    let standardRouteOrder: number[] = [];
 
     const run = await getRunForSessionCached(participantContext.data.sessionId, runCache);
     const hasRequestedOperationId = Boolean(asTrimmedString(body.operationId));
@@ -985,6 +952,16 @@ export async function POST(request: NextRequest) {
     isStandardStudentSubmission = usesStandardStudentLocationExperience(rawRaceType);
 
     if (isStandardStudentSubmission) {
+      const questionCount = Array.isArray(run?.questions) ? run.questions.length : 0;
+      standardRouteOrder = getServerRouteOrder(
+        questionCount,
+        participantContext.data.startOffset ?? 0,
+        supportsServerStaggeredStart(
+          rawRaceType,
+          run?.sessionPostOrderMode,
+          run?.routeVersion
+        )
+      );
       const parsedOperationId = parseClientOperationId(body.operationId);
       if (!parsedOperationId.valid) {
         return NextResponse.json(
@@ -1138,7 +1115,8 @@ export async function POST(request: NextRequest) {
           return createStandardDuplicateResponse(
             enrichedPrimaryPayload,
             existingOperation,
-            admin
+            admin,
+            standardRouteOrder
           );
         }
       }
@@ -1152,7 +1130,8 @@ export async function POST(request: NextRequest) {
         return createStandardDuplicateResponse(
           enrichedPrimaryPayload,
           existingAnswer,
-          admin
+          admin,
+          standardRouteOrder
         );
       }
 
@@ -1160,8 +1139,7 @@ export async function POST(request: NextRequest) {
         sessionId: participantContext.data.sessionId,
         participantId: participantContext.data.participantId,
         postIndex: standardPostIndex,
-        startOffset: participantContext.data.startOffset,
-        run,
+        routeOrder: standardRouteOrder,
         admin,
       });
       if (!safetyResult.ok) {
@@ -1175,10 +1153,23 @@ export async function POST(request: NextRequest) {
             ...("answeredPostIndexes" in safetyResult
               ? { answeredPostIndexes: safetyResult.answeredPostIndexes }
               : {}),
+            ...("isFinished" in safetyResult
+              ? { isFinished: safetyResult.isFinished }
+              : {}),
           },
           { status: safetyResult.status }
         );
       }
+    }
+
+    if (isStandardStudentSubmission && standardRouteOrder.length === 0) {
+      return NextResponse.json(
+        {
+          error: "Løbets progression kunne ikke beregnes sikkert.",
+          code: "RUN_LOOKUP_FAILED",
+        },
+        { status: 503 }
+      );
     }
 
     for (const payload of sanitizedPayloads) {
@@ -1196,7 +1187,8 @@ export async function POST(request: NextRequest) {
           return createStandardDuplicateResponse(
             enrichedPayload,
             existingAnswer,
-            admin
+            admin,
+            standardRouteOrder
           );
         }
 
@@ -1296,6 +1288,24 @@ export async function POST(request: NextRequest) {
               { status: 500 }
             );
           }
+          const progressSnapshot = isStandardStudentSubmission
+            ? await fetchAuthoritativeProgressSnapshot({
+                sessionId: participantContext.data.sessionId,
+                participantId: participantContext.data.participantId,
+                routeOrder: standardRouteOrder,
+                adminSupabase: admin,
+              })
+            : null;
+          if (isStandardStudentSubmission && progressSnapshot === null) {
+            return NextResponse.json(
+              {
+                error:
+                  "Svarprogression understøttes ikke med den nuværende answers-struktur.",
+                code: "ANSWERS_SCHEMA_INCOMPATIBLE",
+              },
+              { status: 503 }
+            );
+          }
           return NextResponse.json({
             inserted: true,
             awardedPoints: effectiveAwardedPoints,
@@ -1312,6 +1322,7 @@ export async function POST(request: NextRequest) {
               : serverCorrectness
                 ? { serverCorrectness }
                 : {}),
+            ...(progressSnapshot ?? {}),
           });
         }
 
@@ -1356,7 +1367,8 @@ export async function POST(request: NextRequest) {
             return createStandardDuplicateResponse(
               enrichedPayload,
               duplicateAnswer,
-              admin
+              admin,
+              standardRouteOrder
             );
           }
         }

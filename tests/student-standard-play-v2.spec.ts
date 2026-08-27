@@ -4,9 +4,179 @@ import {
   DEFAULT_STANDARD_QUESTIONS,
   openHarnessedPlay,
   openStandardQuestion,
+  type StandardPlayQuestionFixture,
 } from "./helpers/standardPlayV2Harness";
 
 test.use({ serviceWorkers: "block" });
+
+function makeAuthoritativeProgressQuestions(
+  count: number,
+): StandardPlayQuestionFixture[] {
+  return Array.from({ length: count }, (_, postIndex) => ({
+    ...DEFAULT_STANDARD_QUESTIONS[0],
+    text: `Syntetisk progressionspost P${postIndex}`,
+    answers: [
+      `Korrekt P${postIndex}`,
+      `Forkert P${postIndex}`,
+      `Mulighed C P${postIndex}`,
+      `Mulighed D P${postIndex}`,
+    ],
+    correctIndex: 0,
+  }));
+}
+
+for (const scenario of [
+  {
+    label: "fixed",
+    postOrderMode: "fixed" as const,
+    startOffset: 0,
+    expectedRoute: [0, 1, 2, 3, 4],
+  },
+  {
+    label: "distributed",
+    postOrderMode: "distributed_circular" as const,
+    startOffset: 2,
+    expectedRoute: [2, 3, 4, 0, 1],
+  },
+]) {
+  test(`${scenario.label} autoritativ progression aktiverer hver post én gang og afslutter`, async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    const questions = makeAuthoritativeProgressQuestions(5);
+    const state = await openHarnessedPlay(page, {
+      sessionId: `p0-authoritative-${scenario.label}`,
+      raceType: "manuel",
+      questions,
+      postOrderMode: scenario.postOrderMode,
+      startOffset: scenario.startOffset,
+    });
+    const activatedPostIds: string[] = [];
+
+    for (const [routeStep, postIndex] of scenario.expectedRoute.entries()) {
+      await openStandardQuestion(page);
+      const postId = `P${postIndex}`;
+      await expect(
+        page.getByText(`Syntetisk progressionspost ${postId}`),
+      ).toBeVisible();
+      activatedPostIds.push(postId);
+      await page
+        .getByRole("button", { name: `Korrekt ${postId}` })
+        .click();
+      await expect(page.getByTestId("standard-play-answer-success")).toBeVisible();
+      await page
+        .getByRole("button", {
+          name:
+            routeStep === scenario.expectedRoute.length - 1
+              ? /se resultat/i
+              : /gå til næste post/i,
+        })
+        .click();
+    }
+
+    await expect(page.getByText(/Løbet er slut\./i)).toBeVisible();
+    expect(activatedPostIds).toEqual(
+      scenario.expectedRoute.map((postIndex) => `P${postIndex}`),
+    );
+    expect(new Set(activatedPostIds).size).toBe(activatedPostIds.length);
+    expect([...state.answeredPostIndexes].sort((a, b) => a - b)).toEqual([
+      0, 1, 2, 3, 4,
+    ]);
+  });
+}
+
+test("ét-posts-løb gendannes som færdigt, hvis reload sker efter servercommit", async ({
+  page,
+}) => {
+  const questions = makeAuthoritativeProgressQuestions(1);
+  const state = await openHarnessedPlay(page, {
+    sessionId: "p0-authoritative-one-post-reload",
+    raceType: "manuel",
+    questions,
+    submitDelayMs: 2_000,
+    failSupabaseRequests: true,
+  });
+  await openStandardQuestion(page);
+  await page.getByRole("button", { name: "Korrekt P0" }).click();
+  await expect.poll(() => state.answeredPostIndexes.has(0)).toBe(true);
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByText(/Løbet er slut\./i)).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByText("Syntetisk progressionspost P0")).toHaveCount(0);
+});
+
+test("mistet svarresponse retries idempotent og bruger samme autoritative næste post", async ({
+  page,
+}) => {
+  const questions = makeAuthoritativeProgressQuestions(2);
+  const state = await openHarnessedPlay(page, {
+    sessionId: "p0-authoritative-lost-response",
+    raceType: "manuel",
+    questions,
+    dropSubmitResponseAt: [1],
+  });
+  await openStandardQuestion(page);
+  await page.getByRole("button", { name: "Korrekt P0" }).click();
+  await expect(page.getByRole("button", { name: /prøv igen/i })).toBeVisible({
+    timeout: 20_000,
+  });
+  await page.getByRole("button", { name: /prøv igen/i }).click();
+  await expect(page.getByTestId("standard-play-answer-success")).toBeVisible({
+    timeout: 20_000,
+  });
+  await page.getByRole("button", { name: /gå til næste post/i }).click();
+  await openStandardQuestion(page);
+  await expect(page.getByText("Syntetisk progressionspost P1")).toBeVisible();
+
+  expect(state.submitRequests).toHaveLength(2);
+  expect(state.committedOperationIds.size).toBe(1);
+  expect([...state.answeredPostIndexes]).toEqual([0]);
+});
+
+test("blandet quiz/foto afslutter på serverens sidste foto-snapshot uden post-fallback", async ({
+  page,
+}) => {
+  const [quizQuestion, photoBase] = makeAuthoritativeProgressQuestions(2);
+  const photoQuestion: StandardPlayQuestionFixture = {
+    ...photoBase,
+    type: "ai_image",
+    text: "Syntetisk sidste fotopost P1",
+    aiPrompt: "Tag et syntetisk testbillede",
+  };
+  const state = await openHarnessedPlay(page, {
+    sessionId: "p0-authoritative-final-photo",
+    raceType: "manuel",
+    questions: [quizQuestion, photoQuestion],
+  });
+
+  await openStandardQuestion(page);
+  await page.getByRole("button", { name: "Korrekt P0" }).click();
+  await expect(page.getByTestId("standard-play-answer-success")).toBeVisible();
+  await page.getByRole("button", { name: /gå til næste post/i }).click();
+  await page.getByRole("button", { name: /åbn post/i }).click();
+  await expect(page.getByText("Syntetisk sidste fotopost P1")).toBeVisible();
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "syntetisk-p0.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nWQAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+  await page.getByRole("button", { name: /aflever billede/i }).click();
+
+  await expect(page.getByText(/Løbet er slut\./i)).toBeVisible({
+    timeout: 30_000,
+  });
+  expect(state.photoRequests).toBe(1);
+  expect([...state.answeredPostIndexes].sort((a, b) => a - b)).toEqual([
+    0, 1,
+  ]);
+  await expect(page.getByText("Syntetisk progressionspost P0")).toHaveCount(0);
+});
 
 for (const raceType of ["manuel", "dansk", "engelsk", "matematik"]) {
   test(`${raceType} bruger den nye scoped standardvisning`, async ({ page }) => {
