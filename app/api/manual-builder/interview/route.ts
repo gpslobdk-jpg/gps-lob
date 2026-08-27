@@ -25,6 +25,10 @@ import {
   lynbyggerReviewerObservationSchema,
   runLynbyggerQualityPipeline,
 } from "@/lib/lynbyggerAiQuality";
+import {
+  classifyLynbyggerGenerationPhase,
+  logLynbyggerPipelineError,
+} from "@/lib/lynbyggerObservability";
 import { createClient } from "@/utils/supabase/server";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
@@ -717,6 +721,7 @@ function normalizeGeneratedRun(
 
 export async function POST(req: Request) {
   const requestPath = new URL(req.url).pathname;
+  const correlationId = crypto.randomUUID();
 
   try {
     if (!process.env.OPENAI_API_KEY) {
@@ -778,24 +783,45 @@ export async function POST(req: Request) {
       systemPrompt: string;
       temperature?: number;
     }) => {
-      const { object } = await generateObject({
-        model: aiSdkOpenai(input.modelId),
-        schema,
-        schemaName: basePromptConfig.schemaName,
-        schemaDescription: basePromptConfig.schemaDescription,
-        system: input.systemPrompt,
-        prompt: input.prompt,
-        ...(input.temperature === undefined ? {} : { temperature: input.temperature }),
-        timeout: OPENAI_TIMEOUT_MS,
-        providerOptions: {
-          openai: {
-            strictJsonSchema: true,
-            store: false,
+      let object: z.infer<typeof schema>;
+      try {
+        ({ object } = await generateObject({
+          model: aiSdkOpenai(input.modelId),
+          schema,
+          schemaName: basePromptConfig.schemaName,
+          schemaDescription: basePromptConfig.schemaDescription,
+          system: input.systemPrompt,
+          prompt: input.prompt,
+          ...(input.temperature === undefined ? {} : { temperature: input.temperature }),
+          timeout: OPENAI_TIMEOUT_MS,
+          providerOptions: {
+            openai: {
+              strictJsonSchema: true,
+              store: false,
+            },
           },
-        },
-      });
+        }));
+      } catch (error) {
+        logLynbyggerPipelineError(error, {
+          pipelinePhase: classifyLynbyggerGenerationPhase(error, "candidate_generation"),
+          model: input.modelId,
+          operation: "ai.generateObject",
+          correlationId,
+        });
+        throw error;
+      }
 
-      return normalizeGeneratedRun(object, { failClosed: strictLynbyggerInput !== null });
+      try {
+        return normalizeGeneratedRun(object, { failClosed: strictLynbyggerInput !== null });
+      } catch (error) {
+        logLynbyggerPipelineError(error, {
+          pipelinePhase: "candidate_validation",
+          model: input.modelId,
+          operation: "normalizeGeneratedRun",
+          correlationId,
+        });
+        throw error;
+      }
     };
 
     let normalizedRun;
@@ -808,81 +834,114 @@ export async function POST(req: Request) {
         maxRetries: 0,
         timeout: OPENAI_TIMEOUT_MS,
       });
-      const qualityResult = await runLynbyggerQualityPipeline({
-        questionCount: count,
-        initialCandidateCount: generationCount,
-        generate: () =>
-          generateRun({
-            modelId: LYNBYGGER_GENERATOR_MODEL,
-            systemPrompt: basePromptConfig.systemPrompt,
-            prompt: basePromptConfig.prompt,
-            temperature: 0.2,
-          }),
-        reviewObservation: async ({ question }) => {
-          const response = await reviewerClient.responses.parse(
-            {
-              model: LYNBYGGER_REVIEW_MODEL,
-              input: [
-                {
-                  role: "system",
-                  content: LYNBYGGER_REVIEWER_SYSTEM_PROMPT,
-                },
-                {
-                  role: "user",
-                  content: createLynbyggerReviewerPrompt({
-                    topic,
-                    gradeLevelLabel,
-                    question,
-                  }),
-                },
-              ],
-              reasoning: { effort: "none" },
-              text: {
-                format: zodTextFormat(
-                  lynbyggerReviewerObservationSchema,
-                  "lynbygger_question_observation_v3_1",
-                ),
-                verbosity: "low",
-              },
-              max_output_tokens: 1_200,
-              store: false,
-            },
-            { timeout: OPENAI_TIMEOUT_MS, maxRetries: 0 },
-          );
-
-          if (response.model !== LYNBYGGER_REVIEW_MODEL) {
-            throw new LynbyggerReviewerTechnicalError(
-              "reviewer_model_snapshot_mismatch",
-              false,
-            );
-          }
-          return response.output_parsed;
-        },
-        rewriteFailed: async ({ failedQuestions }) => {
-          const { object } = await generateObject({
-            model: aiSdkOpenai(LYNBYGGER_GENERATOR_MODEL),
-            schema: createLynbyggerRewriteSchema(failedQuestions.length),
-            schemaName: "LynbyggerQuestionReplacements",
-            schemaDescription: "Kun erstatninger for afviste quizspørgsmål.",
-            system: LYNBYGGER_REWRITE_SYSTEM_PROMPT,
-            prompt: createLynbyggerRewritePrompt({
-              topic,
-              gradeLevelLabel,
-              failedQuestions,
+      let qualityResult;
+      try {
+        qualityResult = await runLynbyggerQualityPipeline({
+          questionCount: count,
+          initialCandidateCount: generationCount,
+          generate: () =>
+            generateRun({
+              modelId: LYNBYGGER_GENERATOR_MODEL,
+              systemPrompt: basePromptConfig.systemPrompt,
+              prompt: basePromptConfig.prompt,
+              temperature: 0.2,
             }),
-            temperature: 0.2,
-            timeout: OPENAI_TIMEOUT_MS,
-            providerOptions: {
-              openai: {
-                strictJsonSchema: true,
-                store: false,
-              },
-            },
-          });
+          reviewObservation: async ({ question }) => {
+            try {
+              const response = await reviewerClient.responses.parse(
+                {
+                  model: LYNBYGGER_REVIEW_MODEL,
+                  input: [
+                    {
+                      role: "system",
+                      content: LYNBYGGER_REVIEWER_SYSTEM_PROMPT,
+                    },
+                    {
+                      role: "user",
+                      content: createLynbyggerReviewerPrompt({
+                        topic,
+                        gradeLevelLabel,
+                        question,
+                      }),
+                    },
+                  ],
+                  reasoning: { effort: "none" },
+                  text: {
+                    format: zodTextFormat(
+                      lynbyggerReviewerObservationSchema,
+                      "lynbygger_question_observation_v3_1",
+                    ),
+                    verbosity: "low",
+                  },
+                  max_output_tokens: 1_200,
+                  store: false,
+                },
+                { timeout: OPENAI_TIMEOUT_MS, maxRetries: 0 },
+              );
 
-          return object;
-        },
-      });
+              if (response.model !== LYNBYGGER_REVIEW_MODEL) {
+                throw new LynbyggerReviewerTechnicalError(
+                  "reviewer_model_snapshot_mismatch",
+                  false,
+                );
+              }
+              return response.output_parsed;
+            } catch (error) {
+              logLynbyggerPipelineError(error, {
+                pipelinePhase: "reviewer",
+                model: LYNBYGGER_REVIEW_MODEL,
+                operation: "openai.responses.parse",
+                correlationId,
+              });
+              throw error;
+            }
+          },
+          rewriteFailed: async ({ failedQuestions }) => {
+            try {
+              const { object } = await generateObject({
+                model: aiSdkOpenai(LYNBYGGER_GENERATOR_MODEL),
+                schema: createLynbyggerRewriteSchema(failedQuestions.length),
+                schemaName: "LynbyggerQuestionReplacements",
+                schemaDescription: "Kun erstatninger for afviste quizspørgsmål.",
+                system: LYNBYGGER_REWRITE_SYSTEM_PROMPT,
+                prompt: createLynbyggerRewritePrompt({
+                  topic,
+                  gradeLevelLabel,
+                  failedQuestions,
+                }),
+                temperature: 0.2,
+                timeout: OPENAI_TIMEOUT_MS,
+                providerOptions: {
+                  openai: {
+                    strictJsonSchema: true,
+                    store: false,
+                  },
+                },
+              });
+
+              return object;
+            } catch (error) {
+              logLynbyggerPipelineError(error, {
+                pipelinePhase: "rewrite",
+                model: LYNBYGGER_GENERATOR_MODEL,
+                operation: "ai.generateObject",
+                correlationId,
+              });
+              throw error;
+            }
+          },
+        });
+      } catch (error) {
+        if (!(error instanceof LynbyggerQualityError)) {
+          logLynbyggerPipelineError(error, {
+            pipelinePhase: "final_normalization",
+            model: LYNBYGGER_GENERATOR_MODEL,
+            operation: "runLynbyggerQualityPipeline",
+            correlationId,
+          });
+        }
+        throw error;
+      }
 
       normalizedRun = qualityResult.run;
       qualityRewriteRounds = qualityResult.rewriteRounds;
