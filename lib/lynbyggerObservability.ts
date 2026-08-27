@@ -19,11 +19,27 @@ type LynbyggerErrorContext = {
 type UnknownRecord = Record<string, unknown>;
 
 const observedErrors = new WeakSet<object>();
+const MAX_ERROR_NESTING_DEPTH = 3;
+const MAX_RETRY_ATTEMPTS_TO_REPORT = 100;
 const SAFE_TOKEN_PATTERN = /^[a-zA-Z0-9_.:/-]+$/;
 const PROVIDER_REQUEST_ID_PATTERN = /^(?:req|request|chatcmpl|resp|cmpl|gen|run)[_-][a-zA-Z0-9_-]+$/i;
+const RETRY_REASONS = new Set(["maxRetriesExceeded", "errorNotRetryable", "abort"]);
+const PROVIDER_REQUEST_ID_HEADER_NAMES = [
+  "x-request-id",
+  "request-id",
+  "openai-request-id",
+] as const;
 
 function asRecord(value: unknown): UnknownRecord | null {
   return value !== null && typeof value === "object" ? (value as UnknownRecord) : null;
+}
+
+function readField(record: UnknownRecord, field: string) {
+  try {
+    return record[field];
+  } catch {
+    return undefined;
+  }
 }
 
 function safeToken(value: unknown, maxLength: number) {
@@ -35,29 +51,73 @@ function safeToken(value: unknown, maxLength: number) {
 }
 
 function safeStatus(value: unknown) {
-  return typeof value === "number" && Number.isInteger(value) && value >= 100 && value <= 599
-    ? value
+  const numericValue =
+    typeof value === "string" && /^\d{3}$/.test(value) ? Number(value) : value;
+  return typeof numericValue === "number" &&
+    Number.isInteger(numericValue) &&
+    numericValue >= 100 &&
+    numericValue <= 599
+    ? numericValue
     : undefined;
+}
+
+function safeProviderCode(value: unknown) {
+  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) {
+    return String(value);
+  }
+  return safeToken(value, 80);
+}
+
+function safeRetryReason(value: unknown) {
+  const reason = safeToken(value, 40);
+  return reason && RETRY_REASONS.has(reason) ? reason : undefined;
 }
 
 function getCandidates(error: unknown) {
   const candidates: UnknownRecord[] = [];
   let current = asRecord(error);
 
-  for (let depth = 0; current && depth < 3; depth += 1) {
+  for (let depth = 0; current && depth < MAX_ERROR_NESTING_DEPTH; depth += 1) {
     candidates.push(current);
-    const nestedError = asRecord(current.error);
+    const nestedError = asRecord(readField(current, "error"));
     if (nestedError) candidates.push(nestedError);
-    const data = asRecord(current.data);
+    const data = asRecord(readField(current, "data"));
     if (data) {
       candidates.push(data);
-      const dataError = asRecord(data.error);
+      const dataError = asRecord(readField(data, "error"));
       if (dataError) candidates.push(dataError);
     }
-    current = asRecord(current.cause);
+    current = asRecord(readField(current, "cause"));
   }
 
   return candidates;
+}
+
+function getRetryErrorDetails(error: unknown) {
+  if (getLynbyggerErrorName(error) !== "AI_RetryError") return {};
+
+  const retryError = asRecord(error);
+  if (!retryError) return {};
+
+  const errorsValue = readField(retryError, "errors");
+  const errors = Array.isArray(errorsValue) ? errorsValue : undefined;
+  const providerAttemptCount =
+    errors && errors.length > 0 && errors.length <= MAX_RETRY_ATTEMPTS_TO_REPORT
+      ? errors.length
+      : undefined;
+  const lastError = readField(retryError, "lastError");
+  const lastArrayError = errors && errors.length > 0 ? errors[errors.length - 1] : undefined;
+  const nestedError = asRecord(lastError)
+    ? lastError
+    : asRecord(lastArrayError)
+      ? lastArrayError
+      : undefined;
+
+  return {
+    retryReason: safeRetryReason(readField(retryError, "reason")),
+    providerAttemptCount,
+    nestedError,
+  };
 }
 
 function firstDefined<T>(values: Array<T | undefined>) {
@@ -67,12 +127,28 @@ function firstDefined<T>(values: Array<T | undefined>) {
 function getHeaderRequestId(value: unknown) {
   if (!value || typeof value !== "object") return undefined;
   const headers = value as { get?: (name: string) => unknown } & UnknownRecord;
-  const candidate =
-    typeof headers.get === "function"
-      ? headers.get("x-request-id")
-      : headers["x-request-id"] ?? headers["X-Request-Id"];
-  const requestId = safeToken(candidate, 128);
-  return requestId && PROVIDER_REQUEST_ID_PATTERN.test(requestId) ? requestId : undefined;
+  const getHeader = typeof headers.get === "function" ? headers.get.bind(headers) : undefined;
+
+  for (const headerName of PROVIDER_REQUEST_ID_HEADER_NAMES) {
+    let candidate: unknown;
+    try {
+      const titleCaseHeaderName = headerName
+        .split("-")
+        .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+        .join("-");
+      candidate = getHeader
+        ? getHeader(headerName)
+        : readField(headers, headerName) ??
+          readField(headers, titleCaseHeaderName) ??
+          readField(headers, headerName.toUpperCase());
+    } catch {
+      candidate = undefined;
+    }
+    const requestId = safeToken(candidate, 128);
+    if (requestId && PROVIDER_REQUEST_ID_PATTERN.test(requestId)) return requestId;
+  }
+
+  return undefined;
 }
 
 export function classifyLynbyggerGenerationPhase(
@@ -92,36 +168,54 @@ export function getLynbyggerErrorName(error: unknown) {
     return safeToken(error.name, 80) ?? "Error";
   }
 
-  return safeToken(asRecord(error)?.name, 80) ?? "UnknownError";
+  const errorRecord = asRecord(error);
+  return safeToken(errorRecord ? readField(errorRecord, "name") : undefined, 80) ?? "UnknownError";
 }
 
 export function buildSafeLynbyggerErrorMetadata(error: unknown, context: LynbyggerErrorContext) {
-  const candidates = getCandidates(error);
+  const retryDetails = getRetryErrorDetails(error);
+  const candidates = getCandidates(retryDetails.nestedError ?? error);
+  const nestedErrorName = retryDetails.nestedError
+    ? getLynbyggerErrorName(retryDetails.nestedError)
+    : undefined;
   const providerStatus = firstDefined(
     candidates.flatMap((candidate) => [
-      safeStatus(candidate.status),
-      safeStatus(candidate.statusCode),
-      safeStatus(asRecord(candidate.response)?.status),
+      safeStatus(readField(candidate, "status")),
+      safeStatus(readField(candidate, "statusCode")),
+      safeStatus(readField(candidate, "httpStatus")),
+      safeStatus(readField(candidate, "httpStatusCode")),
+      safeStatus(asRecord(readField(candidate, "response"))?.status),
+      safeStatus(asRecord(readField(candidate, "response"))?.statusCode),
     ]),
   );
   const providerCode = firstDefined(
-    candidates.map((candidate) => safeToken(candidate.code, 80)),
+    candidates.flatMap((candidate) => [
+      safeProviderCode(readField(candidate, "code")),
+      safeProviderCode(readField(candidate, "errorCode")),
+      safeProviderCode(readField(candidate, "error_code")),
+    ]),
   );
   const providerType = firstDefined(
-    candidates.map((candidate) => safeToken(candidate.type, 80)),
+    candidates.flatMap((candidate) => [
+      safeToken(readField(candidate, "type"), 80),
+      safeToken(readField(candidate, "errorType"), 80),
+      safeToken(readField(candidate, "error_type"), 80),
+    ]),
   );
   const directRequestId = firstDefined(
     candidates.flatMap((candidate) => [
-      safeToken(candidate.requestID, 128),
-      safeToken(candidate.requestId, 128),
-      safeToken(candidate.request_id, 128),
+      safeToken(readField(candidate, "requestID"), 128),
+      safeToken(readField(candidate, "requestId"), 128),
+      safeToken(readField(candidate, "request_id"), 128),
+      safeToken(readField(candidate, "providerRequestId"), 128),
+      safeToken(readField(candidate, "provider_request_id"), 128),
     ]),
   );
   const headerRequestId = firstDefined(
     candidates.flatMap((candidate) => [
-      getHeaderRequestId(candidate.headers),
-      getHeaderRequestId(candidate.responseHeaders),
-      getHeaderRequestId(asRecord(candidate.response)?.headers),
+      getHeaderRequestId(readField(candidate, "headers")),
+      getHeaderRequestId(readField(candidate, "responseHeaders")),
+      getHeaderRequestId(asRecord(readField(candidate, "response"))?.headers),
     ]),
   );
   const requestIdCandidate = directRequestId ?? headerRequestId;
@@ -129,14 +223,39 @@ export function buildSafeLynbyggerErrorMetadata(error: unknown, context: Lynbygg
     requestIdCandidate && PROVIDER_REQUEST_ID_PATTERN.test(requestIdCandidate)
       ? requestIdCandidate
       : undefined;
+  const providerModel = firstDefined(
+    candidates.flatMap((candidate) => [
+      safeToken(readField(candidate, "model"), 100),
+      safeToken(readField(candidate, "modelId"), 100),
+      safeToken(readField(candidate, "model_id"), 100),
+    ]),
+  );
+  const providerOperation = firstDefined(
+    candidates.flatMap((candidate) => [
+      safeToken(readField(candidate, "operation"), 100),
+      safeToken(readField(candidate, "operationName"), 100),
+      safeToken(readField(candidate, "operation_name"), 100),
+      safeToken(readField(candidate, "apiOperation"), 100),
+      safeToken(readField(candidate, "api_operation"), 100),
+    ]),
+  );
 
   return {
     pipelinePhase: context.pipelinePhase,
     errorName: getLynbyggerErrorName(error),
+    ...(retryDetails.retryReason === undefined
+      ? {}
+      : { retryReason: retryDetails.retryReason }),
+    ...(retryDetails.providerAttemptCount === undefined
+      ? {}
+      : { providerAttemptCount: retryDetails.providerAttemptCount }),
+    ...(nestedErrorName === undefined ? {} : { nestedErrorName }),
     ...(providerStatus === undefined ? {} : { providerStatus }),
     ...(providerCode === undefined ? {} : { providerCode }),
     ...(providerType === undefined ? {} : { providerType }),
     ...(providerRequestId === undefined ? {} : { providerRequestId }),
+    ...(providerModel === undefined ? {} : { providerModel }),
+    ...(providerOperation === undefined ? {} : { providerOperation }),
     model: context.model,
     operation: context.operation,
     correlationId: context.correlationId,
