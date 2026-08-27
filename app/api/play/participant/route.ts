@@ -83,12 +83,12 @@ export async function GET(request: NextRequest) {
   const includeProgress = request.nextUrl.searchParams.get("includeProgress") === "1";
   const requestPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
 
-  if (!claimedSessionId || !claimedParticipantId) {
-    return NextResponse.json({ error: "Session-id eller deltager-id mangler." }, { status: 400 });
+  if (!claimedSessionId) {
+    return NextResponse.json({ error: "Session-id mangler." }, { status: 400 });
   }
 
   const participantContext = await resolveParticipantRequestContext({
-    claimedParticipantId,
+    claimedParticipantId: claimedParticipantId || null,
     claimedSessionId,
   });
 

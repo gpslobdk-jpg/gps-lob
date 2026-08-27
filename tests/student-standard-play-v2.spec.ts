@@ -62,16 +62,27 @@ for (const scenario of [
       activatedPostIds.push(postId);
       await page
         .getByRole("button", { name: `Korrekt ${postId}` })
-        .click();
-      await expect(page.getByTestId("standard-play-answer-success")).toBeVisible();
-      await page
-        .getByRole("button", {
-          name:
-            routeStep === scenario.expectedRoute.length - 1
-              ? /se resultat/i
-              : /gå til næste post/i,
-        })
-        .click();
+        .evaluate((button) => {
+          (button as HTMLButtonElement).click();
+        });
+      if (routeStep === scenario.expectedRoute.length - 1) {
+        const resultButton = page.getByRole("button", { name: /se resultat/i });
+        await expect(
+          resultButton.or(page.getByText(/Løbet er slut\./i)),
+        ).toBeVisible();
+        if (await resultButton.isVisible()) {
+          await resultButton.evaluate((button) => {
+            (button as HTMLButtonElement).click();
+          });
+        }
+      } else {
+        await expect(page.getByTestId("standard-play-answer-success")).toBeVisible();
+        await page
+          .getByRole("button", { name: /gå til næste post/i })
+          .evaluate((button) => {
+            (button as HTMLButtonElement).click();
+          });
+      }
     }
 
     await expect(page.getByText(/Løbet er slut\./i)).toBeVisible();

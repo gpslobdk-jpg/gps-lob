@@ -590,6 +590,8 @@ export function usePlayGameState({
   const [autoUnlockRadius, setAutoUnlockRadius] = useState<number | null>(null);
   const [locationSyncErrors, setLocationSyncErrors] = useState(0);
   const [restoreRetryNonce, setRestoreRetryNonce] = useState(0);
+  const [hasResolvedParticipantBootstrap, setHasResolvedParticipantBootstrap] =
+    useState(() => Boolean(storedParticipantOnLoad));
   const [reconnectConfirmationNonce, setReconnectConfirmationNonce] =
     useState(0);
   const [isRestoringParticipant, setIsRestoringParticipant] = useState(false);
@@ -1659,7 +1661,10 @@ export function usePlayGameState({
   );
 
   const applyAuthoritativeProgressSnapshot = useCallback(
-    (value: unknown, options?: { deferNavigation?: boolean }) => {
+    (
+      value: unknown,
+      options?: { deferNavigation?: boolean; persistFinished?: boolean }
+    ) => {
       const normalized = normalizeAuthoritativeProgressSnapshot(
         value,
         questions.length
@@ -1706,7 +1711,9 @@ export function usePlayGameState({
 
       if (normalized.isFinished) {
         setIsFinished(true);
-        void finalizeParticipantSilentlyRunnerRef.current();
+        if (options?.persistFinished !== false) {
+          void finalizeParticipantSilentlyRunnerRef.current();
+        }
         return true;
       }
 
@@ -1977,7 +1984,7 @@ export function usePlayGameState({
   );
 
   const fetchParticipantSnapshot = useCallback(
-    async (targetParticipantId: string) => {
+    async (targetParticipantId: string | null) => {
       if (!sessionId) {
         return {
           data: null as ParticipantRow | null,
@@ -1996,8 +2003,9 @@ export function usePlayGameState({
         } satisfies ParticipantSnapshotFetchResult;
       }
 
+      const participantRequestKey = targetParticipantId ?? "session-bound";
       const existingRequest = participantSnapshotRequestRef.current;
-      if (existingRequest?.participantId === targetParticipantId) {
+      if (existingRequest?.participantId === participantRequestKey) {
         return existingRequest.promise;
       }
 
@@ -2013,8 +2021,11 @@ export function usePlayGameState({
 
         const doFetch = async () => {
           try {
+            const participantQuery = targetParticipantId
+              ? `&participantId=${encodeURIComponent(targetParticipantId)}`
+              : "";
             const response = await fetch(
-              `/api/play/participant?sessionId=${encodeURIComponent(sessionId)}&participantId=${encodeURIComponent(targetParticipantId)}${progressQuery}`,
+              `/api/play/participant?sessionId=${encodeURIComponent(sessionId)}${participantQuery}${progressQuery}`,
               {
                 cache: "no-store",
               }
@@ -2028,7 +2039,10 @@ export function usePlayGameState({
               | null;
 
             if (!response.ok) {
-              if (response.status === 401 || response.status === 403) {
+              if (
+                targetParticipantId &&
+                (response.status === 401 || response.status === 403)
+              ) {
                 // Detect an immediate join (short window since savedAt). If so,
                 // attempt one auth-recovery and retry before deciding how to
                 // surface the failure. This covers the race where the join
@@ -2205,7 +2219,7 @@ export function usePlayGameState({
       })();
 
       participantSnapshotRequestRef.current = {
-        participantId: targetParticipantId,
+        participantId: participantRequestKey,
         promise: requestPromise,
       };
 
@@ -2228,6 +2242,103 @@ export function usePlayGameState({
       usesStandardStudentLocationExperience,
     ]
   );
+
+  useEffect(() => {
+    if (
+      !sessionId ||
+      isLoading ||
+      hasResolvedParticipantBootstrap ||
+      circuitBreakerActive ||
+      (questions.length === 0 && !isStrategoRace)
+    ) {
+      return;
+    }
+
+    if (participantId) {
+      setHasResolvedParticipantBootstrap(true);
+      return;
+    }
+
+    if (!usesStandardStudentLocationExperience) {
+      setHasResolvedParticipantBootstrap(true);
+      return;
+    }
+
+    let isActive = true;
+    setIsRestoringParticipant(true);
+    setPlayLoadError("");
+
+    const restoreSessionBoundParticipant = async () => {
+      const { data, progress, error } = await fetchParticipantSnapshot(null);
+      if (!isActive) return;
+
+      if (error) {
+        setIsRestoringParticipant(false);
+        setHasResolvedParticipantBootstrap(true);
+        if (
+          error.status === 401 ||
+          error.status === 403 ||
+          (error.status === 404 &&
+            /deltageren findes ikke/i.test(error.message ?? ""))
+        ) {
+          return;
+        }
+
+        setPlayLoadError(PLAY_RESTORE_RETRY_MESSAGE, "restore_recovery");
+        return;
+      }
+
+      const restoredParticipantId =
+        typeof data?.id === "string" ? data.id.trim() : "";
+      const restoredName =
+        typeof data?.student_name === "string" ? data.student_name.trim() : "";
+      const restoredStartOffset = resolveParticipantStartOffset(
+        data?.start_offset,
+        0
+      );
+
+      if (!restoredParticipantId || !restoredName || !progress) {
+        setIsRestoringParticipant(false);
+        setHasResolvedParticipantBootstrap(true);
+        setPlayLoadError(PLAY_RESTORE_RETRY_MESSAGE, "restore_recovery");
+        return;
+      }
+
+      hasRestoredRef.current = false;
+      setPlayerName(restoredName);
+      setPendingPlayerNameState(restoredName);
+      setHasConfirmedName(true);
+      setHasCompletedAvatarGate(true);
+      setNameError(null);
+      setStartOffset(restoredStartOffset);
+      rememberActiveParticipant(
+        restoredParticipantId,
+        restoredName,
+        restoredStartOffset
+      );
+      setHasResolvedParticipantBootstrap(true);
+      setIsRestoringParticipant(false);
+    };
+
+    void restoreSessionBoundParticipant();
+
+    return () => {
+      isActive = false;
+    };
+  }, [
+    circuitBreakerActive,
+    fetchParticipantSnapshot,
+    hasResolvedParticipantBootstrap,
+    isLoading,
+    isStrategoRace,
+    participantId,
+    questions.length,
+    rememberActiveParticipant,
+    restoreRetryNonce,
+    sessionId,
+    setPlayLoadError,
+    usesStandardStudentLocationExperience,
+  ]);
 
   const scheduleRestoreRetry = useCallback(
     () => {
@@ -2272,13 +2383,11 @@ export function usePlayGameState({
     clearRestoreRetryTimer();
     restoreRetryCountRef.current = 0;
     resetLocationSyncRecovery();
-    clearStoredPlayRecoveryState();
-    setParticipantId(null);
     setShowQuestion(false);
     setIsKicked(false);
     setIsFinished(true);
     setIsRestoringParticipant(false);
-  }, [clearRestoreRetryTimer, clearStoredPlayRecoveryState, resetLocationSyncRecovery]);
+  }, [clearRestoreRetryTimer, resetLocationSyncRecovery]);
 
   const fetchSessionStatusSnapshot = useCallback(async () => {
     if (!sessionId || sessionStatusMissingRef.current) {
@@ -2558,8 +2667,11 @@ export function usePlayGameState({
             : participantId;
 
         if (activeParticipantId) {
-          const { data: participantSnapshot, error: participantSnapshotError } =
-            await fetchParticipantSnapshot(activeParticipantId);
+          const {
+            data: participantSnapshot,
+            progress: participantProgress,
+            error: participantSnapshotError,
+          } = await fetchParticipantSnapshot(activeParticipantId);
 
           if (!participantSnapshotError && participantSnapshot) {
             const restoredName =
@@ -2596,6 +2708,16 @@ export function usePlayGameState({
 
             if (participantSnapshot.finished_at) {
               markPlayAsFinished();
+              return;
+            }
+
+            if (
+              participantProgress &&
+              applyAuthoritativeProgressSnapshot(participantProgress, {
+                persistFinished: false,
+              }) &&
+              participantProgress.isFinished
+            ) {
               return;
             }
 
@@ -2677,6 +2799,7 @@ export function usePlayGameState({
     // restore setState or status poll, which would restart the two long-running effects
     // that list recoverWakeUpState as a dependency.
     clearRestoreRetryTimer,
+    applyAuthoritativeProgressSnapshot,
     circuitBreakerActive,
     fetchParticipantSnapshot,
     fetchSessionStatusSnapshot,
@@ -3959,9 +4082,10 @@ export function usePlayGameState({
         setMyLoc({ lat: restoredLat, lng: restoredLng });
       }
 
-      if (participantData?.finished_at) {
-        clearStoredPlayRecoveryState();
-        setParticipantId(null);
+      if (
+        participantData?.finished_at &&
+        !usesStandardStudentLocationExperience
+      ) {
         setIsFinished(true);
         setIsRestoringParticipant(false);
         hasRestoredRef.current = true;
@@ -4377,7 +4501,10 @@ export function usePlayGameState({
           setEscapeReward(null);
           setRoleplayReply(null);
           setIsFinished(true);
-          if (scopedStoredPendingAnswers.length === 0) {
+          if (
+            scopedStoredPendingAnswers.length === 0 &&
+            authoritativeProgress?.isFinished !== true
+          ) {
             void finalizeParticipantSilentlyRunnerRef.current();
           } else {
             finalizeAfterPendingAnswersRef.current = true;
@@ -4508,8 +4635,6 @@ export function usePlayGameState({
         .eq("session_id", sessionId);
 
       if (!error) {
-        clearStoredPlayRecoveryState();
-        setParticipantId(null);
         return true;
       }
 
@@ -4523,7 +4648,6 @@ export function usePlayGameState({
 
     return false;
   }, [
-    clearStoredPlayRecoveryState,
     isTransientNetworkError,
     participantId,
     sessionId,
@@ -4536,14 +4660,10 @@ export function usePlayGameState({
 
     if (!didPersist) {
       console.error("Målgang kunne ikke synkroniseres. Fortsætter stille i elev-UI.");
-      clearStoredPlayRecoveryState();
-      if (isMountedRef.current) {
-        setParticipantId(null);
-      }
     }
 
     return didPersist;
-  }, [clearStoredPlayRecoveryState, markParticipantFinished]);
+  }, [markParticipantFinished]);
 
   finalizeParticipantSilentlyRunnerRef.current = finalizeParticipantSilently;
 
@@ -5370,12 +5490,7 @@ export function usePlayGameState({
             const nextStatus = (payload.new as { status?: string | null })?.status;
             if (nextStatus !== "finished") return;
 
-            clearRestoreRetryTimer();
-            clearStoredPlayRecoveryState();
-            setParticipantId(null);
-            setShowQuestion(false);
-            setIsRestoringParticipant(false);
-            setIsFinished(true);
+            markPlayAsFinished();
           }
         )
         .on(
@@ -5470,6 +5585,7 @@ export function usePlayGameState({
     clearStoredPlayRecoveryState,
     clearMessageResubscribeTimer,
     loadLatestTeacherMessage,
+    markPlayAsFinished,
     participantId,
     recoverWakeUpState,
     sessionId,
@@ -6038,7 +6154,7 @@ export function usePlayGameState({
   }, []);
 
   const retryRestoreConnection = useCallback(() => {
-    if (!sessionId || !participantId) {
+    if (!sessionId) {
       return;
     }
 
@@ -6046,6 +6162,9 @@ export function usePlayGameState({
     restoreRetryCountRef.current = 0;
     setPlayLoadError("");
     setIsRestoringParticipant(true);
+    if (!participantId) {
+      setHasResolvedParticipantBootstrap(false);
+    }
     setRestoreRetryNonce((current) => current + 1);
   }, [clearRestoreRetryTimer, participantId, sessionId, setPlayLoadError]);
 
@@ -6919,7 +7038,12 @@ export function usePlayGameState({
     sessionStatus === "scheduled" ||
     (sessionStatus === null && hasConfirmedName && Boolean(participantId));
 
-  const screenMode: PlayScreenState["mode"] = isLoading || isRestoringParticipant
+  const isParticipantBootstrapLoading =
+    !loadError &&
+    (!hasResolvedParticipantBootstrap ||
+      (Boolean(participantId) && !hasRestoredRef.current));
+  const screenMode: PlayScreenState["mode"] =
+    isLoading || isRestoringParticipant || isParticipantBootstrapLoading
     ? "loading"
     : loadError
       ? "load_error"
@@ -6929,15 +7053,15 @@ export function usePlayGameState({
           ? "name_gate"
           : shouldShowAvatarGate
             ? "avatar_gate"
-          : isSessionWaiting
-            ? "waiting"
           : isFinished && isEscapeRace && correctAnswersCount >= questions.length && !showEscapeResults
               ? "escape_master_lock"
               : isFinished && isEscapeRace && showEscapeResults
                 ? "escape_results"
                 : isFinished
                   ? "finished"
-                  : "active";
+                  : isSessionWaiting
+                    ? "waiting"
+                    : "active";
 
   useEffect(() => {
     if (screenMode === "active" && playStartedAtMs === null) {

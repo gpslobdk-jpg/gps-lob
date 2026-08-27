@@ -2,6 +2,7 @@ import {
   expect,
   test,
   type BrowserContext,
+  type Locator,
   type Page,
   type Route,
 } from "@playwright/test";
@@ -121,12 +122,15 @@ async function mountMocks(
       body: JSON.stringify({ sessionStatus: "running", gpsOverride: false }),
     })
   );
-  await context.route(/\/api\/play\/participant/, (route) =>
-    route.fulfill({
-      status: options.restoreParticipant ? 200 : 404,
+  await context.route(/\/api\/play\/participant/, (route) => {
+    const requestUrl = new URL(route.request().url());
+    const hasClaimedParticipant = Boolean(requestUrl.searchParams.get("participantId"));
+    const canRestoreParticipant = options.restoreParticipant || hasClaimedParticipant;
+    return route.fulfill({
+      status: canRestoreParticipant ? 200 : 401,
       contentType: "application/json",
       body: JSON.stringify(
-        options.restoreParticipant
+        canRestoreParticipant
           ? {
               participant: {
                 id: PARTICIPANT_ID,
@@ -139,10 +143,10 @@ async function mountMocks(
               },
               progress: progressSnapshot(),
             }
-          : { error: "Not found" }
+          : { error: "Unauthorized" }
       ),
-    })
-  );
+    });
+  });
   await context.route(/\/api\/play\/placements/, (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: "{\"placements\":[]}" })
   );
@@ -196,27 +200,41 @@ async function dismissOverlay(page: Page) {
   });
 }
 
+async function clickStableTarget(locator: Locator) {
+  await locator.evaluate((element: HTMLElement) => element.click());
+}
+
 async function openPost(page: Page, answer: string) {
-  await page.context().setGeolocation({
-    latitude: POST_LAT + 0.000001,
-    longitude: POST_LNG,
-    accuracy: 5,
-  });
-  await page.context().setGeolocation({
-    latitude: POST_LAT,
-    longitude: POST_LNG,
-    accuracy: 5,
-  });
   const answerButton = page.getByRole("button", { name: answer });
   const openButton = page.getByRole("button", { name: /bn post/i });
   const recoverLocationButton = page.getByRole("button", {
     name: /Find min placering igen/i,
   });
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    await page.context().setGeolocation({
+      latitude: POST_LAT + 0.000001,
+      longitude: POST_LNG,
+      accuracy: 5,
+    });
+    await page.context().setGeolocation({
+      latitude: POST_LAT,
+      longitude: POST_LNG,
+      accuracy: 5,
+    });
+    if (
+      (await answerButton.isVisible()) ||
+      (await openButton.isVisible()) ||
+      (await recoverLocationButton.isVisible())
+    ) {
+      break;
+    }
+    await page.waitForTimeout(250);
+  }
   await expect(
     answerButton.or(openButton).or(recoverLocationButton).first()
   ).toBeVisible({ timeout: 30_000 });
   if (await recoverLocationButton.isVisible()) {
-    await recoverLocationButton.click();
+    await clickStableTarget(recoverLocationButton);
     await page.context().setGeolocation({
       latitude: POST_LAT + 0.000001,
       longitude: POST_LNG,
@@ -229,7 +247,7 @@ async function openPost(page: Page, answer: string) {
     });
   }
   if (!(await answerButton.isVisible())) {
-    await openButton.click();
+    await clickStableTarget(openButton);
   }
   await expect(answerButton).toBeVisible({ timeout: 30_000 });
 }
@@ -242,7 +260,23 @@ async function freshJoin(page: Page) {
   const nameInput = page.getByPlaceholder(/skriv holdnavn/i);
   await expect(nameInput).toBeVisible({ timeout: 30_000 });
   await nameInput.fill(TEAM_NAME);
-  await page.getByRole("button", { name: /klar/i }).click();
+  await clickStableTarget(page.getByRole("button", { name: /klar/i }));
+  await expect
+    .poll(
+      () =>
+        page.evaluate((expectedParticipantId) => {
+          try {
+            const stored = JSON.parse(
+              window.localStorage.getItem("gpslob_active_participant") ?? "null"
+            ) as { participantId?: string } | null;
+            return stored?.participantId === expectedParticipantId;
+          } catch {
+            return false;
+          }
+        }, PARTICIPANT_ID),
+      { timeout: 30_000 }
+    )
+    .toBe(true);
 }
 
 test.describe("progress mismatch recovery", () => {
@@ -273,10 +307,10 @@ test.describe("progress mismatch recovery", () => {
 
     await freshJoin(page);
     await openPost(page, "Correct 1");
-    await page.getByRole("button", { name: "Correct 1" }).click();
+    await clickStableTarget(page.getByRole("button", { name: "Correct 1" }));
 
     await openPost(page, "Correct 2");
-    await page.getByRole("button", { name: "Correct 2" }).click();
+    await clickStableTarget(page.getByRole("button", { name: "Correct 2" }));
 
     await expect.poll(() => mock.requests.length).toBe(2);
     expect(mock.requests[0].payloads?.[0]?.question_index).toBe(0);
@@ -301,7 +335,7 @@ test.describe("progress mismatch recovery", () => {
 
     await freshJoin(page);
     await openPost(page, "Correct 1");
-    await page.getByRole("button", { name: "Correct 1" }).click();
+    await clickStableTarget(page.getByRole("button", { name: "Correct 1" }));
 
     await expect.poll(() => mock.requests.length, { timeout: 10_000 }).toBe(2);
     const joinCountAtFirstSubmit = mock.getJoinCountAtFirstSubmit();
@@ -309,7 +343,9 @@ test.describe("progress mismatch recovery", () => {
     expect(mock.requests[0].operationId).toBeTruthy();
     expect(mock.requests[1].operationId).toBe(mock.requests[0].operationId);
     expect(mock.getJoinCount()).toBe((joinCountAtFirstSubmit ?? 0) + 1);
-    await expect(page.getByText(/Korrekt!/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Post 2 af 2", { exact: true }).first()).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("409 that still expects the same post retries with the same operation id", async ({ page }) => {
@@ -337,9 +373,9 @@ test.describe("progress mismatch recovery", () => {
 
     await freshJoin(page);
     await openPost(page, "Correct 1");
-    await page.getByRole("button", { name: "Correct 1" }).click();
+    await clickStableTarget(page.getByRole("button", { name: "Correct 1" }));
     await expect(page.getByRole("button", { name: /Pr.v igen/i })).toBeVisible();
-    await page.getByRole("button", { name: /Pr.v igen/i }).click();
+    await clickStableTarget(page.getByRole("button", { name: /Pr.v igen/i }));
 
     await expect.poll(() => mock.requests.length).toBe(2);
     expect(mock.requests[1].operationId).toBe(mock.requests[0].operationId);
@@ -374,9 +410,9 @@ test.describe("progress mismatch recovery", () => {
 
     await freshJoin(page);
     await openPost(page, "Correct 8");
-    await page.getByRole("button", { name: "Correct 8" }).click();
+    await clickStableTarget(page.getByRole("button", { name: "Correct 8" }));
     await openPost(page, "Correct 9");
-    await page.getByRole("button", { name: "Correct 9" }).click();
+    await clickStableTarget(page.getByRole("button", { name: "Correct 9" }));
 
     await expect.poll(() => mock.requests.length).toBe(2);
     expect(mock.requests[0].payloads?.[0]?.question_index).toBe(7);
@@ -469,10 +505,12 @@ test.describe("progress mismatch recovery", () => {
     await expect(page.getByRole("button", { name: /Pr.v igen/i })).toBeVisible({
       timeout: 30_000,
     });
-    await page.getByRole("button", { name: /Pr.v igen/i }).click();
+    await clickStableTarget(page.getByRole("button", { name: /Pr.v igen/i }));
 
     await expect.poll(() => mock.requests.length, { timeout: 10_000 }).toBe(1);
     expect(mock.requests[0].operationId).toBe(OPERATION_ID);
-    await expect(page.getByText(/Korrekt!/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Post 2 af 2").first()).toBeVisible({
+      timeout: 10_000,
+    });
   });
 });

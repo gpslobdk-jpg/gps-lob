@@ -34,6 +34,11 @@ export type StandardPlayHarnessOptions = {
   validateCorrect?: boolean;
   dropSubmitResponseAt?: number[];
   failSupabaseRequests?: boolean;
+  seedParticipant?: boolean;
+  seedParticipantOnce?: boolean;
+  participantDelayMs?: number;
+  participantFailures?: number;
+  authenticatedParticipant?: boolean;
   theme?: {
     vm26?: {
       enabled: true;
@@ -48,6 +53,9 @@ export type StandardPlayHarnessState = {
   photoRequests: number;
   skipRequests: Array<Record<string, unknown>>;
   validateRequests: Array<Record<string, unknown>>;
+  participantRequests: string[];
+  participantFinishWrites: number;
+  joinRequests: number;
   committedOperationIds: Set<string>;
   answeredPostIndexes: Set<number>;
 };
@@ -109,9 +117,14 @@ export async function installStandardPlayHarness(
     photoRequests: 0,
     skipRequests: [],
     validateRequests: [],
+    participantRequests: [],
+    participantFinishWrites: 0,
+    joinRequests: 0,
     committedOperationIds: new Set(),
     answeredPostIndexes: new Set(),
   };
+  let participantFinished = false;
+  let participantFailuresRemaining = options.participantFailures ?? 0;
   const routeOrder = Array.from(
     { length: questions.length },
     (_, index) =>
@@ -130,32 +143,51 @@ export async function installStandardPlayHarness(
     };
   };
 
-  await page.addInitScript(
-    ({ participantId, sessionId, teamName, sessionStatus, startOffset }) => {
-      window.localStorage.setItem(
-        "gpslob_active_participant",
-        JSON.stringify({
-          participantId,
-          sessionId,
-          studentName: teamName,
-          startOffset,
-          savedAt: new Date().toISOString(),
-          teamId: null,
-          teamColor: null,
-          avatarUrl: null,
-          sessionStatus,
-          hasCompletedAvatarGate: true,
-        }),
-      );
-    },
-    {
-      participantId,
-      sessionId: options.sessionId,
-      teamName,
-      sessionStatus,
-      startOffset,
-    },
-  );
+  if (options.seedParticipant !== false) {
+    await page.addInitScript(
+      ({
+        participantId,
+        sessionId,
+        teamName,
+        sessionStatus,
+        startOffset,
+        seedParticipantOnce,
+      }) => {
+        const seedMarker = `gpslob_test_participant_seeded:${sessionId}`;
+        if (seedParticipantOnce && window.sessionStorage.getItem(seedMarker) === "1") {
+          return;
+        }
+
+        if (seedParticipantOnce) {
+          window.sessionStorage.setItem(seedMarker, "1");
+        }
+
+        window.localStorage.setItem(
+          "gpslob_active_participant",
+          JSON.stringify({
+            participantId,
+            sessionId,
+            studentName: teamName,
+            startOffset,
+            savedAt: new Date().toISOString(),
+            teamId: null,
+            teamColor: null,
+            avatarUrl: null,
+            sessionStatus,
+            hasCompletedAvatarGate: true,
+          }),
+        );
+      },
+      {
+        participantId,
+        sessionId: options.sessionId,
+        teamName,
+        sessionStatus,
+        startOffset,
+        seedParticipantOnce: options.seedParticipantOnce === true,
+      },
+    );
+  }
 
   await page.context().route(/\/api\/play\/session/, async (route: Route) => {
     if (options.sessionDelayMs) {
@@ -185,6 +217,33 @@ export async function installStandardPlayHarness(
   });
 
   await page.context().route(/\/api\/play\/participant/, async (route: Route) => {
+    state.participantRequests.push(route.request().url());
+    if (options.participantDelayMs) {
+      await new Promise((resolve) => setTimeout(resolve, options.participantDelayMs));
+    }
+    if (participantFailuresRemaining > 0) {
+      participantFailuresRemaining -= 1;
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Syntetisk midlertidig deltagerfejl." }),
+      });
+      return;
+    }
+    const participantUrl = new URL(route.request().url());
+    if (
+      options.authenticatedParticipant === false &&
+      !participantUrl.searchParams.has("participantId")
+    ) {
+      await route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: "Deltager-login mangler eller er udløbet.",
+        }),
+      });
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -196,7 +255,9 @@ export async function installStandardPlayHarness(
           start_offset: startOffset,
           lat: null,
           lng: null,
-          finished_at: null,
+          finished_at: participantFinished
+            ? "2026-08-28T10:00:00.000Z"
+            : null,
         },
         progress: progressSnapshot(),
       }),
@@ -204,6 +265,7 @@ export async function installStandardPlayHarness(
   });
 
   await page.context().route(/\/api\/join/, async (route: Route) => {
+    state.joinRequests += 1;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -352,6 +414,14 @@ export async function installStandardPlayHarness(
   await page.context().route(
     /\/api\/play\/(?:location|auth\/refresh)|\/api\/telemetry|supabase|realtime/i,
     async (route: Route) => {
+      const request = route.request();
+      if (
+        request.method() === "PATCH" &&
+        /\/rest\/v1\/participants(?:\?|$)/i.test(request.url())
+      ) {
+        state.participantFinishWrites += 1;
+        participantFinished = true;
+      }
       await route.fulfill({
         status:
           options.failSupabaseRequests && /supabase/i.test(route.request().url())
@@ -361,7 +431,10 @@ export async function installStandardPlayHarness(
         body: JSON.stringify(
           options.failSupabaseRequests && /supabase/i.test(route.request().url())
             ? { error: "synthetic read failure" }
-            : { ok: true },
+            : request.method() === "GET" &&
+                /\/rest\/v1\/answers(?:\?|$)/i.test(request.url())
+              ? []
+              : { ok: true },
         ),
       });
     },
@@ -388,6 +461,8 @@ export async function openStandardQuestion(page: Page) {
   });
   const openButton = page.getByRole("button", { name: /^åbn post$/i });
   await expect(openButton).toBeVisible({ timeout: 10_000 });
-  await openButton.click();
+  await openButton.evaluate((button) => {
+    (button as HTMLButtonElement).click();
+  });
   await expect(page.getByTestId("standard-play-task")).toBeVisible();
 }
