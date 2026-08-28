@@ -19,8 +19,6 @@ const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 // Image model can be configured via env; default to gpt-image-2
 const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
 
@@ -122,6 +120,7 @@ function buildImageGenerationParams(
 }
 
 async function generateDalleImage(
+  openaiClient: OpenAI,
   imagePrompt: string,
   artDirection: ImageArtDirection,
 ): Promise<string> {
@@ -135,11 +134,12 @@ async function generateDalleImage(
 }
 
 async function generateImageUrl(
+  openaiClient: OpenAI,
   imagePrompt: string,
   artDirection: ImageArtDirection,
 ): Promise<string> {
   try {
-    return await generateDalleImage(imagePrompt, artDirection);
+    return await generateDalleImage(openaiClient, imagePrompt, artDirection);
   } catch (err) {
     console.warn(
       "OpenAI image generation failed, falling back to Pollinations:",
@@ -672,7 +672,8 @@ export async function POST(req: Request) {
   const requestPath = new URL(req.url).pathname;
 
   try {
-    if (!process.env.OPENAI_API_KEY) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
       await logHandledServerError({
         requestPath,
         route: requestPath,
@@ -686,6 +687,8 @@ export async function POST(req: Request) {
         { status: 500 }
       );
     }
+
+    const openaiClient = new OpenAI({ apiKey });
 
     const supabase = await createClient();
     const {
@@ -851,7 +854,7 @@ ${subjectLine}`;
 
     const imageArtDir = resolveImageArtDirection(subject);
     const imageUrls = await Promise.all(
-      result.posts.map((post) => generateImageUrl(post.image_prompt, imageArtDir)),
+      result.posts.map((post) => generateImageUrl(openaiClient, post.image_prompt, imageArtDir)),
     );
 
     const posts = result.posts.map((post, i) => {

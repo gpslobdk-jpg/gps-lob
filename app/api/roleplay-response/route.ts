@@ -5,7 +5,6 @@ import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const maxDuration = 300;
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const OPENAI_TIMEOUT_MS = 45_000;
 
 type RoleplayResponsePayload = {
@@ -24,7 +23,8 @@ export async function POST(req: Request) {
   const requestPath = new URL(req.url).pathname;
 
   try {
-    if (!process.env.OPENAI_API_KEY) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
       await logHandledServerError({
         requestPath,
         route: requestPath,
@@ -38,6 +38,8 @@ export async function POST(req: Request) {
         { status: 500 }
       );
     }
+
+    const openai = new OpenAI({ apiKey });
 
     const supabase = await createClient();
     const {
