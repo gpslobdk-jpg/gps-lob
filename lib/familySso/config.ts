@@ -1,5 +1,6 @@
 const LOCAL_ORIGIN_PATTERN = /^http:\/\/(?:[a-z0-9-]+\.)?localhost(?::\d{1,5})?$|^http:\/\/127\.0\.0\.1(?::\d{1,5})?$/;
 const SKOLEGPS_PRODUCTION_ORIGIN = "https://www.skolegps.dk";
+const SKOLEGPS_PRINTMIT_PREVIEW_ORIGIN = "https://skolegps-printmit-preview.vercel.app";
 
 export const FAMILY_SSO_TTL_SECONDS = 90;
 export const FAMILY_SSO_CLOCK_SKEW_SECONDS = 30;
@@ -117,8 +118,16 @@ export function getSafeFamilySsoPath(
 export function isTrustedSkoleGpsRequest(request: Request) {
   const origin = request.headers.get("origin");
   if (!origin || request.headers.get("sec-fetch-site") !== "same-origin") return false;
-  if (origin === SKOLEGPS_PRODUCTION_ORIGIN) return true;
-  return process.env.NODE_ENV !== "production" && LOCAL_ORIGIN_PATTERN.test(origin);
+  const isAllowedOrigin = [
+    SKOLEGPS_PRODUCTION_ORIGIN,
+    SKOLEGPS_PRINTMIT_PREVIEW_ORIGIN,
+  ].includes(origin) || process.env.NODE_ENV !== "production" && LOCAL_ORIGIN_PATTERN.test(origin);
+  if (!isAllowedOrigin) return false;
+  try {
+    return new URL(request.url).origin === origin;
+  } catch {
+    return false;
+  }
 }
 
 export function getSafeDagensTavlePath(value: unknown, fallback = "/skema") {

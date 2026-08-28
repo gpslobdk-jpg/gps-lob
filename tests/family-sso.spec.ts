@@ -194,13 +194,18 @@ test.describe("DagensTavle family SSO security contract", () => {
     expect(isTrustedSkoleGpsRequest(crossOrigin)).toBe(false);
   });
 
-  test("trusts only the canonical www SkoleGPS production origin", () => {
-    const requestFor = (origin: string) => new Request("https://www.skolegps.dk/api/family-sso/revoke", {
+  test("trusts only the exact SkoleGPS production and PrintMit preview origins", () => {
+    const requestFor = (requestOrigin: string, origin = requestOrigin) => new Request(`${requestOrigin}/api/family-sso/revoke`, {
       method: "POST",
       headers: { Origin: origin, "Sec-Fetch-Site": "same-origin" },
     });
 
     expect(isTrustedSkoleGpsRequest(requestFor("https://www.skolegps.dk"))).toBe(true);
+    expect(isTrustedSkoleGpsRequest(requestFor("https://skolegps-printmit-preview.vercel.app"))).toBe(true);
+    expect(isTrustedSkoleGpsRequest(requestFor(
+      "https://www.skolegps.dk",
+      "https://skolegps-printmit-preview.vercel.app",
+    ))).toBe(false);
     for (const untrusted of [
       "https://skolegps.dk",
       "https://teachers.skolegps.dk",
@@ -209,7 +214,7 @@ test.describe("DagensTavle family SSO security contract", () => {
       "http://www.skolegps.dk",
       "https://xn--sklegps-54a.dk",
     ]) {
-      expect(isTrustedSkoleGpsRequest(requestFor(untrusted)), untrusted).toBe(false);
+      expect(isTrustedSkoleGpsRequest(requestFor("https://www.skolegps.dk", untrusted)), untrusted).toBe(false);
     }
   });
 
