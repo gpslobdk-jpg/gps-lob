@@ -4,8 +4,6 @@ import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const maxDuration = 300;
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 // Image model can be configured via env; default to a safer current model
 const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
 
@@ -22,6 +20,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Data mangler" }, { status: 400 });
     }
 
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "Billedgenerering er ikke tilgængelig lige nu" },
+        { status: 503 }
+      );
+    }
+
+    const openai = new OpenAI({ apiKey });
+
     const imagePrompt = `A pedagogical illustration for a children's quiz game about the subject '${subject}' and topic '${topic}'. The image should visualize the question: "${questionText}". Style: Clean, modern, digital illustration, vibrant colors, slightly playful but educational, no text in the image.`;
 
     try {
@@ -34,7 +42,7 @@ export async function POST(req: Request) {
       });
 
       const data0 = response.data?.[0];
-      let imageUrl = data0?.url ?? (data0?.b64_json ? `data:image/png;base64,${data0.b64_json}` : undefined);
+      const imageUrl = data0?.url ?? (data0?.b64_json ? `data:image/png;base64,${data0.b64_json}` : undefined);
 
       if (imageUrl) {
         return NextResponse.json({ imageUrl });
