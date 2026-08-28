@@ -3,6 +3,7 @@ import { RUN_EXECUTION_SHARE_PATH } from "@/lib/runExecutionShare";
 const DEFAULT_NEXT_PATH = "/dashboard";
 const SAFE_PATH_ORIGINS = "https://safe-next.invalid";
 const SAFE_PREFIXES = ["/dashboard", "/opret"] as const;
+const FAMILY_SSO_START_PATH = "/api/family-sso/start";
 
 function hasSafePrefix(pathname: string) {
   return SAFE_PREFIXES.some(
@@ -57,7 +58,9 @@ export function getSafeNextPath(value: unknown) {
     }
 
     const isAllowed =
-      decodedPathname === RUN_EXECUTION_SHARE_PATH || hasSafePrefix(decodedPathname);
+      decodedPathname === RUN_EXECUTION_SHARE_PATH ||
+      decodedPathname === FAMILY_SSO_START_PATH ||
+      hasSafePrefix(decodedPathname);
 
     if (!isAllowed) return DEFAULT_NEXT_PATH;
 

@@ -23,6 +23,14 @@ test.describe("OAuth callback origin allowlist", () => {
     );
   });
 
+  test("the isolated PrintMit SSO preview keeps its exact callback origin", () => {
+    const previewOrigin = "https://skolegps-printmit-preview.vercel.app";
+    expect(buildOAuthCallbackUrl(previewOrigin, "/api/family-sso/start?request=test"))
+      .toBe(
+        `${previewOrigin}/api/auth/callback?next=%2Fapi%2Ffamily-sso%2Fstart%3Frequest%3Dtest`
+      );
+  });
+
   test("a different team's vercel.app preview falls back to production", () => {
     expect(
       buildOAuthCallbackUrl("https://example-other-team.vercel.app", "/dashboard")

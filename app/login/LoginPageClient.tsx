@@ -28,6 +28,7 @@ const PRODUCTION_OAUTH_ORIGINS = new Set([
   "https://www.gpslob.dk",
   "https://skolegps.dk",
   "https://www.skolegps.dk",
+  "https://skolegps-printmit-preview.vercel.app",
 ]);
 
 const DEVELOPMENT_OAUTH_ORIGINS = new Set([

@@ -27,6 +27,13 @@ test.describe("safe login return paths", () => {
     expect(getSafeNextPath("/del/afvikling?fra=login")).toBe(
       "/del/afvikling?fra=login"
     );
+    expect(
+      getSafeNextPath(
+        "/api/family-sso/start?request=rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr&audience=printmitarbejdsark"
+      )
+    ).toBe(
+      "/api/family-sso/start?request=rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr&audience=printmitarbejdsark"
+    );
   });
 
   test("rejects open redirects and path-confusion inputs", () => {
@@ -41,6 +48,7 @@ test.describe("safe login return paths", () => {
       "/dashboard.evil.example",
       "/dashboard\\evil.example",
       "/del/afvikling/not-a-valid-route",
+      "/api/family-sso/start/anything",
       "/join",
       "javascript:alert(1)",
       "/dashboard/%00evil",
