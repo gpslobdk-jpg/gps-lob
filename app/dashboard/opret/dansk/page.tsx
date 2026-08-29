@@ -1743,7 +1743,7 @@ function OpretDanskLoebPageContent() {
               </span>
               <span>
                 <span className="block text-sm font-black uppercase tracking-[0.16em]">Print udkast</span>
-                <span className="mt-1 block text-sm leading-6 text-rose-100/72">Aabn den printvenlige version med titel, poster og svar.</span>
+                <span className="mt-1 block text-sm leading-6 text-rose-100/72">Åbn printversionen.</span>
               </span>
             </button>
 
@@ -1771,7 +1771,7 @@ function OpretDanskLoebPageContent() {
                   ))}
                 </select>
                 <p className="mt-2 text-sm leading-6 text-rose-100/68">
-                  Radius styrer, hvor tæt eleven skal være på posten. Klassetrin bliver i arbejdsfladen, fordi det er en kernefunktion.
+                  Afstand til automatisk åbning.
                 </p>
               </div>
 
@@ -1794,7 +1794,7 @@ function OpretDanskLoebPageContent() {
                 </span>
                 <span>
                   <span className="block text-sm font-black uppercase tracking-[0.16em]">Builder-status</span>
-                  <span className="mt-1 block text-sm leading-6 text-rose-100/68">Klassetrin ligger fortsat synligt i arbejdsfladen, så du let kan justere både assistenten og niveauvalg undervejs.</span>
+                  <span className="mt-1 block text-sm leading-6 text-rose-100/68">Klassetrin og niveau kan justeres i arbejdsfladen.</span>
                 </span>
               </div>
             </div>
@@ -1892,7 +1892,7 @@ function OpretDanskLoebPageContent() {
           description="Assistenten har bygget et komplet dansk-udkast. Tjek resuméet herunder, før du anvender det i builderen."
           warning={
             pendingAiReviewDraft.replacesExistingContent
-              ? "Dit nuværende indhold bliver erstattet, hvis du vælger at anvende kladden."
+              ? "Kladden erstatter dit nuværende indhold."
               : null
           }
           summaryItems={[

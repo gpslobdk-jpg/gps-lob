@@ -716,11 +716,11 @@ function OpretLoebPageContent() {
   const isVm26Run = isVm26GameConfig(runGameConfig);
   const currentRaceTypeLabel = RACE_TYPE_LABELS[normalizedBuilderRaceType] ?? "Generel Quiz";
   const gradeLevelSummary =
-    gradeLevels.length > 0 ? `Valgt: ${formatGradeLevelsForPrompt(gradeLevels)}` : "Ingen klassetrin valgt endnu.";
+    gradeLevels.length > 0 ? `Valgt: ${formatGradeLevelsForPrompt(gradeLevels)}` : "Valgfrit – vælg et klassetrin.";
   const advancedStatusDescription =
     normalizedBuilderRaceType === RACE_TYPES.PODCAST
-      ? "Podcast-import er aktiv. Løbet bevarer typen Podcast-Detektiv, mens du redigerer poster, metadata og kortplacering herfra."
-      : `Løbet gemmes som ${currentRaceTypeLabel}. Metadata ligger i arbejdsfladen, så denne menu er reserveret til output og finjusteringer.`;
+      ? "Podcast-import er aktiv. Løbet beholder typen Podcast-Detektiv."
+      : `Løbet gemmes som ${currentRaceTypeLabel}.`;
   const pendingAiReviewGradeLabel = pendingAiReviewDraft
     ? pendingAiReviewDraft.gradeLevels.length > 0
       ? formatGradeLevelsForPrompt(pendingAiReviewDraft.gradeLevels)
@@ -1903,7 +1903,7 @@ function OpretLoebPageContent() {
                           <p className="mt-3 text-sm text-emerald-100/70">
                             {subject.trim()
                               ? `Valgt: ${subject.trim()}`
-                              : "Ingen kategori valgt endnu. Du kan stadig bygge løbet videre og vælge senere."}
+                              : "Valgfrit – vælg nu eller senere."}
                           </p>
                         </div>
                       </div>
@@ -2337,7 +2337,7 @@ function OpretLoebPageContent() {
                 Print udkast
               </span>
               <span className="mt-1 block text-sm leading-6 text-emerald-100/72">
-                Åbn den printvenlige version af løbet med spørgsmål og poster.
+                Åbn printversionen.
               </span>
             </span>
           </button>
@@ -2368,7 +2368,7 @@ function OpretLoebPageContent() {
                 ))}
               </select>
               <p className="mt-2 text-sm leading-6 text-emerald-100/68">
-                Vælg hvor tæt eleven skal være på posten, før GPS-låsen åbner under spillet.
+                Afstand til automatisk åbning.
               </p>
             </div>
 
@@ -2498,7 +2498,7 @@ function OpretLoebPageContent() {
           description="Assistenten har bygget et komplet quizudkast. Tjek resuméet herunder, og bekræft før det lander i builderen."
           warning={
             pendingAiReviewDraft.replacesExistingContent
-              ? "Dit nuværende indhold bliver erstattet, hvis du vælger at anvende kladden."
+              ? "Kladden erstatter dit nuværende indhold."
               : null
           }
           summaryItems={[

@@ -482,8 +482,8 @@ function FotoMissionBuilderPageContent() {
   });
   const builderStatusLabel = isSaving ? "Gemmer..." : "Gemmes lokalt";
   const builderStatusDescription = isSaving
-    ? "Vi sender dine seneste ændringer til arkivet nu."
-    : "Titel, emne og missioner bliver gemt lokalt undervejs, indtil du trykker på Gem.";
+    ? "Sender ændringer til arkivet."
+    : "Udkastet gemmes lokalt undervejs.";
   const pendingAiReviewPreviewMission =
     pendingAiReviewDraft?.missions.find((mission) => mission.trim().length > 0) ?? "";
 
@@ -1139,7 +1139,7 @@ function FotoMissionBuilderPageContent() {
                       <div>
                         <h3 className="text-xl font-semibold text-sky-100">Velkommen til Fotoløb</h3>
                         <p className="mt-1 text-sm text-sky-100/80">
-                          Byg kreative foto-missioner, placer dem på kortet, og lad smart-assistenten klargøre et første udkast, som du kan gennemse, før det lander i builderen.
+                          Skriv foto-missioner, og placer dem på kortet.
                         </p>
                       </div>
                     </div>
@@ -1415,7 +1415,7 @@ function FotoMissionBuilderPageContent() {
               <span>
                 <span className="block text-sm font-black uppercase tracking-[0.16em]">Smart-assistent til foto-missioner</span>
                 <span className="mt-1 block text-sm leading-6 text-sky-100/72">
-                  Byg et komplet foto-løb med titel og missioner, og gennemse det før det lander i builderen.
+                  Få et udkast med titel og missioner.
                 </span>
               </span>
             </button>
@@ -1444,7 +1444,7 @@ function FotoMissionBuilderPageContent() {
                   ))}
                 </select>
                 <p className="mt-2 text-sm leading-6 text-sky-100/68">
-                  Vælg hvor tæt eleven skal være på posten, før GPS-låsen åbner under spillet.
+                  Afstand til automatisk åbning.
                 </p>
               </div>
 
@@ -1515,7 +1515,7 @@ function FotoMissionBuilderPageContent() {
           description="Assistenten har bygget et komplet foto-udkast. Tjek resuméet herunder, og bekræft før det lander i builderen."
           warning={
             pendingAiReviewDraft.replacesExistingContent
-              ? "Dit nuværende indhold bliver erstattet, hvis du vælger at anvende kladden."
+              ? "Kladden erstatter dit nuværende indhold."
               : null
           }
           summaryItems={[

@@ -229,7 +229,7 @@ export default function LynbyggerPage() {
               Hvad skal eleverne arbejde med?
             </h1>
             <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-cyan-50/72 sm:text-base">
-              Skriv emnet, vælg klassen, og få et løb du kan tilpasse bagefter.
+              Vælg emne og klassetrin.
             </p>
           </div>
 
@@ -317,8 +317,7 @@ export default function LynbyggerPage() {
                   AI-udkast – gennemgå spørgsmål og facit
                 </h2>
                 <p className="mx-auto mt-2 max-w-2xl text-center text-sm leading-6 text-cyan-50/76 sm:text-base">
-                  Lynbyggeren sparer dig tid, men AI kan tage fejl. Gennemgå derfor alle spørgsmål,
-                  svarmuligheder og facit, og ret det nødvendige.
+                  AI kan tage fejl. Gennemgå spørgsmål, svar og facit.
                 </p>
 
                 <div data-testid="lynbygger-draft-review" className="mt-6 grid gap-4 text-left">

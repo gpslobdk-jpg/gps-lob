@@ -58,6 +58,19 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: "/play/:path*",
+        headers: [
+          {
+            key: "Permissions-Policy",
+            value: "camera=(self), geolocation=(self), microphone=(self)",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "no-referrer",
+          },
+        ],
+      },
+      {
         source: "/del/afvikling",
         headers: [
           {

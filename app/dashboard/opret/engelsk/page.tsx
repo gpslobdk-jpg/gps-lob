@@ -1747,7 +1747,7 @@ function OpretEngelskLoebPageContent() {
               </span>
               <span>
                 <span className="block text-sm font-black uppercase tracking-[0.16em]">Print udkast</span>
-                <span className="mt-1 block text-sm leading-6 text-indigo-100/72">Open the print-friendly version with title, posts and answers.</span>
+                <span className="mt-1 block text-sm leading-6 text-indigo-100/72">Open the print version.</span>
               </span>
             </button>
 
@@ -1775,7 +1775,7 @@ function OpretEngelskLoebPageContent() {
                   ))}
                 </select>
                 <p className="mt-2 text-sm leading-6 text-indigo-100/68">
-                  Radius controls when the GPS lock opens. Grade levels stay visible in the workspace because they drive the teaching setup.
+                  Distance for automatic opening.
                 </p>
               </div>
 
@@ -1798,7 +1798,7 @@ function OpretEngelskLoebPageContent() {
                 </span>
                 <span>
                   <span className="block text-sm font-black uppercase tracking-[0.16em]">Builder-status</span>
-                  <span className="mt-1 block text-sm leading-6 text-indigo-100/68">Grade levels remain visible in the workspace, so the assistant's scope and difficulty are always easy to tune.</span>
+                  <span className="mt-1 block text-sm leading-6 text-indigo-100/68">Adjust grade level and difficulty in the workspace.</span>
                 </span>
               </div>
             </div>
@@ -1895,7 +1895,7 @@ function OpretEngelskLoebPageContent() {
           description="The assistant has prepared a complete English draft. Check the summary below before applying it to the builder."
           warning={
             pendingAiReviewDraft.replacesExistingContent
-              ? "Your current content will be replaced if you choose to apply this draft."
+              ? "This draft replaces your current content."
               : null
           }
           summaryItems={[

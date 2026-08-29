@@ -1651,6 +1651,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
       if (usesStandardPlayExperience) {
         content = (
           <StandardStudentPlayExperience
+            sessionId={sessionId}
             ui={ui}
             actions={actions}
             onRetrySubmission={retryActiveSubmission}

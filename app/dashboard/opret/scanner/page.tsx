@@ -867,8 +867,7 @@ export default function ScannerPortalPage() {
                     Vælg dit udgangspunkt
                   </h1>
                   <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-white/65 sm:text-lg">
-                    Vælg den kilde, du vil bygge fra. Resten af flowet holder sig let,
-                    præcist og klar til at sende videre til builderen.
+                    Vælg bogside, billeder eller tekst.
                   </p>
 
                   <div className="mt-12 grid gap-4 text-left">
@@ -888,7 +887,7 @@ export default function ScannerPortalPage() {
                         Tag et billede af bogsiden
                       </span>
                       <span className="mt-2 text-sm leading-6 text-white/60">
-                        Brug kameraet og scan siden direkte, når materialet ligger foran dig.
+                        Scan siden med kameraet.
                       </span>
                     </button>
 
@@ -908,7 +907,7 @@ export default function ScannerPortalPage() {
                         Upload bogsider
                       </span>
                       <span className="mt-2 text-sm leading-6 text-white/60">
-                        Træk billeder ind eller vælg op til 5 tydelige sider fra computeren.
+                        Vælg op til 5 tydelige sider.
                       </span>
                     </button>
 
@@ -928,7 +927,7 @@ export default function ScannerPortalPage() {
                         Indsæt et tekstudsnit
                       </span>
                       <span className="mt-2 text-sm leading-6 text-white/60">
-                        Kopiér indholdet direkte ind og lad den smarte motor bygge spørgsmålene ud fra det.
+                        Indsæt det tekstudsnit, du vil bruge.
                       </span>
                     </button>
                   </div>
@@ -1180,7 +1179,7 @@ export default function ScannerPortalPage() {
                     Finjustér rammen
                   </h2>
                   <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-white/65 sm:text-lg">
-                    Vælg fag, niveau og længde, så den smarte motor rammer den rigtige vinkel første gang.
+                    Vælg fag, klassetrin og antal poster.
                   </p>
 
                   <div className="mt-10 space-y-8 text-left">
@@ -1271,7 +1270,7 @@ export default function ScannerPortalPage() {
                     Byg løbet
                   </h2>
                   <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-white/65 sm:text-lg">
-                    Den smarte motor bygger nu et komplet quiz-løb ud fra dit materiale og sender det direkte videre til builderen.
+                    Gennemse valgene, og byg udkastet.
                   </p>
 
                   <div className="mt-10 flex flex-wrap items-center justify-center gap-3">

@@ -65,7 +65,7 @@ const fagligeCards: BuilderCard[] = [
   {
     raceType: "manuel",
     title: "Generel Quiz",
-    description: "Byg et klassisk løb med spørgsmål, svarmuligheder og fuld kontrol over ruten.",
+    description: "Byg spørgsmål og placer poster på kortet.",
     href: "/dashboard/opret/manuel",
     accentClass:
       "border-emerald-500/75 bg-emerald-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(16,185,129,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
@@ -77,7 +77,7 @@ const fagligeCards: BuilderCard[] = [
   {
     raceType: "engelsk",
     title: "Engelsk",
-    description: "Opret interaktive engelsk-løb med smart samtaletræning og sproglige missioner.",
+    description: "Lav engelskopgaver med bevægelse.",
     href: "/dashboard/opret/engelsk",
     accentClass:
       "border-indigo-500/75 bg-indigo-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(99,102,241,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
@@ -89,7 +89,7 @@ const fagligeCards: BuilderCard[] = [
   {
     raceType: "matematik",
     title: "Matematik",
-    description: "Løs regnestykker og matematiske gåder ude i virkeligheden.",
+    description: "Flyt matematikken ud på ruten.",
     href: "/dashboard/opret/matematik",
     accentClass:
       "border-amber-500/75 bg-amber-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(245,158,11,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
@@ -101,7 +101,7 @@ const fagligeCards: BuilderCard[] = [
   {
     raceType: "dansk",
     title: "Dansk",
-    description: "Læseforståelse og grammatik kombineret med bevægelse.",
+    description: "Kombinér danskopgaver og bevægelse.",
     href: "/dashboard/opret/dansk",
     accentClass:
       "border-rose-500/75 bg-rose-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(244,63,94,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
@@ -113,7 +113,7 @@ const fagligeCards: BuilderCard[] = [
   {
     raceType: "musikquiz",
     title: "Musikquiz",
-    description: "Lad eleverne lytte til musikklip og gætte sangtitlen ved posterne.",
+    description: "Lyt til musikklip og gæt sangen.",
     href: "/dashboard/opret/musikquiz",
     accentClass:
       "border-pink-500/75 bg-pink-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(236,72,153,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
@@ -128,8 +128,7 @@ const aiCards: BuilderCard[] = [
   {
     raceType: "foto",
     title: "Foto mission",
-    description:
-      "Send eleverne ud på kreative foto-opgaver og gennemgå holdenes billeder efter løbet.",
+    description: "Lav foto-opgaver til ruten.",
     href: "/dashboard/opret/foto",
     accentClass:
       "border-blue-500/75 bg-blue-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(59,130,246,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
@@ -141,7 +140,7 @@ const aiCards: BuilderCard[] = [
   {
     raceType: "scanner",
     title: "Scan bogen",
-    description: "Upload en bogside eller indsæt tekst, og lad den smarte motor omsætte den til et færdigt løb.",
+    description: "Lav et løb fra bogsider eller tekst.",
     href: "/dashboard/opret/scanner",
     accentClass:
       "border-fuchsia-500/75 bg-fuchsia-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(217,70,239,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
@@ -153,7 +152,7 @@ const aiCards: BuilderCard[] = [
   {
     raceType: "podcast",
     title: "Podcast-Detektiven",
-    description: "Indsæt et link, og lad den smarte motor bygge et løb ud fra lyden.",
+    description: "Lav et løb fra en podcast.",
     href: "/dashboard/opret/podcast",
     accentClass:
       "border-purple-500/75 bg-purple-950/30 shadow-[0_24px_56px_rgba(15,23,42,0.18),0_16px_32px_rgba(147,51,234,0.24),inset_0_1px_0_rgba(255,255,255,0.18)]",
@@ -422,7 +421,7 @@ export default function ValgHubPage() {
       <aside className="mx-auto mt-6 w-full max-w-3xl rounded-2xl border border-sky-300/55 bg-sky-950/72 px-5 py-4 text-left shadow-[0_18px_46px_rgba(15,23,42,0.24)] backdrop-blur-xl lg:hidden">
         <p className="text-sm font-black text-sky-100">Bedst på computer</p>
         <p className="mt-1 text-sm leading-6 text-sky-50/82">
-          Oprettelse og redigering af løb fungerer bedst på en større skærm, hvor der er plads til kort og spørgsmål.
+          Brug helst en computer, så kort og spørgsmål kan ses samtidig.
         </p>
       </aside>
 
@@ -459,11 +458,8 @@ export default function ValgHubPage() {
       </section>
 
       <section className="mx-auto mt-12 w-full max-w-6xl">
-        <h2 className={`mb-8 text-center text-2xl font-black tracking-tight text-white drop-shadow-md sm:text-3xl ${rubik.className}`}>
-          Andre måder at lave et løb
-        </h2>
         <h2 className={`text-2xl font-black tracking-[0.18em] text-white drop-shadow-md uppercase mb-3 ${rubik.className}`}>
-          Faglige Værktøjer
+          Andre måder at lave et løb
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
           {fagligeCards.map((card, index) => (
@@ -515,7 +511,7 @@ export default function ValgHubPage() {
                       Fysisk Stjerneløb
                     </h2>
                     <p className="mx-auto max-w-[15rem] text-xs leading-tight text-white/84">
-                      Opret analoge stjerneløb til print, hvor posterne findes fysisk i terrænet uden brug af GPS. Perfekt som backup eller til kortere aktiviteter.
+                      Print poster til et løb uden GPS.
                     </p>
                   </div>
                 </div>

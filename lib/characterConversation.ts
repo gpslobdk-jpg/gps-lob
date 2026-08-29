@@ -3,7 +3,34 @@ import type { CharacterPostConfig } from "@/lib/characterPosts";
 export type CharacterConversationStopReason =
   | "student_finished"
   | "time_limit"
-  | "component_unmounted";
+  | "component_unmounted"
+  | "navigation"
+  | "page_hidden"
+  | "network_failure";
+
+export type CharacterConversationStatus =
+  "connecting" | "listening" | "speaking";
+
+export type CharacterConversationErrorCode =
+  | "UNSUPPORTED_BROWSER"
+  | "MICROPHONE_DENIED"
+  | "MICROPHONE_UNAVAILABLE"
+  | "FEATURE_UNAVAILABLE"
+  | "PARTICIPANT_UNAUTHORIZED"
+  | "POST_UNAVAILABLE"
+  | "POST_LOCKED"
+  | "RATE_LIMITED"
+  | "NETWORK_ERROR";
+
+export class CharacterConversationError extends Error {
+  readonly code: CharacterConversationErrorCode;
+
+  constructor(code: CharacterConversationErrorCode) {
+    super(code);
+    this.name = "CharacterConversationError";
+    this.code = code;
+  }
+}
 
 export type CharacterConversationStartInput = {
   config: CharacterPostConfig;
@@ -12,6 +39,12 @@ export type CharacterConversationStartInput = {
   locationContext: {
     placeDescription: string;
   };
+  signal?: AbortSignal;
+  sessionId?: string;
+  postIndex?: number;
+  onStatusChange?: (status: CharacterConversationStatus) => void;
+  onEnded?: (reason: CharacterConversationStopReason) => void;
+  onFailure?: (error: CharacterConversationError) => void;
 };
 
 export type CharacterConversationHandle = {

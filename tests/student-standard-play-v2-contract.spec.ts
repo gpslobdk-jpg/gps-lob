@@ -14,15 +14,15 @@ const standardExperienceSource = source(
 const gameStateSource = source("components/play/GameState.tsx");
 const gpsManagerSource = source("components/play/GPSManager.tsx");
 
-test("standardpresentation kræver både standardflag, quiz raceMode og quiz-post", () => {
+test("standardpresentation kræver standardflag, quiz raceMode og quiz- eller character-post", () => {
   expect(playInterfaceSource).toMatch(
-    /usesStandardStudentLocationExperience\s*&&\s*raceMode === "quiz"\s*&&\s*activePostVariant === "quiz"/,
+    /usesStandardStudentLocationExperience\s*&&\s*raceMode === "quiz"\s*&&\s*\(activePostVariant === "quiz" \|\|\s*activePostVariant === "character"\)/,
   );
 });
 
 test("standard location presentation bruger samme eksplicitte scope", () => {
   expect(playPageSource).toMatch(
-    /usesStandardLocation\s*&&\s*game\.progress\.raceMode === "quiz"\s*&&\s*game\.progress\.currentPost\.activePostVariant === "quiz"/,
+    /usesStandardLocation\s*&&\s*game\.progress\.raceMode === "quiz"\s*&&\s*\(game\.progress\.currentPost\.activePostVariant === "quiz" \|\|\s*game\.progress\.currentPost\.activePostVariant === "character"\)/,
   );
 });
 

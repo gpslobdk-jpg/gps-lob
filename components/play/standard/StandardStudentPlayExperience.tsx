@@ -12,6 +12,7 @@ import { wrapTextClass } from "../playUtils";
 import PilenConversationCard from "./PilenConversationCard";
 
 type StandardStudentPlayExperienceProps = {
+  sessionId: string;
   ui: PlayUiState;
   actions: PlayActions;
   children?: ReactNode;
@@ -53,6 +54,7 @@ function StandardProgress({
 }
 
 export default function StandardStudentPlayExperience({
+  sessionId,
   ui,
   actions,
   children,
@@ -254,7 +256,10 @@ export default function StandardStudentPlayExperience({
             {activePostVariant === "character" && activeQuestion.characterConfig ? (
               <div className="mt-3">
                 <PilenConversationCard
+                  key={`${sessionId}:${currentPostIndex}`}
                   config={activeQuestion.characterConfig}
+                  sessionId={sessionId}
+                  postIndex={currentPostIndex}
                   disabled={isAnswerSubmissionPending || isSubmissionBlocking}
                   onCompletePost={actions.completeCharacterPost}
                 />

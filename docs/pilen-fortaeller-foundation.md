@@ -30,17 +30,9 @@ Afslutningspayloaden består kun af tekniske progressionsmetadata. Serveren bygg
 - Observability skal være allowlist-baseret og må kun indeholde fejlklasse, fase, varighed og ikke-identificerende tekniske statuskoder.
 - Session Replay skal fortsat være deaktiveret i elevflowet.
 
-## Anbefalet realtidsarkitektur til næste fase
+## Realtime-fasen
 
-1. Eleven trykker aktivt på mikrofonknappen. Først derefter kaldes `getUserMedia`. Afvisning eller manglende understøttelse giver en rolig fejltilstand og blokerer ikke resten af løbet.
-2. Browseren beder en ny serverrute om en engangs-session. Serveren validerer deltageridentitet, live-session, aktuel post, GPS-oplåsning og den allowlistede karakterkonfiguration.
-3. Serveren udsteder meget kortlivede, postbundne legitimationsoplysninger til en WebRTC-session. En leverandørnøgle må aldrig sendes til browseren.
-4. Browseren forbinder lyd direkte via WebRTC. Undgå optagelse, blob-opbygning og proxying af lyd gennem applikationsserveren. Kontrolhændelser kan sendes over data channel, men ikke samtaletekst.
-5. Instruktionen bygges server-side af faste sikkerhedsregler plus de allowlistede felter: Pilen, engelsk, emne, klassetrin, semantisk sted og højst 60–90 sekunder. Lærer eller elev skal ikke kunne indsætte en skjult systemprompt.
-6. Både serverens session-TTL og klientens timer håndhæver maksimumtiden. Stop, timeout, navigation, baggrundstilstand og unmount skal alle lukke peer connection, stoppe alle media tracks, nulstille flygtig state og ugyldiggøre sessionen.
-7. Samtalen skal instrueres til at holde eleven på stedet, ikke bede eleven gå, krydse vej eller følge nye ruter og ikke indsamle navn eller andre personoplysninger. Usikre eller uklare situationer skal fejle lukket.
-8. Før en udbyder vælges, skal databehandleraftale, dataplacering, børne-/skolevilkår, udbyderretention og mulighed for at slå træning, transskription og leverandørlogs fra være afklaret som et produkt- og sikkerhedsvalg.
-
-## Verifikation i næste fase
-
-Ud over enheds- og UI-tests bør realtidsfasen have kontrakttests for kortlivede credentials, afviste deltagere, forkert post, dobbeltafslutning, timeout og cleanup. En netværks- og storage-test skal dokumentere, at kendte syntetiske spørgsmål og svar ikke findes i requests, responses, browser storage, logs, Sentry-events eller persistente tabeller.
+Den efterfølgende realtime-implementering følger dette fundament med OpenAI
+Realtime over WebRTC, servervalidering, default-off feature flags og fail-closed
+EU/ZDR-/under-18-gates. Den aktuelle arkitektur, miljøkontrakt, dataminimering,
+tests og releasecheckliste står i `docs/pilen-fortaeller-realtime.md`.
