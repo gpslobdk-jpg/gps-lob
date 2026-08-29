@@ -7,6 +7,7 @@ import {
   BookOpen,
   Calendar,
   FileText,
+  ListChecks,
   Presentation,
   Podcast,
   School,
@@ -65,11 +66,11 @@ const toolCards = [
     },
   },
   {
-    title: "SkolePodcast.dk",
+    title: "SkolePodcast",
     description: "Planlæg og optag elevpodcasts til undervisningen.",
     href: "https://skolepodcast.dk",
     icon: Podcast,
-    cta: "Åbn SkolePodcast.dk",
+    cta: "Åbn SkolePodcast",
     familyLabel: "SkoleGPS-familien",
     destinationLabel: "Åbner på skolepodcast.dk",
     theme: {
@@ -124,6 +125,26 @@ const toolCards = [
         "border-[#c7f2df]/70 bg-[#8fd8bc] text-[#102f27] hover:border-white hover:bg-[#bcebd7] focus-visible:ring-[#8fd8bc]/45",
     },
   },
+  {
+    title: "UgePilot",
+    description: "Planlæg ugearbejde og giv eleverne overblik over deres opgaver.",
+    href: "https://ugepilot.dk",
+    icon: ListChecks,
+    cta: "Åbn UgePilot",
+    familyLabel: "SkoleGPS-familien",
+    destinationLabel: "Åbner på ugepilot.dk",
+    theme: {
+      card:
+        "border-indigo-300/45 bg-[linear-gradient(145deg,rgba(67,56,202,0.9)_0%,rgba(43,45,91,0.94)_38%,rgba(15,23,42,0.97)_78%)] shadow-[0_24px_90px_rgba(129,140,248,0.15)] hover:border-indigo-200/80 hover:shadow-[0_28px_100px_rgba(129,140,248,0.27)]",
+      rail: "bg-indigo-300",
+      accent: "via-violet-200/90",
+      icon: "border-indigo-200/55 bg-indigo-300/20 text-indigo-50",
+      badge: "border-indigo-200/35 bg-indigo-300/15 text-indigo-50",
+      destination: "text-indigo-100/90",
+      button:
+        "border-indigo-100/70 bg-indigo-300 text-indigo-950 hover:border-white hover:bg-indigo-200 focus-visible:ring-indigo-200/40",
+    },
+  },
 ] as const;
 
 export default function LaerervaerktoejerPage() {
@@ -143,7 +164,7 @@ export default function LaerervaerktoejerPage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(16,185,129,0.22),transparent_34%),linear-gradient(120deg,rgba(15,23,42,0.92),rgba(15,23,42,0.42)_48%,rgba(6,78,59,0.78))] backdrop-blur-[2px]" />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 py-6 sm:px-6 sm:py-8 md:px-10 lg:px-12">
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[96rem] flex-col px-5 py-6 sm:px-6 sm:py-8 md:px-10 lg:px-12">
         <header className="flex items-center justify-between gap-4">
           <Link
             href="/dashboard"
@@ -169,12 +190,12 @@ export default function LaerervaerktoejerPage() {
               Lærerværktøjer
             </h1>
             <p className="mt-4 max-w-2xl text-lg font-semibold leading-8 text-slate-100 sm:text-xl">
-              Vælg mellem årsplan, skema, tavle, elevpodcast og arbejdsark.
+              Vælg mellem årsplan, skema, ugearbejde, elevpodcast, arbejdsark og tavle.
             </p>
           </div>
 
           <section
-            className="mt-9 grid auto-rows-fr items-stretch gap-5 md:grid-cols-2 2xl:grid-cols-5"
+            className="mt-9 grid grid-cols-1 auto-rows-fr items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-3"
             aria-label="Lærerværktøjer"
           >
             {toolCards.map((tool) => {
@@ -185,7 +206,7 @@ export default function LaerervaerktoejerPage() {
               return (
                 <article
                   key={tool.href}
-                  className={`group relative flex h-full min-h-[22rem] min-w-0 flex-col overflow-hidden rounded-[1.75rem] border p-6 backdrop-blur-md transition duration-300 hover:-translate-y-1 md:p-7 ${tool.theme.card}`}
+                  className={`group relative flex h-full min-h-[22rem] min-w-0 flex-col overflow-hidden rounded-[1.75rem] border p-6 backdrop-blur-md transition duration-300 hover:-translate-y-1 sm:min-w-56 md:p-7 ${tool.theme.card}`}
                 >
                   <div
                     className={`pointer-events-none absolute inset-y-8 left-0 w-1 rounded-r-full ${tool.theme.rail}`}
@@ -209,7 +230,7 @@ export default function LaerervaerktoejerPage() {
 
                   <div className="min-w-0 flex-1">
                     <h2
-                      className={`mt-7 break-words text-3xl font-black tracking-tight text-white ${rubik.className}`}
+                      className={`mt-7 break-normal text-[1.35rem] font-black tracking-tight text-white [overflow-wrap:normal] [word-break:normal] sm:text-2xl lg:text-3xl ${rubik.className}`}
                     >
                       {tool.title}
                     </h2>
@@ -219,7 +240,7 @@ export default function LaerervaerktoejerPage() {
                   </div>
 
                   <div className="mt-auto min-w-0 pt-7">
-                    <p className={`mb-3 break-words text-xs font-semibold ${tool.theme.destination}`}>
+                    <p className={`mb-3 break-normal text-xs font-semibold [overflow-wrap:normal] [word-break:normal] ${tool.theme.destination}`}>
                       {tool.destinationLabel}
                     </p>
                     <Link
@@ -227,7 +248,7 @@ export default function LaerervaerktoejerPage() {
                       target={isExternal ? "_blank" : undefined}
                       rel={isExternal ? "noopener noreferrer" : undefined}
                       aria-label={`${tool.cta}${isExternal ? " – åbner i en ny fane" : ""}`}
-                      className={`inline-flex min-h-12 w-full min-w-0 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-center text-sm leading-5 font-black whitespace-normal shadow-sm transition focus-visible:outline-none focus-visible:ring-4 [overflow-wrap:anywhere] ${tool.theme.button}`}
+                      className={`inline-flex min-h-12 w-full min-w-0 items-center justify-center gap-2 rounded-xl border px-3 py-3 text-center text-xs leading-5 font-black whitespace-normal break-normal shadow-sm transition focus-visible:outline-none focus-visible:ring-4 [overflow-wrap:normal] [word-break:normal] sm:px-4 sm:text-sm ${tool.theme.button}`}
                     >
                       <span className="min-w-0">{tool.cta}</span>
                       <LinkIcon className="h-4 w-4 shrink-0" aria-hidden="true" />

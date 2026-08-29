@@ -282,11 +282,11 @@ test.describe("DagensTavle family SSO security contract", () => {
       .toBe(false);
   });
 
-  test("renders five distinct accessible tool cards without horizontal overflow", async ({ page }) => {
+  test("renders six distinct accessible tool cards without horizontal overflow", async ({ page }) => {
     test.skip(!localTeacher, "Kræver den isolerede lokale Supabase-instans.");
     await openTeacherTools(page);
     const cards = page.locator('section[aria-label="Lærerværktøjer"] article');
-    await expect(cards).toHaveCount(5);
+    await expect(cards).toHaveCount(6);
     await expect(page.getByRole("heading", { name: "PrintMitArbejdsark" })).toBeVisible();
     const printMitLink = page.getByRole("link", { name: /Åbn PrintMitArbejdsark.*ny fane/i });
     await expect(printMitLink).toHaveAttribute("rel", "noopener noreferrer");
@@ -295,25 +295,33 @@ test.describe("DagensTavle family SSO security contract", () => {
     const link = page.getByRole("link", { name: /Åbn DagensTavle.*ny fane/i });
     await expect(link).toHaveAttribute("rel", "noopener noreferrer");
     await expect(link).toHaveAttribute("href", /\/auth\/family-sso\/start/);
+    await expect(page.getByRole("heading", { name: "SkolePodcast", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "SkolePodcast.dk", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "UgePilot", exact: true })).toBeVisible();
+    const ugePilotLink = page.getByRole("link", { name: /Åbn UgePilot.*ny fane/i });
+    await expect(ugePilotLink).toHaveAttribute("href", /^https:\/\/ugepilot\.dk\/?$/);
+    await expect(ugePilotLink).toHaveAttribute("rel", "noopener noreferrer");
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     expect(overflow).toBe(false);
   });
 
-  test("keeps the five-card layout readable, aligned and keyboard visible at every review width", async ({ page }) => {
+  test("keeps the six-card layout readable, aligned and keyboard visible at every review width", async ({ page }) => {
     test.skip(!localTeacher, "Requires the isolated local Supabase instance.");
     await page.setViewportSize({ width: 1024, height: 900 });
     await openTeacherTools(page);
 
     const reviewWidths = [
-      { width: 360, rows: 5 },
-      { width: 390, rows: 5 },
+      { width: 360, rows: 6 },
+      { width: 390, rows: 6 },
       { width: 768, rows: 3 },
       { width: 1024, rows: 3 },
-      { width: 1366, rows: 3 },
-      { width: 1920, rows: 1 },
+      { width: 1366, rows: 2 },
+      { width: 1920, rows: 2 },
     ];
     for (const review of reviewWidths) {
       await page.setViewportSize({ width: review.width, height: 1000 });
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(350);
       const layout = await page.locator("main section[aria-label]").evaluate((section) => {
         const cards = [...section.querySelectorAll("article")];
         const rows = new Map<number, Array<{ height: number; ctaBottom: number }>>();
@@ -333,15 +341,46 @@ test.describe("DagensTavle family SSO security contract", () => {
             Math.max(...items.map((item) => item.ctaBottom)) - Math.min(...items.map((item) => item.ctaBottom)) <= 1,
           ),
           textFits: cards.every((card) => card.scrollWidth <= card.clientWidth + 1),
+          headingsStayWhole: cards.every((card) => {
+            const heading = card.querySelector("h2");
+            if (!heading?.firstChild) return false;
+            const range = document.createRange();
+            range.selectNodeContents(heading.firstChild);
+            return range.getClientRects().length === 1;
+          }),
+          ctaProductNamesStayWhole: cards.every((card) => {
+            const text = card.querySelector("a span")?.firstChild;
+            if (!text?.textContent) return false;
+            const productStart = text.textContent.indexOf(" ") + 1;
+            if (productStart <= 0) return false;
+            const range = document.createRange();
+            range.setStart(text, productStart);
+            range.setEnd(text, text.textContent.length);
+            return range.getClientRects().length === 1;
+          }),
+          naturalWordWrapping: cards.every((card) => {
+            const heading = card.querySelector("h2");
+            const cta = card.querySelector("a");
+            if (!heading || !cta) return false;
+            const headingStyle = getComputedStyle(heading);
+            const ctaStyle = getComputedStyle(cta);
+            return headingStyle.wordBreak === "normal" &&
+              headingStyle.overflowWrap === "normal" &&
+              ctaStyle.wordBreak === "normal" &&
+              ctaStyle.overflowWrap === "normal";
+          }),
           pageFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
         };
       });
       expect(layout).toEqual({
-        cardCount: 5,
+        cardCount: 6,
         rowCount: review.rows,
         rowHeightsAligned: true,
         ctasAligned: true,
         textFits: true,
+        headingsStayWhole: true,
+        ctaProductNamesStayWhole: true,
+        naturalWordWrapping: true,
         pageFits: true,
       });
     }
@@ -368,6 +407,6 @@ test.describe("DagensTavle family SSO security contract", () => {
       overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
       cards: document.querySelectorAll("main section[aria-label] article").length,
     }));
-    expect(zoomReflow).toEqual({ overflow: false, cards: 5 });
+    expect(zoomReflow).toEqual({ overflow: false, cards: 6 });
   });
 });
