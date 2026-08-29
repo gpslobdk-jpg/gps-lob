@@ -6,13 +6,14 @@ import {
   ArrowUpRight,
   BookOpen,
   Calendar,
+  FileText,
   Presentation,
   Podcast,
   School,
 } from "lucide-react";
 import { poppins, rubik } from "@/lib/fonts";
 
-import { getDagensTavleSsoOrigin } from "@/lib/familySso/config";
+import { getDagensTavleSsoOrigin, getFamilySsoOrigin } from "@/lib/familySso/config";
 
 export const metadata: Metadata = {
   title: "Lærerværktøjer – SkoleGPS",
@@ -20,6 +21,7 @@ export const metadata: Metadata = {
 };
 
 const dagensTavleOrigin = getDagensTavleSsoOrigin() ?? "https://dagenstavle.dk";
+const printMitOrigin = getFamilySsoOrigin("printmitarbejdsark") ?? "https://printmitarbejdsark.dk";
 
 const toolCards = [
   {
@@ -80,6 +82,26 @@ const toolCards = [
       destination: "text-fuchsia-100/90",
       button:
         "border-fuchsia-100/70 bg-fuchsia-400 text-fuchsia-950 hover:border-white hover:bg-fuchsia-300 focus-visible:ring-fuchsia-200/40",
+    },
+  },
+  {
+    title: "PrintMitArbejdsark",
+    description: "Lav flotte arbejdsark klar til print på få minutter.",
+    href: `${printMitOrigin}/auth/family-sso/start?next=%2Flav&source=skolegps`,
+    icon: FileText,
+    cta: "Åbn PrintMitArbejdsark",
+    familyLabel: "SkoleGPS-familien",
+    destinationLabel: "Åbner på printmitarbejdsark.dk",
+    theme: {
+      card:
+        "border-cyan-300/45 bg-[linear-gradient(145deg,rgba(14,116,144,0.9)_0%,rgba(21,65,75,0.94)_38%,rgba(15,23,42,0.97)_78%)] shadow-[0_24px_90px_rgba(34,211,238,0.14)] hover:border-cyan-200/80 hover:shadow-[0_28px_100px_rgba(34,211,238,0.26)]",
+      rail: "bg-cyan-300",
+      accent: "via-emerald-200/90",
+      icon: "border-cyan-200/55 bg-cyan-300/20 text-cyan-50",
+      badge: "border-cyan-200/35 bg-cyan-300/15 text-cyan-50",
+      destination: "text-cyan-100/90",
+      button:
+        "border-cyan-100/70 bg-cyan-300 text-cyan-950 hover:border-white hover:bg-cyan-200 focus-visible:ring-cyan-200/40",
     },
   },
   {
@@ -147,12 +169,12 @@ export default function LaerervaerktoejerPage() {
               Lærerværktøjer
             </h1>
             <p className="mt-4 max-w-2xl text-lg font-semibold leading-8 text-slate-100 sm:text-xl">
-              Vælg mellem årsplan, skema, tavle og elevpodcast.
+              Vælg mellem årsplan, skema, tavle, elevpodcast og arbejdsark.
             </p>
           </div>
 
           <section
-            className="mt-9 grid auto-rows-fr items-stretch gap-5 md:grid-cols-2 2xl:grid-cols-4"
+            className="mt-9 grid auto-rows-fr items-stretch gap-5 md:grid-cols-2 2xl:grid-cols-5"
             aria-label="Lærerværktøjer"
           >
             {toolCards.map((tool) => {
