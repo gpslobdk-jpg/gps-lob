@@ -183,6 +183,11 @@ test("mobil elevprototype afslutter autoritativt uden samtaleindhold i request e
   await expect(
     page.getByText(/No sound or conversation is recorded or saved/i),
   ).toBeVisible();
+  await expect(
+    page.getByText(
+      "Pilen er en AI – ikke et menneske. Din stemme bruges kun til den korte samtale.",
+    ),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Talk to Pilen" }).click();
   await expect(page.getByText("Pilen is ready")).toBeVisible();
@@ -238,6 +243,7 @@ function base64UrlEncode(value: unknown) {
 }
 
 async function setupTeacherContext(context: BrowserContext) {
+  let acknowledgementAccepted = false;
   const session = {
     access_token: "mock-pilen-access-token",
     token_type: "bearer",
@@ -299,6 +305,19 @@ async function setupTeacherContext(context: BrowserContext) {
   await context.route("**/realtime/**", (route: Route) =>
     route.abort("connectionrefused"),
   );
+  await context.route("**/api/pilen/teacher-acknowledgement", async (route: Route) => {
+    if (route.request().method() === "POST") {
+      acknowledgementAccepted = true;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        accepted: acknowledgementAccepted,
+        version: "2026-08-30-v1",
+      }),
+    });
+  });
   await context.route("**/rest/v1/**", async (route: Route) => {
     await route.fulfill({
       status: 200,
@@ -340,6 +359,21 @@ test("lærerflowet viser enkel Pilen-konfiguration uden tekniske AI-felter", asy
   await firstPost.getByTestId("pilen-duration").selectOption("90");
   await expect(firstPost.getByText("Sprog: Engelsk")).toBeVisible();
   await expect(firstPost.getByText("højst 90 sek.")).toBeVisible();
+  const acknowledgement = page.getByTestId("pilen-teacher-acknowledgement");
+  await expect(acknowledgement).toContainText(
+    "Pilen bruger en ekstern AI-tjeneste til den korte stemmesamtale.",
+  );
+  await expect(
+    acknowledgement.getByText(
+      /nødvendig tilladelse fra forælder\/værge er på plads/i,
+    ),
+  ).toBeVisible();
+  await expect(
+    acknowledgement.getByRole("link", { name: "Om Pilen og persondata" }),
+  ).toHaveAttribute("href", "/privacy#pilen-fortaeller");
+  await expect(acknowledgement.locator("input")).toHaveCount(1);
+  await expect(acknowledgement).not.toContainText(/alder|fødselsdato|elevnavn|upload/i);
+  await acknowledgement.getByRole("checkbox").check();
   await expect(firstPost).not.toContainText(/system prompt|provider|temperature|LLM/i);
 
   await expect

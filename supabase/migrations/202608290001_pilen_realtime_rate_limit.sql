@@ -1,5 +1,27 @@
 begin;
 
+-- One capability acknowledgement per authenticated teacher and copy version.
+-- This is not a student consent register and stores no student, parent or run data.
+create table if not exists public.pilen_realtime_teacher_acknowledgements (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  accepted boolean not null default true check (accepted = true),
+  copy_version text not null check (
+    char_length(copy_version) between 1 and 64
+    and copy_version ~ '^[a-zA-Z0-9._-]+$'
+  ),
+  accepted_at timestamptz not null default now(),
+  primary key (user_id, copy_version)
+);
+
+create index if not exists pilen_realtime_teacher_ack_accepted_at_idx
+  on public.pilen_realtime_teacher_acknowledgements(accepted_at);
+
+alter table public.pilen_realtime_teacher_acknowledgements enable row level security;
+revoke all privileges on table public.pilen_realtime_teacher_acknowledgements
+from public, anon, authenticated;
+grant all privileges on table public.pilen_realtime_teacher_acknowledgements
+to postgres, service_role;
+
 -- Short-lived technical metadata used only to prevent repeated paid realtime
 -- session starts. No audio, transcript, prompt, location or identity text is stored.
 create table if not exists public.character_realtime_start_limits (

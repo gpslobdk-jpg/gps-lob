@@ -9,6 +9,8 @@ import { useEffect, useState, type FormEvent } from "react";
 
 import { Switch } from "@/components/ui/switch";
 import RunExecutionShareModal from "@/components/archive/RunExecutionShareModal";
+import PilenTeacherAcknowledgementPanel from "@/components/pilen/PilenTeacherAcknowledgementPanel";
+import { acceptPilenTeacherAcknowledgement } from "@/lib/pilenTeacherAcknowledgementClient";
 import { isRunExecutionSharingEnabled } from "@/lib/runExecutionShare";
 import { formatGradeLevelBadge, normalizeGradeLevels } from "@/utils/gradeLevels";
 import {
@@ -210,6 +212,18 @@ type ArchiveLiveSessionMutationResult = {
   source: "created" | "reused" | null;
 };
 
+type PendingPilenAction = {
+  run: Run;
+  action: "start" | "toggle" | "schedule";
+};
+
+class PilenAcknowledgementRequiredError extends Error {
+  constructor() {
+    super("Pilen acknowledgement required");
+    this.name = "PilenAcknowledgementRequiredError";
+  }
+}
+
 type SupabaseLikeError = {
   code?: string;
   message?: string;
@@ -265,15 +279,28 @@ async function requestArchiveLiveSessionMutation(
     body: JSON.stringify({ runId, action }),
   });
 
-  let body: { error?: string; session?: LiveSession | null; source?: "created" | "reused" | null } | null = null;
+  let body: {
+    error?: string;
+    code?: string;
+    session?: LiveSession | null;
+    source?: "created" | "reused" | null;
+  } | null = null;
 
   try {
-    body = (await response.json()) as { error?: string; session?: LiveSession | null; source?: "created" | "reused" | null };
+    body = (await response.json()) as {
+      error?: string;
+      code?: string;
+      session?: LiveSession | null;
+      source?: "created" | "reused" | null;
+    };
   } catch {
     body = null;
   }
 
   if (!response.ok) {
+    if (body?.code === "PILEN_ACKNOWLEDGEMENT_REQUIRED") {
+      throw new PilenAcknowledgementRequiredError();
+    }
     throw new Error(body?.error ?? "Kunne ikke opdatere løbets lobby-status.");
   }
 
@@ -583,6 +610,10 @@ export default function ArkivPage() {
   const [scheduleSessionSource, setScheduleSessionSource] = useState<"created" | "reused" | null>(null);
   const [didCopyScheduleAccess, setDidCopyScheduleAccess] = useState(false);
   const [shareRun, setShareRun] = useState<Run | null>(null);
+  const [pendingPilenAction, setPendingPilenAction] = useState<PendingPilenAction | null>(null);
+  const [pilenAcknowledgementChecked, setPilenAcknowledgementChecked] = useState(false);
+  const [isAcceptingPilenAcknowledgement, setIsAcceptingPilenAcknowledgement] = useState(false);
+  const [pilenAcknowledgementError, setPilenAcknowledgementError] = useState("");
 
   const handleEditRun = (run: Run) => {
     const href = getBuilderHrefForRaceType(run.id, run.race_type ?? run.raceType);
@@ -733,6 +764,12 @@ export default function ArkivPage() {
       updateRunLiveSession(run.id, result.session);
     } catch (error) {
       updateRunLiveSession(run.id, previousSession);
+      if (error instanceof PilenAcknowledgementRequiredError) {
+        setPendingPilenAction({ run, action: "toggle" });
+        setPilenAcknowledgementChecked(false);
+        setPilenAcknowledgementError("");
+        return;
+      }
       console.error("Kunne ikke skifte lobby-status:", error);
       alert(error instanceof Error ? error.message : "Kunne ikke skifte løbets lobby-status.");
       throw error;
@@ -785,6 +822,12 @@ export default function ArkivPage() {
         router.push(`/dashboard/live/${result.session.id}`);
       }
     } catch (error) {
+      if (error instanceof PilenAcknowledgementRequiredError) {
+        setPendingPilenAction({ run, action: "start" });
+        setPilenAcknowledgementChecked(false);
+        setPilenAcknowledgementError("");
+        return;
+      }
       console.error("Kunne ikke åbne lobbyen fra arkivet:", error);
       alert(error instanceof Error ? error.message : "Der skete en fejl. Prøv igen.");
     } finally {
@@ -915,10 +958,54 @@ export default function ArkivPage() {
       setScheduleSessionSource(ensuredSession.source);
       setDidCopyScheduleAccess(false);
     } catch (error) {
+      if (error instanceof PilenAcknowledgementRequiredError) {
+        setPendingPilenAction({ run: activeRun, action: "schedule" });
+        setPilenAcknowledgementChecked(false);
+        setPilenAcknowledgementError("");
+        return;
+      }
       console.error("Fejl ved gemning af tidsstyring:", error);
       alert("Kunne ikke gemme tidsstyringen. Prøv igen.");
     } finally {
       setIsSavingSchedule(false);
+    }
+  };
+
+  const closePilenAcknowledgement = () => {
+    if (isAcceptingPilenAcknowledgement) return;
+    setPendingPilenAction(null);
+    setPilenAcknowledgementChecked(false);
+    setPilenAcknowledgementError("");
+  };
+
+  const confirmPilenAcknowledgement = async () => {
+    if (!pendingPilenAction || isAcceptingPilenAcknowledgement) return;
+    if (!pilenAcknowledgementChecked) {
+      setPilenAcknowledgementError("Sæt flueben i bekræftelsen for at fortsætte.");
+      return;
+    }
+
+    setIsAcceptingPilenAcknowledgement(true);
+    setPilenAcknowledgementError("");
+    const pending = pendingPilenAction;
+    try {
+      await acceptPilenTeacherAcknowledgement();
+      setPendingPilenAction(null);
+      setPilenAcknowledgementChecked(false);
+
+      if (pending.action === "start") {
+        await handleStartRun(pending.run);
+      } else if (pending.action === "toggle") {
+        await handleToggleLobby(pending.run, true);
+      } else {
+        await handleSaveSchedule({
+          preventDefault() {},
+        } as FormEvent<HTMLFormElement>);
+      }
+    } catch {
+      setPilenAcknowledgementError("Bekræftelsen kunne ikke gemmes. Prøv igen.");
+    } finally {
+      setIsAcceptingPilenAcknowledgement(false);
     }
   };
 
@@ -1267,6 +1354,61 @@ export default function ArkivPage() {
           </motion.div>
         ) : null}
       </AnimatePresence>
+
+      {pendingPilenAction ? (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Luk Pilen-bekræftelse"
+            onClick={closePilenAcknowledgement}
+            className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
+          />
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pilen-acknowledgement-title"
+            className="relative w-full max-w-lg rounded-[2rem] border border-white/12 bg-slate-950 p-6 text-white shadow-[0_32px_90px_rgba(2,8,23,0.65)] sm:p-8"
+          >
+            <h2 id="pilen-acknowledgement-title" className={`text-2xl font-black ${rubik.className}`}>
+              Før Pilen kan bruges
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-300">
+              Bekræftelsen gælder din lærerprofil og skal kun gives igen, hvis teksten ændres.
+            </p>
+            <div className="mt-5">
+              <PilenTeacherAcknowledgementPanel
+                status="required"
+                checked={pilenAcknowledgementChecked}
+                disabled={isAcceptingPilenAcknowledgement}
+                onCheckedChange={setPilenAcknowledgementChecked}
+              />
+            </div>
+            {pilenAcknowledgementError ? (
+              <p className="mt-3 text-sm font-semibold text-amber-200" role="alert">
+                {pilenAcknowledgementError}
+              </p>
+            ) : null}
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closePilenAcknowledgement}
+                disabled={isAcceptingPilenAcknowledgement}
+                className="rounded-xl border border-white/15 px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
+              >
+                Annuller
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmPilenAcknowledgement()}
+                disabled={isAcceptingPilenAcknowledgement}
+                className="rounded-xl bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60"
+              >
+                {isAcceptingPilenAcknowledgement ? "Gemmer…" : "Bekræft og fortsæt"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {shareRun ? (
         <RunExecutionShareModal

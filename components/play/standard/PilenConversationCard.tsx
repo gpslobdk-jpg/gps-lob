@@ -25,6 +25,7 @@ import {
   realtimeCharacterConversationService,
 } from "@/lib/characterRealtimeClient";
 import type { CharacterPostConfig } from "@/lib/characterPosts";
+import { PILEN_STUDENT_AI_NOTICE } from "@/lib/pilenProductCopy";
 
 type PilenConversationCardProps = {
   config: CharacterPostConfig;
@@ -268,6 +269,12 @@ export default function PilenConversationCard({
 
       {phase === "ready" || phase === "starting" ? (
         <div className="mt-6">
+          <p
+            lang="da"
+            className="mb-4 rounded-2xl border border-sky-200/20 bg-sky-200/8 px-4 py-3 text-center text-sm font-semibold leading-6 text-sky-50"
+          >
+            {PILEN_STUDENT_AI_NOTICE}
+          </p>
           <button
             type="button"
             onClick={() => void startConversation()}

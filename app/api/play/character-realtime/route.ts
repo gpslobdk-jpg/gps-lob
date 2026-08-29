@@ -19,6 +19,7 @@ import {
   createCharacterRealtimeStopToken,
   readRealtimeCallId,
 } from "@/lib/characterRealtimeServer";
+import { PILEN_TEACHER_ACKNOWLEDGEMENT_VERSION } from "@/lib/pilenProductCopy";
 import { resolveParticipantRequestContext } from "@/utils/supabase/participantServer";
 
 export const runtime = "nodejs";
@@ -27,6 +28,7 @@ export const maxDuration = 30;
 type LiveSessionRow = {
   status?: string | null;
   gps_override?: boolean | null;
+  teacher_id?: string | null;
 };
 
 type ParticipantLocationRow = {
@@ -106,7 +108,7 @@ export async function POST(request: NextRequest) {
     const [{ data: sessionRow, error: sessionError }, run] = await Promise.all([
       adminSupabase
         .from("live_sessions")
-        .select("status,gps_override")
+        .select("status,gps_override,teacher_id")
         .eq("id", sessionId)
         .maybeSingle<LiveSessionRow>(),
       fetchRunForSession(sessionId),
@@ -195,6 +197,24 @@ export async function POST(request: NextRequest) {
       return jsonError(access.code, access.status);
     }
 
+    const teacherId = sessionRow.teacher_id?.trim() ?? "";
+    if (!teacherId) {
+      return jsonError("TEACHER_ACKNOWLEDGEMENT_UNAVAILABLE", 503);
+    }
+    const { data: acknowledgement, error: acknowledgementError } =
+      await adminSupabase
+        .from("pilen_realtime_teacher_acknowledgements")
+        .select("accepted")
+        .eq("user_id", teacherId)
+        .eq("copy_version", PILEN_TEACHER_ACKNOWLEDGEMENT_VERSION)
+        .maybeSingle<{ accepted?: boolean | null }>();
+    if (acknowledgementError) {
+      return jsonError("TEACHER_ACKNOWLEDGEMENT_UNAVAILABLE", 503);
+    }
+    if (acknowledgement?.accepted !== true) {
+      return jsonError("TEACHER_ACKNOWLEDGEMENT_REQUIRED", 403);
+    }
+
     const rateLimitSecret = process.env.PILEN_REALTIME_RATE_LIMIT_SECRET!.trim();
     const requestFingerprint = createCharacterRealtimeRateLimitFingerprint({
       secret: rateLimitSecret,
@@ -222,7 +242,9 @@ export async function POST(request: NextRequest) {
     formData.set("sdp", sdp);
     formData.set(
       "session",
-      JSON.stringify(buildPilenRealtimeSessionConfig(access.config)),
+      JSON.stringify(
+        buildPilenRealtimeSessionConfig(access.config, gate.model),
+      ),
     );
 
     const upstreamResponse = await fetch(gate.endpoint, {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { poppins, rubik } from "@/lib/fonts";
 
 import { getLegalCopy, type LegalBullet } from "@/lib/legalCopy";
+import { getPilenPrivacyInformation } from "@/lib/pilenLegalCopy";
 import { resolveSiteVariantFromHeaders } from "@/lib/siteVariant";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -21,6 +22,10 @@ export default async function PrivacyPage() {
   const requestHeaders = await headers();
   const siteVariant = resolveSiteVariantFromHeaders(requestHeaders);
   const copy = getLegalCopy(siteVariant.key).privacy;
+  const pilenCopy =
+    siteVariant.key === "gpslob"
+      ? getPilenPrivacyInformation(process.env)
+      : null;
 
   return (
     <main
@@ -59,6 +64,43 @@ export default async function PrivacyPage() {
                 {section.bullets ? <LegalBulletList bullets={section.bullets} /> : null}
               </section>
             ))}
+
+            {pilenCopy ? (
+              <section
+                id="pilen-fortaeller"
+                data-testid="pilen-privacy-information"
+                data-zdr-statement={
+                  pilenCopy.zdrStatementActive ? "verified" : "unverified"
+                }
+                className="scroll-mt-8 space-y-4 rounded-[1.75rem] border border-sky-300/20 bg-sky-300/8 p-6"
+              >
+                <h2 className={`text-2xl font-bold text-white ${rubik.className}`}>
+                  {pilenCopy.title}
+                </h2>
+                {pilenCopy.paragraphs.map((paragraph) => (
+                  <p key={paragraph} className="text-slate-200 leading-relaxed md:text-lg">
+                    {paragraph}
+                  </p>
+                ))}
+                <LegalBulletList
+                  bullets={pilenCopy.bullets.map((text) => ({ text }))}
+                />
+                <p className="text-slate-200 leading-relaxed md:text-lg">
+                  {pilenCopy.providerAndRetention}
+                </p>
+
+                <div className="border-t border-sky-200/15 pt-4">
+                  <h3 className={`text-xl font-bold text-white ${rubik.className}`}>
+                    {pilenCopy.aulaTitle}
+                  </h3>
+                  <div className="mt-3 rounded-2xl border border-white/10 bg-slate-950/35 p-4 text-sm leading-6 text-slate-100 md:text-base">
+                    {pilenCopy.aulaLines.map((line) => (
+                      <p key={line}>{line}</p>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            ) : null}
 
             <section className="space-y-4 rounded-[1.75rem] border border-emerald-400/20 bg-emerald-400/8 p-6 shadow-[0_20px_50px_rgba(16,185,129,0.08)]">
               <h2 className={`text-2xl font-bold text-white ${rubik.className}`}>

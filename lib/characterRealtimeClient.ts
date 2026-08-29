@@ -110,7 +110,11 @@ function mapServerErrorCode(value: unknown): CharacterConversationErrorCode {
     case "CREDENTIALS_MISSING":
     case "EU_RESIDENCY_UNCONFIRMED":
     case "UNDER_18_REVIEW_UNCONFIRMED":
+    case "MODEL_NOT_APPROVED":
+    case "PRODUCTION_MODEL_UNCONFIRMED":
     case "PRODUCTION_APPROVAL_MISSING":
+    case "TEACHER_ACKNOWLEDGEMENT_REQUIRED":
+    case "TEACHER_ACKNOWLEDGEMENT_UNAVAILABLE":
     case "RATE_LIMIT_UNAVAILABLE":
       return "FEATURE_UNAVAILABLE";
     default:

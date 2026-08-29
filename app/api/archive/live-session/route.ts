@@ -10,6 +10,10 @@ import {
   CURRENT_ROUTE_VERSION,
   resolvePostOrderMode,
 } from "@/lib/routes/postOrderPolicy";
+import {
+  containsPilenCharacterPost,
+  PILEN_TEACHER_ACKNOWLEDGEMENT_VERSION,
+} from "@/lib/pilenProductCopy";
 import { getNormalizedRunRaceType, RACE_TYPES, type StoredRunRecord } from "@/utils/gpsRuns";
 import {
   ADMIN_ACCESS_MISSING_MESSAGE,
@@ -27,7 +31,10 @@ type ArchiveLiveSessionPayload = {
   runId?: string;
 };
 
-type RunRow = Pick<StoredRunRecord, "id" | "user_id" | "race_type" | "post_order_mode">;
+type RunRow = Pick<
+  StoredRunRecord,
+  "id" | "user_id" | "race_type" | "post_order_mode" | "questions"
+>;
 
 type LiveSessionRow = {
   id: string;
@@ -59,7 +66,7 @@ function toSessionResponse(session: LiveSessionRow) {
 async function fetchOwnedRun(runId: string, userId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data, error } = await supabase
     .from("gps_runs")
-    .select("id,user_id,race_type,post_order_mode")
+    .select("id,user_id,race_type,post_order_mode,questions")
     .eq("id", runId)
     .eq("user_id", userId)
     .maybeSingle<RunRow>();
@@ -278,6 +285,43 @@ export async function POST(request: Request) {
     const requiresPremiumAccess =
       normalizedRaceType === RACE_TYPES.STRATEGO || normalizedRaceType === RACE_TYPES.ZONE_KRIG;
     let shouldConsumeFreeTrial = false;
+
+    if (action === "ensure" && containsPilenCharacterPost(ownedRun.questions)) {
+      const acknowledgementClient = createAdminClient();
+      if (!acknowledgementClient) {
+        return NextResponse.json(
+          { error: ADMIN_ACCESS_MISSING_MESSAGE },
+          { status: 503 },
+        );
+      }
+
+      const { data: acknowledgement, error: acknowledgementError } =
+        await acknowledgementClient
+          .from("pilen_realtime_teacher_acknowledgements")
+          .select("accepted")
+          .eq("user_id", user.id)
+          .eq("copy_version", PILEN_TEACHER_ACKNOWLEDGEMENT_VERSION)
+          .maybeSingle<{ accepted?: boolean | null }>();
+
+      if (acknowledgementError) {
+        return NextResponse.json(
+          {
+            error: "Pilen-bekræftelsen kunne ikke kontrolleres.",
+            code: "PILEN_ACKNOWLEDGEMENT_UNAVAILABLE",
+          },
+          { status: 503 },
+        );
+      }
+      if (acknowledgement?.accepted !== true) {
+        return NextResponse.json(
+          {
+            error: "Bekræft den nødvendige tilladelse, før Pilen-løbet startes.",
+            code: "PILEN_ACKNOWLEDGEMENT_REQUIRED",
+          },
+          { status: 428 },
+        );
+      }
+    }
 
     if (action === "ensure" && isPaywallEnabled() && requiresPremiumAccess) {
       const profile = await fetchProfileAccess(user.id, supabase);

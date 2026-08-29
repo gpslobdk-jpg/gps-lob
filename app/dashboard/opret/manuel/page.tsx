@@ -18,6 +18,7 @@ import InkSaverPrintLayout from "@/components/builders/InkSaverPrintLayout";
 import GradeLevelMultiSelect from "@/components/builders/GradeLevelMultiSelect";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import { useBuilderSaveGuidance } from "@/components/builders/useBuilderSaveGuidance";
+import PilenTeacherAcknowledgementPanel from "@/components/pilen/PilenTeacherAcknowledgementPanel";
 import type { SavedPin, SavedZone } from "@/components/MapPicker";
 import PostOrderModeField from "@/components/routes/PostOrderModeField";
 import {
@@ -54,6 +55,10 @@ import {
   normalizeCharacterPostConfig,
   type CharacterPostConfig,
 } from "@/lib/characterPosts";
+import {
+  acceptPilenTeacherAcknowledgement,
+  getPilenTeacherAcknowledgement,
+} from "@/lib/pilenTeacherAcknowledgementClient";
 
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ssr: false,
@@ -707,6 +712,11 @@ function OpretLoebPageContent() {
   const [lynbyggerPlacementStatus, setLynbyggerPlacementStatus] = useState<"placed" | "missing" | null>(null);
   const [runGameConfig, setRunGameConfig] = useState<Record<string, unknown> | null>(null);
   const [pendingAiReviewDraft, setPendingAiReviewDraft] = useState<PendingManualAiReviewDraft | null>(null);
+  const [pilenAcknowledgementStatus, setPilenAcknowledgementStatus] = useState<
+    "idle" | "loading" | "required" | "accepted" | "error"
+  >("idle");
+  const [pilenAcknowledgementChecked, setPilenAcknowledgementChecked] = useState(false);
+  const [pilenAcknowledgementRefresh, setPilenAcknowledgementRefresh] = useState(0);
   const isEditorBusy = isSaving || showDraftRecoveryPrompt;
   const editorLockClass = isEditorBusy ? "pointer-events-none opacity-50" : "";
   const printTitle = title.trim() || "Udkast uden titel";
@@ -790,6 +800,10 @@ function OpretLoebPageContent() {
       }),
     [normalizedQuestionsForSave]
   );
+  const hasPilenPosts = useMemo(
+    () => normalizedQuestionsForSave.some((question) => question.postType === CHARACTER_POST_TYPE),
+    [normalizedQuestionsForSave]
+  );
   const hasMissingCoordinates = useMemo(
     () => normalizedQuestionsForSave.some((question) => question.lat === null || question.lng === null),
     [normalizedQuestionsForSave]
@@ -814,6 +828,29 @@ function OpretLoebPageContent() {
     isReadyToSave,
     saveFeedbackRef
   );
+
+  useEffect(() => {
+    if (!hasPilenPosts) {
+      setPilenAcknowledgementStatus("idle");
+      setPilenAcknowledgementChecked(false);
+      return;
+    }
+
+    let isActive = true;
+    setPilenAcknowledgementStatus("loading");
+    void getPilenTeacherAcknowledgement()
+      .then((accepted) => {
+        if (!isActive) return;
+        setPilenAcknowledgementStatus(accepted ? "accepted" : "required");
+      })
+      .catch(() => {
+        if (isActive) setPilenAcknowledgementStatus("error");
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [hasPilenPosts, pilenAcknowledgementRefresh]);
 
   const applyDraftState = (draft: ManualBuilderDraftState) => {
     const restoredSubject = restoreDraftString(draft.subject);
@@ -1615,6 +1652,24 @@ function OpretLoebPageContent() {
       return;
     }
 
+    if (
+      hasPilenPosts &&
+      pilenAcknowledgementStatus !== "accepted" &&
+      (pilenAcknowledgementStatus !== "required" || !pilenAcknowledgementChecked)
+    ) {
+      setNotice({
+        tone: "error",
+        message:
+          pilenAcknowledgementStatus === "loading"
+            ? "Vent et øjeblik, mens Pilen-bekræftelsen kontrolleres."
+            : pilenAcknowledgementStatus === "error"
+              ? "Pilen-bekræftelsen kunne ikke kontrolleres. Prøv igen."
+              : "Bekræft den nødvendige tilladelse, før du gemmer et løb med Pilen.",
+      });
+      scrollToSaveFeedback();
+      return;
+    }
+
     setIsSaving(true);
 
     try {
@@ -1633,6 +1688,15 @@ function OpretLoebPageContent() {
         });
         scrollToSaveFeedback();
         return;
+      }
+
+      if (
+        hasPilenPosts &&
+        pilenAcknowledgementStatus !== "accepted"
+      ) {
+        await acceptPilenTeacherAcknowledgement();
+        setPilenAcknowledgementStatus("accepted");
+        setPilenAcknowledgementChecked(false);
       }
 
       const payload = {
@@ -2275,6 +2339,21 @@ function OpretLoebPageContent() {
 
                 <div ref={saveFeedbackRef} className="mt-6 space-y-4">
                   {notice?.tone === "error" ? renderNotice() : null}
+                  {hasPilenPosts ? (
+                    <PilenTeacherAcknowledgementPanel
+                      status={
+                        pilenAcknowledgementStatus === "idle"
+                          ? "loading"
+                          : pilenAcknowledgementStatus
+                      }
+                      checked={pilenAcknowledgementChecked}
+                      disabled={isSaving}
+                      onCheckedChange={setPilenAcknowledgementChecked}
+                      onRetry={() =>
+                        setPilenAcknowledgementRefresh((current) => current + 1)
+                      }
+                    />
+                  ) : null}
                   <button
                     type="button"
                     onClick={handleSaveRun}
