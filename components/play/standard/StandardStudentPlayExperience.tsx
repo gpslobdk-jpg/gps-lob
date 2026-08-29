@@ -9,6 +9,7 @@ import StudentSubmissionStatus from "../StudentSubmissionStatus";
 import TeacherBroadcastModal from "../TeacherBroadcastModal";
 import type { PlayActions, PlayUiState } from "../types";
 import { wrapTextClass } from "../playUtils";
+import PilenConversationCard from "./PilenConversationCard";
 
 type StandardStudentPlayExperienceProps = {
   ui: PlayUiState;
@@ -71,6 +72,7 @@ export default function StandardStudentPlayExperience({
   } = progress;
   const {
     activeQuestion,
+    activePostVariant,
     activeQuestionDisplayText,
     activeTypedAnswerKey,
     activeTypedAnswerError,
@@ -249,6 +251,27 @@ export default function StandardStudentPlayExperience({
               progressPercent={routeProgressPercent}
             />
 
+            {activePostVariant === "character" && activeQuestion.characterConfig ? (
+              <div className="mt-3">
+                <PilenConversationCard
+                  config={activeQuestion.characterConfig}
+                  disabled={isAnswerSubmissionPending || isSubmissionBlocking}
+                  onCompletePost={actions.completeCharacterPost}
+                />
+                <div className="mt-4">
+                  <StudentSubmissionStatus
+                    state={studentSubmission}
+                    onRetry={onRetrySubmission}
+                    retryDisabled={isAnswerSubmissionPending}
+                  />
+                </div>
+                {activePostActionError ? (
+                  <p className={`mt-4 rounded-2xl border border-amber-200/30 bg-amber-500/12 px-4 py-3 text-sm font-semibold text-amber-50 ${wrapTextClass}`}>
+                    {activePostActionError}
+                  </p>
+                ) : null}
+              </div>
+            ) : (
             <div className="mt-3 rounded-[1.75rem] border border-white/12 bg-slate-900 p-4 shadow-[0_24px_70px_rgba(2,6,23,0.5)] sm:p-6">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-200/80">
                 Opgaven
@@ -418,6 +441,7 @@ export default function StandardStudentPlayExperience({
                 </div>
               ) : null}
             </div>
+            )}
           </div>
         </section>
       ) : null}

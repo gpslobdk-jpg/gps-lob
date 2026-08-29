@@ -515,7 +515,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const usesStandardPlayExperience =
     usesStandardStudentLocationExperience &&
     raceMode === "quiz" &&
-    activePostVariant === "quiz";
+    (activePostVariant === "quiz" || activePostVariant === "character");
   // Check BOTH arrays — solvedPostIndexes (correct answers) and answeredPostIndexes
   // (wrong answers). Either being true means the post is done and buttons must not render.
   const isCurrentPostAnswered =

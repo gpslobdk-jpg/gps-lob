@@ -6342,6 +6342,67 @@ export function usePlayGameState({
     }
   };
 
+  const completeCharacterPost = async () => {
+    if (!activeQuestion || activePostVariant !== "character") return;
+    if (answeredPostIndexesRef.current.includes(currentPostIndex)) return;
+    if (!beginSubmission()) return;
+
+    setPostActionError(null);
+
+    try {
+      const completionResult = await insertAnswerRecord(
+        0,
+        true,
+        currentPostIndex + 1,
+        "",
+        0,
+        null,
+        null,
+        {
+          forcedAwardedPoints: 0,
+          useRobustDelivery: true,
+          submissionType: "character",
+        },
+      );
+
+      if (completionResult.progressReconciled === true) {
+        return;
+      }
+
+      if (completionResult.canProgress !== true) {
+        setPostActionError({
+          key: activeTypedAnswerKey,
+          message:
+            completionResult.deliveryStatus === "session_closed"
+              ? "Løbet er afsluttet. Posten kan ikke længere gemmes."
+              : "Posten kunne ikke gemmes endnu. Prøv igen.",
+        });
+        return;
+      }
+
+      markAnsweredPostIndex(currentPostIndex);
+      markPendingAnswerLocallyProgressed(completionResult.operationId);
+
+      if (completionResult.authoritativeProgress) {
+        if (
+          !applyAuthoritativeProgressSnapshot(
+            completionResult.authoritativeProgress,
+          )
+        ) {
+          setPostActionError({
+            key: activeTypedAnswerKey,
+            message: "Løbets progression kunne ikke opdateres sikkert.",
+          });
+        }
+        return;
+      }
+
+      await continueFromSolvedPost();
+    } finally {
+      endSubmission();
+    }
+  };
+
   const submitMasterCode = async (code: string) => {
     if (isSubmitting || submissionLockRef.current) return;
 
@@ -7421,6 +7482,11 @@ export function usePlayGameState({
       return;
     }
 
+    if (activeSubmission.submissionType === "character") {
+      await completeCharacterPost();
+      return;
+    }
+
     if (activeSubmission.submissionType !== "quiz") {
       return;
     }
@@ -7502,6 +7568,7 @@ export function usePlayGameState({
       continueFromSolvedPost,
       skipCurrentPostAsEmergency,
       submitQuizAnswer,
+      completeCharacterPost,
       submitTypedAnswer,
       preparePhotoSubmission,
       submitPhoto,

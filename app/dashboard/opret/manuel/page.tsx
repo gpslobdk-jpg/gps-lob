@@ -47,6 +47,13 @@ import {
 } from "@/utils/runDrafts";
 import { createClient } from "@/utils/supabase/client";
 import { buildVm26GameConfig, isVm26GameConfig } from "@/utils/vm26Template";
+import {
+  CHARACTER_POST_TYPE,
+  PILEN_DEFAULT_DURATION_SECONDS,
+  isCompleteCharacterPostConfig,
+  normalizeCharacterPostConfig,
+  type CharacterPostConfig,
+} from "@/lib/characterPosts";
 
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ssr: false,
@@ -171,6 +178,7 @@ const SUBJECT_OPTIONS = Object.keys(SUBJECT_TOPICS);
 type Question = {
   id: number;
   type: "multiple_choice" | "ai_image";
+  postType: "quiz" | typeof CHARACTER_POST_TYPE;
   text: string;
   aiPrompt: string;
   mediaUrl: string;
@@ -179,6 +187,7 @@ type Question = {
   points: number;
   lat: number | null;
   lng: number | null;
+  characterConfig?: CharacterPostConfig;
 };
 
 type StoredRunRecord = {
@@ -211,6 +220,10 @@ type StoredQuestionRecord = {
   points?: unknown;
   lat?: unknown;
   lng?: unknown;
+  postType?: unknown;
+  post_type?: unknown;
+  characterConfig?: unknown;
+  character_config?: unknown;
 };
 
 type MapCenter = {
@@ -272,6 +285,7 @@ const DEFAULT_QUESTION_POINTS = 10;
 const createQuestion = (type: Question["type"] = "multiple_choice"): Question => ({
   id: Date.now() + Math.floor(Math.random() * 100000),
   type,
+  postType: "quiz",
   text: "",
   aiPrompt: "",
   mediaUrl: "",
@@ -409,7 +423,28 @@ function getStoredPhotoTarget(
   return answers[0] ?? "";
 }
 
-function normalizeQuestionForSave(question: Question): Question {
+function normalizeQuestionForSave(
+  question: Question,
+  gradeLevel: string,
+): Question {
+  if (question.postType === CHARACTER_POST_TYPE) {
+    return {
+      ...question,
+      type: "multiple_choice",
+      postType: CHARACTER_POST_TYPE,
+      text: "Pilen fortæller",
+      aiPrompt: "",
+      mediaUrl: "",
+      answers: createEmptyAnswers(),
+      correctIndex: 0,
+      points: 0,
+      characterConfig: normalizeCharacterPostConfig(
+        { ...question.characterConfig, gradeLevel },
+        { gradeLevel },
+      ),
+    };
+  }
+
   const type = question.type === "ai_image" ? "ai_image" : "multiple_choice";
   const text = question.text.trim();
   const aiPrompt = question.aiPrompt.trim();
@@ -417,12 +452,14 @@ function normalizeQuestionForSave(question: Question): Question {
   return {
     ...question,
     type,
+    postType: "quiz",
     text,
     aiPrompt,
     mediaUrl: question.mediaUrl.trim(),
     answers: type === "ai_image" ? buildPhotoAnswers(aiPrompt) : question.answers.map((answer) => answer.trim()) as Question["answers"],
     correctIndex: type === "ai_image" ? 0 : question.correctIndex,
     points: normalizeQuestionPoints(question.points),
+    characterConfig: undefined,
   };
 }
 
@@ -537,7 +574,13 @@ function toQuestionList(value: unknown): Question[] {
       if (!isRecord(item)) return null;
 
       const candidate = item as StoredQuestionRecord;
-      const type = candidate.type === "ai_image" ? "ai_image" : "multiple_choice";
+      const isCharacter =
+        candidate.postType === CHARACTER_POST_TYPE ||
+        candidate.post_type === CHARACTER_POST_TYPE;
+      const type =
+        !isCharacter && candidate.type === "ai_image"
+          ? "ai_image"
+          : "multiple_choice";
       const rawAnswers = toAnswersTuple(candidate.answers);
       const photoTarget = getStoredPhotoTarget(candidate, rawAnswers);
       const correctIndex = asNumberOrNull(candidate.correctIndex ?? candidate.correct_index);
@@ -549,6 +592,7 @@ function toQuestionList(value: unknown): Question[] {
       return {
         id: toQuestionId(candidate.id, timestamp + index),
         type,
+        postType: isCharacter ? CHARACTER_POST_TYPE : "quiz",
         text: asTrimmedString(candidate.text),
         aiPrompt: type === "ai_image" ? photoTarget : asTrimmedString(candidate.aiPrompt ?? candidate.ai_prompt),
         mediaUrl: asTrimmedString(candidate.mediaUrl ?? candidate.media_url),
@@ -557,6 +601,11 @@ function toQuestionList(value: unknown): Question[] {
         points: normalizeQuestionPoints(candidate.points),
         lat: asNumberOrNull(candidate.lat),
         lng: asNumberOrNull(candidate.lng),
+        characterConfig: isCharacter
+          ? normalizeCharacterPostConfig(
+              candidate.characterConfig ?? candidate.character_config,
+            )
+          : undefined,
       };
     })
     .filter((question): question is Question => question !== null);
@@ -579,6 +628,7 @@ function toInterviewQuestionList(questions: ManualAiInterviewDraft["questions"])
       return {
         id: timestamp + index,
         type: "multiple_choice",
+        postType: "quiz",
         text,
         aiPrompt: "",
         mediaUrl: "",
@@ -593,6 +643,7 @@ function toInterviewQuestionList(questions: ManualAiInterviewDraft["questions"])
 }
 
 const isQuestionEmpty = (question: Question) =>
+  question.postType !== CHARACTER_POST_TYPE &&
   !question.text &&
   !question.aiPrompt &&
   !question.mediaUrl &&
@@ -701,20 +752,35 @@ function OpretLoebPageContent() {
   const normalizedQuestionsForSave = useMemo(
     () =>
       questions
-        .map((question) => normalizeQuestionForSave(question))
+        .map((question) =>
+          normalizeQuestionForSave(
+            question,
+            gradeLevels.length > 0
+              ? formatGradeLevelsForPrompt(gradeLevels)
+              : "Ikke angivet",
+          ),
+        )
         .filter(
           (question) =>
+            question.postType === CHARACTER_POST_TYPE ||
             question.text.length > 0 ||
             question.aiPrompt.length > 0 ||
             question.answers.some((answer) => answer.length > 0) ||
             question.lat !== null ||
             question.lng !== null
         ),
-    [questions]
+    [gradeLevels, questions]
   );
   const hasIncompleteQuestions = useMemo(
     () =>
       normalizedQuestionsForSave.some((question) => {
+        if (question.postType === CHARACTER_POST_TYPE) {
+          return (
+            !question.characterConfig ||
+            !isCompleteCharacterPostConfig(question.characterConfig)
+          );
+        }
+
         if (question.type === "ai_image") {
           return !question.text || !question.aiPrompt;
         }
@@ -884,6 +950,7 @@ function OpretLoebPageContent() {
           return {
             id: mappedId !== null ? mappedId : Date.now() + index,
             type,
+            postType: "quiz",
             text: questionText,
             aiPrompt: aiPromptText,
             mediaUrl: "",
@@ -938,6 +1005,7 @@ function OpretLoebPageContent() {
           return {
             id: timestamp + index,
             type: "multiple_choice",
+            postType: "quiz",
             text,
             aiPrompt: "",
             mediaUrl: "",
@@ -1258,28 +1326,92 @@ function OpretLoebPageContent() {
     );
   };
 
-  const updateQuestionType = (id: number, nextType: Question["type"]) => {
+  const updateQuestionType = (
+    id: number,
+    nextType: Question["type"] | typeof CHARACTER_POST_TYPE,
+  ) => {
     setQuestions((prev) =>
       prev.map((question) => {
         if (question.id !== id) return question;
+
+        if (nextType === CHARACTER_POST_TYPE) {
+          return {
+            ...question,
+            type: "multiple_choice",
+            postType: CHARACTER_POST_TYPE,
+            text: "Pilen fortæller",
+            aiPrompt: "",
+            mediaUrl: "",
+            answers: createEmptyAnswers(),
+            correctIndex: 0,
+            points: 0,
+            characterConfig: normalizeCharacterPostConfig(
+              question.characterConfig,
+              {
+                gradeLevel:
+                  gradeLevels.length > 0
+                    ? formatGradeLevelsForPrompt(gradeLevels)
+                    : "Ikke angivet",
+                maxDurationSeconds: PILEN_DEFAULT_DURATION_SECONDS,
+              },
+            ),
+          };
+        }
 
         if (nextType === "ai_image") {
           return {
             ...question,
             type: "ai_image",
+            postType: "quiz",
             answers: createEmptyAnswers(),
             correctIndex: 0,
+            points: question.points || DEFAULT_QUESTION_POINTS,
+            characterConfig: undefined,
           };
         }
 
         return {
           ...question,
           type: "multiple_choice",
+          postType: "quiz",
+          text:
+            question.postType === CHARACTER_POST_TYPE ? "" : question.text,
           aiPrompt: "",
           answers: createEmptyAnswers(),
           correctIndex: 0,
+          points: question.points || DEFAULT_QUESTION_POINTS,
+          characterConfig: undefined,
         };
       })
+    );
+  };
+
+  const updateCharacterConfig = (
+    id: number,
+    updates: Partial<
+      Pick<
+        CharacterPostConfig,
+        "topic" | "placeDescription" | "maxDurationSeconds"
+      >
+    >,
+  ) => {
+    setQuestions((current) =>
+      current.map((question) =>
+        question.id === id && question.postType === CHARACTER_POST_TYPE
+          ? {
+              ...question,
+              characterConfig: normalizeCharacterPostConfig(
+                { ...question.characterConfig, ...updates },
+                {
+                  gradeLevel:
+                    gradeLevels.length > 0
+                      ? formatGradeLevelsForPrompt(gradeLevels)
+                      : "Ikke angivet",
+                },
+              ),
+            }
+          : question,
+      ),
     );
   };
 
@@ -1325,6 +1457,7 @@ function OpretLoebPageContent() {
         const importedQuestion: Question = {
           ...question,
           id: nextId,
+          postType: question.postType ?? "quiz",
           lat: null,
           lng: null,
           points: normalizeQuestionPoints(question.points),
@@ -1459,7 +1592,7 @@ function OpretLoebPageContent() {
     }
 
     if (normalizedQuestionsForSave.length === 0) {
-      setNotice({ tone: "error", message: "Tilføj mindst ét udfyldt spørgsmål." });
+      setNotice({ tone: "error", message: "Tilføj mindst én udfyldt post." });
       scrollToSaveFeedback();
       return;
     }
@@ -1467,7 +1600,7 @@ function OpretLoebPageContent() {
     if (hasIncompleteQuestions) {
       setNotice({
         tone: "error",
-        message: "Udfyld enten postens tekst og alle fire svarmuligheder eller både motiv og instruktion på foto-poster.",
+        message: "Udfyld postens felter. Pilen-poster skal have både samtaleemne og stedbeskrivelse.",
       });
       scrollToSaveFeedback();
       return;
@@ -1811,6 +1944,7 @@ function OpretLoebPageContent() {
 
               {questions.map((question, questionIndex) => {
                 const isPhotoMission = question.type === "ai_image";
+                const isPilenPost = question.postType === CHARACTER_POST_TYPE;
                 const vm26PostLabel = isVm26Run ? VM26_POST_LABELS[questionIndex] : null;
 
                 return (
@@ -1831,6 +1965,7 @@ function OpretLoebPageContent() {
                         ) : null}
                       </div>
                       <div className="flex flex-wrap items-center justify-end gap-2">
+                        {!isPilenPost ? (
                         <label className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-950/20 px-3 py-1 text-[10px] font-semibold tracking-[0.18em] text-emerald-100/75 uppercase backdrop-blur-xl">
                           Point
                           <input
@@ -1847,6 +1982,7 @@ function OpretLoebPageContent() {
                             className="w-16 bg-transparent text-right text-sm font-semibold tracking-normal text-emerald-50 focus:outline-none"
                           />
                         </label>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => setQuestions((prev) => prev.filter((_, i) => i !== questionIndex))}
@@ -1864,13 +2000,18 @@ function OpretLoebPageContent() {
                         Opgavetype
                       </label>
                       <select
-                        value={question.type}
-                        onChange={(event) =>
+                        value={isPilenPost ? CHARACTER_POST_TYPE : question.type}
+                        onChange={(event) => {
+                          const nextValue = event.target.value;
                           updateQuestionType(
                             question.id,
-                            event.target.value === "ai_image" ? "ai_image" : "multiple_choice"
-                          )
-                        }
+                            nextValue === CHARACTER_POST_TYPE
+                              ? CHARACTER_POST_TYPE
+                              : nextValue === "ai_image"
+                                ? "ai_image"
+                                : "multiple_choice",
+                          );
+                        }}
                         disabled={isEditorBusy}
                         className="w-full rounded-2xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-sm font-semibold text-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                       >
@@ -1880,10 +2021,113 @@ function OpretLoebPageContent() {
                         <option value="ai_image" className="bg-slate-900 text-white">
                           Tag et billede
                         </option>
+                        <option value={CHARACTER_POST_TYPE} className="bg-slate-900 text-white">
+                          Pilen fortæller
+                        </option>
                       </select>
                     </div>
 
-                    {isPhotoMission ? (
+                    {isPilenPost && question.characterConfig ? (
+                      <div
+                        data-testid={`pilen-teacher-config-${question.id}`}
+                        className="mt-4 rounded-[1.45rem] border border-sky-300/25 bg-sky-400/8 p-4"
+                      >
+                        <h4 className={`text-xl font-black text-sky-100 ${rubik.className}`}>
+                          Pilen fortæller
+                        </h4>
+                        <p className="mt-2 text-sm leading-6 text-emerald-50/78">
+                          Eleverne møder Pilen ved posten og taler kort med ham på engelsk.
+                        </p>
+
+                        <div className="mt-4 space-y-4">
+                          <div>
+                            <label
+                              htmlFor={`pilen-topic-${question.id}`}
+                              className="mb-2 block text-xs font-semibold tracking-[0.12em] text-emerald-100/70"
+                            >
+                              Hvad skal samtalen handle om?
+                            </label>
+                            <input
+                              id={`pilen-topic-${question.id}`}
+                              data-testid="pilen-topic"
+                              value={question.characterConfig.topic}
+                              onChange={(event) =>
+                                updateCharacterConfig(question.id, {
+                                  topic: event.target.value,
+                                })
+                              }
+                              disabled={isEditorBusy}
+                              placeholder="fx Det danske demokrati"
+                              maxLength={160}
+                              className={inputClass}
+                            />
+                          </div>
+
+                          <div>
+                            <label
+                              htmlFor={`pilen-place-${question.id}`}
+                              className="mb-2 block text-xs font-semibold tracking-[0.12em] text-emerald-100/70"
+                            >
+                              Hvilket sted står Pilen ved?
+                            </label>
+                            <input
+                              id={`pilen-place-${question.id}`}
+                              data-testid="pilen-place"
+                              value={question.characterConfig.placeDescription}
+                              onChange={(event) =>
+                                updateCharacterConfig(question.id, {
+                                  placeDescription: event.target.value,
+                                })
+                              }
+                              disabled={isEditorBusy}
+                              placeholder="fx Christiansborg Slotsplads"
+                              maxLength={240}
+                              className={inputClass}
+                            />
+                          </div>
+
+                          <div>
+                            <label
+                              htmlFor={`pilen-duration-${question.id}`}
+                              className="mb-2 block text-xs font-semibold tracking-[0.12em] text-emerald-100/70"
+                            >
+                              Hvor længe må samtalen højst vare?
+                            </label>
+                            <select
+                              id={`pilen-duration-${question.id}`}
+                              data-testid="pilen-duration"
+                              value={question.characterConfig.maxDurationSeconds}
+                              onChange={(event) =>
+                                updateCharacterConfig(question.id, {
+                                  maxDurationSeconds: Number(event.target.value),
+                                })
+                              }
+                              disabled={isEditorBusy}
+                              className={inputClass}
+                            >
+                              <option value={60}>60 sekunder</option>
+                              <option value={75}>75 sekunder</option>
+                              <option value={90}>90 sekunder</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid gap-2 text-sm text-emerald-50/80 sm:grid-cols-3">
+                          <p className="rounded-xl border border-white/10 bg-slate-950/30 px-3 py-2">
+                            Karakter: <strong>Pilen</strong>
+                          </p>
+                          <p className="rounded-xl border border-white/10 bg-slate-950/30 px-3 py-2">
+                            Sprog: <strong>Engelsk</strong>
+                          </p>
+                          <p className="rounded-xl border border-white/10 bg-slate-950/30 px-3 py-2">
+                            Varighed: <strong>højst {question.characterConfig.maxDurationSeconds} sek.</strong>
+                          </p>
+                        </div>
+                        <p className="mt-3 text-xs leading-5 text-emerald-50/60">
+                          Klassetrinnet følger løbets valg. Elevens lyd og samtale gemmes ikke.
+                        </p>
+                      </div>
+                    ) : isPhotoMission ? (
                       <>
                         <div className="mt-4">
                           <label className="mb-2 block text-xs font-semibold tracking-[0.12em] text-emerald-100/65">
@@ -2183,7 +2427,7 @@ function OpretLoebPageContent() {
             <span>
               <span className="block text-sm font-black uppercase tracking-[0.16em]">Opret ny post</span>
               <span className="mt-1 block text-sm leading-6 text-emerald-100/72">
-                Tilføj en tom quiz- eller foto-post og byg den fra bunden.
+                Tilføj en tom quiz-, foto- eller Pilen-post og byg den fra bunden.
               </span>
             </span>
           </button>

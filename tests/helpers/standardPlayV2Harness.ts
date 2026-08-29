@@ -1,10 +1,12 @@
 import { expect, type Page, type Route } from "@playwright/test";
+import type { CharacterPostConfig } from "@/lib/characterPosts";
 
 export const STANDARD_PLAY_POST_LAT = 55.6761;
 export const STANDARD_PLAY_POST_LNG = 12.5683;
 
 export type StandardPlayQuestionFixture = {
   type: "multiple_choice" | "ai_image";
+  postType?: "quiz" | "character";
   text: string;
   answers: string[];
   correctIndex: number;
@@ -13,6 +15,7 @@ export type StandardPlayQuestionFixture = {
   lng: number;
   mediaUrl?: string;
   aiPrompt?: string;
+  characterConfig?: CharacterPostConfig;
 };
 
 export type StandardPlayHarnessOptions = {

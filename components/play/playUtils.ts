@@ -18,6 +18,10 @@ import {
   type StudentSubmissionStatus,
   type StudentSubmissionType,
 } from "@/lib/submissions/studentSubmissionState";
+import {
+  isCharacterPost,
+  normalizeCharacterPostConfig,
+} from "@/lib/characterPosts";
 
 export const ACTIVE_PARTICIPANT_STORAGE_KEY = "gpslob_active_participant";
 export const ACTIVE_PLAY_SNAPSHOT_STORAGE_KEY = "gpslob_active_play_snapshot";
@@ -180,7 +184,8 @@ function normalizeStoredPendingAnswer(value: unknown): StoredPendingAnswer | nul
   const submissionType: StudentSubmissionType =
     candidate.submissionType === "manual" ||
     candidate.submissionType === "photo" ||
-    candidate.submissionType === "skip"
+    candidate.submissionType === "skip" ||
+    candidate.submissionType === "character"
       ? candidate.submissionType
       : "quiz";
   const status: StudentSubmissionStatus =
@@ -409,13 +414,15 @@ export function parseQuestion(raw: unknown): Question | null {
       : typeof candidate.ai_prompt === "string"
         ? candidate.ai_prompt
         : "";
+  const postType = isCharacterPost(candidate)
+    ? "character"
+    : candidate.postType === "intro" || candidate.post_type === "intro"
+      ? "intro"
+      : "quiz";
 
   return {
     type,
-    postType:
-      candidate.postType === "intro" || candidate.post_type === "intro"
-        ? "intro"
-        : "quiz",
+    postType,
     text: typeof candidate.text === "string" ? candidate.text : "",
     aiPrompt: aiPrompt || undefined,
     hint: typeof candidate.hint === "string" ? candidate.hint : undefined,
@@ -436,6 +443,12 @@ export function parseQuestion(raw: unknown): Question | null {
     providerTrackId:
       typeof candidate.providerTrackId === "string" || typeof candidate.providerTrackId === "number"
         ? candidate.providerTrackId
+        : undefined,
+    characterConfig:
+      postType === "character"
+        ? normalizeCharacterPostConfig(
+            candidate.characterConfig ?? candidate.character_config,
+          )
         : undefined,
   };
 }
@@ -505,6 +518,10 @@ export function normalizeRaceMode(value: unknown): RaceMode {
 }
 
 export function resolvePostVariant(raceMode: RaceMode, question: Question): ActivePostVariant {
+  if (question.postType === "character") {
+    return "character";
+  }
+
   if (question.type === "ai_image") {
     return "photo";
   }
@@ -606,6 +623,7 @@ export function getRoleplayMessage(question: Question) {
 }
 
 export function getQuestionDisplayText(question: Question, variant: ActivePostVariant) {
+  if (variant === "character") return "Pilen fortæller";
   return variant === "roleplay" ? getRoleplayMessage(question) : question.text;
 }
 

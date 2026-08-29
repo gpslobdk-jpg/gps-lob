@@ -13,6 +13,7 @@ import {
   supportsServerStaggeredStart,
 } from "@/app/api/play/_shared";
 import { usesStandardStudentLocationExperience } from "@/lib/location/studentLocationState";
+import { buildCharacterCompletionMetadataPayload } from "@/lib/characterCompletion";
 import { getAwardedPoints } from "@/utils/questionPoints";
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
@@ -548,6 +549,13 @@ async function resolveAwardedPoints(payload: Record<string, unknown>, runCache: 
       ? run.questions[questionIndex]
       : null;
 
+  if (
+    resolveQuestionVariant(run?.raceType ?? run?.race_type, rawQuestion) ===
+    "character"
+  ) {
+    return 0;
+  }
+
   return getAwardedPoints(rawQuestion, true);
 }
 
@@ -1047,13 +1055,23 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      if (standardVariant !== "quiz" && standardOperationId) {
+      if (
+        standardVariant !== "quiz" &&
+        standardVariant !== "character" &&
+        standardOperationId
+      ) {
         return NextResponse.json(
           {
             error: "Denne posttype understøtter ikke almindelig svaraflevering.",
             code: "UNSUPPORTED_ANSWER_VARIANT",
           },
           { status: 400 }
+        );
+      }
+
+      if (standardVariant === "character") {
+        sanitizedPayloads = sanitizedPayloads.map(
+          buildCharacterCompletionMetadataPayload,
         );
       }
 

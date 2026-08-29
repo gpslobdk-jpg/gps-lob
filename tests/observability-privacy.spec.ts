@@ -239,6 +239,24 @@ test.describe("observability privacy sanitizer", () => {
     expect(serialized).not.toContain("12.5683");
   });
 
+  test("redacts future character-conversation content fields", () => {
+    const sanitized = sanitizeObservabilityData({
+      transcript: "syntetisk elevspørgsmål",
+      audioChunk: "syntetisk lyd",
+      microphoneBuffer: "syntetisk buffer",
+      conversationHistory: ["syntetisk svar"],
+      studentQuestion: "syntetisk spørgsmål",
+      characterResponse: "syntetisk karaktersvar",
+      message: "transcript=syntetisk audio=syntetisk conversation=syntetisk",
+    });
+    const serialized = JSON.stringify(sanitized);
+
+    expect(serialized).not.toMatch(
+      /syntetisk elevspørgsmål|syntetisk lyd|syntetisk buffer|syntetisk svar|syntetisk spørgsmål|syntetisk karaktersvar/,
+    );
+    expect(serialized).toContain(REDACTED_OBSERVABILITY_VALUE);
+  });
+
   test("fails closed for roots that cannot be inspected", () => {
     const revocable = Proxy.revocable<Record<string, unknown>>({}, {});
     revocable.revoke();

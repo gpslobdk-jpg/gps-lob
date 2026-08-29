@@ -13,7 +13,12 @@ export const STUDENT_SUBMISSION_STATUSES = [
 export type StudentSubmissionStatus =
   (typeof STUDENT_SUBMISSION_STATUSES)[number];
 
-export type StudentSubmissionType = "quiz" | "manual" | "photo" | "skip";
+export type StudentSubmissionType =
+  | "quiz"
+  | "manual"
+  | "photo"
+  | "skip"
+  | "character";
 
 export type StudentSubmissionErrorKind =
   | "none"

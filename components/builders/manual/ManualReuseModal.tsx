@@ -6,12 +6,14 @@ import { useEffect, useMemo, useState } from "react";
 
 import { getNormalizedRunRaceType, RACE_TYPE_LABELS, type RaceType, type StoredRunRecord } from "@/utils/gpsRuns";
 import { createClient } from "@/utils/supabase/client";
+import type { CharacterPostConfig } from "@/lib/characterPosts";
 
 const ANSWER_LABELS = ["A", "B", "C", "D"] as const;
 
 export type ManualReuseQuestion = {
   id: number;
   type: "multiple_choice" | "ai_image";
+  postType?: "quiz" | "character";
   text: string;
   aiPrompt: string;
   mediaUrl: string;
@@ -20,6 +22,7 @@ export type ManualReuseQuestion = {
   points: number;
   lat: number | null;
   lng: number | null;
+  characterConfig?: CharacterPostConfig;
 };
 
 type StoredRunLibraryRecord = Pick<
@@ -391,6 +394,7 @@ export default function ManualReuseModal({
               <div className="mt-8 grid gap-4 xl:grid-cols-2">
                 {selectedRun.questions.map((question, index) => {
                   const isPhotoMission = question.type === "ai_image";
+                  const isPilenPost = question.postType === "character";
                   const importKey = `${selectedRun.id}-${index}`;
                   const isImporting = importingKey === importKey;
 
@@ -405,15 +409,24 @@ export default function ManualReuseModal({
                             Post {index + 1}
                           </p>
                           <h3 className={`mt-2 text-2xl font-black ${rubik.className}`}>
-                            {isPhotoMission ? "Foto-post" : "Quiz-post"}
+                            {isPilenPost ? "Pilen fortæller" : isPhotoMission ? "Foto-post" : "Quiz-post"}
                           </h3>
                         </div>
                         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-bold tracking-[0.18em] text-slate-200 uppercase">
-                          {isPhotoMission ? "AI foto" : "4 svar"}
+                          {isPilenPost ? "Engelsk samtale" : isPhotoMission ? "AI foto" : "4 svar"}
                         </span>
                       </div>
 
-                      {isPhotoMission ? (
+                      {isPilenPost ? (
+                        <div className="mt-5 space-y-3 rounded-[1.4rem] border border-sky-200/15 bg-sky-400/8 p-4">
+                          <p className="text-sm leading-6 text-slate-200">
+                            Emne: <strong>{question.characterConfig?.topic || "Ikke angivet"}</strong>
+                          </p>
+                          <p className="text-sm leading-6 text-slate-200">
+                            Sted: <strong>{question.characterConfig?.placeDescription || "Ikke angivet"}</strong>
+                          </p>
+                        </div>
+                      ) : isPhotoMission ? (
                         <div className="mt-5 space-y-4 rounded-[1.4rem] border border-white/10 bg-white/4 p-4">
                           <div>
                             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">

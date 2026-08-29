@@ -10,6 +10,8 @@
  * All styling is black-and-white, typography-focused, and ink-efficient.
  */
 
+import type { CharacterPostConfig } from "@/lib/characterPosts";
+
 const ANSWER_LABELS = ["A", "B", "C", "D"] as const;
 
 // ---------------------------------------------------------------------------
@@ -19,10 +21,12 @@ const ANSWER_LABELS = ["A", "B", "C", "D"] as const;
 export type PrintableQuestion = {
   id: number | string;
   type: "multiple_choice" | "ai_image";
+  postType?: "quiz" | "character";
   text: string;
   aiPrompt?: string;
   answers: string[];
   correctIndex: number;
+  characterConfig?: CharacterPostConfig;
 };
 
 type InkSaverPrintLayoutProps = {
@@ -104,6 +108,7 @@ function ElevArkSection({
       <div className="space-y-5">
         {questions.map((q, i) => {
           const isPhoto = q.type === "ai_image";
+          const isPilenPost = q.postType === "character";
           const questionText = q.text.trim() || "Ikke udfyldt";
 
           return (
@@ -115,7 +120,16 @@ function ElevArkSection({
                 Post {i + 1}
               </h2>
 
-              {isPhoto ? (
+              {isPilenPost ? (
+                <div className="mt-2 border border-dashed border-gray-400 p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">
+                    Pilen fortæller · Engelsk samtale
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-black">
+                    {q.characterConfig?.topic || "Samtaleemne ikke angivet"} · {q.characterConfig?.placeDescription || "Sted ikke angivet"}
+                  </p>
+                </div>
+              ) : isPhoto ? (
                 <div className="mt-2 border border-dashed border-gray-400 p-3">
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">
                     Foto-opgave
@@ -164,8 +178,11 @@ function SvarArkSection({
   fontClassName,
 }: Omit<InkSaverPrintLayoutProps, "sessionPin">) {
   // Only include MC questions in the bubble grid
-  const mcQuestions = questions.filter((q) => q.type !== "ai_image");
+  const mcQuestions = questions.filter(
+    (q) => q.type !== "ai_image" && q.postType !== "character",
+  );
   const photoQuestions = questions.filter((q) => q.type === "ai_image");
+  const characterQuestions = questions.filter((q) => q.postType === "character");
 
   return (
     <div className="print:break-after-page print:[page-break-after:always]">
@@ -237,6 +254,11 @@ function SvarArkSection({
           })}
         </div>
       )}
+      {characterQuestions.length > 0 && (
+        <p className="mt-4 text-xs text-gray-600">
+          Pilen-poster har ingen svarfelter: {characterQuestions.map((q) => `Post ${questions.indexOf(q) + 1}`).join(", ")}.
+        </p>
+      )}
 
       {/* Extra space for notes */}
       <div className="mt-6 border-t border-gray-300 pt-3">
@@ -288,6 +310,13 @@ function FacitlisteSection({
         </p>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
           {questions.map((q, i) => {
+            if (q.postType === "character") {
+              return (
+                <span key={`key-${q.id}`} className="text-gray-500">
+                  Post {i + 1}: <span className="italic">Pilen</span>
+                </span>
+              );
+            }
             if (q.type === "ai_image") {
               return (
                 <span key={`key-${q.id}`} className="text-gray-500">
@@ -308,6 +337,7 @@ function FacitlisteSection({
       <div className="space-y-4">
         {questions.map((q, i) => {
           const isPhoto = q.type === "ai_image";
+          const isPilenPost = q.postType === "character";
           const questionText = q.text.trim() || "Ikke udfyldt";
 
           return (
@@ -319,14 +349,23 @@ function FacitlisteSection({
                 <h2 className={`text-base font-black uppercase tracking-wide text-black ${fontClassName ?? ""}`}>
                   Post {i + 1}
                 </h2>
-                {!isPhoto && (
+                {!isPhoto && !isPilenPost && (
                   <span className="text-xs font-bold text-gray-500">
                     Svar: {ANSWER_LABELS[q.correctIndex]}
                   </span>
                 )}
               </div>
 
-              {isPhoto ? (
+              {isPilenPost ? (
+                <div className="mt-2 border border-dashed border-gray-400 p-2">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">
+                    Pilen fortæller
+                  </p>
+                  <p className="mt-1 text-sm text-black">
+                    {q.characterConfig?.topic || "Samtaleemne ikke angivet"} · {q.characterConfig?.placeDescription || "Sted ikke angivet"}
+                  </p>
+                </div>
+              ) : isPhoto ? (
                 <div className="mt-2 border border-dashed border-gray-400 p-2">
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">
                     Foto-opgave

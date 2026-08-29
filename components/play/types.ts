@@ -3,6 +3,7 @@ import type {
   StudentSubmissionStatus,
   StudentSubmissionType,
 } from "@/lib/submissions/studentSubmissionState";
+import type { CharacterPostConfig } from "@/lib/characterPosts";
 
 export type QuestionType = "multiple_choice" | "ai_image" | "unknown";
 
@@ -29,6 +30,7 @@ export type Question = {
   musicProvider?: string;
   /** Musikquiz: udbyderens unikke track-id */
   providerTrackId?: string | number;
+  characterConfig?: CharacterPostConfig;
 };
 
 export type Post = {
@@ -43,9 +45,15 @@ export type Post = {
   unlockRange: number;
 };
 
-export type ActivePostVariant = "quiz" | "photo" | "escape" | "roleplay" | "unknown";
+export type ActivePostVariant =
+  | "quiz"
+  | "photo"
+  | "escape"
+  | "roleplay"
+  | "character"
+  | "unknown";
 export type RaceMode = ActivePostVariant | "zone_krig" | "stratego";
-export type PostType = "quiz" | "intro";
+export type PostType = "quiz" | "intro" | "character";
 export type FeedbackTone = "success" | "error";
 export type RoleplayReplyTone = "success" | "hint";
 export type MasterLockStatus = "locked" | "unlocked";
@@ -508,6 +516,7 @@ export interface PlayActions {
   continueFromSolvedPost: () => Promise<boolean>;
   skipCurrentPostAsEmergency: () => Promise<void>;
   submitQuizAnswer: (selectedIndex: number) => Promise<void>;
+  completeCharacterPost: () => Promise<void>;
   submitTypedAnswer: (answer: string) => Promise<void>;
   preparePhotoSubmission: (operationId: string) => void;
   submitPhoto: (file: File, operationId?: string) => Promise<void>;

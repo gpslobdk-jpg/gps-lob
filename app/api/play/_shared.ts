@@ -8,6 +8,10 @@ import {
   POST_ORDER_MODES,
   resolveSessionPostOrderMode,
 } from "@/lib/routes/postOrderPolicy";
+import {
+  isCharacterPost,
+  sanitizeCharacterPostForPlay,
+} from "@/lib/characterPosts";
 
 type LiveSessionRow = {
   run_id?: string | null;
@@ -47,7 +51,13 @@ type ParticipantLocationRow = {
   lng?: number | string | null;
 };
 
-export type QuestionVariant = "quiz" | "photo" | "escape" | "roleplay" | "unknown";
+export type QuestionVariant =
+  | "quiz"
+  | "photo"
+  | "escape"
+  | "roleplay"
+  | "character"
+  | "unknown";
 
 type AdminSupabaseClient = NonNullable<ReturnType<typeof createAdminClient>>;
 
@@ -502,6 +512,8 @@ export function inferEscapeQuestion(rawQuestion: unknown) {
 }
 
 export function resolveQuestionVariant(raceMode: unknown, rawQuestion: unknown): QuestionVariant {
+  if (isCharacterPost(rawQuestion)) return "character";
+
   if (isRecord(rawQuestion)) {
     const rawType = asTrimmedString(rawQuestion.type);
     if (rawType === "ai_image") return "photo";
@@ -526,6 +538,10 @@ export function resolveQuestionVariant(raceMode: unknown, rawQuestion: unknown):
 }
 
 export function sanitizeQuestionForPlay(rawQuestion: unknown, variant: QuestionVariant) {
+  if (variant === "character") {
+    return sanitizeCharacterPostForPlay(rawQuestion);
+  }
+
   if (!isRecord(rawQuestion)) return rawQuestion;
 
   const answers = getNormalizedAnswers(rawQuestion);

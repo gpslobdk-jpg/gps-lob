@@ -19,7 +19,7 @@ const RUN_EXECUTION_SHARE_TOKEN_PATTERN =
 const JOIN_CODE_PATTERN =
   /\b(?=[0-9A-ZÆØÅ]{6}\b)(?=[0-9A-ZÆØÅ]*\d)[0-9A-ZÆØÅ]{6}\b/giu;
 const SENSITIVE_INLINE_VALUE_PATTERN =
-  /(\b(?:pin|join[_ -]?code|session[_ -]?(?:id|code|pin)|participant[_ -]?id|student[_ -]?name|team[_ -]?name|holdnavn|auth[_ -]?token|access[_ -]?token|refresh[_ -]?token|qr[_ -]?(?:code|content)|answer|selected[_ -]?index|latitude|longitude|lat|lng)\b["']?\s*(?::|=|\bis\b)\s*)(?:"[^"]*"|'[^']*'|[^,\s;}\]]+)/giu;
+  /(\b(?:pin|join[_ -]?code|session[_ -]?(?:id|code|pin)|participant[_ -]?id|student[_ -]?name|team[_ -]?name|holdnavn|auth[_ -]?token|access[_ -]?token|refresh[_ -]?token|qr[_ -]?(?:code|content)|answer|selected[_ -]?index|latitude|longitude|lat|lng|transcript|audio|microphone|utterance|conversation)\b["']?\s*(?::|=|\bis\b)\s*)(?:"[^"]*"|'[^']*'|[^,\s;}\]]+)/giu;
 
 function isSensitiveObservabilityKey(key: string) {
   const compactKey = key.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -58,6 +58,13 @@ function isSensitiveObservabilityKey(key: string) {
     compactKey.includes("sharetoken") ||
     compactKey === "jwt" ||
     compactKey === "answer" ||
+    compactKey.includes("transcript") ||
+    compactKey.includes("audio") ||
+    compactKey.includes("microphone") ||
+    compactKey.includes("utterance") ||
+    compactKey.includes("conversation") ||
+    compactKey.includes("studentquestion") ||
+    compactKey.includes("characterresponse") ||
     compactKey.includes("selectedindex") ||
     compactKey.includes("awardedpoints") ||
     compactKey.includes("postindex") ||

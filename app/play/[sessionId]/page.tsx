@@ -184,7 +184,8 @@ function PlayScreen() {
   const usesStandardPlayExperience =
     usesStandardLocation &&
     game.progress.raceMode === "quiz" &&
-    game.progress.currentPost.activePostVariant === "quiz";
+    (game.progress.currentPost.activePostVariant === "quiz" ||
+      game.progress.currentPost.activePostVariant === "character");
 
   const baseTrackingEnabled =
     Boolean(sessionId) &&

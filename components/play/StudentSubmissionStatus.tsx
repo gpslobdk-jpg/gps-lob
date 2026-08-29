@@ -27,12 +27,15 @@ export default function StudentSubmissionStatus({
     Boolean(onRetry) &&
     (state.status === "awaiting_confirmation" ||
       state.status === "retryable_error");
+  const isCharacterCompletion = state.submissionType === "character";
   const retryTitle =
     state.submissionType === "photo"
       ? "Billedet kunne ikke sendes endnu."
       : state.submissionType === "skip"
         ? "Posten kunne ikke springes over endnu. Prøv igen."
-        : "Svaret kunne ikke sendes endnu.";
+        : isCharacterCompletion
+          ? "Posten kunne ikke gemmes endnu."
+          : "Svaret kunne ikke sendes endnu.";
   const retryDetail =
     state.submissionType === "photo"
       ? "Billedet er stadig valgt. Prøv igen."
@@ -50,7 +53,7 @@ export default function StudentSubmissionStatus({
               className="h-5 w-5 shrink-0 animate-spin motion-reduce:animate-none"
             />
           ),
-          title: "Sender dit svar…",
+          title: isCharacterCompletion ? "Gemmer posten…" : "Sender dit svar…",
           detail: null,
           className:
             "border-amber-300/35 bg-amber-500/12 text-amber-50",
@@ -58,7 +61,9 @@ export default function StudentSubmissionStatus({
       case "queued_offline":
         return {
           icon: <CloudOff aria-hidden="true" className="h-5 w-5 shrink-0" />,
-          title: "Svaret er gemt på telefonen",
+          title: isCharacterCompletion
+            ? "Posten er gemt på telefonen"
+            : "Svaret er gemt på telefonen",
           detail:
             "Det sendes automatisk, når forbindelsen er tilbage.",
           className: "border-sky-300/35 bg-sky-500/12 text-sky-50",
@@ -71,7 +76,7 @@ export default function StudentSubmissionStatus({
               className="h-5 w-5 shrink-0"
             />
           ),
-          title: "Svaret er gemt",
+          title: isCharacterCompletion ? "Posten er gemt" : "Svaret er gemt",
           detail: null,
           className:
             "border-emerald-300/35 bg-emerald-500/12 text-emerald-50",
@@ -107,7 +112,9 @@ export default function StudentSubmissionStatus({
               className="h-5 w-5 shrink-0"
             />
           ),
-          title: "Svaret kunne ikke afleveres.",
+          title: isCharacterCompletion
+            ? "Posten kunne ikke afsluttes."
+            : "Svaret kunne ikke afleveres.",
           detail: "Bliv på posten og få hjælp af læreren.",
           className: "border-rose-300/35 bg-rose-500/12 text-rose-50",
         };
@@ -120,7 +127,9 @@ export default function StudentSubmissionStatus({
             />
           ),
           title: "Løbet er afsluttet.",
-          detail: "Svaret kan ikke længere afleveres.",
+          detail: isCharacterCompletion
+            ? "Posten kan ikke længere gemmes."
+            : "Svaret kan ikke længere afleveres.",
           className: "border-slate-400/35 bg-slate-500/12 text-slate-50",
         };
       default:
