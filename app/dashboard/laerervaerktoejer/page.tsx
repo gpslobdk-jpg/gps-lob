@@ -6,6 +6,7 @@ import {
   ArrowUpRight,
   BookOpen,
   Calendar,
+  Compass,
   FileText,
   ListChecks,
   Presentation,
@@ -145,6 +146,26 @@ const toolCards = [
         "border-indigo-100/70 bg-indigo-300 text-indigo-950 hover:border-white hover:bg-indigo-200 focus-visible:ring-indigo-200/40",
     },
   },
+  {
+    title: "KildeGPS",
+    description: "Find udvalgte kilder til elevernes research og skolearbejde.",
+    href: "https://www.kildegps.dk",
+    icon: Compass,
+    cta: "Åbn KildeGPS",
+    familyLabel: "SkoleGPS-familien",
+    destinationLabel: "Åbner på kildegps.dk",
+    theme: {
+      card:
+        "border-teal-300/45 bg-[linear-gradient(145deg,rgba(17,94,89,0.92)_0%,rgba(19,51,57,0.94)_38%,rgba(15,23,42,0.97)_78%)] shadow-[0_24px_90px_rgba(45,212,191,0.15)] hover:border-teal-200/80 hover:shadow-[0_28px_100px_rgba(45,212,191,0.27)]",
+      rail: "bg-teal-300",
+      accent: "via-cyan-200/90",
+      icon: "border-teal-200/55 bg-teal-300/20 text-teal-50",
+      badge: "border-teal-200/35 bg-teal-300/15 text-teal-50",
+      destination: "text-teal-100/90",
+      button:
+        "border-teal-100/70 bg-teal-300 text-teal-950 hover:border-white hover:bg-teal-200 focus-visible:ring-teal-200/40",
+    },
+  },
 ] as const;
 
 export default function LaerervaerktoejerPage() {
@@ -190,7 +211,7 @@ export default function LaerervaerktoejerPage() {
               Lærerværktøjer
             </h1>
             <p className="mt-4 max-w-2xl text-lg font-semibold leading-8 text-slate-100 sm:text-xl">
-              Vælg mellem årsplan, skema, ugearbejde, elevpodcast, arbejdsark og tavle.
+              Vælg mellem årsplan, skema, ugearbejde, elevpodcast, arbejdsark, tavle og kildesøgning.
             </p>
           </div>
 

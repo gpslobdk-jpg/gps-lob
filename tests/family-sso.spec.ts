@@ -282,11 +282,22 @@ test.describe("DagensTavle family SSO security contract", () => {
       .toBe(false);
   });
 
-  test("renders six distinct accessible tool cards without horizontal overflow", async ({ page }) => {
+  test("links KildeGPS directly without identity or SSO parameters", () => {
+    const toolsPage = read("app", "dashboard", "laerervaerktoejer", "page.tsx");
+    expect(toolsPage).toContain('title: "KildeGPS"');
+    expect(toolsPage).toContain('href: "https://www.kildegps.dk"');
+    expect(toolsPage).toContain('cta: "Åbn KildeGPS"');
+    expect(toolsPage).not.toMatch(/kildegps\.dk[/?][^"\s]*(?:token|email|session|sso)/i);
+  });
+
+  test("renders seven distinct accessible tool cards without horizontal overflow", async ({ page }) => {
     test.skip(!localTeacher, "Kræver den isolerede lokale Supabase-instans.");
     await openTeacherTools(page);
     const cards = page.locator('section[aria-label="Lærerværktøjer"] article');
-    await expect(cards).toHaveCount(6);
+    await expect(cards).toHaveCount(7);
+    const kildeGpsLink = page.getByRole("link", { name: /Åbn KildeGPS.*ny fane/i });
+    await expect(kildeGpsLink).toHaveAttribute("href", "https://www.kildegps.dk");
+    await expect(kildeGpsLink).toHaveAttribute("rel", "noopener noreferrer");
     await expect(page.getByRole("heading", { name: "PrintMitArbejdsark" })).toBeVisible();
     const printMitLink = page.getByRole("link", { name: /Åbn PrintMitArbejdsark.*ny fane/i });
     await expect(printMitLink).toHaveAttribute("rel", "noopener noreferrer");
@@ -305,18 +316,18 @@ test.describe("DagensTavle family SSO security contract", () => {
     expect(overflow).toBe(false);
   });
 
-  test("keeps the six-card layout readable, aligned and keyboard visible at every review width", async ({ page }) => {
+  test("keeps the seven-card layout readable, aligned and keyboard visible at every review width", async ({ page }) => {
     test.skip(!localTeacher, "Requires the isolated local Supabase instance.");
     await page.setViewportSize({ width: 1024, height: 900 });
     await openTeacherTools(page);
 
     const reviewWidths = [
-      { width: 360, rows: 6 },
-      { width: 390, rows: 6 },
-      { width: 768, rows: 3 },
-      { width: 1024, rows: 3 },
-      { width: 1366, rows: 2 },
-      { width: 1920, rows: 2 },
+      { width: 360, rows: 7 },
+      { width: 390, rows: 7 },
+      { width: 768, rows: 4 },
+      { width: 1024, rows: 4 },
+      { width: 1366, rows: 3 },
+      { width: 1920, rows: 3 },
     ];
     for (const review of reviewWidths) {
       await page.setViewportSize({ width: review.width, height: 1000 });
@@ -373,7 +384,7 @@ test.describe("DagensTavle family SSO security contract", () => {
         };
       });
       expect(layout).toEqual({
-        cardCount: 6,
+        cardCount: 7,
         rowCount: review.rows,
         rowHeightsAligned: true,
         ctasAligned: true,
@@ -407,6 +418,6 @@ test.describe("DagensTavle family SSO security contract", () => {
       overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
       cards: document.querySelectorAll("main section[aria-label] article").length,
     }));
-    expect(zoomReflow).toEqual({ overflow: false, cards: 6 });
+    expect(zoomReflow).toEqual({ overflow: false, cards: 7 });
   });
 });
