@@ -36,7 +36,8 @@ test("controlled real teacher/student Fokusmode release smoke", async ({ browser
   const email = `focus-release-${marker}@example.invalid`;
   const password = `${randomUUID()}A7!`;
   const title = `Releasekontrol Fokusmode ${marker.slice(0, 8)}`;
-  const studentName = `Fokus testhold ${marker.slice(0, 8)}`;
+  const studentName = `Fokus hold ${marker.slice(0, 8)}`;
+  expect(studentName.length).toBeLessThanOrEqual(20);
   const ledgerPath = ".env.focus-smoke-ledger";
   if (existsSync(ledgerPath)) {
     const previous = JSON.parse(readFileSync(ledgerPath, "utf8")) as { cleaned?: boolean };
@@ -67,6 +68,8 @@ test("controlled real teacher/student Fokusmode release smoke", async ({ browser
   });
   const teacher = await teacherContext.newPage();
   const student = await studentContext.newPage();
+  teacher.setDefaultTimeout(30_000);
+  student.setDefaultTimeout(30_000);
   // Join creates anonymous auth before inserting the participant. A failed
   // insert can leave an auth ID unavailable to this scoped fixture;
   // retain that uncertainty in the ledger instead of listing or guessing IDs.
@@ -159,6 +162,8 @@ test("controlled real teacher/student Fokusmode release smoke", async ({ browser
       const result = await admin.from("live_sessions").select("status").eq("id", ledger.sessionId).single();
       return result.data?.status;
     }).toBe("running");
+    await teacher.getByRole("button", { name: "Luk QR-kode", exact: true }).click();
+    console.log("FOCUS_RELEASE_TEACHER_FLOW_PASSED");
     // Exercise the actual code -> name flow instead of bypassing registration.
     await student.goto(`${baseURL}/join`);
     const enter = student.getByRole("button", { name: "Deltag i et løb", exact: true });
@@ -170,7 +175,10 @@ test("controlled real teacher/student Fokusmode release smoke", async ({ browser
     const nameInput = student.locator("#join-name");
     await expect(nameInput).toBeVisible();
     await nameInput.fill(studentName);
+    const joinResponse = student.waitForResponse(response =>
+      new URL(response.url()).pathname === "/api/join" && response.request().method() === "POST");
     await nameInput.press("Enter");
+    expect((await joinResponse).status(), "Synthetic student joins through the real API").toBe(200);
     await expect(student).toHaveURL(new RegExp(`/play/${ledger.sessionId}`), { timeout: 30_000 });
     // Current join hands over the registered name; avatar gate is disabled in
     // GameState. No synthetic local participant identity is seeded here.
@@ -180,6 +188,7 @@ test("controlled real teacher/student Fokusmode release smoke", async ({ browser
     const participantId = participant.data!.id;
     if (participant.data!.auth_user_id) rememberParticipantAuth(participant.data!.auth_user_id);
     persistLedger();
+    console.log("FOCUS_RELEASE_STUDENT_JOIN_PASSED");
     await expect(student.getByText("Fokusmode er aktiv", { exact: false }).first()).toBeVisible({ timeout: 30_000 });
     await expect(student.locator(".leaflet-container")).toBeVisible();
     await expect.poll(async () => {
@@ -192,7 +201,7 @@ test("controlled real teacher/student Fokusmode release smoke", async ({ browser
     await leaveAndReturn(student);
     await teacher.getByRole("button", { name: /^Fokusmode:/ }).click();
     await expect(teacher.getByText("Forlod SkoleGPS 1 gang", { exact: true })).toBeVisible({ timeout: 20_000 });
-    const exemption = teacher.getByRole("checkbox", { name: /Ignorér fokusregistrering.*Fokus testhold/ });
+    const exemption = teacher.getByRole("checkbox", { name: /Ignorér fokusregistrering.*Fokus hold/ });
     await exemption.click();
     await expect(exemption).toBeChecked();
     await expect(student.getByText("Fokusmode er aktiv", { exact: false })).toHaveCount(0, { timeout: 20_000 });
