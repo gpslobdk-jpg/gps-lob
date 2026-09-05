@@ -62,9 +62,9 @@ export function buildStoredParticipantFromJoin({
     teamColor: registration.teamColor ?? null,
     avatarUrl: preserveExistingParticipant ? existingParticipant?.avatarUrl ?? null : null,
     sessionStatus,
-    hasCompletedAvatarGate: preserveExistingParticipant
-      ? existingParticipant?.hasCompletedAvatarGate ?? true
-      : false,
+    // Avatar selection is disabled in the play screen. A fresh handoff must
+    // not wait for an invisible gate before GPS and optional focus can start.
+    hasCompletedAvatarGate: true,
   };
 }
 

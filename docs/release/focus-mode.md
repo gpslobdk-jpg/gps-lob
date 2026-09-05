@@ -28,6 +28,8 @@ En Safari-test af genoprettet deltageradgang fandt en tilstand med et serverbekr
 
 Dashboardguidens fokusretur venter kort på sit mål ved langsom navigation. Derudover er enkelte testfixtures rettet til den aktuelle API-tekst og til at acceptere den autoritative målgang, som kan erstatte en kortvarig gemt-besked.
 
+Preview med et rigtigt nyt join fandt desuden en eksisterende uoverensstemmelse: deltageroverdragelsen gemte et ikke-gennemført avatarvalg, selv om avatarskærmen er deaktiveret. Dette blokerede både GPS-start og Fokusmode. Handoff og læsning af gamle deltagerdata normaliserer nu kun dette flag til gennemført. Identitet, startpost, avatar og gemte svar bevares; join-API, GameState og GPSManager er uændrede. Tre regressionstests fejlede før rettelsen på præcis dette flag.
+
 Fokusmodes browsertests bruger det eksisterende spil. En særskilt stresstest kombinerer fejlet fokus-POST og utilgængelig realtime med GPS, ét gemt svar og målgang. Ved browser-resume kan den eksisterende gendannelse lukke en ubesvaret opgave; testen genåbner da samme post gennem dens synlige knap. Der ændres ikke progression eller svar gennem testen. Øvrige Fokusmode-tests fremkalder ikke gentagne kunstige realtimefejl.
 
 ## Release og rollback
@@ -44,8 +46,8 @@ Den opt-in-test `tests/focus-mode-release-smoke.spec.ts` opretter en ny syntetis
 
 Lokale kontroller på Production-build:
 
-- Build og TypeScript bestået. ESLint: 43 ændrede TypeScript-filer, 0 fejl. Fuld repository-lint har 68 fejl mod 69 på udgangspunktet; eksisterende lintgæld er ikke en grøn fuld lintkørsel.
-- 165 brede regressionschecks bestået, herunder standardsvar, progression, GPS, dashboard og guide.
+- Build og TypeScript bestået. Ændrede TypeScript-filer har ingen ESLint-fejl. Fuld repository-lint har 68 fejl mod 69 på udgangspunktet; eksisterende lintgæld er ikke en grøn fuld lintkørsel.
+- 168 brede regressionschecks bestået, herunder standardsvar, progression, GPS, dashboard, guide og de tre nye avatar-handoff-kontroller (19 handoff-tests i alt).
 - 45 Fokusmode-kontroller bestået i desktop Chromium, Android/Chromium og iPhone/WebKit: default, elevinformation, grace, dubletter, pause, navigation, resume, global/individuel deaktivering og fejl under gameplay.
 - 14 lærer-/Lynbyggerkontroller og 8 server-/adgangskontroller bestået.
 - 13 særskilte iOS/Safari-regressionschecks bestået, inklusive genoprettet deltagerlogin, GPS-resume, afsluttet løb efter reload, to poster og rigtigt pointerklik på fortsæt-knappen.

@@ -122,8 +122,9 @@ export function readStoredActiveParticipant(): StoredActiveParticipant | null {
       teamColor: typeof parsed.teamColor === "string" ? parsed.teamColor : null,
       avatarUrl: typeof parsed.avatarUrl === "string" ? parsed.avatarUrl : null,
       sessionStatus: typeof parsed.sessionStatus === "string" ? parsed.sessionStatus : null,
-      hasCompletedAvatarGate:
-        typeof parsed.hasCompletedAvatarGate === "boolean" ? parsed.hasCompletedAvatarGate : true,
+      // Older joins stored false even though avatar selection is disabled.
+      // Preserve identity/progress while allowing those participants to resume.
+      hasCompletedAvatarGate: true,
     };
   } catch {
     return null;

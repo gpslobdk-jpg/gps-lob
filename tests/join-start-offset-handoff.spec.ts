@@ -7,7 +7,11 @@ import {
   resolveRestoredPostIndex,
 } from "@/components/play/participantHandoff";
 import type { StoredActiveParticipant } from "@/components/play/types";
-import { getNextRoutePostIndex } from "@/components/play/playUtils";
+import {
+  ACTIVE_PARTICIPANT_STORAGE_KEY,
+  getNextRoutePostIndex,
+  readStoredActiveParticipant,
+} from "@/components/play/playUtils";
 import { buildCircularRouteOrder } from "@/lib/routes/postOrderPolicy";
 
 const JOINED_AT = "2026-07-26T10:00:00.000Z";
@@ -44,6 +48,104 @@ test.describe("normal join start-offset handoff", () => {
 
   test("treats a stored play snapshot as reload and lets restore use the server value", () => {
     expect(isFreshParticipantHandoff(JOINED_AT, true, Date.parse(JOINED_AT) + 1_000)).toBe(false);
+  });
+
+  test("fresh join passes the disabled avatar gate while preserving registered identity and start offset", () => {
+    const stored = buildStoredParticipantFromJoin({
+      registration: {
+        participantId: "participant-fresh",
+        sessionId: "session-fresh",
+        studentName: "Hold Blå",
+        startOffset: 3,
+        teamId: "team-blue",
+        teamColor: "blue",
+      },
+      existingParticipant: null,
+      preserveExistingParticipant: false,
+      sessionStatus: "running",
+      joinedAt: JOINED_AT,
+    });
+
+    expect(stored).toEqual({
+      participantId: "participant-fresh",
+      sessionId: "session-fresh",
+      studentName: "Hold Blå",
+      startOffset: 3,
+      savedAt: JOINED_AT,
+      teamId: "team-blue",
+      teamColor: "blue",
+      avatarUrl: null,
+      sessionStatus: "running",
+      hasCompletedAvatarGate: true,
+    });
+  });
+
+  test("rebound legacy false avatar gate is normalized while preserving avatar and server-assigned route", () => {
+    const existing: StoredActiveParticipant = {
+      participantId: "participant-legacy",
+      sessionId: "session-legacy",
+      studentName: "Hold Grøn",
+      startOffset: 1,
+      savedAt: "2026-07-26T09:00:00.000Z",
+      avatarUrl: "/avatars/green-star.svg",
+      hasCompletedAvatarGate: false,
+    };
+    const stored = buildStoredParticipantFromJoin({
+      registration: {
+        participantId: existing.participantId,
+        sessionId: existing.sessionId,
+        studentName: existing.studentName,
+        startOffset: 4,
+        teamId: "team-green",
+        teamColor: "green",
+      },
+      existingParticipant: existing,
+      preserveExistingParticipant: true,
+      sessionStatus: "running",
+      joinedAt: JOINED_AT,
+    });
+
+    expect(stored).toEqual({
+      ...existing,
+      startOffset: 4,
+      teamId: "team-green",
+      teamColor: "green",
+      sessionStatus: "running",
+      hasCompletedAvatarGate: true,
+    });
+    expect(existing.hasCompletedAvatarGate).toBe(false);
+  });
+
+  test("reload normalizes legacy false avatar gate without changing stored identity, offset or avatar", () => {
+    const legacy: StoredActiveParticipant = {
+      participantId: "participant-reload",
+      sessionId: "session-reload",
+      studentName: "Hold Lilla",
+      startOffset: 2,
+      savedAt: JOINED_AT,
+      teamId: "team-purple",
+      teamColor: "purple",
+      avatarUrl: "/avatars/purple-star.svg",
+      sessionStatus: "running",
+      hasCompletedAvatarGate: false,
+    };
+    const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        localStorage: {
+          getItem: (key: string) => key === ACTIVE_PARTICIPANT_STORAGE_KEY ? JSON.stringify(legacy) : null,
+        },
+      },
+    });
+
+    try {
+      expect(readStoredActiveParticipant()).toEqual({ ...legacy, hasCompletedAvatarGate: true });
+      expect(legacy.hasCompletedAvatarGate).toBe(false);
+    } finally {
+      if (previousWindow) Object.defineProperty(globalThis, "window", previousWindow);
+      else Reflect.deleteProperty(globalThis, "window");
+    }
   });
 
   test("reload keeps the same circular route and lets the DB offset win", () => {
