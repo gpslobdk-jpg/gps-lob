@@ -7,6 +7,10 @@ import {
   type Route,
 } from "@playwright/test";
 
+// This suite owns synthetic API responses. A production service worker can
+// claim the page and bypass context.route; keep those reads inside the fixture.
+test.use({ serviceWorkers: "block" });
+
 const SESSION_ID = "progress-mismatch-session";
 const PARTICIPANT_ID = "11111111-2222-4333-8444-555555555555";
 const TEAM_NAME = "RecoveryHold";
