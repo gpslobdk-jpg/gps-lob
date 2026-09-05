@@ -30,6 +30,10 @@ Dashboardguidens fokusretur venter kort på sit mål ved langsom navigation. Der
 
 Preview med et rigtigt nyt join fandt desuden en eksisterende uoverensstemmelse: deltageroverdragelsen gemte et ikke-gennemført avatarvalg, selv om avatarskærmen er deaktiveret. Dette blokerede både GPS-start og Fokusmode. Handoff og læsning af gamle deltagerdata normaliserer nu kun dette flag til gennemført. Identitet, startpost, avatar og gemte svar bevares; join-API, GameState og GPSManager er uændrede. Tre regressionstests fejlede før rettelsen på præcis dette flag.
 
+Supabase SDK'ens fælles browserklient ignorerede desuden elevens særskilte loginlager, når join-siden allerede havde oprettet standardklienten. Elevklienten har nu sin egen browsercache; standardklienten bevarer sin hidtidige cache, og serveren deler ingen elevklient mellem requests. Fire kontroller mod den installerede SDK dækker begge oprettelsesrækkefølger, særskilte headers og serverisolering uden netværkskald.
+
+Fokusmode håndterer en midlertidig 401 ved tilbagevenden med højst ét genforsøg efter 750 ms. Hændelses-ID og indhold er uændret, og en ny policy skal stadig tillade registrering med samme revision. Skjult side, navigation og unmount afbryder forsøget. Fokusmode udfører ingen login- eller join-handling.
+
 Fokusmodes browsertests bruger det eksisterende spil. En særskilt stresstest kombinerer fejlet fokus-POST og utilgængelig realtime med GPS, ét gemt svar og målgang. Ved browser-resume kan den eksisterende gendannelse lukke en ubesvaret opgave; testen genåbner da samme post gennem dens synlige knap. Der ændres ikke progression eller svar gennem testen. Øvrige Fokusmode-tests fremkalder ikke gentagne kunstige realtimefejl.
 
 ## Release og rollback
@@ -46,11 +50,12 @@ Den opt-in-test `tests/focus-mode-release-smoke.spec.ts` opretter en ny syntetis
 
 Lokale kontroller på Production-build:
 
-- Build og TypeScript bestået. Ændrede TypeScript-filer har ingen ESLint-fejl. Fuld repository-lint har 68 fejl mod 69 på udgangspunktet; eksisterende lintgæld er ikke en grøn fuld lintkørsel.
+- Build og TypeScript bestået. De 48 ændrede TypeScript/JavaScript-filer har ingen ESLint-fejl (24 advarsler). Fuld repository-lint har 68 fejl mod 69 på udgangspunktet; eksisterende lintgæld er ikke en grøn fuld lintkørsel.
 - 168 brede regressionschecks bestået, herunder standardsvar, progression, GPS, dashboard, guide og de tre nye avatar-handoff-kontroller (19 handoff-tests i alt).
-- 45 Fokusmode-kontroller bestået i desktop Chromium, Android/Chromium og iPhone/WebKit: default, elevinformation, grace, dubletter, pause, navigation, resume, global/individuel deaktivering og fejl under gameplay.
+- 60 Fokusmode-kontroller bestået i desktop Chromium, Android/Chromium og iPhone/WebKit: default, elevinformation, grace, dubletter, pause, navigation, resume, global/individuel deaktivering, begrænset 401-genforsøg med afbrydelse og fejl under gameplay.
+- Fire isolationskontroller mod den installerede Supabase SDK bestået; de vigtigste tre fejlede før rettelsen af browsercachen.
 - 14 lærer-/Lynbyggerkontroller og 8 server-/adgangskontroller bestået.
-- 13 særskilte iOS/Safari-regressionschecks bestået, inklusive genoprettet deltagerlogin, GPS-resume, afsluttet løb efter reload, to poster og rigtigt pointerklik på fortsæt-knappen.
+- 13 særskilte iOS/Safari-regressionschecks er en nødvendig releasegate, inklusive genoprettet deltagerlogin, GPS-resume, afsluttet løb efter reload, to poster og rigtigt pointerklik på fortsæt-knappen. Det endelige resultat skal fremgå af releaserapporten.
 - SQL-integrationen bestået på PostgreSQL i en transaktion med efterfølgende rollback. Derefter er den præcise additive migration anvendt og tre RLS-tabeller samt aktiv retention verificeret.
 
 Mobilkontroller bruger browsermotorer med emuleret GPS og lifecycle-hændelser. Fysisk appskift og hardware lock/unlock på en rigtig telefon er ikke verificeret.

@@ -21,6 +21,9 @@ type FocusMock = {
   failGet: boolean;
   failPost: boolean;
   failRealtime: boolean;
+  postStatuses: number[];
+  postTimes: number[];
+  acceptedEventIds: Set<string>;
   events: Array<Record<string, unknown>>;
   gets: number;
 };
@@ -40,7 +43,8 @@ async function installFocusHarness(page: Page, initial?: Partial<FocusMock>) {
   const focus: FocusMock = {
     available: true, enabled: true, exempt: false, tracking: true,
     revision: "90000000-0000-4000-8000-000000000001:0",
-    failGet: false, failPost: false, failRealtime: false, events: [], gets: 0,
+    failGet: false, failPost: false, failRealtime: false,
+    postStatuses: [], postTimes: [], acceptedEventIds: new Set(), events: [], gets: 0,
     ...initial,
   };
   await page.addInitScript(({ failRealtime }) => {
@@ -103,12 +107,17 @@ async function installFocusHarness(page: Page, initial?: Partial<FocusMock>) {
   }, { failRealtime: focus.failRealtime });
   await page.route("**/api/focus-mode/participant**", async (route) => {
     const isPost = route.request().method() === "POST";
-    if (isPost) focus.events.push(route.request().postDataJSON());
-    else focus.gets += 1;
+    const status = isPost ? focus.postStatuses.shift() ?? (focus.failPost ? 503 : 200) : focus.failGet ? 503 : 200;
+    if (isPost) {
+      const event = route.request().postDataJSON();
+      focus.events.push(event);
+      focus.postTimes.push(Date.now());
+      if (status === 200) focus.acceptedEventIds.add(event.eventId);
+    } else focus.gets += 1;
     await route.fulfill({
-      status: (isPost ? focus.failPost : focus.failGet) ? 503 : 200,
+      status,
       contentType: "application/json",
-      body: JSON.stringify(isPost ? { ok: !focus.failPost } : {
+      body: JSON.stringify(isPost ? { available: status === 200, accepted: status === 200 } : {
         available: focus.available,
         enabled: focus.enabled,
         exempt: focus.exempt,
@@ -343,4 +352,82 @@ test("waiting students see the notice before start without registering waiting t
   await leaveAndReturn(page);
   expect(focus.events).toHaveLength(0);
   await expect(page.getByRole("button", { name: "Skjul information om Fokusmode" })).toBeEnabled();
+});
+
+async function openRetryRun(page: Page, sessionId: string, postStatuses = [401, 200]) {
+  const focus = await installFocusHarness(page, { postStatuses });
+  const play = await openHarnessedPlay(page, { sessionId });
+  await expect(page.getByTestId("standard-play-v2")).toBeVisible({ timeout: 35_000 });
+  await expect(page.getByTestId("student-focus-mode")).toBeVisible();
+  await page.getByRole("button", { name: "Skjul information om Fokusmode" }).click();
+  await settleFocusPolicy(page, focus.revision);
+  return { focus, play };
+}
+
+function firstUnauthorizedPost(page: Page) {
+  return page.waitForResponse(response => response.url().includes("/api/focus-mode/participant") &&
+    response.request().method() === "POST" && response.status() === 401);
+}
+
+test("401 return retries once with the identical event and still finishes the run", async ({ page }) => {
+  const { focus, play } = await openRetryRun(page, "focus-retry-once");
+  await leaveAndReturn(page);
+  await expect.poll(() => focus.acceptedEventIds.size).toBe(1);
+  expect(focus.events).toHaveLength(2);
+  expect(focus.events[1]).toEqual(focus.events[0]);
+  expect(focus.postTimes[1] - focus.postTimes[0]).toBeGreaterThanOrEqual(750);
+  await completeTwoPostRun(page, play);
+  expect(focus.events).toHaveLength(2);
+  expect(focus.acceptedEventIds.size).toBe(1);
+});
+
+test("401 return is discarded when policy changes during the retry delay", async ({ page }) => {
+  const { focus, play } = await openRetryRun(page, "focus-retry-policy");
+  const unauthorized = firstUnauthorizedPost(page);
+  await leaveAndReturn(page);
+  await unauthorized;
+  focus.revision = "90000000-0000-4000-8000-000000000002:1";
+  focus.exempt = true;
+  await expect(page.getByTestId("student-focus-mode")).toHaveCount(0);
+  await page.waitForTimeout(1100);
+  expect(focus.events).toHaveLength(1);
+  expect(focus.acceptedEventIds.size).toBe(0);
+  await completeTwoPostRun(page, play);
+  expect(focus.events).toHaveLength(1);
+});
+
+test("permanent 401 makes at most two attempts and leaves answers and finish usable", async ({ page }) => {
+  const { focus, play } = await openRetryRun(page, "focus-retry-permanent", [401, 401, 401]);
+  await leaveAndReturn(page);
+  await expect.poll(() => focus.events.length).toBe(2);
+  await page.waitForTimeout(1100);
+  expect(focus.events).toHaveLength(2);
+  expect(focus.events[1]).toEqual(focus.events[0]);
+  expect(focus.acceptedEventIds.size).toBe(0);
+  await completeTwoPostRun(page, play);
+  expect(focus.events).toHaveLength(2);
+});
+
+test("401 retry is cancelled by a brief hidden transition during its delay", async ({ page }) => {
+  const { focus, play } = await openRetryRun(page, "focus-retry-hidden");
+  const unauthorized = firstUnauthorizedPost(page);
+  await leaveAndReturn(page);
+  await unauthorized;
+  await leaveAndReturn(page, 100);
+  await page.waitForTimeout(1100);
+  expect(focus.events).toHaveLength(1);
+  expect(focus.acceptedEventIds.size).toBe(0);
+  await completeTwoPostRun(page, play);
+  expect(focus.events).toHaveLength(1);
+});
+
+test("401 retry is discarded when navigation unmounts the page during its delay", async ({ page }) => {
+  const { focus } = await openRetryRun(page, "focus-retry-unmount");
+  const unauthorized = firstUnauthorizedPost(page);
+  await leaveAndReturn(page);
+  await unauthorized;
+  await page.goto("about:blank");
+  await page.waitForTimeout(1100);
+  expect(focus.events).toHaveLength(1);
+  expect(focus.acceptedEventIds.size).toBe(0);
 });

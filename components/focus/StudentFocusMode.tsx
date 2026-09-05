@@ -19,6 +19,7 @@ type Props = {
 };
 
 const FOCUS_MODE_REQUEST_TIMEOUT_MS = 8_000;
+const FOCUS_MODE_AUTH_RETRY_DELAY_MS = 750;
 
 /** An unexpected rendering error in this optional layer cannot unmount play. */
 class FocusModeBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -33,8 +34,10 @@ function FocusModeStudentLayer({ sessionId, participantId, canTrack }: Props) {
 
   useEffect(() => {
     let disposed = false;
+    let visibilityGeneration = 0;
     let pendingRead: Promise<FocusPolicy> | null = null;
     const requests = new Set<AbortController>();
+    const retryWaits = new Set<() => void>();
     const lifecycle = createFocusLifecycle();
     const endpoint = "/api/focus-mode/participant";
     const query = new URLSearchParams({ sessionId, participantId });
@@ -50,7 +53,7 @@ function FocusModeStudentLayer({ sessionId, participantId, canTrack }: Props) {
           cache: "no-store",
           signal: controller.signal,
         });
-        return { ok: response.ok, data: response.ok ? await response.json() : null };
+        return { ok: response.ok, status: response.status, data: response.ok ? await response.json() : null };
       } finally {
         clearTimeout(timeout);
         requests.delete(controller);
@@ -76,14 +79,28 @@ function FocusModeStudentLayer({ sessionId, participantId, canTrack }: Props) {
       return pendingRead;
     };
 
+    const cancelRetryWaits = () => retryWaits.forEach((cancel) => cancel());
+    const waitForAuthRetry = () => new Promise<boolean>((resolve) => {
+      const finish = (ready: boolean) => {
+        window.clearTimeout(timer);
+        retryWaits.delete(cancel);
+        resolve(ready);
+      };
+      const cancel = () => finish(false);
+      const timer = window.setTimeout(() => finish(true), FOCUS_MODE_AUTH_RETRY_DELAY_MS);
+      retryWaits.add(cancel);
+    });
+
     const reportReturn = async (event: FocusReturn) => {
       try {
+        const generation = visibilityGeneration;
+        const canReport = () => !disposed && canTrack &&
+          document.visibilityState === "visible" && visibilityGeneration === generation;
+        const matchesPolicy = (current: FocusPolicy) => current.available && current.tracking &&
+          current.policyRevision === event.policyRevision;
         const current = await refreshPolicy();
-        if (
-          disposed || !canTrack || !current.tracking ||
-          current.policyRevision !== event.policyRevision
-        ) return;
-        await request(endpoint, {
+        if (!canReport() || !matchesPolicy(current)) return;
+        const init: RequestInit = {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -92,7 +109,15 @@ function FocusModeStudentLayer({ sessionId, participantId, canTrack }: Props) {
             eventId: crypto.randomUUID(),
             ...event,
           }),
-        });
+        };
+        const response = await request(endpoint, init);
+        // Core resume may briefly rebind participant auth. Give only this 401
+        // one bounded chance, without starting auth recovery or keeping a queue.
+        if (response.status !== 401 || !canReport() || !await waitForAuthRetry()) return;
+        if (!canReport()) return;
+        const refreshed = await refreshPolicy();
+        if (!canReport() || !matchesPolicy(refreshed)) return;
+        await request(endpoint, init);
       } catch {
         // Losing focus metadata must never block GPS, answers or progression.
       }
@@ -100,6 +125,8 @@ function FocusModeStudentLayer({ sessionId, participantId, canTrack }: Props) {
 
     const visibilityChanged = () => {
       if (document.visibilityState === "hidden") {
+        visibilityGeneration += 1;
+        cancelRetryWaits();
         lifecycle.hidden(Date.now());
       } else if (document.visibilityState === "visible") {
         const event = lifecycle.visible(Date.now());
@@ -107,7 +134,11 @@ function FocusModeStudentLayer({ sessionId, participantId, canTrack }: Props) {
         else void refreshPolicy();
       }
     };
-    const pageHidden = () => lifecycle.pageHide();
+    const pageHidden = () => {
+      visibilityGeneration += 1;
+      cancelRetryWaits();
+      lifecycle.pageHide();
+    };
     const pageShown = () => {
       lifecycle.pageShow();
       if (document.visibilityState === "visible") void refreshPolicy();
@@ -122,7 +153,7 @@ function FocusModeStudentLayer({ sessionId, participantId, canTrack }: Props) {
       if (anchor instanceof HTMLAnchorElement && anchor.origin === location.origin &&
           anchor.target !== "_blank" && !event.ctrlKey && !event.metaKey &&
           (anchor.pathname !== location.pathname || anchor.search !== location.search)) {
-        lifecycle.pageHide();
+        pageHidden();
       }
     };
 
@@ -137,6 +168,7 @@ function FocusModeStudentLayer({ sessionId, participantId, canTrack }: Props) {
 
     return () => {
       disposed = true;
+      cancelRetryWaits();
       lifecycle.cancel();
       clearInterval(poll);
       requests.forEach((controller) => controller.abort());

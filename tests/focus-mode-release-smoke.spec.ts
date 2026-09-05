@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Request as PlaywrightRequest } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -9,6 +9,38 @@ import { parseEnv } from "node:util";
 const enabled = process.env.FOCUS_RELEASE_SMOKE === "true";
 test.use({ trace: "off", video: "off", screenshot: "only-on-failure", serviceWorkers: "block" });
 test.describe.configure({ retries: 0, timeout: 360_000 });
+
+// @supabase/ssr defaults to base64url session JSON and .0/.1 cookie chunks.
+// Decode only this response's participant cookie in memory; never persist tokens.
+function participantAuthIdFromCookies(headers: { name: string; value: string }[]): string | null {
+  try {
+    const key = "gpslob-participant-auth";
+    const values = new Map<string, string>();
+    for (const header of headers) {
+      if (header.name.toLowerCase() !== "set-cookie") continue;
+      const pair = header.value.split(";", 1)[0];
+      const separator = pair.indexOf("=");
+      const name = pair.slice(0, separator).trim();
+      if (!/^gpslob-participant-auth(?:\.(?:0|[1-9][0-9]*))?$/.test(name)) continue;
+      const value = decodeURIComponent(pair.slice(separator + 1));
+      if (!value) continue; // Old chunks can be removed in the same response.
+      if (values.has(name) && values.get(name) !== value) return null;
+      values.set(name, value);
+    }
+    let encoded = values.get(key);
+    if (!encoded) {
+      const chunks = [...values].sort(([a], [b]) => Number(a.slice(key.length + 1)) - Number(b.slice(key.length + 1)));
+      if (!chunks.length || chunks.some(([name], index) => name !== `${key}.${index}`)) return null;
+      encoded = chunks.map(([, value]) => value).join("");
+    } else if (values.size !== 1) return null;
+    if (encoded.length > 64_000 || !/^base64-[A-Za-z0-9_-]+$/.test(encoded)) return null;
+    const session = JSON.parse(Buffer.from(encoded.slice(7), "base64url").toString("utf8"));
+    const id: unknown = session?.user?.id;
+    return typeof id === "string" && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
 
 async function leaveAndReturn(page: Page, duration = 3500) {
   await page.evaluate(() => {
@@ -43,15 +75,26 @@ test("controlled real teacher/student Fokusmode release smoke", async ({ browser
     const previous = JSON.parse(readFileSync(ledgerPath, "utf8")) as { cleaned?: boolean };
     expect(previous.cleaned, "Previous synthetic smoke requires its scoped cleanup first").toBe(true);
   }
+  type JoinCapture = { sequence: number; status: "pending" | "captured" | "uncertain" };
   const ledger = {
     marker, teacherId: "", runId: "", sessionId: "", participantAuthIds: [] as string[],
     joinAttempted: false, anonymousAuthCleanupUncertain: false,
-    knownFixtureDataCleaned: false, cleaned: false,
+    knownFixtureDataCleaned: false, cleaned: false, joinCaptures: [] as JoinCapture[],
   };
   const persistLedger = () => writeFileSync(".env.focus-smoke-ledger", JSON.stringify(ledger));
-  const rememberParticipantAuth = (authId: string) => {
+  const joinCaptures = new Map<PlaywrightRequest, JoinCapture>();
+  const joinAuthReads: Promise<void>[] = [];
+  const persistCaptureStatus = () => {
+    ledger.anonymousAuthCleanupUncertain = ledger.joinCaptures.some(capture => capture.status !== "captured");
+    persistLedger();
+  };
+  const rememberParticipantAuth = async (authId: string) => {
+    if (ledger.participantAuthIds.includes(authId)) return;
+    const auth = await admin.auth.admin.getUserById(authId);
+    if (auth.error || auth.data.user?.id !== authId || auth.data.user.is_anonymous !== true) {
+      throw new Error("Synthetic anonymous identity validation failed");
+    }
     if (!ledger.participantAuthIds.includes(authId)) ledger.participantAuthIds.push(authId);
-    ledger.anonymousAuthCleanupUncertain = ledger.joinAttempted && ledger.participantAuthIds.length === 0;
     persistLedger();
   };
   const expectNoResidualRows = async (table: string, column: string, value: string) => {
@@ -70,15 +113,44 @@ test("controlled real teacher/student Fokusmode release smoke", async ({ browser
   const student = await studentContext.newPage();
   teacher.setDefaultTimeout(30_000);
   student.setDefaultTimeout(30_000);
-  // Join creates anonymous auth before inserting the participant. A failed
-  // insert can leave an auth ID unavailable to this scoped fixture;
-  // retain that uncertainty in the ledger instead of listing or guessing IDs.
+  // Every join stays unresolved until its own response cookie is captured.
+  // Failed or interrupted joins cannot be cleared by another known binding.
   student.on("request", request => {
-    if (request.method() === "POST" && new URL(request.url()).pathname === "/api/join") {
+    const url = new URL(request.url());
+    if (request.method() === "POST" && url.origin === baseURL && url.pathname === "/api/join") {
       ledger.joinAttempted = true;
-      ledger.anonymousAuthCleanupUncertain = ledger.participantAuthIds.length === 0;
-      persistLedger();
+      const capture: JoinCapture = { sequence: ledger.joinCaptures.length + 1, status: "pending" };
+      joinCaptures.set(request, capture);
+      ledger.joinCaptures.push(capture);
+      persistCaptureStatus();
     }
+  });
+  student.on("requestfailed", request => {
+    const capture = joinCaptures.get(request);
+    if (!capture) return;
+    capture.status = "uncertain";
+    persistCaptureStatus();
+  });
+  // The immutable response cookie identifies this join even if a later rebind
+  // has already replaced participants.auth_user_id. No binding lookup is used.
+  student.on("response", response => {
+    const capture = joinCaptures.get(response.request());
+    if (!capture) return;
+    joinAuthReads.push((async () => {
+      if (!response.ok()) throw new Error("Synthetic join did not complete");
+      const body = await response.json();
+      if (!ledger.sessionId || body.sessionId !== ledger.sessionId || body.studentName !== studentName || typeof body.participantId !== "string") {
+        throw new Error("Synthetic join response scope mismatch");
+      }
+      const authId = participantAuthIdFromCookies(await response.headersArray());
+      if (!authId) throw new Error("Synthetic join cookie capture failed");
+      await rememberParticipantAuth(authId);
+      capture.status = "captured";
+      persistCaptureStatus();
+    })().catch(() => {
+      capture.status = "uncertain";
+      persistCaptureStatus();
+    }));
   });
   const pageErrors: string[] = [];
   teacher.on("pageerror", error => pageErrors.push(error.name));
@@ -110,7 +182,7 @@ test("controlled real teacher/student Fokusmode release smoke", async ({ browser
     ledger.teacherId = created.data.user!.id;
     persistLedger();
     await teacher.addInitScript(() => localStorage.setItem("gpslob_tour_finished", "true"));
-    await teacher.goto(`${baseURL}/login`);
+    await teacher.goto(`${baseURL}/login`, { waitUntil: "domcontentloaded" });
     await teacher.locator('input[type="email"]').fill(email);
     await teacher.locator('input[type="password"]').fill(password);
     await teacher.locator('form button[type="submit"]').click();
@@ -135,7 +207,7 @@ test("controlled real teacher/student Fokusmode release smoke", async ({ browser
       sessionStorage.setItem("autoLoadDraft", "true");
       sessionStorage.setItem("autoLoadDraftTarget", "draft_run_manuel");
     }, { title, questions });
-    await teacher.goto(`${baseURL}/dashboard/opret/manuel`);
+    await teacher.goto(`${baseURL}/dashboard/opret/manuel`, { waitUntil: "domcontentloaded" });
     const setting = teacher.getByRole("switch", { name: "Fokusmode", exact: true });
     await expect(setting).toHaveAttribute("aria-checked", "false");
     await setting.click();
@@ -156,7 +228,7 @@ test("controlled real teacher/student Fokusmode release smoke", async ({ browser
     const lobbyBody = await lobby.json();
     ledger.sessionId = lobbyBody.session.id;
     persistLedger();
-    await teacher.goto(`${baseURL}/dashboard/live/${ledger.sessionId}`);
+    await teacher.goto(`${baseURL}/dashboard/live/${ledger.sessionId}`, { waitUntil: "domcontentloaded" });
     await teacher.getByRole("button", { name: "START LØBET", exact: true }).click();
     await expect.poll(async () => {
       const result = await admin.from("live_sessions").select("status").eq("id", ledger.sessionId).single();
@@ -165,7 +237,7 @@ test("controlled real teacher/student Fokusmode release smoke", async ({ browser
     await teacher.getByRole("button", { name: "Luk QR-kode", exact: true }).click();
     console.log("FOCUS_RELEASE_TEACHER_FLOW_PASSED");
     // Exercise the actual code -> name flow instead of bypassing registration.
-    await student.goto(`${baseURL}/join`);
+    await student.goto(`${baseURL}/join`, { waitUntil: "domcontentloaded" });
     const enter = student.getByRole("button", { name: "Deltag i et løb", exact: true });
     await enter.click();
     const pinInput = student.locator("#join-code");
@@ -186,7 +258,7 @@ test("controlled real teacher/student Fokusmode release smoke", async ({ browser
       .eq("session_id", ledger.sessionId).eq("student_name", studentName).single();
     expect(participant.error?.code ?? null).toBeNull();
     const participantId = participant.data!.id;
-    if (participant.data!.auth_user_id) rememberParticipantAuth(participant.data!.auth_user_id);
+    if (participant.data!.auth_user_id) await rememberParticipantAuth(participant.data!.auth_user_id);
     persistLedger();
     console.log("FOCUS_RELEASE_STUDENT_JOIN_PASSED");
     await expect(student.getByText("Fokusmode er aktiv", { exact: false }).first()).toBeVisible({ timeout: 30_000 });
@@ -268,7 +340,7 @@ test("controlled real teacher/student Fokusmode release smoke", async ({ browser
       }
     }
     await expect(student.getByText(/Løbet er slut\./i)).toBeVisible({ timeout: 30_000 });
-    await student.reload();
+    await student.reload({ waitUntil: "domcontentloaded" });
     await expect(student.getByText(/Løbet er slut\./i)).toBeVisible({ timeout: 30_000 });
     const answered = await admin.from("answers").select("id").eq("session_id", ledger.sessionId).eq("participant_id", participantId);
     expect(answered.error?.code ?? null).toBeNull();
@@ -281,8 +353,10 @@ test("controlled real teacher/student Fokusmode release smoke", async ({ browser
     primaryFailure = error;
     throw error;
   } finally {
+    await Promise.all(joinAuthReads);
     // Context closure must not prevent database cleanup after a test failure.
     await Promise.allSettled([teacherContext.close(), studentContext.close()]);
+    await Promise.all(joinAuthReads);
     if (ledger.teacherId) {
     try {
     // Scope cleanup by the freshly created teacher, then exact run/session IDs.
@@ -299,7 +373,7 @@ test("controlled real teacher/student Fokusmode release smoke", async ({ browser
         expect((participants.data ?? []).length <= 1 && (participants.data ?? []).every(participant => participant.student_name === studentName), "Cleanup requires only the uniquely named synthetic participant").toBe(true);
         for (const participant of participants.data ?? []) {
           if (participant.auth_user_id && !ledger.participantAuthIds.includes(participant.auth_user_id)) {
-            rememberParticipantAuth(participant.auth_user_id);
+            await rememberParticipantAuth(participant.auth_user_id);
           }
           const answers = await admin.from("answers").delete().eq("participant_id", participant.id).eq("session_id", session.id);
           expect(answers.error?.code ?? null).toBeNull();
