@@ -305,19 +305,23 @@ test("controlled real teacher/student Fokusmode release smoke", async ({ browser
     await expect(student.getByTestId("student-focus-mode")).toHaveCount(0, { timeout: 20_000 });
     for (let index = 0; index < questions.length; index++) {
       const openPost = student.getByRole("button", { name: "Åbn post", exact: true });
+      let fixNumber = 0;
       await expect(async () => {
         const locationAction = student.getByRole("button", { name: /tillad placering|find min placering igen/i }).first();
         if (await locationAction.isVisible()) await locationAction.click();
-        const jitter = Date.now() % 2 === 0 ? 0 : 0.000001;
+        // Native emulation emits only when setGeolocation is called. Keep
+        // delivering fresh fixes through the existing jump filter and 10s
+        // sync throttle; a database-only wait cannot trigger another GPS sync.
+        const jitter = (fixNumber++ % 2) * 0.000001;
         await studentContext.setGeolocation({ latitude: questions[index].lat + jitter, longitude: questions[index].lng + jitter, accuracy: 5 });
         await expect(openPost).toBeVisible({ timeout: 1200 });
         await expect(openPost).toBeEnabled();
-      }).toPass({ timeout: 30_000, intervals: [500, 1000] });
-      await expect.poll(async () => {
         const position = await admin.from("participants").select("lat,lng").eq("id", participantId).eq("session_id", ledger.sessionId).single();
-        return typeof position.data?.lat === "number" && typeof position.data?.lng === "number" &&
-          Math.abs(position.data.lat - questions[index].lat) < 0.00002 && Math.abs(position.data.lng - questions[index].lng) < 0.00002;
-      }, { timeout: 20_000 }).toBe(true);
+        expect(position.error?.code ?? null).toBeNull();
+        expect(typeof position.data?.lat === "number" && typeof position.data?.lng === "number" &&
+          Math.abs(position.data.lat - questions[index].lat) < 0.00002 && Math.abs(position.data.lng - questions[index].lng) < 0.00002
+        ).toBe(true);
+      }).toPass({ timeout: 30_000, intervals: [500, 1000] });
       await openPost.click();
       await expect(student.getByText(questions[index].text, { exact: true })).toBeVisible();
       await student.getByRole("button", { name: /^(A\s+)?Korrekt$/ }).click();
