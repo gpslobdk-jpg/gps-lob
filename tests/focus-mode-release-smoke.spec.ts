@@ -239,8 +239,15 @@ test("controlled real teacher/student Fokusmode release smoke", async ({ browser
     // Exercise the actual code -> name flow instead of bypassing registration.
     await student.goto(`${baseURL}/join`, { waitUntil: "domcontentloaded" });
     const enter = student.getByRole("button", { name: "Deltag i et løb", exact: true });
-    await enter.click();
     const pinInput = student.locator("#join-code");
+    // The server-rendered button can precede hydration on a cold deployment.
+    // Confirm the actual next screen after a real pointer click. This step has
+    // no join/auth side effects, and stops clicking as soon as the code appears.
+    await expect(async () => {
+      if (await pinInput.isVisible()) return;
+      await enter.click({ timeout: 2_000 });
+      await expect(pinInput).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 30_000, intervals: [300, 1_000] });
     await expect(pinInput).toBeVisible();
     await pinInput.fill(lobbyBody.session.pin);
     await pinInput.press("Enter");

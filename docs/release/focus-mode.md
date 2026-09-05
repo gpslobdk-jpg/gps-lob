@@ -55,7 +55,7 @@ Lokale kontroller på Production-build:
 - 60 Fokusmode-kontroller bestået i desktop Chromium, Android/Chromium og iPhone/WebKit: default, elevinformation, grace, dubletter, pause, navigation, resume, global/individuel deaktivering, begrænset 401-genforsøg med afbrydelse og fejl under gameplay.
 - Fire isolationskontroller mod den installerede Supabase SDK bestået; de vigtigste tre fejlede før rettelsen af browsercachen.
 - 14 lærer-/Lynbyggerkontroller og 8 server-/adgangskontroller bestået.
-- 13 særskilte iOS/Safari-regressionschecks er en nødvendig releasegate, inklusive genoprettet deltagerlogin, GPS-resume, afsluttet løb efter reload, to poster og rigtigt pointerklik på fortsæt-knappen. Det endelige resultat skal fremgå af releaserapporten.
+- 13 særskilte iOS/Safari-regressionschecks bestået, inklusive genoprettet deltagerlogin, GPS-resume, afsluttet løb efter reload, to poster og rigtigt pointerklik på fortsæt-knappen. Recovery-testens netværksmocks er isoleret fra service workers; assertions og timeouts er uændrede. En tidligere enkeltfejl kunne ikke entydigt tilskrives service workeren.
 - SQL-integrationen bestået på PostgreSQL i en transaktion med efterfølgende rollback. Derefter er den præcise additive migration anvendt og tre RLS-tabeller samt aktiv retention verificeret.
 
 Mobilkontroller bruger browsermotorer med emuleret GPS og lifecycle-hændelser. Fysisk appskift og hardware lock/unlock på en rigtig telefon er ikke verificeret.
