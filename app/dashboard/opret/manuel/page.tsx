@@ -1,5 +1,8 @@
 "use client";
 
+import FocusModeSetting from "@/components/focus/FocusModeSetting";
+import { useBuilderFocusMode } from "@/hooks/useBuilderFocusMode";
+
 import { BookOpen, BookOpenText, Check, ChevronDown, GraduationCap, Loader2, Plus, Printer, Ruler, Sparkles, Trash2, Wrench } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -249,6 +252,7 @@ const DEFAULT_MAP_CENTER: MapCenter = {
 };
 
 type ManualBuilderDraftState = {
+  focusEnabled?: unknown;
   title?: unknown;
   description?: unknown;
   subject?: unknown;
@@ -629,6 +633,7 @@ function OpretLoebPageContent() {
   const defaultQuestionType: Question["type"] = "multiple_choice";
   const editRunId = searchParams.get("id")?.trim() ?? "";
   const isEditMode = editRunId.length > 0;
+  const { focusEnabled, focusStatus, setFocusEnabled, persistFocusMode } = useBuilderFocusMode(editRunId);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [subject, setSubject] = useState<string>("");
@@ -750,6 +755,7 @@ function OpretLoebPageContent() {
   );
 
   const applyDraftState = (draft: ManualBuilderDraftState) => {
+    if (typeof draft.focusEnabled === "boolean") setFocusEnabled(draft.focusEnabled);
     const restoredSubject = restoreDraftString(draft.subject);
     const restoredGradeLevels = normalizeGradeLevels(draft.gradeLevels);
     const restoredPendingAiReviewDraft = normalizePendingManualAiReviewDraft(draft.pendingAiReviewDraft);
@@ -1127,6 +1133,7 @@ function OpretLoebPageContent() {
     const draftGameConfig = isVm26GameConfig(runGameConfig) ? buildVm26GameConfig(runGameConfig) : null;
 
     writeRunDraft(MANUEL_DRAFT_STORAGE_KEY, editRunId, {
+      ...(focusStatus === "ready" ? { focusEnabled } : {}),
       title,
       description,
       subject,
@@ -1144,6 +1151,8 @@ function OpretLoebPageContent() {
   }, [
     description,
     editRunId,
+    focusEnabled,
+    focusStatus,
     gradeLevels,
     mapCenter,
     lynbyggerPlacementStatus,
@@ -1524,6 +1533,7 @@ function OpretLoebPageContent() {
           : {}),
       };
 
+      let savedRunId = editRunId;
       if (isEditMode) {
         const { data: updatedRuns, error } = await supabase
           .from("gps_runs")
@@ -1545,15 +1555,18 @@ function OpretLoebPageContent() {
           return;
         }
       } else {
-        const { error } = await supabase.from("gps_runs").insert({
+        const { data: savedRuns, error } = await supabase.from("gps_runs").insert({
           user_id: user.id,
           ...payload,
-        });
+        }).select("id");
+        savedRunId = savedRuns?.[0]?.id ?? "";
 
         if (error) {
           throw error;
         }
       }
+
+      await persistFocusMode(savedRunId);
 
       setNotice({
         tone: "success",
@@ -2031,6 +2044,7 @@ function OpretLoebPageContent() {
 
                 <div ref={saveFeedbackRef} className="mt-6 space-y-4">
                   {notice?.tone === "error" ? renderNotice() : null}
+                  <FocusModeSetting enabled={focusEnabled} status={focusStatus} onChange={setFocusEnabled} disabled={isSaving} />
                   <button
                     type="button"
                     onClick={handleSaveRun}

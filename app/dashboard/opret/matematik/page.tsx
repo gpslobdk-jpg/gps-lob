@@ -1,5 +1,8 @@
 "use client";
 
+import FocusModeSetting from "@/components/focus/FocusModeSetting";
+import { useBuilderFocusMode } from "@/hooks/useBuilderFocusMode";
+
 import { BookOpen, Calculator, Check, ChevronDown, Loader2, Plus, Printer, Ruler, Sparkles, SquareFunction, Trash2, Wrench } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -588,6 +591,7 @@ function OpretLoebPageContent() {
   const defaultQuestionType: Question["type"] = "multiple_choice";
   const editRunId = searchParams.get("id")?.trim() ?? "";
   const isEditMode = editRunId.length > 0;
+  const { focusEnabled, focusStatus, setFocusEnabled, persistFocusMode } = useBuilderFocusMode(editRunId);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>(DEFAULT_SELECTED_GRADE_LEVELS);
@@ -1357,6 +1361,7 @@ function OpretLoebPageContent() {
           : {}),
       };
 
+      let savedRunId = editRunId;
       if (isEditMode) {
         const { data: updatedRuns, error } = await supabase
           .from("gps_runs")
@@ -1378,15 +1383,18 @@ function OpretLoebPageContent() {
           return;
         }
       } else {
-        const { error } = await supabase.from("gps_runs").insert({
+        const { data: savedRuns, error } = await supabase.from("gps_runs").insert({
           user_id: user.id,
           ...payload,
-        });
+        }).select("id");
+        savedRunId = savedRuns?.[0]?.id ?? "";
 
         if (error) {
           throw error;
         }
       }
+
+      await persistFocusMode(savedRunId);
 
       setNotice({
         tone: "success",
@@ -1767,6 +1775,7 @@ function OpretLoebPageContent() {
 
                 <div ref={saveFeedbackRef} className="mt-6 space-y-4">
                   {notice?.tone === "error" ? renderNotice() : null}
+                  <FocusModeSetting enabled={focusEnabled} status={focusStatus} onChange={setFocusEnabled} disabled={isSaving} />
                   <button
                     type="button"
                     onClick={handleSaveRun}

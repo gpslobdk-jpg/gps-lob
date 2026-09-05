@@ -131,7 +131,7 @@ async function mountPlayMocks(page: Page) {
 
         // GET /api/play/participant — 404 is the safe default
         if (url.includes("/api/play/participant")) {
-          return new Response(JSON.stringify({ error: "Not found" }), {
+          return new Response(JSON.stringify({ error: "Deltageren findes ikke længere." }), {
             status: 404,
             headers: { "Content-Type": "application/json" },
           });
@@ -273,8 +273,10 @@ test.describe("iOS two-post flow", () => {
     // The standard flow shows a separate, explicit open action.
     const firstArrivedCard = page
       .getByRole("status")
-      .filter({ hasText: "Du er fremme!" });
+      .filter({ hasText: "Du er fremme!" })
+      .filter({ has: page.getByText("Post 1 af 2", { exact: true }) });
     for (let tick = 0; tick < 50; tick++) {
+      if (await firstArrivedCard.isVisible().catch(() => false)) break;
       const locationAction = page.getByRole("button", {
         name: /tillad placering|prøv igen|find min placering igen/i,
       });
@@ -326,8 +328,11 @@ test.describe("iOS two-post flow", () => {
     // call even if the browser considers coordinates "unchanged".
     const arrivedCard = page
       .getByRole("status")
-      .filter({ hasText: "Du er fremme!" });
+      .filter({ hasText: "Du er fremme!" })
+      .filter({ has: page.getByText("Post 2 af 2", { exact: true }) });
     for (let tick = 0; tick < 50; tick++) {
+      // Always move to post 2 once before skipping redundant GPS updates.
+      if (tick > 0 && (await arrivedCard.isVisible().catch(() => false))) break;
       const locationAction = page.getByRole("button", {
         name: /tillad placering|prøv igen|find min placering igen/i,
       });

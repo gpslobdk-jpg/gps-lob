@@ -1,5 +1,8 @@
 "use client";
 
+import FocusModeSetting from "@/components/focus/FocusModeSetting";
+import { useBuilderFocusMode } from "@/hooks/useBuilderFocusMode";
+
 import {
   Check,
   Loader2,
@@ -132,6 +135,7 @@ function OpretMusicQuizContent() {
   const searchParams = useSearchParams();
   const editRunId = searchParams.get("id")?.trim() ?? "";
   const isEditMode = editRunId.length > 0;
+  const { focusEnabled, focusStatus, setFocusEnabled, persistFocusMode } = useBuilderFocusMode(editRunId);
 
   const [title, setTitle] = useState("");
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>(
@@ -536,6 +540,7 @@ function OpretMusicQuizContent() {
         race_type: RACE_TYPES.MUSIKQUIZ,
       };
 
+      let savedRunId = editRunId;
       if (isEditMode && loadedRunId === editRunId) {
         const { error } = await supabase
           .from("gps_runs")
@@ -544,11 +549,14 @@ function OpretMusicQuizContent() {
           .eq("user_id", user.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        const { data: savedRuns, error } = await supabase
           .from("gps_runs")
-          .insert({ user_id: user.id, ...payload });
+          .insert({ user_id: user.id, ...payload }).select("id");
+        savedRunId = savedRuns?.[0]?.id ?? "";
         if (error) throw error;
       }
+
+      await persistFocusMode(savedRunId);
 
       setNotice({
         tone: "success",
@@ -1013,6 +1021,7 @@ function OpretMusicQuizContent() {
                     {notice.message}
                   </div>
                 ) : null}
+                <FocusModeSetting enabled={focusEnabled} status={focusStatus} onChange={setFocusEnabled} disabled={isSaving} />
                 <button
                   type="button"
                   onClick={() => void handleSave()}

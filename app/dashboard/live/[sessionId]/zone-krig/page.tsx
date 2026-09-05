@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, Crown, Shield, Swords, Timer, Wifi, Zap } from "lucide-react";
 
 import { FullscreenWarning } from "@/components/ui/FullscreenWarning";
+import TeacherFocusPanel from "@/components/focus/TeacherFocusPanel";
 import LiveRulesSheet from "@/components/live/LiveRulesSheet";
 import type { GameTeam, GameZone } from "@/components/live/ZoneKrigMap";
 import { createClient } from "@/utils/supabase/client";
@@ -476,6 +477,7 @@ export default function ZoneKrigCommandCenter() {
       className={`relative min-h-svh bg-slate-950 text-white ${poppins.className}`}
     >
       <FullscreenWarning />
+      <TeacherFocusPanel sessionId={sessionId} finished={isMatchOver} />
       {/* Ambient glow layers */}
       <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(ellipse_at_top_left,rgba(34,211,238,0.06),transparent_40%),radial-gradient(ellipse_at_bottom_right,rgba(99,102,241,0.07),transparent_40%),linear-gradient(180deg,#020617_0%,#020b18_100%)]" />
 

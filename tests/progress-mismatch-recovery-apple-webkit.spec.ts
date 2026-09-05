@@ -79,14 +79,25 @@ async function mountMocks(
       body: JSON.stringify({ error: "refresh unavailable in isolated test" }),
     })
   );
-  await context.route(/\/rest\/v1\/answers/i, (route) =>
-    route.fulfill({
+  await context.route(/\/rest\/v1\/answers/i, (route) => {
+    // Recovery reads the same persisted answers as the participant snapshot.
+    // A successful insert cannot coexist with a permanently empty REST table.
+    const answers = [...answeredPostIndexes].map((postIndex) => ({
+      session_id: SESSION_ID,
+      participant_id: PARTICIPANT_ID,
+      student_name: TEAM_NAME,
+      question_index: postIndex,
+      post_index: postIndex + 1,
+      is_correct: true,
+      awarded_points: 10,
+    }));
+    return route.fulfill({
       status: 200,
       contentType: "application/json",
-      headers: { "content-range": "0-0/0" },
-      body: "[]",
-    })
-  );
+      headers: { "content-range": answers.length ? `0-${answers.length - 1}/${answers.length}` : "*/0" },
+      body: JSON.stringify(answers),
+    });
+  });
 
   await context.route(/\/api\/join/, async (route: Route) => {
     joinCount += 1;
@@ -136,7 +147,7 @@ async function mountMocks(
                 id: PARTICIPANT_ID,
                 session_id: SESSION_ID,
                 student_name: TEAM_NAME,
-                start_offset: 0,
+                start_offset: options.startOffset ?? 0,
                 finished_at: null,
                 lat: POST_LAT,
                 lng: POST_LNG,
@@ -279,6 +290,29 @@ async function freshJoin(page: Page) {
     .toBe(true);
 }
 
+async function continueToSecondPost(page: Page) {
+  const secondPost = page.getByText("Post 2 af 2", { exact: true }).first();
+  const next = page.getByRole("button", { name: "Gå til næste post", exact: true });
+  await expect(next.or(secondPost).first()).toBeVisible({ timeout: 10_000 });
+  await expect(async () => {
+    if (await secondPost.isVisible()) return;
+    await expect(next).toBeVisible({ timeout: 1500 });
+    await expect(next).toBeEnabled({ timeout: 1500 });
+    const pointerCheck = await next.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      return { centerReachesButton: !!hit && element.contains(hit), coveredByRegion: !!hit?.closest('[role="region"]') };
+    });
+    if (!pointerCheck.centerReachesButton) console.log("RECOVERY_CTA_POINTER_CHECK", JSON.stringify(pointerCheck));
+    // Recovery can remount the button while WebKit waits for an animation.
+    // Retry a real pointer click until actual post 2 is verified, never merely
+    // until a click returns.
+    await next.click({ timeout: 1500 });
+    await expect(secondPost).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 10_000, intervals: [200, 400, 800] });
+  await expect(secondPost).toBeVisible({ timeout: 10_000 });
+}
+
 test.describe("progress mismatch recovery", () => {
   test.describe.configure({ retries: 0 });
 
@@ -343,9 +377,7 @@ test.describe("progress mismatch recovery", () => {
     expect(mock.requests[0].operationId).toBeTruthy();
     expect(mock.requests[1].operationId).toBe(mock.requests[0].operationId);
     expect(mock.getJoinCount()).toBe((joinCountAtFirstSubmit ?? 0) + 1);
-    await expect(page.getByText("Post 2 af 2", { exact: true }).first()).toBeVisible({
-      timeout: 10_000,
-    });
+    await continueToSecondPost(page);
   });
 
   test("409 that still expects the same post retries with the same operation id", async ({ page }) => {
@@ -509,8 +541,6 @@ test.describe("progress mismatch recovery", () => {
 
     await expect.poll(() => mock.requests.length, { timeout: 10_000 }).toBe(1);
     expect(mock.requests[0].operationId).toBe(OPERATION_ID);
-    await expect(page.getByText("Post 2 af 2").first()).toBeVisible({
-      timeout: 10_000,
-    });
+    await continueToSecondPost(page);
   });
 });

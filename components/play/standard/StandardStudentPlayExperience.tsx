@@ -126,6 +126,18 @@ export default function StandardStudentPlayExperience({
     !showQuestion &&
     Boolean(activeQuestion) &&
     (gpsOverrideEnabled || dismissedPostIndex === currentPostIndex);
+  const canContinueConfirmedPost =
+    !showQuestion &&
+    Boolean(activeQuestion) &&
+    hasActiveQuizSuccess &&
+    progress.answeredPostIndexes.includes(currentPostIndex) &&
+    studentSubmission.status === "confirmed" &&
+    studentSubmission.serverConfirmed &&
+    !isAnswerSubmissionPending &&
+    pendingAnswerCount === 0 &&
+    !isClosing &&
+    !flags.isSessionPaused &&
+    !activePostActionError;
   const skipConfirmOpen = skipConfirmKey === activeTypedAnswerKey;
 
   return (
@@ -212,17 +224,27 @@ export default function StandardStudentPlayExperience({
             </div>
           </header>
 
-          {canShowManualOpen ? (
-            <div className="absolute inset-x-3 bottom-[max(1rem,env(safe-area-inset-bottom))] z-[1300] mx-auto max-w-md sm:inset-x-4">
-              <button
-                type="button"
-                disabled={!canManualUnlock}
-                onClick={actions.unlockCurrentPost}
-                className={primaryButtonClassName}
-              >
-                <MapPin aria-hidden="true" className="h-5 w-5" />
-                {dismissedPostIndex === currentPostIndex ? "Åbn posten igen" : "Åbn post"}
-              </button>
+          {canContinueConfirmedPost || canShowManualOpen ? (
+            <div className={`absolute inset-x-3 bottom-[max(1rem,env(safe-area-inset-bottom))] mx-auto max-w-md sm:inset-x-4 ${canContinueConfirmedPost ? "z-[2300]" : "z-[1300]"}`}>
+              {canContinueConfirmedPost ? (
+                <button
+                  type="button"
+                  onClick={() => void actions.continueFromSolvedPost()}
+                  className={primaryButtonClassName}
+                >
+                  {progress.correctAnswersCount < totalQuestions ? "Gå til næste post" : "Se resultat"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={!canManualUnlock}
+                  onClick={actions.unlockCurrentPost}
+                  className={primaryButtonClassName}
+                >
+                  <MapPin aria-hidden="true" className="h-5 w-5" />
+                  {dismissedPostIndex === currentPostIndex ? "Åbn posten igen" : "Åbn post"}
+                </button>
+              )}
             </div>
           ) : null}
         </>

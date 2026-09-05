@@ -8,6 +8,8 @@ import { poppins, rubik } from "@/lib/fonts";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { useBuilderSaveGuidance } from "@/components/builders/useBuilderSaveGuidance";
+import FocusModeSetting from "@/components/focus/FocusModeSetting";
+import { useBuilderFocusMode } from "@/hooks/useBuilderFocusMode";
 import {
   buildStrategoGameConfig,
   getNormalizedRunRaceType,
@@ -223,6 +225,7 @@ function StrategoBuilderContent() {
   const searchParams = useSearchParams();
   const editRunId = searchParams.get("id")?.trim() ?? "";
   const isEditMode = editRunId.length > 0;
+  const { focusEnabled, focusStatus, setFocusEnabled, persistFocusMode } = useBuilderFocusMode(editRunId);
 
   const [step, setStep] = useState<1 | 2>(1);
   const [title, setTitle] = useState("");
@@ -406,6 +409,8 @@ function StrategoBuilderContent() {
 
         runId = data.id;
       }
+
+      await persistFocusMode(runId);
 
       const liveSession = await requestArchiveLiveSessionMutation(runId);
       if (!liveSession.session?.id) {
@@ -617,6 +622,7 @@ function StrategoBuilderContent() {
                     Når du starter her, gemmes Stratego-løbet og der oprettes en live-session med dine valgte baser.
                   </p>
 
+                  <FocusModeSetting enabled={focusEnabled} status={focusStatus} onChange={setFocusEnabled} disabled={isBusy} />
                   <button
                     type="button"
                     onClick={() => void saveRun()}

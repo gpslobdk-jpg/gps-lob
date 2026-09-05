@@ -299,7 +299,7 @@ test("quiz bruger store svar, lange tekster og uændret submit-payload", async (
 test("offline svar køes og reconnect bruger den eksisterende levering", async ({
   page,
 }) => {
-  await openHarnessedPlay(page, {
+  const play = await openHarnessedPlay(page, {
     sessionId: "standard-v2-offline",
     raceType: "engelsk",
     questions: [DEFAULT_STANDARD_QUESTIONS[0]],
@@ -313,9 +313,13 @@ test("offline svar køes og reconnect bruger den eksisterende levering", async (
   await expect(page.getByText("Svaret er gemt på telefonen")).toBeVisible({
     timeout: 10_000,
   });
+  await expect(page.getByRole("button", { name: /gå til næste post|se resultat/i })).toHaveCount(0);
 
   await page.context().setOffline(false);
-  await expect(page.getByText("Svaret er gemt")).toBeVisible({ timeout: 20_000 });
+  // The authoritative finish snapshot can replace the short save confirmation.
+  // Require the server-side answer as well as its visible confirmation/result.
+  await expect.poll(() => [...play.answeredPostIndexes]).toEqual([0]);
+  await expect(page.getByText("Svaret er gemt", { exact: true }).or(page.getByText(/Løbet er slut\./i))).toBeVisible({ timeout: 20_000 });
 });
 
 test("reduced motion fjerner den nye progress-transition", async ({ page }) => {

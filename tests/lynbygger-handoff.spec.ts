@@ -227,8 +227,14 @@ test.describe("Ultraenkel Lynbygger", () => {
     page.on("request", (request) => {
       const url = new URL(request.url());
       const isLocal = ["localhost", "127.0.0.1"].includes(url.hostname);
+      // The configured run database is an intended destination. This exact POST
+      // is intercepted below; content must still never reach telemetry/other URLs.
+      const isExpectedRunSave = request.method() === "POST"
+        && url.pathname === "/rest/v1/gps_runs"
+        && url.hostname.endsWith(".supabase.co")
+        && SUPABASE_COOKIE_NAMES.includes(`sb-${url.hostname.split(".")[0]}-auth-token`);
       const payload = `${request.url()} ${request.postData() ?? ""}`;
-      if (!isLocal && /Den Kolde Krig|Korrekt svar 1/u.test(payload)) {
+      if (!isLocal && !isExpectedRunSave && /Den Kolde Krig|Korrekt svar 1/u.test(payload)) {
         contentLeaks.push(`network:${url.hostname}`);
       }
     });
@@ -477,4 +483,89 @@ test.describe("Ultraenkel Lynbygger", () => {
     );
     await expect(page.getByText("internal_quality_detail_must_not_reach_ui")).toHaveCount(0);
   });
+  for (const failFocusSave of [false, true]) {
+    test(failFocusSave ? "Fokusmode fejl afbryder ikke gemning af Lynbygger-løb" : "Fokusmode følger Lynbygger-kladden og gemmes efter løbet", async ({ page }) => {
+      const runId = "aaaaaaaa-2222-4333-8444-dddddddd0012";
+      let runSaved = false;
+      let focusRequest: unknown = null;
+      await page.route("**/api/manual-builder/interview", (route) => route.fulfill({ json: makeGeneratedRun("Vulkaner") }));
+      await page.route("**/rest/v1/gps_runs**", async (route) => {
+        if (route.request().method() === "POST") {
+          runSaved = true;
+          await route.fulfill({ status: 201, json: [{ id: runId }] });
+        } else await route.fulfill({ json: [] });
+      });
+      await page.route("**/api/focus-mode/run**", async (route) => {
+        expect(runSaved).toBe(true);
+        focusRequest = route.request().postDataJSON();
+        await route.fulfill({ status: failFocusSave ? 503 : 200, json: { available: !failFocusSave, enabled: !failFocusSave } });
+      });
+      await openLynbygger(page);
+      await expect(page.getByRole("switch", { name: "Fokusmode" })).toHaveCount(0);
+      await page.getByLabel("Emne").fill("Vulkaner");
+      await page.getByLabel("Klassetrin").selectOption("6. klasse");
+      await page.getByRole("button", { name: "⚡ Lav mit løb" }).click();
+      const toggle = page.getByRole("switch", { name: "Fokusmode" });
+      await expect(toggle).toHaveAttribute("aria-checked", "false");
+      await toggle.focus();
+      await page.keyboard.press("Space");
+      await expect(toggle).toHaveAttribute("aria-checked", "true");
+      await page.getByTestId("focus-mode-setting").locator("summary").click();
+      await expect(page.getByText(/Vi kan ikke se, hvad eleven åbner eller besøger/)).toBeVisible();
+      await expect(page.getByText(/Bed eleverne om kun at have én telefon/)).toBeVisible();
+      await page.getByTestId("lynbygger-teacher-approval").check();
+      await page.getByTestId("lynbygger-place-current").click();
+      await expect(page).toHaveURL(/\/dashboard\/opret\/manuel$/, { timeout: 30_000 });
+      await expect(page.getByRole("switch", { name: "Fokusmode" })).toHaveAttribute("aria-checked", "true");
+      await page.getByRole("button", { name: "Gem løb i arkivet" }).click();
+      await expect(page).toHaveURL(/\/dashboard\/arkiv$/, { timeout: 30_000 });
+      expect(focusRequest).toEqual({ runId, enabled: true });
+      if (failFocusSave) await expect(page.getByRole("status").filter({ hasText: "Løbet er gemt, men Fokusmode kunne ikke gemmes" })).toBeVisible();
+      else await expect(page.getByText("Løbet er gemt, men Fokusmode kunne ikke gemmes", { exact: false })).toHaveCount(0);
+    });
+  }
+
+  test("Fokusmode live viser neutrale tal, global toggle og individuel undtagelse", async ({ page }, testInfo) => {
+    const sessionId = "aaaaaaaa-2222-4333-8444-dddddddd0022";
+    const participantId = "aaaaaaaa-2222-4333-8444-dddddddd0023";
+    const state = { available: true, enabled: false, participants: [{ participantId, displayName: "Testhold Blå", excluded: false, eventCount: 2, latestEventAt: "2026-09-05T08:00:00Z", latestDurationMs: 14000 }] };
+    const changes: unknown[] = [];
+    await page.route("**/api/focus-mode/session**", async (route) => {
+      if (route.request().method() === "PATCH") {
+        const change = route.request().postDataJSON();
+        changes.push(change);
+        if (typeof change.enabled === "boolean") state.enabled = change.enabled;
+        if (change.participantId === participantId) state.participants[0].excluded = change.excluded;
+      }
+      await route.fulfill({ json: state });
+    });
+    await page.route("**/rest/v1/live_sessions**", (route) => route.fulfill({ json: { id: sessionId, status: "waiting", pin: "123456", run_id: null } }));
+    await page.route("**/api/dashboard/live/theme**", (route) => route.fulfill({ json: { theme: null } }));
+    await page.goto('/dashboard/live/' + sessionId, { waitUntil: "domcontentloaded" });
+    const panel = page.getByRole("complementary", { name: "Fokusmode i livevisningen" });
+    await panel.getByRole("button", { name: "Fokusmode: Fra", exact: true }).click();
+    const toggle = panel.getByRole("switch", { name: "Fokusmode" });
+    await expect(toggle).toBeEnabled();
+    await page.keyboard.press("Tab");
+    await expect(toggle).toBeFocused();
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-checked", "true");
+    await expect(panel.getByText("Forlod SkoleGPS 2 gange")).toBeVisible();
+    await expect(panel.getByText("Senest: 14 sek.")).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("focus-live-desktop.png") });
+    await page.setViewportSize({ width: 390, height: 844 });
+    const panelBounds = await panel.boundingBox();
+    expect(panelBounds).not.toBeNull();
+    expect(panelBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(panelBounds!.x + panelBounds!.width).toBeLessThanOrEqual(390);
+    await page.screenshot({ path: testInfo.outputPath("focus-live-mobile.png") });
+    const exemption = panel.getByRole("checkbox", { name: "Ignorér fokusregistrering for Testhold Blå" });
+    await exemption.click();
+    await expect(exemption).toBeChecked();
+    await expect(panel.getByText("Fokusregistrering er undtaget")).toBeVisible();
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(changes).toEqual([{ sessionId, enabled: true }, { sessionId, participantId, excluded: true }, { sessionId, enabled: false }]);
+  });
+
 });

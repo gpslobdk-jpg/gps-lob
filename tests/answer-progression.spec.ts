@@ -126,7 +126,7 @@ async function mountPlayMocks(ctx: BrowserContext, config: MockConfig, state: Mo
     await route.fulfill({
       status: 404,
       contentType: "application/json",
-      body: JSON.stringify({ error: "Not found" }),
+      body: JSON.stringify({ error: "Deltageren findes ikke." }),
     });
   });
 

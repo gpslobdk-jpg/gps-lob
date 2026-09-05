@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { QRCode } from "react-qrcode-logo";
 
 import { FullscreenWarning } from "@/components/ui/FullscreenWarning";
+import TeacherFocusPanel from "@/components/focus/TeacherFocusPanel";
 import LeaderboardModule from "@/components/live/LeaderboardModule";
 import LiveFeedModule from "@/components/live/LiveFeedModule";
 import TeacherLiveLobby from "@/components/live/TeacherLiveLobby";
@@ -333,6 +334,7 @@ export default function LiveLobbyPage() {
   return (
     <>
       <FullscreenWarning />
+      <TeacherFocusPanel sessionId={sessionId} finished={live.status === "finished"} />
       <AnimatePresence mode="wait">
       {live.status === "waiting" ? (
         isStrategoRace ? (

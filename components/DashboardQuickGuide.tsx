@@ -85,24 +85,39 @@ export default function DashboardQuickGuide() {
   const manualTriggerRef = useRef<HTMLElement | null>(null);
   const dialogFocusFrameRef = useRef<number | null>(null);
   const returnFocusFrameRef = useRef<number | null>(null);
+  const returnFocusTimerRef = useRef<number | null>(null);
   const [view, setView] = useState<GuideView>("closed");
   const [highlightRect, setHighlightRect] = useState<HighlightRect | null>(null);
   const isGuideOpen = view !== "closed";
+
+  const cancelReturnFocus = useCallback(() => {
+    if (returnFocusFrameRef.current !== null) window.cancelAnimationFrame(returnFocusFrameRef.current);
+    if (returnFocusTimerRef.current !== null) window.clearTimeout(returnFocusTimerRef.current);
+    returnFocusFrameRef.current = null;
+    returnFocusTimerRef.current = null;
+  }, []);
 
   const markGuideSeen = useCallback(() => {
     writeStorage(DASHBOARD_QUICK_GUIDE_SEEN_KEY, "true");
   }, []);
 
   const setActiveStep = useCallback((step: "create" | "lynbygger" | "finish") => {
+    cancelReturnFocus();
     setView(step);
-  }, []);
+  }, [cancelReturnFocus]);
 
   const returnFocus = useCallback(() => {
-    if (returnFocusFrameRef.current !== null) {
-      window.cancelAnimationFrame(returnFocusFrameRef.current);
-    }
-
-    returnFocusFrameRef.current = window.requestAnimationFrame(() => {
+    cancelReturnFocus();
+    let attempts = 0;
+    const tryReturnFocus = () => {
+      returnFocusTimerRef.current = null;
+      const activeElement = document.activeElement;
+      if (attempts > 0 && activeElement instanceof HTMLElement && activeElement.isConnected
+        && activeElement !== document.body && activeElement !== document.documentElement
+        && !dialogRef.current?.contains(activeElement)) {
+        manualTriggerRef.current = null;
+        return;
+      }
       const manualTrigger = manualTriggerRef.current;
       const routeFallback = pathname === "/dashboard/opret/valg"
         ? document.querySelector<HTMLElement>('[data-tour="valg-lynbygger"]')
@@ -120,10 +135,21 @@ export default function DashboardQuickGuide() {
         focusTarget.focus({ preventScroll: true });
       }
 
+      // The dashboard can still be loading when its sibling guide closes.
+      // Wait briefly for the intended control without delaying the dashboard.
+      attempts += 1;
+      if ((!focusTarget || document.activeElement !== focusTarget) && attempts < 50) {
+        returnFocusTimerRef.current = window.setTimeout(tryReturnFocus, 100);
+        return;
+      }
+
       manualTriggerRef.current = null;
+    };
+    returnFocusFrameRef.current = window.requestAnimationFrame(() => {
       returnFocusFrameRef.current = null;
+      tryReturnFocus();
     });
-  }, [pathname]);
+  }, [cancelReturnFocus, pathname]);
 
   const closeGuide = useCallback(() => {
     markGuideSeen();
@@ -140,15 +166,17 @@ export default function DashboardQuickGuide() {
     if (hasSeenGuide) return;
 
     if (pathname === "/dashboard") {
+      cancelReturnFocus();
       manualTriggerRef.current = null;
       frame = window.requestAnimationFrame(() => setView("intro"));
     }
 
     return () => window.cancelAnimationFrame(frame);
-  }, [pathname]);
+  }, [cancelReturnFocus, pathname]);
 
   useEffect(() => {
     const handleManualOpen = () => {
+      cancelReturnFocus();
       manualTriggerRef.current = document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
@@ -156,7 +184,7 @@ export default function DashboardQuickGuide() {
     };
     window.addEventListener(DASHBOARD_QUICK_GUIDE_EVENT, handleManualOpen);
     return () => window.removeEventListener(DASHBOARD_QUICK_GUIDE_EVENT, handleManualOpen);
-  }, []);
+  }, [cancelReturnFocus]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -182,10 +210,8 @@ export default function DashboardQuickGuide() {
     if (dialogFocusFrameRef.current !== null) {
       window.cancelAnimationFrame(dialogFocusFrameRef.current);
     }
-    if (returnFocusFrameRef.current !== null) {
-      window.cancelAnimationFrame(returnFocusFrameRef.current);
-    }
-  }, []);
+    cancelReturnFocus();
+  }, [cancelReturnFocus, pathname]);
 
   useEffect(() => {
     if (view === "closed") return;

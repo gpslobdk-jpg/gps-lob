@@ -8,6 +8,7 @@ import DashboardAuthGate from "@/components/DashboardAuthGate";
 import DashboardQuickGuide from "@/components/DashboardQuickGuide";
 import OnboardingTour from "@/components/OnboardingTour";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import FocusSaveNotice from "@/components/focus/FocusSaveNotice";
 import { AudioProvider } from "@/contexts/AudioContext";
 import { Suspense } from "react";
 
@@ -34,6 +35,7 @@ export default function DashboardLayout({
                 <DashboardHeader />
               </div>
               {children}
+              <FocusSaveNotice />
               <div className="print:hidden">
                 <AIChatButton />
               </div>

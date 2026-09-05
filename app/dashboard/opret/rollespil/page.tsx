@@ -1,5 +1,8 @@
 ﻿"use client";
 
+import FocusModeSetting from "@/components/focus/FocusModeSetting";
+import { useBuilderFocusMode } from "@/hooks/useBuilderFocusMode";
+
 import { Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { poppins, rubik } from "@/lib/fonts";
@@ -440,6 +443,7 @@ function RollespilBuilderPageContent() {
   const searchParams = useSearchParams();
   const editRunId = searchParams.get("id")?.trim() ?? "";
   const isEditMode = editRunId.length > 0;
+  const { focusEnabled, focusStatus, setFocusEnabled, persistFocusMode } = useBuilderFocusMode(editRunId);
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
   const [radius, setRadius] = useState<number>(DEFAULT_RUN_RADIUS);
@@ -1044,6 +1048,7 @@ function RollespilBuilderPageContent() {
         race_type: RACE_TYPES.ROLLESPIL,
       };
 
+      let savedRunId = editRunId;
       if (isEditMode) {
         const { data: updatedRuns, error } = await supabase
           .from("gps_runs")
@@ -1065,15 +1070,18 @@ function RollespilBuilderPageContent() {
           return;
         }
       } else {
-        const { error } = await supabase.from("gps_runs").insert({
+        const { data: savedRuns, error } = await supabase.from("gps_runs").insert({
           user_id: user.id,
           ...payload,
-        });
+        }).select("id");
+        savedRunId = savedRuns?.[0]?.id ?? "";
 
         if (error) {
           throw error;
         }
       }
+
+      await persistFocusMode(savedRunId);
 
       setNotice({
         tone: "success",
@@ -1337,6 +1345,7 @@ function RollespilBuilderPageContent() {
 
                 <div ref={saveFeedbackRef} className="mt-6 space-y-4">
                   {notice?.tone === "error" ? renderNotice() : null}
+                  <FocusModeSetting enabled={focusEnabled} status={focusStatus} onChange={setFocusEnabled} disabled={isSaving} />
                   <button
                     type="button"
                     onClick={handleSaveRun}

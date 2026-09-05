@@ -4,6 +4,7 @@ import { ArrowLeft, CheckCircle2, Loader2, LocateFixed, MapPinOff, Sparkles } fr
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import FocusModeSetting from "@/components/focus/FocusModeSetting";
 
 import {
   buildLynbyggerManualDraft,
@@ -44,6 +45,7 @@ export default function LynbyggerPage() {
   const [gradeLevel, setGradeLevel] = useState("");
   const [generatedRun, setGeneratedRun] = useState<LynbyggerApiResponse | null>(null);
   const [hasTeacherApproved, setHasTeacherApproved] = useState(false);
+  const [focusEnabled, setFocusEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
@@ -149,7 +151,7 @@ export default function LynbyggerPage() {
     setIsOpeningBuilder(true);
 
     try {
-      const draft = buildLynbyggerManualDraft(generatedRun, gradeLevel, center);
+      const draft = { ...buildLynbyggerManualDraft(generatedRun, gradeLevel, center), focusEnabled };
       writeRunDraft(MANUEL_DRAFT_STORAGE_KEY, null, draft);
 
       const storedDraft = readRunDraft<typeof draft>(MANUEL_DRAFT_STORAGE_KEY, null);
@@ -421,6 +423,7 @@ export default function LynbyggerPage() {
                 <p className="mt-4 text-center text-sm leading-6 text-cyan-50/72 sm:text-base">
                   Når du har godkendt udkastet, kan du placere de fem poster omkring dig eller selv på kortet.
                 </p>
+                <FocusModeSetting enabled={focusEnabled} onChange={setFocusEnabled} disabled={isBusy} compact />
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
                   <button
                     type="button"

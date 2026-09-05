@@ -123,6 +123,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           title: "3. Hvilke data kan indgå",
           paragraphs: [
             "Et løb kan indeholde de oplysninger, læreren vælger at bruge i aktiviteten. Det kan blandt andet være løbskode, holdnavn, svar, placering under løbet og eventuelle billeder fra fotoopgaver.",
+            "Hvis læreren aktiverer Fokusmode, registreres kun, at SkoleGPS-siden har været skjult i mindst tre sekunder. Læreren kan se antal og seneste varighed og kan slå funktionen fra eller undtage et hold. Vi kan ikke se andre apps, hjemmesider, skærmindhold eller tastetryk.",
           ],
           bullets: [
             { label: "Holdnavn", text: "valgfrit, indtastet af eleven" },
@@ -209,7 +210,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         email: "skolegpsdk@gmail.com",
         emailLabel: "Kontakt",
       },
-      updatedAt: "Senest opdateret: 9. august 2026.",
+      updatedAt: "Senest opdateret: 5. september 2026.",
     },
     privacy: {
       metadata: {
@@ -251,6 +252,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
           title: "4. Elevdata: SkoleGPS som databehandler",
           paragraphs: [
             "Elever behøver ikke en individuel konto eller e-mailadresse. Et løb kan behandle holdnavn eller kort fornavn, sessions- og deltager-id, aktuel GPS-position, svar, point, tidsstempler og et foto ved en fotoopgave.",
+            "Fokusmode er slået fra som standard. Når læreren aktiverer funktionen, informeres eleven, og der gemmes et antal registrerede fravær fra SkoleGPS-siden samt tidspunkt og varighed for den seneste registrering. Der indsamles ingen oplysninger om andre apps, hjemmesider, browserhistorik, skærmindhold eller tastetryk. Registreringerne giver ingen automatisk straf eller pointændring.",
             "Elevdata bruges til at afvikle undervisningsløbet og vise resultater til den ansvarlige lærer. Henvendelser om indsigt, rettelse eller sletning af elevdata skal som udgangspunkt sendes til skolen eller kommunen, som kan instruere SkoleGPS.",
           ],
         },
@@ -281,6 +283,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
             "Lærerkonto og lærerskabte løb opbevares, mens kontoen eller aftalen er aktiv, og slettes efter en verificeret anmodning eller ved ophør, bortset fra oplysninger som skal opbevares efter loven eller i lukkede backups indtil deres normale udløb.",
             "Læreren kan rydde fotos, svar, deltagere og sessionsdata tidligere fra resultatsiden. Den forberedte retentionmodel sletter fotos efter 30 dage, almindelige elevsvar, deltagere og afsluttede sessioner efter 90 dage regnet fra afslutning eller dokumenteret inaktivitet samt tekniske oprydningslogs uden elevoplysninger efter 30 dage. Hosted cron er ikke oplyst som aktiv, før den er deployet og verificeret; indtil da skal læreren følge den manuelle sletteprocedure.",
             "Supporthenvendelser og sikkerhedsoplysninger opbevares kun så længe, de er nødvendige for formålet, en tvist eller et lovkrav. Et eventuelt nyhedssamtykke opbevares, indtil det trækkes tilbage, samt i den periode dokumentation er nødvendig.",
+            "Fokusmodes sessions- og deltageroplysninger slettes automatisk senest cirka 24 timer og 15 minutter efter afslutningen og opbevares højst syv dage fra sessionens oprettelse. Løbsindstillingen bevares til genbrug af løbet. Funktionen opbygger ingen varig elevprofil.",
           ],
         },
         {
@@ -316,7 +319,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         email: "skolegpsdk@gmail.com",
         emailLabel: "Skriv til",
       },
-      updatedAt: "Senest opdateret: 9. august 2026.",
+      updatedAt: "Senest opdateret: 5. september 2026.",
     },
     ophavsret: {
       metadata: {

@@ -15,6 +15,7 @@ import StudentConnectionStatus from "@/components/play/StudentConnectionStatus";
 import StudentLocationStatus from "@/components/play/StudentLocationStatus";
 import StandardPlayLocationStatus from "@/components/play/standard/StandardPlayLocationStatus";
 import { FullscreenWarning } from "@/components/ui/FullscreenWarning";
+import StudentFocusMode from "@/components/focus/StudentFocusMode";
 import {
   resolveStudentLocationState,
   type StudentLocationPermission,
@@ -408,6 +409,18 @@ function PlayScreen() {
   return (
     <>
       <FullscreenWarning />
+      {sessionId && game.player.participantId &&
+        game.player.hasConfirmedName &&
+        !game.progress.screen.isFinished && !game.progress.screen.isKicked &&
+        game.progress.screen.mode !== "load_error" ? (
+          <StudentFocusMode
+            key={`${sessionId}:${game.player.participantId}`}
+            sessionId={sessionId}
+            participantId={game.player.participantId}
+            canTrack={game.player.hasCompletedAvatarGate &&
+              game.progress.screen.playStartedAtMs !== null && !game.flags.isSessionPaused}
+          />
+        ) : null}
       <GPSManager
         enabled={isTrackingEnabled}
         standardStudentLocationFlow={usesStandardLocation}
