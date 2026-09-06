@@ -47,8 +47,6 @@ type NativeDebugSnapshot = {
   href: string;
 };
 
-const SKOLEGPS_FACEBOOK_GROUP_URL = "https://www.facebook.com/groups/1649785632764130";
-const FACEBOOK_GROUP_MODAL_STORAGE_KEY = "skolegps-facebook-group-2026-dismissed";
 function HomeScenicBackground({ isPostlob }: { isPostlob: boolean }) {
   const desktopImage = isPostlob ? "/intro-poster.jpg" : "/brand/heroes/adventure-hero.webp";
   const mobileImage = isPostlob ? "/intro-poster.jpg" : "/brand/heroes/adventure-hero-mobile.webp";
@@ -237,85 +235,6 @@ function formatDebugBoolean(value: boolean) {
   return value ? "ja" : "nej";
 }
 
-function FacebookGroupModal({ shouldShow }: { shouldShow: boolean }) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      if (!shouldShow) {
-        setIsOpen(false);
-        return;
-      }
-
-      try {
-        setIsOpen(window.localStorage.getItem(FACEBOOK_GROUP_MODAL_STORAGE_KEY) !== "true");
-      } catch {
-        setIsOpen(true);
-      }
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [shouldShow]);
-
-  const handleClose = () => {
-    try {
-      window.localStorage.setItem(FACEBOOK_GROUP_MODAL_STORAGE_KEY, "true");
-    } catch {
-      // If storage is blocked, the close button should still work for this visit.
-    }
-
-    setIsOpen(false);
-  };
-
-  if (!shouldShow || !isOpen) {
-    return null;
-  }
-
-  return (
-    <div className="fixed inset-0 z-[2100] flex items-center justify-center bg-slate-950/72 px-4 py-6 text-slate-950 backdrop-blur-sm">
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="facebook-group-modal-title"
-        className="w-full max-w-lg rounded-3xl border border-emerald-100 bg-white p-6 shadow-[0_24px_80px_rgba(2,6,23,0.38)] sm:p-7"
-      >
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">
-          Fællesskab for lærere
-        </p>
-        <h2
-          id="facebook-group-modal-title"
-          className="mt-3 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl"
-        >
-          Følg med i SkoleGPS-gruppen
-        </h2>
-        <p className="mt-4 text-sm leading-7 text-slate-600 sm:text-base">
-          Meld dig ind i Facebook-gruppen skolegps.dk, hvor lærere kan få nyheder,
-          dele erfaringer, følge udviklingen og ønske nye funktioner.
-        </p>
-
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-          <a
-            href={SKOLEGPS_FACEBOOK_GROUP_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-500"
-            onClick={handleClose}
-          >
-            Gå til Facebook-gruppen
-          </a>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-800 transition hover:border-emerald-200 hover:text-emerald-800"
-          >
-            Ikke nu
-          </button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
 function shouldRedirectMobileRootToJoin(
   browserWindow: HomePageWindow,
   isNativeGpslobApp: boolean
@@ -494,7 +413,6 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
     />
   ) : (
     <div className="relative flex min-h-screen flex-col overflow-x-hidden text-slate-950">
-      <FacebookGroupModal shouldShow={siteVariantKey === "gpslob"} />
       <HomeScenicBackground isPostlob={siteVariantKey === "postlob"} />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(14,165,233,0.18),transparent_34%),radial-gradient(circle_at_88%_18%,rgba(34,164,71,0.12),transparent_30%)]" />
       {/* Welcome modal removed; no onboarding modal shown */}
@@ -610,7 +528,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
 
         <section className="grid gap-4 border-t border-sky-100/80 py-5 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto] lg:items-center">
           <p className="text-sm font-semibold leading-6 text-slate-600">
-            Elever scanner QR-kode eller skriver løbskode fra læreren. På computeren starter læreren i dashboardet.
+            Start i dashboardet, opret ruten, og del først løbet, når alt er klar.
           </p>
           {siteVariantKey === "postlob" ? (
             <QRScannerModal buttonClassName="justify-center py-3 text-sm" copy={siteCopy.qrScanner} />

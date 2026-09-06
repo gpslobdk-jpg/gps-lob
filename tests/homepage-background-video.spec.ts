@@ -44,6 +44,8 @@ test.describe("public homepage scenic background", () => {
     );
     await expect(page.getByRole("link", { name: /Deltag i løb/i })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Scan QR-kode/i })).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: /SkoleGPS-gruppen/i })).toHaveCount(0);
+    await expect(page.getByText(/Start i dashboardet, opret ruten/i)).toBeVisible();
 
     await expect(page.locator(`video[src="${REMOVED_VIDEO_SRC}"]`)).toHaveCount(0);
   });
@@ -120,6 +122,8 @@ test.describe("public homepage scenic background", () => {
     expect(homePageSource).toContain("skolegps-scenic-drift");
     expect(homePageSource).toContain("skolegps-route-drift");
     expect(homePageSource).not.toContain(REMOVED_VIDEO_SRC);
+    expect(homePageSource).not.toContain("FacebookGroupModal");
+    expect(homePageSource).not.toContain("skolegps-facebook-group");
     expect(logoSource).toContain("route arrow");
 
     for (const serviceWorkerPath of ["public/sw.js", "public/swe-worker-development.js"]) {
