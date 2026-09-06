@@ -11,16 +11,17 @@ export default function AuthLoadingScreen({
 }: AuthLoadingScreenProps) {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-6 py-12 text-white">
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        preload="metadata"
-        className="fixed top-0 left-0 h-full w-full object-cover -z-20"
-        src="/promo.mp4"
-      />
-      <div className="fixed inset-0 -z-10 bg-slate-950/70 backdrop-blur-[3px]" />
+      <div className="fixed inset-0 -z-20" aria-hidden="true">
+        <Image
+          src="/brand/heroes/adventure-banner.webp"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-center"
+        />
+      </div>
+      <div className="fixed inset-0 -z-10 bg-slate-950/72 backdrop-blur-[2px]" />
 
       <div className="relative w-full max-w-md overflow-hidden rounded-[2.5rem] border border-emerald-500/30 bg-slate-950/80 px-8 py-10 text-center shadow-[0_0_50px_rgba(16,185,129,0.2)] backdrop-blur-xl">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.12),transparent_34%)]" />

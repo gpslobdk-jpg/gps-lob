@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { poppins, rubik } from "@/lib/fonts";
@@ -871,15 +872,17 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
       className={`relative min-h-screen bg-slate-950 text-white ${poppins.className} p-6 lg:p-12`}
     >
       <AutoRefresh />
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="fixed top-0 left-0 -z-20 hidden h-full w-full object-cover lg:block"
-        src="/arkiv-bg.mp4"
-      />
-      <div className="fixed inset-0 -z-10 hidden bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.15),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.1),transparent_40%)] lg:block" />
+      <div className="fixed inset-0 -z-20" aria-hidden="true">
+        <Image
+          src="/brand/heroes/adventure-banner.webp"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-center"
+        />
+      </div>
+      <div className="fixed inset-0 -z-10 bg-slate-950/78 backdrop-blur-[2px]" />
 
       <div className="mx-auto max-w-7xl">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

@@ -1,10 +1,11 @@
 "use client";
 
-import { Home, LogOut, Settings, Volume2, VolumeX } from "lucide-react";
+import { Archive, BookOpen, Home, LogOut, Settings, Volume2, VolumeX } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
+import Mascot from "@/components/brand/Mascot";
 import { useAudio } from "@/contexts/AudioContext";
 import { createClient } from "@/utils/supabase/client";
 
@@ -23,6 +24,18 @@ const navLinks: NavLink[] = [
     isActive: (pathname) => pathname === "/dashboard",
   },
   {
+    href: "/dashboard/arkiv",
+    label: "Arkiv",
+    icon: Archive,
+    isActive: (pathname) => pathname.startsWith("/dashboard/arkiv"),
+  },
+  {
+    href: "/dashboard/laerervaerktoejer",
+    label: "Værktøjer",
+    icon: BookOpen,
+    isActive: (pathname) => pathname.startsWith("/dashboard/laerervaerktoejer"),
+  },
+  {
     href: "/dashboard/indstillinger",
     label: "Indstillinger",
     icon: Settings,
@@ -32,10 +45,10 @@ const navLinks: NavLink[] = [
 
 function getNavLinkClasses(isActive: boolean) {
   if (isActive) {
-    return "inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all";
+    return "inline-flex items-center gap-2 rounded-full bg-[var(--skolegps-blue-strong)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all";
   }
 
-  return "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-emerald-900 transition-all hover:bg-emerald-50";
+  return "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-[var(--skolegps-deep-navy)] transition-all hover:bg-sky-50";
 }
 
 export default function DashboardHeader() {
@@ -67,13 +80,14 @@ export default function DashboardHeader() {
   };
 
   return (
-    <header className="border-b border-white/70 bg-white/80 shadow-sm backdrop-blur-xl">
+    <header className="border-b border-sky-100 bg-white/86 shadow-sm backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-8">
         <div className="flex items-center justify-between gap-3">
           <Link
             href="/dashboard"
-            className="inline-flex w-fit items-center rounded-full border border-emerald-200 bg-white/80 px-4 py-2 text-sm font-semibold tracking-wide text-emerald-950 shadow-sm transition-all hover:border-emerald-300 hover:bg-white"
+            className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-100 bg-white px-3 py-2 text-sm font-black text-[var(--skolegps-deep-navy)] shadow-sm transition-all hover:border-sky-200"
           >
+            <Mascot variant="head-only" size="xs" />
             SkoleGPS
           </Link>
 
@@ -89,7 +103,7 @@ export default function DashboardHeader() {
         </div>
 
         <div className="flex items-center justify-between gap-3">
-          <nav className="flex flex-wrap items-center gap-2 rounded-full border border-emerald-100 bg-white/75 p-1 shadow-sm">
+          <nav className="flex flex-wrap items-center gap-2 rounded-full border border-sky-100 bg-white/75 p-1 shadow-sm">
             {navLinks.map((link) => {
               const Icon = link.icon;
               const isActive = link.isActive(pathname);

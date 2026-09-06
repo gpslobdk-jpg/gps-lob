@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Download, type LucideIcon, Share2, UserCircle, WifiOff } from "lucide-react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { poppins, rubik } from "@/lib/fonts";
 import { useEffect, useState } from "react";
 import { QRCode } from "react-qrcode-logo";
@@ -114,17 +115,19 @@ export default function TeacherLiveLobby({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -16 }}
       transition={{ duration: 0.35 }}
-      className={`relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-t from-emerald-100 via-sky-50 to-sky-300 p-6 text-white md:p-12 lg:bg-none lg:bg-transparent ${poppins.className}`}
+      className={`relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-slate-950 p-6 text-white md:p-12 ${poppins.className}`}
     >
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="fixed left-0 top-0 hidden h-full w-full object-cover -z-20 lg:block"
-        src="/arkiv-bg.mp4"
-      />
-      <div className="fixed inset-0 hidden bg-gradient-to-b from-sky-900/20 to-emerald-900/60 backdrop-blur-[3px] -z-10 lg:block" />
+      <div className="fixed inset-0 -z-20" aria-hidden="true">
+        <Image
+          src="/brand/heroes/adventure-banner.webp"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-center"
+        />
+      </div>
+      <div className="fixed inset-0 -z-10 bg-gradient-to-b from-sky-950/42 via-slate-950/36 to-emerald-950/62 backdrop-blur-[2px]" />
 
       <div className="relative z-10 w-full max-w-4xl rounded-[3rem] border border-white/50 bg-white/85 p-8 text-center shadow-2xl backdrop-blur-md md:p-14">
         <section className="w-full">

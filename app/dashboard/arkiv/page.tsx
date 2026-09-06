@@ -2,11 +2,13 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { BarChart, Calendar, Copy, Edit2, MapPin, Play, Plus, Search, Share2, Shield, Timer, Trash2, X } from "lucide-react";
+import { BarChart, Calendar, Copy, Edit2, FolderOpen, MapPin, Play, Plus, Search, Share2, Shield, Timer, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { poppins, rubik } from "@/lib/fonts";
 import { useEffect, useState, type FormEvent } from "react";
 
+import AdventureEmptyState from "@/components/brand/AdventureEmptyState";
+import HeroBanner from "@/components/brand/HeroBanner";
 import { Switch } from "@/components/ui/switch";
 import RunExecutionShareModal from "@/components/archive/RunExecutionShareModal";
 import { isRunExecutionSharingEnabled } from "@/lib/runExecutionShare";
@@ -548,18 +550,21 @@ function ArchivedRunCard({
 
 function CreateNewRunCard() {
   return (
-    <Link href="/dashboard/opret" className="flex h-full text-left">
-      <div className="group relative flex h-full min-h-64 w-full flex-col items-center justify-center overflow-hidden rounded-4xl border-2 border-dashed border-slate-300/90 bg-white/20 px-6 py-8 text-center shadow-lg backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:border-slate-400 hover:bg-white/40 hover:shadow-xl">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),transparent_42%),radial-gradient(circle_at_bottom,rgba(148,163,184,0.12),transparent_56%)] opacity-80 transition-opacity duration-300 group-hover:opacity-100" />
+    <Link href="/dashboard/opret/valg" className="flex h-full text-left">
+      <div className="group relative flex h-full min-h-64 w-full flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-sky-200 bg-white/76 px-6 py-8 text-center shadow-[0_14px_36px_rgba(7,26,58,0.08)] backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:border-sky-300 hover:bg-white hover:shadow-[0_18px_46px_rgba(3,119,216,0.14)]">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,var(--skolegps-blue),var(--skolegps-green),var(--skolegps-yellow))]" />
 
         <div className="relative flex flex-col items-center justify-center gap-4">
-          <span className="flex h-20 w-20 items-center justify-center rounded-full border border-dashed border-slate-400/80 bg-white/20 text-slate-600 transition-all duration-300 group-hover:border-slate-500 group-hover:bg-white/35 group-hover:text-slate-700">
-            <Plus className="h-12 w-12" />
+          <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--skolegps-green)] text-white shadow-[0_12px_24px_rgba(34,164,71,0.2)] transition-all duration-300 group-hover:scale-[1.03]">
+            <Plus className="h-9 w-9" />
           </span>
 
-          <p className={`text-lg font-semibold tracking-[0.04em] text-slate-700 transition-colors duration-300 group-hover:text-slate-800 ${rubik.className}`}>
-            Tilføj nyt løb
-          </p>
+          <div>
+            <p className={`text-xl font-black text-[var(--skolegps-deep-navy)] transition-colors duration-300 group-hover:text-sky-800 ${rubik.className}`}>
+              Opret et løb
+            </p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">Start et nyt eventyr.</p>
+          </div>
         </div>
       </div>
     </Link>
@@ -935,68 +940,60 @@ export default function ArkivPage() {
 
   return (
     <main
-      className={`relative min-h-screen bg-linear-to-t from-emerald-100 via-sky-50 to-sky-300 p-6 text-white lg:bg-none lg:bg-transparent lg:p-12 ${poppins.className}`}
+      className={`relative min-h-screen bg-[var(--skolegps-muted-bg)] p-5 text-slate-950 sm:p-6 lg:p-10 ${poppins.className}`}
     >
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="fixed top-0 left-0 hidden h-full w-full object-cover -z-20 lg:block"
-        src="/arkiv-bg.mp4"
-      />
-      <div className="fixed inset-0 hidden bg-linear-to-b from-sky-900/20 to-emerald-900/60 backdrop-blur-[3px] -z-10 lg:block" />
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_14%_8%,rgba(14,165,233,0.15),transparent_30%),radial-gradient(circle_at_86%_10%,rgba(34,164,71,0.12),transparent_28%),linear-gradient(180deg,#f4fbff_0%,#eef9ef_100%)]" />
 
       <div className="mx-auto max-w-7xl">
-        <h1
-          className={`text-4xl font-black text-white drop-shadow-xl sm:text-5xl ${rubik.className}`}
-        >
-          MIT LØBSARKIV
-        </h1>
+        <HeroBanner
+          compact
+          eyebrow="Arkiv"
+          icon={FolderOpen}
+          mascot="thinking"
+          title="Arkiv"
+          subtitle="Find dine tidligere eventyr her."
+        />
 
-        {/* TOP PANEL: SØGNING OG FILTER */}
-        <div className="mt-8 mb-10 grid max-w-6xl grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] xl:items-end">
-          {/* SØGEFELT */}
+        <div className="mt-6 mb-8 grid max-w-6xl grid-cols-1 gap-4 rounded-2xl border border-sky-100 bg-white/84 p-4 shadow-[0_14px_36px_rgba(7,26,58,0.08)] backdrop-blur xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] xl:items-end">
           <div className="relative flex-1">
-            <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-emerald-700/70">
+            <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sky-700/70">
               <Search size={20} />
             </div>
             <input
               type="text"
-              placeholder="Søg i dine løb..."
+              placeholder="Søg i forløb..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-2xl border border-white/50 bg-white/80 py-4 pr-4 pl-12 text-emerald-950 shadow-lg backdrop-blur-md transition-all placeholder:text-emerald-800/60 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+              className="w-full rounded-2xl border border-slate-200 bg-white py-4 pr-4 pl-12 text-slate-950 shadow-sm transition-all placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300"
             />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <p className="sm:col-span-2 mb-1 px-1 text-xl font-semibold text-white drop-shadow-md">
-              Filtrér efter fag og løbstype
+            <p className="sm:col-span-2 mb-1 px-1 text-sm font-black text-[var(--skolegps-deep-navy)]">
+              Filtre
             </p>
 
-            {/* KATEGORIER / FAG DROPDOWN */}
             <div className="w-full">
               <label
                 htmlFor="subject-filter"
-                className="mb-2 block px-1 text-xs font-semibold tracking-wide text-white drop-shadow-md"
+                className="mb-2 block px-1 text-xs font-bold text-slate-600"
               >
-                Kategorier / Fag
+                Fag
               </label>
               <div className="relative">
                 <select
                   id="subject-filter"
                   value={selectedSubject}
                   onChange={(e) => setSelectedSubject(e.target.value)}
-                  className="w-full cursor-pointer appearance-none rounded-2xl border border-white/50 bg-white/80 py-4 pr-12 pl-6 font-medium text-emerald-950 shadow-lg backdrop-blur-md transition-colors hover:bg-white/95 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                  className="w-full cursor-pointer appearance-none rounded-2xl border border-slate-200 bg-white py-4 pr-12 pl-6 font-semibold text-slate-900 shadow-sm transition-colors hover:bg-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-300"
                 >
                   {ARCHIVE_SUBJECT_FILTER_OPTIONS.map((subj) => (
-                    <option key={subj} value={subj} className="bg-white py-2 text-emerald-950">
+                    <option key={subj} value={subj} className="bg-white py-2 text-slate-950">
                       {subj}
                     </option>
                   ))}
                 </select>
-                <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-emerald-700">
+                <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sky-700">
                   <svg
                     width="14"
                     height="8"
@@ -1019,7 +1016,7 @@ export default function ArkivPage() {
             <div className="w-full">
               <label
                 htmlFor="race-type-filter"
-                className="mb-2 block px-1 text-xs font-semibold tracking-wide text-white drop-shadow-md"
+                className="mb-2 block px-1 text-xs font-bold text-slate-600"
               >
                 Løbstype
               </label>
@@ -1028,19 +1025,19 @@ export default function ArkivPage() {
                   id="race-type-filter"
                   value={selectedRaceType}
                   onChange={(e) => setSelectedRaceType(e.target.value as RaceTypeFilterValue)}
-                  className="w-full cursor-pointer appearance-none rounded-2xl border border-white/50 bg-white/80 py-4 pr-12 pl-6 font-medium text-emerald-950 shadow-lg backdrop-blur-md transition-colors hover:bg-white/95 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                  className="w-full cursor-pointer appearance-none rounded-2xl border border-slate-200 bg-white py-4 pr-12 pl-6 font-semibold text-slate-900 shadow-sm transition-colors hover:bg-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-300"
                 >
                   {RACE_TYPE_FILTER_OPTIONS.map((option) => (
                     <option
                       key={option.value}
                       value={option.value}
-                      className="bg-white py-2 text-emerald-950"
+                      className="bg-white py-2 text-slate-950"
                     >
                       {option.label}
                     </option>
                   ))}
                 </select>
-                <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-emerald-700">
+                <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sky-700">
                   <svg
                     width="14"
                     height="8"
@@ -1072,7 +1069,7 @@ export default function ArkivPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="col-span-full rounded-2xl border border-white/50 bg-white/80 p-8 text-center text-emerald-800 shadow-lg backdrop-blur-md"
+                className="col-span-full rounded-2xl border border-sky-100 bg-white/84 p-8 text-center font-semibold text-slate-700 shadow-[0_14px_36px_rgba(7,26,58,0.08)] backdrop-blur"
               >
                 Henter løb fra arkivet...
               </motion.div>
@@ -1082,11 +1079,19 @@ export default function ArkivPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="col-span-full rounded-2xl border border-white/50 bg-white/80 p-8 text-center text-emerald-800 shadow-lg backdrop-blur-md"
+                className="col-span-full"
               >
-                {runs.length === 0
-                  ? "Du har endnu ingen løb. Brug kortet 'Opret nyt løb' for at komme i gang."
-                  : "Ingen løb matcher din søgning."}
+                <AdventureEmptyState
+                  actionHref={runs.length === 0 ? "/dashboard/opret/valg" : undefined}
+                  actionLabel={runs.length === 0 ? "Opret dit første løb" : undefined}
+                  description={
+                    runs.length === 0
+                      ? "Når du har lavet et forløb, ligger det klar her."
+                      : "Prøv en anden søgning eller ryd filtrene."
+                  }
+                  icon={runs.length === 0 ? Plus : Search}
+                  title={runs.length === 0 ? "Her er lidt tomt endnu." : "Ingen forløb fundet"}
+                />
               </motion.div>
             ) : (
               filteredRuns.map((run) => {

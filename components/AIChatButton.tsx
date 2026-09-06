@@ -117,6 +117,7 @@ export default function AIChatButton() {
   const [isDashboardQuickGuideActive, setIsDashboardQuickGuideActive] = useState(false);
   const pathname = usePathname();
   const isHiddenPathname = HIDDEN_PATHNAMES.some((hidden) => pathname.includes(hidden));
+  const isCompactLauncher = pathname.startsWith("/dashboard");
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   const quickActions = useMemo(() => getQuickActions(pathname), [pathname]);
   const welcomeMessage = useMemo(() => getWelcomeMessage(pathname), [pathname]);
@@ -402,17 +403,21 @@ export default function AIChatButton() {
             onClick={handleToggle}
             aria-expanded={isOpen}
             aria-label={"Åbn SkoleGPS-assistent"}
-            className="inline-flex items-center gap-2.5 rounded-full border border-emerald-500/20 bg-slate-950/84 px-3 py-2 text-emerald-50 shadow-[0_18px_45px_rgba(15,23,42,0.18)] backdrop-blur-md transition-[transform,box-shadow,border-color,background-color] duration-300 hover:-translate-y-0.5 hover:border-emerald-400/35 hover:bg-slate-950/92 hover:shadow-[0_20px_50px_rgba(6,78,59,0.24)]"
+            className={`inline-flex items-center rounded-full border border-emerald-500/20 bg-slate-950/84 text-emerald-50 shadow-[0_18px_45px_rgba(15,23,42,0.18)] backdrop-blur-md transition-[transform,box-shadow,border-color,background-color] duration-300 hover:-translate-y-0.5 hover:border-emerald-400/35 hover:bg-slate-950/92 hover:shadow-[0_20px_50px_rgba(6,78,59,0.24)] ${
+              isCompactLauncher ? "h-12 w-12 justify-center p-0" : "gap-2.5 px-3 py-2"
+            }`}
           >
             <Image
               src="/skolegps-logo.svg"
               alt={"SkoleGPS logo"}
               width={32}
               height={32}
-              className="h-5.5 w-auto opacity-90"
+              className={`${isCompactLauncher ? "h-6" : "h-5.5"} w-auto opacity-90`}
             />
-            <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400/85" />
-            <span className="text-sm font-medium tracking-[0.04em] text-emerald-50">SkoleGPS-assistent</span>
+            <span className={`${isCompactLauncher ? "hidden" : "inline-flex"} h-2 w-2 rounded-full bg-emerald-400/85`} />
+            <span className={isCompactLauncher ? "sr-only" : "text-sm font-medium tracking-[0.04em] text-emerald-50"}>
+              SkoleGPS-assistent
+            </span>
           </button>
         </div>
       </div>

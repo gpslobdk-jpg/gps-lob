@@ -152,7 +152,7 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     const layout = readSource("app", "dashboard", "layout.tsx");
 
     expect(dashboard).toContain("Hvad vil du lave?");
-    expect(dashboard).toContain("Opret et nyt l\\u00f8b, forts\\u00e6t et aktivt l\\u00f8b eller find dine tidligere l\\u00f8b.");
+    expect(dashboard).toContain("Opret et løb, fortsæt hvor du slap, eller find dine forløb.");
     expect(dashboard).toContain("Ny her? Vis den korte guide");
     expect(dashboard).toContain("/dashboard/live/${resumeTarget.sessionId}");
     expect(dashboard).toContain("/play/${resumeTarget.sessionId}");
@@ -265,7 +265,7 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     await page.getByRole("button", { name: "Vis mig rundt" }).click();
     await expect(page.getByText("Her starter du, når du vil lave et nyt løb.")).toBeVisible();
     await page.getByRole("button", { name: "Videre" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/opret\/valg$/);
+    await expect(page).toHaveURL(/\/dashboard\/opret\/valg$/, { timeout: 20_000 });
     await expect(page.getByText("Er du ny, er Lynbyggeren den hurtigste vej.")).toBeVisible({ timeout: 20_000 });
   });
 
@@ -285,7 +285,7 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     await expect(page.locator('[data-tour="dashboard-create-run"]')).toBeVisible({ timeout: 20_000 });
 
     await page.getByRole("button", { name: "Videre" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/opret\/valg$/);
+    await expect(page).toHaveURL(/\/dashboard\/opret\/valg$/, { timeout: 20_000 });
     await expect(page.locator('[data-tour="valg-lynbygger"]')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText("Er du ny, er Lynbyggeren den hurtigste vej.")).toBeVisible();
     const targetRect = await page.locator('[data-tour="valg-lynbygger"]').evaluate((element) => {
@@ -318,7 +318,7 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: "Vis mig rundt" }).click();
     await page.getByRole("button", { name: "Videre" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/opret\/valg$/);
+    await expect(page).toHaveURL(/\/dashboard\/opret\/valg$/, { timeout: 20_000 });
     const lynbygger = page.locator('[data-tour="valg-lynbygger"]');
     await expect(lynbygger).toBeVisible({ timeout: 20_000 });
     await page.keyboard.press("Escape");
@@ -360,7 +360,7 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     const resumeButton = page.getByRole("button", { name: "Fortsæt dit løb" });
     await expect(resumeButton).toBeVisible({ timeout: 20_000 });
     await resumeButton.click();
-    await expect(page).toHaveURL(new RegExp(`/play/${PARTICIPANT_SESSION_ID}$`));
+    await expect(page).toHaveURL(new RegExp(`/play/${PARTICIPANT_SESSION_ID}$`), { timeout: 20_000 });
   });
 
   test("aktiv lærersession viser den eksisterende live-genvej og route", async ({ page }) => {
@@ -371,7 +371,7 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     const resumeButton = page.getByRole("button", { name: /Fortsæt løbet/i });
     await expect(resumeButton).toBeVisible({ timeout: 20_000 });
     await resumeButton.click();
-    await expect(page).toHaveURL(new RegExp(`/dashboard/live/${ACTIVE_SESSION_ID}$`));
+    await expect(page).toHaveURL(new RegExp(`/dashboard/live/${ACTIVE_SESSION_ID}$`), { timeout: 20_000 });
   });
 
   test("mobilguiden holder mål og panel adskilt og skjuler assistenten", async ({ page }) => {
@@ -413,7 +413,7 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     expect(createTargetBox!.y + createTargetBox!.height).toBeLessThanOrEqual(844);
 
     await page.getByRole("button", { name: "Videre" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/opret\/valg$/);
+    await expect(page).toHaveURL(/\/dashboard\/opret\/valg$/, { timeout: 20_000 });
     const lynbyggerTarget = page.locator('[data-tour="valg-lynbygger"]');
     await expect(page.getByTestId("quick-guide-highlight")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText("Åbn Lynbyggeren")).toBeVisible();

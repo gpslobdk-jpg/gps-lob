@@ -1,17 +1,18 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { Building2, Lock, ShieldCheck } from "lucide-react";
+import { ArrowRight, BookOpen, Building2, Compass, Lock, MapPin, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import Lottie from "lottie-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import Mascot from "@/components/brand/Mascot";
+import MascotMessage from "@/components/brand/MascotMessage";
+import RoutePath from "@/components/brand/RoutePath";
 import QRScannerModal from "@/components/QRScannerModal";
 import { getSiteCopy } from "@/lib/siteCopy";
 import type { SiteVariantKey } from "@/lib/siteVariant";
-import natureAnimation from "@/public/nature.json";
 
 // WelcomeModal removed — onboarding flow deprecated
 
@@ -34,10 +35,6 @@ type HomePageWindow = Window & {
   Capacitor?: CapacitorDebugBridge;
 };
 
-type NavigatorWithStandalone = Navigator & {
-  standalone?: boolean;
-};
-
 type NativeDebugSnapshot = {
   isNativeGpslobAppProp: boolean;
   isCapacitorAppState: boolean;
@@ -52,82 +49,36 @@ type NativeDebugSnapshot = {
 
 const SKOLEGPS_FACEBOOK_GROUP_URL = "https://www.facebook.com/groups/1649785632764130";
 const FACEBOOK_GROUP_MODAL_STORAGE_KEY = "skolegps-facebook-group-2026-dismissed";
-const DESKTOP_HOME_MEDIA_QUERY = "(min-width: 768px)";
-const STANDALONE_DISPLAY_MEDIA_QUERY = "(display-mode: standalone)";
-const REDUCED_MOTION_MEDIA_QUERY = "(prefers-reduced-motion: reduce)";
-
-function DesktopHomeBackground() {
-  const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
-  const [isVideoReady, setIsVideoReady] = useState(false);
-
-  useEffect(() => {
-    const desktopMedia = window.matchMedia(DESKTOP_HOME_MEDIA_QUERY);
-    const standaloneMedia = window.matchMedia(STANDALONE_DISPLAY_MEDIA_QUERY);
-    const reducedMotionMedia = window.matchMedia(REDUCED_MOTION_MEDIA_QUERY);
-
-    const updateVideoEligibility = () => {
-      const isIosStandalone = Boolean(
-        (window.navigator as NavigatorWithStandalone).standalone
-      );
-      const nextShouldLoadVideo =
-        desktopMedia.matches &&
-        !standaloneMedia.matches &&
-        !isIosStandalone &&
-        !reducedMotionMedia.matches;
-
-      setShouldLoadVideo(nextShouldLoadVideo);
-      if (!nextShouldLoadVideo) {
-        setIsVideoReady(false);
-      }
-    };
-
-    updateVideoEligibility();
-    desktopMedia.addEventListener("change", updateVideoEligibility);
-    standaloneMedia.addEventListener("change", updateVideoEligibility);
-    reducedMotionMedia.addEventListener("change", updateVideoEligibility);
-
-    return () => {
-      desktopMedia.removeEventListener("change", updateVideoEligibility);
-      standaloneMedia.removeEventListener("change", updateVideoEligibility);
-      reducedMotionMedia.removeEventListener("change", updateVideoEligibility);
-    };
-  }, []);
+function HomeScenicBackground({ isPostlob }: { isPostlob: boolean }) {
+  const desktopImage = isPostlob ? "/intro-poster.jpg" : "/brand/heroes/adventure-hero.webp";
+  const mobileImage = isPostlob ? "/intro-poster.jpg" : "/brand/heroes/adventure-hero-mobile.webp";
 
   return (
     <>
       <div
         aria-hidden="true"
         data-testid="home-static-background"
-        className="fixed inset-0 -z-20 bg-cover bg-right-top bg-[url('/intro-poster.jpg')]"
-      />
-
-      {shouldLoadVideo ? (
-        <video
-          aria-hidden="true"
-          data-testid="home-background-video"
-          src="/skolegpsforside.mp4"
-          autoPlay
-          muted
-          loop
-          playsInline
-          poster="/intro-poster.jpg"
-          preload="auto"
-          onCanPlay={(event) => {
-            event.currentTarget.muted = true;
-            event.currentTarget.defaultMuted = true;
-            event.currentTarget.volume = 0;
-            void event.currentTarget
-              .play()
-              .then(() => setIsVideoReady(true))
-              .catch(() => setIsVideoReady(false));
-          }}
-          onPlaying={() => setIsVideoReady(true)}
-          onError={() => setIsVideoReady(false)}
-          className={`fixed inset-0 -z-20 h-full w-full object-cover object-right-top transition-opacity duration-300 ${
-            isVideoReady ? "opacity-100" : "opacity-0"
-          }`}
+        className="fixed inset-0 -z-20 overflow-hidden bg-sky-100"
+      >
+        <Image
+          src={desktopImage}
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="hidden object-cover object-center md:block"
         />
-      ) : null}
+        <Image
+          src={mobileImage}
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-center md:hidden"
+        />
+      </div>
+      <div className="fixed inset-0 -z-10 bg-[linear-gradient(90deg,rgba(255,255,255,0.92)_0%,rgba(255,255,255,0.82)_42%,rgba(255,255,255,0.46)_75%,rgba(255,255,255,0.2)_100%)]" />
+      <div className="fixed inset-x-0 bottom-0 -z-10 h-48 bg-[linear-gradient(0deg,rgba(244,251,255,1),transparent)]" />
     </>
   );
 }
@@ -539,239 +490,153 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
       shouldReduceMotion={Boolean(shouldReduceMotion)}
     />
   ) : (
-    <div className="relative flex min-h-screen flex-col overflow-x-hidden text-slate-100">
+    <div className="relative flex min-h-screen flex-col overflow-x-hidden text-slate-950">
       <FacebookGroupModal shouldShow={siteVariantKey === "gpslob"} />
-        {siteVariantKey !== "postlob" ? (
-          <DesktopHomeBackground />
-        ) : (
-          <>
-            <div
-              aria-hidden="true"
-              className="fixed inset-0 -z-20 hidden lg:block pointer-events-none"
-            >
-              <div className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-sky-900/60 to-slate-950/90" />
-
-              <svg
-                viewBox="0 0 1200 600"
-                preserveAspectRatio="xMidYMid slice"
-                className="w-full h-full"
-                xmlns="http://www.w3.org/2000/svg"
-                role="img"
-                aria-hidden="true"
-              >
-                <path
-                  d="M100 480 C 300 380 500 300 700 260 C 880 230 1000 160 1100 120"
-                  fill="none"
-                  stroke="rgba(148,163,184,0.12)"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                />
-              </svg>
-
-              <div className="absolute left-[12%] top-[72%] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-300/90 shadow-[0_0_14px_rgba(45,212,191,0.4)] animate-pulse" />
-              <div className="absolute left-[40%] top-[60%] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-300/90 shadow-[0_0_14px_rgba(125,211,252,0.4)] animate-pulse" />
-              <div className="absolute left-[65%] top-[45%] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-300/90 shadow-[0_0_14px_rgba(253,224,71,0.4)] animate-pulse" />
-              <div className="absolute left-[82%] top-[30%] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-300/90 shadow-[0_0_14px_rgba(103,232,249,0.4)] animate-pulse" />
-
-              <div className="postlob-moving-dot" />
-
-              <style>{`
-                .postlob-moving-dot{
-                  position:absolute;
-                  left:12%;
-                  top:72%;
-                  width:10px;
-                  height:10px;
-                  border-radius:9999px;
-                  transform:translate(-50%,-50%);
-                  background:linear-gradient(90deg,#7ee3d3,#60a5fa);
-                  box-shadow:0 0 18px rgba(96,165,250,0.35);
-                  animation:postlob-move 5s linear infinite;
-                }
-                @keyframes postlob-move {
-                  0% { left:12%; top:72% }
-                  25% { left:40%; top:60% }
-                  50% { left:65%; top:45% }
-                  75% { left:82%; top:30% }
-                  100% { left:12%; top:72% }
-                }
-                @media (prefers-reduced-motion: reduce) {
-                  .postlob-moving-dot, .animate-pulse { animation: none !important; }
-                }
-              `}</style>
-            </div>
-
-            <div
-              aria-hidden="true"
-              className="fixed top-0 left-0 h-full w-full -z-20 bg-cover bg-center bg-[url('/intro-poster.jpg')] lg:hidden"
-            />
-          </>
-        )}
-      <div className="fixed inset-0 -z-10 bg-slate-950/70 backdrop-blur-[2px]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(16,185,129,0.16),transparent_35%),radial-gradient(circle_at_85%_95%,rgba(14,165,233,0.1),transparent_40%),radial-gradient(rgba(148,163,184,0.08)_1px,transparent_1px)] bg-size-[100%_100%,100%_100%,20px_20px] lg:hidden" />
+      <HomeScenicBackground isPostlob={siteVariantKey === "postlob"} />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(14,165,233,0.18),transparent_34%),radial-gradient(circle_at_88%_18%,rgba(34,164,71,0.12),transparent_30%)]" />
       {/* Welcome modal removed; no onboarding modal shown */}
 
-      <main className="relative mx-auto flex w-full flex-1 flex-col justify-center px-4 py-8 md:hidden">
-        <section className="flex flex-1 items-center justify-center">
-          <div className="w-full max-w-md space-y-4">
-            <div className="rounded-[2rem] border border-white/10 bg-slate-950/78 p-6 text-center shadow-[0_18px_50px_rgba(2,6,23,0.38)] backdrop-blur-xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300/80">
-                {homeCopy.brandLabel}
-              </p>
-              <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">
-                {homeCopy.mobile.title}
-              </h1>
-            </div>
+      <header className="relative z-10 mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-6 lg:px-8">
+        <Link href="/" className="inline-flex items-center gap-3 rounded-full bg-white/82 px-4 py-2 shadow-sm backdrop-blur transition hover:bg-white">
+          <Image
+            src={siteVariantKey === "postlob" ? "/postlob-logo.png" : "/skolegps-logo.svg"}
+            alt={homeCopy.logoAlt}
+            width={172}
+            height={58}
+            priority
+            className="h-auto w-34 sm:w-40"
+          />
+        </Link>
+        <nav className="flex items-center gap-2">
+          <Link
+            href="/join"
+            className="hidden min-h-11 items-center rounded-full border border-sky-200 bg-white/82 px-4 py-2 text-sm font-bold text-[var(--skolegps-deep-navy)] shadow-sm backdrop-blur transition hover:bg-white sm:inline-flex"
+          >
+            {homeCopy.desktop.joinButton}
+          </Link>
+          <Link
+            href="/login"
+            data-tour="home-organizer-login"
+            className="inline-flex min-h-11 items-center rounded-full bg-[var(--skolegps-blue-strong)] px-5 py-2 text-sm font-black text-white shadow-[0_12px_24px_rgba(3,119,216,0.22)] transition hover:bg-sky-700"
+          >
+            {homeCopy.desktop.loginButton}
+          </Link>
+        </nav>
+      </header>
 
-            <div className="rounded-[2rem] border border-emerald-400/25 bg-slate-950/82 p-6 shadow-[0_18px_50px_rgba(16,185,129,0.14)] backdrop-blur-xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300/75">
-                {homeCopy.mobile.studentEyebrow}
-              </p>
-              <p className="mt-3 text-base leading-7 text-slate-100/92">
-                {homeCopy.mobile.studentDescription}
-              </p>
-
-              <div className="mt-5 space-y-3">
-                <QRScannerModal buttonClassName="w-full justify-center py-4 text-sm" copy={siteCopy.qrScanner} />
-
-                <Link
-                  href="/join"
-                  className="flex min-h-[56px] w-full items-center justify-center rounded-[1.4rem] border border-white/12 bg-white/6 px-5 py-4 text-sm font-bold uppercase tracking-[0.18em] text-white transition hover:border-white/20 hover:bg-white/10"
-                >
-                    {homeCopy.mobile.joinCodeButton}
-                </Link>
-              </div>
-            </div>
-
-            <div className="rounded-[2rem] border border-white/10 bg-slate-950/74 p-6 shadow-[0_18px_50px_rgba(2,6,23,0.3)] backdrop-blur-xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-200/75">
-                {homeCopy.mobile.teacherEyebrow}
-              </p>
-              <p className="mt-3 text-sm leading-7 text-slate-200/88">
-                {homeCopy.mobile.teacherDescription}
-              </p>
-
-              <Link
-                href="/login"
-                className="mt-5 flex min-h-[52px] w-full items-center justify-center rounded-[1.4rem] border border-sky-200/18 bg-sky-200/8 px-5 py-4 text-sm font-bold uppercase tracking-[0.18em] text-sky-50 transition hover:border-sky-200/28 hover:bg-sky-200/12"
-              >
-                {homeCopy.mobile.loginButton}
-              </Link>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <main className="relative mx-auto hidden w-full max-w-lg flex-1 flex-col justify-center px-6 py-10 md:flex">
-        <section className="space-y-5">
-          <div className="flex justify-center">
-            <div className="relative h-44 w-full max-w-70">
-              <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
-                <Lottie
-                  animationData={natureAnimation}
-                  loop={shouldReduceMotion === false}
-                  autoplay={shouldReduceMotion === false}
-                  className="h-40 w-40 opacity-60 sm:h-48 sm:w-48"
-                />
-              </div>
-              <div className="relative z-20 flex h-full items-center justify-center">
-                <Image
-                  src={siteVariantKey === "postlob" ? "/postlob-logo.png" : "/skolegps-logo.svg"}
-                  alt={homeCopy.logoAlt}
-                  width={320}
-                  height={140}
-                  priority
-                  className="h-auto w-full max-w-52 object-contain drop-shadow-[0_10px_20px_rgba(5,46,22,0.18)]"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-emerald-500/24 bg-slate-950/76 p-7 text-center shadow-[0_0_32px_rgba(16,185,129,0.13)] backdrop-blur-xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.34em] text-emerald-400">
+      <main className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col px-5 pb-8 pt-4 sm:px-6 lg:px-8">
+        <section className="grid min-h-[calc(100vh-10rem)] items-center gap-8 py-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.58fr)] lg:py-8">
+          <div className="max-w-3xl skolegps-soft-enter">
+            <p className="inline-flex rounded-full border border-sky-200 bg-white/78 px-4 py-2 text-xs font-black uppercase text-sky-800 shadow-sm backdrop-blur">
               {homeCopy.desktop.organizerEyebrow}
             </p>
-            <h1 className="mt-3 text-2xl font-black tracking-tight text-white">
-              {homeCopy.desktop.organizerTitle}
+            <h1 className="mt-5 text-6xl font-black leading-[0.96] text-[var(--skolegps-deep-navy)] drop-shadow-[0_10px_22px_rgba(255,255,255,0.65)] sm:text-7xl lg:text-8xl">
+              {siteVariantKey === "postlob" ? homeCopy.desktop.organizerTitle : "SkoleGPS"}
             </h1>
-            <p className="mx-auto mt-3 max-w-xs text-sm leading-6 text-slate-300">
-              {homeCopy.desktop.organizerDescription}
+            <p className="mt-5 max-w-2xl text-2xl font-black text-[var(--skolegps-navy)] sm:text-3xl">
+              {siteVariantKey === "postlob"
+                ? homeCopy.desktop.organizerDescription
+                : "Læring i den virkelige verden"}
+            </p>
+            <p className="mt-4 max-w-xl text-base font-semibold leading-7 text-slate-700 sm:text-lg">
+              Opret aktive forløb, send eleverne ud på ruten og følg læringen live.
             </p>
 
-            <Link
-              href="/login"
-              data-tour="home-organizer-login"
-              className="mt-6 block w-full rounded-2xl bg-emerald-500 px-4 py-4 text-base font-black tracking-[0.08em] text-slate-950 shadow-[0_0_32px_rgba(16,185,129,0.28)] transition-all hover:bg-emerald-400 hover:shadow-[0_0_44px_rgba(16,185,129,0.38)]"
-            >
-              {homeCopy.desktop.loginButton}
-            </Link>
-
-            <Link
-              href="/join"
-              className="mt-3 flex min-h-12 w-full items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-bold text-white/90 transition hover:border-emerald-200/35 hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
-            >
-              {homeCopy.desktop.joinButton}
-            </Link>
-
-            {homeCopy.showDanishOnlyExtras ? (
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Link
-                href="/opdateringer"
-                className="mt-3 inline-flex min-h-10 items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-white/65 transition-all hover:border-white/20 hover:bg-white/8 hover:text-white"
+                href="/login?next=%2Fdashboard%2Fopret%2Fvalg"
+                className="inline-flex min-h-13 items-center justify-center gap-2 rounded-full bg-[var(--skolegps-green)] px-6 py-3 text-base font-black text-white shadow-[0_16px_32px_rgba(34,164,71,0.24)] transition hover:bg-green-700 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-green-600"
               >
-                Seneste nyt
+                <MapPin className="h-5 w-5" aria-hidden="true" />
+                Opret et løb
               </Link>
-            ) : null}
-
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
               <Link
-                href="/gdpr"
-                className="rounded-full border border-white/10 bg-white/4 px-3 py-2 transition-all hover:border-white/20 hover:bg-white/5"
+                href="/login?next=%2Fdashboard%2Flaerervaerktoejer"
+                className="inline-flex min-h-13 items-center justify-center gap-2 rounded-full bg-[var(--skolegps-blue-strong)] px-6 py-3 text-base font-black text-white shadow-[0_16px_32px_rgba(3,119,216,0.22)] transition hover:bg-sky-700 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
               >
-                <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-300/80" />
-                  <span>{homeCopy.legalLinks.gdpr}</span>
-                </span>
+                <BookOpen className="h-5 w-5" aria-hidden="true" />
+                Lærerværktøjer
               </Link>
-
               <Link
-                href="/privacy"
-                className="rounded-full border border-white/10 bg-white/4 px-3 py-2 transition-all hover:border-white/20 hover:bg-white/5"
+                href="/join"
+                className="inline-flex min-h-13 items-center justify-center gap-2 rounded-full border border-sky-200 bg-white/84 px-6 py-3 text-base font-black text-[var(--skolegps-deep-navy)] shadow-sm backdrop-blur transition hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
               >
-                <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
-                  <Lock className="h-3.5 w-3.5 text-emerald-300/80" />
-                  <span>{homeCopy.legalLinks.privacy}</span>
-                </span>
+                Deltag i løb
+                <ArrowRight className="h-5 w-5" aria-hidden="true" />
               </Link>
-
-              {homeCopy.showDanishOnlyExtras ? (
-                <Link
-                  href="/it-afdelinger"
-                  className="rounded-full border border-white/10 bg-white/4 px-3 py-2 transition-all hover:border-white/20 hover:bg-white/5"
-                >
-                  <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white/50 uppercase sm:text-xs">
-                    <Building2 className="h-3.5 w-3.5 text-sky-300/80" />
-                    <span>Til IT-afdelinger</span>
-                  </span>
-                </Link>
-              ) : null}
-
             </div>
 
-            {homeCopy.showDanishOnlyExtras ? (
-              <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-[11px] font-medium text-white/42">
-                <Link href="/gdpr" className="transition hover:text-emerald-200">
-                  Databehandling
-                </Link>
-                <span aria-hidden="true" className="text-white/20">
-                  /
-                </span>
-                <Link href="/ophavsret" className="transition hover:text-emerald-200">
-                  Ophavsret og Tekst & Node
-                </Link>
-              </div>
+            <div className="mt-8 grid gap-3 sm:grid-cols-3">
+              {[
+                ["Virkelige oplevelser", "Læring uden for klasserummet", Compass],
+                ["Motiverede elever", "Aktiv, undersøgende læring", MapPin],
+                ["Fleksible forløb", "Til mange fag og klassetrin", BookOpen],
+              ].map(([title, text, Icon]) => (
+                <div
+                  key={title as string}
+                  className="rounded-2xl border border-white/70 bg-white/72 p-4 shadow-sm backdrop-blur"
+                >
+                  <Icon className="h-5 w-5 text-sky-700" aria-hidden="true" />
+                  <p className="mt-3 text-sm font-black text-[var(--skolegps-deep-navy)]">
+                    {title as string}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{text as string}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative hidden min-h-[30rem] lg:block">
+            <RoutePath className="absolute left-[-10%] top-16 h-38 w-[125%] opacity-60" />
+            {siteVariantKey !== "postlob" ? (
+              <>
+                <Mascot variant="wave" size="hero" priority className="absolute right-8 top-8" />
+                <MascotMessage
+                  className="absolute bottom-10 left-0 max-w-xs"
+                  message="Klar til næste eventyr?"
+                  title="SkoleGPS"
+                  variant="guide"
+                />
+              </>
             ) : null}
           </div>
         </section>
+
+        <section className="grid gap-4 border-t border-sky-100/80 py-5 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto] lg:items-center">
+          <p className="text-sm font-semibold leading-6 text-slate-600">
+            Elever scanner QR-kode eller skriver løbskode. Læreren styrer resten fra dashboardet.
+          </p>
+          <QRScannerModal buttonClassName="justify-center py-3 text-sm" copy={siteCopy.qrScanner} />
+          <Link
+            href="/gdpr"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-sky-100 bg-white/76 px-4 py-2 text-sm font-bold text-slate-700 shadow-sm backdrop-blur transition hover:bg-white"
+          >
+            <ShieldCheck className="h-4 w-4 text-green-700" aria-hidden="true" />
+            {homeCopy.legalLinks.gdpr}
+          </Link>
+          <Link
+            href="/privacy"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-sky-100 bg-white/76 px-4 py-2 text-sm font-bold text-slate-700 shadow-sm backdrop-blur transition hover:bg-white"
+          >
+            <Lock className="h-4 w-4 text-sky-700" aria-hidden="true" />
+            {homeCopy.legalLinks.privacy}
+          </Link>
+        </section>
+
+        {homeCopy.showDanishOnlyExtras ? (
+          <footer className="flex flex-wrap items-center justify-center gap-3 pb-4 text-xs font-semibold text-slate-600 sm:justify-start">
+            <Link href="/opdateringer" className="transition hover:text-sky-800">
+              Seneste nyt
+            </Link>
+            <Link href="/it-afdelinger" className="inline-flex items-center gap-1 transition hover:text-sky-800">
+              <Building2 className="h-3.5 w-3.5" aria-hidden="true" />
+              Til IT-afdelinger
+            </Link>
+            <Link href="/ophavsret" className="transition hover:text-sky-800">
+              Ophavsret
+            </Link>
+          </footer>
+        ) : null}
       </main>
 
     </div>

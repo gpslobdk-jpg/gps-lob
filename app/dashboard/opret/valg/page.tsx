@@ -1,12 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowLeft, CircleHelp, Printer } from "lucide-react";
+import { ArrowLeft, CircleHelp, MapPin, Printer } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { poppins, rubik } from "@/lib/fonts";
 import { type ReactNode, useEffect, useState } from "react";
 
+import HeroBanner from "@/components/brand/HeroBanner";
 import PwaInstallTip from "@/components/PwaInstallTip";
 import {
   canCreatePremiumRun,
@@ -387,41 +388,35 @@ export default function ValgHubPage() {
 
   return (
     <main
-      className={`relative flex min-h-screen flex-col bg-gradient-to-b from-slate-300 via-slate-100 to-zinc-200 px-6 pt-0 pb-8 text-white md:px-10 md:pt-0 md:pb-10 lg:bg-none lg:bg-transparent ${poppins.className}`}
+      className={`relative flex min-h-screen flex-col bg-[var(--skolegps-muted-bg)] px-5 pt-0 pb-8 text-slate-950 sm:px-6 md:px-8 md:pb-10 lg:px-10 ${poppins.className}`}
     >
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        preload="metadata"
-        className="fixed top-0 left-0 hidden h-full w-full object-cover -z-20 lg:block"
-        src="/promo.mp4"
-      />
-      <div className="fixed inset-0 hidden bg-gradient-to-b from-slate-900/18 via-slate-900/8 to-slate-950/40 backdrop-blur-[2px] -z-10 lg:block" />
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_14%_8%,rgba(14,165,233,0.15),transparent_30%),radial-gradient(circle_at_86%_10%,rgba(247,183,51,0.12),transparent_28%),linear-gradient(180deg,#f4fbff_0%,#eef9ef_100%)]" />
 
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between py-3 md:py-4">
         <Image src="/skolegps-logo.svg" width={150} height={150} alt="SkoleGPS logo" priority />
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-2 rounded-full border border-white/18 bg-white/10 px-4 py-2 text-sm font-medium text-white shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-xl transition-all duration-300 hover:border-white/28 hover:bg-white/16"
+          className="inline-flex items-center gap-2 rounded-full border border-sky-100 bg-white/82 px-4 py-2 text-sm font-bold text-[var(--skolegps-deep-navy)] shadow-sm backdrop-blur transition hover:bg-white"
         >
-          <ArrowLeft className="h-4 w-4 text-white/82" />
+          <ArrowLeft className="h-4 w-4" />
           Tilbage
         </Link>
       </header>
 
-      <section className="mx-auto mt-4 flex w-full max-w-6xl flex-col items-center text-center md:mt-6">
-        <h1
-          className={`max-w-3xl text-4xl font-black tracking-tight text-white drop-shadow-[0_18px_40px_rgba(15,23,42,0.24)] md:text-6xl ${rubik.className}`}
-        >
-          Hvordan vil du lave dit løb?
-        </h1>
+      <section className="mx-auto mt-4 w-full max-w-6xl md:mt-6">
+        <HeroBanner
+          compact
+          eyebrow="Opret løb"
+          icon={MapPin}
+          mascot="guide"
+          title="Hvordan vil du lave dit løb?"
+          subtitle="Start hurtigt med Lynbyggeren eller vælg en bestemt aktivitet."
+        />
       </section>
 
-      <aside className="mx-auto mt-6 w-full max-w-3xl rounded-2xl border border-sky-300/55 bg-sky-950/72 px-5 py-4 text-left shadow-[0_18px_46px_rgba(15,23,42,0.24)] backdrop-blur-xl lg:hidden">
-        <p className="text-sm font-black text-sky-100">Bedst på computer</p>
-        <p className="mt-1 text-sm leading-6 text-sky-50/82">
+      <aside className="mx-auto mt-6 w-full max-w-3xl rounded-2xl border border-sky-100 bg-white/84 px-5 py-4 text-left shadow-[0_14px_36px_rgba(7,26,58,0.08)] backdrop-blur lg:hidden">
+        <p className="text-sm font-black text-[var(--skolegps-deep-navy)]">Bedst på computer</p>
+        <p className="mt-1 text-sm leading-6 text-slate-600">
           Oprettelse og redigering af løb fungerer bedst på en større skærm, hvor der er plads til kort og spørgsmål.
         </p>
       </aside>
@@ -459,10 +454,10 @@ export default function ValgHubPage() {
       </section>
 
       <section className="mx-auto mt-12 w-full max-w-6xl">
-        <h2 className={`mb-8 text-center text-2xl font-black tracking-tight text-white drop-shadow-md sm:text-3xl ${rubik.className}`}>
+        <h2 className={`mb-8 text-center text-2xl font-black text-[var(--skolegps-deep-navy)] sm:text-3xl ${rubik.className}`}>
           Andre måder at lave et løb
         </h2>
-        <h2 className={`text-2xl font-black tracking-[0.18em] text-white drop-shadow-md uppercase mb-3 ${rubik.className}`}>
+        <h2 className={`text-2xl font-black text-[var(--skolegps-deep-navy)] uppercase mb-3 ${rubik.className}`}>
           Faglige Værktøjer
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
@@ -471,9 +466,9 @@ export default function ValgHubPage() {
           ))}
         </div>
 
-        <div className="w-full h-px bg-white/10 my-12" />
+        <div className="w-full h-px bg-sky-100 my-12" />
 
-        <h2 className={`text-2xl font-black tracking-[0.18em] text-white drop-shadow-md uppercase mb-3 ${rubik.className}`}>
+        <h2 className={`text-2xl font-black text-[var(--skolegps-deep-navy)] uppercase mb-3 ${rubik.className}`}>
           Kreative Værktøjer & Scannere
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
@@ -482,9 +477,9 @@ export default function ValgHubPage() {
           ))}
         </div>
 
-        <div className="w-full h-px bg-white/10 my-12" />
+        <div className="w-full h-px bg-sky-100 my-12" />
 
-        <h2 className={`text-2xl font-black tracking-[0.18em] text-white drop-shadow-md uppercase mb-3 ${rubik.className}`}>
+        <h2 className={`text-2xl font-black text-[var(--skolegps-deep-navy)] uppercase mb-3 ${rubik.className}`}>
           Analoge Værktøjer
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 justify-items-center gap-8">
@@ -524,9 +519,9 @@ export default function ValgHubPage() {
           </Link>
         </div>
 
-        <div className="w-full h-px bg-white/10 my-12" />
+        <div className="w-full h-px bg-sky-100 my-12" />
 
-        <h2 className={`text-2xl font-black tracking-[0.18em] text-white drop-shadow-md uppercase mb-3 ${rubik.className}`}>
+        <h2 className={`text-2xl font-black text-[var(--skolegps-deep-navy)] uppercase mb-3 ${rubik.className}`}>
           Spil
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 justify-items-center gap-8">
@@ -574,11 +569,11 @@ export default function ValgHubPage() {
       </div>
 
       <div className="mt-10 flex justify-center">
-        <div className="space-x-4 text-sm text-white/68">
-          <Link href="/privacy" className="transition hover:text-white">
+        <div className="space-x-4 text-sm font-semibold text-slate-500">
+          <Link href="/privacy" className="transition hover:text-slate-800">
             Privatlivspolitik
           </Link>
-          <Link href="/teknologi" className="transition hover:text-white">
+          <Link href="/teknologi" className="transition hover:text-slate-800">
             Udvikler Info
           </Link>
         </div>

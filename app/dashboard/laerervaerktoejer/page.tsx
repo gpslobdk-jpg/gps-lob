@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowLeft,
-  ArrowRight,
-  ArrowUpRight,
   BookOpen,
   Calendar,
   Compass,
@@ -13,8 +11,10 @@ import {
   Podcast,
   School,
 } from "lucide-react";
-import { poppins, rubik } from "@/lib/fonts";
+import { poppins } from "@/lib/fonts";
 
+import HeroBanner from "@/components/brand/HeroBanner";
+import QuickActionCard from "@/components/brand/QuickActionCard";
 import { getDagensTavleSsoOrigin, getFamilySsoOrigin } from "@/lib/familySso/config";
 
 export const metadata: Metadata = {
@@ -168,114 +168,65 @@ const toolCards = [
   },
 ] as const;
 
+const toolTones = ["yellow", "blue", "rose", "green", "sand", "navy", "blue"] as const;
+
 export default function LaerervaerktoejerPage() {
   return (
-    <main className={`relative min-h-screen overflow-x-hidden bg-slate-950 text-white ${poppins.className}`}>
-      <div className="pointer-events-none absolute inset-0 z-0">
-        <video
-          src="/baggrundlearen.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          className="h-full w-full object-cover opacity-45 saturate-[0.85]"
-        />
-        <div className="absolute inset-0 bg-slate-950/70" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(16,185,129,0.22),transparent_34%),linear-gradient(120deg,rgba(15,23,42,0.92),rgba(15,23,42,0.42)_48%,rgba(6,78,59,0.78))] backdrop-blur-[2px]" />
-      </div>
+    <main className={`relative min-h-screen overflow-x-hidden bg-[var(--skolegps-muted-bg)] text-slate-950 ${poppins.className}`}>
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_14%_8%,rgba(14,165,233,0.15),transparent_30%),radial-gradient(circle_at_86%_10%,rgba(247,183,51,0.13),transparent_28%),linear-gradient(180deg,#f4fbff_0%,#eef9ef_100%)]" />
 
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[96rem] flex-col px-5 py-6 sm:px-6 sm:py-8 md:px-10 lg:px-12">
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 py-6 sm:px-6 sm:py-8 lg:px-8">
         <header className="flex items-center justify-between gap-4">
           <Link
             href="/dashboard"
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/15 bg-slate-950/55 px-4 py-2 text-sm font-bold text-white shadow-sm backdrop-blur transition hover:border-emerald-300/60 hover:text-emerald-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300/20"
+            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-sky-100 bg-white/82 px-4 py-2 text-sm font-bold text-[var(--skolegps-deep-navy)] shadow-sm backdrop-blur transition hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-200"
           >
             <ArrowLeft className="h-4 w-4" />
-            Tilbage til dashboard
+            Tilbage
           </Link>
-          <div className="hidden min-h-11 items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-300/10 px-4 py-2 text-sm font-bold text-emerald-50 shadow-sm backdrop-blur sm:inline-flex">
+          <div className="hidden min-h-11 items-center gap-2 rounded-full border border-sky-100 bg-white/82 px-4 py-2 text-sm font-bold text-sky-800 shadow-sm backdrop-blur sm:inline-flex">
             <BookOpen className="h-4 w-4" />
             SkoleGPS-familien
           </div>
         </header>
 
-        <section className="flex flex-1 flex-col justify-center py-10 sm:py-12 lg:py-16">
-          <div className="max-w-3xl">
-            <p className="inline-flex rounded-full border border-emerald-300/25 bg-emerald-300/10 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-emerald-50 backdrop-blur">
-              Lærerhub
-            </p>
-            <h1
-              className={`mt-5 break-words text-[clamp(2rem,9vw,4.5rem)] font-black tracking-tight text-white ${rubik.className}`}
-            >
-              Lærerværktøjer
-            </h1>
-            <p className="mt-4 max-w-2xl text-lg font-semibold leading-8 text-slate-100 sm:text-xl">
-              Vælg mellem årsplan, skema, ugearbejde, elevpodcast, arbejdsark, tavle og kildesøgning.
-            </p>
-          </div>
+        <section className="py-6 sm:py-8">
+          <HeroBanner
+            compact
+            eyebrow="Lærerhub"
+            icon={Compass}
+            mascot="point"
+            title="Lærerværktøjer"
+            subtitle="Planlæg, byg og find materialer uden at miste overblikket."
+          />
 
           <section
-            className="mt-9 grid grid-cols-1 auto-rows-fr items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-3"
+            className="mt-7 grid grid-cols-1 auto-rows-fr items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-3"
             aria-label="Lærerværktøjer"
           >
-            {toolCards.map((tool) => {
+            {toolCards.map((tool, index) => {
               const Icon = tool.icon;
               const isExternal = tool.href.startsWith("http");
-              const LinkIcon = isExternal ? ArrowUpRight : ArrowRight;
 
               return (
-                <article
+                <Link
                   key={tool.href}
-                  className={`group relative flex h-full min-h-[22rem] min-w-0 flex-col overflow-hidden rounded-[1.75rem] border p-6 backdrop-blur-md transition duration-300 hover:-translate-y-1 sm:min-w-56 md:p-7 ${tool.theme.card}`}
+                  href={tool.href}
+                  target={isExternal ? "_blank" : undefined}
+                  rel={isExternal ? "noopener noreferrer" : undefined}
+                  aria-label={`${tool.cta}${isExternal ? " - åbner i en ny fane" : ""}`}
+                  className="block h-full rounded-2xl focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-sky-500"
                 >
-                  <div
-                    className={`pointer-events-none absolute inset-y-8 left-0 w-1 rounded-r-full ${tool.theme.rail}`}
+                  <QuickActionCard
+                    className="min-h-60"
+                    cta={tool.cta}
+                    description={tool.description}
+                    eyebrow={tool.familyLabel}
+                    icon={Icon}
+                    title={tool.title}
+                    tone={toolTones[index % toolTones.length]}
                   />
-                  <div
-                    className={`pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent to-transparent ${tool.theme.accent}`}
-                  />
-
-                  <div className="flex min-w-0 items-start justify-between gap-3">
-                    <div
-                      className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] ${tool.theme.icon}`}
-                    >
-                      <Icon className="h-7 w-7" aria-hidden="true" />
-                    </div>
-                    <span
-                      className={`max-w-[11rem] break-words rounded-full border px-3 py-1.5 text-right text-[0.68rem] font-black uppercase leading-4 tracking-[0.12em] ${tool.theme.badge}`}
-                    >
-                      {tool.familyLabel}
-                    </span>
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <h2
-                      className={`mt-7 break-normal text-[1.35rem] font-black tracking-tight text-white [overflow-wrap:normal] [word-break:normal] sm:text-2xl lg:text-3xl ${rubik.className}`}
-                    >
-                      {tool.title}
-                    </h2>
-                    <p className="mt-4 text-sm font-semibold leading-7 text-slate-100 sm:text-base">
-                      {tool.description}
-                    </p>
-                  </div>
-
-                  <div className="mt-auto min-w-0 pt-7">
-                    <p className={`mb-3 break-normal text-xs font-semibold [overflow-wrap:normal] [word-break:normal] ${tool.theme.destination}`}>
-                      {tool.destinationLabel}
-                    </p>
-                    <Link
-                      href={tool.href}
-                      target={isExternal ? "_blank" : undefined}
-                      rel={isExternal ? "noopener noreferrer" : undefined}
-                      aria-label={`${tool.cta}${isExternal ? " – åbner i en ny fane" : ""}`}
-                      className={`inline-flex min-h-12 w-full min-w-0 items-center justify-center gap-2 rounded-xl border px-3 py-3 text-center text-xs leading-5 font-black whitespace-normal break-normal shadow-sm transition focus-visible:outline-none focus-visible:ring-4 [overflow-wrap:normal] [word-break:normal] sm:px-4 sm:text-sm ${tool.theme.button}`}
-                    >
-                      <span className="min-w-0">{tool.cta}</span>
-                      <LinkIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    </Link>
-                  </div>
-                </article>
+                </Link>
               );
             })}
           </section>

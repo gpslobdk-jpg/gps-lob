@@ -1,13 +1,15 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { BookOpen, ExternalLink, Gamepad2, Users } from "lucide-react";
-import Image from "next/image";
+import { Archive, BookOpen, ExternalLink, Gamepad2, MapPin, PlayCircle, RefreshCw, Users } from "lucide-react";
 import Link from "next/link";
-import { poppins, rubik } from "@/lib/fonts";
+import { poppins } from "@/lib/fonts";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import HeroBanner from "@/components/brand/HeroBanner";
+import MascotMessage from "@/components/brand/MascotMessage";
+import QuickActionCard from "@/components/brand/QuickActionCard";
 import PwaInstallTip from "@/components/PwaInstallTip";
 import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
 import { DASHBOARD_QUICK_GUIDE_EVENT } from "@/components/DashboardQuickGuide";
@@ -15,24 +17,6 @@ import { readStoredActiveParticipant } from "@/components/play/playUtils";
 import { createClient } from "@/utils/supabase/client";
 
 const SKOLEGPS_FACEBOOK_GROUP_URL = "https://www.facebook.com/groups/1649785632764130";
-
-const cardBaseClass =
-  "group relative mx-auto flex h-full w-full max-w-[20.5rem] flex-col overflow-hidden rounded-[2rem] border bg-white/10 p-0 text-left shadow-[0_22px_52px_rgba(15,23,42,0.16),0_8px_18px_rgba(15,23,42,0.07),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-lg transition-all duration-300";
-
-const cardPanelClass =
-  "relative flex h-full flex-col items-center justify-center rounded-[2rem] border border-white/16 bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(15,23,42,0.68))] p-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-16px_24px_rgba(15,23,42,0.12)] lg:border-white/10 lg:bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.05))]";
-
-const createCardClass =
-  "border-emerald-400/60 bg-emerald-500/10 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(16,185,129,0.16),inset_0_1px_0_rgba(255,255,255,0.18)]";
-
-const liveCardEnabledClass =
-  "border-amber-400/60 bg-amber-500/10 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(245,158,11,0.16),inset_0_1px_0_rgba(255,255,255,0.18)]";
-
-const archiveCardClass =
-  "border-fuchsia-400/60 bg-fuchsia-500/10 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(217,70,239,0.16),inset_0_1px_0_rgba(255,255,255,0.18)]";
-
-const teacherToolsCardClass =
-  "border-indigo-300/65 bg-indigo-500/10 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(99,102,241,0.15),inset_0_1px_0_rgba(255,255,255,0.18)]";
 
 type ActiveSessionRow = {
   id: string;
@@ -189,53 +173,30 @@ export default function DashboardPage() {
     setDashboardRetryKey((current) => current + 1);
   };
 
-  const liveCardClass = useMemo(() => {
-    if (isCheckingLiveSession) {
-      return `${cardBaseClass} ${liveCardEnabledClass} cursor-progress opacity-90`;
-    }
-    if (hasResumeTarget) {
-      return `${cardBaseClass} ${liveCardEnabledClass} cursor-pointer`;
-    }
-    return `${cardBaseClass} border-amber-400/60 bg-amber-500/8 cursor-not-allowed opacity-80 shadow-[0_22px_52px_rgba(15,23,42,0.16),0_12px_26px_rgba(245,158,11,0.10),inset_0_1px_0_rgba(255,255,255,0.18)]`;
-  }, [hasResumeTarget, isCheckingLiveSession]);
+  const liveCardDescription = useMemo(() => {
+    if (isParticipantResume) return "Tilbage til din post.";
+    return "Åbn livekort og svarflow.";
+  }, [isParticipantResume]);
 
   if (isCheckingLiveSession) {
     return (
       <div
-        className={`relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-6 py-12 text-white ${poppins.className}`}
+        className={`relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--skolegps-muted-bg)] px-6 py-12 text-slate-950 ${poppins.className}`}
       >
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="metadata"
-          className="fixed top-0 left-0 h-full w-full object-cover -z-20"
-          src="/promo.mp4"
-        />
-        <div className="fixed inset-0 -z-10 bg-slate-950/75 backdrop-blur-[3px]" />
-
         <div className="relative w-full max-w-6xl">
-          <div className="rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-6 shadow-[0_32px_100px_rgba(0,0,0,0.45)] backdrop-blur-2xl animate-pulse sm:p-8">
+          <div className="rounded-[1.75rem] border border-sky-100 bg-white/82 p-6 shadow-[0_24px_70px_rgba(7,26,58,0.12)] backdrop-blur animate-pulse sm:p-8">
             <div className="flex flex-col gap-8">
               <div className="space-y-4">
-                <div className="h-5 w-28 rounded-full border border-emerald-500/20 bg-slate-800/80" />
-                <div className="h-12 max-w-md rounded-2xl border border-emerald-500/20 bg-slate-800/80" />
-                <div className="h-4 max-w-xl rounded-full border border-emerald-500/20 bg-slate-800/70" />
+                <div className="h-5 w-28 rounded-full bg-sky-100" />
+                <div className="h-12 max-w-md rounded-2xl bg-sky-100" />
+                <div className="h-4 max-w-xl rounded-full bg-slate-100" />
               </div>
 
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div className="h-[300px] rounded-3xl border border-emerald-500/20 bg-slate-800/70" />
-                <div className="h-[300px] rounded-3xl border border-emerald-500/20 bg-slate-800/70" />
-                <div className="h-[300px] rounded-3xl border border-emerald-500/20 bg-slate-800/70" />
-                <div className="h-[300px] rounded-3xl border border-emerald-500/20 bg-slate-800/70" />
-                <div className="h-[300px] rounded-3xl border border-emerald-500/20 bg-slate-800/70" />
-              </div>
-
-              <div className="flex justify-center gap-4">
-                <div className="h-4 w-28 rounded-full border border-emerald-500/20 bg-slate-800/70" />
-                <div className="h-4 w-32 rounded-full border border-emerald-500/20 bg-slate-800/70" />
-                <div className="h-4 w-28 rounded-full border border-emerald-500/20 bg-slate-800/70" />
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                <div className="h-40 rounded-2xl bg-white" />
+                <div className="h-40 rounded-2xl bg-white" />
+                <div className="h-40 rounded-2xl bg-white" />
+                <div className="h-40 rounded-2xl bg-white" />
               </div>
             </div>
           </div>
@@ -247,32 +208,23 @@ export default function DashboardPage() {
   if (runCountError) {
     return (
       <div
-        className={`relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-6 py-12 text-white ${poppins.className}`}
+        className={`relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--skolegps-muted-bg)] px-6 py-12 text-slate-950 ${poppins.className}`}
       >
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="metadata"
-          className="fixed top-0 left-0 h-full w-full object-cover -z-20"
-          src="/promo.mp4"
-        />
-        <div className="fixed inset-0 -z-10 bg-slate-950/80 backdrop-blur-[3px]" />
-
-        <div className="relative w-full max-w-xl rounded-[2rem] border border-emerald-500/20 bg-slate-900/70 p-8 text-center shadow-[0_32px_100px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:p-10">
-          <h1 className={`mt-4 text-3xl font-black tracking-tight text-white ${rubik.className}`}>
+        <div className="relative w-full max-w-xl rounded-[1.75rem] border border-sky-100 bg-white p-8 text-center shadow-[0_24px_70px_rgba(7,26,58,0.13)] sm:p-10">
+          <MascotMessage message="Prøv igen, så henter vi arkivet." title="Dashboard" />
+          <h1 className="mt-6 text-3xl font-black text-[var(--skolegps-deep-navy)]">
             {"Vi kunne ikke hente dine l\u00f8b"}
           </h1>
-          <p className="mt-4 text-sm leading-relaxed text-slate-300 sm:text-base">
+          <p className="mt-4 text-sm leading-relaxed text-slate-600 sm:text-base">
             {"Pr\u00f8v igen, s\u00e5 henter vi dem igen for dig."}
           </p>
           <div className="mt-8 flex justify-center">
             <button
               type="button"
               onClick={handleRetryDashboardLoad}
-              className="inline-flex items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-500/15 px-6 py-3 text-sm font-semibold text-emerald-100 transition hover:border-emerald-300/60 hover:bg-emerald-500/25"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--skolegps-blue-strong)] px-6 py-3 text-sm font-black text-white transition hover:bg-sky-700"
             >
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
               {"Pr\u00f8v igen"}
             </button>
           </div>
@@ -283,47 +235,36 @@ export default function DashboardPage() {
 
   return (
     <div
-      className={`relative flex min-h-screen flex-col bg-gradient-to-b from-sky-300 via-emerald-50 to-emerald-200 px-6 pt-0 pb-8 text-white md:px-10 md:pt-0 md:pb-10 lg:bg-none lg:bg-transparent ${poppins.className}`}
+      className={`relative flex min-h-screen flex-col bg-[var(--skolegps-muted-bg)] px-5 pb-8 pt-6 text-slate-950 md:px-8 md:pb-10 lg:px-10 ${poppins.className}`}
     >
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        preload="metadata"
-        className="fixed top-0 left-0 hidden h-full w-full object-cover -z-20 lg:block"
-        src="/promo.mp4"
-      />
-      <div className="fixed inset-0 hidden bg-gradient-to-b from-sky-900/20 to-emerald-900/40 backdrop-blur-[2px] -z-10 lg:block" />
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_14%_8%,rgba(14,165,233,0.16),transparent_30%),radial-gradient(circle_at_86%_10%,rgba(34,164,71,0.12),transparent_28%),linear-gradient(180deg,#f4fbff_0%,#eef9ef_100%)]" />
 
-      <header className="flex items-center justify-between py-3 md:py-4">
-        <Image src="/skolegps-logo.svg" width={150} height={150} alt="SkoleGPS logo" priority />
-      </header>
-
-      <section className="mx-auto mt-4 flex w-full max-w-5xl flex-col items-center text-center md:mt-6">
-        <h1
-          className={`mb-2 text-4xl font-black tracking-tight text-white drop-shadow-md md:text-6xl ${rubik.className}`}
-        >
-          Hvad vil du lave?
-        </h1>
-        <p className="text-emerald-50">
-          {"Opret et nyt l\u00f8b, forts\u00e6t et aktivt l\u00f8b eller find dine tidligere l\u00f8b."}
-        </p>
-        <button
-          type="button"
-          onClick={() => window.dispatchEvent(new Event(DASHBOARD_QUICK_GUIDE_EVENT))}
-          className="mt-4 rounded-full border border-white/25 bg-slate-950/35 px-4 py-2 text-sm font-semibold text-white/90 shadow-sm backdrop-blur-md transition hover:border-white/40 hover:bg-slate-950/50 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-cyan-200"
-        >
-          Ny her? Vis den korte guide
-        </button>
+      <section className="mx-auto w-full max-w-6xl">
+        <HeroBanner
+          compact
+          eyebrow="Lærer-dashboard"
+          icon={MapPin}
+          mascot="wave"
+          title="Hvad vil du lave?"
+          subtitle="Opret et løb, fortsæt hvor du slap, eller find dine forløb."
+          actions={
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event(DASHBOARD_QUICK_GUIDE_EVENT))}
+              className="inline-flex min-h-11 items-center justify-center rounded-full border border-sky-200 bg-white/82 px-4 py-2 text-sm font-bold text-[var(--skolegps-deep-navy)] shadow-sm backdrop-blur transition hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
+            >
+              Ny her? Vis den korte guide
+            </button>
+          }
+        />
       </section>
 
-      <section className="mx-auto mt-8 w-full max-w-4xl">
+      <section className="mx-auto mt-6 w-full max-w-4xl">
         <MobileInSchoolBanner variant="dashboard" />
       </section>
 
       {/* Primary action: opret et løb er dashboardets ene tydelige hovedhandling */}
-      <section className="mx-auto mt-10 w-full max-w-2xl md:mt-14">
+      <section className="mx-auto mt-8 w-full max-w-6xl">
         <motion.button
           type="button"
           aria-label="Opret et løb"
@@ -333,76 +274,50 @@ export default function DashboardPage() {
             void router.push("/dashboard/opret/valg");
           }}
           data-tour="dashboard-create-run"
-          className="flex h-full w-full flex-col justify-center text-left"
+          className="block w-full text-left"
           aria-busy={isNavigatingCreate}
           aria-disabled={isNavigatingCreate}
         >
-          <motion.article
-            whileHover={isNavigatingCreate ? undefined : { y: -4, scale: 1.012 }}
-            className={`${cardBaseClass} ${createCardClass} ${isNavigatingCreate ? "cursor-progress opacity-85" : "cursor-pointer"}`}
-          >
-            <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_34%),radial-gradient(circle_at_bottom,rgba(16,185,129,0.22),transparent_58%)]" />
-            <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(16,185,129,0.16)]" />
-            <div className={`${cardPanelClass} text-emerald-950 sm:py-10`}>
-              <div className="relative z-10 flex w-full flex-col items-center justify-center text-center">
-                <div className="space-y-3">
-                  <p className="text-[0.7rem] font-semibold tracking-[0.18em] text-white/70 uppercase">
-                    Kom i gang
-                  </p>
-                  <h2 className={`text-[2.1rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] sm:text-[2.4rem] ${rubik.className}`}>
-                    {isNavigatingCreate ? "Gør klar til nyt løb" : "Opret et løb"}
-                  </h2>
-                  <p className="mx-auto max-w-[19rem] text-sm leading-6 text-white/84">
-                    Sæt poster på kortet, skriv spørgsmål og design et løb, der føles gennemtænkt fra første stop.
-                  </p>
-                </div>
-
-              </div>
-            </div>
-          </motion.article>
+          <motion.div whileHover={isNavigatingCreate ? undefined : { y: -3, scale: 1.006 }}>
+            <QuickActionCard
+              className="min-h-44 border-green-200"
+              cta={isNavigatingCreate ? "Åbner..." : "Start"}
+              description="Byg rute, poster og spørgsmål."
+              eyebrow="Kom i gang"
+              icon={MapPin}
+              isBusy={isNavigatingCreate}
+              title={isNavigatingCreate ? "Gør klar til nyt løb" : "Opret et løb"}
+              tone="green"
+            />
+          </motion.div>
         </motion.button>
       </section>
 
       {/* Dynamisk handling: vises kun når læreren faktisk har et aktivt løb */}
       {hasResumeTarget ? (
-        <section className="mx-auto mt-5 w-full max-w-2xl">
+        <section className="mx-auto mt-5 w-full max-w-6xl">
           <motion.button
             type="button"
             aria-label={isParticipantResume ? "Fortsæt dit løb" : "Fortsæt løbet"}
             onClick={handleLiveMonitoringClick}
-            whileHover={{ scale: 1.012 }}
-            className="flex h-full w-full flex-col justify-center text-left"
+            className="block w-full text-left"
           >
-            <motion.article whileHover={{ y: -4, scale: 1.012 }} className={liveCardClass}>
-              <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_34%),radial-gradient(circle_at_bottom,rgba(245,158,11,0.22),transparent_58%)]" />
-              <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(245,158,11,0.16)]" />
-              <div className={`${cardPanelClass} text-amber-950`}>
-                <div className="relative z-10 flex w-full flex-col items-center justify-center text-center">
-                  <div className="space-y-3">
-                    <h2 className={`text-[1.85rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
-                      {isParticipantResume ? "Fortsæt dit løb" : "Fortsæt løbet"}
-                    </h2>
-                    <p className="text-[0.7rem] font-semibold tracking-[0.18em] text-white/70 uppercase">
-                      {isParticipantResume
-                        ? "Hop direkte tilbage til din post på ruten."
-                        : "Hop direkte tilbage ind i det aktive løb."}
-                    </p>
-                    <p className="mx-auto max-w-62 text-sm leading-6 text-white/84">
-                      {isParticipantResume
-                        ? "Fortsæt direkte i spillerflowet uden at miste din fremdrift."
-                        : "Fortsæt med livekort, svarflow og overblik præcis der, hvor du slap."}
-                    </p>
-                  </div>
-
-                </div>
-              </div>
-            </motion.article>
+            <motion.div whileHover={{ y: -3, scale: 1.006 }}>
+              <QuickActionCard
+                cta="Åbn"
+                description={liveCardDescription}
+                eyebrow="Aktivt løb"
+                icon={PlayCircle}
+                title={isParticipantResume ? "Fortsæt dit løb" : "Fortsæt løbet"}
+                tone="yellow"
+              />
+            </motion.div>
           </motion.button>
         </section>
       ) : null}
 
       {/* Sekundære, men tydelige handlinger */}
-      <section className="mx-auto mt-8 grid w-full max-w-2xl grid-cols-1 justify-items-center gap-5 sm:grid-cols-2">
+      <section className="mx-auto mt-5 grid w-full max-w-6xl grid-cols-1 gap-5 md:grid-cols-3">
         <motion.button
           type="button"
           aria-label="Mine løb"
@@ -415,29 +330,16 @@ export default function DashboardPage() {
           aria-busy={isNavigatingArchive}
           aria-disabled={isNavigatingArchive}
         >
-          <motion.article
-            whileHover={isNavigatingArchive ? undefined : { y: -4, scale: 1.012 }}
-            className={`${cardBaseClass} ${archiveCardClass} ${isNavigatingArchive ? "cursor-progress opacity-85" : "cursor-pointer"}`}
-          >
-            <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_34%),radial-gradient(circle_at_bottom,rgba(217,70,239,0.22),transparent_58%)]" />
-            <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(217,70,239,0.16)]" />
-            <div className={`${cardPanelClass} text-sky-950`}>
-              <div className="relative z-10 flex w-full flex-col items-center justify-center text-center">
-                <div className="space-y-3">
-                  <h2 className={`text-[1.6rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
-                    Mine løb
-                  </h2>
-                  <p className="text-[0.7rem] font-semibold tracking-[0.18em] text-white/70 uppercase">
-                    Gemte løb, klar til genbrug.
-                  </p>
-                  <p className="mx-auto max-w-62 text-sm leading-6 text-white/84">
-                    Find dine tidligere løb, justér indholdet, og del dem hurtigt med nye klasser eller hold.
-                  </p>
-                </div>
-
-              </div>
-            </div>
-          </motion.article>
+          <motion.div whileHover={isNavigatingArchive ? undefined : { y: -3, scale: 1.006 }}>
+            <QuickActionCard
+              cta={isNavigatingArchive ? "Åbner..." : "Find"}
+              description="Find, genbrug og start forløb."
+              icon={Archive}
+              isBusy={isNavigatingArchive}
+              title="Arkiv"
+              tone="blue"
+            />
+          </motion.div>
         </motion.button>
 
         <motion.button
@@ -452,39 +354,18 @@ export default function DashboardPage() {
           aria-busy={isNavigatingTeacherTools}
           aria-disabled={isNavigatingTeacherTools}
         >
-          <motion.article
-            whileHover={isNavigatingTeacherTools ? undefined : { y: -4, scale: 1.012 }}
-            className={`${cardBaseClass} ${teacherToolsCardClass} ${isNavigatingTeacherTools ? "cursor-progress opacity-85" : "cursor-pointer"}`}
-          >
-            <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.2),transparent_34%),radial-gradient(circle_at_bottom,rgba(99,102,241,0.2),transparent_58%)]" />
-            <div className="pointer-events-none absolute inset-[1px] rounded-[1.95rem] shadow-[inset_0_0_42px_rgba(99,102,241,0.14)]" />
-            <div className={`${cardPanelClass} text-indigo-950`}>
-              <div className="relative z-10 flex w-full flex-col items-center justify-center text-center">
-                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/18 bg-white/12 text-white shadow-[0_14px_34px_rgba(99,102,241,0.14)]">
-                  <BookOpen className="h-6 w-6" />
-                </div>
-                <div className="space-y-3">
-                  <h2 className={`text-[1.6rem] font-black tracking-tight text-white drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)] ${rubik.className}`}>
-                    Lærerværktøjer
-                  </h2>
-                  <p className="text-[0.7rem] font-semibold tracking-[0.18em] text-white/70 uppercase">
-                    Planlægning og AI-hjælp
-                  </p>
-                  <p className="mx-auto max-w-62 text-sm leading-6 text-white/84">
-                    Find værktøjer, der hjælper dig med planlægning, årsplaner og undervisningsidéer.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </motion.article>
+          <motion.div whileHover={isNavigatingTeacherTools ? undefined : { y: -3, scale: 1.006 }}>
+            <QuickActionCard
+              cta={isNavigatingTeacherTools ? "Åbner..." : "Åbn"}
+              description="Planlægning, årsplan og AI-hjælp."
+              icon={BookOpen}
+              isBusy={isNavigatingTeacherTools}
+              title="Lærerværktøjer"
+              tone="navy"
+            />
+          </motion.div>
         </motion.button>
-      </section>
 
-      {/* Flere muligheder: Mobilspil beholdes, men nedtones visuelt (samme route/handling) */}
-      <section className="mx-auto mt-6 w-full max-w-2xl">
-        <p className="mb-3 text-center text-[0.7rem] font-semibold tracking-[0.18em] text-emerald-50/70 uppercase">
-          Flere muligheder
-        </p>
         <motion.button
           type="button"
           aria-label="Mobilspil"
@@ -497,60 +378,52 @@ export default function DashboardPage() {
           aria-busy={isNavigatingMobileGames}
           aria-disabled={isNavigatingMobileGames}
         >
-          <motion.article
-            whileHover={isNavigatingMobileGames ? undefined : { y: -2, scale: 1.006 }}
-            className={`group flex w-full items-center gap-3 rounded-[1.75rem] border border-cyan-300/35 bg-slate-950/72 px-5 py-4 text-white shadow-[0_16px_38px_rgba(15,23,42,0.18)] backdrop-blur-xl transition lg:border-cyan-400/25 lg:bg-cyan-500/8 ${isNavigatingMobileGames ? "cursor-progress opacity-85" : "cursor-pointer hover:border-cyan-300/50 hover:bg-slate-950/80 lg:hover:bg-cyan-500/12"}`}
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-white">
-              <Gamepad2 className="h-5 w-5" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold leading-6 text-white/92">Mobilspil</span>
-              <span className="block text-xs leading-5 text-white/70">
-                Spil designet til elevernes telefoner.
-              </span>
-            </span>
-            <span className="shrink-0 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold text-white/90 transition group-hover:border-white/25 group-hover:bg-white/14">
-              Åbn
-            </span>
-          </motion.article>
+          <motion.div whileHover={isNavigatingMobileGames ? undefined : { y: -3, scale: 1.006 }}>
+            <QuickActionCard
+              cta={isNavigatingMobileGames ? "Åbner..." : "Åbn"}
+              description="Spil til elevernes telefoner."
+              icon={Gamepad2}
+              isBusy={isNavigatingMobileGames}
+              title="Mobilspil"
+              tone="sand"
+            />
+          </motion.div>
         </motion.button>
       </section>
 
-      <section className="mx-auto mt-7 w-full max-w-4xl">
+      <section className="mx-auto mt-7 w-full max-w-6xl">
         <Link
           href={SKOLEGPS_FACEBOOK_GROUP_URL}
           target="_blank"
           rel="noreferrer"
-          className="group flex flex-col gap-3 rounded-[1.75rem] border border-emerald-300/35 bg-slate-950/70 px-5 py-4 text-left text-white shadow-[0_16px_38px_rgba(15,23,42,0.18)] backdrop-blur-xl transition hover:border-emerald-200/60 hover:bg-slate-950/78 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+          className="group flex flex-col gap-3 rounded-2xl border border-green-100 bg-white/82 px-5 py-4 text-left text-slate-950 shadow-[0_14px_36px_rgba(7,26,58,0.08)] backdrop-blur transition hover:border-green-200 hover:bg-white sm:flex-row sm:items-center sm:justify-between sm:px-6"
         >
           <div className="flex min-w-0 items-start gap-3">
-            <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-emerald-200/20 bg-emerald-300/10 text-emerald-100">
+            <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-green-600 text-white">
               <Users className="h-5 w-5" aria-hidden="true" />
             </span>
             <span className="min-w-0">
-              <span className="block text-[11px] font-semibold tracking-[0.24em] text-emerald-200/70 uppercase">
+              <span className="block text-[11px] font-bold uppercase text-green-700">
                 SkoleGPS-gruppen
               </span>
-              <span className="mt-1 block text-sm font-semibold leading-6 text-white/92">
-                Nyt fællesskab for lærere: Få nyheder, del viden og ønsk nye funktioner i
-                Facebook-gruppen skolegps.dk.
+              <span className="mt-1 block text-sm font-semibold leading-6 text-slate-700">
+                Få nyheder, del viden og ønsk nye funktioner.
               </span>
             </span>
           </div>
-          <span className="inline-flex shrink-0 items-center gap-2 self-start rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold text-white/90 transition group-hover:border-white/25 group-hover:bg-white/14 sm:self-center">
+          <span className="inline-flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700 transition group-hover:border-green-200 group-hover:bg-green-50 sm:self-center">
             Åbn gruppe
             <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
         </Link>
       </section>
 
-      <section className="mx-auto mt-5 w-full max-w-4xl">
+      <section className="mx-auto mt-5 w-full max-w-6xl">
         <PwaInstallTip />
       </section>
 
       <footer className="mx-auto mt-auto w-full max-w-5xl pt-10 text-center">
-        <div className="flex flex-wrap justify-center gap-6 text-sm text-slate-500">
+        <div className="flex flex-wrap justify-center gap-6 text-sm font-semibold text-slate-500">
           <Link href="/dashboard/indstillinger" className="transition hover:text-slate-700">
             Indstillinger
           </Link>

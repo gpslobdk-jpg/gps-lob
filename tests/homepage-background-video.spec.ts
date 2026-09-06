@@ -3,8 +3,9 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = process.cwd();
-const VIDEO_SRC = "/skolegpsforside.mp4";
-const FALLBACK_SRC = "/intro-poster.jpg";
+const REMOVED_VIDEO_SRC = "/skolegpsforside.mp4";
+const HERO_SRC = "/brand/heroes/adventure-hero.webp";
+const HERO_MOBILE_SRC = "/brand/heroes/adventure-hero-mobile.webp";
 
 function readSource(relativePath: string) {
   return readFileSync(join(ROOT, relativePath), "utf8");
@@ -24,47 +25,31 @@ function collectTypeScriptFiles(relativeDirectory: string): string[] {
   });
 }
 
-test.describe("public homepage background video", () => {
-  test("wide desktop keeps the top of the original muted autoplay loop visible", async ({
+test.describe("public homepage scenic background", () => {
+  test("wide desktop uses the static SkoleGPS hero asset without mounting a video", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 2560, height: 912 });
     await page.goto("/");
 
-    const fallback = page.getByTestId("home-static-background");
-    const video = page.getByTestId("home-background-video");
+    const background = page.getByTestId("home-static-background");
 
-    await expect(fallback).toHaveCount(1);
-    await expect(fallback).toHaveClass(/bg-\[url\('\/intro-poster\.jpg'\)\]/);
-    await expect(fallback).toHaveClass(/bg-right-top/);
-    await expect(video).toHaveCount(1);
-    await expect(video).toHaveAttribute("src", VIDEO_SRC);
-    await expect(video).toHaveClass(/object-cover/);
-    await expect(video).toHaveClass(/object-right-top/);
+    await expect(background).toHaveCount(1);
+    await expect(page.getByTestId("home-background-video")).toHaveCount(0);
+    await expect(background.locator('img[src*="adventure-hero.webp"]')).toHaveCount(1);
+    await expect(page.getByRole("heading", { name: "SkoleGPS", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Opret et løb/i })).toHaveAttribute(
+      "href",
+      "/login?next=%2Fdashboard%2Fopret%2Fvalg",
+    );
 
-    const playbackContract = await video.evaluate((element: HTMLVideoElement) => ({
-      autoplay: element.autoplay,
-      muted: element.muted,
-      loop: element.loop,
-      playsInline: element.playsInline,
-      objectFit: window.getComputedStyle(element).objectFit,
-      objectPosition: window.getComputedStyle(element).objectPosition,
-    }));
-
-    expect(playbackContract).toEqual({
-      autoplay: true,
-      muted: true,
-      loop: true,
-      playsInline: true,
-      objectFit: "cover",
-      objectPosition: "100% 0%",
-    });
+    await expect(page.locator(`video[src="${REMOVED_VIDEO_SRC}"]`)).toHaveCount(0);
   });
 
-  test("reduced motion keeps the fallback and does not request the video", async ({ page }) => {
+  test("reduced motion keeps the static background and does not request the old video", async ({ page }) => {
     const videoRequests: string[] = [];
     page.on("request", (request) => {
-      if (new URL(request.url()).pathname === VIDEO_SRC) {
+      if (new URL(request.url()).pathname === REMOVED_VIDEO_SRC) {
         videoRequests.push(request.url());
       }
     });
@@ -84,7 +69,7 @@ test.describe("public homepage background video", () => {
   }) => {
     const videoRequests: string[] = [];
     page.on("request", (request) => {
-      if (new URL(request.url()).pathname === VIDEO_SRC) {
+      if (new URL(request.url()).pathname === REMOVED_VIDEO_SRC) {
         videoRequests.push(request.url());
       }
     });
@@ -95,10 +80,11 @@ test.describe("public homepage background video", () => {
 
     await expect(page.getByTestId("home-static-background")).toHaveCount(1);
     await expect(page.getByTestId("home-background-video")).toHaveCount(0);
+    await expect(page.getByTestId("home-static-background").locator('img[src*="adventure-hero-mobile"]')).toHaveCount(1);
     expect(videoRequests).toEqual([]);
   });
 
-  test("student routes do not reference or mount the homepage background video", async ({
+  test("student routes do not reference or mount the removed homepage video", async ({
     page,
   }) => {
     const studentFiles = [
@@ -108,16 +94,16 @@ test.describe("public homepage background video", () => {
     ];
 
     for (const studentFile of studentFiles) {
-      expect(readSource(studentFile), `${studentFile} must not load the homepage video`).not.toContain(
-        VIDEO_SRC,
+      expect(readSource(studentFile), `${studentFile} must not load the removed homepage video`).not.toContain(
+        REMOVED_VIDEO_SRC,
       );
     }
 
     await page.goto("/join");
-    await expect(page.locator(`video[src="${VIDEO_SRC}"]`)).toHaveCount(0);
+    await expect(page.locator(`video[src="${REMOVED_VIDEO_SRC}"]`)).toHaveCount(0);
   });
 
-  test("video remains outside PWA precache and standalone mode is gated", () => {
+  test("old video remains outside PWA precache and the homepage uses optimized brand assets", () => {
     const nextConfigSource = readSource("next.config.ts");
     const homePageSource = readSource("components/HomePageClient.tsx");
     const publicExcludes = nextConfigSource.match(
@@ -125,17 +111,17 @@ test.describe("public homepage background video", () => {
     )?.[1];
 
     expect(publicExcludes).toMatch(/["'`]!\*\*\/\*["'`]/);
-    expect(nextConfigSource).not.toContain(VIDEO_SRC);
-    expect(homePageSource).toContain(FALLBACK_SRC);
-    expect(homePageSource).toContain("(display-mode: standalone)");
-    expect(homePageSource).toContain("standalone?: boolean");
+    expect(nextConfigSource).not.toContain(REMOVED_VIDEO_SRC);
+    expect(homePageSource).toContain(HERO_SRC);
+    expect(homePageSource).toContain(HERO_MOBILE_SRC);
+    expect(homePageSource).not.toContain(REMOVED_VIDEO_SRC);
 
     for (const serviceWorkerPath of ["public/sw.js", "public/swe-worker-development.js"]) {
       if (existsSync(join(ROOT, serviceWorkerPath))) {
         expect(
           readSource(serviceWorkerPath),
-          `${serviceWorkerPath} must not precache ${VIDEO_SRC}`,
-        ).not.toContain(VIDEO_SRC);
+          `${serviceWorkerPath} must not precache ${REMOVED_VIDEO_SRC}`,
+        ).not.toContain(REMOVED_VIDEO_SRC);
       }
     }
   });

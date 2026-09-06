@@ -3,11 +3,29 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --skolegps-deep-navy: #071a3a;
+  --skolegps-navy: #0d2b5c;
+  --skolegps-blue: #0ea5e9;
+  --skolegps-blue-strong: #0377d8;
+  --skolegps-green: #22a447;
+  --skolegps-sky: #b9e8ff;
+  --skolegps-sand: #f6e3bd;
+  --skolegps-yellow: #f7b733;
+  --skolegps-surface: #ffffff;
+  --skolegps-muted-bg: #f4fbff;
+  --skolegps-success: #16a34a;
+  --skolegps-warning: #d97706;
+  --skolegps-error: #dc2626;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-skolegps-deep-navy: var(--skolegps-deep-navy);
+  --color-skolegps-blue: var(--skolegps-blue);
+  --color-skolegps-green: var(--skolegps-green);
+  --color-skolegps-sky: var(--skolegps-sky);
+  --color-skolegps-sand: var(--skolegps-sand);
   --font-sans: var(--font-poppins);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
@@ -24,6 +42,47 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-poppins), Arial, Helvetica, sans-serif;
+}
+
+@keyframes skolegps-mascot-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--skolegps-mascot-rotate, 0deg));
+  }
+
+  50% {
+    transform: translateY(-8px) rotate(var(--skolegps-mascot-rotate, 0deg));
+  }
+}
+
+@keyframes skolegps-route-dash {
+  to {
+    stroke-dashoffset: -42;
+  }
+}
+
+@keyframes skolegps-soft-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.skolegps-mascot-float {
+  animation: skolegps-mascot-float 5.8s ease-in-out infinite;
+}
+
+.skolegps-route-dash {
+  animation: skolegps-route-dash 15s linear infinite;
+}
+
+.skolegps-soft-enter {
+  animation: skolegps-soft-enter 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes gpslob-onboarding-enter {
@@ -59,6 +118,9 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .skolegps-mascot-float,
+  .skolegps-route-dash,
+  .skolegps-soft-enter,
   .gpslob-onboarding-enter,
   .gpslob-waiting-enter {
     animation: none;
