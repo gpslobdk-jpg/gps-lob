@@ -290,14 +290,16 @@ function LoginPageContent({ initialSiteVariantKey }: { initialSiteVariantKey: Si
       >
         <div className="relative z-10">
           <div className="flex justify-center">
-            <Image
-              src={logoSrc}
-              alt={loginCopy.logoAlt}
-              width={200}
-              height={96}
-              priority
-              className="w-48 max-w-[200px] object-contain drop-shadow-[0_10px_20px_rgba(5,150,105,0.18)]"
-            />
+            <div className="rounded-[1.4rem] bg-white/96 px-4 py-2 shadow-[0_14px_36px_rgba(2,6,23,0.24)]">
+              <Image
+                src={logoSrc}
+                alt={loginCopy.logoAlt}
+                width={230}
+                height={65}
+                priority
+                className="h-auto w-52 max-w-[230px] object-contain"
+              />
+            </div>
           </div>
 
           <h1 className="mt-4 text-center text-2xl font-bold text-white sm:text-3xl">

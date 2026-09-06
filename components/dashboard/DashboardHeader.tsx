@@ -1,11 +1,11 @@
 "use client";
 
 import { Archive, BookOpen, Home, LogOut, Settings, Volume2, VolumeX } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
-import Mascot from "@/components/brand/Mascot";
 import { useAudio } from "@/contexts/AudioContext";
 import { createClient } from "@/utils/supabase/client";
 
@@ -85,10 +85,16 @@ export default function DashboardHeader() {
         <div className="flex items-center justify-between gap-3">
           <Link
             href="/dashboard"
-            className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-100 bg-white px-3 py-2 text-sm font-black text-[var(--skolegps-deep-navy)] shadow-sm transition-all hover:border-sky-200"
+            className="inline-flex w-fit items-center rounded-full border border-sky-100 bg-white px-3 py-2 shadow-sm transition-all hover:border-sky-200"
           >
-            <Mascot variant="head-only" size="xs" />
-            SkoleGPS
+            <Image
+              src="/skolegps-logo.svg"
+              alt="SkoleGPS"
+              width={198}
+              height={56}
+              priority
+              className="h-auto w-36 sm:w-44"
+            />
           </Link>
 
           <button

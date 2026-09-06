@@ -98,14 +98,16 @@ export default function OnboardingModal({ forceOpenToken = 0 }: OnboardingModalP
               animate="show"
             >
               <motion.div variants={itemVariants} className="mb-5 flex w-full justify-center">
-                <Image
-                  src="/skolegps-logo.svg"
-                  alt="SkoleGPS logo"
-                  width={350}
-                  height={150}
-                  priority
-                  className="object-contain drop-shadow-[0_0_20px_rgba(34,211,238,0.5)]"
-                />
+                <div className="rounded-[1.6rem] bg-white/94 px-5 py-3 shadow-[0_18px_42px_rgba(2,6,23,0.28)]">
+                  <Image
+                    src="/skolegps-logo.svg"
+                    alt="SkoleGPS logo"
+                    width={350}
+                    height={98}
+                    priority
+                    className="h-auto w-72 max-w-full object-contain"
+                  />
+                </div>
               </motion.div>
 
               <motion.h2

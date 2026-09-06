@@ -42,6 +42,8 @@ test.describe("public homepage scenic background", () => {
       "href",
       "/login?next=%2Fdashboard%2Fopret%2Fvalg",
     );
+    await expect(page.getByRole("link", { name: /Deltag i løb/i })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Scan QR-kode/i })).toHaveCount(0);
 
     await expect(page.locator(`video[src="${REMOVED_VIDEO_SRC}"]`)).toHaveCount(0);
   });
@@ -106,6 +108,7 @@ test.describe("public homepage scenic background", () => {
   test("old video remains outside PWA precache and the homepage uses optimized brand assets", () => {
     const nextConfigSource = readSource("next.config.ts");
     const homePageSource = readSource("components/HomePageClient.tsx");
+    const logoSource = readSource("public/skolegps-logo.svg");
     const publicExcludes = nextConfigSource.match(
       /\bpublicExcludes\s*:\s*\[([\s\S]*?)\]/,
     )?.[1];
@@ -114,7 +117,10 @@ test.describe("public homepage scenic background", () => {
     expect(nextConfigSource).not.toContain(REMOVED_VIDEO_SRC);
     expect(homePageSource).toContain(HERO_SRC);
     expect(homePageSource).toContain(HERO_MOBILE_SRC);
+    expect(homePageSource).toContain("skolegps-scenic-drift");
+    expect(homePageSource).toContain("skolegps-route-drift");
     expect(homePageSource).not.toContain(REMOVED_VIDEO_SRC);
+    expect(logoSource).toContain("route arrow");
 
     for (const serviceWorkerPath of ["public/sw.js", "public/swe-worker-development.js"]) {
       if (existsSync(join(ROOT, serviceWorkerPath))) {

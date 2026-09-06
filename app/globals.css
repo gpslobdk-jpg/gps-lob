@@ -61,6 +61,30 @@ body {
   }
 }
 
+@keyframes skolegps-scenic-drift {
+  0%,
+  100% {
+    transform: scale(1.02) translate3d(0, 0, 0);
+  }
+
+  50% {
+    transform: scale(1.055) translate3d(-1.1%, -0.7%, 0);
+  }
+}
+
+@keyframes skolegps-route-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.34;
+  }
+
+  50% {
+    transform: translate3d(-16px, -5px, 0);
+    opacity: 0.5;
+  }
+}
+
 @keyframes skolegps-soft-enter {
   from {
     opacity: 0;
@@ -79,6 +103,17 @@ body {
 
 .skolegps-route-dash {
   animation: skolegps-route-dash 15s linear infinite;
+}
+
+.skolegps-scenic-drift {
+  animation: skolegps-scenic-drift 26s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.skolegps-route-drift {
+  animation: skolegps-route-drift 18s ease-in-out infinite;
+  will-change: transform, opacity;
 }
 
 .skolegps-soft-enter {
@@ -120,10 +155,13 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .skolegps-mascot-float,
   .skolegps-route-dash,
+  .skolegps-route-drift,
+  .skolegps-scenic-drift,
   .skolegps-soft-enter,
   .gpslob-onboarding-enter,
   .gpslob-waiting-enter {
     animation: none;
+    transform: none;
   }
 }
 

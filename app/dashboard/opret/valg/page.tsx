@@ -393,7 +393,14 @@ export default function ValgHubPage() {
       <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_14%_8%,rgba(14,165,233,0.15),transparent_30%),radial-gradient(circle_at_86%_10%,rgba(247,183,51,0.12),transparent_28%),linear-gradient(180deg,#f4fbff_0%,#eef9ef_100%)]" />
 
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between py-3 md:py-4">
-        <Image src="/skolegps-logo.svg" width={150} height={150} alt="SkoleGPS logo" priority />
+        <Image
+          src="/skolegps-logo.svg"
+          width={230}
+          height={65}
+          alt="SkoleGPS logo"
+          priority
+          className="h-auto w-48 sm:w-56"
+        />
         <Link
           href="/dashboard"
           className="inline-flex items-center gap-2 rounded-full border border-sky-100 bg-white/82 px-4 py-2 text-sm font-bold text-[var(--skolegps-deep-navy)] shadow-sm backdrop-blur transition hover:bg-white"

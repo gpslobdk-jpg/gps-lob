@@ -263,8 +263,8 @@ export default function AIChatButton() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-2.5">
                     <Image
-                      src="/skolegps-logo.svg"
-                      alt={"SkoleGPS logo"}
+                      src="/brand/logo/skolegps-arrow-mark.svg"
+                      alt={"SkoleGPS"}
                       width={28}
                       height={28}
                       className="mt-0.5 h-5 w-auto opacity-90"
@@ -408,8 +408,8 @@ export default function AIChatButton() {
             }`}
           >
             <Image
-              src="/skolegps-logo.svg"
-              alt={"SkoleGPS logo"}
+              src="/brand/logo/skolegps-arrow-mark.svg"
+              alt={"SkoleGPS"}
               width={32}
               height={32}
               className={`${isCompactLauncher ? "h-6" : "h-5.5"} w-auto opacity-90`}

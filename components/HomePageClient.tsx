@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, BookOpen, Building2, Compass, Lock, MapPin, ShieldCheck } from "lucide-react";
+import { BookOpen, Building2, Compass, Lock, MapPin, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -66,7 +66,7 @@ function HomeScenicBackground({ isPostlob }: { isPostlob: boolean }) {
           fill
           priority
           sizes="100vw"
-          className="hidden object-cover object-center md:block"
+          className="hidden object-cover object-center skolegps-scenic-drift md:block"
         />
         <Image
           src={mobileImage}
@@ -74,8 +74,11 @@ function HomeScenicBackground({ isPostlob }: { isPostlob: boolean }) {
           fill
           priority
           sizes="100vw"
-          className="object-cover object-center md:hidden"
+          className="object-cover object-center skolegps-scenic-drift md:hidden"
         />
+        {!isPostlob ? (
+          <RoutePath className="skolegps-route-drift absolute bottom-[11%] right-[-9rem] h-28 w-[44rem] opacity-40 md:bottom-[13%] md:right-[8%] md:h-32 md:w-[50rem]" />
+        ) : null}
       </div>
       <div className="fixed inset-0 -z-10 bg-[linear-gradient(90deg,rgba(255,255,255,0.92)_0%,rgba(255,255,255,0.82)_42%,rgba(255,255,255,0.46)_75%,rgba(255,255,255,0.2)_100%)]" />
       <div className="fixed inset-x-0 bottom-0 -z-10 h-48 bg-[linear-gradient(0deg,rgba(244,251,255,1),transparent)]" />
@@ -501,19 +504,21 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
           <Image
             src={siteVariantKey === "postlob" ? "/postlob-logo.png" : "/skolegps-logo.svg"}
             alt={homeCopy.logoAlt}
-            width={172}
-            height={58}
+            width={256}
+            height={72}
             priority
-            className="h-auto w-34 sm:w-40"
+            className="h-auto w-48 sm:w-56"
           />
         </Link>
         <nav className="flex items-center gap-2">
-          <Link
-            href="/join"
-            className="hidden min-h-11 items-center rounded-full border border-sky-200 bg-white/82 px-4 py-2 text-sm font-bold text-[var(--skolegps-deep-navy)] shadow-sm backdrop-blur transition hover:bg-white sm:inline-flex"
-          >
-            {homeCopy.desktop.joinButton}
-          </Link>
+          {siteVariantKey === "postlob" ? (
+            <Link
+              href="/join"
+              className="hidden min-h-11 items-center rounded-full border border-sky-200 bg-white/82 px-4 py-2 text-sm font-bold text-[var(--skolegps-deep-navy)] shadow-sm backdrop-blur transition hover:bg-white sm:inline-flex"
+            >
+              {homeCopy.desktop.joinButton}
+            </Link>
+          ) : null}
           <Link
             href="/login"
             data-tour="home-organizer-login"
@@ -557,13 +562,14 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
                 <BookOpen className="h-5 w-5" aria-hidden="true" />
                 Lærerværktøjer
               </Link>
-              <Link
-                href="/join"
-                className="inline-flex min-h-13 items-center justify-center gap-2 rounded-full border border-sky-200 bg-white/84 px-6 py-3 text-base font-black text-[var(--skolegps-deep-navy)] shadow-sm backdrop-blur transition hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
-              >
-                Deltag i løb
-                <ArrowRight className="h-5 w-5" aria-hidden="true" />
-              </Link>
+              {siteVariantKey === "postlob" ? (
+                <Link
+                  href="/join"
+                  className="inline-flex min-h-13 items-center justify-center gap-2 rounded-full border border-sky-200 bg-white/84 px-6 py-3 text-base font-black text-[var(--skolegps-deep-navy)] shadow-sm backdrop-blur transition hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
+                >
+                  {homeCopy.desktop.joinButton}
+                </Link>
+              ) : null}
             </div>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -602,11 +608,13 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
           </div>
         </section>
 
-        <section className="grid gap-4 border-t border-sky-100/80 py-5 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto] lg:items-center">
+        <section className="grid gap-4 border-t border-sky-100/80 py-5 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto] lg:items-center">
           <p className="text-sm font-semibold leading-6 text-slate-600">
-            Elever scanner QR-kode eller skriver løbskode. Læreren styrer resten fra dashboardet.
+            Elever scanner QR-kode eller skriver løbskode fra læreren. På computeren starter læreren i dashboardet.
           </p>
-          <QRScannerModal buttonClassName="justify-center py-3 text-sm" copy={siteCopy.qrScanner} />
+          {siteVariantKey === "postlob" ? (
+            <QRScannerModal buttonClassName="justify-center py-3 text-sm" copy={siteCopy.qrScanner} />
+          ) : null}
           <Link
             href="/gdpr"
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-sky-100 bg-white/76 px-4 py-2 text-sm font-bold text-slate-700 shadow-sm backdrop-blur transition hover:bg-white"
