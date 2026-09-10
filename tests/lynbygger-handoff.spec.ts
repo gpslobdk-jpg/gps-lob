@@ -507,9 +507,15 @@ test.describe("Ultraenkel Lynbygger", () => {
       await page.getByRole("button", { name: "⚡ Lav mit løb" }).click();
       const toggle = page.getByRole("switch", { name: "Fokusmode" });
       await expect(toggle).toHaveAttribute("aria-checked", "false");
+      await expect(page.getByTestId("focus-mode-setting").getByText("Status: Fra", { exact: true })).toBeVisible();
+      const toggleBounds = await toggle.boundingBox();
+      expect(toggleBounds).not.toBeNull();
+      expect(toggleBounds!.height).toBeGreaterThanOrEqual(44);
+      expect(toggleBounds!.width).toBeGreaterThanOrEqual(44);
       await toggle.focus();
       await page.keyboard.press("Space");
       await expect(toggle).toHaveAttribute("aria-checked", "true");
+      await expect(page.getByTestId("focus-mode-setting").getByText("Status: Til", { exact: true })).toBeVisible();
       await page.getByTestId("focus-mode-setting").locator("summary").click();
       await expect(page.getByText(/Vi kan ikke se, hvad eleven åbner eller besøger/)).toBeVisible();
       await expect(page.getByText(/Bed eleverne om kun at have én telefon/)).toBeVisible();
