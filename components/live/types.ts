@@ -126,6 +126,8 @@ export type TeacherLiveData = {
   isPhotoMission: boolean;
   messages: SessionMessage[];
   newMessage: string;
+  /** Authoritative participant rows for the standard teacher lobby, keyed by id. */
+  participantRoster: LiveStudentLocation[];
   studentLocations: LiveStudentLocation[];
   runQuestions: RunQuestion[];
   liveAnswers: LiveAnswer[];

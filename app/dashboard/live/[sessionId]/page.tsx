@@ -236,10 +236,10 @@ export default function LiveLobbyPage() {
     () =>
       buildEvenStartOffsets(
         live.totalPosts,
-        live.students.length,
+        live.participantRoster.length,
         live.postOrderMode
       ),
-    [live.postOrderMode, live.students.length, live.totalPosts]
+    [live.participantRoster.length, live.postOrderMode, live.totalPosts]
   );
   const assignedStartOffsets = useMemo(
     () =>
@@ -348,7 +348,7 @@ export default function LiveLobbyPage() {
         ) : (
           <TeacherLiveLobby
             joinPin={live.joinPin}
-            students={live.students}
+            participants={live.participantRoster}
             isLoading={live.isLoading}
             onStartSession={live.startSession}
             postOrderMode={showPostOrderSummary ? live.postOrderMode : undefined}

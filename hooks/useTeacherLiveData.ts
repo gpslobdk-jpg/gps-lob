@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   getTeacherMapCenter,
@@ -8,7 +8,6 @@ import {
   prependAnswer,
   toLocation,
   toLiveAnswer,
-  upsertLocation,
 } from "@/components/live/liveUtils";
 import type {
   AnswerRow,
@@ -30,8 +29,15 @@ import {
 } from "@/lib/routes/postOrderPolicy";
 import { normalizeRaceType, RACE_TYPES } from "@/utils/gpsRuns";
 import { createClient } from "@/utils/supabase/client";
+import {
+  applyParticipantRosterEvent,
+  createParticipantRoster,
+  mergeParticipantRosterSnapshot,
+  type ParticipantRosterState,
+} from "@/lib/live/participantRoster";
 
 const DEFAULT_ZONE_KRIG_DURATION_MINUTES = 15;
+const LIVE_FEED_FALLBACK_POLL_INTERVAL_MS = 8_000;
 
 type LiveFeedRecoveryReason =
   | "init"
@@ -47,6 +53,12 @@ function toTimestamp(value: string | null | undefined) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getRealtimeEventTimestamp(payload: unknown) {
+  if (!isRecord(payload)) return null;
+  const value = payload.commit_timestamp;
+  return typeof value === "string" && value.trim() ? value : null;
 }
 
 function normalizeTeacherLiveTheme(value: unknown): TeacherLiveData["theme"] {
@@ -88,7 +100,10 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   const [theme, setTheme] = useState<TeacherLiveData["theme"]>(undefined);
   const [messages, setMessages] = useState<SessionMessage[]>([]);
   const [newMessage, setNewMessageState] = useState("");
-  const [studentLocations, setStudentLocations] = useState<LiveStudentLocation[]>([]);
+  const participantRosterRef = useRef<ParticipantRosterState>(createParticipantRoster([]));
+  const [participantRosterState, setParticipantRosterState] = useState<ParticipantRosterState>(
+    () => participantRosterRef.current
+  );
   const [runQuestions, setRunQuestions] = useState<TeacherLiveData["runQuestions"]>([]);
   const [liveAnswers, setLiveAnswers] = useState<TeacherLiveData["liveAnswers"]>([]);
   const [sessionAnswers, setSessionAnswers] = useState<TeacherLiveData["liveAnswers"]>([]);
@@ -96,6 +111,23 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   const [hasAnswersTable, setHasAnswersTable] = useState(true);
   const [isEndingRun, setIsEndingRun] = useState(false);
   const [isUpdatingPause, setIsUpdatingPause] = useState(false);
+
+  const updateParticipantRoster = useCallback(
+    (transform: (current: ParticipantRosterState) => ParticipantRosterState) => {
+      const next = transform(participantRosterRef.current);
+      if (next === participantRosterRef.current) return;
+      participantRosterRef.current = next;
+      setParticipantRosterState(next);
+    },
+    []
+  );
+
+  const replaceParticipantRoster = useCallback((next: ParticipantRosterState) => {
+    participantRosterRef.current = next;
+    setParticipantRosterState(next);
+  }, []);
+
+  const studentLocations = participantRosterState.entries;
 
   useEffect(() => {
     if (!sessionId) {
@@ -139,17 +171,43 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   }, [sessionId]);
 
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId) {
+      replaceParticipantRoster(createParticipantRoster([]));
+      setStudents([]);
+      return;
+    }
 
     const supabase = createClient();
     let isActive = true;
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    replaceParticipantRoster(createParticipantRoster([]));
     // Timer der forsinker visningen af "Genopretter live-feed" med 2 s.
     // Hvis kanalen abonnerer inden timeren udløber, annulleres timeren og
     // læreren ser aldrig advarslen (typisk ved kort WiFi-reconnect).
     let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+    let fallbackPollTimer: ReturnType<typeof setInterval> | null = null;
+
+    const stopFallbackPolling = () => {
+      if (fallbackPollTimer !== null) {
+        clearInterval(fallbackPollTimer);
+        fallbackPollTimer = null;
+      }
+    };
+
+    const startFallbackPolling = () => {
+      if (fallbackPollTimer !== null || document.visibilityState !== "visible") return;
+
+      // Realtime remains the normal path. This bounded, visible-page-only
+      // recovery path makes a missed channel event self-healing without a
+      // reload or a global polling loop.
+      fallbackPollTimer = setInterval(() => {
+        if (!isActive || document.visibilityState !== "visible") return;
+        void fetchLobbyData({ showLoading: false });
+      }, LIVE_FEED_FALLBACK_POLL_INTERVAL_MS);
+    };
 
     const scheduleRecovery = (reason: LiveFeedRecoveryReason) => {
+      startFallbackPolling();
       if (recoveryTimer !== null) return; // debounce: én ventende timer ad gangen
       recoveryTimer = setTimeout(() => {
         recoveryTimer = null;
@@ -254,6 +312,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
 
       let supportsParticipants = true;
       let locationRows: StudentRow[] = fallbackSessionStudents;
+      const participantSnapshotRevision = participantRosterRef.current.revision;
 
       const { data: participantsData, error: participantsError } = await supabase
         .from("participants")
@@ -277,9 +336,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       }
 
       const nextStudentNames = Array.from(studentNames);
-      setStudents((previous) =>
-        nextStudentNames.length > 0 || previous.length === 0 ? nextStudentNames : previous
-      );
+      setStudents(nextStudentNames);
 
       let nextLocations = locationRows
         .map((row) => toLocation(row))
@@ -293,7 +350,13 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         }));
       }
 
-      setStudentLocations(nextLocations);
+      if (supportsParticipants) {
+        updateParticipantRoster((current) =>
+          mergeParticipantRosterSnapshot(current, nextLocations, participantSnapshotRevision)
+        );
+      } else {
+        replaceParticipantRoster(createParticipantRoster(nextLocations));
+      }
       setHasParticipantsTable(supportsParticipants);
 
       const { data: messagesData, error: messagesError } = await supabase
@@ -384,7 +447,15 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
             if (name) setStudents((prev) => (prev.includes(name) ? prev : [...prev, name]));
             if (!supportsParticipants) {
               const loc = toLocation(row);
-              if (loc) setStudentLocations((prev) => upsertLocation(prev, loc));
+              if (loc) {
+                updateParticipantRoster((current) =>
+                  applyParticipantRosterEvent(current, {
+                    type: "INSERT",
+                    row: loc,
+                    eventTimestamp: getRealtimeEventTimestamp(payload),
+                  })
+                );
+              }
             }
           }
         )
@@ -414,13 +485,14 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
             if (nextSession.status) {
               setStatus(nextSession.status);
               if (!isActiveStudentSessionStatus(nextSession.status)) {
-                setStudentLocations((previous) =>
-                  previous.map((location) => ({
+                updateParticipantRoster((current) => ({
+                  ...current,
+                  entries: current.entries.map((location) => ({
                     ...location,
                     lat: null,
                     lng: null,
-                  }))
-                );
+                  })),
+                }))
               }
             }
             setGpsOverride(Boolean(nextSession.gps_override));
@@ -439,7 +511,15 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
             },
             (payload) => {
               const loc = toLocation(payload.new as StudentRow);
-              if (loc) setStudentLocations((prev) => upsertLocation(prev, loc));
+              if (loc) {
+                updateParticipantRoster((current) =>
+                  applyParticipantRosterEvent(current, {
+                    type: "INSERT",
+                    row: loc,
+                    eventTimestamp: getRealtimeEventTimestamp(payload),
+                  })
+                );
+              }
             }
           )
           .on(
@@ -453,7 +533,13 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
             (payload) => {
               const deletedId = (payload.old as { id?: string | number | null })?.id;
               if (!deletedId) return;
-              setStudentLocations((prev) => prev.filter((item) => item.id !== String(deletedId)));
+              updateParticipantRoster((current) =>
+                applyParticipantRosterEvent(current, {
+                  type: "DELETE",
+                  row: { id: String(deletedId) },
+                  eventTimestamp: getRealtimeEventTimestamp(payload),
+                })
+              );
             }
           )
           .on(
@@ -466,7 +552,15 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
             },
             (payload) => {
               const loc = toLocation(payload.new as StudentRow);
-              if (loc) setStudentLocations((prev) => upsertLocation(prev, loc));
+              if (loc) {
+                updateParticipantRoster((current) =>
+                  applyParticipantRosterEvent(current, {
+                    type: "UPDATE",
+                    row: loc,
+                    eventTimestamp: getRealtimeEventTimestamp(payload),
+                  })
+                );
+              }
             }
           );
       } else {
@@ -480,7 +574,15 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
           },
           (payload) => {
             const loc = toLocation(payload.new as StudentRow);
-            if (loc) setStudentLocations((prev) => upsertLocation(prev, loc));
+            if (loc) {
+              updateParticipantRoster((current) =>
+                applyParticipantRosterEvent(current, {
+                  type: "UPDATE",
+                  row: loc,
+                  eventTimestamp: getRealtimeEventTimestamp(payload),
+                })
+              );
+            }
           }
         );
       }
@@ -513,6 +615,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         if (!isActive) return;
         if (status === "SUBSCRIBED") {
           cancelRecovery(); // annullér eventuel ventende "recovering"-advarsel
+          stopFallbackPolling();
           setLiveFeedStatus("live");
           void fetchLobbyData({ showLoading: false });
           return;
@@ -526,6 +629,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     };
 
     const recoverLiveState = async (_reason: LiveFeedRecoveryReason) => {
+      void _reason;
       // Status er allerede sat til "recovering" af scheduleRecovery eller
       // fetchLobbyData (ved initial fetch-fejl) — sæt ikke her igen for at
       // undgå dobbelt render.
@@ -535,6 +639,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         createRealtimeChannel(supportsParticipants, supportsAnswers);
       } catch (error) {
         console.error("Kunne ikke genoprette lærerens live-data:", error);
+        startFallbackPolling();
       }
     };
 
@@ -547,6 +652,11 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     })();
 
     const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        stopFallbackPolling();
+        return;
+      }
+
       if (document.visibilityState === "visible") {
         // Giv kanalen 2 s til at genoprette selv før vi tvinger en recovery.
         scheduleRecovery("visibility_resume");
@@ -563,6 +673,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     return () => {
       isActive = false;
       cancelRecovery();
+      stopFallbackPolling();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("online", handleOnline);
       if (channel) {
@@ -570,7 +681,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         channel = null;
       }
     };
-  }, [sessionId]);
+  }, [replaceParticipantRoster, sessionId, updateParticipantRoster]);
 
   const joinPin = isLoading ? "----" : pin || "----";
   const photoAnswers = useMemo(
@@ -590,6 +701,10 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
   const totalPosts = runQuestions.length;
 
   const participantRoster = useMemo(() => {
+    if (hasParticipantsTable) {
+      return studentLocations;
+    }
+
     const participantsById = new Map<string, LiveStudentLocation>();
     const namesWithTrackedParticipants = new Set<string>();
 
@@ -619,7 +734,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     }
 
     return Array.from(participantsById.values());
-  }, [sessionId, studentLocations, students]);
+  }, [hasParticipantsTable, sessionId, studentLocations, students]);
 
   const finalStandings = useMemo<TeacherLiveStanding[]>(() => {
     const statsByParticipant = new Map<
@@ -1047,8 +1162,9 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       if (finishParticipantsError) {
         console.warn("Kunne ikke registrere afslutning paa aktive deltagere:", finishParticipantsError);
       } else {
-        setStudentLocations((previous) =>
-          previous.map((student) =>
+        updateParticipantRoster((current) => ({
+          ...current,
+          entries: current.entries.map((student) =>
             student.finished_at
               ? student
               : {
@@ -1057,8 +1173,8 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
                   lat: null,
                   lng: null,
                 }
-          )
-        );
+          ),
+        }));
       }
     }
 
@@ -1087,7 +1203,12 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       return;
     }
 
-    setStudentLocations((previous) => previous.filter((item) => item.id !== student.id));
+    updateParticipantRoster((current) =>
+      applyParticipantRosterEvent(current, {
+        type: "DELETE",
+        row: { id: student.id },
+      })
+    );
     setStudents((previous) => previous.filter((name) => name !== student.name));
   };
 
@@ -1109,6 +1230,7 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     isPhotoMission,
     messages,
     newMessage,
+    participantRoster,
     runQuestions,
     liveAnswers,
     sessionAnswers,

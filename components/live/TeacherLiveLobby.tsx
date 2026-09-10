@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { QRCode } from "react-qrcode-logo";
 
 import PostOrderSummary from "@/components/routes/PostOrderSummary";
+import type { LiveStudentLocation } from "@/components/live/types";
 import type { ActivePostOrderMode } from "@/lib/routes/postOrderPolicy";
 import phoneAnimation from "@/public/phone.json";
 
@@ -80,7 +81,7 @@ function MobilePrepCard({
 
 type TeacherLiveLobbyProps = {
   joinPin: string;
-  students: string[];
+  participants: LiveStudentLocation[];
   isLoading: boolean;
   onStartSession: () => Promise<void>;
   startHint?: string | null;
@@ -91,7 +92,7 @@ type TeacherLiveLobbyProps = {
 
 export default function TeacherLiveLobby({
   joinPin,
-  students,
+  participants,
   isLoading,
   onStartSession,
   startHint = null,
@@ -203,26 +204,26 @@ export default function TeacherLiveLobby({
 
         <section className="mt-7 w-full">
           <h2 className={`text-xl font-black tracking-wide text-emerald-800 uppercase md:text-2xl ${rubik.className}`}>
-            DELTAGERE KLAR: {students.length}
+            DELTAGERE KLAR: {participants.length}
           </h2>
 
           <div className="mt-4 flex flex-wrap gap-3">
             <AnimatePresence>
-              {students.map((name, index) => (
+              {participants.map((participant) => (
                 <motion.div
-                  key={`${name}-${index}`}
+                  key={participant.id}
                   initial={{ opacity: 0, scale: 0.9, y: 8 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.9, y: -8 }}
                   className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-white/60 px-5 py-2 font-medium text-emerald-900 shadow-sm"
                 >
                   <UserCircle className="h-4 w-4 text-emerald-700" />
-                  {name}
+                  {participant.name}
                 </motion.div>
               ))}
             </AnimatePresence>
 
-            {!isLoading && students.length === 0 ? (
+            {!isLoading && participants.length === 0 ? (
               <p className="text-sm text-emerald-700">Ingen deltagere har joinet endnu.</p>
             ) : null}
           </div>
@@ -232,7 +233,7 @@ export default function TeacherLiveLobby({
           <PostOrderSummary
             mode={postOrderMode}
             postCount={postCount}
-            participantCount={students.length}
+            participantCount={participants.length}
             startOffsets={previewStartOffsets}
             actual={false}
           />

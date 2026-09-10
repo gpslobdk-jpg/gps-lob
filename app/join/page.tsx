@@ -45,6 +45,11 @@ import {
   clearStoredActiveParticipant,
 } from "@/components/play/playUtils";
 import { buildStoredParticipantFromJoin } from "@/components/play/participantHandoff";
+import {
+  clearPendingJoinAttempt,
+  getOrCreatePendingJoinAttempt,
+  withPendingJoinAttemptLock,
+} from "@/lib/join/pendingJoinAttempt";
 import type { StoredActiveParticipant } from "@/components/play/types";
 import { createClient } from "@/utils/supabase/client";
 import { createClientTelemetryMessage, sendTelemetry } from "@/utils/telemetry";
@@ -690,6 +695,7 @@ function JoinForm() {
     setIsJoining(true);
     let shouldReleaseLock = true;
     let activeSessionId: string | null = null;
+    let registrationAttemptParticipantId: string | null = null;
     let currentStage: JoinRequestStage = "lookup";
 
     leaveAppBreadcrumb("join_attempt", {
@@ -772,23 +778,34 @@ function JoinForm() {
       }
 
       currentStage = "register";
+      const storedParticipant = readStoredActiveParticipant();
+      registrationAttemptParticipantId =
+        storedParticipant?.sessionId === joinData.sessionId
+          ? storedParticipant.participantId
+          : getOrCreatePendingJoinAttempt(joinData.sessionId, trimmedName).participantId;
+      const joinAttemptId = registrationAttemptParticipantId;
       const registerStart = Date.now();
-      const registerResponse = await fetchWithRetry(
-        "/api/join",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          cache: "no-store",
-          body: JSON.stringify({
-            sessionId: joinData.sessionId,
-            studentName: trimmedName,
-          }),
-        },
-        3,
-        JOIN_REQUEST_TIMEOUT_MS,
-        "register"
+      const registerResponse = await withPendingJoinAttemptLock(
+        joinAttemptId,
+        () =>
+          fetchWithRetry(
+            "/api/join",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              cache: "no-store",
+              body: JSON.stringify({
+                sessionId: joinData.sessionId,
+                studentName: trimmedName,
+                participantId: joinAttemptId,
+              }),
+            },
+            3,
+            JOIN_REQUEST_TIMEOUT_MS,
+            "register"
+          )
       );
       const registerDuration = Date.now() - registerStart;
       trackJoinTelemetry("join_register", joinData.sessionId ?? null, {
@@ -809,6 +826,7 @@ function JoinForm() {
         | null;
 
       if (registerResponse.status === 404) {
+        clearPendingJoinAttempt(registrationAttemptParticipantId);
         setStep("code");
         setSessionId(null);
         setError(joinCopy.invalidPin);
@@ -816,8 +834,18 @@ function JoinForm() {
       }
 
       if (registerResponse.status === 410) {
+        clearPendingJoinAttempt(registrationAttemptParticipantId);
         setExpiredMessage(joinCopy.finishedOrMissing);
         setView("expired");
+        return;
+      }
+
+      if (registerResponse.status === 403 || registerResponse.status === 409) {
+        setError(
+          registerData && "error" in registerData && registerData.error
+            ? registerData.error
+            : "Vi kunne ikke bekræfte dette hold på denne browser. Åbn løbet fra den samme browser igen."
+        );
         return;
       }
 
@@ -828,6 +856,7 @@ function JoinForm() {
       }
 
       const resolvedSessionStatus = registerData.sessionStatus ?? joinData.sessionStatus ?? null;
+      clearPendingJoinAttempt(registrationAttemptParticipantId);
       const existingParticipant = readStoredActiveParticipant();
       const shouldPreserveExistingParticipant =
         existingParticipant?.sessionId === registerData.sessionId &&
