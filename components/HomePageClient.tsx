@@ -584,6 +584,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
 
         <footer className="flex flex-wrap items-center gap-x-5 gap-y-3 py-8 text-xs font-semibold text-slate-600">
           <Link href="/om" className="transition hover:text-sky-800">Om SkoleGPS</Link>
+          <Link href="/hjaelp" className="transition hover:text-sky-800">GPS-hjælp</Link>
           <Link href="/gdpr" className="transition hover:text-sky-800">{homeCopy.legalLinks.gdpr}</Link>
           <Link href="/privacy" className="transition hover:text-sky-800">{homeCopy.legalLinks.privacy}</Link>
           <Link href="/it-afdelinger" className="transition hover:text-sky-800">Til IT og databeskyttelse</Link>

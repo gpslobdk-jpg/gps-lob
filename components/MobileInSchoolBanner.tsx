@@ -33,7 +33,7 @@ export default function MobileInSchoolBanner({
   return (
     <Link
       href="/mobil-i-skolen"
-      className={`group relative block overflow-hidden rounded-2xl border px-5 py-4 transition-all duration-200 sm:px-6 ${isDashboard ? "text-slate-950" : "text-white backdrop-blur-xl sm:py-5"} ${content.wrapperClass}`}
+      className={`group relative block overflow-hidden rounded-2xl border px-5 py-4 transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-900 sm:px-6 ${isDashboard ? "text-slate-950" : "text-white backdrop-blur-xl sm:py-5"} ${content.wrapperClass}`}
     >
       <div className="relative flex items-center gap-3">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${isDashboard ? "bg-sky-50 text-sky-700" : "border border-white/15 bg-white/10 text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]"}`}>

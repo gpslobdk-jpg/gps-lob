@@ -45,13 +45,20 @@ test.describe("public homepage scenic background", () => {
       "/login?next=%2Fdashboard%2Fopret%2Fvalg",
     );
     await expect(page.getByRole("link", { name: /Deltag i et løb som elev/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Læs debatten/i })).toHaveAttribute(
+    const newsBanner = page.getByRole("link", { name: /Læs debatten/i });
+    await expect(newsBanner).toHaveAttribute(
       "href",
       "/mobil-i-skolen",
     );
+    await newsBanner.focus();
+    await expect(newsBanner).toBeFocused();
     await expect(page.getByRole("button", { name: /Scan QR-kode/i })).toHaveCount(0);
     await expect(page.getByRole("dialog", { name: /SkoleGPS-gruppen/i })).toHaveCount(0);
     await expect(page.getByText(/Planlæg, start og behold overblikket/i)).toBeVisible();
+    await expect(page.getByRole("link", { name: "GPS-hjælp", exact: true })).toHaveAttribute(
+      "href",
+      "/hjaelp",
+    );
 
     await expect(page.locator(`video[src="${REMOVED_VIDEO_SRC}"]`)).toHaveCount(0);
   });
@@ -121,6 +128,16 @@ test.describe("public homepage scenic background", () => {
       "href",
       /ft\.dk/,
     );
+  });
+
+  test("the footer GPS guide preserves the student’s existing team and progress", async ({ page }) => {
+    await page.goto("/hjaelp");
+
+    await expect(
+      page.getByRole("heading", { name: "GPS-hjælp, når placeringen mangler" }),
+    ).toBeVisible();
+    await expect(page.getByText(/Hold og fremdrift bliver bevaret/i)).toBeVisible();
+    await expect(page.getByText(/ikke eleven rydde browserdata/i)).toBeVisible();
   });
 
   test("student routes do not reference or mount the removed homepage video", async ({
