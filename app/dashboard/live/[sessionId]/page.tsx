@@ -398,7 +398,7 @@ export default function LiveLobbyPage() {
               allParticipants={live.studentLocations}
               liveAnswers={live.liveAnswers}
               hasParticipantsTable={live.hasParticipantsTable}
-              onKickParticipant={live.kickParticipant}
+              onRemoveParticipant={live.removeParticipant}
               onClose={handleCloseModule}
             />
           ) : visibleActiveModule === "feed" ? (

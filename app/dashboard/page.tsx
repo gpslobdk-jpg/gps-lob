@@ -98,6 +98,9 @@ export default function DashboardPage() {
             .select("id,session_id,finished_at")
             .eq("id", storedParticipant.participantId)
             .is("finished_at", null)
+            // The soft-removal migration is released before this client code.
+            // A removed identity must never be offered a stale dashboard resume.
+            .is("removed_at", null)
             .maybeSingle();
 
           if (participantError) console.error("Kunne ikke tjekke aktiv deltagerstatus:", participantError);

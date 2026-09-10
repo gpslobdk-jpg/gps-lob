@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import {
+  PARTICIPANT_REMOVED_CODE,
+  PARTICIPANT_REMOVED_MESSAGE,
+} from "@/lib/live/participantRemoval";
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
+import { readFindBedragerenParticipantAccess } from "@/app/api/find-bedrageren/_participantAccess";
 
 type AdminSupabaseClient = NonNullable<ReturnType<typeof createAdminClient>>;
 
@@ -27,6 +32,7 @@ type ParticipantRow = {
   id: string;
   session_id: string | null;
   student_name: string | null;
+  removed_at?: string | null;
 };
 
 type FindBedragerenPlayerRow = {
@@ -118,7 +124,7 @@ async function fetchParticipantById(
 ) {
   const { data, error } = await adminSupabase
     .from("participants")
-    .select("id,session_id,student_name")
+    .select("id,session_id,student_name,removed_at")
     .eq("id", participantId)
     .eq("session_id", sessionId)
     .maybeSingle<ParticipantRow>();
@@ -184,10 +190,11 @@ async function updateParticipantName(
 
   for (const payload of payloads) {
     const { error } = await adminSupabase
-      .from("participants")
-      .update(payload)
-      .eq("id", participantId)
-      .eq("session_id", sessionId);
+    .from("participants")
+    .update(payload)
+    .eq("id", participantId)
+    .eq("session_id", sessionId)
+    .is("removed_at", null);
 
     if (!error) {
       return await fetchParticipantById(sessionId, participantId, adminSupabase);
@@ -330,12 +337,19 @@ export async function POST(request: NextRequest) {
       ? await fetchParticipantById(liveSession.id, reusableParticipantId, adminSupabase)
       : null;
 
+    if (reusableParticipant?.removed_at) {
+      return respond({ error: PARTICIPANT_REMOVED_MESSAGE, code: PARTICIPANT_REMOVED_CODE }, 410);
+    }
+
     const participant = reusableParticipant
       ? await updateParticipantName(liveSession.id, reusableParticipant.id, studentName, adminSupabase)
       : await createParticipant(liveSession.id, studentName, adminSupabase);
 
     if (!participant?.id) {
       throw new Error("Deltageren kunne ikke oprettes.");
+    }
+    if (participant.removed_at) {
+      return respond({ error: PARTICIPANT_REMOVED_MESSAGE, code: PARTICIPANT_REMOVED_CODE }, 410);
     }
 
     const normalizedStudentName = asTrimmedString(participant.student_name) || studentName;
@@ -392,6 +406,18 @@ export async function GET(request: NextRequest) {
 
   try {
     const adminSupabase = getRequiredAdminClient();
+
+    const participantAccess = await readFindBedragerenParticipantAccess(
+      sessionId,
+      participantId,
+      adminSupabase
+    );
+    if (participantAccess === "removed") {
+      return respond({ error: PARTICIPANT_REMOVED_MESSAGE, code: PARTICIPANT_REMOVED_CODE }, 410);
+    }
+    if (participantAccess === "missing") {
+      return respond({ error: "Du er ikke med i dette spil endnu." }, 404);
+    }
 
     const findSession = await fetchFindBedragerenSession(sessionId, adminSupabase);
     if (!findSession) {

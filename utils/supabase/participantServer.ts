@@ -5,6 +5,10 @@ import {
   ADMIN_ACCESS_MISSING_MESSAGE,
   createAdminClient,
 } from "@/utils/supabase/admin";
+import {
+  PARTICIPANT_REMOVED_CODE,
+  PARTICIPANT_REMOVED_MESSAGE,
+} from "@/lib/live/participantRemoval";
 import { PARTICIPANT_AUTH_STORAGE_KEY } from "@/utils/supabase/participantAuth";
 
 type AdminSupabaseClient = NonNullable<ReturnType<typeof createAdminClient>>;
@@ -15,6 +19,7 @@ type ParticipantRow = {
   start_offset?: number | string | null;
   zone_krig_team_id?: string | null;
   auth_user_id?: string | null;
+  removed_at?: string | null;
 };
 
 export async function createParticipantClient() {
@@ -67,7 +72,7 @@ type ResolveParticipantRequestOptions = {
 
 type ResolveParticipantRequestResult =
   | { ok: true; data: ParticipantRequestContext }
-  | { ok: false; status: number; error: string };
+  | { ok: false; status: number; error: string; code?: string };
 
 export async function resolveParticipantRequestContext(
   options: ResolveParticipantRequestOptions = {}
@@ -97,7 +102,7 @@ export async function resolveParticipantRequestContext(
 
   const { data: participantRow, error: participantError } = await adminSupabase
     .from("participants")
-    .select("id,session_id,student_name,start_offset,zone_krig_team_id,auth_user_id")
+    .select("id,session_id,student_name,start_offset,zone_krig_team_id,auth_user_id,removed_at")
     .eq("auth_user_id", user.id)
     .maybeSingle<ParticipantRow>();
 
@@ -113,6 +118,15 @@ export async function resolveParticipantRequestContext(
   const participantId = asTrimmedString(participantRow?.id);
   const sessionId = asTrimmedString(participantRow?.session_id);
   const studentName = asTrimmedString(participantRow?.student_name);
+
+  if (participantRow?.removed_at) {
+    return {
+      ok: false,
+      status: 410,
+      code: PARTICIPANT_REMOVED_CODE,
+      error: PARTICIPANT_REMOVED_MESSAGE,
+    };
+  }
 
   if (!participantId || !sessionId) {
     return {

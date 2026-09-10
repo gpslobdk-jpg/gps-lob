@@ -14,6 +14,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { poppins, rubik } from "@/lib/fonts";
+import {
+  PARTICIPANT_REMOVED_CODE,
+  PARTICIPANT_REMOVED_MESSAGE,
+} from "@/lib/live/participantRemoval";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -29,6 +33,7 @@ type SessionResponse = {
   players?: PlayerOption[];
   result?: FindBedragerenResult | null;
   error?: string;
+  code?: string;
 };
 
 type RevealResponse = {
@@ -38,12 +43,14 @@ type RevealResponse = {
   secretWord?: string;
   hasSeenRole?: boolean;
   error?: string;
+  code?: string;
 };
 
 type VoteResponse = {
   ok?: boolean;
   status?: "created" | "updated";
   error?: string;
+  code?: string;
 };
 
 type PlayerOption = {
@@ -172,6 +179,22 @@ function ErrorState({ message }: { message: string }) {
             >
               Tilbage til join
             </Link>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function RemovedState() {
+  return (
+    <main className={`fb-stage min-h-screen px-5 py-7 text-white sm:px-6 sm:py-8 ${poppins.className}`}>
+      <GameAtmosphereStyles />
+      <div className="mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-2xl items-center justify-center">
+        <section className="fb-glass-shell w-full overflow-hidden rounded-[1.75rem] border border-rose-200/20 shadow-2xl">
+          <div className="px-6 py-12 text-center sm:px-8">
+            <Shield className="mx-auto h-10 w-10 text-rose-200" />
+            <h1 className={`mt-5 text-2xl font-black ${rubik.className}`}>{PARTICIPANT_REMOVED_MESSAGE}</h1>
           </div>
         </section>
       </div>
@@ -452,6 +475,7 @@ export default function FindBedragerenStudentLobbyPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isRevealing, setIsRevealing] = useState(false);
   const [isSubmittingVote, setIsSubmittingVote] = useState(false);
+  const [isRemoved, setIsRemoved] = useState(false);
   const loadInFlightRef = useRef(false);
 
   const phaseLabel = useMemo(() => phaseLabels[phase] ?? "Lobby", [phase]);
@@ -496,6 +520,13 @@ export default function FindBedragerenStudentLobbyPage() {
         const body = (await response.json()) as SessionResponse;
 
         if (!response.ok) {
+          if (
+            response.status === 410 &&
+            (body.code === PARTICIPANT_REMOVED_CODE || body.error === PARTICIPANT_REMOVED_MESSAGE)
+          ) {
+            setIsRemoved(true);
+            return;
+          }
           throw new Error(body.error || "Kunne ikke hente spillet.");
         }
 
@@ -548,7 +579,7 @@ export default function FindBedragerenStudentLobbyPage() {
   }, [loadSession]);
 
   useEffect(() => {
-    if (!sessionId || phase === "finished") {
+    if (!sessionId || phase === "finished" || isRemoved) {
       return;
     }
 
@@ -577,7 +608,7 @@ export default function FindBedragerenStudentLobbyPage() {
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [loadSession, phase, sessionId]);
+  }, [isRemoved, loadSession, phase, sessionId]);
 
   async function handleRevealRole() {
     if (roleView) {
@@ -604,6 +635,13 @@ export default function FindBedragerenStudentLobbyPage() {
       const body = (await response.json()) as RevealResponse;
 
       if (!response.ok) {
+        if (
+          response.status === 410 &&
+          (body.code === PARTICIPANT_REMOVED_CODE || body.error === PARTICIPANT_REMOVED_MESSAGE)
+        ) {
+          setIsRemoved(true);
+          return;
+        }
         throw new Error(body.error || "Kunne ikke vise rollen.");
       }
 
@@ -672,6 +710,13 @@ export default function FindBedragerenStudentLobbyPage() {
       const body = (await response.json()) as VoteResponse;
 
       if (!response.ok) {
+        if (
+          response.status === 410 &&
+          (body.code === PARTICIPANT_REMOVED_CODE || body.error === PARTICIPANT_REMOVED_MESSAGE)
+        ) {
+          setIsRemoved(true);
+          return;
+        }
         throw new Error(body.error || "Kunne ikke gemme stemmen.");
       }
 
@@ -698,6 +743,10 @@ export default function FindBedragerenStudentLobbyPage() {
         </div>
       </main>
     );
+  }
+
+  if (isRemoved) {
+    return <RemovedState />;
   }
 
   if (error) {

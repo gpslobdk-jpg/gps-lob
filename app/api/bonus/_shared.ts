@@ -76,6 +76,32 @@ export type BonusSessionRow = {
   finished_at: string | null;
 };
 
+/**
+ * A participant row as far as the bonus game needs to know it. Bonus data has
+ * historically been name-based, so this deliberately contains no more student
+ * data than is needed to keep a removed participant out of the side game.
+ */
+export type BonusParticipantRow = {
+  id: string;
+  session_id: string;
+  student_name: string | null;
+  removed_at: string | null;
+};
+
+/**
+ * Bonus was originally allowed to be entirely anonymous. New play links carry
+ * a participant id, while a legacy URL is only associated when its name maps
+ * unambiguously to one active participant in this session. A legacy URL may
+ * be anonymous only in an otherwise participant-free session; it must not be
+ * a way to sidestep a removed participant by changing the displayed name.
+ */
+export type BonusParticipantAccess =
+  | { kind: "active"; participantId: string; studentName: string }
+  | { kind: "anonymous"; studentName: string }
+  | { kind: "removed" }
+  | { kind: "missing" }
+  | { kind: "ambiguous" };
+
 // ============================================================================
 // Rene hjælpefunktioner (ingen side-effects)
 // ============================================================================
@@ -83,6 +109,86 @@ export type BonusSessionRow = {
 /** Sikker trimmet string — identisk med mønstret i play/_shared.ts */
 export function asTrimmedString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizedBonusStudentName(value: unknown) {
+  return asTrimmedString(value).toLocaleLowerCase("da-DK");
+}
+
+/**
+ * Resolve whether a bonus request belongs to an active participant. The
+ * fallback intentionally never resumes a name that also belongs to a removed
+ * participant: without a durable id, that would make soft removal reversible.
+ */
+export async function resolveBonusParticipantAccess(
+  sessionId: string,
+  requestedParticipantId: string | null | undefined,
+  requestedStudentName: string,
+  adminSupabase: AdminSupabaseClient
+): Promise<BonusParticipantAccess> {
+  const participantId = asTrimmedString(requestedParticipantId);
+
+  if (participantId) {
+    const { data, error } = await adminSupabase
+      .from("participants")
+      .select("id,session_id,student_name,removed_at")
+      .eq("id", participantId)
+      .eq("session_id", sessionId)
+      .maybeSingle<BonusParticipantRow>();
+
+    if (error) throw new Error(error.message);
+    if (!data?.id) return { kind: "missing" };
+    if (data.removed_at) return { kind: "removed" };
+
+    return {
+      kind: "active",
+      participantId: data.id,
+      studentName: asTrimmedString(data.student_name) || requestedStudentName,
+    };
+  }
+
+  const { data, error } = await adminSupabase
+    .from("participants")
+    .select("id,session_id,student_name,removed_at")
+    .eq("session_id", sessionId);
+
+  if (error) throw new Error(error.message);
+
+  const sessionParticipants = (data ?? []) as BonusParticipantRow[];
+  const requestedName = normalizedBonusStudentName(requestedStudentName);
+  const matchingParticipants = sessionParticipants.filter(
+    (participant) => normalizedBonusStudentName(participant.student_name) === requestedName
+  );
+  if (matchingParticipants.some((participant) => Boolean(participant.removed_at))) {
+    return { kind: "removed" };
+  }
+
+  const activeParticipants = matchingParticipants.filter((participant) => Boolean(participant.id));
+  if (activeParticipants.length === 1) {
+    const participant = activeParticipants[0]!;
+    return {
+      kind: "active",
+      participantId: participant.id,
+      studentName: asTrimmedString(participant.student_name) || requestedStudentName,
+    };
+  }
+
+  if (activeParticipants.length > 1) return { kind: "ambiguous" };
+  if (sessionParticipants.length > 0) return { kind: "missing" };
+  return { kind: "anonymous", studentName: requestedStudentName };
+}
+
+/** Re-check an established bonus session before it can change score or state. */
+export async function resolveBonusSessionParticipantAccess(
+  session: Pick<BonusSessionRow, "live_session_id" | "participant_id" | "student_name">,
+  adminSupabase: AdminSupabaseClient
+) {
+  return resolveBonusParticipantAccess(
+    session.live_session_id,
+    session.participant_id,
+    session.student_name,
+    adminSupabase
+  );
 }
 
 /**
@@ -128,6 +234,7 @@ export type BonusLeaderboardRow = {
   score: number;
   total_questions: number;
   finished_at: string | null;
+  participant_id?: string | null;
 };
 
 /** Klientsikkert leaderboard-entry (camelCase) */
@@ -152,6 +259,32 @@ export function rankBonusLeaderboard(rows: BonusLeaderboardRow[]): LeaderboardEn
     totalQuestions: row.total_questions,
     finishedAt: row.finished_at ?? null,
   }));
+}
+
+/**
+ * Soft removal must also remove a participant from the optional bonus result.
+ * A legacy row with no participant id remains visible only when its name does
+ * not collide with a removed participant in the same live session.
+ */
+export function filterRemovedBonusLeaderboardRows(
+  rows: BonusLeaderboardRow[],
+  participants: BonusParticipantRow[]
+) {
+  const activeParticipantIds = new Set(
+    participants.filter((participant) => !participant.removed_at).map((participant) => participant.id)
+  );
+  const removedNames = new Set(
+    participants
+      .filter((participant) => Boolean(participant.removed_at))
+      .map((participant) => normalizedBonusStudentName(participant.student_name))
+      .filter(Boolean)
+  );
+
+  return rows.filter((row) => {
+    const participantId = asTrimmedString(row.participant_id);
+    if (participantId) return activeParticipantIds.has(participantId);
+    return !removedNames.has(normalizedBonusStudentName(row.student_name));
+  });
 }
 
 // ============================================================================

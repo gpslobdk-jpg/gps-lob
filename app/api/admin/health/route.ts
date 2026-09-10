@@ -110,7 +110,8 @@ export async function GET(request: NextRequest) {
       const fallback = await adminSupabase
         .from("participants")
         .select("student_name", { count: "exact", head: true })
-        .gte("last_updated", fiveMinutesAgo);
+        .gte("last_updated", fiveMinutesAgo)
+        .is("removed_at", null);
       liveStudents = fallback.count ?? 0;
     } else {
       liveStudents = (studentsResult.data as { count: number } | null)?.count ?? 0;

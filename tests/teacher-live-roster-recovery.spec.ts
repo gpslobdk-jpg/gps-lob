@@ -46,18 +46,28 @@ function tableFromUrl(url: string) {
   return url.match(/\/rest\/v1\/([a-z_]+)/u)?.[1] ?? null;
 }
 
-async function mockTeacherLivePage(page: Page, getParticipants: () => ParticipantRow[]) {
-  await page.context().addCookies([
-    {
-      name: "sb-xodrzahqdgbsssntupjt-auth-token.0",
-      value: authCookie(),
-      domain: "localhost",
-      path: "/",
+async function mockTeacherLivePage(
+  page: Page,
+  getParticipants: () => ParticipantRow[],
+  options: { sessionStatus?: "waiting" | "running" } = {}
+) {
+  const sessionCookie = authCookie();
+  const browserOrigin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000").origin;
+  await page.context().addCookies(
+    [
+      "sb-xodrzahqdgbsssntupjt-auth-token.0",
+      // Enables the same synthetic browser test against the isolated local
+      // Supabase stub used in CI-free QA. Production keeps the project-ref key.
+      "sb-localhost-auth-token.0",
+    ].map((name) => ({
+      name,
+      value: sessionCookie,
+      url: browserOrigin,
       httpOnly: false,
       secure: false,
-      sameSite: "Lax",
-    },
-  ]);
+      sameSite: "Lax" as const,
+    }))
+  );
 
   await page.context().route("**/auth/v1/**", async (route: Route) => {
     const url = route.request().url();
@@ -114,7 +124,7 @@ async function mockTeacherLivePage(page: Page, getParticipants: () => Participan
             id: SESSION_ID,
             run_id: RUN_ID,
             pin: "123456",
-            status: "waiting",
+            status: options.sessionStatus ?? "waiting",
             gps_override: false,
           }),
         });
@@ -198,4 +208,78 @@ test("lærerlobbyen genhenter participants uden session_students og bevarer hold
     timeout: 10_000,
   });
   await expect(page.getByText("Hold Blå", { exact: true })).toHaveCount(2);
+});
+
+test("Fjern hold er tastaturbetjent, bekræftes og bliver stående ved serverfejl", async ({ page }) => {
+  const timestamp = new Date().toISOString();
+  let participants: ParticipantRow[] = [
+    {
+      id: "participant-remove-blue",
+      session_id: SESSION_ID,
+      student_name: "Hold Blå",
+      lat: null,
+      lng: null,
+      updated_at: timestamp,
+      last_updated: timestamp,
+      run_started_at: null,
+      finished_at: null,
+      start_offset: 0,
+    },
+  ];
+  let shouldFailRemoval = true;
+
+  await mockTeacherLivePage(page, () => participants, { sessionStatus: "running" });
+  await page.route("**/api/dashboard/live/participants/remove", async (route) => {
+    if (shouldFailRemoval) {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Holdet kunne ikke fjernes. Prøv igen." }),
+      });
+      return;
+    }
+
+    participants = [];
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ removed: true, participantId: "participant-remove-blue" }),
+    });
+  });
+
+  await page.goto(`/dashboard/live/${SESSION_ID}`);
+  const leaderboardButton = page.getByRole("button", { name: "Leaderboard", exact: true });
+  await expect(leaderboardButton).toBeVisible({
+    timeout: 30_000,
+  });
+  await page.getByRole("button", { name: "Luk QR-kode", exact: true }).click();
+
+  await leaderboardButton.click();
+  await expect(page.getByRole("heading", { name: "Leaderboard", exact: true })).toBeVisible();
+
+  const actions = page.getByRole("button", { name: "Handlinger for Hold Blå", exact: true });
+  await actions.focus();
+  await page.keyboard.press("Enter");
+  await expect(actions).toHaveAttribute("aria-expanded", "true");
+
+  const menuItem = page.getByRole("menuitem", { name: "Fjern hold", exact: true });
+  await menuItem.focus();
+  await page.keyboard.press("Escape");
+  await expect(menuItem).toBeHidden();
+
+  await actions.click();
+  await menuItem.click();
+  const dialog = page.getByRole("dialog", { name: "Fjern hold", exact: true });
+  await expect(dialog).toContainText(
+    "Fjern “Hold Blå” fra løbet? Holdet kan ikke fortsætte. De andre hold fortsætter som før."
+  );
+
+  await dialog.getByRole("button", { name: "Fjern hold", exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("alert")).toHaveText("Holdet kunne ikke fjernes. Prøv igen.");
+
+  shouldFailRemoval = false;
+  await dialog.getByRole("button", { name: "Fjern hold", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText("Hold Blå", { exact: true })).toHaveCount(0);
 });

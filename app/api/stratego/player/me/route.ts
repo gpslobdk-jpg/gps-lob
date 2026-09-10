@@ -112,7 +112,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return toNoStoreJson({ error: participantContext.error }, participantContext.status);
+    return toNoStoreJson(
+      {
+        error: participantContext.error,
+        ...(participantContext.code ? { code: participantContext.code } : {}),
+      },
+      participantContext.status
+    );
   }
 
   const { adminSupabase, participantId, sessionId } = participantContext.data;

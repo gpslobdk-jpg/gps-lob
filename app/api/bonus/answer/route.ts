@@ -26,8 +26,16 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
+import {
+  PARTICIPANT_REMOVED_CODE,
+  PARTICIPANT_REMOVED_MESSAGE,
+} from "@/lib/live/participantRemoval";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
-import { asTrimmedString, type AdminSupabaseClient } from "@/app/api/bonus/_shared";
+import {
+  asTrimmedString,
+  resolveBonusSessionParticipantAccess,
+  type AdminSupabaseClient,
+} from "@/app/api/bonus/_shared";
 
 export const runtime = "edge";
 
@@ -44,6 +52,9 @@ type SubmitBonusAnswerBody = {
 
 type BonusSessionForAnswer = {
   id: string;
+  live_session_id: string;
+  student_name: string;
+  participant_id: string | null;
   gps_run_id: string;
   status: string;
   score: number;
@@ -78,7 +89,7 @@ async function fetchBonusSessionForAnswer(
 ): Promise<BonusSessionForAnswer | null> {
   const { data, error } = await adminSupabase
     .from("bonus_sessions")
-    .select("id,gps_run_id,status,score,current_index,total_questions")
+    .select("id,live_session_id,student_name,participant_id,gps_run_id,status,score,current_index,total_questions")
     .eq("id", bonusSessionId)
     .maybeSingle<BonusSessionForAnswer>();
   if (error) throw new Error(error.message);
@@ -153,7 +164,7 @@ async function updateBonusSessionAfterAnswer(
       current_index: newCurrentIndex,
     })
     .eq("id", bonusSessionId)
-    .select("id,gps_run_id,status,score,current_index,total_questions")
+    .select("id,live_session_id,student_name,participant_id,gps_run_id,status,score,current_index,total_questions")
     .single<BonusSessionForAnswer>();
   if (error) throw new Error(error.message);
   return data ?? null;
@@ -215,6 +226,26 @@ export async function POST(request: NextRequest) {
     const session = await fetchBonusSessionForAnswer(bonusSessionId, adminSupabase);
     if (!session) {
       return NextResponse.json({ error: "Bonus-session ikke fundet." }, { status: 404 });
+    }
+
+    const participantAccess = await resolveBonusSessionParticipantAccess(session, adminSupabase);
+    if (participantAccess.kind === "removed") {
+      return NextResponse.json(
+        { error: PARTICIPANT_REMOVED_MESSAGE, code: PARTICIPANT_REMOVED_CODE },
+        { status: 410, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+    if (participantAccess.kind === "missing") {
+      return NextResponse.json(
+        { error: "Bonus-sessionens deltager findes ikke længere." },
+        { status: 404, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+    if (participantAccess.kind === "ambiguous") {
+      return NextResponse.json(
+        { error: "Åbn bonusspillet fra løbets afslutning." },
+        { status: 409, headers: { "Cache-Control": "no-store" } }
+      );
     }
     if (session.status !== "active") {
       return NextResponse.json(

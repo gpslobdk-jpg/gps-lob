@@ -16,8 +16,16 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
+import {
+  PARTICIPANT_REMOVED_CODE,
+  PARTICIPANT_REMOVED_MESSAGE,
+} from "@/lib/live/participantRemoval";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
-import { asTrimmedString, type AdminSupabaseClient } from "@/app/api/bonus/_shared";
+import {
+  asTrimmedString,
+  resolveBonusSessionParticipantAccess,
+  type AdminSupabaseClient,
+} from "@/app/api/bonus/_shared";
 
 export const runtime = "edge";
 
@@ -31,6 +39,9 @@ type FinishBonusSessionBody = {
 
 type BonusSessionForFinish = {
   id: string;
+  live_session_id: string;
+  student_name: string;
+  participant_id: string | null;
   status: string;
   score: number;
   total_questions: number;
@@ -47,7 +58,7 @@ async function fetchBonusSessionForFinish(
 ): Promise<BonusSessionForFinish | null> {
   const { data, error } = await adminSupabase
     .from("bonus_sessions")
-    .select("id,status,score,total_questions,finished_at")
+    .select("id,live_session_id,student_name,participant_id,status,score,total_questions,finished_at")
     .eq("id", bonusSessionId)
     .maybeSingle<BonusSessionForFinish>();
   if (error) throw new Error(error.message);
@@ -66,7 +77,7 @@ async function finishBonusSession(
     })
     .eq("id", bonusSessionId)
     .eq("status", "active")   // Guard: opdatér kun aktive sessioner
-    .select("id,status,score,total_questions,finished_at")
+    .select("id,live_session_id,student_name,participant_id,status,score,total_questions,finished_at")
     .maybeSingle<BonusSessionForFinish>();
   if (error) throw new Error(error.message);
   return data ?? null;
@@ -103,6 +114,26 @@ export async function POST(request: NextRequest) {
     const session = await fetchBonusSessionForFinish(bonusSessionId, adminSupabase);
     if (!session) {
       return NextResponse.json({ error: "Bonus-session ikke fundet." }, { status: 404 });
+    }
+
+    const participantAccess = await resolveBonusSessionParticipantAccess(session, adminSupabase);
+    if (participantAccess.kind === "removed") {
+      return NextResponse.json(
+        { error: PARTICIPANT_REMOVED_MESSAGE, code: PARTICIPANT_REMOVED_CODE },
+        { status: 410, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+    if (participantAccess.kind === "missing") {
+      return NextResponse.json(
+        { error: "Bonus-sessionens deltager findes ikke længere." },
+        { status: 404, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+    if (participantAccess.kind === "ambiguous") {
+      return NextResponse.json(
+        { error: "Åbn bonusspillet fra løbets afslutning." },
+        { status: 409, headers: { "Cache-Control": "no-store" } }
+      );
     }
 
     // ── 2. Allerede afsluttet — returnér idempotent ───────────────────────────

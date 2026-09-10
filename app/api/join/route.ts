@@ -25,6 +25,10 @@ import {
   normalizeJoinCode,
 } from "@/lib/join/studentJoin";
 import { resolveParticipantJoinIdentity } from "@/lib/join/participantJoinIdentity";
+import {
+  PARTICIPANT_REMOVED_CODE,
+  PARTICIPANT_REMOVED_MESSAGE,
+} from "@/lib/live/participantRemoval";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 
 export const runtime = "edge";
@@ -210,6 +214,7 @@ async function fetchParticipantRecord(
     participantId?: string;
     studentName?: string;
     authUserId?: string;
+    includeRemoved?: boolean;
   }
 ) {
   const runQuery = async (selectClause: string, excludesRemovedParticipants: boolean) => {
@@ -253,7 +258,7 @@ async function fetchParticipantRecord(
   let error: SupabaseRestError | null = null;
 
   for (const [index, selectClause] of queryVariants.entries()) {
-    const excludesRemovedParticipants = index < 3;
+    const excludesRemovedParticipants = !options.includeRemoved && index < 3;
     const result = await runQuery(selectClause, excludesRemovedParticipants);
     data = result.data as ParticipantRow[] | null;
     error = result.error as SupabaseRestError | null;
@@ -353,7 +358,21 @@ async function insertParticipant(
       try {
         const existingParticipant = await fetchParticipantRecord(sessionId, adminSupabase, {
           participantId,
+          includeRemoved: true,
         });
+        if (
+          existingParticipant?.removed_at &&
+          asTrimmedString(existingParticipant.auth_user_id) === authUserId
+        ) {
+          return {
+            ok: false,
+            status: 410,
+            error: {
+              code: PARTICIPANT_REMOVED_CODE,
+              message: PARTICIPANT_REMOVED_MESSAGE,
+            },
+          } satisfies SupabaseResult<ParticipantRow[]>;
+        }
         if (!existingParticipant || asTrimmedString(existingParticipant.auth_user_id) !== authUserId) {
           return {
             ok: false,
@@ -609,7 +628,8 @@ async function pickLeastPopulatedZoneKrigTeam(
   const { data, error } = await adminSupabase
     .from("participants")
     .select("id,zone_krig_team_id")
-    .eq("session_id", sessionId);
+    .eq("session_id", sessionId)
+    .is("removed_at", null);
 
   if (error) {
     if (isMissingColumnError(error)) {
@@ -660,7 +680,8 @@ async function assignParticipantToZoneKrigTeam(
     .from("participants")
     .update({ zone_krig_team_id: teamId })
     .eq("id", participantId)
-    .eq("session_id", sessionId);
+    .eq("session_id", sessionId)
+    .is("removed_at", null);
 
   if (error) {
     if (isMissingColumnError(error)) {
@@ -839,8 +860,20 @@ export async function POST(request: NextRequest) {
     participantAuthClient = currentAuthSession.client;
     const currentAuthUserId = currentAuthSession.authUserId;
     const currentlyOwnedParticipant = currentAuthUserId
-      ? await fetchParticipantRecord(null, adminSupabase, { authUserId: currentAuthUserId })
+      ? await fetchParticipantRecord(null, adminSupabase, {
+          authUserId: currentAuthUserId,
+          includeRemoved: true,
+        })
       : null;
+    if (currentlyOwnedParticipant?.removed_at) {
+      return NextResponse.json(
+        {
+          error: PARTICIPANT_REMOVED_MESSAGE,
+          code: PARTICIPANT_REMOVED_CODE,
+        },
+        { status: 410, headers: { "Cache-Control": "no-store" } }
+      );
+    }
     const requestedParticipant = preferredParticipantId
       ? await fetchParticipantRecord(sessionId, adminSupabase, {
           participantId: preferredParticipantId,

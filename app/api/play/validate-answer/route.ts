@@ -153,6 +153,7 @@ async function maybeStampRunStartedAt(
     .update({ run_started_at: new Date().toISOString() })
     .eq("id", participantId)
     .eq("session_id", sessionId)
+    .is("removed_at", null)
     .is("run_started_at", null);
 
   if (error && !isMissingColumnError(error)) {
@@ -189,6 +190,7 @@ async function fetchZoneKrigSessionState(
 
 async function maybeCaptureZoneAfterAtomicQuizAttempt(
   sessionId: string,
+  participantId: string,
   zoneIndex: number,
   teamId: string | null,
   awardedPoints: number,
@@ -217,6 +219,7 @@ async function maybeCaptureZoneAfterAtomicQuizAttempt(
       p_team_id: teamId,
       p_shield_until: shieldUntil,
       p_points: awardedPoints,
+      p_participant_id: participantId,
     });
 
     if (error) {
@@ -298,7 +301,13 @@ export async function POST(request: NextRequest) {
       claimedSessionId: claimedSessionId || null,
     });
     if (!participantContext.ok) {
-      return NextResponse.json({ error: participantContext.error }, { status: participantContext.status });
+      return NextResponse.json(
+        {
+          error: participantContext.error,
+          ...(participantContext.code ? { code: participantContext.code } : {}),
+        },
+        { status: participantContext.status }
+      );
     }
     const { sessionId, participantId } = participantContext.data;
 
@@ -395,6 +404,7 @@ export async function POST(request: NextRequest) {
       const zoneKrigCapture = isCorrect
         ? await maybeCaptureZoneAfterAtomicQuizAttempt(
             sessionId,
+            participantContext.data.participantId,
             postIndex,
             participantContext.data.teamId,
             awardedPoints,

@@ -26,6 +26,7 @@ import WifiConnectionTip from "@/components/WifiConnectionTip";
 import trophyAnimation from "@/public/trophy.json";
 import { getGamerTitle } from "@/utils/gamerTitle";
 import { createStudentSubmissionOperationId } from "@/lib/submissions/studentSubmissionState";
+import { PARTICIPANT_REMOVED_MESSAGE } from "@/lib/live/participantRemoval";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 const LottiePlayer = dynamic(
@@ -334,6 +335,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   const {
     pendingPlayerName,
     playerName,
+    participantId,
     nameError,
     activeDisplayName,
     celebrationName,
@@ -1242,7 +1244,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
         <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-red-950 via-[#2a0606] to-[#130303] px-6 text-white">
           <div className="w-full max-w-2xl rounded-3xl border border-red-400/40 bg-red-900/20 p-8 text-center shadow-[0_0_40px_rgba(239,68,68,0.25)] backdrop-blur-md">
             <h1 className="text-3xl font-black md:text-4xl">
-              Du er blevet fjernet fra løbet af arrangøren.
+              {PARTICIPANT_REMOVED_MESSAGE}
             </h1>
           </div>
         </div>
@@ -1621,7 +1623,9 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
           {/* Bonus CTA — kun synlig hvis løbet har nok gyldige quizspørgsmål (bonusAvailable) */}
           {bonusAvailable && (
             <a
-              href={`/play/${sessionId}/bonus?name=${encodeURIComponent(playerName || "")}`}
+              href={`/play/${sessionId}/bonus?name=${encodeURIComponent(playerName || "")}${
+                participantId ? `&participantId=${encodeURIComponent(participantId)}` : ""
+              }`}
               data-testid="bonus-cta"
               className="relative z-10 mt-4 w-full max-w-lg flex flex-col items-center gap-2 rounded-3xl border border-yellow-400/40 bg-yellow-950/50 px-6 py-5 text-center shadow-[0_0_32px_rgba(251,191,36,0.15)] backdrop-blur-xl transition hover:bg-yellow-950/70 active:scale-[0.99]"
             >

@@ -53,6 +53,10 @@ import {
 import type { StoredActiveParticipant } from "@/components/play/types";
 import { createClient } from "@/utils/supabase/client";
 import { createClientTelemetryMessage, sendTelemetry } from "@/utils/telemetry";
+import {
+  PARTICIPANT_REMOVED_CODE,
+  PARTICIPANT_REMOVED_MESSAGE,
+} from "@/lib/live/participantRemoval";
 
 type JoinView = "form" | "waiting" | "scheduled" | "expired" | "scheduleError";
 type JoinStep = "start" | "code" | "name";
@@ -79,6 +83,7 @@ type JoinLookupResponse =
 
 type JoinLookupErrorResponse = {
   error?: string;
+  code?: string;
 };
 
 type JoinParticipantResponse = {
@@ -835,7 +840,13 @@ function JoinForm() {
 
       if (registerResponse.status === 410) {
         clearPendingJoinAttempt(registrationAttemptParticipantId);
-        setExpiredMessage(joinCopy.finishedOrMissing);
+        setExpiredMessage(
+          registerData &&
+            "code" in registerData &&
+            registerData.code === PARTICIPANT_REMOVED_CODE
+            ? PARTICIPANT_REMOVED_MESSAGE
+            : joinCopy.finishedOrMissing
+        );
         setView("expired");
         return;
       }

@@ -284,6 +284,7 @@ export type ValidateAnswerPayload = {
   awardedPoints?: number;
   zoneKrigCapture?: ZoneKrigCaptureApiResult;
   error?: string;
+  code?: string;
 };
 
 export type WakeLockSentinelLike = {

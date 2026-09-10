@@ -38,6 +38,7 @@ type LiveSessionRecord = {
 type AnswerRecord = {
   id: string;
   session_id: string | null;
+  participant_id: string | null;
   student_name: string | null;
   post_index: number | null;
   question_index: number | null;
@@ -742,7 +743,7 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
     const fetchAnswersWithFallback = async () => {
       const fullSelect = await supabase
         .from("answers")
-        .select("id,session_id,student_name,post_index,question_index,is_correct,image_url,analysis_message,answered_at,created_at")
+        .select("id,session_id,participant_id,student_name,post_index,question_index,is_correct,image_url,analysis_message,answered_at,created_at")
         .in("session_id", sessionIds)
         .order("answered_at", { ascending: true });
 
@@ -756,7 +757,7 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
 
       const fallbackSelect = await supabase
         .from("answers")
-        .select("id,session_id,student_name,post_index,question_index,is_correct,answered_at,created_at")
+        .select("id,session_id,participant_id,student_name,post_index,question_index,is_correct,answered_at,created_at")
         .in("session_id", sessionIds)
         .order("answered_at", { ascending: true });
 
@@ -773,6 +774,7 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
         .from("participants")
         .select("id,session_id,student_name,run_started_at,finished_at,last_updated")
         .in("session_id", sessionIds)
+        .is("removed_at", null)
         .order("last_updated", { ascending: false }),
     ]);
 
@@ -780,8 +782,15 @@ export default async function RunResultsPage({ params, searchParams }: PageProps
       throw new Error(participantsError.message);
     }
 
-    answers = answersData;
     participants = (participantsData ?? []) as ParticipantRecord[];
+    const activeParticipantIds = new Set(participants.map((participant) => participant.id));
+    // Results use participant ids rather than names so a removed team cannot
+    // reappear through its preserved answers or photo submissions.
+    answers = answersData.filter(
+      (answer) =>
+        typeof answer.participant_id === "string" &&
+        activeParticipantIds.has(answer.participant_id)
+    );
   }
 
   const sessionsWithSummaries: SessionSummary[] = liveSessions.map((session) => {

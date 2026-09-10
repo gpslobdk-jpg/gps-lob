@@ -221,7 +221,8 @@ export async function POST(request: NextRequest) {
     const { data: participantsData, error: participantsError } = await adminSupabase
       .from("participants")
       .select("id,student_name,session_id")
-      .eq("session_id", sessionId);
+      .eq("session_id", sessionId)
+      .is("removed_at", null);
 
     if (participantsError) {
       throw new Error(participantsError.message);

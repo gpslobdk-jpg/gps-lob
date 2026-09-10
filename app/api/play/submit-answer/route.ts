@@ -350,6 +350,7 @@ async function maybeStampRunStartedAt(
     .update({ run_started_at: new Date().toISOString() })
     .eq("id", participantId)
     .eq("session_id", sessionId)
+    .is("removed_at", null)
     .is("run_started_at", null);
 
   if (error && !isMissingColumnError(error)) {
@@ -700,6 +701,7 @@ async function resolveZoneKrigTeamId(
     .select("zone_krig_team_id")
     .eq("id", participantId)
     .eq("session_id", sessionId)
+    .is("removed_at", null)
     .maybeSingle<ZoneKrigParticipantTeamRow>();
 
   if (error) {
@@ -750,9 +752,10 @@ async function maybeCaptureZone(
     if (!isCorrectAnswerPayload(payload)) return null;
 
     const sessionId = asTrimmedString(payload.session_id);
+    const participantId = asTrimmedString(payload.participant_id);
     const run = sessionId ? await getRunForSessionCached(sessionId, runCache) : null;
     if (!isZoneKrigRaceType(run?.race_type ?? run?.raceType)) return null;
-    if (!sessionId) return null;
+    if (!sessionId || !participantId) return null;
 
     const zoneKrigSession = await fetchZoneKrigSessionState(sessionId, admin);
     const endsAtMs = zoneKrigSession.endsAt ? new Date(zoneKrigSession.endsAt).getTime() : Number.NaN;
@@ -778,6 +781,7 @@ async function maybeCaptureZone(
       p_team_id: teamId,
       p_shield_until: shieldUntil,
       p_points: awardedPoints,
+      p_participant_id: participantId,
     });
 
     if (error) {
@@ -926,7 +930,13 @@ export async function POST(request: NextRequest) {
       claimedSessionId: claimedSessionIds[0] ?? null,
     });
     if (!participantContext.ok) {
-      return NextResponse.json({ error: participantContext.error }, { status: participantContext.status });
+      return NextResponse.json(
+        {
+          error: participantContext.error,
+          ...(participantContext.code ? { code: participantContext.code } : {}),
+        },
+        { status: participantContext.status }
+      );
     }
 
     let sanitizedPayloads = rawPayloads.map((payload) =>

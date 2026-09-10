@@ -26,9 +26,11 @@ import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabas
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 import {
   asTrimmedString,
+  filterRemovedBonusLeaderboardRows,
   rankBonusLeaderboard,
   type AdminSupabaseClient,
   type BonusLeaderboardRow,
+  type BonusParticipantRow,
 } from "@/app/api/bonus/_shared";
 
 export const runtime = "edge";
@@ -44,7 +46,7 @@ async function fetchBonusLeaderboard(
   // Hent kun afsluttede sessioner, sorteret i DB
   const { data, error } = await adminSupabase
     .from("bonus_sessions")
-    .select("id,student_name,score,total_questions,finished_at")
+    .select("id,student_name,score,total_questions,finished_at,participant_id")
     .eq("live_session_id", liveSessionId)
     .eq("status", "finished")
     .order("score", { ascending: false })
@@ -53,6 +55,19 @@ async function fetchBonusLeaderboard(
 
   if (error) throw new Error(error.message);
   return (data ?? []) as BonusLeaderboardRow[];
+}
+
+async function fetchBonusParticipants(
+  liveSessionId: string,
+  adminSupabase: AdminSupabaseClient
+): Promise<BonusParticipantRow[]> {
+  const { data, error } = await adminSupabase
+    .from("participants")
+    .select("id,session_id,student_name,removed_at")
+    .eq("session_id", liveSessionId);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as BonusParticipantRow[];
 }
 
 // ============================================================================
@@ -77,8 +92,11 @@ export async function GET(request: NextRequest) {
     // en tom leaderboard er et gyldigt svar for en session uden bonus-deltagere.
     // Dette reducerer latency og DB-kald for polling-scenariet.
 
-    const rows = await fetchBonusLeaderboard(sessionId, adminSupabase);
-    const leaderboard = rankBonusLeaderboard(rows);
+    const [rows, participants] = await Promise.all([
+      fetchBonusLeaderboard(sessionId, adminSupabase),
+      fetchBonusParticipants(sessionId, adminSupabase),
+    ]);
+    const leaderboard = rankBonusLeaderboard(filterRemovedBonusLeaderboardRows(rows, participants));
 
     return NextResponse.json(
       {

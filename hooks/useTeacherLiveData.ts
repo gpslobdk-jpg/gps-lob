@@ -317,7 +317,8 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
       const { data: participantsData, error: participantsError } = await supabase
         .from("participants")
         .select("*")
-        .eq("session_id", sessionId);
+        .eq("session_id", sessionId)
+        .is("removed_at", null);
 
       if (!isActive) return { supportsParticipants: false, supportsAnswers: false };
 
@@ -329,6 +330,10 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
         }
       } else if (participantsData) {
         locationRows = participantsData as StudentRow[];
+        // The participants table is authoritative whenever it is available.
+        // Do not retain a legacy session_students name for a team that was
+        // deliberately removed from this session.
+        studentNames.clear();
         locationRows.forEach((row) => {
           const name = normalizeName(row.student_name);
           if (name) studentNames.add(name);
@@ -389,9 +394,15 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
           console.error("Fejl ved hentning af answers:", answersError);
         }
       } else if (answersData) {
+        const activeParticipantIds = new Set(nextLocations.map((participant) => participant.id));
         const parsed = (answersData as AnswerRow[])
           .map((row) => toLiveAnswer(row))
           .filter((row): row is NonNullable<typeof row> => row !== null)
+          .filter(
+            (row) =>
+              !supportsParticipants ||
+              (row.participantId !== null && activeParticipantIds.has(row.participantId))
+          )
           .sort((a, b) => {
             const aTs = toTimestamp(a.createdAt) ?? 0;
             const bTs = toTimestamp(b.createdAt) ?? 0;
@@ -507,9 +518,9 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
               event: "INSERT",
               schema: "public",
               table: "participants",
-              filter: `session_id=eq.${sessionId}`,
-            },
-            (payload) => {
+            filter: `session_id=eq.${sessionId}`,
+          },
+          (payload) => {
               const loc = toLocation(payload.new as StudentRow);
               if (loc) {
                 updateParticipantRoster((current) =>
@@ -548,10 +559,42 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
               event: "UPDATE",
               schema: "public",
               table: "participants",
-              filter: `session_id=eq.${sessionId}`,
-            },
-            (payload) => {
-              const loc = toLocation(payload.new as StudentRow);
+            filter: `session_id=eq.${sessionId}`,
+          },
+          (payload) => {
+              const participantRow = payload.new as StudentRow;
+              const participantId =
+                participantRow.id === null || participantRow.id === undefined
+                  ? ""
+                  : String(participantRow.id);
+
+              if (participantRow.removed_at && participantId) {
+                updateParticipantRoster((current) =>
+                  applyParticipantRosterEvent(current, {
+                    type: "DELETE",
+                    row: { id: participantId },
+                    eventTimestamp: getRealtimeEventTimestamp(payload),
+                  })
+                );
+                setSessionAnswers((current) =>
+                  current.filter((answer) => answer.participantId !== participantId)
+                );
+                setLiveAnswers((current) =>
+                  current.filter((answer) => answer.participantId !== participantId)
+                );
+                setStudents((previous) => {
+                  const removedName = normalizeName(participantRow.student_name);
+                  const hasAnotherActiveParticipantWithName = participantRosterRef.current.entries.some(
+                    (participant) => participant.name === removedName
+                  );
+                  return removedName && !hasAnotherActiveParticipantWithName
+                    ? previous.filter((name) => name !== removedName)
+                    : previous;
+                });
+                return;
+              }
+
+              const loc = toLocation(participantRow);
               if (loc) {
                 updateParticipantRoster((current) =>
                   applyParticipantRosterEvent(current, {
@@ -599,6 +642,15 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
           (payload) => {
             const parsed = toLiveAnswer(payload.new as AnswerRow);
             if (!parsed) return;
+            if (
+              supportsParticipants &&
+              (!parsed.participantId ||
+                !participantRosterRef.current.entries.some(
+                  (participant) => participant.id === parsed.participantId
+                ))
+            ) {
+              return;
+            }
             setSessionAnswers((previous) =>
               [...previous.filter((item) => item.id !== parsed.id), parsed].sort((a, b) => {
                 const aTs = toTimestamp(a.createdAt) ?? 0;
@@ -1157,7 +1209,8 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
           last_updated: finishedAt,
         })
         .eq("session_id", sessionId)
-        .is("finished_at", null);
+        .is("finished_at", null)
+        .is("removed_at", null);
 
       if (finishParticipantsError) {
         console.warn("Kunne ikke registrere afslutning paa aktive deltagere:", finishParticipantsError);
@@ -1182,34 +1235,53 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     setIsEndingRun(false);
   };
 
-  const kickParticipant = async (student: LiveStudentLocation) => {
-    if (!sessionId || !hasParticipantsTable) return;
-
-    const confirmed = confirm(
-      `Er du sikker på, at du vil fjerne ${student.name} fra løbet?`
-    );
-    if (!confirmed) return;
-
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("participants")
-      .delete()
-      .eq("id", student.id)
-      .eq("session_id", sessionId);
-
-    if (error) {
-      console.error("Kunne ikke fjerne elev fra løbet:", error);
-      alert("Kunne ikke fjerne deltageren fra løbet.");
-      return;
+  const removeParticipant = async (student: LiveStudentLocation) => {
+    if (!sessionId || !hasParticipantsTable) {
+      return { ok: false, error: "Holdet kan ikke fjernes lige nu." };
     }
 
-    updateParticipantRoster((current) =>
-      applyParticipantRosterEvent(current, {
-        type: "DELETE",
-        row: { id: student.id },
-      })
-    );
-    setStudents((previous) => previous.filter((name) => name !== student.name));
+    try {
+      const response = await fetch("/api/dashboard/live/participants/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ sessionId, participantId: student.id }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { removed?: boolean; error?: string }
+        | null;
+
+      if (!response.ok || payload?.removed !== true) {
+        return {
+          ok: false,
+          error: payload?.error || "Holdet kunne ikke fjernes. Prøv igen.",
+        };
+      }
+
+      updateParticipantRoster((current) =>
+        applyParticipantRosterEvent(current, {
+          type: "DELETE",
+          row: { id: student.id },
+        })
+      );
+      setSessionAnswers((current) =>
+        current.filter((answer) => answer.participantId !== student.id)
+      );
+      setLiveAnswers((current) =>
+        current.filter((answer) => answer.participantId !== student.id)
+      );
+      setStudents((previous) => {
+        const hasAnotherActiveParticipantWithName = participantRosterRef.current.entries.some(
+          (participant) => participant.name === student.name
+        );
+        return hasAnotherActiveParticipantWithName
+          ? previous
+          : previous.filter((name) => name !== student.name);
+      });
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Holdet kunne ikke fjernes. Prøv igen." };
+    }
   };
 
   return {
@@ -1255,6 +1327,6 @@ export function useTeacherLiveData(sessionId: string | null): TeacherLiveData {
     togglePause,
     startSession,
     endRun,
-    kickParticipant,
+    removeParticipant,
   };
 }

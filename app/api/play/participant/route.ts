@@ -105,7 +105,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ error: participantContext.error }, { status: participantContext.status });
+    return NextResponse.json(
+      {
+        error: participantContext.error,
+        ...(participantContext.code ? { code: participantContext.code } : {}),
+      },
+      { status: participantContext.status }
+    );
   }
 
   const { adminSupabase, participantId, sessionId } = participantContext.data;

@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import {
+  PARTICIPANT_REMOVED_CODE,
+  PARTICIPANT_REMOVED_MESSAGE,
+} from "@/lib/live/participantRemoval";
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
+import {
+  fetchActiveFindBedragerenParticipantIds,
+  readFindBedragerenParticipantAccess,
+  type FindBedragerenParticipantAccess,
+} from "@/app/api/find-bedrageren/_participantAccess";
 
 type RevealPayload = {
   sessionId?: unknown;
@@ -41,6 +50,7 @@ type FindBedragerenResultPlayerRow = FindBedragerenSafePlayerRow & {
 };
 
 type FindBedragerenVoteResultRow = {
+  voter_participant_id: string | null;
   suspect_participant_id: string | null;
 };
 
@@ -83,6 +93,16 @@ function respond(data: unknown, status = 200) {
       "Cache-Control": "no-store",
     },
   });
+}
+
+function participantAccessFailure(access: FindBedragerenParticipantAccess) {
+  if (access === "removed") {
+    return respond({ error: PARTICIPANT_REMOVED_MESSAGE, code: PARTICIPANT_REMOVED_CODE }, 410);
+  }
+  if (access === "missing") {
+    return respond({ error: "Du er ikke med i dette spil endnu." }, 404);
+  }
+  return null;
 }
 
 function toSafeLogError(error: unknown) {
@@ -217,6 +237,14 @@ export async function GET(request: NextRequest) {
       return respond({ error: "Sessionen er ikke et Find Bedrageren-spil." }, 404);
     }
 
+    const participantAccess = await readFindBedragerenParticipantAccess(
+      sessionId,
+      participantId,
+      adminSupabase
+    );
+    const participantFailure = participantAccessFailure(participantAccess);
+    if (participantFailure) return participantFailure;
+
     const { data: liveSession, error: liveSessionError } = await adminSupabase
       .from("live_sessions")
       .select("id,status")
@@ -246,6 +274,11 @@ export async function GET(request: NextRequest) {
       return respond({ error: "Du er ikke med i dette spil endnu." }, 404);
     }
 
+    const activeParticipantIds = await fetchActiveFindBedragerenParticipantIds(sessionId, adminSupabase);
+    if (!activeParticipantIds.has(participantId)) {
+      return respond({ error: PARTICIPANT_REMOVED_MESSAGE, code: PARTICIPANT_REMOVED_CODE }, 410);
+    }
+
     const { data: playersData, error: playersError } = await adminSupabase
       .from("find_bedrageren_players")
       .select("participant_id,student_name")
@@ -256,10 +289,12 @@ export async function GET(request: NextRequest) {
       throw new Error(playersError.message);
     }
 
-    const players = ((playersData ?? []) as FindBedragerenSafePlayerRow[]).map((sessionPlayer) => ({
-      participantId: sessionPlayer.participant_id,
-      studentName: asTrimmedString(sessionPlayer.student_name) || "Elev",
-    }));
+    const players = ((playersData ?? []) as FindBedragerenSafePlayerRow[])
+      .filter((sessionPlayer) => activeParticipantIds.has(sessionPlayer.participant_id))
+      .map((sessionPlayer) => ({
+        participantId: sessionPlayer.participant_id,
+        studentName: asTrimmedString(sessionPlayer.student_name) || "Elev",
+      }));
 
     let result: FindBedragerenResult | null = null;
 
@@ -276,7 +311,7 @@ export async function GET(request: NextRequest) {
 
       const { data: votesData, error: votesError } = await adminSupabase
         .from("find_bedrageren_votes")
-        .select("suspect_participant_id")
+        .select("voter_participant_id,suspect_participant_id")
         .eq("live_session_id", sessionId);
 
       if (votesError) {
@@ -284,8 +319,14 @@ export async function GET(request: NextRequest) {
       }
 
       result = buildResult(
-        (resultPlayersData ?? []) as FindBedragerenResultPlayerRow[],
-        (votesData ?? []) as FindBedragerenVoteResultRow[]
+        ((resultPlayersData ?? []) as FindBedragerenResultPlayerRow[]).filter((resultPlayer) =>
+          activeParticipantIds.has(resultPlayer.participant_id)
+        ),
+        ((votesData ?? []) as FindBedragerenVoteResultRow[]).filter(
+          (vote) =>
+            activeParticipantIds.has(asTrimmedString(vote.voter_participant_id)) &&
+            activeParticipantIds.has(asTrimmedString(vote.suspect_participant_id))
+        )
       );
     }
 
@@ -351,6 +392,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const participantAccess = await readFindBedragerenParticipantAccess(
+      sessionId,
+      participantId,
+      adminSupabase
+    );
+    const participantFailure = participantAccessFailure(participantAccess);
+    if (participantFailure) return participantFailure;
+
     const { data: findSession, error: findSessionError } = await adminSupabase
       .from("find_bedrageren_sessions")
       .select("live_session_id,phase,roles_assigned_at")

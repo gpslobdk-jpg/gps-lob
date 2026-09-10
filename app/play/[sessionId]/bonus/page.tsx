@@ -16,6 +16,10 @@
 import { Suspense, useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import {
+  PARTICIPANT_REMOVED_CODE,
+  PARTICIPANT_REMOVED_MESSAGE,
+} from "@/lib/live/participantRemoval";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -62,7 +66,8 @@ type Phase =
   | "finished"
   | "leaderboard"
   | "error"
-  | "disabled";
+  | "disabled"
+  | "removed";
 
 type DisabledReason = "bonus_disabled" | "too_few_posts" | null;
 
@@ -110,7 +115,15 @@ function BonusPageInner() {
         const err = (await sessionRes.json().catch(() => ({}))) as {
           error?: string;
           reason?: string;
+          code?: string;
         };
+        if (
+          sessionRes.status === 410 &&
+          (err.code === PARTICIPANT_REMOVED_CODE || err.error === PARTICIPANT_REMOVED_MESSAGE)
+        ) {
+          setPhase("removed");
+          return;
+        }
         if (sessionRes.status === 403) {
           setDisabledReason("bonus_disabled");
           setPhase("disabled");
@@ -136,7 +149,15 @@ function BonusPageInner() {
         const err = (await qRes.json().catch(() => ({}))) as {
           error?: string;
           reason?: string;
+          code?: string;
         };
+        if (
+          qRes.status === 410 &&
+          (err.code === PARTICIPANT_REMOVED_CODE || err.error === PARTICIPANT_REMOVED_MESSAGE)
+        ) {
+          setPhase("removed");
+          return;
+        }
         if (qRes.status === 403) {
           setDisabledReason("bonus_disabled");
           setPhase("disabled");
@@ -221,7 +242,14 @@ function BonusPageInner() {
         });
 
         if (!res.ok) {
-          const err = (await res.json().catch(() => ({}))) as { error?: string };
+          const err = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
+          if (
+            res.status === 410 &&
+            (err.code === PARTICIPANT_REMOVED_CODE || err.error === PARTICIPANT_REMOVED_MESSAGE)
+          ) {
+            setPhase("removed");
+            return;
+          }
           throw new Error(err.error ?? "Fejl ved svarindsendelse.");
         }
 
@@ -338,6 +366,10 @@ function BonusPageInner() {
 
   if (phase === "error") {
     return <ErrorScreen message={errorMsg} onRetry={() => void initBonus()} />;
+  }
+
+  if (phase === "removed") {
+    return <RemovedScreen />;
   }
 
   if (phase === "intro") {
@@ -488,6 +520,17 @@ function ErrorScreen({
         >
           Prøv igen
         </button>
+      </div>
+    </div>
+  );
+}
+
+function RemovedScreen() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950 px-6 text-white">
+      <div className="max-w-sm w-full text-center flex flex-col items-center gap-5">
+        <div className="text-6xl select-none" aria-hidden="true">🛑</div>
+        <h1 className="text-xl font-black text-white/90">{PARTICIPANT_REMOVED_MESSAGE}</h1>
       </div>
     </div>
   );
@@ -679,7 +722,7 @@ function QuizScreen({
               </button>
             </div>
             <p className="mt-3 text-center text-[11px] text-white/30">
-              "Spring over" giver 0 point og fortsætter til næste spørgsmål.
+              &quot;Spring over&quot; giver 0 point og fortsætter til næste spørgsmål.
             </p>
           </div>
         )}

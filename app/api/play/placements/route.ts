@@ -41,13 +41,19 @@ export async function GET(request: NextRequest) {
     claimedSessionId: claimedSessionId || null,
   });
   if (!participantContext.ok) {
-    return NextResponse.json({ error: participantContext.error }, { status: participantContext.status });
+    return NextResponse.json(
+      {
+        error: participantContext.error,
+        ...(participantContext.code ? { code: participantContext.code } : {}),
+      },
+      { status: participantContext.status }
+    );
   }
 
   const { sessionId } = participantContext.data;
 
-  const loadPlacements = async (table: "participants" | "session_students") =>
-    adminSupabase
+  const loadPlacements = async (table: "participants" | "session_students") => {
+    let query = adminSupabase
       .from(table)
       .select(
         table === "participants"
@@ -55,8 +61,14 @@ export async function GET(request: NextRequest) {
           : "student_name,finished_at"
       )
       .eq("session_id", sessionId)
-      .not("finished_at", "is", null)
-      .order("finished_at", { ascending: true });
+      .not("finished_at", "is", null);
+
+    if (table === "participants") {
+      query = query.is("removed_at", null);
+    }
+
+    return query.order("finished_at", { ascending: true });
+  };
 
   let result = await loadPlacements("participants");
   if (result.error?.code === "PGRST205") {

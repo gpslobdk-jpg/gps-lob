@@ -30,6 +30,7 @@ function fakeDatabase(tables: Record<string, Array<Record<string, unknown>>>, er
       const query = {
         select() { return query; },
         eq(key: string, value: unknown) { filters.push([key, value]); return query; },
+        is(key: string, value: unknown) { filters.push([key, value]); return query; },
         async maybeSingle() {
           return { data: (tables[table] ?? []).find(row => filters.every(([key, value]) => row[key] === value)) ?? null, error: errors.includes(table) ? { message: "synthetic unavailable" } : null };
         },
@@ -93,16 +94,22 @@ test.describe("Focus Mode server boundaries", () => {
 
   test("tracking excludes waiting, paused, finished participants and exemptions", async () => {
     for (const scenario of [
-      { status: "running", excluded: false, finished: false, expected: true },
-      { status: "paused", excluded: false, finished: false, expected: false },
-      { status: "waiting", excluded: false, finished: false, expected: false },
-      { status: "running", excluded: true, finished: false, expected: false },
-      { status: "running", excluded: false, finished: true, expected: false },
+      { status: "running", excluded: false, finished: false, removed: false, expected: true },
+      { status: "paused", excluded: false, finished: false, removed: false, expected: false },
+      { status: "waiting", excluded: false, finished: false, removed: false, expected: false },
+      { status: "running", excluded: true, finished: false, removed: false, expected: false },
+      { status: "running", excluded: false, finished: true, removed: false, expected: false },
+      { status: "running", excluded: false, finished: false, removed: true, expected: false },
     ]) {
       const { db } = fakeDatabase({
         focus_session_settings: [{ session_id: sessionId, enabled: true, revision, expires_at: new Date(now + 60_000).toISOString() }],
         focus_participant_state: [{ session_id: sessionId, participant_id: participantId, excluded: scenario.excluded, revision: 4 }],
-        participants: [{ id: participantId, session_id: sessionId, finished_at: scenario.finished ? new Date(now).toISOString() : null }],
+        participants: [{
+          id: participantId,
+          session_id: sessionId,
+          finished_at: scenario.finished ? new Date(now).toISOString() : null,
+          removed_at: scenario.removed ? new Date(now).toISOString() : null,
+        }],
       });
       const policy = await readFocusParticipantPolicy(db, { ...session, status: scenario.status }, participantId);
       expect(policy.tracking).toBe(scenario.expected);

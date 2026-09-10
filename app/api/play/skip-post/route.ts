@@ -292,6 +292,7 @@ async function maybeStampRunStartedAt(
     .update({ run_started_at: new Date().toISOString() })
     .eq("id", participantId)
     .eq("session_id", sessionId)
+    .is("removed_at", null)
     .is("run_started_at", null);
 
   if (error && !isMissingColumnError(error)) {
@@ -422,7 +423,13 @@ export async function POST(request: NextRequest) {
         reason: "participant_context_failed",
         postIndex: requestedPostIndex,
       });
-      return NextResponse.json({ error: participantContext.error }, { status: participantContext.status });
+      return NextResponse.json(
+        {
+          error: participantContext.error,
+          ...(participantContext.code ? { code: participantContext.code } : {}),
+        },
+        { status: participantContext.status }
+      );
     }
 
     const { participantId, sessionId, studentName, startOffset } = participantContext.data;

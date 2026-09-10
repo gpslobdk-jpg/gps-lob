@@ -30,6 +30,7 @@ export type StudentRow = {
   last_updated?: string | null;
   run_started_at?: string | null;
   finished_at?: string | null;
+  removed_at?: string | null;
   start_offset?: number | string | null;
 };
 
@@ -152,5 +153,7 @@ export type TeacherLiveData = {
   togglePause: () => Promise<void>;
   startSession: () => Promise<void>;
   endRun: () => Promise<void>;
-  kickParticipant: (student: LiveStudentLocation) => Promise<void>;
+  removeParticipant: (
+    student: LiveStudentLocation
+  ) => Promise<{ ok: boolean; error?: string }>;
 };

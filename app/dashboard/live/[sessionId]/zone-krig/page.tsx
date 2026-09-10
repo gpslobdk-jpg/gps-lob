@@ -203,7 +203,8 @@ export default function ZoneKrigCommandCenter() {
             last_updated: finishedAt,
           })
           .eq("session_id", sessionId)
-          .is("finished_at", null);
+          .is("finished_at", null)
+          .is("removed_at", null);
 
         if (finishParticipantsError) {
           console.warn("Kunne ikke markere deltagere som afsluttede i Zone Krig:", finishParticipantsError);

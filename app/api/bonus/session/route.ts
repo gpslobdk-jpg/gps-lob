@@ -7,14 +7,14 @@
  * Request body (JSON):
  *   sessionId    string  — live session UUID (required)
  *   studentName  string  — elevens navn (required, max 100 tegn)
- *   participantId string — valgfrit UUID til fremtidig disambiguation
+ *   participantId string — valgfrit UUID, som knytter sessionen til et aktivt hold
  *
  * Respons:
  *   bonusSessionId, status, currentIndex, score, totalQuestions,
  *   isFinished, startedAt, finishedAt
  *
  * Sikkerhed:
- *   - Ingen FK til participants eller answers — isolation er garanteret
+ *   - Soft-fjernede deltagere kan ikke oprette, genoptage eller score i bonus
  *   - bonus_enabled skal være true på gps_runs
  *   - Race condition (23505) håndteres med SELECT-retry
  *   - Al DB-adgang via createAdminClient() (service_role)
@@ -23,13 +23,19 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
+import {
+  PARTICIPANT_REMOVED_CODE,
+  PARTICIPANT_REMOVED_MESSAGE,
+} from "@/lib/live/participantRemoval";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
 import {
   asTrimmedString,
   fetchGpsRunForBonus,
   fetchLiveSessionRunId,
   MAX_STUDENT_NAME_LENGTH,
+  resolveBonusParticipantAccess,
   type AdminSupabaseClient,
+  type BonusParticipantAccess,
   type BonusSessionRow,
 } from "@/app/api/bonus/_shared";
 
@@ -63,6 +69,8 @@ type BonusSessionResponseBody = {
 const SESSION_SELECT =
   "id,live_session_id,gps_run_id,student_name,participant_id,current_index,score,total_questions,status,started_at,finished_at";
 
+class BonusSessionIdentityConflict extends Error {}
+
 function toBonusSessionResponse(row: BonusSessionRow): BonusSessionResponseBody {
   return {
     bonusSessionId: row.id,
@@ -89,6 +97,49 @@ async function fetchBonusQuestionsCount(
   return count ?? 0;
 }
 
+async function bindOrValidateBonusSessionParticipant(
+  session: BonusSessionRow,
+  participantAccess: Extract<BonusParticipantAccess, { kind: "active" | "anonymous" }>,
+  adminSupabase: AdminSupabaseClient
+): Promise<BonusSessionRow> {
+  const existingParticipantId = asTrimmedString(session.participant_id);
+
+  if (participantAccess.kind === "anonymous") {
+    if (existingParticipantId) {
+      throw new BonusSessionIdentityConflict("Bonus-sessionen er knyttet til en anden deltager.");
+    }
+    return session;
+  }
+
+  if (existingParticipantId) {
+    if (existingParticipantId === participantAccess.participantId) return session;
+    throw new BonusSessionIdentityConflict("Bonus-sessionen er knyttet til en anden deltager.");
+  }
+
+  // Link a legacy name-only session once its owner is known. The null filter
+  // prevents a concurrent request from overwriting another participant link.
+  const { data: bound, error } = await adminSupabase
+    .from("bonus_sessions")
+    .update({ participant_id: participantAccess.participantId })
+    .eq("id", session.id)
+    .is("participant_id", null)
+    .select(SESSION_SELECT)
+    .maybeSingle<BonusSessionRow>();
+
+  if (error) throw new Error(error.message);
+  if (bound) return bound;
+
+  const { data: latest, error: latestError } = await adminSupabase
+    .from("bonus_sessions")
+    .select(SESSION_SELECT)
+    .eq("id", session.id)
+    .maybeSingle<BonusSessionRow>();
+
+  if (latestError) throw new Error(latestError.message);
+  if (!latest) throw new Error("Bonus-sessionen kunne ikke genindlæses.");
+  return bindOrValidateBonusSessionParticipant(latest, participantAccess, adminSupabase);
+}
+
 /**
  * Find eksisterende session eller opret ny.
  * Håndterer race condition (23505) med SELECT-retry.
@@ -98,7 +149,7 @@ async function findOrCreateBonusSession(
   runId: string,
   studentName: string,
   totalQuestions: number,
-  participantId: string | null,
+  participantAccess: Extract<BonusParticipantAccess, { kind: "active" | "anonymous" }>,
   adminSupabase: AdminSupabaseClient
 ): Promise<BonusSessionRow> {
   // ── Forsøg at finde eksisterende session (genoptagelse) ───────────────────
@@ -110,7 +161,9 @@ async function findOrCreateBonusSession(
     .maybeSingle<BonusSessionRow>();
 
   if (selectError) throw new Error(selectError.message);
-  if (existing) return existing;
+  if (existing) {
+    return bindOrValidateBonusSessionParticipant(existing, participantAccess, adminSupabase);
+  }
 
   // ── Opret ny session ──────────────────────────────────────────────────────
   const { data: created, error: insertError } = await adminSupabase
@@ -120,7 +173,7 @@ async function findOrCreateBonusSession(
       gps_run_id: runId,
       student_name: studentName,
       total_questions: totalQuestions,
-      participant_id: participantId,
+      participant_id: participantAccess.kind === "active" ? participantAccess.participantId : null,
       // status, score, current_index bruger DB-defaults ('active', 0, 0)
     })
     .select(SESSION_SELECT)
@@ -138,7 +191,9 @@ async function findOrCreateBonusSession(
         .maybeSingle<BonusSessionRow>();
 
       if (retryError) throw new Error(retryError.message);
-      if (raceWinner) return raceWinner;
+      if (raceWinner) {
+        return bindOrValidateBonusSessionParticipant(raceWinner, participantAccess, adminSupabase);
+      }
     }
     throw new Error(insertError.message);
   }
@@ -204,6 +259,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // A new link carries participantId. A legacy link is associated only when
+    // its name identifies exactly one active participant; a removed name is
+    // always terminal so a reload cannot re-enter the bonus game.
+    const participantAccess = await resolveBonusParticipantAccess(
+      sessionId,
+      participantId,
+      studentName,
+      adminSupabase
+    );
+
+    if (participantAccess.kind === "removed") {
+      return NextResponse.json(
+        { error: PARTICIPANT_REMOVED_MESSAGE, code: PARTICIPANT_REMOVED_CODE },
+        { status: 410, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+    if (participantAccess.kind === "missing") {
+      return NextResponse.json(
+        { error: "Deltageren findes ikke i dette løb." },
+        { status: 404, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+    if (participantAccess.kind === "ambiguous") {
+      return NextResponse.json(
+        { error: "Åbn bonusspillet fra løbets afslutning." },
+        { status: 409, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     // ── 3. Hent antal bonus-spørgsmål (til total_questions i session) ─────────
     // Bemærk: 0 er muligt hvis spørgsmål endnu ikke er genereret.
     // Klienten bør kalde GET /api/bonus/questions INDEN denne route.
@@ -213,9 +297,9 @@ export async function POST(request: NextRequest) {
     const session = await findOrCreateBonusSession(
       sessionId,
       runId,
-      studentName,
+      participantAccess.studentName,
       totalQuestions,
-      participantId,
+      participantAccess,
       adminSupabase
     );
 
@@ -225,6 +309,12 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof Error && error.message === ADMIN_ACCESS_MISSING_MESSAGE) {
       return NextResponse.json({ error: ADMIN_ACCESS_MISSING_MESSAGE }, { status: 503 });
+    }
+    if (error instanceof BonusSessionIdentityConflict) {
+      return NextResponse.json(
+        { error: "Bonus-sessionen hører til et andet hold." },
+        { status: 409, headers: { "Cache-Control": "no-store" } }
+      );
     }
 
     console.error("Fejl i POST /api/bonus/session:", error);

@@ -89,6 +89,7 @@ async function updateParticipantById(
       .update(candidate)
       .eq("id", participantId)
       .eq("session_id", sessionId)
+      .is("removed_at", null)
       .select("id");
 
     if (!result.error || !isMissingColumnError(result.error)) {
@@ -123,6 +124,7 @@ async function clearParticipantLocationById(
     })
     .eq("id", participantId)
     .eq("session_id", sessionId)
+    .is("removed_at", null)
     .select("id");
 }
 
@@ -150,6 +152,7 @@ async function fetchActiveParticipant(
     .select("id")
     .eq("id", participantId)
     .eq("session_id", sessionId)
+    .is("removed_at", null)
     .maybeSingle<ParticipantIdRow>();
 
   if (participantError) {
@@ -192,7 +195,13 @@ export async function POST(request: NextRequest) {
   });
 
   if (!participantContext.ok) {
-    return NextResponse.json({ error: participantContext.error }, { status: participantContext.status });
+    return NextResponse.json(
+      {
+        error: participantContext.error,
+        ...(participantContext.code ? { code: participantContext.code } : {}),
+      },
+      { status: participantContext.status }
+    );
   }
 
   const { adminSupabase, participantId, sessionId } = participantContext.data;
@@ -298,7 +307,10 @@ export async function DELETE(request: NextRequest) {
 
   if (!participantContext.ok) {
     return NextResponse.json(
-      { error: participantContext.error },
+      {
+        error: participantContext.error,
+        ...(participantContext.code ? { code: participantContext.code } : {}),
+      },
       { status: participantContext.status }
     );
   }

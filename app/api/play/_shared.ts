@@ -383,6 +383,7 @@ export async function fetchParticipantStartState(
     .select("start_offset,run_started_at")
     .eq("id", participantId)
     .eq("session_id", sessionId)
+    .is("removed_at", null)
     .maybeSingle<ParticipantStartRow>();
 
   if (error) {
@@ -402,6 +403,7 @@ export async function fetchParticipantLocationState(
     .select("lat,lng")
     .eq("id", participantId)
     .eq("session_id", sessionId)
+    .is("removed_at", null)
     .maybeSingle<ParticipantLocationRow>();
 
   if (error) {

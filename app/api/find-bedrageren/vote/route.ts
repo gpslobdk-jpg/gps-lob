@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import {
+  PARTICIPANT_REMOVED_CODE,
+  PARTICIPANT_REMOVED_MESSAGE,
+} from "@/lib/live/participantRemoval";
 import { ADMIN_ACCESS_MISSING_MESSAGE, createAdminClient } from "@/utils/supabase/admin";
 import { logHandledServerError } from "@/utils/telemetry/serverLogs";
+import { readFindBedragerenParticipantAccess } from "@/app/api/find-bedrageren/_participantAccess";
 
 type VotePayload = {
   sessionId?: unknown;
@@ -91,6 +96,27 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const voterAccess = await readFindBedragerenParticipantAccess(
+      sessionId,
+      participantId,
+      adminSupabase
+    );
+    if (voterAccess === "removed") {
+      return respond({ error: PARTICIPANT_REMOVED_MESSAGE, code: PARTICIPANT_REMOVED_CODE }, 410);
+    }
+    if (voterAccess === "missing") {
+      return respond({ error: "Du er ikke med i dette spil." }, 404);
+    }
+
+    const suspectAccess = await readFindBedragerenParticipantAccess(
+      sessionId,
+      suspectParticipantId,
+      adminSupabase
+    );
+    if (suspectAccess !== "active") {
+      return respond({ error: "Den valgte spiller er ikke med i dette spil." }, 404);
+    }
+
     const { data: findSession, error: findSessionError } = await adminSupabase
       .from("find_bedrageren_sessions")
       .select("live_session_id,phase")

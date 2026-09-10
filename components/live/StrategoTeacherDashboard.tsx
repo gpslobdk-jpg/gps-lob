@@ -362,6 +362,7 @@ export default function StrategoTeacherDashboard({
   const [duelEvents, setDuelEvents] = useState<StrategoDuelEventRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
+  const activeParticipantIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!sessionId) {
@@ -377,6 +378,8 @@ export default function StrategoTeacherDashboard({
         return;
       }
 
+      activeParticipantIdsRef.current.add(participantId);
+
       setParticipantsById((previous) => {
         const next = new Map(previous);
         next.set(participantId, row);
@@ -390,6 +393,8 @@ export default function StrategoTeacherDashboard({
         return;
       }
 
+      activeParticipantIdsRef.current.delete(participantId);
+
       setParticipantsById((previous) => {
         const next = new Map(previous);
         next.delete(participantId);
@@ -400,6 +405,10 @@ export default function StrategoTeacherDashboard({
     const upsertStrategoPlayer = (row: StrategoPlayerRow | null | undefined) => {
       const participantId = typeof row?.participant_id === "string" ? row.participant_id : null;
       if (!participantId || !row) {
+        return;
+      }
+
+      if (!activeParticipantIdsRef.current.has(participantId)) {
         return;
       }
 
@@ -429,6 +438,18 @@ export default function StrategoTeacherDashboard({
         return;
       }
 
+      const attackerId = typeof row?.attacker_id === "string" ? row.attacker_id : null;
+      const defenderId = typeof row?.defender_id === "string" ? row.defender_id : null;
+      if (
+        activeParticipantIdsRef.current.size > 0 &&
+        (!attackerId ||
+          !defenderId ||
+          !activeParticipantIdsRef.current.has(attackerId) ||
+          !activeParticipantIdsRef.current.has(defenderId))
+      ) {
+        return;
+      }
+
       setDuelEvents((previous) => {
         if (!row) {
           return previous;
@@ -444,7 +465,8 @@ export default function StrategoTeacherDashboard({
         supabase
           .from("participants")
           .select("id,student_name,lat,lng,updated_at")
-          .eq("session_id", sessionId),
+          .eq("session_id", sessionId)
+          .is("removed_at", null),
         supabase
           .from("stratego_players")
           .select("participant_id,session_id,team_code,rank_key,state,last_duel_at,eliminated_by_participant_id")
@@ -467,18 +489,22 @@ export default function StrategoTeacherDashboard({
         return;
       }
 
-      setParticipantsById(
-        new Map(
-          ((participantsRes.data ?? []) as ParticipantRow[])
-            .filter((row) => typeof row.id === "string")
-            .map((row) => [row.id as string, row])
-        )
+      const activeParticipants = new Map(
+        ((participantsRes.data ?? []) as ParticipantRow[])
+          .filter((row) => typeof row.id === "string")
+          .map((row) => [row.id as string, row])
       );
+      activeParticipantIdsRef.current = new Set(activeParticipants.keys());
+      setParticipantsById(activeParticipants);
 
       setPlayersById(
         new Map(
           ((playersRes.data ?? []) as StrategoPlayerRow[])
-            .filter((row) => typeof row.participant_id === "string")
+            .filter(
+              (row) =>
+                typeof row.participant_id === "string" &&
+                activeParticipantIdsRef.current.has(row.participant_id)
+            )
             .map((row) => [row.participant_id as string, row])
         )
       );
@@ -492,7 +518,15 @@ export default function StrategoTeacherDashboard({
       );
 
       setGame(!gameRes.error && gameRes.data ? gameRes.data : null);
-      setDuelEvents((duelRes.data ?? []) as StrategoDuelEventRow[]);
+      setDuelEvents(
+        ((duelRes.data ?? []) as StrategoDuelEventRow[]).filter(
+          (event) =>
+            typeof event.attacker_id === "string" &&
+            typeof event.defender_id === "string" &&
+            activeParticipantIdsRef.current.has(event.attacker_id) &&
+            activeParticipantIdsRef.current.has(event.defender_id)
+        )
+      );
       setIsLoading(false);
     };
 
@@ -513,7 +547,20 @@ export default function StrategoTeacherDashboard({
             return;
           }
 
-          upsertParticipant(payload.new as ParticipantRow);
+          const participant = payload.new as ParticipantRow & { removed_at?: string | null };
+          if (participant.removed_at) {
+            deleteParticipant(participant);
+            deleteStrategoPlayer({ participant_id: participant.id ?? null });
+            setDuelEvents((previous) =>
+              previous.filter(
+                (event) =>
+                  event.attacker_id !== participant.id && event.defender_id !== participant.id
+              )
+            );
+            return;
+          }
+
+          upsertParticipant(participant);
         }
       )
       .on(
@@ -568,10 +615,10 @@ export default function StrategoTeacherDashboard({
   }, [sessionId]);
 
   const players = useMemo<TeacherStrategoPlayer[]>(() => {
-    const participantIds = new Set<string>([
-      ...Array.from(participantsById.keys()),
-      ...Array.from(playersById.keys()),
-    ]);
+    // `stratego_players` intentionally retains the relationship after a soft
+    // removal. The active participant map is therefore the authoritative
+    // teacher-facing roster, not the union of historical game rows.
+    const participantIds = new Set<string>(participantsById.keys());
 
     return Array.from(participantIds)
       .map((participantId) => {

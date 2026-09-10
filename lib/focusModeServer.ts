@@ -59,7 +59,13 @@ export async function readFocusParticipantPolicy(db: FocusDatabase, session: Foc
   const settings = await ensureFocusSession(db, session);
   const [summary, participant] = await Promise.all([
     db.from("focus_participant_state").select("excluded,revision").eq("session_id", session.id).eq("participant_id", participantId).maybeSingle<Pick<FocusParticipantRow, "excluded" | "revision">>(),
-    db.from("participants").select("finished_at").eq("session_id", session.id).eq("id", participantId).maybeSingle<{ finished_at: string | null }>(),
+    db
+      .from("participants")
+      .select("finished_at")
+      .eq("session_id", session.id)
+      .eq("id", participantId)
+      .is("removed_at", null)
+      .maybeSingle<{ finished_at: string | null }>(),
   ]);
   if (summary.error || participant.error) throw new Error("Focus policy unavailable");
   const enabled = settings?.enabled === true && Date.parse(settings.expires_at) > Date.now();
@@ -76,7 +82,11 @@ export async function readFocusTeacherSession(db: FocusDatabase, session: FocusS
   const settings = await ensureFocusSession(db, session);
   const [states, participants] = await Promise.all([
     db.from("focus_participant_state").select("participant_id,excluded,revision,event_count,latest_event_at,latest_duration_ms").eq("session_id", session.id),
-    db.from("participants").select("id,student_name").eq("session_id", session.id),
+    db
+      .from("participants")
+      .select("id,student_name")
+      .eq("session_id", session.id)
+      .is("removed_at", null),
   ]);
   if (states.error || participants.error) throw new Error("Focus summary unavailable");
   const byId = new Map((states.data as FocusParticipantRow[] ?? []).map(row => [row.participant_id, row]));

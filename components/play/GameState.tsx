@@ -30,6 +30,10 @@ import {
   type StudentSubmissionStatus,
   type StudentSubmissionType,
 } from "@/lib/submissions/studentSubmissionState";
+import {
+  PARTICIPANT_REMOVED_CODE,
+  PARTICIPANT_REMOVED_MESSAGE,
+} from "@/lib/live/participantRemoval";
 
 import type {
   AnswerProgressRow,
@@ -288,6 +292,13 @@ const ACTIVE_SESSION_STATUS_POLL_INTERVAL_MS = 15000;
 const PHOTO_UPLOAD_RUN_OUT_OF_SYNC_MESSAGE =
   "Foto-posten blev opdateret imens du var i gang. Vi har hentet den nyeste rute - proev billedet igen.";
 const RUN_OUT_OF_SYNC_ERROR_CODE = "RUN_OUT_OF_SYNC";
+
+function isParticipantRemovedResponse(
+  status: number | undefined,
+  payload: { code?: string } | null | undefined
+) {
+  return status === 410 && payload?.code === PARTICIPANT_REMOVED_CODE;
+}
 
 type ZoneKrigCaptureApiResult = {
   status?: ZoneKrigCaptureStatus;
@@ -1996,6 +2007,47 @@ export function usePlayGameState({
     ]
   );
 
+  const markParticipantRemoved = useCallback(
+    (removedParticipantId: string | null, reason: string) => {
+      if (kickConfirmTimerRef.current) {
+        clearTimeout(kickConfirmTimerRef.current);
+        kickConfirmTimerRef.current = null;
+      }
+
+      isKickedRef.current = true;
+      clearRestoreRetryTimer();
+      resetLocationSyncRecovery();
+      restoreRetryCountRef.current = 0;
+      reconnectInFlightRef.current = false;
+      clearStoredPlayRecoveryState();
+      setPlayLoadError("");
+      setParticipantId(null);
+      setShowQuestion(false);
+      setIsLoading(false);
+      setIsRestoringParticipant(false);
+      setIsProvisioningParticipant(false);
+      setIsSubmitting(false);
+      setIsSubmittingAnswer(false);
+      setIsKicked(true);
+
+      if (sessionId) {
+        sendTelemetry("participant_removed", {
+          participant_id: removedParticipantId ?? participantId ?? null,
+          session_id: sessionId,
+          message: createClientTelemetryMessage({ reason }),
+        });
+      }
+    },
+    [
+      clearRestoreRetryTimer,
+      clearStoredPlayRecoveryState,
+      participantId,
+      resetLocationSyncRecovery,
+      sessionId,
+      setPlayLoadError,
+    ]
+  );
+
   const fetchParticipantSnapshot = useCallback(
     async (targetParticipantId: string | null) => {
       if (!sessionId) {
@@ -2048,10 +2100,27 @@ export function usePlayGameState({
                   participant?: ParticipantRow | null;
                   progress?: unknown;
                   error?: string;
+                  code?: string;
                 }
               | null;
 
             if (!response.ok) {
+              if (
+                response.status === 410 &&
+                (payload?.code === PARTICIPANT_REMOVED_CODE ||
+                  payload?.error === PARTICIPANT_REMOVED_MESSAGE)
+              ) {
+                markParticipantRemoved(targetParticipantId ?? participantId, "snapshot_410");
+                return {
+                  data: null,
+                  error: {
+                    status: response.status,
+                    code: payload?.code ?? String(response.status),
+                    message: payload?.error ?? PARTICIPANT_REMOVED_MESSAGE,
+                  },
+                };
+              }
+
               if (
                 targetParticipantId &&
                 (response.status === 401 || response.status === 403)
@@ -2253,6 +2322,8 @@ export function usePlayGameState({
       pendingPlayerName,
       questions.length,
       usesStandardStudentLocationExperience,
+      markParticipantRemoved,
+      participantId,
     ]
   );
 
@@ -2288,6 +2359,9 @@ export function usePlayGameState({
       if (error) {
         setIsRestoringParticipant(false);
         setHasResolvedParticipantBootstrap(true);
+        if (error.status === 410) {
+          return;
+        }
         if (
           error.status === 401 ||
           error.status === 403 ||
@@ -2534,6 +2608,9 @@ export function usePlayGameState({
         await fetchParticipantSnapshot(participantId);
 
       if (participantSnapshotError) {
+        if (participantSnapshotError.status === 410) {
+          return;
+        }
         if (participantSnapshotError.status === 401 || participantSnapshotError.status === 403) {
           return;
         }
@@ -2751,6 +2828,8 @@ export function usePlayGameState({
               });
               reconnectOutcomeLogged = true;
             }
+          } else if (participantSnapshotError?.status === 410) {
+            return;
           } else if (
             participantSnapshotError?.status === 401 ||
             participantSnapshotError?.status === 403
@@ -3362,6 +3441,11 @@ export function usePlayGameState({
             body?.code
           );
 
+          if (isParticipantRemovedResponse(response.status, body)) {
+            markParticipantRemoved(participantId, "answer_replay_410");
+            break;
+          }
+
           if (response.ok && body?.inserted === true) {
             const authoritativeProgress =
               normalizeAuthoritativeProgressSnapshot(
@@ -3587,6 +3671,7 @@ export function usePlayGameState({
     currentPostIndex,
     participantId,
     markBurnedPostIndex,
+    markParticipantRemoved,
     markSolvedPostIndex,
     reconcileAuthoritativeAnswerProgress,
     removePendingLocalAnswer,
@@ -3817,7 +3902,14 @@ export function usePlayGameState({
         });
 
         if (!response.ok) {
-          const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+          const payload = (await response.json().catch(() => null)) as
+            | { error?: string; code?: string }
+            | null;
+
+          if (isParticipantRemovedResponse(response.status, payload)) {
+            markParticipantRemoved(participantId, "location_sync_410");
+            return;
+          }
 
           if (response.status === 404) {
             const nextLocationSyncErrors = locationSyncErrorsRef.current + 1;
@@ -3861,6 +3953,7 @@ export function usePlayGameState({
     },
     [
       circuitBreakerActive,
+      markParticipantRemoved,
       participantId,
       pendingPlayerName,
       playerName,
@@ -3983,6 +4076,9 @@ export function usePlayGameState({
         if (!isActive) return;
 
         if (participantError) {
+          if (participantError.status === 410) {
+            return;
+          }
           if (participantError.status === 401 || participantError.status === 403) {
             return;
           }
@@ -4026,6 +4122,9 @@ export function usePlayGameState({
           if (!isActive) break;
 
           if (retryError) {
+            if (retryError.status === 410) {
+              return;
+            }
             if (retryError.status === 401 || retryError.status === 403) {
               return;
             }
@@ -4645,7 +4744,8 @@ export function usePlayGameState({
           last_updated: finishedAt,
         })
         .eq("id", participantId)
-        .eq("session_id", sessionId);
+        .eq("session_id", sessionId)
+        .is("removed_at", null);
 
       if (!error) {
         return true;
@@ -4921,6 +5021,16 @@ export function usePlayGameState({
             body?.code
           );
 
+          if (isParticipantRemovedResponse(response.status, body)) {
+            markParticipantRemoved(participantId, "answer_submit_410");
+            return {
+              ...fallbackResult,
+              deliveryStatus: "session_closed",
+              operationId: pendingAnswerId,
+              canProgress: false,
+            };
+          }
+
           if (response.ok && body?.inserted === true) {
             const authoritativeProgress =
               normalizeAuthoritativeProgressSnapshot(
@@ -5156,11 +5266,16 @@ export function usePlayGameState({
             inserted?: boolean;
             awardedPoints?: number;
             error?: string;
+            code?: string;
             zoneKrigCapture?: ZoneKrigCaptureApiResult;
             serverCorrectness?: unknown;
           } | null;
 
           if (!response.ok) {
+            if (isParticipantRemovedResponse(response.status, body)) {
+              markParticipantRemoved(participantId, "answer_submit_legacy_410");
+              return fallbackResult;
+            }
             console.error("Kunne ikke gemme svar via API:", body?.error ?? response.statusText);
             if (body?.error === "Admin access missing") answersTableMissingRef.current = true;
             return fallbackResult;
@@ -5218,6 +5333,7 @@ export function usePlayGameState({
       applyStudentSubmissionEvent,
       beginStudentSubmission,
       captureStudentSubmissionIssue,
+      markParticipantRemoved,
       participantId,
       playerName,
       questions.length,
@@ -5479,6 +5595,27 @@ export function usePlayGameState({
         .on(
           "postgres_changes",
           {
+            event: "UPDATE",
+            schema: "public",
+            table: "participants",
+            filter: `session_id=eq.${sessionId}`,
+          },
+          (payload) => {
+            const participant = payload.new as {
+              id?: string | number | null;
+              removed_at?: string | null;
+            };
+            const updatedId = participant.id === null || participant.id === undefined
+              ? ""
+              : String(participant.id);
+            if (!participant.removed_at || !participantId || updatedId !== participantId) return;
+
+            markParticipantRemoved(updatedId, "realtime_removed");
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
             event: "INSERT",
             schema: "public",
             table: "session_messages",
@@ -5599,6 +5736,7 @@ export function usePlayGameState({
     clearMessageResubscribeTimer,
     loadLatestTeacherMessage,
     markPlayAsFinished,
+    markParticipantRemoved,
     participantId,
     recoverWakeUpState,
     sessionId,
@@ -5719,7 +5857,14 @@ export function usePlayGameState({
 
           const data = (await response.json().catch(() => null)) as ValidateAnswerPayload | null;
           if (!response.ok) {
-            throw new Error(data?.error || "Svaret kunne ikke tjekkes.");
+            const validationError = Object.assign(
+              new Error(data?.error || "Svaret kunne ikke tjekkes."),
+              {
+                status: response.status,
+                code: data?.code,
+              }
+            );
+            throw validationError;
           }
 
           return data;
@@ -6560,6 +6705,11 @@ export function usePlayGameState({
       }
       await handleAnswer(0, payload?.brick ?? null);
     } catch (error) {
+      const validationError = error as { status?: number; code?: string };
+      if (isParticipantRemovedResponse(validationError.status, validationError)) {
+        markParticipantRemoved(participantId, "validate_answer_410");
+        return;
+      }
       console.error("Kunne ikke validere svar:", error);
       const msg = getAnswerValidationErrorMessage(error);
       setTypedAnswerError({
@@ -6871,6 +7021,10 @@ export function usePlayGameState({
       const uploadError = error as SubmitPhotoRequestError;
       const isRunOutOfSyncError =
         uploadError?.status === 409 && uploadError?.code === RUN_OUT_OF_SYNC_ERROR_CODE;
+      const isParticipantRemoved = isParticipantRemovedResponse(
+        uploadError?.status,
+        uploadError
+      );
       const isSessionClosed =
         uploadError?.status === 410 ||
         uploadError?.code === "SESSION_CLOSED";
@@ -6883,6 +7037,11 @@ export function usePlayGameState({
           uploadError?.code === "PHOTO_SUBMISSION_CONFLICT" ||
           (uploadError?.status === 404 &&
             uploadError?.code === "POST_NOT_FOUND"));
+
+      if (isParticipantRemoved) {
+        markParticipantRemoved(participantId, "photo_submit_410");
+        return;
+      }
 
       if (usesRobustPhotoDelivery) {
         applyStudentSubmissionEvent(
@@ -7272,6 +7431,11 @@ export function usePlayGameState({
       const errorMessage = payload?.error || "Vi kunne ikke springe posten over endnu. Prøv igen om et øjeblik.";
 
       if (!response.ok) {
+        if (isParticipantRemovedResponse(response.status, payload)) {
+          markParticipantRemoved(participantId, "skip_post_410");
+          return;
+        }
+
         if (response.status === 409) {
           if (
             payload?.code === "SUBMISSION_CONFLICT" ||

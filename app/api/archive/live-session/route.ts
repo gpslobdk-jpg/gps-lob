@@ -237,7 +237,8 @@ async function finishLiveSessions(runId: string, teacherId: string, supabase: Aw
         last_updated: finishedAt,
       })
       .in("session_id", sessionIds)
-      .is("finished_at", null);
+      .is("finished_at", null)
+      .is("removed_at", null);
 
     if (finishParticipantsError) {
       console.warn("Kunne ikke registrere afslutning på deltagere fra arkiv-toggle:", finishParticipantsError);
