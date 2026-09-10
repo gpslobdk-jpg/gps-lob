@@ -534,7 +534,9 @@ async function openStandardPlay(page: Page, sessionId: string) {
 test.describe("student location recovery", () => {
   test.setTimeout(60_000);
 
-  test("asks before starting one watcher and deduplicates permission retry", async ({
+  // Geolocation is intentionally simulated here. The WebKit project exercises
+  // the same browser lifecycle contract, but cannot establish a physical GPS fix.
+  test("simulated permission denial waits for an explicit retry @safari-map-resume", async ({
     page,
   }) => {
     await openStandardPlay(page, "student-location-permission");
@@ -555,6 +557,14 @@ test.describe("student location recovery", () => {
     await expect(page.locator("body")).not.toContainText(
       /PERMISSION_DENIED|GeolocationPositionError|code 1/i,
     );
+    const help = page.getByText("Få hjælp", { exact: true });
+    await expect(help).toBeVisible();
+    await help.click();
+    await expect(
+      page.getByText("Dit hold og din fremdrift bliver bevaret.", {
+        exact: false,
+      }),
+    ).toBeVisible();
 
     const retryButton = page.getByRole("button", { name: "Prøv igen" });
     await retryButton.evaluate((button) => {
@@ -862,7 +872,7 @@ test.describe("student location recovery", () => {
     { rawRaceType: "selfie", raceType: "photo" as const },
     { rawRaceType: "scanner", raceType: "quiz" as const },
   ]) {
-    test(`${special.rawRaceType} keeps legacy GPS without the standard prompt`, async ({
+    test(`simulated ${special.rawRaceType} legacy GPS stops automatic retries after denial`, async ({
       page,
     }) => {
       const sessionId = `student-location-special-${special.rawRaceType}`;
@@ -887,9 +897,25 @@ test.describe("student location recovery", () => {
       await expect(
         page.getByText("Placering er slået fra", { exact: true }),
       ).toHaveCount(0);
+      await expect(page.getByTestId("legacy-gps-help")).toBeVisible();
+      await expect(
+        page.getByTestId("legacy-gps-help").getByText("Få hjælp", { exact: true }),
+      ).toBeVisible();
+      await expect.poll(async () => (await harnessSnapshot(page)).activeWatchIds).toHaveLength(0);
 
-      await page.getByRole("button", { name: "Prøv igen" }).click();
+      // Old legacy behavior restarted the watcher after resume events. A denied
+      // permission can only recover after a student actively retries.
+      await page.waitForTimeout(800);
+      await callHarness(page, { type: "pageshow" });
+      await expect.poll(async () => (await harnessSnapshot(page)).watchStarts).toBe(1);
+      await expect.poll(async () => (await harnessSnapshot(page)).activeWatchIds).toHaveLength(0);
+
+      await page.getByRole("button", { name: "Prøv igen" }).evaluate((button) => {
+        (button as HTMLButtonElement).click();
+        (button as HTMLButtonElement).click();
+      });
       await expect.poll(async () => (await harnessSnapshot(page)).watchStarts).toBe(2);
+      await expect.poll(async () => (await harnessSnapshot(page)).activeWatchIds).toHaveLength(1);
     });
   }
 

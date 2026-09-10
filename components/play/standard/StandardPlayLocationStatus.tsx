@@ -3,6 +3,9 @@
 import { CheckCircle2, LocateFixed, MapPin, RefreshCcw } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
+import StudentLocationHelp, {
+  shouldShowStudentLocationHelp,
+} from "@/components/play/StudentLocationHelp";
 import type { StudentLocationState } from "@/lib/location/studentLocationState";
 
 type StandardPlayLocationStatusProps = {
@@ -198,6 +201,10 @@ export default function StandardPlayLocationStatus({
           >
             {isRetrying ? "Finder placering…" : statusCopy.action}
           </button>
+        ) : null}
+
+        {shouldShowStudentLocationHelp(state.status) ? (
+          <StudentLocationHelp className="mt-4" />
         ) : null}
       </section>
     );

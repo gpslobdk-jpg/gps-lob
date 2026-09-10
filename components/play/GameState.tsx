@@ -107,6 +107,11 @@ import {
   resolveRestoredPostIndex,
   type AuthoritativeProgressSnapshot,
 } from "./participantHandoff";
+import {
+  clearPendingJoinAttempt,
+  getOrCreatePendingJoinAttempt,
+  withPendingJoinAttemptLock,
+} from "@/lib/join/pendingJoinAttempt";
 
 const TARGET_VISUAL_RADIUS_METERS = 25;
 const TARGET_CLICK_BUFFER_METERS = 20;
@@ -1138,7 +1143,7 @@ export function usePlayGameState({
   const runParticipantIdentityRegistration = useCallback(
     async (nextStudentName: string) => {
       const normalizedName = nextStudentName.trim();
-      const preferredParticipantId = storedParticipantOnLoad?.participantId?.trim() || null;
+      let preferredParticipantId = storedParticipantOnLoad?.participantId?.trim() || null;
       if (!sessionId || !normalizedName || isProvisioningParticipant || circuitBreakerActive) {
         return false;
       }
@@ -1146,18 +1151,23 @@ export function usePlayGameState({
       setIsProvisioningParticipant(true);
 
       try {
-        const response = await fetch("/api/join", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          cache: "no-store",
-          body: JSON.stringify({
-            sessionId,
-            studentName: normalizedName,
-            participantId: preferredParticipantId,
-          }),
-        });
+        preferredParticipantId =
+          preferredParticipantId ||
+          getOrCreatePendingJoinAttempt(sessionId, normalizedName).participantId;
+        const response = await withPendingJoinAttemptLock(preferredParticipantId, () =>
+          fetch("/api/join", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            cache: "no-store",
+            body: JSON.stringify({
+              sessionId,
+              studentName: normalizedName,
+              participantId: preferredParticipantId,
+            }),
+          })
+        );
 
         const payload = (await response.json().catch(() => null)) as
           | {
@@ -1172,6 +1182,7 @@ export function usePlayGameState({
           | null;
 
         if (response.status === 410) {
+          clearPendingJoinAttempt(preferredParticipantId);
           // Session findes, men er afsluttet eller ikke aktiv
           try {
             Sentry.addBreadcrumb({
@@ -1186,6 +1197,7 @@ export function usePlayGameState({
           return false;
         }
         if (response.status === 404) {
+          clearPendingJoinAttempt(preferredParticipantId);
           // Session findes ikke
           try {
             Sentry.addBreadcrumb({
@@ -1211,6 +1223,7 @@ export function usePlayGameState({
         const resolvedTeamColor = typeof payload.teamColor === "string" ? payload.teamColor : null;
         const didRebindStoredParticipant =
           Boolean(preferredParticipantId) && payload.participantId === preferredParticipantId;
+        clearPendingJoinAttempt(preferredParticipantId);
         const preservedAvatarUrl = didRebindStoredParticipant
           ? storedParticipantOnLoad?.avatarUrl ?? undefined
           : undefined;

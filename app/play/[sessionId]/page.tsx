@@ -12,6 +12,7 @@ import GPSManager, {
 import { usePlayGameState } from "@/components/play/GameState";
 import PlayInterface from "@/components/play/PlayInterface";
 import StudentConnectionStatus from "@/components/play/StudentConnectionStatus";
+import StudentLocationHelp from "@/components/play/StudentLocationHelp";
 import StudentLocationStatus from "@/components/play/StudentLocationStatus";
 import StandardPlayLocationStatus from "@/components/play/standard/StandardPlayLocationStatus";
 import { FullscreenWarning } from "@/components/ui/FullscreenWarning";
@@ -106,8 +107,12 @@ function LegacyGpsGuardOverlay({
   const copy = getLegacyGpsGuardCopy(errorType);
 
   return (
-    <div className="fixed inset-0 z-[2200] flex items-center justify-center bg-slate-950/65 px-5 backdrop-blur-xl">
-      <div className="pointer-events-auto relative w-full max-w-xl overflow-hidden rounded-[2rem] border border-emerald-300/25 bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(15,23,42,0.96))] p-6 text-white shadow-[0_32px_90px_rgba(2,6,23,0.62)] sm:p-8">
+    <aside
+      aria-label="GPS-hjælp"
+      data-testid="legacy-gps-help"
+      className="pointer-events-none fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-[2200] mx-auto max-w-xl"
+    >
+      <div className="pointer-events-auto relative w-full overflow-hidden rounded-[2rem] border border-emerald-300/25 bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(15,23,42,0.96))] p-5 text-white shadow-[0_32px_90px_rgba(2,6,23,0.62)] sm:p-6">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.22),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.14),transparent_36%)]" />
         <div className="pointer-events-none absolute inset-0 rounded-[2rem] ring-1 ring-white/5" />
 
@@ -125,6 +130,8 @@ function LegacyGpsGuardOverlay({
           <p className="mt-4 max-w-lg text-sm leading-6 text-white/80 sm:text-base">
             {copy.description}
           </p>
+
+          <StudentLocationHelp className="mt-4" />
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
@@ -146,7 +153,7 @@ function LegacyGpsGuardOverlay({
           </p>
         </div>
       </div>
-    </div>
+    </aside>
   );
 }
 

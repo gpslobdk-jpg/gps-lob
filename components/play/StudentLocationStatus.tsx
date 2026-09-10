@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState, type ReactNode } from "react";
 
+import StudentLocationHelp from "@/components/play/StudentLocationHelp";
 import type { StudentLocationState as StudentLocationStateResult } from "@/lib/location/studentLocationState";
 
 type StudentLocationStatusProps = {
@@ -158,7 +159,9 @@ export default function StudentLocationStatus({
           actionLabel="Prøv igen"
           onAction={onRetry}
           isRetrying={isRetrying}
-        />
+        >
+          <StudentLocationHelp className="mt-4" />
+        </StatusCard>
       );
 
     case "temporarily_unavailable":
@@ -169,7 +172,9 @@ export default function StudentLocationStatus({
           actionLabel="Find min placering igen"
           onAction={onRetry}
           isRetrying={isRetrying}
-        />
+        >
+          <StudentLocationHelp className="mt-4" />
+        </StatusCard>
       );
 
     case "timed_out":
@@ -180,7 +185,9 @@ export default function StudentLocationStatus({
           actionLabel="Prøv igen"
           onAction={onRetry}
           isRetrying={isRetrying}
-        />
+        >
+          <StudentLocationHelp className="mt-4" />
+        </StatusCard>
       );
 
     case "permission_denied":
@@ -192,14 +199,7 @@ export default function StudentLocationStatus({
           onAction={onRetry}
           isRetrying={isRetrying}
         >
-          <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-            <h3 className="text-sm font-black text-white">Sådan gør du</h3>
-            <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm leading-6 text-white/80">
-              <li>Åbn browserens indstillinger for siden.</li>
-              <li>Tillad placering.</li>
-              <li>Gå tilbage og tryk “Prøv igen”.</li>
-            </ol>
-          </div>
+          <StudentLocationHelp className="mt-4" />
         </StatusCard>
       );
 

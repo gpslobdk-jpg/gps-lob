@@ -233,6 +233,8 @@ export default function GPSManager({
     let isDisposed = false;
     let callbackGeneration = 0;
     let staleTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let heartbeatId: ReturnType<typeof setInterval> | null = null;
+    let automaticRecoveryStopped = false;
     let lastRestartAtMs = Date.now();
     let resumedAtMs: number | null = null;
     let hasAcceptedPositionInEffect = false;
@@ -299,12 +301,22 @@ export default function GPSManager({
       }
     };
 
+    const stopAutomaticRecovery = () => {
+      automaticRecoveryStopped = true;
+      clearActiveWatch();
+      if (heartbeatId !== null) {
+        clearInterval(heartbeatId);
+        heartbeatId = null;
+      }
+    };
+
     const scheduleFreshnessExpiry = (initialAttempt = false) => {
       clearStaleTimeout();
       staleTimeoutId = setTimeout(() => {
         staleTimeoutId = null;
         if (
           isDisposed ||
+          automaticRecoveryStopped ||
           document.visibilityState !== "visible" ||
           Date.now() - lastPositionTimestampRef.current <
             STUDENT_LOCATION_STALE_AFTER_MS
@@ -657,14 +669,15 @@ export default function GPSManager({
       onGpsErrorChangeRef.current?.(true);
 
       if (error.code === error.PERMISSION_DENIED || error.code === 1) {
+        // A browser will not grant a rejected permission by retrying in the
+        // background. Wait for the student's explicit retry after they change
+        // the browser setting instead of keeping an obsolete watcher alive.
+        stopAutomaticRecovery();
         onGpsErrorTypeChangeRef.current?.("permission_denied");
         emitRuntimeState({
           isLocating: false,
           errorType: "permission_denied",
         });
-        if (standardStudentLocationFlow) {
-          clearActiveWatch();
-        }
         return;
       }
 
@@ -719,7 +732,7 @@ export default function GPSManager({
           isLocating: true,
           errorType: reason === "stale" ? "position_unavailable" : null,
         });
-        watchIdRef.current = navigator.geolocation.watchPosition(
+        const nextWatchId = navigator.geolocation.watchPosition(
           (position) => {
             if (!isDisposed && generation === callbackGeneration) {
               void successHandler(position);
@@ -732,6 +745,11 @@ export default function GPSManager({
           },
           gpsOptions
         );
+        if (automaticRecoveryStopped) {
+          navigator.geolocation.clearWatch(nextWatchId);
+          return;
+        }
+        watchIdRef.current = nextWatchId;
       } catch {
         onGpsErrorChangeRef.current?.(true);
         onGpsErrorTypeChangeRef.current?.("unknown");
@@ -749,12 +767,16 @@ export default function GPSManager({
     }
 
     startWatch(restartNonce > 0 ? "retry" : "start");
-    if (standardStudentLocationFlow) {
+    if (standardStudentLocationFlow && !automaticRecoveryStopped) {
       scheduleFreshnessExpiry(true);
     }
 
-    const heartbeatId = !standardStudentLocationFlow
+    heartbeatId = !standardStudentLocationFlow && !automaticRecoveryStopped
       ? setInterval(() => {
+          if (automaticRecoveryStopped) {
+            return;
+          }
+
           const stale =
             Date.now() - lastPositionTimestampRef.current >
             GPS_HEARTBEAT_STALE_THRESHOLD_MS;
@@ -777,6 +799,10 @@ export default function GPSManager({
       : null;
 
     const restartTracking = () => {
+      if (automaticRecoveryStopped) {
+        return;
+      }
+
       const nowMs = Date.now();
       if (
         watchIdRef.current !== null &&
