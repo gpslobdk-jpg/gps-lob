@@ -101,6 +101,23 @@ body {
   animation: skolegps-mascot-float 5.8s ease-in-out infinite;
 }
 
+@keyframes skolegps-loading-dot {
+  0%,
+  100% {
+    opacity: 0.32;
+    transform: translateY(0);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+
+.skolegps-loading-dot {
+  animation: skolegps-loading-dot 900ms ease-in-out infinite;
+}
+
 .skolegps-route-dash {
   animation: skolegps-route-dash 15s linear infinite;
 }
@@ -154,6 +171,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .skolegps-mascot-float,
+  .skolegps-loading-dot,
   .skolegps-route-dash,
   .skolegps-route-drift,
   .skolegps-scenic-drift,

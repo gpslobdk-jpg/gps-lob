@@ -1,22 +1,19 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Archive, BookOpen, ExternalLink, Gamepad2, MapPin, PlayCircle, RefreshCw, Users } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { Archive, BookOpen, Gamepad2, MapPin, PlayCircle, RefreshCw } from "lucide-react";
 import Link from "next/link";
-import { poppins } from "@/lib/fonts";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import HeroBanner from "@/components/brand/HeroBanner";
-import MascotMessage from "@/components/brand/MascotMessage";
-import QuickActionCard from "@/components/brand/QuickActionCard";
-import PwaInstallTip from "@/components/PwaInstallTip";
-import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
 import { DASHBOARD_QUICK_GUIDE_EVENT } from "@/components/DashboardQuickGuide";
+import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
+import Mascot from "@/components/brand/Mascot";
+import MascotMessage from "@/components/brand/MascotMessage";
+import PwaInstallTip from "@/components/PwaInstallTip";
 import { readStoredActiveParticipant } from "@/components/play/playUtils";
+import { poppins } from "@/lib/fonts";
 import { createClient } from "@/utils/supabase/client";
-
-const SKOLEGPS_FACEBOOK_GROUP_URL = "https://www.facebook.com/groups/1649785632764130";
 
 type ActiveSessionRow = {
   id: string;
@@ -33,6 +30,34 @@ type ResumeTarget = {
   sessionId: string;
 };
 
+type DashboardChoiceProps = {
+  description: string;
+  icon: LucideIcon;
+  isBusy: boolean;
+  onClick: () => void;
+  title: string;
+};
+
+function DashboardChoice({ description, icon: Icon, isBusy, onClick, title }: DashboardChoiceProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={isBusy}
+      className="group flex min-h-32 w-full items-center gap-4 rounded-2xl border border-sky-100 bg-white p-5 text-left shadow-[0_14px_36px_rgba(7,26,58,0.08)] transition hover:border-sky-300 hover:shadow-[0_18px_42px_rgba(7,26,58,0.13)] disabled:cursor-wait disabled:opacity-70 focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-sky-500"
+    >
+      <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-700 transition group-hover:bg-sky-100">
+        <Icon className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-lg font-black text-[var(--skolegps-deep-navy)]">{title}</span>
+        <span className="mt-1 block text-sm font-semibold leading-5 text-slate-600">{description}</span>
+      </span>
+      <span className="shrink-0 text-sm font-black text-sky-800">{isBusy ? "Åbner..." : "Åbn"}</span>
+    </button>
+  );
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [resumeTarget, setResumeTarget] = useState<ResumeTarget | null>(null);
@@ -41,7 +66,6 @@ export default function DashboardPage() {
   const [dashboardRetryKey, setDashboardRetryKey] = useState(0);
   const [isNavigatingCreate, setIsNavigatingCreate] = useState(false);
   const [isNavigatingArchive, setIsNavigatingArchive] = useState(false);
-  const [isNavigatingMobileGames, setIsNavigatingMobileGames] = useState(false);
   const [isNavigatingTeacherTools, setIsNavigatingTeacherTools] = useState(false);
   const [, setIsNavigatingLive] = useState(false);
 
@@ -62,9 +86,7 @@ export default function DashboardPage() {
         } = await supabase.auth.getUser();
 
         if (userError || !user) {
-          if (userError) {
-            console.error("Kunne ikke hente bruger:", userError);
-          }
+          if (userError) console.error("Kunne ikke hente bruger:", userError);
           if (isMounted) setResumeTarget(null);
           return;
         }
@@ -78,23 +100,15 @@ export default function DashboardPage() {
             .is("finished_at", null)
             .maybeSingle();
 
-          if (participantError) {
-            console.error("Kunne ikke tjekke aktiv deltagerstatus:", participantError);
-          }
-
+          if (participantError) console.error("Kunne ikke tjekke aktiv deltagerstatus:", participantError);
           const activeParticipant = (participantData as ParticipantResumeRow | null) ?? null;
           if (activeParticipant?.session_id) {
-            if (isMounted) {
-              setResumeTarget({ kind: "participant", sessionId: activeParticipant.session_id });
-            }
+            if (isMounted) setResumeTarget({ kind: "participant", sessionId: activeParticipant.session_id });
             return;
           }
         }
 
-        const [
-          { data, error },
-          { count: runCount, error: runsError },
-        ] = await Promise.all([
+        const [{ data, error }, { count: runCount, error: runsError }] = await Promise.all([
           supabase
             .from("live_sessions")
             .select("id")
@@ -102,14 +116,11 @@ export default function DashboardPage() {
             .in("status", ["waiting", "running"])
             .order("created_at", { ascending: false })
             .limit(1),
-          supabase
-            .from("gps_runs")
-            .select("id", { count: "exact", head: true })
-            .eq("user_id", user.id),
+          supabase.from("gps_runs").select("id", { count: "exact", head: true }).eq("user_id", user.id),
         ]);
 
         if (runsError) {
-          console.error("Kunne ikke tjekke antal gemte l\u00f8b:", runsError);
+          console.error("Kunne ikke tjekke antal gemte løb:", runsError);
           if (isMounted) {
             setRunCountError(true);
             setResumeTarget(null);
@@ -118,8 +129,6 @@ export default function DashboardPage() {
         }
 
         if (runCount === 0) {
-          // No saved runs yet — keep the dashboard view but don't attempt
-          // to redirect to a removed welcome/onboarding page.
           if (isMounted) setResumeTarget(null);
           return;
         }
@@ -131,11 +140,9 @@ export default function DashboardPage() {
         }
 
         const active = (data as ActiveSessionRow[] | null)?.[0] ?? null;
-        if (isMounted) {
-          setResumeTarget(active?.id ? { kind: "teacher", sessionId: active.id } : null);
-        }
+        if (isMounted) setResumeTarget(active?.id ? { kind: "teacher", sessionId: active.id } : null);
       } catch (error) {
-        console.error("Dashboardet kunne ikke indl\u00e6ses:", error);
+        console.error("Dashboardet kunne ikke indlæses:", error);
         if (isMounted) {
           setRunCountError(true);
           setResumeTarget(null);
@@ -146,7 +153,6 @@ export default function DashboardPage() {
     };
 
     void fetchActiveSession();
-
     return () => {
       isMounted = false;
     };
@@ -154,287 +160,96 @@ export default function DashboardPage() {
 
   const hasResumeTarget = Boolean(resumeTarget?.sessionId);
   const isParticipantResume = resumeTarget?.kind === "participant";
+  const liveCardDescription = useMemo(
+    () => (isParticipantResume ? "Tilbage til din post." : "Åbn livekort og svarflow."),
+    [isParticipantResume]
+  );
 
   const handleLiveMonitoringClick = () => {
-    if (isCheckingLiveSession) return;
-
-    if (resumeTarget?.sessionId) {
-      setIsNavigatingLive(true);
-      void router.push(
-        resumeTarget.kind === "participant"
-          ? `/play/${resumeTarget.sessionId}`
-          : `/dashboard/live/${resumeTarget.sessionId}`
-      );
-      return;
-    }
+    if (isCheckingLiveSession || !resumeTarget?.sessionId) return;
+    setIsNavigatingLive(true);
+    void router.push(
+      resumeTarget.kind === "participant"
+        ? `/play/${resumeTarget.sessionId}`
+        : `/dashboard/live/${resumeTarget.sessionId}`
+    );
   };
-
-  const handleRetryDashboardLoad = () => {
-    setDashboardRetryKey((current) => current + 1);
-  };
-
-  const liveCardDescription = useMemo(() => {
-    if (isParticipantResume) return "Tilbage til din post.";
-    return "Åbn livekort og svarflow.";
-  }, [isParticipantResume]);
 
   if (isCheckingLiveSession) {
     return (
-      <div
-        className={`relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--skolegps-muted-bg)] px-6 py-12 text-slate-950 ${poppins.className}`}
-      >
-        <div className="relative w-full max-w-6xl">
-          <div className="rounded-[1.75rem] border border-sky-100 bg-white/82 p-6 shadow-[0_24px_70px_rgba(7,26,58,0.12)] backdrop-blur animate-pulse sm:p-8">
-            <div className="flex flex-col gap-8">
-              <div className="space-y-4">
-                <div className="h-5 w-28 rounded-full bg-sky-100" />
-                <div className="h-12 max-w-md rounded-2xl bg-sky-100" />
-                <div className="h-4 max-w-xl rounded-full bg-slate-100" />
-              </div>
-
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <div className="h-40 rounded-2xl bg-white" />
-                <div className="h-40 rounded-2xl bg-white" />
-                <div className="h-40 rounded-2xl bg-white" />
-                <div className="h-40 rounded-2xl bg-white" />
-              </div>
-            </div>
+      <main className={`relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--skolegps-muted-bg)] px-6 py-12 text-slate-950 ${poppins.className}`}>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(14,165,233,0.13),transparent_30%),radial-gradient(circle_at_84%_88%,rgba(34,164,71,0.11),transparent_28%)]" />
+        <section className="relative w-full max-w-sm text-center" role="status">
+          <Mascot variant="guide" size="lg" className="mx-auto" />
+          <div className="mt-5 rounded-[1.75rem] border border-sky-100 bg-white px-6 py-7 shadow-[0_20px_56px_rgba(7,26,58,0.12)]">
+            <p className="text-xs font-black tracking-[0.16em] text-sky-700 uppercase">Pilen finder vej</p>
+            <p className="mt-3 text-xl font-black text-[var(--skolegps-deep-navy)]">Henter dit dashboard</p>
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
     );
   }
 
   if (runCountError) {
     return (
-      <div
-        className={`relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--skolegps-muted-bg)] px-6 py-12 text-slate-950 ${poppins.className}`}
-      >
-        <div className="relative w-full max-w-xl rounded-[1.75rem] border border-sky-100 bg-white p-8 text-center shadow-[0_24px_70px_rgba(7,26,58,0.13)] sm:p-10">
+      <main className={`relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--skolegps-muted-bg)] px-6 py-12 text-slate-950 ${poppins.className}`}>
+        <div className="w-full max-w-xl rounded-[1.75rem] border border-sky-100 bg-white p-8 text-center shadow-[0_24px_70px_rgba(7,26,58,0.13)] sm:p-10">
           <MascotMessage message="Prøv igen, så henter vi arkivet." title="Dashboard" />
-          <h1 className="mt-6 text-3xl font-black text-[var(--skolegps-deep-navy)]">
-            {"Vi kunne ikke hente dine l\u00f8b"}
-          </h1>
-          <p className="mt-4 text-sm leading-relaxed text-slate-600 sm:text-base">
-            {"Pr\u00f8v igen, s\u00e5 henter vi dem igen for dig."}
-          </p>
-          <div className="mt-8 flex justify-center">
-            <button
-              type="button"
-              onClick={handleRetryDashboardLoad}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--skolegps-blue-strong)] px-6 py-3 text-sm font-black text-white transition hover:bg-sky-700"
-            >
-              <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              {"Pr\u00f8v igen"}
-            </button>
-          </div>
+          <h1 className="mt-6 text-3xl font-black text-[var(--skolegps-deep-navy)]">Vi kunne ikke hente dine løb</h1>
+          <button type="button" onClick={() => setDashboardRetryKey((current) => current + 1)} className="mt-7 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[var(--skolegps-blue-strong)] px-6 py-3 text-sm font-black text-white transition hover:bg-sky-700">
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />Prøv igen
+          </button>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div
-      className={`relative flex min-h-screen flex-col bg-[var(--skolegps-muted-bg)] px-5 pb-8 pt-6 text-slate-950 md:px-8 md:pb-10 lg:px-10 ${poppins.className}`}
-    >
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_14%_8%,rgba(14,165,233,0.16),transparent_30%),radial-gradient(circle_at_86%_10%,rgba(34,164,71,0.12),transparent_28%),linear-gradient(180deg,#f4fbff_0%,#eef9ef_100%)]" />
-
-      <section className="mx-auto w-full max-w-6xl">
-        <HeroBanner
-          compact
-          eyebrow="Lærer-dashboard"
-          icon={MapPin}
-          mascot="wave"
-          title="Hvad vil du lave?"
-          subtitle="Opret et løb, fortsæt hvor du slap, eller find dine forløb."
-          actions={
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new Event(DASHBOARD_QUICK_GUIDE_EVENT))}
-              className="inline-flex min-h-11 items-center justify-center rounded-full border border-sky-200 bg-white/82 px-4 py-2 text-sm font-bold text-[var(--skolegps-deep-navy)] shadow-sm backdrop-blur transition hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
-            >
-              Ny her? Vis den korte guide
-            </button>
-          }
-        />
-      </section>
-
-      <section className="mx-auto mt-6 w-full max-w-4xl">
-        <MobileInSchoolBanner variant="dashboard" />
-      </section>
-
-      {/* Primary action: opret et løb er dashboardets ene tydelige hovedhandling */}
-      <section className="mx-auto mt-8 w-full max-w-6xl">
-        <motion.button
-          type="button"
-          aria-label="Opret et løb"
-          onClick={() => {
-            if (isNavigatingCreate) return;
-            setIsNavigatingCreate(true);
-            void router.push("/dashboard/opret/valg");
-          }}
-          data-tour="dashboard-create-run"
-          className="block w-full text-left"
-          aria-busy={isNavigatingCreate}
-          aria-disabled={isNavigatingCreate}
-        >
-          <motion.div whileHover={isNavigatingCreate ? undefined : { y: -3, scale: 1.006 }}>
-            <QuickActionCard
-              className="min-h-44 border-green-200"
-              cta={isNavigatingCreate ? "Åbner..." : "Start"}
-              description="Byg rute, poster og spørgsmål."
-              eyebrow="Kom i gang"
-              icon={MapPin}
-              isBusy={isNavigatingCreate}
-              title={isNavigatingCreate ? "Gør klar til nyt løb" : "Opret et løb"}
-              tone="green"
-            />
-          </motion.div>
-        </motion.button>
-      </section>
-
-      {/* Dynamisk handling: vises kun når læreren faktisk har et aktivt løb */}
-      {hasResumeTarget ? (
-        <section className="mx-auto mt-5 w-full max-w-6xl">
-          <motion.button
-            type="button"
-            aria-label={isParticipantResume ? "Fortsæt dit løb" : "Fortsæt løbet"}
-            onClick={handleLiveMonitoringClick}
-            className="block w-full text-left"
-          >
-            <motion.div whileHover={{ y: -3, scale: 1.006 }}>
-              <QuickActionCard
-                cta="Åbn"
-                description={liveCardDescription}
-                eyebrow="Aktivt løb"
-                icon={PlayCircle}
-                title={isParticipantResume ? "Fortsæt dit løb" : "Fortsæt løbet"}
-                tone="yellow"
-              />
-            </motion.div>
-          </motion.button>
-        </section>
-      ) : null}
-
-      {/* Sekundære, men tydelige handlinger */}
-      <section className="mx-auto mt-5 grid w-full max-w-6xl grid-cols-1 gap-5 md:grid-cols-3">
-        <motion.button
-          type="button"
-          aria-label="Mine løb"
-          onClick={() => {
-            if (isNavigatingArchive) return;
-            setIsNavigatingArchive(true);
-            void router.push("/dashboard/arkiv");
-          }}
-          className="flex h-full w-full flex-col justify-center text-left"
-          aria-busy={isNavigatingArchive}
-          aria-disabled={isNavigatingArchive}
-        >
-          <motion.div whileHover={isNavigatingArchive ? undefined : { y: -3, scale: 1.006 }}>
-            <QuickActionCard
-              cta={isNavigatingArchive ? "Åbner..." : "Find"}
-              description="Find, genbrug og start forløb."
-              icon={Archive}
-              isBusy={isNavigatingArchive}
-              title="Arkiv"
-              tone="blue"
-            />
-          </motion.div>
-        </motion.button>
-
-        <motion.button
-          type="button"
-          aria-label="Lærerværktøjer"
-          onClick={() => {
-            if (isNavigatingTeacherTools) return;
-            setIsNavigatingTeacherTools(true);
-            void router.push("/dashboard/laerervaerktoejer");
-          }}
-          className="flex h-full w-full flex-col justify-center text-left"
-          aria-busy={isNavigatingTeacherTools}
-          aria-disabled={isNavigatingTeacherTools}
-        >
-          <motion.div whileHover={isNavigatingTeacherTools ? undefined : { y: -3, scale: 1.006 }}>
-            <QuickActionCard
-              cta={isNavigatingTeacherTools ? "Åbner..." : "Åbn"}
-              description="Planlægning, årsplan og AI-hjælp."
-              icon={BookOpen}
-              isBusy={isNavigatingTeacherTools}
-              title="Lærerværktøjer"
-              tone="navy"
-            />
-          </motion.div>
-        </motion.button>
-
-        <motion.button
-          type="button"
-          aria-label="Mobilspil"
-          onClick={() => {
-            if (isNavigatingMobileGames) return;
-            setIsNavigatingMobileGames(true);
-            void router.push("/dashboard/mobilspil");
-          }}
-          className="flex w-full items-center justify-center text-left"
-          aria-busy={isNavigatingMobileGames}
-          aria-disabled={isNavigatingMobileGames}
-        >
-          <motion.div whileHover={isNavigatingMobileGames ? undefined : { y: -3, scale: 1.006 }}>
-            <QuickActionCard
-              cta={isNavigatingMobileGames ? "Åbner..." : "Åbn"}
-              description="Spil til elevernes telefoner."
-              icon={Gamepad2}
-              isBusy={isNavigatingMobileGames}
-              title="Mobilspil"
-              tone="sand"
-            />
-          </motion.div>
-        </motion.button>
-      </section>
-
-      <section className="mx-auto mt-7 w-full max-w-6xl">
-        <Link
-          href={SKOLEGPS_FACEBOOK_GROUP_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="group flex flex-col gap-3 rounded-2xl border border-green-100 bg-white/82 px-5 py-4 text-left text-slate-950 shadow-[0_14px_36px_rgba(7,26,58,0.08)] backdrop-blur transition hover:border-green-200 hover:bg-white sm:flex-row sm:items-center sm:justify-between sm:px-6"
-        >
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-green-600 text-white">
-              <Users className="h-5 w-5" aria-hidden="true" />
-            </span>
-            <span className="min-w-0">
-              <span className="block text-[11px] font-bold uppercase text-green-700">
-                SkoleGPS-gruppen
-              </span>
-              <span className="mt-1 block text-sm font-semibold leading-6 text-slate-700">
-                Få nyheder, del viden og ønsk nye funktioner.
-              </span>
-            </span>
+    <main className={`relative min-h-screen bg-[var(--skolegps-muted-bg)] px-5 py-7 text-slate-950 sm:px-6 lg:px-8 ${poppins.className}`}>
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_14%_8%,rgba(14,165,233,0.13),transparent_30%),radial-gradient(circle_at_86%_10%,rgba(34,164,71,0.1),transparent_28%)]" />
+      <div className="mx-auto w-full max-w-5xl">
+        <header className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-black tracking-[0.16em] text-sky-700 uppercase">Lærer-dashboard</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-[var(--skolegps-deep-navy)] sm:text-4xl">Hvad vil du lave?</h1>
+            <p className="mt-2 text-sm font-semibold text-slate-600 sm:text-base">Start et nyt løb eller find det, du skal bruge.</p>
           </div>
-          <span className="inline-flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700 transition group-hover:border-green-200 group-hover:bg-green-50 sm:self-center">
-            Åbn gruppe
-            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-          </span>
-        </Link>
-      </section>
+          <button type="button" onClick={() => window.dispatchEvent(new Event(DASHBOARD_QUICK_GUIDE_EVENT))} className="min-h-11 rounded-full border border-sky-200 bg-white px-4 py-2 text-sm font-bold text-sky-900 shadow-sm transition hover:bg-sky-50 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-500">Kort guide</button>
+        </header>
 
-      <section className="mx-auto mt-5 w-full max-w-6xl">
-        <PwaInstallTip />
-      </section>
+        <section className="mt-7">
+          <button type="button" aria-label="Opret et løb" data-tour="dashboard-create-run" aria-busy={isNavigatingCreate} disabled={isNavigatingCreate} onClick={() => { if (isNavigatingCreate) return; setIsNavigatingCreate(true); void router.push("/dashboard/opret/valg"); }} className="group flex w-full items-center gap-5 rounded-[1.5rem] border border-green-200 bg-white p-6 text-left shadow-[0_18px_48px_rgba(7,26,58,0.11)] transition hover:border-green-300 hover:shadow-[0_22px_54px_rgba(34,164,71,0.15)] disabled:cursor-wait disabled:opacity-70 focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-green-500 sm:p-7">
+            <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-green-600 text-white shadow-[0_12px_24px_rgba(34,164,71,0.22)]"><MapPin className="h-7 w-7" aria-hidden="true" /></span>
+            <span className="min-w-0 flex-1"><span className="block text-2xl font-black text-[var(--skolegps-deep-navy)]">Opret et løb</span><span className="mt-1 block text-sm font-semibold text-slate-600">Byg rute, poster og spørgsmål.</span></span>
+            <span className="shrink-0 rounded-full bg-green-600 px-5 py-2.5 text-sm font-black text-white">{isNavigatingCreate ? "Åbner..." : "Start"}</span>
+          </button>
+        </section>
 
-      <footer className="mx-auto mt-auto w-full max-w-5xl pt-10 text-center">
-        <div className="flex flex-wrap justify-center gap-6 text-sm font-semibold text-slate-500">
-          <Link href="/dashboard/indstillinger" className="transition hover:text-slate-700">
-            Indstillinger
-          </Link>
-          <Link href="/privacy" className="transition hover:text-slate-700">
-            Privatlivspolitik
-          </Link>
-          <Link href="/teknologi" className="transition hover:text-slate-700">
-            Udvikler Info
-          </Link>
+        {hasResumeTarget ? (
+          <section className="mt-4">
+            <button type="button" onClick={handleLiveMonitoringClick} className="flex w-full items-center gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-left transition hover:bg-amber-100 focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-amber-500">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-400 text-slate-950"><PlayCircle className="h-5 w-5" aria-hidden="true" /></span><span className="min-w-0 flex-1"><span className="block font-black text-amber-950">{isParticipantResume ? "Fortsæt dit løb" : "Fortsæt løbet"}</span><span className="mt-0.5 block text-sm font-semibold text-amber-900">{liveCardDescription}</span></span><span className="text-sm font-black text-amber-950">Åbn</span>
+            </button>
+          </section>
+        ) : null}
+
+        <section className="mt-4 grid gap-4 md:grid-cols-2" aria-label="Flere muligheder">
+          <DashboardChoice title="Mine løb" description="Find, genbrug og start et tidligere forløb." icon={Archive} isBusy={isNavigatingArchive} onClick={() => { if (isNavigatingArchive) return; setIsNavigatingArchive(true); void router.push("/dashboard/arkiv"); }} />
+          <DashboardChoice title="Lærerværktøjer" description="Planlægning, materialer og aktiviteter til klassen." icon={BookOpen} isBusy={isNavigatingTeacherTools} onClick={() => { if (isNavigatingTeacherTools) return; setIsNavigatingTeacherTools(true); void router.push("/dashboard/laerervaerktoejer"); }} />
+        </section>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-100 bg-white px-5 py-4 shadow-sm">
+          <p className="text-sm font-semibold text-slate-600">Leder du efter spil til elevernes telefoner?</p>
+          <Link href="/dashboard/mobilspil" className="inline-flex min-h-10 items-center gap-2 rounded-full bg-sky-50 px-4 py-2 text-sm font-black text-sky-800 transition hover:bg-sky-100"><Gamepad2 className="h-4 w-4" aria-hidden="true" />Mobilspil</Link>
         </div>
-      </footer>
-    </div>
+
+        <section className="mt-4"><MobileInSchoolBanner variant="dashboard" /></section>
+        <section className="mt-4"><PwaInstallTip /></section>
+
+        <footer className="mt-10 flex flex-wrap justify-center gap-x-6 gap-y-3 pb-2 text-sm font-semibold text-slate-500">
+          <Link href="/dashboard/indstillinger" className="transition hover:text-slate-700">Indstillinger</Link><Link href="/privacy" className="transition hover:text-slate-700">Privatliv</Link><Link href="/teknologi" className="transition hover:text-slate-700">Udviklerinfo</Link>
+        </footer>
+      </div>
+    </main>
   );
 }

@@ -152,13 +152,13 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     const layout = readSource("app", "dashboard", "layout.tsx");
 
     expect(dashboard).toContain("Hvad vil du lave?");
-    expect(dashboard).toContain("Opret et løb, fortsæt hvor du slap, eller find dine forløb.");
-    expect(dashboard).toContain("Ny her? Vis den korte guide");
+    expect(dashboard).toContain("Start et nyt løb eller find det, du skal bruge.");
+    expect(dashboard).toContain("Kort guide");
     expect(dashboard).toContain("/dashboard/live/${resumeTarget.sessionId}");
     expect(dashboard).toContain("/play/${resumeTarget.sessionId}");
     expect(dashboard).toContain('router.push("/dashboard/arkiv")');
     expect(dashboard).toContain('router.push("/dashboard/laerervaerktoejer")');
-    expect(dashboard).toContain('router.push("/dashboard/mobilspil")');
+    expect(dashboard).toContain('href="/dashboard/mobilspil"');
 
     expect(selection).toContain("Hvordan vil du lave dit løb?");
     expect(selection).toContain("Start med Lynbyggeren");
@@ -182,6 +182,19 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     );
   });
 
+  test("dashboardet viser én hovedhandling og to rolige, sekundære valg", async ({ page }) => {
+    await setupDashboardContext(page.context());
+    await page.addInitScript(() => window.localStorage.setItem("skolegps.dashboard-quick-guide.v1.seen", "true"));
+    await page.setViewportSize({ width: 1280, height: 900 });
+
+    await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("button", { name: "Opret et løb" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('section[aria-label="Flere muligheder"] > button')).toHaveCount(2);
+    await expect(page.getByText("SkoleGPS-gruppen")).toHaveCount(0);
+    await expect(page.getByText("Skole & skærm")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  });
+
   test("førstegangsmodal vises én gang og kan åbnes manuelt igen", async ({ page }) => {
     await setupDashboardContext(page.context());
     await page.addInitScript(() => {
@@ -201,7 +214,7 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     await expect(page.getByRole("heading", { name: "Hvad vil du lave?" })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("heading", { name: "Velkommen til SkoleGPS" })).toBeHidden();
 
-    const manualTrigger = page.getByRole("button", { name: "Ny her? Vis den korte guide" });
+    const manualTrigger = page.getByRole("button", { name: "Kort guide" });
     await manualTrigger.click();
     await expect(page.getByRole("heading", { name: "Velkommen til SkoleGPS" })).toBeVisible();
     await page.keyboard.press("Escape");
@@ -225,7 +238,7 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "Velkommen til SkoleGPS" })).toHaveCount(0);
 
-    const manualTrigger = page.getByRole("button", { name: "Ny her? Vis den korte guide" });
+    const manualTrigger = page.getByRole("button", { name: "Kort guide" });
     await manualTrigger.click();
     await page.keyboard.press("Escape");
     await expect(manualTrigger).toBeFocused();
@@ -260,7 +273,7 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     await expect.poll(() => page.evaluate(() => window.localStorage.getItem("skolegps.dashboard-quick-guide.v1.step"))).toBeNull();
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.dashboardQuickGuide ?? null)).toBeNull();
 
-    await page.getByRole("button", { name: "Ny her? Vis den korte guide" }).click();
+    await page.getByRole("button", { name: "Kort guide" }).click();
     await expect(page.getByRole("heading", { name: "Velkommen til SkoleGPS" })).toBeVisible();
     await page.getByRole("button", { name: "Vis mig rundt" }).click();
     await expect(page.getByText("Her starter du, når du vil lave et nyt løb.")).toBeVisible();
