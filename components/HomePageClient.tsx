@@ -582,8 +582,24 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
           </div>
         </section>
 
+        {siteVariantKey !== "postlob" ? (
+          <section
+            data-testid="home-founder-entry"
+            aria-label="Mød personen bag SkoleGPS"
+            className="mt-7 flex flex-col gap-3 rounded-2xl border border-sky-100 bg-white/74 px-5 py-4 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6"
+          >
+            <p className="text-sm font-bold text-slate-700">Mød Jeppe Laursen, læreren bag SkoleGPS.</p>
+            <Link
+              href="/manden-bag-skolegps"
+              className="shrink-0 text-sm font-black text-sky-800 underline decoration-sky-300 underline-offset-4 transition hover:text-sky-950 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-800"
+            >
+              Manden bag SkoleGPS →
+            </Link>
+          </section>
+        ) : null}
+
         <footer className="flex flex-wrap items-center gap-x-5 gap-y-3 py-8 text-xs font-semibold text-slate-600">
-          <Link href="/om" className="transition hover:text-sky-800">Om SkoleGPS</Link>
+          {siteVariantKey === "postlob" ? <Link href="/om" className="transition hover:text-sky-800">Om SkoleGPS</Link> : null}
           <Link href="/hjaelp" className="transition hover:text-sky-800">GPS-hjælp</Link>
           <Link href="/gdpr" className="transition hover:text-sky-800">{homeCopy.legalLinks.gdpr}</Link>
           <Link href="/privacy" className="transition hover:text-sky-800">{homeCopy.legalLinks.privacy}</Link>
