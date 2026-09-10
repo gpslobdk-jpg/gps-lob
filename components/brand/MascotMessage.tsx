@@ -4,7 +4,7 @@ type MascotMessageProps = {
   className?: string;
   message: string;
   title?: string;
-  variant?: "default" | "wave" | "point" | "thinking" | "celebrate" | "guide";
+  variant?: "default" | "wave" | "point" | "thinking" | "celebrate" | "guide" | "chess";
 };
 
 export default function MascotMessage({

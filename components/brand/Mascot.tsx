@@ -7,6 +7,7 @@ type MascotVariant =
   | "thinking"
   | "celebrate"
   | "guide"
+  | "chess"
   | "head-only";
 
 type MascotSize = "xs" | "sm" | "md" | "lg" | "hero";
@@ -35,6 +36,7 @@ const variantClasses: Record<MascotVariant, string> = {
   thinking: "saturate-[0.94] [--skolegps-mascot-rotate:-3deg]",
   celebrate: "drop-shadow-[0_22px_38px_rgba(14,165,233,0.3)] [--skolegps-mascot-rotate:2deg]",
   guide: "drop-shadow-[0_18px_34px_rgba(34,164,71,0.2)] [--skolegps-mascot-rotate:-1deg]",
+  chess: "drop-shadow-[0_18px_34px_rgba(247,183,51,0.28)] [--skolegps-mascot-rotate:2deg]",
   "head-only": "",
 };
 
@@ -81,6 +83,14 @@ export default function Mascot({
             : "object-contain drop-shadow-[0_22px_42px_rgba(7,26,58,0.24)]"
         }
       />
+      {variant === "chess" ? (
+        <span
+          aria-hidden="true"
+          className="absolute right-0 bottom-1 inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-amber-100 bg-[var(--skolegps-deep-navy)] text-xl text-amber-100 shadow-[0_8px_18px_rgba(7,26,58,0.22)]"
+        >
+          ♞
+        </span>
+      ) : null}
     </div>
   );
 }

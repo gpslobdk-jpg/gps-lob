@@ -12,7 +12,7 @@ type HeroBannerProps = {
   compact?: boolean;
   eyebrow?: string;
   icon?: LucideIcon;
-  mascot?: "default" | "wave" | "point" | "thinking" | "celebrate" | "guide" | false;
+  mascot?: "default" | "wave" | "point" | "thinking" | "celebrate" | "guide" | "chess" | false;
   subtitle?: ReactNode;
   title: ReactNode;
 };
