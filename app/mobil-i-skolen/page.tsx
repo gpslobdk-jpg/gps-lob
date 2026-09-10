@@ -1,167 +1,137 @@
 import type { Metadata } from "next";
-
-import { ArrowLeft, Compass, ShieldCheck, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, Compass, MapPin, ShieldCheck, Users } from "lucide-react";
 import Link from "next/link";
+
 import { poppins, rubik } from "@/lib/fonts";
 
-const futureProofPoints = [
+export const metadata: Metadata = {
+  title: "Mobilfri skole og aktiv undervisning | SkoleGPS",
+  description:
+    "Læs SkoleGPS' korte, kildebaserede perspektiv på mobilfri skole og voksenstyret aktivitet uden for klasselokalet.",
+};
+
+const points = [
   {
-    title: "Aktiv skærmtid",
-    body:
-      "Børnene sidder ikke og stener. Telefonen er forvandlet til et værktøj (en radar og et interaktivt kort), der får dem op af stolene, ud i naturen og giver sved på panden.",
-    icon: Compass,
+    title: "Telefonen er et redskab på ruten",
+    body: "Eleverne bruger den til kort, opgaver og korte beskeder, når det hører til aktiviteten. Det er ikke et ekstra feed eller et frikvarter på skærm.",
+    icon: MapPin,
   },
   {
-    title: "Lærerstyret",
-    body:
-      'Det er altid læreren, der sætter rammen. Via "Gude-overblikket" og nødbremsen har læreren 100 % kontrol over aktiviteten.',
+    title: "Læreren sætter rammen",
+    body: "Læreren vælger forløb, tidspunkt og tempo. SkoleGPS er lavet til et planlagt undervisningsforløb, ikke til fri mobilbrug.",
     icon: ShieldCheck,
   },
   {
-    title: "Bygger fællesskab",
-    body:
-      "Spillet kræver fysisk interaktion, holdarbejde, kommunikation og taktik i den virkelige verden. Det er teknologi, der bringer eleverne sammen, i stedet for at isolere dem.",
+    title: "Opgaven foregår sammen",
+    body: "Det væsentlige sker på stedet: Klassen går, undersøger, løser og taler sammen. Skærmen er kun én del af en fysisk aktivitet.",
     icon: Users,
   },
 ] as const;
 
-export const metadata: Metadata = {
-  title: "Mobilforbud i skolen | SkoleGPS",
-  description:
-    "Læs hvorfor SkoleGPS og Live Stratego er et aktivt, lærerstyret og fremtidssikret valg i en tid med skærmanbefalinger og debat om mobilforbud i skolen.",
-};
-
 export default function MobilISkolenPage() {
   return (
     <main
-      className={`relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#06111f_0%,#0d1b2b_38%,#071712_100%)] px-4 py-8 text-white sm:px-6 md:px-10 md:py-12 ${poppins.className}`}
+      className={`min-h-screen bg-[linear-gradient(180deg,#f6fbff_0%,#edf8f5_54%,#ffffff_100%)] px-5 py-6 text-slate-900 sm:px-8 sm:py-10 ${poppins.className}`}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.18),transparent_32%),radial-gradient(circle_at_50%_12%,rgba(255,255,255,0.05),transparent_24%)]" />
+      <div className="mx-auto max-w-5xl">
+        <Link
+          href="/"
+          className="inline-flex min-h-11 items-center gap-2 rounded-full border border-sky-100 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-sky-200 hover:text-sky-800"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Til forsiden
+        </Link>
 
-      <div className="relative mx-auto max-w-6xl">
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Til forsiden
-          </Link>
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/15"
-          >
-            Til Udsigtsposten
-          </Link>
-        </div>
-
-        <section className="mt-6 overflow-hidden rounded-[2.5rem] border border-indigo-400/35 bg-[linear-gradient(135deg,rgba(99,102,241,0.18),rgba(15,23,42,0.92)_42%,rgba(5,150,105,0.22))] shadow-[0_28px_80px_rgba(2,6,23,0.48)] backdrop-blur-xl">
-          <div className="grid gap-8 px-6 py-8 sm:px-8 sm:py-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:px-10 lg:py-12">
-            <div>
-              <div className="inline-flex items-center gap-3 rounded-full border border-white/14 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.24em] text-white/88">
-                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                Aktiv undervisning i praksis
-              </div>
-
-              <h1 className={`mt-5 max-w-4xl text-3xl font-black tracking-tight text-white sm:text-4xl md:text-5xl ${rubik.className}`}>
-                Mobilforbud i skolen? Derfor er SkoleGPS det sikre valg.
-              </h1>
-
-              <div className="mt-5 max-w-3xl space-y-4 text-sm leading-7 text-white/86 sm:text-base md:text-lg">
-                <p>
-                  Debatten om skærmtid og mobilfrie skoler raser, og med udsigten til
-                  strammere regler for mobiltelefoner i skoletiden i 2026, er det vigtigt at
-                  kende forskel på passiv og aktiv skærmtid.
-                </p>
-                <p>
-                  Ministeriets anbefalinger er klare: Skærme skal væk, når de forstyrrer, men
-                  de må meget gerne bruges, når det er voksenstyret og didaktisk hensigtsmæssigt.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-              <div className="rounded-[1.75rem] border border-white/14 bg-white/10 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-sm">
-                <p className="text-xs font-semibold tracking-[0.22em] text-indigo-100/80 uppercase">
-                  Bevægelse
-                </p>
-                <p className="mt-3 text-sm leading-6 text-white/88">
-                  Telefonen bliver et redskab, der sender eleverne ud i skolegården og skoven
-                  i stedet for ned i stolen.
-                </p>
-              </div>
-
-              <div className="rounded-[1.75rem] border border-white/14 bg-white/10 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-sm">
-                <p className="text-xs font-semibold tracking-[0.22em] text-emerald-100/80 uppercase">
-                  Kontrol
-                </p>
-                <p className="mt-3 text-sm leading-6 text-white/88">
-                  Læreren sætter rammen, holder overblikket og kan bremse aktiviteten med det
-                  samme, hvis det bliver nødvendigt.
-                </p>
-              </div>
-
-              <div className="rounded-[1.75rem] border border-white/14 bg-white/10 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-sm">
-                <p className="text-xs font-semibold tracking-[0.22em] text-amber-100/80 uppercase">
-                  Fællesskab
-                </p>
-                <p className="mt-3 text-sm leading-6 text-white/88">
-                  Teknologien bruges til samarbejde, taktik og fælles oplevelser i den virkelige
-                  verden, ikke til isolation.
-                </p>
-              </div>
-            </div>
+        <article className="mt-7 rounded-[2rem] border border-sky-100 bg-white/86 p-6 shadow-[0_22px_60px_rgba(7,26,58,0.08)] backdrop-blur sm:p-10">
+          <p className="text-xs font-black tracking-[0.18em] text-sky-800 uppercase">Skole &amp; skærm</p>
+          <h1 className={`mt-4 max-w-4xl text-4xl font-black tracking-tight text-[var(--skolegps-deep-navy)] sm:text-5xl ${rubik.className}`}>
+            Mobilfri skole — med plads til en voksenstyret læringsaktivitet
+          </h1>
+          <div className="mt-6 max-w-3xl space-y-5 text-base leading-8 text-slate-700 sm:text-lg">
+            <p>
+              Debatten om mobiltelefoner i skolen handler med god grund om ro, fællesskab og
+              koncentration. Undervisningsministeriets anbefalinger peger på mobilfri skole og
+              på, at skærme kun bruges, når det er didaktisk og pædagogisk hensigtsmæssigt.
+              SkoleGPS er tænkt ind i netop den samtale: som et kort, lærerplanlagt værktøj i en
+              aktivitet, der foregår uden for klasselokalet.
+            </p>
+            <p>
+              Det betyder ikke, at en app i sig selv afgør, hvad der er rigtigt på en skole.
+              Skolens egne rammer, lærerens faglige vurdering og hensynet til den konkrete klasse
+              kommer først. SkoleGPS kan bruges, når læreren vælger et forløb, sætter en tydelig
+              opgave og lader eleverne bruge telefonen kort og målrettet på ruten.
+            </p>
+            <p>
+              På Folketingets side står lovforslag L 130 fra samlingen 2025-26 som
+              <strong> bortfaldet</strong> ved seneste kildekontrol. Det er derfor ikke rigtigt
+              at beskrive én bestemt lovregel som en generel undtagelse for SkoleGPS. I stedet
+              holder vi os til det, skolen konkret kan tage stilling til: om aktiviteten er
+              lærerstyret, relevant for undervisningen og skaber mere bevægelse, samarbejde og
+              opmærksomhed på stedet.
+            </p>
           </div>
-        </section>
 
-        <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-          <article className="rounded-[2rem] border border-white/10 bg-slate-950/45 p-6 shadow-[0_22px_60px_rgba(2,6,23,0.35)] backdrop-blur-xl sm:p-8">
-            <div className="prose prose-invert max-w-none prose-headings:font-black prose-headings:tracking-tight prose-p:text-white/84 prose-p:leading-8 prose-strong:text-white prose-li:text-white/84 prose-li:marker:text-emerald-300">
-              <h2 className={rubik.className}>Hvorfor SkoleGPS og Live Stratego er fremtidssikret:</h2>
-              <ul>
-                {futureProofPoints.map((point) => (
-                  <li key={point.title}>
-                    <strong>{point.title}:</strong> {point.body}
-                  </li>
-                ))}
-              </ul>
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            {points.map(({ title, body, icon: Icon }) => (
+              <section key={title} className="rounded-2xl border border-sky-100 bg-sky-50/55 p-5">
+                <Icon className="h-5 w-5 text-sky-700" aria-hidden="true" />
+                <h2 className="mt-3 text-lg font-black text-[var(--skolegps-deep-navy)]">{title}</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{body}</p>
+              </section>
+            ))}
+          </div>
+
+          <section className="mt-8 rounded-2xl border border-emerald-100 bg-emerald-50/72 p-5 sm:p-6">
+            <div className="flex items-start gap-3">
+              <Compass className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" aria-hidden="true" />
+              <div>
+                <h2 className="font-black text-emerald-950">Et konkret valg i undervisningen</h2>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-900/80">
+                  Før et forløb kan læreren afklare mobilreglerne med klassen og vælge, om
+                  telefonen skal ligge væk mellem posterne. Det holder teknologien i den rolle,
+                  den skal have: et redskab til opgaven, ikke opgaven i sig selv.
+                </p>
+              </div>
             </div>
-          </article>
+          </section>
 
-          <aside className="space-y-4">
-            {futureProofPoints.map((point) => {
-              const Icon = point.icon;
+          <div className="mt-8">
+            <Link
+              href="/login?next=%2Fdashboard%2Fopret%2Fvalg"
+              className="inline-flex min-h-12 items-center gap-2 rounded-full bg-[var(--skolegps-blue-strong)] px-5 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(3,119,216,0.2)] transition hover:bg-sky-700"
+            >
+              Se et lærerforløb
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </div>
+        </article>
 
-              return (
-                <section
-                  key={point.title}
-                  className="rounded-[1.85rem] border border-white/10 bg-white/8 p-5 shadow-[0_18px_48px_rgba(2,6,23,0.22)] backdrop-blur-lg"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-emerald-100">
-                      <Icon className="h-5 w-5" aria-hidden="true" />
-                    </div>
-                    <div>
-                      <h3 className={`text-xl font-black tracking-tight text-white ${rubik.className}`}>
-                        {point.title}
-                      </h3>
-                      <p className="mt-2 text-sm leading-7 text-white/82">{point.body}</p>
-                    </div>
-                  </div>
-                </section>
-              );
-            })}
-          </aside>
-        </section>
-
-        <section className="mt-8 rounded-[2rem] border border-emerald-400/22 bg-[linear-gradient(135deg,rgba(16,185,129,0.14),rgba(15,23,42,0.72))] p-6 shadow-[0_18px_50px_rgba(5,150,105,0.14)] backdrop-blur-xl sm:p-8">
-          <p className="text-xs font-semibold tracking-[0.24em] text-emerald-100/78 uppercase">
-            Tryg undervisningsbrug
+        <section className="mt-7 rounded-2xl border border-slate-200 bg-white/78 p-6 text-sm leading-6 text-slate-600 shadow-sm">
+          <h2 className="font-black text-slate-800">Kilder og afgrænsning</h2>
+          <p className="mt-2">
+            Senest kildekontrolleret 10. september 2026. Siden er baggrund til skolens faglige
+            samtale — ikke juridisk rådgivning eller en vurdering af en konkret skoles politik.
           </p>
-          <p className="mt-4 max-w-4xl text-base leading-8 text-white/90 sm:text-lg">
-            Giv trygt eleverne telefonen i hånden til undervisningsbrug. Med SkoleGPS bliver
-            skærmtid til kvalitetstid i skolegården og skoven.
-          </p>
+          <ul className="mt-4 space-y-2">
+            <li>
+              <a className="font-bold text-sky-800 underline underline-offset-2" href="https://uvm.dk/grundskole/folkeskolen/laering-og-laeringsmiljoe/laeringsmiljoe/anbefalinger-om-skaermbrug-til-grundskoler-og-fritidstilbud/" rel="noreferrer" target="_blank">
+                Undervisningsministeriet: Anbefalinger om skærmbrug
+              </a>
+              {" — grundlag for omtalen af mobilfri skole og pædagogisk begrundet brug."}
+            </li>
+            <li>
+              <a className="font-bold text-sky-800 underline underline-offset-2" href="https://www.ft.dk/samling/20251/lovforslag/l130/index.htm" rel="noreferrer" target="_blank">
+                Folketinget: L 130 (2025-26)
+              </a>
+              {" — grundlag for den angivne status som bortfaldet ved kildekontrollen."}
+            </li>
+            <li>
+              <a className="font-bold text-sky-800 underline underline-offset-2" href="https://uvm.dk/aktuelt/nyheder/2025/september/250930-ny-aftale-om-mobilfrie-folkeskoler-og-fritidstilbud/" rel="noreferrer" target="_blank">
+                Undervisningsministeriet: Aftale om mobilfrie folkeskoler og fritidstilbud
+              </a>
+              {" — baggrund for den politiske debat."}
+            </li>
+          </ul>
         </section>
       </div>
     </main>

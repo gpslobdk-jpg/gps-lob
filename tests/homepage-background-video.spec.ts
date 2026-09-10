@@ -37,15 +37,21 @@ test.describe("public homepage scenic background", () => {
     await expect(background).toHaveCount(1);
     await expect(page.getByTestId("home-background-video")).toHaveCount(0);
     await expect(background.locator('img[src*="adventure-hero.webp"]')).toHaveCount(1);
-    await expect(page.getByRole("heading", { name: "SkoleGPS", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Opret et løb/i })).toHaveAttribute(
+    await expect(
+      page.getByRole("heading", { name: "Få undervisningen ud at gå", exact: true })
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: /Opret et løb/i }).first()).toHaveAttribute(
       "href",
       "/login?next=%2Fdashboard%2Fopret%2Fvalg",
     );
-    await expect(page.getByRole("link", { name: /Deltag i løb/i })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /Deltag i et løb som elev/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Læs debatten/i })).toHaveAttribute(
+      "href",
+      "/mobil-i-skolen",
+    );
     await expect(page.getByRole("button", { name: /Scan QR-kode/i })).toHaveCount(0);
     await expect(page.getByRole("dialog", { name: /SkoleGPS-gruppen/i })).toHaveCount(0);
-    await expect(page.getByText(/Start i dashboardet, opret ruten/i)).toBeVisible();
+    await expect(page.getByText(/Planlæg, start og behold overblikket/i)).toBeVisible();
 
     await expect(page.locator(`video[src="${REMOVED_VIDEO_SRC}"]`)).toHaveCount(0);
   });
@@ -68,9 +74,15 @@ test.describe("public homepage scenic background", () => {
     expect(videoRequests).toEqual([]);
   });
 
-  test("mobile layout keeps the fallback without requesting the desktop video", async ({
-    page,
+  test("mobile root preserves the student entry redirect without requesting the desktop video", async ({
+    browser,
   }) => {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      userAgent:
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+    });
+    const page = await context.newPage();
     const videoRequests: string[] = [];
     page.on("request", (request) => {
       if (new URL(request.url()).pathname === REMOVED_VIDEO_SRC) {
@@ -78,14 +90,37 @@ test.describe("public homepage scenic background", () => {
       }
     });
 
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/");
-    await page.waitForTimeout(300);
+    try {
+      await page.goto("/");
+      await page.waitForTimeout(300);
 
-    await expect(page.getByTestId("home-static-background")).toHaveCount(1);
-    await expect(page.getByTestId("home-background-video")).toHaveCount(0);
-    await expect(page.getByTestId("home-static-background").locator('img[src*="adventure-hero-mobile"]')).toHaveCount(1);
-    expect(videoRequests).toEqual([]);
+      await expect(page).toHaveURL(/\/join$/);
+      await expect(page.getByTestId("home-background-video")).toHaveCount(0);
+      expect(videoRequests).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("the school-and-screen page states the legal status cautiously and links primary sources", async ({
+    page,
+  }) => {
+    await page.goto("/mobil-i-skolen");
+
+    await expect(
+      page.getByRole("heading", {
+        name: "Mobilfri skole — med plads til en voksenstyret læringsaktivitet",
+      })
+    ).toBeVisible();
+    await expect(page.getByText(/L 130 fra samlingen 2025-26 som/i)).toBeVisible();
+    await expect(page.getByText(/ikke juridisk rådgivning/i)).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /Undervisningsministeriet: Anbefalinger om skærmbrug/i })
+    ).toHaveAttribute("href", /uvm\.dk/);
+    await expect(page.getByRole("link", { name: /Folketinget: L 130/i })).toHaveAttribute(
+      "href",
+      /ft\.dk/,
+    );
   });
 
   test("student routes do not reference or mount the removed homepage video", async ({

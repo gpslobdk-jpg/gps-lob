@@ -191,19 +191,11 @@ test.describe("student PWA source contracts", () => {
     expect(shareNetworkOnlyRules.length).toBeGreaterThanOrEqual(2);
   });
 
-  test("the public homepage exposes a /join CTA in both mobile and desktop layouts", () => {
+  test("the public homepage keeps the student entry point without changing the mobile redirect", () => {
     const homePageSource = readSource("components/HomePageClient.tsx");
-    const mobileLayout = homePageSource.match(
-      /<main\b[^>]*className=["'][^"']*\bmd:hidden\b[^"']*["'][^>]*>[\s\S]*?<\/main>/,
-    )?.[0];
-    const desktopLayout = homePageSource.match(
-      /<main\b[^>]*className=["'][^"']*\bhidden\b[^"']*\bmd:flex\b[^"']*["'][^>]*>[\s\S]*?<\/main>/,
-    )?.[0];
-
-    expect(mobileLayout, "The public homepage must retain its mobile layout").toBeDefined();
-    expect(desktopLayout, "The public homepage must retain its desktop layout").toBeDefined();
-    expect(mobileLayout).toMatch(/\bhref\s*=\s*["'`]\/join["'`]/);
-    expect(desktopLayout).toMatch(/\bhref\s*=\s*["'`]\/join["'`]/);
+    expect(homePageSource).toMatch(/\bhref\s*=\s*["'`]\/join["'`]/);
+    expect(homePageSource).toMatch(/shouldRedirectMobileRootToJoin/);
+    expect(homePageSource).toMatch(/window\.location\.replace\(["'`]\/join["'`]\)/);
   });
 
   test("a supported offline fallback page exists", () => {

@@ -7,11 +7,11 @@ type MobileInSchoolBannerProps = {
 
 const bannerContent = {
   home: {
-    eyebrow: "Skole & skærm i 2026",
-    text: "📱 Bekymret for mobilforbud i 2026? Se hvorfor SkoleGPS er skolens sikre, lovlige og aktive valg.",
-    cta: "Læs mere",
+    eyebrow: "Skole & skærm",
+    text: "Mobilfri skole og aktiv undervisning: Se, hvordan SkoleGPS bruges på en lærerstyret rute.",
+    cta: "Læs debatten",
     wrapperClass:
-      "border-indigo-400/35 bg-[linear-gradient(135deg,rgba(79,70,229,0.26),rgba(30,41,59,0.92)_42%,rgba(245,158,11,0.18))] shadow-[0_20px_55px_rgba(15,23,42,0.32)] hover:border-indigo-300/55 hover:shadow-[0_24px_70px_rgba(79,70,229,0.28)]",
+      "border-sky-500/30 bg-[linear-gradient(135deg,rgba(3,119,216,0.96),rgba(14,116,144,0.96))] shadow-[0_20px_55px_rgba(3,119,216,0.22)] hover:border-sky-200/70 hover:shadow-[0_24px_70px_rgba(3,119,216,0.28)]",
     textClass: "text-base sm:text-lg",
   },
   dashboard: {
