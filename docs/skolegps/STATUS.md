@@ -3,8 +3,8 @@
 | Fase | Indhold | Status | Commit/bevis | Resterende risiko |
 |---|---|---|---|---|
 | 1/7 | Baseline og årsagsundersøgelse | Verificeret | `b42d02f` baseline; typecheck bestået; produktions-smoke 2026-09-10 | Lokale browser-E2E kræver den rigtige Supabase-testkonfiguration; fysisk mobiltest er ikke udført her. |
-| 2/7 | Automatisk holdliste og stabile tilmeldinger | I gang | Se årsagsmatrix | Ingen hosted-schemaændring er godkendt af baseline alene. |
-| 3/7 | Sikker fjernelse af hold | Afventer | — | Skal være serverautoriseret og bagudkompatibel. |
+| 2/7 | Automatisk holdliste og stabile tilmeldinger | Implementeret | `ecf4975`; TypeScript, ESLint og 16 fokuserede policy-/roster-tests bestået | Browsermock- og lokal-Supabase-integration mangler et sikkert lokalt miljø; tabt første svar uden auth-cookie afvises hellere end usikker overtagelse. |
+| 3/7 | Sikker fjernelse af hold | I gang | — | Skal være serverautoriseret og bagudkompatibel. |
 | 4/7 | Egen position og GPS-hjælp | I gang | Se årsagsmatrix | Fysisk iPhone/Android-livscyklus skal fortsat skelnes fra emulering. |
 | 5/7 | Fokusmode-afbryder | I gang | Se årsagsmatrix | Eksisterende fail-open-kontrakt må ikke ændres. |
 | 6/7 | Forside, nyhedsside og footer | I gang | Produktionsbaseline 2026-09-10 | Aktuelle politiske kilder skal verificeres igen før publicering. |
