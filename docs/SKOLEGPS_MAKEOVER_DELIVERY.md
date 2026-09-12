@@ -1,7 +1,7 @@
 # SkoleGPS — leveringsnote for enkelhed og design
 
-> **Status:** Kladdet i arbejdsgrenen før releaseoptegnelsen er udfyldt.  
-> **Dato:** 12. september 2026.  
+> **Status:** Kladdet i arbejdsgrenen før releaseoptegnelsen er udfyldt.
+> **Dato:** 12. september 2026.
 > **Formål:** Nøgtern dokumentation af det aktuelle ændringsomfang, bevarede kontrakter og kendte verifikationsgrænser. Den er ikke i sig selv bevis for, at en produktion er gennemført.
 
 ## Mandat og afgrænsning

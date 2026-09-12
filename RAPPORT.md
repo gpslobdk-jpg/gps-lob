@@ -1,7 +1,8 @@
 # SkoleGPS — audit af enkelhed og design
 
-Dato: 12. september 2026  
-Auditbase: lokal `main` ved `3bc7e47f0ceb`  
+Dato: 12. september 2026
+
+Auditbase: lokal `main` ved `3bc7e47f0ceb`
 Type: Oprindelig read-only audit. Den efterfølgende, direkte brugerordre gav særskilt mandat til implementering og produktion.
 
 > Dette dokument bevarer auditten som beslutningsgrundlag. Den faktiske implementering, dækning, testbeviser og release-status dokumenteres i [docs/SKOLEGPS_MAKEOVER_DELIVERY.md](docs/SKOLEGPS_MAKEOVER_DELIVERY.md).
