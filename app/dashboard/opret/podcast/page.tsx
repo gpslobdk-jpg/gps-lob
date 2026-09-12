@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -24,7 +24,27 @@ type LoadingStep = "idle" | "scraping" | "building" | "done";
 const PODCAST_DRAFT_KEY = "podcast_draft";
 
 export default function PodcastDetektivPage() {
+  return (
+    <Suspense fallback={<PodcastDetektivLoading />}>
+      <PodcastDetektivContent />
+    </Suspense>
+  );
+}
+
+function PodcastDetektivLoading() {
+  return (
+    <main className={`skolegps-teacher-page min-h-screen ${poppins.className}`}>
+      <div className="flex min-h-screen items-center justify-center px-6 text-center text-slate-700">
+        <p className="text-sm font-semibold">Åbner Podcast-Detektiven...</p>
+      </div>
+    </main>
+  );
+}
+
+function PodcastDetektivContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editRunId = searchParams.get("id")?.trim() ?? "";
   const [url, setUrl] = useState("");
   const [loadingStep, setLoadingStep] = useState<LoadingStep>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -34,8 +54,8 @@ export default function PodcastDetektivPage() {
 
   const loadingLabel = (() => {
     if (loadingStep === "scraping") return "🕵️‍♂️ Lytter til podcasten...";
-    if (loadingStep === "building") return "🧠 Den smarte motor bygger 8 skarpe spørgsmål...";
-    return "Analysér & Byg Løb";
+    if (loadingStep === "building") return "🧠 Laver spørgsmål til dit udkast...";
+    return "Lav et udkast";
   })();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -96,13 +116,40 @@ export default function PodcastDetektivPage() {
     }
   };
 
+  if (editRunId) {
+    return (
+      <main className={["skolegps-teacher-page min-h-screen px-6 py-10", poppins.className].join(" ")}>
+        <div className="mx-auto max-w-2xl">
+          <Link
+            href="/dashboard/arkiv"
+            className="skolegps-teacher-secondary-action inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition hover:bg-sky-100"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Tilbage til arkiv
+          </Link>
+          <section className="skolegps-teacher-surface mt-8 rounded-3xl p-8">
+            <p className="text-xs font-bold tracking-[0.18em] text-sky-700 uppercase">Eksisterende podcastløb</p>
+            <h1 className={["mt-3 text-3xl font-black tracking-tight text-slate-950", rubik.className].join(" ")}>
+              Redigering er ikke understøttet endnu
+            </h1>
+            <p className="mt-4 max-w-xl text-base leading-7 text-slate-700">
+              Dette løb åbnes ikke i podcastimporten, fordi den kan starte et nyt løb i stedet for at redigere det sikkert.
+            </p>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              Løbet og afviklingen er bevaret. Du kan stadig starte det fra arkivet.
+            </p>
+          </section>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main
-      className={`relative flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-slate-900 via-purple-950/40 to-slate-900 px-6 py-10 text-white ${poppins.className}`}
+      className={`skolegps-teacher-page relative flex min-h-screen flex-col items-center justify-center px-6 py-10 ${poppins.className}`}
     >
-      {/* Back header */}
       <header className="absolute top-0 left-0 right-0 mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4 md:px-10">
-        <div className="rounded-[1.25rem] bg-white/94 px-3 py-2 shadow-[0_12px_30px_rgba(2,6,23,0.22)]">
+        <div className="rounded-[1.25rem] bg-white px-3 py-2 shadow-[0_12px_30px_rgba(2,6,23,0.10)]">
           <Image
             src="/skolegps-logo.svg"
             width={210}
@@ -114,28 +161,23 @@ export default function PodcastDetektivPage() {
         </div>
         <Link
           href="/dashboard/opret/valg"
-          className="inline-flex items-center gap-2 rounded-full border border-white/18 bg-white/10 px-4 py-2 text-sm font-medium text-white shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-xl transition-all hover:border-white/28 hover:bg-white/16"
+          className="skolegps-teacher-secondary-action inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition hover:bg-sky-100"
         >
-          <ArrowLeft className="h-4 w-4 text-white/82" />
+          <ArrowLeft className="h-4 w-4" />
           Tilbage
         </Link>
       </header>
 
-      {/* Glass card */}
-      <div className="relative w-full max-w-xl rounded-[2rem] border border-purple-400/30 bg-white/8 p-8 shadow-[0_32px_80px_rgba(147,51,234,0.22),0_8px_24px_rgba(15,23,42,0.24),inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-xl md:p-12">
-        {/* Glow layer */}
-        <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.10),transparent_40%),radial-gradient(circle_at_bottom,rgba(147,51,234,0.22),transparent_65%)]" />
-
-        <div className="relative z-10 flex flex-col items-center text-center">
+      <div className="skolegps-teacher-surface w-full max-w-xl rounded-[2rem] p-8 md:p-12">
+        <div className="flex flex-col items-center text-center">
           <h1
-            className={`text-3xl font-black tracking-tight text-white drop-shadow-[0_8px_24px_rgba(147,51,234,0.4)] md:text-4xl ${rubik.className}`}
+            className={`text-3xl font-black tracking-tight text-slate-950 md:text-4xl ${rubik.className}`}
           >
             Podcast-Detektiven 🎧
           </h1>
 
-          <p className="mt-3 max-w-sm text-sm leading-relaxed text-white/72">
-            Indsæt et link til en podcast (YouTube, DR Lyd, Apple Podcasts osv.), så lytter vi til
-            afsnittet og bygger et GPS-løb på sekunder.
+          <p className="mt-3 max-w-sm text-sm leading-relaxed text-slate-700">
+            Indsæt et podcastlink. Vi finder indholdet og laver et udkast med spørgsmål, som du kan tilpasse.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-8 flex w-full flex-col gap-4">
@@ -146,7 +188,7 @@ export default function PodcastDetektivPage() {
               placeholder="Indsæt link her..."
               required
               disabled={isLoading}
-              className="w-full rounded-2xl border border-purple-400/40 bg-white/8 px-5 py-4 text-base text-white placeholder-white/38 shadow-[inset_0_2px_8px_rgba(15,23,42,0.18)] outline-none backdrop-blur-sm ring-0 transition-all focus:border-purple-400/70 focus:ring-2 focus:ring-purple-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-2xl border border-sky-200 bg-white px-5 py-4 text-base text-slate-950 placeholder:text-slate-400 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70"
             />
 
             {error ? (
@@ -155,21 +197,21 @@ export default function PodcastDetektivPage() {
               </p>
             ) : null}
 
-            <div className="mb-6 flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4 shadow-sm">
+            <div className="mb-6 flex items-start gap-3 rounded-xl border border-sky-100 bg-sky-50 p-4 text-left shadow-sm">
               <input
                 type="checkbox"
                 id="copydan-consent-podcast"
                 checked={hasAcceptedTerms}
                 onChange={(e) => setHasAcceptedTerms(e.target.checked)}
-                className="mt-1 h-5 w-5 cursor-pointer rounded border-white/20 bg-black/20 text-purple-600 focus:ring-purple-500"
+                className="mt-1 h-5 w-5 cursor-pointer rounded border-sky-300 text-sky-600 focus:ring-sky-500"
               />
               <label
                 htmlFor="copydan-consent-podcast"
-                className="cursor-pointer select-none text-sm leading-relaxed text-white/80"
+                className="cursor-pointer select-none text-sm leading-relaxed text-slate-700"
               >
                 Jeg bekræfter, at jeg har rettighederne til at bearbejde dette materiale, eller at min brug er
                 dækket af min skoles gældende aftale med Tekst &amp; Node.{" "}
-                <Link href="/ophavsret" className="text-blue-400 hover:underline" target="_blank">
+                <Link href="/ophavsret" className="font-semibold text-sky-700 hover:underline" target="_blank">
                   (Læs mere om ophavsret)
                 </Link>
               </label>
@@ -178,7 +220,7 @@ export default function PodcastDetektivPage() {
             <button
               type="submit"
               disabled={!hasAcceptedTerms || isLoading || !url.trim()}
-              className="w-full rounded-2xl border border-purple-400/40 bg-purple-600 px-6 py-4 text-base font-bold text-white shadow-[0_12px_32px_rgba(147,51,234,0.32)] transition-all hover:bg-purple-500 hover:shadow-[0_16px_40px_rgba(147,51,234,0.44)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-purple-600 disabled:hover:shadow-[0_12px_32px_rgba(147,51,234,0.32)] hover:disabled:scale-100"
+              className="skolegps-teacher-primary-action w-full rounded-2xl px-6 py-4 text-base font-bold transition disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isLoading ? (
                 <span className="inline-flex items-center justify-center gap-2">
@@ -194,17 +236,17 @@ export default function PodcastDetektivPage() {
                   {loadingLabel}
                 </span>
               ) : (
-                "Analysér & Byg Løb"
+                "Lav et udkast"
               )}
             </button>
 
-            <p className="mt-1 text-center text-xs leading-relaxed text-white/40">
+            <p className="mt-1 text-center text-xs leading-relaxed text-slate-500">
               Vi respekterer{" "}
               <Link
                 href="/ophavsret-podcast"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="underline underline-offset-2 transition hover:text-purple-300"
+                className="underline underline-offset-2 transition hover:text-sky-700"
               >
                 ophavsretten
               </Link>

@@ -34,22 +34,143 @@ export const RACE_TYPE_VALUES = [
   RACE_TYPES.FIND_BEDRAGEREN,
 ] as const;
 
-export const RACE_TYPE_LABELS: Record<RaceType, string> = {
-  [RACE_TYPES.MANUEL]: "Generel Quiz",
-  [RACE_TYPES.DANSK]: "Dansk",
-  [RACE_TYPES.ENGELSK]: "Engelsk",
-  [RACE_TYPES.MATEMATIK]: "Matematik",
-  [RACE_TYPES.FOTO]: "Foto",
-  [RACE_TYPES.SCANNER]: "Bog-Scanner",
-  [RACE_TYPES.SELFIE]: "Selfie",
-  [RACE_TYPES.ESCAPE]: "Escape",
-  [RACE_TYPES.ROLLESPIL]: "Rollespil",
-  [RACE_TYPES.PODCAST]: "Podcast-Detektiven",
-  [RACE_TYPES.ZONE_KRIG]: "Zone-Krigen",
-  [RACE_TYPES.STRATEGO]: "Live Stratego",
-  [RACE_TYPES.MUSIKQUIZ]: "Musikquiz",
-  [RACE_TYPES.FIND_BEDRAGEREN]: "Find Bedrageren",
+export type RaceTypeCreationEntry = "direct" | "handoff" | "indirect" | "edit-only";
+
+type RaceTypeArchiveEdit = { supported: true } | { supported: false; reason: string };
+
+export type RaceTypeCapability = {
+  /**
+   * This label is also used by the archive filter. Keeping it here prevents
+   * the builder router and archive from growing separate type lists.
+   */
+  label: string;
+  creationEntry: RaceTypeCreationEntry;
+  newRunHref: string | null;
+  /**
+   * Existing deep links and copy-return links use this path. It deliberately
+   * stays separate from whether the archive may promise a safe edit action.
+   */
+  legacyEditPath: string;
+  archiveEdit: RaceTypeArchiveEdit;
 };
+
+const PODCAST_ARCHIVE_EDIT_UNAVAILABLE =
+  "Redigering af eksisterende podcastløb er ikke understøttet endnu. Løbet og afviklingen er bevaret.";
+const FIND_BEDRAGEREN_ARCHIVE_EDIT_UNAVAILABLE =
+  "Redigering af eksisterende Find Bedrageren-spil er ikke understøttet endnu. Spillet kan stadig startes.";
+
+/**
+ * One registry for persisted race types, creation entry points, legacy edit
+ * routes, and the narrower actions that are safe to offer in the archive.
+ */
+export const RACE_TYPE_CAPABILITIES = {
+  [RACE_TYPES.MANUEL]: {
+    label: "Generel Quiz",
+    creationEntry: "direct",
+    newRunHref: "/dashboard/opret/manuel",
+    legacyEditPath: "/dashboard/opret/manuel",
+    archiveEdit: { supported: true },
+  },
+  [RACE_TYPES.DANSK]: {
+    label: "Dansk",
+    creationEntry: "direct",
+    newRunHref: "/dashboard/opret/dansk",
+    legacyEditPath: "/dashboard/opret/dansk",
+    archiveEdit: { supported: true },
+  },
+  [RACE_TYPES.ENGELSK]: {
+    label: "Engelsk",
+    creationEntry: "direct",
+    newRunHref: "/dashboard/opret/engelsk",
+    legacyEditPath: "/dashboard/opret/engelsk",
+    archiveEdit: { supported: true },
+  },
+  [RACE_TYPES.MATEMATIK]: {
+    label: "Matematik",
+    creationEntry: "direct",
+    newRunHref: "/dashboard/opret/matematik",
+    legacyEditPath: "/dashboard/opret/matematik",
+    archiveEdit: { supported: true },
+  },
+  [RACE_TYPES.FOTO]: {
+    label: "Foto",
+    creationEntry: "direct",
+    newRunHref: "/dashboard/opret/foto",
+    legacyEditPath: "/dashboard/opret/foto",
+    archiveEdit: { supported: true },
+  },
+  [RACE_TYPES.SCANNER]: {
+    label: "Bog-Scanner",
+    creationEntry: "handoff",
+    newRunHref: "/dashboard/opret/scanner",
+    legacyEditPath: "/dashboard/opret/manuel",
+    archiveEdit: { supported: true },
+  },
+  [RACE_TYPES.SELFIE]: {
+    label: "Selfie",
+    creationEntry: "edit-only",
+    newRunHref: null,
+    legacyEditPath: "/dashboard/opret/selfie",
+    archiveEdit: { supported: true },
+  },
+  [RACE_TYPES.ESCAPE]: {
+    label: "Escape",
+    creationEntry: "edit-only",
+    newRunHref: null,
+    legacyEditPath: "/dashboard/opret/escape",
+    archiveEdit: { supported: true },
+  },
+  [RACE_TYPES.ROLLESPIL]: {
+    label: "Rollespil",
+    creationEntry: "edit-only",
+    newRunHref: null,
+    legacyEditPath: "/dashboard/opret/rollespil",
+    archiveEdit: { supported: true },
+  },
+  [RACE_TYPES.PODCAST]: {
+    label: "Podcast-Detektiven",
+    creationEntry: "handoff",
+    newRunHref: "/dashboard/opret/podcast",
+    legacyEditPath: "/dashboard/opret/podcast",
+    archiveEdit: { supported: false, reason: PODCAST_ARCHIVE_EDIT_UNAVAILABLE },
+  },
+  [RACE_TYPES.ZONE_KRIG]: {
+    label: "Zone-Krigen",
+    creationEntry: "direct",
+    newRunHref: "/dashboard/opret/zone-krig",
+    legacyEditPath: "/dashboard/opret/zone-krig",
+    archiveEdit: { supported: true },
+  },
+  [RACE_TYPES.STRATEGO]: {
+    label: "Live Stratego",
+    creationEntry: "edit-only",
+    newRunHref: null,
+    legacyEditPath: "/dashboard/opret/stratego",
+    archiveEdit: { supported: true },
+  },
+  [RACE_TYPES.MUSIKQUIZ]: {
+    label: "Musikquiz",
+    creationEntry: "direct",
+    newRunHref: "/dashboard/opret/musikquiz",
+    legacyEditPath: "/dashboard/opret/musikquiz",
+    archiveEdit: { supported: true },
+  },
+  [RACE_TYPES.FIND_BEDRAGEREN]: {
+    label: "Find Bedrageren",
+    creationEntry: "indirect",
+    newRunHref: "/dashboard/opret/find-bedrageren",
+    legacyEditPath: "/dashboard/opret/find-bedrageren",
+    archiveEdit: { supported: false, reason: FIND_BEDRAGEREN_ARCHIVE_EDIT_UNAVAILABLE },
+  },
+} satisfies Record<RaceType, RaceTypeCapability>;
+
+export const RACE_TYPE_LABELS: Record<RaceType, string> = RACE_TYPE_VALUES.reduce(
+  (labels, raceType) => {
+    labels[raceType] = RACE_TYPE_CAPABILITIES[raceType].label;
+    return labels;
+  },
+  {} as Record<RaceType, string>
+);
 
 export const DEFAULT_MAP_CENTER = {
   lat: 55.6761,
@@ -206,6 +327,11 @@ export function normalizeRaceType(value: unknown): RaceType | null {
   }
 }
 
+export function getRaceTypeCapability(value: unknown): RaceTypeCapability | null {
+  const normalizedRaceType = normalizeRaceType(value);
+  return normalizedRaceType ? RACE_TYPE_CAPABILITIES[normalizedRaceType] : null;
+}
+
 export function getNormalizedRunRaceType(run: { race_type?: unknown; raceType?: unknown } | null | undefined) {
   return normalizeRaceType(run?.race_type ?? run?.raceType);
 }
@@ -223,27 +349,42 @@ export function withNormalizedRunRaceType<T extends { race_type?: unknown; raceT
 }
 
 export function getBuilderHrefForRaceType(runId: string, raceType: unknown) {
-  const normalizedRaceType = normalizeRaceType(raceType);
-  if (!normalizedRaceType) return null;
+  const capability = getRaceTypeCapability(raceType);
+  if (!capability) return null;
 
-  const builderPathByRaceType: Record<RaceType, string> = {
-    [RACE_TYPES.MANUEL]: "/dashboard/opret/manuel",
-    [RACE_TYPES.DANSK]: "/dashboard/opret/dansk",
-    [RACE_TYPES.ENGELSK]: "/dashboard/opret/engelsk",
-    [RACE_TYPES.MATEMATIK]: "/dashboard/opret/matematik",
-    [RACE_TYPES.FOTO]: "/dashboard/opret/foto",
-    [RACE_TYPES.SCANNER]: "/dashboard/opret/manuel",
-    [RACE_TYPES.SELFIE]: "/dashboard/opret/selfie",
-    [RACE_TYPES.ESCAPE]: "/dashboard/opret/escape",
-    [RACE_TYPES.ROLLESPIL]: "/dashboard/opret/rollespil",
-    [RACE_TYPES.PODCAST]: "/dashboard/opret/podcast",
-    [RACE_TYPES.ZONE_KRIG]: "/dashboard/opret/zone-krig",
-    [RACE_TYPES.STRATEGO]: "/dashboard/opret/stratego",
-    [RACE_TYPES.MUSIKQUIZ]: "/dashboard/opret/musikquiz",
-    [RACE_TYPES.FIND_BEDRAGEREN]: "/dashboard/opret/find-bedrageren",
+  return `${capability.legacyEditPath}?id=${encodeURIComponent(runId)}`;
+}
+
+export type ArchiveEditCapability =
+  | { status: "supported"; href: string }
+  | { status: "unsupported"; reason: string };
+
+/**
+ * Archive UI must not equate "there is a historical deep link" with "this
+ * existing run can safely be edited". The generic builder helper above remains
+ * available for legacy links and copy-return flows.
+ */
+export function getArchiveEditCapability(runId: string, raceType: unknown): ArchiveEditCapability {
+  const capability = getRaceTypeCapability(raceType);
+
+  if (!capability) {
+    return {
+      status: "unsupported",
+      reason: "Dette løb har en ukendt løbstype og kan ikke åbnes sikkert i redigering.",
+    };
+  }
+
+  if (!capability.archiveEdit.supported) {
+    return {
+      status: "unsupported",
+      reason: capability.archiveEdit.reason,
+    };
+  }
+
+  return {
+    status: "supported",
+    href: `${capability.legacyEditPath}?id=${encodeURIComponent(runId)}`,
   };
-
-  return `${builderPathByRaceType[normalizedRaceType]}?id=${encodeURIComponent(runId)}`;
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
