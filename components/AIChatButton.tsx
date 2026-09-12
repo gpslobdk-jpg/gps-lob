@@ -117,6 +117,7 @@ export default function AIChatButton() {
   const [isDashboardQuickGuideActive, setIsDashboardQuickGuideActive] = useState(false);
   const pathname = usePathname();
   const isHiddenPathname = HIDDEN_PATHNAMES.some((hidden) => pathname.includes(hidden));
+  const isCalmDashboardSurface = pathname === "/dashboard" || pathname === "/dashboard/opret/valg";
   const isCompactLauncher = pathname.startsWith("/dashboard");
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   const quickActions = useMemo(() => getQuickActions(pathname), [pathname]);
@@ -203,7 +204,7 @@ export default function AIChatButton() {
     });
   }, [isOpen, chatMessages, isLoading]);
 
-  if (isHiddenPathname || isDashboardQuickGuideActive) {
+  if (isHiddenPathname || isCalmDashboardSurface || isDashboardQuickGuideActive) {
     return null;
   }
 

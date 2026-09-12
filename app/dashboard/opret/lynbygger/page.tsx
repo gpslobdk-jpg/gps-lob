@@ -205,7 +205,7 @@ export default function LynbyggerPage() {
   return (
     <main
       data-testid="lynbygger-page"
-      className={`min-h-screen bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.16),transparent_36%),linear-gradient(145deg,#082f49,#0f172a_52%,#083344)] px-4 py-5 text-white sm:px-6 sm:py-7 lg:px-10 ${poppins.className}`}
+      className={`skolegps-teacher-builder min-h-screen px-4 py-5 text-slate-900 sm:px-6 sm:py-7 lg:px-10 ${poppins.className}`}
     >
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between">
         <Link

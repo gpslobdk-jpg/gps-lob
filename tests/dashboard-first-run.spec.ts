@@ -151,23 +151,23 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     const guide = readSource("components", "DashboardQuickGuide.tsx");
     const layout = readSource("app", "dashboard", "layout.tsx");
 
-    expect(dashboard).toContain("Hvad vil du lave?");
-    expect(dashboard).toContain("Start et nyt løb eller find det, du skal bruge.");
-    expect(dashboard).toContain("Kort guide");
+    expect(dashboard).toContain("Dit overblik");
+    expect(dashboard).toContain("Start et nyt løb, eller fortsæt hvor du slap.");
+    expect(dashboard).toContain("Hjælp</button>");
     expect(dashboard).toContain("/dashboard/live/${resumeTarget.sessionId}");
     expect(dashboard).toContain("/play/${resumeTarget.sessionId}");
     expect(dashboard).toContain('router.push("/dashboard/arkiv")');
     expect(dashboard).toContain('router.push("/dashboard/laerervaerktoejer")');
     expect(dashboard).toContain('href="/dashboard/mobilspil"');
 
-    expect(selection).toContain("Hvordan vil du lave dit løb?");
-    expect(selection).toContain("Start med Lynbyggeren");
+    expect(selection).toContain("Vælg, hvordan du vil starte.");
+    expect(selection).toContain("Få et udkast.");
     expect(selection).toContain("Åbn Lynbyggeren");
     expect(selection).toContain('href="/dashboard/opret/lynbygger"');
-    expect(selection).toContain("Andre måder at lave et løb");
+    expect(selection).toContain("Flere formater");
     expect(selection).not.toContain('href="/dashboard/opret/stratego"');
     expect(selection).not.toContain("VM26");
-    expect(selection).toContain('href={zoneKrigCardHref}');
+    expect(selection).toContain('href={zoneHref}');
 
     expect(guide).toContain("skolegps.dashboard-quick-guide.v1.seen");
     expect(guide).toContain("Vil du se, hvordan du laver dit første løb? Det tager under ét minut.");
@@ -191,7 +191,7 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     await expect(page.getByRole("button", { name: "Opret et løb" })).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('section[aria-label="Flere muligheder"] > button')).toHaveCount(2);
     await expect(page.getByText("SkoleGPS-gruppen")).toHaveCount(0);
-    await expect(page.getByText("Skole & skærm")).toBeVisible();
+    await expect(page.getByText("Skole & skærm")).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 
@@ -205,16 +205,17 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     });
 
     await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Hjælp" }).click();
     await expect(page.getByRole("heading", { name: "Velkommen til SkoleGPS" })).toBeVisible({ timeout: 20_000 });
     await page.getByRole("button", { name: "Jeg finder selv" }).click();
     await expect(page.getByRole("heading", { name: "Velkommen til SkoleGPS" })).toBeHidden();
     await expect(page.getByRole("button", { name: "Opret et løb" })).toBeFocused();
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "Hvad vil du lave?" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: "Dit overblik" })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("heading", { name: "Velkommen til SkoleGPS" })).toBeHidden();
 
-    const manualTrigger = page.getByRole("button", { name: "Kort guide" });
+    const manualTrigger = page.getByRole("button", { name: "Hjælp" });
     await manualTrigger.click();
     await expect(page.getByRole("heading", { name: "Velkommen til SkoleGPS" })).toBeVisible();
     await page.keyboard.press("Escape");
@@ -232,13 +233,14 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     });
 
     await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Hjælp" }).click();
     await expect(page.getByRole("heading", { name: "Velkommen til SkoleGPS" })).toBeVisible({ timeout: 20_000 });
     await page.getByRole("button", { name: "Luk den korte guide" }).click();
     await expect(page.getByRole("button", { name: "Opret et løb" })).toBeFocused();
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "Velkommen til SkoleGPS" })).toHaveCount(0);
 
-    const manualTrigger = page.getByRole("button", { name: "Kort guide" });
+    const manualTrigger = page.getByRole("button", { name: "Hjælp" });
     await manualTrigger.click();
     await page.keyboard.press("Escape");
     await expect(manualTrigger).toBeFocused();
@@ -257,6 +259,7 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     });
 
     await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Hjælp" }).click();
     await expect(page.getByRole("heading", { name: "Velkommen til SkoleGPS" })).toBeVisible({ timeout: 20_000 });
     await page.getByRole("button", { name: "Vis mig rundt" }).click();
     await expect(page.getByText("Her starter du, når du vil lave et nyt løb.")).toBeVisible();
@@ -266,14 +269,14 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
       window.localStorage.setItem("skolegps.dashboard-quick-guide.v1.step", "create");
     });
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "Hvad vil du lave?" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: "Dit overblik" })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByTestId("quick-guide-highlight")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Åbn SkoleGPS-assistent" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Åbn SkoleGPS-assistent" })).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => window.localStorage.getItem("skolegps.dashboard-quick-guide.v1.step"))).toBeNull();
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.dashboardQuickGuide ?? null)).toBeNull();
 
-    await page.getByRole("button", { name: "Kort guide" }).click();
+    await page.getByRole("button", { name: "Hjælp" }).click();
     await expect(page.getByRole("heading", { name: "Velkommen til SkoleGPS" })).toBeVisible();
     await page.getByRole("button", { name: "Vis mig rundt" }).click();
     await expect(page.getByText("Her starter du, når du vil lave et nyt løb.")).toBeVisible();
@@ -292,6 +295,7 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     });
 
     await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Hjælp" }).click();
     await page.getByRole("button", { name: "Vis mig rundt" }).click();
     await expect.poll(() => page.evaluate(() => window.localStorage.getItem("skolegps.dashboard-quick-guide.v1.seen"))).toBe("true");
     await expect(page.getByText("Her starter du, når du vil lave et nyt løb.")).toBeVisible();
@@ -329,6 +333,7 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     });
 
     await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Hjælp" }).click();
     await page.getByRole("button", { name: "Vis mig rundt" }).click();
     await page.getByRole("button", { name: "Videre" }).click();
     await expect(page).toHaveURL(/\/dashboard\/opret\/valg$/, { timeout: 20_000 });
@@ -346,12 +351,13 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     await setupDashboardContext(page.context());
 
     await page.goto("/dashboard/opret/valg", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "Hvordan vil du lave dit løb?" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: "Vælg, hvordan du vil starte." })).toBeVisible({ timeout: 20_000 });
     const lynbygger = page.locator('[data-tour="valg-lynbygger"]');
     await expect(lynbygger).toHaveAttribute("href", "/dashboard/opret/lynbygger");
     await expect(page.getByText("Åbn Lynbyggeren")).toBeVisible();
     await expect(page.getByText("Live Stratego")).toHaveCount(0);
     await expect(page.getByText(/VM26/)).toHaveCount(0);
+    await page.getByText("Flere formater").click();
     await expect(page.getByText("Zone-Krigen")).toBeVisible();
   });
 
@@ -398,6 +404,7 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     });
 
     await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Hjælp" }).click();
     await page.getByRole("button", { name: "Vis mig rundt" }).click();
     const createTarget = page.locator('[data-tour="dashboard-create-run"]');
     const panel = page.getByTestId("quick-guide-panel");
@@ -457,6 +464,6 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("button", { name: "Åbn SkoleGPS-assistent" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Åbn SkoleGPS-assistent" })).toHaveCount(0);
   });
 });

@@ -1340,7 +1340,7 @@ function OpretEngelskLoebPageContent() {
 
   if (isEditMode && isLoadingExistingRun) {
     return (
-      <div className={`relative min-h-screen overflow-x-hidden bg-slate-950 text-white ${poppins.className}`}>
+      <div className={`skolegps-teacher-builder relative min-h-screen overflow-x-hidden text-slate-900 ${poppins.className}`}>
         <img
           src="/britiskflag.svg"
           alt="British Flag Background"
@@ -1368,7 +1368,7 @@ function OpretEngelskLoebPageContent() {
 
   return (
     <>
-      <div className={`relative min-h-screen print:h-auto print:min-h-0 print:overflow-visible print:bg-white print:text-black bg-slate-950 text-white ${poppins.className}`}>
+      <div className={`skolegps-teacher-builder relative min-h-screen text-slate-900 print:h-auto print:min-h-0 print:overflow-visible print:bg-white print:text-black ${poppins.className}`}>
         <img
           src="/britiskflag.svg"
           alt="British Flag Background"
@@ -1435,7 +1435,7 @@ function OpretEngelskLoebPageContent() {
                               className="inline-flex items-center gap-2 rounded-full border border-indigo-400/30 bg-indigo-500/15 px-4 py-2 text-sm font-bold text-indigo-50 shadow-[0_0_24px_rgba(99,102,241,0.15)] backdrop-blur-xl transition-all hover:bg-indigo-500/25 hover:shadow-[0_0_32px_rgba(99,102,241,0.25)] disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               <Sparkles className="h-4 w-4" />
-                              Quiz Assistenten
+                              Få forslag
                             </button>
 
                             <div ref={toolsMenuAnchorRef} className="inline-flex max-w-full flex-col items-end">

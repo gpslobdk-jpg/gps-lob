@@ -47,14 +47,6 @@ const guideSteps: Record<Exclude<GuideView, "closed" | "intro">, {
   },
 };
 
-function readStorage(key: string) {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
 function writeStorage(key: string, value: string) {
   try {
     window.localStorage.setItem(key, value);
@@ -159,20 +151,11 @@ export default function DashboardQuickGuide() {
   }, [markGuideSeen, returnFocus]);
 
   useEffect(() => {
-    let frame = 0;
-    const hasSeenGuide = readStorage(DASHBOARD_QUICK_GUIDE_SEEN_KEY) === "true";
     removeStorage(DASHBOARD_QUICK_GUIDE_STEP_KEY);
-
-    if (hasSeenGuide) return;
-
-    if (pathname === "/dashboard") {
-      cancelReturnFocus();
-      manualTriggerRef.current = null;
-      frame = window.requestAnimationFrame(() => setView("intro"));
-    }
-
-    return () => window.cancelAnimationFrame(frame);
-  }, [cancelReturnFocus, pathname]);
+    // Hjælpen er tilgængelig fra dashboardet, men skal ikke lægge sig oven på
+    // lærerens første valg. Det holder forsiden af arbejdsrummet rolig.
+    return undefined;
+  }, [pathname]);
 
   useEffect(() => {
     const handleManualOpen = () => {
@@ -333,7 +316,7 @@ export default function DashboardQuickGuide() {
   return (
     <div className="fixed inset-0 z-[10000]">
       {view === "intro" ? (
-        <div className="absolute inset-0 bg-slate-950/72 backdrop-blur-sm" aria-hidden="true" />
+        <div className="absolute inset-0 bg-slate-950/72" aria-hidden="true" />
       ) : highlightStyle ? (
         <div
           data-testid="quick-guide-highlight"
@@ -342,7 +325,7 @@ export default function DashboardQuickGuide() {
           aria-hidden="true"
         />
       ) : (
-        <div className="absolute inset-0 bg-slate-950/72 backdrop-blur-sm" aria-hidden="true" />
+        <div className="absolute inset-0 bg-slate-950/72" aria-hidden="true" />
       )}
 
       <div
@@ -356,24 +339,24 @@ export default function DashboardQuickGuide() {
           aria-labelledby="quick-guide-title"
           aria-describedby="quick-guide-description"
           onKeyDown={handleDialogKeyDown}
-          className="pointer-events-auto relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[1.75rem] border border-cyan-200/35 bg-slate-950/96 p-6 text-left text-white shadow-[0_30px_90px_rgba(0,0,0,0.55)] sm:p-7"
+          className="pointer-events-auto relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[1.75rem] border border-sky-200 bg-white p-6 text-left text-slate-900 shadow-[0_24px_60px_rgba(7,26,58,0.22)] sm:p-7"
         >
           <button
             type="button"
             onClick={closeGuide}
             aria-label="Luk den korte guide"
-            className="absolute top-4 right-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/8 text-lg font-semibold text-white transition hover:bg-white/15 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+            className="absolute top-4 right-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-lg font-semibold text-slate-700 transition hover:bg-sky-100 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
           >
             ×
           </button>
 
           {view === "intro" ? (
             <>
-              <p className="pr-12 text-xs font-bold tracking-[0.2em] text-cyan-200 uppercase">Kort guide</p>
+              <p className="pr-12 text-xs font-bold tracking-[0.2em] text-sky-700 uppercase">Hjælp</p>
               <h2 id="quick-guide-title" className="mt-3 pr-12 text-2xl font-black tracking-tight">
                 Velkommen til SkoleGPS
               </h2>
-              <p id="quick-guide-description" className="mt-3 text-sm leading-6 text-slate-200">
+              <p id="quick-guide-description" className="mt-3 text-sm leading-6 text-slate-600">
                 Vil du se, hvordan du laver dit første løb? Det tager under ét minut.
               </p>
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -384,14 +367,14 @@ export default function DashboardQuickGuide() {
                     if (pathname !== "/dashboard") router.push("/dashboard");
                     setActiveStep("create");
                   }}
-                  className="inline-flex min-h-12 flex-1 items-center justify-center rounded-xl bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-cyan-200 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+                  className="inline-flex min-h-12 flex-1 items-center justify-center rounded-xl bg-[#0377d8] px-5 py-3 text-sm font-black text-white transition hover:bg-[#075fb2] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
                 >
                   Vis mig rundt
                 </button>
                 <button
                   type="button"
                   onClick={closeGuide}
-                  className="inline-flex min-h-12 flex-1 items-center justify-center rounded-xl border border-white/20 bg-white/8 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/14 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+                  className="inline-flex min-h-12 flex-1 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-sky-100 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
                 >
                   Jeg finder selv
                 </button>
@@ -399,13 +382,13 @@ export default function DashboardQuickGuide() {
             </>
           ) : (
             <>
-              <p className="pr-12 text-xs font-bold tracking-[0.2em] text-cyan-200 uppercase">
+              <p className="pr-12 text-xs font-bold tracking-[0.2em] text-sky-700 uppercase">
                 {guideSteps[view].label}
               </p>
               <h2 id="quick-guide-title" className="mt-3 pr-12 text-xl font-black tracking-tight">
                 Dit første løb
               </h2>
-              <p id="quick-guide-description" className="mt-3 text-sm leading-6 text-slate-200">
+              <p id="quick-guide-description" className="mt-3 text-sm leading-6 text-slate-600">
                 {guideSteps[view].body}
               </p>
               <div className="mt-6">
@@ -416,7 +399,7 @@ export default function DashboardQuickGuide() {
                       setActiveStep("lynbygger");
                       router.push("/dashboard/opret/valg");
                     }}
-                    className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-cyan-200 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+                    className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[#0377d8] px-5 py-3 text-sm font-black text-white transition hover:bg-[#075fb2] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
                   >
                     Videre
                   </button>
@@ -424,7 +407,7 @@ export default function DashboardQuickGuide() {
                   <button
                     type="button"
                     onClick={() => setActiveStep("finish")}
-                    className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-cyan-200 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+                    className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[#0377d8] px-5 py-3 text-sm font-black text-white transition hover:bg-[#075fb2] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
                   >
                     Videre
                   </button>
@@ -435,7 +418,7 @@ export default function DashboardQuickGuide() {
                       closeGuide();
                       router.push("/dashboard/opret/lynbygger");
                     }}
-                    className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-cyan-200 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+                    className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[#0377d8] px-5 py-3 text-sm font-black text-white transition hover:bg-[#075fb2] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
                   >
                     Start med Lynbyggeren
                   </button>

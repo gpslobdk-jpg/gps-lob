@@ -434,7 +434,7 @@ export default function FotoMissionBuilderPage() {
   return (
     <Suspense
       fallback={
-        <div className={`min-h-screen bg-sky-950 ${poppins.className}`}>
+        <div className={`skolegps-teacher-builder min-h-screen ${poppins.className}`}>
           <div className="flex min-h-screen items-center justify-center px-6 text-center">
             <div className="rounded-[2rem] border border-sky-500/30 bg-sky-950/20 px-8 py-10 text-sky-100 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
               <p className="text-xs font-semibold tracking-[0.28em] text-sky-100/55 uppercase">
@@ -1090,7 +1090,7 @@ function FotoMissionBuilderPageContent() {
 
   if (isEditMode && isLoadingExistingRun) {
     return (
-      <div className={`relative min-h-screen overflow-hidden bg-sky-950 text-sky-100 ${poppins.className}`}>
+      <div className={`skolegps-teacher-builder relative min-h-screen overflow-hidden text-slate-900 ${poppins.className}`}>
         <div className="fixed inset-0 -z-10 bg-gradient-to-br from-sky-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
           <div className="w-full max-w-md rounded-3xl border border-sky-500/30 bg-sky-950/20 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
@@ -1112,7 +1112,7 @@ function FotoMissionBuilderPageContent() {
 
   return (
     <>
-      <div className={`relative min-h-screen bg-sky-950 text-sky-100 ${poppins.className}`}>
+      <div className={`skolegps-teacher-builder relative min-h-screen text-slate-900 ${poppins.className}`}>
         <div className="fixed inset-0 -z-10 bg-linear-to-br from-sky-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row">
           <MobileBuilderWarning />

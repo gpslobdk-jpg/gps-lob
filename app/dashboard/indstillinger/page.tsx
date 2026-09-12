@@ -264,12 +264,12 @@ export default function IndstillingerPage() {
   const planLabel = formatPlanLabel(billingProfile?.plan_type);
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-sky-50 via-emerald-50/30 to-sky-100 p-6 md:p-12">
+    <main className="skolegps-teacher-page skolegps-settings min-h-screen p-5 md:p-12">
       <div className="mx-auto flex max-w-2xl flex-col gap-6">
-        <section className="rounded-3xl border border-white/60 bg-white/80 p-8 shadow-xl backdrop-blur-md">
+        <section className="skolegps-teacher-surface rounded-3xl p-6 sm:p-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-emerald-950">Min Profil</h1>
-            <p className="mt-2 text-sm text-emerald-800">
+            <h1 className="text-3xl font-black text-[var(--skolegps-deep-navy)]">Min profil</h1>
+            <p className="mt-2 text-sm text-slate-600">
               Hold dine profiloplysninger opdaterede, så dashboardet er klar til næste løb.
             </p>
           </div>
@@ -338,10 +338,10 @@ export default function IndstillingerPage() {
           </form>
         </section>
 
-        <section className="rounded-3xl border border-white/60 bg-white/80 p-8 shadow-xl backdrop-blur-md">
+        <section className="skolegps-teacher-surface rounded-3xl p-6 sm:p-8">
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-emerald-950">Skift adgangskode</h2>
-            <p className="mt-2 text-sm text-emerald-800">
+            <h2 className="text-2xl font-black text-[var(--skolegps-deep-navy)]">Skift adgangskode</h2>
+            <p className="mt-2 text-sm text-slate-600">
               Vælg en ny adgangskode, hvis du vil styrke eller opdatere din konto.
             </p>
           </div>
@@ -385,10 +385,10 @@ export default function IndstillingerPage() {
         </section>
 
         {stripeCustomerId ? (
-          <section className="rounded-3xl border border-white/60 bg-white/80 p-8 shadow-xl backdrop-blur-md">
+          <section className="skolegps-teacher-surface rounded-3xl p-6 sm:p-8">
             <div className="mb-8">
-              <h2 className="text-2xl font-bold text-emerald-950">Abonnement & Betaling</h2>
-              <p className="mt-2 text-sm text-emerald-800">
+              <h2 className="text-2xl font-black text-[var(--skolegps-deep-navy)]">Abonnement & betaling</h2>
+              <p className="mt-2 text-sm text-slate-600">
                 Administrér kort, fakturaer og opsigelse via Stripes sikre kundeportal.
               </p>
             </div>
@@ -421,10 +421,10 @@ export default function IndstillingerPage() {
           </section>
         ) : null}
 
-        <section className="rounded-3xl border border-white/60 bg-white/80 p-8 shadow-xl backdrop-blur-md">
+        <section className="skolegps-teacher-surface rounded-3xl p-6 sm:p-8">
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-emerald-950">Nyheder og opdateringer</h2>
-            <p className="mt-2 text-sm text-emerald-800">
+            <h2 className="text-2xl font-black text-[var(--skolegps-deep-navy)]">Nyheder og opdateringer</h2>
+            <p className="mt-2 text-sm text-slate-600">
               Du kan altid ændre dette igen. Vi sender kun få relevante opdateringer.
             </p>
           </div>

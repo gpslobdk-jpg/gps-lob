@@ -16,6 +16,15 @@
   --skolegps-success: #16a34a;
   --skolegps-warning: #d97706;
   --skolegps-error: #dc2626;
+  --skolegps-teacher-bg: #f4f9ff;
+  --skolegps-teacher-bg-deep: #e2efff;
+  --skolegps-teacher-surface: #ffffff;
+  --skolegps-teacher-surface-muted: #f8fbff;
+  --skolegps-teacher-border: #cfe3fb;
+  --skolegps-teacher-primary: #0377d8;
+  --skolegps-teacher-primary-hover: #075fb2;
+  --skolegps-teacher-focus: #0ea5e9;
+  --skolegps-teacher-shadow: 0 14px 36px rgba(7, 26, 58, 0.08);
 }
 
 @theme inline {
@@ -42,6 +51,147 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-poppins), Arial, Helvetica, sans-serif;
+}
+
+/* Scoped teacher-workspace primitives. They are opt-in so play, live, print, native, and Postløp surfaces keep their own contracts. */
+.skolegps-teacher-page {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(186, 224, 255, 0.54), transparent 29rem),
+    radial-gradient(circle at 92% 12%, rgba(220, 236, 255, 0.72), transparent 26rem),
+    linear-gradient(145deg, var(--skolegps-teacher-bg) 0%, var(--skolegps-teacher-bg-deep) 100%);
+  color: var(--skolegps-deep-navy);
+}
+
+.skolegps-teacher-surface {
+  border: 1px solid var(--skolegps-teacher-border);
+  background: var(--skolegps-teacher-surface);
+  box-shadow: var(--skolegps-teacher-shadow);
+}
+
+.skolegps-teacher-surface-muted {
+  border: 1px solid var(--skolegps-teacher-border);
+  background: var(--skolegps-teacher-surface-muted);
+}
+
+.skolegps-teacher-primary-action {
+  background: linear-gradient(135deg, var(--skolegps-teacher-primary), var(--skolegps-blue));
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(3, 119, 216, 0.2);
+}
+
+.skolegps-teacher-primary-action:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--skolegps-teacher-primary-hover), var(--skolegps-teacher-primary));
+}
+
+.skolegps-teacher-secondary-action {
+  border: 1px solid #9bc9f4;
+  background: #edf7ff;
+  color: #075397;
+}
+
+.skolegps-teacher-page :focus-visible {
+  outline: 3px solid var(--skolegps-teacher-focus);
+  outline-offset: 3px;
+}
+
+/* The existing builders keep their proven editing, map and print behaviour, but
+   share the same calm teacher workspace while they are open. */
+.skolegps-teacher-builder {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(186, 224, 255, 0.55), transparent 28rem),
+    radial-gradient(circle at 100% 16%, rgba(218, 237, 255, 0.74), transparent 30rem),
+    linear-gradient(145deg, var(--skolegps-teacher-bg) 0%, var(--skolegps-teacher-bg-deep) 100%) !important;
+  color: var(--skolegps-deep-navy);
+}
+
+.skolegps-teacher-builder > .fixed.-z-10,
+.skolegps-teacher-builder > img[alt="British Flag Background"],
+.skolegps-teacher-builder > .pointer-events-none.absolute.inset-0 {
+  display: none;
+}
+
+.skolegps-teacher-builder .backdrop-blur-sm,
+.skolegps-teacher-builder .backdrop-blur-md,
+.skolegps-teacher-builder .backdrop-blur-xl,
+.skolegps-teacher-builder .backdrop-blur-2xl,
+.skolegps-teacher-builder .backdrop-blur-\[2px\] {
+  backdrop-filter: none;
+}
+
+.skolegps-teacher-builder [class*="bg-emerald-950/"],
+.skolegps-teacher-builder [class*="bg-rose-950/"],
+.skolegps-teacher-builder [class*="bg-amber-950/"],
+.skolegps-teacher-builder [class*="bg-pink-950/"],
+.skolegps-teacher-builder [class*="bg-sky-950/"],
+.skolegps-teacher-builder [class*="bg-slate-950/55"],
+.skolegps-teacher-builder [class*="bg-slate-950/54"],
+.skolegps-teacher-builder [class*="bg-slate-950/45"],
+.skolegps-teacher-builder [class*="bg-slate-950/34"] {
+  border-color: var(--skolegps-teacher-border) !important;
+  background-color: var(--skolegps-teacher-surface) !important;
+  background-image: none !important;
+  box-shadow: var(--skolegps-teacher-shadow) !important;
+}
+
+.skolegps-teacher-builder [class*="text-white"],
+.skolegps-teacher-builder [class*="text-slate-50"],
+.skolegps-teacher-builder [class*="text-slate-100"],
+.skolegps-teacher-builder [class*="text-slate-200"],
+.skolegps-teacher-builder [class*="text-emerald-"],
+.skolegps-teacher-builder [class*="text-rose-"],
+.skolegps-teacher-builder [class*="text-amber-"],
+.skolegps-teacher-builder [class*="text-pink-"],
+.skolegps-teacher-builder [class*="text-sky-"],
+.skolegps-teacher-builder [class*="text-cyan-"],
+.skolegps-teacher-builder [class*="text-indigo-"] {
+  color: var(--skolegps-navy) !important;
+}
+
+.skolegps-teacher-builder button[class~="bg-emerald-500"],
+.skolegps-teacher-builder button[class~="bg-emerald-600"],
+.skolegps-teacher-builder button[class~="bg-rose-500"],
+.skolegps-teacher-builder button[class~="bg-rose-600"],
+.skolegps-teacher-builder button[class~="bg-amber-500"],
+.skolegps-teacher-builder button[class~="bg-amber-600"],
+.skolegps-teacher-builder button[class~="bg-pink-500"],
+.skolegps-teacher-builder button[class~="bg-pink-600"],
+.skolegps-teacher-builder button[class~="bg-sky-500"],
+.skolegps-teacher-builder button[class~="bg-sky-600"],
+.skolegps-teacher-builder button[class~="bg-indigo-500"],
+.skolegps-teacher-builder button[class~="bg-indigo-600"],
+.skolegps-teacher-builder button[class~="bg-cyan-500"],
+.skolegps-teacher-builder button[class~="bg-cyan-600"] {
+  color: #ffffff !important;
+}
+
+.skolegps-teacher-builder input,
+.skolegps-teacher-builder textarea,
+.skolegps-teacher-builder select {
+  border-color: var(--skolegps-teacher-border);
+}
+
+.skolegps-settings .backdrop-blur-md {
+  backdrop-filter: none;
+}
+
+.skolegps-settings [class*="text-emerald-"] {
+  color: var(--skolegps-navy) !important;
+}
+
+.skolegps-settings [class*="border-emerald-"] {
+  border-color: var(--skolegps-teacher-border) !important;
+}
+
+.skolegps-settings [class*="bg-emerald-"] {
+  background-color: #eff8ff !important;
+}
+
+.skolegps-settings button[class*="bg-emerald-"],
+.skolegps-settings button[class*="bg-sky-600"],
+.skolegps-settings button[class*="bg-slate-900"] {
+  background: var(--skolegps-teacher-primary) !important;
+  color: #ffffff !important;
 }
 
 @keyframes skolegps-mascot-float {

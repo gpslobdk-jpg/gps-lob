@@ -608,7 +608,7 @@ export default function OpretLoebPage() {
   return (
     <Suspense
       fallback={
-        <div className={`min-h-screen bg-emerald-950 ${poppins.className}`}>
+        <div className={`skolegps-teacher-builder min-h-screen ${poppins.className}`}>
           <div className="flex min-h-screen items-center justify-center px-6 text-center">
             <div className="rounded-4xl border border-emerald-500/20 bg-slate-900/50 px-8 py-10 text-emerald-100 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
               <p className="text-xs font-semibold tracking-[0.28em] text-emerald-100/55 uppercase">
@@ -1599,7 +1599,7 @@ function OpretLoebPageContent() {
 
   if (isEditMode && isLoadingExistingRun) {
     return (
-      <div className={`relative min-h-screen overflow-hidden bg-emerald-950 text-emerald-100 ${poppins.className}`}>
+      <div className={`skolegps-teacher-builder relative min-h-screen overflow-hidden text-slate-900 ${poppins.className}`}>
         <div className="fixed inset-0 -z-10 bg-linear-to-br from-emerald-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
           <div className="w-full max-w-md rounded-3xl border border-emerald-500/20 bg-slate-900/60 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
@@ -1621,7 +1621,7 @@ function OpretLoebPageContent() {
 
   return (
     <>
-      <div className={`relative min-h-screen bg-emerald-950 text-emerald-100 print:h-auto print:min-h-0 print:overflow-visible print:bg-white print:text-black ${poppins.className}`}>
+      <div className={`skolegps-teacher-builder relative min-h-screen text-slate-900 print:h-auto print:min-h-0 print:overflow-visible print:bg-white print:text-black ${poppins.className}`}>
         <div className="fixed inset-0 -z-10 bg-linear-to-br from-emerald-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px] print:hidden" />
         <div className="relative flex min-h-screen flex-col lg:flex-row print:block print:h-auto print:min-h-0 print:overflow-visible">
           <div className="print:hidden">
@@ -1696,7 +1696,7 @@ function OpretLoebPageContent() {
                               className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/15 px-4 py-2 text-sm font-bold text-emerald-50 shadow-[0_0_24px_rgba(16,185,129,0.15)] backdrop-blur-xl transition-all hover:bg-emerald-500/25 hover:shadow-[0_0_32px_rgba(16,185,129,0.25)] disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               <Sparkles className="h-4 w-4" />
-                              Quiz Assistenten
+                              Få forslag
                             </button>
 
                             <div ref={toolsMenuAnchorRef} className="inline-flex max-w-full flex-col items-end">

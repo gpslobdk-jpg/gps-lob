@@ -606,7 +606,7 @@ function OpretMusicQuizContent() {
   if (isEditMode && isLoadingRun) {
     return (
       <div
-        className={`relative flex min-h-screen items-center justify-center bg-slate-950 text-white ${poppins.className}`}
+        className={`skolegps-teacher-builder relative flex min-h-screen items-center justify-center text-slate-900 ${poppins.className}`}
       >
         <div className="text-center">
           <Loader2 className="mx-auto h-10 w-10 animate-spin text-pink-300" />
@@ -623,7 +623,7 @@ function OpretMusicQuizContent() {
   // -------------------------------------------------------------------------
   return (
     <div
-      className={`relative min-h-screen bg-slate-950 text-pink-50 ${poppins.className}`}
+      className={`skolegps-teacher-builder relative min-h-screen text-slate-900 ${poppins.className}`}
     >
       <div className="fixed inset-0 -z-10 bg-gradient-to-br from-pink-950/60 via-slate-900/80 to-fuchsia-900/40" />
 

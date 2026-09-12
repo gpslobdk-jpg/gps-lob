@@ -1424,7 +1424,7 @@ function OpretLoebPageContent() {
 
   if (isEditMode && isLoadingExistingRun) {
     return (
-      <div className={`relative min-h-screen overflow-hidden bg-slate-950 text-amber-50 ${poppins.className}`}>
+      <div className={`skolegps-teacher-builder relative min-h-screen overflow-hidden text-slate-900 ${poppins.className}`}>
         <div className="fixed inset-0 -z-10 bg-linear-to-br from-amber-950/60 via-slate-900/80 to-amber-900 backdrop-blur-[2px]" />
         <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
           <div className="w-full max-w-md rounded-3xl border border-amber-500/20 bg-slate-900/60 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
@@ -1446,7 +1446,7 @@ function OpretLoebPageContent() {
 
   return (
     <>
-      <div className={`relative min-h-screen bg-slate-950 text-amber-50 print:h-auto print:min-h-0 print:overflow-visible print:bg-white print:text-black ${poppins.className}`}>
+      <div className={`skolegps-teacher-builder relative min-h-screen text-slate-900 print:h-auto print:min-h-0 print:overflow-visible print:bg-white print:text-black ${poppins.className}`}>
         <div className="fixed inset-0 -z-10 bg-linear-to-br from-amber-950/60 via-slate-900/80 to-amber-900 backdrop-blur-[2px] print:hidden" />
         <div className="relative flex min-h-screen flex-col lg:flex-row print:block print:h-auto print:min-h-0 print:overflow-visible">
           <div className="print:hidden">
@@ -1511,7 +1511,7 @@ function OpretLoebPageContent() {
                               className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-500/15 px-4 py-2 text-sm font-bold text-amber-50 shadow-[0_0_24px_rgba(245,158,11,0.15)] backdrop-blur-xl transition-all hover:bg-amber-500/25 hover:shadow-[0_0_32px_rgba(245,158,11,0.25)] disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               <Sparkles className="h-4 w-4" />
-                              Quiz Assistenten
+                              Få forslag
                             </button>
 
                             <div ref={toolsMenuAnchorRef} className="inline-flex max-w-full flex-col items-end">

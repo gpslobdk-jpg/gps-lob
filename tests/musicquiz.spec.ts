@@ -271,13 +271,14 @@ test.describe("Musikquiz – malrettede tests", () => {
 
     await setupDashboardContext(page.context());
     await page.goto("/dashboard/opret/valg", { waitUntil: "domcontentloaded" });
+    await page.getByText("Flere formater").click();
 
     // Bekraeft at "Musikquiz" titlen vises (AuthGate maa vaere passeret)
     await expect(page.getByText("Musikquiz").first()).toBeVisible({ timeout: 20_000 });
 
     // Bekraeft at beskrivelsesteksten indeholder "musikklip"
     await expect(
-      page.getByText(/Lad eleverne lytte til musikklip/i),
+      page.getByText(/Lav spørgsmål med musikklip/i),
     ).toBeVisible({ timeout: 5_000 });
 
     // Bekraeft at kortet linker til /dashboard/opret/musikquiz
