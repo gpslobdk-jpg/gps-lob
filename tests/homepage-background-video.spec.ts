@@ -38,14 +38,14 @@ test.describe("public homepage scenic background", () => {
     await expect(page.getByTestId("home-background-video")).toHaveCount(0);
     await expect(background.locator('img[src*="adventure-hero.webp"]')).toHaveCount(1);
     await expect(
-      page.getByRole("heading", { name: "Få undervisningen ud at gå", exact: true })
+      page.getByRole("heading", { name: "Undervisning i bevægelse.", exact: true })
     ).toBeVisible();
     await expect(page.getByRole("link", { name: /Opret et løb/i }).first()).toHaveAttribute(
       "href",
       "/login?next=%2Fdashboard%2Fopret%2Fvalg",
     );
-    await expect(page.getByRole("link", { name: /Deltag i et løb som elev/i })).toBeVisible();
-    const newsBanner = page.getByRole("link", { name: /Læs debatten/i });
+    await expect(page.getByRole("link", { name: "Deltag i et løb", exact: true })).toBeVisible();
+    const newsBanner = page.getByRole("link", { name: /Læs vores svar/i });
     await expect(newsBanner).toHaveAttribute(
       "href",
       "/mobil-i-skolen",
@@ -54,7 +54,9 @@ test.describe("public homepage scenic background", () => {
     await expect(newsBanner).toBeFocused();
     await expect(page.getByRole("button", { name: /Scan QR-kode/i })).toHaveCount(0);
     await expect(page.getByRole("dialog", { name: /SkoleGPS-gruppen/i })).toHaveCount(0);
-    await expect(page.getByText(/Planlæg, start og behold overblikket/i)).toBeVisible();
+    await expect(page.getByText(/Placér GPS-poster/)).toBeVisible();
+    await expect(page.getByText(/Start med eleverne/)).toBeVisible();
+    await expect(page.getByTestId("home-founder-entry")).toBeVisible();
     await expect(page.getByRole("link", { name: "GPS-hjælp", exact: true })).toHaveAttribute(
       "href",
       "/hjaelp",
@@ -79,6 +81,32 @@ test.describe("public homepage scenic background", () => {
     await expect(page.getByTestId("home-static-background")).toHaveCount(1);
     await expect(page.getByTestId("home-background-video")).toHaveCount(0);
     expect(videoRequests).toEqual([]);
+  });
+
+  test("Postløp keeps its separate host and does not inherit the Danish campaign banner", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      extraHTTPHeaders: { "x-forwarded-host": "postlob.net" },
+      viewport: { width: 1440, height: 900 },
+    });
+    const page = await context.newPage();
+
+    try {
+      await page.goto("/?code=");
+
+      await expect(
+        page.getByRole("heading", {
+          name: "Lag aktive læringsløp på få minutter",
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(page.getByText("Regeringens mobiludmelding", { exact: true })).toHaveCount(0);
+      await expect(page.getByText(/Planlæg, start og behold overblikket/i)).toBeVisible();
+      await expect(page.getByRole("link", { name: "Bli med i løp", exact: true })).toBeVisible();
+    } finally {
+      await context.close();
+    }
   });
 
   test("mobile root preserves the student entry redirect without requesting the desktop video", async ({

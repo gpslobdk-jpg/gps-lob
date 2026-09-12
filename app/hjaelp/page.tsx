@@ -20,7 +20,7 @@ const steps = [
 export default function HjaelpPage() {
   return (
     <main
-      className={`min-h-screen bg-[linear-gradient(180deg,#f6fbff_0%,#eefaf6_55%,#ffffff_100%)] px-5 py-6 text-slate-900 sm:px-8 sm:py-10 ${poppins.className}`}
+      className={`min-h-screen bg-[linear-gradient(180deg,#f4f9ff_0%,#e2efff_46%,#ffffff_100%)] px-5 py-6 text-slate-900 sm:px-8 sm:py-10 ${poppins.className}`}
     >
       <div className="mx-auto max-w-3xl">
         <Link
@@ -31,7 +31,7 @@ export default function HjaelpPage() {
           Til forsiden
         </Link>
 
-        <article className="mt-7 rounded-[2rem] border border-sky-100 bg-white/90 p-6 shadow-[0_22px_60px_rgba(7,26,58,0.08)] sm:p-10">
+        <article className="mt-7 rounded-[2rem] border border-sky-200 bg-white p-6 shadow-[0_18px_45px_rgba(7,26,58,0.08)] sm:p-10">
           <div className="flex items-center gap-3 text-sky-800">
             <MapPin className="h-5 w-5" aria-hidden="true" />
             <p className="text-xs font-black tracking-[0.18em] uppercase">Til læreren</p>

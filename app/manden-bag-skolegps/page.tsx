@@ -17,9 +17,9 @@ export const metadata: Metadata = {
 export default function MandenBagSkoleGPSPage() {
   return (
     <main
-      className={`relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#f6fbff_0%,#edf8f5_52%,#ffffff_100%)] px-5 py-5 text-slate-900 sm:px-6 sm:py-6 lg:px-8 ${poppins.className}`}
+      className={`relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#f4f9ff_0%,#e2efff_46%,#ffffff_100%)] px-5 py-5 text-slate-900 sm:px-6 sm:py-6 lg:px-8 ${poppins.className}`}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_8%,rgba(14,165,233,0.16),transparent_30%),radial-gradient(circle_at_88%_18%,rgba(34,164,71,0.11),transparent_27%),radial-gradient(circle_at_50%_100%,rgba(255,255,255,0.92),transparent_42%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_8%,rgba(14,165,233,0.16),transparent_30%),radial-gradient(circle_at_88%_18%,rgba(59,130,246,0.11),transparent_27%),radial-gradient(circle_at_50%_100%,rgba(255,255,255,0.92),transparent_42%)]" />
 
       <div className="relative mx-auto flex w-full max-w-6xl flex-col">
         <header className="flex items-center justify-between gap-4 py-2 sm:py-3">
@@ -46,7 +46,7 @@ export default function MandenBagSkoleGPSPage() {
           </Link>
         </header>
 
-        <article className="mt-5 rounded-[2rem] border border-white/80 bg-white/84 p-6 shadow-[0_22px_60px_rgba(7,26,58,0.08)] backdrop-blur sm:mt-7 sm:p-10 lg:p-12">
+        <article className="mt-5 rounded-[2rem] border border-sky-200 bg-white p-6 shadow-[0_18px_45px_rgba(7,26,58,0.08)] sm:mt-7 sm:p-10 lg:p-12">
           <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_13rem] lg:items-start">
             <div className="max-w-3xl">
               <p className="text-xs font-black tracking-[0.18em] text-sky-800 uppercase">Bag SkoleGPS</p>
@@ -74,9 +74,9 @@ export default function MandenBagSkoleGPSPage() {
             </div>
           </section>
 
-          <section className="mt-10 max-w-4xl rounded-2xl border border-emerald-100 bg-emerald-50/68 p-5 sm:p-6">
-            <h2 className={`text-2xl font-black text-emerald-950 ${rubik.className}`}>SkoleGPS i praksis</h2>
-            <p className="mt-3 text-base leading-7 text-emerald-950/80 sm:text-lg">
+          <section className="mt-10 max-w-4xl rounded-2xl border border-sky-100 bg-sky-50/68 p-5 sm:p-6">
+            <h2 className={`text-2xl font-black text-[var(--skolegps-deep-navy)] ${rubik.className}`}>SkoleGPS i praksis</h2>
+            <p className="mt-3 text-base leading-7 text-slate-700 sm:text-lg">
               Med SkoleGPS omsætter jeg min lærerfaglighed og interesse for teknologi til et enkelt
               undervisningsværktøj. Min ambition er at gøre det let at skabe undervisning med
               bevægelse, samarbejde og læring uden for klasselokalet.

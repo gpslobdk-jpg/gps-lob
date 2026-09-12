@@ -31,7 +31,7 @@ const points = [
 export default function MobilISkolenPage() {
   return (
     <main
-      className={`min-h-screen bg-[linear-gradient(180deg,#f6fbff_0%,#edf8f5_54%,#ffffff_100%)] px-5 py-6 text-slate-900 sm:px-8 sm:py-10 ${poppins.className}`}
+      className={`min-h-screen bg-[linear-gradient(180deg,#f4f9ff_0%,#e2efff_46%,#ffffff_100%)] px-5 py-6 text-slate-900 sm:px-8 sm:py-10 ${poppins.className}`}
     >
       <div className="mx-auto max-w-5xl">
         <Link
@@ -42,7 +42,7 @@ export default function MobilISkolenPage() {
           Til forsiden
         </Link>
 
-        <article className="mt-7 rounded-[2rem] border border-sky-100 bg-white/86 p-6 shadow-[0_22px_60px_rgba(7,26,58,0.08)] backdrop-blur sm:p-10">
+        <article className="mt-7 rounded-[2rem] border border-sky-200 bg-white p-6 shadow-[0_18px_45px_rgba(7,26,58,0.08)] sm:p-10">
           <p className="text-xs font-black tracking-[0.18em] text-sky-800 uppercase">Skole &amp; skærm</p>
           <h1 className={`mt-4 max-w-4xl text-4xl font-black tracking-tight text-[var(--skolegps-deep-navy)] sm:text-5xl ${rubik.className}`}>
             Mobilfri skole — med plads til en voksenstyret læringsaktivitet
@@ -51,23 +51,15 @@ export default function MobilISkolenPage() {
             <p>
               Debatten om mobiltelefoner i skolen handler med god grund om ro, fællesskab og
               koncentration. Undervisningsministeriets anbefalinger peger på mobilfri skole og
-              på, at skærme kun bruges, når det er didaktisk og pædagogisk hensigtsmæssigt.
-              SkoleGPS er tænkt ind i netop den samtale: som et kort, lærerplanlagt værktøj i en
-              aktivitet, der foregår uden for klasselokalet.
+              på skærmbrug, når det er didaktisk og pædagogisk hensigtsmæssigt. SkoleGPS er et
+              kort, lærerplanlagt værktøj i en aktivitet uden for klasselokalet.
             </p>
             <p>
-              Det betyder ikke, at en app i sig selv afgør, hvad der er rigtigt på en skole.
               Skolens egne rammer, lærerens faglige vurdering og hensynet til den konkrete klasse
-              kommer først. SkoleGPS kan bruges, når læreren vælger et forløb, sætter en tydelig
-              opgave og lader eleverne bruge telefonen kort og målrettet på ruten.
-            </p>
-            <p>
-              På Folketingets side står lovforslag L 130 fra samlingen 2025-26 som
-              <strong> bortfaldet</strong> ved seneste kildekontrol. Det er derfor ikke rigtigt
-              at beskrive én bestemt lovregel som en generel undtagelse for SkoleGPS. I stedet
-              holder vi os til det, skolen konkret kan tage stilling til: om aktiviteten er
-              lærerstyret, relevant for undervisningen og skaber mere bevægelse, samarbejde og
-              opmærksomhed på stedet.
+              kommer først. På Folketingets side står lovforslag L 130 fra samlingen 2025-26 som
+              <strong> bortfaldet</strong> ved seneste kildekontrol. Derfor beskriver vi ikke én
+              bestemt lovregel som en generel undtagelse for SkoleGPS. Siden er baggrund for
+              skolens vurdering.
             </p>
           </div>
 
@@ -81,12 +73,12 @@ export default function MobilISkolenPage() {
             ))}
           </div>
 
-          <section className="mt-8 rounded-2xl border border-emerald-100 bg-emerald-50/72 p-5 sm:p-6">
+          <section className="mt-8 rounded-2xl border border-sky-100 bg-sky-50/72 p-5 sm:p-6">
             <div className="flex items-start gap-3">
-              <Compass className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" aria-hidden="true" />
+              <Compass className="mt-0.5 h-5 w-5 shrink-0 text-sky-700" aria-hidden="true" />
               <div>
-                <h2 className="font-black text-emerald-950">Et konkret valg i undervisningen</h2>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-900/80">
+                <h2 className="font-black text-[var(--skolegps-deep-navy)]">Et konkret valg i undervisningen</h2>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">
                   Før et forløb kan læreren afklare mobilreglerne med klassen og vælge, om
                   telefonen skal ligge væk mellem posterne. Det holder teknologien i den rolle,
                   den skal have: et redskab til opgaven, ikke opgaven i sig selv.
@@ -106,7 +98,7 @@ export default function MobilISkolenPage() {
           </div>
         </article>
 
-        <section className="mt-7 rounded-2xl border border-slate-200 bg-white/78 p-6 text-sm leading-6 text-slate-600 shadow-sm">
+        <section className="mt-7 rounded-2xl border border-sky-200 bg-white p-6 text-sm leading-6 text-slate-600 shadow-sm">
           <h2 className="font-black text-slate-800">Kilder og afgrænsning</h2>
           <p className="mt-2">
             Senest kildekontrolleret 10. september 2026. Siden er baggrund til skolens faglige

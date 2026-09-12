@@ -293,6 +293,7 @@ function NativeDebugPanel({ snapshot }: { snapshot: NativeDebugSnapshot }) {
 export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: HomePageClientProps) {
   const siteCopy = getSiteCopy(siteVariantKey);
   const homeCopy = siteCopy.home;
+  const isPostlob = siteVariantKey === "postlob";
   const [isCapacitorApp, setIsCapacitorApp] = useState(isNativeGpslobApp);
   const [shouldUseLightMobileRoot, setShouldUseLightMobileRoot] = useState<boolean | null>(
     isNativeGpslobApp ? false : null
@@ -414,8 +415,10 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
     />
   ) : (
     <div className="relative flex min-h-screen flex-col overflow-x-hidden text-slate-950">
-      <HomeScenicBackground isPostlob={siteVariantKey === "postlob"} />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(14,165,233,0.18),transparent_34%),radial-gradient(circle_at_88%_18%,rgba(34,164,71,0.12),transparent_30%)]" />
+      <HomeScenicBackground isPostlob={isPostlob} />
+      <div
+        className={`pointer-events-none absolute inset-0 ${isPostlob ? "bg-[radial-gradient(circle_at_18%_8%,rgba(14,165,233,0.18),transparent_34%),radial-gradient(circle_at_88%_18%,rgba(34,164,71,0.12),transparent_30%)]" : "bg-[radial-gradient(circle_at_18%_8%,rgba(14,165,233,0.18),transparent_34%),radial-gradient(circle_at_88%_18%,rgba(59,130,246,0.11),transparent_30%)]"}`}
+      />
       {/* Welcome modal removed; no onboarding modal shown */}
 
       <header className="relative z-10 mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-6 lg:px-8">
@@ -430,19 +433,36 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
           />
         </Link>
         <nav className="hidden items-center gap-5 lg:flex" aria-label="Hovedmenu">
-          <Link href="#saadan-virker-det" className="text-sm font-bold text-slate-700 transition hover:text-sky-800">
-            Sådan virker det
-          </Link>
-          <Link href="#laerervaerktoejer" className="text-sm font-bold text-slate-700 transition hover:text-sky-800">
-            Lærerværktøjer
-          </Link>
-          <Link
-            href="/login"
-            data-tour="home-organizer-login"
-            className="text-sm font-bold text-slate-700 transition hover:text-sky-800"
-          >
-            {homeCopy.desktop.loginButton}
-          </Link>
+          {isPostlob ? (
+            <>
+              <Link href="#saadan-virker-det" className="text-sm font-bold text-slate-700 transition hover:text-sky-800">
+                Sådan virker det
+              </Link>
+              <Link href="#laerervaerktoejer" className="text-sm font-bold text-slate-700 transition hover:text-sky-800">
+                Lærerværktøjer
+              </Link>
+              <Link
+                href="/login"
+                data-tour="home-organizer-login"
+                className="text-sm font-bold text-slate-700 transition hover:text-sky-800"
+              >
+                {homeCopy.desktop.loginButton}
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/join" className="text-sm font-bold text-slate-700 transition hover:text-sky-800">
+                Deltag i et løb
+              </Link>
+              <Link
+                href="/login"
+                data-tour="home-organizer-login"
+                className="text-sm font-bold text-slate-700 transition hover:text-sky-800"
+              >
+                {homeCopy.desktop.loginButton}
+              </Link>
+            </>
+          )}
           <Link
             href="/login?next=%2Fdashboard%2Fopret%2Fvalg"
             className="inline-flex min-h-11 items-center rounded-full bg-[var(--skolegps-blue-strong)] px-5 py-2 text-sm font-black text-white shadow-[0_12px_24px_rgba(3,119,216,0.22)] transition hover:bg-sky-700"
@@ -463,15 +483,28 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
           </button>
           {isMobileMenuOpen ? (
             <div id="home-mobile-menu" className="absolute right-0 top-[calc(100%+0.6rem)] z-30 grid w-64 gap-1 rounded-2xl border border-sky-100 bg-white p-2 shadow-xl">
-              <Link href="#saadan-virker-det" onClick={() => setIsMobileMenuOpen(false)} className="rounded-xl px-3 py-3 text-sm font-bold text-slate-700 hover:bg-sky-50">
-                Sådan virker det
-              </Link>
-              <Link href="#laerervaerktoejer" onClick={() => setIsMobileMenuOpen(false)} className="rounded-xl px-3 py-3 text-sm font-bold text-slate-700 hover:bg-sky-50">
-                Lærerværktøjer
-              </Link>
-              <Link href="/login" data-tour="home-organizer-login" className="rounded-xl px-3 py-3 text-sm font-bold text-slate-700 hover:bg-sky-50">
-                {homeCopy.desktop.loginButton}
-              </Link>
+              {isPostlob ? (
+                <>
+                  <Link href="#saadan-virker-det" onClick={() => setIsMobileMenuOpen(false)} className="rounded-xl px-3 py-3 text-sm font-bold text-slate-700 hover:bg-sky-50">
+                    Sådan virker det
+                  </Link>
+                  <Link href="#laerervaerktoejer" onClick={() => setIsMobileMenuOpen(false)} className="rounded-xl px-3 py-3 text-sm font-bold text-slate-700 hover:bg-sky-50">
+                    Lærerværktøjer
+                  </Link>
+                  <Link href="/login" data-tour="home-organizer-login" className="rounded-xl px-3 py-3 text-sm font-bold text-slate-700 hover:bg-sky-50">
+                    {homeCopy.desktop.loginButton}
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link href="/join" onClick={() => setIsMobileMenuOpen(false)} className="rounded-xl px-3 py-3 text-sm font-bold text-slate-700 hover:bg-sky-50">
+                    Deltag i et løb
+                  </Link>
+                  <Link href="/login" data-tour="home-organizer-login" onClick={() => setIsMobileMenuOpen(false)} className="rounded-xl px-3 py-3 text-sm font-bold text-slate-700 hover:bg-sky-50">
+                    {homeCopy.desktop.loginButton}
+                  </Link>
+                </>
+              )}
               <Link href="/login?next=%2Fdashboard%2Fopret%2Fvalg" className="rounded-xl bg-[var(--skolegps-blue-strong)] px-3 py-3 text-sm font-black text-white hover:bg-sky-700">
                 Opret et løb
               </Link>
@@ -481,36 +514,40 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
       </header>
 
       <main className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col px-5 pb-8 pt-1 sm:px-6 lg:px-8">
-        <section className="pt-1">
-          <MobileInSchoolBanner variant="home" />
-        </section>
+        {!isPostlob ? (
+          <section className="pt-1">
+            <MobileInSchoolBanner variant="home" />
+          </section>
+        ) : null}
         <section className="grid items-center gap-8 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,0.34fr)] lg:py-14">
           <div className="max-w-3xl skolegps-soft-enter">
             <p className="inline-flex rounded-full border border-sky-200 bg-white/78 px-4 py-2 text-xs font-black uppercase text-sky-800 shadow-sm backdrop-blur">
               {homeCopy.desktop.organizerEyebrow}
             </p>
             <h1 className="mt-5 max-w-3xl text-4xl font-black leading-[0.98] text-[var(--skolegps-deep-navy)] drop-shadow-[0_10px_22px_rgba(255,255,255,0.65)] sm:text-6xl lg:text-7xl">
-              {siteVariantKey === "postlob" ? homeCopy.desktop.organizerTitle : "Få undervisningen ud at gå"}
+              {isPostlob ? homeCopy.desktop.organizerTitle : "Undervisning i bevægelse."}
             </h1>
             <p className="mt-5 max-w-2xl text-xl font-black text-[var(--skolegps-navy)] sm:text-2xl">
-              {siteVariantKey === "postlob"
+              {isPostlob
                 ? homeCopy.desktop.organizerDescription
-                : "SkoleGPS gør det enkelt at bruge mobilen til en voksenstyret aktivitet uden for klasselokalet."}
+                : "Lav opgaver, placér GPS-poster, og send eleverne afsted."}
             </p>
-            <p className="mt-4 max-w-xl text-base font-semibold leading-7 text-slate-700 sm:text-lg">
-              Vælg et forløb, send klassen ud og følg med, når det giver mening.
-            </p>
+            {isPostlob ? (
+              <p className="mt-4 max-w-xl text-base font-semibold leading-7 text-slate-700 sm:text-lg">
+                Vælg et forløb, send klassen ud og følg med, når det giver mening.
+              </p>
+            ) : null}
 
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Link
                 href="/login?next=%2Fdashboard%2Fopret%2Fvalg"
-                className="inline-flex min-h-13 items-center justify-center gap-2 rounded-full bg-[var(--skolegps-green)] px-6 py-3 text-base font-black text-white shadow-[0_16px_32px_rgba(34,164,71,0.24)] transition hover:bg-green-700 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-green-600"
+                className={`inline-flex min-h-13 items-center justify-center gap-2 rounded-full px-6 py-3 text-base font-black text-white transition focus-visible:outline-3 focus-visible:outline-offset-2 ${isPostlob ? "bg-[var(--skolegps-green)] shadow-[0_16px_32px_rgba(34,164,71,0.24)] hover:bg-green-700 focus-visible:outline-green-600" : "bg-[var(--skolegps-blue-strong)] shadow-[0_16px_32px_rgba(3,119,216,0.24)] hover:bg-sky-700 focus-visible:outline-sky-600"}`}
               >
                 <MapPin className="h-5 w-5" aria-hidden="true" />
                 Opret et løb
               </Link>
-              <Link href="#laerervaerktoejer" className="inline-flex min-h-13 items-center justify-center px-3 py-3 text-base font-black text-sky-800 underline decoration-sky-300 underline-offset-4 transition hover:text-sky-950">
-                Se lærerværktøjer
+              <Link href={isPostlob ? "#laerervaerktoejer" : "#saadan-virker-det"} className="inline-flex min-h-13 items-center justify-center px-3 py-3 text-base font-black text-sky-800 underline decoration-sky-300 underline-offset-4 transition hover:text-sky-950">
+                {isPostlob ? "Se lærerværktøjer" : "Sådan virker det"}
               </Link>
               {siteVariantKey === "postlob" ? (
                 <Link
@@ -521,14 +558,21 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
                 </Link>
               ) : null}
             </div>
-            <p className="mt-3 text-sm font-bold text-slate-600">Gratis undervisningsværktøj</p>
+            {!isPostlob ? <p className="mt-3 text-sm font-bold text-slate-600">Gratis undervisningsværktøj</p> : null}
 
             <div id="saadan-virker-det" className="mt-10 grid scroll-mt-6 gap-3 sm:grid-cols-3">
-              {[
-                ["1. Vælg et forløb", "Start med det, du vil have klassen til at undersøge.", BookOpen],
-                ["2. Send klassen ud", "Eleverne bruger ruten og opgaverne på stedet.", MapPin],
-                ["3. Følg med", "Se den aktivitet, du har brug for at kunne se undervejs.", Compass],
-              ].map(([title, text, Icon]) => (
+              {(isPostlob
+                ? [
+                    ["1. Vælg et forløb", "Start med det, du vil have klassen til at undersøge.", BookOpen],
+                    ["2. Send klassen ud", "Eleverne bruger ruten og opgaverne på stedet.", MapPin],
+                    ["3. Følg med", "Se den aktivitet, du har brug for at kunne se undervejs.", Compass],
+                  ]
+                : [
+                    ["1. Opret løbet", "Vælg et format og skriv opgaverne.", BookOpen],
+                    ["2. Placér GPS-poster", "Sæt posterne dér, hvor klassen skal arbejde.", MapPin],
+                    ["3. Start med eleverne", "Del løbskoden, når I er klar.", Compass],
+                  ]
+              ).map(([title, text, Icon]) => (
                 <div
                   key={title as string}
                   className="rounded-2xl border border-white/70 bg-white/72 p-4 shadow-sm backdrop-blur"
@@ -545,18 +589,16 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
 
           <div className="relative hidden min-h-[19rem] lg:block">
             <RoutePath className="absolute left-[-10%] top-28 h-24 w-[125%] opacity-50" />
-            {siteVariantKey !== "postlob" ? (
+            {!isPostlob ? (
               <div className="absolute right-4 top-9 rounded-3xl border border-white/70 bg-white/76 p-5 shadow-sm backdrop-blur">
                 <Mascot variant="wave" size="md" priority className="mx-auto" />
-                <p className="mt-2 max-w-44 text-center text-sm font-bold leading-5 text-slate-700">
-                  Klar til at tage læringen med udenfor?
-                </p>
               </div>
             ) : null}
           </div>
         </section>
 
-        <section id="laerervaerktoejer" className="mt-8 grid scroll-mt-6 gap-5 rounded-3xl border border-sky-100 bg-white/76 p-6 shadow-sm backdrop-blur sm:grid-cols-[1fr_auto] sm:items-center sm:p-8">
+        {isPostlob ? (
+          <section id="laerervaerktoejer" className="mt-8 grid scroll-mt-6 gap-5 rounded-3xl border border-sky-100 bg-white/76 p-6 shadow-sm backdrop-blur sm:grid-cols-[1fr_auto] sm:items-center sm:p-8">
           <div>
             <div className="flex items-center gap-3 text-sky-800">
               <ShieldCheck className="h-5 w-5" aria-hidden="true" />
@@ -580,9 +622,10 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
               <QRScannerModal buttonClassName="justify-center py-3 text-sm" copy={siteCopy.qrScanner} />
             ) : null}
           </div>
-        </section>
+          </section>
+        ) : null}
 
-        {siteVariantKey !== "postlob" ? (
+        {!isPostlob ? (
           <section
             data-testid="home-founder-entry"
             aria-label="Mød personen bag SkoleGPS"
@@ -605,7 +648,8 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
           <Link href="/privacy" className="transition hover:text-sky-800">{homeCopy.legalLinks.privacy}</Link>
           <Link href="/it-afdelinger" className="transition hover:text-sky-800">Til IT og databeskyttelse</Link>
           <Link href="/ophavsret" className="transition hover:text-sky-800">Ophavsret</Link>
-          <span className="basis-full text-slate-500">© 2026 SkoleGPS · Gratis undervisningsværktøj</span>
+          <a href="mailto:skolegpsdk@gmail.com" className="transition hover:text-sky-800">Kontakt</a>
+          <span className="basis-full text-slate-500">© 2026 SkoleGPS</span>
         </footer>
       </main>
 

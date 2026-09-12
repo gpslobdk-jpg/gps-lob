@@ -1,138 +1,87 @@
 import type { Metadata } from "next";
+import { ArrowLeft, MapPin, Server, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
+import { poppins, rubik } from "@/lib/fonts";
+
 export const metadata: Metadata = {
-  title: "Teknologi bag SkoleGPS | Engineering the Future of Outdoor Learning",
+  title: "Teknologi bag SkoleGPS",
   description:
-    "Et dybdegående kig bag kulissen på SkoleGPS.dk – fra vores headless hook-arkitektur til Supabase Realtime og Vercel AI SDK.",
+    "Kort information om teknologien bag SkoleGPS, placeringstilladelser og drift.",
 };
+
+const sections = [
+  {
+    title: "En webtjeneste til løb",
+    body:
+      "SkoleGPS er bygget som en webapplikation. Lærere opretter og administrerer løb i browseren, og elever deltager fra den enhed, læreren vælger.",
+    icon: Server,
+  },
+  {
+    title: "Placering i et løb",
+    body:
+      "Når et løb kræver placering, afhænger det af enhedens og browserens tilladelse. Hvis placeringen mangler, kan læreren bruge den konkrete GPS-hjælp uden at nulstille elevens hold eller fremdrift.",
+    icon: MapPin,
+  },
+  {
+    title: "Drift og sikkerhed",
+    body:
+      "Vi vedligeholder tjenesten løbende. Spørgsmål om data, teknik eller skolens egne rammer skal altid vurderes i den konkrete sammenhæng.",
+    icon: ShieldCheck,
+  },
+] as const;
 
 export default function TeknikSide() {
   return (
-    <main className="min-h-screen bg-linear-to-b from-slate-50 to-white px-6 py-16 text-slate-900 sm:px-12">
-      <div className="mx-auto max-w-3xl">
-        <header className="mb-16 border-b border-slate-200 pb-8">
-          <Link
-            href="/"
-            className="mb-4 inline-block text-sm font-medium text-emerald-600 transition-colors hover:text-emerald-700"
+    <main
+      className={`min-h-screen bg-[linear-gradient(180deg,#f4f9ff_0%,#e2efff_38%,#ffffff_100%)] px-5 py-6 text-slate-900 sm:px-8 sm:py-10 ${poppins.className}`}
+    >
+      <div className="mx-auto max-w-4xl">
+        <Link
+          href="/"
+          className="inline-flex min-h-11 items-center gap-2 rounded-full border border-sky-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-sky-300 hover:text-sky-800 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-800"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Til forsiden
+        </Link>
+
+        <article className="mt-7 rounded-[2rem] border border-sky-200 bg-white p-6 shadow-[0_18px_45px_rgba(7,26,58,0.08)] sm:p-10">
+          <p className="text-xs font-black tracking-[0.18em] text-sky-800 uppercase">Bag SkoleGPS</p>
+          <h1
+            className={`mt-4 text-4xl font-black tracking-tight text-[var(--skolegps-deep-navy)] sm:text-5xl ${rubik.className}`}
           >
-            ← Tilbage til forsiden
-          </Link>
-          <h1 className="mb-4 text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-            Engineering the Future of Outdoor Learning
+            Teknologi bag SkoleGPS
           </h1>
-          <p className="text-xl leading-relaxed text-slate-600">
-            Bag kulissen på SkoleGPS.dk: Fra monolit til modulær High-End platform.
-          </p>
-        </header>
-
-        <section className="prose prose-lg prose-slate max-w-none">
-          <p className="lead">
-            Hos SkoleGPS.dk nøjes vi ikke med at flytte undervisningen ud i det fri; vi
-            flytter grænserne for, hvad moderne web-teknologi kan præstere i 2026. Her
-            er et indblik i vores arkitektur og de massive forbedringer, vi har
-            implementeret for at skabe markedets mest skalerbare løsning.
+          <p className="mt-5 max-w-2xl text-base leading-7 text-slate-700 sm:text-lg">
+            Her er den korte version af, hvordan SkoleGPS fungerer teknisk.
           </p>
 
-          <hr className="my-12 border-slate-200" />
-
-          <div className="space-y-16">
-            <div>
-              <h2 className="mb-4 flex items-center text-2xl font-bold">
-                <span className="mr-3">🧠</span> Headless Intelligence: Arkitekturen
-              </h2>
-              <p>
-                Vi har forladt den traditionelle, tunge kode-struktur til fordel for en{" "}
-                <strong>&quot;Headless Hook Architecture&quot;</strong>.
-              </p>
-              <ul className="mt-4 list-disc space-y-2 pl-6">
-                <li>
-                  <strong>Separation of Concerns:</strong> Al spil-logik,
-                  GPS-beregninger og real-tids-synkronisering er isoleret i vores{" "}
-                  <code>usePlayGameState</code> motor.
-                </li>
-                <li>
-                  <strong>AI-Ready:</strong> Denne opdeling betyder, at vores AI-modeller
-                  kan interagere direkte med spillets data uden at skulle kæmpe med det
-                  visuelle interface. Det gør os 10x hurtigere til at implementere nye,
-                  intelligente funktioner.
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h2 className="mb-4 flex items-center text-2xl font-bold">
-                <span className="mr-3">⚡</span> Tech Stack 2026: Bleeding Edge
-              </h2>
-              <p>
-                Vi bygger udelukkende med de nyeste og mest kraftfulde værktøjer på
-                markedet:
-              </p>
-              <ul className="mt-4 list-disc space-y-2 pl-6">
-                <li>
-                  <strong>Next.js 16 &amp; React 19:</strong> Udnyttelse af Server
-                  Components og de nyeste rendering-mønstre for lynhurtig load-tid.
-                </li>
-                <li>
-                  <strong>Tailwind CSS 4:</strong> Ultra-let styling-motor, der sikrer en
-                  flydende oplevelse på alt fra iPhones til tablets.
-                </li>
-                <li>
-                  <strong>Supabase Realtime:</strong> Millisekund-præcis dataoverførsel
-                  mellem elev og lærer, så feedback sker øjeblikkeligt.
-                </li>
-                <li>
-                  <strong>Vercel AI SDK:</strong> Indbygget intelligens der kan analysere
-                  billeder, generere spørgsmål og personliggøre læringen.
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h2 className="mb-4 flex items-center text-2xl font-bold">
-                <span className="mr-3">🛰️</span> Optimeret GPS &amp; Performance
-              </h2>
-              <p>
-                For at sikre, at batteriet holder til en hel skoledag, har vi udviklet en{" "}
-                <strong>Smart-Throttling GPS logik</strong>. Ved at analysere
-                bevægelsesmønstre minimerer vi strømforbruget, uden at miste præcisionen
-                på kortet.
-              </p>
-            </div>
-
-            <div>
-              <h2 className="mb-4 flex items-center text-2xl font-bold">
-                <span className="mr-3">📈</span> Skalerbarhed i højsædet
-              </h2>
-              <p>
-                Hele platformen er bygget til at skalere. Vores modulære komponenter
-                betyder, at vi kan udrulle nye funktioner til tusindvis af brugere
-                samtidigt, uden at gå på kompromis med stabiliteten.
-              </p>
-              <blockquote className="mt-6 rounded-r-lg border-l-4 border-emerald-500 bg-emerald-50 py-2 pl-6 italic text-slate-700">
-                &quot;Vi bygger ikke bare til i dag. Vi bygger arkitekturen til næste
-                generation af digital undervisning.&quot;
-              </blockquote>
-            </div>
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            {sections.map(({ title, body, icon: Icon }) => (
+              <section key={title} className="rounded-2xl border border-sky-100 bg-sky-50/55 p-5">
+                <Icon className="h-5 w-5 text-sky-700" aria-hidden="true" />
+                <h2 className="mt-3 text-lg font-black text-[var(--skolegps-deep-navy)]">{title}</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{body}</p>
+              </section>
+            ))}
           </div>
 
-          <hr className="my-16 border-slate-200" />
-
-          <footer className="rounded-2xl bg-slate-100 p-8 text-center">
-            <h3 className="mb-2 text-xl font-bold">Vil du vide mere?</h3>
-            <p className="mb-6 text-slate-600">
-              Er du udvikler, partner eller interesseret i den tekniske køreplan? Vi
-              deler gerne vores vision for, hvordan AI og lokationsbaseret læring
-              smelter sammen.
+          <section className="mt-8 rounded-2xl border border-sky-100 bg-sky-50/70 p-5 sm:p-6">
+            <h2 className={`text-xl font-black text-[var(--skolegps-deep-navy)] ${rubik.className}`}>
+              Spørgsmål til teknik eller data
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">
+              Skriv til os, hvis du har brug for at afklare en teknisk eller databeskyttelsesmæssig
+              ramme på din skole.
             </p>
             <a
               href="mailto:skolegpsdk@gmail.com"
-              className="inline-block rounded-full bg-slate-900 px-8 py-3 font-semibold text-white transition-all hover:bg-slate-800"
+              className="mt-5 inline-flex min-h-11 items-center rounded-full bg-[var(--skolegps-blue-strong)] px-5 py-2 text-sm font-black text-white shadow-[0_12px_24px_rgba(3,119,216,0.18)] transition hover:bg-sky-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-800"
             >
-              👉 Kontakt vores tekniske team
+              Kontakt SkoleGPS
             </a>
-          </footer>
-        </section>
+          </section>
+        </article>
       </div>
     </main>
   );

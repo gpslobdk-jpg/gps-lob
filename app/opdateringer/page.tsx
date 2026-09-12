@@ -1,79 +1,80 @@
 import type { Metadata } from "next";
+import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+
+import { poppins, rubik } from "@/lib/fonts";
 
 export const metadata: Metadata = {
-  title: "Seneste nyt - SkoleGPS",
-  description: "Korte opdateringer om SkoleGPS.dk og de nye skoleværktøjer.",
+  title: "Opdateringer | SkoleGPS",
+  description: "Korte, praktiske opdateringer om SkoleGPS.",
 };
 
 const updates = [
   {
-    title: "GPSLøb bliver til SkoleGPS.dk",
+    title: "SkoleGPS",
     body:
-      "GPSLøb fortsætter, men bliver nu en del af SkoleGPS.dk. Løb, login og arkiv fortsætter, mens platformen samler flere værktøjer til skoler og lærere.",
+      "SkoleGPS samler GPSLøb og lærerflader på dette site. De kendte indgange til løb, login og arkiv er bevaret.",
   },
   {
-    title: "Nye lærerværktøjer på vej",
+    title: "SkemaPilot",
     body:
-      "SkoleGPS.dk samler flere digitale skoleværktøjer. Første værktøjer er SkemaPilot til skemaarbejde og SkolePodcast til elevpodcasts.",
+      "SkemaPilot er et selvstændigt værktøj. Åbn det på den angivne hjemmeside, hvis det er det værktøj, du leder efter.",
     link: {
       href: "https://www.skemapilot.dk",
-      label: "SkemaPilot.dk",
+      label: "Åbn SkemaPilot",
     },
-    note: "SkolePodcast.dk er på vej.",
   },
-];
+] as const;
 
 export default function OpdateringerPage() {
   return (
-    <div className="min-h-screen bg-slate-950 px-4 py-12 text-slate-100">
-      <main className="mx-auto max-w-2xl">
+    <main
+      className={`min-h-screen bg-[linear-gradient(180deg,#f4f9ff_0%,#e2efff_42%,#ffffff_100%)] px-5 py-6 text-slate-900 sm:px-8 sm:py-10 ${poppins.className}`}
+    >
+      <div className="mx-auto max-w-3xl">
         <Link
           href="/"
-          className="mb-10 inline-flex items-center gap-2 text-sm text-slate-400 transition-colors hover:text-slate-200"
+          className="inline-flex min-h-11 items-center gap-2 rounded-full border border-sky-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-sky-300 hover:text-sky-800 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-800"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Tilbage til forsiden
+          Til forsiden
         </Link>
 
-        <header className="mb-10">
-          <span className="inline-flex rounded-full border border-amber-400/20 bg-amber-400/8 px-3 py-1 text-xs font-medium tracking-wider text-amber-300 uppercase">
-            Seneste nyt
-          </span>
-          <h1 className="mt-4 text-4xl font-black tracking-tight text-white">Seneste nyt</h1>
-          <p className="mt-4 text-base leading-7 text-slate-400">
-            Her samler vi korte opdateringer om SkoleGPS.dk og de nye skoleværktøjer.
+        <article className="mt-7 rounded-[2rem] border border-sky-200 bg-white p-6 shadow-[0_18px_45px_rgba(7,26,58,0.08)] sm:p-10">
+          <p className="text-xs font-black tracking-[0.18em] text-sky-800 uppercase">SkoleGPS</p>
+          <h1
+            className={`mt-4 text-4xl font-black tracking-tight text-[var(--skolegps-deep-navy)] sm:text-5xl ${rubik.className}`}
+          >
+            Opdateringer
+          </h1>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-slate-700 sm:text-lg">
+            Korte, praktiske beskeder om SkoleGPS og de relevante indgange.
           </p>
-        </header>
 
-        <div className="space-y-5">
-          {updates.map((update) => (
-            <article
-              key={update.title}
-              className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-lg"
-            >
-              <h2 className="text-xl font-bold leading-snug text-white">{update.title}</h2>
-              <p className="mt-4 text-sm leading-7 text-slate-400">{update.body}</p>
+          <div className="mt-8 space-y-4">
+            {updates.map((update) => (
+              <section key={update.title} className="rounded-2xl border border-sky-100 bg-sky-50/55 p-5 sm:p-6">
+                <h2 className={`text-xl font-black text-[var(--skolegps-deep-navy)] ${rubik.className}`}>
+                  {update.title}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-700">{update.body}</p>
 
-              {update.link ? (
-                <a
-                  href={update.link.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-5 inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/8 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:border-cyan-200/40 hover:bg-cyan-300/12"
-                >
-                  {update.link.label}
-                </a>
-              ) : null}
-
-              {update.note ? (
-                <p className="mt-4 text-sm leading-6 text-slate-500">{update.note}</p>
-              ) : null}
-            </article>
-          ))}
-        </div>
-      </main>
-    </div>
+                {"link" in update ? (
+                  <a
+                    href={update.link.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-full border border-sky-200 bg-white px-4 py-2 text-sm font-black text-sky-800 transition hover:border-sky-300 hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-800"
+                  >
+                    {update.link.label}
+                    <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                  </a>
+                ) : null}
+              </section>
+            ))}
+          </div>
+        </article>
+      </div>
+    </main>
   );
 }

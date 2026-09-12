@@ -7,12 +7,12 @@ type MobileInSchoolBannerProps = {
 
 const bannerContent = {
   home: {
-    eyebrow: "Skole & skærm",
-    text: "Mobilfri skole og aktiv undervisning: Se, hvordan SkoleGPS bruges på en lærerstyret rute.",
-    cta: "Læs debatten",
+    eyebrow: "Regeringens mobiludmelding",
+    text: "Hvad betyder den for SkoleGPS?",
+    cta: "Læs vores svar",
     wrapperClass:
-      "border-sky-500/30 bg-[linear-gradient(135deg,rgba(3,119,216,0.96),rgba(14,116,144,0.96))] shadow-[0_20px_55px_rgba(3,119,216,0.22)] hover:border-sky-200/70 hover:shadow-[0_24px_70px_rgba(3,119,216,0.28)]",
-    textClass: "text-base sm:text-lg",
+      "border-sky-200 bg-white shadow-[0_12px_28px_rgba(7,26,58,0.08)] hover:border-sky-300 hover:bg-sky-50/40",
+    textClass: "text-sm sm:text-base",
   },
   dashboard: {
     eyebrow: "Skole & skærm",
@@ -28,28 +28,28 @@ export default function MobileInSchoolBanner({
   variant = "home",
 }: MobileInSchoolBannerProps) {
   const content = bannerContent[variant];
-  const isDashboard = variant === "dashboard";
+  const isHome = variant === "home";
 
   return (
     <Link
       href="/mobil-i-skolen"
-      className={`group relative block overflow-hidden rounded-2xl border px-5 py-4 transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-900 sm:px-6 ${isDashboard ? "text-slate-950" : "text-white backdrop-blur-xl sm:py-5"} ${content.wrapperClass}`}
+      className={`group relative block overflow-hidden rounded-2xl border focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-900 ${isHome ? "px-4 py-3 transition-colors sm:px-5" : "px-5 py-4 transition-all duration-200 sm:px-6"} text-slate-950 ${content.wrapperClass}`}
     >
       <div className="relative flex items-center gap-3">
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${isDashboard ? "bg-sky-50 text-sky-700" : "border border-white/15 bg-white/10 text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]"}`}>
+        <div className={`flex shrink-0 items-center justify-center ${isHome ? "h-9 w-9 rounded-xl" : "h-10 w-10 rounded-2xl"} bg-sky-50 text-sky-700`}>
           <ShieldCheck className="h-5 w-5" aria-hidden="true" />
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className={`text-[11px] font-black uppercase ${isDashboard ? "tracking-[0.16em] text-sky-700" : "tracking-[0.24em] text-white/70"}`}>
+          <p className={`text-[11px] font-black uppercase ${isHome ? "tracking-[0.14em]" : "tracking-[0.16em]"} text-sky-700`}>
             {content.eyebrow}
           </p>
-          <p className={`font-semibold leading-6 ${isDashboard ? "mt-1 text-slate-700" : "mt-2 text-white/95"} ${content.textClass}`}>
+          <p className={`font-semibold leading-6 ${isHome ? "mt-0.5" : "mt-1"} text-slate-700 ${content.textClass}`}>
             {content.text}
           </p>
         </div>
 
-        <div className={`hidden shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition sm:inline-flex ${isDashboard ? "bg-sky-50 text-sky-800 group-hover:bg-sky-100" : "border border-white/15 bg-white/10 text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)] group-hover:border-white/25 group-hover:bg-white/14"}`}>
+        <div className={`hidden shrink-0 items-center gap-2 rounded-full text-sm font-bold transition sm:inline-flex ${isHome ? "px-3 py-1.5 text-sky-800 group-hover:text-sky-950" : "bg-sky-50 px-4 py-2 text-sky-800 group-hover:bg-sky-100"}`}>
           {content.cta}
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
         </div>
