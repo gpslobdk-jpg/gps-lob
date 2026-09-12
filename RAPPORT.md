@@ -238,3 +238,14 @@ Lærerens arbejdsrum skal føles som et roligt arbejdsbord: hvid overflade, dyb 
 ## Konklusion til implementeringsordren
 
 Start ikke med at slette eller slå byggere sammen. Start med at beskytte arkiv- og routekontrakterne, gør buildervalget progressivt og indfør det fælles hvid/blå lærersystem på dashboard, valg og Arkiv. Det giver en mærkbart enklere oplevelse uden at sætte gamle løb, elevflow eller aktive spil i risiko.
+
+## Implementeringsopfølgning — 12. september 2026
+
+Den efterfølgende, direkte implementeringsordre er udført. Forside, lærerindgange, byggere, arkiv, mobilspil og de relevante informationssider er forenklet med scoped hvid/blå lærerflader; elev-, live-, print-, jura- og adgangskritiske flader er bevidst bevaret som særflader.
+
+- Alle 14 gemte løbstyper er nu registreret centralt med separate oplysninger om oprettelse, historisk deep link og sikker arkivredigering.
+- Selfie, Escape, Rollespil og Stratego er fortsat edit-only-kompatibilitetsveje med deres eksisterende <code>?id=</code>-kontrakter.
+- Podcast og Find Bedrageren vises ærligt som ikke-understøttet redigering i Arkiv; de kan ikke længere ved en fejl love en editor, der starter et nyt flow.
+- Den funktionelle release <code>bdafaeae5db5d5f0778d342ab0c4d1a215ac1aeb</code> er verificeret som <code>success</code> i det eksisterende SkoleGPS-produktionsprojekt.
+
+Se [docs/SKOLEGPS_MAKEOVER_DELIVERY.md](docs/SKOLEGPS_MAKEOVER_DELIVERY.md) for dækningskort, testbeviser, live-smoke, restpunkter og tilbageførselsreference.

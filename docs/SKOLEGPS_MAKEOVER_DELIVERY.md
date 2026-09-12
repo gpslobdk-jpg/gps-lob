@@ -1,6 +1,6 @@
 # SkoleGPS — leveringsnote for enkelhed og design
 
-> **Status:** Kladdet i arbejdsgrenen før releaseoptegnelsen er udfyldt.
+> **Status:** Funktionel release verificeret i produktion. Denne post-release-optegnelse ændrer kun dokumentation.
 > **Dato:** 12. september 2026.
 > **Formål:** Nøgtern dokumentation af det aktuelle ændringsomfang, bevarede kontrakter og kendte verifikationsgrænser. Den er ikke i sig selv bevis for, at en produktion er gennemført.
 
@@ -8,7 +8,7 @@
 
 Den oprindelige bestilling af <code>SKOLEGPS_AUDIT_ENKELHED_OG_DESIGN.md</code> var udtrykkeligt en read-only audit uden kodeændringer eller deployment. Den efterfølgende direkte brugerbesked bad om at “udfør det hele og sæt det i produktion” og henviste til den nye implementeringsordre. Det erstattede auditgrænsen med mandat til den afgrænsede implementering, kvalitetssikring og normale releaseproces.
 
-Denne levering ændrer ikke datamodel, historiske løbstyper, adgangsregler, betalings-/entitlementlogik eller produktionens data som et designgreb. Den bevarer eksisterende routes og fokuserer på lærerflader, ærlig arkivadfærd og afgrænset copy/styling. En release må først markeres færdig, når felterne nederst i dette dokument er fyldt med konkret commit- og produktionsbevis.
+Denne levering ændrer ikke datamodel, historiske løbstyper, adgangsregler, betalings-/entitlementlogik eller produktionens data som et designgreb. Den bevarer eksisterende routes og fokuserer på lærerflader, ærlig arkivadfærd og afgrænset copy/styling.
 
 ## Statusnøglen
 
@@ -131,19 +131,19 @@ Det komplette lokale browserforløb med syntetisk lærerlogin kunne ikke etabler
 
 Der er **ingen** påstand om fysisk iPhone-, Android- eller skolenetværkstest. Viewport- eller browserautomatisering kan ikke dokumentere GPS-, baggrunds- eller livscyklusadfærd på rigtige enheder.
 
-## Releaseoptegnelse — udfyldes af releaseansvarlig
+## Releaseoptegnelse
 
 | Felt | Værdi |
 |---|---|
-| Releasebranch | **Ikke udfyldt endnu** |
-| Præcis release-commit (SHA) | **Ikke udfyldt endnu** |
-| Git push til <code>origin/main</code> | **Ikke udfyldt endnu** |
-| Verificeret SkoleGPS-produktionsprojekt | **Ikke udfyldt endnu** |
-| Vercel/GitHub deployment-id og status | **Ikke udfyldt endnu** |
-| Tidspunkt for produktionsklar status | **Ikke udfyldt endnu** |
-| Read-only produktionssmoke: forside, nyhedslink, Om/CV, hjælp, <code>/join</code>, loginredirect | **Ikke udfyldt endnu** |
-| Autoriseret lærer-/arkiv-/buildernavigation i egnet testkontekst | **Ikke udfyldt endnu** |
-| Endelig git-status efter release | **Ikke udfyldt endnu** |
-| Tilbageførselsreference til foregående stabile apprevision | **Ikke udfyldt endnu** |
+| Releasebranch | <code>main</code> |
+| Præcis funktionel release-commit (SHA) | <code>bdafaeae5db5d5f0778d342ab0c4d1a215ac1aeb</code> |
+| Git push til <code>origin/main</code> | Gennemført 12. september 2026 |
+| Verificeret SkoleGPS-produktionsprojekt | <code>Production – gps-lob.dkkk</code>; offentlig kanonisk adresse <code>https://www.skolegps.dk</code> |
+| Vercel/GitHub deployment-id og status | GitHub deployment <code>6409311486</code>, <code>success</code>; præcis SHA matchede releasen |
+| Tidspunkt for produktionsklar status | Verificeret 12. september 2026 efter Vercel-success |
+| Read-only produktionssmoke: forside, nyhedslink, Om/CV, hjælp, <code>/join</code>, loginredirect | Bestået: apex 308 til www; forside, <code>/join</code>, <code>/hjaelp</code>, <code>/mobil-i-skolen</code> og founder/CV-rute 200; uautentificeret <code>/dashboard</code> 307 til sikker login-next. Browserkontrol bekræftede den nye forside, hjælp og CV-indgang. |
+| Autoriseret lærer-/arkiv-/buildernavigation i egnet testkontekst | Ikke udført: denne checkout manglede offentlige Supabase-testvariabler. Det er registreret som uafklaret, ikke som bestået. |
+| Git-status efter funktionel release | Ren <code>main</code> synkroniseret med <code>origin/main</code> før denne dokumentationsoptegnelse. |
+| Tilbageførselsreference til foregående stabile apprevision | <code>3bc7e47f0ceb3c918819e5b213ab2e716d695674</code> |
 
-Indtil denne tabel er udfyldt med den eksakte SHA og den rigtige SkoleGPS-produktion, er denne fil en leverings- og verifikationsnote — ikke en erklæring om gennemført deployment.
+Denne optegnelse bekræfter den funktionelle production-release. Den efterfølgende dokumentationscommit indeholder ingen app- eller datakontraktændringer.
