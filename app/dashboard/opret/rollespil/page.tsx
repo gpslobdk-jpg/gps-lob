@@ -13,6 +13,7 @@ import RollespilAiInterviewModal, {
   type RollespilAiInterviewDraft,
   type RollespilAiInterviewQuestion,
 } from "@/components/builders/rollespil/RollespilAiInterviewModal";
+import legacyBuilderStyles from "@/components/builders/LegacyBuilderSurface.module.css";
 import { MobileBuilderWarning } from "@/components/builders/MobileBuilderWarning";
 import { useBuilderSaveGuidance } from "@/components/builders/useBuilderSaveGuidance";
 import type { SavedPin, SavedZone } from "@/components/MapPicker";
@@ -40,7 +41,7 @@ import { createClient } from "@/utils/supabase/client";
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ssr: false,
   loading: () => (
-    <div className="h-full w-full animate-pulse rounded-3xl border border-violet-500/20 bg-slate-900/60" />
+    <div className={`${legacyBuilderStyles.mapPanel} h-full w-full animate-pulse rounded-3xl`} />
   ),
 });
 
@@ -419,9 +420,9 @@ export default function RollespilBuilderPage() {
   return (
     <Suspense
       fallback={
-        <div className={`min-h-screen bg-violet-950 ${poppins.className}`}>
+        <div className={`min-h-screen ${legacyBuilderStyles.shell} ${poppins.className}`}>
           <div className="flex min-h-screen items-center justify-center px-6 text-center">
-            <div className="rounded-[2rem] border border-violet-500/30 bg-violet-950/20 px-8 py-10 text-violet-100 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+            <div className={`${legacyBuilderStyles.loadingCard} rounded-[2rem] px-8 py-10`}>
               <p className="text-xs font-semibold tracking-[0.28em] text-violet-100/55 uppercase">
                 Indlæser
               </p>
@@ -1110,10 +1111,10 @@ function RollespilBuilderPageContent() {
 
   if (isEditMode && isLoadingExistingRun) {
     return (
-      <div className={`relative min-h-screen overflow-hidden bg-violet-950 text-violet-100 ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-violet-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
+      <div className={`relative min-h-screen overflow-hidden ${legacyBuilderStyles.shell} ${poppins.className}`}>
+        <div className={`${legacyBuilderStyles.backdrop} fixed inset-0 -z-10`} />
         <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
-          <div className="w-full max-w-md rounded-3xl border border-violet-500/30 bg-violet-950/20 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+          <div className={`${legacyBuilderStyles.loadingCard} w-full max-w-md rounded-3xl p-8 text-center`}>
             <Loader2 className="mx-auto h-10 w-10 animate-spin text-violet-200" />
             <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-violet-100/55 uppercase">
               Rediger løb
@@ -1132,11 +1133,11 @@ function RollespilBuilderPageContent() {
 
   return (
     <>
-      <div className={`relative min-h-screen overflow-x-hidden bg-violet-950 text-violet-100 ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-violet-900/50 via-slate-900/80 to-slate-950 backdrop-blur-[2px]" />
+      <div className={`relative min-h-screen overflow-x-hidden ${legacyBuilderStyles.shell} ${poppins.className}`}>
+        <div className={`${legacyBuilderStyles.backdrop} fixed inset-0 -z-10`} />
         <div className="relative flex min-h-screen flex-col lg:flex-row lg:items-start">
           <MobileBuilderWarning />
-          <section className="hidden w-full px-4 py-4 sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8">
+          <section className={`${legacyBuilderStyles.workspace} hidden w-full sm:px-6 sm:py-6 lg:block lg:h-screen lg:w-[52%] lg:overflow-y-auto lg:px-8 lg:py-8`}>
             <div className={`mx-auto max-w-3xl space-y-5 ${editorLockClass}`}>
               <div className="px-1 pt-1">
                 {isEditMode ? (
@@ -1365,7 +1366,7 @@ function RollespilBuilderPageContent() {
 
           <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:self-start lg:p-8 lg:pl-0">
             <div className="lg:sticky lg:top-5">
-              <div className="h-[42vh] min-h-[320px] w-full overflow-hidden rounded-[2rem] border border-violet-500/20 bg-slate-900/60 shadow-[0_0_0_1px_rgba(139,92,246,0.08),0_0_36px_rgba(139,92,246,0.08),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-40px)]">
+              <div className={`${legacyBuilderStyles.mapPanel} h-[42vh] min-h-[320px] w-full rounded-[2rem] lg:h-[calc(100vh-40px)]`}>
                 <MapPicker
                   center={mapCenter}
                   pins={pins}

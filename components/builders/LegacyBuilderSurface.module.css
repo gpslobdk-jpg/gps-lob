@@ -1,0 +1,161 @@
+.shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(191, 219, 254, 0.72), transparent 34rem),
+    radial-gradient(circle at 88% 8%, rgba(224, 242, 254, 0.9), transparent 30rem),
+    #f5f9ff;
+  color: #0f2744;
+}
+
+.backdrop {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(147, 197, 253, 0.26), transparent 34rem),
+    linear-gradient(180deg, #f9fcff 0%, #eaf4ff 100%) !important;
+  backdrop-filter: none !important;
+}
+
+.loadingCard,
+.workspace,
+.mapPanel {
+  border: 1px solid #cfe3fb !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  box-shadow: 0 16px 36px rgba(21, 83, 145, 0.1) !important;
+  backdrop-filter: none !important;
+}
+
+.loadingCard :is(h1, h2, h3, h4, p) {
+  color: #123152 !important;
+}
+
+.workspace {
+  border-radius: 1.5rem;
+  padding: 1.25rem;
+}
+
+.workspace :is(h1, h2, h3, h4, p, label) {
+  color: #123152 !important;
+}
+
+.workspace :is(input, textarea, select) {
+  border-color: #bfdbfe !important;
+  background: #ffffff !important;
+  color: #0f2744 !important;
+}
+
+.workspace :is(input, textarea, select):focus {
+  border-color: #1681d4 !important;
+  box-shadow: 0 0 0 3px rgba(22, 129, 212, 0.16) !important;
+}
+
+.workspace option {
+  background: #ffffff !important;
+  color: #0f2744 !important;
+}
+
+.workspace [class*="bg-rose-950"],
+.workspace [class*="bg-amber-950"],
+.workspace [class*="bg-violet-950"],
+.workspace [class*="bg-slate-950"],
+.workspace [class*="bg-slate-900"] {
+  background-color: #f8fbff !important;
+}
+
+.workspace [class*="border-rose-"],
+.workspace [class*="border-amber-"],
+.workspace [class*="border-violet-"],
+.workspace [class*="border-white/"] {
+  border-color: #cfe3fb !important;
+}
+
+.workspace [class*="text-rose-"],
+.workspace [class*="text-amber-"],
+.workspace [class*="text-violet-"],
+.workspace [class*="text-white"] {
+  color: #123152 !important;
+}
+
+.workspace [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+}
+
+.workspace button[class*="bg-rose-500"]:not([class*="bg-rose-500/"]),
+.workspace button[class*="bg-amber-500"]:not([class*="bg-amber-500/"]),
+.workspace button[class*="bg-violet-500"]:not([class*="bg-violet-500/"]) {
+  border-color: #0b70c9 !important;
+  background: #0878d1 !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 24px rgba(8, 120, 209, 0.18) !important;
+}
+
+.workspace button[class*="bg-rose-500/"],
+.workspace button[class*="bg-amber-500/"],
+.workspace button[class*="bg-violet-500/"],
+.workspace button[class*="bg-rose-950"],
+.workspace button[class*="bg-amber-950"],
+.workspace button[class*="bg-violet-950"] {
+  border-color: #bfdbfe !important;
+  background: #eff6ff !important;
+  color: #075ea8 !important;
+  box-shadow: none !important;
+}
+
+.workspace button[class*="bg-rose-500"]:not([class*="bg-rose-500/"]):hover,
+.workspace button[class*="bg-amber-500"]:not([class*="bg-amber-500/"]):hover,
+.workspace button[class*="bg-violet-500"]:not([class*="bg-violet-500/"]):hover {
+  background: #075fae !important;
+}
+
+.mapPanel {
+  overflow: hidden;
+}
+
+.strategoCard,
+.strategoSoftCard {
+  border: 1px solid #cfe3fb !important;
+  color: #123152;
+  box-shadow: 0 16px 36px rgba(21, 83, 145, 0.1) !important;
+  backdrop-filter: none !important;
+}
+
+.strategoCard {
+  background: #ffffff !important;
+}
+
+.strategoSoftCard {
+  background: #f8fbff !important;
+}
+
+.strategoCard :is(h1, h2, h3, h4, p, label),
+.strategoSoftCard :is(h1, h2, h3, h4, p, label) {
+  color: #123152 !important;
+}
+
+.strategoCard :is(input, textarea),
+.strategoSoftCard :is(input, textarea) {
+  border-color: #bfdbfe !important;
+  background: #ffffff !important;
+  color: #0f2744 !important;
+}
+
+.primaryAction {
+  border: 1px solid #0b70c9 !important;
+  background: #0878d1 !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 24px rgba(8, 120, 209, 0.18) !important;
+}
+
+.primaryAction:hover {
+  background: #075fae !important;
+}
+
+.secondaryAction {
+  border: 1px solid #bfdbfe !important;
+  background: #ffffff !important;
+  color: #075ea8 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.secondaryAction:hover {
+  background: #eff6ff !important;
+}

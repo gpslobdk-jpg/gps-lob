@@ -28,7 +28,7 @@ import { createClient } from "@/utils/supabase/client";
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ssr: false,
   loading: () => (
-    <div className="h-full w-full animate-pulse rounded-3xl border border-cyan-500/20 bg-slate-900/50" />
+    <div className="h-full w-full animate-pulse rounded-3xl border border-sky-200 bg-sky-50" />
   ),
 });
 
@@ -112,7 +112,7 @@ const createQuestion = (): Question => ({
 });
 
 const inputClass =
-  "w-full rounded-2xl border border-cyan-500/30 bg-slate-900/40 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+  "w-full rounded-2xl border border-sky-200 bg-white px-4 py-2.5 text-slate-900 placeholder:text-slate-400 focus:border-[#0377d8] focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -204,11 +204,11 @@ export default function ZoneKrigBuilderPage() {
   return (
     <Suspense
       fallback={
-        <div className={`min-h-screen bg-slate-950 ${poppins.className}`}>
+        <div className={`min-h-screen bg-[#f3f8ff] ${poppins.className}`}>
           <div className="flex min-h-screen items-center justify-center px-6 text-center">
-            <div className="rounded-4xl border border-cyan-500/20 bg-slate-900/50 px-8 py-10 text-cyan-100 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
-              <p className="text-xs font-semibold tracking-[0.28em] text-cyan-100/55 uppercase">Indlæser</p>
-              <h1 className={`mt-3 text-3xl font-black tracking-tight text-cyan-100 ${rubik.className}`}>
+            <div className="rounded-4xl border border-sky-200 bg-white px-8 py-10 text-slate-900 shadow-[0_24px_60px_rgba(3,119,216,0.12)]">
+              <p className="text-xs font-semibold tracking-[0.28em] text-sky-700 uppercase">Indlæser</p>
+              <h1 className={`mt-3 text-3xl font-black tracking-tight text-slate-950 ${rubik.className}`}>
                 Zone-Krigen
               </h1>
             </div>
@@ -288,7 +288,7 @@ function ZoneKrigBuilderContent() {
       <div
         className={`rounded-3xl border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
           notice.tone === "success"
-            ? "border-cyan-300/30 bg-cyan-500/10 text-cyan-50"
+            ? "border-sky-200 bg-sky-50 text-sky-900"
             : "border-red-300/30 bg-red-500/10 text-red-100"
         } ${className}`}
       >
@@ -670,13 +670,13 @@ function ZoneKrigBuilderContent() {
 
   if (isEditMode && isLoadingExistingRun) {
     return (
-      <div className={`relative min-h-screen overflow-hidden bg-slate-950 text-cyan-100 ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-linear-to-br from-slate-900 via-slate-950 to-black" />
+      <div className={`relative min-h-screen overflow-hidden bg-[#f3f8ff] text-slate-950 ${poppins.className}`}>
+        <div className="fixed inset-0 -z-10 bg-[linear-gradient(135deg,#f8fbff_0%,#e4f1ff_52%,#f8fbff_100%)]" />
         <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
-          <div className="w-full max-w-md rounded-3xl border border-cyan-500/20 bg-slate-900/60 p-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-            <Loader2 className="mx-auto h-10 w-10 animate-spin text-cyan-300" />
-            <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-cyan-100/55 uppercase">Rediger Zone-Krig</p>
-            <h1 className={`mt-3 text-3xl font-black tracking-tight text-cyan-100 ${rubik.className}`}>
+          <div className="w-full max-w-md rounded-3xl border border-sky-200 bg-white p-8 text-center shadow-[0_24px_60px_rgba(3,119,216,0.12)]">
+            <Loader2 className="mx-auto h-10 w-10 animate-spin text-[#0377d8]" />
+            <p className="mt-5 text-xs font-semibold tracking-[0.28em] text-sky-700 uppercase">Rediger Zone-Krig</p>
+            <h1 className={`mt-3 text-3xl font-black tracking-tight text-slate-950 ${rubik.className}`}>
               Indlæser zoner
             </h1>
           </div>
@@ -687,8 +687,8 @@ function ZoneKrigBuilderContent() {
 
   return (
     <>
-      <div className={`relative min-h-screen bg-slate-950 text-cyan-100 ${poppins.className}`}>
-        <div className="fixed inset-0 -z-10 bg-linear-to-br from-slate-900 via-slate-950 to-black" />
+      <div className={`relative min-h-screen bg-[#f3f8ff] text-slate-950 ${poppins.className}`}>
+        <div className="fixed inset-0 -z-10 bg-[linear-gradient(135deg,#f8fbff_0%,#e4f1ff_52%,#f8fbff_100%)]" />
         <div className="relative flex min-h-screen flex-col lg:flex-row">
           <MobileBuilderWarning />
 
@@ -702,65 +702,62 @@ function ZoneKrigBuilderContent() {
               >
                 <div className="px-1 pt-1">
                   {isEditMode ? (
-                    <div className="mb-4 inline-flex items-center rounded-full border border-cyan-400/25 bg-cyan-400/10 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-cyan-100 uppercase">
-                      Edit-mode
+                    <div className="mb-4 inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-[11px] font-bold tracking-[0.24em] text-sky-700 uppercase">
+                      Redigering
                     </div>
                   ) : null}
 
                   {/* Intro block */}
-                  <div className="mb-8 rounded-[1.8rem] border border-cyan-500/20 bg-slate-900/50 p-5 shadow-[0_0_40px_rgba(34,211,238,0.06)] backdrop-blur-xl">
+                  <div className="mb-8 rounded-[1.8rem] border border-sky-200 bg-white p-5 shadow-[0_18px_40px_rgba(3,119,216,0.10)]">
                     <div className="mb-1 flex items-center gap-2">
-                      <Flag className="h-4 w-4 text-cyan-400" />
-                      <p className="text-[10px] font-bold tracking-[0.36em] text-cyan-400/70 uppercase">
-                        Taktisk Multiplayer
+                      <Flag className="h-4 w-4 text-[#0377d8]" />
+                      <p className="text-[10px] font-bold tracking-[0.36em] text-sky-700 uppercase">
+                        Løbsbygger
                       </p>
                     </div>
-                    <h2 className={`text-xl font-black text-cyan-100 ${rubik.className}`}>
-                      Zone-Krigen: Kommandocentral
+                    <h2 className={`text-xl font-black text-slate-950 ${rubik.className}`}>
+                      Opsæt Zone-Krigen
                     </h2>
-                    <p className="mt-2 text-sm leading-6 text-cyan-100/70">
-                      Omdan skolegården til en live multiplayer-arena, hvor holdene bevæger sig frit mellem alle zoner og kæmper om kontrollen over kortet. Hver zone er et taktisk mål, og eleverne vælger selv, om de vil angribe, forsvare eller skifte retning undervejs.
-                    </p>
-                    <p className="mt-3 text-sm leading-6 text-cyan-100/70">
-                      Din opgave som lærer er at placere zonerne klogt og skrive opgaver, der gør kampen spændende. Tænk i afstande, overblik og variation, så holdene hele tiden skal vælge mellem sikre point og risikable erobringer.
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      Placér zoner på kortet og skriv opgaver til holdene.
                     </p>
                     <ul className="mt-4 space-y-2">
-                      <li className="flex items-start gap-3 text-sm text-slate-300">
-                        <Crosshair className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
+                      <li className="flex items-start gap-3 text-sm text-slate-600">
+                        <Crosshair className="mt-0.5 h-4 w-4 shrink-0 text-[#0377d8]" />
                         <span>
-                          <strong className="text-cyan-100">Erobring:</strong> Et hold overtager en zone ved at stå fysisk i zonen og besvare zone-opgaven korrekt. Det er altså ikke nok bare at finde stedet - svaret skal også være rigtigt.
+                          <strong className="text-slate-900">Erobring:</strong> Stå i zonen og svar rigtigt.
                         </span>
                       </li>
-                      <li className="flex items-start gap-3 text-sm text-slate-300">
-                        <Flag className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
+                      <li className="flex items-start gap-3 text-sm text-slate-600">
+                        <Flag className="mt-0.5 h-4 w-4 shrink-0 text-[#0377d8]" />
                         <span>
-                          <strong className="text-cyan-100">Point og kontrol:</strong> Point bliver optjent gennem kontrollen over zonerne. Når et hold overtager en fjendtlig eller neutral zone, ændrer magtbalancen sig med det samme, så hvert korrekt svar får direkte betydning i spillet.
+                          <strong className="text-slate-900">Point:</strong> Kontrollerede zoner giver point.
                         </span>
                       </li>
-                      <li className="flex items-start gap-3 text-sm text-slate-300">
-                        <Shield className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
+                      <li className="flex items-start gap-3 text-sm text-slate-600">
+                        <Shield className="mt-0.5 h-4 w-4 shrink-0 text-[#0377d8]" />
                         <span>
-                          <strong className="text-cyan-100">Fredningstid / skjold:</strong> Efter en erobring får zonen en kort fredet periode. Det forhindrer, at samme zone bare skifter hænder hvert sekund, og giver holdet en reel chance for at rykke videre eller organisere et forsvar.
+                          <strong className="text-slate-900">Fredning:</strong> Erobrede zoner er kortvarigt fredede.
                         </span>
                       </li>
-                      <li className="flex items-start gap-3 text-sm text-slate-300">
-                        <Map className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
+                      <li className="flex items-start gap-3 text-sm text-slate-600">
+                        <Map className="mt-0.5 h-4 w-4 shrink-0 text-[#0377d8]" />
                         <span>
-                          <strong className="text-cyan-100">Fri bevægelighed:</strong> Holdene følger ikke en fast rute. De kan bevæge sig frit mellem alle zoner og vælge deres egen strategi, så kortets placeringer får stor betydning for tempo, pres og overraskelsesangreb.
+                          <strong className="text-slate-900">Rute:</strong> Holdene vælger selv vej mellem zonerne.
                         </span>
                       </li>
                     </ul>
-                    <p className="mt-4 text-xs leading-5 text-cyan-100/60">
-                      Brug kortet til højre til at placere zonerne. Jo bedre du spreder zonerne og varierer sværhedsgraden, jo mere taktisk og levende bliver kampen.
+                    <p className="mt-4 text-xs leading-5 text-slate-500">
+                      Vælg et sted på kortet, og placér derefter zonen.
                     </p>
                   </div>
 
-                  <div className="rounded-4xl border border-cyan-500/30 bg-slate-900/40 p-5 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:p-6">
+                  <div className="rounded-4xl border border-sky-200 bg-white p-5 shadow-[0_18px_40px_rgba(3,119,216,0.10)] sm:p-6">
                     <div className="flex flex-col gap-4">
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div>
-                          <label className="block text-xs font-semibold tracking-[0.22em] text-cyan-100/65 uppercase">
-                            Løbets titel
+                          <label className="block text-xs font-semibold tracking-[0.22em] text-slate-500 uppercase">
+                            Navn på løbet
                           </label>
                         </div>
 
@@ -768,11 +765,11 @@ function ZoneKrigBuilderContent() {
                           <span
                             className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold backdrop-blur-xl ${
                               isSaving
-                                ? "border-cyan-300/35 bg-cyan-400/10 text-cyan-50"
-                                : "border-cyan-500/20 bg-slate-900/45 text-cyan-100/72"
+                                ? "border-sky-300 bg-sky-50 text-sky-900"
+                                : "border-sky-200 bg-white text-slate-600"
                             }`}
                           >
-                            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="h-2 w-2 rounded-full bg-cyan-300/70" />}
+                            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="h-2 w-2 rounded-full bg-sky-500" />}
                             {builderStatusLabel}
                           </span>
                         </div>
@@ -783,29 +780,29 @@ function ZoneKrigBuilderContent() {
                         onChange={(e) => setTitle(e.target.value)}
                         disabled={isEditorBusy}
                         placeholder="F.eks. 4.B's Zone-Krig rundt om skolen"
-                        className="w-full rounded-[1.6rem] border border-cyan-500/30 bg-slate-900/40 px-5 py-4 text-xl font-bold text-slate-100 placeholder:text-slate-500 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-2xl focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                        className="w-full rounded-[1.6rem] border border-sky-200 bg-white px-5 py-4 text-xl font-bold text-slate-900 placeholder:text-slate-400 shadow-sm focus:border-[#0377d8] focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                       />
 
-                      <p className="text-sm leading-6 text-cyan-100/68">{builderStatusDescription}</p>
+                      <p className="text-sm leading-6 text-slate-500">{builderStatusDescription}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Subject */}
                 <div className="px-1">
-                  <div className="rounded-3xl border border-cyan-500/20 bg-slate-900/40 p-4 backdrop-blur-xl">
-                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-cyan-100/65 uppercase">
-                      Emne
+                  <div className="rounded-3xl border border-sky-200 bg-white p-4 shadow-sm">
+                    <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-slate-500 uppercase">
+                      Fag (valgfrit)
                     </label>
                     <select
                       value={subject}
                       onChange={(e) => setSubject(e.target.value)}
                       disabled={isEditorBusy}
-                      className="w-full rounded-2xl border border-cyan-500/30 bg-slate-900/40 px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                      className="w-full rounded-2xl border border-sky-200 bg-white px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                     >
-                      <option value="" className="bg-slate-900 text-white">Vælg et fag til arkivet...</option>
+                      <option value="" className="bg-white text-slate-900">Vælg fag...</option>
                       {Object.keys(SUBJECT_TOPICS).map((s) => (
-                        <option key={s} value={s} className="bg-slate-900 text-white">{s}</option>
+                        <option key={s} value={s} className="bg-white text-slate-900">{s}</option>
                       ))}
                     </select>
                   </div>
@@ -814,10 +811,10 @@ function ZoneKrigBuilderContent() {
                 {/* Zone count header */}
                 <div className="space-y-4 px-1">
                   <div className="flex items-end justify-between gap-4">
-                    <p className="text-xs font-semibold tracking-[0.24em] text-cyan-100/65 uppercase">
-                      Dine zoner
+                    <p className="text-xs font-semibold tracking-[0.24em] text-slate-500 uppercase">
+                      Zoner
                     </p>
-                    <span className="rounded-full border border-cyan-500/30 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-cyan-100/80 backdrop-blur-xl">
+                    <span className="rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-800">
                       {questions.length}
                     </span>
                   </div>
@@ -829,18 +826,18 @@ function ZoneKrigBuilderContent() {
                   <article
                     key={question.id}
                     id={`zone-post-${question.id}`}
-                    className="rounded-[1.8rem] border border-cyan-500/20 bg-slate-900/50 p-4 shadow-[0_22px_52px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
+                    className="rounded-[1.8rem] border border-sky-200 bg-white p-4 shadow-[0_18px_40px_rgba(3,119,216,0.10)]"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2.5">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-cyan-500/30 bg-slate-900/40 text-sm font-bold text-cyan-300">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sm font-bold text-[#0377d8]">
                           {questionIndex + 1}
                         </div>
                         <div>
-                          <h3 className={`text-lg font-bold text-cyan-100 ${rubik.className}`}>
+                          <h3 className={`text-lg font-bold text-slate-950 ${rubik.className}`}>
                             Zone {questionIndex + 1}
                           </h3>
-                          <p className="text-xs text-cyan-100/55">
+                          <p className="text-xs text-slate-500">
                             {question.lat !== null && question.lng !== null
                               ? "Zone placeret på kortet"
                               : "Zone ikke placeret endnu"}
@@ -848,10 +845,10 @@ function ZoneKrigBuilderContent() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="rounded-full border border-cyan-500/20 bg-slate-900/40 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-cyan-100/60 uppercase backdrop-blur-xl">
+                        <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-slate-600 uppercase">
                           4 svar
                         </span>
-                        <label className="flex items-center gap-2 rounded-full border border-cyan-500/20 bg-slate-900/40 px-3 py-1 text-[10px] font-semibold tracking-[0.18em] text-cyan-100/60 uppercase backdrop-blur-xl">
+                        <label className="flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[10px] font-semibold tracking-[0.18em] text-slate-600 uppercase">
                           Point
                           <input
                             type="number"
@@ -864,7 +861,7 @@ function ZoneKrigBuilderContent() {
                               })
                             }
                             disabled={isEditorBusy}
-                            className="w-16 bg-transparent text-right text-sm font-semibold tracking-normal text-cyan-50 focus:outline-none"
+                            className="w-16 bg-transparent text-right text-sm font-semibold tracking-normal text-slate-900 focus:outline-none"
                           />
                         </label>
                         <button
@@ -880,7 +877,7 @@ function ZoneKrigBuilderContent() {
                     </div>
 
                     <div className="mt-4">
-                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-cyan-100/65 uppercase">
+                      <label className="mb-2 block text-xs font-semibold tracking-[0.22em] text-slate-500 uppercase">
                         Zone-opgave
                       </label>
                       <input
@@ -900,8 +897,8 @@ function ZoneKrigBuilderContent() {
                             key={`${question.id}-${answerIndex}`}
                             className={`flex items-center gap-2.5 rounded-[1.25rem] border px-3 py-2.5 transition ${
                               isCorrect
-                                ? "border-cyan-300/40 bg-cyan-500/10 shadow-[0_14px_28px_rgba(34,211,238,0.10)]"
-                                : "border-cyan-500/20 bg-slate-900/40 hover:border-cyan-400/25"
+                                ? "border-sky-300 bg-sky-50 shadow-[0_14px_28px_rgba(3,119,216,0.10)]"
+                                : "border-sky-200 bg-white hover:border-sky-300"
                             }`}
                           >
                             <button
@@ -911,8 +908,8 @@ function ZoneKrigBuilderContent() {
                               aria-pressed={isCorrect}
                               className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-black transition ${
                                 isCorrect
-                                  ? "border-cyan-200 bg-cyan-300 text-slate-950 shadow-[0_0_18px_rgba(34,211,238,0.24)]"
-                                  : "border-cyan-500/30 bg-slate-900/40 text-cyan-100/78 hover:border-cyan-300/30"
+                                  ? "border-[#0377d8] bg-[#0377d8] text-white shadow-[0_0_18px_rgba(3,119,216,0.24)]"
+                                  : "border-sky-200 bg-white text-slate-700 hover:border-sky-300"
                               }`}
                             >
                               {String.fromCharCode(65 + answerIndex)}
@@ -922,15 +919,15 @@ function ZoneKrigBuilderContent() {
                               onChange={(e) => updateAnswer(question.id, answerIndex, e.target.value)}
                               disabled={isEditorBusy}
                               placeholder={`Svar ${answerIndex + 1}`}
-                              className="min-w-0 flex-1 bg-transparent py-1 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                              className="min-w-0 flex-1 bg-transparent py-1 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                             />
                             <button
                               type="button"
                               onClick={() => updateQuestion(question.id, { correctIndex: answerIndex })}
                               className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] transition ${
                                 isCorrect
-                                  ? "border-cyan-200/60 bg-cyan-300 text-slate-950"
-                                  : "border-cyan-500/20 bg-slate-900/40 text-cyan-100/60 hover:border-cyan-300/30 hover:text-cyan-100"
+                                  ? "border-[#0377d8] bg-[#0377d8] text-white"
+                                  : "border-sky-200 bg-white text-slate-600 hover:border-sky-300 hover:text-[#0377d8]"
                               }`}
                             >
                               {isCorrect ? <Check className="h-3.5 w-3.5" /> : null}
@@ -945,13 +942,13 @@ function ZoneKrigBuilderContent() {
                       type="button"
                       onClick={() => assignZoneFromCenter(question.id)}
                       disabled={isEditorBusy}
-                      className="mt-4 w-full rounded-[1.35rem] border border-cyan-500/30 bg-cyan-500 px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-cyan-500/20 transition-all hover:bg-cyan-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                      className="mt-4 w-full rounded-[1.35rem] border border-[#0377d8] bg-[#0377d8] px-4 py-2.5 text-sm font-bold uppercase tracking-[0.18em] text-white shadow-lg shadow-sky-500/20 transition-all hover:bg-[#0569bb] disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                     >
                       Placer zone fra kortet
                     </button>
 
                     {question.lat !== null && question.lng !== null ? (
-                      <p className="mt-2.5 text-xs text-cyan-100/60 font-mono">
+                      <p className="mt-2.5 text-xs text-slate-500 font-mono">
                         {question.lat.toFixed(5)}, {question.lng.toFixed(5)}
                       </p>
                     ) : null}
@@ -959,13 +956,13 @@ function ZoneKrigBuilderContent() {
                 ))}
 
                 {/* Add zone + save */}
-                <div className="rounded-4xl border border-cyan-500/20 bg-slate-900/50 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+                <div className="rounded-4xl border border-sky-200 bg-white p-5 shadow-[0_18px_40px_rgba(3,119,216,0.10)] sm:p-6">
                   <div className="flex flex-wrap gap-3">
                     <button
                       type="button"
                       onClick={addQuestion}
                       disabled={isEditorBusy}
-                      className="inline-flex items-center gap-2 rounded-[1.4rem] border border-cyan-500/30 bg-slate-900/40 px-4 py-3 text-sm font-semibold text-cyan-100 backdrop-blur-xl transition hover:bg-slate-800/50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-[1.4rem] border border-sky-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sky-300 hover:text-[#0377d8] disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                     >
                       <Plus className="h-4 w-4" />
                       Tilføj zone
@@ -975,7 +972,7 @@ function ZoneKrigBuilderContent() {
                       type="button"
                       onClick={openReuseModal}
                       disabled={isEditorBusy}
-                      className="inline-flex items-center gap-2 rounded-[1.4rem] border border-cyan-400/25 bg-cyan-500/10 px-4 py-3 text-sm font-semibold text-cyan-50 backdrop-blur-xl transition hover:bg-cyan-500/15 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-[1.4rem] border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-800 transition hover:border-sky-300 hover:bg-sky-100 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
                     >
                       <BookOpen className="h-4 w-4" />
                       Hent fra arkiv
@@ -989,9 +986,9 @@ function ZoneKrigBuilderContent() {
                       type="button"
                       onClick={handleSaveRun}
                       disabled={isSaving}
-                      className={`w-full rounded-[1.6rem] border border-cyan-500/30 bg-cyan-500 px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-cyan-500/20 transition-all duration-300 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50 ${
+                      className={`w-full rounded-[1.6rem] border border-[#0377d8] bg-[#0377d8] px-6 py-4 text-lg font-extrabold uppercase tracking-[0.22em] text-white shadow-lg shadow-sky-500/20 transition-all duration-300 hover:bg-[#0569bb] disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50 ${
                         shouldHighlightSave
-                          ? "scale-105 ring-4 ring-cyan-400 ring-offset-2 ring-offset-slate-950 shadow-cyan-400/50"
+                          ? "scale-105 ring-4 ring-sky-300 ring-offset-2 ring-offset-[#f3f8ff] shadow-sky-400/50"
                           : ""
                       }`}
                     >
@@ -1006,7 +1003,7 @@ function ZoneKrigBuilderContent() {
           {/* Right panel: map */}
           <aside className="hidden w-full p-4 pt-0 sm:px-6 lg:block lg:w-[48%] lg:p-8 lg:pl-0">
             <div className="lg:sticky lg:top-20">
-              <div className="h-[42vh] min-h-80 w-full overflow-hidden rounded-4xl border border-cyan-500/15 bg-slate-900/50 shadow-[0_0_0_1px_rgba(34,211,238,0.06),0_0_36px_rgba(34,211,238,0.06),0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:h-[calc(100vh-(--spacing(28)))]">
+              <div className="h-[42vh] min-h-80 w-full overflow-hidden rounded-4xl border border-sky-200 bg-white shadow-[0_24px_60px_rgba(3,119,216,0.12)] lg:h-[calc(100vh-(--spacing(28)))]">
                 <MapPicker center={mapCenter} pins={[]} zones={zones} mapMode="zone-krig" onCenterChange={setMapCenter} autoLocateOnLoad={!isEditMode} />
               </div>
             </div>
@@ -1016,27 +1013,27 @@ function ZoneKrigBuilderContent() {
 
       {/* Draft recovery prompt */}
       {showDraftRecoveryPrompt ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-6 py-10 backdrop-blur-md">
-          <div className="w-full max-w-2xl rounded-4xl border border-cyan-400/25 bg-slate-950/90 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:p-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-100/70">Redningskrans</p>
-            <h2 className={`mt-3 text-3xl font-black tracking-tight text-cyan-50 ${rubik.className}`}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 px-6 py-10 backdrop-blur-md">
+          <div className="w-full max-w-2xl rounded-4xl border border-sky-200 bg-white p-6 shadow-[0_30px_90px_rgba(3,119,216,0.20)] sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-700">Kladde</p>
+            <h2 className={`mt-3 text-3xl font-black tracking-tight text-slate-950 ${rubik.className}`}>
               Vi fandt ugemte ændringer
             </h2>
-            <p className="mt-4 text-sm leading-6 text-cyan-100/80 sm:text-base">
+            <p className="mt-4 text-sm leading-6 text-slate-600 sm:text-base">
               Vil du gendanne dine ugemte ændringer fra sidste besøg?
             </p>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={handleRestoreDraft}
-                className="rounded-3xl border border-cyan-300/40 bg-cyan-400 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-300"
+                className="rounded-3xl border border-[#0377d8] bg-[#0377d8] px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-white shadow-lg shadow-sky-500/20 transition hover:bg-[#0569bb]"
               >
                 Gendan ugemte ændringer
               </button>
               <button
                 type="button"
                 onClick={handleDiscardDraft}
-                className="rounded-3xl border border-white/15 bg-white/5 px-5 py-4 text-sm font-bold uppercase tracking-[0.18em] text-cyan-50 transition hover:bg-white/10"
+                className="rounded-3xl border border-sky-200 bg-white px-5 py-4 text-sm font-bold uppercase tracking-[0.18em] text-slate-700 transition hover:border-sky-300 hover:text-[#0377d8]"
               >
                 Slet kladde
               </button>

@@ -1,17 +1,29 @@
+import { ArrowLeft, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import CategoryGalleryClient from "../CategoryGalleryClient";
 
-const allowed = ["indskoling", "mellemtrin", "udskoling"];
+const CATEGORY_LABELS: Record<string, string> = {
+  indskoling: "Indskoling",
+  mellemtrin: "Mellemtrin",
+  udskoling: "Udskoling",
+};
 
-const cardBaseClass =
-  "group relative z-0 mx-auto flex h-[12rem] w-full flex-col overflow-hidden rounded-[1rem] border bg-white/6 p-0 text-left shadow-[0_18px_40px_rgba(15,23,42,0.12),0_8px_18px_rgba(15,23,42,0.06)] backdrop-blur-lg transition-all duration-300";
+type LibraryRow = {
+  ai_title: string | null;
+  created_at: string | null;
+  file_path: string | null;
+  id: string;
+  original_name: string | null;
+  title?: string | null;
+};
 
 export default async function CategoryPage({ params }: { params: Promise<{ category: string }> }) {
   const resolved = await params;
   const category = (resolved?.category ?? "").toLowerCase();
-  if (!allowed.includes(category)) {
+  const categoryLabel = CATEGORY_LABELS[category];
+  if (!categoryLabel) {
     notFound();
   }
 
@@ -27,9 +39,8 @@ export default async function CategoryPage({ params }: { params: Promise<{ categ
   }
 
   const baseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/$/, "");
-
-  const items = (data ?? []).map((row: any) => {
-    const filePath = row.file_path as string;
+  const items = (data ?? []).map((row: LibraryRow) => {
+    const filePath = row.file_path ?? "";
     const publicUrl = filePath && baseUrl ? `${baseUrl}/storage/v1/object/public/stjerneloeb_pdfs/${encodeURIComponent(filePath)}` : null;
     return {
       id: row.id,
@@ -42,31 +53,30 @@ export default async function CategoryPage({ params }: { params: Promise<{ categ
   });
 
   return (
-    <main className="relative flex min-h-screen flex-col px-6 py-6 text-white md:px-10">
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="absolute inset-0 hidden h-full w-full object-cover lg:block"
-        src="/bg-loop.mp4"
-      />
-      <div className="absolute inset-0 z-10 bg-slate-950/70 lg:block" />
-
-      <header className="relative z-20 mx-auto flex w-full max-w-6xl items-center justify-between py-4">
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard/opret/stjerneloeb/bibliotek" className="inline-flex items-center gap-2 rounded-full border border-white/18 bg-white/6 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10">
-            Tilbage til bibliotek
+    <main className="min-h-screen bg-[linear-gradient(135deg,#f4f9ff_0%,#e2efff_100%)] px-6 py-8 text-slate-950 md:px-10">
+      <div className="mx-auto w-full max-w-5xl">
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <Link
+            href="/dashboard/opret/stjerneloeb/bibliotek"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-sky-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-200/70"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Bibliotek
           </Link>
-          <h1 className="text-2xl font-black tracking-tight">{category}</h1>
-        </div>
-      </header>
+          <span className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-bold text-sky-800">
+            <BookOpen className="h-4 w-4" />
+            {categoryLabel}
+          </span>
+        </header>
 
-      <section className="relative z-20 mx-auto mt-8 w-full max-w-6xl">
-        <p className="mb-6 text-sm text-white/80">Vælg et materiale eller åbn PDF'en for at se indholdet.</p>
+        <section className="mt-12">
+          <p className="text-sm font-bold uppercase tracking-[0.16em] text-sky-700">Stjerneløb · Bibliotek</p>
+          <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950">{categoryLabel}</h1>
+          <p className="mt-3 text-base font-medium leading-7 text-slate-600">Åbn et materiale eller se PDF&apos;en før print.</p>
 
-        <CategoryGalleryClient items={items} />
-      </section>
+          <CategoryGalleryClient items={items} />
+        </section>
+      </div>
     </main>
   );
 }
