@@ -937,7 +937,7 @@ export default function ArkivPage() {
 
   return (
     <main
-      className={`min-h-screen bg-[#f4f9ff] p-5 text-slate-950 sm:p-6 lg:p-10 ${poppins.className}`}
+      className={`skolegps-teacher-page min-h-screen p-5 text-slate-950 sm:p-6 lg:p-10 ${poppins.className}`}
     >
       <div className="mx-auto max-w-7xl">
         <header className="mb-8 max-w-3xl">
@@ -953,7 +953,7 @@ export default function ArkivPage() {
           </p>
         </header>
 
-        <div className="mb-8 grid max-w-6xl grid-cols-1 gap-4 rounded-3xl border border-sky-100 bg-white p-4 shadow-[0_12px_30px_rgba(7,26,58,0.08)] xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] xl:items-end">
+        <div className="skolegps-teacher-surface mb-8 grid max-w-6xl grid-cols-1 gap-4 rounded-3xl p-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] xl:items-end">
           <div className="relative flex-1">
             <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sky-700/70">
               <Search size={20} />

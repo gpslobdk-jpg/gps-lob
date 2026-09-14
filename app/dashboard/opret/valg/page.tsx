@@ -24,6 +24,7 @@ type FormatCard = {
   href: string;
   testId: string;
   badge?: string;
+  tone: "blue" | "green" | "sand" | "yellow";
 };
 
 const MORE_FORMATS: FormatCard[] = [
@@ -32,42 +33,49 @@ const MORE_FORMATS: FormatCard[] = [
     description: "Lav opgaver til engelsk.",
     href: "/dashboard/opret/engelsk",
     testId: "engelsk",
+    tone: "blue",
   },
   {
     title: "Matematik",
     description: "Lav opgaver med tal og regning.",
     href: "/dashboard/opret/matematik",
     testId: "matematik",
+    tone: "yellow",
   },
   {
     title: "Dansk",
     description: "Lav opgaver til dansk.",
     href: "/dashboard/opret/dansk",
     testId: "dansk",
+    tone: "sand",
   },
   {
     title: "Musikquiz",
     description: "Lav spørgsmål med musikklip.",
     href: "/dashboard/opret/musikquiz",
     testId: "musikquiz",
+    tone: "green",
   },
   {
     title: "Foto mission",
     description: "Lav fotoopgaver på ruten.",
     href: "/dashboard/opret/foto",
     testId: "foto",
+    tone: "blue",
   },
   {
     title: "Fra tekst eller bog",
     description: "Start ud fra tekst eller billeder.",
     href: "/dashboard/opret/scanner",
     testId: "scanner",
+    tone: "sand",
   },
   {
     title: "Podcast-Detektiven",
     description: "Lav et nyt udkast fra en podcast.",
     href: "/dashboard/opret/podcast",
     testId: "podcast",
+    tone: "green",
   },
 ];
 
@@ -76,7 +84,8 @@ function FormatCardLink({ card }: { card: FormatCard }) {
     <Link
       href={card.href}
       data-testid={"create-card-" + card.testId}
-      className="skolegps-teacher-surface group flex min-h-32 flex-col justify-between rounded-2xl p-5 text-left transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_18px_38px_rgba(3,119,216,0.12)]"
+      data-adventure-tone={card.tone}
+      className="skolegps-teacher-surface skolegps-adventure-card group flex min-h-32 flex-col justify-between rounded-2xl p-5 text-left transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_18px_38px_rgba(3,119,216,0.12)]"
     >
       <div>
         {card.badge ? (
@@ -171,7 +180,8 @@ export default function ValgHubPage() {
   const zoneCard = (
     <article
       aria-busy={IS_PAYWALL_ENABLED && premiumAccessState === "loading"}
-      className="skolegps-teacher-surface flex min-h-32 flex-col justify-between rounded-2xl p-5 text-left"
+      data-adventure-tone="yellow"
+      className="skolegps-teacher-surface skolegps-adventure-card flex min-h-32 flex-col justify-between rounded-2xl p-5 text-left"
     >
       <div>
         <span className="inline-flex rounded-full bg-sky-100 px-2.5 py-1 text-[0.65rem] font-black tracking-[0.12em] text-sky-800 uppercase">
@@ -234,7 +244,8 @@ export default function ValgHubPage() {
           href="/dashboard/opret/manuel"
           data-tour="valg-classic-quiz"
           data-testid="create-card-manuel"
-          className="skolegps-teacher-surface group rounded-3xl p-6 text-left transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_18px_38px_rgba(3,119,216,0.12)] sm:p-7"
+          data-adventure-tone="sand"
+          className="skolegps-teacher-surface skolegps-adventure-card group rounded-3xl p-6 text-left transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_18px_38px_rgba(3,119,216,0.12)] sm:p-7"
         >
           <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-100 text-sky-800">
             <MapPin className="h-5 w-5" aria-hidden="true" />
@@ -271,7 +282,8 @@ export default function ValgHubPage() {
               <Link
                 href="/dashboard/opret/stjerneloeb"
                 data-testid="create-card-stjerneloeb"
-                className="skolegps-teacher-surface group flex min-h-32 flex-col justify-between rounded-2xl p-5 text-left transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_18px_38px_rgba(3,119,216,0.12)]"
+                data-adventure-tone="green"
+                className="skolegps-teacher-surface skolegps-adventure-card group flex min-h-32 flex-col justify-between rounded-2xl p-5 text-left transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_18px_38px_rgba(3,119,216,0.12)]"
               >
                 <div>
                   <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2.5 py-1 text-[0.65rem] font-black tracking-[0.12em] text-sky-800 uppercase">

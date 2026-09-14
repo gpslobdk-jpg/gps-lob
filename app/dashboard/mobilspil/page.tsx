@@ -7,7 +7,7 @@ import { poppins, rubik } from "@/lib/fonts";
 export default function MobilspilPage() {
   return (
     <main
-      className={"min-h-screen bg-[linear-gradient(135deg,#f4f9ff_0%,#e2efff_100%)] px-6 py-8 text-slate-950 md:px-10 lg:px-12 " + poppins.className}
+      className={"skolegps-teacher-page min-h-screen px-6 py-8 text-slate-950 md:px-10 lg:px-12 " + poppins.className}
     >
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl flex-col">
         <header className="flex items-center justify-between gap-4">
@@ -36,7 +36,7 @@ export default function MobilspilPage() {
               </p>
             </div>
 
-            <article className="mx-auto mt-10 max-w-2xl rounded-3xl border border-sky-200 bg-white p-6 shadow-[0_18px_44px_rgba(7,68,128,0.10)] sm:p-8">
+            <article data-adventure-tone="green" className="skolegps-adventure-card mx-auto mt-10 max-w-2xl rounded-3xl border border-sky-200 bg-white p-6 shadow-[0_18px_44px_rgba(7,68,128,0.10)] sm:p-8">
               <div className="flex items-start gap-4">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
                   <UserSearch className="h-6 w-6" />

@@ -16,11 +16,11 @@
   --skolegps-success: #16a34a;
   --skolegps-warning: #d97706;
   --skolegps-error: #dc2626;
-  --skolegps-teacher-bg: #f4f9ff;
-  --skolegps-teacher-bg-deep: #e2efff;
-  --skolegps-teacher-surface: #ffffff;
-  --skolegps-teacher-surface-muted: #f8fbff;
-  --skolegps-teacher-border: #cfe3fb;
+  --skolegps-teacher-bg: #eff8f4;
+  --skolegps-teacher-bg-deep: #dcedf8;
+  --skolegps-teacher-surface: #fdfefa;
+  --skolegps-teacher-surface-muted: #edf8f2;
+  --skolegps-teacher-border: #bbdbe0;
   --skolegps-teacher-primary: #0377d8;
   --skolegps-teacher-primary-hover: #075fb2;
   --skolegps-teacher-focus: #0ea5e9;
@@ -55,29 +55,36 @@ body {
 
 /* Scoped teacher-workspace primitives. They are opt-in so play, live, print, native, and Postløp surfaces keep their own contracts. */
 .skolegps-teacher-page {
-  min-height: 100%;
+  min-height: 100vh;
   background:
-    radial-gradient(circle at 12% 0%, rgba(186, 224, 255, 0.54), transparent 29rem),
-    radial-gradient(circle at 92% 12%, rgba(220, 236, 255, 0.72), transparent 26rem),
-    linear-gradient(145deg, var(--skolegps-teacher-bg) 0%, var(--skolegps-teacher-bg-deep) 100%);
+    radial-gradient(circle at 10% 2%, rgba(161, 220, 255, 0.72), transparent 28rem),
+    radial-gradient(circle at 92% 8%, rgba(255, 221, 139, 0.42), transparent 24rem),
+    linear-gradient(112deg, rgba(244, 251, 255, 0.92) 0%, rgba(237, 249, 242, 0.84) 53%, rgba(255, 248, 229, 0.84) 100%),
+    url("/brand/heroes/teacher-outdoor-route.webp") right top / min(72rem, 94vw) auto no-repeat;
   color: var(--skolegps-deep-navy);
 }
 
 .skolegps-teacher-surface {
-  border: 1px solid var(--skolegps-teacher-border);
-  background: var(--skolegps-teacher-surface);
-  box-shadow: var(--skolegps-teacher-shadow);
+  border: 1px solid rgba(91, 148, 164, 0.3);
+  background: linear-gradient(145deg, rgba(255, 255, 253, 0.96), rgba(241, 250, 247, 0.93));
+  box-shadow: 0 16px 42px rgba(7, 26, 58, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.78);
 }
 
 .skolegps-teacher-surface-muted {
-  border: 1px solid var(--skolegps-teacher-border);
-  background: var(--skolegps-teacher-surface-muted);
+  border: 1px solid rgba(104, 163, 137, 0.28);
+  background: linear-gradient(135deg, rgba(236, 249, 242, 0.95), rgba(249, 244, 222, 0.92));
 }
 
 .skolegps-teacher-primary-action {
-  background: linear-gradient(135deg, var(--skolegps-teacher-primary), var(--skolegps-blue));
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 88% 16%, rgba(255, 238, 169, 0.36), transparent 20%),
+    radial-gradient(circle at 76% 132%, rgba(74, 213, 161, 0.38), transparent 42%),
+    linear-gradient(135deg, var(--skolegps-teacher-primary), var(--skolegps-blue));
   color: #ffffff;
-  box-shadow: 0 10px 24px rgba(3, 119, 216, 0.2);
+  box-shadow: 0 14px 30px rgba(3, 119, 216, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 .skolegps-teacher-primary-action:hover:not(:disabled) {
@@ -85,9 +92,77 @@ body {
 }
 
 .skolegps-teacher-secondary-action {
-  border: 1px solid #9bc9f4;
-  background: #edf7ff;
+  border: 1px solid #a8d1dc;
+  background: linear-gradient(135deg, #edfaff, #f5fbf4);
   color: #075397;
+}
+
+.skolegps-adventure-card {
+  --skolegps-adventure-surface: rgba(245, 251, 255, 0.94);
+  --skolegps-adventure-border: rgba(114, 184, 224, 0.48);
+  --skolegps-adventure-icon-bg: #e2f4ff;
+  --skolegps-adventure-icon-color: #075397;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-color: var(--skolegps-adventure-border) !important;
+  background: linear-gradient(145deg, rgba(255, 255, 253, 0.95), var(--skolegps-adventure-surface)) !important;
+}
+
+.skolegps-adventure-card::after {
+  position: absolute;
+  z-index: 0;
+  top: -5.5rem;
+  right: -4.5rem;
+  width: 11rem;
+  height: 11rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, var(--skolegps-adventure-surface) 0%, transparent 70%);
+  content: "";
+  opacity: 0.95;
+  transition: transform 300ms ease;
+}
+
+.skolegps-adventure-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.skolegps-adventure-card:hover::after {
+  transform: scale(1.14) translate(-0.5rem, 0.5rem);
+}
+
+.skolegps-adventure-card[data-adventure-tone="green"] {
+  --skolegps-adventure-surface: rgba(219, 245, 226, 0.9);
+  --skolegps-adventure-border: rgba(56, 161, 93, 0.4);
+  --skolegps-adventure-icon-bg: #d8f4df;
+  --skolegps-adventure-icon-color: #16713c;
+}
+
+.skolegps-adventure-card[data-adventure-tone="sand"] {
+  --skolegps-adventure-surface: rgba(255, 241, 203, 0.9);
+  --skolegps-adventure-border: rgba(208, 163, 74, 0.42);
+  --skolegps-adventure-icon-bg: #fff0c8;
+  --skolegps-adventure-icon-color: #9a5b08;
+}
+
+.skolegps-adventure-card[data-adventure-tone="yellow"] {
+  --skolegps-adventure-surface: rgba(255, 237, 163, 0.92);
+  --skolegps-adventure-border: rgba(224, 168, 31, 0.48);
+  --skolegps-adventure-icon-bg: #ffe9a2;
+  --skolegps-adventure-icon-color: #795400;
+}
+
+.skolegps-adventure-card-icon {
+  background: var(--skolegps-adventure-icon-bg) !important;
+  color: var(--skolegps-adventure-icon-color) !important;
+}
+
+.skolegps-teacher-adventure-scene {
+  min-height: 10.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  background: #bde4f6;
+  box-shadow: 0 18px 42px rgba(7, 26, 58, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 
 .skolegps-teacher-page :focus-visible {
@@ -99,9 +174,10 @@ body {
    share the same calm teacher workspace while they are open. */
 .skolegps-teacher-builder {
   background:
-    radial-gradient(circle at 8% 0%, rgba(186, 224, 255, 0.55), transparent 28rem),
-    radial-gradient(circle at 100% 16%, rgba(218, 237, 255, 0.74), transparent 30rem),
-    linear-gradient(145deg, var(--skolegps-teacher-bg) 0%, var(--skolegps-teacher-bg-deep) 100%) !important;
+    radial-gradient(circle at 8% 0%, rgba(161, 220, 255, 0.66), transparent 28rem),
+    radial-gradient(circle at 100% 12%, rgba(255, 221, 139, 0.36), transparent 27rem),
+    linear-gradient(112deg, rgba(244, 251, 255, 0.94) 0%, rgba(237, 249, 242, 0.86) 53%, rgba(255, 248, 229, 0.84) 100%),
+    url("/brand/heroes/teacher-outdoor-route.webp") right top / min(72rem, 94vw) auto no-repeat !important;
   color: var(--skolegps-deep-navy);
 }
 
@@ -247,6 +323,28 @@ body {
   }
 }
 
+@keyframes skolegps-adventure-pin {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+
+  50% {
+    transform: translateY(-7px) rotate(2deg);
+  }
+}
+
+@keyframes skolegps-adventure-sparkle {
+  0%,
+  100% {
+    transform: rotate(-7deg) scale(1);
+  }
+
+  50% {
+    transform: rotate(8deg) scale(1.1);
+  }
+}
+
 .skolegps-mascot-float {
   animation: skolegps-mascot-float 5.8s ease-in-out infinite;
 }
@@ -285,6 +383,14 @@ body {
 
 .skolegps-soft-enter {
   animation: skolegps-soft-enter 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.skolegps-adventure-pin {
+  animation: skolegps-adventure-pin 4.8s ease-in-out infinite;
+}
+
+.skolegps-adventure-sparkle {
+  animation: skolegps-adventure-sparkle 3.4s ease-in-out infinite;
 }
 
 @keyframes gpslob-onboarding-enter {
@@ -326,6 +432,8 @@ body {
   .skolegps-route-drift,
   .skolegps-scenic-drift,
   .skolegps-soft-enter,
+  .skolegps-adventure-pin,
+  .skolegps-adventure-sparkle,
   .gpslob-onboarding-enter,
   .gpslob-waiting-enter {
     animation: none;

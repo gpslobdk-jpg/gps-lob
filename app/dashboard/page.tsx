@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { DASHBOARD_QUICK_GUIDE_EVENT } from "@/components/DashboardQuickGuide";
 import Mascot from "@/components/brand/Mascot";
 import MascotMessage from "@/components/brand/MascotMessage";
+import TeacherAdventureScene from "@/components/brand/TeacherAdventureScene";
 import { readStoredActiveParticipant } from "@/components/play/playUtils";
 import { poppins } from "@/lib/fonts";
 import { createClient } from "@/utils/supabase/client";
@@ -37,14 +38,17 @@ type DashboardChoiceProps = {
 };
 
 function DashboardChoice({ description, icon: Icon, isBusy, onClick, title }: DashboardChoiceProps) {
+  const tone = title === "Mine løb" ? "sand" : "green";
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={isBusy}
-      className="skolegps-teacher-surface group flex min-h-32 w-full items-center gap-4 rounded-2xl p-5 text-left transition hover:border-sky-300 hover:shadow-[0_18px_42px_rgba(7,26,58,0.13)] disabled:cursor-wait disabled:opacity-70"
+      data-adventure-tone={tone}
+      className="skolegps-teacher-surface skolegps-adventure-card group flex min-h-32 w-full items-center gap-4 rounded-2xl p-5 text-left transition hover:border-sky-300 hover:shadow-[0_18px_42px_rgba(7,26,58,0.13)] disabled:cursor-wait disabled:opacity-70"
     >
-      <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-700 transition group-hover:bg-sky-100">
+      <span className="skolegps-adventure-card-icon inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-700 transition group-hover:bg-sky-100">
         <Icon className="h-5 w-5" aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1">
@@ -216,12 +220,13 @@ export default function DashboardPage() {
           <button type="button" onClick={() => window.dispatchEvent(new Event(DASHBOARD_QUICK_GUIDE_EVENT))} className="skolegps-teacher-secondary-action min-h-11 rounded-full px-4 py-2 text-sm font-bold">Hjælp</button>
         </header>
 
-        <section className="mt-7">
+        <section className="mt-7 grid gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
           <button type="button" aria-label="Opret et løb" data-tour="dashboard-create-run" aria-busy={isNavigatingCreate} disabled={isNavigatingCreate} onClick={() => { if (isNavigatingCreate) return; setIsNavigatingCreate(true); void router.push("/dashboard/opret/valg"); }} className="skolegps-teacher-primary-action group flex w-full items-center gap-5 rounded-[1.5rem] p-6 text-left transition hover:-translate-y-0.5 hover:shadow-[0_22px_54px_rgba(3,119,216,0.23)] disabled:cursor-wait disabled:opacity-70 sm:p-7">
             <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/18"><MapPin className="h-7 w-7" aria-hidden="true" /></span>
             <span className="min-w-0 flex-1"><span className="block text-2xl font-black">Opret et løb</span><span className="mt-1 block text-sm font-semibold text-white/88">Byg rute, poster og spørgsmål.</span></span>
             <span className="shrink-0 text-sm font-black">{isNavigatingCreate ? "Åbner..." : "Åbn →"}</span>
           </button>
+          <TeacherAdventureScene className="hidden min-h-[10.5rem] xl:block" />
         </section>
 
         {hasResumeTarget ? (
@@ -237,7 +242,7 @@ export default function DashboardPage() {
           <DashboardChoice title="Lærerværktøjer" description="Planlægning, materialer og aktiviteter til klassen." icon={BookOpen} isBusy={isNavigatingTeacherTools} onClick={() => { if (isNavigatingTeacherTools) return; setIsNavigatingTeacherTools(true); void router.push("/dashboard/laerervaerktoejer"); }} />
         </section>
 
-        <div className="skolegps-teacher-surface mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl px-5 py-4">
+        <div data-adventure-tone="blue" className="skolegps-teacher-surface skolegps-adventure-card mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl px-5 py-4">
           <p className="text-sm font-semibold text-slate-600">Leder du efter spil til elevernes telefoner?</p>
           <Link href="/dashboard/mobilspil" className="skolegps-teacher-secondary-action inline-flex min-h-10 items-center gap-2 rounded-full px-4 py-2 text-sm font-black transition hover:bg-sky-100"><Gamepad2 className="h-4 w-4" aria-hidden="true" />Mobilspil</Link>
         </div>
