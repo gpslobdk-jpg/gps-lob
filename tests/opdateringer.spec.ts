@@ -8,6 +8,8 @@ test.describe("opdateringer", () => {
     await expect(page.getByTestId("upcoming-tools-list").getByRole("heading")).toHaveCount(2);
     await expect(page.getByRole("heading", { name: "FondsGPS er på vej", level: 2 })).toBeVisible();
     await expect(page.getByRole("heading", { name: "SkoleGPS Music Studio er på vej", level: 2 })).toBeVisible();
+    await expect(page.getByText("musikstudie til lærere", { exact: false })).toBeVisible();
+    await expect(page.getByText("Jeppe kan optage", { exact: false })).toHaveCount(0);
     await expect(page.getByText("Åbn SkemaPilot")).toHaveCount(0);
   });
 

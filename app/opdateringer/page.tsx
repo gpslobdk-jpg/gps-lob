@@ -18,7 +18,7 @@ const updates = [
   {
     title: "SkoleGPS Music Studio er på vej",
     body:
-      "SkoleGPS Music Studio bliver et privat musikstudie, hvor Jeppe kan optage en idé, arbejde videre med den og bevare overblikket over sine egne optagelser. AI skal hjælpe i processen, men musikken begynder hos Jeppe.",
+      "SkoleGPS Music Studio bliver et musikstudie til lærere, der vil skabe deres egen musik. Her kan du nynne en melodi frem, optage guitar, vokal eller et beat og arbejde videre med sporene. AI skal hjælpe med at gøre idéer til musik, du kan lytte til, redigere og bruge videre — uden at overtage din egen idé.",
   },
 ] as const;
 
