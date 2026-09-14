@@ -7,7 +7,7 @@ test.describe("opdateringer", () => {
     await expect(page.getByRole("heading", { name: "Opdateringer", level: 1 })).toBeVisible();
     await expect(page.getByTestId("upcoming-tools-list").getByRole("heading")).toHaveCount(2);
     await expect(page.getByRole("heading", { name: "FondsGPS er på vej", level: 2 })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Jeppe Studio er på vej", level: 2 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "SkoleGPS Music Studio er på vej", level: 2 })).toBeVisible();
     await expect(page.getByText("Åbn SkemaPilot")).toHaveCount(0);
   });
 
@@ -15,7 +15,7 @@ test.describe("opdateringer", () => {
     await page.goto("/");
 
     const entry = page.getByTestId("home-upcoming-tools");
-    await expect(entry).toContainText("FondsGPS og Jeppe Studio");
+    await expect(entry).toContainText("FondsGPS og SkoleGPS Music Studio");
     await expect(entry.getByRole("link", { name: "Læs mere →" })).toHaveAttribute("href", "/opdateringer");
   });
 });

@@ -629,12 +629,12 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
           <section
             data-testid="home-founder-entry"
             aria-label="Mød personen bag SkoleGPS"
-            className="mt-7 flex flex-col gap-3 rounded-2xl border border-sky-100 bg-white/74 px-5 py-4 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6"
+            className="mt-7 flex flex-col gap-3 rounded-2xl border border-sky-950/40 bg-[linear-gradient(135deg,rgba(8,47,73,0.96),rgba(3,105,161,0.93))] px-5 py-4 shadow-[0_14px_32px_rgba(8,47,73,0.24)] backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6"
           >
-            <p className="text-sm font-bold text-slate-700">Mød Jeppe Laursen, læreren bag SkoleGPS.</p>
+            <p className="text-sm font-bold text-sky-50">Mød Jeppe Laursen, læreren bag SkoleGPS.</p>
             <Link
               href="/manden-bag-skolegps"
-              className="shrink-0 text-sm font-black text-sky-800 underline decoration-sky-300 underline-offset-4 transition hover:text-sky-950 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-800"
+              className="shrink-0 text-sm font-black text-white underline decoration-sky-200/80 underline-offset-4 transition hover:text-sky-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
             >
               Manden bag SkoleGPS →
             </Link>
@@ -645,12 +645,12 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
           <section
             data-testid="home-upcoming-tools"
             aria-label="Nye værktøjer på vej"
-            className="mt-4 flex flex-col gap-3 rounded-2xl border border-sky-100 bg-white/74 px-5 py-4 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6"
+            className="mt-4 flex flex-col gap-3 rounded-2xl border border-sky-300 bg-[linear-gradient(135deg,rgba(224,242,254,0.94),rgba(240,249,255,0.94))] px-5 py-4 shadow-[0_10px_28px_rgba(14,116,144,0.12)] backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6"
           >
             <div>
               <p className="text-xs font-black tracking-[0.16em] text-sky-800 uppercase">På vej</p>
-              <p className="mt-1 text-sm font-bold text-slate-700">
-                FondsGPS og Jeppe Studio er to nye værktøjer undervejs.
+              <p className="mt-1 text-sm font-bold text-slate-800">
+                FondsGPS og SkoleGPS Music Studio er to nye værktøjer undervejs.
               </p>
             </div>
             <Link

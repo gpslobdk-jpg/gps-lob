@@ -16,9 +16,9 @@ const updates = [
       "FondsGPS bliver et værktøj til skoler, der vil finde relevante puljer og gøre en ansøgning klar. Arbejdet samles fra idé og muligheder til ansøgning og bilag — med skolens egen godkendelse hele vejen.",
   },
   {
-    title: "Jeppe Studio er på vej",
+    title: "SkoleGPS Music Studio er på vej",
     body:
-      "Jeppe Studio bliver et privat musikstudie, hvor Jeppe kan optage en idé, arbejde videre med den og bevare overblikket over sine egne optagelser. AI skal hjælpe i processen, men musikken begynder hos Jeppe.",
+      "SkoleGPS Music Studio bliver et privat musikstudie, hvor Jeppe kan optage en idé, arbejde videre med den og bevare overblikket over sine egne optagelser. AI skal hjælpe i processen, men musikken begynder hos Jeppe.",
   },
 ] as const;
 
