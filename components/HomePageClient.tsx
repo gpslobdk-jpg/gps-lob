@@ -641,6 +641,27 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
           </section>
         ) : null}
 
+        {!isPostlob ? (
+          <section
+            data-testid="home-upcoming-tools"
+            aria-label="Nye værktøjer på vej"
+            className="mt-4 flex flex-col gap-3 rounded-2xl border border-sky-100 bg-white/74 px-5 py-4 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6"
+          >
+            <div>
+              <p className="text-xs font-black tracking-[0.16em] text-sky-800 uppercase">På vej</p>
+              <p className="mt-1 text-sm font-bold text-slate-700">
+                FondsGPS og Jeppe Studio er to nye værktøjer undervejs.
+              </p>
+            </div>
+            <Link
+              href="/opdateringer"
+              className="shrink-0 text-sm font-black text-sky-800 underline decoration-sky-300 underline-offset-4 transition hover:text-sky-950 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-800"
+            >
+              Læs mere →
+            </Link>
+          </section>
+        ) : null}
+
         <footer className="flex flex-wrap items-center gap-x-5 gap-y-3 py-8 text-xs font-semibold text-slate-600">
           {siteVariantKey === "postlob" ? <Link href="/om" className="transition hover:text-sky-800">Om SkoleGPS</Link> : null}
           <Link href="/hjaelp" className="transition hover:text-sky-800">GPS-hjælp</Link>
