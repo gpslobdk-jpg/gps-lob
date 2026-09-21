@@ -471,7 +471,7 @@ export default function DashboardHomeClient({ tools }: DashboardHomeClientProps)
                 <p className="mt-1 max-w-xl text-sm leading-6 text-slate-600">Åbn det, du skal bruge lige nu.</p>
               </div>
               <TeacherToolsModal
-                description="Åbn et værktøj, når det passer til din undervisning. Øvekort bliver først åbnet, når den brugbare version er frigivet."
+                description="Åbn et værktøj, når det passer til din undervisning."
                 onToolNavigate={(tool) => recordToolOpen(tool.id)}
                 title="Opdag flere værktøjer i SkoleGPS"
                 tools={tools}

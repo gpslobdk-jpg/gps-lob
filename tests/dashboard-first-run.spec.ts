@@ -2,6 +2,8 @@ import { expect, test, type BrowserContext, type Page, type Route } from "@playw
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import { OEVEKORT_OWNER_PATH } from "../lib/oevekort";
+
 const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
   ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname.split(".")[0]
   : "xodrzahqdgbsssntupjt";
@@ -192,6 +194,11 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     await expect(page.getByRole("button", { name: "Opret et løb" })).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('section[aria-label="Hurtigvalg"] > :is(a, button)')).toHaveCount(3);
     await expect(page.getByRole("heading", { name: "Dine værktøjer" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Øvekort", exact: true })).toHaveAttribute(
+      "href",
+      OEVEKORT_OWNER_PATH,
+    );
+    await expect(page.getByText("Kommer snart", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Gå til Facebook-gruppen" })).toHaveAttribute("href", "https://www.facebook.com/groups/1649785632764130/");
     await expect(page.getByText("Skole & skærm")).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

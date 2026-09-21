@@ -2,6 +2,7 @@ import {
   getDagensTavleSsoOrigin,
   getFamilySsoOrigin,
 } from "@/lib/familySso/config";
+import { OEVEKORT_OWNER_PATH } from "@/lib/oevekort";
 
 export { TEACHER_TOOL_FACEBOOK_GROUP_LINK } from "./community";
 
@@ -143,9 +144,10 @@ export function createTeacherToolRegistry(origins: TeacherToolOrigins): readonly
       id: "oevekort",
       title: "Øvekort",
       description: "Lav gloser og spørgsmål til træning, tavle og print.",
-      cta: "Kommer snart",
-      status: "coming_soon",
-      icon: "clock",
+      cta: "Åbn Øvekort",
+      status: "active",
+      link: { href: OEVEKORT_OWNER_PATH, kind: "internal", target: "_self" },
+      icon: "file-text",
       imageSrc: "/brand/tools/oevekort-illustration.png",
       tone: "blue",
     },

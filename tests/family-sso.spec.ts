@@ -19,6 +19,7 @@ import {
   verifyFamilySsoBackchannel,
 } from "../lib/familySso/crypto";
 import { createPrintMitIdentity, isActiveFamilySsoUser } from "../lib/familySso/identity";
+import { OEVEKORT_OWNER_PATH } from "../lib/oevekort";
 import {
   createTeacherToolRegistry,
   TEACHER_TOOL_FACEBOOK_GROUP_LINK,
@@ -297,7 +298,7 @@ test.describe("DagensTavle family SSO security contract", () => {
       .toBe(false);
   });
 
-  test("links KildeGPS directly without identity or SSO parameters", () => {
+  test("links KildeGPS directly and opens Øvekort internally without identity or SSO parameters", () => {
     const tools = createTeacherToolRegistry({
       dagensTavle: "https://dagenstavle.dk",
       printMitArbejdsark: "https://printmitarbejdsark.dk",
@@ -311,9 +312,16 @@ test.describe("DagensTavle family SSO security contract", () => {
     });
     expect(kildeGps?.status === "active" && kildeGps.link.href)
       .not.toMatch(/kildegps\.dk[/?][^"\s]*(?:token|email|session|sso)/i);
+
+    expect(tools.find((tool) => tool.id === "oevekort")).toMatchObject({
+      cta: "Åbn Øvekort",
+      link: { href: OEVEKORT_OWNER_PATH, target: "_self" },
+      status: "active",
+      title: "Øvekort",
+    });
   });
 
-  test("renders the verified tools and a non-interactive Øvekort card without horizontal overflow", async ({ page }) => {
+  test("renders the verified tools including an active Øvekort card without horizontal overflow", async ({ page }) => {
     test.skip(!localTeacher, "Kræver den isolerede lokale Supabase-instans.");
     await openTeacherTools(page);
     const cards = page.locator('section[aria-label="Lærerværktøjer"] > a, section[aria-label="Lærerværktøjer"] > article');
@@ -330,8 +338,13 @@ test.describe("DagensTavle family SSO security contract", () => {
     await expect(link).not.toHaveAttribute("target", "_blank");
     await expect(link).toHaveAttribute("href", /\/auth\/family-sso\/start/);
     await expect(page.getByRole("heading", { name: "Øvekort", exact: true })).toBeVisible();
-    await expect(page.getByText("Kommer snart", { exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Øvekort" })).toHaveCount(0);
+    const oevekortLink = page.getByRole("link", { name: "Øvekort", exact: true });
+    await expect(oevekortLink).toHaveAttribute(
+      "href",
+      OEVEKORT_OWNER_PATH,
+    );
+    await expect(oevekortLink).not.toHaveAttribute("target", "_blank");
+    await expect(page.getByText("Kommer snart", { exact: true })).toHaveCount(0);
     const communityLink = page.getByRole("link", { name: "Gå til Facebook-gruppen" });
     await expect(communityLink).toHaveAttribute("href", TEACHER_TOOL_FACEBOOK_GROUP_LINK.href);
     await expect(communityLink).toHaveAttribute("rel", "noopener noreferrer");
