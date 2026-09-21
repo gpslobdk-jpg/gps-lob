@@ -170,6 +170,60 @@ body {
   outline-offset: 3px;
 }
 
+/* The teacher portal is deliberately opt-in. Builders, live surfaces, print and
+   student pages keep their existing layout and behavioural contracts. */
+.skolegps-teacher-portal {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 88% 0%, rgba(174, 222, 255, 0.62), transparent 27rem),
+    linear-gradient(180deg, #f3faff 0%, #edf7ff 38%, #f7fbff 100%);
+  color: var(--skolegps-deep-navy);
+}
+
+.skolegps-teacher-portal-sidebar {
+  border-right: 1px solid rgba(151, 196, 228, 0.72);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(239, 248, 255, 0.96)),
+    url("/brand/heroes/teacher-outdoor-route.webp") left bottom / auto 16rem no-repeat;
+  box-shadow: 16px 0 46px rgba(25, 83, 129, 0.06);
+}
+
+.skolegps-teacher-portal-nav-link {
+  color: #24426e;
+}
+
+.skolegps-teacher-portal-nav-link:hover {
+  background: #edf7ff;
+  color: #075fb2;
+}
+
+.skolegps-teacher-portal-nav-link[data-active="true"] {
+  background: linear-gradient(135deg, #d9ecff, #e9f6ff);
+  color: #075fb2;
+  box-shadow: inset 0 0 0 1px rgba(102, 172, 227, 0.32);
+}
+
+.skolegps-teacher-portal-hero {
+  background:
+    linear-gradient(100deg, rgba(238, 248, 255, 0.96) 0%, rgba(240, 250, 255, 0.86) 52%, rgba(225, 245, 255, 0.42) 100%),
+    url("/brand/heroes/teacher-outdoor-route.webp") right center / auto 100% no-repeat;
+}
+
+.skolegps-teacher-tool-image {
+  background: #edf7ff;
+}
+
+.skolegps-teacher-portal :focus-visible {
+  outline: 3px solid var(--skolegps-teacher-focus);
+  outline-offset: 3px;
+}
+
+@media (min-width: 1024px) {
+  .skolegps-teacher-portal {
+    margin-left: 17.25rem;
+  }
+}
+
 /* The existing builders keep their proven editing, map and print behaviour, but
    share the same calm teacher workspace while they are open. */
 .skolegps-teacher-builder {
@@ -437,6 +491,18 @@ body {
   .gpslob-onboarding-enter,
   .gpslob-waiting-enter {
     animation: none;
+    transform: none;
+  }
+
+  .skolegps-teacher-portal .skolegps-adventure-card,
+  .skolegps-teacher-portal .skolegps-teacher-primary-action,
+  .skolegps-teacher-portal .skolegps-teacher-secondary-action,
+  .skolegps-teacher-portal .skolegps-teacher-portal-nav-link {
+    transition-duration: 0.01ms;
+  }
+
+  .skolegps-teacher-portal .skolegps-adventure-card:hover,
+  .skolegps-teacher-portal .skolegps-teacher-primary-action:hover {
     transform: none;
   }
 }

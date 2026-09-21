@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { OEVEKORT_PUBLIC_SHARE_PATH } from "@/lib/oevekort";
 import { sendTelemetry } from "@/utils/telemetry";
 
 let bugsnagClient: any = null;
@@ -20,7 +21,12 @@ export function ensureBugsnag(): void {
           appVersion: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
           releaseStage: process.env.NODE_ENV || "development",
           onError(event: any) {
-            if (window.location.pathname === "/del/afvikling") return false;
+            if (
+              window.location.pathname === "/del/afvikling" ||
+              window.location.pathname === OEVEKORT_PUBLIC_SHARE_PATH
+            ) {
+              return false;
+            }
 
             // Drop unhandled SW registration rejections.
             // @ducanh2912/next-pwa injects navigator.serviceWorker.register()

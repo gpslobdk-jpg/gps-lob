@@ -2,6 +2,7 @@
 
 import { Analytics, type BeforeSendEvent } from "@vercel/analytics/next";
 
+import { OEVEKORT_PUBLIC_SHARE_PATH } from "@/lib/oevekort";
 import { RUN_EXECUTION_SHARE_PATH } from "@/lib/runExecutionShare";
 
 export function filterPrivacySafeAnalyticsEvent(event: BeforeSendEvent) {
@@ -9,6 +10,7 @@ export function filterPrivacySafeAnalyticsEvent(event: BeforeSendEvent) {
     const url = new URL(event.url, "https://analytics.invalid");
     if (
       url.pathname === RUN_EXECUTION_SHARE_PATH ||
+      url.pathname === OEVEKORT_PUBLIC_SHARE_PATH ||
       /^\/api\/teacher\/answers\/[^/]+\/photo$/i.test(url.pathname) ||
       url.pathname.includes("/storage/v1/object/sign/participant-uploads/")
     ) {

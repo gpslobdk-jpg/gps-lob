@@ -36,6 +36,20 @@ const withPWA = withPWAInit({
       {
         urlPattern: ({ request, url, sameOrigin }) =>
           sameOrigin &&
+          url.pathname === "/oevekort/del" &&
+          request.headers.get("RSC") === "1",
+        handler: "NetworkOnly",
+        method: "GET",
+      },
+      {
+        urlPattern: ({ url, sameOrigin }) =>
+          sameOrigin && url.pathname === "/oevekort/del",
+        handler: "NetworkOnly",
+        method: "GET",
+      },
+      {
+        urlPattern: ({ request, url, sameOrigin }) =>
+          sameOrigin &&
           (url.pathname === "/join" || url.pathname.startsWith("/play/")) &&
           request.headers.get("RSC") === "1",
         handler: "NetworkOnly",
@@ -59,6 +73,27 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/del/afvikling",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-store, max-age=0",
+          },
+          {
+            key: "Pragma",
+            value: "no-cache",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "no-referrer",
+          },
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow, noarchive",
+          },
+        ],
+      },
+      {
+        source: "/oevekort/del",
         headers: [
           {
             key: "Cache-Control",

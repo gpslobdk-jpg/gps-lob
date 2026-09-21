@@ -98,7 +98,7 @@ export default function DashboardQuickGuide() {
     setView(step);
   }, [cancelReturnFocus]);
 
-  const returnFocus = useCallback(() => {
+  const returnFocus = useCallback((preferRouteFallback = false) => {
     cancelReturnFocus();
     let attempts = 0;
     const tryReturnFocus = () => {
@@ -116,7 +116,7 @@ export default function DashboardQuickGuide() {
         : pathname === "/dashboard"
           ? document.querySelector<HTMLElement>('[data-tour="dashboard-create-run"]')
           : document.querySelector<HTMLElement>("h1");
-      const focusTarget = isVisibleFocusTarget(manualTrigger)
+      const focusTarget = !preferRouteFallback && isVisibleFocusTarget(manualTrigger)
         ? manualTrigger
         : isVisibleFocusTarget(routeFallback)
           ? routeFallback
@@ -143,11 +143,11 @@ export default function DashboardQuickGuide() {
     });
   }, [cancelReturnFocus, pathname]);
 
-  const closeGuide = useCallback(() => {
+  const closeGuide = useCallback((options?: { preferRouteFallback?: boolean }) => {
     markGuideSeen();
     removeStorage(DASHBOARD_QUICK_GUIDE_STEP_KEY);
     setView("closed");
-    returnFocus();
+    returnFocus(options?.preferRouteFallback);
   }, [markGuideSeen, returnFocus]);
 
   useEffect(() => {
@@ -343,7 +343,7 @@ export default function DashboardQuickGuide() {
         >
           <button
             type="button"
-            onClick={closeGuide}
+            onClick={() => closeGuide({ preferRouteFallback: view === "intro" })}
             aria-label="Luk den korte guide"
             className="absolute top-4 right-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-lg font-semibold text-slate-700 transition hover:bg-sky-100 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
           >
@@ -373,7 +373,7 @@ export default function DashboardQuickGuide() {
                 </button>
                 <button
                   type="button"
-                  onClick={closeGuide}
+                  onClick={() => closeGuide({ preferRouteFallback: true })}
                   className="inline-flex min-h-12 flex-1 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-sky-100 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
                 >
                   Jeg finder selv

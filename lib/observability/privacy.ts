@@ -89,6 +89,10 @@ export function sanitizeObservabilityUrl(value: string) {
         "/del/afvikling/[redacted]"
       )
       .replace(
+        /^\/oevekort\/del\/[^/]+/i,
+        "/oevekort/del/[redacted]"
+      )
+      .replace(
         /^\/api\/teacher\/answers\/[^/]+\/photo/i,
         "/api/teacher/answers/[redacted]/photo"
       )

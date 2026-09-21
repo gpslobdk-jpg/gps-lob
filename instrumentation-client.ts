@@ -7,6 +7,7 @@ import {
   sanitizeObservabilityObject,
   sanitizeSentryEvent,
 } from "@/lib/observability/privacy";
+import { OEVEKORT_PUBLIC_SHARE_PATH } from "@/lib/oevekort";
 import { ensureBugsnag } from "@/utils/observability";
 
 function sanitizeClientTelemetryObject<T extends object>(value: T): T | null {
@@ -57,6 +58,13 @@ Sentry.init({
   },
   // Add a beforeSend filter to drop specific Facebook iOS WebView noise
   beforeSend(event) {
+    if (
+      typeof window !== "undefined" &&
+      window.location.pathname === OEVEKORT_PUBLIC_SHARE_PATH
+    ) {
+      return null;
+    }
+
     const userAgentHeader =
       event?.request?.headers?.["User-Agent"] ??
       event?.request?.headers?.["user-agent"] ??
@@ -104,7 +112,10 @@ export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
 
 // Initialize Bugsnag client-side (best-effort). Disabled if no API key.
 try {
-  if (window.location.pathname !== "/del/afvikling") {
+  if (
+    window.location.pathname !== "/del/afvikling" &&
+    window.location.pathname !== OEVEKORT_PUBLIC_SHARE_PATH
+  ) {
     ensureBugsnag();
   }
 } catch {}

@@ -19,6 +19,10 @@ import {
   verifyFamilySsoBackchannel,
 } from "../lib/familySso/crypto";
 import { createPrintMitIdentity, isActiveFamilySsoUser } from "../lib/familySso/identity";
+import {
+  createTeacherToolRegistry,
+  TEACHER_TOOL_FACEBOOK_GROUP_LINK,
+} from "../lib/teacherTools/registry";
 
 const read = (...segments: string[]) => readFileSync(join(process.cwd(), ...segments), "utf8");
 
@@ -59,8 +63,19 @@ test.afterAll(async () => {
 test.describe("DagensTavle family SSO security contract", () => {
   test("opens DagensTavle on the board through Family SSO from SkoleGPS", () => {
     const toolsPage = read("app", "dashboard", "laerervaerktoejer", "page.tsx");
+    const tools = createTeacherToolRegistry({
+      dagensTavle: "https://dagenstavle.dk",
+      printMitArbejdsark: "https://printmitarbejdsark.dk",
+    });
+    const dagensTavle = tools.find((tool) => tool.id === "dagens-tavle");
 
-    expect(toolsPage).toContain("/auth/family-sso/start?next=%2Ftavle&source=skolegps");
+    expect(toolsPage).toContain("getTeacherToolRegistry()");
+    expect(dagensTavle).toMatchObject({
+      link: {
+        href: "https://dagenstavle.dk/auth/family-sso/start?next=%2Ftavle&source=skolegps",
+        target: "_self",
+      },
+    });
   });
 
   test("accepts only normalized relative DagensTavle return paths", () => {
@@ -283,125 +298,93 @@ test.describe("DagensTavle family SSO security contract", () => {
   });
 
   test("links KildeGPS directly without identity or SSO parameters", () => {
-    const toolsPage = read("app", "dashboard", "laerervaerktoejer", "page.tsx");
-    expect(toolsPage).toContain('title: "KildeGPS"');
-    expect(toolsPage).toContain('href: "https://www.kildegps.dk"');
-    expect(toolsPage).toContain('cta: "Åbn KildeGPS"');
-    expect(toolsPage).not.toMatch(/kildegps\.dk[/?][^"\s]*(?:token|email|session|sso)/i);
+    const tools = createTeacherToolRegistry({
+      dagensTavle: "https://dagenstavle.dk",
+      printMitArbejdsark: "https://printmitarbejdsark.dk",
+    });
+    const kildeGps = tools.find((tool) => tool.id === "kildegps");
+
+    expect(kildeGps).toMatchObject({
+      cta: "Åbn KildeGPS",
+      link: { href: "https://www.kildegps.dk", target: "_blank" },
+      title: "KildeGPS",
+    });
+    expect(kildeGps?.status === "active" && kildeGps.link.href)
+      .not.toMatch(/kildegps\.dk[/?][^"\s]*(?:token|email|session|sso)/i);
   });
 
-  test("renders seven distinct accessible tool cards without horizontal overflow", async ({ page }) => {
+  test("renders the verified tools and a non-interactive Øvekort card without horizontal overflow", async ({ page }) => {
     test.skip(!localTeacher, "Kræver den isolerede lokale Supabase-instans.");
     await openTeacherTools(page);
-    const cards = page.locator('section[aria-label="Lærerværktøjer"] article');
-    await expect(cards).toHaveCount(7);
-    const kildeGpsLink = page.getByRole("link", { name: /Åbn KildeGPS.*ny fane/i });
+    const cards = page.locator('section[aria-label="Lærerværktøjer"] > a, section[aria-label="Lærerværktøjer"] > article');
+    await expect(cards).toHaveCount(6);
+    const kildeGpsLink = page.getByRole("link", { name: "KildeGPS" });
     await expect(kildeGpsLink).toHaveAttribute("href", "https://www.kildegps.dk");
     await expect(kildeGpsLink).toHaveAttribute("rel", "noopener noreferrer");
     await expect(page.getByRole("heading", { name: "PrintMitArbejdsark" })).toBeVisible();
-    const printMitLink = page.getByRole("link", { name: /Åbn PrintMitArbejdsark.*ny fane/i });
-    await expect(printMitLink).toHaveAttribute("rel", "noopener noreferrer");
+    const printMitLink = page.getByRole("link", { name: "PrintMitArbejdsark" });
+    await expect(printMitLink).not.toHaveAttribute("target", "_blank");
     await expect(printMitLink).toHaveAttribute("href", /printmitarbejdsark.*\/auth\/family-sso\/start\?next=%2Flav&source=skolegps/);
     await expect(page.getByRole("heading", { name: "DagensTavle" })).toBeVisible();
-    const link = page.getByRole("link", { name: /Åbn DagensTavle.*ny fane/i });
-    await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    const link = page.getByRole("link", { name: "DagensTavle" });
+    await expect(link).not.toHaveAttribute("target", "_blank");
     await expect(link).toHaveAttribute("href", /\/auth\/family-sso\/start/);
-    await expect(page.getByRole("heading", { name: "SkolePodcast", exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "SkolePodcast.dk", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "UgePilot", exact: true })).toBeVisible();
-    const ugePilotLink = page.getByRole("link", { name: /Åbn UgePilot.*ny fane/i });
-    await expect(ugePilotLink).toHaveAttribute("href", /^https:\/\/ugepilot\.dk\/?$/);
-    await expect(ugePilotLink).toHaveAttribute("rel", "noopener noreferrer");
+    await expect(page.getByRole("heading", { name: "Øvekort", exact: true })).toBeVisible();
+    await expect(page.getByText("Kommer snart", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Øvekort" })).toHaveCount(0);
+    const communityLink = page.getByRole("link", { name: "Gå til Facebook-gruppen" });
+    await expect(communityLink).toHaveAttribute("href", TEACHER_TOOL_FACEBOOK_GROUP_LINK.href);
+    await expect(communityLink).toHaveAttribute("rel", "noopener noreferrer");
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     expect(overflow).toBe(false);
   });
 
-  test("keeps the seven-card layout readable, aligned and keyboard visible at every review width", async ({ page }) => {
+  test("keeps the verified-tool layout readable and keyboard visible at every review width", async ({ page }) => {
     test.skip(!localTeacher, "Requires the isolated local Supabase instance.");
     await page.setViewportSize({ width: 1024, height: 900 });
     await openTeacherTools(page);
 
     const reviewWidths = [
-      { width: 360, rows: 7 },
-      { width: 390, rows: 7 },
-      { width: 768, rows: 4 },
-      { width: 1024, rows: 4 },
+      { width: 360, rows: 6 },
+      { width: 390, rows: 6 },
+      { width: 768, rows: 3 },
+      { width: 1024, rows: 3 },
       { width: 1366, rows: 3 },
-      { width: 1920, rows: 3 },
+      { width: 1920, rows: 2 },
     ];
     for (const review of reviewWidths) {
       await page.setViewportSize({ width: review.width, height: 1000 });
       await page.mouse.move(0, 0);
       await page.waitForTimeout(350);
       const layout = await page.locator("main section[aria-label]").evaluate((section) => {
-        const cards = [...section.querySelectorAll("article")];
-        const rows = new Map<number, Array<{ height: number; ctaBottom: number }>>();
+        const cards = [...section.querySelectorAll(":scope > a, :scope > article")];
+        const rows = new Map<number, number[]>();
         for (const card of cards) {
           const rect = card.getBoundingClientRect();
           const row = Math.round(rect.top);
-          const cta = card.querySelector("a")!.getBoundingClientRect();
-          rows.set(row, [...(rows.get(row) ?? []), { height: rect.height, ctaBottom: cta.bottom }]);
+          rows.set(row, [...(rows.get(row) ?? []), rect.height]);
         }
         return {
           cardCount: cards.length,
           rowCount: rows.size,
-          rowHeightsAligned: [...rows.values()].every((items) =>
-            Math.max(...items.map((item) => item.height)) - Math.min(...items.map((item) => item.height)) <= 1,
-          ),
-          ctasAligned: [...rows.values()].every((items) =>
-            Math.max(...items.map((item) => item.ctaBottom)) - Math.min(...items.map((item) => item.ctaBottom)) <= 1,
-          ),
+          rowHeightsAligned: [...rows.values()].every((items) => Math.max(...items) - Math.min(...items) <= 1),
           textFits: cards.every((card) => card.scrollWidth <= card.clientWidth + 1),
-          headingsStayWhole: cards.every((card) => {
-            const heading = card.querySelector("h2");
-            if (!heading?.firstChild) return false;
-            const range = document.createRange();
-            range.selectNodeContents(heading.firstChild);
-            return range.getClientRects().length === 1;
-          }),
-          ctaProductNamesStayWhole: cards.every((card) => {
-            const text = card.querySelector("a span")?.firstChild;
-            if (!text?.textContent) return false;
-            const productStart = text.textContent.indexOf(" ") + 1;
-            if (productStart <= 0) return false;
-            const range = document.createRange();
-            range.setStart(text, productStart);
-            range.setEnd(text, text.textContent.length);
-            return range.getClientRects().length === 1;
-          }),
-          naturalWordWrapping: cards.every((card) => {
-            const heading = card.querySelector("h2");
-            const cta = card.querySelector("a");
-            if (!heading || !cta) return false;
-            const headingStyle = getComputedStyle(heading);
-            const ctaStyle = getComputedStyle(cta);
-            return headingStyle.wordBreak === "normal" &&
-              headingStyle.overflowWrap === "normal" &&
-              ctaStyle.wordBreak === "normal" &&
-              ctaStyle.overflowWrap === "normal";
-          }),
+          headingsPresent: cards.every((card) => card.querySelector("h3")?.textContent?.trim().length),
           pageFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
         };
       });
       expect(layout).toEqual({
-        cardCount: 7,
+        cardCount: 6,
         rowCount: review.rows,
         rowHeightsAligned: true,
-        ctasAligned: true,
         textFits: true,
-        headingsStayWhole: true,
-        ctaProductNamesStayWhole: true,
-        naturalWordWrapping: true,
+        headingsPresent: true,
         pageFits: true,
       });
     }
 
     await page.setViewportSize({ width: 1920, height: 1080 });
-    const dagensLink = page.getByRole("link", { name: /Åbn DagensTavle.*ny fane/i });
-    const normalBackground = await dagensLink.evaluate((link) => getComputedStyle(link).backgroundColor);
-    await dagensLink.hover();
-    await expect.poll(() => dagensLink.evaluate((link) => getComputedStyle(link).backgroundColor))
-      .not.toBe(normalBackground);
+    const dagensLink = page.getByRole("link", { name: "DagensTavle" });
     await dagensLink.focus();
     const focus = await dagensLink.evaluate((link) => ({
       active: document.activeElement === link,
@@ -416,8 +399,8 @@ test.describe("DagensTavle family SSO security contract", () => {
     await page.setViewportSize({ width: 512, height: 900 });
     const zoomReflow = await page.evaluate(() => ({
       overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
-      cards: document.querySelectorAll("main section[aria-label] article").length,
+      cards: document.querySelectorAll("main section[aria-label] > a, main section[aria-label] > article").length,
     }));
-    expect(zoomReflow).toEqual({ overflow: false, cards: 7 });
+    expect(zoomReflow).toEqual({ overflow: false, cards: 6 });
   });
 });

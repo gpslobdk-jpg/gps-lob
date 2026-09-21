@@ -118,6 +118,9 @@ export default function AIChatButton() {
   const pathname = usePathname();
   const isHiddenPathname = HIDDEN_PATHNAMES.some((hidden) => pathname.includes(hidden));
   const isCalmDashboardSurface = pathname === "/dashboard" || pathname === "/dashboard/opret/valg";
+  const isOevekortSurface =
+    pathname === "/oevekort/del" ||
+    pathname.startsWith("/dashboard/laerervaerktoejer/oevekort");
   const isCompactLauncher = pathname.startsWith("/dashboard");
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   const quickActions = useMemo(() => getQuickActions(pathname), [pathname]);
@@ -204,7 +207,12 @@ export default function AIChatButton() {
     });
   }, [isOpen, chatMessages, isLoading]);
 
-  if (isHiddenPathname || isCalmDashboardSurface || isDashboardQuickGuideActive) {
+  if (
+    isHiddenPathname ||
+    isCalmDashboardSurface ||
+    isOevekortSurface ||
+    isDashboardQuickGuideActive
+  ) {
     return null;
   }
 
