@@ -2,10 +2,10 @@
 
 ## Status
 
-**Klar til kodefrigivelse.** Dette dokument skelner bevidst mellem kode,
+**Frigivet til produktion.** Dette dokument skelner bevidst mellem kode,
 test og frigivelse. Migrationen `20260921220800_oevekort.sql` er anvendt på
-det linkede Supabase-projekt og kontrolleret direkte; app-koden afventer
-stadig den almindelige GitHub→Vercel-frigivelse.
+det linkede Supabase-projekt og kontrolleret direkte. Funktionsændringen blev
+frigivet via den almindelige GitHub→Vercel-kæde i commit `9ac910c`.
 
 ## Baseline (22. september 2026)
 
@@ -33,7 +33,7 @@ elevidentiteter ændres.
 | Skak | `/dashboard/laerervaerktoejer/skak` | Åben | Eksisterende lærerroute |
 | KildeGPS | `https://www.kildegps.dk` | Åben | Eksisterende værktøjslink |
 | UgePilot | — | Ikke vist som åbent | Ingen verificeret destination i denne checkout |
-| Øvekort | `/dashboard/laerervaerktoejer/oevekort` | Åben i frigivelseskandidaten; migration verificeret | Ny, afgrænset funktion |
+| Øvekort | `/dashboard/laerervaerktoejer/oevekort` | Åben i produktion; migration og deployment verificeret | Ny, afgrænset funktion |
 
 Facebook-invitationen bruger det brugerleverede, konkrete gruppelink
 `https://www.facebook.com/groups/1649785632764130/`. Det er et frivilligt
