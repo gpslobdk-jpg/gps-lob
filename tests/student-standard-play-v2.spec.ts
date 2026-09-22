@@ -361,6 +361,9 @@ test("serverbekræftet quizsvar viser kun en lokal, dekorativ fejring", async ({
   await expect(
     page.getByRole("button", { name: /gå til næste post/i }),
   ).toBeEnabled();
+  await expect(page.getByText("Post 1 af 2").first()).toBeVisible();
+  await page.getByRole("button", { name: /gå til næste post/i }).click();
+  await expect(page.getByText("Post 2 af 2").first()).toBeVisible();
 });
 
 test("serverbekræftet forkert quizsvar viser aldrig korrekt-claim eller fejring", async ({
@@ -441,15 +444,16 @@ test("et terminalt replay-afslag efter lokalt korrekt svar viser kun den rigtige
     sessionId: "standard-v2-offline-terminal-replay",
     raceType: "engelsk",
     questions: [DEFAULT_STANDARD_QUESTIONS[0]],
-    submitResponses: [
-      {
-        status: 400,
-        body: {
-          code: "POST_NOT_FOUND",
-          error: "Syntetisk terminalt afslag.",
-        },
+    // Wake/reconnect may issue more than one idempotent replay. Keep every
+    // attempt terminal so the test exercises the displayed failure state,
+    // rather than a harness-default successful second response.
+    submitResponses: Array.from({ length: 4 }, () => ({
+      status: 400,
+      body: {
+        code: "POST_NOT_FOUND",
+        error: "Syntetisk terminalt afslag.",
       },
-    ],
+    })),
   });
   await openStandardQuestion(page);
   await page.context().setOffline(true);

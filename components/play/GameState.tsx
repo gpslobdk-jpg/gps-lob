@@ -2801,8 +2801,13 @@ export function usePlayGameState({
               return;
             }
 
+            // A confirmed standard answer deliberately holds its authoritative
+            // snapshot until the learner chooses to continue. A concurrent
+            // auth/wake restore must not consume that snapshot and skip the
+            // confirmed feedback card.
             if (
               participantProgress &&
+              deferredAuthoritativeProgressRef.current === null &&
               applyAuthoritativeProgressSnapshot(participantProgress, {
                 persistFinished: false,
               }) &&
