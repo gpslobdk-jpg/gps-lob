@@ -3,8 +3,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import {
+  advanceOevekortFlashQueue,
   buildOevekortShareLink,
   compareOevekortAnswer,
+  moveOevekortItem,
   normalizeOevekortAnswerForComparison,
   OEVEKORT_MAX_CARDS_PER_SET,
   OEVEKORT_PUBLIC_SHARE_PATH,
@@ -17,6 +19,12 @@ import {
   hashOevekortShareToken,
 } from "../lib/oevekortServer";
 import { filterPrivacySafeAnalyticsEvent } from "../components/PrivacySafeAnalytics";
+import {
+  isOevekortPublicSet,
+  isOevekortSet,
+  isOevekortSetSummary,
+  isOevekortShareStatus,
+} from "../components/oevekort/types";
 
 const root = process.cwd();
 
@@ -72,6 +80,39 @@ test.describe("Øvekort domain and share security", () => {
     expect(tooMany.ok).toBe(false);
   });
 
+  test("rejects empty or partial API sets before an owner or learner view can dereference them", () => {
+    const validCard = {
+      id: "kort-1",
+      front: "Hund",
+      back: "der Hund",
+      acceptedAnswers: [],
+    };
+    const validSet = {
+      id: "set-1",
+      title: "Tyske gloser",
+      createdAt: "2026-09-22T10:00:00.000Z",
+      updatedAt: "2026-09-22T10:00:00.000Z",
+      cards: [validCard],
+    };
+
+    expect(isOevekortPublicSet({ title: "Tyske gloser", cards: [validCard] })).toBe(true);
+    expect(isOevekortSet(validSet)).toBe(true);
+    expect(isOevekortSet({ ...validSet, cards: [] })).toBe(false);
+    expect(isOevekortSet({ ...validSet, cards: [{ id: "kort-1" }] })).toBe(false);
+    expect(isOevekortPublicSet({ title: "", cards: [validCard] })).toBe(false);
+    expect(isOevekortShareStatus({ id: "share-1", createdAt: "now", expiresAt: null, active: true })).toBe(true);
+    expect(isOevekortShareStatus({ id: "share-1", active: true })).toBe(false);
+    expect(isOevekortSetSummary({
+      id: "set-1",
+      title: "Tyske gloser",
+      cardCount: 1,
+      createdAt: "now",
+      updatedAt: "now",
+      share: { active: false, createdAt: null, expiresAt: null },
+    })).toBe(true);
+    expect(isOevekortSetSummary({ id: "set-1", title: "Tyske gloser" })).toBe(false);
+  });
+
   test("imports exactly two columns and reports incorrectly separated rows", () => {
     const tabs = parseOevekortImport("kat\tcat\nhund\tdog");
     expect(tabs).toMatchObject({
@@ -107,6 +148,62 @@ test.describe("Øvekort domain and share security", () => {
     expect(compareOevekortAnswer("cafe ønske", card).correct).toBe(false);
     expect(compareOevekortAnswer("cafe\u0301 ønske", card).correct).toBe(false);
     expect(compareOevekortAnswer("café onske", card).correct).toBe(false);
+  });
+
+  test("keeps card reordering local and preserves every card exactly once", () => {
+    const cards = ["første", "anden", "tredje"];
+
+    expect(moveOevekortItem(cards, 2, 0)).toEqual([
+      "tredje",
+      "første",
+      "anden",
+    ]);
+    expect(moveOevekortItem(cards, -1, 1)).toEqual(cards);
+    expect(cards).toEqual(["første", "anden", "tredje"]);
+  });
+
+  test("repeats only the flashcards a learner chooses to practise again", () => {
+    const queue = ["kort-1", "kort-2", "kort-3"];
+
+    expect(advanceOevekortFlashQueue(queue, "again")).toEqual([
+      "kort-2",
+      "kort-3",
+      "kort-1",
+    ]);
+    expect(advanceOevekortFlashQueue(queue, "known")).toEqual([
+      "kort-2",
+      "kort-3",
+    ]);
+    expect(advanceOevekortFlashQueue(["kort-1"], "again")).toEqual([
+      "kort-1",
+    ]);
+  });
+
+  test("keeps the agreed editor, practice, board, and print capabilities in their guarded surfaces", () => {
+    const teacherEditor = source("components/oevekort/OevekortTeacherClient.tsx");
+    const publicShare = source("components/oevekort/OevekortPublicShareClient.tsx");
+    const presentation = source("components/oevekort/OevekortSetPresentation.tsx");
+
+    expect(teacherEditor).toContain("Flyt kort");
+    expect(teacherEditor).toContain("beforeunload");
+    expect(teacherEditor).toContain("Ikke gemt endnu");
+    expect(teacherEditor).toContain("skolegps:before-dashboard-leave");
+    expect(teacherEditor).toContain('closest<HTMLAnchorElement>("a[href]")');
+    expect(teacherEditor).toContain("Gem sættet først");
+    expect(teacherEditor).toContain("Gem udløbstidspunktet først");
+    expect(publicShare).toContain('rateFlashCard("again")');
+    expect(publicShare).toContain('rateFlashCard("known")');
+    expect(publicShare).toContain("Dine valg bliver kun brugt i denne browser");
+    expect(publicShare).toContain("Start øvelsen");
+    expect(publicShare).toContain("hasStarted");
+    expect(presentation).toContain("requestFullscreen");
+    expect(presentation).toContain("Fuld skærm");
+    expect(presentation).toContain('id: "cards"');
+    expect(presentation).toContain('id: "list"');
+    expect(presentation).toContain('id: "pupil"');
+    expect(presentation).toContain('id: "answers"');
+    expect(presentation).toContain("[overflow-wrap:anywhere]");
+    expect(publicShare).toContain("[overflow-wrap:anywhere]");
   });
 
   test("uses a high-entropy fragment bearer link and stores only its hash", () => {

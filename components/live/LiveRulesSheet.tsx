@@ -1,8 +1,9 @@
 "use client";
 
 import { BookOpen, Shield, Swords, X } from "lucide-react";
-import { useEffect } from "react";
 import { createPortal } from "react-dom";
+
+import { useModalFocusTrap } from "@/components/ui/useModalFocusTrap";
 
 export type LiveRulesGameType = "zone-krig" | "stratego";
 
@@ -58,27 +59,7 @@ const RULES_CONTENT: Record<
 };
 
 export default function LiveRulesSheet({ open, onClose, gameType }: LiveRulesSheetProps) {
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-
-    document.body.style.overflow = "hidden";
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open, onClose]);
+  const dialogRef = useModalFocusTrap<HTMLElement>({ open, onClose });
 
   if (!open || typeof document === "undefined") {
     return null;
@@ -94,6 +75,7 @@ export default function LiveRulesSheet({ open, onClose, gameType }: LiveRulesShe
         aria-label="Luk spilregler"
         onClick={onClose}
         className="absolute inset-0 bg-slate-950/74 backdrop-blur-sm"
+        tabIndex={-1}
       />
 
       <div className="absolute inset-0 flex justify-end">
@@ -101,7 +83,9 @@ export default function LiveRulesSheet({ open, onClose, gameType }: LiveRulesShe
           role="dialog"
           aria-modal="true"
           aria-label={`Spilregler for ${content.title}`}
-          className="relative flex h-full w-full max-w-[26rem] flex-col overflow-hidden border-l border-white/10 bg-slate-950/92 shadow-[-28px_0_80px_rgba(2,6,23,0.62)] backdrop-blur-2xl"
+          className="skolegps-teacher-dialog relative flex h-full w-full max-w-[26rem] flex-col overflow-hidden border-l border-white/10 bg-slate-950/92 shadow-[-28px_0_80px_rgba(2,6,23,0.62)] backdrop-blur-2xl"
+          ref={dialogRef}
+          tabIndex={-1}
         >
           <div className={`pointer-events-none absolute inset-0 ${content.panelGlowClassName}`} />
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_18%,transparent_40%)]" />
@@ -124,6 +108,7 @@ export default function LiveRulesSheet({ open, onClose, gameType }: LiveRulesShe
             <button
               type="button"
               onClick={onClose}
+              aria-label="Luk spilregler"
               className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white"
             >
               <X className="h-4 w-4" />

@@ -133,6 +133,12 @@ test("mistet svarresponse retries idempotent og bruger samme autoritative næste
   await expect(page.getByRole("button", { name: /prøv igen/i })).toBeVisible({
     timeout: 20_000,
   });
+  await expect(
+    page.getByText("Korrekt! Du får point.", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId("standard-play-confirmed-quiz-celebration"),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: /prøv igen/i }).click();
   await expect(page.getByTestId("standard-play-answer-success")).toBeVisible({
     timeout: 20_000,
@@ -144,6 +150,37 @@ test("mistet svarresponse retries idempotent og bruger samme autoritative næste
   expect(state.submitRequests).toHaveLength(2);
   expect(state.committedOperationIds.size).toBe(1);
   expect([...state.answeredPostIndexes]).toEqual([0]);
+});
+
+test("reload efter uafklaret svar genopliver ikke en lokal korrekt-feedback", async ({
+  page,
+}) => {
+  const questions = makeAuthoritativeProgressQuestions(1);
+  await openHarnessedPlay(page, {
+    sessionId: "p0-authoritative-lost-response-reload",
+    raceType: "manuel",
+    questions,
+    dropSubmitResponseAt: [1],
+  });
+  await openStandardQuestion(page);
+  await page.getByRole("button", { name: "Korrekt P0" }).click();
+  await expect(page.getByRole("button", { name: /prøv igen/i })).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(
+    page.getByText("Korrekt! Du får point.", { exact: true }),
+  ).toHaveCount(0);
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByText(/Løbet er slut\./i)).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(
+    page.getByText("Korrekt! Du får point.", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId("standard-play-confirmed-quiz-celebration"),
+  ).toHaveCount(0);
 });
 
 test("blandet quiz/foto afslutter på serverens sidste foto-snapshot uden post-fallback", async ({
@@ -296,6 +333,72 @@ test("quiz bruger store svar, lange tekster og uændret submit-payload", async (
   });
 });
 
+test("serverbekræftet quizsvar viser kun en lokal, dekorativ fejring", async ({
+  page,
+}) => {
+  await openHarnessedPlay(page, {
+    sessionId: "standard-v2-confirmed-quiz-celebration",
+    raceType: "manuel",
+    submitDelayMs: 600,
+  });
+  await openStandardQuestion(page);
+
+  const celebration = page.getByTestId(
+    "standard-play-confirmed-quiz-celebration",
+  );
+  await expect(celebration).toHaveCount(0);
+  await page
+    .getByRole("button", { name: DEFAULT_STANDARD_QUESTIONS[0].answers[1] })
+    .click();
+
+  await expect(page.getByText("Sender dit svar…")).toBeVisible();
+  await expect(
+    page.getByText("Korrekt! Du får point.", { exact: true }),
+  ).toHaveCount(0);
+  await expect(celebration).toHaveCount(0);
+  await expect(celebration).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("standard-play-answer-success")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /gå til næste post/i }),
+  ).toBeEnabled();
+});
+
+test("serverbekræftet forkert quizsvar viser aldrig korrekt-claim eller fejring", async ({
+  page,
+}) => {
+  const questions = makeAuthoritativeProgressQuestions(1);
+  await openHarnessedPlay(page, {
+    sessionId: "standard-v2-server-confirmed-wrong",
+    raceType: "manuel",
+    questions,
+    submitResponses: [
+      {
+        status: 200,
+        body: {
+          inserted: true,
+          awardedPoints: 0,
+          serverCorrectness: { checked: true, isCorrect: false },
+          answeredPostIndexes: [0],
+          expectedPostIndex: null,
+          isFinished: true,
+        },
+      },
+    ],
+  });
+  await openStandardQuestion(page);
+  await page.getByRole("button", { name: "Korrekt P0" }).click();
+
+  await expect(
+    page.getByText("Det var ikke det rigtige svar. Nu går turen videre."),
+  ).toBeVisible({ timeout: 10_000 });
+  await expect(
+    page.getByText("Korrekt! Du får point.", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId("standard-play-confirmed-quiz-celebration"),
+  ).toHaveCount(0);
+});
+
 test("offline svar køes og reconnect bruger den eksisterende levering", async ({
   page,
 }) => {
@@ -313,6 +416,15 @@ test("offline svar køes og reconnect bruger den eksisterende levering", async (
   await expect(page.getByText("Svaret er gemt på telefonen")).toBeVisible({
     timeout: 10_000,
   });
+  await expect(
+    page.getByTestId("standard-play-answer-awaiting-confirmation"),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Korrekt! Du får point.", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId("standard-play-confirmed-quiz-celebration"),
+  ).toHaveCount(0);
   await expect(page.getByRole("button", { name: /gå til næste post|se resultat/i })).toHaveCount(0);
 
   await page.context().setOffline(false);
@@ -320,6 +432,51 @@ test("offline svar køes og reconnect bruger den eksisterende levering", async (
   // Require the server-side answer as well as its visible confirmation/result.
   await expect.poll(() => [...play.answeredPostIndexes]).toEqual([0]);
   await expect(page.getByText("Svaret er gemt", { exact: true }).or(page.getByText(/Løbet er slut\./i))).toBeVisible({ timeout: 20_000 });
+});
+
+test("et terminalt replay-afslag efter lokalt korrekt svar viser kun den rigtige status", async ({
+  page,
+}) => {
+  await openHarnessedPlay(page, {
+    sessionId: "standard-v2-offline-terminal-replay",
+    raceType: "engelsk",
+    questions: [DEFAULT_STANDARD_QUESTIONS[0]],
+    submitResponses: [
+      {
+        status: 400,
+        body: {
+          code: "POST_NOT_FOUND",
+          error: "Syntetisk terminalt afslag.",
+        },
+      },
+    ],
+  });
+  await openStandardQuestion(page);
+  await page.context().setOffline(true);
+
+  await page
+    .getByRole("button", { name: DEFAULT_STANDARD_QUESTIONS[0].answers[1] })
+    .click();
+  await expect(
+    page.getByTestId("standard-play-answer-awaiting-confirmation"),
+  ).toBeVisible();
+
+  await page.context().setOffline(false);
+  await expect(
+    page.getByText("Svaret kunne ikke afleveres.", { exact: true }),
+  ).toBeVisible({ timeout: 20_000 });
+  await expect(
+    page.getByTestId("standard-play-answer-awaiting-confirmation"),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Besvaret. Nu går turen videre.", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Korrekt! Du får point.", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId("standard-play-confirmed-quiz-celebration"),
+  ).toHaveCount(0);
 });
 
 test("reduced motion fjerner den nye progress-transition", async ({ page }) => {
@@ -334,6 +491,24 @@ test("reduced motion fjerner den nye progress-transition", async ({ page }) => {
     .locator('[class*="transition-[width]"]')
     .first();
   await expect(progressBar).toHaveCSS("transition-property", "none");
+});
+
+test("reduced motion slår den dekorative quizfejring fra", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await openHarnessedPlay(page, {
+    sessionId: "standard-v2-confirmed-quiz-celebration-reduced-motion",
+    raceType: "manuel",
+  });
+  await openStandardQuestion(page);
+  await page
+    .getByRole("button", { name: DEFAULT_STANDARD_QUESTIONS[0].answers[1] })
+    .click();
+
+  const celebrationPulse = page.getByTestId(
+    "standard-play-confirmed-quiz-celebration-pulse",
+  );
+  await expect(celebrationPulse).toBeVisible({ timeout: 20_000 });
+  await expect(celebrationPulse).toHaveCSS("animation-name", "none");
 });
 
 test("320px og lange svar giver ingen vandret overflow", async ({ page }) => {

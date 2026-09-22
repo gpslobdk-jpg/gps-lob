@@ -31,6 +31,8 @@ test.describe("Øvekort public share", () => {
     expect(requestedToken).toBe(shareToken);
     expect(new URL(page.url()).hash).toBe("");
     await expect(page.getByRole("button", { name: "Åbn SkoleGPS-assistent" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Start øvelsen" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Hund.*Tryk for at vende kortet/i })).toHaveCount(0);
 
     const persistedTokens = await page.evaluate(() => {
       const values = [
@@ -41,6 +43,7 @@ test.describe("Øvekort public share", () => {
     });
     expect(persistedTokens).toEqual([]);
 
+    await page.getByRole("button", { name: "Start øvelsen" }).click();
     await page.getByRole("button", { name: /Hund.*Tryk for at vende kortet/i }).click();
     await expect(page.getByRole("button", { name: /Bagside der Hund/i })).toBeVisible();
 

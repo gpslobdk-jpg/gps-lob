@@ -4,7 +4,9 @@ import {
   AlertCircle,
   BookOpen,
   Check,
+  ChevronDown,
   ChevronLeft,
+  ChevronUp,
   Copy,
   ExternalLink,
   FileUp,
@@ -26,6 +28,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   OEVEKORT_MAX_CARDS_PER_SET,
   OEVEKORT_OWNER_PATH,
+  moveOevekortItem,
   parseOevekortImport,
   type OevekortCardInput,
   type OevekortImportDelimiter,
@@ -34,6 +37,9 @@ import {
 import {
   formatOevekortDate,
   getOevekortError,
+  isOevekortSet,
+  isOevekortSetSummary,
+  isOevekortShareStatus,
   readOevekortResponse,
   type OevekortSet,
   type OevekortSetSummary,
@@ -79,6 +85,10 @@ function draftFromSet(set: OevekortSet): DraftSet {
   };
 }
 
+function serializeDraft(draft: DraftSet) {
+  return JSON.stringify(draft);
+}
+
 function toDateTimeLocal(value: string | null) {
   if (!value) return "";
   const date = new Date(value);
@@ -96,26 +106,47 @@ function toExpiryIso(value: string) {
 function isSetResponse(value: unknown): value is SetResponse {
   if (!value || typeof value !== "object") return false;
   const set = (value as { set?: unknown }).set;
-  return Boolean(set && typeof set === "object" && typeof (set as { id?: unknown }).id === "string");
+  return isOevekortSet(set);
+}
+
+function malformedSetMessage(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return "Sættet kunne ikke læses sikkert. Prøv at åbne det igen.";
+  }
+
+  const set = (value as { set?: unknown }).set;
+  if (
+    set &&
+    typeof set === "object" &&
+    Array.isArray((set as { cards?: unknown }).cards) &&
+    (set as { cards: unknown[] }).cards.length === 0
+  ) {
+    return "Sættet har ingen kort endnu. Vælg et andet sæt, eller prøv igen senere.";
+  }
+
+  return "Sættet kunne ikke læses sikkert. Prøv at åbne det igen.";
 }
 
 function isListResponse(value: unknown): value is ListResponse {
   return Boolean(
     value &&
       typeof value === "object" &&
-      Array.isArray((value as { sets?: unknown }).sets),
+      Array.isArray((value as { sets?: unknown }).sets) &&
+      (value as { sets: unknown[] }).sets.every(isOevekortSetSummary),
   );
 }
 
 function isShareStatusResponse(value: unknown): value is ShareStatusResponse {
-  return Boolean(value && typeof value === "object" && "share" in value);
+  if (!value || typeof value !== "object" || !("share" in value)) return false;
+  const share = (value as { share?: unknown }).share;
+  return share === null || isOevekortShareStatus(share);
 }
 
 function isShareCreateResponse(value: unknown): value is ShareCreateResponse {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<ShareCreateResponse>;
   return (
-    Boolean(candidate.share) &&
+    isOevekortShareStatus(candidate.share) &&
     typeof candidate.shareUrl === "string" &&
     candidate.shareUrl.startsWith("http")
   );
@@ -139,9 +170,13 @@ export default function OevekortTeacherClient() {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftSet>(createEmptyDraft);
+  const [savedDraftSignature, setSavedDraftSignature] = useState(() =>
+    serializeDraft(createEmptyDraft()),
+  );
   const [share, setShare] = useState<OevekortShareStatus | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [expiryValue, setExpiryValue] = useState("");
+  const [savedExpiryValue, setSavedExpiryValue] = useState("");
   const [importText, setImportText] = useState("");
   const [importDelimiter, setImportDelimiter] =
     useState<OevekortImportDelimiter>("semicolon");
@@ -152,6 +187,15 @@ export default function OevekortTeacherClient() {
     () => sets.find((set) => set.id === selectedSetId) ?? null,
     [selectedSetId, sets],
   );
+  const hasUnsavedChanges =
+    isEditorOpen && serializeDraft(draft) !== savedDraftSignature;
+  const hasPendingShareExpiryInput =
+    isEditorOpen &&
+    Boolean(selectedSetId) &&
+    expiryValue !== savedExpiryValue;
+  const hasUnsavedEditorState =
+    hasUnsavedChanges || hasPendingShareExpiryInput;
+  const hasPendingExistingShareExpiry = Boolean(share) && hasPendingShareExpiryInput;
 
   const loadSets = useCallback(async () => {
     setIsLoadingSets(true);
@@ -175,23 +219,131 @@ export default function OevekortTeacherClient() {
     void loadSets();
   }, [loadSets]);
 
+  useEffect(() => {
+    if (!hasUnsavedEditorState) return;
+
+    const warnAboutUnsavedChanges = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", warnAboutUnsavedChanges);
+    return () => window.removeEventListener("beforeunload", warnAboutUnsavedChanges);
+  }, [hasUnsavedEditorState]);
+
+  useEffect(() => {
+    if (!hasUnsavedEditorState) return;
+
+    const confirmDiscard = () =>
+      window.confirm(
+        "Du har ændringer, der ikke er gemt. Vil du forkaste dem og fortsætte?",
+      );
+
+    const confirmPlainAnchorNavigation = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey ||
+        !(event.target instanceof Element)
+      ) {
+        return;
+      }
+
+      const anchor = event.target.closest<HTMLAnchorElement>("a[href]");
+      if (
+        !anchor ||
+        anchor.target ||
+        anchor.hasAttribute("download") ||
+        anchor.dataset.unsavedNavigation === "ignore"
+      ) {
+        return;
+      }
+
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#")) return;
+
+      let destination: URL;
+      try {
+        destination = new URL(anchor.href, window.location.href);
+      } catch {
+        return;
+      }
+
+      if (destination.origin !== window.location.origin) return;
+
+      const current = new URL(window.location.href);
+      if (
+        destination.pathname === current.pathname &&
+        destination.search === current.search
+      ) {
+        return;
+      }
+
+      if (!confirmDiscard()) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+
+    const confirmDashboardLeave = (event: Event) => {
+      if (!confirmDiscard()) event.preventDefault();
+    };
+
+    // This capture listener also sees the dashboard shell's sidebar links. It
+    // deliberately ignores new-tab/download/external actions, which cannot
+    // discard the in-page draft.
+    document.addEventListener("click", confirmPlainAnchorNavigation, true);
+    window.addEventListener(
+      "skolegps:before-dashboard-leave",
+      confirmDashboardLeave,
+    );
+
+    return () => {
+      document.removeEventListener("click", confirmPlainAnchorNavigation, true);
+      window.removeEventListener(
+        "skolegps:before-dashboard-leave",
+        confirmDashboardLeave,
+      );
+    };
+  }, [hasUnsavedEditorState]);
+
   const resetEditor = () => {
+    const emptyDraft = createEmptyDraft();
     setSelectedSetId(null);
-    setDraft(createEmptyDraft());
+    setDraft(emptyDraft);
+    setSavedDraftSignature(serializeDraft(emptyDraft));
     setShare(null);
     setShareUrl(null);
     setExpiryValue("");
+    setSavedExpiryValue("");
     setImportText("");
     setError("");
   };
 
   const beginNewSet = () => {
+    if (
+      hasUnsavedEditorState &&
+      !window.confirm("Du har ændringer, der ikke er gemt. Vil du forkaste dem og lave et nyt sæt?")
+    ) {
+      return;
+    }
     resetEditor();
     setMessage("");
     setIsEditorOpen(true);
   };
 
-  const openSet = async (setId: string) => {
+  const openSet = async (setId: string, discardUnsavedChanges = false) => {
+    if (
+      !discardUnsavedChanges &&
+      hasUnsavedEditorState &&
+      !window.confirm("Du har ændringer, der ikke er gemt. Vil du forkaste dem og åbne sættet?")
+    ) {
+      return;
+    }
+
     setIsLoadingSet(true);
     setError("");
     setMessage("");
@@ -206,21 +358,30 @@ export default function OevekortTeacherClient() {
       ]);
 
       if (!setResult.response.ok || !isSetResponse(setResult.body)) {
-        setError(getOevekortError(setResult.body, "Sættet kunne ikke åbnes."));
+        setError(
+          setResult.response.ok
+            ? malformedSetMessage(setResult.body)
+            : getOevekortError(setResult.body, "Sættet kunne ikke åbnes."),
+        );
         return;
       }
 
+      const nextDraft = draftFromSet(setResult.body.set);
       setSelectedSetId(setResult.body.set.id);
-      setDraft(draftFromSet(setResult.body.set));
+      setDraft(nextDraft);
+      setSavedDraftSignature(serializeDraft(nextDraft));
       setIsEditorOpen(true);
 
       if (shareResult.response.ok && isShareStatusResponse(shareResult.body)) {
         const nextShare = shareResult.body.share;
+        const nextExpiryValue = toDateTimeLocal(nextShare?.expiresAt ?? null);
         setShare(nextShare);
-        setExpiryValue(toDateTimeLocal(nextShare?.expiresAt ?? null));
+        setExpiryValue(nextExpiryValue);
+        setSavedExpiryValue(nextExpiryValue);
       } else {
         setShare(null);
         setExpiryValue("");
+        setSavedExpiryValue("");
       }
     } catch {
       setError("Sættet kunne ikke åbnes. Prøv igen.");
@@ -283,6 +444,16 @@ export default function OevekortTeacherClient() {
     }));
   };
 
+  const moveCard = (cardIndex: number, direction: -1 | 1) => {
+    const nextIndex = cardIndex + direction;
+    if (nextIndex < 0 || nextIndex >= draft.cards.length) return;
+
+    setDraft((current) => ({
+      ...current,
+      cards: moveOevekortItem(current.cards, cardIndex, nextIndex),
+    }));
+  };
+
   const importCards = () => {
     setError("");
     const parsed = parseOevekortImport(importText, importDelimiter);
@@ -306,6 +477,8 @@ export default function OevekortTeacherClient() {
 
   const saveSet = async () => {
     const wasEditing = Boolean(selectedSetId);
+    const pendingExpiryValue = expiryValue;
+    const shouldRestorePendingExpiry = hasPendingShareExpiryInput;
     setIsSaving(true);
     setError("");
     setMessage("");
@@ -332,7 +505,8 @@ export default function OevekortTeacherClient() {
       }
 
       await loadSets();
-      await openSet(nextSet.id);
+      await openSet(nextSet.id, true);
+      if (shouldRestorePendingExpiry) setExpiryValue(pendingExpiryValue);
       setMessage(wasEditing ? "Dine ændringer er gemt." : "Dit nye sæt er gemt.");
     } catch {
       setError("Sættet kunne ikke gemmes. Prøv igen.");
@@ -343,6 +517,12 @@ export default function OevekortTeacherClient() {
 
   const copySet = async () => {
     if (!selectedSetId) return;
+    if (
+      hasUnsavedEditorState &&
+      !window.confirm("Du har ændringer, der ikke er gemt. Vil du forkaste dem og lave en kopi af den gemte version?")
+    ) {
+      return;
+    }
     setIsSaving(true);
     setError("");
     setMessage("");
@@ -358,7 +538,7 @@ export default function OevekortTeacherClient() {
         return;
       }
       await loadSets();
-      await openSet(copiedId);
+      await openSet(copiedId, true);
       setMessage("Kopien er klar til at blive tilpasset.");
     } catch {
       setError("Sættet kunne ikke kopieres. Prøv igen.");
@@ -369,6 +549,12 @@ export default function OevekortTeacherClient() {
 
   const deleteSet = async () => {
     if (!selectedSetId) return;
+    if (
+      hasUnsavedEditorState &&
+      !window.confirm("Du har ændringer, der ikke er gemt. Vil du forkaste dem og slette den gemte version?")
+    ) {
+      return;
+    }
     if (!window.confirm("Vil du slette dette sæt og dets eventuelle delingslink?")) {
       return;
     }
@@ -398,6 +584,18 @@ export default function OevekortTeacherClient() {
 
   const createShare = async () => {
     if (!selectedSetId) return;
+    if (hasUnsavedChanges) {
+      setError(
+        "Gem sættet først. Delingslinket må kun pege på den gemte version af dine kort.",
+      );
+      return;
+    }
+    if (hasPendingExistingShareExpiry) {
+      setError(
+        "Gem udløbstidspunktet først, før du opretter et nyt delingslink.",
+      );
+      return;
+    }
     const expiresAt = toExpiryIso(expiryValue);
     if (expiresAt === undefined) {
       setError("Vælg et gyldigt tidspunkt for udløb, eller lad feltet stå tomt.");
@@ -422,7 +620,9 @@ export default function OevekortTeacherClient() {
       }
       setShare(body.share);
       setShareUrl(body.shareUrl);
-      setExpiryValue(toDateTimeLocal(body.share.expiresAt));
+      const nextExpiryValue = toDateTimeLocal(body.share.expiresAt);
+      setExpiryValue(nextExpiryValue);
+      setSavedExpiryValue(nextExpiryValue);
       await loadSets();
       setMessage("Et nyt delingslink er klar. Det vises kun denne gang.");
     } catch {
@@ -434,6 +634,12 @@ export default function OevekortTeacherClient() {
 
   const updateShareExpiry = async () => {
     if (!selectedSetId || !share) return;
+    if (hasUnsavedChanges) {
+      setError(
+        "Gem sættet først, før du ændrer delingen. Delingslinket må kun pege på den gemte version af dine kort.",
+      );
+      return;
+    }
     const expiresAt = toExpiryIso(expiryValue);
     if (expiresAt === undefined) {
       setError("Vælg et gyldigt tidspunkt for udløb, eller lad feltet stå tomt.");
@@ -456,7 +662,9 @@ export default function OevekortTeacherClient() {
         return;
       }
       setShare(body.share);
-      setExpiryValue(toDateTimeLocal(body.share.expiresAt));
+      const nextExpiryValue = toDateTimeLocal(body.share.expiresAt);
+      setExpiryValue(nextExpiryValue);
+      setSavedExpiryValue(nextExpiryValue);
       await loadSets();
       setMessage("Delingens udløbstidspunkt er opdateret.");
     } catch {
@@ -486,6 +694,7 @@ export default function OevekortTeacherClient() {
       setShare(null);
       setShareUrl(null);
       setExpiryValue("");
+      setSavedExpiryValue("");
       await loadSets();
       setMessage("Delingslinket er lukket.");
     } catch {
@@ -505,8 +714,21 @@ export default function OevekortTeacherClient() {
     }
   };
 
+  const closeEditor = () => {
+    if (
+      hasUnsavedEditorState &&
+      !window.confirm("Du har ændringer, der ikke er gemt. Vil du forkaste dem og gå tilbage til dine sæt?")
+    ) {
+      return;
+    }
+
+    resetEditor();
+    setIsEditorOpen(false);
+  };
+
   const editorTitle = selectedSetId ? "Redigér dit sæt" : "Lav et nyt sæt";
   const busy = isSaving || isManagingShare;
+  const shareCreationBlocked = hasUnsavedChanges || hasPendingExistingShareExpiry;
   const setBoardHref = selectedSetId
     ? `${OEVEKORT_OWNER_PATH}/tavle?set=${encodeURIComponent(selectedSetId)}`
     : null;
@@ -611,10 +833,11 @@ export default function OevekortTeacherClient() {
                   <div>
                     <p className="text-xs font-black tracking-[0.16em] text-sky-700 uppercase">{selectedSetId ? "Gemte kort" : "Nyt sæt"}</p>
                     <h2 id="oevekort-editor-heading" className="mt-1 text-2xl font-black text-[var(--skolegps-deep-navy)]">{editorTitle}</h2>
+                    {hasUnsavedChanges ? <p className="mt-2 text-sm font-bold text-amber-800" role="status">Ikke gemt endnu</p> : null}
                   </div>
                   <button
                     className={secondaryButtonClassName}
-                    onClick={() => { resetEditor(); setIsEditorOpen(false); }}
+                    onClick={closeEditor}
                     type="button"
                   >
                     <ChevronLeft aria-hidden="true" className="h-4 w-4" />
@@ -650,14 +873,34 @@ export default function OevekortTeacherClient() {
                       <article key={`${selectedSetId ?? "new"}-${cardIndex}`} className="rounded-2xl border border-sky-100 bg-sky-50/45 p-4">
                         <div className="flex items-center justify-between gap-3">
                           <p className="font-black text-[var(--skolegps-deep-navy)]">Kort {cardIndex + 1}</p>
-                          <button
-                            aria-label={`Fjern kort ${cardIndex + 1}`}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-rose-50 hover:text-rose-700"
-                            onClick={() => removeCard(cardIndex)}
-                            type="button"
-                          >
-                            <Trash2 aria-hidden="true" className="h-4 w-4" />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              aria-label={`Flyt kort ${cardIndex + 1} op`}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-sky-800 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-35"
+                              disabled={cardIndex === 0}
+                              onClick={() => moveCard(cardIndex, -1)}
+                              type="button"
+                            >
+                              <ChevronUp aria-hidden="true" className="h-4 w-4" />
+                            </button>
+                            <button
+                              aria-label={`Flyt kort ${cardIndex + 1} ned`}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-sky-800 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-35"
+                              disabled={cardIndex === draft.cards.length - 1}
+                              onClick={() => moveCard(cardIndex, 1)}
+                              type="button"
+                            >
+                              <ChevronDown aria-hidden="true" className="h-4 w-4" />
+                            </button>
+                            <button
+                              aria-label={`Fjern kort ${cardIndex + 1}`}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-rose-50 hover:text-rose-700"
+                              onClick={() => removeCard(cardIndex)}
+                              type="button"
+                            >
+                              <Trash2 aria-hidden="true" className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
                         <div className="mt-3 grid gap-3 sm:grid-cols-2">
                           <label className="block text-sm font-bold text-slate-700">
@@ -733,7 +976,7 @@ export default function OevekortTeacherClient() {
                     </div>
                     <div className="mt-4 flex flex-wrap gap-3">
                       {setBoardHref ? <Link className={secondaryButtonClassName} href={setBoardHref}><Presentation aria-hidden="true" className="h-4 w-4" /> Vis på tavle</Link> : null}
-                      {setPrintHref ? <Link className={secondaryButtonClassName} href={setPrintHref}><Printer aria-hidden="true" className="h-4 w-4" /> Print kort</Link> : null}
+                      {setPrintHref ? <Link className={secondaryButtonClassName} href={setPrintHref}><Printer aria-hidden="true" className="h-4 w-4" /> Print</Link> : null}
                     </div>
 
                     <div className="mt-6 border-t border-sky-100 pt-5">
@@ -748,13 +991,27 @@ export default function OevekortTeacherClient() {
                         Udløber <span className="font-medium text-slate-500">(valgfrit)</span>
                         <input className={inputClassName} id="oevekort-expiry" onChange={(event) => setExpiryValue(event.target.value)} type="datetime-local" value={expiryValue} />
                       </label>
+                      {hasPendingShareExpiryInput ? (
+                        <p className="mt-2 text-sm font-semibold text-amber-800" role="status">
+                          {share
+                            ? "Udløbstidspunktet er ikke gemt endnu. Gem det, før du opretter et nyt link."
+                            : "Udløbstidspunktet gemmes sammen med det nye delingslink."}
+                        </p>
+                      ) : null}
                       {share ? <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-emerald-800"><ShieldCheck aria-hidden="true" className="h-4 w-4" /> Aktiv deling {share.expiresAt ? `indtil ${formatOevekortDate(share.expiresAt)}` : "uden udløb"}.</p> : <p className="mt-3 text-sm text-slate-600">Der er ikke et aktivt delingslink endnu.</p>}
+                      {shareCreationBlocked ? (
+                        <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold leading-6 text-amber-950" id="oevekort-share-save-first" role="status">
+                          {hasUnsavedChanges
+                            ? "Gem sættet først. Et delingslink viser kun den gemte version af dine kort."
+                            : "Gem udløbstidspunktet først, før du opretter et nyt delingslink."}
+                        </p>
+                      ) : null}
                       <div className="mt-4 flex flex-wrap gap-3">
-                        <button className={primaryButtonClassName} disabled={busy} onClick={() => void createShare()} type="button">
+                        <button aria-describedby={shareCreationBlocked ? "oevekort-share-save-first" : undefined} className={primaryButtonClassName} disabled={busy || shareCreationBlocked} onClick={() => void createShare()} type="button">
                           {isManagingShare ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <LinkIcon aria-hidden="true" className="h-4 w-4" />}
                           {share ? "Opret nyt link" : "Opret delingslink"}
                         </button>
-                        {share ? <button className={secondaryButtonClassName} disabled={busy} onClick={() => void updateShareExpiry()} type="button">Gem udløb</button> : null}
+                        {share ? <button className={secondaryButtonClassName} disabled={busy || hasUnsavedChanges || !hasPendingShareExpiryInput} onClick={() => void updateShareExpiry()} type="button">Gem udløb</button> : null}
                         {share ? <button className={`${secondaryButtonClassName} border-rose-200 text-rose-800 hover:border-rose-300 hover:bg-rose-50`} disabled={busy} onClick={() => void revokeShare()} type="button"><X aria-hidden="true" className="h-4 w-4" /> Luk deling</button> : null}
                       </div>
                       {shareUrl ? (

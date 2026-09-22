@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { OEVEKORT_OWNER_PATH } from "../lib/oevekort";
+import { getCommunityInviteStorageKey } from "../lib/teacherTools/communityPreference";
 
 const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
   ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname.split(".")[0]
@@ -11,6 +12,7 @@ const SUPABASE_COOKIE_NAME = `sb-${supabaseHostname}-auth-token`;
 const ACTIVE_SESSION_ID = "11111111-2222-4333-8444-555555555555";
 const PARTICIPANT_SESSION_ID = "22222222-3333-4444-8555-666666666666";
 const PARTICIPANT_ID = "33333333-4444-4555-8666-777777777777";
+const COMMUNITY_INVITE_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000;
 
 const FAKE_USER = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -30,11 +32,17 @@ function readSource(...parts: string[]) {
 
 type DashboardContextOptions = {
   activeSession?: boolean;
+  communityInvite?: "member" | "none";
   participantResume?: boolean;
   unauthenticated?: boolean;
+  userId?: string;
 };
 
 async function setupDashboardContext(context: BrowserContext, options?: DashboardContextOptions) {
+  const fakeUser = {
+    ...FAKE_USER,
+    id: options?.userId ?? FAKE_USER.id,
+  };
   const expiresAt = Math.floor(Date.now() / 1000) + 3600;
   const fakeSession = {
     access_token: "synthetic-dashboard-access-token",
@@ -42,7 +50,7 @@ async function setupDashboardContext(context: BrowserContext, options?: Dashboar
     expires_in: 3600,
     expires_at: expiresAt,
     token_type: "bearer",
-    user: FAKE_USER,
+    user: fakeUser,
   };
 
   if (!options?.unauthenticated) {
@@ -57,6 +65,13 @@ async function setupDashboardContext(context: BrowserContext, options?: Dashboar
         sameSite: "Lax",
       },
     ]);
+
+    if (options?.communityInvite !== "none") {
+      await context.addInitScript((teacherId) => {
+        const key = `skolegps.teacher-tools.facebook-invite.v1.${encodeURIComponent(teacherId)}`;
+        window.localStorage.setItem(key, JSON.stringify({ version: 1, choice: "member" }));
+      }, fakeUser.id);
+    }
   }
 
   await context.routeWebSocket(/webpack-hmr/, (socket) => socket.close());
@@ -82,7 +97,7 @@ async function setupDashboardContext(context: BrowserContext, options?: Dashboar
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(FAKE_USER),
+      body: JSON.stringify(fakeUser),
     });
   });
   await context.route(/\/rest\/v1\//, async (route: Route) => {
@@ -202,6 +217,74 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     await expect(page.getByRole("link", { name: "Gå til Facebook-gruppen" })).toHaveAttribute("href", "https://www.facebook.com/groups/1649785632764130/");
     await expect(page.getByText("Skole & skærm")).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  });
+
+  test("Facebook-invitationen respekterer snooze, medlemsvalg og manuel åbning", async ({ page }) => {
+    await setupDashboardContext(page.context(), { communityInvite: "none" });
+    await page.addInitScript(() => {
+      window.localStorage.setItem("skolegps.dashboard-quick-guide.v1.seen", "true");
+    });
+
+    const preferenceKey = getCommunityInviteStorageKey(FAKE_USER.id);
+    const beforeDismiss = Date.now();
+
+    await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toContainText("Er du med i SkoleGPS.dk på Facebook?", { timeout: 20_000 });
+    await expect(dialog.getByRole("link", { name: "Gå til Facebook-gruppen" })).toHaveAttribute(
+      "href",
+      "https://www.facebook.com/groups/1649785632764130/",
+    );
+
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    const snoozedPreference = await page.evaluate((key) => {
+      const stored = window.localStorage.getItem(key);
+      return stored ? JSON.parse(stored) : null;
+    }, preferenceKey);
+    expect(snoozedPreference).toMatchObject({ version: 1, choice: "snoozed" });
+    expect(snoozedPreference.until).toBeGreaterThanOrEqual(beforeDismiss + COMMUNITY_INVITE_SNOOZE_MS - 1_000);
+    expect(snoozedPreference.until).toBeLessThanOrEqual(Date.now() + COMMUNITY_INVITE_SNOOZE_MS + 1_000);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    const manualTrigger = page.getByRole("button", { name: "Se alle værktøjer" });
+    await manualTrigger.click();
+    await expect(page.getByRole("dialog")).toContainText("Er du med i SkoleGPS.dk på Facebook?");
+    await page.getByRole("button", { name: "Jeg er allerede medlem" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    const memberPreference = await page.evaluate((key) => {
+      const stored = window.localStorage.getItem(key);
+      return stored ? JSON.parse(stored) : null;
+    }, preferenceKey);
+    expect(memberPreference).toEqual({ version: 1, choice: "member" });
+
+    await manualTrigger.click();
+    await expect(page.getByRole("dialog")).toContainText("Er du med i SkoleGPS.dk på Facebook?");
+    await page.keyboard.press("Escape");
+    await expect(manualTrigger).toBeFocused();
+    await expect.poll(() => page.evaluate((key) => window.localStorage.getItem(key), preferenceKey)).toBe(
+      JSON.stringify({ version: 1, choice: "member" }),
+    );
+  });
+
+  test("Facebook-invitationen åbner ikke over et aktivt løb, og valg er kontoafgrænsede", async ({ page }) => {
+    const otherTeacherId = "00000000-0000-4000-8000-000000000099";
+    expect(getCommunityInviteStorageKey(FAKE_USER.id)).not.toBe(getCommunityInviteStorageKey(otherTeacherId));
+
+    await setupDashboardContext(page.context(), {
+      activeSession: true,
+      communityInvite: "none",
+    });
+    await page.addInitScript(() => {
+      window.localStorage.setItem("skolegps.dashboard-quick-guide.v1.seen", "true");
+    });
+
+    await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("button", { name: /Fortsæt løbet/i })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 
   test("førstegangsmodal vises én gang og kan åbnes manuelt igen", async ({ page }) => {

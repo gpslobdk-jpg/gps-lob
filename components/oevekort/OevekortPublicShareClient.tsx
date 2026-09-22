@@ -18,18 +18,19 @@ import {
 import { useEffect, useRef, useState } from "react";
 
 import {
+  advanceOevekortFlashQueue,
   compareOevekortAnswer,
   normalizeOevekortShareToken,
 } from "@/lib/oevekort";
 
-import { readOevekortResponse, type OevekortCard } from "./types";
+import {
+  isOevekortPublicSet,
+  readOevekortResponse,
+  type OevekortCard,
+  type OevekortPublicSet,
+} from "./types";
 
-type PublicSet = {
-  cards: OevekortCard[];
-  title: string;
-};
-
-type PublicResponse = { set: PublicSet };
+type PublicResponse = { set: OevekortPublicSet };
 type Activity = "flash" | "match" | "write" | "board";
 
 type MatchTile = {
@@ -42,13 +43,11 @@ type MatchTile = {
 function isPublicResponse(value: unknown): value is PublicResponse {
   if (!value || typeof value !== "object") return false;
   const set = (value as { set?: unknown }).set;
-  return Boolean(
-    set &&
-      typeof set === "object" &&
-      typeof (set as { title?: unknown }).title === "string" &&
-      Array.isArray((set as { cards?: unknown }).cards),
-  );
+  return isOevekortPublicSet(set);
 }
+
+const printableTextClassName =
+  "whitespace-pre-wrap break-words [overflow-wrap:anywhere]";
 
 function shuffle<T>(items: T[]) {
   const result = [...items];
@@ -80,11 +79,13 @@ const activityLabels: Array<{
 ];
 
 export default function OevekortPublicShareClient() {
-  const [sharedSet, setSharedSet] = useState<PublicSet | null>(null);
+  const [sharedSet, setSharedSet] = useState<OevekortPublicSet | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
   const [activity, setActivity] = useState<Activity>("flash");
   const [cardIndex, setCardIndex] = useState(0);
+  const [flashQueue, setFlashQueue] = useState<string[]>([]);
   const [isFlipped, setIsFlipped] = useState(false);
   const [writtenAnswer, setWrittenAnswer] = useState("");
   const [answerResult, setAnswerResult] = useState<"correct" | "incorrect" | null>(null);
@@ -138,6 +139,8 @@ export default function OevekortPublicShareClient() {
         }
 
         setSharedSet(body.set);
+        setHasStarted(false);
+        setFlashQueue(body.set.cards.map((card) => card.id));
         setMatchTiles(makeMatchTiles(body.set.cards));
       } catch {
         setHasError(true);
@@ -156,6 +159,7 @@ export default function OevekortPublicShareClient() {
   }, []);
 
   const currentCard = sharedSet?.cards[cardIndex] ?? null;
+  const flashCard = sharedSet?.cards.find((card) => card.id === flashQueue[0]) ?? null;
 
   const resetCardActivity = () => {
     setIsFlipped(false);
@@ -180,6 +184,26 @@ export default function OevekortPublicShareClient() {
       setMatchMessage("");
       setIsResolvingMatch(false);
     }
+  };
+
+  const rateFlashCard = (rating: "known" | "again") => {
+    setFlashQueue((queue) => advanceOevekortFlashQueue(queue, rating));
+    setIsFlipped(false);
+  };
+
+  const restartFlashRound = () => {
+    if (!sharedSet) return;
+    setFlashQueue(sharedSet.cards.map((card) => card.id));
+    setIsFlipped(false);
+  };
+
+  const startPractice = () => {
+    setActivity("flash");
+    setCardIndex(0);
+    setIsFlipped(false);
+    setWrittenAnswer("");
+    setAnswerResult(null);
+    setHasStarted(true);
   };
 
   const checkWrittenAnswer = () => {
@@ -253,41 +277,62 @@ export default function OevekortPublicShareClient() {
       <div className="mx-auto w-full max-w-4xl">
         <header className="rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.19),transparent_34%),linear-gradient(135deg,rgba(15,23,42,0.98),rgba(12,44,67,0.95))] px-5 py-7 shadow-[0_24px_72px_rgba(2,8,23,0.32)] print:hidden sm:px-8 sm:py-9">
           <p className="text-xs font-black tracking-[0.22em] text-cyan-200 uppercase">SkoleGPS Øvekort</p>
-          <h1 className="mt-2 break-words text-3xl font-black tracking-tight sm:text-4xl">{sharedSet.title}</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">Vælg en øvelse. Dine svar og fremskridt bliver ikke gemt.</p>
-          <div className="mt-6 flex flex-wrap gap-2" aria-label="Vælg øvelse">
-            {activityLabels.map(({ activity: itemActivity, icon: Icon, label }) => (
-              <button
-                aria-pressed={activity === itemActivity}
-                aria-describedby={itemActivity === "match" && !canMatch ? "oevekort-match-minimum" : undefined}
-                className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-45 ${activity === itemActivity ? "border-cyan-200 bg-cyan-200 text-slate-950" : "border-white/15 bg-white/7 text-slate-100 hover:bg-white/12"}`}
-                disabled={itemActivity === "match" && !canMatch}
-                key={itemActivity}
-                onClick={() => chooseActivity(itemActivity)}
-                type="button"
-              >
-                <Icon aria-hidden="true" className="h-4 w-4" /> {label}
-              </button>
-            ))}
-            <button className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/7 px-3 py-2 text-sm font-bold text-slate-100 transition hover:bg-white/12" onClick={() => window.print()} type="button">
-              <Printer aria-hidden="true" className="h-4 w-4" /> Print
-            </button>
-          </div>
-          {!canMatch ? <p className="mt-3 text-xs font-medium leading-5 text-slate-300" id="oevekort-match-minimum">Match bliver klar, når sættet har mindst tre kort.</p> : null}
+          <h1 className={`mt-2 text-3xl font-black tracking-tight sm:text-4xl ${printableTextClassName}`}>{sharedSet.title}</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">{hasStarted ? "Vælg en øvelse. Dine svar og fremskridt bliver ikke gemt." : "Din lærer har delt et sæt med dig. Når du starter, bliver dine svar og fremskridt kun i denne browser."}</p>
+          {hasStarted ? (
+            <>
+              <div className="mt-6 flex flex-wrap gap-2" aria-label="Vælg øvelse">
+                {activityLabels.map(({ activity: itemActivity, icon: Icon, label }) => (
+                  <button
+                    aria-pressed={activity === itemActivity}
+                    aria-describedby={itemActivity === "match" && !canMatch ? "oevekort-match-minimum" : undefined}
+                    className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-45 ${activity === itemActivity ? "border-cyan-200 bg-cyan-200 text-slate-950" : "border-white/15 bg-white/7 text-slate-100 hover:bg-white/12"}`}
+                    disabled={itemActivity === "match" && !canMatch}
+                    key={itemActivity}
+                    onClick={() => chooseActivity(itemActivity)}
+                    type="button"
+                  >
+                    <Icon aria-hidden="true" className="h-4 w-4" /> {label}
+                  </button>
+                ))}
+                <button className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/7 px-3 py-2 text-sm font-bold text-slate-100 transition hover:bg-white/12" onClick={() => window.print()} type="button">
+                  <Printer aria-hidden="true" className="h-4 w-4" /> Print
+                </button>
+              </div>
+              {!canMatch ? <p className="mt-3 text-xs font-medium leading-5 text-slate-300" id="oevekort-match-minimum">Match bliver klar, når sættet har mindst tre kort.</p> : null}
+            </>
+          ) : null}
         </header>
 
-        <section className="mt-5 rounded-[2rem] border border-white/10 bg-slate-900/92 p-4 shadow-[0_24px_72px_rgba(2,8,23,0.26)] print:hidden sm:p-7" aria-live="polite">
+        {hasStarted ? <section className="mt-5 rounded-[2rem] border border-white/10 bg-slate-900/92 p-4 shadow-[0_24px_72px_rgba(2,8,23,0.26)] print:hidden sm:p-7" aria-live="polite">
           {activity === "flash" ? (
             <div>
-              <div className="flex items-center justify-between gap-3 text-xs font-black tracking-[0.16em] text-cyan-200 uppercase"><span>Kort</span><span>{cardIndex + 1} / {sharedSet.cards.length}</span></div>
-              <button aria-pressed={isFlipped} className="mt-4 flex min-h-80 w-full items-center justify-center rounded-3xl border border-cyan-200/18 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.18),transparent_45%),linear-gradient(145deg,#10253d,#0d1e32)] px-6 py-10 text-center transition hover:border-cyan-200/40" onClick={() => setIsFlipped((visible) => !visible)} type="button">
-                <span>
-                  <span className="block text-xs font-black tracking-[0.2em] text-cyan-200 uppercase">{isFlipped ? "Bagside" : "Forside"}</span>
-                  <span className="mt-5 block whitespace-pre-wrap text-3xl font-black leading-tight sm:text-5xl">{isFlipped ? currentCard.back : currentCard.front}</span>
-                  <span className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-cyan-100">{isFlipped ? <EyeOff aria-hidden="true" className="h-4 w-4" /> : <Eye aria-hidden="true" className="h-4 w-4" />} Tryk for at vende kortet</span>
-                </span>
-              </button>
-              <CardNavigation onNext={() => goToCard(cardIndex + 1)} onPrevious={() => goToCard(cardIndex - 1)} />
+              <div className="flex items-center justify-between gap-3 text-xs font-black tracking-[0.16em] text-cyan-200 uppercase"><span>Kort</span><span>{flashQueue.length ? `${flashQueue.length} tilbage` : "Runden er færdig"}</span></div>
+              {flashCard ? (
+                <>
+                  <button aria-pressed={isFlipped} className="mt-4 flex min-h-80 w-full items-center justify-center rounded-3xl border border-cyan-200/18 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.18),transparent_45%),linear-gradient(145deg,#10253d,#0d1e32)] px-6 py-10 text-center transition hover:border-cyan-200/40" onClick={() => setIsFlipped((visible) => !visible)} type="button">
+                    <span>
+                      <span className="block text-xs font-black tracking-[0.2em] text-cyan-200 uppercase">{isFlipped ? "Bagside" : "Forside"}</span>
+                      <span className={`mt-5 block text-3xl font-black leading-tight sm:text-5xl ${printableTextClassName}`}>{isFlipped ? flashCard.back : flashCard.front}</span>
+                      <span className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-cyan-100">{isFlipped ? <EyeOff aria-hidden="true" className="h-4 w-4" /> : <Eye aria-hidden="true" className="h-4 w-4" />} Tryk for at vende kortet</span>
+                    </span>
+                  </button>
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-slate-300">Vælg efter kortet: Kort du vil øve igen, kommer bagerst i denne runde.</p>
+                    <div className="flex flex-wrap gap-3">
+                      <button className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-amber-200/40 bg-amber-100/10 px-4 py-2 text-sm font-black text-amber-50 transition hover:bg-amber-100/18" onClick={() => rateFlashCard("again")} type="button"><RotateCcw aria-hidden="true" className="h-4 w-4" /> Øv igen</button>
+                      <button className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-300 px-4 py-2 text-sm font-black text-slate-950 transition hover:bg-emerald-200" onClick={() => rateFlashCard("known")} type="button"><Check aria-hidden="true" className="h-4 w-4" /> Kan</button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="mt-4 rounded-3xl border border-emerald-300/25 bg-emerald-300/12 px-6 py-10 text-center">
+                  <CheckCircle2 aria-hidden="true" className="mx-auto h-8 w-8 text-emerald-200" />
+                  <h2 className="mt-4 text-2xl font-black text-emerald-50">Alle kort er rundet af</h2>
+                  <p className="mt-2 text-sm leading-6 text-emerald-100">Dine valg bliver kun brugt i denne browser og bliver ikke gemt.</p>
+                  <button className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-cyan-200 px-4 py-2 text-sm font-black text-slate-950 transition hover:bg-cyan-100" onClick={restartFlashRound} type="button"><RotateCcw aria-hidden="true" className="h-4 w-4" /> Start runden igen</button>
+                </div>
+              )}
             </div>
           ) : null}
 
@@ -296,7 +341,7 @@ export default function OevekortPublicShareClient() {
               <div className="flex items-center justify-between gap-3 text-xs font-black tracking-[0.16em] text-cyan-200 uppercase"><span>Skriv svaret</span><span>{cardIndex + 1} / {sharedSet.cards.length}</span></div>
               <div className="mt-4 rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-7">
                 <p className="text-xs font-black tracking-[0.18em] text-cyan-200 uppercase">Spørgsmål</p>
-                <p className="mt-4 whitespace-pre-wrap text-2xl font-black leading-tight sm:text-3xl">{currentCard.front}</p>
+                <p className={`mt-4 text-2xl font-black leading-tight sm:text-3xl ${printableTextClassName}`}>{currentCard.front}</p>
                 <form className="mt-7" onSubmit={(event) => { event.preventDefault(); checkWrittenAnswer(); }}>
                   <label className="text-sm font-bold text-slate-200" htmlFor="oevekort-answer">Dit svar</label>
                   <input autoComplete="off" className="mt-2 min-h-12 w-full rounded-xl border border-white/15 bg-slate-950/65 px-4 py-3 text-base text-white outline-none placeholder:text-slate-500 focus:border-cyan-200 focus:ring-4 focus:ring-cyan-300/15" id="oevekort-answer" onChange={(event) => { setWrittenAnswer(event.target.value); setAnswerResult(null); }} placeholder="Skriv dit svar" value={writtenAnswer} />
@@ -330,7 +375,7 @@ export default function OevekortPublicShareClient() {
                       type="button"
                     >
                       <span className="block text-[0.65rem] tracking-[0.14em] opacity-70 uppercase">{tile.side === "front" ? "Forside" : "Bagside"}</span>
-                      <span className="mt-1 block whitespace-pre-wrap">{tile.label}</span>
+                      <span className={`mt-1 block ${printableTextClassName}`}>{tile.label}</span>
                     </button>
                   );
                 })}
@@ -342,21 +387,31 @@ export default function OevekortPublicShareClient() {
           {activity === "board" ? (
             <div>
               <div className="flex items-center justify-between gap-3 text-xs font-black tracking-[0.16em] text-cyan-200 uppercase"><span>Tavlekort</span><span>{cardIndex + 1} / {sharedSet.cards.length}</span></div>
-              <div className="mt-4 flex min-h-80 items-center justify-center rounded-3xl border border-cyan-200/18 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.18),transparent_45%),linear-gradient(145deg,#10253d,#0d1e32)] px-6 py-10 text-center"><div><p className="text-xs font-black tracking-[0.2em] text-cyan-200 uppercase">{isFlipped ? "Svar" : "Spørgsmål"}</p><p className="mt-5 whitespace-pre-wrap text-3xl font-black leading-tight sm:text-5xl">{isFlipped ? currentCard.back : currentCard.front}</p></div></div>
+              <div className="mt-4 flex min-h-80 items-center justify-center rounded-3xl border border-cyan-200/18 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.18),transparent_45%),linear-gradient(145deg,#10253d,#0d1e32)] px-6 py-10 text-center"><div><p className="text-xs font-black tracking-[0.2em] text-cyan-200 uppercase">{isFlipped ? "Svar" : "Spørgsmål"}</p><p className={`mt-5 text-3xl font-black leading-tight sm:text-5xl ${printableTextClassName}`}>{isFlipped ? currentCard.back : currentCard.front}</p></div></div>
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3"><button className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-white/7 px-4 py-2 text-sm font-bold text-slate-100 transition hover:bg-white/12" onClick={() => goToCard(cardIndex - 1)} type="button"><ChevronLeft aria-hidden="true" className="h-4 w-4" /> Forrige</button><button className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-cyan-200 px-5 py-2 text-sm font-black text-slate-950 transition hover:bg-cyan-100" onClick={() => setIsFlipped((visible) => !visible)} type="button">{isFlipped ? <EyeOff aria-hidden="true" className="h-4 w-4" /> : <Eye aria-hidden="true" className="h-4 w-4" />} {isFlipped ? "Skjul svar" : "Vis svar"}</button><button className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-white/7 px-4 py-2 text-sm font-bold text-slate-100 transition hover:bg-white/12" onClick={() => goToCard(cardIndex + 1)} type="button">Næste <ChevronRight aria-hidden="true" className="h-4 w-4" /></button></div>
             </div>
           ) : null}
-        </section>
+        </section> : (
+          <section className="mt-5 rounded-[2rem] border border-white/10 bg-slate-900/92 p-6 text-center shadow-[0_24px_72px_rgba(2,8,23,0.26)] print:hidden sm:p-9" aria-labelledby="oevekort-start-heading">
+            <Layers3 aria-hidden="true" className="mx-auto h-9 w-9 rounded-2xl bg-cyan-200/12 p-2 text-cyan-100" />
+            <p className="mt-5 text-xs font-black tracking-[0.18em] text-cyan-200 uppercase">Klar til at øve?</p>
+            <h2 className="mt-2 text-2xl font-black text-white sm:text-3xl" id="oevekort-start-heading">Start, når du er klar</h2>
+            <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-slate-300">Du kan øve med kort, match, skriftlige svar eller en enkel tavlevisning. Intet bliver gemt eller sendt tilbage til din lærer.</p>
+            <button className="mt-6 inline-flex min-h-12 items-center gap-2 rounded-xl bg-cyan-200 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-cyan-100" onClick={startPractice} type="button">
+              <Layers3 aria-hidden="true" className="h-4 w-4" /> Start øvelsen
+            </button>
+          </section>
+        )}
 
         <section className="hidden print:block print:text-slate-950">
           <p className="text-xs font-black tracking-[0.16em] text-slate-500 uppercase">SkoleGPS Øvekort</p>
-          <h1 className="mt-1 text-2xl font-black">{sharedSet.title}</h1>
+          <h1 className={`mt-1 text-2xl font-black ${printableTextClassName}`}>{sharedSet.title}</h1>
           <div className="mt-5 grid grid-cols-2 gap-3">
             {sharedSet.cards.map((card, index) => (
               <article key={card.id} className="break-inside-avoid border border-slate-300 p-4">
                 <p className="text-xs font-black tracking-[0.14em] text-slate-500 uppercase">Kort {index + 1}</p>
-                <div className="mt-3 border-b border-slate-200 pb-3"><p className="text-xs font-bold text-slate-500 uppercase">Forside</p><p className="mt-1 whitespace-pre-wrap font-black">{card.front}</p></div>
-                <div className="pt-3"><p className="text-xs font-bold text-slate-500 uppercase">Bagside</p><p className="mt-1 whitespace-pre-wrap font-semibold">{card.back}</p></div>
+                <div className="mt-3 border-b border-slate-200 pb-3"><p className="text-xs font-bold text-slate-500 uppercase">Forside</p><p className={`mt-1 font-black ${printableTextClassName}`}>{card.front}</p></div>
+                <div className="pt-3"><p className="text-xs font-bold text-slate-500 uppercase">Bagside</p><p className={`mt-1 font-semibold ${printableTextClassName}`}>{card.back}</p></div>
               </article>
             ))}
           </div>

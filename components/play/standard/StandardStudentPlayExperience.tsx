@@ -51,6 +51,26 @@ function StandardProgress({
   );
 }
 
+function ConfirmedQuizCelebration() {
+  return (
+    <div
+      aria-hidden="true"
+      data-testid="standard-play-confirmed-quiz-celebration"
+      className="pointer-events-none absolute right-4 top-4 z-10 h-16 w-16 sm:right-5 sm:top-5"
+    >
+      <span
+        data-testid="standard-play-confirmed-quiz-celebration-pulse"
+        className="absolute inset-1 rounded-full bg-amber-200/45 animate-ping [animation-duration:700ms] [animation-iteration-count:1] motion-reduce:animate-none"
+      />
+      <span className="absolute inset-2 flex items-center justify-center rounded-full bg-emerald-950/92 text-amber-200 shadow-lg">
+        <CheckCircle2 className="h-7 w-7" />
+      </span>
+      <span className="absolute -left-1 top-1 text-lg font-black text-amber-200">✦</span>
+      <span className="absolute -right-1 bottom-1 text-sm font-black text-emerald-100">✦</span>
+    </div>
+  );
+}
+
 export default function StandardStudentPlayExperience({
   ui,
   actions,
@@ -126,18 +146,36 @@ export default function StandardStudentPlayExperience({
     !showQuestion &&
     Boolean(activeQuestion) &&
     (gpsOverrideEnabled || dismissedPostIndex === currentPostIndex);
+  const hasAuthoritativeQuizSuccess =
+    hasActiveQuizSuccess &&
+    activeQuizAnswerFeedback !== null &&
+    activeQuizAnswerFeedback.tone === "success" &&
+    activeQuizAnswerFeedback.key === activeTypedAnswerKey &&
+    studentSubmission.status === "confirmed" &&
+    studentSubmission.serverConfirmed;
+  const hasQuizAwaitingAuthoritativeConfirmation =
+    hasActiveQuizSuccess &&
+    !hasAuthoritativeQuizSuccess &&
+    (studentSubmission.status === "queued_offline" ||
+      studentSubmission.status === "awaiting_confirmation");
+  const hasUnconfirmedQuizSubmissionStatus =
+    hasActiveQuizSuccess &&
+    !hasAuthoritativeQuizSuccess &&
+    (studentSubmission.status === "submitting" ||
+      studentSubmission.status === "retryable_error" ||
+      studentSubmission.status === "rejected" ||
+      studentSubmission.status === "session_closed");
   const canContinueConfirmedPost =
     !showQuestion &&
     Boolean(activeQuestion) &&
-    hasActiveQuizSuccess &&
+    hasAuthoritativeQuizSuccess &&
     progress.answeredPostIndexes.includes(currentPostIndex) &&
-    studentSubmission.status === "confirmed" &&
-    studentSubmission.serverConfirmed &&
     !isAnswerSubmissionPending &&
     pendingAnswerCount === 0 &&
     !isClosing &&
     !flags.isSessionPaused &&
     !activePostActionError;
+  const hasConfirmedQuizCelebration = hasAuthoritativeQuizSuccess;
   const skipConfirmOpen = skipConfirmKey === activeTypedAnswerKey;
 
   return (
@@ -311,13 +349,14 @@ export default function StandardStudentPlayExperience({
                 />
               </div>
 
-              {hasActiveQuizSuccess ? (
+              {hasAuthoritativeQuizSuccess ? (
                 <div
                   role="status"
                   aria-live="polite"
                   data-testid="standard-play-answer-success"
-                  className="mt-5 rounded-[1.5rem] border border-emerald-200/40 bg-emerald-400 p-5 text-slate-950"
+                  className="relative mt-5 rounded-[1.5rem] border border-emerald-200/40 bg-emerald-400 p-5 text-slate-950"
                 >
+                  {hasConfirmedQuizCelebration ? <ConfirmedQuizCelebration /> : null}
                   <div className="flex items-center gap-3">
                     <CheckCircle2 aria-hidden="true" className="h-7 w-7 shrink-0" />
                     <div>
@@ -333,7 +372,24 @@ export default function StandardStudentPlayExperience({
                     {progress.correctAnswersCount < totalQuestions ? "Gå til næste post" : "Se resultat"}
                   </button>
                 </div>
-              ) : isCurrentPostAnswered || activeQuizPostBurned ? (
+              ) : hasQuizAwaitingAuthoritativeConfirmation ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  data-testid="standard-play-answer-awaiting-confirmation"
+                  className="mt-5 rounded-[1.5rem] border border-sky-200/30 bg-sky-500/12 p-5 text-sky-50"
+                >
+                  <div className="flex items-start gap-3">
+                    <CloudOff aria-hidden="true" className="mt-0.5 h-6 w-6 shrink-0" />
+                    <div>
+                      <p className="text-lg font-black">Svaret venter på bekræftelse</p>
+                      <p className="mt-1 text-sm font-semibold leading-relaxed text-sky-100/90">
+                        Vi viser resultatet, når serveren har bekræftet svaret.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : hasUnconfirmedQuizSubmissionStatus ? null : isCurrentPostAnswered || activeQuizPostBurned ? (
                 <div className="mt-5 rounded-2xl border border-white/12 bg-white/5 px-4 py-4 text-sm font-semibold text-white/80">
                   Besvaret. Nu går turen videre.
                 </div>

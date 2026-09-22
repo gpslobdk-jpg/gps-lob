@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 
+import { useModalFocusTrap } from "@/components/ui/useModalFocusTrap";
+
 type Item = {
   id: string;
   file_path: string;
@@ -107,6 +109,14 @@ export default function LibraryClient({ items: initialItems }: { items: Item[] }
   const [isLoading, setIsLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const closeUploadDialog = () => {
+    if (isLoading) return;
+    setOpen(false);
+  };
+  const uploadDialogRef = useModalFocusTrap<HTMLDivElement>({
+    open,
+    onClose: closeUploadDialog,
+  });
 
   const filtered = selectedCategory ? items.filter((i) => i.category === selectedCategory) : items;
 
@@ -156,7 +166,7 @@ export default function LibraryClient({ items: initialItems }: { items: Item[] }
       setItems((prev) => [newItem, ...prev]);
       setOpen(false);
       setSelectedFile(null);
-    } catch (err) {
+    } catch {
       setErrorMsg("Netværksfejl. Prøv igen.");
     } finally {
       setIsLoading(false);
@@ -203,7 +213,7 @@ export default function LibraryClient({ items: initialItems }: { items: Item[] }
         </div>
 
         {filtered.length === 0 ? (
-          <p className="mt-4 text-sm text-white/70">Ingen PDF'er fundet for denne kategori. Prøv at uploade en eller vælg en anden kategori.</p>
+          <p className="mt-4 text-sm text-white/70">Ingen PDF&apos;er fundet for denne kategori. Prøv at uploade en eller vælg en anden kategori.</p>
         ) : (
           <div className="mt-6 flex gap-6 overflow-x-auto py-6">
             {filtered.map((it) => (
@@ -251,17 +261,33 @@ export default function LibraryClient({ items: initialItems }: { items: Item[] }
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
-          <div role="dialog" aria-modal="true" className="relative w-full max-w-md rounded-[1rem] border p-6 bg-white/6">
+          <button
+            type="button"
+            aria-label="Luk uploaddialog"
+            className="absolute inset-0"
+            disabled={isLoading}
+            onClick={closeUploadDialog}
+            tabIndex={-1}
+          />
+          <div
+            aria-labelledby="stjerneloeb-library-upload-title"
+            aria-modal="true"
+            className="skolegps-teacher-dialog relative w-full max-w-md rounded-[1rem] border p-6 bg-white/6"
+            ref={uploadDialogRef}
+            role="dialog"
+            tabIndex={-1}
+          >
             <button
               type="button"
               aria-label="Luk"
-              onClick={() => setOpen(false)}
+              onClick={closeUploadDialog}
               className="absolute top-4 right-4 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/12 bg-white/8 text-white/90"
+              disabled={isLoading}
             >
               ×
             </button>
 
-            <h2 className="text-lg font-bold">Upload PDF</h2>
+            <h2 id="stjerneloeb-library-upload-title" className="text-lg font-bold">Upload PDF</h2>
             <p className="mt-2 text-sm text-white/80">Vælg en Canva-exporteret PDF. AI genererer automatisk en kort titel.</p>
 
             <div className="mt-4 space-y-3">
@@ -293,7 +319,7 @@ export default function LibraryClient({ items: initialItems }: { items: Item[] }
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={closeUploadDialog}
                 className="rounded-full border border-white/12 bg-white/8 px-4 py-2 text-sm font-medium text-white/90"
                 disabled={isLoading}
               >

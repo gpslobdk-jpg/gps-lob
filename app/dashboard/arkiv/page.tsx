@@ -8,6 +8,7 @@ import { poppins, rubik } from "@/lib/fonts";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { Switch } from "@/components/ui/switch";
+import { useModalFocusTrap } from "@/components/ui/useModalFocusTrap";
 import RunExecutionShareModal from "@/components/archive/RunExecutionShareModal";
 import { isRunExecutionSharingEnabled } from "@/lib/runExecutionShare";
 import { formatGradeLevelBadge, normalizeGradeLevels } from "@/utils/gradeLevels";
@@ -816,6 +817,10 @@ export default function ArkivPage() {
     setScheduleStart("");
     setScheduleEnd("");
   };
+  const scheduleDialogRef = useModalFocusTrap<HTMLDivElement>({
+    open: Boolean(scheduleRun),
+    onClose: closeScheduleModal,
+  });
 
   const handleCopyScheduleAccess = async () => {
     if (!scheduleSharePin && !scheduleShareLink) return;
@@ -1138,14 +1143,20 @@ export default function ArkivPage() {
               aria-label="Luk tidsstyring"
               onClick={closeScheduleModal}
               className="absolute inset-0 bg-slate-950/45"
+              tabIndex={-1}
             />
 
             <motion.div
+              aria-labelledby="archive-schedule-title"
+              aria-modal="true"
               initial={{ opacity: 0, scale: 0.96, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.98, y: 8 }}
               transition={{ duration: 0.2 }}
-              className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-sky-100 bg-white p-6 text-slate-950 shadow-[0_32px_80px_rgba(7,26,58,0.22)]"
+              className="skolegps-teacher-dialog relative w-full max-w-lg overflow-hidden rounded-3xl border border-sky-100 bg-white p-6 text-slate-950 shadow-[0_32px_80px_rgba(7,26,58,0.22)]"
+              ref={scheduleDialogRef}
+              role="dialog"
+              tabIndex={-1}
             >
               <div>
                 <div className="-mx-6 -mt-6 mb-6 flex items-start justify-between gap-4 border-b border-sky-100 bg-sky-50 px-6 py-5">
@@ -1153,7 +1164,7 @@ export default function ArkivPage() {
                     <p className="text-xs font-semibold tracking-[0.18em] text-sky-800 uppercase">
                       Tidsstyring
                     </p>
-                    <h2 className={`mt-3 line-clamp-2 break-words text-2xl font-black text-[var(--skolegps-deep-navy)] ${rubik.className}`}>
+                    <h2 id="archive-schedule-title" className={`mt-3 line-clamp-2 break-words text-2xl font-black text-[var(--skolegps-deep-navy)] ${rubik.className}`}>
                       {scheduleRun.title}
                     </h2>
                     <p className="mt-3 max-w-md text-sm leading-6 text-slate-600">

@@ -170,6 +170,33 @@ body {
   outline-offset: 3px;
 }
 
+/* Shared chrome for routes that still use the proven compact top navigation.
+   It intentionally does not opt those pages into the portal sidebar, because
+   builders, live maps and print surfaces own their horizontal layout. */
+.skolegps-teacher-workspace-header {
+  border-bottom-color: rgba(151, 196, 228, 0.78);
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.97), rgba(239, 248, 255, 0.94)),
+    url("/brand/heroes/teacher-outdoor-route.webp") right center / auto 13rem no-repeat;
+  box-shadow: 0 10px 30px rgba(25, 83, 129, 0.08);
+}
+
+.skolegps-teacher-workspace-nav {
+  border-color: rgba(151, 196, 228, 0.68);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.skolegps-teacher-dialog-backdrop {
+  background: rgba(7, 26, 58, 0.64);
+  backdrop-filter: blur(5px);
+}
+
+.skolegps-teacher-dialog:focus-visible,
+.skolegps-teacher-dialog :focus-visible {
+  outline: 3px solid var(--skolegps-teacher-focus);
+  outline-offset: 3px;
+}
+
 /* The teacher portal is deliberately opt-in. Builders, live surfaces, print and
    student pages keep their existing layout and behavioural contracts. */
 .skolegps-teacher-portal {
@@ -497,7 +524,8 @@ body {
   .skolegps-teacher-portal .skolegps-adventure-card,
   .skolegps-teacher-portal .skolegps-teacher-primary-action,
   .skolegps-teacher-portal .skolegps-teacher-secondary-action,
-  .skolegps-teacher-portal .skolegps-teacher-portal-nav-link {
+  .skolegps-teacher-portal .skolegps-teacher-portal-nav-link,
+  .skolegps-teacher-workspace-header {
     transition-duration: 0.01ms;
   }
 

@@ -18,7 +18,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { DASHBOARD_QUICK_GUIDE_EVENT } from "@/components/DashboardQuickGuide";
+import {
+  DASHBOARD_QUICK_GUIDE_EVENT,
+  DASHBOARD_QUICK_GUIDE_SEEN_KEY,
+  DASHBOARD_QUICK_GUIDE_VISIBILITY_EVENT,
+} from "@/components/DashboardQuickGuide";
 import Mascot from "@/components/brand/Mascot";
 import MascotMessage from "@/components/brand/MascotMessage";
 import { TeacherToolCard } from "@/components/dashboard/TeacherToolCard";
@@ -26,6 +30,11 @@ import { TeacherToolsModal } from "@/components/dashboard/TeacherToolsModal";
 import { readStoredActiveParticipant } from "@/components/play/playUtils";
 import { poppins } from "@/lib/fonts";
 import { TEACHER_TOOL_FACEBOOK_GROUP_LINK } from "@/lib/teacherTools/community";
+import {
+  markCommunityInviteAlreadyMember,
+  shouldAutoShowCommunityInvite,
+  snoozeCommunityInvite,
+} from "@/lib/teacherTools/communityPreference";
 import {
   type ActiveTeacherTool,
   type TeacherTool,
@@ -92,6 +101,14 @@ function getTeacherDisplayName(metadata: unknown) {
 
   const firstName = candidate.trim().split(/\s+/)[0];
   return firstName ? firstName.slice(0, 80) : null;
+}
+
+function hasCompletedDashboardQuickGuide() {
+  try {
+    return window.localStorage.getItem(DASHBOARD_QUICK_GUIDE_SEEN_KEY) === "true";
+  } catch {
+    return false;
+  }
 }
 
 function TeacherToolLink({
@@ -192,6 +209,7 @@ export default function DashboardHomeClient({ tools }: DashboardHomeClientProps)
   const [teacherId, setTeacherId] = useState<string | null>(null);
   const [recentTools, setRecentTools] = useState<RecentToolEntry[]>([]);
   const [toolSearch, setToolSearch] = useState("");
+  const [shouldAutoOpenCommunityInvite, setShouldAutoOpenCommunityInvite] = useState(false);
 
   const activeTools = useMemo(
     () => tools.filter((tool): tool is ActiveTeacherTool => tool.status === "active"),
@@ -236,6 +254,7 @@ export default function DashboardHomeClient({ tools }: DashboardHomeClientProps)
             setTeacherId(null);
             setTeacherName(null);
             setRecentTools([]);
+            setShouldAutoOpenCommunityInvite(false);
           }
           return;
         }
@@ -314,6 +333,34 @@ export default function DashboardHomeClient({ tools }: DashboardHomeClientProps)
     };
   }, [dashboardRetryKey]);
 
+  useEffect(() => {
+    const syncQuickGuideVisibility = (event?: Event) => {
+      const isActive = event instanceof CustomEvent && typeof event.detail === "boolean"
+        ? event.detail
+        : document.documentElement.dataset.dashboardQuickGuide === "active";
+      if (isActive) setShouldAutoOpenCommunityInvite(false);
+    };
+
+    syncQuickGuideVisibility();
+    window.addEventListener(DASHBOARD_QUICK_GUIDE_VISIBILITY_EVENT, syncQuickGuideVisibility);
+    return () => window.removeEventListener(DASHBOARD_QUICK_GUIDE_VISIBILITY_EVENT, syncQuickGuideVisibility);
+  }, []);
+
+  useEffect(() => {
+    if (
+      isCheckingLiveSession ||
+      !teacherId ||
+      resumeTarget !== null ||
+      document.documentElement.dataset.dashboardQuickGuide === "active" ||
+      !hasCompletedDashboardQuickGuide()
+    ) {
+      setShouldAutoOpenCommunityInvite(false);
+      return;
+    }
+
+    setShouldAutoOpenCommunityInvite(shouldAutoShowCommunityInvite(teacherId));
+  }, [isCheckingLiveSession, resumeTarget, teacherId]);
+
   const recordToolOpen = (toolId: TeacherToolId) => {
     if (!teacherId) return;
     const openedAt = Date.now();
@@ -326,6 +373,16 @@ export default function DashboardHomeClient({ tools }: DashboardHomeClientProps)
       }
       return next;
     });
+  };
+
+  const handleCommunityInviteSnooze = () => {
+    if (teacherId) snoozeCommunityInvite(teacherId);
+    setShouldAutoOpenCommunityInvite(false);
+  };
+
+  const handleCommunityInviteAlreadyMember = () => {
+    if (teacherId) markCommunityInviteAlreadyMember(teacherId);
+    setShouldAutoOpenCommunityInvite(false);
   };
 
   const hasResumeTarget = Boolean(resumeTarget?.sessionId);
@@ -471,6 +528,11 @@ export default function DashboardHomeClient({ tools }: DashboardHomeClientProps)
                 <p className="mt-1 max-w-xl text-sm leading-6 text-slate-600">Åbn det, du skal bruge lige nu.</p>
               </div>
               <TeacherToolsModal
+                communityInvite={{
+                  autoOpen: shouldAutoOpenCommunityInvite,
+                  onAlreadyMember: handleCommunityInviteAlreadyMember,
+                  onSnooze: handleCommunityInviteSnooze,
+                }}
                 description="Åbn et værktøj, når det passer til din undervisning."
                 onToolNavigate={(tool) => recordToolOpen(tool.id)}
                 title="Opdag flere værktøjer i SkoleGPS"

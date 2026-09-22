@@ -3,6 +3,7 @@
 import { Check, Copy, Link2, Loader2, ShieldCheck, Unlink, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { useModalFocusTrap } from "@/components/ui/useModalFocusTrap";
 import {
   buildRunExecutionShareLink,
   isSupportedRunExecutionShareRaceType,
@@ -63,6 +64,7 @@ export default function RunExecutionShareModal({
   const [isCreating, setIsCreating] = useState(false);
   const [isRevoking, setIsRevoking] = useState(false);
   const [didCopy, setDidCopy] = useState(false);
+  const dialogRef = useModalFocusTrap<HTMLElement>({ open: true, onClose });
 
   useEffect(() => {
     if (!supported) return;
@@ -171,6 +173,7 @@ export default function RunExecutionShareModal({
         type="button"
         aria-label="Luk deling"
         onClick={onClose}
+        tabIndex={-1}
         className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
       />
 
@@ -178,7 +181,9 @@ export default function RunExecutionShareModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="run-execution-share-title"
-        className="relative max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-[2rem] border border-white/12 bg-slate-950 p-6 text-white shadow-[0_32px_90px_rgba(2,8,23,0.6)] sm:p-8"
+        className="skolegps-teacher-dialog relative max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-[2rem] border border-white/12 bg-slate-950 p-6 text-white shadow-[0_32px_90px_rgba(2,8,23,0.6)] sm:p-8"
+        ref={dialogRef}
+        tabIndex={-1}
       >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.18),transparent_38%)]" />
 

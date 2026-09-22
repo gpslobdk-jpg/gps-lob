@@ -184,6 +184,12 @@ export default function DashboardHeader() {
   }, [isMobileNavigationOpen]);
 
   const handleLogUd = async () => {
+    const beforeDashboardLeave = new CustomEvent("skolegps:before-dashboard-leave", {
+      cancelable: true,
+    });
+    window.dispatchEvent(beforeDashboardLeave);
+    if (beforeDashboardLeave.defaultPrevented) return;
+
     setIsSigningOut(true);
     setSignOutError(false);
 
@@ -283,7 +289,10 @@ export default function DashboardHeader() {
   }
 
   return (
-    <header className="border-b border-sky-100 bg-white/86 shadow-sm backdrop-blur-xl">
+    <header
+      className="skolegps-teacher-workspace-header border-b border-sky-100 bg-white/86 shadow-sm backdrop-blur-xl"
+      data-teacher-chrome="workspace"
+    >
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-8">
         <div className="flex items-center justify-between gap-3">
           <BrandLink />
@@ -299,7 +308,7 @@ export default function DashboardHeader() {
         </div>
 
         <div className="flex items-center justify-between gap-3">
-          <nav className="flex flex-wrap items-center gap-2 rounded-full border border-sky-100 bg-white/75 p-1 shadow-sm">
+          <nav className="skolegps-teacher-workspace-nav flex flex-wrap items-center gap-2 rounded-full border border-sky-100 bg-white/75 p-1 shadow-sm">
             {legacyNavLinks.map((link) => {
               const Icon = link.icon;
               const active = link.isActive(pathname);

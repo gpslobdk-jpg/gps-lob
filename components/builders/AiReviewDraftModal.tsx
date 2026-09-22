@@ -1,6 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
+
+import { useModalFocusTrap } from "@/components/ui/useModalFocusTrap";
 
 type Tone = "emerald" | "rose" | "amber" | "indigo" | "sky";
 
@@ -104,18 +106,40 @@ export default function AiReviewDraftModal({
 }: Props) {
   const theme = toneClassMap[tone];
   const detailGridClass = detailItems.length > 1 ? "sm:grid-cols-2" : "";
+  const titleId = useId();
+  const descriptionId = useId();
+  const dialogRef = useModalFocusTrap<HTMLDivElement>({
+    open: true,
+    onClose: onCancel,
+  });
 
   return (
-    <div className="fixed inset-0 z-1350 overflow-y-auto bg-slate-950/75 px-6 py-10 backdrop-blur-md print:hidden">
-      <div className="flex min-h-full items-start justify-center sm:items-center">
+    <div
+      className="skolegps-teacher-dialog-backdrop fixed inset-0 z-1350 overflow-y-auto px-6 py-10 print:hidden"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
+    >
+      <div
+        className="flex min-h-full items-start justify-center sm:items-center"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) onCancel();
+        }}
+      >
         <div
-          className={`w-full max-w-3xl rounded-4xl border bg-slate-950/92 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:p-8 ${theme.frame}`}
+          aria-describedby={descriptionId}
+          aria-labelledby={titleId}
+          aria-modal="true"
+          className={`skolegps-teacher-dialog w-full max-w-3xl rounded-4xl border bg-slate-950/92 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:p-8 ${theme.frame}`}
+          ref={dialogRef}
+          role="dialog"
+          tabIndex={-1}
         >
           <p className={`text-xs font-semibold uppercase tracking-[0.28em] ${theme.eyebrow}`}>{eyebrow}</p>
-          <h2 className={`mt-3 text-3xl font-black tracking-tight ${theme.heading} ${headingClassName}`}>
+          <h2 id={titleId} className={`mt-3 text-3xl font-black tracking-tight ${theme.heading} ${headingClassName}`}>
             {title}
           </h2>
-          <p className={`mt-4 text-sm leading-6 sm:text-base ${theme.body}`}>{description}</p>
+          <p id={descriptionId} className={`mt-4 text-sm leading-6 sm:text-base ${theme.body}`}>{description}</p>
 
           {warning ? (
             <div className="mt-6 rounded-[1.6rem] border border-amber-300/25 bg-amber-400/10 px-5 py-4 text-sm font-semibold text-amber-50">

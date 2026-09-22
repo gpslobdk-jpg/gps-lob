@@ -33,10 +33,91 @@ export type OevekortSetSummary = {
   updatedAt: string;
 };
 
+export type OevekortPublicSet = Pick<OevekortSet, "cards" | "title">;
+
 export type OevekortApiError = {
   error?: string;
   errors?: Array<{ field?: string; message?: string }>;
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+/**
+ * API responses are runtime data, even when the server and client share TypeScript
+ * types. These guards keep a partial or stale response from reaching an editor,
+ * board, printout, or learner activity where a property dereference would fail.
+ */
+export function isOevekortCard(value: unknown): value is OevekortCard {
+  if (!isRecord(value)) return false;
+
+  return (
+    isNonEmptyString(value.id) &&
+    isNonEmptyString(value.front) &&
+    isNonEmptyString(value.back) &&
+    Array.isArray(value.acceptedAnswers) &&
+    value.acceptedAnswers.every((answer) => typeof answer === "string")
+  );
+}
+
+export function isOevekortPublicSet(value: unknown): value is OevekortPublicSet {
+  if (!isRecord(value)) return false;
+
+  return (
+    isNonEmptyString(value.title) &&
+    Array.isArray(value.cards) &&
+    value.cards.length > 0 &&
+    value.cards.every(isOevekortCard)
+  );
+}
+
+export function isOevekortSet(value: unknown): value is OevekortSet {
+  if (!isOevekortPublicSet(value) || !isRecord(value)) return false;
+  const candidate = value as Record<string, unknown>;
+
+  return (
+    isNonEmptyString(candidate.id) &&
+    typeof candidate.createdAt === "string" &&
+    typeof candidate.updatedAt === "string"
+  );
+}
+
+export function isOevekortShareStatus(
+  value: unknown,
+): value is OevekortShareStatus {
+  if (!isRecord(value)) return false;
+
+  return (
+    isNonEmptyString(value.id) &&
+    typeof value.createdAt === "string" &&
+    (typeof value.expiresAt === "string" || value.expiresAt === null) &&
+    typeof value.active === "boolean"
+  );
+}
+
+export function isOevekortSetSummary(
+  value: unknown,
+): value is OevekortSetSummary {
+  if (!isRecord(value) || !isRecord(value.share)) return false;
+
+  return (
+    isNonEmptyString(value.id) &&
+    isNonEmptyString(value.title) &&
+    typeof value.cardCount === "number" &&
+    Number.isFinite(value.cardCount) &&
+    value.cardCount >= 0 &&
+    typeof value.createdAt === "string" &&
+    typeof value.updatedAt === "string" &&
+    typeof value.share.active === "boolean" &&
+    (typeof value.share.createdAt === "string" || value.share.createdAt === null) &&
+    (typeof value.share.expiresAt === "string" || value.share.expiresAt === null)
+  );
+}
 
 export async function readOevekortResponse<T>(
   input: RequestInfo | URL,

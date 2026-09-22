@@ -48,6 +48,41 @@ test("den nye presentation tilføjer ingen haptik, lydmotor eller animation libr
   expect(standardExperienceSource).not.toMatch(/lottie|framer-motion|AudioContext/i);
 });
 
+test("den lokale quizfejring kræver korrekt nøgle og serverbekræftet svar", () => {
+  expect(standardExperienceSource).toMatch(
+    /activeQuizAnswerFeedback !== null[\s\S]*activeQuizAnswerFeedback\.tone === "success"[\s\S]*activeQuizAnswerFeedback\.key === activeTypedAnswerKey[\s\S]*studentSubmission\.status === "confirmed"[\s\S]*studentSubmission\.serverConfirmed/,
+  );
+  expect(standardExperienceSource).toContain(
+    'data-testid="standard-play-confirmed-quiz-celebration"',
+  );
+  expect(standardExperienceSource).toContain("pointer-events-none");
+  expect(standardExperienceSource).toContain("motion-reduce:animate-none");
+});
+
+test("korrekt-ordlyd og fortsættelse kræver samme autoritative quizsucces", () => {
+  expect(standardExperienceSource).toMatch(
+    /const hasAuthoritativeQuizSuccess =[\s\S]*activeQuizAnswerFeedback\.key === activeTypedAnswerKey[\s\S]*studentSubmission\.status === "confirmed"[\s\S]*studentSubmission\.serverConfirmed/,
+  );
+  expect(standardExperienceSource).toMatch(
+    /\{hasAuthoritativeQuizSuccess \?[\s\S]*data-testid="standard-play-answer-success"[\s\S]*Korrekt! Du får point\./,
+  );
+  expect(standardExperienceSource).toMatch(
+    /hasQuizAwaitingAuthoritativeConfirmation[\s\S]*data-testid="standard-play-answer-awaiting-confirmation"[\s\S]*Svaret venter på bekræftelse/,
+  );
+});
+
+test("neutral afventer-besked er kun til reelt ventende svar og skjuler ikke fejlstatus", () => {
+  expect(standardExperienceSource).toMatch(
+    /hasQuizAwaitingAuthoritativeConfirmation =[\s\S]*studentSubmission\.status === "queued_offline"[\s\S]*studentSubmission\.status === "awaiting_confirmation"/,
+  );
+  expect(standardExperienceSource).toMatch(
+    /hasUnconfirmedQuizSubmissionStatus =[\s\S]*"retryable_error"[\s\S]*"rejected"[\s\S]*"session_closed"/,
+  );
+  expect(standardExperienceSource).toMatch(
+    /hasUnconfirmedQuizSubmissionStatus \? null : isCurrentPostAnswered \|\| activeQuizPostBurned/,
+  );
+});
+
 test("quiz handlinger går fortsat gennem eksisterende PlayActions", () => {
   expect(standardExperienceSource).toContain("actions.submitQuizAnswer(index)");
   expect(standardExperienceSource).toContain("actions.continueFromSolvedPost()");

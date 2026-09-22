@@ -45,6 +45,48 @@ export type OevekortImportResult =
     }
   | { ok: false; errors: OevekortValidationError[] };
 
+export type OevekortFlashRating = "known" | "again";
+
+/**
+ * Keeps editor ordering local until the regular set save occurs. The helper is
+ * deliberately generic so it never adds UI-only data to a persisted card.
+ */
+export function moveOevekortItem<T>(
+  items: readonly T[],
+  fromIndex: number,
+  toIndex: number
+) {
+  if (
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= items.length ||
+    toIndex >= items.length ||
+    fromIndex === toIndex
+  ) {
+    return [...items];
+  }
+
+  const nextItems = [...items];
+  const [item] = nextItems.splice(fromIndex, 1);
+  if (item === undefined) return nextItems;
+  nextItems.splice(toIndex, 0, item);
+  return nextItems;
+}
+
+/**
+ * Advances the private, in-browser flashcard queue. "Again" moves the
+ * current card to the end; no learner choice or queue is persisted or sent.
+ */
+export function advanceOevekortFlashQueue(
+  cardIds: readonly string[],
+  rating: OevekortFlashRating
+) {
+  if (!cardIds.length) return [];
+  if (rating === "known") return cardIds.slice(1);
+  if (cardIds.length === 1) return [...cardIds];
+  return [...cardIds.slice(1), cardIds[0]!];
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

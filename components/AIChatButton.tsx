@@ -121,6 +121,10 @@ export default function AIChatButton() {
   const isOevekortSurface =
     pathname === "/oevekort/del" ||
     pathname.startsWith("/dashboard/laerervaerktoejer/oevekort");
+  const isOperationalTeacherSurface =
+    pathname.startsWith("/dashboard/live/") ||
+    pathname.startsWith("/dashboard/resultater/") ||
+    pathname.startsWith("/dashboard/print/");
   const isCompactLauncher = pathname.startsWith("/dashboard");
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   const quickActions = useMemo(() => getQuickActions(pathname), [pathname]);
@@ -211,6 +215,7 @@ export default function AIChatButton() {
     isHiddenPathname ||
     isCalmDashboardSurface ||
     isOevekortSurface ||
+    isOperationalTeacherSurface ||
     isDashboardQuickGuideActive
   ) {
     return null;
