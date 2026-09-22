@@ -221,9 +221,6 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
 
   test("Facebook-invitationen respekterer snooze, medlemsvalg og manuel åbning", async ({ page }) => {
     await setupDashboardContext(page.context(), { communityInvite: "none" });
-    await page.addInitScript(() => {
-      window.localStorage.setItem("skolegps.dashboard-quick-guide.v1.seen", "true");
-    });
 
     const preferenceKey = getCommunityInviteStorageKey(FAKE_USER.id);
     const beforeDismiss = Date.now();
@@ -278,20 +275,37 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
       activeSession: true,
       communityInvite: "none",
     });
-    await page.addInitScript(() => {
-      window.localStorage.setItem("skolegps.dashboard-quick-guide.v1.seen", "true");
-    });
 
     await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("button", { name: /Fortsæt løbet/i })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 
+  test("en manuelt lukket værktøjsoversigt opretter ikke en Facebook-snooze", async ({ page }) => {
+    await setupDashboardContext(page.context(), {
+      activeSession: true,
+      communityInvite: "none",
+    });
+    const preferenceKey = getCommunityInviteStorageKey(FAKE_USER.id);
+
+    await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+    const manualTrigger = page.getByRole("button", { name: "Se alle værktøjer" });
+    await expect(manualTrigger).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    await manualTrigger.click();
+    await expect(page.getByRole("dialog")).toContainText("Er du med i SkoleGPS.dk på Facebook?");
+    await page.keyboard.press("Escape");
+    await expect(manualTrigger).toBeFocused();
+    await expect.poll(() => page.evaluate((key) => window.localStorage.getItem(key), preferenceKey)).toBeNull();
+  });
+
   test("førstegangsmodal vises én gang og kan åbnes manuelt igen", async ({ page }) => {
     await setupDashboardContext(page.context());
     await page.addInitScript(() => {
       if (window.sessionStorage.getItem("dashboard-guide-test-ready") !== "true") {
-        window.localStorage.clear();
+        window.localStorage.removeItem("skolegps.dashboard-quick-guide.v1.seen");
+        window.localStorage.removeItem("skolegps.dashboard-quick-guide.v1.step");
         window.sessionStorage.setItem("dashboard-guide-test-ready", "true");
       }
     });
@@ -319,7 +333,8 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     await setupDashboardContext(page.context());
     await page.addInitScript(() => {
       if (window.sessionStorage.getItem("dashboard-guide-close-test-ready") !== "true") {
-        window.localStorage.clear();
+        window.localStorage.removeItem("skolegps.dashboard-quick-guide.v1.seen");
+        window.localStorage.removeItem("skolegps.dashboard-quick-guide.v1.step");
         window.sessionStorage.setItem("dashboard-guide-close-test-ready", "true");
       }
     });
@@ -381,7 +396,8 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     await setupDashboardContext(page.context());
     await page.addInitScript(() => {
       if (window.sessionStorage.getItem("dashboard-guide-test-ready") !== "true") {
-        window.localStorage.clear();
+        window.localStorage.removeItem("skolegps.dashboard-quick-guide.v1.seen");
+        window.localStorage.removeItem("skolegps.dashboard-quick-guide.v1.step");
         window.sessionStorage.setItem("dashboard-guide-test-ready", "true");
       }
     });
@@ -419,7 +435,8 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     await setupDashboardContext(page.context());
     await page.addInitScript(() => {
       if (window.sessionStorage.getItem("dashboard-guide-navigation-test-ready") !== "true") {
-        window.localStorage.clear();
+        window.localStorage.removeItem("skolegps.dashboard-quick-guide.v1.seen");
+        window.localStorage.removeItem("skolegps.dashboard-quick-guide.v1.step");
         window.sessionStorage.setItem("dashboard-guide-navigation-test-ready", "true");
       }
     });
@@ -490,7 +507,8 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
     await setupDashboardContext(page.context());
     await page.addInitScript(() => {
       if (window.sessionStorage.getItem("dashboard-guide-mobile-test-ready") !== "true") {
-        window.localStorage.clear();
+        window.localStorage.removeItem("skolegps.dashboard-quick-guide.v1.seen");
+        window.localStorage.removeItem("skolegps.dashboard-quick-guide.v1.step");
         window.sessionStorage.setItem("dashboard-guide-mobile-test-ready", "true");
       }
     });

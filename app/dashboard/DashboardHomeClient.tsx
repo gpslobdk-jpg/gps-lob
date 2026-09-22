@@ -20,7 +20,6 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import {
   DASHBOARD_QUICK_GUIDE_EVENT,
-  DASHBOARD_QUICK_GUIDE_SEEN_KEY,
   DASHBOARD_QUICK_GUIDE_VISIBILITY_EVENT,
 } from "@/components/DashboardQuickGuide";
 import Mascot from "@/components/brand/Mascot";
@@ -101,14 +100,6 @@ function getTeacherDisplayName(metadata: unknown) {
 
   const firstName = candidate.trim().split(/\s+/)[0];
   return firstName ? firstName.slice(0, 80) : null;
-}
-
-function hasCompletedDashboardQuickGuide() {
-  try {
-    return window.localStorage.getItem(DASHBOARD_QUICK_GUIDE_SEEN_KEY) === "true";
-  } catch {
-    return false;
-  }
 }
 
 function TeacherToolLink({
@@ -351,8 +342,7 @@ export default function DashboardHomeClient({ tools }: DashboardHomeClientProps)
       isCheckingLiveSession ||
       !teacherId ||
       resumeTarget !== null ||
-      document.documentElement.dataset.dashboardQuickGuide === "active" ||
-      !hasCompletedDashboardQuickGuide()
+      document.documentElement.dataset.dashboardQuickGuide === "active"
     ) {
       setShouldAutoOpenCommunityInvite(false);
       return;

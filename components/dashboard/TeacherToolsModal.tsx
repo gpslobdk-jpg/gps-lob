@@ -48,11 +48,18 @@ export function TeacherToolsModal({
   const isAutomaticallyOpen = Boolean(communityInvite?.autoOpen && !hasConsumedAutoOpen);
   const isOpen = isManuallyOpen || isAutomaticallyOpen;
 
-  const close = useCallback((reason: "dismiss" | "member" | "navigate" = "dismiss") => {
+  const close = useCallback((reason: "dismiss" | "snooze" | "member" | "navigate" = "dismiss") => {
+    const wasAutomaticallyOpen = isAutomaticallyOpen;
     setIsManuallyOpen(false);
-    if (communityInvite?.autoOpen) setHasConsumedAutoOpen(true);
-    if (reason === "dismiss") communityInvite?.onSnooze?.();
-  }, [communityInvite]);
+    if (wasAutomaticallyOpen) setHasConsumedAutoOpen(true);
+
+    // A close control merely closes the manually opened tool overview. Only a
+    // deliberate “Ikke nu” choice—or dismissing an unsolicited auto-popup—
+    // should hide the invitation for the next 30 days.
+    if (reason === "snooze" || (reason === "dismiss" && wasAutomaticallyOpen)) {
+      communityInvite?.onSnooze?.();
+    }
+  }, [communityInvite, isAutomaticallyOpen]);
 
   const open = useCallback(() => {
     setIsManuallyOpen(true);
@@ -160,7 +167,7 @@ export function TeacherToolsModal({
                   </button>
                   <button
                     className="inline-flex min-h-11 items-center justify-center rounded-full px-5 py-3 text-sm font-bold text-sky-800 transition hover:bg-sky-50"
-                    onClick={() => close("dismiss")}
+                    onClick={() => close("snooze")}
                     type="button"
                   >
                     Ikke nu
