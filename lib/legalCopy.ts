@@ -174,7 +174,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
             { label: "Supabase", text: "database, login, Storage og backend" },
             { label: "Vercel", text: "webhosting og begrænset webanalyse" },
             { label: "Sentry", text: "redigeret teknisk fejlovervågning" },
-            { label: "OpenAI", text: "frivillige lærerrettede AI-funktioner; må ikke modtage elevdata" },
+            { label: "OpenAI", text: "frivillige AI-funktioner, herunder Pilen; må ikke modtage elevdata" },
             { label: "Stripe", text: "kun betalingsbehandling, hvis et betalingsflow senere aktiveres" },
           ],
         },
@@ -210,7 +210,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         email: "skolegpsdk@gmail.com",
         emailLabel: "Kontakt",
       },
-      updatedAt: "Senest opdateret: 5. september 2026.",
+      updatedAt: "Senest opdateret: 22. september 2026.",
     },
     privacy: {
       metadata: {
@@ -262,12 +262,13 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
             "Den aktuelle GPS-position sendes under et aktivt løb og overskrives løbende. Afstanden beregnes i elevens browser. Positionen skjules for alle efter 15 minutters inaktivitet og nulstilles fysisk ved næste femminutters oprydning, normalt senest efter cirka 20 minutter. Afslutning og forladelse nulstiller straks, hvor det er muligt. Standardflowet opbygger ikke en særskilt rutehistorik.",
             "Fotoopgaver må kun bruges til ting, steder og andre ikke-personhenførbare motiver. Genkendelige personer, fortrolige oplysninger og særlige kategorier må ikke fotograferes eller uploades.",
             "Lærerrettede AI-funktioner er frivillige og må ikke få elevdata, elevfotos, lokation, særlige kategorier eller fortroligt materiale. Der er ikke en teknisk garanti, som kan genkende alt personindhold; læreren skal derfor kontrollere materialet før afsendelse.",
+            "Pilen er en frivillig offentlig AI-hjælper om SkoleGPS. Når du skriver til Pilen, sendes din tekst og den korte samtalehistorik til OpenAI for at danne et svar. Skriv ikke elevoplysninger, løbskoder, adgangsoplysninger, GPS-positioner eller fortroligt materiale. SkoleGPS gemmer ikke samtalens tekst i egen database; en pseudonymiseret teknisk tæller bruges til at begrænse misbrug.",
           ],
         },
         {
           title: "6. Modtagere og underleverandører",
           paragraphs: [
-            "SkoleGPS bruger leverandører til database, autentifikation og Storage (Supabase), hosting og webanalyse (Vercel) samt fejlmonitorering (Sentry). Lærerens frivillige funktioner kan desuden bruge OpenAI og eksterne kort- eller indholdstjenester. Betaling via Stripe er kun relevant, hvis et betalingsflow aktiveres.",
+            "SkoleGPS bruger leverandører til database, autentifikation og Storage (Supabase), hosting og webanalyse (Vercel) samt fejlmonitorering (Sentry). Frivillige AI-funktioner, herunder Pilen, bruger OpenAI; lærerfunktioner kan desuden bruge eksterne kort- eller indholdstjenester. Betaling via Stripe er kun relevant, hvis et betalingsflow aktiveres.",
             "Bugsnag findes som betinget integration i kodebasen, men er ikke godkendt som aktiv leverandør for kommunens personoplysninger i standardaftale version 1.2. Vi sælger ikke personoplysninger og viser ikke reklamer i platformen.",
           ],
         },
@@ -319,7 +320,7 @@ const legalCopies: Record<SiteVariantKey, LegalCopy> = {
         email: "skolegpsdk@gmail.com",
         emailLabel: "Skriv til",
       },
-      updatedAt: "Senest opdateret: 5. september 2026.",
+      updatedAt: "Senest opdateret: 22. september 2026.",
     },
     ophavsret: {
       metadata: {

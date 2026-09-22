@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { DASHBOARD_QUICK_GUIDE_VISIBILITY_EVENT } from "@/components/DashboardQuickGuide";
+import Mascot from "@/components/brand/Mascot";
 
 type QuickAction = {
   id: string;
@@ -15,6 +16,26 @@ type QuickAction = {
 };
 
 const QUICK_ACTIONS: readonly QuickAction[] = [
+  {
+    id: "gps",
+    label: "Hvordan laver jeg et GPS-løb?",
+    prompt: "Hvordan opretter og starter jeg et GPS-løb med min klasse?",
+  },
+  {
+    id: "skak",
+    label: "Hvad kan jeg bruge Skak til?",
+    prompt: "Hvordan bruger jeg Skak som lærerværktøj i SkoleGPS?",
+  },
+  {
+    id: "kildegps",
+    label: "Hvor finder jeg KildeGPS?",
+    prompt: "Hvad er KildeGPS, og hvor åbner jeg det?",
+  },
+  {
+    id: "oevekort",
+    label: "Hvordan bruger jeg Øvekort?",
+    prompt: "Hvordan opretter og bruger jeg Øvekort?",
+  },
   {
     id: "stratego",
     label: "Vis mig, hvordan Live Stratego fungerer",
@@ -53,6 +74,9 @@ const QUICK_ACTIONS: readonly QuickAction[] = [
 ] as const;
 
 const getWelcomeMessage = (pathname: string) => {
+  if (pathname === "/") {
+    return "Hej, jeg er Pilen. Spørg mig om GPS-løb, Skak, Øvekort og de andre lærerværktøjer. Jeg hjælper dig med næste skridt.";
+  }
   if (pathname.includes("/opret/stratego")) {
     return "Jeg kan hjælpe dig med Live Stratego: radar, hemmelige roller, fredszoner, kontrolrum og hvornår det er det stærkeste valg.";
   }
@@ -73,7 +97,7 @@ const getWelcomeMessage = (pathname: string) => {
     return "Jeg kan hjælpe dig med Generel Quiz: ideer, temaer, multiple-choice poster og et skarpt klassisk løb.";
   }
 
-  return "Jeg kan guide dig gennem SkoleGPS og hjælpe dig med at vælge den rigtige løbstype, oprette idéer og komme hurtigt videre.";
+  return "Hej, jeg er Pilen. Jeg kan hjælpe dig med SkoleGPS, fra GPS-løb til Skak, KildeGPS og andre lærerværktøjer.";
 };
 
 const PAGE_CONTEXT_MESSAGE_ID = "gpslob-page-context";
@@ -81,7 +105,32 @@ const PAGE_CONTEXT_MESSAGE_ID = "gpslob-page-context";
 const extractMessageText = (message: UIMessage) =>
   message.parts.filter(isTextUIPart).map((part) => part.text).join("").trim();
 
+const prepareAssistantMessages = (messages: UIMessage[]) => {
+  const recent = messages
+    .filter((message) =>
+      message.id !== PAGE_CONTEXT_MESSAGE_ID &&
+      (message.role === "user" || message.role === "assistant") &&
+      extractMessageText(message).length > 0
+    )
+    .slice(-6);
+
+  // The API accepts a small rolling window beginning with a user question.
+  while (recent.length > 0 && recent[0]?.role !== "user") recent.shift();
+
+  return recent.map((message) => ({
+    id: message.id,
+    role: message.role,
+    parts: [{ type: "text" as const, text: extractMessageText(message).slice(0, 1_500) }],
+  }));
+};
+
 const getQuickActions = (pathname: string) => {
+  if (pathname === "/") {
+    return ["gps", "skak", "kildegps", "oevekort"]
+      .map((id) => QUICK_ACTIONS.find((action) => action.id === id))
+      .filter((action): action is QuickAction => Boolean(action));
+  }
+
   let prioritizedIds: string[] = [
     "stratego",
     "zone-krig",
@@ -111,11 +160,12 @@ const getQuickActions = (pathname: string) => {
 
 const HIDDEN_PATHNAMES = ["/opret/zone-krig"];
 
-export default function AIChatButton() {
+export default function AIChatButton({ variant = "dashboard" }: { variant?: "dashboard" | "homepage" }) {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [isDashboardQuickGuideActive, setIsDashboardQuickGuideActive] = useState(false);
   const pathname = usePathname();
+  const isHomepage = variant === "homepage";
   const isHiddenPathname = HIDDEN_PATHNAMES.some((hidden) => pathname.includes(hidden));
   const isCalmDashboardSurface = pathname === "/dashboard" || pathname === "/dashboard/opret/valg";
   const isOevekortSurface =
@@ -127,6 +177,8 @@ export default function AIChatButton() {
     pathname.startsWith("/dashboard/print/");
   const isCompactLauncher = pathname.startsWith("/dashboard");
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const launcherRef = useRef<HTMLButtonElement | null>(null);
   const quickActions = useMemo(() => getQuickActions(pathname), [pathname]);
   const welcomeMessage = useMemo(() => getWelcomeMessage(pathname), [pathname]);
 
@@ -146,9 +198,7 @@ export default function AIChatButton() {
           headers,
           body: {
             ...(body ?? {}),
-            messages: messages.filter(
-              (message) => message.id !== PAGE_CONTEXT_MESSAGE_ID
-            ),
+            messages: prepareAssistantMessages(messages),
             pathname,
           },
         }),
@@ -162,19 +212,17 @@ export default function AIChatButton() {
   const isLoading = status === "submitted" || status === "streaming";
 
   useEffect(() => {
-    if (pathname !== "/") return;
-
-    const hasClosedGuide = window.sessionStorage.getItem("aiGuideClosed");
-    if (hasClosedGuide) return;
-
-    const frameId = window.requestAnimationFrame(() => {
-      setIsOpen(true);
-    });
-
-    return () => {
-      window.cancelAnimationFrame(frameId);
+    if (!isOpen) return;
+    inputRef.current?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+        launcherRef.current?.focus();
+      }
     };
-  }, [pathname]);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [isOpen]);
 
   useEffect(() => {
     const syncVisibility = (event?: Event) => {
@@ -206,17 +254,18 @@ export default function AIChatButton() {
     if (!isOpen) return;
 
     endOfMessagesRef.current?.scrollIntoView({
-      behavior: "smooth",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
       block: "end",
     });
   }, [isOpen, chatMessages, isLoading]);
 
   if (
-    isHiddenPathname ||
-    isCalmDashboardSurface ||
-    isOevekortSurface ||
-    isOperationalTeacherSurface ||
-    isDashboardQuickGuideActive
+    (isHomepage && pathname !== "/") ||
+    (!isHomepage && isHiddenPathname) ||
+    (!isHomepage && isCalmDashboardSurface) ||
+    (!isHomepage && isOevekortSurface) ||
+    (!isHomepage && isOperationalTeacherSurface) ||
+    (!isHomepage && isDashboardQuickGuideActive)
   ) {
     return null;
   }
@@ -241,7 +290,7 @@ export default function AIChatButton() {
 
   const handleClose = () => {
     setIsOpen(false);
-    window.sessionStorage.setItem("aiGuideClosed", "true");
+    launcherRef.current?.focus();
   };
 
   const handleToggle = () => {
@@ -256,13 +305,17 @@ export default function AIChatButton() {
   return (
     <>
       <div
-        className="global-ai-chat-button pointer-events-none fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-1200 flex items-end sm:right-6 sm:bottom-6"
-        style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
+        className={isHomepage
+          ? "global-ai-chat-button pointer-events-none absolute right-0 top-2 z-40 hidden items-start lg:flex"
+          : "global-ai-chat-button pointer-events-none fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-1200 flex items-end sm:right-6 sm:bottom-6"}
+        style={isHomepage ? undefined : { top: "max(0.75rem, env(safe-area-inset-top))" }}
       >
         <div className="pointer-events-auto flex max-h-full min-h-0 flex-col items-end gap-3">
           {isOpen ? (
             <section
-              className="relative isolate flex max-h-full min-h-0 w-[min(22.5rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-[1.75rem] border border-emerald-500/15 bg-linear-to-b from-white/96 to-emerald-50/88 px-4 pb-4 shadow-[0_24px_80px_rgba(15,23,42,0.16)] backdrop-blur-xl"
+              role="dialog"
+              aria-label="Pilen, SkoleGPS-hjælp"
+              className={`${isHomepage ? "fixed right-4 bottom-4 z-1200 max-h-[calc(100vh-2rem)] sm:right-6 sm:bottom-6" : "relative max-h-full"} isolate flex min-h-0 w-[min(22.5rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-[1.75rem] border border-emerald-500/15 bg-linear-to-b from-white/96 to-emerald-50/88 px-4 pb-4 shadow-[0_24px_80px_rgba(15,23,42,0.16)] backdrop-blur-xl`}
               style={{
                 animation: "aiChatReveal 260ms cubic-bezier(0.16, 1, 0.3, 1)",
                 paddingTop: "max(1rem, calc(env(safe-area-inset-top) + 0.25rem))",
@@ -276,19 +329,13 @@ export default function AIChatButton() {
               <div className="relative flex min-h-0 flex-1 flex-col">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-2.5">
-                    <Image
-                      src="/brand/logo/skolegps-arrow-mark.svg"
-                      alt={"SkoleGPS"}
-                      width={28}
-                      height={28}
-                      className="mt-0.5 h-5 w-auto opacity-90"
-                    />
+                    <Mascot size="xs" variant="head-only" decorative className="h-10 w-10" />
                     <div>
                       <p className="text-[10px] font-medium uppercase tracking-[0.3em] text-emerald-700/55">
                         SkoleGPS.dk
                       </p>
                       <p className="mt-1 text-sm font-medium tracking-[0.04em] text-slate-800">
-                        SkoleGPS-assistent
+                        Pilen · AI-hjælp
                       </p>
                     </div>
                   </div>
@@ -320,7 +367,7 @@ export default function AIChatButton() {
                         className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                       >
                         <div
-                          className={`max-w-[90%] rounded-[1.35rem] px-3.5 py-3 text-[13px] leading-[1.65] tracking-[0.01em] ${
+                          className={`max-w-[90%] whitespace-pre-wrap break-words rounded-[1.35rem] px-3.5 py-3 text-[13px] leading-[1.65] tracking-[0.01em] ${
                             isUser
                               ? "border border-emerald-950/10 bg-[#0f3d2e] text-emerald-50 shadow-[0_12px_32px_rgba(6,78,59,0.18)]"
                               : "border border-emerald-500/12 bg-linear-to-b from-white to-emerald-50/65 text-[#0f3d2e]/88 shadow-[0_8px_30px_rgba(15,23,42,0.05)]"
@@ -356,9 +403,12 @@ export default function AIChatButton() {
 
                 <form onSubmit={handleSubmit} className="mt-4 flex gap-2">
                   <input
+                    ref={inputRef}
                     value={input}
                     onChange={(event) => setInput(event.target.value)}
-                    placeholder={"Skriv dit spørgsmål..."}
+                    aria-label="Spørg Pilen"
+                    maxLength={500}
+                    placeholder="Skriv dit spørgsmål..."
                     disabled={isLoading}
                     className="w-full rounded-[1.25rem] border border-emerald-500/12 bg-white/92 px-3.5 py-3 text-sm tracking-[0.01em] text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-emerald-500/30 focus:ring-2 focus:ring-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-60"
                   />
@@ -372,9 +422,9 @@ export default function AIChatButton() {
                 </form>
 
                 <div className="mt-2 space-y-1 text-[11px] tracking-[0.01em] text-slate-400">
-                  <div>{"Automatiske svar kan indeholde fejl. Kontrollér altid vigtige oplysninger."}</div>
+                  <div>AI-svar kan tage fejl. Skriv ikke elevoplysninger, løbskoder eller præcis placering.</div>
                   <div>
-                    {"Oplever du tekniske problemer? Skriv til "}
+                    Har du brug for hjælp eller idéer til SkoleGPS og nye undersider? Skriv til{" "}
                     <a
                       href="mailto:skolegpsdk@gmail.com"
                       className="break-all underline transition-colors hover:text-emerald-600"
@@ -386,7 +436,7 @@ export default function AIChatButton() {
 
                 <div className="mt-4 border-t border-emerald-500/10 pt-3.5">
                   <p className="mb-1.5 px-0.5 text-[10px] uppercase tracking-[0.24em] text-emerald-800/45">
-                    Quick Actions
+                    Spørg for eksempel
                   </p>
                   <div className="flex flex-col items-start gap-0.5">
                     {quickActions.map((action) => (
@@ -412,27 +462,54 @@ export default function AIChatButton() {
             </section>
           ) : null}
 
-          <button
-            type="button"
-            onClick={handleToggle}
-            aria-expanded={isOpen}
-            aria-label={"Åbn SkoleGPS-assistent"}
-            className={`inline-flex items-center rounded-full border border-emerald-500/20 bg-slate-950/84 text-emerald-50 shadow-[0_18px_45px_rgba(15,23,42,0.18)] backdrop-blur-md transition-[transform,box-shadow,border-color,background-color] duration-300 hover:-translate-y-0.5 hover:border-emerald-400/35 hover:bg-slate-950/92 hover:shadow-[0_20px_50px_rgba(6,78,59,0.24)] ${
-              isCompactLauncher ? "h-12 w-12 justify-center p-0" : "gap-2.5 px-3 py-2"
-            }`}
-          >
-            <Image
-              src="/brand/logo/skolegps-arrow-mark.svg"
-              alt={"SkoleGPS"}
-              width={32}
-              height={32}
-              className={`${isCompactLauncher ? "h-6" : "h-5.5"} w-auto opacity-90`}
-            />
-            <span className={`${isCompactLauncher ? "hidden" : "inline-flex"} h-2 w-2 rounded-full bg-emerald-400/85`} />
-            <span className={isCompactLauncher ? "sr-only" : "text-sm font-medium tracking-[0.04em] text-emerald-50"}>
-              SkoleGPS-assistent
-            </span>
-          </button>
+          {isHomepage ? (
+            <div className="w-80 rounded-[2rem] border border-white/80 bg-white/86 p-4 shadow-[0_18px_44px_rgba(7,26,58,0.12)] backdrop-blur">
+              <button
+                ref={launcherRef}
+                type="button"
+                onClick={handleToggle}
+                aria-expanded={isOpen}
+                aria-label="Åbn Pilen, SkoleGPS-hjælp"
+                className="group flex w-full items-center gap-3 rounded-2xl text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-700"
+              >
+                <Mascot variant="wave" size="md" priority className="-ml-2" />
+                <span className="min-w-0">
+                  <span className="block text-xs font-black uppercase tracking-[0.14em] text-sky-700">Hej, jeg er Pilen</span>
+                  <span className="mt-1 block text-xl font-black leading-tight text-[var(--skolegps-deep-navy)] group-hover:text-sky-700">Jeg kan hjælpe</span>
+                  <span className="mt-2 block text-xs font-semibold leading-5 text-slate-600">Spørg om GPS-løb, Skak og lærerværktøjer.</span>
+                </span>
+              </button>
+              <a
+                href="mailto:skolegpsdk@gmail.com?subject=Hj%C3%A6lp%20eller%20id%C3%A9%20til%20SkoleGPS"
+                className="mt-2 block border-t border-sky-100 pt-3 text-xs font-bold text-sky-800 underline decoration-sky-200 underline-offset-4 hover:text-sky-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+              >
+                Skriv til skolegpsdk@gmail.com for hjælp eller idéer
+              </a>
+            </div>
+          ) : (
+            <button
+              ref={launcherRef}
+              type="button"
+              onClick={handleToggle}
+              aria-expanded={isOpen}
+              aria-label="Åbn SkoleGPS-assistent"
+              className={`inline-flex items-center rounded-full border border-emerald-500/20 bg-slate-950/84 text-emerald-50 shadow-[0_18px_45px_rgba(15,23,42,0.18)] backdrop-blur-md transition-[transform,box-shadow,border-color,background-color] duration-300 hover:-translate-y-0.5 hover:border-emerald-400/35 hover:bg-slate-950/92 hover:shadow-[0_20px_50px_rgba(6,78,59,0.24)] ${
+                isCompactLauncher ? "h-12 w-12 justify-center p-0" : "gap-2.5 px-3 py-2"
+              }`}
+            >
+              <Image
+                src="/brand/logo/skolegps-arrow-mark.svg"
+                alt="SkoleGPS"
+                width={32}
+                height={32}
+                className={`${isCompactLauncher ? "h-6" : "h-5.5"} w-auto opacity-90`}
+              />
+              <span className={`${isCompactLauncher ? "hidden" : "inline-flex"} h-2 w-2 rounded-full bg-emerald-400/85`} />
+              <span className={isCompactLauncher ? "sr-only" : "text-sm font-medium tracking-[0.04em] text-emerald-50"}>
+                SkoleGPS-assistent
+              </span>
+            </button>
+          )}
         </div>
       </div>
 

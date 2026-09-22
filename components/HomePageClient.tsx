@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import Mascot from "@/components/brand/Mascot";
+import AIChatButton from "@/components/AIChatButton";
 import RoutePath from "@/components/brand/RoutePath";
 import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
 import QRScannerModal from "@/components/QRScannerModal";
@@ -589,11 +589,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
 
           <div className="relative hidden min-h-[19rem] lg:block">
             <RoutePath className="absolute left-[-10%] top-28 h-24 w-[125%] opacity-50" />
-            {!isPostlob ? (
-              <div className="absolute right-4 top-9 rounded-3xl border border-white/70 bg-white/76 p-5 shadow-sm backdrop-blur">
-                <Mascot variant="wave" size="md" priority className="mx-auto" />
-              </div>
-            ) : null}
+            {!isPostlob ? <AIChatButton variant="homepage" /> : null}
           </div>
         </section>
 
@@ -637,27 +633,6 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
               className="shrink-0 text-sm font-black text-white underline decoration-sky-200/80 underline-offset-4 transition hover:text-sky-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
             >
               Manden bag SkoleGPS →
-            </Link>
-          </section>
-        ) : null}
-
-        {!isPostlob ? (
-          <section
-            data-testid="home-upcoming-tools"
-            aria-label="Nye værktøjer på vej"
-            className="mt-4 flex flex-col gap-3 rounded-2xl border border-sky-300 bg-[linear-gradient(135deg,rgba(224,242,254,0.94),rgba(240,249,255,0.94))] px-5 py-4 shadow-[0_10px_28px_rgba(14,116,144,0.12)] backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6"
-          >
-            <div>
-              <p className="text-xs font-black tracking-[0.16em] text-sky-800 uppercase">På vej</p>
-              <p className="mt-1 text-sm font-bold text-slate-800">
-                FondsGPS og SkoleGPS Music Studio er to nye værktøjer undervejs.
-              </p>
-            </div>
-            <Link
-              href="/opdateringer"
-              className="shrink-0 text-sm font-black text-sky-800 underline decoration-sky-300 underline-offset-4 transition hover:text-sky-950 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-800"
-            >
-              Læs mere →
             </Link>
           </section>
         ) : null}
