@@ -157,10 +157,10 @@ async function dismissMaintenanceOverlay(page: Page) {
 async function openJoinPage(page: Page, cameraMode: CameraMode) {
   await installCameraMock(page, cameraMode);
   await mockNonJoinRequests(page);
-  await page.context().grantPermissions(["camera"], {
-    origin: "http://localhost:3000",
-  });
   await page.goto("/join", { waitUntil: "domcontentloaded" });
+  await page.context().grantPermissions(["camera"], {
+    origin: new URL(page.url()).origin,
+  });
   await dismissMaintenanceOverlay(page);
 
   const scanButton = page.getByRole("button", { name: "Scan QR-kode" });
@@ -290,7 +290,10 @@ test.describe("production /join QR scanner", () => {
     const scanButton = await openJoinPage(page, "pending");
     await scanButton.click();
     await startScanner(page);
-    await sendQrValue(page, `http://localhost:3000/join?pin=${VALID_CODE}`);
+    await sendQrValue(
+      page,
+      new URL(`/join?pin=${VALID_CODE}`, page.url()).toString(),
+    );
 
     await expect(page.locator("#join-name")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText(RUN_TITLE, { exact: true }).first()).toBeVisible();
@@ -336,7 +339,7 @@ test.describe("production /join QR scanner", () => {
     await startScanner(page);
     await sendQrValue(
       page,
-      "http://localhost:3000/find-bedrageren/join",
+      new URL("/find-bedrageren/join", page.url()).toString(),
     );
 
     await page.waitForURL("**/find-bedrageren/join", { timeout: 10_000 });

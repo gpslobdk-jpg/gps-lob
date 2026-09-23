@@ -120,19 +120,24 @@ test.describe("student PWA install promotion", () => {
     await page.waitForTimeout(1_200);
     await expect(page.getByTestId(PWA_PROMOTION)).toHaveCount(0);
   });
+
+  test("a direct QR join never lets installation cover the first code flow", async ({ page }) => {
+    await page.goto("/join?pin=ABC123", { waitUntil: "domcontentloaded" });
+    await triggerInstallPrompt(page);
+    await page.waitForTimeout(1_200);
+
+    await expect(page.getByTestId(PWA_PROMOTION)).toHaveCount(0);
+    await expect(page.getByTestId("student-experience-build-info")).toBeVisible();
+  });
 });
 
-test.describe("PWA launch experience", () => {
-  test("standalone launch runs once per app session and not on later navigation", async ({ page }) => {
+test.describe("PWA start experience", () => {
+  test("standalone launch never puts a forced intro over join", async ({ page }) => {
     await installStandaloneMode(page);
     await page.goto("/join", { waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId(PWA_LAUNCH)).toBeVisible({ timeout: 2_000 });
-    await expect(page.getByTestId(PWA_LAUNCH)).toHaveAttribute("data-motion", "full");
-    await expect(page.getByTestId(PWA_LAUNCH)).toBeHidden({ timeout: 3_000 });
-
-    await page.goto("/", { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(250);
+    await page.waitForTimeout(1_400);
     await expect(page.getByTestId(PWA_LAUNCH)).toHaveCount(0);
+    await expect(page.getByTestId("join-start-actions")).toBeVisible();
   });
 
   test("normal browser mode has no forced launch intro", async ({ page }) => {
@@ -141,16 +146,12 @@ test.describe("PWA launch experience", () => {
     await expect(page.getByTestId(PWA_LAUNCH)).toHaveCount(0);
   });
 
-  test("reduced motion uses the short static launch variant", async ({ page }) => {
+  test("reduced motion still has no launch takeover", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await installStandaloneMode(page);
     await page.goto("/join", { waitUntil: "domcontentloaded" });
-    const launch = page.getByTestId(PWA_LAUNCH);
-    await expect.poll(() => page.evaluate(() => window.sessionStorage.getItem("skolegps.pwa.launch-shown.v1"))).toBe("reduced");
-    if (await launch.count()) {
-      await expect(launch).toHaveAttribute("data-motion", "reduced");
-      await expect(launch.locator("svg")).toBeHidden();
-    }
-    await expect(launch).toBeHidden({ timeout: 1_500 });
+    await page.waitForTimeout(500);
+    await expect(page.getByTestId(PWA_LAUNCH)).toHaveCount(0);
+    await expect(page.getByTestId("join-start-actions")).toBeVisible();
   });
 });

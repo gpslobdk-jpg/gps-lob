@@ -16,9 +16,7 @@ import {
   ArrowLeft,
   ArrowRight,
   KeyRound,
-  Leaf,
   Loader2,
-  Navigation,
   Play,
   Timer,
   User,
@@ -30,6 +28,7 @@ import {
 } from "@/utils/runSchedule";
 import { captureAppMessage, leaveAppBreadcrumb } from "@/utils/observability";
 import QRScannerModal from "@/components/QRScannerModal";
+import Mascot from "@/components/brand/Mascot";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 import { getSiteCopy } from "@/lib/siteCopy";
 import {
@@ -60,6 +59,13 @@ import {
 
 type JoinView = "form" | "waiting" | "scheduled" | "expired" | "scheduleError";
 type JoinStep = "start" | "code" | "name";
+const JOIN_FLOW_ACTIVE_EVENT = "skolegps:join-flow-active";
+
+function notifyJoinFlowActive() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(JOIN_FLOW_ACTIVE_EVENT));
+  }
+}
 
 type JoinLookupResponse =
   | {
@@ -227,9 +233,9 @@ function JoinMapBackdrop() {
             <path d="M 72 0 L 0 0 0 72" fill="none" stroke="rgba(148,163,184,0.07)" strokeWidth="1" />
           </pattern>
           <linearGradient id="join-route-line" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#34d399" stopOpacity="0.12" />
-            <stop offset="0.5" stopColor="#22d3ee" stopOpacity="0.42" />
-            <stop offset="1" stopColor="#34d399" stopOpacity="0.12" />
+            <stop offset="0" stopColor="#60a5fa" stopOpacity="0.12" />
+            <stop offset="0.5" stopColor="#38bdf8" stopOpacity="0.44" />
+            <stop offset="1" stopColor="#60a5fa" stopOpacity="0.12" />
           </linearGradient>
         </defs>
         <rect width="900" height="1200" fill="url(#join-map-grid)" />
@@ -244,16 +250,16 @@ function JoinMapBackdrop() {
         <path
           d="M-120 310 C110 410 220 250 390 330 C570 415 650 650 1010 610"
           fill="none"
-          stroke="rgba(52,211,153,0.09)"
+          stroke="rgba(96,165,250,0.13)"
           strokeWidth="2"
         />
         <g className="join-map-dot join-map-dot-one">
-          <circle cx="330" cy="620" r="18" fill="rgba(15,23,42,0.9)" stroke="#34d399" strokeWidth="4" />
-          <circle cx="330" cy="620" r="5" fill="#6ee7b7" />
+          <circle cx="330" cy="620" r="18" fill="rgba(7,31,91,0.9)" stroke="#60a5fa" strokeWidth="4" />
+          <circle cx="330" cy="620" r="5" fill="#bae6fd" />
         </g>
         <g className="join-map-dot join-map-dot-two">
-          <circle cx="760" cy="300" r="18" fill="rgba(15,23,42,0.9)" stroke="#22d3ee" strokeWidth="4" />
-          <circle cx="760" cy="300" r="5" fill="#67e8f9" />
+          <circle cx="760" cy="300" r="18" fill="rgba(7,31,91,0.9)" stroke="#38bdf8" strokeWidth="4" />
+          <circle cx="760" cy="300" r="5" fill="#e0f2fe" />
         </g>
       </svg>
       <style jsx>{`
@@ -316,6 +322,12 @@ function JoinForm() {
   const isStaggeredRace = raceType === "quiz" || raceType === "photo";
   const trimmedName = name.trim();
   const trimmedPin = normalizeJoinCode(pin);
+
+  useEffect(() => {
+    if (resumeParticipant) {
+      notifyJoinFlowActive();
+    }
+  }, [resumeParticipant]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -530,6 +542,7 @@ function JoinForm() {
   };
 
   const openCodeStep = () => {
+    notifyJoinFlowActive();
     setResumeParticipant(null);
     setError("");
     setStep("code");
@@ -537,6 +550,7 @@ function JoinForm() {
 
   const lookupJoinCode = useCallback(
     async (candidateCode: string) => {
+      notifyJoinFlowActive();
       const normalizedCode = normalizeJoinCode(candidateCode);
       setPin(normalizedCode);
       setError("");
@@ -975,26 +989,20 @@ function JoinForm() {
   if (view === "scheduled") {
     return (
       <div className="mx-auto flex min-h-screen w-full max-w-4xl items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
-        <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/20 bg-slate-900/60 p-5 text-white shadow-[0_36px_100px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:p-8">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.12),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_42%)]" />
+        <div className="relative w-full overflow-hidden rounded-[2rem] border border-sky-100/20 bg-[#071a45]/80 p-5 text-white shadow-[0_36px_100px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:p-8">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.25),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(96,165,250,0.14),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_42%)]" />
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/15" />
 
           <div className="relative">
-            <div className="mx-auto flex max-w-max items-center gap-3 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-[11px] font-bold tracking-[0.34em] text-emerald-300 uppercase shadow-[0_0_24px_rgba(16,185,129,0.16)]">
+            <div className="mx-auto flex max-w-max items-center gap-3 rounded-full border border-sky-400/25 bg-sky-400/10 px-4 py-2 text-[11px] font-bold tracking-[0.34em] text-sky-200 uppercase shadow-[0_0_24px_rgba(14,165,233,0.2)]">
               <Timer className="h-4 w-4" />
               {joinCopy.scheduled.eyebrow}
             </div>
 
             <div className="mt-8 text-center">
-              <div className="relative mx-auto flex h-28 w-28 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.24)]">
-                <div className="absolute inset-4 rounded-full border border-emerald-400/20" />
-                <div className="absolute inset-0 rounded-full border border-emerald-300/20 motion-safe:animate-pulse motion-reduce:animate-none" />
-                <div className="absolute h-px w-14 bg-emerald-300/35" />
-                <div className="absolute h-14 w-px bg-emerald-300/35" />
-                <Timer className="relative z-10 h-10 w-10 text-emerald-200" />
-              </div>
+              <Mascot size="lg" variant="thinking" priority className="mx-auto" />
 
-              <p className="mt-6 text-xs font-semibold tracking-[0.42em] text-emerald-300 uppercase">
+              <p className="mt-4 text-xs font-semibold tracking-[0.42em] text-sky-200 uppercase">
                 {joinCopy.scheduled.statusLabel}
               </p>
               <h1 className={`mt-4 text-3xl font-black text-white sm:text-5xl ${rubik.className}`}>
@@ -1021,13 +1029,13 @@ function JoinForm() {
               ) : null}
 
               {isStaggeredRace && typeof assignedStartOffset === "number" ? (
-                <p className="mx-auto mt-4 max-w-xs text-sm font-semibold text-emerald-200">
+                <p className="mx-auto mt-4 max-w-xs text-sm font-semibold text-sky-200">
                   Jeres første post er post {assignedStartOffset + 1}.
                 </p>
               ) : null}
 
               {runTitle ? (
-                <div className="mt-6 inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-emerald-50/90 backdrop-blur-md">
+                <div className="mt-6 inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-sky-50/90 backdrop-blur-md">
                   {runTitle}
                 </div>
               ) : null}
@@ -1035,19 +1043,19 @@ function JoinForm() {
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
               <div className="rounded-[1.7rem] border border-white/10 bg-white/5 p-5 text-left shadow-[0_18px_45px_rgba(15,23,42,0.28)] backdrop-blur-md">
-                <p className="text-xs font-semibold tracking-[0.26em] text-emerald-200/60 uppercase">
+                <p className="text-xs font-semibold tracking-[0.26em] text-sky-200/60 uppercase">
                   {joinCopy.scheduled.startWindowLabel}
                 </p>
                 <p className="mt-4 text-sm font-medium text-slate-300">
                   {scheduledDate ?? joinCopy.scheduled.unknownDate}
                 </p>
-                <p className="mt-3 font-mono text-4xl font-black tracking-[0.18em] text-emerald-300 sm:text-5xl">
+                <p className="mt-3 font-mono text-4xl font-black tracking-[0.18em] text-sky-300 sm:text-5xl">
                   {scheduledTime ?? joinCopy.scheduled.unknownTime}
                 </p>
               </div>
 
               <div className="rounded-[1.7rem] border border-white/10 bg-white/5 p-5 text-left shadow-[0_18px_45px_rgba(15,23,42,0.28)] backdrop-blur-md">
-                <p className="text-xs font-semibold tracking-[0.26em] text-emerald-200/60 uppercase">
+                <p className="text-xs font-semibold tracking-[0.26em] text-sky-200/60 uppercase">
                   {joinCopy.scheduled.endWindowLabel}
                 </p>
                 <p className="mt-4 text-sm font-medium text-slate-300">
@@ -1067,26 +1075,20 @@ function JoinForm() {
   if (view === "waiting") {
     return (
       <div className="mx-auto flex min-h-screen w-full max-w-3xl items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
-        <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/20 bg-slate-900/60 p-6 text-center text-white shadow-[0_36px_100px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:p-8">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.12),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_42%)]" />
+        <div className="relative w-full overflow-hidden rounded-[2rem] border border-sky-100/20 bg-[#071a45]/80 p-6 text-center text-white shadow-[0_36px_100px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:p-8">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.25),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(96,165,250,0.14),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_42%)]" />
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/15" />
 
           <div className="relative">
-            <div className="mx-auto flex max-w-max items-center gap-3 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-[11px] font-bold tracking-[0.34em] text-emerald-300 uppercase shadow-[0_0_24px_rgba(16,185,129,0.16)]">
-              <Leaf className="h-4 w-4" />
+            <div className="mx-auto flex max-w-max items-center gap-3 rounded-full border border-sky-400/25 bg-sky-400/10 px-4 py-2 text-[11px] font-bold tracking-[0.34em] text-sky-200 uppercase shadow-[0_0_24px_rgba(14,165,233,0.2)]">
+              <Timer className="h-4 w-4" />
               {joinCopy.waiting.eyebrow}
             </div>
 
             <div className="mt-8">
-              <div className="relative mx-auto flex h-28 w-28 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 p-8 shadow-[0_0_30px_rgba(16,185,129,0.4)] motion-safe:animate-pulse motion-reduce:animate-none">
-                <div className="absolute inset-3 rounded-full border border-emerald-300/20" />
-                <div className="absolute inset-0 rounded-full border border-emerald-300/20" />
-                <div className="absolute h-px w-14 bg-emerald-300/35" />
-                <div className="absolute h-14 w-px bg-emerald-300/35" />
-                <Loader2 className="relative z-10 h-10 w-10 motion-safe:animate-spin motion-reduce:animate-none text-emerald-200" />
-              </div>
+              <Mascot size="lg" variant="guide" priority className="mx-auto" />
 
-              <p className="mt-6 text-xs font-semibold tracking-[0.42em] text-emerald-300 uppercase">
+              <p className="mt-4 text-xs font-semibold tracking-[0.42em] text-sky-200 uppercase">
                 {joinCopy.waiting.statusLabel}
               </p>
               <h1 className={`mt-4 text-3xl font-black text-white sm:text-5xl ${rubik.className}`}>
@@ -1113,7 +1115,7 @@ function JoinForm() {
               ) : null}
 
               {isStaggeredRace && typeof assignedStartOffset === "number" ? (
-                <p className="mx-auto mt-4 max-w-xs text-sm font-semibold text-emerald-200">
+                <p className="mx-auto mt-4 max-w-xs text-sm font-semibold text-sky-200">
                   Jeres første post er post {assignedStartOffset + 1}.
                 </p>
               ) : null}
@@ -1122,7 +1124,7 @@ function JoinForm() {
             <WifiConnectionTip className="mx-auto mt-6 max-w-2xl" text={siteCopy.wifiTip} />
 
             {runTitle ? (
-              <div className="mt-6 inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-emerald-50/90 backdrop-blur-md">
+              <div className="mt-6 inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-sky-50/90 backdrop-blur-md">
                 {runTitle}
               </div>
             ) : null}
@@ -1178,9 +1180,7 @@ function JoinForm() {
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.14),transparent_30%),linear-gradient(140deg,rgba(255,255,255,0.04),transparent_42%)]" />
 
           <div className="relative">
-            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border border-amber-200/18 bg-amber-300/[0.08] shadow-[0_0_36px_rgba(251,191,36,0.14)]">
-              <Leaf className="h-10 w-10 text-amber-100" />
-            </div>
+            <Mascot size="sm" variant="thinking" className="mx-auto" />
 
             <p className="mt-6 text-xs font-semibold tracking-[0.38em] text-amber-100/55 uppercase">
               {joinCopy.expired.eyebrow}
@@ -1212,8 +1212,8 @@ function JoinForm() {
 
   return (
     <div className="relative z-10 mx-auto flex min-h-svh w-full max-w-md flex-col items-center justify-center px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
-      <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/15 bg-slate-900/75 p-5 text-white shadow-[0_30px_90px_rgba(0,0,0,0.5)] backdrop-blur-2xl sm:p-7">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.12),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_42%)]" />
+      <div className="relative w-full overflow-hidden rounded-[2rem] border border-sky-100/18 bg-[#071a45]/88 p-5 text-white shadow-[0_30px_90px_rgba(0,0,0,0.5)] backdrop-blur-2xl sm:p-7">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.25),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(96,165,250,0.13),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.05),transparent_42%)]" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/15" />
 
         <div className="relative">
@@ -1234,17 +1234,20 @@ function JoinForm() {
                   setStep("start");
                 }
               }}
-              className="absolute -top-1 -left-1 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/80 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+              className="absolute -top-1 -left-1 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/80 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
               aria-label={joinCopy.form.changeCodeButton}
             >
               <ArrowLeft className="h-5 w-5" aria-hidden="true" />
             </button>
           ) : null}
 
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-400/10 text-emerald-200 shadow-[0_0_24px_rgba(16,185,129,0.16)]">
-            <Navigation className="h-6 w-6" aria-hidden="true" />
-          </div>
-          <p className="mt-3 text-center text-[11px] font-bold tracking-[0.22em] text-emerald-200 uppercase">
+          <Mascot
+            size={step === "start" ? "md" : "xs"}
+            variant={resumeParticipant && step === "start" ? "guide" : "wave"}
+            priority={step === "start"}
+            className="mx-auto"
+          />
+          <p className="mt-2 text-center text-[11px] font-bold tracking-[0.22em] text-sky-100 uppercase">
             {siteCopy.home.brandLabel}
           </p>
 
@@ -1263,7 +1266,7 @@ function JoinForm() {
             </div>
           ) : null}
 
-          <h1 className={`mt-4 text-center text-3xl font-black text-white sm:text-4xl ${rubik.className}`}>
+          <h1 className={`mt-3 text-center text-3xl font-black text-white sm:text-4xl ${rubik.className}`}>
             {resumeParticipant && step === "start"
               ? joinCopy.form.resumeTitle
               : step === "code"
@@ -1323,7 +1326,7 @@ function JoinForm() {
                   onClick={() => {
                     router.replace(`/play/${encodeURIComponent(resumeParticipant.sessionId)}`);
                   }}
-                  className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-emerald-400 px-5 py-3 text-base font-black text-slate-950 shadow-[0_16px_36px_rgba(16,185,129,0.25)] transition hover:bg-emerald-300 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+                  className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-sky-400 px-5 py-3 text-base font-black text-slate-950 shadow-[0_16px_36px_rgba(14,165,233,0.28)] transition hover:bg-sky-300 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-200"
                 >
                   <Play className="h-5 w-5 fill-current" aria-hidden="true" />
                   {joinCopy.form.resumeButton}
@@ -1331,7 +1334,7 @@ function JoinForm() {
                 <button
                   type="button"
                   onClick={() => setResumeParticipant(null)}
-                  className="inline-flex min-h-12 w-full items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+                  className="inline-flex min-h-12 w-full items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-200"
                 >
                   {joinCopy.form.newRunButton}
                 </button>
@@ -1341,7 +1344,7 @@ function JoinForm() {
                 <button
                   type="button"
                   onClick={openCodeStep}
-                  className="group inline-flex min-h-16 w-full items-center gap-4 rounded-2xl bg-emerald-400 px-5 py-3 text-left text-slate-950 shadow-[0_16px_36px_rgba(16,185,129,0.24)] transition hover:bg-emerald-300 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+                  className="group inline-flex min-h-16 w-full items-center gap-4 rounded-2xl bg-sky-400 px-5 py-3 text-left text-slate-950 shadow-[0_16px_36px_rgba(14,165,233,0.28)] transition hover:bg-sky-300 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-200"
                 >
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-950/10">
                     <KeyRound className="h-5 w-5" aria-hidden="true" />
@@ -1353,6 +1356,7 @@ function JoinForm() {
                 <QRScannerModal
                   buttonClassName="!min-h-16 !w-full !justify-start !rounded-2xl !border-sky-300/25 !bg-sky-400/12 !px-5 !py-3 !text-left !text-base !font-black !tracking-normal !text-sky-50 !normal-case hover:!bg-sky-400/20 [&>svg]:!h-6 [&>svg]:!w-6"
                   copy={siteCopy.qrScanner}
+                  onOpen={notifyJoinFlowActive}
                   onCodeScanned={lookupJoinCode}
                 />
               </div>
@@ -1380,7 +1384,7 @@ function JoinForm() {
                     {joinCopy.form.codeLabel}
                   </label>
                   <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-emerald-300/70">
+                    <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sky-300/80">
                       <KeyRound className="h-5 w-5" aria-hidden="true" />
                     </div>
                     <input
@@ -1393,7 +1397,7 @@ function JoinForm() {
                         setPin(normalizeJoinCode(event.target.value));
                         setError("");
                       }}
-                      className="min-h-16 w-full rounded-[1.5rem] border border-emerald-500/50 bg-slate-950 py-4 pr-5 pl-11 text-center font-mono text-2xl font-black tracking-[0.24em] text-white shadow-[0_0_24px_rgba(16,185,129,0.12)] shadow-inner outline-none transition placeholder:text-base placeholder:font-semibold placeholder:tracking-normal placeholder:text-emerald-100/35 focus-visible:border-emerald-300 focus-visible:ring-4 focus-visible:ring-emerald-300/20 sm:text-3xl"
+                      className="min-h-16 w-full rounded-[1.5rem] border border-sky-400/50 bg-slate-950 py-4 pr-5 pl-11 text-center font-mono text-2xl font-black tracking-[0.24em] text-white shadow-[0_0_24px_rgba(14,165,233,0.18)] shadow-inner outline-none transition placeholder:text-base placeholder:font-semibold placeholder:tracking-normal placeholder:text-sky-100/35 focus-visible:border-sky-300 focus-visible:ring-4 focus-visible:ring-sky-300/20 sm:text-3xl"
                       inputMode="text"
                       autoCapitalize="characters"
                       autoComplete="one-time-code"
@@ -1406,7 +1410,7 @@ function JoinForm() {
               </>
             ) : (
               <>
-                <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/8 px-4 py-3 text-sm text-emerald-50">
+                <div className="rounded-2xl border border-sky-300/20 bg-sky-300/8 px-4 py-3 text-sm text-sky-50">
                   <p className="font-bold">{runTitle || joinCopy.form.title}</p>
                 </div>
 
@@ -1418,7 +1422,7 @@ function JoinForm() {
                     {joinCopy.form.nameLabel}
                   </label>
                   <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-emerald-300/70">
+                    <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sky-300/80">
                       <User className="h-5 w-5" aria-hidden="true" />
                     </div>
                     <input
@@ -1431,7 +1435,7 @@ function JoinForm() {
                         setName(event.target.value);
                         setError("");
                       }}
-                      className="min-h-14 w-full rounded-[1.4rem] border border-white/20 bg-slate-950 py-4 pr-4 pl-12 text-lg font-semibold text-white shadow-inner outline-none transition placeholder:text-slate-500 focus-visible:border-emerald-300 focus-visible:ring-4 focus-visible:ring-emerald-300/20"
+                      className="min-h-14 w-full rounded-[1.4rem] border border-white/20 bg-slate-950 py-4 pr-4 pl-12 text-lg font-semibold text-white shadow-inner outline-none transition placeholder:text-slate-500 focus-visible:border-sky-300 focus-visible:ring-4 focus-visible:ring-sky-300/20"
                       autoComplete="off"
                       disabled={isJoining}
                     />
@@ -1443,7 +1447,7 @@ function JoinForm() {
             <button
               type="submit"
               disabled={isJoining}
-              className="mt-2 inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-emerald-400 px-5 py-3 text-base font-black text-slate-950 shadow-[0_16px_36px_rgba(16,185,129,0.22)] transition hover:bg-emerald-300 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+              className="mt-2 inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-sky-400 px-5 py-3 text-base font-black text-slate-950 shadow-[0_16px_36px_rgba(14,165,233,0.24)] transition hover:bg-sky-300 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-200"
             >
               {isJoining ? (
                 <span className="inline-flex items-center gap-2">
@@ -1465,7 +1469,7 @@ function JoinForm() {
           <details className="mt-5 rounded-[1.35rem] border border-white/10 bg-slate-950/45 px-4 py-3 text-left shadow-[0_10px_24px_rgba(2,6,23,0.16)]">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-slate-100">
               <span>{joinCopy.form.troubleshootingTitle}</span>
-              <span className="text-[11px] uppercase tracking-[0.24em] text-emerald-200/70">{joinCopy.form.troubleshootingToggle}</span>
+              <span className="text-[11px] uppercase tracking-[0.24em] text-sky-200/70">{joinCopy.form.troubleshootingToggle}</span>
             </summary>
 
             <div className="mt-4 space-y-4">
@@ -1477,12 +1481,25 @@ function JoinForm() {
 
               <Link
                 href="/"
-                className="inline-flex items-center text-sm font-semibold text-emerald-200 transition hover:text-emerald-100"
+                className="inline-flex items-center text-sm font-semibold text-sky-200 transition hover:text-sky-100"
               >
                 {joinCopy.form.homeButton}
               </Link>
             </div>
           </details>
+          ) : null}
+
+          {step === "code" ? (
+            <p
+              data-testid="student-experience-build-info"
+              className="mt-3 text-center text-[10px] font-medium tracking-[0.12em] text-sky-100/55"
+            >
+              Elevapp {process.env.NEXT_PUBLIC_STUDENT_EXPERIENCE_UI_VERSION ?? "lokal"}
+              {" · "}
+              {process.env.NEXT_PUBLIC_STUDENT_EXPERIENCE_RELEASE_ID ?? "lokal"}
+              {" · "}
+              {process.env.NEXT_PUBLIC_STUDENT_EXPERIENCE_BUILD_TIME ?? "ukendt byggetid"}
+            </p>
           ) : null}
         </div>
       </div>
@@ -1492,16 +1509,16 @@ function JoinForm() {
 
 export default function JoinPage() {
   return (
-    <div className={`relative flex min-h-svh items-stretch justify-center overflow-x-hidden bg-slate-950 text-white ${poppins.className}`}>
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#020617_0%,#020b16_42%,#01040a_100%)]" />
-      <div className="pointer-events-none absolute left-[-7rem] top-[-5rem] h-72 w-72 rounded-full bg-emerald-400/14 blur-[120px]" />
-      <div className="pointer-events-none absolute bottom-[-8rem] right-[-5rem] h-80 w-80 rounded-full bg-cyan-400/10 blur-[140px]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_28%),radial-gradient(circle_at_bottom,rgba(34,211,238,0.08),transparent_22%)]" />
+    <div className={`relative flex min-h-svh items-stretch justify-center overflow-x-hidden bg-[#04112d] text-white ${poppins.className}`}>
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#061b4b_0%,#041331_42%,#020817_100%)]" />
+      <div className="pointer-events-none absolute left-[-7rem] top-[-5rem] h-72 w-72 rounded-full bg-sky-400/18 blur-[120px]" />
+      <div className="pointer-events-none absolute bottom-[-8rem] right-[-5rem] h-80 w-80 rounded-full bg-blue-500/16 blur-[140px]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.16),transparent_28%),radial-gradient(circle_at_bottom,rgba(96,165,250,0.1),transparent_22%)]" />
       <JoinMapBackdrop />
 
       <Suspense
         fallback={
-          <div className="relative z-10 text-emerald-100">
+          <div className="relative z-10 text-sky-100">
             <Loader2 size={32} className="motion-safe:animate-spin motion-reduce:animate-none" />
           </div>
         }

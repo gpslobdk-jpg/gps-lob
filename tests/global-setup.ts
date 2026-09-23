@@ -22,6 +22,12 @@ function sleep(ms: number) {
 }
 
 export default async function globalSetup() {
+  // Source-contract suites can opt out when they do not navigate to a page.
+  // This keeps them independent of an already-running local dev server.
+  if (process.env.PLAYWRIGHT_SKIP_WARMUP === "1") {
+    return;
+  }
+
   // Step 1: Fetch the page HTML.  This triggers Next.js server-side
   // compilation (SSR) and returns HTML that contains <script src="/_next/...">
   // tags listing every client-side JS chunk the page needs.

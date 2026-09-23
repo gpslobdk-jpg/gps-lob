@@ -8,6 +8,7 @@ const DISMISS_STORAGE_KEY = "skolegps.pwa.install-dismissed-at.v1";
 const INSTALLED_STORAGE_KEY = "skolegps.pwa.install-confirmed.v1";
 const DISMISS_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
 const PROMOTION_DELAY_MS = 1_000;
+const JOIN_FLOW_ACTIVE_EVENT = "skolegps:join-flow-active";
 
 type BeforeInstallPromptChoice = {
   outcome: "accepted" | "dismissed";
@@ -72,9 +73,13 @@ function isDismissedWithinCooldown() {
   return Number.isFinite(dismissedAt) && dismissedAt > 0 && Date.now() - dismissedAt < DISMISS_COOLDOWN_MS;
 }
 
-function readInitialInstallSurface(): { isHidden: boolean; platform: InstallPlatform } {
+function readInitialInstallSurface(): {
+  isHidden: boolean;
+  isJoinFlowActive: boolean;
+  platform: InstallPlatform;
+} {
   if (typeof window === "undefined") {
-    return { isHidden: false, platform: null };
+    return { isHidden: false, isJoinFlowActive: false, platform: null };
   }
 
   const isHidden =
@@ -85,6 +90,9 @@ function readInitialInstallSurface(): { isHidden: boolean; platform: InstallPlat
 
   return {
     isHidden,
+    // A QR link opens straight into the real join flow. Installation is never
+    // allowed to cover the code/name step on that first visit.
+    isJoinFlowActive: new URLSearchParams(window.location.search).has("pin"),
     platform: !isHidden && isIosSafari() ? "ios" : null,
   };
 }
@@ -93,6 +101,7 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
   const [initialSurface] = useState(readInitialInstallSurface);
   const [isReady, setIsReady] = useState(false);
   const [isHidden, setIsHidden] = useState(initialSurface.isHidden);
+  const [isJoinFlowActive, setIsJoinFlowActive] = useState(initialSurface.isJoinFlowActive);
   const [platform, setPlatform] = useState<InstallPlatform>(initialSurface.platform);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isPrompting, setIsPrompting] = useState(false);
@@ -121,9 +130,14 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
       setIsHidden(true);
     };
 
+    const handleJoinFlowActive = () => {
+      setIsJoinFlowActive(true);
+    };
+
     const readyTimer = window.setTimeout(() => setIsReady(true), PROMOTION_DELAY_MS);
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     window.addEventListener("appinstalled", handleAppInstalled);
+    window.addEventListener(JOIN_FLOW_ACTIVE_EVENT, handleJoinFlowActive);
     standaloneQuery.addEventListener("change", hideWhenInstalled);
     document.documentElement.dataset.pwaInstallListener = "ready";
 
@@ -131,6 +145,7 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
       window.clearTimeout(readyTimer);
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener("appinstalled", handleAppInstalled);
+      window.removeEventListener(JOIN_FLOW_ACTIVE_EVENT, handleJoinFlowActive);
       standaloneQuery.removeEventListener("change", hideWhenInstalled);
       delete document.documentElement.dataset.pwaInstallListener;
     };
@@ -161,7 +176,11 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
     }
   };
 
-  const shouldShow = isReady && !isHidden && (platform === "ios" || Boolean(deferredPrompt));
+  const shouldShow =
+    isReady &&
+    !isHidden &&
+    !isJoinFlowActive &&
+    (platform === "ios" || Boolean(deferredPrompt));
 
   if (!shouldShow) {
     return null;
@@ -172,17 +191,17 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
       aria-labelledby="student-pwa-install-title"
       data-platform={platform ?? undefined}
       data-testid="student-pwa-install-promotion"
-      className="student-pwa-promotion fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[90] mx-auto w-[calc(100%-1.5rem)] max-w-md overflow-hidden rounded-[1.65rem] border border-emerald-200/20 bg-slate-950/94 p-3.5 text-white shadow-[0_22px_70px_rgba(2,6,23,0.54)] ring-1 ring-white/[0.06] backdrop-blur-2xl sm:p-4"
+      className="student-pwa-promotion fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[90] mx-auto w-[calc(100%-1.5rem)] max-w-md overflow-hidden rounded-[1.65rem] border border-sky-200/20 bg-slate-950/94 p-3.5 text-white shadow-[0_22px_70px_rgba(2,6,23,0.54)] ring-1 ring-white/[0.06] backdrop-blur-2xl sm:p-4"
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_0%,rgba(52,211,153,0.16),transparent_40%),linear-gradient(125deg,rgba(255,255,255,0.035),transparent_55%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_0%,rgba(14,165,233,0.2),transparent_40%),linear-gradient(125deg,rgba(255,255,255,0.035),transparent_55%)]" />
 
       <div className="relative flex items-start gap-3">
-        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-emerald-200/15 bg-slate-900 shadow-[0_8px_24px_rgba(16,185,129,0.16)]">
-          <Image src="/icon-192x192.png" alt="" fill sizes="48px" className="scale-[1.8] object-cover" />
+        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-sky-200/15 bg-slate-900 shadow-[0_8px_24px_rgba(14,165,233,0.2)]">
+          <Image src="/icons/skolegps-pilen-any-192-v1.png" alt="" fill sizes="48px" className="object-cover" />
         </div>
 
         <div className="min-w-0 flex-1 pr-9">
-          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-200/65">{brandName} APP</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-sky-200/75">{brandName} APP</p>
           <h2 id="student-pwa-install-title" className="mt-0.5 text-base font-black tracking-tight text-white">
             Få {brandName} som app
           </h2>
@@ -194,7 +213,7 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
                 <span><strong className="text-white">1.</strong> Tryk på Del i Safari</span>
               </li>
               <li className="flex items-center gap-2.5">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-400/12 text-emerald-200"><Plus className="h-4 w-4" /></span>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-400/12 text-sky-200"><Plus className="h-4 w-4" /></span>
                 <span><strong className="text-white">2.</strong> Vælg &quot;Føj til hjemmeskærm&quot;</span>
               </li>
               <li className="flex items-center gap-2.5">
@@ -211,7 +230,7 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
                 type="button"
                 onClick={() => void install()}
                 disabled={isPrompting}
-                className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-400 px-4 py-2.5 text-sm font-black text-slate-950 transition hover:bg-emerald-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200 disabled:cursor-wait disabled:opacity-65"
+                className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-sky-400 px-4 py-2.5 text-sm font-black text-slate-950 transition hover:bg-sky-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-200 disabled:cursor-wait disabled:opacity-65"
               >
                 <Download className="h-4 w-4" />
                 {isPrompting ? "Åbner…" : "Installer app"}
@@ -224,7 +243,7 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
           type="button"
           onClick={dismiss}
           aria-label="Luk beskeden om installation"
-          className="absolute -right-1 -top-1 flex h-11 w-11 items-center justify-center rounded-xl text-slate-300 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+          className="absolute -right-1 -top-1 flex h-11 w-11 items-center justify-center rounded-xl text-slate-300 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-200"
         >
           <X className="h-5 w-5" />
         </button>

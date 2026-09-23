@@ -535,6 +535,8 @@ export function usePlayGameState({
   const [distance, setDistanceState] = useState<number | null>(null);
   const [showQuestion, setShowQuestion] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
+  const [hasAuthoritativeCompletion, setHasAuthoritativeCompletion] =
+    useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [loadErrorVariant, setLoadErrorVariant] = useState<PlayLoadErrorVariant>("generic");
@@ -1697,6 +1699,10 @@ export function usePlayGameState({
         return false;
       }
 
+      // Local queued work may advance the visible post list before it reaches
+      // the server. Only this server snapshot is allowed to certify a result.
+      setHasAuthoritativeCompletion(normalized.isFinished);
+
       answeredPostIndexesRef.current = normalized.answeredPostIndexes;
       setAnsweredPostIndexes(normalized.answeredPostIndexes);
       const confirmedAnsweredPosts = new Set(
@@ -2466,15 +2472,78 @@ export function usePlayGameState({
     [circuitBreakerActive, participantId, sessionId, setPlayLoadError]
   );
 
-  const markPlayAsFinished = useCallback(() => {
+  const closePendingStandardSubmissions = useCallback(() => {
+    if (!usesStandardStudentLocationExperience || !sessionId || !participantId) {
+      return;
+    }
+
+    const context = { sessionId, participantId };
+    const { pendingAnswers } = updatePendingLocalAnswers((current) =>
+      current.map((entry) => {
+        if (
+          !isPendingSubmissionForContext(entry, context) ||
+          entry.status === "confirmed" ||
+          isTerminalPendingAnswer(entry)
+        ) {
+          return entry;
+        }
+
+        return {
+          ...entry,
+          status: "session_closed",
+          nextRetryAtMs: null,
+        };
+      }),
+    );
+    const closedSubmission =
+      pendingAnswers.find(
+        (entry) =>
+          entry.id === studentSubmissionRef.current.operationId &&
+          isPendingSubmissionForContext(entry, context) &&
+          entry.status === "session_closed",
+      ) ??
+      pendingAnswers.find(
+        (entry) =>
+          isPendingSubmissionForContext(entry, context) &&
+          entry.status === "session_closed",
+      );
+
+    if (!closedSubmission) {
+      return;
+    }
+
+    const nextSubmission = restoreStudentSubmissionState(
+      closedSubmission.submissionType,
+      closedSubmission.id,
+      "session_closed",
+    );
+    studentSubmissionRef.current = nextSubmission;
+    setStudentSubmission(nextSubmission);
+  }, [
+    participantId,
+    sessionId,
+    updatePendingLocalAnswers,
+    usesStandardStudentLocationExperience,
+  ]);
+
+  const markPlayAsFinished = useCallback((options?: { closePending?: boolean }) => {
     clearRestoreRetryTimer();
     restoreRetryCountRef.current = 0;
     resetLocationSyncRecovery();
+    if (options?.closePending === true) {
+      // A teacher-ended run is not proof that a locally queued final answer was
+      // stored. Surface that answer as terminal instead of showing a result.
+      closePendingStandardSubmissions();
+    }
     setShowQuestion(false);
     setIsKicked(false);
     setIsFinished(true);
     setIsRestoringParticipant(false);
-  }, [clearRestoreRetryTimer, resetLocationSyncRecovery]);
+  }, [
+    clearRestoreRetryTimer,
+    closePendingStandardSubmissions,
+    resetLocationSyncRecovery,
+  ]);
 
   const fetchSessionStatusSnapshot = useCallback(async () => {
     if (!sessionId || sessionStatusMissingRef.current) {
@@ -2553,7 +2622,7 @@ export function usePlayGameState({
 
     try {
       if (sessionStatus === "finished") {
-        markPlayAsFinished();
+        markPlayAsFinished({ closePending: true });
         return;
       }
 
@@ -2590,7 +2659,7 @@ export function usePlayGameState({
       }
 
       if (nextSessionStatus === "finished") {
-        markPlayAsFinished();
+        markPlayAsFinished({ closePending: true });
         return;
       }
 
@@ -2731,7 +2800,7 @@ export function usePlayGameState({
           reconnectOutcomeLogged = true;
         }
 
-        markPlayAsFinished();
+        markPlayAsFinished({ closePending: true });
         return;
       }
 
@@ -2986,7 +3055,7 @@ export function usePlayGameState({
       setIsTeacherGuided(Boolean(sessionStatusSnapshot.teacherGuided));
 
       if (nextStatus === "finished") {
-        markPlayAsFinished();
+        markPlayAsFinished({ closePending: true });
       }
     };
 
@@ -3096,7 +3165,7 @@ export function usePlayGameState({
               setIsTeacherGuided(teacherGuidedFromRow);
 
               if (nextStatus === "finished") {
-                markPlayAsFinished();
+                markPlayAsFinished({ closePending: true });
               }
             } catch (error) {
               console.error("Fejl ved behandling af live_sessions-opdatering:", error);
@@ -3624,6 +3693,15 @@ export function usePlayGameState({
             attemptCount: nextAttemptCount,
             nextRetryAtMs: Date.now() + retryDelayMs,
           }));
+          if (pendingAnswer.solvedPostIndex === currentPostIndex) {
+            const retryableSubmission = restoreStudentSubmissionState(
+              pendingAnswer.submissionType,
+              pendingAnswer.id,
+              "awaiting_confirmation",
+            );
+            studentSubmissionRef.current = retryableSubmission;
+            setStudentSubmission(retryableSubmission);
+          }
           schedulePendingAnswerReplay(retryDelayMs);
           captureStudentSubmissionIssue(
             "student_answer_queue_replay_failed",
@@ -3649,6 +3727,15 @@ export function usePlayGameState({
             attemptCount: nextAttemptCount,
             nextRetryAtMs: isOffline ? null : Date.now() + retryDelayMs,
           }));
+          if (pendingAnswer.solvedPostIndex === currentPostIndex) {
+            const retryableSubmission = restoreStudentSubmissionState(
+              pendingAnswer.submissionType,
+              pendingAnswer.id,
+              isOffline ? "queued_offline" : "awaiting_confirmation",
+            );
+            studentSubmissionRef.current = retryableSubmission;
+            setStudentSubmission(retryableSubmission);
+          }
           if (!isOffline) {
             schedulePendingAnswerReplay(retryDelayMs);
           }
@@ -4210,6 +4297,9 @@ export function usePlayGameState({
       }
 
       if (resolvedName) {
+        setHasAuthoritativeCompletion(
+          authoritativeProgress?.isFinished === true
+        );
         const baseAnsweredPosts = new Set<number>(
           usesStandardStudentLocationExperience && authoritativeProgress
             ? authoritativeProgress.answeredPostIndexes
@@ -5645,7 +5735,7 @@ export function usePlayGameState({
             const nextStatus = (payload.new as { status?: string | null })?.status;
             if (nextStatus !== "finished") return;
 
-            markPlayAsFinished();
+            markPlayAsFinished({ closePending: true });
           }
         )
         .on(
@@ -7295,6 +7385,7 @@ export function usePlayGameState({
     displayPostNumber,
     totalQuestions: questions.length,
     progressPercent,
+    hasAuthoritativeCompletion,
     score,
     correctAnswersCount,
     dismissedPostIndex,
@@ -7365,7 +7456,7 @@ export function usePlayGameState({
     setGpsOverride(snapshot.gpsOverride);
     setIsTeacherGuided(Boolean(snapshot.teacherGuided));
     if (nextStatus === "finished") {
-      markPlayAsFinished();
+      markPlayAsFinished({ closePending: true });
     }
   }, [fetchSessionStatusSnapshot, markPlayAsFinished]);
 
@@ -7612,9 +7703,20 @@ export function usePlayGameState({
         entry.id === activeSubmission.operationId &&
         entry.sessionId === sessionId &&
         entry.participantId === participantId &&
-        entry.solvedPostIndex === currentPostIndex &&
-        !entry.hasLocalProgress
+        entry.solvedPostIndex === currentPostIndex
     );
+    if (pendingAnswer?.hasLocalProgress) {
+      // An explicit retry must not merely re-schedule the automatic backoff.
+      // Update the durable queue before replay so a reload cannot restore the
+      // old delay between the tap and the network request.
+      updatePendingLocalAnswer(pendingAnswer.id, (current) => ({
+        ...current,
+        status: "awaiting_confirmation",
+        nextRetryAtMs: null,
+      }));
+      await replayPendingLocalAnswers();
+      return;
+    }
     const firstPayload = pendingAnswer?.payloads[0];
     const selectedValue =
       firstPayload?.selected_index ?? firstPayload?.answer_index;

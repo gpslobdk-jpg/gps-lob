@@ -210,10 +210,21 @@ test("producerer den komplette standardflow-state-galleri uden for repo", async 
         geolocation: {
           latitude: STANDARD_PLAY_POST_LAT,
           longitude: STANDARD_PLAY_POST_LNG,
-          accuracy: 300,
+          accuracy: 5,
         },
       },
     );
+    // A first 300 m reading is intentionally still treated as locating: it
+    // cannot establish a safe starting position. Establish a good reading
+    // first, then degrade it to exercise the real weak-GPS recovery state.
+    await expect(page.getByTestId("standard-play-arrived")).toBeVisible({
+      timeout: 35_000,
+    });
+    await context.setGeolocation({
+      latitude: STANDARD_PLAY_POST_LAT,
+      longitude: STANDARD_PLAY_POST_LNG,
+      accuracy: 300,
+    });
     await expect(
       page.getByText("GPS-signalet er lidt usikkert", { exact: true }),
     ).toBeVisible({ timeout: 35_000 });
@@ -317,14 +328,33 @@ test("producerer den komplette standardflow-state-galleri uden for repo", async 
       questions: [DEFAULT_STANDARD_QUESTIONS[0]],
     });
     await openStandardQuestion(page);
-    await context.setOffline(true);
+    // Keep the gallery in one document: restoring a Playwright context's
+    // network can navigate Chromium before the reconnect confirmation renders.
+    await page.evaluate(() => {
+      Object.defineProperty(window.navigator, "onLine", {
+        configurable: true,
+        get: () => false,
+      });
+    });
     await page
       .getByRole("button", { name: DEFAULT_STANDARD_QUESTIONS[0].answers[1] })
       .click();
     await expect(page.getByText("Svaret er gemt på telefonen")).toBeVisible();
     await capture(page, "state-12-offline-390x844", true);
-    await context.setOffline(false);
-    await expect(page.getByText("Svaret er gemt")).toBeVisible({ timeout: 20_000 });
+    await page.evaluate(() => {
+      Object.defineProperty(window.navigator, "onLine", {
+        configurable: true,
+        get: () => true,
+      });
+      window.dispatchEvent(new Event("online"));
+    });
+    // A one-post run may render its authoritative finish immediately instead
+    // of showing the short reconnect confirmation first.
+    await expect(
+      page
+        .getByText("Svaret er gemt", { exact: true })
+        .or(page.getByText(/Løbet er slut\./i)),
+    ).toBeVisible({ timeout: 20_000 });
     await capture(page, "state-13-reconnect-390x844", true);
     await context.close();
   }

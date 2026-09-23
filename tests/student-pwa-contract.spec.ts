@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import sharp from "sharp";
 
 import { sanitizeSentryEvent } from "../lib/observability/privacy";
 
@@ -94,7 +95,7 @@ test.describe("student PWA source contracts", () => {
     expect(manifestSource).toMatch(/\bdisplay\s*:\s*["'`]standalone["'`]/);
   });
 
-  test("every declared PNG icon exists and matches its declared dimensions", () => {
+  test("every declared PNG icon exists, matches its declared dimensions, and keeps maskable pixels opaque", async () => {
     const manifestSource = readSource("app/manifest.ts");
     const icons = readDeclaredIcons(manifestSource);
 
@@ -127,10 +128,29 @@ test.describe("student PWA source contracts", () => {
 
     expect(icons.map((icon) => icon.sizes)).toContain("192x192");
     expect(icons.map((icon) => icon.sizes)).toContain("512x512");
+    expect(icons.filter((icon) => icon.purpose === "any")).toHaveLength(2);
     expect(icons.filter((icon) => icon.purpose?.includes("maskable"))).toHaveLength(2);
+    expect(icons.every((icon) => icon.src.includes("-v1.png"))).toBe(true);
+
+    for (const icon of icons.filter((candidate) => candidate.purpose === "maskable")) {
+      const iconPath = join(ROOT, "public", icon.src.replace(/^\/+/, ""));
+      const { data, info } = await sharp(iconPath).ensureAlpha().raw().toBuffer({
+        resolveWithObject: true,
+      });
+
+      expect(info.channels).toBe(4);
+      let hasTransparentPixel = false;
+      for (let offset = 3; offset < data.length; offset += 4) {
+        if (data[offset] !== 255) {
+          hasTransparentPixel = true;
+          break;
+        }
+      }
+      expect(hasTransparentPixel, `${icon.src} must not have transparent maskable pixels`).toBe(false);
+    }
   });
 
-  test("the shared PWA identity keeps its public start destination and install surfaces", () => {
+  test("the shared PWA identity keeps its public start destination without a forced launch layer", () => {
     const manifestSource = readSource("app/manifest.ts");
     const rootLayoutSource = readSource("app/layout.tsx");
     const joinLayoutSource = readSource("app/join/layout.tsx");
@@ -138,12 +158,11 @@ test.describe("student PWA source contracts", () => {
     expect(manifestSource).toMatch(/\bstart_url\s*:\s*["'`]\/["'`]/);
     expect(manifestSource).toMatch(/\bscope\s*:\s*["'`]\/["'`]/);
     expect(manifestSource).not.toMatch(/\bid\s*:/);
-    expect(rootLayoutSource).toContain("PwaLaunchExperience");
+    expect(rootLayoutSource).not.toContain("PwaLaunchExperience");
     expect(joinLayoutSource).toContain("StudentPwaInstallPromotion");
     expect(rootLayoutSource).not.toContain("StudentPwaInstallPromotion");
-
-    const launchSource = readSource("components/pwa/PwaLaunchExperience.tsx");
-    expect(launchSource).toMatch(/\.pwa-launch-reduced\s+\.pwa-launch-mark\s*\{[\s\S]*?display:\s*none/);
+    expect(rootLayoutSource).toContain("skolegps-pilen-apple-touch-180-v1.png");
+    expect(rootLayoutSource).not.toMatch(/\bmaximumScale\b/);
   });
 
   test("next-pwa excludes public assets from precache but keeps student routes NetworkOnly", () => {
@@ -174,6 +193,19 @@ test.describe("student PWA source contracts", () => {
       networkOnlyRules.length,
       "Both the RSC and document requests for /join and /play/* must remain NetworkOnly",
     ).toBeGreaterThanOrEqual(2);
+    expect(nextConfigSource).toMatch(/\bskipWaiting\s*:\s*false/);
+    expect(nextConfigSource).toMatch(/\bclientsClaim\s*:\s*false/);
+  });
+
+  test("the install promotion yields to QR and code entry", () => {
+    const promotionSource = readSource("components/pwa/StudentPwaInstallPromotion.tsx");
+    const joinSource = readSource("app/join/page.tsx");
+    const scannerSource = readSource("components/QRScannerModal.tsx");
+
+    expect(promotionSource).toContain("skolegps:join-flow-active");
+    expect(promotionSource).toContain("new URLSearchParams(window.location.search).has(\"pin\")");
+    expect(joinSource).toContain("notifyJoinFlowActive");
+    expect(scannerSource).toContain("onOpen?: () => void");
   });
 
   test("execution-share landing requests stay NetworkOnly", () => {
@@ -217,6 +249,8 @@ test.describe("student PWA source contracts", () => {
     const fallbackSource = readSource(fallbackPath!);
     expect(fallbackSource).toMatch(/\bexport\s+default\b/);
     expect(fallbackSource).toMatch(/offline|forbindelse|internet|netværk/i);
+    expect(fallbackSource).toContain("#0b5ed7");
+    expect(fallbackSource).not.toMatch(/emerald-/);
   });
 
   test("student-facing animation utilities have a reduced-motion CSS guard", () => {

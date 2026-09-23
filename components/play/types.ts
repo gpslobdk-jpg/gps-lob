@@ -330,6 +330,8 @@ export interface PlayProgressState {
   displayPostNumber: number;
   totalQuestions: number;
   progressPercent: number;
+  /** True only after the server has explicitly reported that the route is complete. */
+  hasAuthoritativeCompletion: boolean;
   score: number;
   correctAnswersCount: number;
   dismissedPostIndex: number | null;

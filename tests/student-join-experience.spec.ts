@@ -402,6 +402,12 @@ test.describe("/join browser experience", () => {
     expect(observation.registrations[0]).toEqual({
       sessionId,
       studentName: STUDENT_NAME,
+      // The browser creates this durable id before registering. Retrying the
+      // same join can then be safely deduplicated instead of creating a
+      // second participant.
+      participantId: expect.stringMatching(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      ),
     });
 
     await page.goBack();

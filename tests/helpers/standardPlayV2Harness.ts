@@ -58,6 +58,7 @@ export type StandardPlayHarnessState = {
   joinRequests: number;
   committedOperationIds: Set<string>;
   answeredPostIndexes: Set<number>;
+  setSessionStatus: (status: "waiting" | "running" | "finished") => void;
 };
 
 export const DEFAULT_STANDARD_QUESTIONS: StandardPlayQuestionFixture[] = [
@@ -110,6 +111,7 @@ export async function installStandardPlayHarness(
     options.usesStandardStudentLocationExperience ?? true;
   const gpsOverride = options.gpsOverride ?? true;
   const sessionStatus = options.sessionStatus ?? "running";
+  let currentSessionStatus = sessionStatus;
   const postOrderMode = options.postOrderMode ?? "fixed";
   const startOffset = options.startOffset ?? 0;
   const state: StandardPlayHarnessState = {
@@ -122,6 +124,9 @@ export async function installStandardPlayHarness(
     joinRequests: 0,
     committedOperationIds: new Set(),
     answeredPostIndexes: new Set(),
+    setSessionStatus: (nextStatus) => {
+      currentSessionStatus = nextStatus;
+    },
   };
   let participantFinished = false;
   let participantFailuresRemaining = options.participantFailures ?? 0;
@@ -212,7 +217,7 @@ export async function installStandardPlayHarness(
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ sessionStatus, gpsOverride }),
+      body: JSON.stringify({ sessionStatus: currentSessionStatus, gpsOverride }),
     });
   });
 
@@ -305,6 +310,17 @@ export async function installStandardPlayHarness(
     >;
     state.submitRequests.push(body);
     const requestNumber = state.submitRequests.length;
+    if (currentSessionStatus === "finished") {
+      await route.fulfill({
+        status: 410,
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: "SESSION_CLOSED",
+          error: "Det syntetiske løb er afsluttet.",
+        }),
+      });
+      return;
+    }
     const operationId =
       typeof body.operationId === "string" ? body.operationId : "";
     const duplicate =

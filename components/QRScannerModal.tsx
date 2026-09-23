@@ -14,6 +14,7 @@ import { captureAppMessage } from "@/utils/observability";
 type QRScannerModalProps = {
   buttonClassName?: string;
   copy?: QrScannerCopy;
+  onOpen?: () => void;
   onCodeScanned?: (code: string) => boolean | void | Promise<boolean | void>;
 };
 
@@ -30,9 +31,11 @@ async function disposeScanner(scanner: Html5Qrcode | null) {
   if (!scanner) return;
 
   try {
-    if (scanner.isScanning) {
-      await scanner.stop();
-    }
+    // Html5Qrcode's public `isScanning` flag is only set once the video
+    // surface is playing. A close can happen after `start()` has claimed a
+    // stream but before that flag flips, so always ask the scanner to stop and
+    // safely ignore its not-started error.
+    await scanner.stop();
   } catch {
     // Ignore stop errors during cleanup.
   }
@@ -104,6 +107,7 @@ function isIgnorableScannerAbortError(reason: unknown) {
 export default function QRScannerModal({
   buttonClassName = "",
   copy = defaultQrScannerCopy,
+  onOpen,
   onCodeScanned,
 }: QRScannerModalProps) {
   const router = useRouter();
@@ -116,8 +120,6 @@ export default function QRScannerModal({
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const restoreFocusOnCloseRef = useRef(true);
   const permissionStreamRef = useRef<MediaStream | null>(null);
-  const scannerStreamsRef = useRef<Set<MediaStream>>(new Set());
-  const restoreGetUserMediaRef = useRef<(() => void) | null>(null);
 
   const [isOpen, setIsOpen] = useState(false);
   const [shouldStartCamera, setShouldStartCamera] = useState(false);
@@ -125,27 +127,15 @@ export default function QRScannerModal({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
 
-  const stopTrackedScannerStreams = useCallback(() => {
-    scannerStreamsRef.current.forEach((stream) => stopMediaStream(stream));
-    scannerStreamsRef.current.clear();
-  }, []);
-
   const closeModal = useCallback(() => {
     restoreFocusOnCloseRef.current = true;
-    restoreGetUserMediaRef.current?.();
-    restoreGetUserMediaRef.current = null;
     stopMediaStream(permissionStreamRef.current);
     permissionStreamRef.current = null;
-    stopTrackedScannerStreams();
-
-    const scanner = scannerRef.current;
-    scannerRef.current = null;
-    void disposeScanner(scanner);
 
     setShouldStartCamera(false);
     setIsStarting(false);
     setIsOpen(false);
-  }, [stopTrackedScannerStreams]);
+  }, []);
 
   useEffect(() => {
     if (!isOpen || !shouldStartCamera) {
@@ -154,16 +144,18 @@ export default function QRScannerModal({
 
     let isActive = true;
     let hasResolvedScan = false;
+    let scannerStartPromise: Promise<null> | null = null;
 
     const stopScanner = async () => {
-      restoreGetUserMediaRef.current?.();
-      restoreGetUserMediaRef.current = null;
       stopMediaStream(permissionStreamRef.current);
       permissionStreamRef.current = null;
-      stopTrackedScannerStreams();
 
       const scanner = scannerRef.current;
       scannerRef.current = null;
+      // Wait for a pending browser camera request before disposing the
+      // scanner. This covers a close while Html5Qrcode is between requesting
+      // the stream and marking itself as scanning.
+      await scannerStartPromise?.catch(() => undefined);
       await disposeScanner(scanner);
     };
 
@@ -323,31 +315,7 @@ export default function QRScannerModal({
           aspectRatio: 1,
         };
 
-        const mediaDevices = navigator.mediaDevices;
-        const originalGetUserMedia = mediaDevices.getUserMedia.bind(mediaDevices);
-        const restoreGetUserMedia = () => {
-          if (mediaDevices.getUserMedia === trackedGetUserMedia) {
-            mediaDevices.getUserMedia = originalGetUserMedia;
-          }
-          if (restoreGetUserMediaRef.current === restoreGetUserMedia) {
-            restoreGetUserMediaRef.current = null;
-          }
-        };
-        const trackedGetUserMedia: MediaDevices["getUserMedia"] = async (
-          constraints,
-        ) => {
-          restoreGetUserMedia();
-          const stream = await originalGetUserMedia(constraints);
-          scannerStreamsRef.current.add(stream);
-          if (!isActive) {
-            stopMediaStream(stream);
-          }
-          return stream;
-        };
-        mediaDevices.getUserMedia = trackedGetUserMedia;
-        restoreGetUserMediaRef.current = restoreGetUserMedia;
-
-        await scanner.start(
+        scannerStartPromise = scanner.start(
           cameraConfig,
           scanConfig,
           handleDecodedText,
@@ -355,6 +323,7 @@ export default function QRScannerModal({
             // Ignore frame-by-frame decode misses.
           }
         );
+        await scannerStartPromise;
 
         // Closing while html5-qrcode is still starting can make the original
         // cleanup run before isScanning becomes true. Dispose once more after
@@ -403,7 +372,6 @@ export default function QRScannerModal({
     router,
     scannerRegionId,
     shouldStartCamera,
-    stopTrackedScannerStreams,
   ]);
 
   useEffect(() => {
@@ -476,6 +444,7 @@ export default function QRScannerModal({
         ref={triggerRef}
         type="button"
         onClick={() => {
+          onOpen?.();
           restoreFocusOnCloseRef.current = true;
           setCameraError(null);
           setScanError(null);

@@ -45,7 +45,7 @@ async function triggerInstallPrompt(page: Page) {
   });
 }
 
-test("captures the standalone PWA launch frame and settled join", async ({ browser }, testInfo) => {
+test("captures standalone join without a forced launch frame", async ({ browser }, testInfo) => {
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     serviceWorkers: "block",
@@ -54,15 +54,11 @@ test("captures the standalone PWA launch frame and settled join", async ({ brows
   await installStandaloneMode(page);
   await page.goto("/join", { waitUntil: "domcontentloaded" });
 
-  const launch = page.getByTestId("pwa-launch-experience");
-  await expect(launch).toBeVisible();
-  await page.waitForTimeout(820);
+  await expect(page.getByTestId("pwa-launch-experience")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Deltag i et løb" })).toBeVisible();
   await page.screenshot({
-    path: screenshotPath(testInfo, "01-pwa-launch-frame-390x844.png"),
-    animations: "allow",
+    path: screenshotPath(testInfo, "01-standalone-join-390x844.png"),
   });
-  await expect(launch).toBeHidden({ timeout: 2_000 });
-  await page.screenshot({ path: screenshotPath(testInfo, "05-standalone-join-390x844.png") });
 
   await context.close();
 });

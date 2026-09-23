@@ -15,6 +15,7 @@ import {
   formatPlacement,
   getRoleplayMessage,
   looksLikeImageSource,
+  resolvePostVariant,
   wrapTextClass,
 } from "./playUtils";
 import QuestionTtsButton from "./QuestionTtsButton";
@@ -22,6 +23,9 @@ import StudentSubmissionStatus from "./StudentSubmissionStatus";
 import TeacherBroadcastModal from "./TeacherBroadcastModal";
 import StudentNameGateView from "./shared/StudentNameGateView";
 import StandardStudentPlayExperience from "./standard/StandardStudentPlayExperience";
+import StudentCompletionScreen from "./student/StudentCompletionScreen";
+import StudentTeamBadge from "./student/StudentTeamBadge";
+import Mascot from "@/components/brand/Mascot";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 import trophyAnimation from "@/public/trophy.json";
 import { getGamerTitle } from "@/utils/gamerTitle";
@@ -156,7 +160,13 @@ function MobileHudComponent({
 const STUCK_HELP_DELAY_MS = 35_000;
 const LOADING_STUCK_DELAY_MS = 20_000;
 
-function WaitingScreenContent({ actions }: { actions: PlayActions }) {
+function WaitingScreenContent({
+  actions,
+  player,
+}: {
+  actions: PlayActions;
+  player: PlayUiState["player"];
+}) {
   const [isRetrying, setIsRetrying] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showStillWaiting, setShowStillWaiting] = useState(false);
@@ -179,7 +189,7 @@ function WaitingScreenContent({ actions }: { actions: PlayActions }) {
         message: "play_waiting_screen_shown",
         level: "info",
       });
-    } catch (_err) {
+    } catch {
       // best-effort
     }
 
@@ -192,7 +202,7 @@ function WaitingScreenContent({ actions }: { actions: PlayActions }) {
           level: "info",
           data: { delayMs: STUCK_HELP_DELAY_MS },
         });
-      } catch (_err) {
+      } catch {
         // best-effort
       }
     }, STUCK_HELP_DELAY_MS);
@@ -237,14 +247,19 @@ function WaitingScreenContent({ actions }: { actions: PlayActions }) {
   };
 
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-950 px-6 py-10 text-white">
+    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#04112d] px-6 py-10 text-white">
       <div className="absolute inset-0 z-[2200] flex items-center justify-center bg-black/70 p-6">
-        <div className="gpslob-waiting-enter w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-8 text-center backdrop-blur-xl">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-400/90">
-            <div className="h-3 w-3 animate-pulse rounded-full bg-white/90" />
+        <div className="gpslob-waiting-enter w-full max-w-md rounded-[2rem] border border-sky-100/18 bg-[#071a45]/92 p-8 text-center shadow-[0_30px_90px_rgba(2,6,23,0.52)] backdrop-blur-xl">
+          <Mascot size="lg" variant="thinking" priority className="mx-auto mb-2" />
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <StudentTeamBadge
+              color={player.teamColor}
+              teamId={player.teamId ?? player.participantId}
+              label={player.teamId ? "Holdet venter" : "Du venter"}
+            />
           </div>
           <h1 className="text-2xl font-black">Løbet er ikke startet endnu</h1>
-          <p className="mt-3 text-sm text-white/90">Vi tjekker automatisk. Du behøver ikke trykke flere gange.</p>
+          <p className="mt-3 text-sm text-sky-50/90">Pilen holder øje. Vi tjekker automatisk, så du ikke behøver trykke flere gange.</p>
 
           <WifiConnectionTip className="mt-6" />
 
@@ -260,7 +275,7 @@ function WaitingScreenContent({ actions }: { actions: PlayActions }) {
               onClick={() => void handleRetry()}
               disabled={isRetrying}
               aria-busy={isRetrying}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-3 text-sm font-bold text-emerald-200 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-sky-400/30 bg-sky-500/15 px-4 py-3 text-sm font-bold text-sky-100 transition hover:bg-sky-500/25 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <RefreshCcw className={`h-4 w-4 ${isRetrying ? "animate-spin" : ""}`} />
               {isRetrying ? "Tjekker status…" : "Tjek nu"}
@@ -336,6 +351,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     pendingPlayerName,
     playerName,
     participantId,
+    teamId,
+    teamColor,
     nameError,
     activeDisplayName,
     celebrationName,
@@ -352,6 +369,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     answeredPostIndexes,
     displayPostNumber,
     progressPercent,
+    hasAuthoritativeCompletion: hasServerConfirmedCompletion,
     score,
     correctAnswersCount,
     dismissedPostIndex,
@@ -518,11 +536,33 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
     usesStandardStudentLocationExperience &&
     raceMode === "quiz" &&
     activePostVariant === "quiz";
+  // The active presentation is deliberately quiz-only. A mixed route can end
+  // on a quiz post, so its completion surface must use the complete route,
+  // not merely the last active post; otherwise photo/mixed runs lose their
+  // established finish flow.
+  const usesStandardQuizCompletionExperience =
+    usesStandardStudentLocationExperience &&
+    raceMode === "quiz" &&
+    questions.length > 0 &&
+    questions.every(
+      (question) => resolvePostVariant(raceMode, question) === "quiz",
+    );
   // Check BOTH arrays — solvedPostIndexes (correct answers) and answeredPostIndexes
   // (wrong answers). Either being true means the post is done and buttons must not render.
   const isCurrentPostAnswered =
     solvedPostIndexes.includes(currentPostIndex) ||
     answeredPostIndexes.includes(currentPostIndex);
+  const hasUnsettledStandardSubmission =
+    !hasServerConfirmedCompletion &&
+    (pendingAnswerCount > 0 ||
+      [
+        "submitting",
+        "queued_offline",
+        "awaiting_confirmation",
+        "retryable_error",
+        "rejected",
+        "session_closed",
+      ].includes(studentSubmission.status));
   const answeredPostLockMessage = isQuizPostBurned
     ? "Allerede besvaret."
     : "Besvaret. Videre til næste post.";
@@ -721,6 +761,8 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
   }, [showRageModal]);
 
   useEffect(() => {
+    const rageClick = rageClickRef.current;
+
     return () => {
       if (cloudSyncSuccessTimerRef.current) {
         clearTimeout(cloudSyncSuccessTimerRef.current);
@@ -730,9 +772,9 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
         clearTimeout(lockedPostFeedbackTimerRef.current);
         lockedPostFeedbackTimerRef.current = null;
       }
-      if (rageClickRef.current.resetTimer) {
-        clearTimeout(rageClickRef.current.resetTimer);
-        rageClickRef.current.resetTimer = null;
+      if (rageClick.resetTimer) {
+        clearTimeout(rageClick.resetTimer);
+        rageClick.resetTimer = null;
       }
       if (loadingStuckTimerRef.current !== null) {
         clearTimeout(loadingStuckTimerRef.current);
@@ -1570,6 +1612,25 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
       break;
 
     case "finished":
+      if (usesStandardQuizCompletionExperience) {
+        content = (
+          <StudentCompletionScreen
+            answeredPosts={answeredPostIndexes.length}
+            isAuthoritativelyCompleted={hasServerConfirmedCompletion}
+            playerName={playerName}
+            score={score}
+            teamColor={teamColor}
+            teamId={teamId ?? participantId}
+            totalPosts={questions.length}
+            pendingSubmission={
+              hasUnsettledStandardSubmission ? studentSubmission : undefined
+            }
+            onRetrySubmission={retryActiveSubmission}
+          />
+        );
+        break;
+      }
+
       content = (
         <div className="relative flex min-h-screen w-full flex-col items-center overflow-hidden bg-slate-950 px-6 py-10 text-white">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_20%,rgba(16,185,129,0.25),transparent_40%),radial-gradient(circle_at_80%_10%,rgba(251,191,36,0.22),transparent_42%),radial-gradient(circle_at_50%_90%,rgba(139,92,246,0.16),transparent_40%)]" />
@@ -1648,7 +1709,7 @@ export default function PlayInterface({ ui, actions, children }: PlayInterfacePr
       break;
 
     case "waiting":
-      content = <WaitingScreenContent actions={actions} />;
+      content = <WaitingScreenContent actions={actions} player={ui.player} />;
       break;
 
     case "active":

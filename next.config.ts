@@ -2,6 +2,12 @@ import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 import withPWAInit from "@ducanh2912/next-pwa";
 
+const studentExperienceBuildTime =
+  process.env.NEXT_PUBLIC_STUDENT_EXPERIENCE_BUILD_TIME ?? new Date().toISOString();
+const studentExperienceReleaseId = (
+  process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GITHUB_SHA ?? "local"
+).slice(0, 12);
+
 const withPWA = withPWAInit({
   dest: "public",
   // The generated worker is a production artifact. Rewriting it from a dev
@@ -14,6 +20,10 @@ const withPWA = withPWAInit({
   aggressiveFrontEndNavCaching: false,
   extendDefaultRuntimeCaching: true,
   workboxOptions: {
+    // A running pupil must finish on the worker they already have. New
+    // deployments wait until the browser is closed or naturally reloaded.
+    skipWaiting: false,
+    clientsClaim: false,
     runtimeCaching: [
       {
         urlPattern: /\/api\/.*/i,
@@ -67,8 +77,14 @@ const withPWA = withPWAInit({
 });
 
 const nextConfig: NextConfig = {
+  ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   turbopack: {},
   transpilePackages: ["@react-pdf/renderer"],
+  env: {
+    NEXT_PUBLIC_STUDENT_EXPERIENCE_UI_VERSION: "elevapp-2026-09",
+    NEXT_PUBLIC_STUDENT_EXPERIENCE_BUILD_TIME: studentExperienceBuildTime,
+    NEXT_PUBLIC_STUDENT_EXPERIENCE_RELEASE_ID: studentExperienceReleaseId,
+  },
   async headers() {
     return [
       {

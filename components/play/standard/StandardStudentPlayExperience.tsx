@@ -1,9 +1,11 @@
 "use client";
 
-import { CheckCircle2, CloudOff, Loader2, MapPin, Trophy, XCircle } from "lucide-react";
+import { CheckCircle2, CloudOff, Loader2, MapPin, Settings2, Trophy, XCircle } from "lucide-react";
 import Image from "next/image";
-import { useState, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 
+import Mascot from "@/components/brand/Mascot";
+import StudentTeamBadge from "@/components/play/student/StudentTeamBadge";
 import QuestionTtsButton from "../QuestionTtsButton";
 import StudentSubmissionStatus from "../StudentSubmissionStatus";
 import TeacherBroadcastModal from "../TeacherBroadcastModal";
@@ -18,40 +20,88 @@ type StandardStudentPlayExperienceProps = {
 };
 
 const answerButtonClassName =
-  "flex min-h-[62px] w-full items-center gap-3 rounded-2xl border px-4 py-4 text-left text-base font-bold leading-snug transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200/80 disabled:cursor-default motion-reduce:transition-none sm:min-h-[66px] sm:px-5 sm:text-lg";
+  "flex min-h-[62px] w-full items-center gap-3 rounded-2xl border px-4 py-4 text-left text-base font-bold leading-snug transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-200/80 disabled:cursor-default motion-reduce:transition-none sm:min-h-[66px] sm:px-5 sm:text-lg";
 
 const primaryButtonClassName =
-  "inline-flex min-h-[60px] w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-3 text-base font-black text-slate-950 shadow-[0_16px_36px_rgba(16,185,129,0.28)] transition hover:bg-emerald-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200/80 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none";
+  "inline-flex min-h-[60px] w-full items-center justify-center gap-2 rounded-2xl bg-sky-400 px-5 py-3 text-base font-black text-slate-950 shadow-[0_16px_36px_rgba(14,165,233,0.3)] transition hover:bg-sky-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-200/80 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none";
+
+function subscribeToReducedMotion(onStoreChange: () => void) {
+  const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  mediaQuery.addEventListener("change", onStoreChange);
+  return () => mediaQuery.removeEventListener("change", onStoreChange);
+}
+
+function getReducedMotionSnapshot() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function getReducedMotionServerSnapshot() {
+  return false;
+}
 
 function StandardProgress({
   postNumber,
   totalPosts,
   progressPercent,
+  score,
+  calmMode,
 }: {
   postNumber: number;
   totalPosts: number;
   progressPercent: number;
+  score: number;
+  calmMode: boolean;
 }) {
   return (
     <div className="rounded-[1.4rem] border border-white/14 bg-slate-950/92 px-4 py-3 text-white shadow-[0_16px_44px_rgba(2,6,23,0.4)] backdrop-blur-xl sm:px-5">
       <div className="flex items-center justify-between gap-4">
         <p className="text-base font-black sm:text-lg">Post {postNumber} af {totalPosts}</p>
-        <p className="text-sm font-bold text-emerald-200">{progressPercent}%</p>
+        <div className="flex items-center gap-2 text-right">
+          <p className="text-sm font-bold text-sky-200">{progressPercent}%</p>
+          <span className="rounded-full bg-sky-400/12 px-2 py-0.5 text-xs font-black text-sky-100" data-testid="student-adventure-score">
+            {score} point
+          </span>
+        </div>
       </div>
       <div
         className="mt-2 h-2 overflow-hidden rounded-full bg-white/12"
         aria-hidden="true"
       >
         <div
-          className="h-full rounded-full bg-emerald-400 transition-[width] duration-500 motion-reduce:transition-none"
-          style={{ width: `${Math.max(0, Math.min(100, progressPercent))}%` }}
+          className="h-full rounded-full bg-sky-400 transition-[width] duration-500 motion-reduce:transition-none"
+          style={{
+            width: `${Math.max(0, Math.min(100, progressPercent))}%`,
+            transitionProperty: calmMode ? "none" : undefined,
+          }}
         />
       </div>
     </div>
   );
 }
 
-function ConfirmedQuizCelebration() {
+function CalmModeButton({
+  calmMode,
+  onToggle,
+}: {
+  calmMode: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={calmMode}
+      aria-label={calmMode ? "Slå rolige bevægelser fra" : "Slå rolige bevægelser til"}
+      onClick={onToggle}
+      data-testid="student-adventure-calm-toggle"
+      className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-white/14 bg-slate-950/82 px-3 text-xs font-bold text-sky-50 shadow-sm transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-200/70 motion-reduce:transition-none"
+    >
+      <Settings2 aria-hidden="true" className="h-4 w-4 text-sky-200" />
+      {calmMode ? "Rolig" : "Rolig visning"}
+    </button>
+  );
+}
+
+function ConfirmedQuizCelebration({ calmMode }: { calmMode: boolean }) {
   return (
     <div
       aria-hidden="true"
@@ -60,7 +110,7 @@ function ConfirmedQuizCelebration() {
     >
       <span
         data-testid="standard-play-confirmed-quiz-celebration-pulse"
-        className="absolute inset-1 rounded-full bg-amber-200/45 animate-ping [animation-duration:700ms] [animation-iteration-count:1] motion-reduce:animate-none"
+        className={`absolute inset-1 rounded-full bg-amber-200/45 ${calmMode ? "animate-none" : "animate-ping [animation-duration:700ms] [animation-iteration-count:1]"} motion-reduce:animate-none`}
       />
       <span className="absolute inset-2 flex items-center justify-center rounded-full bg-emerald-950/92 text-amber-200 shadow-lg">
         <CheckCircle2 className="h-7 w-7" />
@@ -78,7 +128,14 @@ export default function StandardStudentPlayExperience({
   onRetrySubmission,
 }: StandardStudentPlayExperienceProps) {
   const [skipConfirmKey, setSkipConfirmKey] = useState<string | null>(null);
-  const { progress, flags } = ui;
+  const [userSelectedCalmMode, setUserSelectedCalmMode] = useState(false);
+  const prefersReducedMotion = useSyncExternalStore(
+    subscribeToReducedMotion,
+    getReducedMotionSnapshot,
+    getReducedMotionServerSnapshot,
+  );
+  const calmMode = userSelectedCalmMode || prefersReducedMotion;
+  const { player, progress, flags } = ui;
   const {
     currentPostIndex,
     displayPostNumber,
@@ -181,7 +238,8 @@ export default function StandardStudentPlayExperience({
   return (
     <main
       data-testid="standard-play-v2"
-      className="relative h-[100svh] min-h-[100svh] w-full overflow-hidden bg-slate-950 text-white"
+      data-calm={calmMode ? "true" : "false"}
+      className={`relative h-[100svh] min-h-[100svh] w-full overflow-hidden bg-slate-950 text-white ${calmMode ? "[&_.skolegps-mascot-float]:!animate-none" : ""}`}
     >
       <div className="absolute inset-0 z-0">{children}</div>
       <div
@@ -193,6 +251,22 @@ export default function StandardStudentPlayExperience({
         <>
           <header className="pointer-events-none absolute inset-x-0 top-0 z-[1000] px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-4">
             <div className="pointer-events-auto mx-auto max-w-xl space-y-2">
+              <div className="flex items-center gap-3 rounded-[1.4rem] border border-white/14 bg-slate-950/92 px-3 py-2.5 shadow-[0_16px_44px_rgba(2,6,23,0.4)] backdrop-blur-xl">
+                <Mascot size="xs" variant="guide" className="shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-sky-200/80">Pilen viser vejen</p>
+                  <p className="truncate text-sm font-black text-white">{player.activeDisplayName || "Klar til næste post"}</p>
+                </div>
+                <CalmModeButton calmMode={calmMode} onToggle={() => setUserSelectedCalmMode((current) => !current)} />
+              </div>
+              <div className="flex items-center justify-between gap-3 px-1">
+                <StudentTeamBadge
+                  color={player.teamColor}
+                  teamId={player.teamId ?? player.participantId}
+                  label={player.teamId ? "Holdet er klar" : "Du er klar"}
+                />
+                <span className="text-xs font-semibold text-sky-100/80">Pointene kommer fra løbet</span>
+              </div>
               {theme?.vm26?.enabled ? (
                 <div className="flex items-center gap-2 rounded-2xl border border-amber-200/30 bg-slate-950/90 px-4 py-2 text-sm font-bold text-amber-100 shadow-lg backdrop-blur-xl">
                   <Trophy aria-hidden="true" className="h-4 w-4 text-amber-300" />
@@ -203,6 +277,8 @@ export default function StandardStudentPlayExperience({
                 postNumber={displayPostNumber}
                 totalPosts={totalQuestions}
                 progressPercent={routeProgressPercent}
+                score={progress.score}
+                calmMode={calmMode}
               />
               <StudentSubmissionStatus
                 state={studentSubmission}
@@ -226,7 +302,7 @@ export default function StandardStudentPlayExperience({
               ) : null}
               {gpsOverrideEnabled ? (
                 <div className="rounded-[1.4rem] border border-white/14 bg-slate-950/92 px-4 py-3 shadow-[0_16px_44px_rgba(2,6,23,0.4)] backdrop-blur-xl sm:px-5">
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-200/80">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-sky-200/80">
                     Det skal du gøre nu
                   </p>
                   <div className="mt-1 flex items-center justify-between gap-4">
@@ -241,7 +317,7 @@ export default function StandardStudentPlayExperience({
                         Åbn posten, når du er klar.
                       </p>
                     </div>
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-400 text-slate-950">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-400 text-slate-950">
                       <MapPin aria-hidden="true" className="h-5 w-5" />
                     </span>
                   </div>
@@ -249,7 +325,7 @@ export default function StandardStudentPlayExperience({
               ) : null}
 
               {resumeMessage ? (
-                <div className="rounded-2xl border border-emerald-200/25 bg-emerald-950/92 px-4 py-3 text-sm font-semibold text-emerald-50 shadow-lg">
+                <div className="rounded-2xl border border-sky-200/25 bg-sky-950/92 px-4 py-3 text-sm font-semibold text-sky-50 shadow-lg">
                   {resumeMessage}
                 </div>
               ) : null}
@@ -307,12 +383,20 @@ export default function StandardStudentPlayExperience({
               postNumber={displayPostNumber}
               totalPosts={totalQuestions}
               progressPercent={routeProgressPercent}
+              score={progress.score}
+              calmMode={calmMode}
             />
 
             <div className="mt-3 rounded-[1.75rem] border border-white/12 bg-slate-900 p-4 shadow-[0_24px_70px_rgba(2,6,23,0.5)] sm:p-6">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-200/80">
-                Opgaven
-              </p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <Mascot size="xs" variant="point" className="shrink-0" />
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-sky-200/90">
+                    Pilen siger: Opgaven
+                  </p>
+                </div>
+                <CalmModeButton calmMode={calmMode} onToggle={() => setUserSelectedCalmMode((current) => !current)} />
+              </div>
 
               {activeQuestion.mediaUrl ? (
                 <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
@@ -356,7 +440,7 @@ export default function StandardStudentPlayExperience({
                   data-testid="standard-play-answer-success"
                   className="relative mt-5 rounded-[1.5rem] border border-emerald-200/40 bg-emerald-400 p-5 text-slate-950"
                 >
-                  {hasConfirmedQuizCelebration ? <ConfirmedQuizCelebration /> : null}
+                  {hasConfirmedQuizCelebration ? <ConfirmedQuizCelebration calmMode={calmMode} /> : null}
                   <div className="flex items-center gap-3">
                     <CheckCircle2 aria-hidden="true" className="h-7 w-7 shrink-0" />
                     <div>
@@ -420,7 +504,7 @@ export default function StandardStudentPlayExperience({
                               ? "border-rose-200 bg-rose-500 text-white"
                               : isDimmed
                                 ? "border-white/8 bg-slate-950/45 text-white/45"
-                                : "border-white/16 bg-slate-950 text-white shadow-[0_12px_28px_rgba(2,6,23,0.28)] hover:border-emerald-300/70 hover:bg-slate-800"
+                                : "border-white/16 bg-slate-950 text-white shadow-[0_12px_28px_rgba(2,6,23,0.28)] hover:border-sky-300/70 hover:bg-slate-800"
                         }`}
                       >
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-current/20 bg-white/5 text-sm font-black">

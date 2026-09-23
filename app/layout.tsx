@@ -7,7 +7,6 @@ import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import PrivacySafeAnalytics from "@/components/PrivacySafeAnalytics";
 
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
-import PwaLaunchExperience from "@/components/pwa/PwaLaunchExperience";
 import { getSiteCopy } from "@/lib/siteCopy";
 import { resolveSiteVariantFromHeaders } from "@/lib/siteVariant";
 
@@ -20,8 +19,8 @@ export async function generateMetadata(): Promise<Metadata> {
     title: siteCopy.metadata.homeTitle,
     description: siteCopy.metadata.homeDescription,
     icons: {
-      apple: "/logomobil1.png",
-      icon: "/mobillogo2.png",
+      apple: "/icons/skolegps-pilen-apple-touch-180-v1.png",
+      icon: "/icons/skolegps-pilen-any-512-v1.png",
     },
     appleWebApp: {
       capable: true,
@@ -32,10 +31,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#020617",
+  themeColor: "#0b5ed7",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
 };
 
 export default async function RootLayout({
@@ -52,7 +50,6 @@ export default async function RootLayout({
       <body className={`${poppins.variable} ${rubik.variable} font-sans antialiased bg-[#0a1128]`}>
         <ErrorBoundary>
           {children}
-          <PwaLaunchExperience brandName={getSiteCopy(siteVariant.key).metadata.manifestName} />
           <ServiceWorkerRegister />
           <PrivacySafeAnalytics />
         </ErrorBoundary>

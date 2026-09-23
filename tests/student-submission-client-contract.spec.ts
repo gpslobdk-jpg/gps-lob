@@ -135,6 +135,9 @@ test.describe("standard student submission client contract", () => {
     expect(retry).toContain(
       "entry.id === activeSubmission.operationId"
     );
+    expect(retry).toMatch(
+      /if \(pendingAnswer\?\.hasLocalProgress\) \{[\s\S]*?nextRetryAtMs:\s*null,[\s\S]*?await replayPendingLocalAnswers\(\)/
+    );
     expect(retry).toContain("await submitQuizAnswer(selectedIndex)");
   });
 

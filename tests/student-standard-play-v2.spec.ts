@@ -226,6 +226,48 @@ test("blandet quiz/foto afslutter på serverens sidste foto-snapshot uden post-f
   await expect(page.getByText("Syntetisk progressionspost P0")).toHaveCount(0);
 });
 
+test("blandet foto/quiz med sidste quizpost beholder den eksisterende slutskærm", async ({
+  page,
+}) => {
+  const [quizQuestion, photoBase] = makeAuthoritativeProgressQuestions(2);
+  const photoQuestion: StandardPlayQuestionFixture = {
+    ...photoBase,
+    type: "ai_image",
+    text: "Syntetisk første fotopost P0",
+    aiPrompt: "Tag et syntetisk testbillede",
+  };
+  await openHarnessedPlay(page, {
+    sessionId: "p0-authoritative-first-photo",
+    raceType: "manuel",
+    questions: [photoQuestion, quizQuestion],
+  });
+
+  await page.getByRole("button", { name: /åbn post/i }).click();
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "syntetisk-p0.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nWQAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+  await page.getByRole("button", { name: /aflever billede/i }).click();
+
+  await expect(page.getByTestId("standard-play-v2")).toBeVisible({
+    timeout: 30_000,
+  });
+  await openStandardQuestion(page);
+  await page.getByRole("button", { name: "Korrekt P0" }).click();
+  await page
+    .getByRole("button", { name: /gå til næste post|se resultat/i })
+    .click();
+
+  await expect(page.getByText(/Løbet er slut\./i)).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByTestId("student-adventure-finish")).toHaveCount(0);
+});
+
 for (const raceType of ["manuel", "dansk", "engelsk", "matematik"]) {
   test(`${raceType} bruger den nye scoped standardvisning`, async ({ page }) => {
     await openHarnessedPlay(page, {
@@ -283,6 +325,108 @@ test("standardnavigation viser authoritative progress og én tydelig handling", 
   );
   await expect(page.getByRole("button", { name: /^åbn post$/i })).toHaveCount(1);
   await expect(page.getByText("Post 1 af 2").first()).toBeVisible();
+});
+
+test("den rigtige standardrute viser Pilen, holdstatus og en bruger-valgt rolig visning", async ({ page }) => {
+  await openHarnessedPlay(page, {
+    sessionId: "standard-v2-pilen-guidance",
+    raceType: "manuel",
+  });
+
+  const standardSurface = page.getByTestId("standard-play-v2");
+  await expect(page.getByText("Pilen viser vejen")).toBeVisible();
+  await expect(page.getByTestId("student-team-badge")).toBeVisible();
+  await expect(page.getByTestId("student-adventure-score")).toBeVisible();
+
+  const calmToggle = page.getByTestId("student-adventure-calm-toggle").first();
+  await calmToggle.click();
+  await expect(standardSurface).toHaveAttribute("data-calm", "true");
+  await expect(calmToggle).toHaveAttribute("aria-pressed", "true");
+});
+
+test("serverens afsluttede standardrunde viser den endelige Pilen-skærm uden bonusloop", async ({
+  page,
+}) => {
+  await openHarnessedPlay(page, {
+    sessionId: "standard-v2-pilen-finish",
+    raceType: "manuel",
+    questions: [DEFAULT_STANDARD_QUESTIONS[0]],
+  });
+  await openStandardQuestion(page);
+  await page
+    .getByRole("button", { name: DEFAULT_STANDARD_QUESTIONS[0].answers[1] })
+    .click();
+  await expect(page.getByTestId("standard-play-answer-success")).toBeVisible();
+  await page.getByRole("button", { name: /se resultat/i }).click();
+
+  await expect(page.getByTestId("student-adventure-finish")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("Løbet er slut.", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("bonus-cta")).toHaveCount(0);
+});
+
+test("lærerens tidlige afslutning på standardruten påstår ikke et færdigt resultat", async ({
+  page,
+}) => {
+  await openHarnessedPlay(page, {
+    sessionId: "standard-v2-teacher-ended-early",
+    raceType: "manuel",
+    sessionStatus: "finished",
+  });
+
+  await expect(page.getByTestId("student-adventure-finish")).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(
+    page.getByRole("heading", { name: "Løbet er afsluttet." }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/jeres registrerede resultat er klar hos læreren/i),
+  ).toHaveCount(0);
+  await expect(page.getByTestId("bonus-cta")).toHaveCount(0);
+});
+
+test("et offline slutsvar får aldrig et færdigt resultat, når læreren lukker løbet", async ({
+  page,
+}) => {
+  const play = await openHarnessedPlay(page, {
+    sessionId: "standard-v2-teacher-ended-with-pending-answer",
+    raceType: "manuel",
+    questions: [DEFAULT_STANDARD_QUESTIONS[0]],
+  });
+  await openStandardQuestion(page);
+  await page.evaluate(() => {
+    Object.defineProperty(window.navigator, "onLine", {
+      configurable: true,
+      get: () => false,
+    });
+  });
+  await page
+    .getByRole("button", { name: DEFAULT_STANDARD_QUESTIONS[0].answers[1] })
+    .click();
+  await expect(page.getByText("Svaret er gemt på telefonen")).toBeVisible();
+
+  play.setSessionStatus("finished");
+  await page.evaluate(() => {
+    Object.defineProperty(window.navigator, "onLine", {
+      configurable: true,
+      get: () => true,
+    });
+    window.dispatchEvent(new Event("online"));
+  });
+
+  await expect(page.getByTestId("student-adventure-finish")).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(
+    page.getByText("Svaret kan ikke længere afleveres.", { exact: true }),
+  ).toBeVisible({ timeout: 20_000 });
+  await expect(
+    page.getByRole("heading", { name: "Løbet er afsluttet." }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/jeres registrerede resultat er klar hos læreren/i),
+  ).toHaveCount(0);
+  await expect(page.getByText("Point", { exact: true })).toHaveCount(0);
 });
 
 test("quiz bruger store svar, lange tekster og uændret submit-payload", async ({
@@ -456,7 +600,15 @@ test("et terminalt replay-afslag efter lokalt korrekt svar viser kun den rigtige
     })),
   });
   await openStandardQuestion(page);
-  await page.context().setOffline(true);
+  // Chromium can navigate while a Playwright browser context is brought back
+  // online. The delivery state machine only needs the browser's online signal,
+  // so keep this replay test in one document and dispatch the real event.
+  await page.evaluate(() => {
+    Object.defineProperty(window.navigator, "onLine", {
+      configurable: true,
+      get: () => false,
+    });
+  });
 
   await page
     .getByRole("button", { name: DEFAULT_STANDARD_QUESTIONS[0].answers[1] })
@@ -465,7 +617,13 @@ test("et terminalt replay-afslag efter lokalt korrekt svar viser kun den rigtige
     page.getByTestId("standard-play-answer-awaiting-confirmation"),
   ).toBeVisible();
 
-  await page.context().setOffline(false);
+  await page.evaluate(() => {
+    Object.defineProperty(window.navigator, "onLine", {
+      configurable: true,
+      get: () => true,
+    });
+    window.dispatchEvent(new Event("online"));
+  });
   await expect(
     page.getByText("Svaret kunne ikke afleveres.", { exact: true }),
   ).toBeVisible({ timeout: 20_000 });
