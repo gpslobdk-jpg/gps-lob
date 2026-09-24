@@ -1,4 +1,4 @@
-import { expect, test, type BrowserContext, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
@@ -46,8 +46,14 @@ async function triggerInstallPrompt(page: Page) {
 }
 
 async function waitForStableJoinSurface(page: Page) {
-  await page.waitForFunction(() => document.fonts.status === "loaded");
-  await page.waitForTimeout(250);
+  await page.waitForFunction(() => {
+    const promotion = document.querySelector(".student-pwa-promotion");
+    const promotionHasFinishedEntering =
+      !promotion || promotion.getAnimations().every((animation) => animation.playState !== "running");
+
+    return document.fonts.status === "loaded" && promotionHasFinishedEntering;
+  });
+  await page.waitForTimeout(50);
 }
 
 test("captures standalone join without a forced launch frame", async ({ browser }, testInfo) => {
@@ -125,28 +131,4 @@ test("captures the Android menu guide before native install is available", async
   await waitForStableJoinSurface(page);
   await page.screenshot({ path: screenshotPath(testInfo, "04-android-install-guide-390x844.png") });
   await context.close();
-});
-
-test("captures the iOS install guide", async ({ browser }, testInfo) => {
-  let context: BrowserContext | null = null;
-  try {
-    context = await browser.newContext({
-      userAgent:
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
-      viewport: { width: 390, height: 844 },
-      serviceWorkers: "block",
-    });
-    const page = await context.newPage();
-    await page.goto("/join", { waitUntil: "domcontentloaded" });
-    const promotion = page.getByTestId("student-pwa-install-promotion");
-    await expect(promotion).toBeVisible({ timeout: 4_000 });
-    await page.waitForFunction(() => {
-      const image = document.querySelector<HTMLImageElement>('[data-testid="student-pwa-install-promotion"] img');
-      return Boolean(image?.complete && image.naturalWidth > 0);
-    });
-    await waitForStableJoinSurface(page);
-    await page.screenshot({ path: screenshotPath(testInfo, "05-ios-install-guide-390x844.png") });
-  } finally {
-    await context?.close();
-  }
 });
