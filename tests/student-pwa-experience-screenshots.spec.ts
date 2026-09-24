@@ -45,6 +45,11 @@ async function triggerInstallPrompt(page: Page) {
   });
 }
 
+async function waitForStableJoinSurface(page: Page) {
+  await page.waitForFunction(() => document.fonts.status === "loaded");
+  await page.waitForTimeout(250);
+}
+
 test("captures standalone join without a forced launch frame", async ({ browser }, testInfo) => {
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -56,6 +61,7 @@ test("captures standalone join without a forced launch frame", async ({ browser 
 
   await expect(page.getByTestId("pwa-launch-experience")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Deltag i et løb" })).toBeVisible();
+  await waitForStableJoinSurface(page);
   await page.screenshot({
     path: screenshotPath(testInfo, "01-standalone-join-390x844.png"),
   });
@@ -73,6 +79,7 @@ test("captures normal join at the requested responsive sizes", async ({ browser 
     const page = await context.newPage();
     await page.goto("/join", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "Deltag i et løb" })).toBeVisible();
+    await waitForStableJoinSurface(page);
     await page.screenshot({ path: screenshotPath(testInfo, viewport.name) });
     await context.close();
   }
@@ -92,7 +99,31 @@ test("captures the Android install promotion", async ({ browser }, testInfo) => 
     const image = document.querySelector<HTMLImageElement>('[data-testid="student-pwa-install-promotion"] img');
     return Boolean(image?.complete && image.naturalWidth > 0);
   });
+  await waitForStableJoinSurface(page);
   await page.screenshot({ path: screenshotPath(testInfo, "03-android-install-390x844.png") });
+  await context.close();
+});
+
+test("captures the Android menu guide before native install is available", async ({ browser }, testInfo) => {
+  const context = await browser.newContext({
+    userAgent:
+      "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36",
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    serviceWorkers: "block",
+  });
+  const page = await context.newPage();
+  await page.goto("/join", { waitUntil: "domcontentloaded" });
+  const promotion = page.getByTestId("student-pwa-install-promotion");
+  await expect(promotion).toBeVisible({ timeout: 4_000 });
+  await expect(promotion).toHaveAttribute("data-install-method", "guide");
+  await page.waitForFunction(() => {
+    const image = document.querySelector<HTMLImageElement>('[data-testid="student-pwa-install-promotion"] img');
+    return Boolean(image?.complete && image.naturalWidth > 0);
+  });
+  await waitForStableJoinSurface(page);
+  await page.screenshot({ path: screenshotPath(testInfo, "04-android-install-guide-390x844.png") });
   await context.close();
 });
 
@@ -113,7 +144,8 @@ test("captures the iOS install guide", async ({ browser }, testInfo) => {
       const image = document.querySelector<HTMLImageElement>('[data-testid="student-pwa-install-promotion"] img');
       return Boolean(image?.complete && image.naturalWidth > 0);
     });
-    await page.screenshot({ path: screenshotPath(testInfo, "04-ios-install-guide-390x844.png") });
+    await waitForStableJoinSurface(page);
+    await page.screenshot({ path: screenshotPath(testInfo, "05-ios-install-guide-390x844.png") });
   } finally {
     await context?.close();
   }

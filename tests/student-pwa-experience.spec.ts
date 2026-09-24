@@ -72,6 +72,106 @@ test.describe("student PWA install promotion", () => {
     await expect.poll(() => page.evaluate(() => (window as Window & { __pwaPromptCalls?: number }).__pwaPromptCalls ?? 0)).toBe(1);
   });
 
+  test("Android gets a short menu guide before the browser exposes a native install prompt", async ({ browser }) => {
+    const context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36",
+      viewport: { width: 412, height: 915 },
+      isMobile: true,
+      hasTouch: true,
+      serviceWorkers: "block",
+    });
+
+    try {
+      const page = await context.newPage();
+      await page.goto("/join", { waitUntil: "domcontentloaded" });
+
+      const promotion = page.getByTestId(PWA_PROMOTION);
+      await expect(promotion).toBeVisible({ timeout: 4_000 });
+      await expect(promotion).toHaveAttribute("data-platform", "android");
+      await expect(promotion).toHaveAttribute("data-install-method", "guide");
+      await expect(promotion).toContainText("Åbn menuen ⋮ i din Android-browser");
+      await expect(promotion).toContainText("Installér app");
+      await expect(promotion.getByRole("button", { name: "Installer app" })).toHaveCount(0);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("the Android guide yields immediately to the manual code entry", async ({ browser }) => {
+    const context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36",
+      viewport: { width: 412, height: 915 },
+      isMobile: true,
+      hasTouch: true,
+      serviceWorkers: "block",
+    });
+
+    try {
+      const page = await context.newPage();
+      await page.goto("/join", { waitUntil: "domcontentloaded" });
+      await expect(page.getByTestId(PWA_PROMOTION)).toBeVisible({ timeout: 4_000 });
+
+      await page.getByRole("button", { name: "Deltag i et løb" }).click();
+
+      await expect(page.getByTestId(PWA_PROMOTION)).toHaveCount(0);
+      await expect(page.locator("#join-code")).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("native Capacitor Android never receives browser install instructions", async ({ browser }) => {
+    const context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36",
+      viewport: { width: 412, height: 915 },
+      isMobile: true,
+      hasTouch: true,
+      serviceWorkers: "block",
+    });
+
+    try {
+      const page = await context.newPage();
+      await page.addInitScript(() => {
+        (window as Window & { Capacitor?: unknown }).Capacitor = {};
+      });
+      await page.goto("/join", { waitUntil: "domcontentloaded" });
+      await triggerInstallPrompt(page);
+      await page.waitForTimeout(1_200);
+
+      await expect(page.getByTestId(PWA_PROMOTION)).toHaveCount(0);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("iPhone Safari guide includes the final Add action", async ({ browser }) => {
+    const context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+      serviceWorkers: "block",
+    });
+
+    try {
+      const page = await context.newPage();
+      await page.goto("/join", { waitUntil: "domcontentloaded" });
+
+      const promotion = page.getByTestId(PWA_PROMOTION);
+      await expect(promotion).toBeVisible({ timeout: 4_000 });
+      await expect(promotion).toHaveAttribute("data-platform", "ios");
+      await expect(promotion).toContainText("Del i Safari");
+      await expect(promotion).toContainText("Tilføj");
+      await expect(promotion).toContainText("Åbn som webapp");
+    } finally {
+      await context.close();
+    }
+  });
+
   test("dismissed promotion stays hidden during the 14 day cooldown", async ({ page }) => {
     await page.goto("/join", { waitUntil: "domcontentloaded" });
     await triggerInstallPrompt(page);

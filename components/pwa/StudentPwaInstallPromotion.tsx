@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Download, Plus, Share2, X } from "lucide-react";
+import { Download, MoreVertical, Plus, Share2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const DISMISS_STORAGE_KEY = "skolegps.pwa.install-dismissed-at.v1";
@@ -42,14 +42,34 @@ function isIosSafari() {
   return isAppleMobile && isSafari;
 }
 
+function isNativeCapacitorApp() {
+  return typeof (window as Window & { Capacitor?: unknown }).Capacitor !== "undefined";
+}
+
+function isAndroidBrowser() {
+  return /Android/i.test(window.navigator.userAgent ?? "") && !isNativeCapacitorApp() && !isEmbeddedBrowser();
+}
+
 function isEmbeddedBrowser() {
   const userAgent = window.navigator.userAgent ?? "";
-  const isCapacitor = typeof (window as Window & { Capacitor?: unknown }).Capacitor !== "undefined";
+  const isCapacitor = isNativeCapacitorApp();
   return (
     /FBAN|FBAV|Instagram|Snapchat/i.test(userAgent) ||
     (!isCapacitor && /Android/i.test(userAgent) && /; wv\)|\bwv\b/i.test(userAgent)) ||
     (/iPhone|iPad|iPod/i.test(userAgent) && /AppleWebKit/i.test(userAgent) && !/Safari/i.test(userAgent))
   );
+}
+
+function getInstallPlatform(): InstallPlatform {
+  if (isIosSafari()) {
+    return "ios";
+  }
+
+  if (isAndroidBrowser()) {
+    return "android";
+  }
+
+  return null;
 }
 
 function readStorage(key: string) {
@@ -84,6 +104,7 @@ function readInitialInstallSurface(): {
 
   const isHidden =
     isStandaloneApp() ||
+    isNativeCapacitorApp() ||
     readStorage(INSTALLED_STORAGE_KEY) === "installed" ||
     isDismissedWithinCooldown() ||
     isEmbeddedBrowser();
@@ -93,7 +114,7 @@ function readInitialInstallSurface(): {
     // A QR link opens straight into the real join flow. Installation is never
     // allowed to cover the code/name step on that first visit.
     isJoinFlowActive: new URLSearchParams(window.location.search).has("pin"),
-    platform: !isHidden && isIosSafari() ? "ios" : null,
+    platform: isHidden ? null : getInstallPlatform(),
   };
 }
 
@@ -118,7 +139,7 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
 
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
-      if (!isStandaloneApp() && !isEmbeddedBrowser() && !isDismissedWithinCooldown()) {
+      if (!isStandaloneApp() && !isNativeCapacitorApp() && !isEmbeddedBrowser() && !isDismissedWithinCooldown()) {
         setPlatform("android");
         setDeferredPrompt(event as BeforeInstallPromptEvent);
       }
@@ -180,7 +201,7 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
     isReady &&
     !isHidden &&
     !isJoinFlowActive &&
-    (platform === "ios" || Boolean(deferredPrompt));
+    (platform === "ios" || platform === "android" || Boolean(deferredPrompt));
 
   if (!shouldShow) {
     return null;
@@ -188,8 +209,11 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
 
   return (
     <aside
+      role="region"
+      aria-label={`Installer ${brandName} som app`}
       aria-labelledby="student-pwa-install-title"
       data-platform={platform ?? undefined}
+      data-install-method={deferredPrompt ? "native" : "guide"}
       data-testid="student-pwa-install-promotion"
       className="student-pwa-promotion fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[90] mx-auto w-[calc(100%-1.5rem)] max-w-md overflow-hidden rounded-[1.65rem] border border-sky-200/20 bg-slate-950/94 p-3.5 text-white shadow-[0_22px_70px_rgba(2,6,23,0.54)] ring-1 ring-white/[0.06] backdrop-blur-2xl sm:p-4"
     >
@@ -207,24 +231,24 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
           </h2>
 
           {platform === "ios" ? (
-            <ol className="mt-3 grid gap-2 text-[13px] leading-5 text-slate-200">
-              <li className="flex items-center gap-2.5">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-400/12 text-sky-200"><Share2 className="h-4 w-4" /></span>
-                <span><strong className="text-white">1.</strong> Tryk på Del i Safari</span>
+            <ol className="mt-2.5 grid gap-1 text-[12px] leading-4 text-slate-200">
+              <li className="flex items-center gap-1.5">
+                <Share2 className="h-3.5 w-3.5 shrink-0 text-sky-200" />
+                <span><strong className="text-white">1.</strong> Del i Safari</span>
               </li>
-              <li className="flex items-center gap-2.5">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-400/12 text-sky-200"><Plus className="h-4 w-4" /></span>
-                <span><strong className="text-white">2.</strong> Vælg &quot;Føj til hjemmeskærm&quot;</span>
+              <li className="flex items-center gap-1.5">
+                <Plus className="h-3.5 w-3.5 shrink-0 text-sky-200" />
+                <span><strong className="text-white">2.</strong> Føj til hjemmeskærm</span>
               </li>
-              <li className="flex items-center gap-2.5">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cyan-400/12 text-cyan-200"><Download className="h-4 w-4" /></span>
-                <span><strong className="text-white">3.</strong> Vælg &quot;Åbn som webapp&quot;</span>
+              <li className="flex items-start gap-1.5">
+                <Download className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-200" />
+                <span><strong className="text-white">3.</strong> Tilføj – behold &quot;Åbn som webapp&quot; slået til</span>
               </li>
             </ol>
-          ) : (
+          ) : deferredPrompt ? (
             <>
               <p className="mt-1.5 text-[13px] leading-5 text-slate-300">
-                Åbn direkte fra hjemmeskærmen – helt uden browserlinjen.
+                Tryk på Installer app, så lægger browseren {brandName} på din hjemmeskærm.
               </p>
               <button
                 type="button"
@@ -236,6 +260,17 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
                 {isPrompting ? "Åbner…" : "Installer app"}
               </button>
             </>
+          ) : (
+            <ol className="mt-3 grid gap-2 text-[13px] leading-5 text-slate-200">
+              <li className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-400/12 text-sky-200"><MoreVertical className="h-4 w-4" /></span>
+                <span><strong className="text-white">1.</strong> Åbn menuen ⋮ i din Android-browser</span>
+              </li>
+              <li className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cyan-400/12 text-cyan-200"><Download className="h-4 w-4" /></span>
+                <span><strong className="text-white">2.</strong> Vælg &quot;Installér app&quot; eller &quot;Føj til startskærm&quot;</span>
+              </li>
+            </ol>
           )}
         </div>
 

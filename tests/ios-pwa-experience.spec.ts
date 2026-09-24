@@ -39,8 +39,10 @@ test.describe("iOS PWA guidance", () => {
     const promotion = page.getByTestId(PWA_PROMOTION);
     await expect(promotion).toBeVisible({ timeout: 4_000 });
     await expect(promotion).toHaveAttribute("data-platform", "ios");
-    await expect(promotion).toContainText("Tryk på Del i Safari");
+    await expect(promotion).toContainText("Del i Safari");
     await expect(promotion).toContainText("Føj til hjemmeskærm");
+    await expect(promotion).toContainText("Tilføj");
+    await expect(promotion).toContainText("Åbn som webapp");
     await expect(promotion).not.toContainText("Installer app");
   });
 
