@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 
 import AIChatButton from "@/components/AIChatButton";
 import RoutePath from "@/components/brand/RoutePath";
+import PisaNotice from "@/components/home/PisaNotice";
 import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
 import QRScannerModal from "@/components/QRScannerModal";
 import { getSiteCopy } from "@/lib/siteCopy";
@@ -517,6 +518,17 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
         {!isPostlob ? (
           <section className="pt-1">
             <MobileInSchoolBanner variant="home" />
+            <div className="hidden md:block">
+              <PisaNotice
+                links={{
+                  classroom:
+                    "https://dagenstavle.dk/auth/family-sso/start?next=%2Ftavle&source=skolegps",
+                  worksheets:
+                    "https://printmitarbejdsark.dk/auth/family-sso/start?next=%2Flav&source=skolegps",
+                  gps: "/login?next=%2Fdashboard%2Fopret%2Fvalg",
+                }}
+              />
+            </div>
           </section>
         ) : null}
         <section className="grid items-center gap-8 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,0.34fr)] lg:py-14">
