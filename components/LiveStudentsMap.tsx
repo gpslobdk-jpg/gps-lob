@@ -65,8 +65,8 @@ export default function LiveStudentsMap({ locations }: LiveStudentsMapProps) {
     <div className="h-full w-full">
       <MapContainer center={[55.6761, 12.5683]} zoom={13} className="h-full w-full">
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
         <FitToLocations locations={locations} />
