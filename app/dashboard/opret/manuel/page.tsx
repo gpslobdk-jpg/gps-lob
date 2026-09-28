@@ -2045,6 +2045,18 @@ function OpretLoebPageContent() {
                 <div ref={saveFeedbackRef} className="mt-6 space-y-4">
                   {notice?.tone === "error" ? renderNotice() : null}
                   <FocusModeSetting enabled={focusEnabled} status={focusStatus} onChange={setFocusEnabled} disabled={isSaving} />
+                  {isDistributedCircularEligibleRaceType(
+                    overrideRaceType ?? RACE_TYPES.MANUEL
+                  ) ? (
+                    <PostOrderModeField
+                      value={postOrderMode}
+                      onChange={(value) => {
+                        setPostOrderMode(value);
+                        setIsPostOrderModeDirty(true);
+                      }}
+                      disabled={isEditorBusy}
+                    />
+                  ) : null}
                   <button
                     type="button"
                     onClick={handleSaveRun}
@@ -2143,22 +2155,6 @@ function OpretLoebPageContent() {
             </div>
 
             <div className="h-px bg-emerald-400/10" />
-
-            {isDistributedCircularEligibleRaceType(
-              overrideRaceType ?? RACE_TYPES.MANUEL
-            ) ? (
-              <>
-                <PostOrderModeField
-                  value={postOrderMode}
-                  onChange={(value) => {
-                    setPostOrderMode(value);
-                    setIsPostOrderModeDirty(true);
-                  }}
-                  disabled={isEditorBusy}
-                />
-                <div className="h-px bg-emerald-400/10" />
-              </>
-            ) : null}
 
             <div className="flex items-start gap-3 rounded-[1.25rem] text-left text-emerald-50/90">
               <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">

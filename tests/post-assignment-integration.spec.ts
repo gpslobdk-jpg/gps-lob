@@ -21,8 +21,9 @@ test.describe("post assignment integration contract", () => {
 
   test("the teacher control exposes only fixed and distributed choices", () => {
     const contents = source("components/routes/PostOrderModeField.tsx");
-    expect(contents).toContain("Fordel holdene på forskellige startposter");
-    expect(contents).toContain("Samme rækkefølge for alle");
+    expect(contents).toContain("Forskellige startposter, samme rute");
+    expect(contents).toContain("Samme startpost og rækkefølge");
+    expect(contents).toContain("afstand, postnummer eller nærmeste post");
     expect(contents).toContain('badge: "Anbefalet"');
     expect(contents).not.toContain("RANDOM_PER_ASSIGNMENT");
   });

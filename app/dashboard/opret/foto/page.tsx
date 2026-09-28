@@ -1366,6 +1366,14 @@ function FotoMissionBuilderPageContent() {
                   <div ref={saveFeedbackRef} className="mt-6 space-y-4">
                     {notice?.tone === "error" ? renderNotice() : null}
                     <FocusModeSetting enabled={focusEnabled} status={focusStatus} onChange={setFocusEnabled} disabled={isSaving} />
+                    <PostOrderModeField
+                      value={postOrderMode}
+                      onChange={(value) => {
+                        setPostOrderMode(value);
+                        setIsPostOrderModeDirty(true);
+                      }}
+                      disabled={isEditorBusy}
+                    />
                     <button
                       type="button"
                       onClick={handleSaveRun}
@@ -1456,17 +1464,6 @@ function FotoMissionBuilderPageContent() {
                   Vælg hvor tæt eleven skal være på posten, før GPS-låsen åbner under spillet.
                 </p>
               </div>
-
-              <div className="h-px bg-sky-400/10" />
-
-              <PostOrderModeField
-                value={postOrderMode}
-                onChange={(value) => {
-                  setPostOrderMode(value);
-                  setIsPostOrderModeDirty(true);
-                }}
-                disabled={isEditorBusy}
-              />
 
               <div className="h-px bg-sky-400/10" />
 

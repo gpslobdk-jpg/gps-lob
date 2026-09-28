@@ -1696,6 +1696,14 @@ function OpretDanskLoebPageContent() {
                   <div ref={saveFeedbackRef} className="mt-6 space-y-4">
                     {notice?.tone === "error" ? renderNotice() : null}
                     <FocusModeSetting enabled={focusEnabled} status={focusStatus} onChange={setFocusEnabled} disabled={isSaving} />
+                    <PostOrderModeField
+                      value={postOrderMode}
+                      onChange={(value) => {
+                        setPostOrderMode(value);
+                        setIsPostOrderModeDirty(true);
+                      }}
+                      disabled={isEditorBusy}
+                    />
                     <button
                       type="button"
                       onClick={handleSaveRun}
@@ -1783,17 +1791,6 @@ function OpretDanskLoebPageContent() {
                   Radius styrer, hvor tæt eleven skal være på posten. Klassetrin bliver i arbejdsfladen, fordi det er en kernefunktion.
                 </p>
               </div>
-
-              <div className="h-px bg-rose-400/10" />
-
-              <PostOrderModeField
-                value={postOrderMode}
-                onChange={(value) => {
-                  setPostOrderMode(value);
-                  setIsPostOrderModeDirty(true);
-                }}
-                disabled={isEditorBusy}
-              />
 
               <div className="h-px bg-rose-400/10" />
 

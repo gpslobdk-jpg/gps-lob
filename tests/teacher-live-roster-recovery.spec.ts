@@ -6,7 +6,6 @@ const TEACHER_ID = "teacher-roster-00000000-0000-0000-000000000001";
 const iPhone14 = {
   userAgent: devices["iPhone 14"].userAgent,
   viewport: devices["iPhone 14"].viewport,
-  screen: devices["iPhone 14"].screen,
   deviceScaleFactor: devices["iPhone 14"].deviceScaleFactor,
   isMobile: devices["iPhone 14"].isMobile,
   hasTouch: devices["iPhone 14"].hasTouch,

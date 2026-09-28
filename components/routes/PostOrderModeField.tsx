@@ -14,15 +14,15 @@ type PostOrderModeFieldProps = {
 const OPTIONS = [
   {
     value: POST_ORDER_MODES.DISTRIBUTED_CIRCULAR,
-    title: "Fordel holdene på forskellige startposter",
+    title: "Forskellige startposter, samme rute",
     description:
-      "Holdene starter forskellige steder og følger derefter den samme rute.",
+      "Holdene starter forskellige steder og møder derefter posterne i samme rute.",
     badge: "Anbefalet",
   },
   {
     value: POST_ORDER_MODES.FIXED,
-    title: "Samme rækkefølge for alle",
-    description: "Alle starter ved den samme post og følger samme rækkefølge.",
+    title: "Samme startpost og rækkefølge",
+    description: "Alle starter ved den samme post og følger den samme rækkefølge.",
   },
 ] as const;
 
@@ -36,9 +36,10 @@ export default function PostOrderModeField({
       className="space-y-3 rounded-2xl border border-gray-200 bg-white/95 p-4"
       disabled={disabled}
     >
-      <legend className="text-sm font-semibold text-gray-900">Postrækkefølge</legend>
+      <legend className="text-sm font-semibold text-gray-900">Startfordeling og rute</legend>
       <p className="text-sm text-gray-600">
-        Vælg hvordan holdene fordeles, når løbet startes.
+        Vælg, hvordan holdene starter og møder de eksisterende poster. Valget bruger ikke
+        afstand, postnummer eller nærmeste post på kortet.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         {OPTIONS.map((option) => {
