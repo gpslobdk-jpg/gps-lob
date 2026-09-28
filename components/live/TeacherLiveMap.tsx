@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import { poppins, rubik } from "@/lib/fonts";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
 import { escapeHtml, toFiniteNumber } from "@/components/live/liveUtils";
@@ -28,6 +28,7 @@ type TeacherLiveMapProps = {
   onEndRun: () => Promise<void>;
   sidebarCollapsed: boolean;
   onToggleSidebar: () => void;
+  postOrderSummary?: ReactNode;
 };
 
 const LIVE_STATUS_WINDOW_MS = 30_000;
@@ -218,6 +219,7 @@ export default function TeacherLiveMap({
   onEndRun,
   sidebarCollapsed,
   onToggleSidebar,
+  postOrderSummary,
 }: TeacherLiveMapProps) {
   const recentActiveCount = studentLocations.filter((student) => isStudentRecentlyActive(student)).length;
   const staleCount = Math.max(0, studentLocations.length - recentActiveCount);
@@ -301,6 +303,12 @@ export default function TeacherLiveMap({
           <option value="satellite">🛰 Satellit</option>
         </select>
       </div>
+
+      {postOrderSummary ? (
+        <div className="absolute right-5 top-28 z-[1000] hidden w-[min(28rem,calc(100%_-_2.5rem))] xl:block">
+          {postOrderSummary}
+        </div>
+      ) : null}
 
       <MapContainer
         key={mapKey}

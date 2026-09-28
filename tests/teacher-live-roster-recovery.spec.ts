@@ -1,8 +1,16 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { devices, expect, test, type Page, type Route } from "@playwright/test";
 
 const SESSION_ID = "teacher-roster-session-00000000-0000-0000-000000000001";
 const RUN_ID = "teacher-roster-run-00000000-0000-0000-000000000001";
 const TEACHER_ID = "teacher-roster-00000000-0000-0000-000000000001";
+const iPhone14 = {
+  userAgent: devices["iPhone 14"].userAgent,
+  viewport: devices["iPhone 14"].viewport,
+  screen: devices["iPhone 14"].screen,
+  deviceScaleFactor: devices["iPhone 14"].deviceScaleFactor,
+  isMobile: devices["iPhone 14"].isMobile,
+  hasTouch: devices["iPhone 14"].hasTouch,
+};
 
 type ParticipantRow = {
   id: string;
@@ -16,6 +24,72 @@ type ParticipantRow = {
   finished_at: null;
   start_offset: number;
 };
+
+type RunQuestion = {
+  type: string;
+  text: string;
+  lat: number;
+  lng: number;
+  points: number;
+};
+
+type MockTeacherLiveOptions = {
+  sessionStatus?: "waiting" | "running";
+  postOrderMode?: "fixed" | "distributed_circular";
+  routeVersion?: number;
+  questions?: RunQuestion[];
+};
+
+function createDistributedOrderFixture() {
+  const timestamp = new Date().toISOString();
+  const participants: ParticipantRow[] = [
+    {
+      id: "participant-order-blue",
+      session_id: SESSION_ID,
+      student_name: "Hold Blå",
+      lat: 55.6761,
+      lng: 12.5683,
+      updated_at: timestamp,
+      last_updated: timestamp,
+      run_started_at: null,
+      finished_at: null,
+      start_offset: 0,
+    },
+    {
+      id: "participant-order-green",
+      session_id: SESSION_ID,
+      student_name: "Hold Grøn",
+      lat: 55.6771,
+      lng: 12.5693,
+      updated_at: timestamp,
+      last_updated: timestamp,
+      run_started_at: null,
+      finished_at: null,
+      start_offset: 3,
+    },
+    {
+      id: "participant-order-red",
+      session_id: SESSION_ID,
+      student_name: "Hold Rød",
+      lat: 55.6781,
+      lng: 12.5703,
+      updated_at: timestamp,
+      last_updated: timestamp,
+      run_started_at: null,
+      finished_at: null,
+      start_offset: 6,
+    },
+  ];
+  const questions = Array.from({ length: 10 }, (_, index) => ({
+    type: "multiple_choice",
+    text: `Post ${index + 1}`,
+    lat: 55.6761 + index * 0.0002,
+    lng: 12.5683 + index * 0.0002,
+    points: 10,
+  }));
+
+  return { participants, questions };
+}
 
 function authCookie() {
   const payload = {
@@ -49,7 +123,7 @@ function tableFromUrl(url: string) {
 async function mockTeacherLivePage(
   page: Page,
   getParticipants: () => ParticipantRow[],
-  options: { sessionStatus?: "waiting" | "running" } = {}
+  options: MockTeacherLiveOptions = {}
 ) {
   const sessionCookie = authCookie();
   const browserOrigin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000").origin;
@@ -126,6 +200,8 @@ async function mockTeacherLivePage(
             pin: "123456",
             status: options.sessionStatus ?? "waiting",
             gps_override: false,
+            post_order_mode: options.postOrderMode,
+            route_version: options.routeVersion,
           }),
         });
         return;
@@ -133,7 +209,11 @@ async function mockTeacherLivePage(
         await route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify({ id: RUN_ID, questions: [], race_type: "manuel" }),
+          body: JSON.stringify({
+            id: RUN_ID,
+            questions: options.questions ?? [],
+            race_type: "manuel",
+          }),
         });
         return;
       case "session_students":
@@ -156,6 +236,15 @@ async function mockTeacherLivePage(
         await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
     }
   });
+}
+
+async function dismissVisibleOverlay(page: Page, accessibleName: string) {
+  const closeButton = page.getByRole("button", { name: accessibleName, exact: true });
+  await closeButton.waitFor({ state: "visible", timeout: 1_000 }).catch(() => undefined);
+
+  if (await closeButton.isVisible().catch(() => false)) {
+    await closeButton.click();
+  }
 }
 
 test.use({ serviceWorkers: "block" });
@@ -282,4 +371,82 @@ test("Fjern hold er tastaturbetjent, bekræftes og bliver stående ved serverfej
   await dialog.getByRole("button", { name: "Fjern hold", exact: true }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByText("Hold Blå", { exact: true })).toHaveCount(0);
+});
+
+test("faktisk startfordeling overlapper ikke live-overvågningen på desktop", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  const { participants, questions } = createDistributedOrderFixture();
+
+  await mockTeacherLivePage(page, () => participants, {
+    sessionStatus: "running",
+    postOrderMode: "distributed_circular",
+    routeVersion: 1,
+    questions,
+  });
+
+  await page.goto(`/dashboard/live/${SESSION_ID}`);
+  const summary = page
+    .getByText("Faktisk startfordeling", { exact: true })
+    .locator("xpath=ancestor::section");
+  const monitoring = page
+    .getByRole("heading", { name: "Live Overvågning", exact: true })
+    .locator("xpath=..");
+  const focusToggle = page.getByRole("button", { name: "Fokus", exact: true });
+  await expect(summary).toBeVisible({ timeout: 30_000 });
+  await expect(monitoring).toBeVisible();
+  await expect(focusToggle).toBeVisible();
+
+  const [summaryBox, monitoringBox, focusToggleBox] = await Promise.all([
+    summary.boundingBox(),
+    monitoring.boundingBox(),
+    focusToggle.boundingBox(),
+  ]);
+  expect(summaryBox).not.toBeNull();
+  expect(monitoringBox).not.toBeNull();
+  expect(focusToggleBox).not.toBeNull();
+
+  if (!summaryBox || !monitoringBox || !focusToggleBox) {
+    return;
+  }
+
+  const overlaps = (first: typeof summaryBox, second: typeof summaryBox) => !(
+    first.x + first.width <= second.x ||
+    second.x + second.width <= first.x ||
+    first.y + first.height <= second.y ||
+    second.y + second.height <= first.y
+  );
+
+  expect(overlaps(summaryBox, monitoringBox)).toBe(false);
+  expect(overlaps(summaryBox, focusToggleBox)).toBe(false);
+  await dismissVisibleOverlay(page, "Luk QR-kode");
+  await page.screenshot({ path: testInfo.outputPath("post-order-summary-desktop.png") });
+});
+
+test.describe("mobilvisning", () => {
+  test.use(iPhone14);
+
+  test("bevarer kortets overvågning uden fordelingskortet", async ({ page }, testInfo) => {
+    const { participants, questions } = createDistributedOrderFixture();
+    await mockTeacherLivePage(page, () => participants, {
+      sessionStatus: "running",
+      postOrderMode: "distributed_circular",
+      routeVersion: 1,
+      questions,
+    });
+
+    await page.goto(`/dashboard/live/${SESSION_ID}`);
+    const summary = page
+      .getByText("Faktisk startfordeling", { exact: true })
+      .locator("xpath=ancestor::section");
+    const monitoring = page
+      .getByRole("heading", { name: "Live Overvågning", exact: true })
+      .locator("xpath=..");
+
+    await expect(summary).toBeHidden({ timeout: 30_000 });
+    await expect(monitoring).toBeVisible();
+    await dismissVisibleOverlay(page, "Luk advarsel");
+    await dismissVisibleOverlay(page, "Luk QR-kode");
+    await page.screenshot({ path: testInfo.outputPath("post-order-summary-mobile.png") });
+  });
 });

@@ -437,18 +437,6 @@ export default function LiveLobbyPage() {
               <TeacherVm26Scoreboard standings={live.finalStandings} />
             </div>
           ) : null}
-          {showPostOrderSummary ? (
-            <div className="absolute left-6 top-6 z-[1030] hidden w-[min(28rem,calc(100vw-2rem))] xl:block">
-              <PostOrderSummary
-                mode={live.postOrderMode}
-                postCount={live.totalPosts}
-                participantCount={live.studentLocations.length}
-                startOffsets={assignedStartOffsets}
-                actual={true}
-                compact
-              />
-            </div>
-          ) : null}
           <TeacherLiveMap
             mapCenter={live.mapCenter}
             mapKey={live.mapKey}
@@ -461,6 +449,18 @@ export default function LiveLobbyPage() {
             onEndRun={live.endRun}
             sidebarCollapsed={sidebarCollapsed}
             onToggleSidebar={() => setSidebarCollapsed((prev) => !prev)}
+            postOrderSummary={
+              showPostOrderSummary ? (
+                <PostOrderSummary
+                  mode={live.postOrderMode}
+                  postCount={live.totalPosts}
+                  participantCount={live.studentLocations.length}
+                  startOffsets={assignedStartOffsets}
+                  actual={true}
+                  compact
+                />
+              ) : undefined
+            }
           />
           {!sidebarCollapsed && <TeacherLiveSidebar
             activeStudents={live.activeStudents}
