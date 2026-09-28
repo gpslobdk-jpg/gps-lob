@@ -325,11 +325,13 @@ test.describe("DagensTavle family SSO security contract", () => {
     test.skip(!localTeacher, "Kræver den isolerede lokale Supabase-instans.");
     await openTeacherTools(page);
     const cards = page.locator('section[aria-label="Lærerværktøjer"] > a, section[aria-label="Lærerværktøjer"] > article');
-    await expect(cards).toHaveCount(6);
+    await expect(cards).toHaveCount(7);
     const kildeGpsLink = page.getByRole("link", { name: "KildeGPS" });
     await expect(kildeGpsLink).toHaveAttribute("href", "https://www.kildegps.dk");
     await expect(kildeGpsLink).toHaveAttribute("rel", "noopener noreferrer");
     await expect(page.getByRole("heading", { name: "PrintMitArbejdsark" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Printpakker" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Printpakker" })).toHaveAttribute("href", "/printpakker");
     const printMitLink = page.getByRole("link", { name: "PrintMitArbejdsark" });
     await expect(printMitLink).not.toHaveAttribute("target", "_blank");
     await expect(printMitLink).toHaveAttribute("href", /printmitarbejdsark.*\/auth\/family-sso\/start\?next=%2Flav&source=skolegps/);
@@ -358,12 +360,12 @@ test.describe("DagensTavle family SSO security contract", () => {
     await openTeacherTools(page);
 
     const reviewWidths = [
-      { width: 360, rows: 6 },
-      { width: 390, rows: 6 },
-      { width: 768, rows: 3 },
-      { width: 1024, rows: 3 },
-      { width: 1366, rows: 3 },
-      { width: 1920, rows: 2 },
+      { width: 360, rows: 7 },
+      { width: 390, rows: 7 },
+      { width: 768, rows: 4 },
+      { width: 1024, rows: 4 },
+      { width: 1366, rows: 4 },
+      { width: 1920, rows: 3 },
     ];
     for (const review of reviewWidths) {
       await page.setViewportSize({ width: review.width, height: 1000 });
@@ -387,7 +389,7 @@ test.describe("DagensTavle family SSO security contract", () => {
         };
       });
       expect(layout).toEqual({
-        cardCount: 6,
+        cardCount: 7,
         rowCount: review.rows,
         rowHeightsAligned: true,
         textFits: true,

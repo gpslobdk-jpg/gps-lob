@@ -10,6 +10,7 @@ export const TEACHER_TOOL_IDS = [
   "gps-lob",
   "dagens-tavle",
   "printmit-arbejdsark",
+  "printpakker",
   "skak",
   "kildegps",
   "oevekort",
@@ -38,7 +39,7 @@ type TeacherToolBase = {
   description: string;
   icon: TeacherToolIcon;
   id: TeacherToolId;
-  imageSrc?: `/brand/tools/${string}.png`;
+  imageSrc?: `/${string}`;
   title: string;
   tone: TeacherToolTone;
 };
@@ -118,6 +119,17 @@ export function createTeacherToolRegistry(origins: TeacherToolOrigins): readonly
       icon: "file-text",
       imageSrc: "/brand/tools/arbejdsark-illustration.png",
       tone: "blue",
+    },
+    {
+      id: "printpakker",
+      title: "Printpakker",
+      description: "Hent færdige analoge undervisningspakker, klar til at dele ud.",
+      cta: "Se Printpakker",
+      status: "active",
+      link: { href: "/printpakker", kind: "internal", target: "_self" },
+      icon: "file-text",
+      imageSrc: "/printpakker/afteraarsmysteriet-hero.png",
+      tone: "sand",
     },
     {
       id: "skak",
