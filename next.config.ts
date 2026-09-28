@@ -80,6 +80,12 @@ const nextConfig: NextConfig = {
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   turbopack: {},
   transpilePackages: ["@react-pdf/renderer"],
+  // The download handler opens a manifest-selected PDF at request time. Keep
+  // those local teacher assets in that function's trace without tracing other
+  // repository files into the serverless bundle.
+  outputFileTracingIncludes: {
+    "/api/printpakker/**/*": ["./assets/printpakker/**/*"],
+  },
   env: {
     NEXT_PUBLIC_STUDENT_EXPERIENCE_UI_VERSION: "elevapp-2026-09",
     NEXT_PUBLIC_STUDENT_EXPERIENCE_BUILD_TIME: studentExperienceBuildTime,

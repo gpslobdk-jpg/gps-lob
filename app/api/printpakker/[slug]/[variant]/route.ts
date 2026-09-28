@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   getProtectedPrintpakkeDownload,
-  readProtectedPrintpakkeDownload,
+  openProtectedPrintpakkeDownload,
 } from "@/lib/printpakker/downloads.server";
 import { hasPrintpakkeDownloadSession } from "@/lib/printpakker/access";
 import { buildPrintpakkeLoginReturnPath, isPrintpakkeDownloadVariant } from "@/lib/printpakker/links";
@@ -55,12 +55,13 @@ export async function GET(request: Request, { params }: RouteContext) {
   }
 
   try {
-    const file = await readProtectedPrintpakkeDownload(download);
-    return new NextResponse(file, {
+    const fileStream = await openProtectedPrintpakkeDownload(download);
+    // Node's stream/web declaration and Next's DOM BodyInit declaration are
+    // structurally equivalent at runtime but come from distinct type libs.
+    return new NextResponse(fileStream as unknown as ReadableStream<Uint8Array>, {
       headers: {
         ...privateHeaders(),
         "Content-Disposition": `attachment; filename="${download.filename}"`,
-        "Content-Length": String(file.byteLength),
         "Content-Type": download.mediaType,
       },
     });

@@ -10,6 +10,8 @@
     "stripe": "stripe listen --forward-to localhost:3000/api/webhook/stripe",
     "test:ai-grades": "node scripts/ai-grade-check.mjs",
     "test:post-order-db": "node scripts/test-post-order-db.mjs",
+    "printpakker:generate": "node scripts/generate-postloeb-printpakker.mjs",
+    "printpakker:verify": "node scripts/verify-postloeb-printpakker.mjs",
     "test:db:reset-local": "node scripts/security/reset-local-test-db.mjs",
     "test:run-execution-share": "playwright test tests/run-execution-share.spec.ts tests/auth-safe-next.spec.ts --project=chromium",
     "cap:sync": "npx cap sync",

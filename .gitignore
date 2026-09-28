@@ -20,6 +20,10 @@
 # production
 /build
 
+# local PDF rendering output; the reviewed public previews and protected
+# package files live in their explicit public/ and assets/ locations.
+/output
+
 # misc
 .DS_Store
 *.pem

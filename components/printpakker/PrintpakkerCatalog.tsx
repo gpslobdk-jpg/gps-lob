@@ -31,7 +31,7 @@ export function PrintpakkerCatalog({ printpakker }: PrintpakkerCatalogProps) {
   const [activityType, setActivityType] = useState("");
   const [openMenuSlug, setOpenMenuSlug] = useState<string | null>(null);
   const menuButtons = useRef<Record<string, HTMLButtonElement | null>>({});
-  const filterOptions = getPrintpakkeFilterOptions();
+  const filterOptions = getPrintpakkeFilterOptions(printpakker);
 
   const visiblePrintpakker = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("da-DK");

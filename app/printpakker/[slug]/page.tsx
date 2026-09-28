@@ -71,19 +71,19 @@ export default async function PrintpakkeDetailPage({ params, searchParams }: Pag
 
       <section className={styles.packageHero}>
         <Image
-          alt="Et efterårsmysterie med kort, konvolut og små sporbrikker på et bord."
+          alt={printpakke.illustrationAlt}
           className={styles.packageCover}
           fill
           priority
           sizes="100vw"
-          src="/printpakker/afteraarsmysteriet-cover.png"
+          src={printpakke.illustration}
         />
         <div className={styles.packageOverlay}>
-          <p className={styles.eyebrow}>Matematik · 5.-6. klasse</p>
+          <p className={styles.eyebrow}>{printpakke.subject} · {printpakke.gradeLevel}</p>
           <h1 className={rubik.className}>{printpakke.title}</h1>
-          <p>Den forsvundne lanterne er en komplet, analog mysteriejagt med seks korte matematikposter og et fælles spor at samle.</p>
+          <p>{printpakke.detailDescription}</p>
           <ul className={styles.facts} aria-label="Pakkens nøgleoplysninger">
-            <li>6 poster</li><li>{printpakke.duration}</li><li>Makkerarbejde</li><li>Version {printpakke.version}</li>
+            <li>{printpakke.stationCount} poster</li><li>{printpakke.duration}</li><li>{printpakke.activityType}</li><li>Version {printpakke.version}</li>
           </ul>
         </div>
       </section>
@@ -94,13 +94,20 @@ export default async function PrintpakkeDetailPage({ params, searchParams }: Pag
         <div className={styles.twoColumn}>
           <section className={styles.overview} aria-labelledby="indhold-heading">
             <p className={styles.eyebrow}>Overblik</p>
-            <h2 id="indhold-heading">Fra første ledetråd til fælles afsløring</h2>
-            <p>Eleverne regner, forklarer og noterer ved seks stationer. Hver godkendt løsning giver læreren et spor at dele ud.</p>
+            <h2 id="indhold-heading">Fra første post til fælles afslutning</h2>
+            <p>{printpakke.materialSummary}</p>
             <ol className={styles.overviewList}>
-              <li><span className={styles.stepNumber}>1</span><span><strong>Klargør.</strong> Print seks poster, holdark og lærerens sporbrikker.</span></li>
-              <li><span className={styles.stepNumber}>2</span><span><strong>Arbejd i makkere.</strong> Hvert hold får tid til at vise sin strategi - ikke bare svaret.</span></li>
-              <li><span className={styles.stepNumber}>3</span><span><strong>Saml mysteriet.</strong> Klassen bruger de seks udleverede brikker til den afsluttende besked.</span></li>
+              {printpakke.phases.map((phase, index) => (
+                <li key={phase.title}>
+                  <span className={styles.stepNumber}>{index + 1}</span>
+                  <span><strong>{phase.title}.</strong> {phase.body}</span>
+                </li>
+              ))}
             </ol>
+            <p className="mt-6 text-sm leading-6 text-slate-600">
+              Fagligt afsæt: {printpakke.curriculumNote} {" "}
+              <a className="font-bold text-sky-800 underline underline-offset-4" href={printpakke.curriculumHref} rel="noreferrer" target="_blank">Se Fælles Mål</a>
+            </p>
           </section>
 
           <section className={styles.downloadPanel} aria-labelledby="download-heading">
@@ -124,16 +131,14 @@ export default async function PrintpakkeDetailPage({ params, searchParams }: Pag
         <section className={styles.previewSection} aria-labelledby="preview-heading">
           <p className={styles.eyebrow}>Facitfri forhaandsvisning</p>
           <h2 id="preview-heading">Se formatet, før du logger ind.</h2>
-          <p className={styles.previewIntro}>De to sider her er ægte renderinger af den offentlige forhåndsvisning. De viser kun forside og en elevpost - aldrig løsninger eller sporbrikker.</p>
+          <p className={styles.previewIntro}>De to sider her er ægte renderinger af den offentlige forhåndsvisning. De viser kun forside og en elevpost - aldrig løsninger, lærerdata eller sporbrikker.</p>
           <div className={styles.previewGrid}>
-            <figure className={styles.previewCard}>
-              <Image alt="Første side af den facitfrie forhåndsvisning til Efterårsmysteriet." className={styles.previewImage} height={842} sizes="(min-width: 640px) 42vw, 100vw" src="/printpakker/previews/afteraarsmysteriet-preview-1.png" unoptimized width={595} />
-              <figcaption>Forside og kort start til eleverne.</figcaption>
-            </figure>
-            <figure className={styles.previewCard}>
-              <Image alt="Anden side af den facitfrie forhåndsvisning med en eksempelpost og skriveplads." className={styles.previewImage} height={842} sizes="(min-width: 640px) 42vw, 100vw" src="/printpakker/previews/afteraarsmysteriet-preview-2.png" unoptimized width={595} />
-              <figcaption>Eksempelpost med reel skriveplads - uden svar.</figcaption>
-            </figure>
+            {([0, 1] as const).map((index) => (
+              <figure className={styles.previewCard} key={printpakke.previewImages[index]}>
+                <Image alt={printpakke.previewImageAlts[index]} className={styles.previewImage} height={842} sizes="(min-width: 640px) 42vw, 100vw" src={printpakke.previewImages[index]} unoptimized width={595} />
+                <figcaption>{index === 0 ? "Forside og kort start til eleverne." : "Eksempelpost med reel skriveplads - uden svar."}</figcaption>
+              </figure>
+            ))}
           </div>
           <a className={styles.previewLink} href={printpakke.publicPreview} target="_blank" rel="noreferrer"><Download aria-hidden="true" className="h-4 w-4" />Åbn facitfri forhåndsvisning (PDF)</a>
         </section>
