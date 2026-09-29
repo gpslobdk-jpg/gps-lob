@@ -3,6 +3,7 @@ import {
   getFamilySsoOrigin,
 } from "@/lib/familySso/config";
 import { OEVEKORT_OWNER_PATH } from "@/lib/oevekort";
+import { PROJECT_WORKSHOP_PATH } from "@/lib/projektvaerkstedet/links";
 
 export { TEACHER_TOOL_FACEBOOK_GROUP_LINK } from "./community";
 
@@ -11,6 +12,7 @@ export const TEACHER_TOOL_IDS = [
   "dagens-tavle",
   "printmit-arbejdsark",
   "printpakker",
+  "projektvaerkstedet",
   "skak",
   "kildegps",
   "oevekort",
@@ -130,6 +132,17 @@ export function createTeacherToolRegistry(origins: TeacherToolOrigins): readonly
       icon: "file-text",
       imageSrc: "/printpakker/afteraarsmysteriet-hero.png",
       tone: "sand",
+    },
+    {
+      id: "projektvaerkstedet",
+      title: "Projektværkstedet",
+      description: "To papirnære matematikforløb med printmaterialer i PrintMitArbejdsark.",
+      cta: "Se Projektværkstedet",
+      status: "active",
+      link: { href: PROJECT_WORKSHOP_PATH, kind: "internal", target: "_self" },
+      icon: "file-text",
+      imageSrc: "/brand/mascot/skolegps-pin.webp",
+      tone: "green",
     },
     {
       id: "skak",

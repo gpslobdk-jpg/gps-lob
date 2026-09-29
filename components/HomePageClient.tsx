@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import AIChatButton from "@/components/AIChatButton";
 import RoutePath from "@/components/brand/RoutePath";
 import PisaNotice from "@/components/home/PisaNotice";
+import ProjectWorkshopAnnouncement from "@/components/home/ProjectWorkshopAnnouncement";
 import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
 import QRScannerModal from "@/components/QRScannerModal";
 import { getSiteCopy } from "@/lib/siteCopy";
@@ -455,6 +456,9 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
               <Link href="/join" className="text-sm font-bold text-slate-700 transition hover:text-sky-800">
                 Deltag i et løb
               </Link>
+              <Link href="/projektvaerkstedet" className="text-sm font-bold text-slate-700 transition hover:text-sky-800">
+                Projektværkstedet
+              </Link>
               <Link
                 href="/login"
                 data-tour="home-organizer-login"
@@ -501,6 +505,9 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
                   <Link href="/join" onClick={() => setIsMobileMenuOpen(false)} className="rounded-xl px-3 py-3 text-sm font-bold text-slate-700 hover:bg-sky-50">
                     Deltag i et løb
                   </Link>
+                  <Link href="/projektvaerkstedet" onClick={() => setIsMobileMenuOpen(false)} className="rounded-xl px-3 py-3 text-sm font-bold text-slate-700 hover:bg-sky-50">
+                    Projektværkstedet
+                  </Link>
                   <Link href="/login" data-tour="home-organizer-login" onClick={() => setIsMobileMenuOpen(false)} className="rounded-xl px-3 py-3 text-sm font-bold text-slate-700 hover:bg-sky-50">
                     {homeCopy.desktop.loginButton}
                   </Link>
@@ -528,6 +535,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
                   gps: "/login?next=%2Fdashboard%2Fopret%2Fvalg",
                 }}
               />
+              <ProjectWorkshopAnnouncement />
             </div>
           </section>
         ) : null}

@@ -57,6 +57,16 @@ test.describe("public homepage scenic background", () => {
     await expect(page.getByText(/Placér GPS-poster/)).toBeVisible();
     await expect(page.getByText(/Start med eleverne/)).toBeVisible();
     await expect(page.getByTestId("home-founder-entry")).toBeVisible();
+    const projectWorkshopAnnouncement = page.getByTestId("home-project-workshop");
+    await expect(projectWorkshopAnnouncement).toBeVisible();
+    await expect(projectWorkshopAnnouncement.getByRole("link", { name: "Se Projektværkstedet" })).toHaveAttribute(
+      "href",
+      "/projektvaerkstedet",
+    );
+    await expect(projectWorkshopAnnouncement.getByRole("link", { name: "Læs nyheden" })).toHaveAttribute(
+      "href",
+      "/nyheder/projektvaerkstedet",
+    );
     await expect(page.getByRole("link", { name: "GPS-hjælp", exact: true })).toHaveAttribute(
       "href",
       "/hjaelp",

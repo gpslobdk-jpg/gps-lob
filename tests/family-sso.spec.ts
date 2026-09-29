@@ -325,13 +325,15 @@ test.describe("DagensTavle family SSO security contract", () => {
     test.skip(!localTeacher, "Kræver den isolerede lokale Supabase-instans.");
     await openTeacherTools(page);
     const cards = page.locator('section[aria-label="Lærerværktøjer"] > a, section[aria-label="Lærerværktøjer"] > article');
-    await expect(cards).toHaveCount(7);
+    await expect(cards).toHaveCount(8);
     const kildeGpsLink = page.getByRole("link", { name: "KildeGPS" });
     await expect(kildeGpsLink).toHaveAttribute("href", "https://www.kildegps.dk");
     await expect(kildeGpsLink).toHaveAttribute("rel", "noopener noreferrer");
     await expect(page.getByRole("heading", { name: "PrintMitArbejdsark" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Printpakker" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Printpakker" })).toHaveAttribute("href", "/printpakker");
+    await expect(page.getByRole("heading", { name: "Projektværkstedet" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Projektværkstedet" })).toHaveAttribute("href", "/projektvaerkstedet");
     const printMitLink = page.getByRole("link", { name: "PrintMitArbejdsark" });
     await expect(printMitLink).not.toHaveAttribute("target", "_blank");
     await expect(printMitLink).toHaveAttribute("href", /printmitarbejdsark.*\/auth\/family-sso\/start\?next=%2Flav&source=skolegps/);
@@ -360,8 +362,8 @@ test.describe("DagensTavle family SSO security contract", () => {
     await openTeacherTools(page);
 
     const reviewWidths = [
-      { width: 360, rows: 7 },
-      { width: 390, rows: 7 },
+      { width: 360, rows: 8 },
+      { width: 390, rows: 8 },
       { width: 768, rows: 4 },
       { width: 1024, rows: 4 },
       { width: 1366, rows: 4 },
@@ -389,7 +391,7 @@ test.describe("DagensTavle family SSO security contract", () => {
         };
       });
       expect(layout).toEqual({
-        cardCount: 7,
+        cardCount: 8,
         rowCount: review.rows,
         rowHeightsAligned: true,
         textFits: true,
@@ -416,6 +418,6 @@ test.describe("DagensTavle family SSO security contract", () => {
       overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
       cards: document.querySelectorAll("main section[aria-label] > a, main section[aria-label] > article").length,
     }));
-    expect(zoomReflow).toEqual({ overflow: false, cards: 6 });
+    expect(zoomReflow).toEqual({ overflow: false, cards: 8 });
   });
 });
