@@ -40,11 +40,15 @@ test.describe("public homepage scenic background", () => {
     await expect(
       page.getByRole("heading", { name: "Undervisning i bevægelse.", exact: true })
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: /Opret et løb/i }).first()).toHaveAttribute(
+    await expect(page.getByRole("link", { name: "Log ind", exact: true }).first()).toHaveAttribute(
       "href",
-      "/login?next=%2Fdashboard%2Fopret%2Fvalg",
+      "/login",
     );
-    await expect(page.getByRole("link", { name: "Deltag i et løb", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Nyheder", exact: true })).toHaveAttribute(
+      "href",
+      "#nyheder",
+    );
+    await expect(page.getByRole("link", { name: /Opret et løb/i })).toHaveCount(0);
     const newsBanner = page.getByRole("link", { name: /Læs vores svar/i });
     await expect(newsBanner).toHaveAttribute(
       "href",
@@ -54,8 +58,8 @@ test.describe("public homepage scenic background", () => {
     await expect(newsBanner).toBeFocused();
     await expect(page.getByRole("button", { name: /Scan QR-kode/i })).toHaveCount(0);
     await expect(page.getByRole("dialog", { name: /SkoleGPS-gruppen/i })).toHaveCount(0);
-    await expect(page.getByText(/Placér GPS-poster/)).toBeVisible();
-    await expect(page.getByText(/Start med eleverne/)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Nyheder", exact: true })).toBeVisible();
+    await expect(page.getByText(/GPS-løb, papirnære forløb og lærerværktøjer/i)).toBeVisible();
     await expect(page.getByTestId("home-founder-entry")).toBeVisible();
     const projectWorkshopAnnouncement = page.getByTestId("home-project-workshop");
     await expect(projectWorkshopAnnouncement).toBeVisible();
@@ -67,6 +71,19 @@ test.describe("public homepage scenic background", () => {
       "href",
       "/nyheder/projektvaerkstedet",
     );
+    const printpakkerAnnouncement = page.getByTestId("home-printpakker-news");
+    await expect(printpakkerAnnouncement.getByRole("link", { name: "Se Printpakker" })).toHaveAttribute(
+      "href",
+      "/printpakker",
+    );
+    expect(
+      await page.evaluate(() => {
+        const hero = document.querySelector("h1");
+        const news = document.querySelector("#nyheder");
+        return Boolean(hero && news && (hero.compareDocumentPosition(news) & Node.DOCUMENT_POSITION_FOLLOWING));
+      }),
+    ).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await expect(page.getByRole("link", { name: "GPS-hjælp", exact: true })).toHaveAttribute(
       "href",
       "/hjaelp",

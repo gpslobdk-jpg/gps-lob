@@ -21,8 +21,8 @@ const SOURCES = {
 };
 
 /**
- * Afgrænset forsidebanner. Indsæt én gang umiddelbart efter det eksisterende
- * mobiltelefonbanner i den samme indholdscontainer.
+ * Afgrænset forsideindhold. Indsæt én gang i forsidens nyhedssektion efter
+ * det eksisterende mobiltelefonbanner.
  *
  * Native <details> virker uden komponent-state, cookies, netværkskald eller
  * nye afhængigheder. Links er obligatoriske, så forsiden beholder sine

@@ -17,30 +17,45 @@ function source(relativePath: string) {
 }
 
 test.describe("PISA-notits på forsiden", () => {
-  test("er kun synlig i computerlayout og lader mobilnotitsen stå først", async ({ page }) => {
+  test("er kun synlig i computerlayout og ligger samlet under nyheder", async ({ page }) => {
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto("/");
 
       await expect(page.getByTestId("pisa-notice")).toBeHidden();
+      expect(
+        await page.locator('a[href="#nyheder"]').evaluateAll(
+          (links) => links.every((link) => link.getClientRects().length === 0),
+        ),
+      ).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     }
 
-    for (const width of [768, 1280]) {
+    for (const width of [640, 768, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto("/");
 
-      const mobileNotice = page.getByRole("link", { name: /Læs vores svar/i });
       const pisaNotice = page.getByTestId("pisa-notice");
-      await expect(mobileNotice).toBeVisible();
       await expect(pisaNotice).toBeVisible();
       await expect(page.getByRole("heading", { name: "Undervisning i bevægelse." })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Nyheder", exact: true })).toBeVisible();
+      await expect(page.getByRole("link", { name: "Log ind", exact: true }).first()).toBeVisible();
+
+      if (width === 640) {
+        await page.getByRole("button", { name: "Menu", exact: true }).click();
+        await expect(page.getByRole("link", { name: "Nyheder", exact: true })).toBeVisible();
+      }
 
       expect(
         await page.evaluate(() => {
-          const mobile = document.querySelector('a[href="/mobil-i-skolen"]');
+          const hero = document.querySelector("h1");
+          const news = document.querySelector("#nyheder");
           const pisa = document.querySelector('[data-testid="pisa-notice"]');
-          return Boolean(mobile && pisa && (mobile.compareDocumentPosition(pisa) & Node.DOCUMENT_POSITION_FOLLOWING));
+          return Boolean(
+            hero && news && pisa
+              && (hero.compareDocumentPosition(news) & Node.DOCUMENT_POSITION_FOLLOWING)
+              && (news.compareDocumentPosition(pisa) & Node.DOCUMENT_POSITION_CONTAINED_BY),
+          );
         }),
       ).toBe(true);
     }
@@ -116,7 +131,8 @@ test.describe("PISA-notits på forsiden", () => {
     expect(noticeSource).not.toMatch(/useState|useEffect|localStorage|fetch\(/);
     expect(noticeSource).not.toContain("https://ugepilot.dk/");
     expect(noticeSource).not.toContain("/dashboard\";");
-    expect(homeSource).toContain('className="hidden md:block"');
+    expect(homeSource).toContain('id="nyheder"');
+    expect(homeSource).toContain("sm:block");
     expect(homeSource).toContain(LINKS.classroom);
     expect(homeSource).toContain(LINKS.worksheets);
     expect(homeSource).toContain(LINKS.gps);

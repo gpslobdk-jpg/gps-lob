@@ -11,7 +11,7 @@ export default function ProjectWorkshopAnnouncement() {
   return (
     <section
       aria-labelledby="home-project-workshop-heading"
-      className="mt-4 overflow-hidden rounded-3xl border border-emerald-200 bg-[linear-gradient(120deg,#f5fffb,#edfff7_55%,#e8f6ff)] p-5 shadow-[0_14px_34px_rgba(7,86,58,0.08)] sm:p-6"
+      className="overflow-hidden rounded-3xl border border-emerald-200 bg-[linear-gradient(120deg,#f5fffb,#edfff7_55%,#e8f6ff)] p-5 shadow-[0_14px_34px_rgba(7,86,58,0.08)] sm:p-6"
       data-testid="home-project-workshop"
     >
       <div className="flex flex-wrap items-start gap-4 sm:items-center sm:justify-between">
@@ -21,9 +21,9 @@ export default function ProjectWorkshopAnnouncement() {
           </span>
           <div>
             <p className="text-xs font-black tracking-[0.16em] text-emerald-800 uppercase">Nyt i SkoleGPS</p>
-            <h2 id="home-project-workshop-heading" className="mt-1 text-xl font-black tracking-tight text-[var(--skolegps-deep-navy)]">
+            <h3 id="home-project-workshop-heading" className="mt-1 text-xl font-black tracking-tight text-[var(--skolegps-deep-navy)]">
               Projektværkstedet: papirnære matematikforløb
-            </h2>
+            </h3>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-700">
               Find Rumfang og Renover klasselokalet — to forløb med materialer til print og et tydeligt næste skridt for læreren.
             </p>

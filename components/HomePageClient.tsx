@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { BookOpen, Compass, Menu, MapPin, ShieldCheck, X } from "lucide-react";
+import { BookOpen, Compass, Menu, MapPin, Printer, ShieldCheck, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -434,7 +434,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
             className="h-auto w-48 sm:w-56"
           />
         </Link>
-        <nav className="hidden items-center gap-5 lg:flex" aria-label="Hovedmenu">
+        <nav className={`hidden items-center gap-5 ${isPostlob ? "lg:flex" : "md:flex"}`} aria-label="Hovedmenu">
           {isPostlob ? (
             <>
               <Link href="#saadan-virker-det" className="text-sm font-bold text-slate-700 transition hover:text-sky-800">
@@ -453,29 +453,28 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
             </>
           ) : (
             <>
-              <Link href="/join" className="text-sm font-bold text-slate-700 transition hover:text-sky-800">
-                Deltag i et løb
-              </Link>
-              <Link href="/projektvaerkstedet" className="text-sm font-bold text-slate-700 transition hover:text-sky-800">
-                Projektværkstedet
+              <Link href="#nyheder" className="text-sm font-bold text-slate-700 transition hover:text-sky-800">
+                Nyheder
               </Link>
               <Link
                 href="/login"
                 data-tour="home-organizer-login"
-                className="text-sm font-bold text-slate-700 transition hover:text-sky-800"
+                className="inline-flex min-h-11 items-center rounded-full bg-[var(--skolegps-blue-strong)] px-5 py-2 text-sm font-black text-white shadow-[0_12px_24px_rgba(3,119,216,0.22)] transition hover:bg-sky-700"
               >
                 {homeCopy.desktop.loginButton}
               </Link>
             </>
           )}
-          <Link
-            href="/login?next=%2Fdashboard%2Fopret%2Fvalg"
-            className="inline-flex min-h-11 items-center rounded-full bg-[var(--skolegps-blue-strong)] px-5 py-2 text-sm font-black text-white shadow-[0_12px_24px_rgba(3,119,216,0.22)] transition hover:bg-sky-700"
-          >
-            Opret et løb
-          </Link>
+          {isPostlob ? (
+            <Link
+              href="/login?next=%2Fdashboard%2Fopret%2Fvalg"
+              className="inline-flex min-h-11 items-center rounded-full bg-[var(--skolegps-blue-strong)] px-5 py-2 text-sm font-black text-white shadow-[0_12px_24px_rgba(3,119,216,0.22)] transition hover:bg-sky-700"
+            >
+              Opret et løb
+            </Link>
+          ) : null}
         </nav>
-        <div className="relative lg:hidden">
+        <div className={`relative ${isPostlob ? "lg:hidden" : "md:hidden"}`}>
           <button
             type="button"
             aria-expanded={isMobileMenuOpen}
@@ -502,43 +501,25 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
                 </>
               ) : (
                 <>
-                  <Link href="/join" onClick={() => setIsMobileMenuOpen(false)} className="rounded-xl px-3 py-3 text-sm font-bold text-slate-700 hover:bg-sky-50">
-                    Deltag i et løb
+                  <Link href="#nyheder" onClick={() => setIsMobileMenuOpen(false)} className="hidden rounded-xl px-3 py-3 text-sm font-bold text-slate-700 hover:bg-sky-50 sm:block">
+                    Nyheder
                   </Link>
-                  <Link href="/projektvaerkstedet" onClick={() => setIsMobileMenuOpen(false)} className="rounded-xl px-3 py-3 text-sm font-bold text-slate-700 hover:bg-sky-50">
-                    Projektværkstedet
-                  </Link>
-                  <Link href="/login" data-tour="home-organizer-login" onClick={() => setIsMobileMenuOpen(false)} className="rounded-xl px-3 py-3 text-sm font-bold text-slate-700 hover:bg-sky-50">
+                  <Link href="/login" data-tour="home-organizer-login" onClick={() => setIsMobileMenuOpen(false)} className="rounded-xl bg-[var(--skolegps-blue-strong)] px-3 py-3 text-sm font-black text-white hover:bg-sky-700">
                     {homeCopy.desktop.loginButton}
                   </Link>
                 </>
               )}
-              <Link href="/login?next=%2Fdashboard%2Fopret%2Fvalg" className="rounded-xl bg-[var(--skolegps-blue-strong)] px-3 py-3 text-sm font-black text-white hover:bg-sky-700">
-                Opret et løb
-              </Link>
+              {isPostlob ? (
+                <Link href="/login?next=%2Fdashboard%2Fopret%2Fvalg" className="rounded-xl bg-[var(--skolegps-blue-strong)] px-3 py-3 text-sm font-black text-white hover:bg-sky-700">
+                  Opret et løb
+                </Link>
+              ) : null}
             </div>
           ) : null}
         </div>
       </header>
 
       <main className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col px-5 pb-8 pt-1 sm:px-6 lg:px-8">
-        {!isPostlob ? (
-          <section className="pt-1">
-            <MobileInSchoolBanner variant="home" />
-            <div className="hidden md:block">
-              <PisaNotice
-                links={{
-                  classroom:
-                    "https://dagenstavle.dk/auth/family-sso/start?next=%2Ftavle&source=skolegps",
-                  worksheets:
-                    "https://printmitarbejdsark.dk/auth/family-sso/start?next=%2Flav&source=skolegps",
-                  gps: "/login?next=%2Fdashboard%2Fopret%2Fvalg",
-                }}
-              />
-              <ProjectWorkshopAnnouncement />
-            </div>
-          </section>
-        ) : null}
         <section className="grid items-center gap-8 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,0.34fr)] lg:py-14">
           <div className="max-w-3xl skolegps-soft-enter">
             <p className="inline-flex rounded-full border border-sky-200 bg-white/78 px-4 py-2 text-xs font-black uppercase text-sky-800 shadow-sm backdrop-blur">
@@ -550,7 +531,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
             <p className="mt-5 max-w-2xl text-xl font-black text-[var(--skolegps-navy)] sm:text-2xl">
               {isPostlob
                 ? homeCopy.desktop.organizerDescription
-                : "Lav opgaver, placér GPS-poster, og send eleverne afsted."}
+                : "GPS-løb, papirnære forløb og lærerværktøjer til undervisningen."}
             </p>
             {isPostlob ? (
               <p className="mt-4 max-w-xl text-base font-semibold leading-7 text-slate-700 sm:text-lg">
@@ -559,52 +540,60 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
             ) : null}
 
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <Link
-                href="/login?next=%2Fdashboard%2Fopret%2Fvalg"
-                className={`inline-flex min-h-13 items-center justify-center gap-2 rounded-full px-6 py-3 text-base font-black text-white transition focus-visible:outline-3 focus-visible:outline-offset-2 ${isPostlob ? "bg-[var(--skolegps-green)] shadow-[0_16px_32px_rgba(34,164,71,0.24)] hover:bg-green-700 focus-visible:outline-green-600" : "bg-[var(--skolegps-blue-strong)] shadow-[0_16px_32px_rgba(3,119,216,0.24)] hover:bg-sky-700 focus-visible:outline-sky-600"}`}
-              >
-                <MapPin className="h-5 w-5" aria-hidden="true" />
-                Opret et løb
-              </Link>
-              <Link href={isPostlob ? "#laerervaerktoejer" : "#saadan-virker-det"} className="inline-flex min-h-13 items-center justify-center px-3 py-3 text-base font-black text-sky-800 underline decoration-sky-300 underline-offset-4 transition hover:text-sky-950">
-                {isPostlob ? "Se lærerværktøjer" : "Sådan virker det"}
-              </Link>
-              {siteVariantKey === "postlob" ? (
-                <Link
-                  href="/join"
-                  className="inline-flex min-h-13 items-center justify-center gap-2 rounded-full border border-sky-200 bg-white/84 px-6 py-3 text-base font-black text-[var(--skolegps-deep-navy)] shadow-sm backdrop-blur transition hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
-                >
-                  {homeCopy.desktop.joinButton}
-                </Link>
-              ) : null}
+              {isPostlob ? (
+                <>
+                  <Link
+                    href="/login?next=%2Fdashboard%2Fopret%2Fvalg"
+                    className="inline-flex min-h-13 items-center justify-center gap-2 rounded-full bg-[var(--skolegps-green)] px-6 py-3 text-base font-black text-white shadow-[0_16px_32px_rgba(34,164,71,0.24)] transition hover:bg-green-700 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-green-600"
+                  >
+                    <MapPin className="h-5 w-5" aria-hidden="true" />
+                    Opret et løb
+                  </Link>
+                  <Link href="#laerervaerktoejer" className="inline-flex min-h-13 items-center justify-center px-3 py-3 text-base font-black text-sky-800 underline decoration-sky-300 underline-offset-4 transition hover:text-sky-950">
+                    Se lærerværktøjer
+                  </Link>
+                  <Link
+                    href="/join"
+                    className="inline-flex min-h-13 items-center justify-center gap-2 rounded-full border border-sky-200 bg-white/84 px-6 py-3 text-base font-black text-[var(--skolegps-deep-navy)] shadow-sm backdrop-blur transition hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
+                  >
+                    {homeCopy.desktop.joinButton}
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="inline-flex min-h-13 items-center justify-center rounded-full bg-[var(--skolegps-blue-strong)] px-6 py-3 text-base font-black text-white shadow-[0_16px_32px_rgba(3,119,216,0.24)] transition hover:bg-sky-700 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+                  >
+                    {homeCopy.desktop.loginButton}
+                  </Link>
+                  <Link href="#nyheder" className="hidden min-h-13 items-center justify-center px-3 py-3 text-base font-black text-sky-800 underline decoration-sky-300 underline-offset-4 transition hover:text-sky-950 sm:inline-flex">
+                    Se nyheder
+                  </Link>
+                </>
+              )}
             </div>
-            {!isPostlob ? <p className="mt-3 text-sm font-bold text-slate-600">Gratis undervisningsværktøj</p> : null}
 
-            <div id="saadan-virker-det" className="mt-10 grid scroll-mt-6 gap-3 sm:grid-cols-3">
-              {(isPostlob
-                ? [
-                    ["1. Vælg et forløb", "Start med det, du vil have klassen til at undersøge.", BookOpen],
-                    ["2. Send klassen ud", "Eleverne bruger ruten og opgaverne på stedet.", MapPin],
-                    ["3. Følg med", "Se den aktivitet, du har brug for at kunne se undervejs.", Compass],
-                  ]
-                : [
-                    ["1. Opret løbet", "Vælg et format og skriv opgaverne.", BookOpen],
-                    ["2. Placér GPS-poster", "Sæt posterne dér, hvor klassen skal arbejde.", MapPin],
-                    ["3. Start med eleverne", "Del løbskoden, når I er klar.", Compass],
-                  ]
-              ).map(([title, text, Icon]) => (
-                <div
-                  key={title as string}
-                  className="rounded-2xl border border-white/70 bg-white/72 p-4 shadow-sm backdrop-blur"
-                >
-                  <Icon className="h-5 w-5 text-sky-700" aria-hidden="true" />
-                  <p className="mt-3 text-sm font-black text-[var(--skolegps-deep-navy)]">
-                    {title as string}
-                  </p>
-                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{text as string}</p>
-                </div>
-              ))}
-            </div>
+            {isPostlob ? (
+              <div id="saadan-virker-det" className="mt-10 grid scroll-mt-6 gap-3 sm:grid-cols-3">
+                {[
+                  ["1. Vælg et forløb", "Start med det, du vil have klassen til at undersøge.", BookOpen],
+                  ["2. Send klassen ud", "Eleverne bruger ruten og opgaverne på stedet.", MapPin],
+                  ["3. Følg med", "Se den aktivitet, du har brug for at kunne se undervejs.", Compass],
+                ].map(([title, text, Icon]) => (
+                  <div
+                    key={title as string}
+                    className="rounded-2xl border border-white/70 bg-white/72 p-4 shadow-sm backdrop-blur"
+                  >
+                    <Icon className="h-5 w-5 text-sky-700" aria-hidden="true" />
+                    <p className="mt-3 text-sm font-black text-[var(--skolegps-deep-navy)]">
+                      {title as string}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{text as string}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <div className="relative hidden min-h-[19rem] lg:block">
@@ -612,6 +601,68 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
             {!isPostlob ? <AIChatButton variant="homepage" /> : null}
           </div>
         </section>
+
+        {!isPostlob ? (
+          <section
+            id="nyheder"
+            aria-labelledby="home-news-heading"
+            className="hidden scroll-mt-6 pb-8 sm:block"
+          >
+            <div className="max-w-2xl">
+              <p className="text-xs font-black tracking-[0.16em] text-sky-800 uppercase">Aktuelt</p>
+              <h2 id="home-news-heading" className="mt-2 text-3xl font-black tracking-tight text-[var(--skolegps-deep-navy)] sm:text-4xl">
+                Nyheder
+              </h2>
+              <p className="mt-2 text-base font-semibold leading-7 text-slate-700">
+                Nye forløb, materialer og viden til undervisningen — samlet ét sted.
+              </p>
+            </div>
+
+            <div className="mt-5">
+              <MobileInSchoolBanner variant="home" />
+            </div>
+
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <ProjectWorkshopAnnouncement />
+              <article
+                aria-labelledby="home-printpakker-heading"
+                className="flex flex-col rounded-3xl border border-amber-200 bg-[linear-gradient(120deg,#fffdf5,#fff8e7_58%,#eef8ff)] p-5 shadow-[0_14px_34px_rgba(120,82,7,0.08)] sm:p-6"
+                data-testid="home-printpakker-news"
+              >
+                <div className="flex min-w-0 items-start gap-4">
+                  <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-600 text-white shadow-sm">
+                    <Printer aria-hidden="true" className="h-6 w-6" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-black tracking-[0.16em] text-amber-800 uppercase">Nyt i SkoleGPS</p>
+                    <h3 id="home-printpakker-heading" className="mt-1 text-xl font-black tracking-tight text-[var(--skolegps-deep-navy)]">
+                      Printpakker: klar til print
+                    </h3>
+                    <p className="mt-1 text-sm leading-6 text-slate-700">
+                      Færdige analoge undervisningspakker med elevark, lærervejledning og kontrolleret facit.
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  className="mt-5 inline-flex min-h-11 w-fit items-center justify-center rounded-full bg-amber-700 px-4 py-2 text-sm font-black text-white shadow-[0_10px_22px_rgba(146,94,11,0.2)] transition hover:bg-amber-800"
+                  href="/printpakker"
+                >
+                  Se Printpakker
+                </Link>
+              </article>
+            </div>
+
+            <PisaNotice
+              links={{
+                classroom:
+                  "https://dagenstavle.dk/auth/family-sso/start?next=%2Ftavle&source=skolegps",
+                worksheets:
+                  "https://printmitarbejdsark.dk/auth/family-sso/start?next=%2Flav&source=skolegps",
+                gps: "/login?next=%2Fdashboard%2Fopret%2Fvalg",
+              }}
+            />
+          </section>
+        ) : null}
 
         {isPostlob ? (
           <section id="laerervaerktoejer" className="mt-8 grid scroll-mt-6 gap-5 rounded-3xl border border-sky-100 bg-white/76 p-6 shadow-sm backdrop-blur sm:grid-cols-[1fr_auto] sm:items-center sm:p-8">

@@ -163,6 +163,7 @@ export function createTeacherToolRegistry(origins: TeacherToolOrigins): readonly
       status: "active",
       link: { href: "https://www.kildegps.dk", kind: "external", target: "_blank" },
       icon: "compass",
+      imageSrc: "/brand/tools/kildegps-illustration.webp",
       tone: "blue",
     },
     {

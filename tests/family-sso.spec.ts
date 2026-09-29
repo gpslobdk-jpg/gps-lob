@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
@@ -307,9 +307,11 @@ test.describe("DagensTavle family SSO security contract", () => {
 
     expect(kildeGps).toMatchObject({
       cta: "Åbn KildeGPS",
+      imageSrc: "/brand/tools/kildegps-illustration.webp",
       link: { href: "https://www.kildegps.dk", target: "_blank" },
       title: "KildeGPS",
     });
+    expect(existsSync(join(process.cwd(), "public", "brand", "tools", "kildegps-illustration.webp"))).toBe(true);
     expect(kildeGps?.status === "active" && kildeGps.link.href)
       .not.toMatch(/kildegps\.dk[/?][^"\s]*(?:token|email|session|sso)/i);
 
@@ -329,6 +331,7 @@ test.describe("DagensTavle family SSO security contract", () => {
     const kildeGpsLink = page.getByRole("link", { name: "KildeGPS" });
     await expect(kildeGpsLink).toHaveAttribute("href", "https://www.kildegps.dk");
     await expect(kildeGpsLink).toHaveAttribute("rel", "noopener noreferrer");
+    await expect(kildeGpsLink.locator('img[src*="kildegps-illustration.webp"]')).toHaveCount(1);
     await expect(page.getByRole("heading", { name: "PrintMitArbejdsark" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Printpakker" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Printpakker" })).toHaveAttribute("href", "/printpakker");
