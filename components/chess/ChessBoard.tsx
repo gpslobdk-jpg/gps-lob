@@ -9,6 +9,7 @@ type ChessBoardProps = {
   lastMove?: { from: string; to: string } | null;
   onMove?: (from: string, to: string) => void;
   onSquareEdit?: (square: string) => void;
+  onSquarePress?: (square: string) => void;
   selectedSquare?: string | null;
 };
 
@@ -33,12 +34,18 @@ export default function ChessBoard({
   lastMove,
   onMove,
   onSquareEdit,
+  onSquarePress,
   selectedSquare,
 }: ChessBoardProps) {
   const visibleFiles = flipped ? [...files].reverse() : [...files];
   const visibleRanks = flipped ? [...ranks].reverse() : [...ranks];
 
   const handleSquareClick = (square: string) => {
+    if (onSquarePress) {
+      onSquarePress(square);
+      return;
+    }
+
     if (onSquareEdit) {
       onSquareEdit(square);
       return;

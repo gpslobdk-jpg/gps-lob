@@ -87,7 +87,8 @@ function isTeacherPortalRoute(pathname: string) {
   return (
     pathname === "/dashboard" ||
     pathname === "/dashboard/laerervaerktoejer" ||
-    pathname.startsWith("/dashboard/laerervaerktoejer/oevekort")
+    pathname.startsWith("/dashboard/laerervaerktoejer/oevekort") ||
+    pathname.startsWith("/dashboard/laerervaerktoejer/skak")
   );
 }
 

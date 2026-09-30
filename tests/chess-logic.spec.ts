@@ -14,7 +14,7 @@ test.describe("skak-klasselogik", () => {
   });
 
   test("renser klasselisten og undgår samme modstander ved ny runde, når det er muligt", () => {
-    const names = normalizeNames("Amina\n Jonas\nAmina\nSofia\nEmil");
+    const names = normalizeNames("Amina, Jonas\n amina \nSofia\nEmil");
     expect(names).toEqual(["Amina", "Jonas", "Sofia", "Emil"]);
 
     const firstRound = createPairings(names);
@@ -23,6 +23,16 @@ test.describe("skak-klasselogik", () => {
     const secondPairs = pairingHistory(secondRound);
 
     for (const pair of secondPairs) expect(firstPairs.has(pair)).toBeFalsy();
+  });
+
+  test("giver præcis én frirunde til et ulige antal elever", () => {
+    const pairings = createPairings(["Amina", "Jonas", "Sofia", "Emil", "Noah"]);
+
+    expect(pairings).toHaveLength(3);
+    expect(pairings.filter((pairing) => pairing.black === null)).toEqual([
+      { board: 3, white: "Noah", black: null },
+    ]);
+    expect([...pairingHistory(pairings)]).toHaveLength(2);
   });
 
   test("regner sejr og remis ind i den enkle stilling", () => {

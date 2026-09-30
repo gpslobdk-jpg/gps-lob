@@ -333,7 +333,7 @@ export const ASSISTANT_KNOWLEDGE_CARDS = [
       "Skak er et lærer-værktøj med læring, tavlevisning og klasseaktiviteter.",
     guidance: [
       "Åbn Skak fra Lærerværktøjer. Den korte offentlige rute viderestiller til den beskyttede lærerroute.",
-      "Læreren kan bruge Lær skak, Vis på tavlen og Spil skak, inklusive brætvisning, makkere, timer, en enkel turnering og stilling.",
+      "Læreren kan vælge Spil en runde, Vis på tavlen eller Lær en regel. Makkere og timer kommer først i runden; turnering og point er et valgfrit næste skridt.",
       "Bræt- og turneringsarbejde er session-lokalt. Lov ikke fælles konto- eller elevhistorik.",
     ],
     links: [

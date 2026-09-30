@@ -128,7 +128,7 @@ test.describe("assistant knowledge manifest", () => {
     expect(card("opret-loeb").guidance.join(" ")).toContain("Lav selv (/dashboard/opret/manuel)");
     expect(card("opret-loeb").guidance.join(" ")).toContain("Fysisk Stjerneløb");
     expect(card("opret-loeb").guidance.join(" ")).toContain("Zone-Krigen");
-    expect(card("skak").guidance.join(" ")).toContain("Lær skak, Vis på tavlen og Spil skak");
+    expect(card("skak").guidance.join(" ")).toContain("Spil en runde, Vis på tavlen eller Lær en regel");
     expect(card("oevekort").guidance.join(" ")).toContain("ikke elevkonto");
     expect(card("find-bedrageren").guidance.join(" ")).toContain("opsæt ord og roller → eleverne joiner → læreren styrer diskussion og afstemning");
     expect(card("konto-arkiv-og-start").guidance.join(" ")).toContain("ikke den samme handling for alle aktivitetstyper");
