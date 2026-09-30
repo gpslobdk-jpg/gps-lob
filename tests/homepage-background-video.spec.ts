@@ -4,8 +4,7 @@ import { join } from "node:path";
 
 const ROOT = process.cwd();
 const REMOVED_VIDEO_SRC = "/skolegpsforside.mp4";
-const HERO_SRC = "/brand/heroes/adventure-hero.webp";
-const HERO_MOBILE_SRC = "/brand/heroes/adventure-hero-mobile.webp";
+const PILEN_WELCOME_VIDEO_SRC = "/brand/mascot/skolegps-pilen-welcome.mp4";
 
 function readSource(relativePath: string) {
   return readFileSync(join(ROOT, relativePath), "utf8");
@@ -25,28 +24,39 @@ function collectTypeScriptFiles(relativeDirectory: string): string[] {
   });
 }
 
-test.describe("public homepage scenic background", () => {
-  test("wide desktop uses the static SkoleGPS hero asset without mounting a video", async ({
+test.describe("public homepage", () => {
+  test("wide desktop uses the non-blocking Pilen scene with a silent welcome clip", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 2560, height: 912 });
     await page.goto("/");
 
-    const background = page.getByTestId("home-static-background");
+    const scene = page.getByTestId("pilen-welcome-scene");
 
-    await expect(background).toHaveCount(1);
+    await expect(scene).toBeVisible();
+    await expect(page.getByTestId("pilen-welcome-video")).toHaveCount(1);
+    expect(
+      await page.getByTestId("pilen-welcome-video").evaluate((video) => (video as HTMLVideoElement).muted),
+    ).toBe(true);
+    expect(
+      await page.getByTestId("pilen-welcome-video").evaluate((video) => (video as HTMLVideoElement).playsInline),
+    ).toBe(true);
+    await expect(page.getByTestId("pilen-welcome-video")).not.toHaveAttribute("loop", "");
     await expect(page.getByTestId("home-background-video")).toHaveCount(0);
-    await expect(background.locator('img[src*="adventure-hero.webp"]')).toHaveCount(1);
     await expect(
-      page.getByRole("heading", { name: "Undervisning i bevægelse.", exact: true })
+      page.getByRole("heading", { name: "Mere liv i undervisningen.", exact: true })
     ).toBeVisible();
     await expect(page.getByRole("link", { name: "Log ind", exact: true }).first()).toHaveAttribute(
       "href",
       "/login",
     );
-    await expect(page.getByRole("link", { name: "Nyheder", exact: true })).toHaveAttribute(
+    await expect(page.getByRole("link", { name: "Find dit værktøj", exact: true })).toHaveAttribute(
       "href",
-      "#nyheder",
+      "#vaerktojer",
+    );
+    await expect(page.getByRole("link", { name: "Elev? Deltag med kode", exact: true }).first()).toHaveAttribute(
+      "href",
+      "/join",
     );
     await expect(page.getByRole("link", { name: /Opret et løb/i })).toHaveCount(0);
     const newsBanner = page.getByRole("link", { name: /Læs vores svar/i });
@@ -58,8 +68,8 @@ test.describe("public homepage scenic background", () => {
     await expect(newsBanner).toBeFocused();
     await expect(page.getByRole("button", { name: /Scan QR-kode/i })).toHaveCount(0);
     await expect(page.getByRole("dialog", { name: /SkoleGPS-gruppen/i })).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "Nyheder", exact: true })).toBeVisible();
-    await expect(page.getByText(/GPS-løb, papirnære forløb og lærerværktøjer/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Det sker i SkoleGPS", exact: true })).toBeVisible();
+    await expect(page.getByText(/GPS-løb, arbejdsark og værktøjer til skoledagen/i)).toBeVisible();
     await expect(page.getByTestId("home-founder-entry")).toBeVisible();
     const projectWorkshopAnnouncement = page.getByTestId("home-project-workshop");
     await expect(projectWorkshopAnnouncement).toBeVisible();
@@ -88,14 +98,22 @@ test.describe("public homepage scenic background", () => {
       "href",
       "/hjaelp",
     );
+    await expect(page.getByRole("link", { name: "Facebook-side", exact: true })).toHaveAttribute(
+      "href",
+      "https://www.facebook.com/profile.php?id=61594705569977",
+    );
+    await expect(page.getByRole("link", { name: "Facebook-gruppe", exact: true })).toHaveAttribute(
+      "href",
+      "https://www.facebook.com/groups/1649785632764130",
+    );
 
-    await expect(page.locator(`video[src="${REMOVED_VIDEO_SRC}"]`)).toHaveCount(0);
+    await expect(page.locator(`video source[src="${REMOVED_VIDEO_SRC}"]`)).toHaveCount(0);
   });
 
-  test("reduced motion keeps the static background and does not request the old video", async ({ page }) => {
+  test("reduced motion keeps Pilen static and does not request either video", async ({ page }) => {
     const videoRequests: string[] = [];
     page.on("request", (request) => {
-      if (new URL(request.url()).pathname === REMOVED_VIDEO_SRC) {
+      if ([REMOVED_VIDEO_SRC, PILEN_WELCOME_VIDEO_SRC].includes(new URL(request.url()).pathname)) {
         videoRequests.push(request.url());
       }
     });
@@ -105,9 +123,71 @@ test.describe("public homepage scenic background", () => {
     await page.goto("/");
     await page.waitForTimeout(300);
 
-    await expect(page.getByTestId("home-static-background")).toHaveCount(1);
+    await expect(page.getByTestId("pilen-welcome-scene")).toHaveAttribute("data-welcome-state", "static");
+    await expect(page.getByTestId("pilen-welcome-video")).toHaveCount(0);
     await expect(page.getByTestId("home-background-video")).toHaveCount(0);
     expect(videoRequests).toEqual([]);
+  });
+
+  test("Pilen byder kun velkommen én gang pr. browserfane", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.goto("/hjaelp");
+    await page.evaluate(() => window.sessionStorage.removeItem("skolegps.home.pilen-welcome.v1"));
+    await page.goto("/");
+
+    const scene = page.getByTestId("pilen-welcome-scene");
+    await expect(scene).toHaveAttribute("data-welcome-state", "playing");
+    await expect(page.getByTestId("pilen-welcome-video")).toHaveCount(1);
+    await expect(page.getByRole("link", { name: "Find dit værktøj", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Elev? Deltag med kode", exact: true }).first()).toBeVisible();
+
+    await page.getByTestId("pilen-welcome-video").evaluate((video) => {
+      video.dispatchEvent(new Event("ended"));
+    });
+    await expect(scene).toHaveAttribute("data-welcome-state", "static");
+    await expect(page.getByTestId("pilen-welcome-video")).toHaveCount(0);
+
+    await page.reload();
+    await expect(scene).toHaveAttribute("data-welcome-state", "static");
+    await expect(page.getByTestId("pilen-welcome-video")).toHaveCount(0);
+  });
+
+  test("tekst og indgange fungerer, når velkomstklippet ikke kan hentes", async ({ page }) => {
+    await page.route("**/brand/mascot/skolegps-pilen-welcome.mp4", (route) => route.abort());
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+
+    await expect(page.getByRole("heading", { name: "Mere liv i undervisningen.", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Find dit værktøj", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Elev? Deltag med kode", exact: true }).first()).toBeVisible();
+    await expect(page.getByTestId("pilen-welcome-video")).toHaveCount(0);
+  });
+
+  test("teacher homepage content is present before JavaScript runs", async ({ browser }) => {
+    const context = await browser.newContext({
+      javaScriptEnabled: false,
+      viewport: { width: 1440, height: 900 },
+    });
+    const page = await context.newPage();
+
+    try {
+      await page.goto("/");
+
+      await expect(
+        page.getByRole("heading", { name: "Mere liv i undervisningen.", exact: true }),
+      ).toBeVisible();
+      await expect(page.getByRole("link", { name: "Find dit værktøj", exact: true })).toHaveAttribute(
+        "href",
+        "#vaerktojer",
+      );
+      await expect(page.getByRole("link", { name: "Elev? Deltag med kode", exact: true }).first()).toHaveAttribute(
+        "href",
+        "/join",
+      );
+    } finally {
+      await context.close();
+    }
   });
 
   test("Postløp keeps its separate host and does not inherit the Danish campaign banner", async ({
@@ -136,7 +216,7 @@ test.describe("public homepage scenic background", () => {
     }
   });
 
-  test("mobile root preserves the student entry redirect without requesting the desktop video", async ({
+  test("mobile root preserves the student entry redirect without requesting desktop video", async ({
     browser,
   }) => {
     const context = await browser.newContext({
@@ -147,7 +227,7 @@ test.describe("public homepage scenic background", () => {
     const page = await context.newPage();
     const videoRequests: string[] = [];
     page.on("request", (request) => {
-      if (new URL(request.url()).pathname === REMOVED_VIDEO_SRC) {
+      if ([REMOVED_VIDEO_SRC, PILEN_WELCOME_VIDEO_SRC].includes(new URL(request.url()).pathname)) {
         videoRequests.push(request.url());
       }
     });
@@ -159,6 +239,24 @@ test.describe("public homepage scenic background", () => {
       await expect(page).toHaveURL(/\/join$/);
       await expect(page.getByTestId("home-background-video")).toHaveCount(0);
       expect(videoRequests).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("iPadOS desktop-style user agent preserves the student entry redirect", async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport: { width: 834, height: 1112 },
+      userAgent:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+    });
+    const page = await context.newPage();
+
+    try {
+      await page.goto("/");
+      await expect(page).toHaveURL(/\/join$/);
+      await expect(page.getByTestId("pilen-welcome-scene")).toHaveCount(0);
+      await expect(page.locator(`video source[src="${PILEN_WELCOME_VIDEO_SRC}"]`)).toHaveCount(0);
     } finally {
       await context.close();
     }
@@ -195,7 +293,7 @@ test.describe("public homepage scenic background", () => {
     await expect(page.getByText(/ikke eleven rydde browserdata/i)).toBeVisible();
   });
 
-  test("student routes do not reference or mount the removed homepage video", async ({
+  test("student routes do not reference or mount homepage videos", async ({
     page,
   }) => {
     const studentFiles = [
@@ -205,18 +303,22 @@ test.describe("public homepage scenic background", () => {
     ];
 
     for (const studentFile of studentFiles) {
-      expect(readSource(studentFile), `${studentFile} must not load the removed homepage video`).not.toContain(
-        REMOVED_VIDEO_SRC,
-      );
+      const source = readSource(studentFile);
+      expect(source, `${studentFile} must not load the retired homepage video`).not.toContain(REMOVED_VIDEO_SRC);
+      expect(source, `${studentFile} must not load the Pilen welcome video`).not.toContain(PILEN_WELCOME_VIDEO_SRC);
     }
 
     await page.goto("/join");
-    await expect(page.locator(`video[src="${REMOVED_VIDEO_SRC}"]`)).toHaveCount(0);
+    await expect(page.locator(`video source[src="${REMOVED_VIDEO_SRC}"]`)).toHaveCount(0);
+    await expect(page.locator(`video source[src="${PILEN_WELCOME_VIDEO_SRC}"]`)).toHaveCount(0);
   });
 
-  test("old video remains outside PWA precache and the homepage uses optimized brand assets", () => {
+  test("homepage videos remain outside PWA precache and use local Pilen assets", () => {
     const nextConfigSource = readSource("next.config.ts");
+    const appPageSource = readSource("app/page.tsx");
     const homePageSource = readSource("components/HomePageClient.tsx");
+    const teacherHomeSource = readSource("components/home/TeacherHomepage.tsx");
+    const mascotSource = readSource("components/brand/Mascot.tsx");
     const logoSource = readSource("public/skolegps-logo.svg");
     const publicExcludes = nextConfigSource.match(
       /\bpublicExcludes\s*:\s*\[([\s\S]*?)\]/,
@@ -224,11 +326,15 @@ test.describe("public homepage scenic background", () => {
 
     expect(publicExcludes).toMatch(/["'`]!\*\*\/\*["'`]/);
     expect(nextConfigSource).not.toContain(REMOVED_VIDEO_SRC);
-    expect(homePageSource).toContain(HERO_SRC);
-    expect(homePageSource).toContain(HERO_MOBILE_SRC);
-    expect(homePageSource).toContain("skolegps-scenic-drift");
-    expect(homePageSource).toContain("skolegps-route-drift");
     expect(homePageSource).not.toContain(REMOVED_VIDEO_SRC);
+    expect(teacherHomeSource).not.toContain(REMOVED_VIDEO_SRC);
+    expect(teacherHomeSource).toContain("PilenWelcomeScene");
+    expect(teacherHomeSource).toContain(PILEN_WELCOME_VIDEO_SRC);
+    expect(teacherHomeSource).not.toContain("<Mascot");
+    expect(teacherHomeSource).not.toContain("<RoutePath");
+    expect(mascotSource).toContain('/brand/mascot/skolegps-pin.webp');
+    expect(appPageSource).toContain("<TeacherHomepage />");
+    expect(appPageSource).toContain("isMobileBrowser");
     expect(homePageSource).not.toContain("FacebookGroupModal");
     expect(homePageSource).not.toContain("skolegps-facebook-group");
     expect(logoSource).toContain("route arrow");
@@ -237,8 +343,9 @@ test.describe("public homepage scenic background", () => {
       if (existsSync(join(ROOT, serviceWorkerPath))) {
         expect(
           readSource(serviceWorkerPath),
-          `${serviceWorkerPath} must not precache ${REMOVED_VIDEO_SRC}`,
+          `${serviceWorkerPath} must not precache homepage videos`,
         ).not.toContain(REMOVED_VIDEO_SRC);
+        expect(readSource(serviceWorkerPath)).not.toContain(PILEN_WELCOME_VIDEO_SRC);
       }
     }
   });

@@ -37,14 +37,9 @@ test.describe("PISA-notits på forsiden", () => {
 
       const pisaNotice = page.getByTestId("pisa-notice");
       await expect(pisaNotice).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Undervisning i bevægelse." })).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Nyheder", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Mere liv i undervisningen." })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Det sker i SkoleGPS", exact: true })).toBeVisible();
       await expect(page.getByRole("link", { name: "Log ind", exact: true }).first()).toBeVisible();
-
-      if (width === 640) {
-        await page.getByRole("button", { name: "Menu", exact: true }).click();
-        await expect(page.getByRole("link", { name: "Nyheder", exact: true })).toBeVisible();
-      }
 
       expect(
         await page.evaluate(() => {
@@ -124,7 +119,7 @@ test.describe("PISA-notits på forsiden", () => {
 
   test("holder udfoldningen native og fri for ny klient-state eller standardlinks", () => {
     const noticeSource = source("components/home/PisaNotice.tsx");
-    const homeSource = source("components/HomePageClient.tsx");
+    const homeSource = source("components/home/TeacherHomepage.tsx");
 
     expect(noticeSource).toContain("<details");
     expect(noticeSource).toContain("<summary");
@@ -132,7 +127,6 @@ test.describe("PISA-notits på forsiden", () => {
     expect(noticeSource).not.toContain("https://ugepilot.dk/");
     expect(noticeSource).not.toContain("/dashboard\";");
     expect(homeSource).toContain('id="nyheder"');
-    expect(homeSource).toContain("sm:block");
     expect(homeSource).toContain(LINKS.classroom);
     expect(homeSource).toContain(LINKS.worksheets);
     expect(homeSource).toContain(LINKS.gps);

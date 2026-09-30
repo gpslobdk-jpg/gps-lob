@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 
 import HomePageClient from "@/components/HomePageClient";
+import TeacherHomepage from "@/components/home/TeacherHomepage";
 import { getSiteCopy } from "@/lib/siteCopy";
 import { resolveSiteVariantFromHeaders } from "@/lib/siteVariant";
 
@@ -22,10 +23,19 @@ export default async function Home() {
   const requestHeaders = await headers();
   const userAgent = requestHeaders.get("user-agent") ?? "";
   const siteVariant = resolveSiteVariantFromHeaders(requestHeaders);
+  const isNativeGpslobApp = userAgent.includes("GPSLobApp");
+  const isMobileBrowser = /iPad|iPhone|iPod|Android|Mobile\//i.test(userAgent);
+
+  // The public teacher page is useful before JavaScript finishes (or when it
+  // is disabled), whereas mobile browsers retain the established client-side
+  // redirect into /join. Native and Postløb keep their dedicated client flows.
+  if (!isNativeGpslobApp && !isMobileBrowser && siteVariant.key !== "postlob") {
+    return <TeacherHomepage />;
+  }
 
   return (
     <HomePageClient
-      isNativeGpslobApp={userAgent.includes("GPSLobApp")}
+      isNativeGpslobApp={isNativeGpslobApp}
       siteVariantKey={siteVariant.key}
     />
   );

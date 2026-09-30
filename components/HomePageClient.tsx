@@ -253,7 +253,7 @@ function shouldRedirectMobileRootToJoin(
   const userAgent = browserWindow.navigator.userAgent;
   const isCapacitorApp = typeof browserWindow.Capacitor !== "undefined";
   const isMobileBrowser =
-    /iPad|iPhone|iPod|Android/i.test(userAgent) ||
+    /iPad|iPhone|iPod|Android|Mobile\//i.test(userAgent) ||
     (browserWindow.navigator.platform === "MacIntel" &&
       browserWindow.navigator.maxTouchPoints > 1);
 
