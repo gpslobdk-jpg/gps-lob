@@ -1,0 +1,480 @@
+.overlay {
+  position: fixed;
+  z-index: 12000;
+  inset: 0;
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: clamp(1rem, 2.5vw, 2.5rem);
+  background: rgba(3, 14, 27, 0.82);
+  color: #f8f3e8;
+}
+
+.dialog {
+  position: relative;
+  isolation: isolate;
+  width: min(100%, 84rem);
+  min-height: min(44rem, calc(100dvh - 2rem));
+  overflow: hidden;
+  border: 1px solid rgba(246, 241, 229, 0.28);
+  border-radius: clamp(1.5rem, 2.8vw, 2.5rem);
+  background: #0b213a;
+  box-shadow: 0 2rem 6rem rgba(0, 0, 0, 0.45);
+}
+
+.scene {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  overflow: hidden;
+  background: #0b213a;
+}
+
+.sceneImage {
+  object-fit: cover;
+  object-position: 61% center;
+  animation: quietZoom 10s ease-out both;
+}
+
+.sceneShade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(5, 22, 40, 0.98) 0%, rgba(7, 27, 46, 0.91) 34%, rgba(9, 36, 53, 0.48) 58%, rgba(7, 26, 58, 0.14) 100%),
+    linear-gradient(0deg, rgba(4, 17, 30, 0.68), transparent 48%);
+}
+
+.sunlight {
+  position: absolute;
+  top: -28%;
+  left: 28%;
+  width: 42rem;
+  height: 42rem;
+  border-radius: 999px;
+  background: rgba(244, 187, 84, 0.18);
+  filter: blur(1rem);
+  animation: sunlightShift 10s ease-in-out both;
+}
+
+.route {
+  position: absolute;
+  right: -3%;
+  bottom: -6%;
+  width: min(78vw, 67rem);
+  height: auto;
+  overflow: visible;
+}
+
+.route path {
+  fill: none;
+  stroke: rgba(255, 250, 234, 0.91);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 4 16;
+  filter: drop-shadow(0 0 0.4rem rgba(7, 26, 58, 0.8));
+  animation: routeTravel 10s linear both;
+}
+
+.route circle {
+  fill: #f4bb54;
+  stroke: #fff9eb;
+  stroke-width: 5;
+  filter: drop-shadow(0 0 0.6rem rgba(244, 187, 84, 0.55));
+}
+
+.mascot {
+  position: absolute;
+  right: clamp(2rem, 6vw, 6rem);
+  bottom: -0.8rem;
+  width: clamp(12rem, 22vw, 18.5rem);
+  aspect-ratio: 720 / 926;
+  filter: drop-shadow(0 1.5rem 1.8rem rgba(3, 14, 27, 0.42));
+}
+
+.mascotImage {
+  object-fit: contain;
+}
+
+.toolTrail {
+  position: absolute;
+  right: clamp(12rem, 29vw, 29rem);
+  bottom: clamp(5.5rem, 12vw, 10rem);
+  display: grid;
+  gap: 0.7rem;
+  width: min(17rem, 25vw);
+}
+
+.boardPreview {
+  position: absolute;
+  top: clamp(4.8rem, 12vh, 8.5rem);
+  right: clamp(13rem, 29vw, 29rem);
+  display: grid;
+  gap: 0.5rem;
+  width: min(17.5rem, 27vw);
+  border: 1px solid rgba(255, 249, 235, 0.36);
+  border-radius: 1rem;
+  padding: 1rem;
+  background: rgba(7, 26, 58, 0.85);
+  box-shadow: 0 1rem 2.3rem rgba(3, 14, 27, 0.33);
+  color: #fff9eb;
+  opacity: 0;
+  transform: translate3d(0, 0.75rem, 0);
+  animation: boardPreviewReveal 10s ease both;
+}
+
+.boardPreview span,
+.boardPreview small {
+  color: rgba(255, 249, 235, 0.76);
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.boardPreview strong {
+  color: #fffaf0;
+  font-size: clamp(1.15rem, 1.8vw, 1.55rem);
+  line-height: 1.05;
+}
+
+.boardPreview small {
+  color: rgba(255, 249, 235, 0.6);
+  font-size: 0.57rem;
+  letter-spacing: 0.06em;
+  text-transform: none;
+}
+
+.toolMarker {
+  width: max-content;
+  max-width: 100%;
+  border: 1px solid rgba(255, 249, 235, 0.35);
+  border-radius: 999px;
+  padding: 0.48rem 0.8rem;
+  background: rgba(11, 33, 58, 0.78);
+  color: #fff9eb;
+  font-size: clamp(0.72rem, 1vw, 0.88rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  box-shadow: 0 0.7rem 1.4rem rgba(3, 14, 27, 0.2);
+  animation: markerReveal 10s ease both;
+}
+
+.gpsMarker {
+  animation-delay: 1.4s;
+}
+
+.worksheetMarker {
+  margin-left: 2.2rem;
+  animation-delay: 3.2s;
+}
+
+.boardMarker {
+  margin-left: 0.7rem;
+  animation-delay: 5.5s;
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: min(44rem, calc(100dvh - 2rem));
+  max-width: min(43rem, 56%);
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(6rem, 11vw, 10rem) clamp(2rem, 7vw, 7rem) clamp(9rem, 13vw, 10rem);
+}
+
+.eyebrow {
+  margin: 0;
+  color: #f4bb54;
+  font-size: clamp(0.7rem, 1vw, 0.9rem);
+  font-weight: 900;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+}
+
+.content h2 {
+  max-width: 10ch;
+  margin: 1rem 0 0;
+  color: #fffaf0;
+  font-size: clamp(3rem, 6.8vw, 6.4rem);
+  font-weight: 900;
+  line-height: 0.94;
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+}
+
+.content p:not(.eyebrow) {
+  max-width: 33rem;
+  margin: 1.5rem 0 0;
+  color: rgba(255, 249, 235, 0.9);
+  font-size: clamp(1rem, 1.45vw, 1.22rem);
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.controls {
+  position: absolute;
+  z-index: 2;
+  bottom: clamp(1.25rem, 3vw, 2.5rem);
+  left: clamp(2rem, 7vw, 7rem);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: calc(100% - clamp(4rem, 14vw, 14rem));
+}
+
+.enterButton,
+.secondaryButton,
+.audioButton,
+.skipButton {
+  min-height: 2.85rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.93rem;
+  font-weight: 850;
+  transition: transform 150ms ease, background-color 150ms ease, border-color 150ms ease;
+}
+
+.entryLinks {
+  position: absolute;
+  z-index: 2;
+  right: clamp(1rem, 2.2vw, 1.6rem);
+  bottom: clamp(1.25rem, 3vw, 2.5rem);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.7rem 1rem;
+  max-width: 32rem;
+}
+
+.entryLink {
+  color: rgba(255, 249, 235, 0.85);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-color: rgba(244, 187, 84, 0.72);
+  text-underline-offset: 0.24rem;
+}
+
+.entryLink:hover {
+  color: #fffaf0;
+}
+
+.enterButton {
+  border: 1px solid #f8d27b;
+  padding: 0.78rem 1.2rem;
+  background: #f4bb54;
+  color: #0b213a;
+  box-shadow: 0 0.9rem 1.8rem rgba(0, 0, 0, 0.22);
+}
+
+.enterButton:hover {
+  transform: translateY(-1px);
+  background: #ffcb69;
+}
+
+.secondaryButton,
+.skipButton {
+  border: 1px solid rgba(255, 249, 235, 0.38);
+  padding: 0.72rem 1rem;
+  background: rgba(7, 26, 58, 0.7);
+  color: #fffaf0;
+}
+
+.secondaryButton:hover,
+.skipButton:hover {
+  border-color: rgba(255, 249, 235, 0.72);
+  background: rgba(7, 26, 58, 0.92);
+}
+
+.audioButton {
+  border: 1px solid rgba(255, 249, 235, 0.18);
+  padding: 0.72rem 0.95rem;
+  background: rgba(7, 26, 58, 0.44);
+  color: rgba(255, 249, 235, 0.58);
+  cursor: not-allowed;
+}
+
+.skipButton {
+  position: absolute;
+  z-index: 3;
+  top: clamp(1rem, 2.2vw, 1.6rem);
+  right: clamp(1rem, 2.2vw, 1.6rem);
+}
+
+.enterButton:focus-visible,
+.secondaryButton:focus-visible,
+.skipButton:focus-visible,
+.entryLink:focus-visible {
+  outline: 3px solid #fffaf0;
+  outline-offset: 3px;
+}
+
+.playbackStatus {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.paused .sceneImage,
+.paused .sunlight,
+.paused .route path,
+.paused .toolMarker {
+  animation-play-state: paused;
+}
+
+.paused .boardPreview {
+  animation-play-state: paused;
+}
+
+@keyframes quietZoom {
+  from {
+    transform: scale(1);
+  }
+
+  to {
+    transform: scale(1.055);
+  }
+}
+
+@keyframes sunlightShift {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translate3d(-2%, 0, 0) scale(0.94);
+  }
+
+  52% {
+    opacity: 0.8;
+    transform: translate3d(3%, 2%, 0) scale(1.05);
+  }
+}
+
+@keyframes routeTravel {
+  from {
+    stroke-dashoffset: 200;
+    opacity: 0.15;
+  }
+
+  22%,
+  82% {
+    opacity: 1;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+    opacity: 0.96;
+  }
+}
+
+@keyframes markerReveal {
+  0%,
+  14% {
+    opacity: 0;
+    transform: translate3d(-0.8rem, 0.5rem, 0) scale(0.96);
+  }
+
+  25%,
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes boardPreviewReveal {
+  0%,
+  57% {
+    opacity: 0;
+    transform: translate3d(-0.8rem, 0.75rem, 0) scale(0.97);
+  }
+
+  67%,
+  80% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  91%,
+  100% {
+    opacity: 0;
+    transform: translate3d(0.5rem, -0.4rem, 0) scale(0.98);
+  }
+}
+
+@media (max-width: 1023px) {
+  .dialog,
+  .content {
+    min-height: min(38rem, calc(100dvh - 2rem));
+  }
+
+  .content {
+    max-width: 62%;
+  }
+
+  .mascot {
+    right: 1.5rem;
+    width: clamp(11rem, 24vw, 15rem);
+  }
+
+  .toolTrail {
+    right: 15rem;
+    bottom: 7.5rem;
+  }
+
+  .boardPreview {
+    right: 15rem;
+  }
+}
+
+@media (max-height: 760px) and (min-width: 768px) {
+  .dialog,
+  .content {
+    min-height: calc(100dvh - 2rem);
+  }
+
+  .content {
+    padding-top: 5rem;
+    padding-bottom: 6.5rem;
+  }
+
+  .content h2 {
+    font-size: clamp(2.7rem, 6vw, 5.25rem);
+  }
+
+  .toolTrail {
+    display: none;
+  }
+
+  .boardPreview {
+    top: 4rem;
+  }
+
+  .entryLinks {
+    right: 1.25rem;
+    bottom: 1.25rem;
+  }
+}
+
+@media (max-width: 767px), (prefers-reduced-motion: reduce) {
+  .overlay {
+    display: none;
+  }
+
+  .sceneImage,
+  .sunlight,
+  .route path,
+  .toolMarker {
+    animation: none;
+  }
+
+  .boardPreview {
+    display: none;
+    animation: none;
+  }
+}

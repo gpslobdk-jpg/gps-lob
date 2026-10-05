@@ -19,17 +19,28 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function Home() {
+type HomePageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function Home({ searchParams }: HomePageProps) {
   const requestHeaders = await headers();
   const userAgent = requestHeaders.get("user-agent") ?? "";
   const siteVariant = resolveSiteVariantFromHeaders(requestHeaders);
+  const resolvedSearchParams = await searchParams;
   const isNativeGpslobApp = userAgent.includes("GPSLobApp");
+  // Keep the established student handoff intact. The Mobile/ token includes
+  // iPadOS browsers that present a desktop-shaped user agent.
   const isMobileBrowser = /iPad|iPhone|iPod|Android|Mobile\//i.test(userAgent);
+  // Preserve every existing callback-shaped root URL, including duplicated or
+  // empty `code` values. HomePageClient owns its callback semantics.
+  const hasAuthCallbackCode = Object.prototype.hasOwnProperty.call(resolvedSearchParams, "code");
 
-  // The public teacher page is useful before JavaScript finishes (or when it
-  // is disabled), whereas mobile browsers retain the established client-side
-  // redirect into /join. Native and Postløb keep their dedicated client flows.
-  if (!isNativeGpslobApp && !isMobileBrowser && siteVariant.key !== "postlob") {
+  // The public teacher front page is intentionally server-rendered, so its
+  // content and links remain usable without JavaScript. The existing native,
+  // mobile/student, Postløb and auth-callback contracts keep their dedicated
+  // client flow below.
+  if (!isNativeGpslobApp && !isMobileBrowser && siteVariant.key !== "postlob" && !hasAuthCallbackCode) {
     return <TeacherHomepage />;
   }
 

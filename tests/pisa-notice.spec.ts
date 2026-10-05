@@ -9,7 +9,7 @@ const LINKS = {
     "https://dagenstavle.dk/auth/family-sso/start?next=%2Ftavle&source=skolegps",
   worksheets:
     "https://printmitarbejdsark.dk/auth/family-sso/start?next=%2Flav&source=skolegps",
-  gps: "/login?next=%2Fdashboard%2Fopret%2Fvalg",
+  gps: "/dashboard/opret/valg",
 } as const;
 
 function source(relativePath: string) {
@@ -35,10 +35,14 @@ test.describe("PISA-notits på forsiden", () => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto("/");
 
+      if (width > 767) {
+        await page.getByTestId("homepage-intro-skip").click();
+      }
+
       const pisaNotice = page.getByTestId("pisa-notice");
       await expect(pisaNotice).toBeVisible();
       await expect(page.getByRole("heading", { name: "Mere liv i undervisningen." })).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Det sker i SkoleGPS", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Indgange og perspektiv.", exact: true })).toBeVisible();
       await expect(page.getByRole("link", { name: "Log ind", exact: true }).first()).toBeVisible();
 
       expect(
@@ -59,6 +63,8 @@ test.describe("PISA-notits på forsiden", () => {
   test("bevarer native details, tastaturbetjening og de eksisterende destinationer", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 1200 });
     await page.goto("/");
+    await page.getByTestId("homepage-intro-skip").click();
+    await expect(page.locator("[data-homepage-primary-cta]")).toBeFocused();
 
     const notice = page.getByTestId("pisa-notice");
     const details = notice.locator("details");
@@ -69,6 +75,9 @@ test.describe("PISA-notits på forsiden", () => {
     await expect(notice.getByText("Tre måder at sætte fagligheden først")).toBeHidden();
 
     await summary.focus();
+    await expect(summary).toBeFocused();
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Shift+Tab");
     await expect(summary).toBeFocused();
     await expect(summary).toHaveCSS("outline-style", "solid");
     await page.keyboard.press("Enter");
@@ -107,6 +116,7 @@ test.describe("PISA-notits på forsiden", () => {
   test("har plads til 200 % tekststørrelse i computerlayout", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1400 });
     await page.goto("/");
+    await page.getByTestId("homepage-intro-skip").click();
     await page.evaluate(() => {
       document.documentElement.style.fontSize = "200%";
     });
@@ -127,8 +137,11 @@ test.describe("PISA-notits på forsiden", () => {
     expect(noticeSource).not.toContain("https://ugepilot.dk/");
     expect(noticeSource).not.toContain("/dashboard\";");
     expect(homeSource).toContain('id="nyheder"');
-    expect(homeSource).toContain(LINKS.classroom);
-    expect(homeSource).toContain(LINKS.worksheets);
-    expect(homeSource).toContain(LINKS.gps);
+    expect(homeSource).toContain('requiredActiveTool("dagens-tavle")');
+    expect(homeSource).toContain('requiredActiveTool("printmit-arbejdsark")');
+    expect(homeSource).toContain('requiredActiveTool("gps-lob")');
+    expect(homeSource).toContain("classroom.link.href");
+    expect(homeSource).toContain("worksheets.link.href");
+    expect(homeSource).toContain("gps.link.href");
   });
 });
