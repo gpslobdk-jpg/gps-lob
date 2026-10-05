@@ -35,10 +35,6 @@ test.describe("PISA-notits på forsiden", () => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto("/");
 
-      if (width > 767) {
-        await page.getByTestId("homepage-intro-skip").click();
-      }
-
       const pisaNotice = page.getByTestId("pisa-notice");
       await expect(pisaNotice).toBeVisible();
       await expect(page.getByRole("heading", { name: "Mere liv i undervisningen." })).toBeVisible();
@@ -63,8 +59,6 @@ test.describe("PISA-notits på forsiden", () => {
   test("bevarer native details, tastaturbetjening og de eksisterende destinationer", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 1200 });
     await page.goto("/");
-    await page.getByTestId("homepage-intro-skip").click();
-    await expect(page.locator("[data-homepage-primary-cta]")).toBeFocused();
 
     const notice = page.getByTestId("pisa-notice");
     const details = notice.locator("details");
@@ -116,7 +110,6 @@ test.describe("PISA-notits på forsiden", () => {
   test("har plads til 200 % tekststørrelse i computerlayout", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1400 });
     await page.goto("/");
-    await page.getByTestId("homepage-intro-skip").click();
     await page.evaluate(() => {
       document.documentElement.style.fontSize = "200%";
     });

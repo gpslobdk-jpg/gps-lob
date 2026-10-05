@@ -13,7 +13,6 @@ import Link from "next/link";
 
 import AIChatButton from "@/components/AIChatButton";
 import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
-import DesktopIntro from "@/components/home/DesktopIntro";
 import PisaNotice from "@/components/home/PisaNotice";
 import ProjectWorkshopAnnouncement from "@/components/home/ProjectWorkshopAnnouncement";
 import TeacherHomepageClientGuard from "@/components/home/TeacherHomepageClientGuard";
@@ -380,7 +379,6 @@ export default function TeacherHomepage() {
       <div className="relative hidden lg:block">
         <AIChatButton variant="homepage" />
       </div>
-      <DesktopIntro />
     </div>
     </TeacherHomepageClientGuard>
   );

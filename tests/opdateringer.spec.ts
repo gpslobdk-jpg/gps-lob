@@ -17,7 +17,6 @@ test.describe("opdateringer", () => {
   test("viser Pilen som en tydelig desktop-hjælper med chat og kontaktvej", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/");
-    await page.getByTestId("homepage-intro-skip").click();
 
     const launcher = page.getByRole("button", { name: "Åbn Pilen, SkoleGPS-hjælp" });
     await expect(launcher).toBeVisible();

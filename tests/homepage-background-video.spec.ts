@@ -24,7 +24,7 @@ function collectTypeScriptFiles(relativeDirectory: string): string[] {
 }
 
 test.describe("public homepage scenic background", () => {
-  test("wide desktop uses the server-rendered adventure hero and preserves every public entry", async ({
+  test("wide desktop opens directly to the server-rendered adventure hero and preserves every public entry", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 2560, height: 912 });
@@ -35,8 +35,9 @@ test.describe("public homepage scenic background", () => {
     await expect(hero).toBeVisible();
     await expect(page.getByTestId("home-background-video")).toHaveCount(0);
     await expect(hero.locator('img[src*="adventure-hero.webp"]')).toHaveCount(1);
-    await page.getByTestId("homepage-intro-skip").click();
-    await expect(page.getByTestId("homepage-intro")).toBeHidden();
+    await expect(page.getByTestId("homepage-intro")).toHaveCount(0);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByText("Ingen lyd i webanimationen", { exact: true })).toHaveCount(0);
     await expect(
       page.getByRole("heading", { name: "Mere liv i undervisningen.", exact: true })
     ).toBeVisible();
@@ -253,12 +254,11 @@ test.describe("public homepage scenic background", () => {
     await expect(page.locator(`video source[src="${REMOVED_VIDEO_SRC}"]`)).toHaveCount(0);
   });
 
-  test("homepage media stays outside PWA precache and uses the static adventure hero", () => {
+  test("homepage media stays outside PWA precache and uses the static adventure hero without an intro", () => {
     const nextConfigSource = readSource("next.config.ts");
     const appPageSource = readSource("app/page.tsx");
     const homePageSource = readSource("components/HomePageClient.tsx");
     const teacherHomeSource = readSource("components/home/TeacherHomepage.tsx");
-    const introSource = readSource("components/home/DesktopIntro.tsx");
     const mascotSource = readSource("components/brand/Mascot.tsx");
     const logoSource = readSource("public/skolegps-logo.svg");
     const publicExcludes = nextConfigSource.match(
@@ -270,8 +270,10 @@ test.describe("public homepage scenic background", () => {
     expect(homePageSource).not.toContain(REMOVED_VIDEO_SRC);
     expect(teacherHomeSource).not.toContain(REMOVED_VIDEO_SRC);
     expect(teacherHomeSource).toContain("adventure-hero.webp");
-    expect(teacherHomeSource).toContain("<DesktopIntro />");
-    expect(introSource).not.toMatch(/\.(?:m3u8|mp4|webm)/);
+    expect(teacherHomeSource).not.toContain("DesktopIntro");
+    expect(existsSync(join(ROOT, "components/home/DesktopIntro.tsx"))).toBe(false);
+    expect(existsSync(join(ROOT, "components/home/DesktopIntro.module.css"))).toBe(false);
+    expect(existsSync(join(ROOT, "public/introvideo.mp4"))).toBe(false);
     expect(teacherHomeSource).not.toContain("<Mascot");
     expect(teacherHomeSource).not.toContain("<RoutePath");
     expect(mascotSource).toContain('/brand/mascot/skolegps-pin.webp');
