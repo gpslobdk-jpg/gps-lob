@@ -124,9 +124,9 @@ export function createTeacherToolRegistry(origins: TeacherToolOrigins): readonly
     },
     {
       id: "printpakker",
-      title: "Printpakker",
-      description: "Hent færdige analoge undervisningspakker, klar til at dele ud.",
-      cta: "Se Printpakker",
+      title: "Printklare postløb",
+      description: "Hent printklare postløb og arbejdsark til undervisningen.",
+      cta: "Se postløb",
       status: "active",
       link: { href: "/printpakker", kind: "internal", target: "_self" },
       icon: "file-text",

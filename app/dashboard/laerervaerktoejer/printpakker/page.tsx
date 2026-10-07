@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
-import { getPrintpakke } from "@/lib/printpakker/catalog";
+import { getPrintmaterial } from "@/lib/printpakker/materials";
+import { getProtectedPrintpakkeDownload } from "@/lib/printpakker/downloads.server";
 import { hasPrintpakkeDownloadSession } from "@/lib/printpakker/access";
 import {
   buildPrintpakkeLoginReturnPath,
@@ -21,9 +22,9 @@ export default async function PrintpakkerReturnPage({ searchParams }: Printpakke
   const query = await searchParams;
   const slug = Array.isArray(query.slug) ? undefined : query.slug;
   const variant = Array.isArray(query.download) ? undefined : query.download;
-  const printpakke = slug ? getPrintpakke(slug) : undefined;
+  const printpakke = slug ? getPrintmaterial(slug) : undefined;
 
-  if (!printpakke || !variant || !isPrintpakkeDownloadVariant(variant)) notFound();
+  if (!printpakke || !variant || !isPrintpakkeDownloadVariant(variant) || !getProtectedPrintpakkeDownload(printpakke.slug, variant)) notFound();
 
   const supabase = await createClient();
   const { data: { user }, error } = await supabase.auth.getUser();

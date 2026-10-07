@@ -61,7 +61,10 @@ export async function GET(request: Request, { params }: RouteContext) {
     return new NextResponse(fileStream as unknown as ReadableStream<Uint8Array>, {
       headers: {
         ...privateHeaders(),
-        "Content-Disposition": `attachment; filename="${download.filename}"`,
+        // Use the browser's normal PDF viewer after the protected route has
+        // completed its server-side session check. Teachers can still save or
+        // print there; the file is never exposed from public/.
+        "Content-Disposition": `inline; filename="${download.filename}"`,
         "Content-Type": download.mediaType,
       },
     });

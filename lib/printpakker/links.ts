@@ -4,6 +4,15 @@ export const PRINTPAKKE_DOWNLOAD_VARIANTS = [
   "student",
   "answer-key",
   "teacher-guide",
+  "student-ink-saver",
+  "stations",
+  "stations-ink-saver",
+  "answer-sheet",
+  "answer-sheet-ink-saver",
+  "answer-key-ink-saver",
+  "teacher-guide-ink-saver",
+  "support",
+  "support-ink-saver",
 ] as const;
 
 export type PrintpakkeDownloadVariant = (typeof PRINTPAKKE_DOWNLOAD_VARIANTS)[number];

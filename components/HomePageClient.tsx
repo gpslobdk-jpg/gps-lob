@@ -636,10 +636,10 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
                   <div>
                     <p className="text-xs font-black tracking-[0.16em] text-amber-800 uppercase">Nyt i SkoleGPS</p>
                     <h3 id="home-printpakker-heading" className="mt-1 text-xl font-black tracking-tight text-[var(--skolegps-deep-navy)]">
-                      Printpakker: klar til print
+                      Printklare postløb og arbejdsark
                     </h3>
                     <p className="mt-1 text-sm leading-6 text-slate-700">
-                      Færdige analoge undervisningspakker med elevark, lærervejledning og kontrolleret facit.
+                      Klar til print med elevmateriale, lærervejledning og facit til læreren.
                     </p>
                   </div>
                 </div>
@@ -647,7 +647,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
                   className="mt-5 inline-flex min-h-11 w-fit items-center justify-center rounded-full bg-amber-700 px-4 py-2 text-sm font-black text-white shadow-[0_10px_22px_rgba(146,94,11,0.2)] transition hover:bg-amber-800"
                   href="/printpakker"
                 >
-                  Se Printpakker
+                  Se postløb og arbejdsark
                 </Link>
               </article>
             </div>

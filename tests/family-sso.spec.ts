@@ -333,8 +333,8 @@ test.describe("DagensTavle family SSO security contract", () => {
     await expect(kildeGpsLink).toHaveAttribute("rel", "noopener noreferrer");
     await expect(kildeGpsLink.locator('img[src*="kildegps-illustration.webp"]')).toHaveCount(1);
     await expect(page.getByRole("heading", { name: "PrintMitArbejdsark" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Printpakker" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Printpakker" })).toHaveAttribute("href", "/printpakker");
+    await expect(page.getByRole("heading", { name: "Printklare postløb" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Se postløb" })).toHaveAttribute("href", "/printpakker");
     await expect(page.getByRole("heading", { name: "Projektværkstedet" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Projektværkstedet" })).toHaveAttribute("href", "/projektvaerkstedet");
     const printMitLink = page.getByRole("link", { name: "PrintMitArbejdsark" });

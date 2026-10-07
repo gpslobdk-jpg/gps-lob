@@ -78,7 +78,7 @@ test.describe("public homepage scenic background", () => {
       "/nyheder/projektvaerkstedet",
     );
     const printpakkerAnnouncement = page.getByTestId("home-printpakker-news");
-    await expect(printpakkerAnnouncement.getByRole("link", { name: "Se Printpakker" })).toHaveAttribute(
+    await expect(printpakkerAnnouncement.getByRole("link", { name: "Se postløb og arbejdsark" })).toHaveAttribute(
       "href",
       "/printpakker",
     );
