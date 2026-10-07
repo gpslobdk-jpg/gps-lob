@@ -172,6 +172,32 @@ test.describe("student PWA install promotion", () => {
     }
   });
 
+  test("manual guide tells iPhone browsers other than Safari to open Safari", async ({ browser }) => {
+    const context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/140.0.0.0 Mobile/15E148 Safari/604.1",
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+      serviceWorkers: "block",
+    });
+
+    try {
+      const page = await context.newPage();
+      await page.goto("/join", { waitUntil: "domcontentloaded" });
+      await page.waitForFunction(() => document.documentElement.dataset.pwaInstallListener === "ready");
+      await expect(page.getByTestId(PWA_PROMOTION)).toHaveCount(0);
+
+      await page.getByTestId("student-phone-help-install").click();
+      const promotion = page.getByTestId(PWA_PROMOTION);
+      await expect(promotion).toBeVisible();
+      await expect(promotion).toContainText("Åbn linket i Safari for at installere");
+      await expect(promotion).toContainText("Andre browsere på iPhone eller iPad kan ikke vise installationen");
+    } finally {
+      await context.close();
+    }
+  });
+
   test("dismissed promotion stays hidden during the 14 day cooldown", async ({ page }) => {
     await page.goto("/join", { waitUntil: "domcontentloaded" });
     await triggerInstallPrompt(page);
@@ -182,6 +208,59 @@ test.describe("student PWA install promotion", () => {
     await page.reload({ waitUntil: "domcontentloaded" });
     await triggerInstallPrompt(page);
     await page.waitForTimeout(1_200);
+    await expect(page.getByTestId(PWA_PROMOTION)).toHaveCount(0);
+  });
+
+  test("manual phone help can reopen the existing guide during cooldown without changing it", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("skolegps.pwa.install-dismissed-at.v1", String(Date.now() - 1_000));
+    });
+    await page.goto("/join", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => document.documentElement.dataset.pwaInstallListener === "ready");
+
+    const dismissedAt = await page.evaluate(() => window.localStorage.getItem("skolegps.pwa.install-dismissed-at.v1"));
+    await expect(page.getByTestId(PWA_PROMOTION)).toHaveCount(0);
+
+    await page.getByTestId("student-phone-help-install").click();
+    const promotion = page.getByTestId(PWA_PROMOTION);
+    await expect(promotion).toBeVisible();
+    await expect(promotion).toHaveAttribute("data-install-method", "manual");
+
+    await page.getByRole("button", { name: "Luk beskeden om installation" }).click();
+    await expect.poll(() => page.evaluate(
+      () => window.localStorage.getItem("skolegps.pwa.install-dismissed-at.v1"),
+    )).toBe(dismissedAt);
+  });
+
+  test("manual install-intent survives until the layout listener is hydrated", async ({ page }) => {
+    await page.addInitScript(() => {
+      const markInstallIntent = () => {
+        document.documentElement.setAttribute("data-skolegps-open-install-help", "1");
+      };
+
+      if (document.documentElement) {
+        markInstallIntent();
+      } else {
+        document.addEventListener("DOMContentLoaded", markInstallIntent, { once: true });
+      }
+    });
+    await page.goto("/join", { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByTestId(PWA_PROMOTION)).toBeVisible();
+    await expect(page.locator("html")).not.toHaveAttribute("data-skolegps-open-install-help");
+  });
+
+  test("manual install help never covers the PIN step", async ({ page }) => {
+    await page.goto("/join", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => document.documentElement.dataset.pwaInstallListener === "ready");
+    await page.getByRole("button", { name: "Deltag i et løb" }).click();
+    await expect(page.locator("#join-code")).toBeVisible();
+
+    await page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent("skolegps:open-install-help"));
+    });
+    await page.waitForTimeout(50);
+
     await expect(page.getByTestId(PWA_PROMOTION)).toHaveCount(0);
   });
 

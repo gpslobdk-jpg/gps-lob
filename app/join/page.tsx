@@ -29,6 +29,7 @@ import {
 import { captureAppMessage, leaveAppBreadcrumb } from "@/utils/observability";
 import QRScannerModal from "@/components/QRScannerModal";
 import Mascot from "@/components/brand/Mascot";
+import StudentPhoneHelp from "@/components/pwa/StudentPhoneHelp";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 import { getSiteCopy } from "@/lib/siteCopy";
 import {
@@ -60,10 +61,21 @@ import {
 type JoinView = "form" | "waiting" | "scheduled" | "expired" | "scheduleError";
 type JoinStep = "start" | "code" | "name";
 const JOIN_FLOW_ACTIVE_EVENT = "skolegps:join-flow-active";
+const OPEN_INSTALL_HELP_EVENT = "skolegps:open-install-help";
+const OPEN_INSTALL_HELP_PENDING_ATTRIBUTE = "data-skolegps-open-install-help";
 
 function notifyJoinFlowActive() {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(JOIN_FLOW_ACTIVE_EVENT));
+  }
+}
+
+function openInstallHelp() {
+  if (typeof window !== "undefined") {
+    // The layout-owned promotion can hydrate just after this page. Keep this
+    // one local, in-document intent long enough for its listener to consume.
+    document.documentElement.setAttribute(OPEN_INSTALL_HELP_PENDING_ATTRIBUTE, "1");
+    window.dispatchEvent(new CustomEvent(OPEN_INSTALL_HELP_EVENT));
   }
 }
 
@@ -1464,6 +1476,20 @@ function JoinForm() {
             </button>
           </form>
           )}
+
+          {step === "start" || step === "code" ? (
+            <StudentPhoneHelp
+              showInstallEntry={step === "start" && !resumeParticipant}
+              canRetryJoinLookup={
+                step === "code" && Boolean(error) && isCompleteJoinCode(trimmedPin) && !isJoining
+              }
+              isRetryingJoinLookup={isJoining}
+              onInstallRequested={openInstallHelp}
+              onRetryJoinLookup={() => {
+                void lookupJoinCode(trimmedPin);
+              }}
+            />
+          ) : null}
 
           {step === "code" ? (
           <details className="mt-5 rounded-[1.35rem] border border-white/10 bg-slate-950/45 px-4 py-3 text-left shadow-[0_10px_24px_rgba(2,6,23,0.16)]">

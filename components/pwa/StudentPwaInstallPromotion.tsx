@@ -2,13 +2,15 @@
 
 import Image from "next/image";
 import { Download, MoreVertical, Plus, Share2, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 
 const DISMISS_STORAGE_KEY = "skolegps.pwa.install-dismissed-at.v1";
 const INSTALLED_STORAGE_KEY = "skolegps.pwa.install-confirmed.v1";
 const DISMISS_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
 const PROMOTION_DELAY_MS = 1_000;
 const JOIN_FLOW_ACTIVE_EVENT = "skolegps:join-flow-active";
+const OPEN_INSTALL_HELP_EVENT = "skolegps:open-install-help";
+const OPEN_INSTALL_HELP_PENDING_ATTRIBUTE = "data-skolegps-open-install-help";
 
 type BeforeInstallPromptChoice = {
   outcome: "accepted" | "dismissed";
@@ -33,13 +35,18 @@ function isStandaloneApp() {
   );
 }
 
+function isIosDevice() {
+  const userAgent = window.navigator.userAgent ?? "";
+  return (
+    /iPad|iPhone|iPod/i.test(userAgent) ||
+    (window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1)
+  );
+}
+
 function isIosSafari() {
   const userAgent = window.navigator.userAgent ?? "";
-  const isAppleMobile =
-    /iPad|iPhone|iPod/i.test(userAgent) ||
-    (window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1);
   const isSafari = /Safari/i.test(userAgent) && !/CriOS|FxiOS|EdgiOS|Chrome|Android/i.test(userAgent);
-  return isAppleMobile && isSafari;
+  return isIosDevice() && isSafari;
 }
 
 function isNativeCapacitorApp() {
@@ -93,6 +100,19 @@ function isDismissedWithinCooldown() {
   return Number.isFinite(dismissedAt) && dismissedAt > 0 && Date.now() - dismissedAt < DISMISS_COOLDOWN_MS;
 }
 
+function hasPermanentInstallBlock() {
+  return (
+    isStandaloneApp() ||
+    isNativeCapacitorApp() ||
+    isEmbeddedBrowser() ||
+    readStorage(INSTALLED_STORAGE_KEY) === "installed"
+  );
+}
+
+function isSafeJoinInstallSurface() {
+  return !document.querySelector("#join-code, #join-name, [data-testid='join-qr-dialog']");
+}
+
 function readInitialInstallSurface(): {
   isHidden: boolean;
   isJoinFlowActive: boolean;
@@ -102,12 +122,7 @@ function readInitialInstallSurface(): {
     return { isHidden: false, isJoinFlowActive: false, platform: null };
   }
 
-  const isHidden =
-    isStandaloneApp() ||
-    isNativeCapacitorApp() ||
-    readStorage(INSTALLED_STORAGE_KEY) === "installed" ||
-    isDismissedWithinCooldown() ||
-    isEmbeddedBrowser();
+  const isHidden = hasPermanentInstallBlock() || isDismissedWithinCooldown();
 
   return {
     isHidden,
@@ -126,8 +141,9 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
   const [platform, setPlatform] = useState<InstallPlatform>(initialSurface.platform);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isPrompting, setIsPrompting] = useState(false);
+  const [isManualOpen, setIsManualOpen] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const standaloneQuery = window.matchMedia("(display-mode: standalone)");
 
     const hideWhenInstalled = () => {
@@ -148,33 +164,66 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
     const handleAppInstalled = () => {
       writeStorage(INSTALLED_STORAGE_KEY, "installed");
       setDeferredPrompt(null);
+      setIsManualOpen(false);
       setIsHidden(true);
     };
 
     const handleJoinFlowActive = () => {
+      setIsManualOpen(false);
       setIsJoinFlowActive(true);
+    };
+
+    const consumeOpenInstallHelp = () => {
+      document.documentElement.removeAttribute(OPEN_INSTALL_HELP_PENDING_ATTRIBUTE);
+
+      // The help button lives only on the safe join start screen. Keep this
+      // defensive check here too, so a custom event can never cover PIN/name
+      // entry or the QR dialog.
+      if (hasPermanentInstallBlock() || !isSafeJoinInstallSurface()) {
+        return;
+      }
+
+      // A deliberate help request may temporarily show the same guide during
+      // a dismissal cooldown. It neither clears nor writes that cooldown.
+      setIsJoinFlowActive(false);
+      setPlatform(getInstallPlatform());
+      setIsManualOpen(true);
+      setIsReady(true);
+    };
+
+    const handleOpenInstallHelp = () => {
+      consumeOpenInstallHelp();
     };
 
     const readyTimer = window.setTimeout(() => setIsReady(true), PROMOTION_DELAY_MS);
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     window.addEventListener("appinstalled", handleAppInstalled);
     window.addEventListener(JOIN_FLOW_ACTIVE_EVENT, handleJoinFlowActive);
+    window.addEventListener(OPEN_INSTALL_HELP_EVENT, handleOpenInstallHelp);
     standaloneQuery.addEventListener("change", hideWhenInstalled);
     document.documentElement.dataset.pwaInstallListener = "ready";
+
+    if (document.documentElement.hasAttribute(OPEN_INSTALL_HELP_PENDING_ATTRIBUTE)) {
+      consumeOpenInstallHelp();
+    }
 
     return () => {
       window.clearTimeout(readyTimer);
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener("appinstalled", handleAppInstalled);
       window.removeEventListener(JOIN_FLOW_ACTIVE_EVENT, handleJoinFlowActive);
+      window.removeEventListener(OPEN_INSTALL_HELP_EVENT, handleOpenInstallHelp);
       standaloneQuery.removeEventListener("change", hideWhenInstalled);
       delete document.documentElement.dataset.pwaInstallListener;
     };
   }, []);
 
   const dismiss = () => {
-    writeStorage(DISMISS_STORAGE_KEY, String(Date.now()));
+    if (!isManualOpen) {
+      writeStorage(DISMISS_STORAGE_KEY, String(Date.now()));
+    }
     setDeferredPrompt(null);
+    setIsManualOpen(false);
     setIsHidden(true);
   };
 
@@ -183,14 +232,16 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
       return;
     }
 
+    const wasManuallyOpened = isManualOpen;
     setIsPrompting(true);
     try {
       await deferredPrompt.prompt();
       const choice = await deferredPrompt.userChoice.catch(() => null);
-      if (choice?.outcome === "dismissed") {
+      if (choice?.outcome === "dismissed" && !wasManuallyOpened) {
         writeStorage(DISMISS_STORAGE_KEY, String(Date.now()));
       }
       setDeferredPrompt(null);
+      setIsManualOpen(false);
       setIsHidden(true);
     } finally {
       setIsPrompting(false);
@@ -199,9 +250,8 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
 
   const shouldShow =
     isReady &&
-    !isHidden &&
     !isJoinFlowActive &&
-    (platform === "ios" || platform === "android" || Boolean(deferredPrompt));
+    (isManualOpen || (!isHidden && (platform === "ios" || platform === "android" || Boolean(deferredPrompt))));
 
   if (!shouldShow) {
     return null;
@@ -213,7 +263,7 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
       aria-label={`Installer ${brandName} som app`}
       aria-labelledby="student-pwa-install-title"
       data-platform={platform ?? undefined}
-      data-install-method={deferredPrompt ? "native" : "guide"}
+      data-install-method={isManualOpen ? "manual" : deferredPrompt ? "native" : "guide"}
       data-testid="student-pwa-install-promotion"
       className="student-pwa-promotion fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[90] mx-auto w-[calc(100%-1.5rem)] max-w-md overflow-hidden rounded-[1.65rem] border border-sky-200/20 bg-slate-950/94 p-3.5 text-white shadow-[0_22px_70px_rgba(2,6,23,0.54)] ring-1 ring-white/[0.06] backdrop-blur-2xl sm:p-4"
     >
@@ -260,7 +310,7 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
                 {isPrompting ? "Åbner…" : "Installer app"}
               </button>
             </>
-          ) : (
+          ) : platform === "android" ? (
             <ol className="mt-3 grid gap-2 text-[13px] leading-5 text-slate-200">
               <li className="flex items-center gap-2.5">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-400/12 text-sky-200"><MoreVertical className="h-4 w-4" /></span>
@@ -271,6 +321,14 @@ export default function StudentPwaInstallPromotion({ brandName }: { brandName: s
                 <span><strong className="text-white">2.</strong> Vælg &quot;Installér app&quot; eller &quot;Føj til startskærm&quot;</span>
               </li>
             </ol>
+          ) : isIosDevice() ? (
+            <p className="mt-2 text-[13px] leading-5 text-slate-300">
+              Åbn linket i Safari for at installere. Andre browsere på iPhone eller iPad kan ikke vise installationen.
+            </p>
+          ) : (
+            <p className="mt-2 text-[13px] leading-5 text-slate-300">
+              Installation afhænger af din browser og telefon. Brug telefonhjælpen på siden, hvis din menu ser anderledes ud.
+            </p>
           )}
         </div>
 

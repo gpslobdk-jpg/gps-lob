@@ -15,6 +15,7 @@ import StudentConnectionStatus from "@/components/play/StudentConnectionStatus";
 import StudentLocationHelp from "@/components/play/StudentLocationHelp";
 import StudentLocationStatus from "@/components/play/StudentLocationStatus";
 import StandardPlayLocationStatus from "@/components/play/standard/StandardPlayLocationStatus";
+import StudentSoundController from "@/components/play/sound/StudentSoundController";
 import { FullscreenWarning } from "@/components/ui/FullscreenWarning";
 import StudentFocusMode from "@/components/focus/StudentFocusMode";
 import {
@@ -193,6 +194,15 @@ function PlayScreen() {
     usesStandardLocation &&
     game.progress.raceMode === "quiz" &&
     game.progress.currentPost.activePostVariant === "quiz";
+  // Musikquiz owns its own licensed preview-audio flow. The local Pilen sound
+  // controller is deliberately limited to ordinary standard quiz rounds.
+  const isMusicQuiz = game.progress.questions.some((question) => Boolean(question.previewUrl));
+  const usesStandardStudentSoundExperience =
+    usesStandardLocation &&
+    game.progress.raceMode === "quiz" &&
+    !isMusicQuiz &&
+    (game.progress.currentPost.activePostVariant === "quiz" ||
+      game.progress.screen.mode === "finished");
 
   const baseTrackingEnabled =
     Boolean(sessionId) &&
@@ -482,6 +492,14 @@ function PlayScreen() {
           />
         </PlayInterface>
       )}
+      {usesStandardStudentSoundExperience ? (
+        <StudentSoundController
+          key={sessionId}
+          sessionId={sessionId ?? ""}
+          ui={game}
+          isLocationGuidanceVisible={showStandardLocationStatus}
+        />
+      ) : null}
       {showStandardLocationStatus ? (
         <div className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-[2200] mx-auto max-w-md">
           {usesStandardPlayExperience ? (

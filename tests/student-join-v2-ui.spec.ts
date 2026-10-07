@@ -82,11 +82,30 @@ test.describe("Elevoplevelsen 2.0 /join UI", () => {
     await expect(page.locator("#join-name")).toBeHidden();
   });
 
+  test("telefonhjælpen samler ærlige råd i én foldbar hjælp", async ({ page }) => {
+    await openStart(page);
+    const phoneHelp = page.getByTestId("student-phone-help");
+    await expect(phoneHelp).toBeVisible();
+    await expect(phoneHelp.getByRole("button", { name: "Installer spillet" })).toBeVisible();
+
+    await phoneHelp.locator("summary").click();
+    await expect(phoneHelp).toContainText("Placering er afvist");
+    await expect(phoneHelp).toContainText("Placeringen tager lang tid eller er upræcis");
+    await expect(phoneHelp).toContainText("Internet:");
+    await expect(phoneHelp).toContainText("Kamera eller PIN:");
+    await expect(phoneHelp).toContainText("Indlejret browser:");
+    await expect(phoneHelp).toContainText("Lyd:");
+    await expect(phoneHelp).toContainText("Min skærm ser anderledes ud");
+    await expect(phoneHelp).toContainText("lærer eller skolens IT");
+  });
+
   test("3. QR-handlingen åbner scannerflowet med ét tryk", async ({ page }) => {
     await openStart(page);
     await page.getByRole("button", { name: "Scan QR-kode", exact: true }).click();
     await expect(page.getByTestId("join-qr-dialog")).toBeVisible();
-    await expect(page.getByText("Starter kamera...", { exact: true })).toBeVisible();
+    // The fake device can reach the stable ready state before Playwright
+    // observes the intentionally brief loading copy.
+    await expect(page.getByText(/Starter kamera\.\.\.|QR-scanneren er klar\./)).toBeVisible();
     await page.getByTestId("join-qr-close").click();
   });
 
@@ -164,6 +183,34 @@ test.describe("Elevoplevelsen 2.0 /join UI", () => {
     await expect(page.locator("#join-name")).toBeVisible();
   });
 
+  test("telefonhjælpens kode-retry bruger den eksisterende opslagshandling", async ({ page }) => {
+    let attempts = 0;
+    await page.route("**/api/join**", async (route) => {
+      attempts += 1;
+      if (attempts === 1) {
+        await route.abort("failed");
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(activeLookup),
+      });
+    });
+
+    await openCode(page);
+    await page.locator("#join-code").fill(CODE);
+    await page.locator("#join-code").press("Enter");
+    await expect(page.locator("#join-error")).toContainText("Tjek nettet");
+
+    const phoneHelp = page.getByTestId("student-phone-help");
+    await phoneHelp.locator("summary").click();
+    await page.getByTestId("student-phone-help-retry-join").click();
+
+    await expect(page.locator("#join-name")).toBeVisible();
+    await expect.poll(() => attempts).toBe(2);
+  });
+
   test("10. dobbelt navnesubmit opretter kun én deltager", async ({ page }) => {
     let registrations = 0;
     await page.route("**/api/join**", async (route) => {
@@ -212,7 +259,8 @@ test.describe("Elevoplevelsen 2.0 /join UI", () => {
         sessionStatus: "running",
       }));
     });
-    await openStart(page);
+    await preparePage(page);
+    await page.goto("/join");
     await expect(
       page.getByRole("button", { name: "Fortsæt løbet", exact: true }),
     ).toBeVisible();
