@@ -13,7 +13,6 @@ import Link from "next/link";
 
 import AIChatButton from "@/components/AIChatButton";
 import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
-import { AutumnDecorations, AutumnMascotHat } from "@/components/brand/AutumnDecorations";
 import PisaNotice from "@/components/home/PisaNotice";
 import ProjectWorkshopAnnouncement from "@/components/home/ProjectWorkshopAnnouncement";
 import TeacherHomepageClientGuard from "@/components/home/TeacherHomepageClientGuard";
@@ -152,7 +151,7 @@ export default function TeacherHomepage() {
 
   return (
     <TeacherHomepageClientGuard>
-    <div data-testid="home-teacher-root" className="skolegps-autumn-homepage min-h-screen overflow-x-hidden bg-[#f6f1e5] text-[#0b213a]">
+    <div data-testid="home-teacher-root" className="min-h-screen overflow-x-hidden bg-[#f6f1e5] text-[#0b213a]">
       <section data-testid="home-hero-scene" className="relative isolate min-h-[44rem] overflow-hidden border-b border-[#0b213a]/15 bg-[#0b213a] text-white">
         <picture className="absolute inset-0 -z-30">
           <source media="(max-width: 767px)" srcSet="/brand/heroes/adventure-hero-mobile.webp" type="image/webp" />
@@ -161,7 +160,6 @@ export default function TeacherHomepage() {
         </picture>
         <div aria-hidden="true" className="absolute inset-0 -z-20 bg-[linear-gradient(90deg,rgba(11,33,58,0.98)_0%,rgba(11,33,58,0.94)_34%,rgba(11,33,58,0.58)_58%,rgba(11,33,58,0.13)_84%,rgba(11,33,58,0.22)_100%)]" />
         <div aria-hidden="true" className="absolute inset-x-0 bottom-0 -z-10 h-44 bg-[linear-gradient(0deg,rgba(7,25,45,0.82),transparent)]" />
-        <AutumnDecorations variant="home-hero" />
 
         <header className="relative z-20 mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-5 sm:px-6 lg:px-8">
           <Link
@@ -228,7 +226,7 @@ export default function TeacherHomepage() {
             </p>
           </div>
 
-          <div className="skolegps-autumn-hero-mascot relative mx-auto hidden h-[31rem] w-full max-w-[29rem] lg:block" aria-hidden="true">
+          <div className="relative mx-auto hidden h-[31rem] w-full max-w-[29rem] lg:block" aria-hidden="true">
             <div className="absolute inset-x-[8%] bottom-[5%] h-32 rounded-[50%] bg-[#071a3a]/45 blur-2xl" />
             <Image
               src="/brand/mascot/skolegps-pin.webp"
@@ -239,7 +237,6 @@ export default function TeacherHomepage() {
               sizes="(max-width: 1280px) 330px, 420px"
               className="absolute bottom-0 right-[6%] h-auto w-[78%] drop-shadow-[0_26px_32px_rgba(0,0,0,0.32)]"
             />
-            <AutumnMascotHat className="skolegps-autumn-hero-hat" />
             <div className="absolute bottom-[6%] left-0 w-46 rounded-2xl border border-white/30 bg-[#0b213a]/76 p-4 shadow-[0_14px_30px_rgba(0,0,0,0.24)] backdrop-blur">
               <p className="text-[10px] font-black tracking-[0.16em] text-[#f9d987] uppercase">På vej videre</p>
               <p className="mt-2 text-sm font-black leading-5 text-white">Vælg et værktøj. Bevar dit fokus.</p>
@@ -254,9 +251,8 @@ export default function TeacherHomepage() {
       </section>
 
       <main>
-        <section id="vaerktojer" className="relative isolate scroll-mt-6 overflow-hidden bg-[#f6f1e5] py-16 sm:py-20" aria-labelledby="tool-heading">
-          <AutumnDecorations variant="home-section" />
-          <div className="relative z-10 mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-8">
+        <section id="vaerktojer" className="scroll-mt-6 bg-[#f6f1e5] py-16 sm:py-20" aria-labelledby="tool-heading">
+          <div className="mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-8">
             <div className="max-w-2xl">
               <p className="text-xs font-black tracking-[0.16em] text-[#226a4d] uppercase">Vælg det, der passer nu</p>
               <h2 id="tool-heading" className="mt-3 text-4xl font-black tracking-tight text-[#0b213a] sm:text-5xl">Én klar start for hver opgave.</h2>
