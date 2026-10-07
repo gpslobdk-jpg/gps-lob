@@ -207,6 +207,8 @@ test.describe("Lærerens første SkoleGPS-flow", () => {
 
     await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("button", { name: "Opret et løb" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("autumn-dashboard-scene")).toBeVisible();
+    await expect(page.getByTestId("autumn-dashboard-mascot")).toBeVisible();
     await expect(page.locator('section[aria-label="Hurtigvalg"] > :is(a, button)')).toHaveCount(3);
     await expect(page.getByRole("heading", { name: "Dine værktøjer" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Øvekort", exact: true })).toHaveAttribute(

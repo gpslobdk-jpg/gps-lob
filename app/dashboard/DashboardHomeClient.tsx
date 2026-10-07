@@ -22,6 +22,7 @@ import {
   DASHBOARD_QUICK_GUIDE_EVENT,
   DASHBOARD_QUICK_GUIDE_VISIBILITY_EVENT,
 } from "@/components/DashboardQuickGuide";
+import { AutumnDecorations, AutumnMascot } from "@/components/brand/AutumnDecorations";
 import Mascot from "@/components/brand/Mascot";
 import MascotMessage from "@/components/brand/MascotMessage";
 import { TeacherToolCard } from "@/components/dashboard/TeacherToolCard";
@@ -422,11 +423,12 @@ export default function DashboardHomeClient({ tools }: DashboardHomeClientProps)
   }
 
   return (
-    <main className={`skolegps-teacher-portal min-h-screen px-4 py-5 text-slate-950 sm:px-6 sm:py-7 lg:px-8 ${poppins.className}`}>
+    <main className={`skolegps-autumn-dashboard skolegps-teacher-portal min-h-screen px-4 py-5 text-slate-950 sm:px-6 sm:py-7 lg:px-8 ${poppins.className}`}>
       <div className="mx-auto w-full max-w-[90rem]">
         <header className="skolegps-teacher-portal-hero relative overflow-hidden rounded-3xl border border-white/80 px-5 py-7 shadow-[0_18px_42px_rgba(25,83,129,0.09)] sm:px-8 sm:py-9">
-          <Mascot variant="wave" size="sm" className="absolute right-5 bottom-4 hidden drop-shadow-lg sm:block" />
-          <div className="relative max-w-3xl">
+          <AutumnDecorations variant="dashboard-hero" />
+          <AutumnMascot variant="wave" size="sm" className="absolute right-5 bottom-4 z-10 hidden drop-shadow-lg sm:inline-block" />
+          <div className="relative z-10 max-w-3xl">
             <p className="text-xs font-black tracking-[0.18em] text-sky-800 uppercase">Lærerens forside</p>
             <h1 className="mt-2 text-3xl font-black tracking-tight text-[var(--skolegps-deep-navy)] sm:text-4xl">
               {teacherName ? `Goddag, ${teacherName}` : "Goddag"}
@@ -435,7 +437,7 @@ export default function DashboardHomeClient({ tools }: DashboardHomeClientProps)
               Her finder du de værktøjer, du bruger i undervisningen.
             </p>
           </div>
-          <div className="relative mt-6 max-w-xl">
+          <div className="relative z-10 mt-6 max-w-xl">
             <label className="sr-only" htmlFor="teacher-tool-search">Søg blandt SkoleGPS-værktøjer</label>
             <div className="relative">
               <Search aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-sky-700" />

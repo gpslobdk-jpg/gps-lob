@@ -351,6 +351,481 @@ body {
   color: #ffffff !important;
 }
 
+/* Opt-in autumn artwork. These details deliberately live only on the public
+   teacher front page and the dashboard welcome panel, never in student or
+   live-play surfaces. */
+.skolegps-autumn-decorations {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.skolegps-autumn-ember-glow {
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(255, 191, 94, 0.34) 0%, rgba(246, 119, 47, 0.12) 40%, transparent 72%);
+  filter: blur(1px);
+  animation: skolegps-autumn-glow 9s ease-in-out infinite;
+}
+
+.skolegps-autumn-leaf {
+  --skolegps-autumn-leaf-rotate: -18deg;
+  --skolegps-autumn-leaf-x: 1.4rem;
+  --skolegps-autumn-leaf-y: 2.6rem;
+  position: absolute;
+  width: 1.45rem;
+  height: 0.96rem;
+  border-radius: 100% 0 100% 0;
+  background: linear-gradient(135deg, #ffd36f 0%, #ec7a35 46%, #ad3f2d 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 7px 12px rgba(48, 30, 28, 0.16);
+  opacity: 0.88;
+  transform-origin: 12% 88%;
+  animation: skolegps-autumn-leaf-drift 14s ease-in-out infinite;
+}
+
+.skolegps-autumn-leaf::after {
+  position: absolute;
+  top: 43%;
+  left: 8%;
+  width: 86%;
+  height: 1px;
+  background: rgba(92, 43, 27, 0.38);
+  content: "";
+  transform: rotate(-19deg);
+  transform-origin: left center;
+}
+
+.skolegps-autumn-leaf-two {
+  --skolegps-autumn-leaf-rotate: 35deg;
+  --skolegps-autumn-leaf-x: -2rem;
+  --skolegps-autumn-leaf-y: 3.4rem;
+  width: 1.1rem;
+  height: 0.76rem;
+  animation-delay: -5.5s;
+}
+
+.skolegps-autumn-leaf-three {
+  --skolegps-autumn-leaf-rotate: -38deg;
+  --skolegps-autumn-leaf-x: 2.8rem;
+  --skolegps-autumn-leaf-y: 1.7rem;
+  width: 1.74rem;
+  height: 1.1rem;
+  background: linear-gradient(135deg, #eec75a 0%, #d85b2e 48%, #8e332f 100%);
+  animation-delay: -9s;
+}
+
+.skolegps-autumn-leaf-four {
+  --skolegps-autumn-leaf-rotate: 23deg;
+  --skolegps-autumn-leaf-x: -1.1rem;
+  --skolegps-autumn-leaf-y: 2rem;
+  width: 0.9rem;
+  height: 0.62rem;
+  background: linear-gradient(135deg, #f8db7d 0%, #c44f30 62%, #8d3031 100%);
+  animation-delay: -2.5s;
+}
+
+.skolegps-autumn-leaf-five {
+  --skolegps-autumn-leaf-rotate: -7deg;
+  --skolegps-autumn-leaf-x: 1.1rem;
+  --skolegps-autumn-leaf-y: 3.8rem;
+  width: 1.22rem;
+  height: 0.82rem;
+  background: linear-gradient(135deg, #ffd36f 0%, #df6932 52%, #a23630 100%);
+  animation-delay: -11s;
+}
+
+.skolegps-autumn-harvest-stack {
+  position: absolute;
+  width: 10.5rem;
+  height: 6.8rem;
+  transform-origin: bottom center;
+  animation: skolegps-autumn-harvest-sway 8.5s ease-in-out infinite;
+}
+
+.skolegps-autumn-hay-bale {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3.6rem;
+  border: 2px solid rgba(124, 72, 20, 0.3);
+  border-radius: 0.95rem 1.05rem 0.75rem 0.75rem;
+  background:
+    repeating-linear-gradient(8deg, transparent 0 0.38rem, rgba(135, 80, 25, 0.16) 0.4rem 0.46rem),
+    linear-gradient(145deg, #f7d36c, #e7ac3d 55%, #c98324);
+  box-shadow: 0 11px 19px rgba(44, 27, 17, 0.22), inset 0 1px 0 rgba(255, 244, 183, 0.64);
+}
+
+.skolegps-autumn-hay-bale::before,
+.skolegps-autumn-hay-bale::after {
+  position: absolute;
+  top: -0.2rem;
+  bottom: -0.2rem;
+  width: 0.34rem;
+  border-radius: 9999px;
+  background: rgba(104, 58, 17, 0.56);
+  box-shadow: 0 0 0 1px rgba(255, 236, 144, 0.18);
+  content: "";
+}
+
+.skolegps-autumn-hay-bale::before {
+  left: 27%;
+}
+
+.skolegps-autumn-hay-bale::after {
+  right: 22%;
+}
+
+.skolegps-autumn-pumpkin {
+  position: absolute;
+  display: block;
+  width: 4.1rem;
+  height: 3.5rem;
+  filter: drop-shadow(0 9px 10px rgba(49, 29, 18, 0.22));
+}
+
+.skolegps-autumn-pumpkin-stem {
+  position: absolute;
+  z-index: 2;
+  top: 0.1rem;
+  left: 50%;
+  width: 0.58rem;
+  height: 1rem;
+  border-radius: 70% 25% 60% 20%;
+  background: linear-gradient(90deg, #325f35, #7f9a3b);
+  transform: translateX(-45%) rotate(12deg);
+}
+
+.skolegps-autumn-pumpkin-body {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2.95rem;
+  border: 1px solid rgba(128, 50, 17, 0.26);
+  border-radius: 49% 51% 45% 45% / 58% 58% 42% 42%;
+  background:
+    radial-gradient(ellipse at 22% 52%, rgba(255, 201, 90, 0.72) 0 14%, transparent 15%),
+    radial-gradient(ellipse at 38% 49%, #f58e30 0 24%, transparent 25%),
+    radial-gradient(ellipse at 61% 49%, #ed7424 0 26%, transparent 27%),
+    radial-gradient(ellipse at 80% 52%, #cc4e1d 0 18%, transparent 19%),
+    linear-gradient(180deg, #ffad42, #d4511f);
+  box-shadow: inset 0 0.28rem 0 rgba(255, 232, 142, 0.32), inset 0 -0.26rem 0 rgba(135, 49, 17, 0.16);
+}
+
+.skolegps-autumn-pumpkin-glow {
+  position: absolute;
+  right: 0.7rem;
+  bottom: 1rem;
+  width: 0.7rem;
+  height: 0.42rem;
+  border-radius: 9999px;
+  background: rgba(255, 241, 170, 0.72);
+  filter: blur(0.5px);
+  transform: rotate(-21deg);
+}
+
+.skolegps-autumn-harvest-pumpkin-back {
+  right: 0.1rem;
+  bottom: 1.75rem;
+  transform: scale(0.69);
+  transform-origin: right bottom;
+}
+
+.skolegps-autumn-harvest-pumpkin-front {
+  bottom: -0.02rem;
+  left: 0.9rem;
+}
+
+.skolegps-autumn-decorations-home-hero .skolegps-autumn-ember-glow {
+  top: -9rem;
+  right: -7rem;
+  width: 32rem;
+  height: 32rem;
+}
+
+.skolegps-autumn-decorations-home-hero .skolegps-autumn-leaf-one {
+  top: 14%;
+  right: 18%;
+}
+
+.skolegps-autumn-decorations-home-hero .skolegps-autumn-leaf-two {
+  top: 30%;
+  right: 5%;
+}
+
+.skolegps-autumn-decorations-home-hero .skolegps-autumn-leaf-three {
+  top: 56%;
+  right: 27%;
+}
+
+.skolegps-autumn-decorations-home-hero .skolegps-autumn-leaf-four {
+  top: 19%;
+  left: 47%;
+}
+
+.skolegps-autumn-decorations-home-hero .skolegps-autumn-leaf-five {
+  top: 73%;
+  right: 7%;
+}
+
+.skolegps-autumn-decorations-home-hero .skolegps-autumn-harvest-left {
+  bottom: -1.5rem;
+  left: -0.8rem;
+  transform: scale(0.86);
+}
+
+.skolegps-autumn-decorations-home-hero .skolegps-autumn-harvest-right {
+  right: 0.7rem;
+  bottom: -1.3rem;
+  transform: scale(0.82);
+}
+
+.skolegps-autumn-decorations-dashboard-hero .skolegps-autumn-ember-glow {
+  top: -12rem;
+  right: -7rem;
+  width: 31rem;
+  height: 31rem;
+}
+
+.skolegps-autumn-decorations-dashboard-hero .skolegps-autumn-leaf-one {
+  top: 16%;
+  right: 30%;
+}
+
+.skolegps-autumn-decorations-dashboard-hero .skolegps-autumn-leaf-two {
+  top: 53%;
+  right: 22%;
+}
+
+.skolegps-autumn-decorations-dashboard-hero .skolegps-autumn-leaf-three {
+  top: 8%;
+  right: 11%;
+}
+
+.skolegps-autumn-decorations-dashboard-hero .skolegps-autumn-leaf-four {
+  top: 70%;
+  left: 27%;
+}
+
+.skolegps-autumn-decorations-dashboard-hero .skolegps-autumn-leaf-five {
+  top: 32%;
+  right: 6%;
+}
+
+.skolegps-autumn-decorations-dashboard-hero .skolegps-autumn-harvest-left {
+  bottom: -1.9rem;
+  left: -1rem;
+  transform: scale(0.66);
+}
+
+.skolegps-autumn-decorations-dashboard-hero .skolegps-autumn-harvest-right {
+  right: 9.5rem;
+  bottom: -2rem;
+  transform: scale(0.58);
+}
+
+.skolegps-autumn-decorations-home-section .skolegps-autumn-ember-glow {
+  right: -11rem;
+  bottom: -15rem;
+  width: 36rem;
+  height: 36rem;
+  opacity: 0.62;
+}
+
+.skolegps-autumn-decorations-home-section .skolegps-autumn-leaf-one {
+  top: 8%;
+  right: 8%;
+}
+
+.skolegps-autumn-decorations-home-section .skolegps-autumn-leaf-two {
+  top: 28%;
+  right: 3%;
+}
+
+.skolegps-autumn-decorations-home-section .skolegps-autumn-leaf-three {
+  right: 16%;
+  bottom: 15%;
+}
+
+.skolegps-autumn-decorations-home-section .skolegps-autumn-leaf-four,
+.skolegps-autumn-decorations-home-section .skolegps-autumn-leaf-five,
+.skolegps-autumn-decorations-home-section .skolegps-autumn-harvest-left {
+  display: none;
+}
+
+.skolegps-autumn-decorations-home-section .skolegps-autumn-harvest-right {
+  right: 1rem;
+  bottom: -1.8rem;
+  transform: scale(0.8);
+}
+
+.skolegps-autumn-mascot {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+
+.skolegps-autumn-mascot-hat {
+  position: absolute;
+  z-index: 3;
+  top: -12%;
+  left: 49%;
+  width: 56%;
+  aspect-ratio: 0.84;
+  pointer-events: none;
+  transform: translateX(-50%) rotate(-11deg);
+  transform-origin: 50% 90%;
+  animation: skolegps-autumn-hat-wiggle 6.8s ease-in-out infinite;
+}
+
+.skolegps-autumn-mascot-hat-cone {
+  position: absolute;
+  top: 0;
+  left: 11%;
+  width: 78%;
+  height: 78%;
+  background: linear-gradient(138deg, #6e3c83 0%, #352249 56%, #17152f 100%);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  filter: drop-shadow(0 3px 2px rgba(20, 12, 35, 0.32));
+}
+
+.skolegps-autumn-mascot-hat-band {
+  position: absolute;
+  z-index: 1;
+  right: 11%;
+  bottom: 18%;
+  left: 11%;
+  height: 14%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #f6a530, #ffe184, #e77d24);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.54);
+}
+
+.skolegps-autumn-mascot-hat-brim {
+  position: absolute;
+  z-index: 2;
+  right: -10%;
+  bottom: 4%;
+  left: -10%;
+  height: 20%;
+  border: 1px solid rgba(14, 10, 28, 0.46);
+  border-radius: 50%;
+  background: linear-gradient(180deg, #49305f, #1c1734);
+  box-shadow: 0 3px 3px rgba(18, 10, 31, 0.3);
+}
+
+.skolegps-autumn-mascot-scarf {
+  position: absolute;
+  z-index: 2;
+  right: 8%;
+  bottom: 25%;
+  left: 16%;
+  height: 13%;
+  border: 1px solid rgba(157, 64, 22, 0.33);
+  border-radius: 9999px 65% 9999px 65%;
+  background: linear-gradient(90deg, #c65026, #f2a539 50%, #a8442e);
+  box-shadow: 0 2px 4px rgba(70, 31, 24, 0.18);
+  transform: rotate(-5deg);
+}
+
+.skolegps-autumn-hero-mascot .skolegps-autumn-hero-hat {
+  top: 8%;
+  left: 64%;
+  width: 26%;
+}
+
+.skolegps-autumn-dashboard {
+  background:
+    radial-gradient(circle at 7% 1%, rgba(255, 205, 116, 0.32), transparent 24rem),
+    radial-gradient(circle at 94% 8%, rgba(224, 107, 47, 0.19), transparent 27rem),
+    linear-gradient(180deg, #fffaf0 0%, #f8f5e8 41%, #f4f8f1 100%);
+}
+
+.skolegps-autumn-dashboard .skolegps-teacher-portal-hero {
+  border-color: rgba(255, 255, 255, 0.9);
+  background:
+    linear-gradient(101deg, rgba(255, 253, 246, 0.98) 0%, rgba(255, 248, 226, 0.91) 49%, rgba(240, 232, 199, 0.52) 100%),
+    url("/brand/heroes/teacher-outdoor-route.webp") right center / auto 100% no-repeat;
+  box-shadow: 0 20px 46px rgba(95, 62, 23, 0.12);
+}
+
+.skolegps-autumn-dashboard .skolegps-teacher-surface {
+  border-color: rgba(202, 160, 83, 0.28);
+  background: linear-gradient(145deg, rgba(255, 255, 253, 0.97), rgba(255, 249, 235, 0.92));
+  box-shadow: 0 16px 42px rgba(82, 54, 24, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.skolegps-autumn-dashboard .skolegps-teacher-primary-action {
+  background:
+    radial-gradient(circle at 84% 15%, rgba(255, 224, 137, 0.46), transparent 21%),
+    radial-gradient(circle at 72% 130%, rgba(242, 126, 54, 0.38), transparent 44%),
+    linear-gradient(135deg, #075a95, #0b83c4);
+  box-shadow: 0 14px 30px rgba(32, 93, 130, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+@keyframes skolegps-autumn-leaf-drift {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: translate3d(0, 0, 0) rotate(var(--skolegps-autumn-leaf-rotate));
+  }
+
+  52% {
+    opacity: 0.98;
+    transform: translate3d(var(--skolegps-autumn-leaf-x), var(--skolegps-autumn-leaf-y), 0) rotate(calc(var(--skolegps-autumn-leaf-rotate) + 44deg));
+  }
+}
+
+@keyframes skolegps-autumn-harvest-sway {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+
+  50% {
+    translate: 0 -0.28rem;
+  }
+}
+
+@keyframes skolegps-autumn-glow {
+  0%,
+  100% {
+    opacity: 0.65;
+    scale: 1;
+  }
+
+  50% {
+    opacity: 0.96;
+    scale: 1.08;
+  }
+}
+
+@keyframes skolegps-autumn-hat-wiggle {
+  0%,
+  100% {
+    transform: translateX(-50%) rotate(-11deg);
+  }
+
+  50% {
+    transform: translateX(-50%) rotate(-6deg) translateY(-2px);
+  }
+}
+
+@media (max-width: 767px) {
+  .skolegps-autumn-decorations-dashboard-hero .skolegps-autumn-harvest-stack,
+  .skolegps-autumn-decorations-dashboard-hero .skolegps-autumn-leaf {
+    display: none;
+  }
+
+  .skolegps-autumn-decorations-home-section .skolegps-autumn-harvest-right,
+  .skolegps-autumn-decorations-home-section .skolegps-autumn-leaf {
+    display: none;
+  }
+}
+
 @keyframes skolegps-mascot-float {
   0%,
   100% {
@@ -507,6 +982,17 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .skolegps-autumn-leaf,
+  .skolegps-autumn-harvest-stack,
+  .skolegps-autumn-ember-glow,
+  .skolegps-autumn-mascot-hat {
+    animation: none;
+  }
+
+  .skolegps-autumn-leaf {
+    transform: rotate(var(--skolegps-autumn-leaf-rotate));
+  }
+
   .skolegps-mascot-float,
   .skolegps-loading-dot,
   .skolegps-route-dash,
@@ -525,6 +1011,7 @@ body {
   .skolegps-teacher-portal .skolegps-teacher-primary-action,
   .skolegps-teacher-portal .skolegps-teacher-secondary-action,
   .skolegps-teacher-portal .skolegps-teacher-portal-nav-link,
+  .skolegps-autumn-dashboard .skolegps-teacher-primary-action,
   .skolegps-teacher-workspace-header {
     transition-duration: 0.01ms;
   }
