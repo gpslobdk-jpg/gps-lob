@@ -52,6 +52,12 @@ test.describe("Lyd og ro for lærere", () => {
     page,
   }) => {
     const requests = teacherAudioRequests(page);
+    const homepageResponse = await page.request.get("/");
+    expect(homepageResponse.ok()).toBe(true);
+    const homepageHtml = await homepageResponse.text();
+    expect(homepageHtml).toContain('data-testid="teacher-sound-control"');
+    expect(homepageHtml).toContain("Lyd og ro");
+
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/");
 

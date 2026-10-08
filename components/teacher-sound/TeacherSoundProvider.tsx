@@ -168,11 +168,14 @@ function createOwnerId() {
  */
 export function TeacherSoundProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  // `usePathname()` can be null while the App Router starts on the server.
+  // Render the opt-in control in that short state; audio itself remains
+  // unavailable until the client effect below has confirmed the route.
+  const isAvailableOnRoute = !pathname || isTeacherSoundRoute(pathname);
   const [preferences, setPreferences] = useState<TeacherSoundPreferences>(DEFAULT_PREFERENCES);
   const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false);
   const [hasUsedSound, setHasUsedSound] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isAvailableOnRoute, setIsAvailableOnRoute] = useState(false);
   const [coordinationState, setCoordinationState] = useState<CoordinationState>("checking");
   const [feedback, setFeedback] = useState<string | null>(null);
   const playersRef = useRef(new Map<TeacherSoundAssetId, HTMLAudioElement>());
@@ -281,14 +284,13 @@ export function TeacherSoundProvider({ children }: { children: ReactNode }) {
   }, [hasLoadedPreferences, hasUsedSound, preferences]);
 
   useEffect(() => {
-    const routeIsAllowed = Boolean(pathname && isTeacherSoundRoute(pathname));
+    const routeIsAllowed = isAvailableOnRoute;
     isAvailableOnRouteRef.current = routeIsAllowed;
-    setIsAvailableOnRoute(routeIsAllowed);
 
     if (!routeIsAllowed && isPlayingRef.current) {
       pauseForContinuation("Lyd er sat på pause uden for lærerfladen.");
     }
-  }, [pathname, pauseForContinuation]);
+  }, [isAvailableOnRoute, pauseForContinuation]);
 
   useEffect(() => {
     ownerIdRef.current = createOwnerId();
