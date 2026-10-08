@@ -21,6 +21,15 @@ function teacherAudioRequests(page: Page) {
   return requests;
 }
 
+async function expectNoHorizontalOverflow(page: Page) {
+  const layout = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    viewportWidth: window.innerWidth,
+  }));
+
+  expect(layout.scrollWidth).toBeLessThanOrEqual(layout.viewportWidth + 1);
+}
+
 test.describe("Lyd og ro for lærere", () => {
   test("assets er dokumenterede, teknisk validerede og uden et falsk biblioteks-preset", () => {
     const verifier = path.join(ROOT, "scripts", "verify-teacher-audio-assets.mjs");
@@ -56,18 +65,19 @@ test.describe("Lyd og ro for lærere", () => {
     expect(homepageResponse.ok()).toBe(true);
     const homepageHtml = await homepageResponse.text();
     expect(homepageHtml).toContain('data-testid="teacher-sound-control"');
+    expect(homepageHtml).toContain('data-testid="teacher-sound-home-launcher"');
     expect(homepageHtml).toContain("Lyd og ro");
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/");
 
     await expect(page.getByTestId("teacher-sound-control")).toBeVisible();
-    await expect(page.getByText("Vælg lyd", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("teacher-sound-home-launcher")).toBeVisible();
     await expect(page.locator("audio")).toHaveCount(0);
     expect(requests.size).toBe(0);
 
-    await page.getByRole("button", { name: "Lyd og ro", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Lyd og ro", exact: true })).toBeVisible();
+    await page.getByTestId("teacher-sound-home-launcher").click();
+    await expect(page.getByTestId("teacher-sound-dialog")).toBeVisible();
     await expect(page.getByRole("button", { name: /Bibliotekets ro/i })).toBeDisabled();
     expect(requests.size).toBe(0);
 
@@ -77,11 +87,89 @@ test.describe("Lyd og ro for lærere", () => {
     expect(requests.has("/audio/teacher/afteraarsskov.mp3")).toBe(true);
 
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("heading", { name: "Lyd og ro", exact: true })).toHaveCount(0);
+    await expect(page.getByTestId("teacher-sound-dialog")).toHaveCount(0);
     await page.getByRole("link", { name: "Om", exact: true }).click();
     await expect(page).toHaveURL(/\/manden-bag-skolegps$/, { timeout: 30_000 });
     await expect(page.getByTestId("teacher-sound-stop")).toBeVisible();
     expect([...requests]).toEqual(["/audio/teacher/afteraarsskov.mp3"]);
+  });
+
+  test("forsidens lydindgang er kompakt i øverste venstre hjørne og åbner ikke en rullemenu", async ({
+    page,
+  }, testInfo) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+
+    for (const viewport of [
+      { width: 1280, height: 720 },
+      { width: 1024, height: 768 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+
+      const launcher = page.getByTestId("teacher-sound-home-launcher");
+      const logo = page.getByRole("link", { name: "SkoleGPS forside" });
+      const heading = page.getByRole("heading", {
+        name: "Mere liv i undervisningen.",
+        exact: true,
+      });
+
+      await expect(launcher).toBeVisible();
+      await expect(launcher).toContainText("Lyd og ro");
+      await expect(launcher).not.toContainText("Vælg musik");
+      await expect(launcher).not.toContainText("Intet starter af sig selv");
+      await expect(page.locator("audio")).toHaveCount(0);
+      await expectNoHorizontalOverflow(page);
+
+      const [launcherBox, logoBox, headingBox] = await Promise.all([
+        launcher.boundingBox(),
+        logo.boundingBox(),
+        heading.boundingBox(),
+      ]);
+
+      expect(launcherBox).not.toBeNull();
+      expect(logoBox).not.toBeNull();
+      expect(headingBox).not.toBeNull();
+      expect(launcherBox!.x).toBeLessThan(viewport.width * 0.25);
+      expect(launcherBox!.y).toBeGreaterThanOrEqual(logoBox!.y + logoBox!.height - 1);
+      expect(launcherBox!.y + launcherBox!.height).toBeLessThanOrEqual(headingBox!.y);
+      expect(launcherBox!.height).toBeGreaterThanOrEqual(44);
+      expect(launcherBox!.height).toBeLessThanOrEqual(56);
+      expect(launcherBox!.width).toBeLessThanOrEqual(196);
+
+      await page.screenshot({
+        path: testInfo.outputPath(`teacher-sound-home-${viewport.width}x${viewport.height}.png`),
+        animations: "disabled",
+      });
+
+      await launcher.click();
+
+      const overlay = page.getByTestId("teacher-sound-overlay");
+      const dialog = page.getByTestId("teacher-sound-dialog");
+      await expect(overlay).toHaveCSS("position", "fixed");
+      await expect(dialog).toHaveAttribute("role", "dialog");
+      await expect(dialog).toHaveAttribute("aria-modal", "true");
+      await expect(dialog.locator("select")).toHaveCount(0);
+      await expect(dialog.locator("details")).toHaveCount(0);
+      await expect(dialog.locator('[role="menu"], [role="listbox"]')).toHaveCount(0);
+      await expect(dialog.getByRole("button", { name: "Luk Lyd og ro", exact: true })).toBeVisible();
+      await expect(page.locator("audio")).toHaveCount(0);
+
+      await page.screenshot({
+        path: testInfo.outputPath(`teacher-sound-dialog-${viewport.width}x${viewport.height}.png`),
+        animations: "disabled",
+      });
+
+      const dialogBox = await dialog.boundingBox();
+      expect(dialogBox).not.toBeNull();
+      expect(dialogBox!.x).toBeGreaterThanOrEqual(0);
+      expect(dialogBox!.x + dialogBox!.width).toBeLessThanOrEqual(viewport.width);
+      expect(dialogBox!.y).toBeGreaterThanOrEqual(0);
+      expect(dialogBox!.y + dialogBox!.height).toBeLessThanOrEqual(viewport.height);
+
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+      await expect(launcher).toBeFocused();
+    }
   });
 
   test("en anden fane bliver lydløs, og en reload tilbyder kun eksplicit fortsættelse", async ({

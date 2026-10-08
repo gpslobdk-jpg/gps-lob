@@ -164,14 +164,17 @@ export default function TeacherHomepage() {
         <div aria-hidden="true" className="absolute inset-x-0 bottom-0 -z-10 h-44 bg-[linear-gradient(0deg,rgba(7,25,45,0.82),transparent)]" />
         <AutumnHeroDecorations />
 
-        <header className="relative z-20 mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-5 sm:px-6 lg:px-8">
-          <Link
-            href="/"
-            aria-label="SkoleGPS forside"
-            className="inline-flex shrink-0 rounded-full bg-[#fffdf7] px-3 py-2 shadow-[0_12px_26px_rgba(0,0,0,0.2)] transition hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-[#f4bb54] sm:px-4"
-          >
-            <Image src="/skolegps-logo.svg" alt="SkoleGPS" width={256} height={72} priority className="h-auto w-36 sm:w-48" />
-          </Link>
+        <header className="relative z-20 mx-auto flex w-full max-w-7xl flex-wrap items-start justify-between gap-4 px-5 py-5 sm:px-6 lg:px-8">
+          <div className="flex shrink-0 flex-col items-start gap-2">
+            <Link
+              href="/"
+              aria-label="SkoleGPS forside"
+              className="inline-flex rounded-full bg-[#fffdf7] px-3 py-2 shadow-[0_12px_26px_rgba(0,0,0,0.2)] transition hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-[#f4bb54] sm:px-4"
+            >
+              <Image src="/skolegps-logo.svg" alt="SkoleGPS" width={256} height={72} priority className="h-auto w-36 sm:w-48" />
+            </Link>
+            <TeacherSoundControl variant="hero" />
+          </div>
 
           <nav className="hidden items-center gap-5 lg:flex" aria-label="Hovedmenu">
             <a href="#vaerktojer" className="text-sm font-bold text-white/90 transition hover:text-[#f9d987] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f4bb54]">Værktøjer</a>
@@ -208,9 +211,6 @@ export default function TeacherHomepage() {
             <p className="mt-6 max-w-xl text-lg font-semibold leading-8 text-white/90 sm:text-xl">
               GPS-løb, arbejdsark og overblik på tavlen. Vælg det, din klasse har brug for — og kom i gang.
             </p>
-            <div className="mt-5 max-w-xl">
-              <TeacherSoundControl variant="homepage" />
-            </div>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <a
                 href="#vaerktojer"
