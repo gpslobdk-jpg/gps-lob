@@ -34,7 +34,8 @@ test.describe("public homepage scenic background", () => {
 
     await expect(hero).toBeVisible();
     await expect(page.getByTestId("home-background-video")).toHaveCount(0);
-    await expect(hero.locator('img[src*="adventure-hero.webp"]')).toHaveCount(1);
+    await expect(hero.locator('img[src*="autumn-hero-2026.webp"]')).toHaveCount(1);
+    await expect(page.getByTestId("autumn-home-scene")).toBeVisible();
     await expect(page.getByTestId("homepage-intro")).toHaveCount(0);
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByText("Ingen lyd i webanimationen", { exact: true })).toHaveCount(0);
@@ -123,6 +124,11 @@ test.describe("public homepage scenic background", () => {
     await expect(page.getByTestId("homepage-intro")).toHaveCount(0);
     await expect(page.getByTestId("home-background-video")).toHaveCount(0);
     expect(videoRequests).toEqual([]);
+    const animatedDetails = page.locator("[data-autumn-motion]");
+    expect(await animatedDetails.count()).toBeGreaterThan(0);
+    await expect
+      .poll(() => animatedDetails.evaluateAll((nodes) => nodes.every((node) => getComputedStyle(node).animationName === "none")))
+      .toBe(true);
   });
 
   test("teacher homepage content is present before JavaScript runs", async ({ browser }) => {
@@ -146,6 +152,7 @@ test.describe("public homepage scenic background", () => {
         "href",
         "/join",
       );
+      await expect(page.getByTestId("autumn-home-scene")).toBeVisible();
     } finally {
       await context.close();
     }
@@ -172,6 +179,7 @@ test.describe("public homepage scenic background", () => {
       await expect(page.getByText("Regeringens mobiludmelding", { exact: true })).toHaveCount(0);
       await expect(page.getByText(/Planlæg, start og behold overblikket/i)).toBeVisible();
       await expect(page.getByRole("link", { name: "Bli med i løp", exact: true })).toBeVisible();
+      await expect(page.getByTestId("autumn-home-scene")).toHaveCount(0);
     } finally {
       await context.close();
     }
@@ -199,6 +207,7 @@ test.describe("public homepage scenic background", () => {
 
       await expect(page).toHaveURL(/\/join$/);
       await expect(page.getByTestId("home-background-video")).toHaveCount(0);
+      await expect(page.getByTestId("autumn-home-scene")).toHaveCount(0);
       expect(videoRequests).toEqual([]);
     } finally {
       await context.close();
@@ -254,7 +263,7 @@ test.describe("public homepage scenic background", () => {
     await expect(page.locator(`video source[src="${REMOVED_VIDEO_SRC}"]`)).toHaveCount(0);
   });
 
-  test("homepage media stays outside PWA precache and uses the static adventure hero without an intro", () => {
+  test("homepage media stays outside PWA precache and uses the static autumn hero without an intro", () => {
     const nextConfigSource = readSource("next.config.ts");
     const appPageSource = readSource("app/page.tsx");
     const homePageSource = readSource("components/HomePageClient.tsx");
@@ -269,7 +278,9 @@ test.describe("public homepage scenic background", () => {
     expect(nextConfigSource).not.toContain(REMOVED_VIDEO_SRC);
     expect(homePageSource).not.toContain(REMOVED_VIDEO_SRC);
     expect(teacherHomeSource).not.toContain(REMOVED_VIDEO_SRC);
-    expect(teacherHomeSource).toContain("adventure-hero.webp");
+    expect(teacherHomeSource).toContain("autumn-hero-2026.webp");
+    expect(existsSync(join(ROOT, "public/brand/heroes/autumn-hero-2026.webp"))).toBe(true);
+    expect(existsSync(join(ROOT, "public/brand/heroes/autumn-hero-2026-mobile.webp"))).toBe(true);
     expect(teacherHomeSource).not.toContain("DesktopIntro");
     expect(existsSync(join(ROOT, "components/home/DesktopIntro.tsx"))).toBe(false);
     expect(existsSync(join(ROOT, "components/home/DesktopIntro.module.css"))).toBe(false);

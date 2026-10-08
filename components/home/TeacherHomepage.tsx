@@ -13,6 +13,7 @@ import Link from "next/link";
 
 import AIChatButton from "@/components/AIChatButton";
 import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
+import AutumnHeroDecorations from "@/components/home/AutumnHeroDecorations";
 import PisaNotice from "@/components/home/PisaNotice";
 import ProjectWorkshopAnnouncement from "@/components/home/ProjectWorkshopAnnouncement";
 import TeacherHomepageClientGuard from "@/components/home/TeacherHomepageClientGuard";
@@ -152,14 +153,15 @@ export default function TeacherHomepage() {
   return (
     <TeacherHomepageClientGuard>
     <div data-testid="home-teacher-root" className="min-h-screen overflow-x-hidden bg-[#f6f1e5] text-[#0b213a]">
-      <section data-testid="home-hero-scene" className="relative isolate min-h-[44rem] overflow-hidden border-b border-[#0b213a]/15 bg-[#0b213a] text-white">
+      <section data-testid="home-hero-scene" className="skolegps-autumn-hero relative isolate min-h-[44rem] overflow-hidden border-b border-[#0b213a]/15 bg-[#0b213a] text-white">
         <picture className="absolute inset-0 -z-30">
-          <source media="(max-width: 767px)" srcSet="/brand/heroes/adventure-hero-mobile.webp" type="image/webp" />
-          {/* The two existing, pre-compressed WebP crops let the browser select one hero asset. */}
-          <img src="/brand/heroes/adventure-hero.webp" alt="" fetchPriority="high" className="h-full w-full object-cover object-[64%_center]" />
+          <source media="(max-width: 767px)" srcSet="/brand/heroes/autumn-hero-2026-mobile.webp" type="image/webp" />
+          {/* Separate, pre-compressed WebP crops preserve the composition across viewports. */}
+          <img src="/brand/heroes/autumn-hero-2026.webp" alt="" fetchPriority="high" className="h-full w-full object-cover object-[64%_center]" />
         </picture>
         <div aria-hidden="true" className="absolute inset-0 -z-20 bg-[linear-gradient(90deg,rgba(11,33,58,0.98)_0%,rgba(11,33,58,0.94)_34%,rgba(11,33,58,0.58)_58%,rgba(11,33,58,0.13)_84%,rgba(11,33,58,0.22)_100%)]" />
         <div aria-hidden="true" className="absolute inset-x-0 bottom-0 -z-10 h-44 bg-[linear-gradient(0deg,rgba(7,25,45,0.82),transparent)]" />
+        <AutumnHeroDecorations />
 
         <header className="relative z-20 mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-5 sm:px-6 lg:px-8">
           <Link
@@ -194,12 +196,13 @@ export default function TeacherHomepage() {
         </header>
 
         <div className="relative z-10 mx-auto grid w-full max-w-7xl gap-8 px-5 pb-20 pt-12 sm:px-6 lg:min-h-[38rem] lg:grid-cols-[minmax(0,0.88fr)_minmax(20rem,0.75fr)] lg:items-center lg:px-8 lg:pb-24 lg:pt-14">
-          <div className="max-w-2xl">
+          <div className="skolegps-autumn-hero-copy max-w-2xl">
             <p className="inline-flex rounded-full border border-[#f4bb54]/50 bg-[#0b213a]/55 px-4 py-2 text-xs font-black tracking-[0.16em] text-[#f9d987] uppercase">
               Lærerværktøjer til inde og ude
             </p>
             <h1 className="mt-5 max-w-xl text-4xl font-black leading-[0.92] tracking-tight text-white sm:text-6xl lg:text-7xl">
-              Mere liv i undervisningen.
+              <span className="block">Mere liv i{" "}</span>
+              <span className="skolegps-autumn-heading-gold">undervisningen.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg font-semibold leading-8 text-white/90 sm:text-xl">
               GPS-løb, arbejdsark og overblik på tavlen. Vælg det, din klasse har brug for — og kom i gang.
@@ -208,7 +211,7 @@ export default function TeacherHomepage() {
               <a
                 href="#vaerktojer"
                 data-homepage-primary-cta
-                className="inline-flex min-h-13 items-center justify-center gap-2 rounded-full bg-[#f4bb54] px-6 py-3 text-base font-black text-[#0b213a] shadow-[0_16px_32px_rgba(0,0,0,0.22)] transition hover:bg-[#ffcc68] focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-white"
+                className="skolegps-autumn-primary-action inline-flex min-h-13 items-center justify-center gap-2 rounded-full bg-[#f4bb54] px-6 py-3 text-base font-black text-[#0b213a] shadow-[0_16px_32px_rgba(0,0,0,0.22)] transition hover:bg-[#ffcc68] focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-white"
               >
                 Kom i gang – vælg værktøj
                 <ArrowRight className="h-5 w-5" aria-hidden="true" />
@@ -226,7 +229,7 @@ export default function TeacherHomepage() {
             </p>
           </div>
 
-          <div className="relative mx-auto hidden h-[31rem] w-full max-w-[29rem] lg:block" aria-hidden="true">
+          <div className="skolegps-autumn-mascot-stage relative mx-auto hidden h-[31rem] w-full max-w-[29rem] lg:block" aria-hidden="true">
             <div className="absolute inset-x-[8%] bottom-[5%] h-32 rounded-[50%] bg-[#071a3a]/45 blur-2xl" />
             <Image
               src="/brand/mascot/skolegps-pin.webp"
@@ -235,7 +238,8 @@ export default function TeacherHomepage() {
               height={926}
               priority
               sizes="(max-width: 1280px) 330px, 420px"
-              className="absolute bottom-0 right-[6%] h-auto w-[78%] drop-shadow-[0_26px_32px_rgba(0,0,0,0.32)]"
+              className="skolegps-autumn-hero-mascot absolute bottom-0 right-[6%] h-auto w-[78%] drop-shadow-[0_26px_32px_rgba(0,0,0,0.32)]"
+              data-autumn-motion
             />
             <div className="absolute bottom-[6%] left-0 w-46 rounded-2xl border border-white/30 bg-[#0b213a]/76 p-4 shadow-[0_14px_30px_rgba(0,0,0,0.24)] backdrop-blur">
               <p className="text-[10px] font-black tracking-[0.16em] text-[#f9d987] uppercase">På vej videre</p>
