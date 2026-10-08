@@ -9,8 +9,6 @@ import {
   Menu,
   Settings,
   UsersRound,
-  Volume2,
-  VolumeX,
   X,
 } from "lucide-react";
 import Image from "next/image";
@@ -18,7 +16,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { useAudio } from "@/contexts/AudioContext";
+import TeacherSoundControl from "@/components/teacher-sound/TeacherSoundControl";
 import { TEACHER_TOOL_FACEBOOK_GROUP_LINK } from "@/lib/teacherTools/community";
 import { createClient } from "@/utils/supabase/client";
 
@@ -101,21 +99,7 @@ function getLegacyNavLinkClasses(isActive: boolean) {
 }
 
 function AudioControl() {
-  const { isPlaying, toggleAudio } = useAudio();
-
-  return (
-    <button
-      type="button"
-      onClick={toggleAudio}
-      aria-pressed={isPlaying}
-      aria-label={isPlaying ? "Sluk baggrundslyd" : "Tænd baggrundslyd"}
-      title={isPlaying ? "Sluk baggrundslyd" : "Tænd baggrundslyd"}
-      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-emerald-200 bg-white/90 text-emerald-700 shadow-sm transition-all hover:bg-emerald-50 hover:text-emerald-900"
-    >
-      {isPlaying ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-      <span className="sr-only">{isPlaying ? "Sluk baggrundslyd" : "Tænd baggrundslyd"}</span>
-    </button>
-  );
+  return <TeacherSoundControl variant="dashboard" />;
 }
 
 function PortalNav({ onNavigate, pathname }: { onNavigate?: () => void; pathname: string }) {

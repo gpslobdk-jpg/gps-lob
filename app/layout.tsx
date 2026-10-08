@@ -5,6 +5,8 @@ import { poppins, rubik } from "@/lib/fonts";
 import "./globals.css";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import PrivacySafeAnalytics from "@/components/PrivacySafeAnalytics";
+import TeacherSoundPublicDock from "@/components/teacher-sound/TeacherSoundPublicDock";
+import { TeacherSoundProvider } from "@/components/teacher-sound/TeacherSoundProvider";
 
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import { getSiteCopy } from "@/lib/siteCopy";
@@ -49,7 +51,10 @@ export default async function RootLayout({
       <head />
       <body className={`${poppins.variable} ${rubik.variable} font-sans antialiased bg-[#0a1128]`}>
         <ErrorBoundary>
-          {children}
+          <TeacherSoundProvider>
+            {children}
+            <TeacherSoundPublicDock />
+          </TeacherSoundProvider>
           <ServiceWorkerRegister />
           <PrivacySafeAnalytics />
         </ErrorBoundary>

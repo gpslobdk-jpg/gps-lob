@@ -17,6 +17,7 @@ import AutumnHeroDecorations from "@/components/home/AutumnHeroDecorations";
 import PisaNotice from "@/components/home/PisaNotice";
 import ProjectWorkshopAnnouncement from "@/components/home/ProjectWorkshopAnnouncement";
 import TeacherHomepageClientGuard from "@/components/home/TeacherHomepageClientGuard";
+import TeacherSoundControl from "@/components/teacher-sound/TeacherSoundControl";
 import { getTeacherTool, type ActiveTeacherTool, type TeacherToolId } from "@/lib/teacherTools/registry";
 
 const FACEBOOK_PAGE_URL = "https://www.facebook.com/profile.php?id=61594705569977";
@@ -207,6 +208,9 @@ export default function TeacherHomepage() {
             <p className="mt-6 max-w-xl text-lg font-semibold leading-8 text-white/90 sm:text-xl">
               GPS-løb, arbejdsark og overblik på tavlen. Vælg det, din klasse har brug for — og kom i gang.
             </p>
+            <div className="mt-5 max-w-xl">
+              <TeacherSoundControl variant="homepage" />
+            </div>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <a
                 href="#vaerktojer"
