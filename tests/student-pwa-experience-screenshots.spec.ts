@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 const SCREENSHOT_ROOT = process.env.PWA_SCREENSHOT_DIR;
+const GOLDEN_PORTAL_LAUNCH_KEY = "skolegps.golden-portal.launch.v1";
 
 function screenshotPath(testInfo: TestInfo, fileName: string) {
   if (!SCREENSHOT_ROOT) {
@@ -33,6 +34,12 @@ async function installStandaloneMode(page: Page) {
   });
 }
 
+async function primeGoldenPortalLaunch(page: Page) {
+  await page.addInitScript((launchKey) => {
+    window.sessionStorage.setItem(launchKey, "fresh");
+  }, GOLDEN_PORTAL_LAUNCH_KEY);
+}
+
 async function triggerInstallPrompt(page: Page) {
   await page.waitForFunction(() => document.documentElement.dataset.pwaInstallListener === "ready");
   await page.evaluate(() => {
@@ -56,20 +63,38 @@ async function waitForStableJoinSurface(page: Page) {
   await page.waitForTimeout(50);
 }
 
-test("captures standalone join without a forced launch frame", async ({ browser }, testInfo) => {
+test("captures the standalone Golden Portal sequence and the real join surface", async ({ browser }, testInfo) => {
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     serviceWorkers: "block",
   });
   const page = await context.newPage();
   await installStandaloneMode(page);
+  await primeGoldenPortalLaunch(page);
   await page.goto("/join", { waitUntil: "domcontentloaded" });
 
-  await expect(page.getByTestId("pwa-launch-experience")).toHaveCount(0);
+  const portal = page.getByTestId("golden-portal-intro");
+  await expect(portal).toBeVisible();
+  await page.screenshot({
+    path: screenshotPath(testInfo, "01-standalone-golden-portal-0s-390x844.png"),
+  });
+
+  await page.waitForTimeout(1_000);
+  await page.screenshot({
+    path: screenshotPath(testInfo, "02-standalone-golden-portal-1s-390x844.png"),
+  });
+
+  await page.waitForTimeout(1_500);
+  await page.screenshot({
+    path: screenshotPath(testInfo, "03-standalone-golden-portal-2-5s-390x844.png"),
+  });
+
+  await page.waitForTimeout(2_700);
+  await expect(portal).toBeHidden();
   await expect(page.getByRole("heading", { name: "Deltag i et løb" })).toBeVisible();
   await waitForStableJoinSurface(page);
   await page.screenshot({
-    path: screenshotPath(testInfo, "01-standalone-join-390x844.png"),
+    path: screenshotPath(testInfo, "04-standalone-golden-portal-5s-join-390x844.png"),
   });
 
   await context.close();
@@ -78,6 +103,7 @@ test("captures standalone join without a forced launch frame", async ({ browser 
 test("captures normal join at the requested responsive sizes", async ({ browser }, testInfo) => {
   for (const viewport of [
     { width: 390, height: 844, name: "02-join-normal-390x844.png" },
+    { width: 360, height: 800, name: "05-join-normal-360x800.png" },
     { width: 320, height: 568, name: "06-join-normal-320x568.png" },
     { width: 430, height: 932, name: "07-join-normal-430x932.png" },
   ]) {

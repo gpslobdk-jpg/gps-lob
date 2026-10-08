@@ -3,7 +3,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { openHarnessedPlay } from "./helpers/standardPlayV2Harness";
 
 const PWA_PROMOTION = "student-pwa-install-promotion";
-const PWA_LAUNCH = "pwa-launch-experience";
+const PWA_LAUNCH = "golden-portal-intro";
+const GOLDEN_PORTAL_LAUNCH_KEY = "skolegps.golden-portal.launch.v1";
 
 async function triggerInstallPrompt(
   page: Page,
@@ -56,6 +57,12 @@ async function installStandaloneMode(page: Page, ios = false) {
       });
     }
   }, { iosStandalone: ios });
+}
+
+async function primeGoldenPortalLaunch(page: Page) {
+  await page.addInitScript((launchKey) => {
+    window.sessionStorage.setItem(launchKey, "fresh");
+  }, GOLDEN_PORTAL_LAUNCH_KEY);
 }
 
 test.describe("student PWA install promotion", () => {
@@ -137,11 +144,13 @@ test.describe("student PWA install promotion", () => {
       await page.addInitScript(() => {
         (window as Window & { Capacitor?: unknown }).Capacitor = {};
       });
+      await installStandaloneMode(page);
       await page.goto("/join", { waitUntil: "domcontentloaded" });
       await triggerInstallPrompt(page);
       await page.waitForTimeout(1_200);
 
       await expect(page.getByTestId(PWA_PROMOTION)).toHaveCount(0);
+      await expect(page.getByTestId(PWA_LAUNCH)).toHaveCount(0);
     } finally {
       await context.close();
     }
@@ -298,38 +307,211 @@ test.describe("student PWA install promotion", () => {
     await triggerInstallPrompt(page, "accepted", false);
     await page.waitForTimeout(1_200);
     await expect(page.getByTestId(PWA_PROMOTION)).toHaveCount(0);
+    await expect(page.getByTestId(PWA_LAUNCH)).toHaveCount(0);
   });
 
-  test("a direct QR join never lets installation cover the first code flow", async ({ page }) => {
+  test("a direct QR join never lets installation or the portal cover the first code flow", async ({ page }) => {
+    await installStandaloneMode(page);
     await page.goto("/join?pin=ABC123", { waitUntil: "domcontentloaded" });
     await triggerInstallPrompt(page);
     await page.waitForTimeout(1_200);
 
     await expect(page.getByTestId(PWA_PROMOTION)).toHaveCount(0);
+    await expect(page.getByTestId(PWA_LAUNCH)).toHaveCount(0);
     await expect(page.getByTestId("student-experience-build-info")).toBeVisible();
   });
 });
 
 test.describe("PWA start experience", () => {
-  test("standalone launch never puts a forced intro over join", async ({ page }) => {
+  test("a fresh standalone handoff presents a named, skippable portal and restores the real entry actions", async ({ page }) => {
     await installStandaloneMode(page);
+    await primeGoldenPortalLaunch(page);
     await page.goto("/join", { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(1_400);
-    await expect(page.getByTestId(PWA_LAUNCH)).toHaveCount(0);
+    const portal = page.getByTestId(PWA_LAUNCH);
+    const skip = page.getByTestId("golden-portal-skip");
+
+    await expect(portal).toBeVisible();
+    await expect(portal).toHaveCSS("opacity", "1");
+    await expect(portal).toHaveAccessibleName("Den Gyldne Portal");
+    await expect(skip).toBeFocused();
+    await expect(portal).toHaveAttribute("aria-modal", "true");
+    await expect(page.locator("#student-join-surface")).toHaveAttribute("aria-hidden", "true");
+
+    await skip.click();
+    await expect(portal).toHaveCount(0);
+    await expect(page.locator("#student-join-surface")).not.toHaveAttribute("aria-hidden");
+    await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe("");
     await expect(page.getByTestId("join-start-actions")).toBeVisible();
+    await page.getByRole("button", { name: "Deltag i et løb", exact: true }).click();
+    await expect(page.locator("#join-code")).toBeFocused();
   });
 
-  test("normal browser mode has no forced launch intro", async ({ page }) => {
+  test("normal browser mode has no portal", async ({ page }) => {
     await page.goto("/join", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(250);
     await expect(page.getByTestId(PWA_LAUNCH)).toHaveCount(0);
   });
 
-  test("reduced motion still has no launch takeover", async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: "reduce" });
+  test("a standalone internal join navigation without a fresh handoff has no portal", async ({ page }) => {
     await installStandaloneMode(page);
     await page.goto("/join", { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(250);
+
+    await expect(page.getByTestId(PWA_LAUNCH)).toHaveCount(0);
+    await expect(page.getByTestId("join-start-actions")).toBeVisible();
+  });
+
+  test("reduced motion skips the timed portal and leaves the entry available", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await installStandaloneMode(page);
+    await primeGoldenPortalLaunch(page);
+    await page.goto("/join", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(500);
+    await expect(page.getByTestId(PWA_LAUNCH)).toHaveCount(0);
+    await expect(page.getByTestId("join-start-actions")).toBeVisible();
+  });
+
+  test("the 320px standalone portal keeps its skip action in view without horizontal overflow", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await installStandaloneMode(page);
+    await primeGoldenPortalLaunch(page);
+    await page.goto("/join", { waitUntil: "domcontentloaded" });
+
+    const skip = page.getByTestId("golden-portal-skip");
+    await expect(skip).toBeInViewport();
+    expect(await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    )).toBe(false);
+
+    await skip.click();
+    await expect(page.getByRole("button", { name: "Deltag i et løb", exact: true })).toBeInViewport();
+  });
+
+  test("the portal is shown once per standalone app session, never before a stored resume", async ({ browser }) => {
+    const context = await browser.newContext({ serviceWorkers: "block" });
+    const page = await context.newPage();
+
+    try {
+      await installStandaloneMode(page);
+      await primeGoldenPortalLaunch(page);
+      await page.goto("/join", { waitUntil: "domcontentloaded" });
+      await expect(page.getByTestId(PWA_LAUNCH)).toBeVisible();
+      await page.getByTestId("golden-portal-skip").click();
+      await expect(page.getByTestId(PWA_LAUNCH)).toBeHidden();
+
+      await page.goto("/join", { waitUntil: "domcontentloaded" });
+      await expect(page.getByTestId(PWA_LAUNCH)).toHaveCount(0);
+
+      await page.evaluate(() => {
+        window.sessionStorage.clear();
+        window.localStorage.setItem("gpslob_active_participant", JSON.stringify({
+          participantId: "stored-participant",
+          sessionId: "stored-session",
+          studentName: "Gemt hold",
+          startOffset: 0,
+          savedAt: new Date().toISOString(),
+          sessionStatus: "running",
+        }));
+      });
+      await page.goto("/join", { waitUntil: "domcontentloaded" });
+      await expect(page.getByRole("button", { name: "Fortsæt løbet", exact: true })).toBeVisible();
+      await expect(page.getByTestId(PWA_LAUNCH)).toHaveCount(0);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("the mobile standalone start URL still hands off to join before the portal", async ({ browser }) => {
+    const context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36",
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+      serviceWorkers: "block",
+    });
+    const page = await context.newPage();
+
+    try {
+      await installStandaloneMode(page);
+      await page.goto("/", { waitUntil: "domcontentloaded" });
+      await expect(page).toHaveURL(/\/join$/);
+      await expect(page.getByTestId(PWA_LAUNCH)).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("backgrounding the portal removes it and restores the join flow", async ({ page }) => {
+    await installStandaloneMode(page);
+    await primeGoldenPortalLaunch(page);
+    await page.goto("/join", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId(PWA_LAUNCH)).toBeVisible();
+
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        value: "hidden",
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    await expect(page.getByTestId(PWA_LAUNCH)).toHaveCount(0);
+    await expect(page.locator("#student-join-surface")).not.toHaveAttribute("aria-hidden");
+    await expect(page.getByTestId("join-start-actions")).toBeVisible();
+  });
+
+  test("backgrounding during the exit fade restores the join flow without waiting for its timer", async ({ page }) => {
+    await installStandaloneMode(page);
+    await primeGoldenPortalLaunch(page);
+    await page.goto("/join", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId(PWA_LAUNCH)).toBeVisible();
+
+    await page.getByTestId("golden-portal-skip").click();
+    await page.waitForTimeout(50);
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        value: "hidden",
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await page.waitForTimeout(20);
+    const hasCoveredJoinSurface = await page.locator("#student-join-surface").evaluate(
+      (surface) => surface.hasAttribute("aria-hidden"),
+    );
+
+    expect(hasCoveredJoinSurface).toBe(false);
+    await expect(page.getByTestId(PWA_LAUNCH)).toHaveCount(0);
+    await expect(page.getByTestId("join-start-actions")).toBeVisible();
+  });
+
+  test("the portal keeps its skip action reachable through portrait-landscape rotation", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await installStandaloneMode(page);
+    await primeGoldenPortalLaunch(page);
+    await page.goto("/join", { waitUntil: "domcontentloaded" });
+
+    const skip = page.getByTestId("golden-portal-skip");
+    await expect(skip).toBeInViewport();
+    await page.setViewportSize({ width: 844, height: 390 });
+    await expect(skip).toBeInViewport();
+    expect(await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    )).toBe(false);
+
+    await skip.click();
+    await expect(page.getByRole("button", { name: "Deltag i et løb", exact: true })).toBeInViewport();
+  });
+
+  test("a failed portal graphic still leaves the skip action and real entry usable", async ({ page }) => {
+    await installStandaloneMode(page);
+    await primeGoldenPortalLaunch(page);
+    await page.route("**/_next/image?url=*golden-portal*", (route) => route.abort());
+    await page.goto("/join", { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByTestId(PWA_LAUNCH)).toBeVisible();
+    await page.getByTestId("golden-portal-skip").click();
     await expect(page.getByTestId(PWA_LAUNCH)).toHaveCount(0);
     await expect(page.getByTestId("join-start-actions")).toBeVisible();
   });

@@ -14,6 +14,7 @@ import ProjectWorkshopAnnouncement from "@/components/home/ProjectWorkshopAnnoun
 import MobileInSchoolBanner from "@/components/MobileInSchoolBanner";
 import QRScannerModal from "@/components/QRScannerModal";
 import { getSiteCopy } from "@/lib/siteCopy";
+import { STUDENT_AUTUMN_PORTAL_LAUNCH_KEY } from "@/lib/studentExperienceSeason";
 import type { SiteVariantKey } from "@/lib/siteVariant";
 
 // WelcomeModal removed — onboarding flow deprecated
@@ -36,6 +37,26 @@ type CapacitorDebugBridge = {
 type HomePageWindow = Window & {
   Capacitor?: CapacitorDebugBridge;
 };
+
+type NavigatorWithStandalone = Navigator & {
+  standalone?: boolean;
+};
+
+function isStandalonePwaLaunch() {
+  const navigatorWithStandalone = window.navigator as NavigatorWithStandalone;
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    Boolean(navigatorWithStandalone.standalone)
+  );
+}
+
+function markStudentAutumnPortalLaunch() {
+  try {
+    window.sessionStorage.setItem(STUDENT_AUTUMN_PORTAL_LAUNCH_KEY, "fresh");
+  } catch {
+    // Storage restrictions must never prevent the ordinary student entry.
+  }
+}
 
 type NativeDebugSnapshot = {
   isNativeGpslobAppProp: boolean;
@@ -335,6 +356,9 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
     if (nextShouldUseLightMobileRoot) {
       if (!mobileRootRedirectStartedRef.current) {
         mobileRootRedirectStartedRef.current = true;
+        if (siteVariantKey === "gpslob" && isStandalonePwaLaunch()) {
+          markStudentAutumnPortalLaunch();
+        }
         window.location.replace("/join");
       }
       return;
@@ -345,7 +369,7 @@ export default function HomePageClient({ isNativeGpslobApp, siteVariantKey }: Ho
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [isNativeGpslobApp]);
+  }, [isNativeGpslobApp, siteVariantKey]);
 
   useEffect(() => {
     const browserWindow = window as HomePageWindow;

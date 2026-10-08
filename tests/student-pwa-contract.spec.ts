@@ -150,19 +150,36 @@ test.describe("student PWA source contracts", () => {
     }
   });
 
-  test("the shared PWA identity keeps its public start destination without a forced launch layer", () => {
+  test("the shared PWA identity keeps its public start destination while isolating the seasonal portal to join", () => {
     const manifestSource = readSource("app/manifest.ts");
     const rootLayoutSource = readSource("app/layout.tsx");
     const joinLayoutSource = readSource("app/join/layout.tsx");
+    const joinSource = readSource("app/join/page.tsx");
+    const portalSource = readSource("components/pwa/GoldenPortalIntro.tsx");
+    const seasonSource = readSource("lib/studentExperienceSeason.ts");
 
     expect(manifestSource).toMatch(/\bstart_url\s*:\s*["'`]\/["'`]/);
     expect(manifestSource).toMatch(/\bscope\s*:\s*["'`]\/["'`]/);
     expect(manifestSource).not.toMatch(/\bid\s*:/);
     expect(rootLayoutSource).not.toContain("PwaLaunchExperience");
+    expect(rootLayoutSource).not.toContain("GoldenPortalIntro");
     expect(joinLayoutSource).toContain("StudentPwaInstallPromotion");
     expect(rootLayoutSource).not.toContain("StudentPwaInstallPromotion");
     expect(rootLayoutSource).toContain("skolegps-pilen-apple-touch-180-v1.png");
     expect(rootLayoutSource).not.toMatch(/\bmaximumScale\b/);
+
+    expect(joinSource).toContain("GoldenPortalIntro");
+    expect(joinSource).toContain("isResumeCheckComplete");
+    expect(seasonSource).toContain("STUDENT_AUTUMN_PORTAL_ENABLED");
+    expect(seasonSource).toContain("STUDENT_AUTUMN_PORTAL_LAUNCH_KEY");
+    expect(seasonSource).toContain("return STUDENT_AUTUMN_PORTAL_ENABLED");
+    expect(seasonSource).toContain('siteVariantKey === "gpslob"');
+    expect(portalSource).toContain("display-mode: standalone");
+    expect(portalSource).toContain("Capacitor");
+    expect(portalSource).toContain("aria-modal");
+    expect(portalSource).toContain("skolegps:join-flow-active");
+    expect(portalSource).toContain("STUDENT_AUTUMN_PORTAL_SESSION_KEY");
+    expect(portalSource).toContain("consumeFreshStandaloneLaunch");
   });
 
   test("next-pwa excludes public assets from precache but keeps student routes NetworkOnly", () => {
@@ -228,6 +245,8 @@ test.describe("student PWA source contracts", () => {
     expect(homePageSource).toMatch(/\bhref\s*=\s*["'`]\/join["'`]/);
     expect(homePageSource).toMatch(/shouldRedirectMobileRootToJoin/);
     expect(homePageSource).toMatch(/window\.location\.replace\(["'`]\/join["'`]\)/);
+    expect(homePageSource).toContain("STUDENT_AUTUMN_PORTAL_LAUNCH_KEY");
+    expect(homePageSource).toContain("markStudentAutumnPortalLaunch");
   });
 
   test("a supported offline fallback page exists", () => {

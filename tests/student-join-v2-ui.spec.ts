@@ -286,13 +286,18 @@ test.describe("Elevoplevelsen 2.0 /join UI", () => {
     await expect(page).toHaveURL(/\/join$/);
   });
 
-  test("13. reduced motion slår den dekorative bevægelse fra", async ({ page }) => {
+  test("13. reduced motion bevarer den statiske efterårsscene uden tidsstyret portal", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await openStart(page);
-    const animationName = await page.locator(".join-map-dot").first().evaluate(
-      (element) => getComputedStyle(element).animationName,
+    await expect(page.getByTestId("golden-portal-backdrop")).toBeVisible();
+    await expect(page.getByTestId("golden-portal-intro")).toHaveCount(0);
+
+    const activeAnimations = await page.getByTestId("golden-portal-backdrop").evaluate(
+      (element) => element.getAnimations({ subtree: true }).filter(
+        (animation) => animation.playState === "running",
+      ).length,
     );
-    expect(animationName).toBe("none");
+    expect(activeAnimations).toBe(0);
   });
 
   test("14. 320px har ingen vandret overflow og begge valg er synlige", async ({ page }) => {

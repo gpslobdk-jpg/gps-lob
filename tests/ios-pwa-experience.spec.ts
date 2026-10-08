@@ -81,10 +81,19 @@ test.describe("iOS PWA guidance", () => {
     }
   });
 
-  test("standalone iOS never shows the guide", async ({ page }) => {
+  test("standalone iOS root launch hands off to the skippable portal but never the install guide", async ({ page }, testInfo) => {
     await installStandaloneMode(page);
-    await page.goto("/join", { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(1_200);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/join$/);
     await expect(page.getByTestId(PWA_PROMOTION)).toHaveCount(0);
+    await expect(page.getByTestId("golden-portal-intro")).toBeVisible();
+
+    if (SCREENSHOT_ROOT && testInfo.project.name === "ios") {
+      await page.screenshot({ path: screenshotPath(testInfo, "09-ios-standalone-golden-portal-390x844.png") });
+    }
+
+    await page.getByTestId("golden-portal-skip").click();
+    await expect(page.getByTestId("golden-portal-intro")).toBeHidden();
+    await expect(page.getByTestId("join-start-actions")).toBeVisible();
   });
 });

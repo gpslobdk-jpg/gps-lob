@@ -29,6 +29,8 @@ import {
 import { captureAppMessage, leaveAppBreadcrumb } from "@/utils/observability";
 import QRScannerModal from "@/components/QRScannerModal";
 import Mascot from "@/components/brand/Mascot";
+import GoldenPortalIntro from "@/components/pwa/GoldenPortalIntro";
+import { AutumnPortalMascot, GoldenPortalBackdrop } from "@/components/pwa/GoldenPortalVisuals";
 import StudentPhoneHelp from "@/components/pwa/StudentPhoneHelp";
 import WifiConnectionTip from "@/components/WifiConnectionTip";
 import { getSiteCopy } from "@/lib/siteCopy";
@@ -38,6 +40,7 @@ import {
   normalizeJoinCode,
 } from "@/lib/join/studentJoin";
 import { resolveSiteVariantFromHost, type SiteVariantKey } from "@/lib/siteVariant";
+import { isStudentAutumnPortalEnabled } from "@/lib/studentExperienceSeason";
 import { useInitialJoinSiteVariant } from "@/app/join/JoinSiteVariantContext";
 import {
   readStoredActiveParticipant,
@@ -295,7 +298,7 @@ function JoinMapBackdrop() {
   );
 }
 
-function JoinForm() {
+function JoinForm({ autumnPortalEnabled }: { autumnPortalEnabled: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialSiteVariantKey = useInitialJoinSiteVariant();
@@ -323,6 +326,7 @@ function JoinForm() {
   const [showInAppWarning, setShowInAppWarning] = useState(false);
   const [browserPlatform, setBrowserPlatform] = useState<JoinBrowserPlatform>("other");
   const [resumeParticipant, setResumeParticipant] = useState<StoredActiveParticipant | null>(null);
+  const [isResumeCheckComplete, setIsResumeCheckComplete] = useState(false);
   const joinLockRef = useRef(false);
   const resumeAttemptedRef = useRef(false);
   const codeInputRef = useRef<HTMLInputElement | null>(null);
@@ -374,32 +378,42 @@ function JoinForm() {
   }, [hasExplicitJoinCode]);
 
   useEffect(() => {
-    if (resumeAttemptedRef.current) return;
+    if (resumeAttemptedRef.current) {
+      setIsResumeCheckComplete(true);
+      return;
+    }
     resumeAttemptedRef.current = true;
 
-    // An explicit link/QR always wins over old local state. Otherwise, resume
-    // only a recent handoff; /play revalidates it against the server before
-    // allowing gameplay.
-    if (hasExplicitJoinCode || isMissingSessionNotice || isExpiredSessionNotice) return;
+    try {
+      // An explicit link/QR always wins over old local state. Otherwise, resume
+      // only a recent handoff; /play revalidates it against the server before
+      // allowing gameplay.
+      if (hasExplicitJoinCode || isMissingSessionNotice || isExpiredSessionNotice) return;
 
-    const storedParticipant = readStoredActiveParticipant();
-    if (
-      !storedParticipant?.sessionId ||
-      !storedParticipant.participantId ||
-      storedParticipant.sessionStatus === "finished"
-    ) {
-      return;
+      const storedParticipant = readStoredActiveParticipant();
+      if (
+        !storedParticipant?.sessionId ||
+        !storedParticipant.participantId ||
+        storedParticipant.sessionStatus === "finished"
+      ) {
+        return;
+      }
+
+      const savedAtMs = Date.parse(storedParticipant.savedAt);
+      if (
+        !Number.isFinite(savedAtMs) ||
+        Date.now() - savedAtMs > STORED_PARTICIPANT_RESUME_MAX_AGE_MS
+      ) {
+        return;
+      }
+
+      setResumeParticipant(storedParticipant);
+    } finally {
+      // The seasonal PWA overlay must never flash before an existing run has
+      // been checked. This is intentionally separate from stored participant
+      // state and does not alter the resume handoff itself.
+      setIsResumeCheckComplete(true);
     }
-
-    const savedAtMs = Date.parse(storedParticipant.savedAt);
-    if (
-      !Number.isFinite(savedAtMs) ||
-      Date.now() - savedAtMs > STORED_PARTICIPANT_RESUME_MAX_AGE_MS
-    ) {
-      return;
-    }
-
-    setResumeParticipant(storedParticipant);
   }, [hasExplicitJoinCode, isExpiredSessionNotice, isMissingSessionNotice]);
 
   useEffect(() => {
@@ -1222,10 +1236,33 @@ function JoinForm() {
     );
   }
 
+  const portalInitialEligibility =
+    autumnPortalEnabled &&
+    isResumeCheckComplete &&
+    view === "form" &&
+    step === "start" &&
+    !resumeParticipant &&
+    !hasExplicitJoinCode &&
+    !isMissingSessionNotice &&
+    !isExpiredSessionNotice;
+
   return (
-    <div className="relative z-10 mx-auto flex min-h-svh w-full max-w-md flex-col items-center justify-center px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
-      <div className="relative w-full overflow-hidden rounded-[2rem] border border-sky-100/18 bg-[#071a45]/88 p-5 text-white shadow-[0_30px_90px_rgba(0,0,0,0.5)] backdrop-blur-2xl sm:p-7">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.25),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(96,165,250,0.13),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.05),transparent_42%)]" />
+    <>
+      <div
+        id="student-join-surface"
+        data-golden-portal-theme={autumnPortalEnabled ? "true" : undefined}
+        className="relative z-10 mx-auto flex min-h-svh w-full max-w-md flex-col items-center justify-center px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] transition-opacity duration-300 sm:px-6 data-[golden-portal-covered=true]:opacity-0"
+      >
+      <div className={`relative w-full overflow-hidden rounded-[2rem] p-5 text-white backdrop-blur-xl sm:p-7 ${
+        autumnPortalEnabled
+          ? "border border-amber-100/22 bg-[#06112e]/78 shadow-[0_30px_90px_rgba(1,7,25,0.66)]"
+          : "border border-sky-100/18 bg-[#071a45]/88 shadow-[0_30px_90px_rgba(0,0,0,0.5)] backdrop-blur-2xl"
+      }`}>
+        <div className={`pointer-events-none absolute inset-0 ${
+          autumnPortalEnabled
+            ? "bg-[radial-gradient(circle_at_top,rgba(255,196,92,0.2),transparent_33%),radial-gradient(circle_at_bottom_right,rgba(160,62,26,0.17),transparent_35%),linear-gradient(145deg,rgba(255,255,255,0.055),transparent_42%)]"
+            : "bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.25),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(96,165,250,0.13),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.05),transparent_42%)]"
+        }`} />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/15" />
 
         <div className="relative">
@@ -1253,12 +1290,18 @@ function JoinForm() {
             </button>
           ) : null}
 
-          <Mascot
-            size={step === "start" ? "md" : "xs"}
-            variant={resumeParticipant && step === "start" ? "guide" : "wave"}
-            priority={step === "start"}
-            className="mx-auto"
-          />
+          {autumnPortalEnabled && step === "start" ? (
+            <div className="flex justify-center">
+              <AutumnPortalMascot size="md" priority className="h-32 w-24 sm:h-40 sm:w-32" />
+            </div>
+          ) : (
+            <Mascot
+              size={step === "start" ? "md" : "xs"}
+              variant={resumeParticipant && step === "start" ? "guide" : "wave"}
+              priority={step === "start"}
+              className="mx-auto"
+            />
+          )}
           <p className="mt-2 text-center text-[11px] font-bold tracking-[0.22em] text-sky-100 uppercase">
             {siteCopy.home.brandLabel}
           </p>
@@ -1529,18 +1572,34 @@ function JoinForm() {
           ) : null}
         </div>
       </div>
-    </div>
+      </div>
+      {isResumeCheckComplete ? (
+        <GoldenPortalIntro initialEligibility={portalInitialEligibility} />
+      ) : null}
+    </>
   );
 }
 
 export default function JoinPage() {
+  const initialSiteVariantKey = useInitialJoinSiteVariant();
+  const autumnPortalEnabled = isStudentAutumnPortalEnabled(initialSiteVariantKey);
+
   return (
-    <div className={`relative flex min-h-svh items-stretch justify-center overflow-x-hidden bg-[#04112d] text-white ${poppins.className}`}>
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#061b4b_0%,#041331_42%,#020817_100%)]" />
-      <div className="pointer-events-none absolute left-[-7rem] top-[-5rem] h-72 w-72 rounded-full bg-sky-400/18 blur-[120px]" />
-      <div className="pointer-events-none absolute bottom-[-8rem] right-[-5rem] h-80 w-80 rounded-full bg-blue-500/16 blur-[140px]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.16),transparent_28%),radial-gradient(circle_at_bottom,rgba(96,165,250,0.1),transparent_22%)]" />
-      <JoinMapBackdrop />
+    <div
+      data-golden-portal-theme={autumnPortalEnabled ? "true" : undefined}
+      className={`relative flex min-h-svh items-stretch justify-center overflow-x-hidden bg-[#04112d] text-white ${poppins.className}`}
+    >
+      {autumnPortalEnabled ? (
+        <GoldenPortalBackdrop />
+      ) : (
+        <>
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#061b4b_0%,#041331_42%,#020817_100%)]" />
+          <div className="pointer-events-none absolute left-[-7rem] top-[-5rem] h-72 w-72 rounded-full bg-sky-400/18 blur-[120px]" />
+          <div className="pointer-events-none absolute bottom-[-8rem] right-[-5rem] h-80 w-80 rounded-full bg-blue-500/16 blur-[140px]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.16),transparent_28%),radial-gradient(circle_at_bottom,rgba(96,165,250,0.1),transparent_22%)]" />
+          <JoinMapBackdrop />
+        </>
+      )}
 
       <Suspense
         fallback={
@@ -1549,7 +1608,7 @@ export default function JoinPage() {
           </div>
         }
       >
-        <JoinForm />
+        <JoinForm autumnPortalEnabled={autumnPortalEnabled} />
       </Suspense>
     </div>
   );
